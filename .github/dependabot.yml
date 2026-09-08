@@ -4,6 +4,12 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # The pull request title is the commit message a squash merge writes, and
+    # .github/workflows/pr-title.yml checks it. Without this every bump reads
+    # "Bump x from a to b" and fails before anyone looks at it.
+    commit-message:
+      prefix: chore
+      include: scope
     open-pull-requests-limit: 5
     # One PR per group, not one per package: the AI SDKs move together and
     # release often enough to bury everything else.
@@ -22,3 +28,9 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    # The pull request title is the commit message a squash merge writes, and
+    # .github/workflows/pr-title.yml checks it. Without this every bump reads
+    # "Bump x from a to b" and fails before anyone looks at it.
+    commit-message:
+      prefix: chore
+      include: scope
