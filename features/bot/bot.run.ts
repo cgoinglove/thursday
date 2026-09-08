@@ -13,7 +13,11 @@ import {
 } from "ai";
 import { BOT_RUN } from "@/config";
 import { loadTools } from "@/features/ai/load-tools";
-import { getTextModel, resolveDefaultModel } from "@/features/ai/model";
+import {
+  getTextModel,
+  modelErrorToString,
+  resolveDefaultModel,
+} from "@/features/ai/model";
 import { loadBotPrompt } from "@/features/ai/prompts/bot.prompt";
 import {
   askBackSpec,
@@ -30,7 +34,7 @@ import { closeJobShell } from "@/features/workspace/workspace";
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
 import { estimateTokens } from "@/lib/tokens";
-import { clip, errorToString } from "@/lib/utils";
+import { clip } from "@/lib/utils";
 import { findJobBot } from "./bot.query";
 import { optionsOf, toolLine } from "./task.query";
 
@@ -368,7 +372,10 @@ export async function runBot(
         }
 
         case "error":
-          await emit({ type: "error", message: errorToString(part.error) });
+          await emit({
+            type: "error",
+            message: modelErrorToString(part.error),
+          });
           return;
 
         default:
@@ -382,7 +389,7 @@ export async function runBot(
   try {
     await result.response;
   } catch (cause) {
-    await emit({ type: "error", message: errorToString(cause) });
+    await emit({ type: "error", message: modelErrorToString(cause) });
     return;
   }
 
@@ -500,7 +507,9 @@ async function compact(
     }
   } catch (cause) {
     if (options.signal?.aborted) throw cause;
-    throw new Error(`Could not compact the context (${errorToString(cause)}).`);
+    throw new Error(
+      `Could not compact the context (${modelErrorToString(cause)}).`,
+    );
   }
   throw new Error(
     "The summary of the context came back empty, so there is nothing to carry on from.",
@@ -740,9 +749,9 @@ async function answerBack(input: {
     };
   } catch (cause) {
     if (input.signal?.aborted) throw cause;
-    logger.warn(`ask_back: ${errorToString(cause)}`);
+    logger.warn(`ask_back: ${modelErrorToString(cause)}`);
     return {
-      text: `No answer came back (${errorToString(cause)}). Go on with your best reading, and say what you assumed in what you hand back.`,
+      text: `No answer came back (${modelErrorToString(cause)}). Go on with your best reading, and say what you assumed in what you hand back.`,
       usage: NO_TOKENS,
     };
   }

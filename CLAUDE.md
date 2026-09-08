@@ -224,6 +224,12 @@ Actions run sequentially per client. Parallelism happens inside one action.
 `useServerAction` handles the toast, pending state and success toast. Tool failures returned to a model
 are not masked: return one line the model can read and recover from.
 
+**What an outside API answered is never masked.** A provider's refusal is the user's to act on — the
+key, the credit, the model id — and only the provider can say which, so the seam that made the call
+raises it public rather than letting the boundary swallow it: `issueClientSecret` (lib/realtime) for
+the call's token, `modelErrorToString` (features/ai/model) for anything the ai sdk wrapped, which also
+carries out the body when the sdk's message is the status word alone.
+
 **Server → browser** — no polling. When a fact happens on the server (a row was written, a browser
 opened, something to say), `appEvents.emit` at that spot; the browser listens on one SSE stream. Two
 kinds of events: a **signal** when a GET exists (the receiver `revalidate`s that key) and **data** when

@@ -85,7 +85,9 @@ export const callToolAction = serverAction(
       if (cause instanceof McpAuthRequiredError) {
         publicError("Authorization required — reconnect this server first");
       }
-      throw cause;
+      // The bench shows the server's answer as is, refusals included; a masked
+      // error would say nothing about arguments this server would not take.
+      publicError(errorToString(cause));
     }
   },
 );

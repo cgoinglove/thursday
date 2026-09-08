@@ -1,3 +1,5 @@
+import { logger } from "@/lib/logger";
+import { publicError } from "@/lib/public-error";
 import type { SpeachModelProviderId } from "./realtime.schema";
 import {
   type IssueClientSecretOptions,
@@ -32,6 +34,24 @@ const ENDPOINT: Record<
   }),
 };
 
+/**
+ * The provider's own words about a refusal; the three shapes they arrive in.
+ * The status code alone does not separate an expired key from no credit, or a
+ * model this account cannot reach.
+ */
+function refusalOf(payload: unknown, status: number): string {
+  const body = payload as { error?: unknown; message?: unknown } | null;
+  const error = body?.error;
+  const said =
+    typeof error === "string"
+      ? error
+      : ((error as { message?: unknown } | undefined)?.message ??
+        body?.message);
+  return typeof said === "string" && said.trim()
+    ? said
+    : `Could not start a session (${status})`;
+}
+
 export async function issueClientSecret({
   provider,
   apiKey,
@@ -40,6 +60,8 @@ export async function issueClientSecret({
 }: IssueClientSecretOptions): Promise<RealtimeCredential> {
   const { url, body } = ENDPOINT[provider]({ model, ttlSeconds });
 
+  // Every failure here is public: a call that will not open is the user's to fix
+  // (the key, the credit, the model id), and only the provider can say which.
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -47,20 +69,17 @@ export async function issueClientSecret({
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
+  }).catch((cause: unknown) => {
+    logger.warn(`${provider} unreachable`, cause);
+    publicError(`Could not reach ${provider}.`);
   });
 
   const payload = await response.json().catch(() => null);
-  if (!response.ok) {
-    // Prefer the provider's message; the status code alone does not separate an expired key from no credit.
-    throw new Error(
-      payload?.error?.message ??
-        `Could not start a session (${response.status})`,
-    );
-  }
+  if (!response.ok) publicError(refusalOf(payload, response.status));
 
   const parsed = RealtimeCredentialSchema.safeParse(payload);
   if (!parsed.success) {
-    throw new Error("The session token came back in a shape we do not know.");
+    publicError("The session token came back in a shape we do not know.");
   }
 
   return { value: parsed.data.value, expiresAt: parsed.data.expires_at };

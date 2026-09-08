@@ -3,6 +3,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createXai } from "@ai-sdk/xai";
 import {
+  APICallError,
   createGateway,
   type experimental_generateVideo,
   type ImageModel,
@@ -18,6 +19,7 @@ import {
 import { readConfig } from "@/features/config/config.query";
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
+import { clip, errorToString } from "@/lib/utils";
 import {
   canMakeKind,
   cheapestModelOf,
@@ -44,6 +46,26 @@ import {
  * Keys are read from config (env wins, config.query) and passed to the provider explicitly,
  * never picked up from ambient process env inside an SDK.
  */
+
+/** How much of a raw provider body is worth reading back; a page of JSON is not. */
+const PROVIDER_BODY_MAX = 300;
+
+/**
+ * A provider's refusal as one line. Only the other side can say whether a key is
+ * wrong, spent, or not entitled to this model, so its own words are what a caller
+ * reports. When the body did not fit the sdk's error schema the message it built is
+ * the status word alone ("Unauthorized"), and the body it wrapped comes out with it.
+ */
+export function modelErrorToString(cause: unknown): string {
+  if (!APICallError.isInstance(cause)) return errorToString(cause);
+  const status = cause.statusCode ? ` (${cause.statusCode})` : "";
+  const body = cause.responseBody?.trim();
+  const said =
+    body && !body.includes(cause.message)
+      ? ` ${clip(body, PROVIDER_BODY_MAX)}`
+      : "";
+  return `${cause.message}${status}${said}`;
+}
 
 /** A resolved model. Provider-native tools (web search) are built off the provider instance, not the model, so both come out of one switch. */
 export type TextModel = {
@@ -162,14 +184,14 @@ function priceOfGatewayModel(row: CatalogRow): GatewayPrice {
     return { in: null, out: null, note: `$${perSecond}/s`, free: false };
   if (pricing.speech_input_character_cost)
     return { in: null, out: null, note: "per character", free: false };
-  const clip = Array.isArray(pricing.video_duration_pricing)
+  const videoClip = Array.isArray(pricing.video_duration_pricing)
     ? pricing.video_duration_pricing[0]
     : null;
-  if (clip)
+  if (videoClip)
     return {
       in: null,
       out: null,
-      note: `$${clip.cost_per_second}/s ${clip.resolution}`,
+      note: `$${videoClip.cost_per_second}/s ${videoClip.resolution}`,
       free: false,
     };
 

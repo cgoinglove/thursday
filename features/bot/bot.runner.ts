@@ -2,6 +2,7 @@ import type { ModelMessage } from "ai";
 import { after } from "next/server";
 import { appEventStream, appEvents } from "@/app/api/events/app-event.server";
 import { PATHS } from "@/config";
+import { modelErrorToString } from "@/features/ai/model";
 import {
   buildTaskOpening,
   OPENING_TURNS,
@@ -17,7 +18,6 @@ import { desktopNotify } from "@/lib/desktop-notify";
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
 import { createKeyedLock } from "@/lib/queue";
-import { errorToString } from "@/lib/utils";
 import { condenseThread, runBot, type TaskEvent } from "./bot.run";
 import { TASK_CONTINUE, type TaskStatus } from "./bot.schema";
 import {
@@ -476,7 +476,7 @@ async function drive(
   } catch (cause) {
     ending = {
       status: "failed",
-      outcome: broke(errorToString(cause)),
+      outcome: broke(modelErrorToString(cause)),
       pending: null,
     };
   } finally {

@@ -1,9 +1,9 @@
 import { asSchema } from "ai";
 import z from "zod";
 import { loadTools } from "@/features/ai/load-tools";
+import { modelErrorToString } from "@/features/ai/model";
 import { serverRoute } from "@/lib/protocol/server-route";
 import { publicError } from "@/lib/public-error";
-import { errorToString } from "@/lib/utils";
 
 /**
  * Executes a tool call from the voice session. The page forwards what the model
@@ -62,6 +62,6 @@ export const POST = serverRoute(async (request) => {
     return { output: await drain(output) };
   } catch (cause) {
     // A tool failure is a line the model reads and recovers from, not a masked server error.
-    publicError(`"${name}" failed: ${errorToString(cause)}`);
+    publicError(`"${name}" failed: ${modelErrorToString(cause)}`);
   }
 });

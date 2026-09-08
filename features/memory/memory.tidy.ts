@@ -9,7 +9,11 @@ import {
 import { appEvents } from "@/app/api/events/app-event.server";
 import { MEMORY_TIDY } from "@/config";
 import { loadTools } from "@/features/ai/load-tools";
-import { getTextModel, type TextModel } from "@/features/ai/model";
+import {
+  getTextModel,
+  modelErrorToString,
+  type TextModel,
+} from "@/features/ai/model";
 import { loadTidyPrompt } from "@/features/ai/prompts/memory-tidy.prompt";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import type { TokenUsage } from "@/features/bot/bot.schema";
@@ -215,7 +219,7 @@ async function drive(
     // (memory.query writeNotes sameFact).
     if (!signal.aborted) await markCallsRead(read.callIds);
   } catch (cause) {
-    if (!signal.aborted) failure = errorToString(cause);
+    if (!signal.aborted) failure = modelErrorToString(cause);
   }
 
   // Whoever aborted writes the row (stopTidy); nothing is stamped either way
