@@ -1,5 +1,5 @@
 import { readdir, rm, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { ARTIFACT_VIEW, PATHS } from "@/config";
 import { isListedFolder, viewKindOf } from "@/features/workspace/file-kind";
 import { ARTIFACTS, insideWorkspace } from "@/features/workspace/workspace";
@@ -23,6 +23,18 @@ import type {
  */
 
 const relative = (name: string) => `${PATHS.artifacts}/${name}`;
+
+/**
+ * The absolute path, fenced to `artifacts/`. The fence is on the resolved path,
+ * never on the string that was asked for: `insideWorkspace` normalizes `..`
+ * away, so "artifacts/../scratch/x" passes any prefix test while opening a file
+ * somewhere else entirely.
+ */
+async function insideArtifacts(path: string): Promise<string> {
+  const full = await insideWorkspace(path);
+  if (!full?.startsWith(ARTIFACTS + sep)) publicError("Not an artifact");
+  return full;
+}
 
 /** A file row, from one `stat`. Null when it is gone or the app cannot open it. */
 async function fileAt(
@@ -110,8 +122,7 @@ export async function readSet(
   limit = ARTIFACT_VIEW.setFiles,
 ): Promise<ArtifactSet> {
   const path = relative(name);
-  const full = await insideWorkspace(path);
-  if (!full) publicError("Outside the workspace");
+  const full = await insideArtifacts(path);
 
   const listing = await readdir(full, { withFileTypes: true }).catch(
     () => null,
@@ -138,9 +149,7 @@ export async function readSet(
 
 /** Deletes one artifact file. A whole set goes one file at a time, or through Workspace. */
 export async function deleteArtifact(path: string): Promise<void> {
-  if (!path.startsWith(`${PATHS.artifacts}/`)) publicError("Not an artifact");
-  const full = await insideWorkspace(path);
-  if (!full) publicError("Outside the workspace");
+  const full = await insideArtifacts(path);
   const info = await stat(full).catch(() => null);
   if (!info) publicError("File not found");
   if (!info.isFile()) publicError("That is a folder, not a file");
