@@ -76,6 +76,16 @@ export const queryKey = {
     pathVariable: [taskId],
     query: { call: callId },
   }),
+  /**
+   * WorkspaceFolder: one folder's rows plus what the whole workspace takes on
+   * disk. The bare key is the root, so invalidating it refreshes every folder.
+   */
+  workspace: "/api/workspace",
+  workspaceFolder: (path: string) => ({
+    url: "/api/workspace",
+    query: { path: path || null },
+  }),
+
   /** Raw workspace file, no Result envelope; for iframe, img and fetch, not SWR. */
   file: (path: string) => `/api/file/${encodePath(path)}`,
   /** File viewer page (new tab): md rendered, html and pdf framed */

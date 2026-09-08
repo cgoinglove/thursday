@@ -39,6 +39,7 @@ import {
   SettingError,
   SettingFilter,
   SettingGroup,
+  SettingItems,
   SettingMore,
   SettingRailNote,
   SettingScreen,
@@ -175,10 +176,9 @@ export function TaskSetting() {
         }
         right={needle ? `${shown.length} of ${tasks.length}` : undefined}
       >
-        {/* A log, not a card: it runs to the bottom edge, so the end of it reads as the end of it */}
-        <div className="divide-y divide-border/60 border-t border-border/60">
+        <SettingItems>
           {shown.length === 0 ? (
-            <p className="py-4 text-sm leading-relaxed text-muted-foreground">
+            <p className="p-4 text-sm leading-relaxed text-muted-foreground">
               {needle
                 ? "Nothing loaded matches. Keep scrolling to search further back."
                 : "Nothing yet. When Thursday hands a job to a bot mid-call, it shows up here — while it runs, and after."}
@@ -205,7 +205,7 @@ export function TaskSetting() {
             ghost={<Ghost />}
             className="divide-y divide-border/60"
           />
-        </div>
+        </SettingItems>
       </SettingGroup>
     </SettingScreen>
   );

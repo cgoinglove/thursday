@@ -72,7 +72,9 @@ export function SettingScreen({
 
 /**
  * Two panes filling the section: an index on the left, what it opens on the
- * right. Both reach the bottom edge, so nothing clips into the rail.
+ * right. Both reach the bottom edge, so nothing clips into the rail, and both
+ * scroll here — a pane's content fills (`min-h-full`) and never scrolls itself.
+ * The right pane scrolling anywhere else is how its foot ends up over the rail.
  */
 export function SettingPanes({
   left,
@@ -91,7 +93,9 @@ export function SettingPanes({
         <div className="flex w-64 shrink-0 flex-col overflow-y-auto border-r border-border/60 bg-muted/20">
           {left}
         </div>
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">{right}</div>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+          {right}
+        </div>
       </div>
       {footer && <SettingRail>{footer}</SettingRail>}
     </div>

@@ -1,7 +1,7 @@
 {
   "name": "thursday-agent",
   "version": "0.1.0",
-  "description": "A voice agent that runs on your own machine — talk to her, she hands the slow work to bots with a shell, a browser and skills.",
+  "description": "A voice agent that runs on your own machine \u2014 talk to her, she hands the slow work to bots with a shell, a browser and skills.",
   "license": "MIT",
   "keywords": [
     "voice-agent",
@@ -36,7 +36,7 @@
     "lint": "biome check",
     "format": "biome format --write",
     "reset": "node scripts/reset.mts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:generate": "drizzle-kit generate",

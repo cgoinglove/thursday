@@ -10,6 +10,7 @@ import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
+import { notify } from "@/components/ui/notify";
 import { Segmented } from "@/components/ui/segmented";
 import { Swatch } from "@/components/ui/swatch";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,6 +44,7 @@ import {
   setThursdayFace,
   useThursdayFace,
 } from "@/features/thursday/face.store";
+import { resetHistoryAction } from "@/features/thursday/thursday.action";
 import {
   CALL_BACK_LABEL,
   CALL_BACK_MODES,
@@ -63,7 +65,8 @@ import {
   useHotkeyLabel,
 } from "@/hooks/use-hotkey";
 import { COMMON_VALIDATE } from "@/lib/limits";
-import { useServerRoute } from "@/lib/protocol/use-server-route";
+import { useServerAction } from "@/lib/protocol/use-server-action";
+import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn } from "@/lib/utils";
 
 /**
@@ -92,10 +95,13 @@ export function ThursdaySetting() {
   return (
     <SettingScreen
       footer={
-        <SettingRailNote>
-          Her prompt is assembled fresh on every call — memory, the roster and
-          your skills go in.
-        </SettingRailNote>
+        <>
+          <SettingRailNote>
+            Her prompt is assembled fresh on every call — memory, the roster and
+            your skills go in.
+          </SettingRailNote>
+          <ResetHistory />
+        </>
       }
     >
       <FacePicker value={face} onChange={setThursdayFace} />
@@ -148,6 +154,47 @@ export function ThursdaySetting() {
         onSave={(systemPrompt) => patch({ systemPrompt })}
       />
     </SettingScreen>
+  );
+}
+
+/**
+ * Wipes what the app has kept of its own use, in one go: calls, jobs and
+ * memory. The same set `pnpm reset` calls History, so the terminal and this
+ * button agree. Keys, bots and connectors stay.
+ */
+function ResetHistory() {
+  const [reset, resetting] = useServerAction(resetHistoryAction, {
+    okMessage: ({ calls, tasks, notes }) =>
+      `Wiped ${calls} calls, ${tasks} jobs, ${notes} notes`,
+    onOk: () => {
+      // Prefix match, so the tidy log and every loaded history page go too.
+      revalidate(queryKey.memory);
+      revalidate(queryKey.tasks);
+      revalidate(queryKey.callHistory(null));
+    },
+  });
+
+  const confirmReset = async () => {
+    const confirmed = await notify.confirm({
+      title: "Reset history?",
+      description:
+        "Every call, every job and everything she remembers is deleted for good. Keys, bots and connectors stay.",
+      okText: "Reset",
+      destructive: true,
+    });
+    if (confirmed) reset();
+  };
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      loading={resetting}
+      onClick={confirmReset}
+      className="text-destructive hover:text-destructive"
+    >
+      Reset history
+    </Button>
   );
 }
 

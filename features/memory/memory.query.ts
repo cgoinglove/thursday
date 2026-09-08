@@ -715,3 +715,16 @@ export async function findFactById(
     .where(and(eq(memoryFactTable.id, id), eq(memoryFactTable.isLatest, true)));
   return fact ?? null;
 }
+
+/**
+ * Every note, facts included (cascade). The always-listed notes come straight
+ * back, empty: the caller runs `ensureRootNotes` so memory is never pathless.
+ */
+export async function deleteAllNotes(): Promise<number> {
+  const removed = await database
+    .delete(memoryNoteTable)
+    .returning({ id: memoryNoteTable.id });
+  await ensureRootNotes();
+  if (removed.length > 0) changed();
+  return removed.length;
+}

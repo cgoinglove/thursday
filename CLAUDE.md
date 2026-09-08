@@ -119,8 +119,10 @@ in `outputFileTracingIncludes`, not left to the trace.
   - `SettingRail` is the bottom edge of every section: what the whole set is, plus the actions
     that act on all of it. It also gives a short section a bottom, so the empty half of a tall
     dialog reads as margin rather than a truncated page.
-  - A card (`SettingItems`) holds a finite set; a log (Tasks, history) runs to the bottom edge as
-    dividers only. A group label (`SettingGroup`) is plain text above its card, never a tinted band.
+  - **Every list in a section body is the same card** (`SettingItems`), however long it runs:
+    Tasks was a full-bleed log of dividers and read as a different app one nav row over.
+    Dividers-only belongs where there is already a surface — a reader's pane, a dialog.
+    A group label (`SettingGroup`) is plain text above its card, never a tinted band.
   - **`SettingGroup` is the only shape a section is built from**: a header line (label, its
     `hint`, a `filter`, and the set's state at the far end), a body, and a `note` under it —
     never that markup written out by hand. A switch that runs something by itself is
@@ -132,7 +134,13 @@ in `outputFileTracingIncludes`, not left to the trace.
   - A row's second line is its state, not a second name for it, and stays tight; a sentence that
     wraps gets its own leading. Any list that grows carries a `SettingFilter` — on its group's
     header line when it filters that group, on the section's (`SettingToolbar`) when it filters
-    more than one. Cmd+K focuses it, Cmd+1..8 jump sections, arrows move inside the nav.
+    more than one. Cmd+K focuses it, Cmd+1..9 jump sections, arrows move inside the nav.
+- **`file-kind.ts` decides two things, not one.** A file's `viewKindOf` says how the screen
+  opens it *and* whether the Workspace section lists it at all: a kind of `none` is never listed,
+  because a bot also writes node_modules, browser snapshots and spilled tool output. Folders are
+  listed whatever is inside them, carrying what they take on disk, so the listing and the disk
+  number answer different questions and the rail says both. Giving an extension a kind puts it on
+  that screen; taking one away removes it.
 - **Don't split files by size.** A long file that does one thing stays one file.
 - **An interface with one implementation is two files, not an interface.** Don't add ports.
 

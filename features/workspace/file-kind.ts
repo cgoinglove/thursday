@@ -10,6 +10,9 @@ export type FileViewKind =
   /** Renders itself in an iframe (html, pdf). */
   | "frame"
   | "image"
+  /** Played by the browser's own element; /api/file serves Range for seeking. */
+  | "audio"
+  | "video"
   /** Left to the OS default app. */
   | "none";
 
@@ -33,13 +36,16 @@ const TYPE_BY_EXTENSION: Record<string, { kind: FileViewKind; mime: string }> =
     webp: { kind: "image", mime: "image/webp" },
     svg: { kind: "image", mime: "image/svg+xml" },
 
+    // What studio writes (studio.tool): the browser plays these itself.
+    mp3: { kind: "audio", mime: "audio/mpeg" },
+    wav: { kind: "audio", mime: "audio/wav" },
+    mp4: { kind: "video", mime: "video/mp4" },
+    webm: { kind: "video", mime: "video/webm" },
+
     // Not opened by the screen, but referenced by bot-written html; without a mime the browser gets octet-stream
     css: { kind: "none", mime: TEXT("css") },
     js: { kind: "none", mime: TEXT("javascript") },
     woff2: { kind: "none", mime: "font/woff2" },
-    mp3: { kind: "none", mime: "audio/mpeg" },
-    mp4: { kind: "none", mime: "video/mp4" },
-    webm: { kind: "none", mime: "video/webm" },
   };
 
 const extensionOf = (path: string) =>

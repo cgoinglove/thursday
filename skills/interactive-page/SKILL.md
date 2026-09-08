@@ -30,9 +30,46 @@ To build a page, follow these steps:
 
 **Stack**: React 18 + TypeScript + Vite (+ vite-plugin-singlefile for bundling) + Tailwind CSS + shadcn/ui
 
-## Design & Style Guidelines
+## Design
 
-VERY IMPORTANT: To avoid what is often referred to as "AI slop", avoid using excessive centered layouts, purple gradients, uniform rounded corners, and Inter font.
+The page is a tool someone opens to use, and what it looks like comes from the
+job it was built for — a rate calculator, a reading list and a test report
+should not arrive as the same page in three colors. Before the first component,
+settle four things in a line each: the palette (4-6 values), the type, the
+layout, and the one element the page exists for. Skipping that is how a page
+gets built out of defaults.
+
+**Type carries a hard constraint here.** The bundle opens from disk with no
+network, so a font fetched from a CDN falls back silently to whatever the
+machine has. Embed the file in the bundle, or build on the system stack and
+spend the personality on weight, size and spacing instead. Set a real scale, and
+keep body text under about 80 characters a line.
+
+**Spend the boldness once.** One element carries the page — the number, the
+chart, the control the whole thing exists for — and everything around it stays
+quiet. Structure is not decoration: a border, a divider, a numbered marker each
+claim something about the content, so number a list only when it is a sequence.
+Cut what claims nothing.
+
+Some looks are defaults rather than decisions, and they turn up whatever the
+page is about: everything chopped into identical rounded cards under the same
+soft shadow, a tracked-out capital label above every heading, meta lines joined
+with middle dots, an arrow glued to the end of button text, a gradient standing
+in for a background, one centered column all the way down. None of them are
+wrong — they are what gets produced when nothing was chosen. If the user asked
+for one of them, that settles it: their words win over this list.
+
+Motion answers an action — opening, expanding, confirming — and shows what
+changed. Entrance animations on every section are the default look. Honor
+`prefers-reduced-motion`.
+
+Words are design too. A control says what it does ("Save changes", not
+"Submit") and keeps that name wherever it appears, so a button that says Publish
+leaves a message that says Published. An empty state says what to do next, and
+an error says what happened and how to fix it, without apologizing.
+
+Build to the floor without announcing it: usable down to a phone, focus visible
+on the keyboard, contrast that holds.
 
 ## Quick Start
 

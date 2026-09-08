@@ -70,7 +70,9 @@ the whole layout. `snapshot e34` is one region; `--raw eval` is one value.
 Pulling the markup in (`innerHTML`, `curl`) spends a page of context on a
 navigation menu; the snapshot is the same page for a fraction of it. On anything
 long, `find` and `snapshot <ref>` are the cheap way through — keep raw HTML for
-when the markup itself is what you need.
+when the markup itself is what you need. A page that draws itself from a fetch
+is cheaper at the source: `requests` numbers what it pulled, `response-body N`
+prints one — the data already parsed, rather than read back out of the DOM.
 
 **Refs go stale** after anything that changed the page — snapshot again before
 the next click. A page that looks empty right after loading is still rendering.
@@ -110,14 +112,15 @@ playwright-cli open <url> --persistent    # keep a profile between opens
 playwright-cli open --mobile              # mobile layout — lighter pages, smaller snapshots
 playwright-cli attach --cdp=chrome        # the browser they already have open
 playwright-cli goto <url>
-playwright-cli go-back | reload
+playwright-cli go-back | go-forward | reload
+playwright-cli resize 1280 800            # before a screenshot or a pdf
 
 playwright-cli snapshot                   # the page, as refs — written to a file
 playwright-cli snapshot e34               # one region
 playwright-cli find "Sign in"             # matching nodes with context
 playwright-cli find --regex "/sign (in|up)/i"
 
-playwright-cli click e3                   # also: dblclick, hover, drag e2 e8
+playwright-cli click e3                   # also: dblclick, hover, drag e2 e8, drop e8
 playwright-cli fill e5 "text" --submit    # --submit presses Enter after
 playwright-cli type "text"
 playwright-cli press Enter                # ArrowDown, Escape, …
@@ -127,6 +130,10 @@ playwright-cli upload ./file.pdf
 playwright-cli dialog-accept ["text"] | dialog-dismiss
 
 playwright-cli tab-list | tab-new [url] | tab-select N | tab-close [N]
+
+playwright-cli requests                   # what the page fetched, numbered
+playwright-cli request 7                  # one of them whole: headers, body, response
+playwright-cli response-body 7            # just the body
 
 playwright-cli eval "document.title"
 playwright-cli eval "el => el.textContent" e5

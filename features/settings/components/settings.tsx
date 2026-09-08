@@ -33,6 +33,7 @@ import { McpMark } from "@/features/connectors/components/mcp-mark";
 import { MemoryMark } from "@/features/memory/components/memory-mark";
 import { SkillsMark } from "@/features/skills/components/skills-mark";
 import { ThursdayAsciiMark } from "@/features/thursday/components/thursday-ascii-mark";
+import { WorkspaceMark } from "@/features/workspace/components/workspace-mark";
 import { setTheme, useTheme } from "@/hooks/use-theme";
 import { THEMES, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -71,6 +72,11 @@ const ModelsSetting = lazySection(() =>
 const ThursdaySetting = lazySection(() =>
   import("@/features/thursday/components/thursday-setting").then((m) => ({
     default: m.ThursdaySetting,
+  })),
+);
+const WorkspaceSetting = lazySection(() =>
+  import("@/features/workspace/components/workspace-setting").then((m) => ({
+    default: m.WorkspaceSetting,
   })),
 );
 const SkillsSetting = lazySection(() =>
@@ -132,6 +138,14 @@ export const SECTIONS: readonly {
     icon: ListChecks,
     Component: TaskSetting,
     Badge: TaskBadge,
+  },
+  {
+    id: "workspace",
+    label: "Workspace",
+    group: "work",
+    hint: "What the bots wrote, and the room it takes",
+    icon: WorkspaceMark,
+    Component: WorkspaceSetting,
   },
   {
     id: "skills",

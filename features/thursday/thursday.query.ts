@@ -288,3 +288,15 @@ export async function markEveryCallRead() {
     .set({ tidiedAt: new Date() })
     .where(and(isNotNull(callTable.endedAt), isNull(callTable.tidiedAt)));
 }
+
+/**
+ * Every call that has ended, and its turns (cascade). A call still on the line
+ * stays: its tab is still writing turns against the row (see `deleteCall`).
+ */
+export async function deleteEndedCalls(): Promise<number> {
+  const removed = await database
+    .delete(callTable)
+    .where(isNotNull(callTable.endedAt))
+    .returning({ id: callTable.id });
+  return removed.length;
+}

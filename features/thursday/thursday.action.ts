@@ -9,14 +9,24 @@ import {
   type SpeachModelRef,
 } from "@/features/ai/model.schema";
 import { loadThursdayPrompt } from "@/features/ai/prompts/thursday.prompt";
+import { removeTask } from "@/features/bot/bot.runner";
+import { listAllTaskIds } from "@/features/bot/task.query";
 import { readConfig } from "@/features/config/config.query";
-import { startTidy } from "@/features/memory/memory.tidy";
+import { deleteAllNotes } from "@/features/memory/memory.query";
+import { startTidy, stopTidy } from "@/features/memory/memory.tidy";
+import { deleteAllTidyRuns } from "@/features/memory/tidy.query";
 import { logger } from "@/lib/logger";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
 import { issueClientSecret } from "@/lib/realtime/client-secret";
 import type { ToolManifest } from "@/lib/realtime/realtime.schema";
-import { deleteCall, endCall, insertCall, saveTurns } from "./thursday.query";
+import {
+  deleteCall,
+  deleteEndedCalls,
+  endCall,
+  insertCall,
+  saveTurns,
+} from "./thursday.query";
 import {
   type CallHandshake,
   CallTurnSchema,
@@ -138,4 +148,27 @@ export const deleteCallAction = serverAction(async (callId: string) => {
   if (!(await deleteCall(callId))) {
     publicError("That call is still on the line — hang up first.");
   }
+});
+
+/**
+ * Wipes what the app has kept of its own use: every ended call and its turns,
+ * every job and its thread, every memory note, and the read-back log. Keys,
+ * bots and connectors stay — the set `pnpm reset` calls History.
+ *
+ * History is not one domain, so this reaches into three and each clears its own
+ * rows. Live work is stopped before its row goes: `removeTask` aborts a running
+ * job and closes its shell, and a read-back in flight would otherwise write
+ * notes back after they were deleted.
+ */
+export const resetHistoryAction = serverAction(async () => {
+  await stopTidy("History was reset.");
+
+  const taskIds = await listAllTaskIds();
+  for (const id of taskIds) await removeTask(id);
+
+  const calls = await deleteEndedCalls();
+  const notes = await deleteAllNotes();
+  await deleteAllTidyRuns();
+
+  return { calls, tasks: taskIds.length, notes };
 });

@@ -124,25 +124,23 @@ export function MemorySetting() {
         </div>
       }
       right={
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {picked ? (
-            // Keyed so editing state does not carry over to the next note.
-            <NotePage key={picked.id} note={picked} />
-          ) : (
-            <div className="space-y-4 p-8">
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                During calls Thursday saves what it picks up — that a teammate
-                moved teams, that you take meetings in the morning — and reads
-                it back before answering. File the first note yourself and it
-                starts the next call already knowing something.
-              </p>
-              <Button variant="outline" onClick={openMemoryCreate}>
-                <Plus />
-                Add note
-              </Button>
-            </div>
-          )}
-        </div>
+        picked ? (
+          // Keyed so editing state does not carry over to the next note.
+          <NotePage key={picked.id} note={picked} />
+        ) : (
+          <div className="space-y-4 p-8">
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              During calls Thursday saves what it picks up — that a teammate
+              moved teams, that you take meetings in the morning — and reads it
+              back before answering. File the first note yourself and it starts
+              the next call already knowing something.
+            </p>
+            <Button variant="outline" onClick={openMemoryCreate}>
+              <Plus />
+              Add note
+            </Button>
+          </div>
+        )
       }
     />
   );

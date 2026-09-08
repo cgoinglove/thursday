@@ -42,6 +42,9 @@ if (process.argv.includes("--refuse-root")) {
 if (!process.argv.includes("--no-build")) {
   for (const [what, argv] of [
     ["lint", ["biome", "check"]],
+    // `PageProps` and `LayoutProps` are generated, not written: without this
+    // step tsc fails on a clean checkout and passes on a machine that has built
+    ["types", ["next", "typegen"]],
     ["typecheck", ["tsc", "--noEmit"]],
     ["build", ["next", "build"]],
   ] as const) {

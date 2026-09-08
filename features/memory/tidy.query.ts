@@ -124,3 +124,12 @@ export async function stopStaleTidyRuns(reason: string) {
     .set({ status: "stopped", error: reason, endedAt: new Date() })
     .where(eq(memoryTidyRunTable.status, "running"));
 }
+
+/** Every read-back row. The calls they name are going too, so the log outlives nothing. */
+export async function deleteAllTidyRuns(): Promise<number> {
+  const removed = await database
+    .delete(memoryTidyRunTable)
+    .returning({ id: memoryTidyRunTable.id });
+  if (removed.length > 0) changed();
+  return removed.length;
+}

@@ -27,6 +27,19 @@ export function formatCount(n: number): string {
   return `${(n / 1_000_000).toFixed(1)}M`;
 }
 
+/** 900 → "900 B", 12345 → "12.1 KB", 5e9 → "4.7 GB". Binary units; the OS reports the same. */
+export function formatBytes(size: number): string {
+  if (size < 1024) return `${size} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = size / 1024;
+  let at = 0;
+  while (value >= 1024 && at < units.length - 1) {
+    value /= 1024;
+    at += 1;
+  }
+  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[at]}`;
+}
+
 /** Markdown as plain text for a one-line preview: strips headings, emphasis, code, links and table rules. */
 export function plainText(markdown: string): string {
   return markdown

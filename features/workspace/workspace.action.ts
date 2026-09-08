@@ -1,6 +1,10 @@
 "use server";
 
 import { openWorkspace } from "@/features/workspace/workspace";
+import {
+  deleteWorkspaceFile,
+  emptyScratch,
+} from "@/features/workspace/workspace.query";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
 import { revealPath } from "@/lib/reveal-path";
@@ -17,4 +21,16 @@ export const openFileAction = serverAction(async (path: string) => {
   } catch (cause) {
     publicError(`Could not open ${target}: ${errorToString(cause)}`);
   }
+});
+
+/** Deletes one file the bots wrote. The path is confined to the workspace by the query. */
+export const deleteWorkspaceFileAction = serverAction(async (path: string) => {
+  const target = path.trim();
+  if (!target) publicError("Which file?");
+  await deleteWorkspaceFile(target);
+});
+
+/** Empties `scratch/` — the one folder the bots are told is disposable. */
+export const emptyScratchAction = serverAction(async () => {
+  return emptyScratch();
 });

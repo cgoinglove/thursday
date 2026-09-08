@@ -9,6 +9,7 @@ export const SETTING_SECTIONS = [
   "memory",
   "bot",
   "tasks",
+  "workspace",
   "skills",
   "mcp",
   "models",

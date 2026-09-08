@@ -231,6 +231,15 @@ export async function deleteFinishedTasks() {
   return removed.length;
 }
 
+/** Every job, newest first. The caller stops each one before deleting it (bot.runner removeTask). */
+export async function listAllTaskIds(): Promise<string[]> {
+  const rows = await database
+    .select({ id: taskTable.id })
+    .from(taskTable)
+    .orderBy(desc(taskTable.createdAt));
+  return rows.map((row) => row.id);
+}
+
 /** Rows a previous server left as running; the runner decides which still are. */
 export async function listRunningTaskIds() {
   const rows = await database

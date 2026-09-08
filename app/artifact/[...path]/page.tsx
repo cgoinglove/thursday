@@ -60,6 +60,23 @@ export default async function ArtifactPage({ params }: Params) {
           alt={rel}
           className="mx-auto max-w-full p-6"
         />
+      ) : kind === "audio" ? (
+        // The browser plays it; /api/file answers Range, so seeking works.
+        <audio
+          controls
+          src={queryKey.file(rel)}
+          className="mx-auto mt-10 w-full max-w-xl px-6"
+        >
+          <track kind="captions" />
+        </audio>
+      ) : kind === "video" ? (
+        <video
+          controls
+          src={queryKey.file(rel)}
+          className="mx-auto max-h-[calc(100vh-2.5rem)] max-w-full p-6"
+        >
+          <track kind="captions" />
+        </video>
       ) : kind === "none" ? (
         <p className="p-6 font-mono text-xs text-muted-foreground">
           Nothing here knows how to draw this file — download it above.

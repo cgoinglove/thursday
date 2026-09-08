@@ -54,7 +54,7 @@ import type {
 } from "@/features/skills/skills.schema";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
-import { cn } from "@/lib/utils";
+import { cn, formatBytes } from "@/lib/utils";
 
 /** Marks for the skills that ship with the app; custom skills get the generic mark. */
 const SKILL_MARKS: Record<string, LucideIcon> = {
@@ -465,12 +465,6 @@ function FileView({
       )}
     </div>
   );
-}
-
-function formatBytes(size: number) {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
 /** Add a skill: type one in, or drop a file. */

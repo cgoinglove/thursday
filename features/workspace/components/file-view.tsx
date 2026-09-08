@@ -32,10 +32,14 @@ import { cn, errorToString } from "@/lib/utils";
 
 /**
  * Renders workspace files; shared by the viewer page (/artifact) and the
- * path-chip dialog. The file decides how it opens: self-rendering kinds
- * (html, pdf, image) in a new tab, readable text in a dialog, everything
- * else (and anything outside the workspace) in the OS default app.
+ * path-chip dialog. The file decides how it opens: kinds the browser draws or
+ * plays itself (html, pdf, image, audio, video) in a new tab, readable text in
+ * a dialog, everything else (and anything outside the workspace) in the OS
+ * default app.
  */
+
+/** Kinds the browser renders on its own; they open as a page, never as text. */
+const OWN_PAGE = new Set<FileViewKind>(["frame", "image", "audio", "video"]);
 
 export type FileTarget =
   | { how: "tab"; path: string; href: string }
@@ -46,7 +50,7 @@ export function fileTarget(raw: string): FileTarget {
   const path = workspaceRelative(raw);
   if (!path) return { how: "os" };
   const kind = viewKindOf(path);
-  if (kind === "frame" || kind === "image") {
+  if (OWN_PAGE.has(kind)) {
     return { how: "tab", path, href: queryKey.fileView(path) };
   }
   return kind === "none" ? { how: "os" } : { how: "dialog", path };
@@ -184,17 +188,11 @@ export function FileBody({
   }
 }
 
-/** A text file in a dialog, fetched from the raw route when opened. */
-export function FileDialog({
-  path,
-  kind,
-  onClose,
-}: {
-  /** Workspace-relative path; null means closed. */
-  path: string | null;
-  kind: FileViewKind;
-  onClose: () => void;
-}) {
+/**
+ * A workspace file's text. The raw route carries no Result envelope, so this
+ * fetches rather than going through the SWR hook.
+ */
+export function useFileText(path: string | null) {
   const [content, setContent] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -203,7 +201,6 @@ export function FileDialog({
     setContent(null);
     setFailure(null);
     let gone = false;
-    // A raw route without the Result envelope, so fetch rather than the SWR hook
     fetch(queryKey.file(path))
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
@@ -216,6 +213,78 @@ export function FileDialog({
     };
   }, [path]);
 
+  return { content, failure };
+}
+
+/**
+ * One file drawn where it sits (the Workspace section). Kinds the browser fills
+ * itself are elements; text kinds fetch and go through `FileBody`.
+ */
+export function FilePreview({ path }: { path: string }) {
+  const kind = viewKindOf(path);
+  // Only text kinds are fetched; the rest are elements the browser fills itself.
+  const { content, failure } = useFileText(OWN_PAGE.has(kind) ? null : path);
+
+  if (kind === "frame") {
+    // No sandbox: the html is local and just written by a bot; sandboxing only
+    // breaks its forms, fonts and scripts (same call as /artifact).
+    return (
+      <iframe
+        title={path}
+        src={queryKey.file(path)}
+        allow="clipboard-read; clipboard-write; fullscreen; autoplay"
+        className="h-full w-full bg-white"
+      />
+    );
+  }
+  if (kind === "image") {
+    return (
+      // biome-ignore lint/performance/noImgElement: local raw route, nothing to optimize
+      <img
+        src={queryKey.file(path)}
+        alt={path}
+        className="mx-auto max-w-full p-6"
+      />
+    );
+  }
+  if (kind === "audio" || kind === "video") {
+    return kind === "audio" ? (
+      <audio controls src={queryKey.file(path)} className="w-full p-6">
+        <track kind="captions" />
+      </audio>
+    ) : (
+      <video controls src={queryKey.file(path)} className="max-w-full p-6">
+        <track kind="captions" />
+      </video>
+    );
+  }
+  if (failure) {
+    return <p className="p-5 font-mono text-xs text-destructive">{failure}</p>;
+  }
+  if (content === null) {
+    return (
+      <div className="space-y-3 p-5">
+        <Skeleton className="h-5 w-2/3" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-5/6" />
+      </div>
+    );
+  }
+  return <FileBody kind={kind} content={content} />;
+}
+
+/** A text file in a dialog, fetched from the raw route when opened. */
+export function FileDialog({
+  path,
+  kind,
+  onClose,
+}: {
+  /** Workspace-relative path; null means closed. */
+  path: string | null;
+  kind: FileViewKind;
+  onClose: () => void;
+}) {
+  const { content, failure } = useFileText(path);
   const name = path?.split("/").pop() ?? "";
 
   return (
