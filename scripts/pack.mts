@@ -34,6 +34,10 @@ if (process.argv.includes("--refuse-root")) {
   die("Publish the packed tree, not the checkout — run: pnpm release");
 }
 
+// Before the build, not after: `next build` traces what is on disk, so a
+// `dist/` left from the last release is what the next one would carry.
+rmSync(DIST, { recursive: true, force: true });
+
 /**
  * The same gates CI runs, in the order that fails fastest. `next build` type
  * checks on its own, but nothing else lints — without this, a local
@@ -57,17 +61,38 @@ if (!existsSync(join(BUILD, "server.js"))) {
   die('No standalone server — is `output: "standalone"` still in next.config?');
 }
 
-rmSync(DIST, { recursive: true, force: true });
 cpSync(BUILD, DIST, { recursive: true });
 
 /**
  * Next leaves these two out on purpose: a deployment usually puts them on a
- * CDN. This one serves itself, so they move in beside the server.
+ * CDN. This one serves itself, so they move in beside the server — replacing
+ * whatever is at the path, because a checkout that has run `pnpm start` leaves
+ * links to them in the standalone tree (bin/thursday.mjs), and a link pointing
+ * out of the package is not a thing to publish.
  */
-cpSync(join(ROOT, ".next", "static"), join(DIST, ".next", "static"), {
-  recursive: true,
-});
-cpSync(join(ROOT, "public"), join(DIST, "public"), { recursive: true });
+for (const [from, to] of [
+  [join(ROOT, ".next", "static"), join(DIST, ".next", "static")],
+  [join(ROOT, "public"), join(DIST, "public")],
+] as const) {
+  rmSync(to, { recursive: true, force: true });
+  cpSync(from, to, { recursive: true });
+}
+
+/**
+ * The tracer sweeps whole directories its fs analysis can resolve, so the
+ * standalone tree arrives holding whatever sat beside it — the build's own
+ * `.env` included, which is how real keys reach a registry. Filtered here and
+ * not by `outputFileTracingExcludes`: excluding `dist/**` also cost the trace
+ * next-server/app-route-turbo.runtime.prod.js, and every API route 500s without
+ * it. The only hidden entry a published tree may carry is `.next`.
+ */
+const shipped = (entry: string) =>
+  entry === ".next" || (!entry.startsWith(".") && entry !== "dist");
+
+for (const entry of readdirSync(DIST)) {
+  if (!shipped(entry))
+    rmSync(join(DIST, entry), { recursive: true, force: true });
+}
 
 for (const file of ["bin", "README.md", "LICENSE"]) {
   const from = join(ROOT, file);
@@ -84,7 +109,8 @@ function liftExternals() {
   const from = join(DIST, ".next", "node_modules");
   if (!existsSync(from)) return [];
 
-  const lifted: string[] = [];
+  /** The alias, and the sibling package it resolves to. */
+  const lifted: { alias: string; target: string }[] = [];
   for (const scope of readdirSync(from, { withFileTypes: true })) {
     const names = scope.isDirectory()
       ? readdirSync(join(from, scope.name)).map((n) => `${scope.name}/${n}`)
@@ -101,7 +127,10 @@ function liftExternals() {
       const link = join(DIST, "node_modules", name);
       rmSync(link, { recursive: true, force: true });
       symlinkSync(target, link, "dir");
-      lifted.push(name);
+      lifted.push({
+        alias: name,
+        target: scope.isDirectory() ? `${scope.name}/${target}` : target,
+      });
     }
   }
   rmSync(from, { recursive: true, force: true });
@@ -134,6 +163,106 @@ function bundled(): Record<string, string> {
     ]),
   );
 }
+
+/**
+ * An external is never bundled, so it has to be on disk to require — and so does
+ * everything it requires. The trace takes the package and stops there, and for
+ * a package Next externals by default it can take less than that: shiki arrives
+ * as a manifest with no code, @shikijs/core with no hast-util-to-html. A
+ * checkout never notices, because Node walks up to the repo's own node_modules;
+ * an `npx` install has nowhere to walk and 500s on the first markdown it draws.
+ * So the closure is copied here, read off each manifest rather than listed in
+ * next.config, where it would go stale on the next upgrade.
+ */
+function vendorClosure(names: string[]): void {
+  const root = join(DIST, "node_modules");
+  const seen = new Set<string>();
+  const queue = [...names];
+
+  for (let name = queue.shift(); name; name = queue.shift()) {
+    if (seen.has(name)) continue;
+    seen.add(name);
+
+    const from = join(ROOT, "node_modules", name);
+    if (!existsSync(join(from, "package.json"))) continue;
+
+    // A manifest on its own is what the trace leaves behind; replace it.
+    const to = join(root, name);
+    if (!existsSync(join(to, "package.json")) || readdirSync(to).length <= 1) {
+      rmSync(to, { recursive: true, force: true });
+      cpSync(from, to, { recursive: true, dereference: true });
+    }
+
+    const manifest = JSON.parse(
+      readFileSync(join(from, "package.json"), "utf8"),
+    );
+    queue.push(...Object.keys(manifest.dependencies ?? {}));
+  }
+}
+
+vendorClosure(externals.map(({ target }) => target));
+
+// A lifted alias that resolves to nothing is a server that boots and then dies
+// on its first import; the build is the only place that can still catch it
+const broken = externals.filter(
+  ({ alias }) => !existsSync(join(DIST, "node_modules", alias, "package.json")),
+);
+if (broken.length)
+  die(
+    `External alias points at nothing: ${broken.map((one) => one.alias).join(", ")}`,
+  );
+
+/**
+ * The same failure one step later: a package the trace copied as nothing but
+ * its manifest. It resolves, so nothing catches it until the first import at
+ * run time — which is what shiki did. `vendorClosure` has already tried to fix
+ * it, so what reaches here is an external missing from the checkout's own
+ * node_modules. A manifest nothing points at is debris; the prune below drops it.
+ */
+const hollow = externals.filter(
+  ({ target }) => readdirSync(join(DIST, "node_modules", target)).length === 1,
+);
+if (hollow.length)
+  die(`Traced without its code: ${hollow.map((one) => one.target).join(", ")}`);
+
+/**
+ * A folder under `node_modules` is not always a package. The trace follows a
+ * sourcemap back into a package's own `src/`, so `@ai-sdk/anthropic` arrives as
+ * two .ts files and no manifest — everything else about it was bundled into the
+ * server chunks. Nothing can import that, npm cannot bundle it, and where the
+ * name is also a declared dependency (@playwright/cli) it shadows the real
+ * install. A manifest on its own is the same story from the other end: nft read
+ * it for a version. Both are dropped here, so `bundled()` declares only what it
+ * can actually bundle.
+ */
+function pruneOrphans(keep: Set<string>) {
+  const root = join(DIST, "node_modules");
+
+  for (const entry of readdirSync(root)) {
+    if (entry.startsWith(".")) continue;
+    const names = entry.startsWith("@")
+      ? readdirSync(join(root, entry)).map((rest) => entry + "/" + rest)
+      : [entry];
+
+    for (const name of names) {
+      if (keep.has(name)) continue;
+      const inside = existsSync(join(root, name, "package.json"))
+        ? readdirSync(join(root, name))
+        : [];
+      if (inside.length > 1) continue;
+      rmSync(join(root, name), { recursive: true, force: true });
+    }
+
+    // A scope emptied by that is a directory npm would carry for nothing.
+    if (entry.startsWith("@") && readdirSync(join(root, entry)).length === 0) {
+      rmSync(join(root, entry), { recursive: true, force: true });
+    }
+  }
+}
+
+pruneOrphans(
+  new Set(externals.flatMap(({ alias, target }) => [alias, target])),
+);
 
 const vendored = bundled();
 
@@ -182,13 +311,15 @@ const REQUIRED = [
 const missing = REQUIRED.filter((path) => !existsSync(join(DIST, path)));
 if (missing.length) die(`Missing from the build: ${missing.join(", ")}`);
 
-// A lifted alias that resolves to nothing is a server that boots and then dies
-// on its first import; the build is the only place that can still catch it
-const broken = externals.filter(
-  (name) => !existsSync(join(DIST, "node_modules", name, "package.json")),
-);
-if (broken.length)
-  die(`External alias points at nothing: ${broken.join(", ")}`);
+/**
+ * And what must never be there. A tarball on the registry is public and cannot
+ * be unpublished after 72 hours, so this is checked rather than trusted: the
+ * strip above is one edit away from letting a key through.
+ */
+const FORBIDDEN = [".env", ".env.local", ".npmrc", ".playwright-cli", "dist"];
+
+const leaked = FORBIDDEN.filter((path) => existsSync(join(DIST, path)));
+if (leaked.length) die(`Refusing to pack — ${leaked.join(", ")} in dist/`);
 
 const size = spawnSync("du", ["-sh", DIST], { encoding: "utf8" })
   .stdout?.split("\t")[0]

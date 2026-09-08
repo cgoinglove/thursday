@@ -11,6 +11,7 @@ import {
 import { useEffect, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
+import { FoldedText } from "@/components/ui/folded-text";
 import ShinyText from "@/components/ui/shiny-text";
 import { Textarea } from "@/components/ui/textarea";
 import { BOT_RUN } from "@/config";
@@ -255,9 +256,16 @@ export function TaskReply({
         <span className="truncate">{task.label}</span>
       </p>
 
-      {/* Empty when the question already is the last thread line (bot-room askFor). */}
+      {/* Empty when the question already is the last thread line (bot-room askFor).
+          A bot that stops on its own result sends the whole report as the question, and
+          this panel does not scroll — the thread above it does — so it is folded. */}
       {asking.question && (
-        <p className="text-[13px] leading-snug break-keep">{asking.question}</p>
+        <FoldedText
+          text={asking.question}
+          subject="message"
+          clamp="line-clamp-6"
+          tall="max-h-56"
+        />
       )}
 
       {asking.options.length > 0 && (

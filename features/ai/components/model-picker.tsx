@@ -21,18 +21,15 @@ import type {
   MediaKind,
   TextModelProviderId,
 } from "../model.schema";
-import {
-  canMakeKind,
-  GATEWAY_TEXT,
-  MEDIA_MODEL_PROVIDERS,
-} from "../model.schema";
+import { canMakeKind, MEDIA_MODEL_PROVIDERS } from "../model.schema";
 import { ModelBrowser } from "./model-browser";
 import { ProviderIcon } from "./provider-icon";
 
 /**
  * Picks a provider, then a model id. The model field is a combobox so an id not on the
- * suggestion list can still be typed; the gateway's list is live. A provider without a key
- * asks for it in place.
+ * suggestion list can still be typed. The gateway is the exception: its field is the
+ * shelf (`ModelBrowser`), because its list is hundreds of priced rows and typing is
+ * done inside that dialog. A provider without a key asks for it in place.
  */
 export function ModelPicker({
   provider,
@@ -68,37 +65,14 @@ export function ModelPicker({
           ?.models[kind] ?? [])
       : (picked?.suggestModels ?? []);
 
-  const suggested: ComboboxOption[] = suggestModels.map((entry) => ({
+  // Hand-written rows, for the field that takes typing. The gateway's live list is not
+  // merged in here: it is the shelf's, which reads the same catalog and prices it.
+  const options: ComboboxOption[] = suggestModels.map((entry) => ({
     value: entry.id,
     label: entry.label,
     badge: entry.tier,
     hint: entry.id,
   }));
-  const live: ComboboxOption[] = (catalog.data ?? [])
-    // The gateway lists every kind in one listing; each row arrives with its kind
-    // already settled (ai/model readGatewayCatalog), so this field is the whole rule
-    .filter((entry) => entry.type === (kind ?? GATEWAY_TEXT))
-    .map((entry) => ({
-      value: entry.id,
-      label: entry.label,
-      hint: entry.id,
-    }));
-
-  // For text the live gateway list wins over the suggestions — hundreds of rows against ten
-  // written by hand. For media both are merged, hand-checked rows first: those carry a
-  // label and a size, and are ordered by price, which the live listing cannot be
-  const options = !gateway
-    ? suggested
-    : kind
-      ? [
-          ...suggested,
-          ...live.filter(
-            (entry) => !suggested.some((row) => row.value === entry.value),
-          ),
-        ]
-      : live.length > 0
-        ? live
-        : suggested;
 
   return (
     <div className="space-y-2">
@@ -141,42 +115,33 @@ export function ModelPicker({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Combobox
-          value={model}
-          onChange={(next) =>
-            picked && onChange({ provider: picked.id, model: next })
-          }
-          options={options}
-          disabled={!picked?.hasKey}
-          loading={gateway && catalog.isLoading}
-          aria-label="Model"
-          placeholder={
-            picked
-              ? gateway
-                ? "Search, or type any model id"
-                : "Type a model id"
-              : "Pick a provider"
-          }
-          empty={
-            // Three reasons a list is empty, three messages
-            catalog.error
-              ? "Could not read the catalog — type an id"
-              : gateway
-                ? "Nothing matches"
-                : "Not on the list — it still runs"
-          }
-          className="flex-1"
-        />
-
-        {/* Only the gateway has a shelf to browse. It lists without a key, so the
-            button stands while the key row below is still asking. */}
-        {gateway && picked && (
+        {/* The shelf lists without a key, so it stands while the key row below is
+            still asking. A catalog that could not be read has no shelf to be, and the
+            combobox takes the slot back so an id can still be typed. */}
+        {gateway && picked && !catalog.error ? (
           <ModelBrowser
             models={catalog.data ?? []}
             kind={kind}
             value={model}
             loading={catalog.isLoading}
             onPick={(next) => onChange({ provider: picked.id, model: next })}
+          />
+        ) : (
+          <Combobox
+            value={model}
+            onChange={(next) =>
+              picked && onChange({ provider: picked.id, model: next })
+            }
+            options={options}
+            disabled={!picked?.hasKey}
+            aria-label="Model"
+            placeholder={picked ? "Type a model id" : "Pick a provider"}
+            empty={
+              catalog.error
+                ? "Could not read the catalog — type an id"
+                : "Not on the list — it still runs"
+            }
+            className="flex-1"
           />
         )}
       </div>

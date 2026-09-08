@@ -77,13 +77,28 @@ export const queryKey = {
     query: { call: callId },
   }),
   /**
-   * WorkspaceFolder: one folder's rows plus what the whole workspace takes on
-   * disk. The bare key is the root, so invalidating it refreshes every folder.
+   * WorkspaceFolder: one folder's rows, and nothing below them. The bare key
+   * is the root, so invalidating it refreshes every folder.
    */
   workspace: "/api/workspace",
-  workspaceFolder: (path: string) => ({
+  workspaceFolder: (path: string, rows: number) => ({
     url: "/api/workspace",
-    query: { path: path || null },
+    query: { path: path || null, rows },
+  }),
+
+  /**
+   * ArtifactShelf: the top of `artifacts/`, one row per artifact.
+   * `artifactSet` opens one of those rows. The bare key is the menu, so
+   * invalidating it refreshes an open set too.
+   */
+  artifacts: "/api/artifact",
+  artifactShelf: (rows: number) => ({
+    url: "/api/artifact",
+    query: { rows },
+  }),
+  artifactSet: (name: string, rows: number) => ({
+    url: "/api/artifact",
+    query: { set: name, rows },
   }),
 
   /** Raw workspace file, no Result envelope; for iframe, img and fetch, not SWR. */
@@ -109,6 +124,9 @@ export const queryKey = {
     url: "/api/thursday/call",
     query: { before },
   }),
+
+  /** boolean: whether the call may read a skill itself (Settings › Thursday) */
+  callSkills: "/api/thursday/skills",
 
   /**
    * POST, not a read; the one endpoint here SWR never touches. Body is

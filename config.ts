@@ -62,6 +62,33 @@ export const PATHS = {
 export const PAGE_SIZE = 50;
 
 /**
+ * The Workspace section (features/workspace), which browses what bots wrote.
+ * - `rows`  entries one folder listing returns; the rest load on demand. Only
+ *           the ones returned are `stat`ed, so a folder of 20,000 files costs
+ *           the same readdir as a folder of 20.
+ * - `textMax`  text handed to a page or a dialog. Past it only the head is
+ *           read and the view says so; the whole file stays behind Download.
+ * - `elementMax`  an image or page drawn as an element. Past it nothing is
+ *           drawn: an `<img>` decodes whole and a huge DOM cannot be scrolled.
+ *           Audio and video are not capped — they stream over Range.
+ */
+export const WORKSPACE_VIEW = {
+  rows: 200,
+  textMax: 512 * 1024,
+  elementMax: 50 * 1024 * 1024,
+};
+
+/**
+ * The Artifacts section (features/artifact), which lists the top of
+ * `artifacts/` — one entry there is one artifact.
+ * - `rows`  entries the menu returns; the rest load on demand.
+ * - `setFiles`  files one opened set draws before the sheet asks for more.
+ * What the browser is handed is capped by WORKSPACE_VIEW: the two sections
+ * open files with the same reader.
+ */
+export const ARTIFACT_VIEW = { rows: 200, setFiles: 120 };
+
+/**
  * Cap on the text a single tool result returns to the model (chars). Beyond
  * `max`, only `head` + `tail` are kept and the full text goes to PATHS.output.
  * Shell output and MCP results share it.

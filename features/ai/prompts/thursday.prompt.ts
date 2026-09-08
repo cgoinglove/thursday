@@ -21,6 +21,7 @@ import {
 import {
   type CallGroup,
   listRecentTurns,
+  readCallSkillsOn,
 } from "@/features/thursday/thursday.query";
 import { openWorkspace } from "@/features/workspace/workspace";
 import { logger } from "@/lib/logger";
@@ -48,15 +49,18 @@ export async function loadThursdayPrompt(
   locale?: string | null,
 ): Promise<LoadedPrompt> {
   const sandbox = await openWorkspace();
-  const [skills, index, carried, mcpTools, roster, calls] = await Promise.all([
-    loadSkills(sandbox),
-    listNoteIndex(),
-    // Facts carried into every call without opening a note
-    listAlwaysLoaded(),
-    listConnectedToolNames(),
-    listJobBots(),
-    listRecentTurns(RECENT_CALL.rows),
-  ]);
+  const [skills, index, carried, mcpTools, roster, calls, hers] =
+    await Promise.all([
+      loadSkills(sandbox),
+      listNoteIndex(),
+      // Facts carried into every call without opening a note
+      listAlwaysLoaded(),
+      listConnectedToolNames(),
+      listJobBots(),
+      listRecentTurns(RECENT_CALL.rows),
+      // Whether she was handed `load_skill` (Settings › Thursday, load-tools)
+      readCallSkillsOn(),
+    ]);
   // The jobs those calls opened, folded into the transcript below
   const jobs = await listCallJobs(calls.map((call) => call.callId));
 
@@ -68,11 +72,15 @@ export async function loadThursdayPrompt(
   // Order matters: recent calls go last so the current call follows them in time order
   const text = [
     identity(),
-    ownerInstruction(persona),
     memory(index, carried),
-    bots({ roster, skills, mcpTools }),
+    // A skill is listed once, on the side that can read it: hers when the
+    // setting hands her the tool, a bot's when it does not
+    bots({ roster, skills: hers ? [] : skills, mcpTools }),
+    ownSkills(hers ? skills : []),
     environment(sandbox.cwd),
     recentCalls(calls, jobs),
+    // Last, so it is the closest thing to the call and outranks the rest
+    ownerInstruction(persona),
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -120,7 +128,13 @@ This is a call, not a chat: one or two sentences a turn. If you did not catch so
 
 /** Owner's instruction from settings; no heading when empty. */
 const ownerInstruction = (persona?: string | null) =>
-  persona?.trim() ? `## Owner's instruction\n\n${persona}` : "";
+  persona?.trim()
+    ? `## Owner's instruction
+
+Written by the user themselves. Where this and anything above disagree, this wins.
+
+${persona.trim()}`
+    : "";
 
 /** The note listing plus one sentence on when to write. What to save is the model's call. */
 function memory(
@@ -183,6 +197,23 @@ ${recentCallLines(
   })),
   RECENT_CALL.tokens,
 )}`;
+}
+
+/**
+ * Skills, only when the call holds `load_skill` (load-tools). Stated as hers:
+ * a tool the prompt never mentions is one the model reads as somebody else's.
+ * Empty when nothing is installed, or when the tool was not handed over.
+ */
+function ownSkills(list: SkillMetadata[]): string {
+  if (list.length === 0) return "";
+
+  return `## Skills
+
+How a thing is done here, written down. A bot reads one before it starts; these you can read too.
+
+${skillLines(list, { short: true })}
+
+\`${TOOL_NAMES.load_skill}\` puts one in front of you, and what it says then goes for you as well. Read one when it covers what was asked and the doing is a glance — a note, a file, one command. What it describes that takes longer is still a job: hand that over, with what the skill said in the request.`;
 }
 
 /** The machine: only the reference point that tool-returned paths are relative to. */

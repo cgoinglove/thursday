@@ -59,9 +59,17 @@ const files = (name: string, note: string, paths: string[]): Group => {
     note,
     live: () => found().length > 0,
     measure: () => found().map(sizeOf).join(" + "),
+    // node_modules changes under its own delete: a watcher or an editor writing one
+    // file back answers ENOTEMPTY on a directory just emptied. Retrying re-walks what
+    // is left, which one pass reports as a fatal error instead.
     wipe: () => {
       for (const path of found())
-        rmSync(path, { recursive: true, force: true });
+        rmSync(path, {
+          recursive: true,
+          force: true,
+          maxRetries: 3,
+          retryDelay: 100,
+        });
     },
   };
 };
@@ -259,10 +267,20 @@ if (!/^y/i.test(await ask("  Sure? [y/N] "))) {
 
 console.log();
 stopEverything();
+// The picks are independent: one group failing is not a reason to skip the rest.
+let failed = false;
 for (const group of groups) {
-  group.wipe();
-  console.log(`  \x1b[32m✓\x1b[0m ${group.name}`);
+  try {
+    group.wipe();
+    console.log(`  \x1b[32m✓\x1b[0m ${group.name}`);
+  } catch (error) {
+    failed = true;
+    console.log(
+      `  \x1b[31m✗\x1b[0m ${group.name} — ${(error as Error).message}`,
+    );
+  }
 }
+if (failed) process.exitCode = 1;
 
 const build = groups.some((g) => g.name === "Build");
 console.log(`\n  Back up with: ${build ? "pnpm install && " : ""}pnpm dev\n`);

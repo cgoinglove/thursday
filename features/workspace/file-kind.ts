@@ -1,4 +1,7 @@
-/** Extension to how the screen renders it and the content-type it is served with. Shared by server and client. */
+/**
+ * Extension to how the screen renders it and the content-type it is served
+ * with, plus which folders are worth listing. Shared by server and client.
+ */
 
 import { PATHS } from "@/config";
 
@@ -54,6 +57,18 @@ const extensionOf = (path: string) =>
 export const viewKindOf = (path: string): FileViewKind =>
   TYPE_BY_EXTENSION[extensionOf(path)]?.kind ?? "none";
 
+/**
+ * Folders that are machinery rather than work: what a package manager
+ * installs, and what tools leave beside it. Hidden names cover the app's own
+ * (`.output`, `.playwright-cli`) and the skills folder, which has its own
+ * section. Adding a name here takes the folder off the Workspace screen.
+ */
+const UNLISTED_FOLDERS = new Set(["node_modules", "__pycache__"]);
+
+/** Whether the Workspace section lists a folder — the folder half of `viewKindOf`. */
+export const isListedFolder = (name: string): boolean =>
+  !name.startsWith(".") && !UNLISTED_FOLDERS.has(name);
+
 /** Content-type for the file route; unknown types download. */
 export const mimeOf = (path: string): string =>
   TYPE_BY_EXTENSION[extensionOf(path)]?.mime ?? "application/octet-stream";
@@ -64,8 +79,8 @@ const VIEWABLE = Object.entries(TYPE_BY_EXTENSION)
   .map(([extension]) => extension);
 
 // The lookbehind class is the body's own, plus `/` and `:`: written as `\w` it
-// was ASCII-only, so a path starting mid-word in any other script matched with
-// its first letter eaten — `artifacts/가을.html` came back as `을.html`
+// was ASCII-only, so a name whose first character is not ASCII matched from the
+// second one instead, and came back a letter short
 const PATH_RE = new RegExp(
   String.raw`(?<![\p{L}\p{N}_/:@%-])(?:[\p{L}\p{N}_.@%-]+/)*[\p{L}\p{N}_@%-]+(?:\.[\p{L}\p{N}_-]+)*\.(?:${VIEWABLE.join("|")})\b`,
   "giu",

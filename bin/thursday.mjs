@@ -4,7 +4,7 @@
 // the standalone server. Plain JavaScript: this runs before anything is built.
 
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, symlinkSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -64,6 +64,28 @@ const APP = [ROOT, join(ROOT, ".next", "standalone")].find((dir) =>
 if (!APP) {
   console.error(`\n  No build in ${ROOT}\n  In a checkout, run: pnpm build\n`);
   process.exit(1);
+}
+
+/**
+ * Next leaves `.next/static` and `public` out of the standalone tree on purpose
+ * — a deployment usually puts them on a CDN. The published package has them
+ * copied in beside the server (scripts/pack); a checkout does not, so every
+ * asset would 404. Link them instead of branching on where we are: `pnpm start`
+ * then runs the same server, the same way, as `npx`.
+ */
+if (APP !== ROOT) {
+  for (const [from, to] of [
+    [join(ROOT, ".next", "static"), join(APP, ".next", "static")],
+    [join(ROOT, "public"), join(APP, "public")],
+  ]) {
+    if (!existsSync(from)) continue;
+    // Already there — linked by an earlier run, or copied in by hand.
+    try {
+      symlinkSync(from, to, "junction");
+    } catch (cause) {
+      if (cause.code !== "EEXIST") throw cause;
+    }
+  }
 }
 
 console.log(`\n  ${name} ${version}\n  ${url}\n  data: ${home}\n`);

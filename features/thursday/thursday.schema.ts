@@ -58,6 +58,22 @@ export type ThursdayFace = z.infer<typeof ThursdayFaceSchema>;
 
 export const FACE_DEFAULT: ThursdayFace = ThursdayFaceSchema.parse({});
 
+/**
+ * Config keys (features/config config.query) the call's server-side settings
+ * live under. Everything else about the call is the browser's (thursday.store);
+ * these two places build the tool set, so they cannot be.
+ */
+export const THURSDAY_KEYS = {
+  /** "on" hands the call `load_skill`; anything else, unset included, is off. */
+  skills: "THURSDAY_SKILLS",
+} as const;
+
+/**
+ * Off unless switched on. A skill is a page of instructions, and reading one
+ * mid-sentence spends the session's context on it (ai/load-tools).
+ */
+export const isSkillsOn = (value: string | undefined) => value?.trim() === "on";
+
 export const WAKE_PHRASE = { min: 3, max: 32 };
 
 export const WakeSchema = z.object({

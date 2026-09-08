@@ -24,6 +24,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Segmented } from "@/components/ui/segmented";
+import { ArtifactMark } from "@/features/artifact/components/artifact-mark";
 import { BotBadge } from "@/features/bot/components/bot-badge";
 import { BotsMark } from "@/features/bot/components/bot-mark";
 import { TaskBadge } from "@/features/bot/components/task-badge";
@@ -38,21 +39,35 @@ import { setTheme, useTheme } from "@/hooks/use-theme";
 import { THEMES, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { type SettingSectionId, useSettingsStore } from "../settings.store";
-import { SettingColumn, SettingSkeleton } from "./setting-ui";
+import {
+  SettingColumn,
+  SettingPanesSkeleton,
+  SettingSkeleton,
+} from "./setting-ui";
 
-/** Sections load when opened, not with the app; each pulls its own renderers. */
-const lazySection = (load: () => Promise<{ default: ComponentType }>) =>
-  dynamic(load, { loading: () => <SettingSkeleton /> });
+/**
+ * Sections load when opened, not with the app; each pulls its own renderers.
+ * `shape` is the skeleton the section itself draws while its first read is in
+ * flight, so the chunk and the read wait in one layout rather than two.
+ */
+const lazySection = (
+  load: () => Promise<{ default: ComponentType }>,
+  Shape: ComponentType = SettingSkeleton,
+) => dynamic(load, { loading: () => <Shape /> });
 
-const MemorySetting = lazySection(() =>
-  import("@/features/memory/components/memory-setting").then((m) => ({
-    default: m.MemorySetting,
-  })),
+const MemorySetting = lazySection(
+  () =>
+    import("@/features/memory/components/memory-setting").then((m) => ({
+      default: m.MemorySetting,
+    })),
+  SettingPanesSkeleton,
 );
-const BotSetting = lazySection(() =>
-  import("@/features/bot/components/bot-setting").then((m) => ({
-    default: m.BotSetting,
-  })),
+const BotSetting = lazySection(
+  () =>
+    import("@/features/bot/components/bot-setting").then((m) => ({
+      default: m.BotSetting,
+    })),
+  SettingPanesSkeleton,
 );
 const TaskSetting = lazySection(() =>
   import("@/features/bot/components/task-setting").then((m) => ({
@@ -74,10 +89,19 @@ const ThursdaySetting = lazySection(() =>
     default: m.ThursdaySetting,
   })),
 );
-const WorkspaceSetting = lazySection(() =>
-  import("@/features/workspace/components/workspace-setting").then((m) => ({
-    default: m.WorkspaceSetting,
-  })),
+const ArtifactSetting = lazySection(
+  () =>
+    import("@/features/artifact/components/artifact-setting").then((m) => ({
+      default: m.ArtifactSetting,
+    })),
+  SettingPanesSkeleton,
+);
+const WorkspaceSetting = lazySection(
+  () =>
+    import("@/features/workspace/components/workspace-setting").then((m) => ({
+      default: m.WorkspaceSetting,
+    })),
+  SettingPanesSkeleton,
 );
 const SkillsSetting = lazySection(() =>
   import("@/features/skills/components/skills-setting").then((m) => ({
@@ -138,6 +162,14 @@ export const SECTIONS: readonly {
     icon: ListChecks,
     Component: TaskSetting,
     Badge: TaskBadge,
+  },
+  {
+    id: "artifact",
+    label: "Artifacts",
+    group: "work",
+    hint: "What the bots finished and handed over",
+    icon: ArtifactMark,
+    Component: ArtifactSetting,
   },
   {
     id: "workspace",
@@ -263,7 +295,7 @@ export function Settings({ children }: { children?: ReactElement }) {
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? show() : hide())}>
       {children && <DialogTrigger render={children} />}
-      <DialogContent className="h-[min(52rem,calc(100vh-3rem))] gap-0 overflow-hidden p-0 sm:max-w-7xl">
+      <DialogContent className="h-[min(52rem,calc(100vh-3rem))] gap-0 overflow-hidden p-0 sm:max-w-[min(80rem,calc(100vw-3rem))]">
         <DialogTitle className="sr-only">Settings</DialogTitle>
 
         {/* min-w-0: DialogContent is a grid, and a nowrap line would push it past max-w */}

@@ -39,8 +39,8 @@ import { BotMark } from "@/features/bot/components/bot-mark";
 import {
   SettingError,
   SettingPanes,
+  SettingPanesSkeleton,
   SettingRailNote,
-  SettingSkeleton,
 } from "@/features/settings/components/setting-ui";
 import { openSettings } from "@/features/settings/settings.store";
 import { useObjectState } from "@/hooks/use-object-state";
@@ -64,7 +64,7 @@ export function BotSetting() {
   /** Picked roster entry: a bot name, NEW, or null for the first bot. */
   const [picked, setPicked] = useState<string | null>(null);
 
-  if (isLoading) return <SettingSkeleton />;
+  if (isLoading) return <SettingPanesSkeleton />;
   if (error) return <SettingError message={error.message} />;
 
   const drafting = picked === NEW;

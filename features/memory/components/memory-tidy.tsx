@@ -17,6 +17,7 @@ import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/notify";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import type { TextModelProviderId } from "@/features/ai/model.schema";
@@ -37,7 +38,6 @@ import {
   SettingDialogContent,
   SettingGroup,
   SettingNote,
-  SettingSkeleton,
   SettingToggle,
 } from "@/features/settings/components/setting-ui";
 import { openSettings } from "@/features/settings/settings.store";
@@ -253,7 +253,11 @@ function TidyLogDialog() {
   if (!data) {
     return (
       <SettingDialogContent title="What the last read changed">
-        <SettingSkeleton rows={2} />
+        <div className="space-y-3">
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-4/5" />
+        </div>
       </SettingDialogContent>
     );
   }

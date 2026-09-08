@@ -10,11 +10,28 @@ import {
 } from "drizzle-orm";
 import { database } from "@/database/db";
 import { callMessageTable, callTable } from "@/database/tables";
+import { readConfig, writeConfig } from "@/features/config/config.query";
 import {
   CALL_HISTORY_PAGE,
   type CallRecord,
   type CallTurn,
+  isSkillsOn,
+  THURSDAY_KEYS,
 } from "./thursday.schema";
+
+/**
+ * Whether the call is handed `load_skill` (Settings › Thursday). Off unless
+ * switched on: reading a skill mid-call spends the session's context on a page
+ * of instructions. Read where the tool set is built (ai/load-tools) and where
+ * the prompt lists what she can read (ai/prompts/thursday.prompt).
+ */
+export async function readCallSkillsOn(): Promise<boolean> {
+  return isSkillsOn(await readConfig(THURSDAY_KEYS.skills));
+}
+
+export async function writeCallSkillsOn(on: boolean) {
+  await writeConfig(THURSDAY_KEYS.skills, on ? "on" : "off");
+}
 
 export async function insertCall(input: { provider: string; model: string }) {
   const [call] = await database

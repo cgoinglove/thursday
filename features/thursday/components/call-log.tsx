@@ -13,7 +13,6 @@ import {
   SettingGroup,
   SettingItems,
   SettingMore,
-  SettingSkeleton,
 } from "@/features/settings/components/setting-ui";
 import { toDate, whenOf } from "@/lib/date-like";
 import { useServerAction } from "@/lib/protocol/use-server-action";
@@ -66,6 +65,9 @@ export function CallHistoryRow() {
   );
 }
 
+/** The box the log fills, kept while it loads so the dialog does not resize. */
+const LOG_BOX = "h-[min(34rem,58vh)] min-h-64 px-1";
+
 /**
  * Transcript of every call, oldest at the top, opened at the bottom. Older
  * pages are prepended, so this owns its scroll box and holds the scroll
@@ -115,7 +117,12 @@ function CallLog() {
     held.current = box.scrollHeight - box.scrollTop;
   }, [calls]);
 
-  if (isLoading) return <SettingSkeleton rows={4} />;
+  if (isLoading)
+    return (
+      <div className={cn(LOG_BOX, "overflow-hidden")}>
+        <CallGhost />
+      </div>
+    );
   if (error) return <SettingError message={error.message} />;
 
   return (
@@ -132,7 +139,7 @@ function CallLog() {
             const box = event.currentTarget;
             held.current = box.scrollHeight - box.scrollTop;
           }}
-          className="h-[min(34rem,58vh)] min-h-64 overflow-y-auto overscroll-contain px-1 pb-6"
+          className={cn(LOG_BOX, "overflow-y-auto overscroll-contain pb-6")}
         >
           <SettingMore
             hasMore={hasMore}

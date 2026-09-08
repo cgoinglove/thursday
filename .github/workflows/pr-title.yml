@@ -1,0 +1,41 @@
+name: PR title
+
+# Squash-merging writes the pull request's title as the commit message, and
+# release-please reads those to decide the next version and write the changelog
+# (CLAUDE.md). A feature titled anything else ships under no version at all, and
+# by then the title is already history — so it is checked while it can be edited.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # The same set release-please-config.json knows how to file.
+          types: |
+            feat
+            fix
+            perf
+            refactor
+            docs
+            test
+            chore
+            build
+            ci
+            revert
+          # A scope is optional; when it is there it names a feature folder.
+          requireScope: false
+          # "Add memory tidy" reads as a title; "add memory tidy" reads as the
+          # changelog line it becomes.
+          subjectPattern: ^(?![A-Z]).+[^.]$
+          subjectPatternError: >
+            The subject "{subject}" of "{title}" is not right. Start it in
+            lowercase and end it without a full stop.

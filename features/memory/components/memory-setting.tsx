@@ -33,7 +33,7 @@ import {
   SettingError,
   SettingMore,
   SettingPanes,
-  SettingSkeleton,
+  SettingPanesSkeleton,
 } from "@/features/settings/components/setting-ui";
 import { useDraft } from "@/hooks/use-draft";
 import { useServerAction } from "@/lib/protocol/use-server-action";
@@ -66,7 +66,7 @@ export function MemorySetting() {
   const [pickedId, setPickedId] = useState<number | null>(null);
   const picked = notes.find((note) => note.id === pickedId) ?? notes[0] ?? null;
 
-  if (isLoading) return <SettingSkeleton rows={4} />;
+  if (isLoading) return <SettingPanesSkeleton />;
   if (error) return <SettingError message={error.message} />;
 
   return (

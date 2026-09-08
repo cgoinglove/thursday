@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, LayoutGrid, LoaderCircle, Search } from "lucide-react";
+import { Check, LoaderCircle, Search } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { VercelIcon } from "@/components/ui/custom-icon";
@@ -10,7 +10,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { Input, inputClassName } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { cn } from "@/lib/utils";
 import {
@@ -26,7 +26,11 @@ import { GatewayOwnerIcon } from "./gateway-mark";
  * The gateway's shelf, for one slot. It is opened for a kind and never leaves it: what a
  * slot cannot run is not a filter a person should have to apply, so kind is an argument
  * rather than a control. A text slot additionally means tool-use — a bot that cannot call
- * a tool cannot do a job — which is why the count on the trigger is smaller than the shelf.
+ * a tool cannot do a job — which is why the dialog counts fewer than the shelf holds.
+ *
+ * It is the model field itself, not a button beside one: the gateway lists hundreds of
+ * rows with prices, and a field next to it could only be a worse copy of the search
+ * inside. An id the catalog does not list is typed here too, from the empty search.
  */
 export function ModelBrowser({
   models,
@@ -76,20 +80,32 @@ export function ModelBrowser({
     >
       <DialogTrigger
         render={
-          <Button
-            variant="outline"
-            className="shrink-0"
-            disabled={runnable.length === 0}
-            aria-label={`Browse gateway models (${runnable.length})`}
+          <button
+            type="button"
+            aria-label="Model"
+            // The shell the combobox uses in every other slot, so a row keeps one field
+            className={cn(
+              inputClassName,
+              "relative flex items-center pr-8 text-left font-mono text-sm",
+            )}
           />
         }
       >
-        <LayoutGrid />
-        {loading && runnable.length === 0 ? (
-          <LoaderCircle className="size-3.5 animate-spin" />
-        ) : (
-          <span className="font-mono text-xs">{runnable.length}</span>
-        )}
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate",
+            !value && "font-sans text-muted-foreground",
+          )}
+        >
+          {value || "Pick a model"}
+        </span>
+        <span className="absolute inset-y-0 right-0 flex w-8 items-center justify-center text-muted-foreground">
+          {loading && runnable.length === 0 ? (
+            <LoaderCircle className="size-3.5 animate-spin" />
+          ) : (
+            <Search className="size-3.5" />
+          )}
+        </span>
       </DialogTrigger>
 
       <DialogContent className="h-[min(40rem,calc(100vh-3rem))] gap-0 overflow-hidden p-0 sm:max-w-2xl">
@@ -148,15 +164,26 @@ export function ModelBrowser({
             {rows.length === 0 && (
               <div className="flex flex-col items-start gap-2.5 p-10">
                 <p className="font-mono text-xs text-muted-foreground">
-                  Nothing matches “{query.trim()}”.
+                  {needle
+                    ? `Nothing matches “${query.trim()}”.`
+                    : "Nothing on the shelf — search for an id."}
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setQuery("")}
-                >
-                  Clear search
-                </Button>
+                {needle && (
+                  <div className="flex gap-2">
+                    {/* The catalog is a listing, not the whole gateway: an id it does
+                        not carry still runs, so it is taken as typed */}
+                    <Button size="sm" onClick={() => setPicked(query.trim())}>
+                      Use “{query.trim()}” as the id
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setQuery("")}
+                    >
+                      Clear search
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>

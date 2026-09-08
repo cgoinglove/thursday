@@ -2,9 +2,7 @@
 
 import {
   ArrowUp,
-  ArrowUpRight,
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsRight,
@@ -27,6 +25,7 @@ import {
 import { queryKey } from "@/app/api/query-key";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
+import { FoldedText } from "@/components/ui/folded-text";
 import { Markdown } from "@/components/ui/markdown";
 import ShinyText from "@/components/ui/shiny-text";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,6 +39,7 @@ import {
   TASK_CONTINUE,
 } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
+import { BotRoster } from "@/features/bot/components/bot-roster";
 import { PathChips } from "@/features/bot/components/path-chips";
 import { TaskReply, useAnswerTask } from "@/features/bot/components/task-reply";
 import { openSettings } from "@/features/settings/settings.store";
@@ -61,12 +61,13 @@ import {
   botTasks,
   type Chatter,
   type ChatterGroup,
-  groupChatter,
   isOutcome,
   lastSaid,
   latestPerBot,
+  rosterOf,
   type TaskView,
   type TaskViewStatus,
+  threadItems,
   useBotTasks,
 } from "../task.store";
 import { BotTool } from "./bot-tool";
@@ -191,7 +192,7 @@ export const BotRoom = memo(function BotRoom() {
   const closeCompose = useCallback(() => setComposing(false), []);
 
   return (
-    <div className="pointer-events-none absolute right-5 bottom-5 z-10 flex w-120 max-w-[calc(100vw-2.5rem)] flex-col items-end gap-2">
+    <div className="pointer-events-none absolute right-5 bottom-5 z-10 flex w-132 max-w-[calc(100vw-2.5rem)] flex-col items-end gap-2">
       {open ? (
         <div className="pointer-events-auto flex max-h-[min(44rem,78vh)] w-full animate-in flex-col overflow-hidden rounded-3xl bg-background/75 shadow-2xl shadow-black/6 ring-1 ring-border/50 backdrop-blur-xl fade-in slide-in-from-bottom-1 duration-200">
           {current ? (
@@ -476,34 +477,34 @@ function Chip({
             <Compose bots={bots} onDone={onCloseCompose} />
           ) : (
             <>
-              <p className="flex items-center gap-2 px-2 py-2 font-mono text-[10px] text-muted-foreground">
+              <p className="flex items-center gap-2 px-3 py-2 font-mono text-[10px] tracking-wide text-muted-foreground">
                 <span className="flex-1">needs you · {pending}</span>
                 <ComposeButton onClick={onCompose} />
               </p>
-              {rows.map((task) => (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  onPick={() => onPick(task.id)}
-                />
-              ))}
-              <span className="block h-1" />
+              {/* px-1: a row keeps its own 8px, so its mark lands on the rail while
+                  the shape it lights up on hover stays inside the card's corners */}
+              <div className="px-1.5 pb-2">
+                {rows.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    onPick={() => onPick(task.id)}
+                  />
+                ))}
+              </div>
+              <span className="block h-1.5" />
             </>
           )}
         </div>
       </div>
 
       {/* The pill row. Same geometry either way, so the card shrinks into it. */}
-      {/* px-2 is the chip's one rail: the faces here, the section line and every
-          row's mark all start at 8px, and the trailing glyph ends at 8px — which
+      {/* px-3 is the chip's one rail: the faces here, the section line and every
+          row's mark all start at 12px, and the trailing glyph ends at 12px — which
           is why a resting glyph carries no box. A box would centre it and leave
-          its ink 5px short of the rail the faces start on. */}
-      <div
-        className={cn(
-          "flex items-center gap-2 px-2 py-1.5",
-          grown && "bg-muted/40",
-        )}
-      >
+          its ink 5px short of the rail the faces start on. Rows reach the same rail
+          as their own 8px inside a 4px list. */}
+      <div className={cn("flex items-center gap-2 px-3 py-1.5")}>
         <button
           type="button"
           onClick={onOpen}
@@ -675,31 +676,33 @@ function Compose({ bots, onDone }: { bots?: Bot[]; onDone: () => void }) {
   if (!picked) {
     return (
       <div className="min-h-32 pb-3">
-        <p className="px-2 py-2 font-mono text-[10px] text-muted-foreground">
+        <p className="px-3 pt-3 pb-1.5 font-mono text-[10px] tracking-wide text-muted-foreground">
           message a bot
         </p>
-        {roster.map((bot) => (
-          <button
-            key={bot.name}
-            type="button"
-            onClick={() => setPicked(bot)}
-            className="flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            <BotMark
-              size={22}
-              seed={bot.name}
-              vary={bot.name}
-              color={bot.icon?.color}
-              shape={bot.icon?.shape}
-              outline={bot.icon?.outline}
-              className="shrink-0"
-            />
-            <span className="min-w-0 flex-1 truncate text-[13px]">
-              {bot.name}
-            </span>
-            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/50" />
-          </button>
-        ))}
+        <div className="px-1">
+          {roster.map((bot) => (
+            <button
+              key={bot.name}
+              type="button"
+              onClick={() => setPicked(bot)}
+              className="flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <BotMark
+                size={22}
+                seed={bot.name}
+                vary={bot.name}
+                color={bot.icon?.color}
+                shape={bot.icon?.shape}
+                outline={bot.icon?.outline}
+                className="shrink-0"
+              />
+              <span className="min-w-0 flex-1 truncate text-[13px]">
+                {bot.name}
+              </span>
+              <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/50" />
+            </button>
+          ))}
+        </div>
       </div>
     );
   }
@@ -708,7 +711,7 @@ function Compose({ bots, onDone }: { bots?: Bot[]; onDone: () => void }) {
     // Holds roughly the height the picker had, so choosing a bot does not snap the
     // panel shut to one line and back open on the way back.
     <div className="flex min-h-32 flex-col pb-3">
-      <div className="flex items-center gap-2 px-2 pt-2 pb-2">
+      <div className="flex items-center gap-2 px-3 pt-3 pb-2">
         <button
           type="button"
           onClick={() => setPicked(null)}
@@ -736,7 +739,7 @@ function Compose({ bots, onDone }: { bots?: Bot[]; onDone: () => void }) {
           event.preventDefault();
           send();
         }}
-        className="mx-2 mt-auto flex items-end gap-1 rounded-2xl bg-background py-2 pr-2 pl-3 ring-1 ring-border/80 transition-shadow focus-within:ring-ring/60"
+        className="mx-3 mt-auto flex items-end gap-1 rounded-2xl bg-background py-2 pr-2 pl-3 ring-1 ring-border/80 transition-shadow focus-within:ring-ring/60"
       >
         <Textarea
           value={draft}
@@ -1167,12 +1170,14 @@ function TaskRow({ task, onPick }: { task: TaskView; onPick: () => void }) {
           <span className="flex items-center justify-between gap-2">
             <span
               className={cn(
-                "block min-w-0 flex-1 truncate text-[14px] leading-5 tracking-[-0.15px]",
+                "min-w-0 truncate text-[14px] leading-5 tracking-[-0.15px]",
                 attention ? "text-foreground" : "text-foreground/80",
               )}
             >
               {task.label}
             </span>
+            <BotRoster bots={rosterOf(task)} taskId={task.id} />
+            <span className="flex-1" />
             <span className="shrink-0 font-mono text-[11px] leading-4 text-muted-foreground/70 tabular-nums">
               {shortAgo(task.updatedAt)}
             </span>
@@ -1322,14 +1327,18 @@ export function Conversation({
             box.scrollHeight - box.scrollTop - box.clientHeight < 24;
         }}
         className={cn(
-          "max-h-[52vh] space-y-3 overflow-y-auto px-4 pt-6 pb-4 mask-[linear-gradient(to_bottom,transparent,black_2rem)] scrollbar-none",
+          "max-h-[64vh] space-y-3 overflow-y-auto px-4 pt-6 pb-4 mask-[linear-gradient(to_bottom,transparent,black_2rem)] scrollbar-none",
           className,
         )}
       >
         <Request task={task} />
-        {groupChatter(task.lines).map((group) => (
-          <Group key={group.key} group={group} taskId={task.id} />
-        ))}
+        {threadItems(task).map((item) =>
+          item.kind === "invite" ? (
+            <Invite key={item.key} from={item.from} to={item.to} />
+          ) : (
+            <Group key={item.key} group={item.group} task={task} />
+          ),
+        )}
         {task.status === "working" && task.lines.length === 0 && (
           <ShinyText
             text={`${task.bot.name} is taking it on…`}
@@ -1344,72 +1353,109 @@ export function Conversation({
   );
 }
 
-/** The delegated request, clamped to three lines. The chevron appears only when text is actually clipped. */
+/** The delegated request, folded to three lines (FoldedText). */
 function Request({ task }: { task: TaskView }) {
-  const [open, setOpen] = useState(false);
-  const [folded, setFolded] = useState(false);
-  const text = useRef<HTMLParagraphElement>(null);
-
-  // Conversation is not remounted per task, so reset the fold when the request changes.
-  useEffect(() => {
-    setOpen(false);
-  }, [task.request]);
-
-  useEffect(() => {
-    const node = text.current;
-    if (!node || open) return;
-    setFolded(node.scrollHeight > node.clientHeight + 1);
-  }, [open, task.request]);
-
   return (
-    <FromThursday to={task.bot}>
-      <Bubble align="end" className="max-w-full">
-        <BubbleContent className="flex items-start gap-1 rounded-tr-md py-2 pr-2 pl-3.5">
-          <p
-            ref={text}
-            className={cn(
-              "min-w-0 text-[13px] leading-snug break-keep",
-              open ? "max-h-40 overflow-y-auto scrollbar-none" : "line-clamp-3",
-            )}
-          >
-            {task.request}
-          </p>
-
-          {(folded || open) && (
-            <button
-              type="button"
-              onClick={() => setOpen((was) => !was)}
-              aria-label={open ? "Fold the request" : "Read the whole request"}
-              className="shrink-0 rounded-md p-0.5 opacity-60 outline-none transition-opacity hover:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <ChevronDown className={cn("size-3.5", open && "rotate-180")} />
-            </button>
-          )}
-        </BubbleContent>
-      </Bubble>
-    </FromThursday>
+    <>
+      <Invite from={THURSDAY} to={task.bot} />
+      <FromThursday>
+        <Bubble align="end" className="max-w-full">
+          <BubbleContent className="rounded-tr-md py-2 pr-2 pl-3.5">
+            <FoldedText text={task.request} subject="request" />
+          </BubbleContent>
+        </Bubble>
+      </FromThursday>
+    </>
   );
 }
 
-/** The user side of the thread (request, answers), on the right. */
-function FromThursday({ to, children }: { to?: BotRef; children: ReactNode }) {
+/** Thursday's own face; she is not a bot and has no row to read one from. */
+const THURSDAY: BotRef = { name: "Thursday" };
+
+/**
+ * A bot joining the room. It is not a message — nobody said it — so it takes no
+ * side and wears no bubble: a centred line, the way a chat room announces one.
+ */
+function Invite({ from, to }: { from: BotRef; to: BotRef }) {
   return (
-    <div className="flex flex-row-reverse gap-2.5">
+    <div className="flex animate-in justify-center fade-in duration-300">
+      <span className="flex max-w-full items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 font-mono text-[10px] text-muted-foreground">
+        <Face bot={from} />
+        <span className="shrink-0 text-muted-foreground/70">invited</span>
+        <Face bot={to} />
+      </span>
+    </div>
+  );
+}
+
+/** One name behind its own face, so the line reads as a sentence. */
+function Face({ bot }: { bot: BotRef }) {
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
       <BotMark
-        size={26}
-        seed="thursday"
+        size={15}
+        seed={bot.name}
+        color={bot.icon?.color}
+        shape={bot.icon?.shape}
+        outline={bot.icon?.outline}
         notify={false}
-        className="mt-1 shrink-0"
+        className="shrink-0"
       />
-      <div className="flex min-w-0 flex-1 flex-col items-end gap-1">
-        <p className="flex items-center gap-1 px-1 font-mono text-[10px] text-muted-foreground">
-          <span className="truncate">Thursday</span>
-          {to && (
-            <>
-              <ArrowUpRight className="size-2.5 shrink-0" />
-              <span className="truncate">{to.name}</span>
-            </>
-          )}
+      <span className="truncate">{bot.name}</span>
+    </span>
+  );
+}
+
+/** Thursday's side of the thread: the request, and any answer she carried back. */
+function FromThursday({ children }: { children: ReactNode }) {
+  return (
+    <Turn
+      side="end"
+      name="Thursday"
+      mark={
+        <BotMark
+          size={26}
+          seed="thursday"
+          notify={false}
+          className="mt-1 shrink-0"
+        />
+      }
+    >
+      {children}
+    </Turn>
+  );
+}
+
+/**
+ * One speaker's turn. The room belongs to the task's own bot, so it holds the
+ * left; everyone it is talking to — Thursday, and any bot it delegated to —
+ * answers from the right.
+ */
+function Turn({
+  side,
+  mark,
+  name,
+  children,
+}: {
+  side: "start" | "end";
+  mark: ReactNode;
+  name: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn("flex gap-2.5", side === "end" && "flex-row-reverse")}>
+      {mark}
+      {/* One cap on the turn's column, not one per block inside it: a report and
+          a one-line remark from the same bot then end on the same edge. The
+          answering side hugs that edge, so the two sides face each other. */}
+      <div
+        className={cn(
+          "flex min-w-0 flex-1 flex-col gap-1.5 [&>*+*]:max-w-[80%]",
+          side === "end" && "items-end",
+        )}
+      >
+        <p className="max-w-[80%] truncate px-1 font-mono text-[10px] text-muted-foreground">
+          {name}
         </p>
         {children}
       </div>
@@ -1417,7 +1463,7 @@ function FromThursday({ to, children }: { to?: BotRef; children: ReactNode }) {
   );
 }
 
-function Group({ group, taskId }: { group: ChatterGroup; taskId: string }) {
+function Group({ group, task }: { group: ChatterGroup; task: TaskView }) {
   // User lines (answers, follow-ups) render on Thursday's side.
   if (group.lines[0]?.kind === "user") {
     return (
@@ -1436,52 +1482,38 @@ function Group({ group, taskId }: { group: ChatterGroup; taskId: string }) {
   }
 
   return (
-    <div className="flex animate-in gap-2.5 fade-in slide-in-from-bottom-2 duration-300">
-      <BotMark
-        size={26}
-        seed={group.bot.name}
-        vary={taskId}
-        color={group.bot.icon?.color}
-        shape={group.bot.icon?.shape}
-        outline={group.bot.icon?.outline}
-        notify={false}
-        className="mt-1 shrink-0"
-      />
-
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <p className="flex items-center gap-1 px-1 font-mono text-[10px] text-muted-foreground">
-          <span className="truncate">{group.bot.name}</span>
-          {group.to && (
-            <>
-              <ArrowUpRight className="size-2.5 shrink-0" />
-              <span className="truncate">{group.to.name}</span>
-            </>
-          )}
-        </p>
-
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <Turn
+        side={group.bot.name === task.bot.name ? "start" : "end"}
+        name={group.bot.name}
+        mark={
+          <BotMark
+            size={26}
+            seed={group.bot.name}
+            vary={task.id}
+            color={group.bot.icon?.color}
+            shape={group.bot.icon?.shape}
+            outline={group.bot.icon?.outline}
+            notify={false}
+            className="mt-1 shrink-0"
+          />
+        }
+      >
         {runs(group.lines).map((run) =>
           run.kind === "tools" ? (
-            <Steps key={run.key} lines={run.lines} taskId={taskId} />
+            <Steps key={run.key} lines={run.lines} taskId={task.id} />
           ) : (
             run.lines.map((line) => (
-              <Line key={line.id} line={line} bot={group.bot} taskId={taskId} />
+              <Line key={line.id} line={line} taskId={task.id} />
             ))
           ),
         )}
-      </div>
+      </Turn>
     </div>
   );
 }
 
-function Line({
-  line,
-  bot,
-  taskId,
-}: {
-  line: Chatter;
-  bot: BotRef;
-  taskId: string;
-}) {
+function Line({ line, taskId }: { line: Chatter; taskId: string }) {
   // Consecutive tool calls are grouped in Steps; a lone one lands here.
   if (line.kind === "tool" && line.tool) {
     return <BotTool tool={line.tool} taskId={taskId} />;
@@ -1505,7 +1537,7 @@ function Line({
     );
   }
 
-  // Passing remarks get no bubble; only the outcome is a card.
+  // Passing remarks are muted; the report is the one thing here at full weight.
   if (!isOutcome(line)) {
     return (
       <p className="px-1 text-[12.5px] leading-relaxed break-keep text-muted-foreground">
@@ -1538,51 +1570,36 @@ function Line({
   const failed = line.kind === "error";
 
   return (
-    // The report card: who, what (markdown), and the files it names.
-    <div
-      className={cn(
-        "w-full max-w-full overflow-hidden rounded-2xl bg-background ring-1 dark:bg-white/3",
-        failed ? "ring-destructive/30" : "shadow-black/3 shadow-sm ring-border",
+    // The report is not a card. It sits in a thread that is already in a box,
+    // in a section that is another: a fourth border reads as a second chat
+    // window. What tells it from a passing remark is that it is the only prose
+    // here at foreground weight, plus the files it names — and its copy button
+    // rides the name line above (Turn's tail), where nothing else was.
+    <div className="min-w-0 px-1">
+      {failed && (
+        <p className="mb-1.5 flex items-center gap-1.5 font-mono text-[10px] text-destructive">
+          <X className="size-3 shrink-0" />
+          Could not finish
+        </p>
       )}
-    >
-      {/* No rule under the header: the card is one surface, and the parts are
-          told apart by spacing and tone (CLAUDE.md). */}
-      <div
+      <Markdown
         className={cn(
-          "flex items-center gap-2 px-3 pt-2.5 pb-1.5",
-          failed && "bg-destructive/5 text-destructive",
+          "overflow-x-auto text-[13px] leading-relaxed break-keep [&_h1]:text-[15px] [&_h2]:text-[14px] [&_h3]:text-[13px] [&_h3]:font-semibold [&_li]:my-0.5 [&_table]:text-[12px] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+          failed && "text-destructive",
         )}
       >
-        {failed ? (
-          <X className="size-3.5 shrink-0" />
-        ) : (
-          <BotMark
-            size={18}
-            seed={bot.name}
-            vary={taskId}
-            color={bot.icon?.color}
-            shape={bot.icon?.shape}
-            outline={bot.icon?.outline}
-            notify={false}
-            className="shrink-0"
-          />
+        {line.text}
+      </Markdown>
+      {/* The files it names, and the copy — one row, because the end of the
+          report is where a reader is when they want either. */}
+      <div className="mt-2 flex items-center gap-2">
+        <PathChips text={line.text} className="min-w-0" />
+        {!failed && (
+          <span className="ml-auto shrink-0">
+            <CopyReport text={line.text} />
+          </span>
         )}
-        <span className="text-[12px] font-semibold">
-          {failed ? "Could not finish" : "Report"}
-        </span>
-        <span className="flex-1" />
-        {!failed && <CopyReport text={line.text} />}
       </div>
-
-      <div className="min-w-0 px-3 py-2.5">
-        <Markdown className="overflow-x-auto text-[13px] leading-relaxed break-keep [&_h1]:text-[15px] [&_h2]:text-[14px] [&_h3]:text-[13px] [&_h3]:font-semibold [&_li]:my-0.5 [&_table]:text-[12px] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-          {line.text}
-        </Markdown>
-      </div>
-
-      {/* Files the report names. Chips on the card itself — a banded strip behind
-          a rule read as a second card stapled to the first. */}
-      <PathChips text={line.text} className="px-3 pt-1 pb-3" />
     </div>
   );
 }

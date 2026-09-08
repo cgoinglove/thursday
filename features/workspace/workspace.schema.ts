@@ -3,17 +3,17 @@ import type { FileViewKind } from "./file-kind";
 
 /**
  * What the Workspace section reads. A folder listing is the unit: the section
- * walks one folder at a time, the way the skill browser does.
+ * walks one folder at a time, the way the skill browser does. Nothing here is
+ * recursive — a folder's size is every file under it, and answering that on
+ * every click is what a workspace with a `node_modules` in it cannot afford.
  */
 
-/** A folder row: listed whatever is inside it, so the disk it takes still reads. */
+/** A folder row: a door, not a measurement. `isListedFolder` decides which ones open. */
 export type WorkspaceDir = {
   kind: "dir";
   name: string;
   /** Workspace-relative. */
   path: string;
-  /** Everything under it, openable or not. */
-  bytes: number;
 };
 
 /** A file row. Only kinds the app can open are listed (file-kind `viewKindOf`). */
@@ -21,6 +21,7 @@ export type WorkspaceFile = {
   kind: "file";
   name: string;
   path: string;
+  /** One `stat`, so it costs the same whatever the file weighs. */
   bytes: number;
   /** Last written. */
   at: DateLike;
@@ -30,17 +31,12 @@ export type WorkspaceFile = {
 
 export type WorkspaceEntry = WorkspaceDir | WorkspaceFile;
 
-/** What the whole workspace costs; the section's rail says it on every folder. */
-export type WorkspaceUsage = {
-  bytes: number;
-  /** Files the app can open — never the number of files on disk. */
-  openable: number;
-};
-
-/** One folder, plus the total: both change together, so they travel together. */
+/** One folder. Its own rows and nothing about the rest of the tree. */
 export type WorkspaceFolder = {
   /** Workspace-relative; "" is the root. */
   path: string;
+  /** At most the limit asked for, folders first. */
   entries: WorkspaceEntry[];
-  usage: WorkspaceUsage;
+  /** Everything the folder would list, so the rail can say what is not on screen. */
+  total: number;
 };

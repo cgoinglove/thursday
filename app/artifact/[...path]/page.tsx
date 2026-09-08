@@ -1,6 +1,7 @@
 import { open, readFile, stat } from "node:fs/promises";
 import { notFound } from "next/navigation";
 import { decodePath, queryKey } from "@/app/api/query-key";
+import { WORKSPACE_VIEW } from "@/config";
 import { FileBody } from "@/features/workspace/components/file-view";
 import { viewKindOf } from "@/features/workspace/file-kind";
 import { insideWorkspace } from "@/features/workspace/workspace";
@@ -88,12 +89,6 @@ export default async function ArtifactPage({ params }: Params) {
   );
 }
 
-/**
- * Cap on text rendered by one page. The text goes into the RSC payload whole,
- * so a huge file would freeze the tab; the full file stays behind Download.
- */
-const PREVIEW_MAX_BYTES = 512 * 1024;
-
 /** Reads text kinds on the server so the page needs one round trip. */
 async function Loaded({
   full,
@@ -105,23 +100,23 @@ async function Loaded({
   const info = await stat(full).catch(() => null);
   if (!info?.isFile()) notFound();
 
-  const content =
-    info.size > PREVIEW_MAX_BYTES
-      ? await readHead(full, PREVIEW_MAX_BYTES)
-      : await readFile(full, "utf-8").catch(() => null);
+  // The text goes into the RSC payload whole, so a huge file would freeze the
+  // tab; past the cap only the head is sent and FileBody says so.
+  const over = info.size > WORKSPACE_VIEW.textMax;
+  const content = over
+    ? await readHead(full, WORKSPACE_VIEW.textMax)
+    : await readFile(full, "utf-8").catch(() => null);
   if (content === null) notFound();
 
   return (
     // 5xl: reports are half tables and code, which scroll inside their boxes at reading width.
     <div className="mx-auto max-w-5xl">
-      {info.size > PREVIEW_MAX_BYTES && (
-        <p className="border-b border-border/60 px-6 py-2.5 font-mono text-[11px] text-muted-foreground">
-          Showing the first {Math.round(PREVIEW_MAX_BYTES / 1024)} KB of{" "}
-          {Math.round(info.size / 1024).toLocaleString("en")} KB — the whole
-          file is behind Download.
-        </p>
-      )}
-      <FileBody kind={kind} content={content} where="page" />
+      <FileBody
+        kind={kind}
+        content={content}
+        truncated={over ? info.size : null}
+        where="page"
+      />
     </div>
   );
 }

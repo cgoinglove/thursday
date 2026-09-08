@@ -102,6 +102,43 @@ export function SettingPanes({
   );
 }
 
+/** Index rows are names of different lengths; identical bars read as a table. */
+const GHOST_ROW_WIDTHS = ["w-28", "w-36", "w-24", "w-32", "w-20"];
+
+/**
+ * A panes section waiting on its first read: the same frame, so the surface,
+ * the index's width and the rail are already where they will be when rows
+ * land. Only the index and the header line are drawn — what a right pane holds
+ * differs per section, and a ghost of the wrong shape is a second layout.
+ * A column section's skeleton is `SettingSkeleton`.
+ */
+export function SettingPanesSkeleton({ rows = 7 }: { rows?: number }) {
+  return (
+    <SettingPanes
+      footer={<Skeleton className="h-3 w-64 max-w-full" />}
+      left={
+        <div className="flex flex-col py-2">
+          {Array.from({ length: rows }, (_, row) => (
+            <div key={row} className="mx-2 flex items-center px-2 py-2">
+              <Skeleton
+                className={cn(
+                  "h-3",
+                  GHOST_ROW_WIDTHS[row % GHOST_ROW_WIDTHS.length],
+                )}
+              />
+            </div>
+          ))}
+        </div>
+      }
+      right={
+        <div className="flex h-11 shrink-0 items-center border-b border-border/60 px-6">
+          <Skeleton className="h-3 w-40" />
+        </div>
+      }
+    />
+  );
+}
+
 /**
  * The bottom edge of every section: what the whole set is, and the actions that
  * act on all of it. It also gives a short section a bottom, so the empty half of
@@ -268,6 +305,7 @@ export function SettingDialogContent({
   );
 }
 
+/** A column section waiting on its first read; a panes section uses `SettingPanesSkeleton`. */
 export function SettingSkeleton({ rows = 3 }: { rows?: number }) {
   return (
     <div className={SECTION_PAD}>

@@ -347,6 +347,44 @@ export function groupChatter(lines: Chatter[]): ChatterGroup[] {
   return groups;
 }
 
+/** Every bot that spoke in this thread, the task's own first. */
+export function rosterOf(task: TaskView): BotRef[] {
+  const out: BotRef[] = [task.bot];
+  for (const line of task.lines) {
+    if (!out.some((bot) => bot.name === line.bot.name)) out.push(line.bot);
+  }
+  return out;
+}
+
+/**
+ * The thread in the order it is drawn. A bot arriving is a line of its own
+ * rather than a mark on somebody's message: an `ask` names who is being asked,
+ * and the first time a name appears there, that is the invite.
+ */
+export type ThreadItem =
+  | { kind: "invite"; key: string; from: BotRef; to: BotRef }
+  | { kind: "group"; key: string; group: ChatterGroup };
+
+export function threadItems(task: TaskView): ThreadItem[] {
+  // The task's own bot was invited by Thursday; the request draws that one.
+  const seen = new Set([task.bot.name]);
+  const out: ThreadItem[] = [];
+  for (const group of groupChatter(task.lines)) {
+    if (group.to && !seen.has(group.to.name)) {
+      seen.add(group.to.name);
+      out.push({
+        kind: "invite",
+        key: `${group.key}-joins`,
+        from: group.bot,
+        to: group.to,
+      });
+    }
+    seen.add(group.bot.name);
+    out.push({ kind: "group", key: group.key, group });
+  }
+  return out;
+}
+
 /**
  * Each bot's latest line and the task it belongs to. Bots that took a job but
  * have not spoken yet are included with `line` null.

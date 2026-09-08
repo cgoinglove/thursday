@@ -7,7 +7,7 @@ import {
   Square,
   Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,8 +33,9 @@ import {
 } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { Conversation } from "@/features/bot/components/bot-room";
+import { BotRoster } from "@/features/bot/components/bot-roster";
 import { toolIcon } from "@/features/bot/components/bot-tool";
-import { screenActs, taskFromRow } from "@/features/bot/task.store";
+import { rosterOf, screenActs, taskFromRow } from "@/features/bot/task.store";
 import {
   SettingError,
   SettingFilter,
@@ -231,6 +232,9 @@ function Row({
 }) {
   const live = task.status === "running" || task.status === "waiting";
   const running = task.status === "running";
+  // The thread replayed once per row: the roster reads it, and so does the
+  // expanded Conversation below.
+  const view = useMemo(() => taskFromRow(task, bots), [task, bots]);
   const line = secondLine(task);
   const tokens = task.tokens.input + task.tokens.output;
 
@@ -256,6 +260,7 @@ function Row({
           <span className="min-w-0 flex-1 space-y-0.5">
             <span className="flex items-center gap-2">
               <span className="truncate text-sm font-medium">{task.label}</span>
+              <BotRoster bots={rosterOf(view)} taskId={task.id} />
               {running && (
                 <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground" />
               )}
@@ -338,7 +343,7 @@ function Row({
       {open && (
         <div className="mx-4 mb-4 space-y-2">
           <div className="rounded-xl border border-border/60 bg-background">
-            <Conversation task={taskFromRow(task, bots)} />
+            <Conversation task={view} />
           </div>
           <TaskReply
             task={{

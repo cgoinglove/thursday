@@ -65,7 +65,6 @@ export async function loadBotPrompt(
 
   const text = [
     askedBy ? borrowedIdentity(askedBy) : identity(),
-    ownerInstruction(persona),
     memory(index, carried),
     connectedTools(mcpTools, pinned),
     methods(skills),
@@ -73,6 +72,8 @@ export async function loadBotPrompt(
     roster(peers),
     askedBy ? askingBack(askedBy) : ASKING,
     askedBy ? handingUp(askedBy) : FINISHING,
+    // Last, so it is the closest thing to the work and outranks the rest
+    ownerInstruction(persona),
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -104,15 +105,27 @@ function borrowedIdentity(askedBy: string): string {
   ].join("\n\n");
 }
 
-const MACHINE = `**You are on a real computer — the user's own.** You have a shell and a filesystem, and the job is done, not described. If there is no tool for something, write one; if a runtime or a package is missing, install it. Reach for \`${TOOL_NAMES.bash}\` before you conclude that something cannot be done.
+const MACHINE = `**You are on a real computer — the user's own.** You have a shell and a filesystem, and the job is done, not described: where there is no tool for something, write one — in \`node\` unless they asked for another language, the runtime this app itself runs on. Reach for \`${TOOL_NAMES.bash}\` before concluding that something cannot be done, but after the roster, not instead of it: a script you write to do another bot's job is the long way round.
+
+**What is missing gets installed.** Inside the workspace, freely; onto the machine itself — \`python3\`, a \`brew\` package — once they say yes, so ask. What is already there is nobody's question.
 
 **Bring back the thing itself** — their own machine, their own accounts, their own copy of whatever they sent you for — not a smaller safer version of it, and not a note on why you did not.`;
 
 const NO_GUESSING = `**Never present a guess as a result.** She says it out loud as fact. Say which part is unverified and why.`;
 
-/** Owner's instruction for this bot from settings; no heading when empty. */
+/**
+ * What the owner wrote about this bot in settings. Carries the sentence that
+ * settles a conflict: everything above is the app's default, and a bot whose
+ * own instructions lose to a default is not the bot the owner configured.
+ */
 const ownerInstruction = (persona?: string | null) =>
-  persona?.trim() ? `## Owner's instructions\n\n${persona.trim()}` : "";
+  persona?.trim()
+    ? `## Owner's instructions
+
+Written by the person this bot works for. Where these and anything above disagree, these win.
+
+${persona.trim()}`
+    : "";
 
 /** A bot reads memory and adds to it; revising and naming are the call's (load-tools), so the chapter is that small. */
 function memory(
@@ -187,7 +200,7 @@ function roster(peers: JobBot[]): string {
 
 ${peers.map((bot) => `- **${bot.name}** — ${bot.description}`).join("\n")}
 
-A part of your job another bot is for goes to \`${TOOL_NAMES.ask_bot}\` — including when a tool in your own hand would half-do it, because their tools and their practice are the reason they exist. What you build is made of what they bring back, so send for it before you build; doing it yourself is what is left when nobody fits. The job stays yours and you report; they see only your brief — not the call, not this thread — so brief them whole.`;
+A part of your job another bot is for goes to \`${TOOL_NAMES.ask_bot}\`, because their tools and their practice are the reason they exist. What you build is made of what they bring back, so send for it before you build. A part you could finish in a couple of commands is yours; one that would take a run of its own is theirs. The job stays yours and you report; they see only your brief — not the call, not this thread.`;
 }
 
 /** The only place a run can stop. The user's request to buy, pay or top up is itself the go-ahead. */

@@ -318,6 +318,39 @@ const CAPTION_LINES = 3;
 const CAPTION_TURN_LINES = [5, 3, 2];
 
 /**
+ * Type size by age. The step is a real one — 18 / 15 / 13 — because it is what
+ * tells two turns apart once neither carries an edge.
+ */
+const CAPTION_SIZES = ["text-lg", "text-[15px]", "text-[13px]"];
+
+/** Inner padding by age: a smaller turn sits on a smaller plate. */
+const CAPTION_PADS = ["px-4 py-3", "px-3.5 py-2.5", "px-3 py-2"];
+
+/**
+ * The plate a turn sits on: fill, no edge. The call screen's ground is the
+ * page's own — the ascii field is boot and intro only — so an outline covers
+ * nothing and ends up being the whole design.
+ *
+ * Yours is the surface `Bubble` already gives your words in the task thread
+ * (primary, light ink); hers is the page's grey. Age recedes in the fill, not
+ * in the block's opacity, which would take the ink down with it.
+ */
+const CAPTION_HERS = ["bg-muted", "bg-muted/70", "bg-muted/45"];
+const CAPTION_YOURS = ["bg-primary", "bg-primary/75", "bg-primary/60"];
+
+/** A step off a ramp above. The ramps run out at VISIBLE; the last step is the floor. */
+function atAge(ramp: readonly string[], age: number) {
+  return ramp[age] ?? ramp[ramp.length - 1];
+}
+
+/** Ink by age. Hers recedes with her plate; yours stays legible on every step of its own. */
+const CAPTION_HERS_INK = [
+  "text-foreground",
+  "text-muted-foreground",
+  "text-muted-foreground/60",
+];
+
+/**
  * Line height as a number, not a class: box height and page offset divide by
  * it, and a class could be overridden by a later `text-*` utility.
  */
@@ -558,23 +591,31 @@ function Ear({
  * Activity line: tool icon and human phrasing (tool-line). Running is shown by
  * motion (loader in the icon slot, shine on the text), not color; the loader
  * resolving into the tool's own glyph is what "finished" looks like.
+ *
+ * No pill. This slot cross-fades with the listening chip, which has no
+ * container, so an outline under one of the two read as the line changing
+ * shape rather than changing state.
  */
 function Activity({ tool, micOff }: { tool: ToolRun; micOff: boolean }) {
   // a relay from a bot is a flag, like the report tool
   const relay = tool.kind === "relay";
   const Icon = relay ? Flag : toolIcon(tool.name);
   return (
-    <span className="flex max-w-full items-center gap-2 rounded-full bg-muted/80 py-1 pr-3 pl-2 ring-1 ring-border/50">
-      <span className="relative grid size-5 shrink-0 place-items-center">
+    <span className="flex max-w-full items-center gap-2">
+      {/* 20px slot for a 14px glyph: the badge below needs the corner, and the
+          row keeps the icon width the listening meter beside it has */}
+      <span className="relative mr-0.5 grid size-5 shrink-0 place-items-center">
         {tool.done ? (
           <Icon className="size-3.5 text-muted-foreground" />
         ) : (
           <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
         )}
         {/* The mic is closed because this is running, so the mark sits on its
-            cause. As a row of its own it read as a warning about the mic. */}
+            cause. As a row of its own it read as a warning about the mic. The
+            padded disc is the separation the pill used to give it: on the bare
+            page the two glyphs otherwise share strokes and read as a smudge. */}
         {micOff && (
-          <MicOff className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-background text-muted-foreground" />
+          <MicOff className="absolute -right-1.5 -bottom-1.5 size-4 rounded-full bg-background p-[3.5px] text-muted-foreground" />
         )}
       </span>
       {/* The sentence when there is one; otherwise the tool's own name is the
@@ -604,8 +645,8 @@ function Activity({ tool, micOff }: { tool: ToolRun; micOff: boolean }) {
 
 /**
  * The activity slot: 28px, one fact at a time, two faces. Both stay mounted and
- * cross-fade, so the pill leaves wearing its last line instead of blinking out,
- * and the caption below never moves while they trade places.
+ * cross-fade, so the line leaves wearing its last words instead of blinking
+ * out, and the caption below never moves while they trade places.
  */
 function ActivityRow({
   tool,
@@ -830,9 +871,10 @@ const VISIBLE = 3;
 const STEP = 200;
 
 /**
- * Recent turns beside the face: yours on the right, hers on the left, both as
- * bubbles. Anchored outside the face box (`right-full` / `left-full`) so they
- * never cover it. Older turns sit higher and fade.
+ * Recent turns beside the face: yours on the right, hers on the left, each on
+ * a fill with no edge. Anchored outside the face box (`right-full` /
+ * `left-full`) so they never cover it. Older turns sit higher, smaller, and
+ * their plate recedes.
  */
 function SideCaptions({ messages }: { messages: CallMessage[] }) {
   const [back, setBack] = useState(0);
@@ -888,9 +930,13 @@ function SideCaptions({ messages }: { messages: CallMessage[] }) {
       {shown.map((message, index) => {
         // the speaker fixes the side, so a turn never switches sides as older ones stack up
         const mine = message.role === "user";
-        // 18..68 rather than 20..75: a five-line newest turn has to clear the chip
+        // 18..68 rather than 20..75: a five-line newest turn has to clear the activity line
         const top = 18 + (index * 50) / Math.max(1, shown.length - 1);
         const age = shown.length - 1 - index;
+        const size = atAge(CAPTION_SIZES, age);
+        const pad = atAge(CAPTION_PADS, age);
+        const fill = atAge(mine ? CAPTION_YOURS : CAPTION_HERS, age);
+        const ink = atAge(CAPTION_HERS_INK, age);
 
         return (
           <div
@@ -901,25 +947,26 @@ function SideCaptions({ messages }: { messages: CallMessage[] }) {
               transform: `translateY(calc(-50% + ${-give * 6}px))`,
             }}
             className={cn(
-              // fixed-width slot, natural-width bubble: short lines stay short and hug the face
+              // fixed-width slot, natural-width plate: short lines stay short and hug the face
               "pointer-events-auto absolute flex w-[min(23rem,24vw)] transition-transform duration-100",
-              // yours on the right, the side the chip and the settings corner already take
+              // yours on the right, the side the settings corner already takes
               mine ? "left-full ml-6" : "right-full mr-6 justify-end",
-              age === 1 && "opacity-55",
-              age >= 2 && "opacity-30",
             )}
           >
-            {/* Not a `Bubble`: that sets its surface on the content from the parent,
-                at a specificity a caption cannot override. Two surfaces, one shape —
-                yours is a fill with no edge, hers is the page's own dark held by a
-                hairline, so the field behind her keeps showing through. The squared
-                corner is the one nearest the face. */}
+            {/* Not a `Bubble`: that sets its surface on the content from the
+                parent, at a specificity a caption cannot override. One shape,
+                two fills — and no edge on either, so the plate is the whole
+                surface. The squared corner is the one nearest the face. */}
             <div
               className={cn(
-                "w-fit max-w-full animate-in rounded-[18px] px-4 py-3 fade-in duration-500",
+                "w-fit max-w-full animate-in rounded-[18px] fade-in duration-500",
+                pad,
                 mine
-                  ? "rounded-bl-md bg-accent/60 text-right slide-in-from-left-2"
-                  : "rounded-br-md bg-background/70 text-left ring-1 ring-border slide-in-from-right-2 backdrop-blur-sm",
+                  ? cn(
+                      "rounded-bl-md text-primary-foreground slide-in-from-left-2",
+                      fill,
+                    )
+                  : cn("rounded-br-md slide-in-from-right-2", fill, ink),
               )}
             >
               {/* One truncation idiom on both sides: speech that runs past the
@@ -927,9 +974,7 @@ function SideCaptions({ messages }: { messages: CallMessage[] }) {
               <Flow
                 text={message.text}
                 lines={CAPTION_TURN_LINES[age] ?? 2}
-                className={
-                  age === 0 ? "text-lg" : age === 1 ? "text-base" : "text-sm"
-                }
+                className={size}
               />
             </div>
           </div>

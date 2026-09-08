@@ -20,12 +20,13 @@ import { type ReactNode, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/notify";
+import { WORKSPACE_VIEW } from "@/config";
 import {
   SettingError,
   SettingFilter,
   SettingPanes,
+  SettingPanesSkeleton,
   SettingRailNote,
-  SettingSkeleton,
 } from "@/features/settings/components/setting-ui";
 import { FilePreview } from "@/features/workspace/components/file-view";
 import type { FileViewKind } from "@/features/workspace/file-kind";
@@ -48,11 +49,10 @@ import { cn, formatBytes } from "@/lib/utils";
  * What the bots wrote, browsed the way the skill browser browses a skill: one
  * folder at a time, a back row up, the picked file drawn on the right.
  *
- * Only files the app can open are listed — a bot also writes node_modules,
- * browser snapshots and spilled tool output, and none of that earns a row.
- * Folders are listed whatever is inside them, carrying what they take on disk,
- * so the listing and the disk number answer different questions and the rail
- * says both.
+ * The section shows work, not machinery: only files the app can open, and only
+ * folders `isListedFolder` keeps — a bot also writes node_modules, browser
+ * snapshots and spilled tool output. No row carries a folder's size, because
+ * a folder's size is every file under it and this screen opens on a click.
  */
 
 /** Every kind `viewKindOf` returns; the section is the only place a kind is drawn. */
@@ -71,16 +71,28 @@ const KIND_ICONS: Record<FileViewKind, typeof File> = {
 export function WorkspaceSetting() {
   /** Workspace-relative folder being listed; "" is the root. */
   const [dir, setDir] = useState("");
+  /** Rows asked for. A bot's folder can hold thousands; Show more raises it. */
+  const [rows, setRows] = useState(WORKSPACE_VIEW.rows);
   /** The open file. It survives browsing, the way the skill browser's does. */
   const [file, setFile] = useState<WorkspaceFile | null>(null);
   const [filter, setFilter] = useState("");
 
   const { data, isLoading, error } = useServerRoute<WorkspaceFolder>(
-    queryKey.workspaceFolder(dir),
+    queryKey.workspaceFolder(dir, rows),
+    // Entering a folder and asking for more rows both change the key. Without
+    // this the panes fall back to the skeleton every time, which unmounts the
+    // open file and re-reads it; the skeleton is for the first read only.
+    { keepPreviousData: true },
   );
 
+  /** A folder is entered at the first page, never at the last one's depth. */
+  const enter = (path: string) => {
+    setDir(path);
+    setRows(WORKSPACE_VIEW.rows);
+  };
+
   const [emptyScratch, emptying] = useServerAction(emptyScratchAction, {
-    okMessage: ({ bytes }) => `Freed ${formatBytes(bytes)}`,
+    okMessage: "Scratch emptied",
     onOk: () => revalidate(queryKey.workspace),
   });
 
@@ -97,17 +109,17 @@ export function WorkspaceSetting() {
     if (confirmed) emptyScratch();
   };
 
-  if (isLoading) return <SettingSkeleton rows={4} />;
+  if (isLoading) return <SettingPanesSkeleton />;
   if (error) return <SettingError message={error.message} />;
 
   const entries = data?.entries ?? [];
+  const total = data?.total ?? 0;
   const needle = filter.trim().toLowerCase();
   const shown = needle
     ? entries.filter((entry) => entry.name.toLowerCase().includes(needle))
     : entries;
   const folders = shown.filter((entry) => entry.kind === "dir");
   const files = shown.filter((entry) => entry.kind === "file");
-  const usage = data?.usage ?? { bytes: 0, openable: 0 };
   // A fresh row when the open file is in the folder on screen, so size and age
   // follow a rewrite; the last known row otherwise.
   const open =
@@ -120,14 +132,12 @@ export function WorkspaceSetting() {
       footer={
         <>
           <SettingRailNote>
+            {/* This folder, not the tree: the section never reads below the row it draws. */}
             <span className="font-mono">
-              {`.ai-workspace · ${usage.openable} ${
-                usage.openable === 1 ? "file" : "files"
-              } you can open · `}
               <span className="font-medium text-foreground">
-                {formatBytes(usage.bytes)}
+                {`.ai-workspace${dir ? `/${dir}` : ""}`}
               </span>
-              {" on disk"}
+              {` · ${countLine(entries, total)}`}
             </span>
           </SettingRailNote>
           <Button
@@ -161,7 +171,7 @@ export function WorkspaceSetting() {
           {dir && (
             <button
               type="button"
-              onClick={() => setDir(dir.split("/").slice(0, -1).join("/"))}
+              onClick={() => enter(dir.split("/").slice(0, -1).join("/"))}
               className="mx-2 mb-1 flex items-center gap-1 rounded-md px-2 py-1 text-left font-mono text-[11px] text-muted-foreground outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
             >
               <ChevronLeft className="size-3 shrink-0" />
@@ -182,7 +192,7 @@ export function WorkspaceSetting() {
                   <EntryRow
                     key={entry.path}
                     entry={entry}
-                    onPick={() => setDir(entry.path)}
+                    onPick={() => enter(entry.path)}
                   />
                 ))}
               </Group>
@@ -198,6 +208,17 @@ export function WorkspaceSetting() {
               </Group>
             </>
           )}
+
+          {total > entries.length && (
+            <button
+              type="button"
+              onClick={() => setRows(rows + WORKSPACE_VIEW.rows)}
+              className="mx-2 mt-2 rounded-md px-2 py-1.5 text-left font-mono text-[11px] text-muted-foreground outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
+            >
+              {/* The filter only sees loaded rows, so the count says what it is not searching */}
+              {`Show ${Math.min(WORKSPACE_VIEW.rows, total - entries.length)} more of ${total.toLocaleString("en")}`}
+            </button>
+          )}
         </div>
       }
       right={
@@ -205,11 +226,29 @@ export function WorkspaceSetting() {
           // Keyed so one file's scroll and fetch never carry into the next
           <FilePage key={open.path} file={open} onGone={() => setFile(null)} />
         ) : (
-          <Nothing empty={usage.openable === 0} onReveal={() => reveal(".")} />
+          <Nothing
+            empty={!dir && entries.length === 0}
+            onReveal={() => reveal(".")}
+          />
         )
       }
     />
   );
+}
+
+/** What the folder holds, for the rail. Counts rows, so it costs nothing to say. */
+function countLine(entries: WorkspaceEntry[], total: number): string {
+  const folders = entries.filter((entry) => entry.kind === "dir").length;
+  const files = entries.length - folders;
+  const parts = [
+    folders && `${folders} ${folders === 1 ? "folder" : "folders"}`,
+    files && `${files} ${files === 1 ? "file" : "files"}`,
+  ].filter(Boolean);
+  if (!parts.length) return "empty";
+  const line = parts.join(" · ");
+  return total > entries.length
+    ? `${line} of ${total.toLocaleString("en")}`
+    : line;
 }
 
 /** A labelled run of rows; drawn only when it has any, so a folder of files has no empty heading. */
@@ -261,13 +300,16 @@ function EntryRow({
     >
       <Icon className="size-3.5 shrink-0 opacity-70" />
       <span className="min-w-0 flex-1 truncate">{entry.name}</span>
-      <span className="shrink-0 font-mono text-[11px] text-muted-foreground/75">
-        {formatBytes(entry.bytes)}
-      </span>
-      {entry.kind === "dir" ? (
-        <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/50" />
+      {entry.kind === "file" ? (
+        <>
+          <span className="shrink-0 font-mono text-[11px] text-muted-foreground/75">
+            {formatBytes(entry.bytes)}
+          </span>
+          <span className="w-3.5 shrink-0" />
+        </>
       ) : (
-        <span className="w-3.5 shrink-0" />
+        // A folder says no size: reading one means walking everything under it
+        <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/50" />
       )}
     </button>
   );
@@ -299,8 +341,9 @@ function Nothing({
           </p>
           <p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
             Only what the app can open is listed — a page, a table, a picture, a
-            note. Folders are listed whatever is inside them, with what they
-            take on disk, so what a bot installed still shows up.
+            note. Installed packages and tool leftovers are left out, and no
+            folder is measured, so a folder opens as fast as it lists. Reveal
+            folder for everything else.
           </p>
         </>
       )}
@@ -378,7 +421,7 @@ function FilePage({
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
-        <FilePreview path={path} />
+        <FilePreview path={path} bytes={file.bytes} />
       </div>
     </>
   );

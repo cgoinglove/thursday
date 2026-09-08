@@ -3,16 +3,18 @@
 A local-first voice agent. A realtime speech model ("Thursday") holds the call and only touches
 what can be answered in a glance (memory, one file). Anything that takes time — MCP, skills,
 a browser, minute-long jobs — is delegated to text-model bots that run in the background with a
-shell, a browser and skills. Jobs outlive the call: they run on the server, and the screen is a
-projection of server state.
+shell, a browser and skills; a skill is the one thing that can be handed back to the call
+(Settings › Thursday, off by default). Jobs outlive the call: they run on the server, and the
+screen is a projection of server state.
 
 **This is a public open-source repository** (MIT, `github.com/cgoinglove/thursday`, published to
 npm as `thursday-agent`). Everything committed here is read by strangers and shipped to their
 machines. Two things follow, and they are not style preferences:
 
-- **Write for a reader who has never met this code.** English, present tense. No Korean in
-  committed files except a `@KOREAN` note beside model-facing text that was drafted in Korean.
-  No personal names, machine paths, keys, or half-finished thoughts in a comment.
+- **Write for a reader who has never met this code.** English, present tense. `README.ko.md` is
+  the one translated file; everywhere else in the tree is English — comments, prompts, strings,
+  identifiers, commit messages. Not even as an example inside a comment. No personal names,
+  machine paths, keys, or half-finished thoughts in a comment.
 - **Anything private is named `*.local.*`** — a scratch note, a task list, a plan, a local
   override. `.gitignore` covers that shape, so a file named this way can never be committed by
   accident. `ux.local.md` is the working example. Never `git add -f` one, and never rename one
@@ -114,11 +116,20 @@ in `outputFileTracingIncludes`, not left to the trace.
     changes. A per-section width was tried and reverted: it moved the title and the skeleton on
     every switch, which reads as three designs rather than one.
   - **What is a surface fills the section instead**: a reader's panes (`SettingPanes` — Memory,
-    Bots) and every rail's rule go edge to edge. Both panes reach the bottom edge, so nothing
-    clips, and the rail below them is the section's, not a pane's.
+    Bots, Workspace) and every rail's rule go edge to edge. Both panes reach the bottom edge, so
+    nothing clips, and the rail below them is the section's, not a pane's.
+  - **A section waits in the shape it arrives in.** `SettingSkeleton` is the column's;
+    `SettingPanesSkeleton` is the panes', built out of `SettingPanes` so the two cannot drift.
+    Both waits use it — the section's own read and the chunk (`lazySection`'s second argument) —
+    or opening one section draws two layouts. Neither belongs in a dialog: a dialog has its own
+    padding, so it waits as plain `Skeleton` lines shaped like what is coming.
   - `SettingRail` is the bottom edge of every section: what the whole set is, plus the actions
     that act on all of it. It also gives a short section a bottom, so the empty half of a tall
-    dialog reads as margin rather than a truncated page.
+    dialog reads as margin rather than a truncated page. **What cannot be undone is not a rail
+    action**: the rail is on screen the whole time a section is open, so a wipe sits at the foot
+    of the body as a `Danger zone` group and is reached by scrolling to it (Thursday's Reset
+    history). A panes section has no body to put one in, so its rail keeps that action
+    (Workspace's Empty scratch).
   - **Every list in a section body is the same card** (`SettingItems`), however long it runs:
     Tasks was a full-bleed log of dividers and read as a different app one nav row over.
     Dividers-only belongs where there is already a surface — a reader's pane, a dialog.
@@ -135,12 +146,27 @@ in `outputFileTracingIncludes`, not left to the trace.
     wraps gets its own leading. Any list that grows carries a `SettingFilter` — on its group's
     header line when it filters that group, on the section's (`SettingToolbar`) when it filters
     more than one. Cmd+K focuses it, Cmd+1..9 jump sections, arrows move inside the nav.
-- **`file-kind.ts` decides two things, not one.** A file's `viewKindOf` says how the screen
-  opens it *and* whether the Workspace section lists it at all: a kind of `none` is never listed,
-  because a bot also writes node_modules, browser snapshots and spilled tool output. Folders are
-  listed whatever is inside them, carrying what they take on disk, so the listing and the disk
-  number answer different questions and the rail says both. Giving an extension a kind puts it on
-  that screen; taking one away removes it.
+- **Artifacts and Workspace are two sections because they answer two questions.** Artifacts
+  (`features/artifact`) lists **the top of `artifacts/` only, one entry per row** — which is
+  already how the bots file things: a skill writes `artifacts/<name>.html`, a job that makes a set
+  writes `artifacts/<name>/`. So the folder is the index; nothing is recorded, and no artifact is
+  attributed to a job. The menu is flat and newest-first, and **a folder does not open into another
+  listing** — it opens as a sheet of what it holds, which is what a set of pictures is for.
+  Navigating a tree, and everything a bot wrote that is not finished work, is Workspace's. Both
+  open files through the same `FilePreview`, so the caps below hold in both.
+- **`file-kind.ts` decides what the Workspace section shows.** A file's `viewKindOf` says how the
+  screen opens it *and* whether it is listed at all — a kind of `none` is never listed — and
+  `isListedFolder` says the same for folders: hidden ones and what a package manager installs are
+  machinery, not work. Giving an extension a kind puts it on that screen; taking one away removes it.
+- **Nothing in the Workspace section is recursive.** A folder's size is every file under it, and a
+  bot that ran one `pnpm install` puts 16,000 of them in the tree — so no folder is measured and
+  no total is summed. One `readdir` per folder, one `stat` per file actually drawn, capped at
+  `WORKSPACE_VIEW.rows` with the rest behind Show more, so a folder of twenty and a folder of
+  twenty thousand cost the same. Only files carry a size, because one `stat` is free. `du`
+  questions go to Reveal folder. What the browser is handed is capped the same way
+  (`WORKSPACE_VIEW.textMax` / `elementMax`): text arrives as a Range and says it is a head, and an
+  image or page past the cap is not drawn at all — an `<img>` decodes whole and a dead tab
+  explains nothing. Audio and video are uncapped; they stream.
 - **Don't split files by size.** A long file that does one thing stays one file.
 - **An interface with one implementation is two files, not an interface.** Don't add ports.
 
@@ -217,6 +243,15 @@ A 30-second poll remains as a safety net. No WebSockets.
   `text-destructive`). Success, connected and enabled have no color. There is no brand color, so a
   green would become one. The settings nav reports the same two and nothing else (`NavBadge`).
 - Errors are never swallowed. Inline or toast, they reach the user.
+- **A task's thread is a room its own bot owns** (`bot-room.tsx` `Conversation`). That bot holds the
+  left; everyone it talks to — Thursday, and any bot it delegated to — answers from the right, and
+  one 80% cap sits on the turn's column so a report and a one-line remark end on the same edge.
+  A bot arriving is a centred system line (`Invite`), drawn once, where an `ask` first names it —
+  not an arrow on somebody's message, and never on the way back: after that the side and the face
+  say who is speaking, the way a group chat does. **The report is not a card**: it is already inside
+  a thread inside a section, and a third border reads as a second chat window. What tells it from a
+  passing remark is that it is the only prose there at foreground weight, plus the files it names.
+  Who was in the room is `rosterOf` — derived from the lines, never a table.
 
 # Rules
 

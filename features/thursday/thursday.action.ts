@@ -2,6 +2,7 @@
 
 import { asSchema } from "ai";
 import { after } from "next/server";
+import z from "zod";
 import { loadTools } from "@/features/ai/load-tools";
 import {
   SPEACH_MODEL_PROVIDER_LIST,
@@ -26,6 +27,7 @@ import {
   endCall,
   insertCall,
   saveTurns,
+  writeCallSkillsOn,
 } from "./thursday.query";
 import {
   type CallHandshake,
@@ -124,6 +126,14 @@ export const openCallAction = serverAction(
     };
   },
 );
+
+/**
+ * Hands the call `load_skill`, or takes it back. Nothing is cached: the next
+ * call builds its tool set and its prompt from this (ai/load-tools).
+ */
+export const setCallSkillsAction = serverAction(async (on: unknown) => {
+  await writeCallSkillsOn(z.boolean().parse(on));
+});
 
 export const saveTurnsAction = serverAction(
   async (callId: string, turns: unknown) => {

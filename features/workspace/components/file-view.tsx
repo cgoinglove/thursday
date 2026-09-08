@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { queryKey } from "@/app/api/query-key";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Markdown } from "@/components/ui/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,6 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { WORKSPACE_VIEW } from "@/config";
 import {
   type FileViewKind,
   viewKindOf,
@@ -28,7 +30,7 @@ import {
 } from "@/features/workspace/file-kind";
 import { openFileAction } from "@/features/workspace/workspace.action";
 import { useServerAction } from "@/lib/protocol/use-server-action";
-import { cn, errorToString } from "@/lib/utils";
+import { cn, errorToString, formatBytes } from "@/lib/utils";
 
 /**
  * Renders workspace files; shared by the viewer page (/artifact) and the
@@ -164,11 +166,41 @@ export type FileViewPlace = "dialog" | "page";
 export function FileBody({
   kind,
   content,
+  truncated,
   where = "dialog",
 }: {
   kind: FileViewKind;
   content: string;
+  /** The file's size on disk when only its head is here; null when whole. */
+  truncated?: number | null;
   where?: FileViewPlace;
+}) {
+  return (
+    <>
+      {truncated != null && <Truncated of={truncated} />}
+      <Body kind={kind} content={content} where={where} />
+    </>
+  );
+}
+
+/** Says the text is a head, not the file — a cut CSV row or JSON tail reads as corrupt otherwise. */
+function Truncated({ of }: { of: number }) {
+  return (
+    <p className="border-b border-border/60 px-5 py-2.5 font-mono text-[11px] text-muted-foreground">
+      {`Showing the first ${formatBytes(WORKSPACE_VIEW.textMax)} of ${formatBytes(of)}. `}
+      Open the file itself for the rest.
+    </p>
+  );
+}
+
+function Body({
+  kind,
+  content,
+  where,
+}: {
+  kind: FileViewKind;
+  content: string;
+  where: FileViewPlace;
 }) {
   const pad = PAD[where];
   switch (kind) {
@@ -189,41 +221,83 @@ export function FileBody({
 }
 
 /**
- * A workspace file's text. The raw route carries no Result envelope, so this
+ * A workspace file's head. The raw route carries no Result envelope, so this
  * fetches rather than going through the SWR hook.
+ *
+ * The request is a Range, never the whole file: a bot writes logs and dumps
+ * that no `<pre>` survives, and the size is not known before asking. What came
+ * back short is reported as `truncated`, so the view can say so.
  */
 export function useFileText(path: string | null) {
   const [content, setContent] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  /** The file's size on disk when only its head arrived; null when whole. */
+  const [truncated, setTruncated] = useState<number | null>(null);
 
   useEffect(() => {
     if (!path) return;
     setContent(null);
     setFailure(null);
+    setTruncated(null);
     let gone = false;
-    fetch(queryKey.file(path))
+    fetch(queryKey.file(path), {
+      headers: { range: `bytes=0-${WORKSPACE_VIEW.textMax - 1}` },
+    })
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text());
-        return res.text();
+        return { text: await res.text(), of: shortOf(res) };
       })
-      .then((text) => !gone && setContent(text))
+      .then(({ text, of }) => {
+        if (gone) return;
+        // Drop the last, partial line so a cut never reads as the file's own
+        const cut =
+          of === null
+            ? text
+            : text.slice(0, text.lastIndexOf("\n") + 1 || undefined);
+        setContent(cut);
+        setTruncated(of);
+      })
       .catch((cause) => !gone && setFailure(errorToString(cause)));
     return () => {
       gone = true;
     };
   }, [path]);
 
-  return { content, failure };
+  return { content, failure, truncated };
+}
+
+/**
+ * The file's full size when the response is only part of it, else null. A file
+ * under the cap answers 206 too, so the range's end is what decides.
+ */
+function shortOf(res: Response): number | null {
+  const parts = res.headers
+    .get("content-range")
+    ?.match(/^bytes \d+-(\d+)\/(\d+)$/);
+  if (!parts) return null;
+  const [, end, size] = parts.map(Number);
+  return end + 1 < size ? size : null;
 }
 
 /**
  * One file drawn where it sits (the Workspace section). Kinds the browser fills
  * itself are elements; text kinds fetch and go through `FileBody`.
  */
-export function FilePreview({ path }: { path: string }) {
+export function FilePreview({ path, bytes }: { path: string; bytes: number }) {
   const kind = viewKindOf(path);
   // Only text kinds are fetched; the rest are elements the browser fills itself.
-  const { content, failure } = useFileText(OWN_PAGE.has(kind) ? null : path);
+  const { content, failure, truncated } = useFileText(
+    OWN_PAGE.has(kind) ? null : path,
+  );
+
+  // An `<img>` decodes whole and a huge page cannot be scrolled, and neither
+  // says so — it just stops. Audio and video are absent: those stream.
+  if (
+    (kind === "frame" || kind === "image") &&
+    bytes > WORKSPACE_VIEW.elementMax
+  ) {
+    return <TooBig path={path} bytes={bytes} />;
+  }
 
   if (kind === "frame") {
     // No sandbox: the html is local and just written by a bot; sandboxing only
@@ -270,7 +344,27 @@ export function FilePreview({ path }: { path: string }) {
       </div>
     );
   }
-  return <FileBody kind={kind} content={content} />;
+  return <FileBody kind={kind} content={content} truncated={truncated} />;
+}
+
+/** Past `elementMax`: the preview says what it is instead of taking the tab down with it. */
+function TooBig({ path, bytes }: { path: string; bytes: number }) {
+  const [reveal, revealing] = useServerAction(openFileAction);
+  return (
+    <div className="space-y-4 p-8">
+      <p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
+        {`This file is ${formatBytes(bytes)} — too big to draw here without `}
+        taking the window with it. Open it where it is instead.
+      </p>
+      <Button
+        variant="outline"
+        loading={revealing}
+        onClick={() => reveal(path)}
+      >
+        Reveal in the file manager
+      </Button>
+    </div>
+  );
 }
 
 /** A text file in a dialog, fetched from the raw route when opened. */
@@ -284,7 +378,7 @@ export function FileDialog({
   kind: FileViewKind;
   onClose: () => void;
 }) {
-  const { content, failure } = useFileText(path);
+  const { content, failure, truncated } = useFileText(path);
   const name = path?.split("/").pop() ?? "";
 
   return (
@@ -308,7 +402,7 @@ export function FileDialog({
               <Skeleton className="h-4 w-5/6" />
             </div>
           ) : (
-            <FileBody kind={kind} content={content} />
+            <FileBody kind={kind} content={content} truncated={truncated} />
           )}
         </div>
       </DialogContent>

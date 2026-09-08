@@ -33,6 +33,7 @@ import {
   SettingSkeleton,
   SettingToggle,
 } from "@/features/settings/components/setting-ui";
+import type { SkillSummary } from "@/features/skills/skills.schema";
 import { CallHistoryRow } from "@/features/thursday/components/call-log";
 import { FACES, Face } from "@/features/thursday/components/face";
 import {
@@ -44,7 +45,10 @@ import {
   setThursdayFace,
   useThursdayFace,
 } from "@/features/thursday/face.store";
-import { resetHistoryAction } from "@/features/thursday/thursday.action";
+import {
+  resetHistoryAction,
+  setCallSkillsAction,
+} from "@/features/thursday/thursday.action";
 import {
   CALL_BACK_LABEL,
   CALL_BACK_MODES,
@@ -67,11 +71,13 @@ import {
 import { COMMON_VALIDATE } from "@/lib/limits";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
-import { cn } from "@/lib/utils";
+import { cn, WAITING_INK } from "@/lib/utils";
 
 /**
  * Settings for the call: face, voice provider, captions, wake word, call-back,
- * shortcut, instructions. The face is kept in the browser (face.store).
+ * shortcut, skills, reading calls back, instructions. Everything up to the
+ * shortcut is kept in the browser (thursday.store, face.store); the two after
+ * it are the server's, because they are read where no browser is.
  */
 export function ThursdaySetting() {
   // local store: no waiting, no revalidation
@@ -95,13 +101,10 @@ export function ThursdaySetting() {
   return (
     <SettingScreen
       footer={
-        <>
-          <SettingRailNote>
-            Her prompt is assembled fresh on every call — memory, the roster and
-            your skills go in.
-          </SettingRailNote>
-          <ResetHistory />
-        </>
+        <SettingRailNote>
+          Her prompt is assembled fresh on every call — memory, the roster and
+          your skills go in.
+        </SettingRailNote>
       }
     >
       <FacePicker value={face} onChange={setThursdayFace} />
@@ -146,14 +149,60 @@ export function ThursdaySetting() {
         onChange={(hotkey) => patch({ hotkey })}
       />
 
-      {/* Server-side, unlike everything above it: the pass runs without a browser (memory.tidy) */}
+      {/* The last two are server-side, unlike everything above them: the tool set
+          is built where a call opens (ai/load-tools) and the pass runs without a
+          browser (memory.tidy) */}
+      <SkillsSetting />
+
       <TidySetting />
 
       <Instructions
         value={thursday.systemPrompt ?? ""}
         onSave={(systemPrompt) => patch({ systemPrompt })}
       />
+
+      <ResetHistory />
     </SettingScreen>
+  );
+}
+
+/**
+ * Whether the call is handed `load_skill`. Off by default: reading a skill is a
+ * page of instructions arriving mid-sentence, and everything a skill describes
+ * that takes time is a bot's anyway. `SettingToggle`, like Wake and Shortcut.
+ */
+function SkillsSetting() {
+  const { data } = useServerRoute<boolean>(queryKey.callSkills);
+  const [setOn] = useServerAction(setCallSkillsAction, {
+    onOk: () => revalidate(queryKey.callSkills),
+  });
+
+  return (
+    <SettingGroup label="Skills">
+      <SettingToggle
+        label="Read a skill herself"
+        description="A skill is how a thing is done here, written down. On, she opens one mid-call and follows it; off, only bots read them."
+        checked={data ?? false}
+        disabled={data === undefined}
+        onChange={(on) => setOn(on)}
+      >
+        <InstalledSkills />
+      </SettingToggle>
+    </SettingGroup>
+  );
+}
+
+/** Only mounted while the switch is on: what she would have to read from. */
+function InstalledSkills() {
+  const { data } = useServerRoute<SkillSummary[]>(queryKey.skills);
+  if (!data) return null;
+
+  return (
+    <SettingNote className={cn(!data.length && WAITING_INK)}>
+      {data.length
+        ? `The same ${data.length} a bot reads. Each one she opens spends a page of the call on it.`
+        : "Nothing installed yet — there is nothing for her to read."}
+    </SettingNote>
   );
 }
 
@@ -161,6 +210,10 @@ export function ThursdaySetting() {
  * Wipes what the app has kept of its own use, in one go: calls, jobs and
  * memory. The same set `pnpm reset` calls History, so the terminal and this
  * button agree. Keys, bots and connectors stay.
+ *
+ * Last group in the section, not in the rail: the rail is on screen the whole
+ * time a section is open, and the one thing here that cannot be undone should
+ * be reached by scrolling to it.
  */
 function ResetHistory() {
   const [reset, resetting] = useServerAction(resetHistoryAction, {
@@ -186,15 +239,30 @@ function ResetHistory() {
   };
 
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      loading={resetting}
-      onClick={confirmReset}
-      className="text-destructive hover:text-destructive"
-    >
-      Reset history
-    </Button>
+    <SettingGroup label="Danger zone" note="Keys, bots and connectors stay.">
+      <SettingItems>
+        <div className="flex items-center gap-3 p-4">
+          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+            <TriangleAlert className="size-4" />
+          </span>
+          <span className="min-w-0 flex-1 space-y-0.5">
+            <span className="block text-sm font-medium">Reset history</span>
+            <span className="block text-xs text-muted-foreground">
+              Every call, every job and everything she remembers
+            </span>
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            loading={resetting}
+            onClick={confirmReset}
+            className="shrink-0 text-destructive hover:text-destructive"
+          >
+            Reset
+          </Button>
+        </div>
+      </SettingItems>
+    </SettingGroup>
   );
 }
 

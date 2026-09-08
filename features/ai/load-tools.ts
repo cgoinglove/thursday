@@ -22,6 +22,7 @@ import { createWorkspaceTools } from "@/features/ai/tools/workspace.tool";
 import { taskActivity } from "@/features/bot/bot.schema";
 import { listNoteIndex } from "@/features/memory/memory.query";
 import { loadSkills } from "@/features/skills/skills.discover";
+import { readCallSkillsOn } from "@/features/thursday/thursday.query";
 import { jobShellEnv, openWorkspace } from "@/features/workspace/workspace";
 import { toDate } from "@/lib/date-like";
 import { clip } from "@/lib/utils";
@@ -31,8 +32,10 @@ import { resolveSearchModel } from "./model";
  * Which tools each runtime is handed; what it is told about them is the prompt's job.
  * Every tool runs on the server, including calls made during a voice session; only `end_call`
  * has no execute (the page hangs up). The split is by time, not capability: anything that
- * presupposes waiting (MCP, skills, studio, browser) belongs to the bot. Every runtime writes to
+ * presupposes waiting (MCP, studio, browser) belongs to the bot. Every runtime writes to
  * memory, but only the call gets the whole of it: revising, carrying and naming need the user there.
+ * Skills are the one thing that crosses back, and only when asked for: the call reads one itself
+ * when Settings › Thursday says so (thursday.query readCallSkillsOn).
  */
 
 export type ToolTarget = "thursday" | "bot" | "tidy";
@@ -203,10 +206,17 @@ export async function loadTools(run: ToolRun): Promise<ToolSet> {
     // memory_show only when there is something to tidy (prompt-helper tidying)
     const { [TOOL_NAMES.memory_show]: show, ...always } = memory;
     const { crowded, heavy } = tidying(await listNoteIndex());
+    // Off unless switched on: a skill is a page of instructions arriving
+    // mid-sentence. Switched off, the prompt does not list them as hers either
+    // (thursday.prompt), so the two always say the same thing
+    const skills = (await readCallSkillsOn())
+      ? createSkillTools({ sandbox, skills: await loadSkills(sandbox) })
+      : {};
 
     return {
       ...always,
       ...(crowded || heavy.length ? { [TOOL_NAMES.memory_show]: show } : {}),
+      ...skills,
       // The shell alone. A whole file is a job, not a glance (workspace.tool)
       ...createWorkspaceTools(sandbox, { write: false }),
       // Handing work over, following it, and hanging up belong to the voice session only
