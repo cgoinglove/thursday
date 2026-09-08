@@ -7,8 +7,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
 import { join, relative } from "node:path";
 import { createInterface, emitKeypressEvents } from "node:readline";
-// node:sqlite is built into Node 22.13+; @types/node 20 does not declare it.
-// @ts-expect-error -- @types/node 20 predates node:sqlite
+// node:sqlite is built into Node 22.13+.
 import { DatabaseSync } from "node:sqlite";
 // config.ts has no dependencies; folder names must match what the app uses.
 import { DATA_DIR, DB_FILE_NAME, PATHS } from "../config.ts";

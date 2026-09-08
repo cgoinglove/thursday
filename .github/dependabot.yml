@@ -11,6 +11,12 @@ updates:
       prefix: chore
       include: scope
     open-pull-requests-limit: 5
+    # drizzle is still cutting 1.0 release candidates with a commit hash in the
+    # version, so a bump lands most weeks and none of them is a decision.
+    # Remove this when 1.0 is out.
+    ignore:
+      - dependency-name: drizzle-orm
+      - dependency-name: drizzle-kit
     # One PR per group, not one per package: the AI SDKs move together and
     # release often enough to bury everything else.
     groups:
