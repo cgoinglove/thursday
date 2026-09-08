@@ -1,0 +1,19 @@
+name: Idea
+description: Something it should be able to do
+labels: [idea]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you were trying to do
+      description: >
+        The situation, not the feature. What did you ask her for, and where did
+        it stop?
+    validations:
+      required: true
+
+  - type: textarea
+    id: shape
+    attributes:
+      label: What you think it should do
+      description: Optional. A guess is fine; so is leaving this empty.

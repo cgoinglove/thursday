@@ -1,0 +1,46 @@
+name: Release
+
+# A tag is the release. `npm version <x>` then `git push --follow-tags`.
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Signs the package with a link back to this commit; npm shows the badge.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: package.json
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm typecheck
+      - run: pnpm lint
+
+      # Builds the standalone tree and writes dist/package.json (scripts/pack).
+      - run: node scripts/pack.mts
+
+      # The tag has to be the version being published, or the tarball and the
+      # release notes disagree forever.
+      - name: Tag matches the version
+        run: |
+          tagged="${GITHUB_REF_NAME#v}"
+          packed="$(node -p "require('./dist/package.json').version")"
+          [ "$tagged" = "$packed" ] || {
+            echo "tag $tagged != package $packed"; exit 1;
+          }
+
+      - run: npm publish ./dist --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

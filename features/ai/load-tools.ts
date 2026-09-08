@@ -1,0 +1,236 @@
+import { type ToolSet, tool } from "ai";
+import { formatDistanceToNowStrict } from "date-fns";
+import type { TextModel } from "@/features/ai/model";
+import { tidying } from "@/features/ai/prompts/prompt-helper";
+import {
+  askThursdayTool,
+  delegateSpec,
+  reportTool,
+  taskSpec,
+} from "@/features/ai/tools/bot.tool";
+import { CALL_TOOLS } from "@/features/ai/tools/call.tool";
+import { createMcpTools } from "@/features/ai/tools/mcp.tool";
+import { createMemoryTools } from "@/features/ai/tools/memory.tool";
+import { createSearchTool } from "@/features/ai/tools/search.tool";
+import { createSkillTools } from "@/features/ai/tools/skills.tool";
+import { tidyDoneTool } from "@/features/ai/tools/tidy.tool";
+import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
+import { createWorkspaceTools } from "@/features/ai/tools/workspace.tool";
+import { taskActivity } from "@/features/bot/bot.schema";
+import { listNoteIndex } from "@/features/memory/memory.query";
+import { loadSkills } from "@/features/skills/skills.discover";
+import { jobShellEnv, openWorkspace } from "@/features/workspace/workspace";
+import { toDate } from "@/lib/date-like";
+import { clip } from "@/lib/utils";
+import { resolveSearchModel } from "./model";
+
+/**
+ * Which tools each runtime is handed; what it is told about them is the prompt's job.
+ * Every tool runs on the server, including calls made during a voice session; only `end_call`
+ * has no execute (the page hangs up). The split is by time, not capability: anything that
+ * presupposes waiting (MCP, skills, studio, browser) belongs to the bot. Only the voice session
+ * writes to memory during a call; bots read. The tidy pass writes after the call.
+ */
+
+export type ToolTarget = "thursday" | "bot" | "tidy";
+
+/** Which runtime is running, and what that run knows about itself. */
+export type ToolRun =
+  | {
+      target: "thursday";
+      /** The current call; written on the task row `delegate` opens. */
+      callId?: string | null;
+    }
+  | {
+      target: "bot";
+      /** This run's bot name, the key of the bot table. */
+      bot: string;
+      /** This job; the bot's shell pins its browser session to it (workspace.ts). */
+      taskId?: string | null;
+      /** The model this run already resolved (bot.run resolveModel); `web_search` runs on it (model.ts resolveSearchModel). */
+      model?: TextModel | null;
+    }
+  /** The memory tidy pass (memory.tidy): memory, and nothing that takes time. */
+  | { target: "tidy" };
+
+/**
+ * Starting work and following it. bot.runner is imported dynamically to break a cycle
+ * (runner -> bot.run -> this file). `delegate` records which call opened the job; that decides
+ * who is told when it ends (bot.runner).
+ */
+function createTaskTools(callId: string | null | undefined): ToolSet {
+  return {
+    [TOOL_NAMES.delegate]: tool({
+      description: delegateSpec.description,
+      inputSchema: delegateSpec.parameters,
+      execute: async ({ bot, request, label }) => {
+        // Checked here, not by the run: by then the model has already said someone has it.
+        // Resolved the same way the run resolves it (findJobBot)
+        const { findJobBot, listJobBots } = await import(
+          "@/features/bot/bot.query"
+        );
+        const found = await findJobBot(bot);
+        if (!found) {
+          const names = (await listJobBots()).map((one) => one.name);
+          return `There is no bot called "${bot}". The bots are: ${names.join(", ")}. Nothing was handed over — call again with one of those.`;
+        }
+
+        // The row carries the bot's own spelling, not the transcript's
+        const { startTask } = await import("@/features/bot/bot.runner");
+        const id = await startTask({ bot: found.name, request, label, callId });
+        return {
+          taskId: id,
+          // The label is the handle: without it in front of her, a follow-up
+          // becomes a second job instead of a word to the one running
+          note: `${found.name} has "${label}". Say so and keep talking — the result is put in front of you later. Everything further about it — an answer, a correction, carrying it on after it reports — is \`${TOOL_NAMES.task}\` with "${label}".`,
+        };
+      },
+    }),
+
+    [TOOL_NAMES.task]: tool({
+      description: taskSpec.description,
+      inputSchema: taskSpec.parameters,
+      execute: async ({ action, task, answer }) => {
+        const { listTaskHistory, resolveTask } = await import(
+          "@/features/bot/task.query"
+        );
+        if (action === "status") {
+          // `status` only reads, and text left in `answer` reaches nobody — it
+          // has arrived carrying the instruction a job was waiting for. The read
+          // still answers; the note is what stops the loss being silent
+          const dropped = answer?.trim()
+            ? {
+                note: "The text in `answer` was not passed on — `status` only reads. Send it again as `answer` if the bot is meant to hear it.",
+              }
+            : {};
+          // A named job comes back whole; the list clips outcomes, and the model pads a clipped report
+          if (task) {
+            const found = await resolveTask(task);
+            const one = found;
+            if (!one) return await noSuchJob(task);
+            return {
+              ...dropped,
+              label: one.label,
+              bot: one.bot,
+              status: one.status,
+              since: formatDistanceToNowStrict(toDate(one.updatedAt), {
+                addSuffix: true,
+              }),
+              outcome: one.outcome,
+              ...(one.status === "waiting" && one.pending?.options.length
+                ? { options: one.pending.options }
+                : {}),
+            };
+          }
+          const tasks = await listTaskHistory({ limit: 8 });
+          // No threads — only as much as is worth reading out: what it is
+          // asking, the one line of what it is doing, or how it ended
+          return {
+            ...dropped,
+            tasks: tasks.map((task) => ({
+              label: task.label,
+              bot: task.bot,
+              status: task.status,
+              since: formatDistanceToNowStrict(toDate(task.updatedAt), {
+                addSuffix: true,
+              }),
+              ...(task.ask
+                ? { asking: task.ask.question, options: task.ask.options }
+                : {}),
+              ...(task.status === "running"
+                ? { now: taskActivity(task.lines) }
+                : {}),
+              ...(task.outcome && task.status !== "waiting"
+                ? { outcome: clip(task.outcome, 200) }
+                : {}),
+            })),
+          };
+        }
+        if (!task)
+          return "Say which job — by its label. Call `status` with no job named to see them.";
+        const one = await resolveTask(task);
+        if (!one) return await noSuchJob(task);
+
+        const { answerTask, cancelTask } = await import(
+          "@/features/bot/bot.runner"
+        );
+        if (action === "cancel") {
+          await cancelTask(one.id);
+          return { label: one.label, status: "cancelled" };
+        }
+        if (!answer?.trim()) return "Say what to pass on.";
+        await answerTask(one.id, answer.trim());
+        return {
+          label: one.label,
+          status: "running",
+          note:
+            one.status === "running"
+              ? "The bot reads it before its next step."
+              : "The bot picks the job back up from there.",
+        };
+      },
+    }),
+  };
+}
+
+/** An unresolved reference answers with the recent jobs; a bare "no such job" is read as an error and relayed as one. */
+async function noSuchJob(ref: string): Promise<string> {
+  const { listTaskHistory } = await import("@/features/bot/task.query");
+  const recent = await listTaskHistory({ limit: 5 });
+  if (!recent.length) return "No jobs have been handed over yet.";
+  const names = recent
+    .map((task) => `"${task.label}" (${task.bot}, ${task.status})`)
+    .join(", ");
+  return `There is no job called "${ref}". The latest are: ${names}. Call again with one of those names.`;
+}
+
+export async function loadTools(run: ToolRun): Promise<ToolSet> {
+  const memory = createMemoryTools();
+
+  if (run.target === "tidy") {
+    // The one runtime besides the call that writes memory. No screen to show a note on, no shell, so no workspace is opened.
+    const { [TOOL_NAMES.memory_show]: _show, ...rest } = memory;
+    return { ...rest, [TOOL_NAMES.tidy_done]: tidyDoneTool };
+  }
+
+  const sandbox = await openWorkspace();
+
+  if (run.target === "thursday") {
+    // memory_show only when there is something to tidy (prompt-helper tidying)
+    const { [TOOL_NAMES.memory_show]: show, ...always } = memory;
+    const { crowded, heavy } = tidying(await listNoteIndex());
+
+    return {
+      ...always,
+      ...(crowded || heavy.length ? { [TOOL_NAMES.memory_show]: show } : {}),
+      // The shell alone. A whole file is a job, not a glance (workspace.tool)
+      ...createWorkspaceTools(sandbox, { write: false }),
+      // Handing work over, following it, and hanging up belong to the voice session only
+      ...createTaskTools(run.callId),
+      ...CALL_TOOLS,
+    };
+  }
+
+  // A bot works inside a job it did not open: it can pull another bot in but cannot start a job.
+  // `ask_bot` and `ask_back` are attached by the runner (bot.run), which swaps `ask_thursday`
+  // for `ask_back` in a borrowed bot. `report` ends every run.
+  const skills = await loadSkills(sandbox);
+  return {
+    // Bots only read, and have no screen to show a note on
+    [TOOL_NAMES.memory_recall]: memory[TOOL_NAMES.memory_recall],
+    // Runs on this bot's own model when it can search, else on whichever
+    // provider has a key; absent when none does (search.tool)
+    ...createSearchTool(await resolveSearchModel(run.model), sandbox),
+    // The browser rides in the shell: its session is this job's, set by the
+    // server rather than typed by the model (workspace.ts jobShellEnv)
+    ...createWorkspaceTools(sandbox, {
+      write: true,
+      env: jobShellEnv(run.taskId),
+    }),
+    // Pinned tools come with schemas; the rest sit behind `tool_search`, absent when nothing is left to find (mcp.tool)
+    ...(await createMcpTools(run.bot, sandbox)),
+    ...createSkillTools({ sandbox, skills }),
+    [TOOL_NAMES.ask_thursday]: askThursdayTool,
+    [TOOL_NAMES.report]: reportTool,
+  };
+}

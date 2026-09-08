@@ -1,0 +1,45 @@
+name: Bug
+description: Something behaves differently than it should
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what happened, what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      placeholder: |
+        1. …
+        2. …
+    validations:
+      required: true
+
+  - type: input
+    id: models
+    attributes:
+      label: Models
+      description: The voice model, and the model the bot ran on.
+      placeholder: OpenAI gpt-realtime-2.1 · bot on anthropic/claude-sonnet-5
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Terminal output
+      description: >
+        The lines around the failure from the terminal running the app.
+        Check for keys before pasting.
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: Version and OS
+      placeholder: thursday-agent 0.1.0 · macOS 15 · Node 22.18
+    validations:
+      required: true

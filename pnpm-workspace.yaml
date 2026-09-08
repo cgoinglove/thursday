@@ -1,0 +1,8 @@
+# A flat, real node_modules like npm's. pnpm's symlinked default cannot be
+# published: Next traces the store paths into the standalone build, and npm
+# drops every folder named node_modules from a tarball (scripts/pack.mts).
+nodeLinker: hoisted
+
+ignoredBuiltDependencies:
+  - sharp
+  - unrs-resolver
