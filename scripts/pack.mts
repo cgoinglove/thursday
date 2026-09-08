@@ -139,6 +139,69 @@ function liftExternals() {
 
 const externals = liftExternals();
 
+/** Every package under a node_modules root, scopes flattened into their names. */
+function packagesIn(root: string): string[] {
+  return readdirSync(root)
+    .filter((name) => !name.startsWith("."))
+    .flatMap((name) =>
+      name.startsWith("@")
+        ? readdirSync(join(root, name)).map((rest) => `${name}/${rest}`)
+        : [name],
+    );
+}
+
+const manifestOf = (root: string, name: string) =>
+  JSON.parse(readFileSync(join(root, name, "package.json"), "utf8"));
+
+/**
+ * A native package is built for one machine, and the machine that packs is not
+ * the machine that installs: 0.1.0 was packed on CI and shipped the Linux libsql
+ * and nothing else, so `npx` died before the first screen on a Mac. npm already
+ * solves this — `os`/`cpu` on the platform package, `optionalDependencies` on
+ * whatever reaches for it — but only for a dependency npm resolves itself.
+ * Bundling walks around that solution, so these are declared instead and every
+ * install picks its own binary. The platform packages are never named here:
+ * naming one would pin the very thing that has to vary.
+ */
+function unbundlePlatform(): Record<string, string> {
+  const root = join(DIST, "node_modules");
+  const manifests = new Map(
+    packagesIn(root).map((name) => [name, manifestOf(root, name)] as const),
+  );
+
+  // The napi shape: one package per platform, each named in the parent's
+  // optionalDependencies and narrowed by os/cpu. Only the packing machine's own
+  // is here, which is exactly the problem — it is not the installing machine's.
+  const optional = new Set(
+    [...manifests].flatMap(([, one]) =>
+      Object.keys(one.optionalDependencies ?? {}),
+    ),
+  );
+  const artifacts = new Set(
+    [...manifests]
+      .filter(([name, one]) => optional.has(name) && (one.os || one.cpu))
+      .map(([name]) => name),
+  );
+
+  // The parent is what gets declared: npm reads its optionalDependencies and
+  // installs the one artifact this machine can run. Naming an artifact here
+  // instead would pin the very thing that has to vary.
+  const declared: Record<string, string> = {};
+  for (const [name, one] of manifests) {
+    if (artifacts.has(name)) continue;
+    const reaches = Object.keys({
+      ...one.dependencies,
+      ...one.optionalDependencies,
+    }).some((dep) => artifacts.has(dep));
+    if (reaches) declared[name] = one.version;
+  }
+
+  for (const name of [...artifacts, ...Object.keys(declared)]) {
+    rmSync(join(root, name), { recursive: true, force: true });
+  }
+  return declared;
+}
+
 /**
  * What the trace put in `dist/node_modules`, with the versions actually there.
  * npm drops `node_modules` from a tarball unless the package says it is bundled,
@@ -147,20 +210,8 @@ const externals = liftExternals();
  */
 function bundled(): Record<string, string> {
   const root = join(DIST, "node_modules");
-  const names = readdirSync(root)
-    .filter((name) => !name.startsWith("."))
-    .flatMap((name) =>
-      name.startsWith("@")
-        ? readdirSync(join(root, name)).map((rest) => `${name}/${rest}`)
-        : [name],
-    );
-
   return Object.fromEntries(
-    names.map((name) => [
-      name,
-      JSON.parse(readFileSync(join(root, name, "package.json"), "utf8"))
-        .version,
-    ]),
+    packagesIn(root).map((name) => [name, manifestOf(root, name).version]),
   );
 }
 
@@ -264,6 +315,8 @@ pruneOrphans(
   new Set(externals.flatMap(({ alias, target }) => [alias, target])),
 );
 
+const platform = unbundlePlatform();
+
 const vendored = bundled();
 
 /**
@@ -289,6 +342,8 @@ writeFileSync(
       // fetched in the background once the server is up (workspace.ensureBrowser).
       dependencies: {
         ...vendored,
+        // Resolved per install, not per build (unbundlePlatform)
+        ...platform,
         "@playwright/cli": pkg.dependencies["@playwright/cli"],
       },
       bundleDependencies: Object.keys(vendored),
