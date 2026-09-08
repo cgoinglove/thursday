@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.1.0...thursday-agent-v0.1.1) (2026-09-08)
+
+
+### Fixes
+
+* let npm choose the native binaries, instead of shipping the build machine's ([a9903cf](https://github.com/cgoinglove/thursday/commit/a9903cfefa66c504efc1f80c7991757b1b2734ca))
+* publish from the version release-please decided, not from its tag ([ca4b75a](https://github.com/cgoinglove/thursday/commit/ca4b75a96a604e4b64fcdf388797b26286c8a0ff))
+
 ## 0.1.0 (2026-09-08)
 
 
