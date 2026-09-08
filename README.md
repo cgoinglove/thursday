@@ -133,7 +133,30 @@ And after every call a text model **re-reads what was actually said** and reconc
 npx thursday-agent
 ```
 
-Opens at `localhost:3000`. One OpenAI or xAI key opens the call — a voice key is also a text key, so one is enough to run everything. Data lives in `~/.thursday`.
+Opens at `localhost:3000`, or the next free port if something already has it. One OpenAI or xAI key opens the call — a voice key is also a text key, so one is enough to run everything.
+
+### Running it
+
+It runs in the terminal you started it in, like `n8n`. There is no daemon and nothing is installed into your login items.
+
+| | |
+|---|---|
+| **Stop it** | `Ctrl+C` |
+| **Start it again** | the same `npx thursday-agent` |
+| **Close the terminal** | it stops with the terminal — nothing is left running |
+| **Keep it up while you work** | run it in its own tab, or `npx thursday-agent &` |
+| **Another port** | `npx thursday-agent --port 4000` |
+| **Somewhere else on disk** | `npx thursday-agent --home ~/work/thursday` |
+
+**Your data outlives all of it.** Everything you say, everything the bots write, your keys and your memory live in `~/.thursday`, never inside the package — so restarting, rebooting, or upgrading to the next version keeps every call and every file. Deleting that folder is the uninstall.
+
+```
+~/.thursday
+├── local.db          calls, memory, bots, jobs, keys
+└── .ai-workspace     what the bots wrote: artifacts, scratch, skills
+```
+
+The first run also fetches the browser bots drive (~280 MB) in the background, once. That one lands in Playwright's own cache — `~/Library/Caches/ms-playwright`, or `~/.cache/ms-playwright` on Linux — so every run after it, and every upgrade, skips the download.
 
 <details>
 <summary><b>From source</b></summary>

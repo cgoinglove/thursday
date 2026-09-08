@@ -6,6 +6,7 @@
 import { spawn } from "node:child_process";
 import { existsSync, symlinkSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { createServer } from "node:net";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { ROOT, toolPath } from "./tools.mjs";
@@ -49,7 +50,39 @@ if (has("-v", "--version")) {
   process.exit(0);
 }
 
-const port = flag("port") || process.env.PORT || "3000";
+/** Whether something already holds the port we are about to bind. */
+const taken = (port) =>
+  new Promise((resolve) => {
+    const probe = createServer()
+      .once("error", () => resolve(true))
+      .once("listening", () => probe.close(() => resolve(false)))
+      .listen(port, "127.0.0.1");
+  });
+
+/**
+ * 3000 is the most occupied port on a developer's machine, and the first thing
+ * `npx thursday-agent` does is bind it — so an untouched install used to end in
+ * an EADDRINUSE stack trace. A port nobody asked for is ours to move; a port
+ * that was asked for is not, and saying so is more use than moving it quietly.
+ */
+async function freePort(asked) {
+  const from = Number(asked ?? 3000);
+  if (!(await taken(from))) return from;
+  if (asked !== undefined) {
+    console.error(
+      `\n  Port ${from} is already in use.\n  Try another: thursday --port ${from + 1}\n`,
+    );
+    process.exit(1);
+  }
+  for (let port = from + 1; port < from + 20; port++) {
+    if (!(await taken(port))) return port;
+  }
+  console.error(`\n  Nothing free between ${from} and ${from + 20}.\n`);
+  process.exit(1);
+}
+
+const asked = flag("port") ?? process.env.PORT;
+const port = String(await freePort(asked));
 const home = resolve(flag("home") || process.env.THURSDAY_HOME || DEFAULT_HOME);
 const url = `http://localhost:${port}`;
 
@@ -122,7 +155,22 @@ if (!has("--no-open")) {
   ).unref();
 }
 
+/**
+ * Ctrl+C reaches the whole process group, so the server normally hears it first
+ * and closes on its own. When it does not, it is holding a connection that does
+ * not end — the browser's event stream is one — and a second Ctrl+C is not a
+ * request to try again.
+ */
+let stopping = false;
 for (const signal of ["SIGINT", "SIGTERM"]) {
-  process.on(signal, () => child.kill(signal));
+  process.on(signal, () => {
+    if (stopping) {
+      child.kill("SIGKILL");
+      return;
+    }
+    stopping = true;
+    child.kill(signal);
+    setTimeout(() => child.kill("SIGKILL"), 4000).unref();
+  });
 }
 child.on("exit", (code) => process.exit(code ?? 0));

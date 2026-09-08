@@ -133,7 +133,30 @@ Jarvis 가 일을 받아 두 조각 다 자기 것이 아니라고 판단한다.
 npx thursday-agent
 ```
 
-`localhost:3000` 에서 열린다. OpenAI 나 xAI 키 하나면 통화가 열린다 — 음성 키는 텍스트 키이기도 해서, 하나로 전부 돈다. 데이터는 `~/.thursday` 에 산다.
+`localhost:3000` 에서 열린다. 이미 쓰는 게 있으면 다음 빈 포트로 뜬다. OpenAI 나 xAI 키 하나면 통화가 열린다 — 음성 키는 텍스트 키이기도 해서, 하나로 전부 돈다.
+
+### 켜고 끄기
+
+`n8n` 처럼, 실행한 터미널에서 돈다. 데몬도 없고 로그인 항목에 뭘 심지도 않는다.
+
+| | |
+|---|---|
+| **끄기** | `Ctrl+C` |
+| **다시 켜기** | 같은 `npx thursday-agent` |
+| **터미널을 닫으면** | 같이 꺼진다. 뒤에 남는 게 없다 |
+| **일하는 동안 띄워두려면** | 탭 하나를 내주거나 `npx thursday-agent &` |
+| **다른 포트로** | `npx thursday-agent --port 4000` |
+| **다른 경로에 저장** | `npx thursday-agent --home ~/work/thursday` |
+
+**데이터는 그 전부보다 오래 산다.** 주고받은 말, 봇이 쓴 것, 키, 메모리가 전부 `~/.thursday` 에 있고 패키지 안에는 없다 — 그래서 다시 켜도, 컴퓨터를 껐다 켜도, 다음 버전으로 올려도 통화와 파일이 그대로다. 그 폴더를 지우는 게 삭제다.
+
+```
+~/.thursday
+├── local.db          통화, 메모리, 봇, 작업, 키
+└── .ai-workspace     봇이 쓴 것: 아티팩트, 스크래치, 스킬
+```
+
+첫 실행 때 봇이 쓸 브라우저(~280 MB)도 백그라운드에서 한 번 받는다. 그건 Playwright 자기 캐시에 들어간다 — macOS 는 `~/Library/Caches/ms-playwright`, Linux 는 `~/.cache/ms-playwright` — 그래서 이후 실행과 버전 업그레이드는 이 다운로드를 건너뛴다.
 
 <details>
 <summary><b>소스에서</b></summary>
