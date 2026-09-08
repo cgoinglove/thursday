@@ -114,14 +114,14 @@ const NO_GUESSING = `**Never present a guess as a result.** She says it out loud
 const ownerInstruction = (persona?: string | null) =>
   persona?.trim() ? `## Owner's instructions\n\n${persona.trim()}` : "";
 
-/** Bots only read memory (the tool set has no write), so the chapter is that small. */
+/** A bot reads memory and adds to it; revising and naming are the call's (load-tools), so the chapter is that small. */
 function memory(
   index: MemoryIndexEntry[],
   carried: MemoryAlwaysLoaded[],
 ): string {
   const head = `## Memory
 
-What the user's assistant knows about them — yours to read, not to write; what you learn goes in your report. It describes the user, not you: how they are named and spoken to is hers to use with them, not yours to borrow.`;
+What the user's assistant knows about them — yours to read, and to add to when the work turns up something about them that outlives the job. What the job itself turned up goes in your report. It describes the user, not you: how they are named and spoken to is hers to use with them, not yours to borrow.`;
 
   const alreadyKnown = carried.length
     ? `Already known:

@@ -210,3 +210,46 @@ what to drop and you drop it.`,
     },
   }),
 });
+
+/**
+ * The bot's write. Same act under the same name, without what only the call can
+ * do: no `replaces`, no carried lines, no naming a note — a bot has neither the
+ * user in front of it nor the listing's history. Rare by nature; what the job
+ * turned up belongs in the report, and only what outlives the job comes here.
+ */
+export const botRememberTool = tool({
+  description:
+    "Save a lasting fact about the user. Only for what outlives this job; what the job itself turned up goes in the report.",
+  inputSchema: z.object({
+    path: z
+      .string()
+      .describe(
+        "Exactly as the listing writes it, or a new path following the same convention.",
+      ),
+    facts: z
+      .string()
+      .array()
+      .describe("One statement each, standing on its own later."),
+  }),
+  execute: async ({ path, facts }) => {
+    const said = path.trim();
+    const written = facts.map((text) => text.trim()).filter(Boolean);
+    if (!written.length) return { note: "Nothing to write: send a fact." };
+
+    const known = await resolveNotePath(said);
+    // A path outside the convention goes to inbox, as it does for the call
+    const filed = known || isMemoryPath(said) ? (known ?? said) : MEMORY_INBOX;
+
+    await writeNotes([
+      { path: filed, facts: written.map((text) => ({ text })) },
+    ]);
+
+    // A write filed elsewhere must be said, or the report claims the wrong place
+    return {
+      note:
+        filed === said
+          ? `Saved to ${filed}.`
+          : `Saved to ${filed}: "${said}" is not a path this listing can carry.`,
+    };
+  },
+});

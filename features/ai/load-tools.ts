@@ -10,7 +10,10 @@ import {
 } from "@/features/ai/tools/bot.tool";
 import { CALL_TOOLS } from "@/features/ai/tools/call.tool";
 import { createMcpTools } from "@/features/ai/tools/mcp.tool";
-import { createMemoryTools } from "@/features/ai/tools/memory.tool";
+import {
+  botRememberTool,
+  createMemoryTools,
+} from "@/features/ai/tools/memory.tool";
 import { createSearchTool } from "@/features/ai/tools/search.tool";
 import { createSkillTools } from "@/features/ai/tools/skills.tool";
 import { tidyDoneTool } from "@/features/ai/tools/tidy.tool";
@@ -28,8 +31,8 @@ import { resolveSearchModel } from "./model";
  * Which tools each runtime is handed; what it is told about them is the prompt's job.
  * Every tool runs on the server, including calls made during a voice session; only `end_call`
  * has no execute (the page hangs up). The split is by time, not capability: anything that
- * presupposes waiting (MCP, skills, studio, browser) belongs to the bot. Only the voice session
- * writes to memory during a call; bots read. Reading calls back writes afterwards.
+ * presupposes waiting (MCP, skills, studio, browser) belongs to the bot. Every runtime writes to
+ * memory, but only the call gets the whole of it: revising, carrying and naming need the user there.
  */
 
 export type ToolTarget = "thursday" | "bot" | "tidy";
@@ -217,8 +220,10 @@ export async function loadTools(run: ToolRun): Promise<ToolSet> {
   // for `ask_back` in a borrowed bot. `report` ends every run.
   const skills = await loadSkills(sandbox);
   return {
-    // Bots only read, and have no screen to show a note on
+    // A bot reads memory and adds to it; the rest of the set is the call's
+    // (memory.tool botRememberTool), and there is no screen to show a note on
     [TOOL_NAMES.memory_recall]: memory[TOOL_NAMES.memory_recall],
+    [TOOL_NAMES.memory_remember]: botRememberTool,
     // Runs on this bot's own model when it can search, else on whichever
     // provider has a key; absent when none does (search.tool)
     ...createSearchTool(await resolveSearchModel(run.model), sandbox),
