@@ -35,8 +35,18 @@ export type ConfigEntry = {
   kind?: MediaKind;
 };
 
+/**
+ * Every group id. A union, not a string, because `isCallable` looks the voice
+ * group up by id and a typo there silently makes the app always callable.
+ */
+export const CONFIG_GROUP_IDS = ["voice", "text", "bots", "studio"] as const;
+export type ConfigGroupId = (typeof CONFIG_GROUP_IDS)[number];
+
+/** The group a call runs on: one of its keys must be set (config.query isCallable). */
+export const VOICE_GROUP_ID: ConfigGroupId = "voice";
+
 export type ConfigGroup = {
-  id: string;
+  id: ConfigGroupId;
   title: string;
   /** A fainter phrase beside the title saying what the set is for. */
   hint?: string;
@@ -56,7 +66,7 @@ const voiceKeys = [
   ),
 ];
 
-/** The studio model per kind, as `provider/model`. Unset is normal: the first provider with a key serves. */
+/** The studio model per kind, as `provider/model`. Unset means the tool is absent, not a fallback. */
 export const MEDIA_MODEL_KEYS: Record<MediaKind, string> = {
   image: "IMAGE_MODEL",
   video: "VIDEO_MODEL",
@@ -73,6 +83,8 @@ const MEDIA_ENTRY: Record<MediaKind, { label: string; hint: string }> = {
     hint: "What turns a recording into text",
   },
 };
+
+/** Each of these costs real money per call, so none is offered until it is picked (ai/model resolveMediaRef). */
 
 const mediaEntry = (kind: MediaKind): ConfigEntry => ({
   key: MEDIA_MODEL_KEYS[kind],
@@ -165,7 +177,7 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
   {
     id: "studio",
     title: "Studio",
-    hint: "what a bot draws, films and speaks with",
+    hint: "what a bot draws, films and speaks with — off until you pick one",
     section: "models",
     require: "none",
     entries: (Object.keys(MEDIA_MODEL_KEYS) as MediaKind[]).map(mediaEntry),

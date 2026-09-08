@@ -15,12 +15,11 @@ import {
   ALWAYS_LOADED_MAX,
   isMemoryPath,
 } from "@/features/memory/memory.schema";
-import { stampCallsTidied } from "@/features/thursday/thursday.query";
+import { markEveryCallRead } from "@/features/thursday/thursday.query";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
-import { MemoryTidyLevelSchema } from "./memory.schema";
 import { startTidy, stopTidy } from "./memory.tidy";
-import { readTidyLevel, writeTidyLevel, writeTidyModel } from "./tidy.query";
+import { readTidyOn, writeTidyModel, writeTidyOn } from "./tidy.query";
 
 const PathSchema = z.string().trim().refine(isMemoryPath, "Invalid note path");
 
@@ -92,15 +91,14 @@ export const setFactAlwaysLoadAction = serverAction(
   },
 );
 
-// The tidy pass (memory.tidy): its two settings and the two hands on it.
+// Reading calls back (memory.tidy): the switch, the model, and the two hands on it.
 
-/** Switching on stamps every past call as read, so the pass starts from now rather than the beginning of history. */
-export const setMemoryTidyLevelAction = serverAction(async (level: unknown) => {
-  const parsed = MemoryTidyLevelSchema.parse(level);
-  const before = await readTidyLevel();
-  if (before === "off" && parsed !== "off") await stampCallsTidied();
-  await writeTidyLevel(parsed);
-  if (parsed === "off") await stopTidy("Switched off.");
+/** Switching on stamps every past call as read, so it starts from now rather than from the beginning of history. */
+export const setMemoryTidyOnAction = serverAction(async (on: unknown) => {
+  const wanted = z.boolean().parse(on);
+  if (wanted && !(await readTidyOn())) await markEveryCallRead();
+  await writeTidyOn(wanted);
+  if (!wanted) await stopTidy("Switched off.");
 });
 
 /** `provider/model`, or empty for the app default. */
@@ -112,12 +110,15 @@ export const setMemoryTidyModelAction = serverAction(async (value: unknown) => {
   await writeTidyModel(ref);
 });
 
-/** What the screen's "tidy now" does; the size and quiet checks are skipped, not the pass itself. */
+/** The screen's "Read now": skips the count, not the read itself. */
 export const runMemoryTidyAction = serverAction(async () => {
   const outcome = await startTidy({ force: true });
-  if (outcome === "off") publicError("Tidying is off — pick a level first.");
-  if (outcome === "running") publicError("A pass is already running.");
-  if (outcome === "nothing") publicError("Every call has been read.");
+  if (outcome === "off") publicError("Reading calls back is switched off.");
+  if (outcome === "no-model") {
+    publicError("Pick a model first — this does not run on the app default.");
+  }
+  if (outcome === "running") publicError("It is already reading.");
+  if (outcome === "nothing") publicError("Every call has been read back.");
 });
 
 export const cancelMemoryTidyAction = serverAction(async () => {

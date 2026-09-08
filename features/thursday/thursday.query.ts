@@ -10,7 +10,6 @@ import {
 } from "drizzle-orm";
 import { database } from "@/database/db";
 import { callMessageTable, callTable } from "@/database/tables";
-import { estimateTokens } from "@/lib/tokens";
 import {
   CALL_HISTORY_PAGE,
   type CallRecord,
@@ -221,47 +220,27 @@ export async function listCallHistory(options: {
   }));
 }
 
-// What the memory tidy pass (features/memory/memory.tidy) reads and stamps.
+// What reading calls back needs (features/memory/memory.tidy): the turns owed,
+// and the stamp that says they have been read.
 
-/** The whole conversation of one call in spoken order, without tool turns. */
-export async function listCallTranscript(callId: string) {
-  const [call] = await database
-    .select({ startedAt: callTable.startedAt, endedAt: callTable.endedAt })
-    .from(callTable)
-    .where(eq(callTable.id, callId));
-  if (!call) return null;
-  const turns = await database
-    .select({ role: callMessageTable.role, text: callMessageTable.text })
-    .from(callMessageTable)
-    .where(
-      and(
-        eq(callMessageTable.callId, callId),
-        inArray(callMessageTable.role, ["user", "assistant"]),
-      ),
-    )
-    .orderBy(asc(callMessageTable.seq));
-  return {
-    ...call,
-    turns: turns.map((row) => ({
-      role: row.role as "user" | "assistant",
-      text: row.text,
-    })),
-  };
-}
+/** One spoken turn owed to a read-back, with the call it came from. */
+export type OwedTurn = {
+  callId: string;
+  startedAt: Date;
+  role: "user" | "assistant";
+  text: string;
+};
 
 /**
- * Ended calls the tidy pass has not read, oldest first, sized in transcript
- * tokens. Measured on the text, not a row count: a greeting and an hour's
- * talk are both one call. A call with no user turn is not owed: nothing was said.
+ * Every spoken turn of ended calls not read back yet, oldest first. Tool turns
+ * are left out: they carry arguments, not anything said. A call with no user
+ * turn still counts nothing towards a read but is stamped with the rest.
  */
-export async function listUntidiedCalls(): Promise<
-  { id: string; startedAt: Date; endedAt: Date; tokens: number }[]
-> {
+export async function listOwedTurns(): Promise<OwedTurn[]> {
   const rows = await database
     .select({
-      id: callTable.id,
+      callId: callTable.id,
       startedAt: callTable.startedAt,
-      endedAt: callTable.endedAt,
       role: callMessageTable.role,
       text: callMessageTable.text,
     })
@@ -274,45 +253,36 @@ export async function listUntidiedCalls(): Promise<
         inArray(callMessageTable.role, ["user", "assistant"]),
       ),
     )
-    .orderBy(asc(callTable.startedAt));
+    .orderBy(asc(callTable.startedAt), asc(callMessageTable.seq));
 
-  const calls = new Map<
-    string,
-    {
-      id: string;
-      startedAt: Date;
-      endedAt: Date;
-      tokens: number;
-      spoke: boolean;
-    }
-  >();
-  for (const row of rows) {
-    if (!row.endedAt) continue;
-    const call = calls.get(row.id) ?? {
-      id: row.id,
-      startedAt: row.startedAt,
-      endedAt: row.endedAt,
-      tokens: 0,
-      spoke: false,
-    };
-    call.tokens += estimateTokens(row.text);
-    if (row.role === "user") call.spoke = true;
-    calls.set(row.id, call);
-  }
-  return [...calls.values()]
-    .filter((call) => call.spoke)
-    .map(({ spoke: _, ...call }) => call);
+  return rows.map((row) => ({
+    callId: row.callId,
+    startedAt: row.startedAt,
+    role: row.role as "user" | "assistant",
+    text: row.text,
+  }));
 }
 
-export async function markCallTidied(id: string) {
+/** Ids of every ended call not read back yet. A read stamps all of them, including the ones it dropped. */
+export async function listUnreadCallIds(): Promise<string[]> {
+  const rows = await database
+    .select({ id: callTable.id })
+    .from(callTable)
+    .where(and(isNotNull(callTable.endedAt), isNull(callTable.tidiedAt)))
+    .orderBy(asc(callTable.startedAt));
+  return rows.map((row) => row.id);
+}
+
+export async function markCallsRead(ids: string[]) {
+  if (!ids.length) return;
   await database
     .update(callTable)
     .set({ tidiedAt: new Date() })
-    .where(eq(callTable.id, id));
+    .where(inArray(callTable.id, ids));
 }
 
-/** Stamps every ended call as read, so a pass switched on starts from now. */
-export async function stampCallsTidied() {
+/** Stamps every ended call as read, so switching the setting on starts from now. */
+export async function markEveryCallRead() {
   await database
     .update(callTable)
     .set({ tidiedAt: new Date() })

@@ -39,6 +39,7 @@ import { BotMark } from "@/features/bot/components/bot-mark";
 import {
   SettingError,
   SettingPanes,
+  SettingRailNote,
   SettingSkeleton,
 } from "@/features/settings/components/setting-ui";
 import { openSettings } from "@/features/settings/settings.store";
@@ -76,6 +77,7 @@ export function BotSetting() {
 
   return (
     <SettingPanes
+      footer={picked === SEEDS ? null : <BotRail bot={current} />}
       left={
         <div className="flex flex-col py-2">
           <button
@@ -210,7 +212,7 @@ function RosterRow({
               speed={2.4}
               color="var(--rest)"
               shineColor="var(--shine)"
-              className="block truncate font-mono text-[11px] leading-4"
+              className="truncate font-mono text-[11px] leading-4"
             />
           </span>
         ) : (
@@ -540,8 +542,6 @@ function BotPage({
     if (confirmed) remove(bot.name);
   };
 
-  const tokens = bot ? bot.tokens.input + bot.tokens.output : 0;
-
   return (
     <div className="flex min-h-full flex-col">
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/60 px-4">
@@ -649,43 +649,48 @@ function BotPage({
 
         {bot && <Recent jobs={jobs} />}
 
+        {!bot && (
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <Button variant="ghost" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button loading={creating} disabled={!ready} onClick={submit}>
+              Create
+            </Button>
+          </div>
+        )}
+
         {createError && (
           <p className="font-mono text-xs text-destructive">{createError}</p>
         )}
       </div>
-
-      {/* This is the section's rail (setting-ui SettingRail); it carries the page's own actions too */}
-      <div className="flex h-14 shrink-0 items-center gap-2 border-t border-border/60 px-8 font-mono text-[11px] text-muted-foreground">
-        {bot ? (
-          <>
-            <span
-              title={`in ${formatCount(bot.tokens.input)} · out ${formatCount(bot.tokens.output)}`}
-            >
-              {tokens > 0 ? `${formatCount(tokens)} tokens` : "no tokens yet"}
-            </span>
-            <span className="opacity-50">·</span>
-            <span>since {whenOf(bot.createdAt)}</span>
-          </>
-        ) : (
-          <>
-            <span className="min-w-0 flex-1 truncate">
-              Becomes a bot once it has a name and a model
-            </span>
-            <Button variant="ghost" size="sm" onClick={onCancel}>
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              loading={creating}
-              disabled={!ready}
-              onClick={submit}
-            >
-              Create
-            </Button>
-          </>
-        )}
-      </div>
     </div>
+  );
+}
+
+/** What the roster's pick is, in the section's rail. */
+function BotRail({ bot }: { bot: Bot | null }) {
+  if (!bot)
+    return (
+      <SettingRailNote>
+        Becomes a bot once it has a name and a model
+      </SettingRailNote>
+    );
+  const tokens = bot.tokens.input + bot.tokens.output;
+  return (
+    <SettingRailNote>
+      <span className="font-mono text-[11px]">
+        {bot.name}
+        <span className="px-1.5 opacity-50">·</span>
+        <span
+          title={`in ${formatCount(bot.tokens.input)} · out ${formatCount(bot.tokens.output)}`}
+        >
+          {tokens > 0 ? `${formatCount(tokens)} tokens` : "no tokens yet"}
+        </span>
+        <span className="px-1.5 opacity-50">·</span>
+        since {whenOf(bot.createdAt)}
+      </span>
+    </SettingRailNote>
   );
 }
 

@@ -102,6 +102,7 @@ export async function fetchRoute(key: string | RouteKey): Promise<unknown> {
  */
 const READ_DEFAULTS = {
   dedupingInterval: 500,
+  revalidateOnMount: true,
   revalidateOnFocus: true,
   revalidateOnReconnect: true,
   focusThrottleInterval: 1000,

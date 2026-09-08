@@ -24,7 +24,7 @@ import {
   defaultModelOf,
   GATEWAY_TEXT,
   type GatewayModel,
-  MEDIA_MODEL_PROVIDER_LIST,
+  type GatewayPrice,
   MEDIA_MODEL_PROVIDERS,
   type MediaKind,
   type MediaModelProviderId,
@@ -100,80 +100,143 @@ export function buildTextModel(ref: TextModelRef, apiKey: string): TextModel {
 /** How long the gateway catalog is believed; a model list does not change inside a call. */
 const CATALOG_TTL = 10 * 60_000;
 
-/** Keyed by api key: each key sees a different shelf. */
-let catalogCache: {
-  at: number;
-  key: string;
-  models: GatewayModel[];
-} | null = null;
+/** One shelf for the app: the listing is the same for everyone, key or no key. */
+let catalogCache: { at: number; models: GatewayModel[] } | null = null;
+
+/**
+ * The gateway's own listing, the one vercel.com/ai-gateway/models draws from. The SDK's
+ * `getAvailableModels` reads a different endpoint (/v4/ai/config), carries 27 fewer models
+ * and drops tags in its schema, so the catalog is read here instead. It answers
+ * unauthenticated: the shelf is browsable before a key is set.
+ */
+const GATEWAY_CATALOG_URL = "https://ai-gateway.vercel.sh/v1/models";
+
+/** One row as the gateway sends it; only the fields a picker reads are named. */
+type CatalogRow = {
+  id?: string;
+  name?: string;
+  owned_by?: string;
+  type?: string | null;
+  tags?: string[] | null;
+  deprecated_at?: number | null;
+  modalities?: { output?: string[] | null } | null;
+  pricing?: Record<string, unknown> | null;
+};
+
+/** USD per 1M tokens from the gateway's per-token string. Null is "it did not say", never zero. */
+function per1M(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const amount = Number(value);
+  return Number.isFinite(amount) ? Math.round(amount * 1e6 * 1e4) / 1e4 : null;
+}
 
 /**
  * What a row may be offered as. The gateway's own word is right except for the models that
  * both talk and draw — Gemini's `*-image` family answers `language`, and a picker that
- * believed it would put drawing models in the text list.
+ * believed it would leave them out of the image list. Their output modality gives them away.
  */
-function kindOfGatewayModel(id: string, type: string | null | undefined) {
-  const name = id.slice(id.indexOf("/") + 1);
-  if (type === GATEWAY_TEXT && name.includes("image")) return "image";
+function kindOfGatewayModel(row: CatalogRow) {
+  const type = row.type ?? null;
+  if (type === GATEWAY_TEXT && (row.modalities?.output ?? []).includes("image"))
+    return "image";
   return type;
 }
 
 /**
- * What the gateway carries now, every modality in one listing. Rows come back with their kind
- * settled (`kindOfGatewayModel`) so a screen filters on one field. The gateway is the only
- * provider that can be asked. Throws the gateway's own message: a wrong key and an unreachable
- * network read alike without it.
+ * The gateway bills ten different ways; this is the one place that knows it. Billed by the
+ * second or the character, a token price would misstate the model, so the unit replaces it;
+ * where tokens do price it, anything that qualifies them rides along as a note.
  */
-export async function readGatewayCatalog(
-  apiKey: string,
-): Promise<GatewayModel[]> {
-  if (
-    catalogCache &&
-    catalogCache.key === apiKey &&
-    Date.now() - catalogCache.at < CATALOG_TTL
-  ) {
+function priceOfGatewayModel(row: CatalogRow): GatewayPrice {
+  const pricing = (row.pricing ?? {}) as Record<string, any>;
+  const tokensIn = per1M(pricing.input);
+  const out = per1M(pricing.output);
+
+  if ((row.tags ?? []).includes("free") || tokensIn === 0)
+    return { in: 0, out: 0, note: null, free: true };
+
+  const perSecond =
+    pricing.transcription_duration_cost_per_second ??
+    pricing.realtime_session_duration_cost_per_second;
+  if (perSecond)
+    return { in: null, out: null, note: `$${perSecond}/s`, free: false };
+  if (pricing.speech_input_character_cost)
+    return { in: null, out: null, note: "per character", free: false };
+  const clip = Array.isArray(pricing.video_duration_pricing)
+    ? pricing.video_duration_pricing[0]
+    : null;
+  if (clip)
+    return {
+      in: null,
+      out: null,
+      note: `$${clip.cost_per_second}/s ${clip.resolution}`,
+      free: false,
+    };
+
+  const perImage = pricing.image
+    ? `$${pricing.image}/image`
+    : pricing.image_dimension_quality_pricing
+      ? "per image, by size"
+      : null;
+  if (tokensIn === null && out === null)
+    return { in: null, out: null, note: perImage, free: false };
+
+  return {
+    in: tokensIn,
+    out,
+    note: pricing.input_tiers
+      ? "tiered"
+      : pricing.varies_by_provider
+        ? "varies"
+        : perImage && "+ per image",
+    free: false,
+  };
+}
+
+/**
+ * What the gateway carries now, every modality in one listing. Rows come back with their kind
+ * settled (`kindOfGatewayModel`) and their price flattened (`priceOfGatewayModel`), so a screen
+ * filters and sorts on plain fields. The gateway is the only provider that can be asked.
+ */
+export async function readGatewayCatalog(): Promise<GatewayModel[]> {
+  if (catalogCache && Date.now() - catalogCache.at < CATALOG_TTL)
     return catalogCache.models;
-  }
 
-  const { models } = await createGateway({ apiKey })
-    .getAvailableModels()
-    // The SDK wraps a transport failure in a shell that says nothing useful —
-    // a wrong key and an unreachable network read alike without the cause
-    .catch((cause: unknown) => {
-      const error = cause as { message?: string; cause?: { message?: string } };
-      publicError(
-        error?.cause?.message ??
-          error?.message ??
-          "Could not reach the gateway",
-      );
-    });
+  const response = await fetch(GATEWAY_CATALOG_URL, {
+    headers: { accept: "application/json" },
+  }).catch((cause: unknown) => {
+    logger.warn({ cause }, "gateway catalog unreachable");
+    publicError("Could not reach the gateway");
+  });
+  if (!response.ok) publicError(`The gateway answered ${response.status}`);
 
-  const list = models
+  const body = (await response.json()) as { data?: CatalogRow[] };
+  const list = (body.data ?? [])
+    .filter((row): row is CatalogRow & { id: string } => Boolean(row.id))
     .map(
-      (model): GatewayModel => ({
-        id: model.id,
-        label: model.name,
-        type: kindOfGatewayModel(model.id, model.modelType),
+      (row): GatewayModel => ({
+        id: row.id,
+        label: row.name || row.id,
+        owner: row.owned_by || row.id.slice(0, row.id.indexOf("/")),
+        type: kindOfGatewayModel(row),
+        tags: row.tags ?? [],
+        price: priceOfGatewayModel(row),
+        retiring: Boolean(row.deprecated_at),
       }),
     )
     .sort((a, b) => a.id.localeCompare(b.id));
 
-  catalogCache = { at: Date.now(), key: apiKey, models: list };
+  catalogCache = { at: Date.now(), models: list };
   return list;
 }
 
 /**
  * The gateway shelf as a set of ids. Null means it could not be asked, which is not "not there":
- * callers keep the written rows. Only existence is checked; gateway pricing reports 0 for image
- * and video rows, so it cannot order them.
+ * callers keep the written rows. Only existence is checked; the gateway prices image and video
+ * rows in units of their own, so it cannot order them.
  */
 async function liveGatewayIds(): Promise<Set<string> | null> {
-  const apiKey = await readConfig(
-    TEXT_MODEL_PROVIDERS["vercel-ai-gateway"].apiKeyName,
-  );
-  if (!apiKey) return null;
-
-  return await readGatewayCatalog(apiKey)
+  return await readGatewayCatalog()
     .then((models) => new Set(models.map((model) => model.id)))
     .catch(() => null);
 }
@@ -281,44 +344,25 @@ type VideoModel = Parameters<typeof experimental_generateVideo>[0]["model"];
 
 /**
  * One app-wide pick per kind, stored in config as `provider/model` (config.const); the gateway
- * accepts any `vendor/model`. Falls back to the first provider with a key that can do it; null
- * means the tool is absent (tools/studio.tool).
+ * accepts any `vendor/model`. There is deliberately no fallback: a picture, a film or a minute of
+ * speech costs real money, so a kind nobody picked returns null and the tool is simply absent
+ * (tools/studio.tool) rather than running on a model nobody chose.
  */
 export async function resolveMediaRef(
   kind: MediaKind,
 ): Promise<{ ref: MediaModelRef; apiKey: string } | null> {
   const chosen = parseMediaModel(await readConfig(MEDIA_MODEL_KEYS[kind]));
+  if (!chosen) return null;
   // A chosen provider that cannot make this kind is skipped (canMakeKind); otherwise
   // `build…Model` throws and loadStudio takes both prompts down with it
-  if (chosen && canMakeKind(chosen.provider, kind)) {
-    const apiKey = await readConfig(
-      MEDIA_MODEL_PROVIDERS[chosen.provider].apiKeyName,
-    );
-    if (apiKey) return { ref: chosen, apiKey };
-  }
-
-  for (const provider of MEDIA_MODEL_PROVIDER_LIST) {
-    if (provider.models[kind].length === 0) continue;
-    const apiKey = await readConfig(provider.apiKeyName);
-    if (!apiKey) continue;
-    // The head of the row is the errand-priced one, but only if the provider
-    // still carries it — this value goes straight into a `generate` call
-    const model = (await callableRows(provider.id, provider.models[kind]))[0]
-      ?.id;
-    if (model) {
-      logger.info(
-        `no ${kind} model set, falling back to ${provider.id}/${model}`,
-      );
-      return { ref: { provider: provider.id, model }, apiKey };
-    }
-  }
-  logger.warn(
-    `no ${kind} model — the studio drops that tool (Config → Models)`,
+  if (!canMakeKind(chosen.provider, kind)) return null;
+  const apiKey = await readConfig(
+    MEDIA_MODEL_PROVIDERS[chosen.provider].apiKeyName,
   );
-  return null;
+  if (!apiKey) return null;
+  return { ref: chosen, apiKey };
 }
 
-/** The same switch as `buildTextModel`, once per kind; each provider spells its accessor slightly differently. */
 export function buildImageModel(
   ref: MediaModelRef,
   apiKey: string,

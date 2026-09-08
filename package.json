@@ -1,7 +1,7 @@
 {
   "name": "thursday-agent",
   "version": "0.1.0",
-  "description": "A voice agent that runs on your own machine \u2014 talk to her, she hands the slow work to bots with a shell, a browser and skills.",
+  "description": "A voice agent that runs on your own machine — talk to her, she hands the slow work to bots with a shell, a browser and skills.",
   "license": "MIT",
   "keywords": [
     "voice-agent",
@@ -15,13 +15,13 @@
     "assistant",
     "nextjs"
   ],
-  "homepage": "https://github.com/cgoing/thursday#readme",
+  "homepage": "https://github.com/cgoinglove/thursday#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cgoing/thursday.git"
+    "url": "git+https://github.com/cgoinglove/thursday.git"
   },
   "bugs": {
-    "url": "https://github.com/cgoing/thursday/issues"
+    "url": "https://github.com/cgoinglove/thursday/issues"
   },
   "bin": {
     "thursday": "bin/thursday.mjs"
@@ -67,7 +67,7 @@
     "drizzle-orm": "1.0.0-rc.4",
     "fflate": "^0.8.3",
     "gsap": "^3.15.0",
-    "lucide-react": "^1.41.0",
+    "lucide-react": "^1.42.0",
     "motion": "^13.2.0",
     "next": "16.3.0",
     "react": "19.2.8",

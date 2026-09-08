@@ -2,11 +2,10 @@ import { tool } from "ai";
 import * as z from "zod";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 
-/** Ends one part of a tidy pass (memory.tidy). The summary is for the log, not for anyone to read aloud. */
+/** Ends the read (memory.tidy). The summary is for the log, not for anyone to read aloud. */
 export const tidyDoneSpec = {
   name: TOOL_NAMES.tidy_done,
-  description:
-    "Finish reading this call. Calling this ends the pass over it — nothing after it runs.",
+  description: "Finish. Calling this ends the read — nothing after it runs.",
   parameters: z.object({
     summary: z
       .string()

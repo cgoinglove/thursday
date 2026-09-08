@@ -2,12 +2,18 @@
 
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Check, ChevronDown, LoaderCircle } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { inputClassName } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 /**
- * Free-text field with suggestions: the input value is the value. Built on
- * Autocomplete, not Combobox, because Combobox rejects values outside its list.
+ * Free-text field with suggestions. Built on Autocomplete, not Combobox, because
+ * Combobox rejects values outside its list.
+ *
+ * Typing is a draft, not a value: `onChange` fires when a suggestion is pressed, or
+ * when the typed text is saved, never on a keystroke. Callers save on `onChange`, and
+ * half a model id would otherwise be saved on the way to a whole one.
  */
 
 export type ComboboxOption = {
@@ -39,13 +45,15 @@ export function Combobox({
   options,
   placeholder,
   empty = "Nothing matches",
-  note = "Not on the list? Type it — whatever is in the field is the value.",
+  note = "Not on the list? Type it, then save.",
   loading = false,
   disabled = false,
   className,
   "aria-label": ariaLabel,
 }: {
+  /** The saved value. Typing moves a draft; this only follows a save. */
   value: string;
+  /** A value was chosen: a suggestion pressed, or typed text saved. Never a keystroke. */
   onChange: (value: string) => void;
   options: ComboboxOption[];
   placeholder?: string;
@@ -60,35 +68,63 @@ export function Combobox({
 }) {
   const exact = new Set(options.map((option) => option.value.toLowerCase()));
 
+  const [draft, setDraft] = useState(value);
+  // A value saved elsewhere — a pick, another screen — replaces what was typed here.
+  const [saved, setSaved] = useState(value);
+  if (saved !== value) {
+    setSaved(value);
+    setDraft(value);
+  }
+  const typed = draft.trim();
+  const unsaved = typed !== "" && typed !== value;
+
   return (
     <Autocomplete.Root
       items={options}
-      value={value}
-      onValueChange={onChange}
+      value={draft}
+      onValueChange={(next, details) => {
+        setDraft(next);
+        // Pressing a suggestion is a decision, so it saves; typing is only a draft.
+        if (details.reason === "item-press") onChange(next);
+      }}
       // The field holds the id, not the label.
       itemToStringValue={(option: ComboboxOption) => option.value}
       filter={(option: ComboboxOption, query) => match(option, query, exact)}
       openOnInputClick
       disabled={disabled}
     >
-      <Autocomplete.InputGroup className={cn("relative", className)}>
-        <Autocomplete.Input
-          placeholder={placeholder}
-          aria-label={ariaLabel}
-          spellCheck={false}
-          className={cn(inputClassName, "pr-8 font-mono text-sm")}
-        />
-        <Autocomplete.Trigger
-          aria-label="Show suggestions"
-          className="absolute inset-y-0 right-0 flex w-8 items-center justify-center text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:text-foreground disabled:opacity-50"
-        >
-          {loading ? (
-            <LoaderCircle className="size-3.5 animate-spin" />
-          ) : (
-            <ChevronDown className="size-3.5" />
-          )}
-        </Autocomplete.Trigger>
-      </Autocomplete.InputGroup>
+      <div className={cn("flex gap-2", className)}>
+        <Autocomplete.InputGroup className="relative min-w-0 flex-1">
+          <Autocomplete.Input
+            placeholder={placeholder}
+            aria-label={ariaLabel}
+            spellCheck={false}
+            className={cn(inputClassName, "pr-8 font-mono text-sm")}
+          />
+          <Autocomplete.Trigger
+            aria-label="Show suggestions"
+            className="absolute inset-y-0 right-0 flex w-8 items-center justify-center text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:text-foreground disabled:opacity-50"
+          >
+            {loading ? (
+              <LoaderCircle className="size-3.5 animate-spin" />
+            ) : (
+              <ChevronDown className="size-3.5" />
+            )}
+          </Autocomplete.Trigger>
+        </Autocomplete.InputGroup>
+
+        {/* A typed id is not a value until it is saved, so the button is the only way
+          in. It stands in for nothing when the field matches what is stored. */}
+        {unsaved && !disabled && (
+          <Button
+            variant="outline"
+            className="shrink-0"
+            onClick={() => onChange(typed)}
+          >
+            Save
+          </Button>
+        )}
+      </div>
 
       <Autocomplete.Portal>
         <Autocomplete.Positioner

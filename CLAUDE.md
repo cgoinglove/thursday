@@ -6,6 +6,18 @@ a browser, minute-long jobs — is delegated to text-model bots that run in the 
 shell, a browser and skills. Jobs outlive the call: they run on the server, and the screen is a
 projection of server state.
 
+**This is a public open-source repository** (MIT, `github.com/cgoinglove/thursday`, published to
+npm as `thursday-agent`). Everything committed here is read by strangers and shipped to their
+machines. Two things follow, and they are not style preferences:
+
+- **Write for a reader who has never met this code.** English, present tense. No Korean in
+  committed files except a `@KOREAN` note beside model-facing text that was drafted in Korean.
+  No personal names, machine paths, keys, or half-finished thoughts in a comment.
+- **Anything private is named `*.local.*`** — a scratch note, a task list, a plan, a local
+  override. `.gitignore` covers that shape, so a file named this way can never be committed by
+  accident. `ux.local.md` is the working example. Never `git add -f` one, and never rename one
+  into the tree to "keep it for later"; if it is worth keeping, it is worth writing properly.
+
 # This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
@@ -77,9 +89,11 @@ in `outputFileTracingIncludes`, not left to the trace.
   call domain queries directly. The one exception is anything that touches the call itself (hang up).
 - **Long-running work continues after the response** (`after`). Everything that happens is written as
   rows, so what the screen draws and what the model re-reads are the same rows.
-- **Memory is re-read after calls, one call per context.** `features/memory/memory.tidy` runs a text
-  model over calls after the fact; the unit is one call (a long one in parts), the checkpoint is
-  `call.tidied_at`, and the trigger is pending transcript size plus a quiet line, never a call count.
+- **Memory is re-read after calls.** `features/memory/memory.tidy` runs a text model over what was
+  said once `MEMORY_TIDY.messages` turns are owed; that same number is the window, so one read is
+  one context over the most recent turns and older calls are stamped unread rather than queued.
+  The checkpoint is `call.tidied_at`. The trigger is turns owed, never a call count: a greeting and
+  an hour's talk are both one call.
 - **No browser, nothing runs.** `presence` (app/api/events) says whether a browser is on the stream;
   when the last one has been gone a while, jobs stop and wait, the tidy pass stops, open calls close.
   Wired once at boot (`instrumentation`), not in each domain.
@@ -95,16 +109,30 @@ in `outputFileTracingIncludes`, not left to the trace.
   `features/settings/` holds only the shell (nav, dialog) and shared setting grammar. The shell
   gives a section the space under the header; the section fills it and draws its own scroll area,
   so it picks a width and ends in a rail:
-  - `SettingScreen width` — `list` (880) for rows that are a label and its value, `narrow` (600)
-    for Thursday, `full` for readers, rosters and the log. `SettingPanes` is the two-pane form
-    (Memory, Bots); both panes reach the bottom edge, so nothing clips.
+  - **One column** (`SettingColumn`, centred, 880) carries the section title, a list body, the
+    skeleton and the rail's words — the same on every section, so nothing moves when the section
+    changes. A per-section width was tried and reverted: it moved the title and the skeleton on
+    every switch, which reads as three designs rather than one.
+  - **What is a surface fills the section instead**: a reader's panes (`SettingPanes` — Memory,
+    Bots) and every rail's rule go edge to edge. Both panes reach the bottom edge, so nothing
+    clips, and the rail below them is the section's, not a pane's.
   - `SettingRail` is the bottom edge of every section: what the whole set is, plus the actions
     that act on all of it. It also gives a short section a bottom, so the empty half of a tall
     dialog reads as margin rather than a truncated page.
   - A card (`SettingItems`) holds a finite set; a log (Tasks, history) runs to the bottom edge as
     dividers only. A group label (`SettingGroup`) is plain text above its card, never a tinted band.
-  - A row's second line is its state, not a second name for it. Any list that grows carries a
-    `SettingFilter`; Cmd+K focuses it, Cmd+1..8 jump sections, arrows move inside the nav.
+  - **`SettingGroup` is the only shape a section is built from**: a header line (label, its
+    `hint`, a `filter`, and the set's state at the far end), a body, and a `note` under it —
+    never that markup written out by hand. A switch that runs something by itself is
+    `SettingToggle`; a line that qualifies a body is `SettingNote`.
+  - **One spacing rhythm, set in `setting-ui.tsx` and nowhere else**: 32px between groups, 12px
+    from a label to its body, 8px from a body to the note about it. What reads as cramped is the
+    ratio, not the numbers — a group 20px from its neighbour and 8px from its own label leaves
+    the label floating between two cards instead of belonging to one.
+  - A row's second line is its state, not a second name for it, and stays tight; a sentence that
+    wraps gets its own leading. Any list that grows carries a `SettingFilter` — on its group's
+    header line when it filters that group, on the section's (`SettingToolbar`) when it filters
+    more than one. Cmd+K focuses it, Cmd+1..8 jump sections, arrows move inside the nav.
 - **Don't split files by size.** A long file that does one thing stays one file.
 - **An interface with one implementation is two files, not an interface.** Don't add ports.
 
@@ -195,7 +223,15 @@ A 30-second poll remains as a safety net. No WebSockets.
 - Comments are English, present tense and short. They explain what the code cannot: an invariant, an
   external constraint, the one-line why behind a surprising choice. No history, no narrative.
 - Model-facing text (prompts, tool descriptions, `.describe()`) is English and imperative.
-- New files go in the commit (`git add -A`).
+- New files go in the commit (`git add -A`) — which is why anything private must be named
+  `*.local.*` before it is written, not after. Two things are easy to get wrong the other way:
+  a generated migration (`database/migrations/…`) MUST be committed or a fresh clone boots
+  against the wrong schema, and a stray shell redirect at the repo root must not be.
+- Commit and pull-request titles are [conventional commits](https://www.conventionalcommits.org)
+  (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, `feat!:`). Not a style preference:
+  release-please reads them to decide the next version and write CHANGELOG.md, so a feature
+  landing under `chore:` never ships. Never hand-edit `CHANGELOG.md`, `package.json`'s `version`
+  or `.release-please-manifest.json` — a release is a merged Release PR, never a pushed tag.
 - When a structural decision changes, update this file in the same diff.
 
 <!-- BEGIN:nextjs-agent-rules -->

@@ -541,11 +541,34 @@ export type AiProvider = {
 /** What a gateway row can be picked as: text, one of the studio kinds, or a word this app offers nowhere (embedding, reranking, realtime). */
 export const GATEWAY_TEXT = "language";
 
+/** The gateway tag a text model must carry: a bot that cannot call a tool cannot do a job. */
+export const GATEWAY_TOOL_USE = "tool-use";
+
+/**
+ * How the gateway bills one model, flattened in `readGatewayCatalog` from the ten
+ * shapes its pricing answers with. A null price is "the gateway did not say", never zero.
+ */
+export type GatewayPrice = {
+  /** USD per 1M tokens; null when the model is not billed per token at all. */
+  in: number | null;
+  out: number | null;
+  /** The unit when it is not tokens ("$0.2/s 720p"), or what qualifies the token price ("tiered"). */
+  note: string | null;
+  free: boolean;
+};
+
 /** One row of the gateway's live model list — only the gateway has one. */
 export type GatewayModel = {
   /** Gateway id, "<provider>/<model>" — used as the model name. */
   id: string;
   label: string;
+  /** Who runs it, the gateway's own word. Four of them are providers this app draws (provider-icon). */
+  owner: string;
   /** Settled in ai/model `readGatewayCatalog`, not passed through; null when the gateway did not say. */
   type?: string | null;
+  /** The gateway's own words for what a model can do; only `tool-use` is read. */
+  tags: string[];
+  price: GatewayPrice;
+  /** The gateway has dated its retirement. */
+  retiring: boolean;
 };

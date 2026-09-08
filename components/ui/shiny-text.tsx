@@ -125,8 +125,10 @@ const ShinyText: React.FC<ShinyTextProps> = ({
   };
 
   return (
+    // inline-block beats a caller's `block`, so it also carries the max: without
+    // one it grows to its text and spills past the parent instead of truncating.
     <motion.span
-      className={`inline-block ${className}`}
+      className={`inline-block max-w-full ${className}`}
       style={{ ...gradientStyle, backgroundPosition }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}

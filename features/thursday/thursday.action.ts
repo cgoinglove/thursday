@@ -1,6 +1,7 @@
 "use server";
 
 import { asSchema } from "ai";
+import { after } from "next/server";
 import { loadTools } from "@/features/ai/load-tools";
 import {
   SPEACH_MODEL_PROVIDER_LIST,
@@ -9,7 +10,8 @@ import {
 } from "@/features/ai/model.schema";
 import { loadThursdayPrompt } from "@/features/ai/prompts/thursday.prompt";
 import { readConfig } from "@/features/config/config.query";
-import { scheduleTidy } from "@/features/memory/memory.tidy";
+import { startTidy } from "@/features/memory/memory.tidy";
+import { logger } from "@/lib/logger";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
 import { issueClientSecret } from "@/lib/realtime/client-secret";
@@ -119,8 +121,13 @@ export const saveTurnsAction = serverAction(
   },
 );
 
+/** Ending the call is what may set a read-back going (memory.tidy); it runs behind the response. */
 export const endCallAction = serverAction(async (callId: string) => {
-  if (await endCall(callId)) scheduleTidy();
+  if (!(await endCall(callId))) return;
+  after(async () => {
+    const outcome = await startTidy();
+    if (outcome !== "started") logger.debug(`tidy: not now (${outcome})`);
+  });
 });
 
 /**

@@ -34,12 +34,20 @@ if (process.argv.includes("--refuse-root")) {
   die("Publish the packed tree, not the checkout — run: pnpm release");
 }
 
+/**
+ * The same gates CI runs, in the order that fails fastest. `next build` type
+ * checks on its own, but nothing else lints — without this, a local
+ * `pnpm release` would publish what a pull request could not merge.
+ */
 if (!process.argv.includes("--no-build")) {
-  const built = spawnSync("npx", ["next", "build"], {
-    cwd: ROOT,
-    stdio: "inherit",
-  });
-  if (built.status !== 0) die("next build failed");
+  for (const [what, argv] of [
+    ["lint", ["biome", "check"]],
+    ["typecheck", ["tsc", "--noEmit"]],
+    ["build", ["next", "build"]],
+  ] as const) {
+    const done = spawnSync("npx", argv, { cwd: ROOT, stdio: "inherit" });
+    if (done.status !== 0) die(`${what} failed — nothing was packed`);
+  }
 }
 
 if (!existsSync(join(BUILD, "server.js"))) {

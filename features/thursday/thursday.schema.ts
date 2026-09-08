@@ -47,7 +47,7 @@ export type CallHandshake = {
  * fields after it apply to the ascii one only. Browser-only (face.store).
  */
 export const ThursdayFaceSchema = botIconSchema.extend({
-  kind: z.enum(FACE_KINDS).default("mark"),
+  kind: z.enum(FACE_KINDS).default("ascii"),
   charset: z.enum(ASCII_CHARSETS).default("ascii"),
   /** Glyph size in px. */
   fontSize: z.number().min(4).max(16).default(8),

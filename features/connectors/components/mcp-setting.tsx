@@ -56,7 +56,6 @@ import {
   SettingRailNote,
   SettingScreen,
   SettingSkeleton,
-  SettingToolbar,
 } from "@/features/settings/components/setting-ui";
 import { useObjectState } from "@/hooks/use-object-state";
 import { schemaToType } from "@/lib/json-schema";
@@ -939,21 +938,18 @@ function PresetSection({
   );
 
   return (
-    <section className="space-y-2">
-      <SettingToolbar
-        count={needle ? `${shown.length} of ${MCP_PRESETS.length}` : undefined}
-      >
-        <span className="shrink-0 font-mono text-xs text-muted-foreground">
-          Presets
-        </span>
+    <SettingGroup
+      label="Presets"
+      filter={
         <SettingFilter
           value={filter}
           onChange={onFilter}
           placeholder="Filter presets"
           className="w-56"
         />
-      </SettingToolbar>
-
+      }
+      right={needle ? `${shown.length} of ${MCP_PRESETS.length}` : undefined}
+    >
       <div className="grid grid-cols-[repeat(4,minmax(0,1fr))] gap-3">
         {shown.map((preset) => (
           <button
@@ -982,7 +978,7 @@ function PresetSection({
           </button>
         ))}
       </div>
-    </section>
+    </SettingGroup>
   );
 }
 

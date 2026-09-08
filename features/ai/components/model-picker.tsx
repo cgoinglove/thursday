@@ -26,6 +26,7 @@ import {
   GATEWAY_TEXT,
   MEDIA_MODEL_PROVIDERS,
 } from "../model.schema";
+import { ModelBrowser } from "./model-browser";
 import { ProviderIcon } from "./provider-icon";
 
 /**
@@ -55,8 +56,10 @@ export function ModelPicker({
   const picked = providers.find((entry) => entry.id === provider);
 
   const gateway = provider === "vercel-ai-gateway";
+  // The listing answers without a key (ai/model readGatewayCatalog), so it is read as
+  // soon as the gateway is the provider — the shelf is browsable while the key row asks.
   const catalog = useServerRoute<GatewayModel[]>(
-    gateway && picked?.hasKey && queryKey.modelCatalog,
+    gateway && queryKey.modelCatalog,
   );
 
   const suggestModels =
@@ -81,7 +84,7 @@ export function ModelPicker({
       hint: entry.id,
     }));
 
-  // For text the live gateway list wins over the suggestions — 226 rows against ten
+  // For text the live gateway list wins over the suggestions — hundreds of rows against ten
   // written by hand. For media both are merged, hand-checked rows first: those carry a
   // label and a size, and are ordered by price, which the live listing cannot be
   const options = !gateway
@@ -110,8 +113,11 @@ export function ModelPicker({
                 {picked.label}
               </>
             ) : (
-              // Unset is a value, not a blank: the run asks the app default (model.ts resolveDefaultModel, resolveMediaRef)
-              <span className="text-muted-foreground">App default</span>
+              // Unset is a value, not a blank: a text model falls back to the app
+              // default (model.ts resolveDefaultModel), a media kind is simply not offered
+              <span className="text-muted-foreground">
+                {kind ? "Not picked" : "App default"}
+              </span>
             )}
             <ChevronDown className="size-3.5 text-muted-foreground" />
           </DropdownMenuTrigger>
@@ -161,6 +167,18 @@ export function ModelPicker({
           }
           className="flex-1"
         />
+
+        {/* Only the gateway has a shelf to browse. It lists without a key, so the
+            button stands while the key row below is still asking. */}
+        {gateway && picked && (
+          <ModelBrowser
+            models={catalog.data ?? []}
+            kind={kind}
+            value={model}
+            loading={catalog.isLoading}
+            onPick={(next) => onChange({ provider: picked.id, model: next })}
+          />
+        )}
       </div>
 
       {picked && !picked.hasKey && (

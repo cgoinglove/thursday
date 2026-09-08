@@ -4,29 +4,47 @@ import { Check, Plus, Search } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { cn, WAITING_INK } from "@/lib/utils";
 
 /** Shared layout for settings screens: a list, dialogs for everything else. */
 
 /**
- * How wide a section's column is. Rows that are a label and its value read at
- * `list`; Thursday's controls are small enough for `narrow`. Readers, rosters
- * and the log take the whole width — a document is not a settings row.
+ * One rhythm, so a label belongs to what is under it rather than floating
+ * between two cards. A group is 32px from the next one, its label 12px above
+ * its body, and a note 8px below it. What reads as cramped is the ratio, not
+ * the numbers: a group 20px from its neighbour and 8px from its own label is
+ * one undifferentiated stack.
  */
-type SettingWidth = "list" | "narrow" | "full";
+const GROUP_GAP = "space-y-8";
 
-const WIDTH: Record<SettingWidth, string> = {
-  narrow: "max-w-[38rem]",
-  list: "max-w-[55rem]",
-  full: "max-w-none",
-};
+/** The padding a section opens with; the skeleton and the error keep it, so nothing jumps. */
+const SECTION_PAD = "px-8 pt-8 pb-6";
+
+/**
+ * The column the section title, a list body and the rail's words share, the
+ * same on every section so nothing moves when the section changes. What fills
+ * the whole width instead is anything that is a surface rather than a list: a
+ * reader's panes, and every rail's rule.
+ */
+export function SettingColumn({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn("mx-auto w-full max-w-[55rem]", className)}>
+      {children}
+    </div>
+  );
+}
 
 export function SettingScreen({
-  width = "list",
   footer,
   children,
 }: {
-  width?: SettingWidth;
   /** The rail pinned to the section's bottom edge; see `SettingRail`. */
   footer?: ReactNode;
   children: ReactNode;
@@ -36,12 +54,12 @@ export function SettingScreen({
       <div className="relative min-h-0 flex-1">
         {/* scroll-py keeps room for a focus ring at the edge and clears the gradient */}
         <div className="h-full w-full scroll-py-6 overflow-y-auto">
-          {/* px-7 + the inner p-1 lands content on the header's px-8 */}
-          <div className="px-7 py-6">
-            {/* p-1: the focus ring extends 3px outside and the scroll container would clip it */}
-            <div className={cn("w-full space-y-5 p-1", WIDTH[width])}>
-              {children}
-            </div>
+          <div className={SECTION_PAD}>
+            <SettingColumn>
+              {/* -m-1/p-1: the focus ring extends 3px outside, and the column's
+                  edges must still land on the header's */}
+              <div className={cn("-m-1 p-1", GROUP_GAP)}>{children}</div>
+            </SettingColumn>
           </div>
         </div>
         {/* Soft top edge, light only: on a black background it reads as a dark band */}
@@ -67,7 +85,9 @@ export function SettingPanes({
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex min-h-0 flex-1 border-t border-border/60">
+      {/* mt-8 matches the padding a scrolling section opens with (SECTION_PAD),
+          so the surface does not start hard against the title */}
+      <div className="mt-8 flex min-h-0 flex-1 border-t border-border/60">
         <div className="flex w-64 shrink-0 flex-col overflow-y-auto border-r border-border/60 bg-muted/20">
           {left}
         </div>
@@ -85,8 +105,10 @@ export function SettingPanes({
  */
 export function SettingRail({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-14 shrink-0 items-center gap-3 border-t border-border/60 px-8 text-xs text-muted-foreground">
-      {children}
+    <div className="shrink-0 border-t border-border/60 px-8">
+      <SettingColumn className="flex h-14 items-center gap-3 text-xs text-muted-foreground">
+        {children}
+      </SettingColumn>
     </div>
   );
 }
@@ -158,7 +180,10 @@ export function NavBadge({
   );
 }
 
-/** A filter and a count on one line, above the list they act on. */
+/**
+ * The header line of a section that has more than one group, so its filter
+ * cannot belong to any of them. A group's own header is `SettingGroup`.
+ */
 export function SettingToolbar({
   children,
   count,
@@ -167,12 +192,37 @@ export function SettingToolbar({
   /** The right-hand tally, in the list's own vocabulary. */
   count?: ReactNode;
 }) {
+  return <SettingHeader filter={children} right={count} />;
+}
+
+/** What sits above a body: what the set is, a filter for it, and its state. */
+function SettingHeader({
+  label,
+  hint,
+  filter,
+  right,
+}: {
+  label?: string;
+  hint?: string;
+  filter?: ReactNode;
+  right?: ReactNode;
+}) {
   return (
     <div className="flex items-center gap-3">
-      {children}
-      {count && (
+      {label && (
+        <span className="shrink-0 font-mono text-xs text-muted-foreground">
+          {label}
+        </span>
+      )}
+      {hint && (
+        <span className="truncate font-mono text-xs text-muted-foreground/60">
+          {hint}
+        </span>
+      )}
+      {filter}
+      {right && (
         <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground">
-          {count}
+          {right}
         </span>
       )}
     </div>
@@ -216,16 +266,24 @@ export function SettingDialogContent({
 
 export function SettingSkeleton({ rows = 3 }: { rows?: number }) {
   return (
-    <div className="space-y-3 px-8 pt-6">
-      {Array.from({ length: rows }, (_, row) => (
-        <Skeleton key={row} className="h-16 w-full rounded-xl" />
-      ))}
+    <div className={SECTION_PAD}>
+      <SettingColumn className="space-y-3">
+        {Array.from({ length: rows }, (_, row) => (
+          <Skeleton key={row} className="h-16 w-full rounded-xl" />
+        ))}
+      </SettingColumn>
     </div>
   );
 }
 
 export function SettingError({ message }: { message: string }) {
-  return <p className="p-6 font-mono text-xs text-destructive">{message}</p>;
+  return (
+    <div className={SECTION_PAD}>
+      <SettingColumn>
+        <p className="font-mono text-xs text-destructive">{message}</p>
+      </SettingColumn>
+    </div>
+  );
 }
 
 /** The bordered list every section uses; rows draw themselves. */
@@ -248,37 +306,111 @@ export function SettingItems({
 }
 
 /**
- * A named set. The label is plain text above its card: a tinted band inside the
- * card reads as a row, and a rule under it repeats the card's own border.
+ * A named set: a header line, a body, and a note about it. The label is plain
+ * text above the body — a tinted band inside the card reads as a row, and a
+ * rule under it repeats the card's own border. Margins rather than `space-y`,
+ * so the label binds to the body no matter how many nodes the body is.
  */
 export function SettingGroup({
   label,
   hint,
+  filter,
   right,
+  note,
   children,
 }: {
-  label: string;
+  label?: string;
   /** A fainter note beside the label. */
   hint?: string;
+  /** A `SettingFilter` on the header line, for a set that grows. */
+  filter?: ReactNode;
   /** The set's state, at the far end of the label line. */
   right?: ReactNode;
+  /** The line under the body that qualifies it; a falsy value draws nothing. */
+  note?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-2">
-      <div className="flex items-baseline gap-2">
-        <span className="shrink-0 font-mono text-xs text-muted-foreground">
-          {label}
-        </span>
-        {hint && (
-          <span className="truncate font-mono text-xs text-muted-foreground/60">
-            {hint}
-          </span>
-        )}
-        {right && <span className="ml-auto shrink-0">{right}</span>}
-      </div>
+    <section>
+      {(label || hint || filter || right) && (
+        <div className="mb-3">
+          <SettingHeader
+            label={label}
+            hint={hint}
+            filter={filter}
+            right={right}
+          />
+        </div>
+      )}
       {children}
+      {note && <SettingNote className="mt-2">{note}</SettingNote>}
     </section>
+  );
+}
+
+/**
+ * The line under a body that qualifies it: what a switch does next, why nothing
+ * happened, what will be typed wrong. One definition, so it cannot drift.
+ */
+export function SettingNote({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <p
+      className={cn(
+        "px-1 font-mono text-[11px] text-muted-foreground",
+        className,
+      )}
+    >
+      {children}
+    </p>
+  );
+}
+
+/**
+ * A setting that runs by itself: one switch, and what it reveals while it is
+ * on. Tinted rather than bordered — what it holds is state, not a set to pick
+ * from. Its description is a sentence that wraps, so it gets its own leading;
+ * a row's second line, which is one line of state, stays tight.
+ */
+export function SettingToggle({
+  label,
+  description,
+  checked,
+  disabled,
+  onChange,
+  children,
+}: {
+  label: string;
+  description: ReactNode;
+  checked: boolean;
+  /** Holds the switch while its state is still arriving. */
+  disabled?: boolean;
+  onChange: (on: boolean) => void;
+  /** Drawn under the switch while it is on. */
+  children?: ReactNode;
+}) {
+  return (
+    <div className="space-y-3 rounded-xl bg-muted/30 p-4">
+      <label className="flex items-center gap-4">
+        <span className="min-w-0 flex-1 space-y-1">
+          <span className="block text-sm font-medium">{label}</span>
+          <span className="block text-xs leading-relaxed text-muted-foreground">
+            {description}
+          </span>
+        </span>
+        <Switch
+          checked={checked}
+          disabled={disabled}
+          onCheckedChange={onChange}
+        />
+      </label>
+      {checked && children}
+    </div>
   );
 }
 

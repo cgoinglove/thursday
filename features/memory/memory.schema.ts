@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { MEMORY_TIDY } from "@/config";
 import { type DateLike, DateLikeSchema, toDate } from "@/lib/date-like";
 
 // Storage is fact-based: one row per fact, history via isLatest.
@@ -181,35 +180,22 @@ export function isFading(
   return !isAlwaysListed(note.path) && recallScore(note) < 0.15;
 }
 
-// The tidy pass (memory.tidy): settings, the run row as the screen sees it.
+// Reading calls back (memory.tidy): its settings and the run row the screen draws.
 
-/**
- * How eagerly memory is re-read after calls. Each level is a pending-transcript
- * size (config MEMORY_TIDY.threshold); `off` never runs.
- */
-export const MEMORY_TIDY_LEVELS = ["off", "often", "normal", "rarely"] as const;
-export const MemoryTidyLevelSchema = z.enum(MEMORY_TIDY_LEVELS);
-export type MemoryTidyLevel = z.infer<typeof MemoryTidyLevelSchema>;
-
-export const MEMORY_TIDY_LEVEL_DEFAULT: MemoryTidyLevel = "normal";
-
-export const MEMORY_TIDY_LEVEL_LABEL: Record<MemoryTidyLevel, string> = {
-  off: "Off",
-  often: "Often",
-  normal: "Normal",
-  rarely: "Rarely",
-};
-
-/** Pending transcript tokens that start a pass; null means never. */
-export const tidyThreshold = (level: MemoryTidyLevel): number | null =>
-  level === "off" ? null : MEMORY_TIDY.threshold[level];
-
-/** Config keys (features/config config.query) the tidy settings live under. */
+/** Config keys (features/config config.query) the settings live under. */
 export const MEMORY_TIDY_KEYS = {
-  level: "MEMORY_TIDY",
+  /** "on" switches it on; anything else, unset included, is off. */
+  on: "MEMORY_TIDY",
   /** `provider/model`; unset runs on the app default (ai/model resolveDefaultModel). */
   model: "MEMORY_TIDY_MODEL",
 } as const;
+
+/**
+ * Off unless switched on. A read costs a whole context of a text model, so
+ * nothing starts spending until the user asks for it — and a model must be
+ * picked as well (memory.tidy startTidy).
+ */
+export const isTidyOn = (value: string | undefined) => value?.trim() === "on";
 
 export const MEMORY_TIDY_STATUSES = [
   "running",
@@ -219,7 +205,7 @@ export const MEMORY_TIDY_STATUSES = [
 ] as const;
 export type MemoryTidyStatus = (typeof MEMORY_TIDY_STATUSES)[number];
 
-/** One thing the pass changed; the run row keeps them in order. */
+/** One thing a read changed; the run row keeps them in order. */
 export const MemoryTidyChangeSchema = z.object({
   op: z.enum(["add", "replace", "forget", "carry", "uncarry"]),
   path: z.string(),
@@ -232,8 +218,10 @@ export const MemoryTidyRunSchema = z.object({
   status: z.enum(MEMORY_TIDY_STATUSES),
   provider: z.string(),
   model: z.string(),
+  /** The calls this read covered and stamped, oldest first. */
   callIds: z.string().array(),
-  done: z.number(),
+  /** Turns it actually read. Fewer than were owed when older ones were dropped. */
+  messages: z.number(),
   changes: MemoryTidyChangeSchema.array(),
   error: z.string().nullable(),
   inputTokens: z.number(),
@@ -243,32 +231,34 @@ export const MemoryTidyRunSchema = z.object({
 });
 export type MemoryTidyRun = z.infer<typeof MemoryTidyRunSchema>;
 
-/** What the tidy screen reads (app/api/memory/tidy). */
+/** What the setting reads (app/api/memory/tidy). */
 export type MemoryTidyStatusView = {
-  level: MemoryTidyLevel;
+  on: boolean;
   /** The picked model as `provider/model`, or null for the app default. */
   model: string | null;
-  /** Transcript tokens of calls not yet read, and where a pass starts. */
-  pendingTokens: number;
-  pendingCalls: number;
-  threshold: number | null;
-  /** The pass in progress, if any. */
+  /** Turns said since the last read, and how many it takes to run. */
+  pending: number;
+  every: number;
+  /** The read in progress, if any. */
   current: MemoryTidyRun | null;
-  /** The most recent finished pass. */
+  /** The most recent finished read. */
   last: MemoryTidyRun | null;
 };
 
-/** Counts per op for one line on screen: "4 added · 2 forgotten". */
+/** Counts per op for one line on screen: "3 added, 1 revised". */
 export function tidyTally(changes: MemoryTidyChange[]): string {
   const count = (op: MemoryTidyChange["op"]) =>
     changes.filter((change) => change.op === op).length;
-  const parts = [
-    [count("add"), "added"],
-    [count("replace"), "revised"],
-    [count("forget"), "forgotten"],
-    [count("carry"), "carried"],
-    [count("uncarry"), "uncarried"],
-  ] as const;
-  const said = parts.filter(([n]) => n > 0).map(([n, word]) => `${n} ${word}`);
-  return said.length ? said.join(" · ") : "nothing changed";
+  const said = (
+    [
+      [count("add"), "added"],
+      [count("replace"), "revised"],
+      [count("forget"), "dropped"],
+      [count("carry"), "carried"],
+      [count("uncarry"), "uncarried"],
+    ] as const
+  )
+    .filter(([n]) => n > 0)
+    .map(([n, word]) => `${n} ${word}`);
+  return said.length ? said.join(", ") : "nothing to change";
 }

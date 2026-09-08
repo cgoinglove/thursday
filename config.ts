@@ -80,7 +80,7 @@ export const TOOL_OUTPUT = { max: 8_000, head: 5_500, tail: 1_500 };
  * - `resumeMessages`  messages re-read after the last compact when resuming.
  */
 export const BOT_RUN = {
-  steps: 40,
+  steps: 25,
   compactAt: 120_000,
   summaryWords: { min: 600, max: 3000, perTokens: 200 },
   resumeMessages: 20,
@@ -110,23 +110,16 @@ export const STUDIO_SERVER = "studio";
 export const RECENT_CALL = { rows: 20, tokens: 600 };
 
 /**
- * The memory tidy pass (features/memory/memory.tidy): a text model re-reads
- * calls after the fact and reconciles memory with them.
- * - `threshold`  pending transcript tokens (user and assistant turns of calls
- *            not yet read) at which a pass starts, per setting level.
- * - `quietMs`  how long after a call ends, with no new call, before a pass may start.
- * - `staleDays`  a pass starts regardless of size once the oldest pending call is this old.
- * - `maxCalls`  calls one pass reads; the rest wait for the next.
- * - `unitTokens`  transcript tokens one model context takes; a longer call is
- *            read in parts.
- * - `steps`  model steps per part.
+ * Reading calls back (features/memory/memory.tidy): after a call ends, a text
+ * model re-reads what was said and reconciles memory with it.
+ * - `messages`  spoken turns owed before a read runs, and the size of the read:
+ *            the most recent `messages` turns go in as one context and every
+ *            call they came from is stamped, older ones included. One number,
+ *            because the threshold and the window are the same thing.
+ * - `steps`  model steps per read.
  */
 export const MEMORY_TIDY = {
-  threshold: { often: 4_000, normal: 8_000, rarely: 20_000 },
-  quietMs: 3 * 60_000,
-  staleDays: 3,
-  maxCalls: 10,
-  unitTokens: 20_000,
+  messages: 40,
   steps: 12,
 };
 

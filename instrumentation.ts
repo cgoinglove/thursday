@@ -20,15 +20,14 @@ export async function register() {
   const { sweepCalls } = await import("@/features/thursday/thursday.query");
   await sweepCalls();
 
-  // And for the memory tidy pass (memory.tidy).
-  const { scheduleTidy, stopTidy, sweepTidy } = await import(
-    "@/features/memory/memory.tidy"
-  );
+  // And for a read-back the last process left running (memory.tidy).
+  const { stopTidy, sweepTidy } = await import("@/features/memory/memory.tidy");
   await sweepTidy();
 
-  // With no browser on the app nothing runs: jobs stop and wait, the tidy pass
-  // stops, and a call left open closes. A browser arriving arms the tidy pass;
-  // jobs wait to be picked up by hand (bot.runner pauseTasks).
+  // With no browser on the app nothing runs: jobs stop and wait, a read-back
+  // stops, and a call left open closes. Nothing resumes by itself — a job waits
+  // to be picked up by hand (bot.runner pauseTasks) and a read-back waits for
+  // the next call to end.
   const { presence } = await import("@/app/api/events/app-event.server");
   const { pauseTasks } = await import("@/features/bot/bot.runner");
   presence.onGone(() => {
@@ -41,7 +40,6 @@ export async function register() {
     );
     void sweepCalls().catch((cause) => logger.error("sweep calls", cause));
   });
-  presence.onBack(() => scheduleTidy());
 
   // The two roots are the first thing to check when a fresh clone reads the
   // wrong database or cannot find its skills (config APP_DIR / DATA_DIR)

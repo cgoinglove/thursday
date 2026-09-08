@@ -3,7 +3,7 @@
 ## Run it
 
 ```bash
-git clone https://github.com/cgoing/thursday.git
+git clone https://github.com/cgoinglove/thursday.git
 cd thursday
 pnpm install
 pnpm dev       # first run also fetches the browser bots drive, in the background
@@ -44,5 +44,17 @@ a provider driver, or a bug with a reproduction need no permission at all.
 
 ## Commits
 
-Anything readable. The history is squashed on merge, so the pull request title is
-what survives.
+Pull requests are squashed on merge, so **the pull request title becomes the commit
+message** — and that message decides the next release. Write it as
+[conventional commits](https://www.conventionalcommits.org):
+
+| Title | Effect |
+|---|---|
+| `feat: ring the user when a job needs them` | next minor, under Features |
+| `fix: keep the caption from clipping at 780px` | next patch, under Fixes |
+| `docs:` · `refactor:` · `perf:` | no release; `perf` and `refactor` still show up |
+| `chore:` · `test:` | no release, not in the changelog |
+| `feat!:`, or `BREAKING CHANGE:` in the body | next major |
+
+A title that fits none of these releases nothing — fine for a typo, wrong for a
+feature. Commits inside the branch can say anything.

@@ -40,6 +40,9 @@ yarn-error.log*
 next-env.d.ts
 
 *.db
+# WAL sidecars; they sit beside the database and are not covered by *.db
+*.db-wal
+*.db-shm
 
 # agent workspace (local; holds the user's installed skills)
 /.ai-workspace
@@ -51,6 +54,14 @@ next-env.d.ts
 .vercel
 .design
 skills-lock.json
+# Anything a contributor keeps to themselves. This is the one naming rule the
+# repo has: a scratch note, a task list, a local override — name it *.local.*
+# and it can never be committed by accident (CLAUDE.md says the same).
 *.local.*
+
 # the publish tree (scripts/pack.mts)
 /dist
+
+# Shell redirects that landed as empty files at the root
+/next
+/thursday@*

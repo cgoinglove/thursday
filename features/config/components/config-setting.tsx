@@ -6,7 +6,6 @@ import {
   Check,
   ChevronRight,
   Clapperboard,
-  Cpu,
   Image as ImageIcon,
   type LucideIcon,
   TriangleAlert,
@@ -24,6 +23,7 @@ import {
   parseTextModel,
   type TextModelProviderId,
 } from "@/features/ai/model.schema";
+import { BotsMark } from "@/features/bot/components/bot-mark";
 import {
   removeConfigAction,
   setConfigAction,
@@ -235,7 +235,8 @@ function ChoiceRow({
   const usable = choices.filter((choice) => isSet(choice.needs));
   // A value typed outside the list (gateway) has no label
   const typed = value && !picked ? value : null;
-  const Mark = entry.kind ? KIND_MARKS[entry.kind] : Cpu;
+  // A text model is what a bot thinks with, so it wears the bots mark; Cpu here was the memory glyph (memory-mark).
+  const Mark = entry.kind ? KIND_MARKS[entry.kind] : BotsMark;
 
   return (
     <button
@@ -256,15 +257,23 @@ function ChoiceRow({
         </span>
         <span className="flex min-w-0 items-center gap-1.5">
           {!picked && !typed && (
-            <span className="shrink-0 rounded-[5px] border border-border/60 px-1 font-mono text-[10px] text-muted-foreground">
-              auto
+            <span
+              className={cn(
+                "shrink-0 rounded-[5px] border border-border/60 px-1 font-mono text-[10px]",
+                entry.kind ? WAITING_INK : "text-muted-foreground",
+              )}
+            >
+              {/* A studio kind unpicked is not automatic: the tool is not offered
+                  at all (ai/model resolveMediaRef). Only the bots' default falls back. */}
+              {entry.kind ? "off" : "auto"}
             </span>
           )}
           <span className="truncate font-mono text-xs text-muted-foreground">
             {picked?.label ??
               typed ??
-              usable[0]?.label ??
-              "No key for any of these yet"}
+              (entry.kind
+                ? "Not offered to bots until you pick one"
+                : (usable[0]?.label ?? "No key for any of these yet"))}
           </span>
         </span>
       </span>
@@ -280,7 +289,11 @@ function openModelDialog(entry: ConfigEntry) {
   });
 }
 
-/** Picks one model entry — a studio kind, or the bots' default — with the picker bots use. "Automatic" clears it. */
+/**
+ * Picks one model entry — a studio kind, or the bots' default — with the picker bots use.
+ * Clearing means different things: the bots' default falls back to whatever has a key, a studio
+ * kind stops being offered at all (ai/model resolveMediaRef).
+ */
 function ModelDialog({
   entry,
   onDone,
@@ -308,7 +321,9 @@ function ModelDialog({
     onOk: done,
   });
   const [clear, clearing] = useServerAction(removeConfigAction, {
-    okMessage: `${entry.label} back to automatic`,
+    okMessage: entry.kind
+      ? `${entry.label} switched off`
+      : `${entry.label} back to automatic`,
     onOk: done,
   });
 
@@ -324,7 +339,7 @@ function ModelDialog({
               loading={clearing}
               onClick={() => clear(entry.key)}
             >
-              Automatic
+              {entry.kind ? "Turn off" : "Automatic"}
             </Button>
           )}
           <Button variant="ghost" onClick={onDone}>
@@ -382,7 +397,9 @@ function ChoiceDialog({
     onOk: done,
   });
   const [clear, clearing] = useServerAction(removeConfigAction, {
-    okMessage: `${entry.label} back to automatic`,
+    okMessage: entry.kind
+      ? `${entry.label} switched off`
+      : `${entry.label} back to automatic`,
     onOk: done,
   });
 
@@ -398,7 +415,7 @@ function ChoiceDialog({
               loading={clearing}
               onClick={() => clear(entry.key)}
             >
-              Automatic
+              {entry.kind ? "Turn off" : "Automatic"}
             </Button>
           )}
           <Button variant="ghost" onClick={onDone}>

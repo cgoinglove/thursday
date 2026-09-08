@@ -10,6 +10,7 @@ import { toolIcon } from "@/features/bot/components/bot-tool";
 import {
   SettingDialogContent,
   SettingError,
+  SettingGroup,
   SettingItems,
   SettingMore,
   SettingSkeleton,
@@ -30,10 +31,7 @@ import { ThursdayMark } from "./thursday-mark";
 /** The Settings › Thursday row that opens the call history dialog. */
 export function CallHistoryRow() {
   return (
-    <section className="space-y-2">
-      <span className="font-mono text-xs text-muted-foreground">
-        Transcripts
-      </span>
+    <SettingGroup label="Transcripts">
       <SettingItems>
         <button
           type="button"
@@ -64,7 +62,7 @@ export function CallHistoryRow() {
           <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
         </button>
       </SettingItems>
-    </section>
+    </SettingGroup>
   );
 }
 

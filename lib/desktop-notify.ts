@@ -13,11 +13,16 @@ const BODY_MAX = 200;
 /** Keeps a hung shell from holding the process. */
 const TIMEOUT_MS = 10_000;
 
-// mac and windows take a script string, so values travel as env vars: a quote
-// in a bot-written title must not end the script. Linux takes arguments.
-const APPLESCRIPT =
-  // Without `as text` this fails with -1700: display notification takes only strings
-  'display notification ((system attribute "NOTIFY_BODY") as text) with title ((system attribute "NOTIFY_TITLE") as text)';
+// Windows takes a script string, so its values travel as env vars: a quote in a
+// bot-written title must not end the script. mac and linux take arguments.
+//
+// The values are `run` arguments rather than anything read from inside the
+// script: `system attribute` decodes the environment in a legacy encoding, so
+// a Korean title arrived as mojibake, and interpolating into the script text
+// would hand a quote the power to end it. argv is UTF-8 and already `text`.
+const APPLESCRIPT = `on run argv
+display notification (item 2 of argv) with title (item 1 of argv)
+end run`;
 
 // Shows under PowerShell's registered AppId; this app has no Start-menu entry of its own
 const POWERSHELL = `
@@ -31,18 +36,21 @@ $id = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\WindowsPowerShell\\v1.0\\powershe
 [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($id).Show([Windows.UI.Notifications.ToastNotification]::new($xml))
 `;
 
+// `--` on the two that take arguments: a title can start with a dash
 const COMMAND: Partial<
   Record<
     NodeJS.Platform,
     (title: string, body: string) => [file: string, args: string[]]
   >
 > = {
-  darwin: () => ["osascript", ["-e", APPLESCRIPT]],
+  darwin: (title, body) => [
+    "osascript",
+    ["-e", APPLESCRIPT, "--", title, body],
+  ],
   win32: () => [
     "powershell.exe",
     ["-NoProfile", "-NonInteractive", "-Command", POWERSHELL],
   ],
-  // `--` because a title can start with a dash
   linux: (title, body) => [
     "notify-send",
     ["--app-name", APP_NAME, "--", title, body],

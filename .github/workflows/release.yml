@@ -1,12 +1,37 @@
 name: Release
 
-# A tag is the release. `npm version <x>` then `git push --follow-tags`.
+# Nobody tags anything by hand. Every push to main updates one open "Release PR"
+# that carries the next version and the changelog it earned; merging that PR is
+# the decision to release, and everything below happens from it.
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
+  # Keeps the Release PR in step with main. On the push that merges it, this
+  # tags the commit, publishes the GitHub Release, and says so in `released`.
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # Only on the run that created a release. A tag written with the default token
+  # starts no workflow of its own, so npm is published from here rather than
+  # from a `push: tags` trigger that would never fire.
   publish:
+    needs: prepare
+    if: needs.prepare.outputs.released == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -25,21 +50,22 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm typecheck
-      - run: pnpm lint
-
-      # Builds the standalone tree and writes dist/package.json (scripts/pack).
+      # Lints, type checks, builds and writes dist/package.json — the same gates
+      # a local `pnpm release` runs, defined once (scripts/pack.mts).
       - run: node scripts/pack.mts
 
-      # The tag has to be the version being published, or the tarball and the
-      # release notes disagree forever.
+      # release-please bumped package.json in the commit being built, so the tag
+      # and the tarball cannot disagree; check it anyway, since a mismatch is
+      # permanent once published.
       - name: Tag matches the version
         run: |
-          tagged="${GITHUB_REF_NAME#v}"
+          tagged="${TAG#v}"
           packed="$(node -p "require('./dist/package.json').version")"
           [ "$tagged" = "$packed" ] || {
             echo "tag $tagged != package $packed"; exit 1;
           }
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
 
       - run: npm publish ./dist --provenance --access public
         env:

@@ -29,7 +29,7 @@ import { resolveSearchModel } from "./model";
  * Every tool runs on the server, including calls made during a voice session; only `end_call`
  * has no execute (the page hangs up). The split is by time, not capability: anything that
  * presupposes waiting (MCP, skills, studio, browser) belongs to the bot. Only the voice session
- * writes to memory during a call; bots read. The tidy pass writes after the call.
+ * writes to memory during a call; bots read. Reading calls back writes afterwards.
  */
 
 export type ToolTarget = "thursday" | "bot" | "tidy";
@@ -188,7 +188,8 @@ export async function loadTools(run: ToolRun): Promise<ToolSet> {
   const memory = createMemoryTools();
 
   if (run.target === "tidy") {
-    // The one runtime besides the call that writes memory. No screen to show a note on, no shell, so no workspace is opened.
+    // Reading calls back (memory/memory.tidy): the one runtime besides the call
+    // that writes memory. No screen to show a note on and no shell, so no workspace is opened.
     const { [TOOL_NAMES.memory_show]: _show, ...rest } = memory;
     return { ...rest, [TOOL_NAMES.tidy_done]: tidyDoneTool };
   }

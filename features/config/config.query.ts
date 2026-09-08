@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { database } from "@/database/db";
 import { configTable } from "@/database/tables";
-import { CONFIG_GROUPS, groupSatisfied } from "./config.const";
+import { CONFIG_GROUPS, groupSatisfied, VOICE_GROUP_ID } from "./config.const";
 
 /** Env var wins over the row the settings screen wrote. */
 export async function readConfig(key: string) {
@@ -29,7 +29,7 @@ export async function removeConfig(key: string) {
 
 /** Whether a voice key exists (the keys group's `requireKeys`); decides call screen vs intro. */
 export async function isCallable(): Promise<boolean> {
-  const voice = CONFIG_GROUPS.find((group) => group.id === "keys");
+  const voice = CONFIG_GROUPS.find((group) => group.id === VOICE_GROUP_ID);
   if (!voice) return true;
 
   const set = await Promise.all(

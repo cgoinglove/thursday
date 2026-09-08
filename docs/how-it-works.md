@@ -46,6 +46,8 @@ Memory is plain notes on your disk, in the data folder (`~/.thursday` when insta
 
 You can open any note from settings and read exactly what she knows. When the listing gets long she says so in a lull, puts a note on your screen and forgets only what you name.
 
+Writing mid-conversation catches what she noticed; it misses what only reads back as important afterwards. So when a call ends, a text model re-reads the most recent turns and reconciles the notes with them — correcting what changed, adding what was said in passing. Calls are stamped as they are read, so a backlog of short calls collapses into one pass rather than one per call.
+
 Bots read memory but do not write it. What a bot learns goes into its report; whether it is worth keeping is her call, with you.
 
 ## What is not here

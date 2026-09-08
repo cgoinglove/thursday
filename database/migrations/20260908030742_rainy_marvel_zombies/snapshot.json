@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "8b2e2b8d-5995-4224-a1c1-9f3576f9d6b2",
+  "id": "4b669ac7-3517-4949-8ea9-f94dbe8f730c",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -40,6 +40,10 @@
     },
     {
       "name": "memory_note",
+      "entityType": "tables"
+    },
+    {
+      "name": "memory_tidy_run",
       "entityType": "tables"
     },
     {
@@ -257,6 +261,16 @@
       "default": null,
       "generated": null,
       "name": "ended_at",
+      "entityType": "columns",
+      "table": "call"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "tidied_at",
       "entityType": "columns",
       "table": "call"
     },
@@ -549,6 +563,126 @@
       "name": "updated_at",
       "entityType": "columns",
       "table": "memory_note"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "memory_tidy_run"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "memory_tidy_run"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "provider",
+      "entityType": "columns",
+      "table": "memory_tidy_run"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "model",
+      "entityType": "columns",
+      "table": "memory_tidy_run"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "call_ids",
+      "entityType": "columns",
+      "table": "memory_tidy_run"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "messages",
+      "entityType": "columns",
+      "table": "memory_tidy_run"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'[]'",
+      "generated": null,
+      "name": "changes",
+      "entityType": "columns",
+      "table": "memory_tidy_run"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "error",
+      "entityType": "columns",
+      "table": "memory_tidy_run"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "input_tokens",
+      "entityType": "columns",
+      "table": "memory_tidy_run"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "output_tokens",
+      "entityType": "columns",
+      "table": "memory_tidy_run"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "started_at",
+      "entityType": "columns",
+      "table": "memory_tidy_run"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ended_at",
+      "entityType": "columns",
+      "table": "memory_tidy_run"
     },
     {
       "type": "integer",
@@ -971,6 +1105,15 @@
       "nameExplicit": false,
       "name": "memory_note_pk",
       "table": "memory_note",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "memory_tidy_run_pk",
+      "table": "memory_tidy_run",
       "entityType": "pks"
     },
     {

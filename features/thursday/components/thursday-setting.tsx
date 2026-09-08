@@ -12,7 +12,6 @@ import { Combobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { Swatch } from "@/components/ui/swatch";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ProviderIcon } from "@/features/ai/components/provider-icon";
 import {
@@ -21,13 +20,17 @@ import {
   type SpeachModelRef,
 } from "@/features/ai/model.schema";
 import { MARK_PALETTE_ROWS, MARK_SHAPES } from "@/features/bot/mark.const";
+import { TidySetting } from "@/features/memory/components/memory-tidy";
 import {
   SettingChoiceRows,
   SettingError,
+  SettingGroup,
   SettingItems,
+  SettingNote,
   SettingRailNote,
   SettingScreen,
   SettingSkeleton,
+  SettingToggle,
 } from "@/features/settings/components/setting-ui";
 import { CallHistoryRow } from "@/features/thursday/components/call-log";
 import { FACES, Face } from "@/features/thursday/components/face";
@@ -87,9 +90,7 @@ export function ThursdaySetting() {
     providers.some((entry) => entry.apiKeyName === name && entry.hasKey);
 
   return (
-    // Her controls are a face and a handful of switches; 880 leaves them stranded
     <SettingScreen
-      width="narrow"
       footer={
         <SettingRailNote>
           Her prompt is assembled fresh on every call — memory, the roster and
@@ -102,8 +103,10 @@ export function ThursdaySetting() {
       {/* Read, not changed, so it sits at the top */}
       <CallHistoryRow />
 
-      <section className="space-y-2">
-        <span className="font-mono text-xs text-muted-foreground">Voice</span>
+      <SettingGroup
+        label="Voice"
+        note={!picked && "Nothing picked — calls run on whichever key is set."}
+      >
         <SettingItems>
           {SPEACH_MODEL_PROVIDER_LIST.map((provider) => (
             <ProviderRow
@@ -118,12 +121,7 @@ export function ThursdaySetting() {
             />
           ))}
         </SettingItems>
-        {!picked && (
-          <p className="px-1 font-mono text-[11px] text-muted-foreground">
-            Nothing picked — calls run on whichever key is set.
-          </p>
-        )}
-      </section>
+      </SettingGroup>
 
       <Captions
         value={thursday.captionView}
@@ -141,6 +139,9 @@ export function ThursdaySetting() {
         value={thursday.hotkey}
         onChange={(hotkey) => patch({ hotkey })}
       />
+
+      {/* Server-side, unlike everything above it: the pass runs without a browser (memory.tidy) */}
+      <TidySetting />
 
       <Instructions
         value={thursday.systemPrompt ?? ""}
@@ -165,9 +166,7 @@ function FacePicker({
     onChange({ ...value, ...change });
 
   return (
-    <section className="space-y-2">
-      <span className="font-mono text-xs text-muted-foreground">Face</span>
-
+    <SettingGroup label="Face">
       {/* No panel or border: the face is drawn in theme ink, and a panel behind it reads as a picture on a card */}
       <div className="space-y-5 py-2">
         {/* Same layout as the call screen: face above, one line below */}
@@ -294,7 +293,7 @@ function FacePicker({
           </>
         )}
       </div>
-    </section>
+    </SettingGroup>
   );
 }
 
@@ -444,7 +443,7 @@ const CAPTION_LABEL: Record<CaptionView, { label: string; hint: string }> = {
   },
   sides: {
     label: "Last three turns",
-    hint: "Yours on the left, hers on the right, beside the mark.",
+    hint: "Hers on the left, yours on the right, beside the mark.",
   },
 };
 
@@ -457,8 +456,13 @@ function CallBackPicker({
   onChange: (mode: CallBack) => void;
 }) {
   return (
-    <section className="space-y-2">
-      <span className="font-mono text-xs text-muted-foreground">Calls you</span>
+    <SettingGroup
+      label="Calls you"
+      note={
+        value !== "off" &&
+        "Needs this tab open. A tab that has been silent since it loaded may not be allowed to make a sound — the desktop notification covers that."
+      }
+    >
       <SettingChoiceRows
         options={CALL_BACK_MODES.map((mode) => ({
           value: mode,
@@ -468,13 +472,7 @@ function CallBackPicker({
         value={value}
         onChange={onChange}
       />
-      {value !== "off" && (
-        <p className="px-1 font-mono text-[11px] text-muted-foreground">
-          Needs this tab open. A tab that has been silent since it loaded may
-          not be allowed to make a sound — the desktop notification covers that.
-        </p>
-      )}
-    </section>
+    </SettingGroup>
   );
 }
 
@@ -494,8 +492,7 @@ function Captions({
   onChange: (view: CaptionView) => void;
 }) {
   return (
-    <section className="space-y-2">
-      <span className="font-mono text-xs text-muted-foreground">Captions</span>
+    <SettingGroup label="Captions">
       <SettingChoiceRows
         options={CAPTION_VIEWS.map((view) => ({
           value: view,
@@ -505,7 +502,7 @@ function Captions({
         value={value}
         onChange={onChange}
       />
-    </section>
+    </SettingGroup>
   );
 }
 
@@ -531,47 +528,32 @@ function WakeWord({
   const terse = draft.value.trim().split(/\s+/).length < 2;
 
   return (
-    <section className="space-y-2">
-      <span className="font-mono text-xs text-muted-foreground">Wake</span>
-
-      <div className="space-y-3 rounded-xl bg-muted/30 p-4">
-        <label className="flex items-center gap-3">
-          <span className="min-w-0 flex-1 space-y-0.5">
-            <span className="block text-sm font-medium">
-              Answer to her name
-            </span>
-            <span className="block text-xs text-muted-foreground">
-              Between calls, the browser listens for the phrase below and picks
-              up when it hears it.
-            </span>
-          </span>
-          <Switch
-            checked={value.enabled}
-            onCheckedChange={(enabled) => onChange({ ...value, enabled })}
+    <SettingGroup label="Wake">
+      <SettingToggle
+        label="Answer to her name"
+        description="Between calls, the browser listens for the phrase below and picks up when it hears it."
+        checked={value.enabled}
+        onChange={(enabled) => onChange({ ...value, enabled })}
+      >
+        <div className="space-y-2">
+          <Input
+            value={draft.value}
+            maxLength={WAKE_PHRASE.max}
+            spellCheck={false}
+            onChange={(event) => draft.set(event.target.value)}
+            onBlur={draft.commit}
+            onKeyDown={draft.onKeyDown}
+            aria-label="Wake phrase"
+            className="font-mono text-sm"
           />
-        </label>
-
-        {value.enabled && (
-          <div className="space-y-1.5">
-            <Input
-              value={draft.value}
-              maxLength={WAKE_PHRASE.max}
-              spellCheck={false}
-              onChange={(event) => draft.set(event.target.value)}
-              onBlur={draft.commit}
-              onKeyDown={draft.onKeyDown}
-              aria-label="Wake phrase"
-              className="font-mono text-sm"
-            />
-            <p className="px-1 font-mono text-[11px] text-muted-foreground">
-              {terse
-                ? "One word will wake her by accident — say hello first."
-                : "Heard loosely, in English. Near misses count."}
-            </p>
-          </div>
-        )}
-      </div>
-    </section>
+          <SettingNote>
+            {terse
+              ? "One word will wake her by accident — say hello first."
+              : "Heard loosely, in English. Near misses count."}
+          </SettingNote>
+        </div>
+      </SettingToggle>
+    </SettingGroup>
   );
 }
 
@@ -608,55 +590,42 @@ function Shortcut({
   };
 
   return (
-    <section className="space-y-2">
-      <span className="font-mono text-xs text-muted-foreground">Shortcut</span>
-
-      <div className="space-y-3 rounded-xl bg-muted/30 p-4">
-        <label className="flex items-center gap-3">
-          <span className="min-w-0 flex-1 space-y-0.5">
-            <span className="block text-sm font-medium">Answer to a key</span>
-            <span className="block text-xs text-muted-foreground">
-              With this tab in front, the key below starts a call — and ends the
-              one that is running.
-            </span>
-          </span>
-          <Switch
-            checked={value.enabled}
-            onCheckedChange={(enabled) => onChange({ ...value, enabled })}
-          />
-        </label>
-
-        {value.enabled && (
-          <div className="space-y-1.5">
-            <button
-              type="button"
-              {...HOTKEY_CAPTURE}
-              onClick={() => {
-                setBare(false);
-                setListening(true);
-              }}
-              onBlur={() => setListening(false)}
-              onKeyDown={listening ? record : undefined}
-              className={cn(
-                "w-full rounded-lg border px-3 py-2 font-mono text-sm outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
-                listening
-                  ? "border-foreground/40 text-muted-foreground"
-                  : "border-border/60 hover:bg-muted/50",
-              )}
-            >
-              {listening ? "Press the keys…" : (label ?? "Set a shortcut")}
-            </button>
-            <p className="px-1 font-mono text-[11px] text-muted-foreground">
-              {bare
-                ? "Hold Ctrl, Alt or Cmd — a plain key is typing."
-                : listening
-                  ? "Esc to keep the one you have."
-                  : "Only while this tab has focus. Not while you are typing."}
-            </p>
-          </div>
-        )}
-      </div>
-    </section>
+    <SettingGroup label="Shortcut">
+      <SettingToggle
+        label="Answer to a key"
+        description="With this tab in front, the key below starts a call — and ends the one that is running."
+        checked={value.enabled}
+        onChange={(enabled) => onChange({ ...value, enabled })}
+      >
+        <div className="space-y-2">
+          <button
+            type="button"
+            {...HOTKEY_CAPTURE}
+            onClick={() => {
+              setBare(false);
+              setListening(true);
+            }}
+            onBlur={() => setListening(false)}
+            onKeyDown={listening ? record : undefined}
+            className={cn(
+              "w-full rounded-lg border px-3 py-2 font-mono text-sm outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+              listening
+                ? "border-foreground/40 text-muted-foreground"
+                : "border-border/60 hover:bg-muted/50",
+            )}
+          >
+            {listening ? "Press the keys…" : (label ?? "Set a shortcut")}
+          </button>
+          <SettingNote>
+            {bare
+              ? "Hold Ctrl, Alt or Cmd — a plain key is typing."
+              : listening
+                ? "Esc to keep the one you have."
+                : "Only while this tab has focus. Not while you are typing."}
+          </SettingNote>
+        </div>
+      </SettingToggle>
+    </SettingGroup>
   );
 }
 
@@ -671,31 +640,28 @@ function Instructions({
   const [draft, setDraft] = useState(value);
 
   return (
-    <section className="space-y-2">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="font-mono text-xs text-muted-foreground">
-          Instructions
-        </span>
-        <span className="font-mono text-[11px] text-muted-foreground">
-          {draft.length}/{COMMON_VALIDATE.prompt.max}
-        </span>
+    <SettingGroup
+      label="Instructions"
+      right={`${draft.length}/${COMMON_VALIDATE.prompt.max}`}
+    >
+      <div className="space-y-3">
+        <Textarea
+          value={draft}
+          maxLength={COMMON_VALIDATE.prompt.max}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="Anything else she should know before the first word — how to address you, what to skip."
+          className="min-h-28"
+        />
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            disabled={draft === value}
+            onClick={() => onSave(draft)}
+          >
+            Save
+          </Button>
+        </div>
       </div>
-      <Textarea
-        value={draft}
-        maxLength={COMMON_VALIDATE.prompt.max}
-        onChange={(event) => setDraft(event.target.value)}
-        placeholder="Anything else she should know before the first word — how to address you, what to skip."
-        className="min-h-28"
-      />
-      <div className="flex justify-end">
-        <Button
-          size="sm"
-          disabled={draft === value}
-          onClick={() => onSave(draft)}
-        >
-          Save
-        </Button>
-      </div>
-    </section>
+    </SettingGroup>
   );
 }

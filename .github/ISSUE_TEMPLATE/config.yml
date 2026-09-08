@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Question or idea to talk through
-    url: https://github.com/cgoing/thursday/discussions
+    url: https://github.com/cgoinglove/thursday/discussions
     about: Anything that is not yet a bug or a concrete request.
   - name: Security issue
-    url: https://github.com/cgoing/thursday/security/advisories/new
+    url: https://github.com/cgoinglove/thursday/security/advisories/new
     about: Report privately. Never in a public issue.

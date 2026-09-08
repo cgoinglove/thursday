@@ -38,11 +38,11 @@ import { screenActs, taskFromRow } from "@/features/bot/task.store";
 import {
   SettingError,
   SettingFilter,
+  SettingGroup,
   SettingMore,
   SettingRailNote,
   SettingScreen,
   SettingSkeleton,
-  SettingToolbar,
 } from "@/features/settings/components/setting-ui";
 import { toDate, whenOf } from "@/lib/date-like";
 import { useServerAction } from "@/lib/protocol/use-server-action";
@@ -152,7 +152,6 @@ export function TaskSetting() {
 
   return (
     <SettingScreen
-      width="full"
       footer={
         <>
           <SettingRailNote>
@@ -166,47 +165,48 @@ export function TaskSetting() {
         </>
       }
     >
-      <SettingToolbar
-        count={needle ? `${shown.length} of ${tasks.length}` : undefined}
+      <SettingGroup
+        filter={
+          <SettingFilter
+            value={filter}
+            onChange={setFilter}
+            placeholder="Filter by label, bot or word"
+          />
+        }
+        right={needle ? `${shown.length} of ${tasks.length}` : undefined}
       >
-        <SettingFilter
-          value={filter}
-          onChange={setFilter}
-          placeholder="Filter by label, bot or word"
-        />
-      </SettingToolbar>
-
-      {/* A log, not a card: it runs to the bottom edge, so the end of it reads as the end of it */}
-      <div className="divide-y divide-border/60 border-t border-border/60">
-        {shown.length === 0 ? (
-          <p className="py-4 text-sm leading-relaxed text-muted-foreground">
-            {needle
-              ? "Nothing loaded matches. Keep scrolling to search further back."
-              : "Nothing yet. When Thursday hands a job to a bot mid-call, it shows up here — while it runs, and after."}
-          </p>
-        ) : (
-          shown.map((task) => (
-            <Row
-              key={task.id}
-              task={task}
-              bots={bots}
-              open={openId === task.id}
-              onToggle={() =>
-                setOpenId((was) => (was === task.id ? null : task.id))
-              }
-              onStop={() => stop(task.id)}
-              onDelete={() => confirmRemove(task)}
-            />
-          ))
-        )}
-        <SettingMore
-          hasMore={hasMore}
-          loading={isLoadingMore}
-          sentinelRef={sentinelRef}
-          ghost={<Ghost />}
-          className="divide-y divide-border/60"
-        />
-      </div>
+        {/* A log, not a card: it runs to the bottom edge, so the end of it reads as the end of it */}
+        <div className="divide-y divide-border/60 border-t border-border/60">
+          {shown.length === 0 ? (
+            <p className="py-4 text-sm leading-relaxed text-muted-foreground">
+              {needle
+                ? "Nothing loaded matches. Keep scrolling to search further back."
+                : "Nothing yet. When Thursday hands a job to a bot mid-call, it shows up here — while it runs, and after."}
+            </p>
+          ) : (
+            shown.map((task) => (
+              <Row
+                key={task.id}
+                task={task}
+                bots={bots}
+                open={openId === task.id}
+                onToggle={() =>
+                  setOpenId((was) => (was === task.id ? null : task.id))
+                }
+                onStop={() => stop(task.id)}
+                onDelete={() => confirmRemove(task)}
+              />
+            ))
+          )}
+          <SettingMore
+            hasMore={hasMore}
+            loading={isLoadingMore}
+            sentinelRef={sentinelRef}
+            ghost={<Ghost />}
+            className="divide-y divide-border/60"
+          />
+        </div>
+      </SettingGroup>
     </SettingScreen>
   );
 }

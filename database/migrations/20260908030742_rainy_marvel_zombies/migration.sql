@@ -33,7 +33,8 @@ CREATE TABLE `call` (
 	`provider` text NOT NULL,
 	`model` text NOT NULL,
 	`started_at` integer NOT NULL,
-	`ended_at` integer
+	`ended_at` integer,
+	`tidied_at` integer
 );
 --> statement-breakpoint
 CREATE TABLE `config` (
@@ -81,6 +82,21 @@ CREATE TABLE `memory_note` (
 	`last_read_at` integer,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `memory_tidy_run` (
+	`id` text PRIMARY KEY,
+	`status` text NOT NULL,
+	`provider` text NOT NULL,
+	`model` text NOT NULL,
+	`call_ids` text NOT NULL,
+	`messages` integer DEFAULT 0 NOT NULL,
+	`changes` text DEFAULT '[]' NOT NULL,
+	`error` text,
+	`input_tokens` integer DEFAULT 0 NOT NULL,
+	`output_tokens` integer DEFAULT 0 NOT NULL,
+	`started_at` integer NOT NULL,
+	`ended_at` integer
 );
 --> statement-breakpoint
 CREATE TABLE `task_message` (

@@ -12,7 +12,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { PAGE_SIZE } from "@/config";
-import { TidyRow } from "@/features/memory/components/memory-tidy";
 import {
   addFactsAction,
   createNoteAction,
@@ -83,7 +82,6 @@ export function MemorySetting() {
             <Plus className="size-3.5 shrink-0" />
             New note
           </button>
-          <TidyRow />
 
           {SECTIONS.map(({ key, label }) => {
             const rows = notes.filter((note) => sectionOf(note.path) === key);

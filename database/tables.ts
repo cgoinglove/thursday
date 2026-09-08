@@ -306,9 +306,9 @@ export const memoryFactTable = sqliteTable(
 );
 
 /**
- * One memory tidy pass (features/memory/memory.tidy): a text model reading the
- * calls since the last pass and reconciling memory with them. The row is what
- * the screen draws; the checkpoint itself is call.tidied_at.
+ * One read-back (features/memory/memory.tidy): a text model re-reading what was
+ * said since the last one and reconciling memory with it. The row is what the
+ * screen draws; the checkpoint itself is call.tidied_at.
  */
 export const memoryTidyRunTable = sqliteTable("memory_tidy_run", {
   id: text("id").primaryKey(),
@@ -317,10 +317,10 @@ export const memoryTidyRunTable = sqliteTable("memory_tidy_run", {
   /** Recorded per run: the pick and its fallback change between runs. */
   provider: text("provider").notNull(),
   model: text("model").notNull(),
-  /** Calls this run set out to read, oldest first. */
+  /** The calls this read covered and stamped, oldest first. */
   callIds: text("call_ids", { mode: "json" }).notNull().$type<string[]>(),
-  /** How many of `callIds` are stamped so far. */
-  done: int("done").notNull().default(0),
+  /** Turns it read. Fewer than were owed when older calls were dropped. */
+  messages: int("messages").notNull().default(0),
   /** What the model changed, in order (memory.schema MemoryTidyChange). */
   changes: text("changes", { mode: "json" })
     .notNull()

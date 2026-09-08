@@ -31,7 +31,7 @@ skills you install. A skill is code you chose to trust.
 ## Reporting a vulnerability
 
 Report privately through GitHub's [Security
-Advisories](https://github.com/cgoing/thursday/security/advisories/new) — not a
+Advisories](https://github.com/cgoinglove/thursday/security/advisories/new) — not a
 public issue. Include what you did, what happened, and what you expected.
 
 Expect a first reply within a week. If a fix is warranted, it ships in a patch

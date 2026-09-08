@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
-import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import ShinyText from "@/components/ui/shiny-text";
@@ -33,6 +32,11 @@ import { type ConfigStatus, isConfigSet } from "@/features/config/config.const";
 import { MemoryTidyNotice } from "@/features/memory/components/memory-tidy";
 import { MemoryView } from "@/features/memory/components/memory-view";
 import { SECTIONS, Settings } from "@/features/settings/components/settings";
+import {
+  type SectionAlert,
+  useSectionAlerts,
+  worstAlert,
+} from "@/features/settings/settings.alert";
 import { openSettings } from "@/features/settings/settings.store";
 import { useThursdayFace } from "@/features/thursday/face.store";
 import {
@@ -113,7 +117,7 @@ export function CallScreen({
   const sided = captionView === "sides" && status !== "idle";
   return (
     <div className="relative flex h-full flex-col">
-      <div className="absolute top-4 right-4 z-10">
+      <div className="absolute top-5 right-5 z-10">
         <SettingsCorner />
       </div>
 
@@ -221,7 +225,34 @@ export function CallScreen({
  */
 const CORNER = ["thursday", "memory", "bot"] as const;
 
+/**
+ * A section's report, drawn on a 32px button: a 6px dot with a ring in the page
+ * ground, inset so the ring stops at the button's own edge and never crosses a
+ * seam into the neighbour that paints over it. No counts here — the nav is
+ * where you go to find out how many.
+ */
+function CornerDot({ alert }: { alert: SectionAlert }) {
+  if (!alert) return null;
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "absolute top-0.5 right-0.5 size-1.5 rounded-full ring-2 ring-background",
+        alert === "red" ? "bg-destructive" : "bg-amber-600 dark:bg-amber-400",
+      )}
+    />
+  );
+}
+
 function SettingsCorner() {
+  const alerts = useSectionAlerts();
+  // The gear opens everything the three buttons do not, so it carries their reports
+  const behindGear = worstAlert(
+    SECTIONS.filter(
+      (section) => !CORNER.includes(section.id as (typeof CORNER)[number]),
+    ).map((section) => alerts[section.id] ?? null),
+  );
+
   return (
     // no labels, so names appear on hover; the delay is shared across the group
     <TooltipProvider delay={400}>
@@ -244,6 +275,7 @@ function SettingsCorner() {
                 >
                   {/* the Thursday section icon is the mark itself */}
                   <section.icon className="text-muted-foreground" />
+                  <CornerDot alert={alerts[id] ?? null} />
                 </TooltipTrigger>
                 <TooltipContent side="bottom">{section.label}</TooltipContent>
               </Tooltip>
@@ -263,6 +295,7 @@ function SettingsCorner() {
               }
             >
               <Settings2 className="text-muted-foreground" />
+              <CornerDot alert={behindGear} />
             </TooltipTrigger>
             <TooltipContent side="bottom">Everything else</TooltipContent>
           </Tooltip>
@@ -276,6 +309,13 @@ function SettingsCorner() {
 
 /** Lines the caption box holds. */
 const CAPTION_LINES = 3;
+
+/**
+ * Lines a side caption keeps, by age. The newest turn is the one being said, so
+ * it gets room for a whole spoken sentence; what came before is context and
+ * decays with the type size beside it.
+ */
+const CAPTION_TURN_LINES = [5, 3, 2];
 
 /**
  * Line height as a number, not a class: box height and page offset divide by
@@ -790,9 +830,9 @@ const VISIBLE = 3;
 const STEP = 200;
 
 /**
- * Recent turns beside the face: user on the left as bubbles, assistant on the
- * right as bare text. Anchored outside the face box (`right-full` /
- * `left-full`) so they never cover it. Older turns sit higher and fade.
+ * Recent turns beside the face: yours on the right, hers on the left, both as
+ * bubbles. Anchored outside the face box (`right-full` / `left-full`) so they
+ * never cover it. Older turns sit higher and fade.
  */
 function SideCaptions({ messages }: { messages: CallMessage[] }) {
   const [back, setBack] = useState(0);
@@ -847,8 +887,9 @@ function SideCaptions({ messages }: { messages: CallMessage[] }) {
     <>
       {shown.map((message, index) => {
         // the speaker fixes the side, so a turn never switches sides as older ones stack up
-        const left = message.role === "user";
-        const top = 20 + (index * 55) / Math.max(1, shown.length - 1);
+        const mine = message.role === "user";
+        // 18..68 rather than 20..75: a five-line newest turn has to clear the chip
+        const top = 18 + (index * 50) / Math.max(1, shown.length - 1);
         const age = shown.length - 1 - index;
 
         return (
@@ -861,38 +902,36 @@ function SideCaptions({ messages }: { messages: CallMessage[] }) {
             }}
             className={cn(
               // fixed-width slot, natural-width bubble: short lines stay short and hug the face
-              "pointer-events-auto absolute flex w-[min(17rem,21vw)] transition-transform duration-100",
-              left ? "right-full mr-6 justify-end" : "left-full ml-6",
+              "pointer-events-auto absolute flex w-[min(23rem,24vw)] transition-transform duration-100",
+              // yours on the right, the side the chip and the settings corner already take
+              mine ? "left-full ml-6" : "right-full mr-6 justify-end",
               age === 1 && "opacity-55",
               age >= 2 && "opacity-30",
             )}
           >
-            <Bubble
-              variant={left ? "secondary" : "ghost"}
-              align={left ? "end" : "start"}
+            {/* Not a `Bubble`: that sets its surface on the content from the parent,
+                at a specificity a caption cannot override. Two surfaces, one shape —
+                yours is a fill with no edge, hers is the page's own dark held by a
+                hairline, so the field behind her keeps showing through. The squared
+                corner is the one nearest the face. */}
+            <div
               className={cn(
-                "max-w-full animate-in fade-in duration-500",
-                left ? "slide-in-from-right-2" : "slide-in-from-left-2",
+                "w-fit max-w-full animate-in rounded-[18px] px-4 py-3 fade-in duration-500",
+                mine
+                  ? "rounded-bl-md bg-accent/60 text-right slide-in-from-left-2"
+                  : "rounded-br-md bg-background/70 text-left ring-1 ring-border slide-in-from-right-2 backdrop-blur-sm",
               )}
             >
-              <BubbleContent
-                className={cn(
-                  "break-keep",
-                  left
-                    ? "rounded-2xl rounded-br-md border-border/60 bg-accent/50 px-3.5 py-2.5 text-right leading-snug backdrop-blur-sm"
-                    : "text-left",
-                  age === 0 ? "text-lg" : age === 1 ? "text-base" : "text-sm",
-                )}
-              >
-                {age === 0 && !left ? (
-                  <Flow text={message.text} className="text-inherit" />
-                ) : left ? (
-                  <span className="line-clamp-4">{message.text}</span>
-                ) : (
-                  <span className="line-clamp-3">{message.text}</span>
-                )}
-              </BubbleContent>
-            </Bubble>
+              {/* One truncation idiom on both sides: speech that runs past the
+                  frame fades out. An ellipsis mid-sentence reads as an error. */}
+              <Flow
+                text={message.text}
+                lines={CAPTION_TURN_LINES[age] ?? 2}
+                className={
+                  age === 0 ? "text-lg" : age === 1 ? "text-base" : "text-sm"
+                }
+              />
+            </div>
           </div>
         );
       })}

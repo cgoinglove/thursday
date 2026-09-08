@@ -410,8 +410,7 @@ function SeedRow({
               speed={2.2}
               color="var(--muted-foreground)"
               shineColor="var(--foreground)"
-              // ShinyText is inline-block; without a max it grows past the card instead of truncating
-              className="block max-w-full truncate font-mono text-[11px] leading-4"
+              className="truncate font-mono text-[11px] leading-4"
             />
           ) : (
             <span className="block truncate font-mono text-[11px] leading-4 text-muted-foreground/50">

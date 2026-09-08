@@ -191,7 +191,7 @@ export const BotRoom = memo(function BotRoom() {
   const closeCompose = useCallback(() => setComposing(false), []);
 
   return (
-    <div className="pointer-events-none absolute right-6 bottom-6 z-10 flex w-120 max-w-[calc(100vw-3rem)] flex-col items-end gap-2">
+    <div className="pointer-events-none absolute right-5 bottom-5 z-10 flex w-120 max-w-[calc(100vw-2.5rem)] flex-col items-end gap-2">
       {open ? (
         <div className="pointer-events-auto flex max-h-[min(44rem,78vh)] w-full animate-in flex-col overflow-hidden rounded-3xl bg-background/75 shadow-2xl shadow-black/6 ring-1 ring-border/50 backdrop-blur-xl fade-in slide-in-from-bottom-1 duration-200">
           {current ? (
@@ -495,7 +495,9 @@ function Chip({
 
       {/* The pill row. Same geometry either way, so the card shrinks into it. */}
       {/* px-2 is the chip's one rail: the faces here, the section line and every
-          row's mark all start at 8px, and the trailing glyph ends at 8px. */}
+          row's mark all start at 8px, and the trailing glyph ends at 8px — which
+          is why a resting glyph carries no box. A box would centre it and leave
+          its ink 5px short of the rail the faces start on. */}
       <div
         className={cn(
           "flex items-center gap-2 px-2 py-1.5",
@@ -511,10 +513,10 @@ function Chip({
           <Faces bots={bots} waiting={waiting} only={beat?.bot} />
 
           {/* One slot, two things in it: what is true, and what just happened. */}
-          <span className="flex h-5.5 min-w-0 flex-1 items-center">
+          <span className="flex h-7 min-w-0 flex-1 items-center">
             <Lane on={!!beat}>
               <span className="flex items-center gap-1.5 whitespace-nowrap">
-                <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
+                <span className="shrink-0 font-mono text-[11px] text-muted-foreground/70">
                   {beat?.label}
                 </span>
                 {beat?.live ? (
@@ -523,12 +525,12 @@ function Chip({
                     speed={2.4}
                     color="var(--muted-foreground)"
                     shineColor="var(--foreground)"
-                    className="min-w-0 truncate text-[12px] leading-4"
+                    className="min-w-0 truncate text-[14px] leading-5 tracking-[-0.15px]"
                   />
                 ) : (
                   <span
                     className={cn(
-                      "min-w-0 truncate text-[12px] leading-4",
+                      "min-w-0 truncate text-[14px] leading-5 tracking-[-0.15px]",
                       beat?.tone ?? "text-foreground",
                     )}
                   >
@@ -556,14 +558,14 @@ function Chip({
                     speed={2.6}
                     color="var(--rest)"
                     shineColor="var(--shine)"
-                    className="block truncate text-[12px] leading-4"
+                    className="truncate text-[14px] leading-5 tracking-[-0.15px]"
                   />
                 </span>
               ) : (
                 <span
                   key={state.text}
                   className={cn(
-                    "block animate-in truncate text-[12px] leading-4 fade-in duration-300",
+                    "block animate-in truncate text-[14px] leading-5 tracking-[-0.15px] fade-in duration-300",
                     state.tone,
                   )}
                 >
@@ -576,18 +578,14 @@ function Chip({
 
         {composing && (
           <RoundButton onClick={onCloseCompose} label="Cancel the message">
-            <X className="size-3" />
+            <X className="size-3.5" />
           </RoundButton>
         )}
         {!composing && pending === 0 && busy > 0 && (
-          <span className="grid size-5.5 shrink-0 place-items-center">
-            <Loader2 className="size-3 animate-spin text-muted-foreground/70" />
-          </span>
+          <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground/70" />
         )}
         {!composing && pending === 0 && busy === 0 && count > 0 && (
-          <span className="grid size-5.5 shrink-0 place-items-center">
-            <Check className="size-3 text-muted-foreground/60" />
-          </span>
+          <Check className="size-4 shrink-0 text-muted-foreground/60" />
         )}
       </div>
     </div>
@@ -617,7 +615,7 @@ function Lane({ on, children }: { on: boolean; children: ReactNode }) {
 function ComposeButton({ onClick }: { onClick: () => void }) {
   return (
     <RoundButton onClick={onClick} label="Message a bot">
-      <Plus className="size-3.5" />
+      <Plus className="size-4" />
     </RoundButton>
   );
 }
@@ -636,7 +634,7 @@ function RoundButton({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="grid size-5.5 shrink-0 place-items-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       {children}
     </button>
@@ -845,14 +843,14 @@ function Faces({
           // are not circles. One speaking bot pulls the rest in behind it.
           className={cn(
             "origin-right transition-[margin,opacity,transform] duration-300 ease-out",
-            index > 0 && "-ml-1.5",
+            index > 0 && "-ml-2",
             face.standIn && "opacity-35",
-            only && face.key !== only && "-ml-[22px] scale-50 opacity-0",
+            only && face.key !== only && "-ml-[28px] scale-50 opacity-0",
           )}
           style={{ zIndex: crew.length - index }}
         >
           <BotMark
-            size={22}
+            size={28}
             seed={face.seed}
             vary={face.seed}
             color={face.color}

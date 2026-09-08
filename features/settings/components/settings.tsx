@@ -24,12 +24,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Segmented } from "@/components/ui/segmented";
+import { BotBadge } from "@/features/bot/components/bot-badge";
 import { BotsMark } from "@/features/bot/components/bot-mark";
 import { TaskBadge } from "@/features/bot/components/task-badge";
 import { ConfigBadge } from "@/features/config/components/config-badge";
 import { McpBadge } from "@/features/connectors/components/mcp-badge";
 import { McpMark } from "@/features/connectors/components/mcp-mark";
-import { MemoryBadge } from "@/features/memory/components/memory-badge";
 import { MemoryMark } from "@/features/memory/components/memory-mark";
 import { SkillsMark } from "@/features/skills/components/skills-mark";
 import { ThursdayAsciiMark } from "@/features/thursday/components/thursday-ascii-mark";
@@ -37,7 +37,7 @@ import { setTheme, useTheme } from "@/hooks/use-theme";
 import { THEMES, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { type SettingSectionId, useSettingsStore } from "../settings.store";
-import { SettingSkeleton } from "./setting-ui";
+import { SettingColumn, SettingSkeleton } from "./setting-ui";
 
 /** Sections load when opened, not with the app; each pulls its own renderers. */
 const lazySection = (load: () => Promise<{ default: ComponentType }>) =>
@@ -114,7 +114,6 @@ export const SECTIONS: readonly {
     hint: "What the agent knows",
     icon: MemoryMark,
     Component: MemorySetting,
-    Badge: MemoryBadge,
   },
   {
     id: "bot",
@@ -123,6 +122,7 @@ export const SECTIONS: readonly {
     hint: "Workers the agent delegates to",
     icon: BotsMark,
     Component: BotSetting,
+    Badge: BotBadge,
   },
   {
     id: "tasks",
@@ -311,9 +311,9 @@ export function Settings({ children }: { children?: ReactElement }) {
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div className="shrink-0 px-8 pt-10">
               {/* key remounts so the title animates in on section change */}
-              <div
+              <SettingColumn
                 key={current.id}
-                className="w-full animate-in space-y-0.5 fade-in slide-in-from-bottom-1 duration-300"
+                className="animate-in space-y-0.5 fade-in slide-in-from-bottom-1 duration-300"
               >
                 <p className="truncate text-2xl font-semibold">
                   {current.label}
@@ -321,7 +321,7 @@ export function Settings({ children }: { children?: ReactElement }) {
                 <p className="truncate text-xs text-muted-foreground">
                   {current.hint}
                 </p>
-              </div>
+              </SettingColumn>
             </div>
             {/* The section fills what is left and draws its own scroll area and rail (setting-ui) */}
             <div ref={bodyRef} className="min-h-0 min-w-0 flex-1">

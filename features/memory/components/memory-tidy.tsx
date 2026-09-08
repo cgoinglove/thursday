@@ -1,7 +1,17 @@
 "use client";
 
 import { formatDistanceToNowStrict } from "date-fns";
-import { ChevronRight, Loader2, Sparkles } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronRight,
+  Loader2,
+  Minus,
+  Pin,
+  PinOff,
+  Plus,
+  TriangleAlert,
+} from "lucide-react";
+import type { ComponentType } from "react";
 import { useState } from "react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
@@ -10,26 +20,25 @@ import { notify } from "@/components/ui/notify";
 import { toast } from "@/components/ui/toast";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import type { TextModelProviderId } from "@/features/ai/model.schema";
+import { MemoryMark } from "@/features/memory/components/memory-mark";
 import {
   cancelMemoryTidyAction,
   runMemoryTidyAction,
-  setMemoryTidyLevelAction,
   setMemoryTidyModelAction,
+  setMemoryTidyOnAction,
 } from "@/features/memory/memory.action";
-import {
-  MEMORY_TIDY_LEVEL_LABEL,
-  MEMORY_TIDY_LEVELS,
-  type MemoryTidyChange,
-  type MemoryTidyRun,
-  type MemoryTidyStatusView,
-  tidyTally,
+import type {
+  MemoryTidyChange,
+  MemoryTidyRun,
+  MemoryTidyStatusView,
 } from "@/features/memory/memory.schema";
+import { tidyTally } from "@/features/memory/memory.schema";
 import {
-  SettingChoiceRows,
   SettingDialogContent,
-  SettingError,
   SettingGroup,
+  SettingNote,
   SettingSkeleton,
+  SettingToggle,
 } from "@/features/settings/components/setting-ui";
 import { openSettings } from "@/features/settings/settings.store";
 import { toDate } from "@/lib/date-like";
@@ -38,112 +47,230 @@ import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
 
 /**
- * The tidy pass on screen (memory.tidy): a row in the memory index that says
- * where it stands, and the dialog it opens with the two settings, "tidy now",
- * and the log of the last pass. Progress arrives on the `memory-tidy` signal.
+ * Reading calls back, in Settings › Thursday: one switch, the model it runs on,
+ * and what the last read did. `SettingToggle`, the same as Wake and Shortcut,
+ * because it is the same kind of setting — something that runs by itself.
+ * State arrives on the `memory-tidy` signal.
  */
-
-const LEVEL_HINT: Record<(typeof MEMORY_TIDY_LEVELS)[number], string> = {
-  off: "She still saves during calls; nobody re-reads them",
-  often: "After a few calls' worth of talk",
-  normal: "After a handful of calls' worth",
-  rarely: "After a long stretch of calls",
-};
-
-/** The index row. Reads as a loader while a pass runs; otherwise one line on the last pass. */
-export function TidyRow() {
+export function TidySetting() {
   const { data } = useServerRoute<MemoryTidyStatusView>(queryKey.memoryTidy);
-  const running = data?.current ?? null;
-  const last = data?.last ?? null;
+  const refresh = { onOk: () => revalidate(queryKey.memoryTidy) } as const;
+  const [setOn] = useServerAction(setMemoryTidyOnAction, refresh);
 
-  const line = running
-    ? `Reading call ${Math.min(running.done + 1, running.callIds.length)} of ${running.callIds.length}`
-    : data?.level === "off"
-      ? "Off"
-      : last
-        ? `${tidyTally(last.changes)} · ${formatDistanceToNowStrict(toDate(last.endedAt ?? last.startedAt), { addSuffix: true })}`
-        : "Nothing read yet";
+  return (
+    <SettingGroup label="After a call">
+      <SettingToggle
+        label="Read the call back"
+        description="During a call she saves what she catches between sentences. Afterwards a model reads the whole thing back and fixes what she missed."
+        checked={data?.on ?? false}
+        disabled={!data}
+        onChange={(on) => setOn(on)}
+      >
+        {data && <TidyBody status={data} />}
+      </SettingToggle>
+    </SettingGroup>
+  );
+}
 
+/** The two rows and the line under them; only drawn while it is on. */
+function TidyBody({ status }: { status: MemoryTidyStatusView }) {
+  const running = status.current;
+  const last = status.last;
+
+  return (
+    <>
+      <div className="border-t border-border/60">
+        <ModelRow value={status.model} />
+        <div className="flex items-center gap-3 border-t border-border/60 py-2">
+          <span className="w-20 shrink-0 text-[13px] text-muted-foreground">
+            {running ? "Reading" : "Last read"}
+          </span>
+          {running ? (
+            <span className="flex min-w-0 flex-1 items-center gap-2 font-mono text-[11px] text-muted-foreground">
+              <Loader2 className="size-3.5 shrink-0 animate-spin" />
+              <span className="truncate">
+                the last {running.messages}{" "}
+                {running.messages === 1 ? "message" : "messages"}
+              </span>
+            </span>
+          ) : (
+            <LastRead run={last} />
+          )}
+          <TidyLogButton run={running ?? last} />
+        </div>
+      </div>
+
+      <SettingNote className={cn(!status.model && WAITING_INK)}>
+        {status.model
+          ? `Reads back after every ${status.every} messages of talk. ${status.pending} since the last one.`
+          : "Nothing is read back until a model is picked — this never runs on the app default."}
+      </SettingNote>
+    </>
+  );
+}
+
+/** Unpicked is not "automatic" here: it is the one thing stopping this from running. */
+function ModelRow({ value }: { value: string | null }) {
   return (
     <button
       type="button"
-      onClick={openMemoryTidy}
-      className="mx-2 mb-1 flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-muted-foreground outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
+      onClick={() => openTidyModel(value)}
+      className="flex w-full items-center gap-3 py-2 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
     >
-      {running ? (
-        <Loader2 className="size-3.5 shrink-0 animate-spin" />
-      ) : (
-        <Sparkles className="size-3.5 shrink-0" />
-      )}
-      <span className="min-w-0 flex-1 space-y-0.5">
-        <span className="block">Tidy</span>
-        <span
-          className={cn(
-            "block truncate font-mono text-[10px] text-muted-foreground/70",
-            last?.status === "failed" && !running && "text-destructive",
-          )}
-        >
-          {line}
-        </span>
+      <span className="w-20 shrink-0 text-[13px] text-muted-foreground">
+        Model
       </span>
-      <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+      <span
+        className={cn(
+          "min-w-0 flex-1 truncate font-mono text-[11px]",
+          value ? "text-muted-foreground" : WAITING_INK,
+        )}
+      >
+        {value ?? "Not picked"}
+      </span>
+      <ChevronRight className="size-4 shrink-0 text-muted-foreground/60" />
     </button>
   );
 }
 
-export function openMemoryTidy() {
+/** One line on the last read: what it changed, or why it failed. */
+function LastRead({ run }: { run: MemoryTidyRun | null }) {
+  if (!run) {
+    return (
+      <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">
+        Nothing read back yet
+      </span>
+    );
+  }
+  const when = formatDistanceToNowStrict(toDate(run.endedAt ?? run.startedAt), {
+    addSuffix: true,
+  });
+  if (run.status !== "done") {
+    return (
+      <span className="flex min-w-0 flex-1 items-center gap-1.5 text-destructive">
+        <TriangleAlert className="size-3.5 shrink-0" />
+        <span className="truncate font-mono text-[11px]">
+          {run.status === "failed" ? "Failed" : "Stopped"} {when}
+          {run.error ? ` — ${run.error}` : ""}
+        </span>
+      </span>
+    );
+  }
+  return (
+    <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">
+      {when} · {tidyTally(run.changes)}
+    </span>
+  );
+}
+
+function TidyLogButton({ run }: { run: MemoryTidyRun | null }) {
+  if (!run) return <span className="size-4 shrink-0" />;
+  return (
+    <button
+      type="button"
+      aria-label="What the last read changed"
+      onClick={() => openTidyLog()}
+      className="shrink-0 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      <ChevronRight className="size-4 text-muted-foreground/60" />
+    </button>
+  );
+}
+
+/** Picks the model this runs on; empty is the app default, same as a bot's. */
+function openTidyModel(current: string | null) {
   return notify.component({
-    className: "sm:max-w-2xl",
-    renderer: () => <TidyDialog />,
+    className: "sm:max-w-lg",
+    renderer: ({ close }) => (
+      <TidyModelDialog current={current} onDone={close} />
+    ),
   });
 }
 
-function TidyDialog() {
-  const { data, isLoading, error } = useServerRoute<MemoryTidyStatusView>(
-    queryKey.memoryTidy,
-  );
-  const refresh = { onOk: () => revalidate(queryKey.memoryTidy) } as const;
-  const [setLevel, settingLevel] = useServerAction(
-    setMemoryTidyLevelAction,
-    refresh,
-  );
-  const [setModel] = useServerAction(setMemoryTidyModelAction, refresh);
-  const [run, starting] = useServerAction(runMemoryTidyAction, refresh);
-  const [cancel, cancelling] = useServerAction(cancelMemoryTidyAction, refresh);
-
-  // The picker hands back a provider before a model; only a whole pick is saved
-  const saved = data?.model?.split("/") ?? null;
+function TidyModelDialog({
+  current,
+  onDone,
+}: {
+  current: string | null;
+  onDone: () => void;
+}) {
+  const [save, saving] = useServerAction(setMemoryTidyModelAction, {
+    onOk: () => {
+      revalidate(queryKey.memoryTidy);
+      onDone();
+    },
+  });
+  const parts = current?.split("/") ?? null;
   const [pick, setPick] = useState<{
-    provider: TextModelProviderId;
+    provider: TextModelProviderId | null;
     model: string;
-  } | null>(null);
-  const provider =
-    pick?.provider ?? (saved?.[0] as TextModelProviderId | undefined) ?? null;
-  const model = pick?.model ?? saved?.slice(1).join("/") ?? "";
-
-  if (isLoading || !data) {
-    return (
-      <SettingDialogContent title="Tidy memory">
-        <SettingSkeleton rows={3} />
-      </SettingDialogContent>
-    );
-  }
-  if (error) {
-    return (
-      <SettingDialogContent title="Tidy memory">
-        <SettingError message={error.message} />
-      </SettingDialogContent>
-    );
-  }
-
-  const running = data.current;
+  }>({
+    provider: (parts?.[0] as TextModelProviderId | undefined) ?? null,
+    model: parts?.slice(1).join("/") ?? "",
+  });
 
   return (
     <SettingDialogContent
-      title="Tidy memory"
-      description="After calls, a text model re-reads them and puts memory right: what she missed goes in, what changed is corrected, what matters most is carried into every call."
+      title="Model"
+      description="What re-reads a call. There is no default: without a pick nothing is read back, so a model nobody chose never spends."
       footer={
-        running ? (
+        <>
+          <Button variant="ghost" onClick={() => save("")}>
+            Clear
+          </Button>
+          <Button
+            loading={saving}
+            disabled={!pick.provider || !pick.model.trim()}
+            onClick={() => save(`${pick.provider}/${pick.model.trim()}`)}
+          >
+            Save
+          </Button>
+        </>
+      }
+    >
+      <ModelPicker
+        provider={pick.provider}
+        model={pick.model}
+        onChange={setPick}
+      />
+    </SettingDialogContent>
+  );
+}
+
+export function openTidyLog() {
+  return notify.component({
+    className: "sm:max-w-2xl",
+    renderer: () => <TidyLogDialog />,
+  });
+}
+
+function TidyLogDialog() {
+  const { data } = useServerRoute<MemoryTidyStatusView>(queryKey.memoryTidy);
+  const refresh = { onOk: () => revalidate(queryKey.memoryTidy) } as const;
+  const [run, starting] = useServerAction(runMemoryTidyAction, refresh);
+  const [cancel, cancelling] = useServerAction(cancelMemoryTidyAction, refresh);
+
+  if (!data) {
+    return (
+      <SettingDialogContent title="What the last read changed">
+        <SettingSkeleton rows={2} />
+      </SettingDialogContent>
+    );
+  }
+
+  const shown = data.current ?? data.last;
+  const when = shown
+    ? formatDistanceToNowStrict(toDate(shown.endedAt ?? shown.startedAt), {
+        addSuffix: true,
+      })
+    : "";
+
+  return (
+    <SettingDialogContent
+      title="What the last read changed"
+      description="Memory as it stands after the model read those messages back. Every line here is one it wrote, revised or dropped."
+      footer={
+        data.current ? (
           <Button
             variant="outline"
             loading={cancelling}
@@ -155,163 +282,84 @@ function TidyDialog() {
           <Button
             variant="outline"
             loading={starting}
-            disabled={data.level === "off" || data.pendingCalls === 0}
+            disabled={data.pending === 0 || !data.model}
             onClick={() => run()}
           >
-            {!starting && <Sparkles />}
-            Tidy now
+            {!starting && <MemoryMark className="size-3.5" />}
+            Read now
           </Button>
         )
       }
     >
-      <div className="space-y-6">
-        <SettingGroup label="How often">
-          <SettingChoiceRows
-            options={MEMORY_TIDY_LEVELS.map((level) => ({
-              value: level,
-              label: MEMORY_TIDY_LEVEL_LABEL[level],
-              hint: LEVEL_HINT[level],
-            }))}
-            value={data.level}
-            disabled={settingLevel}
-            onChange={(level) => setLevel(level)}
-          />
-        </SettingGroup>
+      {shown ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="min-w-0 flex-1 text-sm">
+              {data.current
+                ? `Reading the last ${shown.messages} messages`
+                : `${shown.messages} messages, ${when}`}
+            </span>
+            <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+              {shown.provider !== "-" && shown.model}
+              {shown.inputTokens > 0 &&
+                ` · ${shown.inputTokens.toLocaleString()} in / ${shown.outputTokens.toLocaleString()} out`}
+            </span>
+          </div>
 
-        <SettingGroup
-          label="Model"
-          hint="what reads the calls"
-          right={
-            data.model && (
-              <Button
-                size="xs"
-                variant="ghost"
-                onClick={() => {
-                  setPick(null);
-                  setModel("");
-                }}
-              >
-                Use app default
-              </Button>
-            )
-          }
-        >
-          <ModelPicker
-            provider={provider}
-            model={model}
-            onChange={(next) => {
-              setPick(next);
-              if (next.model.trim()) {
-                setModel(`${next.provider}/${next.model.trim()}`);
-              }
-            }}
-          />
-        </SettingGroup>
-
-        <SettingGroup label="Pending" right={<Pending status={data} />}>
-          {running ? (
-            <RunView run={running} />
-          ) : data.last ? (
-            <RunView run={data.last} />
-          ) : (
-            <p className="px-1 text-xs text-muted-foreground">
-              No pass has run yet.
-            </p>
+          {shown.error && (
+            <p className="font-mono text-xs text-destructive">{shown.error}</p>
           )}
-        </SettingGroup>
-      </div>
+
+          {shown.changes.length > 0 ? (
+            <ul className="border-b border-border/60">
+              {shown.changes.map((change, at) => (
+                <ChangeRow
+                  key={`${at}-${change.op}-${change.text}`}
+                  change={change}
+                />
+              ))}
+            </ul>
+          ) : (
+            !data.current && (
+              <p className="text-xs text-muted-foreground/70">
+                Nothing needed changing.
+              </p>
+            )
+          )}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground/70">
+          Nothing has been read back yet.
+        </p>
+      )}
     </SettingDialogContent>
   );
 }
 
-/** What is owed and where a pass starts, in the list's own vocabulary. */
-function Pending({ status }: { status: MemoryTidyStatusView }) {
-  const calls = `${status.pendingCalls} call${status.pendingCalls === 1 ? "" : "s"}`;
-  const size =
-    status.threshold === null
-      ? `${status.pendingTokens.toLocaleString()} tokens`
-      : `${status.pendingTokens.toLocaleString()} of ${status.threshold.toLocaleString()} tokens`;
-  return (
-    <span
-      className={cn(
-        "font-mono text-[11px] text-muted-foreground",
-        status.threshold !== null &&
-          status.pendingTokens >= status.threshold &&
-          WAITING_INK,
-      )}
-    >
-      {calls} · {size}
-    </span>
-  );
-}
-
-/** One pass: its line, then what it changed. Running passes grow as they go. */
-function RunView({ run }: { run: MemoryTidyRun }) {
-  const running = run.status === "running";
-  const when = formatDistanceToNowStrict(toDate(run.endedAt ?? run.startedAt), {
-    addSuffix: true,
-  });
-  const head = running
-    ? `Reading call ${Math.min(run.done + 1, run.callIds.length)} of ${run.callIds.length}`
-    : run.status === "done"
-      ? `Read ${run.done} call${run.done === 1 ? "" : "s"} ${when}`
-      : `${run.status === "failed" ? "Failed" : "Stopped"} ${when} after ${run.done} of ${run.callIds.length}`;
-
-  return (
-    <div className="space-y-3 rounded-xl border border-border/60 p-4">
-      <div className="flex items-center gap-2">
-        {running && <Loader2 className="size-3.5 shrink-0 animate-spin" />}
-        <span className="min-w-0 flex-1 truncate text-sm">{head}</span>
-        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
-          {run.provider !== "-" ? run.model : ""}
-          {run.inputTokens > 0 &&
-            ` · ${(run.inputTokens + run.outputTokens).toLocaleString()} tokens`}
-        </span>
-      </div>
-
-      {run.error && (
-        <p className="font-mono text-xs text-destructive">{run.error}</p>
-      )}
-
-      {run.changes.length > 0 ? (
-        <ul className="divide-y divide-border/60 border-t border-border/60">
-          {run.changes.map((change, at) => (
-            <ChangeRow key={`${at}-${change.text}`} change={change} />
-          ))}
-        </ul>
-      ) : (
-        !running && (
-          <p className="text-xs text-muted-foreground/70">Nothing changed.</p>
-        )
-      )}
-    </div>
-  );
-}
-
-const OP_LABEL: Record<MemoryTidyChange["op"], string> = {
-  add: "+",
-  replace: "~",
-  forget: "−",
-  carry: "📌",
-  uncarry: "un📌",
+/** One glyph per op. Pin is the one the memory screen already uses for a carried line. */
+const OP_MARK: Record<
+  MemoryTidyChange["op"],
+  { icon: ComponentType<{ className?: string }>; label: string }
+> = {
+  add: { icon: Plus, label: "added" },
+  replace: { icon: ArrowRight, label: "revised" },
+  forget: { icon: Minus, label: "dropped" },
+  carry: { icon: Pin, label: "carried into every call" },
+  uncarry: { icon: PinOff, label: "no longer carried" },
 };
 
 function ChangeRow({ change }: { change: MemoryTidyChange }) {
+  const { icon: Icon, label } = OP_MARK[change.op];
   return (
-    <li className="flex gap-3 py-2">
-      <span
-        className={cn(
-          "w-8 shrink-0 font-mono text-[11px]",
-          change.op === "forget" ? "text-destructive" : "text-muted-foreground",
-        )}
-        title={change.op}
-      >
-        {OP_LABEL[change.op]}
+    <li className="flex gap-3 border-t border-border/60 py-3">
+      <span className="flex w-3.5 shrink-0 justify-center pt-1 text-muted-foreground">
+        <Icon className="size-3.5" />
+        <span className="sr-only">{label}</span>
       </span>
       <span className="min-w-0 flex-1 text-sm leading-relaxed text-foreground/90">
         {change.text}
       </span>
-      <span className="shrink-0 font-mono text-[11px] text-muted-foreground/60">
+      <span className="shrink-0 pt-0.5 font-mono text-[11px] text-muted-foreground/50">
         {change.path}
       </span>
     </li>
@@ -319,21 +367,21 @@ function ChangeRow({ change }: { change: MemoryTidyChange }) {
 }
 
 /**
- * Mounted on the call screen: a pass ending while the settings are closed is
+ * Mounted on the call screen: a read that ends while the settings are closed is
  * off-screen, so it is a toast. The `memory-tidied` event carries the tally.
  */
 export function MemoryTidyNotice() {
   useAppEvent({
     "memory-tidied": (event) => {
       toast.add({
-        type: "success",
-        title: "Memory tidied",
+        type: event.failed ? "error" : "success",
+        title: event.failed ? "Could not read the call back" : "Memory tidied",
         description: event.tally,
         actionProps: {
           children: "Show",
           onClick: () => {
-            openSettings("memory");
-            void openMemoryTidy();
+            openSettings("thursday");
+            void openTidyLog();
           },
         },
       });

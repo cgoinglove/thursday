@@ -12,10 +12,10 @@ export type AppEvent =
   | { type: "memory" }
   /** Signal: a server was registered, removed, synced, or finished OAuth. */
   | { type: "mcp" }
-  /** Signal: a memory tidy pass started, moved, or ended (memory/tidy.query). */
+  /** Signal: a read-back started or ended (memory/tidy.query). */
   | { type: "memory-tidy" }
-  /** Data: a tidy pass ended on its own; `tally` is one line of what changed (memory.schema tidyTally). */
-  | { type: "memory-tidied"; tally: string }
+  /** Data: a read-back ended on its own. `tally` is one line of what changed, or why it failed. */
+  | { type: "memory-tidied"; failed: boolean; tally: string }
   /** Data: show this note on screen, or hide it when null (memory.tool). */
   | { type: "memory-view"; path: string | null }
   /** Data: a finished job produced a document; `path` is workspace-relative. */

@@ -6,30 +6,25 @@ import { parseTextModel, type TextModelRef } from "@/features/ai/model.schema";
 import type { TokenUsage } from "@/features/bot/bot.schema";
 import { readConfig, writeConfig } from "@/features/config/config.query";
 import {
+  isTidyOn,
   MEMORY_TIDY_KEYS,
-  MEMORY_TIDY_LEVEL_DEFAULT,
   type MemoryTidyChange,
-  type MemoryTidyLevel,
-  MemoryTidyLevelSchema,
   type MemoryTidyRun,
   type MemoryTidyStatus,
 } from "./memory.schema";
 
-// Rows of the tidy pass (memory.tidy) and its two settings. Every write here
+// Rows and settings behind reading calls back (memory.tidy). Every write here
 // signals `memory-tidy`, so the screen and the runner notify the same way.
 
 const changed = () => appEvents.emit({ type: "memory-tidy" });
 
-/** The level as set, or the default when nothing was ever picked. */
-export async function readTidyLevel(): Promise<MemoryTidyLevel> {
-  const parsed = MemoryTidyLevelSchema.safeParse(
-    await readConfig(MEMORY_TIDY_KEYS.level),
-  );
-  return parsed.success ? parsed.data : MEMORY_TIDY_LEVEL_DEFAULT;
+/** On unless it was switched off; a fresh install reads its calls back. */
+export async function readTidyOn(): Promise<boolean> {
+  return isTidyOn(await readConfig(MEMORY_TIDY_KEYS.on));
 }
 
-export async function writeTidyLevel(level: MemoryTidyLevel) {
-  await writeConfig(MEMORY_TIDY_KEYS.level, level);
+export async function writeTidyOn(on: boolean) {
+  await writeConfig(MEMORY_TIDY_KEYS.on, on ? "on" : "off");
   changed();
 }
 
@@ -38,7 +33,7 @@ export async function readTidyModel(): Promise<TextModelRef | null> {
   return parseTextModel(await readConfig(MEMORY_TIDY_KEYS.model));
 }
 
-/** Empty clears the pick. */
+/** Null clears the pick. */
 export async function writeTidyModel(ref: TextModelRef | null) {
   await writeConfig(
     MEMORY_TIDY_KEYS.model,
@@ -51,6 +46,7 @@ export async function insertTidyRun(input: {
   provider: string;
   model: string;
   callIds: string[];
+  messages: number;
 }): Promise<MemoryTidyRun> {
   const [run] = await database
     .insert(memoryTidyRunTable)
@@ -64,7 +60,6 @@ export async function updateTidyRun(
   id: string,
   patch: Partial<{
     status: MemoryTidyStatus;
-    done: number;
     error: string | null;
     endedAt: Date | null;
   }>,
@@ -76,7 +71,7 @@ export async function updateTidyRun(
   changed();
 }
 
-/** Appends to the log; read-modify-write is safe because one pass runs at a time (memory.tidy). */
+/** Appends to the log; read-modify-write is safe because one read runs at a time (memory.tidy). */
 export async function appendTidyChanges(id: string, more: MemoryTidyChange[]) {
   if (!more.length) return;
   const [row] = await database
@@ -111,7 +106,7 @@ export async function findRunningTidyRun(): Promise<MemoryTidyRun | null> {
   return run ?? null;
 }
 
-/** The newest pass that is not running. */
+/** The newest read that is not running. */
 export async function findLastTidyRun(): Promise<MemoryTidyRun | null> {
   const [run] = await database
     .select()

@@ -49,9 +49,14 @@ export function useServerPages<T>(options: {
         resolveKey(key(index, previous))) as never,
       fetchRoute as never,
       {
-        // Same defaults as one-shot reads (use-server-route READ_DEFAULTS);
-        // the first page is not re-read on every scroll, `mutate()` still forces all
+        // Same defaults as one-shot reads (use-server-route READ_DEFAULTS).
+        // `revalidateOnMount` is false in swr/infinite, unlike plain useSWR:
+        // without it a screen reopened over a warm cache reads nothing at all,
+        // since `revalidateFirstPage` is off too. Together: opening re-reads
+        // every loaded page, scrolling does not re-read page one, and
+        // `mutate()` still forces all.
         dedupingInterval: 500,
+        revalidateOnMount: true,
         revalidateOnFocus: true,
         revalidateOnReconnect: true,
         focusThrottleInterval: 1000,
