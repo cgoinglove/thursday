@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.1.1...thursday-agent-v0.1.2) (2026-09-08)
+
+
+### Fixes
+
+* start on a free port instead of an EADDRINUSE stack trace ([336dede](https://github.com/cgoinglove/thursday/commit/336dede509dd717725d66c77733c548451770422))
+
 ## [0.1.1](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.1.0...thursday-agent-v0.1.1) (2026-09-08)
 
 
