@@ -121,7 +121,7 @@ export const BROWSER_SKILL = "browser";
  * takes this, and it opens over whatever the user is doing — big enough to read
  * a real page, small enough not to be the screen.
  */
-export const BROWSER_VIEWPORT = "1100x800";
+export const BROWSER_VIEWPORT = "700x700";
 
 /**
  * Name of the built-in "server" holding media tools (image, TTS, STT, video),
