@@ -6,6 +6,11 @@ name: Release
 on:
   push:
     branches: [main]
+  # The escape hatch for the half that can still fail on its own: a release is
+  # made and the publish after it is not (a bad token, a registry outage, a
+  # guard that was wrong). Re-running the old run would replay the old
+  # workflow file, so the fix is dispatched from main instead.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -18,7 +23,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       released: ${{ steps.release.outputs.release_created }}
-      tag: ${{ steps.release.outputs.tag_name }}
+      # The version release-please decided, rather than the tag it wrote it
+      # into: the tag carries the package name too, and taking it apart is
+      # what stopped 0.1.0 from reaching npm.
+      version: ${{ steps.release.outputs.version }}
     steps:
       - uses: googleapis/release-please-action@v5
         id: release
@@ -31,7 +39,7 @@ jobs:
   # from a `push: tags` trigger that would never fire.
   publish:
     needs: prepare
-    if: needs.prepare.outputs.released == 'true'
+    if: needs.prepare.outputs.released == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -54,18 +62,19 @@ jobs:
       # a local `pnpm release` runs, defined once (scripts/pack.mts).
       - run: node scripts/pack.mts
 
-      # release-please bumped package.json in the commit being built, so the tag
-      # and the tarball cannot disagree; check it anyway, since a mismatch is
-      # permanent once published.
-      - name: Tag matches the version
+      # release-please bumped package.json in the commit being built, so the two
+      # cannot disagree; check it anyway, since a mismatch is permanent once
+      # published. A dispatched run has no release to compare against — it is
+      # publishing whatever main says, which is the point of it.
+      - name: Release matches the version
+        if: needs.prepare.outputs.released == 'true'
         run: |
-          tagged="${TAG#v}"
           packed="$(node -p "require('./dist/package.json').version")"
-          [ "$tagged" = "$packed" ] || {
-            echo "tag $tagged != package $packed"; exit 1;
+          [ "$RELEASED" = "$packed" ] || {
+            echo "released $RELEASED != package $packed"; exit 1;
           }
         env:
-          TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASED: ${{ needs.prepare.outputs.version }}
 
       - run: npm publish ./dist --provenance --access public
         env:
