@@ -47,6 +47,9 @@ next-env.d.ts
 # agent workspace (local; holds the user's installed skills)
 /.ai-workspace
 # editor agent tooling, not the app's
+# Tool skills are installed per machine and symlink into /.agents, so a
+# committed one is a dangling link on every clone.
+/.claude/skills
 /.agents
 .playwright-cli
 .playwright
