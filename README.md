@@ -35,19 +35,38 @@ You never watched a spinner. You never stopped talking.
 
 <br>
 
-## Why nobody has done this
+## A harness you talk to
 
-Agent harnesses got very good this year. Claude Code, OpenClaw, Hermes — all of them read and type, and all of them are excellent at it.
+A **harness** is the layer around a model that decides what it sees, which tools it may call, where its commands run, and what survives the session. Claude Code, [OpenClaw](https://github.com/openclaw/openclaw) and [Hermes](https://github.com/NousResearch/hermes-agent) are harnesses, and they got very good this year.
 
-**None of them listen.**
+**Every one of them is typed at.**
 
-Not because nobody thought of it. Because speech breaks the one thing a harness does: run a long loop. A voice model that opens a browser goes quiet for ninety seconds — and a quiet call is a dead call. Nobody holds a phone through that.
+Not because nobody thought of speech. Because speech breaks the one thing a harness does: run a long loop. A voice model that opens a browser goes quiet for ninety seconds — and a quiet call is a dead call. Nobody holds a phone through that.
 
 ![Why a voice agent needs two minds](docs/images/two-minds.png)
 
 So Thursday puts **two minds on one line.** A realtime speech model holds the conversation and may only touch what it can answer in a glance. Everything slower goes to a **bot** — a text model with your whole machine — that runs in the background and reports back in one sentence, out loud.
 
 The conversation never stops, because the thing holding it never does the slow part.
+
+### And the call can read a skill
+
+A **skill** is a folder with a `SKILL.md` in it — a page of your instructions that a model opens only when it turns out to need them. It is how Claude Code, Codex and OpenClaw learn a house style without carrying it in every prompt.
+
+Skills were built for agents you type at. Switch it on in Settings and **the voice model reads one mid-sentence** — so "book the usual place" stops being a sentence you have to finish. Bots have their own, always.
+
+As far as I can find, nothing else lets a realtime speech model do this. The traffic goes the other way: the skills written *about* voice are instructions for a coding agent building a voice app. If you know of one, open an issue and this paragraph changes.
+
+<details>
+<summary><b>Isn't this what LiveKit and the Realtime API examples do?</b></summary>
+
+The split is not new. OpenAI's own [realtime-agents](https://github.com/openai/openai-realtime-agents) demonstrates it as the "chat-supervisor" pattern, and [LiveKit Agents](https://github.com/livekit/agents) attaches MCP tools to a realtime session in a line.
+
+They are frameworks and demonstrations: excellent parts for building a voice agent. What they hand the supervisor is a tool list.
+
+Thursday hands it a machine — a shell, the Chrome you are already signed into, skills, connectors, a workspace, and jobs that keep running after you hang up. It is a harness first, and speech is how you operate it. That is the whole difference, and it is the half that takes the work.
+
+</details>
 
 <br>
 
