@@ -229,7 +229,9 @@ export async function loadTools(run: ToolRun): Promise<ToolSet> {
 }
 
 async function buildTools(run: ToolRun): Promise<ToolSet> {
-  const memory = createMemoryTools();
+  // The runtime is the hand: the call as the user talks, the pass that reads
+  // calls back, a bot mid-job (memory.tool botRememberTool records its own).
+  const memory = createMemoryTools(run.target === "tidy" ? "tidy" : "call");
 
   if (run.target === "tidy") {
     // Reading calls back (memory/memory.tidy): the one runtime besides the call

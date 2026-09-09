@@ -12,6 +12,7 @@ import {
   type MemoryAlwaysLoaded,
   type MemoryNoteView,
   type MemoryNoteWrite,
+  type MemorySource,
   type MemoryWrite,
   recallScore,
 } from "./memory.schema";
@@ -68,6 +69,7 @@ function latestFacts(noteIds: number[]) {
       noteId: memoryFactTable.noteId,
       text: memoryFactTable.text,
       alwaysLoad: memoryFactTable.alwaysLoad,
+      source: memoryFactTable.source,
       createdAt: memoryFactTable.createdAt,
     })
     .from(memoryFactTable)
@@ -129,7 +131,8 @@ export async function deleteNote(id: number) {
 export async function addFact(noteId: number, text: string) {
   const [fact] = await database
     .insert(memoryFactTable)
-    .values({ noteId, text })
+    // Only the screen calls this, so the hand is known here (memory.action)
+    .values({ noteId, text, source: "user" })
     .returning();
   await touchNote(noteId);
   changed();
@@ -155,7 +158,7 @@ export async function reviseFact(noteId: number, factId: number, text: string) {
 
       const [fact] = await tx
         .insert(memoryFactTable)
-        .values({ noteId, text })
+        .values({ noteId, text, source: "user" })
         .returning();
       await tx
         .update(memoryNoteTable)
@@ -297,7 +300,11 @@ export async function readNotes(
       description: note.description,
       facts: facts
         .filter((fact) => fact.noteId === note.id)
-        .map((fact) => ({ id: fact.id, text: fact.text })),
+        .map((fact) => ({
+          id: fact.id,
+          text: fact.text,
+          source: fact.source,
+        })),
     })),
     missing,
   };
@@ -313,6 +320,8 @@ export const sameFact = (text: string) =>
  */
 export async function writeNotes(
   input: MemoryNoteWrite[],
+  /** Which hand is writing; recorded on every fact (memory.schema MemorySource). */
+  source: MemorySource,
 ): Promise<MemoryWrite> {
   const unnamed: string[] = [];
   const paths: string[] = [];
@@ -466,6 +475,7 @@ export async function writeNotes(
                 .values({
                   noteId,
                   text: fact.text,
+                  source,
                   alwaysLoad: claim(
                     fact.alwaysLoad ?? target.alwaysLoad,
                     fact.text,
@@ -494,6 +504,7 @@ export async function writeNotes(
             .values({
               noteId,
               text: fact.text,
+              source,
               alwaysLoad: claim(fact.alwaysLoad === true, fact.text),
             })
             .returning({
@@ -524,6 +535,7 @@ export function listAlwaysLoaded(): Promise<MemoryAlwaysLoaded[]> {
       id: memoryFactTable.id,
       path: memoryNoteTable.path,
       text: memoryFactTable.text,
+      source: memoryFactTable.source,
     })
     .from(memoryFactTable)
     .innerJoin(memoryNoteTable, eq(memoryFactTable.noteId, memoryNoteTable.id))
@@ -688,6 +700,7 @@ export function listFactsWrittenBetween(
       id: memoryFactTable.id,
       path: memoryNoteTable.path,
       text: memoryFactTable.text,
+      source: memoryFactTable.source,
     })
     .from(memoryFactTable)
     .innerJoin(memoryNoteTable, eq(memoryFactTable.noteId, memoryNoteTable.id))
@@ -709,6 +722,7 @@ export async function findFactById(
       id: memoryFactTable.id,
       path: memoryNoteTable.path,
       text: memoryFactTable.text,
+      source: memoryFactTable.source,
     })
     .from(memoryFactTable)
     .innerJoin(memoryNoteTable, eq(memoryFactTable.noteId, memoryNoteTable.id))

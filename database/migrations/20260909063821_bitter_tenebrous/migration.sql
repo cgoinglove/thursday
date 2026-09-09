@@ -1,0 +1,1 @@
+ALTER TABLE `memory_fact` ADD `source` text;

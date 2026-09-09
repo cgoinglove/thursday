@@ -15,6 +15,7 @@ import {
   MANY_FACTS,
   MEMORY_ALWAYS_LISTED,
   MEMORY_INBOX,
+  type MemorySource,
 } from "@/features/memory/memory.schema";
 
 const GONE =
@@ -27,7 +28,12 @@ const WROTE =
 const tooMany = (path: string, count: number) =>
   ` ${path} carries ${count} facts — enough that it is worth tidying. Put it on screen with \`${TOOL_NAMES.memory_show}\` and ask which of it they no longer need.`;
 
-export const createMemoryTools = () => ({
+/**
+ * @param source Which hand these writes are recorded under. The runtime knows
+ * it without being told — the call, the read-back pass — so no model ever
+ * chooses it (load-tools, memory.schema MemorySource).
+ */
+export const createMemoryTools = (source: MemorySource) => ({
   [TOOL_NAMES.memory_recall]: tool({
     description: "Open one note from the listing, whole.",
     inputSchema: z.object({
@@ -127,7 +133,7 @@ export const createMemoryTools = () => ({
               facts,
             };
 
-      const write = await writeNotes([filed]);
+      const write = await writeNotes([filed], source);
 
       // The write already succeeded; what follows are requests, not failures.
       // A path filed elsewhere must be said, or the model reports it saved where it asked.
@@ -240,9 +246,10 @@ export const botRememberTool = tool({
     // A path outside the convention goes to inbox, as it does for the call
     const filed = known || isMemoryPath(said) ? (known ?? said) : MEMORY_INBOX;
 
-    await writeNotes([
-      { path: filed, facts: written.map((text) => ({ text })) },
-    ]);
+    await writeNotes(
+      [{ path: filed, facts: written.map((text) => ({ text })) }],
+      "bot",
+    );
 
     // A write filed elsewhere must be said, or the report claims the wrong place
     return {

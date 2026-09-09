@@ -1,12 +1,37 @@
 import { z } from "zod";
 import { type DateLike, DateLikeSchema, toDate } from "@/lib/date-like";
 
+/**
+ * Who put a fact here. Memory is one note kept by four hands — the user typing
+ * on the screen, the call as they talk, a bot that turned something up mid-job,
+ * and the pass that reads calls back afterwards — and they are not equally
+ * close to the user. A reader that cannot tell them apart reads what a bot
+ * inferred as something the user said.
+ */
+export const MemorySourceSchema = z.enum(["user", "call", "bot", "tidy"]);
+
+export type MemorySource = z.infer<typeof MemorySourceSchema>;
+
+/** How a source reads on screen. Empty where it was never recorded — unknown, not guessed. */
+export const memorySourceLabel = (source: MemorySource | null | undefined) =>
+  source === "user"
+    ? "you"
+    : source === "call"
+      ? "on a call"
+      : source === "bot"
+        ? "a bot"
+        : source === "tidy"
+          ? "read back"
+          : "";
+
 // Storage is fact-based: one row per fact, history via isLatest.
 export const MemoryFactSchema = z.object({
   id: z.number(),
   text: z.string(),
   /** Loaded into every prompt without opening the note (ALWAYS_LOADED_MAX). */
   alwaysLoad: z.boolean(),
+  /** Null on rows written before the hand was recorded. */
+  source: MemorySourceSchema.nullish(),
   createdAt: DateLikeSchema,
 });
 
@@ -104,6 +129,8 @@ export type MemoryFactRef = {
   /** What `memory_forget` and `replaces` take. */
   id: number;
   text: string;
+  /** Which hand wrote it; null on rows from before it was recorded. */
+  source: MemorySource | null;
 };
 
 /** A fact carried at the top of the prompt, with its note path. */
@@ -111,6 +138,7 @@ export type MemoryAlwaysLoaded = {
   id: number;
   path: string;
   text: string;
+  source: MemorySource | null;
 };
 
 /** A note as returned by recall or after a write. */

@@ -25,6 +25,7 @@ import {
   isFading,
   type MemoryNote,
   type MemorySection,
+  memorySourceLabel,
   noteTitle,
   sectionOf,
 } from "@/features/memory/memory.schema";
@@ -348,8 +349,16 @@ function NotePage({ note }: { note: MemoryNote }) {
                 <span className="flex-1 text-sm leading-relaxed text-foreground/90">
                   {fact.text}
                 </span>
-                <span className="shrink-0 pt-0.5 font-mono text-[11px] text-muted-foreground/50">
-                  {format(fact.createdAt, "yyyy.MM.dd")}
+                {/* When, and whose hand — memory is kept by four of them */}
+                <span className="shrink-0 pt-0.5 text-right text-[11px] text-muted-foreground/50">
+                  <span className="block font-mono">
+                    {format(fact.createdAt, "yyyy.MM.dd")}
+                  </span>
+                  {memorySourceLabel(fact.source) && (
+                    <span className="block">
+                      {memorySourceLabel(fact.source)}
+                    </span>
+                  )}
                 </span>
               </li>
             ))}

@@ -147,7 +147,7 @@ function memory(
 
   const head = `## Memory
 
-What you have kept from talking with this user — the only thing that survives a session.`;
+What you have kept from talking with this user — the only thing that survives a session. Not all of it is yours: the word after a carried fact is the hand that wrote it, and a bot's or a read-back's is worth checking with them before you say it as theirs.`;
 
   const alreadyKnown = carried.length
     ? `Already known — carried into every call:

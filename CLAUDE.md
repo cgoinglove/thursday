@@ -119,6 +119,15 @@ in `outputFileTracingIncludes`, not left to the trace.
   one context over the most recent turns and older calls are stamped unread rather than queued.
   The checkpoint is `call.tidied_at`. The trigger is turns owed, never a call count: a greeting and
   an hour's talk are both one call.
+- **Memory is one note kept by four hands, and each fact records whose.** The user typing on the
+  screen, the call as they talk, a bot that turned something up mid-job, the pass that reads calls
+  back — `memory_fact.source` (memory.schema `MemorySource`). No model chooses it: the runtime knows
+  which it is (`load-tools`), so it cannot be claimed. It is on the line every prompt carries and in
+  what `memory_recall` hands back, because the hands are not equally close to the user and a reader
+  that cannot tell them apart reads what a bot inferred as something the user said. Null where it
+  was never recorded — unknown, not guessed. The two chapters a bot could confuse now name each
+  other: memory is about the user and everyone reads it, `bot_note` is about this machine and only
+  that bot does.
 - **A bot writes its own prompt, but never writes it itself.** `bot_note` is one block of
   prose per bot, keyed by name so the default bot has one too, capped at `BOT_NOTES.chars`:
   what working on this machine has taught it, read at the top of its every job and by nobody

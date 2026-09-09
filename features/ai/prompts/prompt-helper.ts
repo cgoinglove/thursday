@@ -77,9 +77,21 @@ export function noteLines(index: MemoryIndexEntry[], age = false): string {
     .join("\n");
 }
 
-/** `- Their name is Yuri · profile #12` */
+/**
+ * `- Their name is Yuri · profile #12 · call`
+ *
+ * The hand that wrote it, in one word (memory.schema MemorySource). Memory is
+ * one note kept by four of them and they are not equally close to the user: a
+ * line a bot inferred mid-job reads very differently from one the user said out
+ * loud. Omitted where it was never recorded.
+ */
 export const carriedLines = (loaded: MemoryAlwaysLoaded[]): string =>
-  loaded.map((fact) => `- ${fact.text} · ${fact.path} #${fact.id}`).join("\n");
+  loaded
+    .map(
+      (fact) =>
+        `- ${fact.text} · ${fact.path} #${fact.id}${fact.source ? ` · ${fact.source}` : ""}`,
+    )
+    .join("\n");
 
 /**
  * Whether it is time to tidy, and why: a crowded listing points at the coldest notes,

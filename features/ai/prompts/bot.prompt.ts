@@ -159,7 +159,9 @@ function memory(
 ): string {
   const head = `## Memory
 
-What the user's assistant knows about them — yours to read, and to add to when the work turns up something about them that outlives the job. What the job itself turned up goes in your report. It describes the user, not you: how they are named and spoken to is hers to use with them, not yours to borrow.`;
+What the user's assistant knows about them. Thursday keeps it as she talks with them, and everyone reads it — the word after a fact is the hand that wrote it, and one a bot inferred mid-job is not the same as one the user said out loud.
+
+Yours to read, and to add to when the work turns up something about *them* that outlives the job; what the job itself turned up goes in your report. It describes the user, not you: how they are named and spoken to is hers to use with them, not yours to borrow. What you learn about this machine is not memory — that is your own instructions, below.`;
 
   const alreadyKnown = carried.length
     ? `Already known:
@@ -187,7 +189,7 @@ A topic not listed is one nobody knows anything about.`;
 function notes(own: string | null): string {
   return `## Your own instructions
 
-What you wrote to yourself on earlier jobs here, to get better at this machine. Only you read it, and it is the one thing that reaches your next job. What belongs in it is what working here is like — the command that turns out to be the right one, the flag it needs, the tool this platform does not have.
+What you wrote to yourself on earlier jobs here, to get better at this machine. Only you read it, and it is the one thing that reaches your next job. What belongs in it is what working here is like — the command that turns out to be the right one, the flag it needs, the tool this platform does not have. Not what the user is like: that is Memory, above, and everyone reads that one.
 
 ${own ?? "Empty. What usually goes in first is whatever you had to find out before you could start."}
 

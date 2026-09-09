@@ -11,6 +11,7 @@ import {
   MCPToolInfo,
 } from "@/features/connectors/mcp.schema";
 import type {
+  MemorySource,
   MemoryTidyChange,
   MemoryTidyStatus,
 } from "@/features/memory/memory.schema";
@@ -318,6 +319,14 @@ export const memoryFactTable = sqliteTable(
     alwaysLoad: int("always_load", { mode: "boolean" })
       .notNull()
       .default(false),
+    /**
+     * Who wrote it (memory.schema MemorySource): the user on the screen, the
+     * call, a bot mid-job, or the pass that reads calls back. Memory is one
+     * note kept by four hands, and a reader that cannot tell them apart reads
+     * what a bot inferred as something the user said. Null on rows written
+     * before this column — unknown, not guessed.
+     */
+    source: text("source").$type<MemorySource>(),
     createdAt: int("created_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),
