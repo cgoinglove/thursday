@@ -29,6 +29,7 @@ import { listConnectedToolNames } from "../tools/connected";
 import {
   carriedLines,
   type LoadedPrompt,
+  logPromptSize,
   mcpServerLines,
   noteLines,
   nowLine,
@@ -85,6 +86,7 @@ export async function loadThursdayPrompt(
     .filter(Boolean)
     .join("\n\n");
 
+  logPromptSize("thursday", text);
   logger.debug(`thursday prompt\n${text}`);
 
   return {

@@ -164,6 +164,15 @@ export const MEMORY_TIDY = {
  */
 export const BROWSER_GONE_MS = 10_000;
 
+/**
+ * Size of one assembled prompt (tokens) past which the log names the chapter
+ * carrying it. Not a cap — every chapter is there because something needs it —
+ * but growth is in the listings (memory, skills, connected tools, bots), which
+ * belong to the user, so nothing else would ever notice. Roughly twice a
+ * well-used install.
+ */
+export const PROMPT_BUDGET = 6_000;
+
 /** Memory listing size (tokens) above which the prompt asks for tidying. */
 export const MEMORY_LISTING_TOKENS = 1_000;
 

@@ -101,6 +101,12 @@ in `outputFileTracingIncludes`, not left to the trace.
   publish hundreds; a runtime holds about ten of its own, and hiding those to save a few hundred
   tokens costs a step to find them and reads as a capability that is not there. What grows with use
   is the listings (memory, skills, connected tools), not the prose — measure before cutting either.
+- **A prompt says what it costs.** Every assembly logs its own breakdown by chapter, and the tool
+  set logs its own (`prompts/prompt-helper` `logPromptSize`, `load-tools` `logToolSize`). What grows
+  is the listings, which belong to the user, so nothing in the app would otherwise notice — the
+  numbers in the bullet above were a guess until they were measured, and the guess was wrong in both
+  directions. Past `PROMPT_BUDGET` the line is a warning naming the chapter carrying it, so a shipped
+  install says so as well, where a debug line never prints.
 - **Tools run on the server.** A call's tool invocation is forwarded by the page to the server, so tools
   call domain queries directly. The one exception is anything that touches the call itself (hang up).
 - **Long-running work continues after the response** (`after`). Everything that happens is written as

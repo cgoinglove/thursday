@@ -14,3 +14,22 @@ export function estimateTokens(text: string): number {
   }
   return Math.ceil(cjk / 1.3 + other / 4);
 }
+
+/**
+ * One assembled prompt measured by its own `##` headings, biggest first. Read
+ * off the finished text rather than off what built it: what is counted is then
+ * what is actually sent, and a chapter cannot be added without appearing here.
+ */
+export function sectionTokens(
+  text: string,
+): { name: string; tokens: number }[] {
+  return text
+    .split(/\n(?=## )/)
+    .map((block) => ({
+      name: block.startsWith("## ")
+        ? block.slice(3, block.indexOf("\n"))
+        : "identity",
+      tokens: estimateTokens(block),
+    }))
+    .sort((a, b) => b.tokens - a.tokens);
+}

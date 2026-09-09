@@ -1,5 +1,6 @@
-import { type ToolSet, tool } from "ai";
+import { asSchema, type ToolSet, tool } from "ai";
 import { formatDistanceToNowStrict } from "date-fns";
+import { IS_DEV } from "@/config";
 import type { TextModel } from "@/features/ai/model";
 import { tidying } from "@/features/ai/prompts/prompt-helper";
 import {
@@ -26,6 +27,8 @@ import { loadSkills } from "@/features/skills/skills.discover";
 import { readCallSkillsOn } from "@/features/thursday/thursday.query";
 import { jobShellEnv, openWorkspace } from "@/features/workspace/workspace";
 import { toDate } from "@/lib/date-like";
+import { logger } from "@/lib/logger";
+import { estimateTokens } from "@/lib/tokens";
 import { clip } from "@/lib/utils";
 import { resolveSearchModel } from "./model";
 
@@ -191,7 +194,41 @@ async function noSuchJob(ref: string): Promise<string> {
   return `There is no job called "${ref}". The latest are: ${names}. Call again with one of those names.`;
 }
 
+/**
+ * What the set costs the model, beside the prompt's own line (prompts/prompt-helper
+ * logPromptSize). Descriptions and schemas are both counted because both are sent
+ * on every step. No budget here: the set is decided by the code, except for the MCP
+ * tools a bot is pinned to — those show up by name.
+ */
+async function logToolSize(target: ToolTarget, tools: ToolSet): Promise<void> {
+  const rows: { name: string; tokens: number }[] = [];
+  for (const [name, held] of Object.entries(tools)) {
+    const schema = await asSchema(held.inputSchema).jsonSchema;
+    // A description may be a function of the call's context; only a fixed one is counted
+    const said = typeof held.description === "string" ? held.description : "";
+    rows.push({
+      name,
+      tokens: estimateTokens(said) + estimateTokens(JSON.stringify(schema)),
+    });
+  }
+  rows.sort((a, b) => b.tokens - a.tokens);
+  const total = rows.reduce((sum, row) => sum + row.tokens, 0);
+  logger.debug(
+    `${target} tools ${total} tokens over ${rows.length} — ${rows
+      .map((row) => `${row.name} ${row.tokens}`)
+      .join(", ")}`,
+  );
+}
+
 export async function loadTools(run: ToolRun): Promise<ToolSet> {
+  const tools = await buildTools(run);
+  // Measured only where the line would be printed: the schemas have to be built
+  // to be counted, and unlike a prompt this set does not grow with use.
+  if (IS_DEV) await logToolSize(run.target, tools);
+  return tools;
+}
+
+async function buildTools(run: ToolRun): Promise<ToolSet> {
   const memory = createMemoryTools();
 
   if (run.target === "tidy") {

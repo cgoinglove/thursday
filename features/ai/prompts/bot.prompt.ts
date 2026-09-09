@@ -27,6 +27,7 @@ import { listConnectedToolNames } from "../tools/connected";
 import {
   carriedLines,
   type LoadedPrompt,
+  logPromptSize,
   mcpToolLines,
   noteLines,
   nowLine,
@@ -85,6 +86,7 @@ export async function loadBotPrompt(
     .filter(Boolean)
     .join("\n\n");
 
+  logPromptSize("bot", text);
   logger.debug(`bot prompt\n${text}`);
 
   return {

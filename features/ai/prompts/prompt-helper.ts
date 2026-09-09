@@ -1,5 +1,5 @@
 import { format, formatDistanceToNowStrict } from "date-fns";
-import { MEMORY_LISTING_TOKENS, PROMPT_LINE } from "@/config";
+import { MEMORY_LISTING_TOKENS, PROMPT_BUDGET, PROMPT_LINE } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import type { McpToolRef } from "@/features/connectors/mcp.schema";
 import type {
@@ -9,7 +9,8 @@ import type {
 import { MANY_FACTS } from "@/features/memory/memory.schema";
 import type { SkillMetadata } from "@/features/skills/skills.discover";
 import { toDate } from "@/lib/date-like";
-import { estimateTokens } from "@/lib/tokens";
+import { logger } from "@/lib/logger";
+import { estimateTokens, sectionTokens } from "@/lib/tokens";
 import { clip } from "@/lib/utils";
 
 /**
@@ -25,6 +26,28 @@ export type LoadedPrompt = {
   /** System item injected the moment the line opens so the assistant speaks first (thursday.prompt opening). Always null for a bot. */
   opening: string | null;
 };
+
+/**
+ * What one assembled prompt costs, said where it is assembled. The debug line is
+ * the whole breakdown; past PROMPT_BUDGET it is a warning naming the chapter
+ * carrying it, and that one is always a listing the user can act on — nothing
+ * else in the app would ever say a prompt had grown.
+ */
+export function logPromptSize(kind: string, text: string): void {
+  const parts = sectionTokens(text);
+  const total = parts.reduce((sum, part) => sum + part.tokens, 0);
+  logger.debug(
+    `${kind} prompt ${total} tokens — ${parts
+      .map((part) => `${part.name} ${part.tokens}`)
+      .join(", ")}`,
+  );
+  const biggest = parts[0];
+  if (total > PROMPT_BUDGET && biggest) {
+    logger.warn(
+      `${kind} prompt is ${total} tokens, over ${PROMPT_BUDGET}: ${biggest.name} carries ${biggest.tokens} of it. Every call and every job pays this.`,
+    );
+  }
+}
 
 /** `**Now**: 2026-09-02 (Wed) 15:41 Asia/Seoul` */
 export const nowLine = (now = new Date()) =>

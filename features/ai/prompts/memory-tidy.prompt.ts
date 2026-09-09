@@ -13,7 +13,12 @@ import {
 } from "@/features/memory/memory.schema";
 import type { OwedTurn } from "@/features/thursday/thursday.query";
 import { logger } from "@/lib/logger";
-import { carriedLines, noteLines, nowLine } from "./prompt-helper";
+import {
+  carriedLines,
+  logPromptSize,
+  noteLines,
+  nowLine,
+} from "./prompt-helper";
 
 /**
  * Everything the read-back hears (features/memory/memory.tidy). One system text
@@ -39,6 +44,7 @@ export async function loadTidyPrompt(
   ]);
   const system = [identity(), memory(index, carried), pass()].join("\n\n");
   const user = [transcript(read), written(read.written)].join("\n\n");
+  logPromptSize("tidy", `${system}\n\n${user}`);
   logger.debug(`tidy prompt\n${system}\n\n${user}`);
   return { system, user };
 }
