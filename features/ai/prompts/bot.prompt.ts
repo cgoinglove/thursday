@@ -53,8 +53,8 @@ export async function loadBotPrompt(
   self: string,
   persona?: string | null,
   askedBy?: string | null,
-  /** This job's own folder under `scratch/`; null outside a job (bot.run). */
-  scratch?: string | null,
+  /** The two folders that are this run's rather than the user's (bot.run). */
+  folders?: { scratch: string | null; own: string },
 ): Promise<LoadedPrompt> {
   const sandbox = await openWorkspace();
   const name = self.trim();
@@ -93,7 +93,7 @@ export async function loadBotPrompt(
     notesOn ? notes(ownNote) : "",
     connectedTools(mcpTools, pinned),
     methods(skills),
-    environment(sandbox.cwd, machine, scratch),
+    environment(sandbox.cwd, machine, folders),
     roster(peers),
     askedBy ? askingBack(askedBy) : ASKING,
     askedBy ? handingUp(askedBy) : FINISHING,
@@ -117,7 +117,7 @@ export async function loadBotPrompt(
 function identity(name: string): string {
   return [
     // Named, because the owner's prompt may not name it and its own instructions are addressed to it
-    `You are ${name}, a worker. Thursday handed you a job while she keeps talking to the user; you are not in that conversation and never speak to the user directly. ${nowLine()}`,
+    `You are ${name}, a worker. Thursday handed you a job while she keeps talking to the user — they speak to her and to nobody else, and what she reads them out of your report is the only part of this that reaches them. You are not in that conversation and never address the user. This thread is drawn on their screen while you work, though: not written to them, but not private either. ${nowLine()}`,
     MACHINE,
     NO_GUESSING,
   ].join("\n\n");
@@ -126,7 +126,7 @@ function identity(name: string): string {
 /** The borrowed seat: above it is the borrowing bot, not Thursday. */
 function borrowedIdentity(name: string, askedBy: string): string {
   return [
-    `You are ${name}, a worker. ${askedBy} is holding a job Thursday handed them and has handed one part of it to you. You never speak to the user: ${askedBy} reports, and what you hand back goes into their report as-is. ${nowLine()}`,
+    `You are ${name}, a worker. ${askedBy} is holding a job Thursday handed them and has handed one part of it to you. The user speaks to Thursday and to nobody else; you never address them, and what you hand back goes into ${askedBy}'s report as-is. This thread is drawn on their screen while you work: not written to them, but not private either. ${nowLine()}`,
     MACHINE,
     NO_GUESSING,
   ].join("\n\n");
@@ -243,7 +243,7 @@ ${skillLines(skills)}`;
 const environment = (
   cwd: string,
   machine: MachineTools,
-  scratch?: string | null,
+  folders?: { scratch: string | null; own: string },
 ) => `## Environment
 
 Current Cwd: ${cwd}
@@ -252,11 +252,14 @@ ${machineLines(machine)}
 
 Read off this machine as the job opened, so it is current: reach for what is here instead of checking for it.
 
-Your workspace — \`${TOOL_NAMES.bash}\` runs here. Everything you write goes in one of three folders: \`${PATHS.artifacts}/\` (finished work the user opens, one entry per result), \`${PATHS.projects}/\` (code you build, one folder each — a project's dependencies install inside it, never at the workspace root), \`${
-  scratch
-    ? `${scratch}/\` — this job's own, for everything in progress`
-    : `${PATHS.scratch}/\` (everything in progress)`
-}. Never the directory above — that is the app you run in; outside the workspace, only where the user pointed you.`;
+Your workspace — \`${TOOL_NAMES.bash}\` runs here. Everything you write goes in one of these, and they are kept apart because what is in them lives for different lengths of time:
+
+- \`${PATHS.artifacts}/\` — finished work the user opens, one entry per result. Theirs, and it stays.
+- \`${PATHS.projects}/\` — code you build, one folder each. It outlives this job, and a project's dependencies install inside it, never at the workspace root.
+- \`${folders?.scratch ?? PATHS.scratch}/\` — this job's working material. It goes when the job does, so nothing here is worth keeping.
+- \`${folders?.own ?? PATHS.bots}/\` — yours, across every job you run here. A script you wrote once and will want again, a table you built. Your own instructions can name what is in it.
+
+Never the directory above — that is the app you run in; outside the workspace, only where the user pointed you.`;
 
 /** Same roster the voice prompt shows, used the other way: which part of a held job is another bot's. */
 function roster(peers: JobBot[]): string {

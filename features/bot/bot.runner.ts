@@ -13,7 +13,10 @@ import {
   listCallTurns,
 } from "@/features/thursday/thursday.query";
 import { pathsIn } from "@/features/workspace/file-kind";
-import { closeJobShell } from "@/features/workspace/workspace";
+import {
+  closeJobShell,
+  removeJobScratch,
+} from "@/features/workspace/workspace";
 import { desktopNotify } from "@/lib/desktop-notify";
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
@@ -22,6 +25,7 @@ import { condenseThread, runBot, type TaskEvent } from "./bot.run";
 import { TASK_CONTINUE, type TaskStatus } from "./bot.schema";
 import {
   addTaskUsage,
+  deleteFinishedTasks,
   deleteMessages,
   deleteTask,
   findTask,
@@ -189,11 +193,27 @@ export async function cancelTask(id: string) {
 /** Deletes the job, stopping it first if it is still running. */
 export async function removeTask(id: string) {
   return taskLock(id, async () => {
+    const task = await findTask(id);
     running.get(id)?.stop.abort();
     running.delete(id);
     void closeJobShell(id);
-    return deleteTask(id);
+    const gone = await deleteTask(id);
+    // The working folder's lifetime is the row's: with the job gone, what it was
+    // working with is nobody's (workspace.ts jobScratch).
+    if (gone && task) await removeJobScratch(id, task.label);
+    return gone;
   });
+}
+
+/**
+ * Clearing finished jobs from the screen, and their working folders with them.
+ * Lives here rather than in the query because a row and a folder go together
+ * and only one of the two is the database's.
+ */
+export async function removeFinishedTasks(): Promise<number> {
+  const removed = await deleteFinishedTasks();
+  for (const task of removed) await removeJobScratch(task.id, task.label);
+  return removed.length;
 }
 
 /**

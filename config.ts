@@ -42,13 +42,23 @@ const WORKSPACE = ".ai-workspace";
 export const PATHS = {
   workspace: WORKSPACE,
   /**
-   * Workspace folders a bot may write into, relative to the workspace:
-   * `artifacts` finished results the user opens, `projects` code the bot keeps
-   * building, `scratch` everything in progress. The workspace root is refused.
+   * Workspace folders a bot may write into, relative to the workspace. They are
+   * split by how long what is in them lives: `artifacts` finished results the
+   * user opens and `projects` code that outlives any one job are the user's and
+   * stay; `scratch/<job>` dies with the job that made it; `bots/<name>` lasts as
+   * long as the bot. The workspace root is refused.
    */
   artifacts: "artifacts",
   projects: "projects",
   scratch: "scratch",
+  /**
+   * A bot's own corner, one folder per bot. Its notes are prose and capped; this
+   * is where the rest goes — a script it wrote once and reuses, a table it built,
+   * anything worth having on the next job. Kept apart from `scratch` because the
+   * two die at different times: a job's material dies with the job, a bot's kit
+   * lives as long as the bot.
+   */
+  bots: "bots",
   /** Where tool output over TOOL_OUTPUT is written in full. */
   output: ".output",
   skills: {

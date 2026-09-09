@@ -98,15 +98,11 @@ export async function keepNotes(input: KeepNotesInput): Promise<string | null> {
  * model to have views about the worker instead of editing the text it was handed.
  */
 function briefing(current: string | null, want: string): string {
-  return `You maintain one worker's prompt. A change to it has come in.
+  return `You keep one worker's notes. It is an agent with a shell on this machine; the notes are its own, read at the start of every job it runs and by nobody else. They hold what this machine has taught it — the command that works here, the flag without which something fails, the tool this platform does not have. Write what the worker found, never what it proposed.
 
-The worker is an agent with a shell on this machine. The prompt is its own — written to itself, read at the start of every job it runs, read by nobody else. It holds what working on this machine has taught it: the command that actually works here, the flag without which it fails, the tool this platform does not have, a dead end not worth walking again.
+Four things do not belong, however true today: what is in a folder right now, what a job produced, anything about the person the work is for, and how to satisfy the worker's own tools (\`report\`, \`write_file\`, \`bash\` — those belong to the app it runs inside and change with it). A program *on the machine* is the opposite and does belong.
 
-**A request may propose work — "it should be rewritten", "someone ought to fix it".** A proposal is not a fact, and the prompt records only what is true of the machine right now: write what the worker found, never the intention as though it were done.
-
-Three things are not notes, however true they were today. **What is in a folder right now** — a listing is cheaper to read again than to trust, and it is wrong the day something is added. **What a job produced**, and anything about the person the work is for. **A way around the worker's own tools** — the report, the file writer, the step limit belong to the app it runs in, they change with it, and a line about satisfying one teaches it to work on the tool instead of the job. What the machine is, and how work goes on it, is the whole subject.
-
-${current ? "The prompt as it stands:" : "There is no prompt yet — the fence below is empty because the worker has written nothing, not because the prompt says so. Whatever you hand back is the first version of it."}
+${current ? "The notes as they stand:" : "There are no notes yet — the fence below is empty because nothing has been written, not because the notes say so."}
 
 \`\`\`
 ${current ?? ""}
@@ -116,5 +112,5 @@ The worker asks for this change:
 
 ${want.trim()}
 
-Update the prompt from that. Keep everything it already says that the request does not touch, in the words it already uses. Where the request leaves the choice open — fix this or drop it — fix it: the worker still has to do the thing, it just does it differently now, and a line deleted takes the question with it. Hand back the whole prompt as it should now read — only what belongs inside the fence, never a word about it — and nothing at all when nothing in the change requests belongs in a prompt. At most ${BOT_NOTES.chars} characters, which is a ceiling and not a target.`;
+Hand back the whole thing as it should now read, keeping what the request does not touch. Only what belongs inside the fence, never a word about it, and nothing at all when the request holds nothing that belongs. At most ${BOT_NOTES.chars} characters, which is a ceiling and not a target.`;
 }

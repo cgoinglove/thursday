@@ -12,10 +12,16 @@ import {
   updateBot,
   writeBotNotesOn,
 } from "./bot.query";
-import { answerTask, cancelTask, removeTask, startTask } from "./bot.runner";
+import {
+  answerTask,
+  cancelTask,
+  removeFinishedTasks,
+  removeTask,
+  startTask,
+} from "./bot.runner";
 import { BotFormSchema, botIconSchema } from "./bot.schema";
 import { findBotSeed, rollSeedColors } from "./bot.seed";
-import { deleteFinishedTasks, markReported, resolveTask } from "./task.query";
+import { markReported, resolveTask } from "./task.query";
 
 export const createBotAction = serverAction(async (input: unknown) => {
   const form = BotFormSchema.parse(input);
@@ -147,5 +153,5 @@ export const deleteTaskAction = serverAction(async (id: string) => {
 
 /** Empties the log of what is over. Running and waiting jobs are not touched. */
 export const clearFinishedTasksAction = serverAction(async () => {
-  return { removed: await deleteFinishedTasks() };
+  return { removed: await removeFinishedTasks() };
 });

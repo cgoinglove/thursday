@@ -136,7 +136,7 @@ const reportNotes = z
   .string()
   .nullish()
   .describe(
-    'How your own instructions should change after this job — what to do to them, not the text itself: someone else writes it in, and the next job you run here reads the result. Say it the way you would ask a person: "add that a browser here needs --no-sandbox or it exits", "the line saying the tests run with npm is wrong, it is pnpm", "drop the part about the old api folder, it is gone". Null when nothing came up that they do not already say.',
+    "What should change in your own instructions before your next job here — something to add, something wrong to correct, something to drop. Your own words, any length; someone else writes it in. Nothing to say is the usual answer, and leaving it out costs nothing: they already say what they say.",
   );
 
 /** The voice session's handle on a job already handed over. Run by the server, like `delegate` (load-tools). */

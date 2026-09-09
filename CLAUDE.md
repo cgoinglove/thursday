@@ -216,15 +216,16 @@ in `outputFileTracingIncludes`, not left to the trace.
   image or page past the cap is not drawn at all — an `<img>` decodes whole and a dead tab
   explains nothing. Audio and video are uncapped; they stream.
 - **Don't split files by size.** A long file that does one thing stays one file.
-- **The workspace is split by what a folder is for, then by job where that changes.** `artifacts/`
-  stays flat and unattributed — one top-level entry is one artifact, which is what the Artifacts
-  screen reads — and `projects/` outlives the job that started it, so both are the user's and neither
-  is divided up. Work in progress is nobody's, so it goes under `scratch/<label>-<id>/`, one folder
-  per job (`workspace.ts` `jobScratch`): shared, nobody could tell whose a file was or when it
-  stopped mattering, and it only grew. Per *job* rather than per bot, because several bots work
-  inside one job (`ask_bot`) and one bot runs many jobs — and because a job ends, which is what makes
-  its material safe to clear. `.output/`, where tool output over `TOOL_OUTPUT.max` spills, is pruned
-  by age when a job's shell closes, the way browser snapshots already were.
+- **The workspace is split by how long what is in it lives.** `artifacts/` is the user's finished
+  work and stays — flat and unattributed, one top-level entry per result, which is what the Artifacts
+  screen reads. `projects/` is code that outlives the job that started it. `scratch/<label>-<id>/` is
+  one job's working material and goes when the job's row does (`workspace.ts` `jobScratch` /
+  `removeJobScratch`, from `bot.runner`): per *job* rather than per bot, because several bots work
+  inside one job (`ask_bot`) and one bot runs many jobs — and because a job ends, which is the only
+  thing that makes its material safe to clear. `bots/<name>/` is one bot's own kit across every job
+  it runs; its notes are prose and capped, and this is where the rest goes. `.output/`, where tool
+  output past `TOOL_OUTPUT.max` spills, is pruned by age when a job's shell closes, the way browser
+  snapshots already were.
 - **SQLite has one writer, so the app makes one request at a time** (`database/db.ts` `oneAtATime`).
   Several flows write at once — a run per job, the pass that reads calls back, the routes the browser
   hits every time a write emits an event — and SQLite answers the losers with `SQLITE_BUSY` instead

@@ -30,7 +30,11 @@ import {
   NO_TOKENS,
   type TokenUsage,
 } from "@/features/bot/bot.schema";
-import { closeJobShell, openJobScratch } from "@/features/workspace/workspace";
+import {
+  closeJobShell,
+  openBotFolder,
+  openJobScratch,
+} from "@/features/workspace/workspace";
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
 import { estimateTokens } from "@/lib/tokens";
@@ -157,18 +161,21 @@ export async function runBot(
   const model = await resolveModel(bot);
   // One folder per job, not per bot: bots borrowed with `ask_bot` work inside
   // the same job and share its material (workspace.ts jobScratch).
-  const scratch = options.taskId
-    ? await openJobScratch(
-        options.taskId,
-        (await findTask(options.taskId))?.label ?? "job",
-      )
-    : null;
+  const [scratch, own] = await Promise.all([
+    options.taskId
+      ? openJobScratch(
+          options.taskId,
+          (await findTask(options.taskId))?.label ?? "job",
+        )
+      : null,
+    openBotFolder(name),
+  ]);
   const [prompt, tools] = await Promise.all([
     loadBotPrompt(
       name,
       bot.systemPrompt,
       "askedBy" in input ? input.askedBy : null,
-      scratch,
+      { scratch, own },
     ),
     loadTools({
       target: "bot",

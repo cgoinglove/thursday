@@ -226,9 +226,11 @@ export async function deleteFinishedTasks() {
   const removed = await database
     .delete(taskTable)
     .where(inArray(taskTable.status, ["done", "failed"]))
-    .returning({ id: taskTable.id });
+    // The label comes back too: a job's working folder is named for it and goes
+    // with the row (bot.runner removeFinishedTasks).
+    .returning({ id: taskTable.id, label: taskTable.label });
   if (removed.length) changed();
-  return removed.length;
+  return removed;
 }
 
 /** Every job, newest first. The caller stops each one before deleting it (bot.runner removeTask). */

@@ -2,6 +2,7 @@ import {
   mkdir,
   readdir,
   realpath,
+  rm,
   stat,
   unlink,
   writeFile,
@@ -42,7 +43,12 @@ export const ARTIFACTS = join(WORKSPACE, PATHS.artifacts);
  * Created on open, and the only places inside the workspace `write_file`
  * accepts. `.agents` is the skills CLI's install folder.
  */
-const BOT_FOLDERS = [PATHS.artifacts, PATHS.projects, PATHS.scratch];
+const BOT_FOLDERS = [
+  PATHS.artifacts,
+  PATHS.projects,
+  PATHS.scratch,
+  PATHS.bots,
+];
 const WRITABLE = new Set([...BOT_FOLDERS, ".agents"]);
 
 /** Where playwright-cli drops a snapshot after every command. Its name, not ours. */
@@ -61,7 +67,7 @@ export function writeRefusal(full: string): string | null {
     const rel = relative(WORKSPACE, full);
     const [top] = rel.split(sep);
     if (top && WRITABLE.has(top)) return null;
-    return `Not written: ${rel || "the workspace root"} is outside the workspace's folders. Finished work goes under ${PATHS.artifacts}/, code under ${PATHS.projects}/, everything else under ${PATHS.scratch}/.`;
+    return `Not written: ${rel || "the workspace root"} is outside the workspace's folders. Finished work goes under ${PATHS.artifacts}/, code under ${PATHS.projects}/, your own kit under ${PATHS.bots}/, and this job's working material under ${PATHS.scratch}/.`;
   }
   if (under(APP_ROOT, full)) {
     return `Not written: ${full} is inside the app that is running you, not the user's files. Work in ${WORKSPACE}; outside it, write only where the user pointed you.`;
@@ -111,6 +117,16 @@ export function jobScratch(taskId: string, label: string): string {
       .replace(/^-+|-+$/g, "")
       .slice(0, 40) || "job";
   return `${PATHS.scratch}/${slug}-${taskId.slice(0, 6)}`;
+}
+
+/** Where one bot keeps what it wants on its next job (config PATHS.bots). */
+export const botFolder = (bot: string): string =>
+  `${PATHS.bots}/${bot.replace(/[^\p{L}\p{N}_-]+/gu, "-")}`;
+
+export async function openBotFolder(bot: string): Promise<string> {
+  const path = botFolder(bot);
+  await mkdir(join(WORKSPACE, path), { recursive: true });
+  return path;
 }
 
 /** Creates it, so a job never has to and never writes to the shared root by mistake. */
@@ -286,4 +302,19 @@ export async function openWorkspace(): Promise<Sandbox> {
     spill: { dir: PATHS.output, ...TOOL_OUTPUT },
     toolPath: TOOL_PATH,
   });
+}
+
+/**
+ * Removes a job's working folder. Its lifetime is the task's: when the row goes,
+ * so does what it was working with (features/bot/bot.runner). Never touches
+ * `artifacts` or `projects` — those are the user's and outlive every job.
+ */
+export async function removeJobScratch(
+  taskId: string,
+  label: string,
+): Promise<void> {
+  await rm(join(WORKSPACE, jobScratch(taskId, label)), {
+    recursive: true,
+    force: true,
+  }).catch(() => {});
 }
