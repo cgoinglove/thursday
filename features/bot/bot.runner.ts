@@ -199,20 +199,32 @@ export async function removeTask(id: string) {
 /**
  * At boot (instrumentation): rows the last process left as running become
  * `waiting` with the one continue option, not failed. The answer resumes the
- * stored thread (answerTask).
+ * stored thread (answerTask). Nothing else needs to reconcile — a run that ends
+ * badly records it itself (drive), and the write that does so is durable
+ * (database/db.ts oneAtATime).
  */
 export async function sweepTasks() {
   for (const id of await listRunningTaskIds()) {
-    if (running.has(id)) continue;
-    await updateTask(id, {
-      status: "waiting",
-      outcome:
-        "The server restarted while this was running. Everything it had done is still here. Pick it back up?",
-      pending: { toolCallId: null, options: [TASK_CONTINUE] },
-      reported: false,
-      endedAt: null,
-    });
+    if (!running.has(id)) {
+      await abandon(id, "The server restarted while this was running");
+    }
   }
+}
+
+/**
+ * Puts a run that is no longer running back where the user can pick it up: the
+ * same shape a step limit leaves (`waiting` with the one continue option), so
+ * the screen and Thursday need no third state for it. The thread stays whole,
+ * and answering resumes from it.
+ */
+async function abandon(id: string, why: string) {
+  await updateTask(id, {
+    status: "waiting",
+    outcome: `${why}. Everything it had done is still here. Pick it back up?`,
+    pending: { toolCallId: null, options: [TASK_CONTINUE] },
+    reported: false,
+    endedAt: null,
+  });
 }
 
 /**
@@ -289,6 +301,21 @@ class ThreadWriter {
     this.seq = seq;
   }
 
+  /**
+   * A line from the app rather than from anyone in the room. A user row so a
+   * resumed run reads it as something it was told, and `note` so the screen
+   * draws it as a note and `rosterOf` does not take it for a person speaking.
+   */
+  async note(text: string) {
+    await upsertMessage(this.taskId, ++this.seq, {
+      bot: null,
+      parent: null,
+      role: "user",
+      content: text,
+      note: true,
+    });
+  }
+
   private step(event: TaskEvent) {
     const key = `${event.bot} ${event.parent ?? ""}`;
     let step = this.steps.get(key);
@@ -307,7 +334,7 @@ class ThreadWriter {
     seq: number,
     event: TaskEvent,
     message: ModelMessage,
-    extra: { compact?: boolean } = {},
+    extra: { compact?: boolean; note?: boolean } = {},
   ) {
     const input: TaskMessageInput = {
       bot: event.bot,
@@ -315,6 +342,7 @@ class ThreadWriter {
       role: message.role,
       content: message.content,
       compact: extra.compact ?? false,
+      note: extra.note ?? false,
     };
     return upsertMessage(this.taskId, seq, input);
   }
@@ -387,7 +415,7 @@ class ThreadWriter {
           ++this.seq,
           event,
           { role: "user", content: event.text },
-          { compact: true },
+          { compact: true, note: true },
         );
 
       case "interjection":
@@ -422,6 +450,8 @@ async function drive(
     outcome: string;
     pending: { toolCallId: string | null; options: string[] } | null;
   } | null = null;
+  /** What broke, as the provider said it; the thread carries it too (below). */
+  let broken: string | null = null;
 
   try {
     await runBot(input, {
@@ -465,6 +495,7 @@ async function drive(
               : { toolCallId: null, options: [TASK_CONTINUE] },
           };
         } else if (event.type === "error") {
+          broken = event.message;
           ending = {
             status: "failed",
             outcome: broke(event.message),
@@ -474,9 +505,10 @@ async function drive(
       },
     });
   } catch (cause) {
+    broken = modelErrorToString(cause);
     ending = {
       status: "failed",
-      outcome: broke(modelErrorToString(cause)),
+      outcome: broke(broken),
       pending: null,
     };
   } finally {
@@ -491,11 +523,33 @@ async function drive(
     outcome: "Stopped without handing anything back.",
     pending: null,
   };
-  await updateTask(id, {
-    ...final,
-    reported: false,
-    endedAt: final.status === "waiting" ? null : new Date(),
-  });
+  // A thread that simply stops cannot be read: the room shows a tool call with
+  // no answer, and a resumed run has no idea why. The task row says it too, but
+  // the row is a status and this is the story. Never at the cost of the status
+  // write, which is what tells anyone the job ended at all.
+  if (final.status === "failed") {
+    await thread
+      .note(`The run stopped here: ${broken ?? final.outcome}`)
+      .catch((cause) => logger.warn(`task ${id}: break not written`, cause));
+  }
+
+  // The one write that must land: everything else in this run has already
+  // happened, and this is what tells the screen and Thursday it ended at all.
+  // Writes are serialised, so contention no longer throws here (database/db.ts);
+  // what is left is a database that cannot be written to, which a retry would
+  // not help either. Said plainly rather than thrown into `after`, where it
+  // would read as an unexplained request failure — and the row stays `running`,
+  // which the next boot reconciles (sweepTasks).
+  try {
+    await updateTask(id, {
+      ...final,
+      reported: false,
+      endedAt: final.status === "waiting" ? null : new Date(),
+    });
+  } catch (cause) {
+    logger.error(`task ${id}: could not record how it ended`, cause);
+    return;
+  }
 
   // Close the job's browser session (workspace.ts jobShellEnv) unless waiting:
   // a bot stopped at a login wall needs the page the user is typing into.

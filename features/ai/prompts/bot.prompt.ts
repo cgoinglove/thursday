@@ -20,7 +20,11 @@ import {
   loadSkills,
   type SkillMetadata,
 } from "@/features/skills/skills.discover";
-import { openWorkspace } from "@/features/workspace/workspace";
+import {
+  type MachineTools,
+  openWorkspace,
+  readMachineTools,
+} from "@/features/workspace/workspace";
 import { logger } from "@/lib/logger";
 import { clip } from "@/lib/utils";
 import { listConnectedToolNames } from "../tools/connected";
@@ -52,20 +56,31 @@ export async function loadBotPrompt(
 ): Promise<LoadedPrompt> {
   const sandbox = await openWorkspace();
   const name = self.trim();
-  const [skills, index, carried, mcpTools, pinned, allBots, ownNote, notesOn] =
-    await Promise.all([
-      loadSkills(sandbox),
-      listNoteIndex(),
-      listAlwaysLoaded(),
-      // User-connected servers and the app's studio in one list (tools/connected)
-      listConnectedToolNames(),
-      // MCP tools this bot already holds; dropped from the listing below
-      findPinnedTools(name),
-      listJobBots(),
-      // What this bot left itself; kept by the pass that runs after a job (bot.notes)
-      readBotNote(name),
-      readBotNotesOn(),
-    ]);
+  const [
+    skills,
+    index,
+    carried,
+    mcpTools,
+    pinned,
+    allBots,
+    ownNote,
+    notesOn,
+    machine,
+  ] = await Promise.all([
+    loadSkills(sandbox),
+    listNoteIndex(),
+    listAlwaysLoaded(),
+    // User-connected servers and the app's studio in one list (tools/connected)
+    listConnectedToolNames(),
+    // MCP tools this bot already holds; dropped from the listing below
+    findPinnedTools(name),
+    listJobBots(),
+    // What this bot left itself; kept by the pass that runs after a job (bot.notes)
+    readBotNote(name),
+    readBotNotesOn(),
+    // One `command -v` sweep; what is here decides the first command (environment)
+    readMachineTools(sandbox),
+  ]);
 
   // Drop self so a bot cannot call itself; a borrowed bot has no roster at all (bot.run MAX_DEPTH)
   const peers = askedBy ? [] : allBots.filter((bot) => bot.name !== name);
@@ -76,7 +91,7 @@ export async function loadBotPrompt(
     notesOn ? notes(ownNote) : "",
     connectedTools(mcpTools, pinned),
     methods(skills),
-    environment(sandbox.cwd),
+    environment(sandbox.cwd, machine),
     roster(peers),
     askedBy ? askingBack(askedBy) : ASKING,
     askedBy ? handingUp(askedBy) : FINISHING,
@@ -117,7 +132,7 @@ function borrowedIdentity(name: string, askedBy: string): string {
 
 const MACHINE = `**You are on a real computer — the user's own.** You have a shell and a filesystem, and the job is done, not described: where there is no tool for something, write one — in \`node\` unless they asked for another language, the runtime this app itself runs on. Reach for \`${TOOL_NAMES.bash}\` before concluding that something cannot be done, but after the roster, not instead of it: a script you write to do another bot's job is the long way round.
 
-**What is missing gets installed**, onto the machine once they say yes. What is already there is nobody's question: your first command says what this machine has.
+**What is missing gets installed**, onto the machine once they say yes. What is already there is nobody's question — Environment says what this machine has.
 
 **Bring back the thing itself** — their own machine, their own accounts, their own copy of whatever they sent you for — not a smaller safer version of it, and not a note on why you did not.`;
 
@@ -212,11 +227,22 @@ Written-down methods. When the job is one of these, read it with \`${TOOL_NAMES.
 ${skillLines(skills)}`;
 }
 
-/** Names the three workspace folders once; `write_file` refuses anything else (workspace.ts writeRefusal). */
-const environment = (cwd: string) => `## Environment
+/**
+ * The machine, then the workspace. What is installed is read as the prompt is
+ * assembled (workspace.ts readMachineTools) rather than left to the job to find
+ * out: a bot that has to check first spends a step on it, and one that guesses
+ * writes for a runtime that is not here. Naming what is absent does as much
+ * work as naming what is present — it is the half a model otherwise assumes.
+ * The three folders are named once; `write_file` refuses anything else
+ * (workspace.ts writeRefusal).
+ */
+const environment = (cwd: string, machine: MachineTools) => `## Environment
 
 Current Cwd: ${cwd}
 Platform: ${process.platform}
+${machineLines(machine)}
+
+Read off this machine as the job opened, so it is current: reach for what is here instead of checking for it.
 
 Your workspace — \`${TOOL_NAMES.bash}\` runs here. Everything you write goes in one of three folders: \`${PATHS.artifacts}/\` (finished work the user opens), \`${PATHS.projects}/\` (code you build), \`${PATHS.scratch}/\` (everything in progress). Never the directory above — that is the app you run in; outside the workspace, only where the user pointed you.`;
 
@@ -287,4 +313,28 @@ export function buildTaskOpening(input: {
 A detail that is not in the request may be here — a name, a number, which one of two. The request wins where they disagree, with one exception: when they asked out loud for something to be *done* and the request only asks about it, the doing is the job.
 
 ${lines.join("\n")}`;
+}
+
+/** One line per kind, absences included. Only a bot gets these: the call runs one command as a glance. */
+function machineLines(machine: MachineTools): string {
+  const line = (label: string, of: MachineTools["runtimes"]) =>
+    `${label}: ${of.found.length ? of.found.join(", ") : "none"}.${
+      of.missing.length ? ` Not here: ${of.missing.join(", ")}.` : ""
+    }`;
+  // Not a preference: openWorkspace writes the pnpm fence, and an `npm install`
+  // in a project here resolves against that rather than against the project
+  const fenced = machine.managers.found.includes("pnpm")
+    ? " Use pnpm, not npm — this workspace is fenced for it (`pnpm-workspace.yaml`, `.npmrc`)."
+    : "";
+  return [
+    line("Runtimes", machine.runtimes),
+    `${line("Package managers", machine.managers)}${fenced}`,
+    machine.browser === null
+      ? ""
+      : machine.browser
+        ? "Browser: installed."
+        : "Browser: not installed — `playwright-cli install-browser chromium` puts one there.",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }

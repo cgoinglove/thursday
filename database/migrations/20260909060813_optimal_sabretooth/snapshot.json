@@ -1,9 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "940a40e4-8459-4096-a039-1bb200c85a8d",
+  "id": "c5f96178-769d-47e5-a385-efc6b50a284e",
   "prevIds": [
-    "4b669ac7-3517-4949-8ea9-f94dbe8f730c"
+    "00000000-0000-0000-0000-000000000000"
   ],
   "ddl": [
     {
@@ -795,6 +795,16 @@
       "default": "false",
       "generated": null,
       "name": "compact",
+      "entityType": "columns",
+      "table": "task_message"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "name": "note",
       "entityType": "columns",
       "table": "task_message"
     },

@@ -1,13 +1,8 @@
 import { relative } from "node:path";
 import { type ToolSet, tool } from "ai";
 import z from "zod";
-import { PATHS } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
-import {
-  type MachineTools,
-  readMachineTools,
-  writeRefusal,
-} from "@/features/workspace/workspace";
+import { writeRefusal } from "@/features/workspace/workspace";
 import { EXEC_TIMEOUT_MS, type Sandbox } from "@/lib/sandbox";
 
 /**
@@ -52,7 +47,7 @@ export const createWorkspaceTools = (
       });
       if (!owed) return result;
       owed = false;
-      return { ...result, guide: await shellGuide(sandbox) };
+      return { ...result, guide: SHELL_GUIDE };
     },
   });
 
@@ -88,58 +83,17 @@ export const createWorkspaceTools = (
 };
 
 /**
- * What this shell is like, and what this machine has, attached to a run's first
- * `bash` result and never again. Not a prompt chapter for two reasons: half of
- * it is read off the machine at the moment it is asked, where the prompt could
- * only guess, and a rule about a shell is worth nothing to a run that never
- * opens one. Only `bash` carries it — every line here is about the shell, and
- * what `write_file` refuses it says on refusing (workspace.ts writeRefusal).
+ * How this shell differs from a terminal, attached to a run's first `bash`
+ * result and never again. Each line is a way a job is lost for minutes and
+ * none can be found out from a command's output: state that silently does not
+ * carry, a question nobody will answer, a variable that was removed rather
+ * than never set. What this machine *has* is not here — that decides the first
+ * command, so it is in the prompt (prompts/bot.prompt environment).
  */
-async function shellGuide(sandbox: Sandbox): Promise<string> {
-  const tools = await readMachineTools(sandbox);
-  return [SHELL, machine(tools), INSTALLING].join("\n\n");
-}
-
-/**
- * How the shell differs from a terminal. Every line is a way a job is lost for
- * minutes: state that does not carry, a question nobody answers, a background
- * command that waits anyway, a key that is not there.
- */
-const SHELL = `## The shell here
+const SHELL_GUIDE = `## The shell here
 
 Every command is a new shell: \`cd\`, exported variables and an activated venv are gone by the next one — chain what depends on the last step into a single command.
 
-Nothing is watching it. A command that stops to ask never gets an answer and is killed after ${EXEC_TIMEOUT_MS / 1000}s, so pass the flag that skips the question (\`-y\`, \`--yes\`, \`--no-input\`). Work that honestly runs longer goes to the background **with its output redirected** — \`pnpm build > ${PATHS.scratch}/build.log 2>&1 &\` — and you read the file; without the redirect the call waits for it anyway.
+Nothing is watching it. A command that stops to ask never gets an answer and is killed after ${EXEC_TIMEOUT_MS / 1000}s, so pass the flag that skips the question (\`-y\`, \`--yes\`, \`--no-input\`), and send anything genuinely long to the background with its output redirected to a file.
 
-Keys are not in the environment: every variable named like a key, a token or a secret is removed before the shell starts. Ask for the one a command needs.`;
-
-/** Naming what is absent matters as much as what is present: it is the half the model otherwise assumes. */
-function machine(tools: MachineTools): string {
-  const line = (label: string, of: MachineTools["runtimes"]) =>
-    [
-      `${label}: ${of.found.length ? of.found.join(", ") : "none"}.`,
-      of.missing.length ? ` Not here: ${of.missing.join(", ")}.` : "",
-    ].join("");
-
-  const fenced = tools.managers.found.includes("pnpm")
-    ? ` This workspace is fenced for pnpm (\`pnpm-workspace.yaml\`, \`.npmrc\`), so build with it.`
-    : "";
-
-  const browser =
-    tools.browser === null
-      ? ""
-      : tools.browser
-        ? "Browser: installed."
-        : "Browser: not installed — `playwright-cli install-browser chromium` puts one there.";
-
-  return [
-    line("Runtimes", tools.runtimes),
-    `${line("Package managers", tools.managers)}${fenced}`,
-    browser,
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
-/** The procedure; the capability itself stays in the prompt (prompts/bot.prompt MACHINE). */
-const INSTALLING = `What is missing you install — inside the workspace freely, onto the machine once they say yes.`;
+Keys are not in the environment: every variable named like a key, a token or a secret is removed before the shell starts. An empty one is not an unset one — say which it was, and ask for what a command needs.`;

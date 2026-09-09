@@ -68,3 +68,4 @@ skills-lock.json
 # Shell redirects that landed as empty files at the root
 /next
 /thursday@*
+.vscode

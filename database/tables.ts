@@ -201,6 +201,13 @@ export const taskMessageTable = sqliteTable(
       .$type<ModelMessage["content"]>(),
     /** A compaction summary (user row). Resume reads from the last one (task.query listThread). */
     compact: int("compact", { mode: "boolean" }).notNull().default(false),
+    /**
+     * The app speaking rather than anyone in the room: why a run stopped, and
+     * the compaction marker. Separate from `compact`, which says where a resume
+     * starts — how a row reads and where a resume begins are two facts, and a
+     * break row marked `compact` would throw the thread away on the next run.
+     */
+    note: int("note", { mode: "boolean" }).notNull().default(false),
     /** Informational; ordering is `seq`. */
     createdAt: int("created_at", { mode: "timestamp" })
       .notNull()

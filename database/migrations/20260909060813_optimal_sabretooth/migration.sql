@@ -6,6 +6,12 @@ CREATE TABLE `bot_mcp_tool` (
 	CONSTRAINT `fk_bot_mcp_tool_tool_id_mcp_tool_id_fk` FOREIGN KEY (`tool_id`) REFERENCES `mcp_tool`(`id`) ON DELETE CASCADE
 );
 --> statement-breakpoint
+CREATE TABLE `bot_note` (
+	`bot` text PRIMARY KEY,
+	`text` text NOT NULL,
+	`updated_at` integer NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `bot` (
 	`name` text PRIMARY KEY,
 	`description` text NOT NULL,
@@ -108,6 +114,7 @@ CREATE TABLE `task_message` (
 	`role` text NOT NULL,
 	`content` text NOT NULL,
 	`compact` integer DEFAULT false NOT NULL,
+	`note` integer DEFAULT false NOT NULL,
 	`created_at` integer NOT NULL,
 	CONSTRAINT `fk_task_message_task_id_task_id_fk` FOREIGN KEY (`task_id`) REFERENCES `task`(`id`) ON DELETE CASCADE,
 	CONSTRAINT `uq_task_message_seq` UNIQUE(`task_id`,`seq`)

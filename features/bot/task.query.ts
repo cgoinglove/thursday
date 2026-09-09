@@ -275,6 +275,8 @@ export type TaskMessageInput = {
   content: ModelMessage["content"];
   /** Compaction summary row; `listThread` re-reads from here. */
   compact?: boolean;
+  /** Drawn as the app's own line, not as something a person or a bot said. */
+  note?: boolean;
 };
 
 /**
@@ -288,13 +290,20 @@ export async function upsertMessage(
 ) {
   await database
     .insert(taskMessageTable)
-    .values({ taskId, seq, ...message, compact: message.compact ?? false })
+    .values({
+      taskId,
+      seq,
+      ...message,
+      compact: message.compact ?? false,
+      note: message.note ?? false,
+    })
     .onConflictDoUpdate({
       target: [taskMessageTable.taskId, taskMessageTable.seq],
       set: {
         role: message.role,
         content: message.content,
         compact: message.compact ?? false,
+        note: message.note ?? false,
       },
     });
   changed();
@@ -512,8 +521,10 @@ function linesOf(message: StoredMessage, owner: string): TaskLine[] {
     if (message.seq === 0) return [];
     const text = typeof content === "string" ? content : textOf(content);
     if (!text) return [];
-    // Compaction summary row: a marker, not the user's words (bot.run compact)
-    if (message.compact) return [{ ...base, id: id(0), kind: "note", text }];
+    // The app's own line — a compaction marker, or why a run stopped — never
+    // the user's words. `compact` is read too: rows written before `note` was.
+    if (message.note || message.compact)
+      return [{ ...base, id: id(0), kind: "note", text }];
     return [{ ...base, id: id(0), kind: "user", text }];
   }
 
