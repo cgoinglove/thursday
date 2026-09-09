@@ -87,16 +87,19 @@ in `outputFileTracingIncludes`, not left to the trace.
 - **Prompts are split by runtime, not by chapter.** Each prompt file loads its own data and exports one
   function. Shared helpers only format rows; they never decide what to say. Tool descriptions say
   *what* a tool is; prompts say *when* to use it. Prompts are assembled per session, never cached.
-- **What only the machine knows is read, not written into a prompt.** A prompt is assembled before
-  a run knows whether it will open a shell, and it cannot see what is installed — so guidance of that
-  shape rides on the run's first `bash` result instead (`ai/tools/workspace.tool` `shellGuide`, over
-  `workspace.ts` `readMachineTools`): how this shell is unlike a terminal — a new shell per command,
-  no answer to a question, keys stripped from the environment, a background command that waits unless
-  its output is redirected — and which runtimes and package managers are actually here. It costs
-  nothing in a run that never runs a command, arrives where it is about to be used, and cannot be
-  skipped the way a skill the model chose not to load is. Only the procedure moves: the capability
-  stays in the prompt (`MACHINE`), because a bot not told it may install stops rather than asks.
-  Probed per run, not cached — one `command -v` sweep is cheaper than being wrong after an install.
+- **A fact goes where it can still act.** What only the machine knows is read rather than guessed —
+  which runtimes and package managers are here — but it is read as the prompt is assembled
+  (`workspace.ts` `readMachineTools`, one `command -v` sweep per job, ~5ms) and stated in the
+  Environment chapter, because it decides the *first* command and anything attached to a result
+  arrives a step too late to. Measured: a bot told what is here still verifies, but narrowly
+  (`node -v` instead of `which node bun tsx ts-node pnpm`), and sometimes not at all — one skipped
+  step is worth many times the line that skipped it. What a run can only learn by hitting it rides
+  on the first `bash` result instead (`ai/tools/workspace.tool` `SHELL_GUIDE`), once per run: a new
+  shell per command, no answer to a question and a kill at `EXEC_TIMEOUT_MS`, keys stripped from the
+  environment — an empty variable is not an unset one, and nothing in a command's output says which.
+  Only the procedure moved out of the prompt; the capability stays (`MACHINE`), because a bot not
+  told it may install stops rather than asks. Do not put in either what the model already does:
+  `nohup … > file 2>&1 &` was written into the guide and measured to be what it reached for anyway.
 - **The app's own tools are never deferred.** MCP tools sit behind `tool_search` because a server can
   publish hundreds; a runtime holds about ten of its own, and hiding those to save a few hundred
   tokens costs a step to find them and reads as a capability that is not there. What grows with use
@@ -204,6 +207,34 @@ in `outputFileTracingIncludes`, not left to the trace.
   image or page past the cap is not drawn at all — an `<img>` decodes whole and a dead tab
   explains nothing. Audio and video are uncapped; they stream.
 - **Don't split files by size.** A long file that does one thing stays one file.
+- **SQLite has one writer, so the app makes one request at a time** (`database/db.ts` `oneAtATime`).
+  Several flows write at once — a run per job, the pass that reads calls back, the routes the browser
+  hits every time a write emits an event — and SQLite answers the losers with `SQLITE_BUSY` instead
+  of queueing them. Measured on the real write paths: three runs, the tidy pass and two readers gave
+  245 failures in a tenth of a second; serialising gave 0 in the same time, because the writes were
+  always going to happen one after another. The busy timeout does **not** substitute for it (with it
+  set, the same run still lost all 245 after waiting 52 seconds — a starved writer keeps losing), and
+  it belongs on `createClient` rather than in a `PRAGMA`: a libsql client is a connection *pool*, and
+  a pragma reaches only the connection that ran it — one of eight came back with the timeout set and
+  seven with zero. The lane wraps the client, not each query, because a rule kept at seventy call
+  sites returns the first time one is missed. A transaction holds the lane until it settles, so a
+  transaction body must use its `tx` and never `database`.
+- **A run records its own ending; nothing else polls for it.** `drive` marks the task `failed` in its
+  own `catch`, and that write is durable because writes are serialised — the zombie rows that started
+  this were the failure write losing to `SQLITE_BUSY`, not a missing watchdog. The only reconcile is
+  at boot (`bot.runner` `sweepTasks`), where every `running` row provably belongs to a dead process;
+  it lands them as `waiting` with the one continue option, the shape a step limit already leaves, so
+  the thread stays whole and answering resumes it. A run that ends badly also writes one line into
+  its own thread (`ThreadWriter.note`, a user row marked `note`): a thread that simply stops shows a
+  tool call with no answer, and neither the room nor a resumed run can say why. `note` is separate
+  from `compact` on purpose — how a row reads and where a resume starts are two facts, and a break
+  marked `compact` would throw the thread away.
+- **An event the call seam has no case for is logged, not dropped** (`lib/realtime/realtime.driver`).
+  Providers speak this protocol with their own additions, and a missing case is invisible: the event
+  goes nowhere and the conversation quietly loses what it carried. A user turn whose transcription
+  failed is the example that cost the most — the item never got words, an item with no words is not
+  reported at all, and the turn vanished from the transcript that bot briefings, the call prompt and
+  the memory read-back all draw from. Once per type per session, so a busy stream cannot drown it.
 - **An interface with one implementation is two files, not an interface.** Don't add ports.
 
 # Data flow

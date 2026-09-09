@@ -308,6 +308,12 @@ export type RealtimeServerEvent =
       type: "conversation.item.input_audio_transcription.completed";
       item_id: string;
       transcript: string;
+      /**
+       * xAI sends this event repeatedly while the turn is still being
+       * transcribed, each time with more of it and `in_progress` here; only the
+       * last carries `completed`. OpenAI sends it once and omits the field.
+       */
+      status?: "in_progress" | "completed" | string;
     }
   /** OpenAI only. */
   | {

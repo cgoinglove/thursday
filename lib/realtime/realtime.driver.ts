@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { errorToString } from "@/lib/utils";
 import type {
   RealtimeFunctionTool,
@@ -84,6 +85,9 @@ export function realtimeSession(
       reject: (cause: Error) => void;
     } | null = null;
     let ackTimer: ReturnType<typeof setTimeout> | null = null;
+
+    /** Event types this session has already noted as unhandled (see `default`). */
+    const seenUnhandled = new Set<string>();
 
     const turns: Turn[] = [];
     const slot = new Map<string, number>();
@@ -339,7 +343,25 @@ export function realtimeSession(
 
         case "conversation.item.input_audio_transcription.completed":
           write(event.item_id, "user", event.transcript ?? "", "replace");
-          finish(event.item_id);
+          // Not always the end of the turn. xAI sends this while the user is
+          // still speaking, each time with a longer transcript and `in_progress`
+          // on it; finishing on the first froze the turn at its opening words
+          // and every later transcript was written but never reported (`write`
+          // reports only what is not finalized). A provider that sends it once
+          // omits the field, so anything but `in_progress` ends the turn.
+          if (event.status !== "in_progress") finish(event.item_id);
+          break;
+
+        // A turn nobody could read. Without this the item simply never gets
+        // words, and an item with no words is not reported at all (`report`) —
+        // the turn disappears from the transcript, and every reader downstream
+        // sees a conversation the user did not have.
+        case "conversation.item.input_audio_transcription.failed":
+          on.warn(
+            event.error?.message
+              ? `That turn could not be transcribed: ${event.error.message}`
+              : "That turn could not be transcribed.",
+          );
           break;
 
         case "response.output_audio_transcript.delta":
@@ -387,6 +409,17 @@ export function realtimeSession(
           }
           finish(event.item_id);
           onToolCall(event);
+          break;
+
+        default:
+          // Providers speak this protocol with their own additions, and a case
+          // that is missing here is invisible: the event is dropped and the
+          // conversation quietly loses whatever it carried. Once per type per
+          // session, so a busy stream cannot drown the log.
+          if (!seenUnhandled.has(event.type)) {
+            seenUnhandled.add(event.type);
+            logger.debug(`realtime: no case for ${event.type}`);
+          }
           break;
       }
       settle();
