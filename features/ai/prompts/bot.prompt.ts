@@ -53,6 +53,8 @@ export async function loadBotPrompt(
   self: string,
   persona?: string | null,
   askedBy?: string | null,
+  /** This job's own folder under `scratch/`; null outside a job (bot.run). */
+  scratch?: string | null,
 ): Promise<LoadedPrompt> {
   const sandbox = await openWorkspace();
   const name = self.trim();
@@ -91,7 +93,7 @@ export async function loadBotPrompt(
     notesOn ? notes(ownNote) : "",
     connectedTools(mcpTools, pinned),
     methods(skills),
-    environment(sandbox.cwd, machine),
+    environment(sandbox.cwd, machine, scratch),
     roster(peers),
     askedBy ? askingBack(askedBy) : ASKING,
     askedBy ? handingUp(askedBy) : FINISHING,
@@ -238,7 +240,11 @@ ${skillLines(skills)}`;
  * The three folders are named once; `write_file` refuses anything else
  * (workspace.ts writeRefusal).
  */
-const environment = (cwd: string, machine: MachineTools) => `## Environment
+const environment = (
+  cwd: string,
+  machine: MachineTools,
+  scratch?: string | null,
+) => `## Environment
 
 Current Cwd: ${cwd}
 Platform: ${process.platform}
@@ -246,7 +252,11 @@ ${machineLines(machine)}
 
 Read off this machine as the job opened, so it is current: reach for what is here instead of checking for it.
 
-Your workspace — \`${TOOL_NAMES.bash}\` runs here. Everything you write goes in one of three folders: \`${PATHS.artifacts}/\` (finished work the user opens), \`${PATHS.projects}/\` (code you build), \`${PATHS.scratch}/\` (everything in progress). Never the directory above — that is the app you run in; outside the workspace, only where the user pointed you.`;
+Your workspace — \`${TOOL_NAMES.bash}\` runs here. Everything you write goes in one of three folders: \`${PATHS.artifacts}/\` (finished work the user opens, one entry per result), \`${PATHS.projects}/\` (code you build, one folder each — a project's dependencies install inside it, never at the workspace root), \`${
+  scratch
+    ? `${scratch}/\` — this job's own, for everything in progress`
+    : `${PATHS.scratch}/\` (everything in progress)`
+}. Never the directory above — that is the app you run in; outside the workspace, only where the user pointed you.`;
 
 /** Same roster the voice prompt shows, used the other way: which part of a held job is another bot's. */
 function roster(peers: JobBot[]): string {

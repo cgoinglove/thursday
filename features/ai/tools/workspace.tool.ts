@@ -34,7 +34,7 @@ export const createWorkspaceTools = (
       command: z.string(),
       description: z
         .string()
-        .nullable()
+        .nullish()
         .describe(
           "One short line for the user: what this command does and why. Shown on their screen while it runs — not a restatement of the command.",
         ),
@@ -65,7 +65,7 @@ export const createWorkspaceTools = (
       content: z.string(),
       description: z
         .string()
-        .nullable()
+        .nullish()
         .describe(
           "One short line for the user: what this file is. Shown on their screen next to the path.",
         ),

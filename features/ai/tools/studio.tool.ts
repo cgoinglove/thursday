@@ -118,7 +118,7 @@ const imageTool = async (): Promise<StudioTool | null> => {
         ),
       aspectRatio: z
         .enum(RATIOS)
-        .nullable()
+        .nullish()
         .describe("Aspect ratio. Null for square."),
     }),
     execute: async ({ prompt, aspectRatio }, { sandbox, abortSignal }) => {
@@ -161,11 +161,11 @@ const speechTool = async (): Promise<StudioTool | null> => {
         ),
       voice: z
         .string()
-        .nullable()
+        .nullish()
         .describe("A voice name the provider knows. Null for its default."),
       instructions: z
         .string()
-        .nullable()
+        .nullish()
         .describe(
           'How to read it — "slowly", "warm", "like a news anchor". Null for plain.',
         ),
@@ -259,14 +259,14 @@ const videoTool = async (): Promise<StudioTool | null> => {
         ),
       aspectRatio: z
         .enum(["16:9", "9:16"])
-        .nullable()
+        .nullish()
         .describe("Aspect ratio. Null for 16:9."),
       seconds: z
         .number()
         .int()
         .min(2)
         .max(10)
-        .nullable()
+        .nullish()
         .describe(
           "Length in seconds, 2 to 10. Null for the provider's default.",
         ),

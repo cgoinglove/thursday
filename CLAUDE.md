@@ -216,6 +216,15 @@ in `outputFileTracingIncludes`, not left to the trace.
   image or page past the cap is not drawn at all — an `<img>` decodes whole and a dead tab
   explains nothing. Audio and video are uncapped; they stream.
 - **Don't split files by size.** A long file that does one thing stays one file.
+- **The workspace is split by what a folder is for, then by job where that changes.** `artifacts/`
+  stays flat and unattributed — one top-level entry is one artifact, which is what the Artifacts
+  screen reads — and `projects/` outlives the job that started it, so both are the user's and neither
+  is divided up. Work in progress is nobody's, so it goes under `scratch/<label>-<id>/`, one folder
+  per job (`workspace.ts` `jobScratch`): shared, nobody could tell whose a file was or when it
+  stopped mattering, and it only grew. Per *job* rather than per bot, because several bots work
+  inside one job (`ask_bot`) and one bot runs many jobs — and because a job ends, which is what makes
+  its material safe to clear. `.output/`, where tool output over `TOOL_OUTPUT.max` spills, is pruned
+  by age when a job's shell closes, the way browser snapshots already were.
 - **SQLite has one writer, so the app makes one request at a time** (`database/db.ts` `oneAtATime`).
   Several flows write at once — a run per job, the pass that reads calls back, the routes the browser
   hits every time a write emits an event — and SQLite answers the losers with `SQLITE_BUSY` instead

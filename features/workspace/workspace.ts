@@ -90,6 +90,40 @@ export async function insideWorkspace(rel: string): Promise<string | null> {
 }
 
 /**
+ * Where one job keeps what it is still working on. `scratch/` used to be shared
+ * by every job at once, so nobody could tell whose a file was or when it stopped
+ * mattering, and it only grew. A job has a beginning and an end, which is what
+ * makes its working material safe to clear later — and it is the right unit
+ * rather than the bot, because several bots work inside one job (`ask_bot`) and
+ * one bot runs many jobs.
+ *
+ * Named for the label so the folder is readable on the Workspace screen, with
+ * the head of the id after it so two jobs called the same thing stay apart.
+ * Finished work never lands here: that is `artifacts/`, which stays flat and
+ * unattributed, and code is `projects/`, which outlives the job that started it.
+ */
+export function jobScratch(taskId: string, label: string): string {
+  const slug =
+    label
+      .trim()
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "job";
+  return `${PATHS.scratch}/${slug}-${taskId.slice(0, 6)}`;
+}
+
+/** Creates it, so a job never has to and never writes to the shared root by mistake. */
+export async function openJobScratch(
+  taskId: string,
+  label: string,
+): Promise<string> {
+  const path = jobScratch(taskId, label);
+  await mkdir(join(WORKSPACE, path), { recursive: true });
+  return path;
+}
+
+/**
  * A job's own browser session. playwright-cli reads the session name from
  * this variable when `-s=` is not given, so the model never picks one and the
  * runner can close exactly this session when the job ends.
@@ -184,6 +218,7 @@ export async function closeJobShell(taskId: string): Promise<void> {
     })
     .catch(() => {});
   await pruneBrowserFiles();
+  await pruneOutputFiles();
 }
 
 /**
@@ -191,6 +226,26 @@ export async function closeJobShell(taskId: string): Promise<void> {
  * click, so anything older than an hour belongs to no running job.
  */
 const BROWSER_FILE_TTL_MS = 60 * 60 * 1000;
+
+async function pruneOutputFiles(): Promise<void> {
+  const dir = join(WORKSPACE, PATHS.output);
+  const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+  const cutoff = Date.now() - OUTPUT_FILE_TTL_MS;
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const file = join(dir, entry.name);
+    const info = await stat(file).catch(() => null);
+    if (info && info.mtimeMs < cutoff) await unlink(file).catch(() => {});
+  }
+}
+
+/**
+ * Tool output over `TOOL_OUTPUT.max` is written here in full and the model is
+ * told where. Nothing read it after the run that made it, and nothing deleted
+ * it either — a day is long enough to still be looking, short enough that the
+ * folder does not become the biggest thing in the workspace.
+ */
+const OUTPUT_FILE_TTL_MS = 24 * 60 * 60 * 1000;
 
 async function pruneBrowserFiles(): Promise<void> {
   const dir = join(WORKSPACE, BROWSER_DIR);

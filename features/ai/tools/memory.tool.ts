@@ -71,32 +71,32 @@ export const createMemoryTools = (source: MemorySource) => ({
           replaces: z
             .number()
             .int()
-            .nullable()
+            .nullish()
             .describe(
               "The id of the fact this replaces — from this note as handed back here or by `memory_recall`. Null if this is new. A fact that stopped being true is replaced rather than deleted, and so is a note saying the same thing twice: replacing keeps what changed on the record, deleting does not.",
             ),
           alwaysLoad: z
             .boolean()
-            .nullable()
+            .nullish()
             .describe(
               `True carries this line into every call's instructions without opening its note — for what to call them, their language and register, a standing rule. At most ${ALWAYS_LOADED_MAX}. Null leaves it; false makes a carried line an ordinary fact.`,
             ),
         })
         .array()
-        .nullable()
+        .nullish()
         .describe(
           "What to write under this note. Send everything that came up at once: one call is one pause in the conversation, three calls are three. Null when only naming it.",
         ),
       description: z
         .string()
-        .nullable()
+        .nullish()
         .describe(
           `One line saying what this note is about, not what it currently says. Give it for a new note, or when the line no longer fits. Null leaves it; ${MEMORY_ALWAYS_LISTED.join(" and ")} keep their own line.`,
         ),
       aliases: z
         .string()
         .array()
-        .nullable()
+        .nullish()
         .describe(
           'What the user calls this note out loud, in the language they say it — the words they would use to ask for it, not the facts inside. A note at people/yuri might be "Yuri" and "my wife". Replaces the set it has, so send the whole set. Null leaves it.',
         ),

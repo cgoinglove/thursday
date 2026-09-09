@@ -94,7 +94,7 @@ export const askThursdaySpec = {
     // joined string, and a schema rejection only loops. The reader takes arrays only (task.query optionsOf)
     options: z
       .union([z.string().array(), z.string()])
-      .nullable()
+      .nullish()
       .describe(
         'Only when there really are choices — two or three, each short, as an array: ["Signed in", "Not yet"]. Null for an open question.',
       ),
@@ -134,7 +134,7 @@ export const reportSpec = (notes: boolean) => ({
 /** Only attached while Settings > Bots keeps them (bot.schema BOT_NOTES_KEY). */
 const reportNotes = z
   .string()
-  .nullable()
+  .nullish()
   .describe(
     'How your own instructions should change after this job — what to do to them, not the text itself: someone else writes it in, and the next job you run here reads the result. Say it the way you would ask a person: "add that a browser here needs --no-sandbox or it exits", "the line saying the tests run with npm is wrong, it is pnpm", "drop the part about the old api folder, it is gone". Null when nothing came up that they do not already say.',
   );
@@ -148,13 +148,13 @@ export const taskSpec = {
     action: z.enum(["status", "answer", "cancel"]),
     task: z
       .string()
-      .nullable()
+      .nullish()
       .describe(
         "The job, by its label or by the handle a past call's transcript carries. With `status`: null for every job in one line each — that is the list — or name one to get its report in full.",
       ),
     answer: z
       .string()
-      .nullable()
+      .nullish()
       .describe(
         "With `answer`: what to tell the bot — the answer to its question, a course correction for a job still running, or what to do next on one that finished.",
       ),

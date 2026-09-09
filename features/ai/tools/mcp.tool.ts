@@ -48,13 +48,13 @@ export const mcpToolSpec = {
       tool: z.string().describe("Its name, as search returned it."),
       args: z
         .record(z.string(), z.unknown())
-        .nullable()
+        .nullish()
         .describe(
           "Arguments matching the inputSchema search returned — do not guess. Null when it takes none.",
         ),
       description: z
         .string()
-        .nullable()
+        .nullish()
         .describe(
           "One short line for the user: what this call is for. Shown on their screen while it runs.",
         ),

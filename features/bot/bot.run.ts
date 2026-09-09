@@ -30,14 +30,14 @@ import {
   NO_TOKENS,
   type TokenUsage,
 } from "@/features/bot/bot.schema";
-import { closeJobShell } from "@/features/workspace/workspace";
+import { closeJobShell, openJobScratch } from "@/features/workspace/workspace";
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
 import { estimateTokens } from "@/lib/tokens";
 import { clip } from "@/lib/utils";
 import { hasNotesRequest, keepNotes } from "./bot.notes";
 import { findJobBot, readBotNotesOn } from "./bot.query";
-import { optionsOf, toolLine } from "./task.query";
+import { findTask, optionsOf, toolLine } from "./task.query";
 
 /**
  * The bot loop behind `delegate`: one model with its own prompt, tools and
@@ -155,11 +155,20 @@ export async function runBot(
 
   // Tools are built on the model: web search runs on this bot's model (load-tools).
   const model = await resolveModel(bot);
+  // One folder per job, not per bot: bots borrowed with `ask_bot` work inside
+  // the same job and share its material (workspace.ts jobScratch).
+  const scratch = options.taskId
+    ? await openJobScratch(
+        options.taskId,
+        (await findTask(options.taskId))?.label ?? "job",
+      )
+    : null;
   const [prompt, tools] = await Promise.all([
     loadBotPrompt(
       name,
       bot.systemPrompt,
       "askedBy" in input ? input.askedBy : null,
+      scratch,
     ),
     loadTools({
       target: "bot",
