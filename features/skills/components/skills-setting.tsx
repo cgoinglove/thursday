@@ -28,13 +28,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { PATHS } from "@/config";
+import { PATHS, PROMPT_CROWDED } from "@/config";
 import {
   SettingDialogContent,
   SettingError,
   SettingFilter,
   SettingGroup,
   SettingItems,
+  SettingNote,
   SettingRailNote,
   SettingScreen,
   SettingSkeleton,
@@ -128,6 +129,13 @@ export function SkillsSetting() {
             ))}
         </SettingItems>
       </SettingGroup>
+
+      {on > PROMPT_CROWDED.skills && (
+        <SettingNote>
+          {on} skills are on. Each is a line in every prompt a bot reads, and
+          one more to look past when it picks.
+        </SettingNote>
+      )}
     </SettingScreen>
   );
 }

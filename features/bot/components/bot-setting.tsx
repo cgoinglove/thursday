@@ -26,7 +26,7 @@ import ShinyText from "@/components/ui/shiny-text";
 import { Swatch } from "@/components/ui/swatch";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { BOT_NOTES } from "@/config";
+import { BOT_NOTES, PROMPT_CROWDED } from "@/config";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import type { TextModelProviderId } from "@/features/ai/model.schema";
 import {
@@ -50,6 +50,7 @@ import { BOT_SEEDS, type BotSeed } from "@/features/bot/bot.seed";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import {
   SettingError,
+  SettingNote,
   SettingPanes,
   SettingPanesSkeleton,
   SettingRailNote,
@@ -122,6 +123,13 @@ export function BotSetting() {
               active={picked === SEEDS}
               onPick={() => setPicked(SEEDS)}
             />
+          )}
+
+          {bots.length > PROMPT_CROWDED.bots && (
+            <SettingNote className="mx-3 mt-2 leading-relaxed">
+              {bots.length} bots. Each is a line in every prompt, and one more
+              for Thursday to choose between.
+            </SettingNote>
           )}
         </div>
       }

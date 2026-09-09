@@ -269,6 +269,8 @@ function roster(peers: JobBot[]): string {
 
 ${peers.map((bot) => `- **${bot.name}** — ${bot.description}`).join("\n")}
 
+These lines were written for the user, who reads them on their own screen: where one says "you" it means them, not you.
+
 A part of your job another bot is for goes to \`${TOOL_NAMES.ask_bot}\`, because their tools and their practice are the reason they exist. What you build is made of what they bring back, so send for it before you build. A part you could finish in a couple of commands is yours; one that would take a run of its own is theirs. The job stays yours and you report; they see only your brief — not the call, not this thread.`;
 }
 

@@ -186,6 +186,16 @@ export const PROMPT_BUDGET = 6_000;
 /** Memory listing size (tokens) above which the prompt asks for tidying. */
 export const MEMORY_LISTING_TOKENS = 1_000;
 
+/**
+ * How many bots or skills may pile up before the screen says what they cost.
+ * Every one of either is a line in every prompt assembled afterwards — measured,
+ * a skill runs about 43 tokens in a bot's prompt and a roster entry about 48 —
+ * so a long list is paid for on every call and every job, and a model picking
+ * from it has more to read past. Not a cap: the screen states the cost and the
+ * user decides.
+ */
+export const PROMPT_CROWDED = { bots: 10, skills: 20 };
+
 /** Max chars for one listing line in a prompt. */
 export const PROMPT_LINE = {
   /** First sentence of a skill description; bots get the full text. */
