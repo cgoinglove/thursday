@@ -56,6 +56,9 @@ export const queryKey = {
    */
   bot: "/api/bot",
 
+  /** boolean: whether bots keep their own instructions (Settings > Bots) */
+  botNotes: "/api/bot/notes",
+
   /**
    * Inbox: Task[] newest first with threads, everything running or asking plus
    * the most recent finished few. Read by use-thursday only; the `tasks` signal

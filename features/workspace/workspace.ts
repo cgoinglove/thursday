@@ -105,6 +105,52 @@ export const jobShellEnv = (
       }
     : {};
 
+/** Set by `ensureBrowser`, read by `readMachineTools`; null until it has finished. */
+let browserReady: boolean | null = null;
+
+/**
+ * What the shell can actually reach. A bot writes a job around what is here —
+ * node or python3, which package manager — and the platform does not say: two
+ * macs differ. Probed in one `command -v` sweep at the moment it is asked, per
+ * job rather than cached, so a job that installs something is not told
+ * otherwise on its next run.
+ */
+export const PROBED = {
+  runtimes: ["node", "python3", "uv", "bun", "deno"],
+  managers: ["pnpm", "npm", "yarn"],
+} as const;
+
+export type MachineTools = {
+  [K in keyof typeof PROBED]: { found: string[]; missing: string[] };
+} & {
+  /** Null while `ensureBrowser` is still running; it starts at boot and is not awaited. */
+  browser: boolean | null;
+};
+
+export async function readMachineTools(
+  sandbox: Sandbox,
+): Promise<MachineTools> {
+  const names = Object.values(PROBED).flat();
+  const { stdout } = await sandbox.exec(
+    names
+      .map(
+        (name) => `command -v ${name} >/dev/null 2>&1 && printf '%s ' ${name}`,
+      )
+      .join("; "),
+    { timeoutMs: 10_000 },
+  );
+  const found = new Set(stdout.trim().split(/\s+/).filter(Boolean));
+  const split = (list: readonly string[]) => ({
+    found: list.filter((name) => found.has(name)),
+    missing: list.filter((name) => !found.has(name)),
+  });
+  return {
+    runtimes: split(PROBED.runtimes),
+    managers: split(PROBED.managers),
+    browser: browserReady,
+  };
+}
+
 /**
  * The browser bots drive. It is not in the package — ~280 MB, and its build
  * moves with playwright-core — so it is fetched here instead of from an install
@@ -122,7 +168,8 @@ export async function ensureBrowser(): Promise<void> {
     .exec("playwright-cli install-browser chromium")
     .catch((cause: unknown) => ({ exitCode: 1, stderr: String(cause) }));
 
-  if (done.exitCode === 0) return;
+  browserReady = done.exitCode === 0;
+  if (browserReady) return;
   logger.warn(
     `no browser — bots cannot open a page until \`playwright-cli install-browser chromium\` succeeds: ${done.stderr.trim().split("\n").at(-1) ?? ""}`,
   );

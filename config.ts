@@ -113,6 +113,13 @@ export const BOT_RUN = {
   resumeMessages: 20,
 };
 
+/**
+ * A bot's own notes (database bot_note): one block of prose it writes to itself, at most
+ * this many characters. One block and not a list, because it is read as instructions — the
+ * bot's own, under the owner's. A ceiling, not a target: most bots never approach it.
+ */
+export const BOT_NOTES = { chars: 400 };
+
 /** Name of the shipped browser skill (PATHS.skills.default); a seed bot claims it by name. */
 export const BROWSER_SKILL = "browser";
 

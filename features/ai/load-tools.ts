@@ -4,8 +4,8 @@ import type { TextModel } from "@/features/ai/model";
 import { tidying } from "@/features/ai/prompts/prompt-helper";
 import {
   askThursdayTool,
+  createReportTool,
   delegateSpec,
-  reportTool,
   taskSpec,
 } from "@/features/ai/tools/bot.tool";
 import { CALL_TOOLS } from "@/features/ai/tools/call.tool";
@@ -19,6 +19,7 @@ import { createSkillTools } from "@/features/ai/tools/skills.tool";
 import { tidyDoneTool } from "@/features/ai/tools/tidy.tool";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { createWorkspaceTools } from "@/features/ai/tools/workspace.tool";
+import { readBotNotesOn } from "@/features/bot/bot.query";
 import { taskActivity } from "@/features/bot/bot.schema";
 import { listNoteIndex } from "@/features/memory/memory.query";
 import { loadSkills } from "@/features/skills/skills.discover";
@@ -242,11 +243,16 @@ export async function loadTools(run: ToolRun): Promise<ToolSet> {
     ...createWorkspaceTools(sandbox, {
       write: true,
       env: jobShellEnv(run.taskId),
+      // What the shell is like and what this machine has, on the first command
+      // of the run only (workspace.tool shellGuide). The call gets no guide:
+      // one command is a glance, not a job to plan around
+      guide: true,
     }),
     // Pinned tools come with schemas; the rest sit behind `tool_search`, absent when nothing is left to find (mcp.tool)
     ...(await createMcpTools(run.bot, sandbox)),
     ...createSkillTools({ sandbox, skills }),
     [TOOL_NAMES.ask_thursday]: askThursdayTool,
-    [TOOL_NAMES.report]: reportTool,
+    // No field for its own instructions when nobody keeps them (bot.schema BOT_NOTES_KEY)
+    [TOOL_NAMES.report]: createReportTool(await readBotNotesOn()),
   };
 }

@@ -87,6 +87,20 @@ in `outputFileTracingIncludes`, not left to the trace.
 - **Prompts are split by runtime, not by chapter.** Each prompt file loads its own data and exports one
   function. Shared helpers only format rows; they never decide what to say. Tool descriptions say
   *what* a tool is; prompts say *when* to use it. Prompts are assembled per session, never cached.
+- **What only the machine knows is read, not written into a prompt.** A prompt is assembled before
+  a run knows whether it will open a shell, and it cannot see what is installed — so guidance of that
+  shape rides on the run's first `bash` result instead (`ai/tools/workspace.tool` `shellGuide`, over
+  `workspace.ts` `readMachineTools`): how this shell is unlike a terminal — a new shell per command,
+  no answer to a question, keys stripped from the environment, a background command that waits unless
+  its output is redirected — and which runtimes and package managers are actually here. It costs
+  nothing in a run that never runs a command, arrives where it is about to be used, and cannot be
+  skipped the way a skill the model chose not to load is. Only the procedure moves: the capability
+  stays in the prompt (`MACHINE`), because a bot not told it may install stops rather than asks.
+  Probed per run, not cached — one `command -v` sweep is cheaper than being wrong after an install.
+- **The app's own tools are never deferred.** MCP tools sit behind `tool_search` because a server can
+  publish hundreds; a runtime holds about ten of its own, and hiding those to save a few hundred
+  tokens costs a step to find them and reads as a capability that is not there. What grows with use
+  is the listings (memory, skills, connected tools), not the prose — measure before cutting either.
 - **Tools run on the server.** A call's tool invocation is forwarded by the page to the server, so tools
   call domain queries directly. The one exception is anything that touches the call itself (hang up).
 - **Long-running work continues after the response** (`after`). Everything that happens is written as
@@ -96,6 +110,22 @@ in `outputFileTracingIncludes`, not left to the trace.
   one context over the most recent turns and older calls are stamped unread rather than queued.
   The checkpoint is `call.tidied_at`. The trigger is turns owed, never a call count: a greeting and
   an hour's talk are both one call.
+- **A bot writes its own prompt, but never writes it itself.** `bot_note` is one block of
+  prose per bot, keyed by name so the default bot has one too, capped at `BOT_NOTES.chars`:
+  what working on this machine has taught it, read at the top of its every job and by nobody
+  else. On `report` it says only what it wants *changed*, in one sentence of its own words,
+  and `features/bot/bot.notes` rewrites the block from that: the same model the job ran on,
+  no system prompt, one user turn holding the block and the request, one tool, forced. Two
+  models because they are two jobs; a bot that rewrites the block itself edits it around the
+  job it was on and drops what that job was not about, which is measured, not assumed. No
+  request, no pass, so a job that taught nothing costs nothing, and a line carries forward by
+  nobody mentioning it. Concurrency is one per-bot lane (`lib/queue`): the second pass reads
+  what the first wrote. One switch for the whole set (`BOT_NOTES_KEY`, on unless switched
+  off) and it is structural — off, the chapter is not drawn and `report` has no field for it,
+  so nothing describes a change nobody will make. Memory is the user and everyone reads it;
+  this is how the work goes here and only that bot reads it. The screen shows it under the
+  bot's face, where it reads as part of who the bot is rather than one more setting, and can
+  only throw it away — a line the user typed would come back rewritten by the next pass.
 - **No browser, nothing runs.** `presence` (app/api/events) says whether a browser is on the stream;
   when the last one has been gone a while, jobs stop and wait, the tidy pass stops, open calls close.
   Wired once at boot (`instrumentation`), not in each domain.
@@ -267,6 +297,14 @@ A 30-second poll remains as a safety net. No WebSockets.
   generalize something used once.
 - Verify with `pnpm typecheck` and `pnpm lint`. Schema changes: `pnpm db:generate` (applied at boot),
   `pnpm db:migrate` for the current DB. Never `db:push`.
+- **A generated migration is edited before it is committed, so running it twice is not an error.**
+  `db:generate` writes bare `CREATE TABLE` / `CREATE INDEX`; add `IF NOT EXISTS` to every one, and
+  `IF EXISTS` to every `DROP`. Drizzle skips what it has already recorded, so this is not for the
+  normal path — it is for the DB that has the table but not the row: a `db:push` from before the
+  rule above, a hand-restored file, a migration that half-applied. That DB currently dies at boot
+  (`instrumentation` migrates first), and the message names a table, not a cause.
+  SQLite has no conditional `ALTER`, so a column add cannot be guarded this way; when one is
+  unavoidable, say so in the PR rather than hiding it behind a rewritten table.
 - Prompt or tool-description changes: read the assembled result, not just the file. UI changes: run
   the app and look. Judge bot behavior by counting stored turns and tool calls, not by feel.
 - Comments are English, present tense and short. They explain what the code cannot: an invariant, an

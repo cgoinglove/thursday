@@ -1,6 +1,14 @@
 "use client";
 
-import { Check, History, Plus, Trash2, Wrench, X } from "lucide-react";
+import {
+  Check,
+  History,
+  PencilLine,
+  Plus,
+  Trash2,
+  Wrench,
+  X,
+} from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
@@ -16,13 +24,17 @@ import { Input } from "@/components/ui/input";
 import { notify } from "@/components/ui/notify";
 import ShinyText from "@/components/ui/shiny-text";
 import { Swatch } from "@/components/ui/swatch";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { BOT_NOTES } from "@/config";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import type { TextModelProviderId } from "@/features/ai/model.schema";
 import {
+  clearBotNoteAction,
   createBotAction,
   createSeedBotsAction,
   deleteBotAction,
+  setBotNotesOnAction,
   updateBotAction,
 } from "@/features/bot/bot.action";
 import {
@@ -514,6 +526,12 @@ function BotPage({
       onDone(null);
     },
   });
+  // Shared with the rail's switch; SWR dedups the read
+  const { data: notesOn } = useServerRoute<boolean>(queryKey.botNotes);
+  const [clearNote, clearingNote] = useServerAction(clearBotNoteAction, {
+    okMessage: "Notes cleared",
+    onOk: () => revalidate(queryKey.bot),
+  });
 
   const ready =
     name.trim() && description.trim() && provider && model.trim() && !creating;
@@ -529,6 +547,19 @@ function BotPage({
       model: model.trim(),
       toolIds,
     });
+  };
+
+  /** The bot writes its own notes; the only thing to do to them from here is throw them away. */
+  const confirmClearNote = async () => {
+    if (!bot) return;
+    const confirmed = await notify.confirm({
+      title: `Clear ${bot.name}'s own prompt?`,
+      description:
+        "What it worked out about doing jobs here is gone, and it starts the next one without it.",
+      okText: "Clear",
+      destructive: true,
+    });
+    if (confirmed) clearNote(bot.name);
   };
 
   const confirmRemove = async () => {
@@ -594,6 +625,50 @@ function BotPage({
             />
           </div>
         </div>
+
+        {bot?.note && (
+          /* Not a Row like the fields above it: those are settings the owner
+             typed, this is what the bot has worked out, and a block under its
+             face reads as part of who it is rather than one more control. */
+          <div className="overflow-hidden rounded-xl border border-border/60 bg-muted/25">
+            <div className="flex items-center gap-2.5 border-b border-border/60 px-4 py-3">
+              <PencilLine className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
+                What {bot.name} has worked out
+              </span>
+              <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                {bot.note.length}/{BOT_NOTES.chars}
+              </span>
+            </div>
+            <p className="px-4 py-3.5 text-[13px] leading-relaxed whitespace-pre-wrap">
+              {bot.note}
+            </p>
+            <div className="flex items-center gap-2 px-4 pb-3">
+              {/* No amber: switched off is the user's own choice, not something
+                  waiting on them. The word carries it. */}
+              <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground">
+                {notesOn === false
+                  ? "Paused — bots are not keeping their own prompt"
+                  : "It writes this itself when a job ends"}
+                {bot.noteAt && (
+                  <>
+                    <span className="px-1.5 opacity-50">·</span>
+                    {shortAgo(bot.noteAt)}
+                  </>
+                )}
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                loading={clearingNote}
+                onClick={confirmClearNote}
+                className="shrink-0 text-muted-foreground hover:text-destructive"
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
+        )}
 
         <MarkPicker
           icon={icon}
@@ -668,29 +743,49 @@ function BotPage({
   );
 }
 
-/** What the roster's pick is, in the section's rail. */
+/**
+ * What the roster's pick is, and the one setting that is the whole set's rather
+ * than any bot's: whether bots keep their own instructions at all.
+ */
 function BotRail({ bot }: { bot: Bot | null }) {
-  if (!bot)
-    return (
-      <SettingRailNote>
-        Becomes a bot once it has a name and a model
-      </SettingRailNote>
-    );
-  const tokens = bot.tokens.input + bot.tokens.output;
+  const { data: notesOn, mutate } = useServerRoute<boolean>(queryKey.botNotes);
+  const [setNotesOn] = useServerAction(setBotNotesOnAction, {
+    onOk: () => revalidate(queryKey.botNotes),
+  });
+
+  const tokens = bot ? bot.tokens.input + bot.tokens.output : 0;
   return (
-    <SettingRailNote>
-      <span className="font-mono text-[11px]">
-        {bot.name}
-        <span className="px-1.5 opacity-50">·</span>
-        <span
-          title={`in ${formatCount(bot.tokens.input)} · out ${formatCount(bot.tokens.output)}`}
-        >
-          {tokens > 0 ? `${formatCount(tokens)} tokens` : "no tokens yet"}
-        </span>
-        <span className="px-1.5 opacity-50">·</span>
-        since {whenOf(bot.createdAt)}
+    <>
+      <SettingRailNote>
+        {bot ? (
+          <span className="font-mono text-[11px]">
+            {bot.name}
+            <span className="px-1.5 opacity-50">·</span>
+            <span
+              title={`in ${formatCount(bot.tokens.input)} · out ${formatCount(bot.tokens.output)}`}
+            >
+              {tokens > 0 ? `${formatCount(tokens)} tokens` : "no tokens yet"}
+            </span>
+            <span className="px-1.5 opacity-50">·</span>
+            since {whenOf(bot.createdAt)}
+          </span>
+        ) : (
+          "Becomes a bot once it has a name and a model"
+        )}
+      </SettingRailNote>
+      <span className="shrink-0 text-xs text-muted-foreground">
+        Bots keep their own prompt
       </span>
-    </SettingRailNote>
+      <Switch
+        checked={notesOn ?? true}
+        disabled={notesOn === undefined}
+        onCheckedChange={(on) => {
+          void mutate(on, false);
+          setNotesOn(on);
+        }}
+        aria-label="Bots keep their own prompt"
+      />
+    </>
   );
 }
 

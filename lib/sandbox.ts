@@ -4,6 +4,14 @@ import { join, resolve as pathResolve, relative, sep } from "node:path";
 
 export type ExecResult = { stdout: string; stderr: string; exitCode: number };
 
+/**
+ * How long one command may run before its process group is killed. Nobody is
+ * watching the shell, so a command waiting on a prompt would otherwise hang
+ * the job; anything that legitimately runs longer belongs in the background.
+ * Named because the shell guide states it to the model (ai/tools/workspace.tool).
+ */
+export const EXEC_TIMEOUT_MS = 180_000;
+
 export interface Sandbox {
   /** Absolute. Relative paths resolve from here */
   readonly cwd: string;
@@ -155,7 +163,7 @@ export const createSandBox = ({
       return out;
     },
 
-    exec(command, { cwd: c, timeoutMs = 180_000, signal, env } = {}) {
+    exec(command, { cwd: c, timeoutMs = EXEC_TIMEOUT_MS, signal, env } = {}) {
       return new Promise((resolve) => {
         const base = shellEnv();
         if (extraPath) base.PATH = `${base.PATH ?? ""}:${extraPath}`;

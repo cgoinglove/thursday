@@ -29,6 +29,8 @@ export const TOOL_NAMES = {
   end_call: "end_call",
 
   tidy_done: "tidy_done",
+
+  update_notes: "update_notes",
 } as const;
 
 /**

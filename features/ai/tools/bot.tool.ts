@@ -104,8 +104,11 @@ export const askThursdaySpec = {
 /**
  * The one way a run ends on its own terms; the loop is stopped by it (`hasToolCall`, bot.run).
  * `complete` cannot be inferred: a run out of steps and a finished run look the same from outside.
+ * `notes` is what the bot wants changed about its own instructions, in its own words — never
+ * the text itself. A bot that rewrites the whole thing here edits it around the job it was on
+ * and drops what that job was not about; a pass of its own writes it (features/bot/bot.notes).
  */
-export const reportSpec = {
+export const reportSpec = (notes: boolean) => ({
   name: TOOL_NAMES.report,
   description:
     "Hand back what the job produced. Calling this ends the job — nothing after it runs.",
@@ -120,8 +123,21 @@ export const reportSpec = {
       .describe(
         "True when the whole request is done. False when work is left over — the user is then asked whether to keep going, and `result` is what they decide on.",
       ),
+    ...(notes
+      ? {
+          notes: reportNotes,
+        }
+      : {}),
   }),
-};
+});
+
+/** Only attached while Settings > Bots keeps them (bot.schema BOT_NOTES_KEY). */
+const reportNotes = z
+  .string()
+  .nullable()
+  .describe(
+    'How your own instructions should change after this job — what to do to them, not the text itself: someone else writes it in, and the next job you run here reads the result. Say it the way you would ask a person: "add that a browser here needs --no-sandbox or it exits", "the line saying the tests run with npm is wrong, it is pnpm", "drop the part about the old api folder, it is gone". Null when nothing came up that they do not already say.',
+  );
 
 /** The voice session's handle on a job already handed over. Run by the server, like `delegate` (load-tools). */
 export const taskSpec = {
@@ -157,19 +173,22 @@ export const askThursdayTool = tool({
  * the call and its result are both written to the thread, and a resumed run
  * reads a finished exchange rather than a call left hanging.
  */
-export const reportTool = tool({
-  description: reportSpec.description,
-  inputSchema: reportSpec.parameters,
-  execute: async ({ result, complete }) => {
-    const missing = await missingFiles(result);
-    if (missing.length) {
-      return `${NOT_HANDED_BACK} these files do not exist — ${missing.join(", ")}. Write them first, or take the paths out of the result.`;
-    }
-    return complete
-      ? "Handed back. The job is closed; nothing further runs."
-      : "Handed back as unfinished. The user decides whether to continue.";
-  },
-});
+export const createReportTool = (notes: boolean) => {
+  const spec = reportSpec(notes);
+  return tool({
+    description: spec.description,
+    inputSchema: spec.parameters,
+    execute: async ({ result, complete }) => {
+      const missing = await missingFiles(result);
+      if (missing.length) {
+        return `${NOT_HANDED_BACK} these files do not exist — ${missing.join(", ")}. Write them first, or take the paths out of the result.`;
+      }
+      return complete
+        ? "Handed back. The job is closed; nothing further runs."
+        : "Handed back as unfinished. The user decides whether to continue.";
+    },
+  });
+};
 
 /**
  * A report naming a workspace file that does not exist is refused: the path becomes a link

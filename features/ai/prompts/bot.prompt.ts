@@ -1,6 +1,10 @@
-import { BOT_RUN, PATHS } from "@/config";
+import { BOT_NOTES, BOT_RUN, PATHS } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
-import { listJobBots } from "@/features/bot/bot.query";
+import {
+  listJobBots,
+  readBotNote,
+  readBotNotesOn,
+} from "@/features/bot/bot.query";
 import type { JobBot } from "@/features/bot/bot.schema";
 import { findPinnedTools } from "@/features/connectors/mcp.query";
 import type { McpToolRef } from "@/features/connectors/mcp.schema";
@@ -47,8 +51,8 @@ export async function loadBotPrompt(
 ): Promise<LoadedPrompt> {
   const sandbox = await openWorkspace();
   const name = self.trim();
-  const [skills, index, carried, mcpTools, pinned, allBots] = await Promise.all(
-    [
+  const [skills, index, carried, mcpTools, pinned, allBots, ownNote, notesOn] =
+    await Promise.all([
       loadSkills(sandbox),
       listNoteIndex(),
       listAlwaysLoaded(),
@@ -57,15 +61,18 @@ export async function loadBotPrompt(
       // MCP tools this bot already holds; dropped from the listing below
       findPinnedTools(name),
       listJobBots(),
-    ],
-  );
+      // What this bot left itself; kept by the pass that runs after a job (bot.notes)
+      readBotNote(name),
+      readBotNotesOn(),
+    ]);
 
   // Drop self so a bot cannot call itself; a borrowed bot has no roster at all (bot.run MAX_DEPTH)
   const peers = askedBy ? [] : allBots.filter((bot) => bot.name !== name);
 
   const text = [
-    askedBy ? borrowedIdentity(askedBy) : identity(),
+    askedBy ? borrowedIdentity(name, askedBy) : identity(name),
     memory(index, carried),
+    notesOn ? notes(ownNote) : "",
     connectedTools(mcpTools, pinned),
     methods(skills),
     environment(sandbox.cwd),
@@ -88,18 +95,19 @@ export async function loadBotPrompt(
 }
 
 /** Who the bot is, what machine it is on, and that guesses are not results. */
-function identity(): string {
+function identity(name: string): string {
   return [
-    `You are a worker. Thursday handed you a job while she keeps talking to the user; you are not in that conversation and never speak to the user directly. ${nowLine()}`,
+    // Named, because the owner's prompt may not name it and its own instructions are addressed to it
+    `You are ${name}, a worker. Thursday handed you a job while she keeps talking to the user; you are not in that conversation and never speak to the user directly. ${nowLine()}`,
     MACHINE,
     NO_GUESSING,
   ].join("\n\n");
 }
 
 /** The borrowed seat: above it is the borrowing bot, not Thursday. */
-function borrowedIdentity(askedBy: string): string {
+function borrowedIdentity(name: string, askedBy: string): string {
   return [
-    `You are a worker. ${askedBy} is holding a job Thursday handed them and has handed one part of it to you. You never speak to the user: ${askedBy} reports, and what you hand back goes into their report as-is. ${nowLine()}`,
+    `You are ${name}, a worker. ${askedBy} is holding a job Thursday handed them and has handed one part of it to you. You never speak to the user: ${askedBy} reports, and what you hand back goes into their report as-is. ${nowLine()}`,
     MACHINE,
     NO_GUESSING,
   ].join("\n\n");
@@ -107,7 +115,7 @@ function borrowedIdentity(askedBy: string): string {
 
 const MACHINE = `**You are on a real computer — the user's own.** You have a shell and a filesystem, and the job is done, not described: where there is no tool for something, write one — in \`node\` unless they asked for another language, the runtime this app itself runs on. Reach for \`${TOOL_NAMES.bash}\` before concluding that something cannot be done, but after the roster, not instead of it: a script you write to do another bot's job is the long way round.
 
-**What is missing gets installed.** Inside the workspace, freely; onto the machine itself — \`python3\`, a \`brew\` package — once they say yes, so ask. What is already there is nobody's question.
+**What is missing gets installed**, onto the machine once they say yes. What is already there is nobody's question: your first command says what this machine has.
 
 **Bring back the thing itself** — their own machine, their own accounts, their own copy of whatever they sent you for — not a smaller safer version of it, and not a note on why you did not.`;
 
@@ -149,6 +157,24 @@ ${noteLines(index)}
 A topic not listed is one nobody knows anything about.`;
 
   return [head, alreadyKnown, listing].filter(Boolean).join("\n\n");
+}
+
+/**
+ * The bot's own notes, carried between jobs (database bot_note). Always drawn, empty or not,
+ * so a first job knows it has them. What belongs in them is on `report`, the only place a
+ * change can be asked for (tools/bot.tool); the chapter is what they are and that they last.
+ * The line about what goes in first shows only while they are empty — a standing instruction
+ * to write something turns every job into a note, and there is nothing to nudge once a bot
+ * has one. The count is here for the same reason: the room left is a fact, not a target.
+ */
+function notes(own: string | null): string {
+  return `## Your own instructions
+
+What you wrote to yourself on earlier jobs here, to get better at this machine. Only you read it, and it is the one thing that reaches your next job. What belongs in it is what working here is like — the command that turns out to be the right one, the flag it needs, the tool this platform does not have.
+
+${own ?? "Empty. What usually goes in first is whatever you had to find out before you could start."}
+
+(${own?.length ?? 0}/${BOT_NOTES.chars} characters)`;
 }
 
 /**

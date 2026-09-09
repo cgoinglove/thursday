@@ -22,9 +22,9 @@ const MAX_SCHEMAS = 8;
 export const mcpToolSpec = {
   [TOOL_NAMES.tool_search]: {
     name: TOOL_NAMES.tool_search,
-    description: `Fetch what a connected server's tools take, so they can be called.
-
-The Connected tools section names every server and every tool on it, and that is all it names: there is no description and no parameter schema, so a tool cannot be invoked from that list alone. Name a server and the tools on it, and this returns each one's description and its exact inputSchema. Then run one with \`${TOOL_NAMES.tool_call}\`.`,
+    // What it is, not when to reach for it: the Connected tools chapter says
+    // that the listing carries names alone and that this is how a schema is got
+    description: `Return the description and exact inputSchema of tools on a connected server, so they can be called with \`${TOOL_NAMES.tool_call}\`.`,
     parameters: z.object({
       server: z
         .string()

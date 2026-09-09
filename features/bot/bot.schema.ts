@@ -78,6 +78,9 @@ export const BotSchema = z.object({
   tokens: TokenUsageSchema,
   /** When this bot's latest job last moved; null if it never ran. Carried here so the roster need not page through history. */
   lastJobAt: DateLikeSchema.nullish(),
+  /** The bot's own notes, written by itself at report time. Shown, never edited; the user's only move is to clear them. */
+  note: z.string().nullish(),
+  noteAt: DateLikeSchema.nullish(),
 });
 
 export const BotFormSchema = z.object({
@@ -139,6 +142,20 @@ export const DEFAULT_BOT: JobBot = {
   provider: null,
   model: null,
 };
+
+// A bot's own instructions (database bot_note, features/bot/bot.notes): the setting
+// behind them. The lines themselves are per bot; whether any bot keeps them is not.
+
+/** Config key (features/config config.query) the switch lives under. */
+export const BOT_NOTES_KEY = "BOT_NOTES";
+
+/**
+ * On unless it was switched off, the other way round from the memory read-back:
+ * a pass runs only when a job actually turned something up, and costs one small
+ * call when it does — so a bot that never learns anything never spends.
+ */
+export const isBotNotesOn = (value: string | undefined) =>
+  value?.trim() !== "off";
 
 /**
  * `waiting`: the bot stopped on a question only the user can answer; the answer

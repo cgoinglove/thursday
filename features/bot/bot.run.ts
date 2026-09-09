@@ -35,7 +35,8 @@ import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
 import { estimateTokens } from "@/lib/tokens";
 import { clip } from "@/lib/utils";
-import { findJobBot } from "./bot.query";
+import { hasNotesRequest, keepNotes } from "./bot.notes";
+import { findJobBot, readBotNotesOn } from "./bot.query";
 import { optionsOf, toolLine } from "./task.query";
 
 /**
@@ -286,6 +287,8 @@ export async function runBot(
   let asked: { id: string; question: string; options: string[] } | null = null;
   /** The report (bot.tool reportSpec). */
   let reported: { text: string; complete: boolean } | null = null;
+  /** What the bot wants changed about its own instructions (bot.tool `notes`); applied after the report. */
+  let wants: string | null = null;
 
   // An abort ends the stream without a finish; release any waiting take.
   options.signal?.addEventListener("abort", () => steps.end(), { once: true });
@@ -332,6 +335,7 @@ export async function runBot(
               text: String(args.result ?? "").trim(),
               complete: args.complete !== false,
             };
+            wants = notesRequestOf(part.input);
           }
           await emit({
             type: "tool",
@@ -401,6 +405,16 @@ export async function runBot(
 
   if (reported) {
     await emit({ type: "report", ...reported });
+    // After the report, never before, and only when the bot asked for something:
+    // a job that changed nothing about this machine must not cost a model call.
+    if (hasNotesRequest(wants) && (await readBotNotesOn())) {
+      await keepNotes({
+        bot: name,
+        model: model.model,
+        want: wants as string,
+        signal: options.signal,
+      });
+    }
     return;
   }
 
@@ -421,6 +435,16 @@ const reportAccepted_ = ({ steps }: { steps: StepResult<ToolSet>[] }) =>
       (result) =>
         result.toolName === TOOL_NAMES.report && reportAccepted(result.output),
     ) ?? false;
+
+/** A provider that cannot send null in a string field writes the word instead. */
+const NO_NOTES = new Set(["null", "none", "n/a", "-", "없음"]);
+
+/** `report`'s `notes` as the pass takes it. */
+function notesRequestOf(input: unknown): string | null {
+  const said = (input as { notes?: unknown })?.notes;
+  const text = typeof said === "string" ? said.trim() : "";
+  return text && !NO_NOTES.has(text.toLowerCase()) ? text : null;
+}
 
 /**
  * The step before the cap is narrowed to `report` and required to call it,
