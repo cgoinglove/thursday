@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.2.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.1.2...thursday-agent-v0.2.0) (2026-09-09)
+
+
+### Features
+
+* a broken run says so, and the shell says what this machine has ([b3515e3](https://github.com/cgoinglove/thursday/commit/b3515e317870a698ff707f657ec7cb9f6b7ddd01))
+* a folder for the job, a folder for the bot, and shorter notes ([1ba4769](https://github.com/cgoinglove/thursday/commit/1ba4769b2864ae3432b0d8934bc80838923797d4))
+* a prompt and its tool set say what they cost ([f58d96a](https://github.com/cgoinglove/thursday/commit/f58d96aba2a6dd2de9f248537b59a9073fde27b2))
+* bots keep their own notes, and learn the machine on their first command ([c06996b](https://github.com/cgoinglove/thursday/commit/c06996b7068230f12f8cfd75de5ff0131b67fab7))
+* every fact in memory records whose hand wrote it ([72e3f5f](https://github.com/cgoinglove/thursday/commit/72e3f5f2ae39dcff05022e430d72ff9b60688dff))
+* introduce PROMPT_CROWDED configuration and update bot/skill settings ([6dfea3a](https://github.com/cgoinglove/thursday/commit/6dfea3a201c579bd353373b8b1ccd9bf29ef45a5))
+* one folder per job, and a tool argument may be left out ([d92bff1](https://github.com/cgoinglove/thursday/commit/d92bff1af511544339dc620a423eabe1045dc3b1))
+* the crew says who, the words say what ([e276663](https://github.com/cgoinglove/thursday/commit/e276663d886ae74e82ead9e3ffb8776179d18512))
+
+
+### Fixes
+
+* keep memory's bookkeeping off the model, and say what time it is ([5a11299](https://github.com/cgoinglove/thursday/commit/5a1129924b2ddf928f972d7646f128875089231e))
+* writes that must land, and turns that must be stored whole ([a13b3d0](https://github.com/cgoinglove/thursday/commit/a13b3d0c18842a1d657cf8af4e8113f0b73eb24d))
+
 ## [0.1.2](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.1.1...thursday-agent-v0.1.2) (2026-09-08)
 
 
