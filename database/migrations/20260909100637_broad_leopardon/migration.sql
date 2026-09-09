@@ -1,0 +1,1 @@
+ALTER TABLE `bot` ADD `disabled` integer DEFAULT false NOT NULL;

@@ -137,6 +137,14 @@ in `outputFileTracingIncludes`, not left to the trace.
   where it was never recorded — unknown, not guessed. The two chapters a bot could confuse now name each
   other: memory is about the user and everyone reads it, `bot_note` is about this machine and only
   that bot does.
+- **A bot is switched off in one read.** `listJobBots` is the only place `bot.disabled` is
+  filtered, and every roster a model sees is built from it — both prompts, and the list
+  `delegate` names on a miss — so off is off everywhere without a second rule to keep.
+  `findJobBot` resolves a switched-off bot on purpose: a job already under way resumes through
+  it, and stranding a thread the user can still answer is worse than one bot finishing what it
+  was already given. What refuses is the *pick*: `delegate`, and `bot.run` for every fresh start
+  behind it (`ask_bot`, the screen's hand-over). The fallback worker answers "no bots exist" and
+  never "every bot is off" — conjuring one there would undo the choice.
 - **A bot writes its own prompt, but never writes it itself.** `bot_note` is one block of
   prose per bot, keyed by name so the default bot has one too, capped at `BOT_NOTES.chars`:
   what working on this machine has taught it, read at the top of its every job and by nobody

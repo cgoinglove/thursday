@@ -30,6 +30,12 @@ export const botTable = sqliteTable("bot", {
   /** Both null unless a model was explicitly picked; runs then use the app default. */
   provider: text("provider").$type<TextModelProviderId>(),
   model: text("model"),
+  /**
+   * Switched off: the row stays whole and nothing is thrown away, but no model
+   * is ever shown this bot (bot.query listJobBots). Jobs it already has still
+   * run and resume — a job that is under way is not a bot the agent may pick.
+   */
+  disabled: int("disabled", { mode: "boolean" }).notNull().default(false),
   createdAt: int("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),

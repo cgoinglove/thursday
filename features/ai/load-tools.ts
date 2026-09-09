@@ -80,7 +80,9 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
           "@/features/bot/bot.query"
         );
         const found = await findJobBot(bot);
-        if (!found) {
+        // A switched-off bot resolves (a job it already has still resumes) but is
+        // not one to pick, so it fails here rather than in listJobBots.
+        if (!found || found.disabled) {
           const names = (await listJobBots()).map((one) => one.name);
           return `There is no bot called "${bot}". The bots are: ${names.join(", ")}. Nothing was handed over — call again with one of those.`;
         }

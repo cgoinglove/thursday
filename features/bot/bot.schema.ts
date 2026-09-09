@@ -72,6 +72,8 @@ export const BotSchema = z.object({
   /** Set only when chosen; empty runs on the app default model. */
   provider: textModelProviderSchema.nullish(),
   model: z.string().nullish(),
+  /** Switched off by the user: kept whole, shown to no model. */
+  disabled: z.boolean(),
   createdAt: DateLikeSchema,
   tools: PinnedToolSchema.array().default([]),
   /** Sum over every job this bot ran; deleted jobs drop out. */
@@ -95,6 +97,7 @@ export const BotFormSchema = z.object({
   /** Unset by default (runs on the app default). A half pick is emptied, see `pickedModel`. */
   provider: textModelProviderSchema.nullish(),
   model: z.string().trim().max(80).nullish(),
+  disabled: z.boolean().optional(),
   toolIds: z.number().int().array().max(MAX_PINNED_TOOLS).default([]),
 });
 
@@ -127,6 +130,8 @@ export type JobBot = {
   /** null means whatever key is configured; only the default bot. */
   provider: TextModelProviderId | null;
   model: string | null;
+  /** Carried so a run that already has this bot can say so; `listJobBots` never returns a disabled one. */
+  disabled: boolean;
 };
 
 /**
@@ -141,6 +146,7 @@ export const DEFAULT_BOT: JobBot = {
   icon: { color: "#14B8A6", shape: "squircle" },
   provider: null,
   model: null,
+  disabled: false,
 };
 
 // A bot's own instructions (database bot_note, features/bot/bot.notes): the setting

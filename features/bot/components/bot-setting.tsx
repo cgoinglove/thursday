@@ -81,6 +81,7 @@ export function BotSetting() {
   if (error) return <SettingError message={error.message} />;
 
   const drafting = picked === NEW;
+  const on = bots.filter((bot) => !bot.disabled).length;
   const have = new Set(bots.map((bot) => bot.name));
   const missing = BOT_SEEDS.filter((seed) => !have.has(seed.name));
   const current =
@@ -125,10 +126,11 @@ export function BotSetting() {
             />
           )}
 
-          {bots.length > PROMPT_CROWDED.bots && (
+          {/* Only bots that are on: a switched-off one is in no prompt to crowd. */}
+          {on > PROMPT_CROWDED.bots && (
             <SettingNote className="mx-3 mt-2 leading-relaxed">
-              {bots.length} bots. Each is a line in every prompt, and one more
-              for Thursday to choose between.
+              {on} bots are on. Each is a line in every prompt, and one more for
+              Thursday to choose between.
             </SettingNote>
           )}
         </div>
@@ -191,7 +193,7 @@ function RosterRow({
   active: boolean;
   onPick: () => void;
 }) {
-  const line = liveLine(job, bot.lastJobAt);
+  const line = liveLine(job, bot.lastJobAt, bot.disabled);
   return (
     <button
       type="button"
@@ -206,9 +208,14 @@ function RosterRow({
         {...markProps(bot.name, bot.icon)}
         state={job?.status === "running" ? "thinking" : "idle"}
         notify={job?.status === "waiting"}
-        className="shrink-0"
+        className={cn("shrink-0", bot.disabled && "opacity-45")}
       />
-      <span className="min-w-0 flex-1 space-y-0.5">
+      <span
+        className={cn(
+          "min-w-0 flex-1 space-y-0.5",
+          bot.disabled && "opacity-45",
+        )}
+      >
         <span
           className={cn(
             "block truncate text-[13px]",
@@ -249,22 +256,28 @@ function RosterRow({
 function liveLine(
   job: Task | null,
   lastJobAt: Bot["lastJobAt"],
+  disabled: boolean,
 ): {
   text: string;
   shine?: boolean;
   amber?: boolean;
 } {
-  if (!job) {
-    if (!lastJobAt) return { text: "idle · no jobs yet" };
-    return { text: `idle · last job ${sinceWord(lastJobAt)}` };
-  }
-  if (job.status === "waiting") {
+  if (job?.status === "waiting") {
     return isBudgetAsk(job.ask)
       ? { text: "out of steps" }
       : { text: "waiting on you", shine: true, amber: true };
   }
-  if (job.status === "running") {
+  if (job?.status === "running") {
     return { text: `working · ${job.label}`, shine: true };
+  }
+  // Switched off, and no colour: off is the user's own choice, not something
+  // waiting on them, so the word carries it. It stands where the idle line
+  // would — the two cases above are a job it already had, which off never
+  // stopped, and hiding an ask behind "off" is how one goes unanswered.
+  if (disabled) return { text: "off" };
+  if (!job) {
+    if (!lastJobAt) return { text: "idle · no jobs yet" };
+    return { text: `idle · last job ${sinceWord(lastJobAt)}` };
   }
   return { text: `idle · last job ${sinceWord(job.updatedAt)}` };
 }
@@ -588,16 +601,31 @@ function BotPage({
           {bot ? bot.name : "New bot"}
         </span>
         {bot && (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            loading={removing}
-            aria-label="Delete this bot"
-            onClick={confirmRemove}
-            className="text-muted-foreground hover:text-destructive"
-          >
-            <Trash2 />
-          </Button>
+          <>
+            {/* Only when off: on is the resting state and needs no word. */}
+            {bot.disabled && (
+              <span className="font-mono text-[10px] text-muted-foreground">
+                off
+              </span>
+            )}
+            <Switch
+              checked={!bot.disabled}
+              onCheckedChange={(on) => commit({ disabled: !on })}
+              aria-label={`${bot.name} on or off`}
+              /* mr-1 keeps it off Delete: one is a setting, the other is not. */
+              className="mr-1 shrink-0"
+            />
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              loading={removing}
+              aria-label="Delete this bot"
+              onClick={confirmRemove}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 />
+            </Button>
+          </>
         )}
       </div>
 
@@ -768,6 +796,11 @@ function BotRail({ bot }: { bot: Bot | null }) {
         {bot ? (
           <span className="font-mono text-[11px]">
             {bot.name}
+            {bot.disabled && (
+              <>
+                <span className="px-1.5 opacity-50">·</span>off
+              </>
+            )}
             <span className="px-1.5 opacity-50">·</span>
             <span
               title={`in ${formatCount(bot.tokens.input)} · out ${formatCount(bot.tokens.output)}`}

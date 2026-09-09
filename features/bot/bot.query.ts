@@ -31,6 +31,7 @@ const asJobBot = (row: {
   /** Empty runs on the app default model (bot.run resolveModel). */
   provider: TextModelProviderId | null;
   model: string | null;
+  disabled: boolean;
 }): JobBot => ({
   name: row.name,
   description: row.description,
@@ -38,21 +39,35 @@ const asJobBot = (row: {
   icon: row.icon,
   provider: row.provider,
   model: row.model,
+  disabled: row.disabled,
 });
 
-/** Who a job can go to: the user's bots, or DEFAULT_BOT when there are none. */
+/**
+ * Who a job can go to: the user's bots, or DEFAULT_BOT when there are none.
+ * Switched-off bots are left out here and nowhere else — this one read is what
+ * every prompt's roster and `delegate`'s list are built from, so off is off in
+ * all of them without a second rule to keep.
+ */
 export async function listJobBots(): Promise<JobBot[]> {
   const rows = await database
     .select()
     .from(botTable)
     .orderBy(botTable.createdAt);
 
-  return rows.length ? rows.map(asJobBot) : [DEFAULT_BOT];
+  // The fallback answers "no bots exist", never "every bot is off": switching
+  // them all off is a choice, and conjuring a worker would undo it.
+  return rows.length
+    ? rows.filter((row) => !row.disabled).map(asJobBot)
+    : [DEFAULT_BOT];
 }
 
 /**
- * The bot a job names. Exact name first, then case-insensitive only; no looser
- * matching. A miss returns null so `delegate` can list the roster instead.
+ * The bot a job names, switched off or not: a job already under way resumes
+ * through here, and refusing it would strand a thread the user can still answer.
+ * `delegate` is what checks `disabled`, because that is where a bot is picked.
+ *
+ * Exact name first, then case-insensitive only; no looser matching. A miss
+ * returns null so `delegate` can list the roster instead.
  */
 export async function findJobBot(name: string): Promise<JobBot | null> {
   const row = await findBot(name);
@@ -60,8 +75,14 @@ export async function findJobBot(name: string): Promise<JobBot | null> {
 
   // Case is not a different name: the spoken name arrives through a transcript
   const said = name.trim().toLowerCase();
-  const bots = await listJobBots();
-  return bots.find((bot) => bot.name.toLowerCase() === said) ?? null;
+  const [match] = await database
+    .select()
+    .from(botTable)
+    .where(eq(sql`lower(${botTable.name})`, said));
+  if (match) return asJobBot(match);
+
+  // The worker that exists when no row does; it has no row to match against
+  return DEFAULT_BOT.name.toLowerCase() === said ? DEFAULT_BOT : null;
 }
 
 /** Bots with their pinned tools and token totals: a set of queries plus grouping, not a join. */

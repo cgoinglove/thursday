@@ -702,8 +702,13 @@ function Compose({ bots, onDone }: { bots?: Bot[]; onDone: () => void }) {
   });
 
   // A fresh install has no rows and still has a worker (bot.schema DEFAULT_BOT).
+  // Switched-off bots are left out for the same reason no model is shown one —
+  // but the fallback answers "no rows", not "every row off", so switching them
+  // all off leaves nothing to pick rather than conjuring a worker.
   const roster: BotRef[] = bots?.length
-    ? bots.map((bot) => ({ name: bot.name, icon: bot.icon }))
+    ? bots
+        .filter((bot) => !bot.disabled)
+        .map((bot) => ({ name: bot.name, icon: bot.icon }))
     : [{ name: DEFAULT_BOT.name, icon: DEFAULT_BOT.icon }];
 
   const send = () => {

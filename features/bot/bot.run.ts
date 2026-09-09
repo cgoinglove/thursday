@@ -156,6 +156,16 @@ export async function runBot(
     });
     return;
   }
+  // Switched off is not a bot to pick — the backstop for every fresh start
+  // (`delegate`, `ask_bot`, the screen). A resume carries `messages` instead and
+  // is let through: its thread already exists and the user can still answer it.
+  if (bot.disabled && "request" in input) {
+    await emit({
+      type: "error",
+      message: `${bot.name} is switched off. Use a name from the list.`,
+    });
+    return;
+  }
 
   // Tools are built on the model: web search runs on this bot's model (load-tools).
   const model = await resolveModel(bot);
