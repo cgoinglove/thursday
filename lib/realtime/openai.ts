@@ -6,8 +6,8 @@ import { createWebRtcTransport } from "./realtime.transport";
 
 const CALLS_URL = "https://api.openai.com/v1/realtime/calls";
 
-/** Streams user transcripts as recognized; whisper-1 reports only after the turn ends. */
-const TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe";
+/** Streams user transcripts as recognized; the file models report only after the turn ends. */
+const TRANSCRIPTION_MODEL = "gpt-live-transcribe";
 
 export const createOpenAiSession = realtimeSession({
   transport: ({ credential, audio, on }) =>

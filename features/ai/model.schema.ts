@@ -72,7 +72,7 @@ export type MediaModelRef = z.infer<typeof mediaModelRefSchema>;
  * Suggested media models per provider and kind, cheapest first; the head runs when only the
  * provider is known. Suggestions, not a validation list. Ids follow each sdk's own spelling, so
  * the gateway names the same model differently (`spacexai/…`). An empty list means the provider
- * cannot make that kind (OpenAI has no video model).
+ * cannot make that kind — for a model the sdk cannot build as well as one that does not exist.
  */
 export const MEDIA_MODEL_PROVIDERS: Record<
   MediaModelProviderId,
@@ -88,9 +88,18 @@ export const MEDIA_MODEL_PROVIDERS: Record<
     models: {
       image: [
         { id: "gpt-image-1-mini", label: "GPT Image 1 mini", tier: "small" },
-        { id: "gpt-image-1.5", label: "GPT Image 1.5", tier: "mid" },
-        { id: "gpt-image-2", label: "GPT Image 2", tier: "large" },
+        {
+          id: "gpt-image-2.5-flare",
+          label: "GPT Image 2.5 Flare",
+          tier: "mid",
+        },
+        {
+          id: "gpt-image-2.5-sunburst",
+          label: "GPT Image 2.5 Sunburst",
+          tier: "large",
+        },
       ],
+      // Sora exists, but the sdk's OpenAI provider has no video model (model.ts buildVideoModel)
       video: [],
       speech: [
         { id: "tts-1", label: "TTS 1", tier: "small" },
@@ -98,13 +107,12 @@ export const MEDIA_MODEL_PROVIDERS: Record<
         { id: "tts-1-hd", label: "TTS 1 HD", tier: "large" },
       ],
       transcription: [
-        { id: "whisper-1", label: "Whisper", tier: "small" },
         {
           id: "gpt-4o-mini-transcribe",
           label: "4o mini Transcribe",
           tier: "small",
         },
-        { id: "gpt-4o-transcribe", label: "4o Transcribe", tier: "mid" },
+        { id: "gpt-transcribe", label: "GPT Transcribe", tier: "mid" },
       ],
     },
   },
@@ -114,17 +122,17 @@ export const MEDIA_MODEL_PROVIDERS: Record<
     models: {
       image: [
         {
-          id: "gemini-2.5-flash-image",
-          label: "2.5 Flash Image",
+          id: "gemini-3.1-flash-lite-image",
+          label: "3.1 Flash Lite Image",
           tier: "small",
         },
         {
-          id: "gemini-3.1-flash-image-preview",
+          id: "gemini-3.1-flash-image",
           label: "3.1 Flash Image",
           tier: "mid",
         },
         {
-          id: "gemini-3-pro-image-preview",
+          id: "gemini-3-pro-image",
           label: "3 Pro Image",
           tier: "large",
         },
@@ -140,7 +148,7 @@ export const MEDIA_MODEL_PROVIDERS: Record<
           label: "Veo 3.1 Fast",
           tier: "mid",
         },
-        { id: "veo-3.1-generate", label: "Veo 3.1", tier: "large" },
+        { id: "veo-3.1-generate-preview", label: "Veo 3.1", tier: "large" },
       ],
       speech: [
         {
@@ -175,8 +183,8 @@ export const MEDIA_MODEL_PROVIDERS: Record<
       image: [
         { id: "grok-imagine-image", label: "Grok Imagine", tier: "small" },
         {
-          id: "grok-imagine-image-pro",
-          label: "Grok Imagine Pro",
+          id: "grok-imagine-image-2.0",
+          label: "Grok Imagine 2.0",
           tier: "mid",
         },
       ],
@@ -230,7 +238,11 @@ export const MEDIA_MODEL_PROVIDERS: Record<
           label: "Gemini 3 Pro Image",
           tier: "large",
         },
-        { id: "openai/gpt-image-2", label: "GPT Image 2", tier: "large" },
+        {
+          id: "openai/gpt-image-2.5-sunburst",
+          label: "GPT Image 2.5 Sunburst",
+          tier: "large",
+        },
       ],
       video: [
         {
@@ -344,7 +356,7 @@ export function parseMediaModel(
 
 /**
  * Suggested text models per provider, cheapest first. Suggestions, not a validation list;
- * `defaultModelOf` and `cheapestModelOf` read tiers, not positions.
+ * `defaultModelOf` reads tiers, not positions.
  */
 export const TEXT_MODEL_PROVIDERS: Record<
   TextModelProviderId,
@@ -368,7 +380,7 @@ export const TEXT_MODEL_PROVIDERS: Record<
     label: "Claude",
     apiKeyName: "ANTHROPIC_API_KEY",
     suggestModels: [
-      { id: "claude-haiku-4-5-20251001", label: "Haiku 4.5", tier: "small" },
+      { id: "claude-haiku-4-5", label: "Haiku 4.5", tier: "small" },
       { id: "claude-sonnet-5", label: "Sonnet 5", tier: "mid" },
       { id: "claude-opus-5", label: "Opus 5", tier: "large" },
       { id: "claude-fable-5-1", label: "Fable 5.1", tier: "large" },
@@ -378,6 +390,7 @@ export const TEXT_MODEL_PROVIDERS: Record<
     label: "Gemini",
     apiKeyName: "GOOGLE_GENERATIVE_AI_API_KEY",
     suggestModels: [
+      { id: "gemini-3.5-flash-lite", label: "3.5 Flash Lite", tier: "small" },
       { id: "gemini-3.8-flash", label: "3.8 Flash", tier: "mid" },
     ],
   },
@@ -412,12 +425,13 @@ export const TEXT_MODEL_PROVIDERS: Record<
       { id: "moonshotai/kimi-k3", label: "Kimi K3", tier: "mid" },
       { id: "openai/gpt-5.6-sol", label: "GPT 5.6 Sol", tier: "large" },
       { id: "anthropic/claude-opus-5", label: "Claude Opus 5", tier: "large" },
+      { id: "openai/gpt-6-astra", label: "GPT 6 Astra", tier: "large" },
     ],
   },
 };
 
 /** A provider's model at one tier, or its first one when it has none at that size. */
-export const modelOfTier = (
+const modelOfTier = (
   provider: { suggestModels: SuggestModel[] },
   tier: ModelTier,
 ): string | undefined =>
@@ -429,10 +443,6 @@ export const modelOfTier = (
 /** What a provider runs when nobody picked: the middle of its row. */
 export const defaultModelOf = (provider: { suggestModels: SuggestModel[] }) =>
   modelOfTier(provider, "mid");
-
-/** The cheapest model of a provider; what `web_search` runs on (model.ts resolveSearchModel). */
-export const cheapestModelOf = (provider: { suggestModels: SuggestModel[] }) =>
-  modelOfTier(provider, "small");
 
 /**
  * The speech-to-speech backends. `models` and `voices` are suggestion lists, not validation

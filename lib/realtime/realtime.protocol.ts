@@ -46,7 +46,7 @@ export type OpenAiSessionConfig = {
   audio?: {
     input?: {
       format?: RealtimeAudioFormat;
-      /** Null turns transcription off. `whisper-1` reports only at turn end; `gpt-4o-*-transcribe` streams deltas. */
+      /** Null turns transcription off. A file model reports only at turn end; `gpt-live-transcribe` streams deltas. */
       transcription?: {
         model: string;
         language?: string;
