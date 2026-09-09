@@ -34,6 +34,7 @@ import { BOT_RUN } from "@/config";
 import { markReportedAction, startTaskAction } from "@/features/bot/bot.action";
 import {
   type Bot,
+  type BotIcon,
   DEFAULT_BOT,
   isBudgetAsk,
   TASK_CONTINUE,
@@ -43,6 +44,7 @@ import { BotRoster } from "@/features/bot/components/bot-roster";
 import { PathChips } from "@/features/bot/components/path-chips";
 import { TaskReply, useAnswerTask } from "@/features/bot/components/task-reply";
 import { openSettings } from "@/features/settings/settings.store";
+import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
 import { FileViewer } from "@/features/workspace/components/file-view";
 import { shortAgo, toDate } from "@/lib/date-like";
 import { unwrapResult } from "@/lib/protocol/result";
@@ -78,10 +80,11 @@ import { BotTool } from "./bot-tool";
  * state.
  *
  * Folded, it is not a badge you have to open. Anything waiting on an answer is drawn
- * on the chip itself, with its buttons, and anything that merely happened borrows the
- * chip's one sentence for three seconds (useBeats). Opening the room is for reading a
- * thread, never for answering — a chevron that reveals the rows would put a click in
- * front of the one thing this corner exists to remove.
+ * on the chip itself, with its buttons; what a bot is doing right now sits beside its
+ * face, and what passed between two parties rides above one for a moment
+ * (useHandoffs). Opening the room is for reading a thread, never for answering — a
+ * chevron that reveals the rows would put a click in front of the one thing this
+ * corner exists to remove.
  *
  * memo: the parent re-renders per transcript chunk and this reads only its store.
  */
@@ -99,12 +102,13 @@ export const BotRoom = memo(function BotRoom() {
     ? (newest.find((entry) => entry.id === picked) ?? null)
     : null;
 
-  const [beat, announce] = useBeats();
+  const [bubbles, handoff] = useHandoffs();
+  const { crew, more } = useMemo(() => crewOf(bots, tasks), [bots, tasks]);
 
-  // What each task was, and what each bot last said, at the previous sync. Only
-  // changes since then are announced.
+  // What each task was, and which hand-offs had already landed, at the previous
+  // sync. Only what changed since then just happened.
   const known = useRef<Map<string, TaskViewStatus> | null>(null);
-  const said = useRef(new Map<string, string>());
+  const passed = useRef(new Set<string>());
 
   useEffect(() => {
     if (!botTasks.primed()) return;
@@ -112,46 +116,67 @@ export const BotRoom = memo(function BotRoom() {
     const was = known.current;
     known.current = now;
 
-    const lines = new Map<string, string>();
-    for (const entry of latestPerBot(tasks)) {
-      if (entry.line) lines.set(entry.bot.name, entry.line.id);
+    const seen = new Set<string>();
+    for (const task of tasks) {
+      for (const line of task.lines) {
+        if (line.kind === "ask" && line.to) seen.add(line.id);
+      }
     }
-    const heard = said.current;
-    said.current = lines;
+    const had = passed.current;
+    passed.current = seen;
 
-    // The first list only seeds the two maps: nothing on it just happened.
+    // The first list only seeds the two: nothing on it just happened.
     if (!was) return;
 
-    // A bot holds one seat in the queue, so the last push for a bot wins. Steps
-    // go first and a change of status overwrites them: that a job stopped to ask
-    // outranks whatever tool it called on the way there.
-    for (const entry of latestPerBot(tasks)) {
-      if (entry.task.status !== "working") continue;
-      const at = entry.line?.id;
-      if (!at || heard.get(entry.bot.name) === at) continue;
-      announce({
-        bot: entry.bot.name,
-        label: entry.task.label,
-        what: secondLine(entry.task).text,
-        live: true,
+    // Bot to bot. A giver handing work to several at once would put a bubble
+    // over each of them, 20px apart, so a whole round is drawn once — over the
+    // giver — and the faces that took the work are awake, which says who.
+    const rounds = new Map<
+      string,
+      { from: BotRef; to: BotRef; text: string }[]
+    >();
+    for (const task of tasks) {
+      for (const line of task.lines) {
+        if (line.kind !== "ask" || !line.to || had.has(line.id)) continue;
+        const round = rounds.get(line.bot.name) ?? [];
+        round.push({ from: line.bot, to: line.to, text: line.text });
+        rounds.set(line.bot.name, round);
+      }
+    }
+    for (const [giver, round] of rounds) {
+      if (round.length === 1) {
+        handoff({
+          at: round[0].to.name,
+          from: round[0].from,
+          text: clipWord(round[0].text),
+        });
+        continue;
+      }
+      handoff({
+        at: giver,
+        from: round[0].from,
+        text: `sent ${round.length} parts out`,
       });
     }
 
     for (const task of newest) {
-      const before = was.get(task.id);
-      if (before === task.status) continue;
-      // First seen already finished — polling skipped the whole run. Say it only
-      // if nobody has heard it yet.
-      if (before === undefined && task.status !== "working" && task.relayed) {
+      if (was.get(task.id) === task.status || task.status !== "working")
         continue;
-      }
-      announce({
-        bot: task.bot.name,
-        label: task.label,
-        ...beatFor(task, before === undefined),
-      });
+      // A job that was never seen is one arriving; one that was is you having
+      // answered it. The mark says who gave it away — and a job typed into the
+      // compose box is Thursday's here too, because a task row does not record
+      // which of the two started it.
+      handoff(
+        was.has(task.id)
+          ? { at: task.bot.name, from: null, text: "picked it back up" }
+          : {
+              at: task.bot.name,
+              from: THURSDAY,
+              text: `took on \u201c${clipWord(task.label)}\u201d`,
+            },
+      );
     }
-  }, [tasks, announce]);
+  }, [tasks, handoff]);
 
   // Opening a finished thread marks it reported. The key includes updatedAt: a
   // follow-up request finishes again and that result is unread. markReported does not
@@ -181,13 +206,6 @@ export const BotRoom = memo(function BotRoom() {
   const busy = tasks.filter((entry) => entry.status === "working").length;
   const attention = newest.filter(needsYou);
   const pending = attention.length;
-  // Bots with a task waiting on the user; the chip shows them in front.
-  const waiting = attention
-    .map((entry) => entry.bot)
-    .filter(
-      (bot, at, all) =>
-        all.findIndex((other) => other.name === bot.name) === at,
-    );
 
   const closeCompose = useCallback(() => setComposing(false), []);
 
@@ -241,13 +259,14 @@ export const BotRoom = memo(function BotRoom() {
         </div>
       ) : (
         <Chip
+          crew={crew}
+          more={more}
+          bubbles={bubbles}
           bots={bots}
           rows={attention}
-          waiting={waiting}
           count={tasks.length}
           busy={busy}
           pending={pending}
-          beat={beat}
           composing={composing}
           onCompose={() => setComposing(true)}
           onCloseCompose={closeCompose}
@@ -266,103 +285,160 @@ export const BotRoom = memo(function BotRoom() {
   );
 });
 
-/** How long one announcement holds the chip's sentence, ms. */
-const BEAT_MS = 3000;
-/** The sentence goes back to rest between two of them, so they never blur into one. */
-const BEAT_GAP_MS = 260;
+/** Faces the row draws before the count takes over. */
+const CREW_MAX = 10;
+/** Stable identity for a row that can never have one up. */
+const EMPTY_BUBBLES: Map<string, Handoff> = new Map();
+/** How long a hand-off stays above a face, ms. */
+const HANDOFF_MS = 3400;
+/** A step is a glance, not a sentence. */
+const WORD_MAX = 28;
 
-/**
- * What the chip is saying for a moment: who moved, on what, and what they did.
- * `live` is the difference between a step and an ending — a step is still going
- * while the sentence is up, so it shines; "finished" does not.
- */
-type Beat = {
-  bot: string;
-  label: string;
-  what: string;
-  tone?: string;
-  live?: boolean;
+/** One face in the row, and what it is doing. */
+type CrewFace = {
+  name: string;
+  icon?: BotIcon | null;
+  /** Working or waiting: both are awake. */
+  awake: boolean;
+  /** Waiting on an answer; carries the dot. */
+  waiting: boolean;
+  /** The step it is on, in the model's own words. Null when it is not working. */
+  word: string | null;
+  /** A stand-in for an install with no bots; dimmed with the rest. */
+  standIn?: boolean;
 };
 
 /**
- * The one queue anything announces itself through.
- *
- * A beat holds the sentence for BEAT_MS and they play one at a time, so a busy
- * minute reads as a list rather than a flicker. **A bot holds one seat**: a second
- * beat from the same bot overwrites its place instead of joining the back of the
- * queue, so three bots stepping at once still take turns and the newest thing a
- * given bot did is the one you see.
+ * Something passed between two parties. This is what a bubble is for, and the
+ * only thing: a step is the bot working alone and belongs beside its face.
  */
-function useBeats() {
-  const [now, setNow] = useState<Beat | null>(null);
-  const queue = useRef<Beat[]>([]);
-  const holding = useRef(false);
-  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+type Handoff = {
+  /** Whose face it points at. */
+  at: string;
+  /** Who gave it away. Null when it was the user, who has no mark. */
+  from: BotRef | null;
+  text: string;
+};
+
+const clipWord = (text: string) => {
+  const one = plainText(text).replace(/\s+/g, " ").trim();
+  return one.length > WORD_MAX ? `${one.slice(0, WORD_MAX - 1)}…` : one;
+};
+
+/**
+ * Hand-offs currently up, one per face. A second one to the same face replaces
+ * it rather than queueing: the newest thing that landed there is the true one.
+ * Different faces hold their own at the same time — the fan-out that would make
+ * two of them collide is folded into one before it gets here (BotRoom).
+ */
+function useHandoffs(): [Map<string, Handoff>, (one: Handoff) => void] {
+  const [up, setUp] = useState<Map<string, Handoff>>(new Map());
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   useEffect(
     () => () => {
-      for (const timer of timers.current) clearTimeout(timer);
+      for (const timer of timers.current.values()) clearTimeout(timer);
     },
     [],
   );
 
-  // Held in a ref because it calls itself to drain the queue.
-  const pump = useRef(() => {});
-  pump.current = () => {
-    if (holding.current) return;
-    const next = queue.current.shift();
-    if (!next) return;
-    holding.current = true;
-    setNow(next);
-    timers.current.push(
+  const show = useCallback((one: Handoff) => {
+    setUp((was) => new Map(was).set(one.at, one));
+    const held = timers.current.get(one.at);
+    if (held) clearTimeout(held);
+    timers.current.set(
+      one.at,
       setTimeout(() => {
-        setNow(null);
-        timers.current.push(
-          setTimeout(() => {
-            holding.current = false;
-            pump.current();
-          }, BEAT_GAP_MS),
-        );
-      }, BEAT_MS),
+        timers.current.delete(one.at);
+        setUp((was) => {
+          const next = new Map(was);
+          next.delete(one.at);
+          return next;
+        });
+      }, HANDOFF_MS),
     );
-  };
-
-  const announce = useCallback((beat: Beat) => {
-    const at = queue.current.findIndex((one) => one.bot === beat.bot);
-    if (at >= 0) queue.current[at] = beat;
-    else queue.current.push(beat);
-    pump.current();
   }, []);
 
-  return [now, announce] as const;
+  return [up, show];
+}
+
+/** The step a bot is on, as the model labelled it. */
+function wordOf(line: Chatter | null): string | null {
+  if (!line) return null;
+  if (line.kind === "tool" && line.tool) {
+    // The model's own label when it wrote one, else the raw call.
+    return clipWord(line.tool.note ?? `${line.tool.name} · ${line.tool.input}`);
+  }
+  return line.kind === "say" ? clipWord(line.text) : null;
 }
 
 /**
- * What a change of status says. Budget stops are worded apart from questions so a
- * job that is really blocked is not buried among them (bot.schema isBudgetAsk).
+ * Who is in the row, in the order it is drawn.
+ *
+ * Anyone moving sorts to the front, so the count at the tail only ever hides
+ * idle bots — a bot with something to say always has a face to say it from,
+ * which is what lets a hand-off point at one. A bot that spoke inside somebody
+ * else's job is in the room too, whether or not it owns a task (latestPerBot).
  */
-function beatFor(
-  task: TaskView,
-  first: boolean,
-): Pick<Beat, "what" | "tone" | "live"> {
-  const who = task.bot.name;
-  if (task.status === "working") {
-    return {
-      what: first ? `${who} took this on` : `${who} picked it back up`,
-      live: true,
-    };
+function crewOf(
+  bots: Bot[] | undefined,
+  tasks: TaskView[],
+): { crew: CrewFace[]; more: number } {
+  const live = new Map<string, { waiting: boolean; word: string | null }>();
+  for (const entry of latestPerBot(tasks)) {
+    const { task, bot, line } = entry;
+    // Waiting outranks working: a bot that stopped to ask is not on a step.
+    if (task.status === "waiting" && task.bot.name === bot.name) {
+      live.set(bot.name, { waiting: true, word: null });
+      continue;
+    }
+    if (task.status !== "working" || live.get(bot.name)?.waiting) continue;
+    live.set(bot.name, { waiting: false, word: wordOf(line) });
   }
-  if (task.status === "waiting") {
-    return isBudgetAsk(task.ask)
-      ? { what: `${who} is out of steps` }
-      : {
-          what: `${who} is asking`,
-          tone: WAITING_INK,
-        };
+
+  const named = new Map<string, CrewFace>();
+  for (const bot of bots ?? []) {
+    named.set(bot.name, {
+      name: bot.name,
+      icon: bot.icon,
+      awake: live.has(bot.name),
+      waiting: live.get(bot.name)?.waiting ?? false,
+      word: live.get(bot.name)?.word ?? null,
+    });
   }
-  return task.status === "failed"
-    ? { what: `${who} could not finish`, tone: "text-destructive" }
-    : { what: `${who} finished` };
+  // A bot that is working but not on the roster (the row-less default) still
+  // has a face: the row is who is here, not who is configured.
+  for (const [name, doing] of live) {
+    if (named.has(name)) continue;
+    named.set(name, {
+      name,
+      icon: null,
+      awake: true,
+      waiting: doing.waiting,
+      word: doing.word,
+    });
+  }
+
+  // A fresh install has one worker and one silhouette says "one bot", which is
+  // the wrong thing to say about a room. Stand-ins fill it out and are dimmed.
+  const roster = [...named.values()];
+  if (!roster.length) return { crew: GHOSTS.slice(0, FLOOR), more: 0 };
+  for (const ghost of GHOSTS) {
+    if (roster.length >= FLOOR) break;
+    if (!named.has(ghost.name)) roster.push(ghost);
+  }
+
+  const rank = (face: CrewFace) =>
+    face.waiting ? 0 : face.awake ? 1 : face.standIn ? 3 : 2;
+  const sorted = roster
+    .map((face, at) => ({ face, at }))
+    .sort((a, b) => rank(a.face) - rank(b.face) || a.at - b.at)
+    .map((one) => one.face);
+
+  return {
+    crew: sorted.slice(0, CREW_MAX),
+    more: Math.max(0, sorted.length - CREW_MAX),
+  };
 }
 
 /** Blanks the question in the reply box when it already is the last thread line (budget stops). */
@@ -384,7 +460,13 @@ function askFor(task: TaskView): TaskView["ask"] {
  */
 const needsYou = (task: TaskView) => task.status === "waiting";
 
-/** What the chip says when nothing just happened, most urgent first. */
+/**
+ * What the room itself is doing, and nothing else — the right side of the pill.
+ *
+ * Only `waiting on you` sweeps. A shine means something is happening right now,
+ * which is what the words beside the faces are for; the spinner already says a
+ * job is running, and two things sweeping in one pill read as a loading screen.
+ */
 function restingState({
   count,
   busy,
@@ -393,58 +475,66 @@ function restingState({
   count: number;
   busy: number;
   pending: number;
-}): { text: string; tone?: string; shine?: "amber" | "muted" } {
+}): { text: string; tone: string; shine: boolean } {
   if (pending > 0)
     return {
       text: pending === 1 ? "waiting on you" : `${pending} waiting on you`,
       tone: WAITING_INK,
-      shine: "amber",
+      shine: true,
     };
   if (busy > 0)
     return {
       text: busy === 1 ? "working" : `${busy} running`,
       tone: "text-muted-foreground",
-      shine: "muted",
+      shine: false,
     };
-  if (count > 0) return { text: "all done", tone: "text-muted-foreground" };
-  return { text: "no jobs yet", tone: "text-muted-foreground" };
+  if (count > 0)
+    return { text: "all done", tone: "text-muted-foreground", shine: false };
+  return { text: "no jobs yet", tone: "text-muted-foreground", shine: false };
 }
 
 /**
  * The room folded into one object in the corner.
  *
- * Two parts, and they are one object: a pill that always says what is true right
- * now, and — while something is actually waiting on an answer — the rows for it,
- * grown in place above the pill. Nothing here sits behind a disclosure. The rows
- * appear because there is something to answer and leave when it is answered; a
- * chevron that revealed them would put a click in front of the one thing this
- * corner exists to remove. The pill's own click opens the room, to read.
+ * The row carries two facts and they never take each other's place. On the
+ * **left**, who is here and what each of them is doing: a face, and the shiny
+ * text beside it. On the **right**, what the room itself is doing, with its
+ * glyph 6px away — one fact, so nothing gets to come between them and nothing
+ * takes the glyph away. Anything that passes between two parties is neither, so
+ * it rides above a face in a bubble.
+ *
+ * While something is waiting on an answer its rows are grown in place above the
+ * row. Nothing here sits behind a disclosure: they appear because there is
+ * something to answer and leave when it is answered. The pill's own click opens
+ * the room, to read.
  *
  * The corner radius does not animate with the height: interpolating a pill radius
  * down to a card radius while the box is also resizing warps the corners in flight.
  */
 function Chip({
+  crew,
+  more,
+  bubbles,
   bots,
   rows,
-  waiting,
   count,
   busy,
   pending,
-  beat,
   composing,
   onCompose,
   onCloseCompose,
   onPick,
   onOpen,
 }: {
+  crew: CrewFace[];
+  more: number;
+  bubbles: Map<string, Handoff>;
   bots?: Bot[];
   /** Everything waiting on an answer, newest first. */
   rows: TaskView[];
-  waiting: BotRef[];
   count: number;
   busy: number;
   pending: number;
-  beat: Beat | null;
   composing: boolean;
   onCompose: () => void;
   onCloseCompose: () => void;
@@ -457,7 +547,9 @@ function Chip({
   return (
     <div
       className={cn(
-        "pointer-events-auto w-fit max-w-full overflow-hidden bg-background/78 ring-1 ring-border/50 backdrop-blur-md transition-shadow duration-300",
+        // Not `overflow-hidden`: a hand-off bubble stands above the row, outside
+        // this box. The growing part clips itself instead.
+        "pointer-events-auto w-fit max-w-full bg-background/78 ring-1 ring-border/50 backdrop-blur-md transition-shadow duration-300",
         grown
           ? "min-w-96 rounded-3xl shadow-lg shadow-black/8"
           : "rounded-full shadow-sm shadow-black/3",
@@ -466,7 +558,7 @@ function Chip({
       {/* One box, two heights: the rows grow out of nothing rather than appearing. */}
       <div
         className={cn(
-          "grid transition-[grid-template-rows] duration-300 ease-out",
+          "grid overflow-hidden transition-[grid-template-rows] duration-300 ease-out",
           grown ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
         )}
       >
@@ -501,79 +593,53 @@ function Chip({
       {/* The pill row. Same geometry either way, so the card shrinks into it. */}
       {/* px-3 is the chip's one rail: the faces here, the section line and every
           row's mark all start at 12px, and the trailing glyph ends at 12px — which
-          is why a resting glyph carries no box. A box would centre it and leave
-          its ink 5px short of the rail the faces start on. Rows reach the same rail
-          as their own 8px inside a 4px list. */}
-      <div className={cn("flex items-center gap-2 px-3 py-1.5")}>
+          is why the well carries no box of its own. */}
+      <div className="flex items-center gap-2 px-3 py-1.5">
         <button
           type="button"
           onClick={onOpen}
           aria-label={count ? `Tasks (${count})` : "Bots"}
           className="flex min-w-0 flex-1 items-center gap-2 rounded-full text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
-          <Faces bots={bots} waiting={waiting} only={beat?.bot} />
+          <Crew crew={crew} more={more} bubbles={bubbles} />
 
-          {/* One slot, two things in it: what is true, and what just happened. */}
-          <span className="flex h-7 min-w-0 flex-1 items-center">
-            <Lane on={!!beat}>
-              <span className="flex items-center gap-1.5 whitespace-nowrap">
-                <span className="shrink-0 font-mono text-[11px] text-muted-foreground/70">
-                  {beat?.label}
-                </span>
-                {beat?.live ? (
-                  <ShinyText
-                    text={beat.what}
-                    speed={2.4}
-                    color="var(--muted-foreground)"
-                    shineColor="var(--foreground)"
-                    className="min-w-0 truncate text-[14px] leading-5 tracking-[-0.15px]"
-                  />
-                ) : (
-                  <span
-                    className={cn(
-                      "min-w-0 truncate text-[14px] leading-5 tracking-[-0.15px]",
-                      beat?.tone ?? "text-foreground",
-                    )}
-                  >
-                    {beat?.what}
-                  </span>
-                )}
+          {/* The room's own state and its glyph: one group, and the only thing on
+              the right. `ml-auto` keeps it there when the crew says nothing. */}
+          <span className="ml-auto flex h-7 shrink-0 items-center gap-1.5">
+            {state.shine ? (
+              // Neither waiting nor running is a state at rest, but only one of
+              // them needs you. The colours are classes because they differ per
+              // theme, and ShinyText reads the variables they set.
+              <span className="block [--rest:var(--color-amber-700)] [--shine:var(--color-amber-400)] dark:[--rest:var(--color-amber-400)] dark:[--shine:var(--color-amber-100)]">
+                <ShinyText
+                  text={state.text}
+                  speed={2.6}
+                  color="var(--rest)"
+                  shineColor="var(--shine)"
+                  className="truncate text-[14px] leading-5 tracking-[-0.15px]"
+                />
               </span>
-            </Lane>
-            <Lane on={!beat}>
-              {state.shine ? (
-                // Neither waiting nor running is a state at rest: one is held open
-                // towards you, the other is moving. Slowly lit text says both better
-                // than a glyph does. The colours are classes because they differ per
-                // theme, and ShinyText reads the variables they set.
-                <span
-                  className={cn(
-                    "block",
-                    state.shine === "amber"
-                      ? "[--rest:var(--color-amber-700)] [--shine:var(--color-amber-400)] dark:[--rest:var(--color-amber-400)] dark:[--shine:var(--color-amber-100)]"
-                      : "[--rest:var(--muted-foreground)] [--shine:var(--foreground)]",
-                  )}
-                >
-                  <ShinyText
-                    text={state.text}
-                    speed={2.6}
-                    color="var(--rest)"
-                    shineColor="var(--shine)"
-                    className="truncate text-[14px] leading-5 tracking-[-0.15px]"
-                  />
-                </span>
-              ) : (
-                <span
-                  key={state.text}
-                  className={cn(
-                    "block animate-in truncate text-[14px] leading-5 tracking-[-0.15px] fade-in duration-300",
-                    state.tone,
-                  )}
-                >
-                  {state.text}
-                </span>
+            ) : (
+              <span
+                key={state.text}
+                className={cn(
+                  "block animate-in truncate text-[14px] leading-5 tracking-[-0.15px] fade-in duration-300",
+                  state.tone,
+                )}
+              >
+                {state.text}
+              </span>
+            )}
+            {/* Always 16px, empty or not: a glyph that comes and goes moves the
+                sentence's right end even when the sentence has not changed. */}
+            <span className="grid size-4 shrink-0 place-items-center">
+              {pending === 0 && busy > 0 && (
+                <Loader2 className="size-4 animate-spin text-muted-foreground/70" />
               )}
-            </Lane>
+              {pending === 0 && busy === 0 && count > 0 && (
+                <Check className="size-4 text-muted-foreground/60" />
+              )}
+            </span>
           </span>
         </button>
 
@@ -582,33 +648,8 @@ function Chip({
             <X className="size-3.5" />
           </RoundButton>
         )}
-        {!composing && pending === 0 && busy > 0 && (
-          <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground/70" />
-        )}
-        {!composing && pending === 0 && busy === 0 && count > 0 && (
-          <Check className="size-4 shrink-0 text-muted-foreground/60" />
-        )}
       </div>
     </div>
-  );
-}
-
-/**
- * Two things sharing one line: the one that is on takes the width and the other
- * folds to nothing. Both stay mounted, so the swap is a slide and not a jump.
- */
-function Lane({ on, children }: { on: boolean; children: ReactNode }) {
-  return (
-    <span
-      className={cn(
-        // The width is the only thing that moves, and it moves fast: at half a
-        // second the letters arrive one by one and it reads as typing.
-        "grid min-w-0 transition-[grid-template-columns,opacity] duration-200 ease-out",
-        on ? "grid-cols-[1fr] opacity-100" : "grid-cols-[0fr] opacity-0",
-      )}
-    >
-      <span className="min-w-0 overflow-hidden">{children}</span>
-    </span>
   );
 }
 
@@ -775,94 +816,147 @@ function Compose({ bots, onDone }: { bots?: Bot[]; onDone: () => void }) {
 }
 
 /** Stand-in faces for an install with no bots. Fixed, not random: this renders on the server too and Math.random would break hydration. */
-const GHOSTS = ["alto", "brio", "cinder", "delta"].map((seed, index) => ({
-  key: seed,
-  seed,
-  color: MARK_PALETTE[Math.floor((index * MARK_PALETTE.length) / 4)],
-  shape: MARK_SHAPES[index % MARK_SHAPES.length],
-  outline: undefined as boolean | undefined,
-}));
+const GHOSTS: CrewFace[] = ["alto", "brio", "cinder", "delta"].map(
+  (seed, index) => ({
+    name: seed,
+    icon: {
+      color: MARK_PALETTE[Math.floor((index * MARK_PALETTE.length) / 4)],
+      shape: MARK_SHAPES[index % MARK_SHAPES.length],
+    },
+    awake: false,
+    waiting: false,
+    word: null,
+    standIn: true,
+  }),
+);
 
 /** A single face reads as one worker, not as a crew; below this the row is padded out. */
-const CREW = 3;
+const FLOOR = 3;
 
-/** The crew stacked behind each other; GHOSTS stand in when there are no bots. */
-function Faces({
-  bots,
-  waiting = [],
-  only,
+/**
+ * The crew, and what each of them is doing.
+ *
+ * Two things share this row and never take each other's place: a face says
+ * **who**, and the shiny text beside it says **what**, for as long as that bot
+ * is on that step. Both are derived — there is no queue and no cap, because
+ * every bot that is working is saying something true at the same time.
+ *
+ * A face that is moving is awake: lifted, swollen a little, and glowing in its
+ * own colour. That layer alone survives every collision — three bots at once
+ * are three awake faces, with no order to decide.
+ */
+function Crew({
+  crew,
+  more,
+  bubbles,
 }: {
-  bots?: Bot[];
-  waiting?: BotRef[];
-  /** While one bot is speaking the crowd narrows to it, then fans back out. */
-  only?: string;
+  crew: CrewFace[];
+  more: number;
+  /** Hand-offs currently up, keyed by the face they point at. */
+  bubbles: Map<string, Handoff>;
 }) {
-  // Faces with a task waiting go in front and are the only ones with the dot.
-  const roster = bots?.length
-    ? bots.map((bot) => ({
-        key: bot.name,
-        seed: bot.name,
-        color: bot.icon?.color,
-        shape: bot.icon?.shape,
-        outline: bot.icon?.outline,
-        notify: false,
-      }))
-    : GHOSTS.map((ghost) => ({ ...ghost, notify: false }));
-
-  const front = waiting.map((bot) => ({
-    key: bot.name,
-    seed: bot.name,
-    color: bot.icon?.color,
-    shape: bot.icon?.shape,
-    outline: bot.icon?.outline,
-    notify: true,
-  }));
-
-  // A fresh install has one worker (DEFAULT_BOT) and one silhouette says "one bot",
-  // which is the wrong thing to say about a room. Stand-ins fill the row out to CREW
-  // and are dimmed with it, so the corner reads as a crew before it holds one.
-  const named = [
-    ...front,
-    ...roster.filter((face) => !front.some((one) => one.key === face.key)),
-  ].map((face) => ({ ...face, standIn: false }));
-  const filler = GHOSTS.filter(
-    (ghost) => !named.some((face) => face.key === ghost.key),
-  )
-    .slice(0, Math.max(0, CREW - named.length))
-    .map((ghost) => ({ ...ghost, notify: false, standIn: true }));
-  const crew = [...named, ...filler].slice(0, 4);
-
   return (
-    <span
-      className={cn(
-        "flex shrink-0 items-center",
-        !bots?.length && !front.length && "opacity-50",
-      )}
-    >
-      {crew.map((face, index) => (
+    <span className="flex min-w-0 shrink items-center">
+      {crew.map((face, index) => {
+        const bubble = bubbles.get(face.name) ?? null;
+        return (
+          <Fragment key={face.name}>
+            <span
+              // Silhouettes overlapped, never ringed: a ring needs a circle and
+              // these are not circles. Earlier faces sit on top, so the dot on a
+              // waiting face is never covered by its neighbour.
+              className={cn(
+                "relative shrink-0 transition-[margin,transform] duration-500 ease-out",
+                // A word to the left has already broken the shingle.
+                index > 0 && !crew[index - 1].word && "-ml-2",
+                face.standIn && "opacity-35",
+                face.awake && "-translate-y-0.5 scale-110",
+              )}
+              style={{
+                zIndex: crew.length - index,
+                color: face.icon?.color ?? undefined,
+                // The glow is the bot's own colour, so who is moving reads before
+                // any word does. currentColor keeps it right when nobody chose one.
+                filter: face.awake
+                  ? "drop-shadow(0 0 5px color-mix(in srgb, currentColor 55%, transparent))"
+                  : undefined,
+              }}
+            >
+              <BotMark
+                size={28}
+                seed={face.name}
+                vary={face.name}
+                color={face.icon?.color}
+                shape={face.icon?.shape}
+                outline={face.icon?.outline}
+                notify={face.waiting}
+              />
+              {bubble && <HandoffBubble handoff={bubble} />}
+            </span>
+            {face.word && (
+              // No box: the shine is what says this is happening right now, so a
+              // capsule around it was drawing a second time what the sweep says.
+              <span className="mx-2.5 min-w-0 shrink truncate">
+                <ShinyText
+                  text={face.word}
+                  speed={2.6}
+                  color="var(--muted-foreground)"
+                  shineColor="var(--foreground)"
+                  className="truncate text-[13px] leading-5 tracking-[-0.1px]"
+                />
+              </span>
+            )}
+          </Fragment>
+        );
+      })}
+      {more > 0 && (
+        // Past CREW_MAX the row stops growing. Only idle bots are ever behind it:
+        // anyone moving sorted to the front.
         <span
-          key={face.key}
-          // Silhouettes overlapped, never ringed: a ring needs a circle and these
-          // are not circles. One speaking bot pulls the rest in behind it.
           className={cn(
-            "origin-right transition-[margin,opacity,transform] duration-300 ease-out",
-            index > 0 && "-ml-2",
-            face.standIn && "opacity-35",
-            only && face.key !== only && "-ml-[28px] scale-50 opacity-0",
+            "grid size-7 shrink-0 place-items-center rounded-[9px] bg-muted font-mono text-[10px] text-muted-foreground ring-1 ring-border/50",
+            !crew.at(-1)?.word && "-ml-2",
           )}
-          style={{ zIndex: crew.length - index }}
+          title={`${more} more`}
         >
-          <BotMark
-            size={28}
-            seed={face.seed}
-            vary={face.seed}
-            color={face.color}
-            shape={face.shape}
-            outline={face.outline}
-            notify={face.notify}
-          />
+          +{more}
         </span>
-      ))}
+      )}
+    </span>
+  );
+}
+
+/**
+ * A hand-off, over the face it landed on. The mark at its head is whoever gave
+ * it away — Thursday, another bot, or nobody at all when it was you.
+ *
+ * It sits outside the pill's box on purpose, in space the corner is not using;
+ * the chip cannot clip its own children while one is up.
+ */
+function HandoffBubble({ handoff }: { handoff: Handoff }) {
+  return (
+    <span className="pointer-events-none absolute bottom-[calc(100%+9px)] left-1/2 flex -translate-x-1/2 animate-in flex-col items-center whitespace-nowrap fade-in zoom-in-95 duration-200">
+      <span className="flex items-center gap-1.5 rounded-full bg-background px-2.5 py-1 text-[12.5px] leading-4 tracking-[-0.1px] shadow-lg shadow-black/10 ring-1 ring-border">
+        {handoff.from?.name === THURSDAY.name ? (
+          <ThursdayMark size={14} className="shrink-0 opacity-75" />
+        ) : (
+          handoff.from && (
+            <BotMark
+              size={14}
+              seed={handoff.from.name}
+              vary={handoff.from.name}
+              color={handoff.from.icon?.color}
+              shape={handoff.from.icon?.shape}
+              outline={handoff.from.icon?.outline}
+              className="shrink-0 opacity-75"
+            />
+          )
+        )}
+        {handoff.text}
+      </span>
+      {/* Two triangles: the ring's, then the fill's a pixel over it. */}
+      <span className="-mt-px size-0 border-x-[5px] border-t-[6px] border-x-transparent border-t-border" />
+      <span className="-mt-[6.5px] size-0 border-x-[5px] border-t-[6px] border-x-transparent border-t-background" />
     </span>
   );
 }
@@ -1035,9 +1129,10 @@ function State({ task }: { task: TaskView }) {
 }
 
 function Empty({ bots }: { bots?: Bot[] }) {
+  const { crew, more } = crewOf(bots, []);
   return (
     <div className="flex flex-col items-center gap-3 px-6 pt-3 pb-4 text-center">
-      <Faces bots={bots} />
+      <Crew crew={crew} more={more} bubbles={EMPTY_BUBBLES} />
       {bots?.length ? (
         <p className="text-[12px] text-muted-foreground">
           Nothing handed over yet — ask for something that takes a while.
@@ -1369,7 +1464,11 @@ function Request({ task }: { task: TaskView }) {
   );
 }
 
-/** Thursday's own face; she is not a bot and has no row to read one from. */
+/**
+ * Thursday's own face; she is not a bot and has no row to read one from. Also
+ * who a hand-off came from when it came from the call — her mark is drawn by
+ * her own domain (features/thursday), so this only has to name her.
+ */
 const THURSDAY: BotRef = { name: "Thursday" };
 
 /**
