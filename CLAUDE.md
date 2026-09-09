@@ -52,6 +52,7 @@ components/ui/            Domain-agnostic UI (shadcn).
 hooks/                    Domain-agnostic React hooks.
 lib/                      Domain-agnostic only: protocol/ (Result, actions, routes, SWR, event bus),
                           realtime/ (the call seam), sandbox.ts (interface + creator), queue, tokens, limits, utils.
+database/db.ts            The one client, and the lane every request goes through (SQLite has one writer).
 database/tables.ts        All drizzle tables (relations and migrations look at one place).
 config.ts                 App knobs: name, the two roots, paths, page sizes, limits. Not secrets (features/config).
 bin/                      What ships and runs outside Next: the `thursday` CLI and where the app's own
@@ -100,10 +101,18 @@ in `outputFileTracingIncludes`, not left to the trace.
   Only the procedure moved out of the prompt; the capability stays (`MACHINE`), because a bot not
   told it may install stops rather than asks. Do not put in either what the model already does:
   `nohup … > file 2>&1 &` was written into the guide and measured to be what it reached for anyway.
+- **A tool argument that may be null may also be left out** (`.nullish()`, not `.nullable()`).
+  Measured: `.nullable()` puts the key in the schema's `required` list, so a model that omits an
+  optional argument fails validation outright and spends a step recovering — which cheap models do
+  routinely. The exception is an argument where null is an *instruction* rather than an absence:
+  `memory_show.path` is `.nullable()` because null means "take it off the screen", and a forgotten
+  key would hide a note instead of showing one.
 - **The app's own tools are never deferred.** MCP tools sit behind `tool_search` because a server can
   publish hundreds; a runtime holds about ten of its own, and hiding those to save a few hundred
   tokens costs a step to find them and reads as a capability that is not there. What grows with use
   is the listings (memory, skills, connected tools), not the prose — measure before cutting either.
+  Past `PROMPT_CROWDED` the Bots and Skills screens say what the set costs, because the lines are
+  the user's to add and nothing else in the app would tell them. Stating the cost, never capping.
 - **A prompt says what it costs.** Every assembly logs its own breakdown by chapter, and the tool
   set logs its own (`prompts/prompt-helper` `logPromptSize`, `load-tools` `logToolSize`). What grows
   is the listings, which belong to the user, so nothing in the app would otherwise notice — the
@@ -131,8 +140,9 @@ in `outputFileTracingIncludes`, not left to the trace.
 - **A bot writes its own prompt, but never writes it itself.** `bot_note` is one block of
   prose per bot, keyed by name so the default bot has one too, capped at `BOT_NOTES.chars`:
   what working on this machine has taught it, read at the top of its every job and by nobody
-  else. On `report` it says only what it wants *changed*, in one sentence of its own words,
-  and `features/bot/bot.notes` rewrites the block from that: the same model the job ran on,
+  else. On `report` it says only what it wants *changed* — add, correct or drop,
+  in its own words at any length, and nothing to say is the usual answer — and
+  `features/bot/bot.notes` rewrites the block from that: the same model the job ran on,
   no system prompt, one user turn holding the block and the request, one tool, forced. Two
   models because they are two jobs; a bot that rewrites the block itself edits it around the
   job it was on and drops what that job was not about, which is measured, not assumed. No

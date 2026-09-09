@@ -107,7 +107,7 @@ Close the app entirely and it does the honest thing instead: ten seconds with no
 
 ## It remembers you, and you can read it
 
-Plain notes on your disk. One fact per line. Open them in any editor; delete any of them.
+One fact per line, in the database on your disk. Open the Memory screen and read every one — where it came from, when it landed, whether it rides in every call — and delete any of them.
 
 And after every call a text model **re-reads what was actually said** and reconciles the notes with it — so what she keeps is not only what she thought to write down mid-sentence.
 
@@ -120,7 +120,7 @@ And after every call a text model **re-reads what was actually said** and reconc
 | **Your browser** | Bots attach to the Chrome already open on your desk — your sessions, your logins |
 | **Your machine** | Real commands on real files. Not a VM with a copy |
 | **Your keys** | A SQLite file on your disk, stripped from the shell a bot runs in |
-| **Your memory** | Plain text notes you can open, edit and delete |
+| **Your memory** | Facts in a file on your disk. Read, edit and delete them on the screen |
 | **No account** | Nothing to sign up for. The "server" is a Node process on `127.0.0.1` |
 
 **Honest caveat:** the *intelligence* is remote. There is no local realtime speech model worth putting a call on yet, so the audio goes to OpenAI or xAI. Everything else never leaves the machine. When a local voice model lands, this is the app that is ready for it.
@@ -153,7 +153,7 @@ It runs in the terminal you started it in, like `n8n`. There is no daemon and no
 ```
 ~/.thursday
 ├── local.db          calls, memory, bots, jobs, keys
-└── .ai-workspace     what the bots wrote: artifacts, scratch, skills
+└── .ai-workspace     what the bots wrote: artifacts, projects, scratch, skills
 ```
 
 The first run also fetches the browser bots drive (~280 MB) in the background, once. That one lands in Playwright's own cache — `~/Library/Caches/ms-playwright`, or `~/.cache/ms-playwright` on Linux — so every run after it, and every upgrade, skips the download.
@@ -215,7 +215,9 @@ Tell me what you said to her and where it stopped. That is the roadmap.
 
 ## The part where I am honest with you
 
-She is a language model with a shell, a browser and your API keys. **That is the product, not an accident.** Keys never reach the shell. Writes are fenced to a workspace. The server is localhost-only. Passwords, one-time codes and passkeys stay yours to type.
+She is a language model with a shell, a browser and your API keys. **That is the product, not an accident.** Keys are stripped from the environment the shell runs in. Writes are fenced to a workspace. The server is localhost-only. Passwords, one-time codes and passkeys stay yours to type.
+
+Reads are not fenced, and they are not meant to be — a bot that cannot look around cannot do the job. That includes the database your keys sit in.
 
 It is not a sandbox and it does not pretend to be. → [SECURITY.md](SECURITY.md)
 

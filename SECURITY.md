@@ -13,10 +13,13 @@ What the app does to keep that narrow:
 - **Your keys stay on your machine.** They live in the local SQLite database (or
   the environment), are read only where a model is built, and are passed to a
   provider explicitly. Nothing is sent anywhere else.
-- **Secrets do not reach the shell.** Every environment variable matching
-  `KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|_AUTH` is stripped from the environment
-  a bot's commands run in (`lib/sandbox.ts`), so a compromised npm package in a
-  bot's project cannot read them out of `process.env`.
+- **Secrets are not in the shell's environment.** Every environment variable
+  matching `KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|_AUTH` is stripped from the
+  environment a bot's commands run in (`lib/sandbox.ts`), so a compromised npm
+  package in a bot's project cannot read them out of `process.env`. This is
+  narrower than it sounds and is meant to be: the database those keys live in
+  is a file on the same machine, and a bot has a shell. Reads are not fenced —
+  a bot that cannot look around cannot do the work.
 - **Writes are fenced.** A bot writes inside its workspace (`.ai-workspace`) and
   is refused the app's own directory (`features/workspace/workspace.ts`).
 - **The server binds to localhost.** `npx thursday` listens on `127.0.0.1`.
