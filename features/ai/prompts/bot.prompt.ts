@@ -161,7 +161,7 @@ function memory(
 ): string {
   const head = `## Memory
 
-What the user's assistant knows about them. Thursday keeps it as she talks with them, and everyone reads it — the word after a fact is the hand that wrote it, and one a bot inferred mid-job is not the same as one the user said out loud.
+What the user's assistant knows about them. Thursday keeps it as she talks with them, and everyone reads it.
 
 Yours to read, and to add to when the work turns up something about *them* that outlives the job; what the job itself turned up goes in your report. It describes the user, not you: how they are named and spoken to is hers to use with them, not yours to borrow. What you learn about this machine is not memory — that is your own instructions, below.`;
 

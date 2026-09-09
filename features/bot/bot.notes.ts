@@ -102,6 +102,10 @@ function briefing(current: string | null, want: string): string {
 
 Four things do not belong, however true today: what is in a folder right now, what a job produced, anything about the person the work is for, and how to satisfy the worker's own tools (\`report\`, \`write_file\`, \`bash\` — those belong to the app it runs inside and change with it). A program *on the machine* is the opposite and does belong.
 
+Nor does how the worker should behave. Whoever owns it writes that separately and it outranks these, so a note about manner or language is either already said or about to be overruled.
+
+The change is applied to what is already there, not written over it. Say the notes read \`Tests here run with npm.\` and then \`Chromium needs --no-sandbox or it exits.\` The worker asks for the npm line to be corrected to pnpm: both lines come back, the first now reading \`Tests here run with pnpm.\` and the second word for word as it was. Added, corrected or dropped is one line moving; everything the request did not name is untouched.
+
 ${current ? "The notes as they stand:" : "There are no notes yet — the fence below is empty because nothing has been written, not because the notes say so."}
 
 \`\`\`

@@ -2,7 +2,7 @@ import { asSchema, type ToolSet, tool } from "ai";
 import { formatDistanceToNowStrict } from "date-fns";
 import { IS_DEV } from "@/config";
 import type { TextModel } from "@/features/ai/model";
-import { tidying } from "@/features/ai/prompts/prompt-helper";
+import { clockNow, tidying } from "@/features/ai/prompts/prompt-helper";
 import {
   askThursdayTool,
   createReportTool,
@@ -113,12 +113,16 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
                 note: "The text in `answer` was not passed on — `status` only reads. Send it again as `answer` if the bot is meant to hear it.",
               }
             : {};
+          // The clock, because the one in the instructions is from when the call
+          // opened and a call can run for hours; `since` is measured against this.
+          const now = { now: clockNow() };
           // A named job comes back whole; the list clips outcomes, and the model pads a clipped report
           if (task) {
             const found = await resolveTask(task);
             const one = found;
             if (!one) return await noSuchJob(task);
             return {
+              ...now,
               ...dropped,
               label: one.label,
               bot: one.bot,
@@ -136,6 +140,7 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
           // No threads — only as much as is worth reading out: what it is
           // asking, the one line of what it is doing, or how it ended
           return {
+            ...now,
             ...dropped,
             tasks: tasks.map((task) => ({
               label: task.label,

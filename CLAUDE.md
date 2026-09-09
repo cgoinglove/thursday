@@ -122,10 +122,10 @@ in `outputFileTracingIncludes`, not left to the trace.
 - **Memory is one note kept by four hands, and each fact records whose.** The user typing on the
   screen, the call as they talk, a bot that turned something up mid-job, the pass that reads calls
   back — `memory_fact.source` (memory.schema `MemorySource`). No model chooses it: the runtime knows
-  which it is (`load-tools`), so it cannot be claimed. It is on the line every prompt carries and in
-  what `memory_recall` hands back, because the hands are not equally close to the user and a reader
-  that cannot tell them apart reads what a bot inferred as something the user said. Null where it
-  was never recorded — unknown, not guessed. The two chapters a bot could confuse now name each
+  which it is (`load-tools`), so it cannot be claimed. It is for the person looking at their own
+  memory and stays off every model-facing surface: a bare `bot` beside a line says nothing a reader
+  can act on — it cannot tell whether that bot was itself — and costs a sentence to explain. Null
+  where it was never recorded — unknown, not guessed. The two chapters a bot could confuse now name each
   other: memory is about the user and everyone reads it, `bot_note` is about this machine and only
   that bot does.
 - **A bot writes its own prompt, but never writes it itself.** `bot_note` is one block of

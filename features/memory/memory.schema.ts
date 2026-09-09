@@ -12,7 +12,12 @@ export const MemorySourceSchema = z.enum(["user", "call", "bot", "tidy"]);
 
 export type MemorySource = z.infer<typeof MemorySourceSchema>;
 
-/** How a source reads on screen. Empty where it was never recorded — unknown, not guessed. */
+/**
+ * How a source reads on screen. Recorded for the person looking at their own
+ * memory, not for a model: a bare `bot` in a prompt says nothing a reader can
+ * act on — it cannot tell whether that was itself — and costs a sentence to
+ * explain. Empty where it was never recorded.
+ */
 export const memorySourceLabel = (source: MemorySource | null | undefined) =>
   source === "user"
     ? "you"
@@ -129,8 +134,6 @@ export type MemoryFactRef = {
   /** What `memory_forget` and `replaces` take. */
   id: number;
   text: string;
-  /** Which hand wrote it; null on rows from before it was recorded. */
-  source: MemorySource | null;
 };
 
 /** A fact carried at the top of the prompt, with its note path. */
@@ -138,7 +141,6 @@ export type MemoryAlwaysLoaded = {
   id: number;
   path: string;
   text: string;
-  source: MemorySource | null;
 };
 
 /** A note as returned by recall or after a write. */

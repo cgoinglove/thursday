@@ -300,11 +300,7 @@ export async function readNotes(
       description: note.description,
       facts: facts
         .filter((fact) => fact.noteId === note.id)
-        .map((fact) => ({
-          id: fact.id,
-          text: fact.text,
-          source: fact.source,
-        })),
+        .map((fact) => ({ id: fact.id, text: fact.text })),
     })),
     missing,
   };
@@ -535,7 +531,6 @@ export function listAlwaysLoaded(): Promise<MemoryAlwaysLoaded[]> {
       id: memoryFactTable.id,
       path: memoryNoteTable.path,
       text: memoryFactTable.text,
-      source: memoryFactTable.source,
     })
     .from(memoryFactTable)
     .innerJoin(memoryNoteTable, eq(memoryFactTable.noteId, memoryNoteTable.id))
@@ -700,7 +695,6 @@ export function listFactsWrittenBetween(
       id: memoryFactTable.id,
       path: memoryNoteTable.path,
       text: memoryFactTable.text,
-      source: memoryFactTable.source,
     })
     .from(memoryFactTable)
     .innerJoin(memoryNoteTable, eq(memoryFactTable.noteId, memoryNoteTable.id))
@@ -722,7 +716,6 @@ export async function findFactById(
       id: memoryFactTable.id,
       path: memoryNoteTable.path,
       text: memoryFactTable.text,
-      source: memoryFactTable.source,
     })
     .from(memoryFactTable)
     .innerJoin(memoryNoteTable, eq(memoryFactTable.noteId, memoryNoteTable.id))

@@ -49,11 +49,14 @@ export function logPromptSize(kind: string, text: string): void {
   }
 }
 
-/** `**Now**: 2026-09-02 (Wed) 15:41 Asia/Seoul` */
-export const nowLine = (now = new Date()) =>
-  `**Now**: ${format(now, "yyyy-MM-dd (EEE) HH:mm")} ${
+/** `2026-09-02 (Wed) 15:41 Asia/Seoul` */
+export const clockNow = (now = new Date()) =>
+  `${format(now, "yyyy-MM-dd (EEE) HH:mm")} ${
     Intl.DateTimeFormat().resolvedOptions().timeZone
   }`;
+
+/** `**Now**: 2026-09-02 (Wed) 15:41 Asia/Seoul` */
+export const nowLine = (now = new Date()) => `**Now**: ${clockNow(now)}`;
 
 /** `4mo`, `12d`: short enough to read aloud. */
 function sinceLast(at: MemoryIndexEntry["lastSeenAt"]): string {
@@ -77,21 +80,9 @@ export function noteLines(index: MemoryIndexEntry[], age = false): string {
     .join("\n");
 }
 
-/**
- * `- Their name is Yuri · profile #12 · call`
- *
- * The hand that wrote it, in one word (memory.schema MemorySource). Memory is
- * one note kept by four of them and they are not equally close to the user: a
- * line a bot inferred mid-job reads very differently from one the user said out
- * loud. Omitted where it was never recorded.
- */
+/** `- Their name is Yuri · profile #12` */
 export const carriedLines = (loaded: MemoryAlwaysLoaded[]): string =>
-  loaded
-    .map(
-      (fact) =>
-        `- ${fact.text} · ${fact.path} #${fact.id}${fact.source ? ` · ${fact.source}` : ""}`,
-    )
-    .join("\n");
+  loaded.map((fact) => `- ${fact.text} · ${fact.path} #${fact.id}`).join("\n");
 
 /**
  * Whether it is time to tidy, and why: a crowded listing points at the coldest notes,
