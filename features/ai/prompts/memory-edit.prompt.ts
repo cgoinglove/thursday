@@ -1,52 +1,33 @@
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
-import { findAllNotes } from "@/features/memory/memory.query";
+import { listNoteIndex } from "@/features/memory/memory.query";
 import { MEMORY_PATHS } from "@/features/memory/memory.schema";
-import { logPromptSize, nowLine } from "./prompt-helper";
+import { logPromptSize, noteLines, nowLine } from "./prompt-helper";
 
 /**
  * Everything an edit from the memory screen hears (features/memory/memory.edit):
- * every note with every fact and its id, because an edit may touch any of them and
- * a fact is only replaced or forgotten by id. Assembled for every step, so a card
- * the user saved a moment ago is already in it. Shares no sentence with the call
- * or bot prompts.
+ * who it is working for, and memory as a listing — one line a note, with how
+ * many facts it holds — the way the call sees it. Facts and their ids come from
+ * opening a note, so the prompt grows with the number of notes, not of facts.
+ * Assembled once per request.
  */
 export async function loadMemoryEditPrompt(): Promise<string> {
-  // Every note: the screen pages them, an edit cannot
-  const notes = await findAllNotes({ limit: Number.MAX_SAFE_INTEGER });
-  const text = [identity(), memory(notes)].join("\n\n");
+  const text = [identity(), memory(await listNoteIndex())].join("\n\n");
   logPromptSize("memory-edit", text);
   return text;
 }
 
-type NoteWithFacts = Awaited<ReturnType<typeof findAllNotes>>[number];
-
 function identity(): string {
-  return `You edit the user's memory for Thursday, a voice assistant. The user is typing on the memory screen, not talking to her; their last message is what they want changed. ${nowLine()}
-
-Make the change with \`${TOOL_NAMES.memory_remember}\` and \`${TOOL_NAMES.memory_forget}\`. Each call is shown to the user on its own and nothing is written until they save it; a call they drop comes back denied, so do not make it again. When nothing is left to change, stop and say in one short sentence what changed, or that nothing needed to.`;
+  return `You are the user's personal assistant, and this is their memory. Change it the way their message asks: add what is new, replace what stopped being true, remove what they want gone. Make every change with \`${TOOL_NAMES.memory_remember}\` and \`${TOOL_NAMES.memory_forget}\`; when nothing is left to change, stop. ${nowLine()}`;
 }
 
-function memory(notes: NoteWithFacts[]): string {
-  const listing = notes.length
-    ? notes.map(noteBlock).join("\n\n")
-    : "(nothing saved yet)";
+function memory(index: Awaited<ReturnType<typeof listNoteIndex>>): string {
   return `## Memory
 
-${MEMORY_PATHS.map((entry) => `- ${entry.path} — ${entry.of}`).join("\n")}
+path — what is under it (facts) "what the user calls it"
 
-${listing}`;
-}
+${noteLines(index)}
 
-/** `### people/yuri — partner "Yuri"` then one fact a line, with the id the tools take. */
-function noteBlock(note: NoteWithFacts): string {
-  const names = note.aliases?.length
-    ? ` ${note.aliases.map((alias) => `"${alias}"`).join(" ")}`
-    : "";
-  return [
-    `### ${note.path} — ${note.description}${names}`,
-    ...note.facts.map(
-      (fact) =>
-        `- ${fact.text} #${fact.id}${fact.alwaysLoad ? " (alwaysLoad)" : ""}`,
-    ),
-  ].join("\n");
+A note is listed, not shown: open it with \`${TOOL_NAMES.memory_recall}\` for its facts and their ids before replacing or removing any of them. Adding to a note needs no opening.
+
+${MEMORY_PATHS.map((entry) => `- ${entry.path} — ${entry.of}`).join("\n")}`;
 }

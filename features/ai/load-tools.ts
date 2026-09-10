@@ -59,12 +59,8 @@ export type ToolRun =
       /** The model this run already resolved (bot.run resolveModel); `web_search` runs on it (model.ts resolveSearchModel). */
       model?: TextModel | null;
     }
-  /** An edit from the memory screen (memory/memory.edit): memory's two writes, each stopping for the user. */
+  /** An edit from the memory screen (memory/memory.edit): memory's read and two writes, run as the model calls them. */
   | { target: "memory-edit" };
-
-/** A tool the model can call and the run cannot: the call comes back unanswered for someone to decide. */
-const withoutExecute = ({ execute: _execute, ...rest }: ToolSet[string]) =>
-  rest as ToolSet[string];
 
 /**
  * Starting work and following it. bot.runner is imported dynamically to break a cycle
@@ -240,15 +236,13 @@ export async function loadTools(run: ToolRun): Promise<ToolSet> {
 
 async function buildTools(run: ToolRun): Promise<ToolSet> {
   if (run.target === "memory-edit") {
-    // The screen applies each call the user saves, one at a time (memory.edit applyMemoryEditCall)
-    const hand = createMemoryTools("user");
+    // Memory's own read and writes, in the user's hand: they asked for it on
+    // screen. Opening a note to change it is not a recall (memory.tool countReads)
+    const hand = createMemoryTools("user", null, { countReads: false });
     return {
-      [TOOL_NAMES.memory_remember]: withoutExecute(
-        hand[TOOL_NAMES.memory_remember],
-      ),
-      [TOOL_NAMES.memory_forget]: withoutExecute(
-        hand[TOOL_NAMES.memory_forget],
-      ),
+      [TOOL_NAMES.memory_recall]: hand[TOOL_NAMES.memory_recall],
+      [TOOL_NAMES.memory_remember]: hand[TOOL_NAMES.memory_remember],
+      [TOOL_NAMES.memory_forget]: hand[TOOL_NAMES.memory_forget],
     };
   }
 

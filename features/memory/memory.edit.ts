@@ -1,98 +1,87 @@
 import {
-  asSchema,
-  generateText,
-  type ModelMessage,
-  modelMessageSchema,
+  convertToModelMessages,
   stepCountIs,
-  type ToolSet,
+  streamText,
+  validateUIMessages,
 } from "ai";
-import { z } from "zod";
-import { MEMORY_EDIT } from "@/config";
+import { ZodError, z } from "zod";
 import { loadTools } from "@/features/ai/load-tools";
 import { getTextModel, modelErrorToString } from "@/features/ai/model";
 import { textModelRefSchema } from "@/features/ai/model.schema";
 import { loadMemoryEditPrompt } from "@/features/ai/prompts/memory-edit.prompt";
-import { createMemoryTools } from "@/features/ai/tools/memory.tool";
-import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
-import { publicError } from "@/lib/public-error";
-import type { MemoryEditStep } from "./memory.schema";
+import { logger } from "@/lib/logger";
+import { isPublicError } from "@/lib/public-error";
 
 /**
- * Editing memory from its own screen, one model step per request. The model gets
- * memory's two writes without their execute (ai/load-tools), so a step ends at
- * the calls it makes and the screen shows each as a card. The thread lives in the
- * page and comes back with every step, so nothing is kept here between requests.
- * A card is applied the moment it is saved, on its own (applyMemoryEditCall);
- * the next step reads the thread with those answers in it.
+ * Editing memory from its own screen: one request, one streamed run. The model
+ * gets memory's two writes, which run as it calls them, and the page draws each
+ * call as it arrives. Nothing about the exchange is kept — the page holds the
+ * messages and drops them — so what lasts is only what the tools wrote.
  */
 
-const StepSchema = z.object({
+/** One line of intent: a run still writing after this many steps is not converging. */
+const MAX_STEPS = 20;
+
+const BodySchema = z.object({
   model: textModelRefSchema,
   messages: z.array(z.unknown()).min(1),
 });
 
-export async function stepMemoryEdit(
+export async function streamMemoryEdit(
   body: unknown,
   signal: AbortSignal,
-): Promise<MemoryEditStep> {
-  const { model: ref, messages: raw } = StepSchema.parse(body);
-  const messages: ModelMessage[] = modelMessageSchema.array().parse(raw);
-
-  // A step is one assistant turn, counted off the thread the page sends back
-  const taken = messages.filter(
-    (message) => message.role === "assistant",
-  ).length;
-  if (taken >= MEMORY_EDIT.steps) {
-    return {
-      messages: [],
-      calls: [],
-      text: `Stopped after ${MEMORY_EDIT.steps} steps.`,
-    };
-  }
-
-  const model = await getTextModel(ref);
+): Promise<Response> {
+  let run: Awaited<ReturnType<typeof prepare>>;
   try {
-    const result = await generateText({
-      model: model.model,
-      system: await loadMemoryEditPrompt(),
-      messages,
-      tools: await loadTools({ target: "memory-edit" }),
-      stopWhen: stepCountIs(1),
-      abortSignal: signal,
-    });
-    return {
-      messages: result.response.messages,
-      calls: result.toolCalls.map((call) => ({
-        toolCallId: call.toolCallId,
-        toolName: call.toolName,
-        input: call.input,
-      })),
-      text: result.text.trim(),
-    };
+    run = await prepare(body);
   } catch (cause) {
-    publicError(modelErrorToString(cause));
+    // Nothing has streamed yet, so this text is what the page shows as the error
+    const { status, message } = startError(cause);
+    return new Response(message, { status });
   }
+
+  const result = streamText({
+    model: run.model,
+    system: run.system,
+    messages: run.messages,
+    tools: run.tools,
+    // The first step has to write; after it the model stops once nothing is
+    // left. Required on every step would leave it no way to stop short of the cap.
+    prepareStep: ({ stepNumber }) => ({
+      toolChoice: stepNumber === 0 ? "required" : "auto",
+    }),
+    stopWhen: stepCountIs(MAX_STEPS),
+    abortSignal: signal,
+  });
+  // A provider's refusal is the user's to act on, so it is never masked
+  return result.toUIMessageStreamResponse({ onError: modelErrorToString });
 }
 
-const CallSchema = z.object({
-  toolCallId: z.string().min(1),
-  toolName: z.enum([TOOL_NAMES.memory_remember, TOOL_NAMES.memory_forget]),
-  input: z.unknown(),
-});
+async function prepare(body: unknown) {
+  const { model: ref, messages } = BodySchema.parse(body);
+  const tools = await loadTools({ target: "memory-edit" });
+  const [model, system, ui] = await Promise.all([
+    getTextModel(ref),
+    loadMemoryEditPrompt(),
+    validateUIMessages({ messages }),
+  ]);
+  return {
+    model: model.model,
+    system,
+    tools,
+    messages: await convertToModelMessages(ui),
+  };
+}
 
-/** Runs one saved card the way the call runs it: the same tool and its checks, in the user's hand. */
-export async function applyMemoryEditCall(body: unknown): Promise<unknown> {
-  const { toolCallId, toolName, input } = CallSchema.parse(body);
-  const tools: ToolSet = createMemoryTools("user");
-  const tool = tools[toolName];
-
-  const parsed = await asSchema(tool.inputSchema).validate?.(input);
-  if (parsed && !parsed.success) {
-    publicError(`That change no longer fits: ${parsed.error.message}`);
+/** The route boundary's policy (protocol/to-result), for a response that is not a Result. */
+function startError(cause: unknown): { status: number; message: string } {
+  if (isPublicError(cause)) return { status: 400, message: cause.message };
+  if (cause instanceof ZodError) {
+    return {
+      status: 400,
+      message: cause.issues[0]?.message ?? "That request does not fit",
+    };
   }
-  return tool.execute?.(parsed?.value ?? input, {
-    toolCallId,
-    messages: [],
-    context: undefined,
-  });
+  logger.error(cause);
+  return { status: 500, message: "Could not start the edit" };
 }

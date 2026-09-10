@@ -1,10 +1,13 @@
 "use client";
 
-import type { JSONValue, ModelMessage } from "ai";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, getToolName, isToolUIPart } from "ai";
 import {
   ArrowUp,
+  BookOpen,
   Check,
   ChevronDown,
+  Loader2,
   Minus,
   Pencil,
   Plus,
@@ -18,25 +21,22 @@ import { ModelPicker } from "@/features/ai/components/model-picker";
 import { ProviderIcon } from "@/features/ai/components/provider-icon";
 import type { TextModelProviderId } from "@/features/ai/model.schema";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
-import { applyMemoryEditAction } from "@/features/memory/memory.action";
-import type {
-  MemoryEditCall,
-  MemoryEditStep,
-  MemoryNote,
-} from "@/features/memory/memory.schema";
-import { isResultOk, type Result, unwrapResult } from "@/lib/protocol/result";
-import { cn, errorToString } from "@/lib/utils";
+import type { MemoryNote } from "@/features/memory/memory.schema";
+import { cn } from "@/lib/utils";
 
-type ToolPart = Extract<ModelMessage, { role: "tool" }>["content"][number];
-type ToolAnswer = Extract<ToolPart, { type: "tool-result" }>;
 type KnownFact = { text: string; path: string };
 
+/** How long a finished edit's lines stay up before they clear. */
+const LINGER_MS = 4000;
+
+/** One transport for every edit: the model rides on each request, not on the hook. */
+const transport = new DefaultChatTransport({ api: queryKey.memoryEdit });
+
 /**
- * Editing memory in a line, floating over the panes above the rail. A request
- * runs one model step at a time (memory.edit); each change the model asks for
- * rises as a card, saved on the spot or dropped, and once every card of a step is
- * answered the run carries on. The model is picked here for this edit and never
- * saved. A waiting card carries no color: nothing about it is failing.
+ * Editing memory in a line, floating over the panes above the rail. One send is
+ * one streamed run (memory.edit): the model writes with memory's own tools as it
+ * goes and each call is drawn as it arrives. Nothing about the exchange is kept —
+ * the next send starts clean — and the model is picked here, never saved.
  */
 export function MemoryEdit({ notes }: { notes: MemoryNote[] }) {
   const [draft, setDraft] = useState("");
@@ -45,128 +45,83 @@ export function MemoryEdit({ notes }: { notes: MemoryNote[] }) {
     model: string;
   }>({ provider: null, model: "" });
   const [picking, setPicking] = useState(false);
-  const [working, setWorking] = useState(false);
-  const [cards, setCards] = useState<MemoryEditCall[]>([]);
-  const [saving, setSaving] = useState<string | null>(null);
-  const [line, setLine] = useState<{ text: string; failed?: boolean } | null>(
-    null,
+  const {
+    messages,
+    sendMessage,
+    setMessages,
+    status,
+    stop,
+    error,
+    clearError,
+  } = useChat({ transport });
+
+  // A run nobody is looking at has nobody to show its lines to
+  const stopRef = useRef(stop);
+  stopRef.current = stop;
+  useEffect(
+    () => () => {
+      void stopRef.current();
+    },
+    [],
   );
 
-  // Refs, because each card answers into them while the others still wait
-  const thread = useRef<ModelMessage[]>([]);
-  const pending = useRef<MemoryEditCall[]>([]);
-  const answers = useRef<ToolAnswer[]>([]);
-  const stop = useRef<AbortController | null>(null);
-  useEffect(() => () => stop.current?.abort(), []);
+  // Facts seen on screen, kept after they go so a finished change still reads as what it replaced
+  const seen = useRef(new Map<number, KnownFact>());
+  for (const note of notes) {
+    for (const fact of note.facts) {
+      seen.current.set(fact.id, { text: fact.text, path: note.path });
+    }
+  }
 
-  const known = new Map<number, KnownFact>(
-    notes.flatMap((note) =>
-      note.facts.map((fact) => [fact.id, { text: fact.text, path: note.path }]),
-    ),
-  );
+  const running = status === "submitted" || status === "streaming";
   const ready = Boolean(model.provider && model.model.trim());
-  const busy = working || cards.length > 0;
+  const reply = [...messages]
+    .reverse()
+    .find((message) => message.role === "assistant");
+  const parts = reply?.parts ?? [];
+  const calls = parts.filter(isToolUIPart);
+  const words = parts
+    .flatMap((part) => (part.type === "text" ? [part.text] : []))
+    .join(" ")
+    .trim();
+  const failed =
+    Boolean(error) || calls.some((call) => call.state === "output-error");
+  const written = calls.filter(
+    (call) =>
+      call.state === "output-available" &&
+      getToolName(call) !== TOOL_NAMES.memory_recall,
+  ).length;
 
-  const step = async (messages: ModelMessage[]) => {
-    const controller = new AbortController();
-    stop.current = controller;
-    setWorking(true);
-    try {
-      const response = await fetch(queryKey.memoryEdit, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, messages }),
-        signal: controller.signal,
-      });
-      const next = unwrapResult(
-        (await response.json()) as Result<MemoryEditStep>,
-      );
-      // A step with no calls is the run's last: its words are the whole answer
-      thread.current = next.calls.length ? [...messages, ...next.messages] : [];
-      pending.current = next.calls;
-      answers.current = [];
-      setCards(next.calls);
-      setLine(next.text ? { text: next.text } : null);
-    } catch (cause) {
-      if (controller.signal.aborted) return;
-      thread.current = [];
-      pending.current = [];
-      setCards([]);
-      setLine({ text: errorToString(cause), failed: true });
-    } finally {
-      if (stop.current === controller) setWorking(false);
-    }
-  };
-
-  const settle = (call: MemoryEditCall, output: ToolAnswer["output"]) => {
-    answers.current.push({
-      type: "tool-result",
-      toolCallId: call.toolCallId,
-      toolName: call.toolName,
-      output,
-    });
-    pending.current = pending.current.filter(
-      (card) => card.toolCallId !== call.toolCallId,
-    );
-    setCards(pending.current);
-    if (pending.current.length === 0) {
-      void step([
-        ...thread.current,
-        { role: "tool", content: answers.current },
-      ]);
-    }
-  };
-
-  const save = async (call: MemoryEditCall) => {
-    setSaving(call.toolCallId);
-    const result = await applyMemoryEditAction(call).catch((cause) => ({
-      isOk: false as const,
-      message: errorToString(cause),
-    }));
-    setSaving(null);
-    if (!isResultOk(result)) {
-      // The card stays: nothing was written, and the user can still drop it
-      setLine({ text: result.message ?? "Could not save that", failed: true });
-      return;
-    }
-    settle(call, {
-      type: "json",
-      value: (result.data.output ?? null) as JSONValue,
-    });
-  };
-
-  const drop = (call: MemoryEditCall) =>
-    settle(call, {
-      type: "execution-denied",
-      reason: "The user dropped this change.",
-    });
+  useEffect(() => {
+    if (status !== "ready" || failed || messages.length === 0) return;
+    const clear = setTimeout(() => setMessages([]), LINGER_MS);
+    return () => clearTimeout(clear);
+  }, [status, failed, messages.length, setMessages]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const said = draft.trim();
-    if (!said || !ready || busy) return;
+    if (!said || !ready || running) return;
     setDraft("");
-    setLine(null);
     setPicking(false);
-    void step([{ role: "user", content: said }]);
+    clearError();
+    // One send is one run: nothing from the last one rides along
+    setMessages([]);
+    void sendMessage({ text: said }, { body: { model } });
   };
 
-  const status = working ? (
+  const line = running ? (
     <ShinyText text="Working on memory" className="text-xs" />
-  ) : cards.length > 0 ? (
+  ) : error ? (
+    <span className="text-xs text-destructive">{error.message}</span>
+  ) : reply ? (
     <span className="text-xs text-muted-foreground">
-      {cards.length === 1
-        ? "1 change to review"
-        : `${cards.length} changes to review`}
-    </span>
-  ) : line ? (
-    <span
-      className={cn(
-        "text-xs",
-        line.failed ? "text-destructive" : "text-muted-foreground",
-      )}
-    >
-      {line.text}
+      {words ||
+        (written === 0
+          ? "Nothing to change"
+          : written === 1
+            ? "1 change saved"
+            : `${written} changes saved`)}
     </span>
   ) : null;
 
@@ -184,22 +139,24 @@ export function MemoryEdit({ notes }: { notes: MemoryNote[] }) {
           </div>
         )}
 
-        {cards.length > 0 && (
-          <div className="flex w-full flex-col gap-1.5">
-            {cards.map((call) => (
-              <EditCard
+        {calls.length > 0 && (
+          <ul className="w-full divide-y divide-border/60 overflow-hidden rounded-xl bg-popover shadow-lg ring-1 ring-foreground/10">
+            {calls.map((call) => (
+              <ChangeRow
                 key={call.toolCallId}
-                call={call}
-                known={known}
-                saving={saving === call.toolCallId}
-                onSave={() => save(call)}
-                onDrop={() => drop(call)}
+                name={getToolName(call)}
+                input={call.input}
+                state={call.state}
+                errorText={
+                  call.state === "output-error" ? call.errorText : undefined
+                }
+                known={seen.current}
               />
             ))}
-          </div>
+          </ul>
         )}
 
-        {status && <p className="max-w-full truncate px-1">{status}</p>}
+        {line && <p className="max-w-full truncate px-1">{line}</p>}
 
         <form
           onSubmit={submit}
@@ -208,13 +165,9 @@ export function MemoryEdit({ notes }: { notes: MemoryNote[] }) {
           <input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            disabled={busy}
+            disabled={running}
             aria-label="Edit memory"
-            placeholder={
-              cards.length > 0
-                ? "Save or drop the changes above"
-                : "Tell memory what changed"
-            }
+            placeholder="Tell memory what changed"
             className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-60"
           />
           <Button
@@ -237,11 +190,11 @@ export function MemoryEdit({ notes }: { notes: MemoryNote[] }) {
           <Button
             type="submit"
             size="icon-sm"
-            loading={working}
-            disabled={!draft.trim() || !ready || busy}
+            loading={running}
+            disabled={!draft.trim() || !ready || running}
             aria-label="Send"
           >
-            {!working && <ArrowUp />}
+            {!running && <ArrowUp />}
           </Button>
         </form>
       </div>
@@ -250,39 +203,48 @@ export function MemoryEdit({ notes }: { notes: MemoryNote[] }) {
 }
 
 type Change = {
-  kind: "Remember" | "Replace" | "Forget" | "Rename";
+  kind: "Remember" | "Replace" | "Forget" | "Rename" | "Opened";
   path: string;
   lines: { before?: string; after?: string }[];
   carried: boolean;
 };
 
-/** What a call will do, read off its arguments and the facts the screen already holds. */
-function describe(call: MemoryEditCall, known: Map<number, KnownFact>): Change {
-  const input = (call.input ?? {}) as {
+/** What a call does, read off its arguments — still arriving while it streams — and the facts the screen has shown. */
+function describe(
+  name: string,
+  input: unknown,
+  known: Map<number, KnownFact>,
+): Change {
+  const args = (input ?? {}) as {
     path?: string;
     factId?: number;
     description?: string | null;
-    aliases?: string[] | null;
+    aliases?: (string | undefined)[] | null;
     facts?:
-      | {
-          text: string;
+      | ({
+          text?: string;
           replaces?: number | null;
           alwaysLoad?: boolean | null;
-        }[]
+        } | null)[]
       | null;
   };
 
-  if (call.toolName === TOOL_NAMES.memory_forget) {
-    const fact = input.factId != null ? known.get(input.factId) : undefined;
+  if (name === TOOL_NAMES.memory_recall) {
+    return { kind: "Opened", path: args.path ?? "", lines: [], carried: false };
+  }
+
+  if (name === TOOL_NAMES.memory_forget) {
+    const fact = args.factId != null ? known.get(args.factId) : undefined;
+    const fallback = args.factId != null ? `Fact #${args.factId}` : "";
     return {
       kind: "Forget",
       path: fact?.path ?? "",
-      lines: [{ before: fact?.text ?? `Fact #${input.factId}` }],
+      lines: [{ before: fact?.text ?? fallback }],
       carried: false,
     };
   }
 
-  const facts = input.facts ?? [];
+  const facts = (args.facts ?? []).filter((fact) => fact != null);
   const lines: Change["lines"] = facts.map((fact) =>
     fact.replaces != null
       ? {
@@ -291,10 +253,11 @@ function describe(call: MemoryEditCall, known: Map<number, KnownFact>): Change {
         }
       : { after: fact.text },
   );
-  if (input.description) lines.push({ after: `“${input.description}”` });
-  if (input.aliases?.length) {
+  if (args.description) lines.push({ after: `“${args.description}”` });
+  const aliases = (args.aliases ?? []).filter(Boolean);
+  if (aliases.length) {
     lines.push({
-      after: `Called ${input.aliases.map((alias) => `“${alias}”`).join(", ")}`,
+      after: `Called ${aliases.map((alias) => `“${alias}”`).join(", ")}`,
     });
   }
   return {
@@ -303,7 +266,7 @@ function describe(call: MemoryEditCall, known: Map<number, KnownFact>): Change {
       : facts.length
         ? "Remember"
         : "Rename",
-    path: input.path ?? "",
+    path: args.path ?? "",
     lines,
     carried: facts.some((fact) => fact.alwaysLoad),
   };
@@ -314,29 +277,32 @@ const GLYPHS = {
   Replace: Pencil,
   Forget: Minus,
   Rename: Pencil,
+  Opened: BookOpen,
 } as const;
 
-function EditCard({
-  call,
+function ChangeRow({
+  name,
+  input,
+  state,
+  errorText,
   known,
-  saving,
-  onSave,
-  onDrop,
 }: {
-  call: MemoryEditCall;
+  name: string;
+  input: unknown;
+  state: string;
+  errorText?: string;
   known: Map<number, KnownFact>;
-  saving: boolean;
-  onSave: () => void;
-  onDrop: () => void;
 }) {
-  const change = describe(call, known);
+  const change = describe(name, input, known);
   const Glyph = GLYPHS[change.kind];
+  const broke = state === "output-error";
+  const done = state === "output-available";
   return (
-    <div className="flex w-full animate-in items-start gap-2.5 rounded-xl bg-popover py-2.5 pr-2 pl-3 shadow-lg ring-1 ring-foreground/10 duration-200 fade-in slide-in-from-bottom-1">
+    <li className="flex animate-in items-start gap-2.5 px-3 py-2.5 duration-200 fade-in slide-in-from-bottom-1">
       <Glyph className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1 space-y-0.5">
         {change.lines.map((line, at) => (
-          <div key={at}>
+          <div key={`${change.kind}-${at}`}>
             {line.before && (
               <p className="text-[13px] leading-5 text-muted-foreground/60 line-through">
                 {line.before}
@@ -354,26 +320,19 @@ function EditCard({
           {change.path && ` · ${change.path}`}
           {change.carried && " · carried into every call"}
         </p>
+        {broke && errorText && (
+          <p className="text-xs text-destructive">{errorText}</p>
+        )}
       </div>
-      <Button
-        size="icon-xs"
-        variant="ghost"
-        aria-label="Drop"
-        disabled={saving}
-        onClick={onDrop}
-        className="text-muted-foreground"
-      >
-        <X />
-      </Button>
-      <Button
-        size="icon-xs"
-        variant="secondary"
-        aria-label="Save"
-        loading={saving}
-        onClick={onSave}
-      >
-        {!saving && <Check />}
-      </Button>
-    </div>
+      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center text-muted-foreground">
+        {broke ? (
+          <X className="size-3.5 text-destructive" />
+        ) : done ? (
+          <Check className="size-3.5" />
+        ) : (
+          <Loader2 className="size-3.5 animate-spin" />
+        )}
+      </span>
+    </li>
   );
 }

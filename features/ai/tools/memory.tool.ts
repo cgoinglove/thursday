@@ -73,10 +73,14 @@ const overSize = (count: number) =>
  * @param callId The call these tools serve, when there is one: recorded on
  * what `memory_remember` writes, and the conversation `memory_conversation`
  * does not hand back because the model is already in it.
+ * @param options.countReads Whether opening a note counts as reading it. The
+ * counts rank notes cold in the call prompt, so only a runtime that recalls on
+ * the user's behalf counts; an edit opening a note to change it does not.
  */
 export const createMemoryTools = (
   source: MemorySource,
   callId: string | null = null,
+  { countReads = true }: { countReads?: boolean } = {},
 ) => ({
   [TOOL_NAMES.memory_recall]: tool({
     description: "Open one note from the listing, whole.",
@@ -88,7 +92,7 @@ export const createMemoryTools = (
         ),
     }),
     execute: async ({ path }) => {
-      const { notes } = await readNotes([path]);
+      const { notes } = await readNotes([path], { touch: countReads });
       const note = notes[0];
       // A missing note is an answer to relay, not a reason to retry spellings
       if (!note)

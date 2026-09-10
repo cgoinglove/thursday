@@ -1,4 +1,3 @@
-import type { ModelMessage } from "ai";
 import { z } from "zod";
 import { type DateLike, DateLikeSchema, toDate } from "@/lib/date-like";
 
@@ -132,20 +131,6 @@ export function sectionOf(path: string): MemorySection {
     ? (head as (typeof MEMORY_SECTIONS)[number])
     : MEMORY_INBOX;
 }
-
-/** One change a memory edit asked for, waiting on the screen for the user (memory.edit). */
-export type MemoryEditCall = {
-  toolCallId: string;
-  toolName: string;
-  input: unknown;
-};
-
-/** What one step of a memory edit hands back: its new messages, the changes it waits on, its words. */
-export type MemoryEditStep = {
-  messages: ModelMessage[];
-  calls: MemoryEditCall[];
-  text: string;
-};
 
 // Model-facing shapes: narrower than the UI's on purpose.
 
