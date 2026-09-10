@@ -24,8 +24,6 @@ export const queryKey = {
   /** One note with all facts, by path. Paths contain `/`, so it is a query, not a
    *  segment: pass the hook null instead of building this key when closed. */
   notePath: (path: string) => ({ url: "/api/memory", query: { path } }),
-  /** MemoryTidyStatusView: settings, what is pending, the pass in progress and the last one. Under the memory prefix on purpose: a fact changing moves it too. */
-  memoryTidy: "/api/memory/tidy",
 
   /** MCPServerSummary[] with tool counts, no tools */
   mcp: "/api/mcp",

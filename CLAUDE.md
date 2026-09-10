@@ -35,7 +35,7 @@ features/<name>/          One domain: its data and its screens. A new feature co
                           Writes emit appEvents here, so every caller notifies the same way.
   <name>.action.ts        "use server" + serverAction. Writes.
   <name>.*.ts             run / manager / store files when the domain needs them.
-                          A second query file (`task.query.ts`, `tidy.query.ts`) when one table is its own subject.
+                          A second query file (`task.query.ts`) when one table is its own subject.
   components/             Screens for this domain only, including its settings panel.
 features/ai/              Everything the model sees. Composes domain query/schema into prompts and tools.
   tools/<name>.tool.ts    One tool per file: name, description, args, execute. Execute calls the domain query.
@@ -123,14 +123,16 @@ in `outputFileTracingIncludes`, not left to the trace.
   call domain queries directly. The one exception is anything that touches the call itself (hang up).
 - **Long-running work continues after the response** (`after`). Everything that happens is written as
   rows, so what the screen draws and what the model re-reads are the same rows.
-- **Memory is re-read after calls.** `features/memory/memory.tidy` runs a text model over what was
-  said once `MEMORY_TIDY.messages` turns are owed; that same number is the window, so one read is
-  one context over the most recent turns and older calls are stamped unread rather than queued.
-  The checkpoint is `call.tidied_at`. The trigger is turns owed, never a call count: a greeting and
-  an hour's talk are both one call.
-- **Memory is one note kept by four hands, and each fact records whose.** The user typing on the
-  screen, the call as they talk, a bot that turned something up mid-job, the pass that reads calls
-  back — `memory_fact.source` (memory.schema `MemorySource`). No model chooses it: the runtime knows
+- **Memory is written as it is said, and nothing re-reads it afterwards.** A second pass over
+  finished calls was tried and removed: its only trigger was the call ending, which is the moment
+  the browser is most likely to go, and the presence rule then killed the run mid-read — so it
+  spent a context, stamped nothing and read the same turns again next time. What memory holds is
+  what a hand actually wrote while it was there. A memory that has grown says so in the call
+  prompt instead (`prompt-helper` `tidying`, config `MEMORY_LIMITS`), and the user is the one who
+  drops a line.
+- **Memory is one note kept by three hands, and each fact records whose.** The user typing on the
+  screen, the call as they talk, a bot that turned something up mid-job —
+  `memory_fact.source` (memory.schema `MemorySource`). No model chooses it: the runtime knows
   which it is (`load-tools`), so it cannot be claimed. It is for the person looking at their own
   memory and stays off every model-facing surface: a bare `bot` beside a line says nothing a reader
   can act on — it cannot tell whether that bot was itself — and costs a sentence to explain. Null
@@ -163,7 +165,7 @@ in `outputFileTracingIncludes`, not left to the trace.
   bot's face, where it reads as part of who the bot is rather than one more setting, and can
   only throw it away — a line the user typed would come back rewritten by the next pass.
 - **No browser, nothing runs.** `presence` (app/api/events) says whether a browser is on the stream;
-  when the last one has been gone a while, jobs stop and wait, the tidy pass stops, open calls close.
+  when the last one has been gone a while, jobs stop and wait and open calls close.
   Wired once at boot (`instrumentation`), not in each domain.
 - **What cannot be won by instruction is enforced by structure**: tool sets, step limits, ask-back
   counts, output truncation, shell env. Do not add prompt sentences for things the code can enforce.
@@ -233,6 +235,15 @@ in `outputFileTracingIncludes`, not left to the trace.
   (`WORKSPACE_VIEW.textMax` / `elementMax`): text arrives as a Range and says it is a head, and an
   image or page past the cap is not drawn at all — an `<img>` decodes whole and a dead tab
   explains nothing. Audio and video are uncapped; they stream.
+- **A number that tunes behaviour is in `config.ts`; a number that *is* the drawing stays where it
+  is drawn.** A cap, a deadline, a page size, a step limit, how long something is kept — named in
+  `config.ts` with a paragraph saying what moving it does, even when one file reads it. An easing
+  time, a radius, a sample rate, a wire timeout the other end also knows: local. The test is who
+  the number answers to — the person tuning the app, or the thing being drawn.
+- **A tool two runtimes share names no tool in what it returns.** `memory_recall` answers the call
+  and a bot. Past `MEMORY_LIMITS.factsPerNote` it says the note has outgrown its size and to ask the
+  user what to drop — the ask, which both can act on, never the mechanism: only one of them has a
+  screen to put a note on, and how is the call prompt's to say.
 - **Don't split files by size.** A long file that does one thing stays one file.
 - **The workspace is split by how long what is in it lives.** `artifacts/` is the user's finished
   work and stays — flat and unattributed, one top-level entry per result, which is what the Artifacts
@@ -245,9 +256,9 @@ in `outputFileTracingIncludes`, not left to the trace.
   output past `TOOL_OUTPUT.max` spills, is pruned by age when a job's shell closes, the way browser
   snapshots already were.
 - **SQLite has one writer, so the app makes one request at a time** (`database/db.ts` `oneAtATime`).
-  Several flows write at once — a run per job, the pass that reads calls back, the routes the browser
+  Several flows write at once — a run per job, a background pass, the routes the browser
   hits every time a write emits an event — and SQLite answers the losers with `SQLITE_BUSY` instead
-  of queueing them. Measured on the real write paths: three runs, the tidy pass and two readers gave
+  of queueing them. Measured on the real write paths: three runs, one background pass and two readers gave
   245 failures in a tenth of a second; serialising gave 0 in the same time, because the writes were
   always going to happen one after another. The busy timeout does **not** substitute for it (with it
   set, the same run still lost all 245 after waiting 52 seconds — a starved writer keeps losing), and
@@ -270,8 +281,8 @@ in `outputFileTracingIncludes`, not left to the trace.
   Providers speak this protocol with their own additions, and a missing case is invisible: the event
   goes nowhere and the conversation quietly loses what it carried. A user turn whose transcription
   failed is the example that cost the most — the item never got words, an item with no words is not
-  reported at all, and the turn vanished from the transcript that bot briefings, the call prompt and
-  the memory read-back all draw from. Once per type per session, so a busy stream cannot drown it.
+  reported at all, and the turn vanished from the transcript that bot briefings and the call prompt
+  both draw from. Once per type per session, so a busy stream cannot drown it.
 - **An interface with one implementation is two files, not an interface.** Don't add ports.
 
 # Data flow

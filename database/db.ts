@@ -63,10 +63,10 @@ export const database = drizzle({ client });
 /**
  * SQLite has one writer, so this app makes one request at a time.
  *
- * Without this the app is several writers at once — a bot run per job, the pass
- * that reads calls back, and the routes the browser hits every time a write
- * emits an event — and SQLite answers the losers with `SQLITE_BUSY` rather than
- * a queue. Measured on the app's own write paths: three runs, the tidy pass and
+ * Without this the app is several writers at once — a bot run per job, a
+ * background pass, and the routes the browser hits every time a write emits an
+ * event — and SQLite answers the losers with `SQLITE_BUSY` rather than a queue.
+ * Measured on the app's own write paths: three runs, one background pass and
  * two readers produced 245 `SQLITE_BUSY` failures in a tenth of a second, and
  * `BUSY_TIMEOUT_MS` alone did not fix it — with the timeout in place the same
  * run still lost all 245, having spent 52 seconds waiting first, because a

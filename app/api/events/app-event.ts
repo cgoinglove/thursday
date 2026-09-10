@@ -12,10 +12,6 @@ export type AppEvent =
   | { type: "memory" }
   /** Signal: a server was registered, removed, synced, or finished OAuth. */
   | { type: "mcp" }
-  /** Signal: a read-back started or ended (memory/tidy.query). */
-  | { type: "memory-tidy" }
-  /** Data: a read-back ended on its own. `tally` is one line of what changed, or why it failed. */
-  | { type: "memory-tidied"; failed: boolean; tally: string }
   /** Data: show this note on screen, or hide it when null (memory.tool). */
   | { type: "memory-view"; path: string | null }
   /** Data: a finished job produced a document; `path` is workspace-relative. */
@@ -36,7 +32,6 @@ export const SIGNALS: Record<Signal, true> = {
   tasks: true,
   memory: true,
   mcp: true,
-  "memory-tidy": true,
 };
 
 export const isSignal = (

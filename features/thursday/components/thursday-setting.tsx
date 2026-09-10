@@ -21,7 +21,6 @@ import {
   type SpeachModelRef,
 } from "@/features/ai/model.schema";
 import { MARK_PALETTE_ROWS, MARK_SHAPES } from "@/features/bot/mark.const";
-import { TidySetting } from "@/features/memory/components/memory-tidy";
 import {
   SettingChoiceRows,
   SettingError,
@@ -149,12 +148,9 @@ export function ThursdaySetting() {
         onChange={(hotkey) => patch({ hotkey })}
       />
 
-      {/* The last two are server-side, unlike everything above them: the tool set
-          is built where a call opens (ai/load-tools) and the pass runs without a
-          browser (memory.tidy) */}
+      {/* Server-side, unlike everything above it: the tool set is built where a
+          call opens (ai/load-tools) */}
       <SkillsSetting />
-
-      <TidySetting />
 
       <Instructions
         value={thursday.systemPrompt ?? ""}
@@ -220,7 +216,7 @@ function ResetHistory() {
     okMessage: ({ calls, tasks, notes }) =>
       `Wiped ${calls} calls, ${tasks} jobs, ${notes} notes`,
     onOk: () => {
-      // Prefix match, so the tidy log and every loaded history page go too.
+      // Prefix match, so every loaded history page goes too.
       revalidate(queryKey.memory);
       revalidate(queryKey.tasks);
       revalidate(queryKey.callHistory(null));

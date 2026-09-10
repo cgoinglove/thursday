@@ -123,12 +123,6 @@ export type RunOptions = {
 const MAX_STEPS = BOT_RUN.steps;
 const CONTEXT_BUDGET = BOT_RUN.compactAt;
 
-/** A borrowed bot cannot borrow another. */
-const MAX_DEPTH = 1;
-
-/** `ask_back` calls a borrowed bot gets per part. At zero prepareStep removes the tool instead of having it refuse. */
-const MAX_ASK_BACK = 3;
-
 /**
  * Where a run starts: a job's thread (the opening message first time, past
  * stretches plus new turns on resume), or an `ask_bot` brief plus `context`
@@ -202,9 +196,9 @@ export async function runBot(
       : [{ role: "user", content: taskPrompt(input) }];
 
   /** Remaining `ask_back` calls for a borrowed bot; the tool counts it down. */
-  const asks = { left: MAX_ASK_BACK };
+  const asks = { left: BOT_RUN.askBack };
   const agentTools =
-    depth >= MAX_DEPTH
+    depth >= BOT_RUN.depth
       ? withAskBack(tools, asks, options)
       : withAskBot(tools, {
           name,

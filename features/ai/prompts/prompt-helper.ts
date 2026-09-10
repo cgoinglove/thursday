@@ -1,12 +1,11 @@
 import { format, formatDistanceToNowStrict } from "date-fns";
-import { MEMORY_LISTING_TOKENS, PROMPT_BUDGET, PROMPT_LINE } from "@/config";
+import { MEMORY_LIMITS, PROMPT_BUDGET, PROMPT_LINE } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import type { McpToolRef } from "@/features/connectors/mcp.schema";
 import type {
   MemoryAlwaysLoaded,
   MemoryIndexEntry,
 } from "@/features/memory/memory.schema";
-import { MANY_FACTS } from "@/features/memory/memory.schema";
 import type { SkillMetadata } from "@/features/skills/skills.discover";
 import { toDate } from "@/lib/date-like";
 import { logger } from "@/lib/logger";
@@ -58,6 +57,36 @@ export const clockNow = (now = new Date()) =>
 /** `**Now**: 2026-09-02 (Wed) 15:41 Asia/Seoul` */
 export const nowLine = (now = new Date()) => `**Now**: ${clockNow(now)}`;
 
+/**
+ * When a call happened, the one way every prompt and tool says it: local, the
+ * same shape as `Now` (clockNow), with how long ago. A UTC stamp beside a local
+ * `Now` put two clocks nine hours apart in one prompt, and a call from last
+ * night read as one from this afternoon.
+ */
+export const callStamp = (at: Date): string =>
+  `${format(at, "yyyy-MM-dd (EEE) HH:mm")} (${formatDistanceToNowStrict(at, { addSuffix: true })})`;
+
+/** When a fact was said, for the fact itself: the date and time without the distance. */
+export const saidStamp = (at: Date): string =>
+  format(at, "yyyy-MM-dd (EEE) HH:mm");
+
+/**
+ * A call as a conversation: who said what, and which tool was used — never its
+ * arguments or its result. What was asked for and what was said back is the
+ * conversation; the arguments are already in memory and the results are not
+ * what anyone said.
+ */
+export const conversationLines = (
+  turns: { role: string; tool: string | null; text: string }[],
+): string =>
+  turns
+    .map((turn) =>
+      turn.role === "tool"
+        ? `you → ${turn.tool ?? "tool"}`
+        : `${turn.role === "user" ? "user" : "you"}: ${turn.text}`,
+    )
+    .join("\n");
+
 /** `4mo`, `12d`: short enough to read aloud. */
 function sinceLast(at: MemoryIndexEntry["lastSeenAt"]): string {
   const days = Math.floor((Date.now() - toDate(at).getTime()) / 86_400_000);
@@ -85,13 +114,15 @@ export const carriedLines = (loaded: MemoryAlwaysLoaded[]): string =>
   loaded.map((fact) => `- ${fact.text} · ${fact.path} #${fact.id}`).join("\n");
 
 /**
- * Whether it is time to tidy, and why: a crowded listing points at the coldest notes,
- * a heavy note at itself. load-tools also reads this to decide whether `memory_show` is attached.
+ * Whether it is time to tidy, and why: too much held in all (the coldest notes
+ * are what to drop), or one note too long to hold in one piece (it names itself).
+ * Both counted in facts, the unit the user sees on their own screen and the one
+ * every write hands back — a token estimate is nobody's unit and cannot be acted on.
  */
 export const tidying = (index: MemoryIndexEntry[]) => ({
-  // The age column is only shown when picking what to drop
-  crowded: estimateTokens(noteLines(index)) > MEMORY_LISTING_TOKENS,
-  heavy: index.filter((note) => note.factCount > MANY_FACTS),
+  crowded:
+    index.reduce((sum, note) => sum + note.factCount, 0) > MEMORY_LIMITS.facts,
+  heavy: index.filter((note) => note.factCount > MEMORY_LIMITS.factsPerNote),
 });
 
 /** A bot gets the whole description; `short` gives the voice prompt the first sentence only. */
@@ -158,9 +189,6 @@ export type RecentCall = {
   }[];
 };
 
-/** How much of a past job's report is worth carrying; the rest is asked for with `task`. */
-const JOB_OUTCOME = 160;
-
 /**
  * One turn as the transcript carries it. A `delegate` line takes what became of
  * the job: the handle to pick it back up, and how it ended — arguments alone say
@@ -184,7 +212,9 @@ function turnLine(turn: RecentCall["turns"][number], call: RecentCall): string {
   const job = label ? call.jobs?.find((one) => one.label === label) : undefined;
   if (!job) return args;
 
-  const said = job.outcome ? `: ${clip(job.outcome, JOB_OUTCOME)}` : "";
+  const said = job.outcome
+    ? `: ${clip(job.outcome, PROMPT_LINE.jobOutcome)}`
+    : "";
   return `you → ${turn.tool} "${job.label}" (${job.id}) — ${job.status}${said}`;
 }
 
@@ -211,12 +241,7 @@ export function recentCallLines(calls: RecentCall[], budget: number): string {
   for (const { call, line } of kept) {
     if (call !== open) {
       open = call;
-      const when = formatDistanceToNowStrict(call.startedAt, {
-        addSuffix: true,
-      });
-      lines.push(
-        `### ${call.startedAt.toISOString().slice(0, 16).replace("T", " ")} (${when})`,
-      );
+      lines.push(`### ${callStamp(call.startedAt)}`);
     }
     lines.push(line);
   }

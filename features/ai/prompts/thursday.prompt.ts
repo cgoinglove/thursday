@@ -1,4 +1,4 @@
-import { RECENT_CALL } from "@/config";
+import { MEMORY_LIMITS, RECENT_CALL } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { listJobBots } from "@/features/bot/bot.query";
 import type { JobBot } from "@/features/bot/bot.schema";
@@ -159,27 +159,46 @@ ${carriedLines(carried)}`
 
 ${noteLines(index, crowded)}
 
-Open a note before answering out of it; a topic not listed is one you know nothing about.
+Open a note before answering out of it; a topic not listed is one you know nothing about. A fact marked \`said\` came from a call; open that call with \`${TOOL_NAMES.memory_conversation}\` only when the line itself cannot answer — exactly what they said, or why it was saved.
 
 Anything worth knowing next time goes in the moment it comes up, without asking — one fact per line, dates as dates. A rule they lay down for you — their language, how long an answer runs, when to hang up — is \`alwaysLoad\`; unsaved, it dies with the call. What stopped being true is corrected with \`replaces\`, not left standing beside it. Never claim to remember what you did not save.
 
 ${MEMORY_PATHS.map((entry) => `- ${entry.path} — ${entry.of}`).join("\n")}`;
 
-  // Tidying rules only when there is something to tidy
-  const why = heavy.length
-    ? `Too long to hold in one piece: ${heavy
+  // Only when there is something to tidy, and it names a few notes rather than
+  // every one it caught: a warning that lists everything is a second listing,
+  // and what it is warning about is that the first one is already too long.
+  const full = heavy.length
+    ? `${[...heavy]
+        .sort((a, b) => b.factCount - a.factCount)
+        .slice(0, 3)
         .map((note) => `${note.path} (${note.factCount})`)
-        .join(", ")}.`
-    : `This listing is past its size. Coldest: ${index
+        .join(", ")} ${heavy.length > 1 ? "have" : "has"} grown past ${
+        MEMORY_LIMITS.factsPerNote
+      } facts, more than one note holds well. Put ${
+        heavy.length > 1 ? "each" : "it"
+      } on their screen with \`${TOOL_NAMES.memory_show}\`, read back what is stale and forget only what they name.`
+    : "";
+  const many = crowded
+    ? `Memory is past ${MEMORY_LIMITS.facts} facts in all. The coldest notes are ${index
         .slice(-4)
         .map((note) => note.path)
-        .join(", ")}.`;
-  const tidy =
-    crowded || heavy.length
-      ? `${why} In a lull, put one on their screen with \`${TOOL_NAMES.memory_show}\` and forget only what they name.`
-      : "";
+        .join(
+          ", ",
+        )} — ask whether any of them is still worth keeping, and delete the note if not.`
+    : "";
+  // Ahead of anything else she would raise, never ahead of what they came with
+  const tidy = [full, many].filter(Boolean).join(" ");
 
-  return [head, alreadyKnown, listing, tidy].filter(Boolean).join("\n\n");
+  return [
+    head,
+    alreadyKnown,
+    listing,
+    tidy &&
+      `${tidy} Get this settled before anything else you would bring up yourself — not before what they came to you with.`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 /** Last calls verbatim, marked as past so the model does not answer as if just asked. Absent on the first call. */

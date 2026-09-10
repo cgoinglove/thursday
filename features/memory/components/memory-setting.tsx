@@ -46,7 +46,6 @@ const SECTIONS: { key: MemorySection; label: string }[] = [
   { key: "you", label: "You" },
   { key: "people", label: "People" },
   { key: "projects", label: "Projects" },
-  { key: "plans", label: "Plans" },
   { key: "topics", label: "Topics" },
   { key: "inbox", label: "Inbox" },
 ];
@@ -444,12 +443,6 @@ const NOTE_KINDS = [
     label: "Project",
     placeholder: "thursday",
     fact: "Ships behind a feature flag until April",
-  },
-  {
-    key: "plans",
-    label: "Plan",
-    placeholder: "japan trip",
-    fact: "Aug 28–31 with Yuri — wedding rings in Ginza",
   },
   {
     key: "topics",

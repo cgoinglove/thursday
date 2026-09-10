@@ -1,9 +1,10 @@
 import { relative } from "node:path";
 import { type ToolSet, tool } from "ai";
 import z from "zod";
+import { EXEC_TIMEOUT_MS } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { writeRefusal } from "@/features/workspace/workspace";
-import { EXEC_TIMEOUT_MS, type Sandbox } from "@/lib/sandbox";
+import type { Sandbox } from "@/lib/sandbox";
 
 /**
  * Shell access, plus `write_file` for bots: multi-line files through a

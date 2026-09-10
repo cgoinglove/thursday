@@ -1,5 +1,5 @@
+import { CALL_HISTORY_PAGE } from "@/config";
 import { listCallHistory } from "@/features/thursday/thursday.query";
-import { CALL_HISTORY_PAGE } from "@/features/thursday/thursday.schema";
 import { serverRoute } from "@/lib/protocol/server-route";
 
 /**

@@ -343,7 +343,6 @@ export function useThursday() {
     },
     tasks: () => void revalidate(queryKey.tasks),
     memory: () => void revalidate(queryKey.memory),
-    "memory-tidy": () => void revalidate(queryKey.memoryTidy),
     mcp: () => {
       void revalidate(queryKey.mcp);
       void revalidate(queryKey.mcpTools);

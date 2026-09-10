@@ -10,11 +10,7 @@ import {
   MCPServerConfig,
   MCPToolInfo,
 } from "@/features/connectors/mcp.schema";
-import type {
-  MemorySource,
-  MemoryTidyChange,
-  MemoryTidyStatus,
-} from "@/features/memory/memory.schema";
+import type { MemorySource } from "@/features/memory/memory.schema";
 
 /** Workers that background jobs are delegated to. */
 export const botTable = sqliteTable("bot", {
@@ -241,12 +237,6 @@ export const callTable = sqliteTable("call", {
    * Decides whether a finished job notifies the call or the desktop (bot.runner).
    */
   endedAt: int("ended_at", { mode: "timestamp" }),
-  /**
-   * When the memory tidy pass (features/memory/memory.tidy) finished reading
-   * this call; null while it still owes one. The checkpoint is this column, not
-   * a cursor: a run that dies mid-way leaves the unread calls unstamped.
-   */
-  tidiedAt: int("tidied_at", { mode: "timestamp" }),
 });
 
 /** One spoken turn in a call. */
@@ -321,18 +311,26 @@ export const memoryFactTable = sqliteTable(
     text: text("text").notNull(),
     // false marks a superseded version; edits append a new row instead of overwriting.
     isLatest: int("is_latest", { mode: "boolean" }).notNull().default(true),
-    /** Carried in every prompt without opening the note. Cap: memory.schema ALWAYS_LOADED_MAX. */
+    /** Carried in every prompt without opening the note. Cap: config MEMORY_LIMITS.carried. */
     alwaysLoad: int("always_load", { mode: "boolean" })
       .notNull()
       .default(false),
     /**
      * Who wrote it (memory.schema MemorySource): the user on the screen, the
-     * call, a bot mid-job, or the pass that reads calls back. Memory is one
-     * note kept by four hands, and a reader that cannot tell them apart reads
-     * what a bot inferred as something the user said. Null on rows written
-     * before this column — unknown, not guessed.
+     * call, or a bot mid-job. Memory is one note kept by three hands, and a
+     * reader that cannot tell them apart reads what a bot inferred as
+     * something the user said. Null on rows written before this column —
+     * unknown, not guessed.
      */
     source: text("source").$type<MemorySource>(),
+    /**
+     * The call it was said in, when a call wrote it; null for the screen and
+     * for a bot. Set by the runtime, never by a model (ai/load-tools). A deleted
+     * call leaves the fact and drops the link.
+     */
+    callId: text("call_id").references(() => callTable.id, {
+      onDelete: "set null",
+    }),
     createdAt: int("created_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -340,39 +338,9 @@ export const memoryFactTable = sqliteTable(
   (t) => [
     index("idx_memory_fact_note").on(t.noteId, t.isLatest),
     index("idx_memory_fact_always").on(t.alwaysLoad, t.isLatest),
+    index("idx_memory_fact_call").on(t.callId),
   ],
 );
-
-/**
- * One read-back (features/memory/memory.tidy): a text model re-reading what was
- * said since the last one and reconciling memory with it. The row is what the
- * screen draws; the checkpoint itself is call.tidied_at.
- */
-export const memoryTidyRunTable = sqliteTable("memory_tidy_run", {
-  id: text("id").primaryKey(),
-  /** running | done | stopped (browser closed, cancelled, restart) | failed. */
-  status: text("status").notNull().$type<MemoryTidyStatus>(),
-  /** Recorded per run: the pick and its fallback change between runs. */
-  provider: text("provider").notNull(),
-  model: text("model").notNull(),
-  /** The calls this read covered and stamped, oldest first. */
-  callIds: text("call_ids", { mode: "json" }).notNull().$type<string[]>(),
-  /** Turns it read. Fewer than were owed when older calls were dropped. */
-  messages: int("messages").notNull().default(0),
-  /** What the model changed, in order (memory.schema MemoryTidyChange). */
-  changes: text("changes", { mode: "json" })
-    .notNull()
-    .$type<MemoryTidyChange[]>()
-    .default([]),
-  /** Why it is stopped or failed; null otherwise. */
-  error: text("error"),
-  inputTokens: int("input_tokens").notNull().default(0),
-  outputTokens: int("output_tokens").notNull().default(0),
-  startedAt: int("started_at", { mode: "timestamp" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  endedAt: int("ended_at", { mode: "timestamp" }),
-});
 
 /** Settings written from the UI, mostly API keys. Env vars still win on read. */
 export const configTable = sqliteTable("config", {

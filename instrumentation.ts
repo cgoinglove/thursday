@@ -20,23 +20,15 @@ export async function register() {
   const { sweepCalls } = await import("@/features/thursday/thursday.query");
   await sweepCalls();
 
-  // And for a read-back the last process left running (memory.tidy).
-  const { stopTidy, sweepTidy } = await import("@/features/memory/memory.tidy");
-  await sweepTidy();
-
-  // With no browser on the app nothing runs: jobs stop and wait, a read-back
-  // stops, and a call left open closes. Nothing resumes by itself — a job waits
-  // to be picked up by hand (bot.runner pauseTasks) and a read-back waits for
-  // the next call to end.
+  // With no browser on the app nothing runs: jobs stop and wait, and a call
+  // left open closes. Nothing resumes by itself — a job waits to be picked up
+  // by hand (bot.runner pauseTasks).
   const { presence } = await import("@/app/api/events/app-event.server");
   const { pauseTasks } = await import("@/features/bot/bot.runner");
   presence.onGone(() => {
     logger.info("browser gone — stopping what was running");
     void pauseTasks("The browser closed while this was running.").catch(
       (cause) => logger.error("pause tasks", cause),
-    );
-    void stopTidy("The browser closed.").catch((cause) =>
-      logger.error("stop tidy", cause),
     );
     void sweepCalls().catch((cause) => logger.error("sweep calls", cause));
   });

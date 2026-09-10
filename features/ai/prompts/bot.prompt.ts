@@ -1,4 +1,4 @@
-import { BOT_NOTES, BOT_RUN, PATHS } from "@/config";
+import { BOT_NOTES, BOT_RUN, PATHS, PROMPT_LINE } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import {
   listJobBots,
@@ -154,7 +154,7 @@ Written by the person this bot works for. Where these and anything above disagre
 ${persona.trim()}`
     : "";
 
-/** A bot reads memory and adds to it; revising and naming are the call's (load-tools), so the chapter is that small. */
+/** A bot reads memory and adds to it; revising and the names the user says are the call's (load-tools), so the chapter is that small. */
 function memory(
   index: MemoryIndexEntry[],
   carried: MemoryAlwaysLoaded[],
@@ -305,7 +305,6 @@ Every part ends with \`${TOOL_NAMES.report}\`; what you hand back goes into ${as
 
 /** How many turns of the call travel with the job: enough for one missed detail, not enough to bury the request. */
 export const OPENING_TURNS = 10;
-const OPENING_TURN_CHARS = 160;
 
 /**
  * The first message a bot reads: the request plus the last turns of the call, verbatim.
@@ -321,7 +320,7 @@ export function buildTaskOpening(input: {
 
   const lines = turns.map(
     (turn) =>
-      `${turn.role === "user" ? "user" : "thursday"}: ${clip(turn.text, OPENING_TURN_CHARS)}`,
+      `${turn.role === "user" ? "user" : "thursday"}: ${clip(turn.text, PROMPT_LINE.callTurn)}`,
   );
   return `${input.request}
 

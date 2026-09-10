@@ -14,6 +14,7 @@ import {
   DATA_DIR,
   PATHS,
   TOOL_OUTPUT,
+  WORKSPACE_KEEP,
 } from "@/config";
 import { logger } from "@/lib/logger";
 import { createSandBox, type Sandbox } from "@/lib/sandbox";
@@ -278,16 +279,10 @@ export async function closeJobShell(taskId: string): Promise<void> {
   await pruneJobFiles();
 }
 
-/**
- * playwright-cli never deletes its snapshot files. Refs go stale on the next
- * click, so anything older than an hour belongs to no running job.
- */
-const BROWSER_FILE_TTL_MS = 60 * 60 * 1000;
-
 async function pruneOutputFiles(): Promise<void> {
   const dir = join(WORKSPACE, PATHS.output);
   const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
-  const cutoff = Date.now() - OUTPUT_FILE_TTL_MS;
+  const cutoff = Date.now() - WORKSPACE_KEEP.outputMs;
   for (const entry of entries) {
     if (!entry.isFile()) continue;
     const file = join(dir, entry.name);
@@ -296,18 +291,10 @@ async function pruneOutputFiles(): Promise<void> {
   }
 }
 
-/**
- * Tool output over `TOOL_OUTPUT.max` is written here in full and the model is
- * told where. Nothing read it after the run that made it, and nothing deleted
- * it either — a day is long enough to still be looking, short enough that the
- * folder does not become the biggest thing in the workspace.
- */
-const OUTPUT_FILE_TTL_MS = 24 * 60 * 60 * 1000;
-
 async function pruneBrowserFiles(): Promise<void> {
   const dir = join(WORKSPACE, BROWSER_DIR);
   const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
-  const cutoff = Date.now() - BROWSER_FILE_TTL_MS;
+  const cutoff = Date.now() - WORKSPACE_KEEP.snapshotsMs;
   for (const entry of entries) {
     if (!entry.isFile()) continue;
     const file = join(dir, entry.name);

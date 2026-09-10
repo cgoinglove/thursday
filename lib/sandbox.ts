@@ -1,16 +1,9 @@
 import { spawn } from "node:child_process";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve as pathResolve, relative, sep } from "node:path";
+import { EXEC_TIMEOUT_MS } from "@/config";
 
 export type ExecResult = { stdout: string; stderr: string; exitCode: number };
-
-/**
- * How long one command may run before its process group is killed. Nobody is
- * watching the shell, so a command waiting on a prompt would otherwise hang
- * the job; anything that legitimately runs longer belongs in the background.
- * Named because the shell guide states it to the model (ai/tools/workspace.tool).
- */
-export const EXEC_TIMEOUT_MS = 180_000;
 
 export interface Sandbox {
   /** Absolute. Relative paths resolve from here */

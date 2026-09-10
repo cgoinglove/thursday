@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { parseTextModel } from "@/features/ai/model.schema";
+import { MEMORY_LIMITS } from "@/config";
 import {
   addFact,
   createNote,
@@ -11,15 +11,9 @@ import {
   setFactAlwaysLoad,
   updateNote,
 } from "@/features/memory/memory.query";
-import {
-  ALWAYS_LOADED_MAX,
-  isMemoryPath,
-} from "@/features/memory/memory.schema";
-import { markEveryCallRead } from "@/features/thursday/thursday.query";
+import { isMemoryPath } from "@/features/memory/memory.schema";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
-import { startTidy, stopTidy } from "./memory.tidy";
-import { readTidyOn, writeTidyModel, writeTidyOn } from "./tidy.query";
 
 const PathSchema = z.string().trim().refine(isMemoryPath, "Invalid note path");
 
@@ -84,43 +78,9 @@ export const setFactAlwaysLoadAction = serverAction(
     const result = await setFactAlwaysLoad(noteId, factId, alwaysLoad);
     if (result === "full") {
       publicError(
-        `Only ${ALWAYS_LOADED_MAX} facts can be carried into every call — drop one first`,
+        `Only ${MEMORY_LIMITS.carried} facts can be carried into every call — drop one first`,
       );
     }
     if (result === "missing") publicError("Fact not found");
   },
 );
-
-// Reading calls back (memory.tidy): the switch, the model, and the two hands on it.
-
-/** Switching on stamps every past call as read, so it starts from now rather than from the beginning of history. */
-export const setMemoryTidyOnAction = serverAction(async (on: unknown) => {
-  const wanted = z.boolean().parse(on);
-  if (wanted && !(await readTidyOn())) await markEveryCallRead();
-  await writeTidyOn(wanted);
-  if (!wanted) await stopTidy("Switched off.");
-});
-
-/** `provider/model`, or empty for the app default. */
-export const setMemoryTidyModelAction = serverAction(async (value: unknown) => {
-  const said = z.string().trim().parse(value);
-  if (!said) return writeTidyModel(null);
-  const ref = parseTextModel(said);
-  if (!ref) publicError("That is not a model this app can run.");
-  await writeTidyModel(ref);
-});
-
-/** The screen's "Read now": skips the count, not the read itself. */
-export const runMemoryTidyAction = serverAction(async () => {
-  const outcome = await startTidy({ force: true });
-  if (outcome === "off") publicError("Reading calls back is switched off.");
-  if (outcome === "no-model") {
-    publicError("Pick a model first — this does not run on the app default.");
-  }
-  if (outcome === "running") publicError("It is already reading.");
-  if (outcome === "nothing") publicError("Every call has been read back.");
-});
-
-export const cancelMemoryTidyAction = serverAction(async () => {
-  await stopTidy("Cancelled.");
-});

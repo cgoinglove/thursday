@@ -1,7 +1,6 @@
 "use server";
 
 import { asSchema } from "ai";
-import { after } from "next/server";
 import z from "zod";
 import { loadTools } from "@/features/ai/load-tools";
 import {
@@ -14,9 +13,6 @@ import { removeTask } from "@/features/bot/bot.runner";
 import { listAllTaskIds } from "@/features/bot/task.query";
 import { readConfig } from "@/features/config/config.query";
 import { deleteAllNotes } from "@/features/memory/memory.query";
-import { startTidy, stopTidy } from "@/features/memory/memory.tidy";
-import { deleteAllTidyRuns } from "@/features/memory/tidy.query";
-import { logger } from "@/lib/logger";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
 import { issueClientSecret } from "@/lib/realtime/client-secret";
@@ -141,13 +137,8 @@ export const saveTurnsAction = serverAction(
   },
 );
 
-/** Ending the call is what may set a read-back going (memory.tidy); it runs behind the response. */
 export const endCallAction = serverAction(async (callId: string) => {
-  if (!(await endCall(callId))) return;
-  after(async () => {
-    const outcome = await startTidy();
-    if (outcome !== "started") logger.debug(`tidy: not now (${outcome})`);
-  });
+  await endCall(callId);
 });
 
 /**
@@ -162,23 +153,19 @@ export const deleteCallAction = serverAction(async (callId: string) => {
 
 /**
  * Wipes what the app has kept of its own use: every ended call and its turns,
- * every job and its thread, every memory note, and the read-back log. Keys,
- * bots and connectors stay — the set `pnpm reset` calls History.
+ * every job and its thread, and every memory note. Keys, bots and connectors
+ * stay — the set `pnpm reset` calls History.
  *
  * History is not one domain, so this reaches into three and each clears its own
  * rows. Live work is stopped before its row goes: `removeTask` aborts a running
- * job and closes its shell, and a read-back in flight would otherwise write
- * notes back after they were deleted.
+ * job and closes its shell.
  */
 export const resetHistoryAction = serverAction(async () => {
-  await stopTidy("History was reset.");
-
   const taskIds = await listAllTaskIds();
   for (const id of taskIds) await removeTask(id);
 
   const calls = await deleteEndedCalls();
   const notes = await deleteAllNotes();
-  await deleteAllTidyRuns();
 
   return { calls, tasks: taskIds.length, notes };
 });

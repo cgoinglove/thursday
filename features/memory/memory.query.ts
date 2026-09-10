@@ -1,11 +1,10 @@
-import { and, asc, between, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { appEvents } from "@/app/api/events/app-event.server";
-import { PAGE_SIZE } from "@/config";
+import { MEMORY_LIMITS, PAGE_SIZE } from "@/config";
 import { database } from "@/database/db";
-import { memoryFactTable, memoryNoteTable } from "@/database/tables";
+import { callTable, memoryFactTable, memoryNoteTable } from "@/database/tables";
 import { createKeyedLock } from "@/lib/queue";
 import {
-  ALWAYS_LOADED_MAX,
   isAlwaysListed,
   MEMORY_ALWAYS_LISTED,
   MEMORY_PATHS,
@@ -71,8 +70,10 @@ function latestFacts(noteIds: number[]) {
       alwaysLoad: memoryFactTable.alwaysLoad,
       source: memoryFactTable.source,
       createdAt: memoryFactTable.createdAt,
+      saidAt: callTable.startedAt,
     })
     .from(memoryFactTable)
+    .leftJoin(callTable, eq(memoryFactTable.callId, callTable.id))
     .where(
       and(
         eq(memoryFactTable.isLatest, true),
@@ -300,14 +301,18 @@ export async function readNotes(
       description: note.description,
       facts: facts
         .filter((fact) => fact.noteId === note.id)
-        .map((fact) => ({ id: fact.id, text: fact.text })),
+        .map((fact) => ({
+          id: fact.id,
+          text: fact.text,
+          ...(fact.saidAt ? { saidAt: fact.saidAt } : {}),
+        })),
     })),
     missing,
   };
 }
 
 /** Facts differing only in whitespace, punctuation or case count as the same fact. */
-export const sameFact = (text: string) =>
+const sameFact = (text: string) =>
   text.toLowerCase().replace(/[\s.,!?…·'"`]/g, "");
 
 /**
@@ -318,6 +323,8 @@ export async function writeNotes(
   input: MemoryNoteWrite[],
   /** Which hand is writing; recorded on every fact (memory.schema MemorySource). */
   source: MemorySource,
+  /** The call it is being said in; null for the screen and for a bot. */
+  callId: string | null = null,
 ): Promise<MemoryWrite> {
   const unnamed: string[] = [];
   const paths: string[] = [];
@@ -326,7 +333,7 @@ export async function writeNotes(
 
   await serialize(() =>
     database.transaction(async (tx) => {
-      // Free alwaysLoad slots (ALWAYS_LOADED_MAX), counted inside the transaction.
+      // Free alwaysLoad slots (config MEMORY_LIMITS.carried), counted inside the transaction.
       const [loaded] = await tx
         .select({ count: sql<number>`count(*)` })
         .from(memoryFactTable)
@@ -336,7 +343,7 @@ export async function writeNotes(
             eq(memoryFactTable.isLatest, true),
           ),
         );
-      let room = ALWAYS_LOADED_MAX - Number(loaded?.count ?? 0);
+      let room = MEMORY_LIMITS.carried - Number(loaded?.count ?? 0);
 
       /** Claims an alwaysLoad slot; without one the fact is stored as ordinary. */
       const claim = (want: boolean, text: string) => {
@@ -472,6 +479,7 @@ export async function writeNotes(
                   noteId,
                   text: fact.text,
                   source,
+                  callId,
                   alwaysLoad: claim(
                     fact.alwaysLoad ?? target.alwaysLoad,
                     fact.text,
@@ -501,6 +509,7 @@ export async function writeNotes(
               noteId,
               text: fact.text,
               source,
+              callId,
               alwaysLoad: claim(fact.alwaysLoad === true, fact.text),
             })
             .returning({
@@ -541,7 +550,7 @@ export function listAlwaysLoaded(): Promise<MemoryAlwaysLoaded[]> {
       ),
     )
     .orderBy(asc(memoryNoteTable.path), asc(memoryFactTable.id))
-    .limit(ALWAYS_LOADED_MAX);
+    .limit(MEMORY_LIMITS.carried);
 }
 
 /** Settings toggle for alwaysLoad; same cap as model writes, no new version. */
@@ -562,7 +571,7 @@ export async function setFactAlwaysLoad(
               eq(memoryFactTable.isLatest, true),
             ),
           );
-        if (Number(loaded?.count ?? 0) >= ALWAYS_LOADED_MAX) return "full";
+        if (Number(loaded?.count ?? 0) >= MEMORY_LIMITS.carried) return "full";
       }
 
       const [row] = await tx
@@ -685,41 +694,14 @@ export async function forgetFactById(
   return forgotten;
 }
 
-/** Facts written in a window, with their note: what a call already saved, so the tidy pass does not save it twice (memory.tidy). */
-export function listFactsWrittenBetween(
-  from: Date,
-  to: Date,
-): Promise<MemoryAlwaysLoaded[]> {
-  return database
-    .select({
-      id: memoryFactTable.id,
-      path: memoryNoteTable.path,
-      text: memoryFactTable.text,
-    })
-    .from(memoryFactTable)
-    .innerJoin(memoryNoteTable, eq(memoryFactTable.noteId, memoryNoteTable.id))
-    .where(
-      and(
-        eq(memoryFactTable.isLatest, true),
-        between(memoryFactTable.createdAt, from, to),
-      ),
-    )
-    .orderBy(asc(memoryFactTable.id));
-}
-
-/** One current fact with its note path; null when gone. */
-export async function findFactById(
+/** Who wrote a fact and the call it was said in; null when there is no such fact. */
+export async function findFactCall(
   id: number,
-): Promise<MemoryAlwaysLoaded | null> {
+): Promise<{ source: MemorySource | null; callId: string | null } | null> {
   const [fact] = await database
-    .select({
-      id: memoryFactTable.id,
-      path: memoryNoteTable.path,
-      text: memoryFactTable.text,
-    })
+    .select({ source: memoryFactTable.source, callId: memoryFactTable.callId })
     .from(memoryFactTable)
-    .innerJoin(memoryNoteTable, eq(memoryFactTable.noteId, memoryNoteTable.id))
-    .where(and(eq(memoryFactTable.id, id), eq(memoryFactTable.isLatest, true)));
+    .where(eq(memoryFactTable.id, id));
   return fact ?? null;
 }
 

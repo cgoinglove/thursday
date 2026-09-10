@@ -156,9 +156,9 @@ export const DEFAULT_BOT: JobBot = {
 export const BOT_NOTES_KEY = "BOT_NOTES";
 
 /**
- * On unless it was switched off, the other way round from the memory read-back:
- * a pass runs only when a job actually turned something up, and costs one small
- * call when it does — so a bot that never learns anything never spends.
+ * On unless it was switched off: a pass runs only when a job actually turned
+ * something up, and costs one small call when it does — so a bot that never
+ * learns anything never spends.
  */
 export const isBotNotesOn = (value: string | undefined) =>
   value?.trim() !== "off";

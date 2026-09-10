@@ -178,6 +178,3 @@ export type CallRecord = {
   endedAt: DateLike | null;
   turns: (CallTurn & { at: DateLike })[];
 };
-
-/** History page size in calls, not rows; each call carries every turn. */
-export const CALL_HISTORY_PAGE = 10;

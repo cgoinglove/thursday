@@ -17,7 +17,6 @@ import {
 } from "@/features/ai/tools/memory.tool";
 import { createSearchTool } from "@/features/ai/tools/search.tool";
 import { createSkillTools } from "@/features/ai/tools/skills.tool";
-import { tidyDoneTool } from "@/features/ai/tools/tidy.tool";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { createWorkspaceTools } from "@/features/ai/tools/workspace.tool";
 import { readBotNotesOn } from "@/features/bot/bot.query";
@@ -42,7 +41,7 @@ import { resolveSearchModel } from "./model";
  * when Settings › Thursday says so (thursday.query readCallSkillsOn).
  */
 
-export type ToolTarget = "thursday" | "bot" | "tidy";
+export type ToolTarget = "thursday" | "bot";
 
 /** Which runtime is running, and what that run knows about itself. */
 export type ToolRun =
@@ -59,9 +58,7 @@ export type ToolRun =
       taskId?: string | null;
       /** The model this run already resolved (bot.run resolveModel); `web_search` runs on it (model.ts resolveSearchModel). */
       model?: TextModel | null;
-    }
-  /** The memory tidy pass (memory.tidy): memory, and nothing that takes time. */
-  | { target: "tidy" };
+    };
 
 /**
  * Starting work and following it. bot.runner is imported dynamically to break a cycle
@@ -236,16 +233,12 @@ export async function loadTools(run: ToolRun): Promise<ToolSet> {
 }
 
 async function buildTools(run: ToolRun): Promise<ToolSet> {
-  // The runtime is the hand: the call as the user talks, the pass that reads
-  // calls back, a bot mid-job (memory.tool botRememberTool records its own).
-  const memory = createMemoryTools(run.target === "tidy" ? "tidy" : "call");
-
-  if (run.target === "tidy") {
-    // Reading calls back (memory/memory.tidy): the one runtime besides the call
-    // that writes memory. No screen to show a note on and no shell, so no workspace is opened.
-    const { [TOOL_NAMES.memory_show]: _show, ...rest } = memory;
-    return { ...rest, [TOOL_NAMES.tidy_done]: tidyDoneTool };
-  }
+  // The runtime is the hand: the call as the user talks, a bot mid-job
+  // (memory.tool botRememberTool records its own).
+  const memory = createMemoryTools(
+    "call",
+    run.target === "thursday" ? (run.callId ?? null) : null,
+  );
 
   const sandbox = await openWorkspace();
 
@@ -294,6 +287,7 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
       // one command is a glance, not a job to plan around
       guide: true,
     }),
+    [TOOL_NAMES.memory_conversation]: memory[TOOL_NAMES.memory_conversation],
     // Pinned tools come with schemas; the rest sit behind `tool_search`, absent when nothing is left to find (mcp.tool)
     ...(await createMcpTools(run.bot, sandbox)),
     ...createSkillTools({ sandbox, skills }),

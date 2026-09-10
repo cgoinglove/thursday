@@ -71,6 +71,16 @@ export const PATHS = {
 /** Rows per page for every scrolling list. */
 export const PAGE_SIZE = 50;
 
+/** History page size in calls, not rows; each call carries every turn. */
+export const CALL_HISTORY_PAGE = 10;
+
+/**
+ * Turns per page when a model opens the conversation a fact was saved in
+ * (ai/tools/memory.tool `memory_conversation`). A whole call nearly always
+ * fits one page; the page is there so an hour-long call cannot arrive at once.
+ */
+export const MEMORY_CONVERSATION_PAGE = 100;
+
 /**
  * The Workspace section (features/workspace), which browses what bots wrote.
  * - `rows`  entries one folder listing returns; the rest load on demand. Only
@@ -115,20 +125,27 @@ export const TOOL_OUTPUT = { max: 8_000, head: 5_500, tail: 1_500 };
  * - `summaryWords`  summary length: one word per `perTokens` of budget, clamped
  *            to `min`..`max`.
  * - `resumeMessages`  messages re-read after the last compact when resuming.
+ * - `depth`  how deep `ask_bot` may go. A borrowed bot cannot borrow another.
+ * - `askBack`  `ask_back` calls a borrowed bot gets per part. At zero the tool
+ *            is removed rather than left to refuse.
  */
 export const BOT_RUN = {
   steps: 25,
   compactAt: 120_000,
   summaryWords: { min: 600, max: 3000, perTokens: 200 },
   resumeMessages: 20,
+  depth: 1,
+  askBack: 3,
 };
 
 /**
  * A bot's own notes (database bot_note): one block of prose it writes to itself, at most
  * this many characters. One block and not a list, because it is read as instructions — the
  * bot's own, under the owner's. A ceiling, not a target: most bots never approach it.
+ * `steps` is the rewrite pass: one call is the whole job, the rest headroom for
+ * a rejected argument list (features/bot/bot.notes).
  */
-export const BOT_NOTES = { chars: 400 };
+export const BOT_NOTES = { chars: 400, steps: 3 };
 
 /** Name of the shipped browser skill (PATHS.skills.default); a seed bot claims it by name. */
 export const BROWSER_SKILL = "browser";
@@ -141,6 +158,13 @@ export const BROWSER_SKILL = "browser";
 export const BROWSER_VIEWPORT = "700x700";
 
 /**
+ * How long one shell command may run before it is killed (lib/sandbox). Nothing
+ * is watching it, so a command that stops to ask never gets an answer; the
+ * number is said in the shell guide a bot reads (ai/tools/workspace.tool).
+ */
+export const EXEC_TIMEOUT_MS = 180_000;
+
+/**
  * Name of the built-in "server" holding media tools (image, TTS, STT, video),
  * exposed to bots like an MCP server (features/ai/tools/connected). Shared so
  * connectors can refuse registering a real server under this name.
@@ -148,24 +172,23 @@ export const BROWSER_VIEWPORT = "700x700";
 export const STUDIO_SERVER = "studio";
 
 /**
+ * How long what a job left behind stays (features/workspace/workspace).
+ * - `snapshotsMs`  playwright-cli never deletes its snapshots, and refs go
+ *            stale on the next click, so anything older belongs to no job.
+ * - `outputMs`  tool output over `TOOL_OUTPUT.max` is written out in full;
+ *            long enough to still be looking, short enough that the folder
+ *            does not become the biggest thing in the workspace.
+ */
+export const WORKSPACE_KEEP = {
+  snapshotsMs: 60 * 60 * 1000,
+  outputMs: 24 * 60 * 60 * 1000,
+};
+
+/**
  * How much of the previous call the prompt carries verbatim: `rows` turns are
  * fetched, then filled newest-first until `tokens` is spent.
  */
 export const RECENT_CALL = { rows: 20, tokens: 600 };
-
-/**
- * Reading calls back (features/memory/memory.tidy): after a call ends, a text
- * model re-reads what was said and reconciles memory with it.
- * - `messages`  spoken turns owed before a read runs, and the size of the read:
- *            the most recent `messages` turns go in as one context and every
- *            call they came from is stamped, older ones included. One number,
- *            because the threshold and the window are the same thing.
- * - `steps`  model steps per read.
- */
-export const MEMORY_TIDY = {
-  messages: 40,
-  steps: 12,
-};
 
 /**
  * How long the event stream may have no browser on it before the app treats
@@ -183,8 +206,23 @@ export const BROWSER_GONE_MS = 10_000;
  */
 export const PROMPT_BUDGET = 6_000;
 
-/** Memory listing size (tokens) above which the prompt asks for tidying. */
-export const MEMORY_LISTING_TOKENS = 1_000;
+/**
+ * What counts as too much memory to hold in one piece (features/memory), counted
+ * in facts. Nothing truncates: the first two put a line in the call prompt asking
+ * her to sort it out with the user before she raises anything else, and the third
+ * is the only hard one. Facts rather than tokens because it is the number the user
+ * sees on their own screen and the number a model is told after every write — a
+ * token estimate is nobody's unit and cannot be acted on.
+ * - `facts`  facts held across every note, above which the listing is too long.
+ * - `factsPerNote`  facts in one note, above which that note is named instead.
+ * - `carried`  facts loaded into every prompt without opening a note; enforced
+ *            by the write path, which refuses the next one.
+ */
+export const MEMORY_LIMITS = {
+  facts: 400,
+  factsPerNote: 50,
+  carried: 20,
+};
 
 /**
  * How many bots or skills may pile up before the screen says what they cost.
@@ -202,4 +240,8 @@ export const PROMPT_LINE = {
   skill: 90,
   /** Tool-call arguments; file contents or prompts may arrive as arguments. */
   toolArgs: 30,
+  /** A past job's answer in the transcript; the rest is asked for with `task`. */
+  jobOutcome: 160,
+  /** One call turn travelling with a job in its opening message. */
+  callTurn: 160,
 };

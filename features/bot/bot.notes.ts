@@ -29,9 +29,6 @@ import { readBotNote, writeBotNote } from "./bot.query";
 /** One bot at a time. Without it two passes read the same block and one of them is lost. */
 const lane = createKeyedLock();
 
-/** One call is the whole job; the rest is headroom for a rejected argument list. */
-const MAX_STEPS = 3;
-
 /** No request, no pass: a job that taught nothing must not cost a model call. */
 export const hasNotesRequest = (want: string | null): boolean =>
   Boolean(want?.trim());
@@ -80,7 +77,7 @@ export async function keepNotes(input: KeepNotesInput): Promise<string | null> {
         },
         toolChoice: "required",
         stopWhen: [
-          stepCountIs(MAX_STEPS),
+          stepCountIs(BOT_NOTES.steps),
           hasToolCall(TOOL_NAMES.update_notes),
         ],
       });

@@ -2,13 +2,12 @@ import { z } from "zod";
 import { type DateLike, DateLikeSchema, toDate } from "@/lib/date-like";
 
 /**
- * Who put a fact here. Memory is one note kept by four hands — the user typing
- * on the screen, the call as they talk, a bot that turned something up mid-job,
- * and the pass that reads calls back afterwards — and they are not equally
- * close to the user. A reader that cannot tell them apart reads what a bot
- * inferred as something the user said.
+ * Who put a fact here. Memory is one note kept by three hands — the user typing
+ * on the screen, the call as they talk, and a bot that turned something up
+ * mid-job — and they are not equally close to the user. A reader that cannot
+ * tell them apart reads what a bot inferred as something the user said.
  */
-export const MemorySourceSchema = z.enum(["user", "call", "bot", "tidy"]);
+export const MemorySourceSchema = z.enum(["user", "call", "bot"]);
 
 export type MemorySource = z.infer<typeof MemorySourceSchema>;
 
@@ -25,15 +24,13 @@ export const memorySourceLabel = (source: MemorySource | null | undefined) =>
       ? "on a call"
       : source === "bot"
         ? "a bot"
-        : source === "tidy"
-          ? "read back"
-          : "";
+        : "";
 
 // Storage is fact-based: one row per fact, history via isLatest.
 export const MemoryFactSchema = z.object({
   id: z.number(),
   text: z.string(),
-  /** Loaded into every prompt without opening the note (ALWAYS_LOADED_MAX). */
+  /** Loaded into every prompt without opening the note (config MEMORY_LIMITS.carried). */
   alwaysLoad: z.boolean(),
   /** Null on rows written before the hand was recorded. */
   source: MemorySourceSchema.nullish(),
@@ -65,17 +62,16 @@ export type MemoryNote = z.infer<typeof MemoryNoteSchema>;
 export const MEMORY_PATHS = [
   {
     path: "profile",
-    of: "The user themselves — who they are, what they do, where, how they live",
+    of: "The user themselves — their name, age, what they do, where they live, and whatever else says who they are",
   },
-  { path: "preferences", of: "How they like things done, and said" },
+  { path: "preferences", of: "How they want things done, and said" },
+  { path: "people/", of: "Someone in their life, and what matters about them" },
   {
-    path: "people/",
-    of: "Who someone is to them, and what matters about them",
+    path: "projects/",
+    of: "Something with an end — a trip, a purchase, a deadline, a thing being built",
   },
-  { path: "projects/", of: "Something they are building or running" },
-  { path: "plans/", of: "A trip, an appointment, a purchase, a deadline" },
-  { path: "topics/", of: "Anything else worth its own note" },
-  { path: "inbox", of: "Nowhere obvious to go" },
+  { path: "topics/", of: "Something ongoing that keeps coming back" },
+  { path: "inbox", of: "Nowhere obvious yet" },
 ] as const;
 
 /** Where anything outside the convention lands. */
@@ -92,7 +88,6 @@ export const MEMORY_SECTIONS = MEMORY_PATHS.filter((entry) =>
 ).map((entry) => entry.path.slice(0, -1)) as (
   | "people"
   | "projects"
-  | "plans"
   | "topics"
 )[];
 
@@ -108,11 +103,20 @@ export const MEMORY_ALWAYS_LISTED: string[] = ["profile", "preferences"];
 export const isAlwaysListed = (path: string) =>
   MEMORY_ALWAYS_LISTED.includes(path);
 
-/** Threshold, not a cap: a note above this is flagged for tidying but never truncated. */
-export const MANY_FACTS = 100;
+/**
+ * Notes whose listing line the app writes rather than a model: the two root
+ * notes it keeps (memory.query ensureRootNotes) and the inbox, which is where
+ * a fact lands when its path is not one this listing can carry. A model's
+ * `description` for one of these is ignored, so the line cannot drift with
+ * whoever wrote last (ai/tools/memory.tool).
+ */
+export const APP_NAMED_NOTES = [...MEMORY_ALWAYS_LISTED, MEMORY_INBOX];
 
-/** Max facts loaded into every session prompt; enforced by the write path, not the prompt. */
-export const ALWAYS_LOADED_MAX = 14;
+export const isAppNamed = (path: string) => APP_NAMED_NOTES.includes(path);
+
+/** The line the app writes for one of those. */
+export const appNoteLine = (path: string) =>
+  MEMORY_PATHS.find((entry) => entry.path === path)?.of ?? null;
 
 export type MemorySection =
   | "you"
@@ -134,6 +138,8 @@ export type MemoryFactRef = {
   /** What `memory_forget` and `replaces` take. */
   id: number;
   text: string;
+  /** When the call it was said in started, when a call wrote it. Formatted by the tool, never sent as a Date. */
+  saidAt?: Date;
 };
 
 /** A fact carried at the top of the prompt, with its note path. */
@@ -208,87 +214,4 @@ export function isFading(
   note: Parameters<typeof recallScore>[0] & { path: string },
 ): boolean {
   return !isAlwaysListed(note.path) && recallScore(note) < 0.15;
-}
-
-// Reading calls back (memory.tidy): its settings and the run row the screen draws.
-
-/** Config keys (features/config config.query) the settings live under. */
-export const MEMORY_TIDY_KEYS = {
-  /** "on" switches it on; anything else, unset included, is off. */
-  on: "MEMORY_TIDY",
-  /** `provider/model`; unset runs on the app default (ai/model resolveDefaultModel). */
-  model: "MEMORY_TIDY_MODEL",
-} as const;
-
-/**
- * Off unless switched on. A read costs a whole context of a text model, so
- * nothing starts spending until the user asks for it — and a model must be
- * picked as well (memory.tidy startTidy).
- */
-export const isTidyOn = (value: string | undefined) => value?.trim() === "on";
-
-export const MEMORY_TIDY_STATUSES = [
-  "running",
-  "done",
-  "stopped",
-  "failed",
-] as const;
-export type MemoryTidyStatus = (typeof MEMORY_TIDY_STATUSES)[number];
-
-/** One thing a read changed; the run row keeps them in order. */
-export const MemoryTidyChangeSchema = z.object({
-  op: z.enum(["add", "replace", "forget", "carry", "uncarry"]),
-  path: z.string(),
-  text: z.string(),
-});
-export type MemoryTidyChange = z.infer<typeof MemoryTidyChangeSchema>;
-
-export const MemoryTidyRunSchema = z.object({
-  id: z.string(),
-  status: z.enum(MEMORY_TIDY_STATUSES),
-  provider: z.string(),
-  model: z.string(),
-  /** The calls this read covered and stamped, oldest first. */
-  callIds: z.string().array(),
-  /** Turns it actually read. Fewer than were owed when older ones were dropped. */
-  messages: z.number(),
-  changes: MemoryTidyChangeSchema.array(),
-  error: z.string().nullable(),
-  inputTokens: z.number(),
-  outputTokens: z.number(),
-  startedAt: DateLikeSchema,
-  endedAt: DateLikeSchema.nullable(),
-});
-export type MemoryTidyRun = z.infer<typeof MemoryTidyRunSchema>;
-
-/** What the setting reads (app/api/memory/tidy). */
-export type MemoryTidyStatusView = {
-  on: boolean;
-  /** The picked model as `provider/model`, or null for the app default. */
-  model: string | null;
-  /** Turns said since the last read, and how many it takes to run. */
-  pending: number;
-  every: number;
-  /** The read in progress, if any. */
-  current: MemoryTidyRun | null;
-  /** The most recent finished read. */
-  last: MemoryTidyRun | null;
-};
-
-/** Counts per op for one line on screen: "3 added, 1 revised". */
-export function tidyTally(changes: MemoryTidyChange[]): string {
-  const count = (op: MemoryTidyChange["op"]) =>
-    changes.filter((change) => change.op === op).length;
-  const said = (
-    [
-      [count("add"), "added"],
-      [count("replace"), "revised"],
-      [count("forget"), "dropped"],
-      [count("carry"), "carried"],
-      [count("uncarry"), "uncarried"],
-    ] as const
-  )
-    .filter(([n]) => n > 0)
-    .map(([n, word]) => `${n} ${word}`);
-  return said.length ? said.join(", ") : "nothing to change";
 }

@@ -6,6 +6,7 @@ import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/notify";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CALL_HISTORY_PAGE } from "@/config";
 import { toolIcon } from "@/features/bot/components/bot-tool";
 import {
   SettingDialogContent,
@@ -19,11 +20,7 @@ import { useServerAction } from "@/lib/protocol/use-server-action";
 import { useServerPages } from "@/lib/protocol/use-server-pages";
 import { cn } from "@/lib/utils";
 import { deleteCallAction } from "../thursday.action";
-import {
-  CALL_HISTORY_PAGE,
-  type CallRecord,
-  type CallTurn,
-} from "../thursday.schema";
+import { type CallRecord, type CallTurn } from "../thursday.schema";
 import { toolLine } from "../tool-line";
 import { ThursdayMark } from "./thursday-mark";
 

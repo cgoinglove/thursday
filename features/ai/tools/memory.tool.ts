@@ -1,22 +1,30 @@
 import { tool } from "ai";
 import * as z from "zod";
 import { appEvents } from "@/app/api/events/app-event.server";
+import { MEMORY_CONVERSATION_PAGE, MEMORY_LIMITS } from "@/config";
+import {
+  callStamp,
+  conversationLines,
+  saidStamp,
+} from "@/features/ai/prompts/prompt-helper";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import {
+  findFactCall,
   forgetFactById,
   readNotes,
   resolveNotePath,
   writeNotes,
 } from "@/features/memory/memory.query";
 import {
-  ALWAYS_LOADED_MAX,
-  isAlwaysListed,
+  APP_NAMED_NOTES,
+  appNoteLine,
+  isAppNamed,
   isMemoryPath,
-  MANY_FACTS,
-  MEMORY_ALWAYS_LISTED,
   MEMORY_INBOX,
+  type MemoryNoteView,
   type MemorySource,
 } from "@/features/memory/memory.schema";
+import { readCallConversation } from "@/features/thursday/thursday.query";
 
 const GONE =
   "Deleted for good. The listing in your instructions is from when this session opened and still shows it that way until the next one.";
@@ -24,16 +32,52 @@ const GONE =
 const WROTE =
   "Saved. The listing in your instructions is from when this session opened and will not show this until the next one — the note below is current.";
 
-/** Attached only when a note past MANY_FACTS is actually opened, instead of a standing rule in the prompt. */
-const tooMany = (path: string, count: number) =>
-  ` ${path} carries ${count} facts — enough that it is worth tidying. Put it on screen with \`${TOOL_NAMES.memory_show}\` and ask which of it they no longer need.`;
+/**
+ * A note as a model reads it: how many facts it holds now, and `said` on each
+ * fact a call wrote — the local time of that call, the same stamp its
+ * conversation opens with, so a fact from a call already in the prompt reads
+ * as that call. Never the Date itself: it would serialise as UTC.
+ */
+const withCount = (note: MemoryNoteView) => ({
+  ...note,
+  facts: note.facts.map(({ saidAt, ...fact }) =>
+    saidAt ? { ...fact, said: saidStamp(saidAt) } : fact,
+  ),
+  factCount: note.facts.length,
+});
+
+/** Why a fact has no conversation to open, by the hand that wrote it. */
+const noConversation = (source: MemorySource | null) =>
+  source === "user"
+    ? "Typed on the screen — there is no conversation behind it."
+    : source === "bot"
+      ? "Saved by a bot during a job — there is no conversation behind it."
+      : "The conversation it was saved in is not kept.";
+
+/**
+ * Said when a note has outgrown the recommended size, and only then — the write
+ * itself always goes through. It names no tool: this one answers the call and a
+ * bot, and only one of them has a screen to put a note on. How to do it is the
+ * call prompt's (prompts/thursday.prompt); the ask is the same either way,
+ * because a bot that turned up a fact can hand the same request back with it.
+ */
+const overSize = (count: number) =>
+  count > MEMORY_LIMITS.factsPerNote
+    ? ` This note now holds ${count} facts, past the ${MEMORY_LIMITS.factsPerNote} one note holds well. Ask the user which of it is no longer true and delete what they name.`
+    : "";
 
 /**
  * @param source Which hand these writes are recorded under. The runtime knows
- * it without being told — the call, the read-back pass — so no model ever
- * chooses it (load-tools, memory.schema MemorySource).
+ * it without being told, so no model ever chooses it (load-tools,
+ * memory.schema MemorySource).
+ * @param callId The call these tools serve, when there is one: recorded on
+ * what `memory_remember` writes, and the conversation `memory_conversation`
+ * does not hand back because the model is already in it.
  */
-export const createMemoryTools = (source: MemorySource) => ({
+export const createMemoryTools = (
+  source: MemorySource,
+  callId: string | null = null,
+) => ({
   [TOOL_NAMES.memory_recall]: tool({
     description: "Open one note from the listing, whole.",
     inputSchema: z.object({
@@ -49,9 +93,8 @@ export const createMemoryTools = (source: MemorySource) => ({
       // A missing note is an answer to relay, not a reason to retry spellings
       if (!note)
         return { note: `Nothing on the listing called ${path.trim()}.` };
-      return note.facts.length > MANY_FACTS
-        ? { ...note, note: tooMany(note.path, note.facts.length).trim() }
-        : note;
+      const over = overSize(note.facts.length);
+      return over ? { ...withCount(note), note: over.trim() } : withCount(note);
     },
   }),
 
@@ -79,7 +122,7 @@ export const createMemoryTools = (source: MemorySource) => ({
             .boolean()
             .nullish()
             .describe(
-              `True carries this line into every call's instructions without opening its note — for what to call them, their language and register, a standing rule. At most ${ALWAYS_LOADED_MAX}. Null leaves it; false makes a carried line an ordinary fact.`,
+              `True carries this line into every call's instructions without opening its note — for what to call them, their language and register, a standing rule. At most ${MEMORY_LIMITS.carried}. Null leaves it; false makes a carried line an ordinary fact.`,
             ),
         })
         .array()
@@ -91,7 +134,7 @@ export const createMemoryTools = (source: MemorySource) => ({
         .string()
         .nullish()
         .describe(
-          `One line saying what this note is about, not what it currently says. Give it for a new note, or when the line no longer fits. Null leaves it; ${MEMORY_ALWAYS_LISTED.join(" and ")} keep their own line.`,
+          `One line saying what this note is about, not what it currently says. Give it for a new note, or when the line no longer fits. Null leaves it; ${APP_NAMED_NOTES.join(", ")} keep their own line.`,
         ),
       aliases: z
         .string()
@@ -106,11 +149,15 @@ export const createMemoryTools = (source: MemorySource) => ({
       const said = input.path.trim();
       const known = await resolveNotePath(said);
       const aliases = input.aliases ?? null;
-      // The listing line of the always-listed notes belongs to the app (memory.query ensureRootNotes);
-      // the model's description is ignored there. `alwaysLoad` is not forced on them either:
-      // the first-call opener (thursday.prompt) asks the model to set it.
-      const owned = isAlwaysListed(known ?? said);
-      const description = owned ? null : input.description?.trim() || null;
+      // The listing line of the app-named notes is the app's (memory.schema
+      // isAppNamed); the model's description is ignored there and its own line
+      // written instead, so the inbox cannot end up described by whatever fell
+      // into it. `alwaysLoad` is not forced on them: the first-call opener
+      // (thursday.prompt) asks the model to set it.
+      const target = known ?? said;
+      const description = isAppNamed(target)
+        ? appNoteLine(target)
+        : input.description?.trim() || null;
       const facts = input.facts ?? [];
       if (!facts.length && !description && !aliases) {
         return {
@@ -126,14 +173,14 @@ export const createMemoryTools = (source: MemorySource) => ({
       // A new path outside the convention goes to inbox, which keeps its own line and takes no aliases
       const filed =
         known || isMemoryPath(said)
-          ? { path: known ?? said, description, aliases, facts }
+          ? { path: target, description, aliases, facts }
           : {
               path: MEMORY_INBOX,
-              description: "Facts with nowhere obvious to go",
+              description: appNoteLine(MEMORY_INBOX),
               facts,
             };
 
-      const write = await writeNotes([filed], source);
+      const write = await writeNotes([filed], source, callId);
 
       // The write already succeeded; what follows are requests, not failures.
       // A path filed elsewhere must be said, or the model reports it saved where it asked.
@@ -145,17 +192,71 @@ export const createMemoryTools = (source: MemorySource) => ({
       const unnamed = write.unnamed.length
         ? ` ${write.unnamed[0]} is new and has no line yet — the listing shows its first fact instead. Call again with \`description\` (one line about what it is) and \`aliases\` (the names they say for it).`
         : "";
-      // Carried lines are full: saved as an ordinary fact, and the user picks what to drop (ALWAYS_LOADED_MAX)
+      // Carried lines are full: saved as an ordinary fact, and the user picks what to drop (config MEMORY_LIMITS.carried)
       const notLoaded = write.notLoaded.length
-        ? ` All ${ALWAYS_LOADED_MAX} carried lines are taken, so ${write.notLoaded
+        ? ` All ${MEMORY_LIMITS.carried} carried lines are taken, so ${write.notLoaded
             .map((text) => `"${text}"`)
             .join(
               ", ",
             )} saved as an ordinary fact. Say which carried line you would drop for it and let them choose.`
         : "";
+      const written = withCount(write.notes[0]);
       return {
-        ...write.notes[0],
-        note: `${WROTE}${elsewhere}${unnamed}${notLoaded}`,
+        ...written,
+        note: `${WROTE}${elsewhere}${unnamed}${notLoaded}${overSize(written.factCount)}`,
+      };
+    },
+  }),
+
+  [TOOL_NAMES.memory_conversation]: tool({
+    description:
+      "Open the conversation a fact was saved in, whole: what each side said, and which tools were used.",
+    inputSchema: z.object({
+      factId: z
+        .number()
+        .int()
+        .describe("The id that came with the fact when its note was opened."),
+      page: z
+        .number()
+        .int()
+        .min(1)
+        .nullish()
+        .describe(
+          `${MEMORY_CONVERSATION_PAGE} turns a page, oldest first. Null for the first.`,
+        ),
+    }),
+    execute: async ({ factId, page }) => {
+      const fact = await findFactCall(factId);
+      if (!fact) return { note: `No fact with id ${factId}.` };
+      if (!fact.callId) return { note: noConversation(fact.source) };
+      // Already in the model's context: handing it back only spends it twice
+      if (fact.callId === callId) {
+        return {
+          note: "Said in this call — it is the conversation you are in.",
+        };
+      }
+
+      const at = page ?? 1;
+      const read = await readCallConversation(
+        fact.callId,
+        at,
+        MEMORY_CONVERSATION_PAGE,
+      );
+      if (!read) return { note: noConversation(fact.source) };
+      const pages = Math.max(
+        1,
+        Math.ceil(read.total / MEMORY_CONVERSATION_PAGE),
+      );
+      if (at > pages) {
+        return {
+          note: `That conversation has ${pages} page${pages > 1 ? "s" : ""}.`,
+        };
+      }
+      return {
+        when: callStamp(read.startedAt),
+        page: at,
+        pages,
+        conversation: conversationLines(read.turns),
       };
     },
   }),
@@ -236,8 +337,14 @@ export const botRememberTool = tool({
       .string()
       .array()
       .describe("One statement each, standing on its own later."),
+    description: z
+      .string()
+      .nullish()
+      .describe(
+        "One line saying what a note you are creating is about, not what it says. Null for a note already on the listing — its line is not yours to change.",
+      ),
   }),
-  execute: async ({ path, facts }) => {
+  execute: async ({ path, facts, description }) => {
     const said = path.trim();
     const written = facts.map((text) => text.trim()).filter(Boolean);
     if (!written.length) return { note: "Nothing to write: send a fact." };
@@ -245,18 +352,35 @@ export const botRememberTool = tool({
     const known = await resolveNotePath(said);
     // A path outside the convention goes to inbox, as it does for the call
     const filed = known || isMemoryPath(said) ? (known ?? said) : MEMORY_INBOX;
+    // A line is only ever given to a note being created: an existing one is
+    // named already, and the app names its own (memory.schema isAppNamed).
+    const line =
+      known || isAppNamed(filed) ? null : description?.trim() || null;
 
-    await writeNotes(
-      [{ path: filed, facts: written.map((text) => ({ text })) }],
+    const write = await writeNotes(
+      [
+        {
+          path: filed,
+          ...(isAppNamed(filed) ? { description: appNoteLine(filed) } : {}),
+          ...(line ? { description: line } : {}),
+          facts: written.map((text) => ({ text })),
+        },
+      ],
       "bot",
     );
 
     // A write filed elsewhere must be said, or the report claims the wrong place
+    const elsewhere =
+      filed === said ? "" : ` "${said}" is not a path this listing can carry.`;
+    // A note created without a line is listed by its first fact until one is
+    // given; nobody else will come back for it (memory.query writeNotes).
+    const unnamed = write.unnamed.length
+      ? ` ${write.unnamed[0]} is new and has no line yet — the listing shows its first fact instead. Call again with \`description\`.`
+      : "";
+    const saved = withCount(write.notes[0]);
     return {
-      note:
-        filed === said
-          ? `Saved to ${filed}.`
-          : `Saved to ${filed}: "${said}" is not a path this listing can carry.`,
+      ...saved,
+      note: `Saved to ${filed}.${elsewhere}${unnamed}${overSize(saved.factCount)}`,
     };
   },
 });

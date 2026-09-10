@@ -8,6 +8,7 @@ export const TOOL_NAMES = {
   memory_remember: "memory_remember",
   memory_forget: "memory_forget",
   memory_show: "memory_show",
+  memory_conversation: "memory_conversation",
 
   bash: "bash",
   write_file: "write_file",
@@ -27,8 +28,6 @@ export const TOOL_NAMES = {
   report: "report",
 
   end_call: "end_call",
-
-  tidy_done: "tidy_done",
 
   update_notes: "update_notes",
 } as const;

@@ -24,10 +24,9 @@ const DB_FILE = relative(ROOT, DB_PATH) || DB_PATH;
  * the app's own Reset history offers (features/thursday/thursday.action). Roots
  * only: children cascade via `onDelete: cascade` in database/tables.ts, and a
  * table referencing a root without cascade fails the delete instead of being
- * wiped. `memory_tidy_run` names calls without a foreign key, so it is a root
- * of its own rather than a cascade.
+ * wiped.
  */
-const HISTORY_ROOTS = ["call", "task", "memory_note", "memory_tidy_run"];
+const HISTORY_ROOTS = ["call", "task", "memory_note"];
 
 type Group = {
   name: string;
