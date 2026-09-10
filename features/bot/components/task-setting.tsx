@@ -26,7 +26,7 @@ import {
 } from "@/features/bot/bot.action";
 import {
   type Bot,
-  isBudgetAsk,
+  isAppStop,
   TASK_HISTORY_PAGE,
   type Task,
   type TaskLine,
@@ -35,7 +35,12 @@ import { BotMark } from "@/features/bot/components/bot-mark";
 import { Conversation } from "@/features/bot/components/bot-room";
 import { BotRoster } from "@/features/bot/components/bot-roster";
 import { toolIcon } from "@/features/bot/components/bot-tool";
-import { rosterOf, screenActs, taskFromRow } from "@/features/bot/task.store";
+import {
+  rosterOf,
+  screenActs,
+  taskFromRow,
+  useSeenOnDetail,
+} from "@/features/bot/task.store";
 import {
   SettingError,
   SettingFilter,
@@ -92,6 +97,9 @@ export function TaskSetting() {
         pages?.[0]?.some((task) => task.status === "running") ? POLL_MS : 0,
     },
   });
+
+  // Expanding a row is reading its ending; that is what clears its dot.
+  useSeenOnDetail(tasks.find((task) => task.id === openId));
 
   const [stop] = useServerAction(cancelTaskAction, {
     okMessage: "Task stopped",
@@ -371,29 +379,28 @@ function secondLine(
   task: Task,
 ): { text: string; tone: string; tool?: string; shine?: boolean } | null {
   if (task.status === "waiting" && task.ask) {
-    // Budget stops are not questions; keep them out of the waiting colour.
-    if (isBudgetAsk(task.ask)) {
-      return {
-        text: plainText(task.outcome ?? task.ask.question),
-        tone: "text-muted-foreground",
-      };
-    }
+    // A budget stop is not a question, but it waits on the user exactly as one
+    // does, so it carries the waiting colour too; only the words differ.
     return {
-      text: task.ask.question,
+      text: isAppStop(task.ask)
+        ? plainText(task.outcome ?? task.ask.question)
+        : task.ask.question,
       tone: WAITING_INK,
     };
   }
   // Reports are markdown; keep only the text.
+  // An ending the user has opened steps back; red stays red, only quieter.
+  const had = task.seen;
   if (task.status === "failed") {
     return {
       text: plainText(task.outcome ?? "Failed"),
-      tone: "text-destructive",
+      tone: had ? "text-destructive/70" : "text-destructive",
     };
   }
   if (task.status === "done") {
     return {
       text: plainText(task.outcome ?? "Done"),
-      tone: task.reported ? "text-muted-foreground" : "text-foreground/80",
+      tone: had ? "text-muted-foreground" : "text-foreground/80",
     };
   }
   for (let at = task.lines.length - 1; at >= 0; at--) {

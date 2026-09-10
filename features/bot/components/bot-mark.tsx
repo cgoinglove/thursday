@@ -273,7 +273,7 @@ export type MarkOptions = {
 
   /** Peak opacity of the soft shadow that swells under the mark while thinking, percent. 0 disables. */
   shadow: number;
-  /** Soft aura around the silhouette; blur radius in view-box units. 0 disables. */
+  /** Soft halo around the silhouette, cut out of the head; blur radius in view-box units. 0 disables. */
   glow: number;
   /** Aura color. null follows the mark color. */
   glowColor: string | null;
@@ -924,6 +924,7 @@ export function BotMark({
     [options, outline, varySeed],
   );
   const glowId = `${clipId}-glow`;
+  const haloId = `${clipId}-halo`;
   const maskId = `${clipId}-mask`;
   const shadowId = `${clipId}-shadow`;
   const lifeRef = useRef<SVGGElement>(null);
@@ -933,6 +934,7 @@ export function BotMark({
   const eyeLRef = useRef<SVGGElement>(null);
   const eyeRRef = useRef<SVGGElement>(null);
   const glowRef = useRef<SVGPathElement>(null);
+  const haloHeadRef = useRef<SVGPathElement>(null);
   const shadowRef = useRef<SVGPathElement>(null);
   const maskHeadRef = useRef<SVGPathElement>(null);
   const rimRef = useRef<SVGPathElement>(null);
@@ -1196,6 +1198,7 @@ export function BotMark({
         headRef.current.setAttribute("d", d);
         clipRef.current?.setAttribute("d", d);
         glowRef.current?.setAttribute("d", d);
+        haloHeadRef.current?.setAttribute("d", d);
         shadowRef.current?.setAttribute("d", d);
         rimRef.current?.setAttribute("d", d);
         maskHeadRef.current?.setAttribute("d", d);
@@ -1332,6 +1335,29 @@ export function BotMark({
             <feGaussianBlur stdDeviation={9} />
           </filter>
         )}
+        {/* The aura is a halo around the silhouette, never a light behind it: the
+            eyes are holes cut out of the head, so anything drawn under it shines
+            straight through them and the face reads as hollow. */}
+        {cfg.glow > 0 && (
+          <mask
+            id={haloId}
+            maskUnits="userSpaceOnUse"
+            // The default region is the view box; the blur reaches past it.
+            x={-PAD * 4}
+            y={-PAD * 4}
+            width={BOX + PAD * 8}
+            height={BOX + PAD * 8}
+          >
+            <rect
+              x={-PAD * 4}
+              y={-PAD * 4}
+              width={BOX + PAD * 8}
+              height={BOX + PAD * 8}
+              fill="#fff"
+            />
+            <path ref={haloHeadRef} d={headPath} fill="#000" />
+          </mask>
+        )}
         {cfg.glow > 0 && (
           <filter
             id={glowId}
@@ -1362,6 +1388,7 @@ export function BotMark({
             d={headPath}
             fill={cfg.glowColor ?? "var(--fg)"}
             filter={`url(#${glowId})`}
+            mask={`url(#${haloId})`}
             opacity={cfg.glowStrength / 100}
           />
         )}

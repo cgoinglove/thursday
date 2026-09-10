@@ -27,6 +27,12 @@ export const botTable = sqliteTable("bot", {
   provider: text("provider").$type<TextModelProviderId>(),
   model: text("model"),
   /**
+   * Context size in tokens at which this bot's runs summarize themselves. Null is
+   * the usual answer: the run reads the model's own window instead (ai/model
+   * `compactBudget`), and falls back to a constant only where that is unknowable.
+   */
+  compactAt: int("compact_at"),
+  /**
    * Switched off: the row stays whole and nothing is thrown away, but no model
    * is ever shown this bot (bot.query listJobBots). Jobs it already has still
    * run and resume — a job that is under way is not a bot the agent may pick.
@@ -123,7 +129,7 @@ export const botMcpToolTable = sqliteTable(
 
 /**
  * A job handed to a bot. Outlives the call that opened it. Two independent
- * axes: `status` is where the job is, `reported` is whether the user heard.
+ * axes: `status` is where the job is, `seen` is whether the user has had the ending.
  */
 export const taskTable = sqliteTable("task", {
   /** uuid; the spoken and shown identifier is `label`. */
@@ -143,18 +149,19 @@ export const taskTable = sqliteTable("task", {
   outcome: text("outcome"),
   /**
    * While `waiting`: the `ask_thursday` call the answer resolves, and its options;
-   * null once answered. `toolCallId` null means a step-limit "continue?" prompt,
-   * whose answer becomes a new user turn instead of a tool result.
+   * null once answered. `toolCallId` null means the app stopped the run rather
+   * than the bot asking, and the answer becomes a new user turn instead of a
+   * tool result.
    */
   pending: text("pending", { mode: "json" }).$type<{
     toolCallId: string | null;
     options: string[];
   }>(),
   /**
-   * Whether the outcome was put in front of Thursday (in the prompt or via say()),
-   * not whether it was read. Highlight only; the inbox selects by status.
+   * Whether the user has had the ending: relayed on a call, or on a task list
+   * they had open. Highlight and badge only; the inbox selects by status.
    */
-  reported: int("reported", { mode: "boolean" }).notNull().default(false),
+  seen: int("seen", { mode: "boolean" }).notNull().default(false),
   /** The call that opened the job; null when resumed from the screen. Decides who gets the finish notice (bot.runner). */
   callId: text("call_id"),
   /** Running totals across all segments, borrowed bots included; added per step. */

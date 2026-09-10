@@ -73,7 +73,7 @@ const TOOL_ICONS: Record<string, LucideIcon> = {
   ask_bot: MessageSquare,
   ask_back: MessageSquare,
   ask_thursday: MessageSquare,
-  report: Flag,
+  answer: Flag,
 };
 
 export const toolIcon = (name: string): LucideIcon =>

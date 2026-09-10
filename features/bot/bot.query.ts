@@ -32,6 +32,7 @@ const asJobBot = (row: {
   provider: TextModelProviderId | null;
   model: string | null;
   disabled: boolean;
+  compactAt: number | null;
 }): JobBot => ({
   name: row.name,
   description: row.description,
@@ -40,6 +41,7 @@ const asJobBot = (row: {
   provider: row.provider,
   model: row.model,
   disabled: row.disabled,
+  compactAt: row.compactAt,
 });
 
 /**
@@ -156,7 +158,7 @@ export async function readBotNote(bot: string): Promise<string | null> {
 
 /**
  * The whole block, as the pass rewrote it (bot.notes). Cut rather than refused: the schema
- * already caps it, and a run that gets this far has handed its report back. Empty clears it.
+ * already caps it, and a run that gets this far has handed its answer back. Empty clears it.
  */
 export async function writeBotNote(bot: string, text: string): Promise<void> {
   const next = text.trim().slice(0, BOT_NOTES.chars).trim();

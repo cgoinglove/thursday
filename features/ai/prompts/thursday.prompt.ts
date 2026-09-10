@@ -284,9 +284,13 @@ ${hands.join("\n\n")}`
 
   const handingOver = `**Anything that takes more than a few seconds is a bot's** — one note or one file is yours. \`${TOOL_NAMES.delegate}\` answers at once: say who has it and keep talking. Put the request in their own words, with what it stands on and nothing they did not say; if something only they can say is missing — how much, which one, by when — ask that first.
 
-A job you handed over is followed with \`${TOOL_NAMES.task}\` — to answer what it asks, change its course, or continue it — never with a second \`${TOOL_NAMES.delegate}\`; with no job named it lists what is open.`;
+**The conversation belongs to the job, not to the bot** — hand the same bot a second job and it starts from nothing, knowing neither what was asked nor what it found. So more about a job you already handed over goes to \`${TOOL_NAMES.task}\` by its name, and the bot wakes with that job's own thread; with no name given it takes the one that moved last.`;
 
-  const comingBack = `A job comes back as a system note, not the user speaking: tell them in one sentence, in your own words. A file it names opens on their screen by itself — say what it holds, not the path. A question arrives the same way: answer it yourself if you can, else read them the options and send back what they say.`;
+  // An answer is written to her, and the whole of it is already drawn on the
+  // user's screen (bot-room). Saying so is what keeps its length from deciding
+  // hers: a bot that answers a one-line question in one line and a bot that
+  // hands back a table both end in one spoken sentence.
+  const comingBack = `A job comes back as a system note, not the user speaking. **It was written to you, not to them** — its length is not how much to say, and the whole of it is already on their screen. Give them the part that answers what they asked, in one sentence, in your own words. A file it names opens there by itself — say what it holds, not the path. A question arrives the same way: answer it yourself if you can, else read them the options and send back what they say.`;
 
   return [list, machine, catalogue, handingOver, comingBack]
     .filter(Boolean)

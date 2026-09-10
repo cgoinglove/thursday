@@ -5,7 +5,7 @@ import type { TextModel } from "@/features/ai/model";
 import { clockNow, tidying } from "@/features/ai/prompts/prompt-helper";
 import {
   askThursdayTool,
-  createReportTool,
+  createAnswerTool,
   delegateSpec,
   taskSpec,
 } from "@/features/ai/tools/bot.tool";
@@ -29,7 +29,6 @@ import { toDate } from "@/lib/date-like";
 import { logger } from "@/lib/logger";
 import { estimateTokens } from "@/lib/tokens";
 import { clip } from "@/lib/utils";
-import { resolveSearchModel } from "./model";
 
 /**
  * Which tools each runtime is handed; what it is told about them is the prompt's job.
@@ -56,7 +55,7 @@ export type ToolRun =
       bot: string;
       /** This job; the bot's shell pins its browser session to it (workspace.ts). */
       taskId?: string | null;
-      /** The model this run already resolved (bot.run resolveModel); `web_search` runs on it (model.ts resolveSearchModel). */
+      /** The model this run already resolved (bot.run resolveModel); its own native search is what `web_search` uses when no Exa key is set (tools/search.tool). */
       model?: TextModel | null;
     }
   /** An edit from the memory screen (memory/memory.edit): memory's read and two writes, run as the model calls them. */
@@ -93,7 +92,7 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
           taskId: id,
           // The label is the handle: without it in front of her, a follow-up
           // becomes a second job instead of a word to the one running
-          note: `${found.name} has "${label}". Say so and keep talking — the result is put in front of you later. Everything further about it — an answer, a correction, carrying it on after it reports — is \`${TOOL_NAMES.task}\` with "${label}".`,
+          note: `${found.name} has "${label}". Say so and keep talking — the result is put in front of you later. Everything further about it — an answer, a correction, carrying it on after it answers — is \`${TOOL_NAMES.task}\` with "${label}".`,
         };
       },
     }),
@@ -117,7 +116,7 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
           // The clock, because the one in the instructions is from when the call
           // opened and a call can run for hours; `since` is measured against this.
           const now = { now: clockNow() };
-          // A named job comes back whole; the list clips outcomes, and the model pads a clipped report
+          // A named job comes back whole; the list clips outcomes, and the model pads a clipped answer
           if (task) {
             const found = await resolveTask(task);
             const one = found;
@@ -162,10 +161,22 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
             })),
           };
         }
-        if (!task)
-          return "Say which job — by its label. Call `status` with no job named to see them.";
-        const one = await resolveTask(task);
-        if (!one) return await noSuchJob(task);
+        // A name is how a job is taken, but the one that just moved is what
+        // "that one" means out loud, and making the model fetch a label it
+        // already heard is what sends it to `delegate` instead. Cancel still
+        // needs the name: it cannot be taken back.
+        const { listInboxTasks } = await import("@/features/bot/task.query");
+        const one = task
+          ? await resolveTask(task)
+          : action === "answer"
+            ? ((await listInboxTasks())[0] ?? null)
+            : null;
+        if (!one) {
+          if (task) return await noSuchJob(task);
+          return action === "answer"
+            ? "No job has moved yet — say which one, or check `status` first."
+            : "Say which job — by its label. Call `status` with no job named to see them.";
+        }
 
         const { answerTask, cancelTask } = await import(
           "@/features/bot/bot.runner"
@@ -177,7 +188,10 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
         if (!answer?.trim()) return "Say what to pass on.";
         await answerTask(one.id, answer.trim());
         return {
+          // Named even when the model named it: with no job given this is the
+          // one that moved last, and saying which makes a wrong one obvious
           label: one.label,
+          bot: one.bot,
           status: "running",
           note:
             one.status === "running"
@@ -280,16 +294,17 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
 
   // A bot works inside a job it did not open: it can pull another bot in but cannot start a job.
   // `ask_bot` and `ask_back` are attached by the runner (bot.run), which swaps `ask_thursday`
-  // for `ask_back` in a borrowed bot. `report` ends every run.
+  // for `ask_back` in a borrowed bot. `answer` ends every run.
   const skills = await loadSkills(sandbox);
   return {
     // A bot reads memory and adds to it; the rest of the set is the call's
     // (memory.tool botRememberTool), and there is no screen to show a note on
     [TOOL_NAMES.memory_recall]: memory[TOOL_NAMES.memory_recall],
+    [TOOL_NAMES.memory_conversation]: memory[TOOL_NAMES.memory_conversation],
     [TOOL_NAMES.memory_remember]: botRememberTool,
-    // Runs on this bot's own model when it can search, else on whichever
-    // provider has a key; absent when none does (search.tool)
-    ...createSearchTool(await resolveSearchModel(run.model), sandbox),
+    // Exa when its key is set, else this bot's own model when it can search;
+    // absent when neither, and the browser is the way in (search.tool)
+    ...(await createSearchTool(run.model, sandbox)),
     // The browser rides in the shell: its session is this job's, set by the
     // server rather than typed by the model (workspace.ts jobShellEnv)
     ...createWorkspaceTools(sandbox, {
@@ -300,12 +315,11 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
       // one command is a glance, not a job to plan around
       guide: true,
     }),
-    [TOOL_NAMES.memory_conversation]: memory[TOOL_NAMES.memory_conversation],
     // Pinned tools come with schemas; the rest sit behind `tool_search`, absent when nothing is left to find (mcp.tool)
     ...(await createMcpTools(run.bot, sandbox)),
     ...createSkillTools({ sandbox, skills }),
     [TOOL_NAMES.ask_thursday]: askThursdayTool,
     // No field for its own instructions when nobody keeps them (bot.schema BOT_NOTES_KEY)
-    [TOOL_NAMES.report]: createReportTool(await readBotNotesOn()),
+    [TOOL_NAMES.answer]: createAnswerTool(await readBotNotesOn()),
   };
 }

@@ -21,7 +21,7 @@ import {
 } from "./bot.runner";
 import { BotFormSchema, botIconSchema } from "./bot.schema";
 import { findBotSeed, rollSeedColors } from "./bot.seed";
-import { markReported, resolveTask } from "./task.query";
+import { markSeen, resolveTask } from "./task.query";
 
 export const createBotAction = serverAction(async (input: unknown) => {
   const form = BotFormSchema.parse(input);
@@ -83,7 +83,7 @@ export const deleteBotAction = serverAction(async (name: string) => {
 /**
  * Throws away what a bot wrote about itself. The only human touch on notes:
  * they are never edited here, because a line the user typed would come back
- * rewritten by the bot's next report.
+ * rewritten by the bot's next answer.
  */
 export const clearBotNoteAction = serverAction(async (name: string) => {
   await clearBotNote(name);
@@ -142,9 +142,9 @@ export const cancelTaskAction = serverAction(async (ref: string) => {
   return { id: task.id, label: task.label, status: "cancelled" as const };
 });
 
-/** Marks tasks as relayed to the call, clearing their inbox dot. Batched because a call opening relays everything pending at once. */
-export const markReportedAction = serverAction(async (ids: string[]) => {
-  await markReported(ids.filter((id) => typeof id === "string" && id));
+/** Marks endings as had by the user: relayed on a call, or on a task list they opened. Batched, since both reach many at once. */
+export const markSeenAction = serverAction(async (ids: string[]) => {
+  await markSeen(ids.filter((id) => typeof id === "string" && id));
 });
 
 export const deleteTaskAction = serverAction(async (id: string) => {

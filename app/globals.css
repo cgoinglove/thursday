@@ -136,3 +136,40 @@
     @apply cursor-pointer;
   }
 }
+
+/* The one motion a running tool has (thursday.tsx Activity): a brighter copy of
+   the tool's own glyph filled in from the top, then let go. It replaces the
+   spinner that used to stand where the glyph belongs, so what is running is
+   still readable while it runs. */
+@theme {
+  --animate-ink: ink 1.9s ease-in-out infinite;
+
+  @keyframes ink {
+    0% {
+      clip-path: inset(0 0 100% 0);
+      opacity: 1;
+    }
+    55% {
+      clip-path: inset(0 0 0 0);
+      opacity: 1;
+    }
+    100% {
+      clip-path: inset(0 0 0 0);
+      opacity: 0;
+    }
+  }
+}
+
+/* The boot curtain (boot.tsx) is opaque and only the client lifts it, so a load
+   whose script never runs — a chunk that did not arrive, a dev server restarted
+   mid-load — is a blank screen with nothing on it to read. This line is drawn on
+   the server and revealed by CSS alone, long after any healthy start. */
+@theme {
+  --animate-stalled: stalled 0.5s ease-out 6s forwards;
+
+  @keyframes stalled {
+    to {
+      opacity: 1;
+    }
+  }
+}

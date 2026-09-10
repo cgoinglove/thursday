@@ -64,6 +64,9 @@ export type TokenUsage = z.infer<typeof TokenUsageSchema>;
 
 export const NO_TOKENS: TokenUsage = { input: 0, output: 0 };
 
+/** A budget under this leaves no room for the opening message, so it is refused rather than stored. */
+export const COMPACT_AT_MIN = 8_000;
+
 export const BotSchema = z.object({
   name: z.string(),
   description: z.string(),
@@ -72,6 +75,8 @@ export const BotSchema = z.object({
   /** Set only when chosen; empty runs on the app default model. */
   provider: textModelProviderSchema.nullish(),
   model: z.string().nullish(),
+  /** Where this bot's runs compact; empty derives it from the model's own window. */
+  compactAt: z.number().nullish(),
   /** Switched off by the user: kept whole, shown to no model. */
   disabled: z.boolean(),
   createdAt: DateLikeSchema,
@@ -80,7 +85,7 @@ export const BotSchema = z.object({
   tokens: TokenUsageSchema,
   /** When this bot's latest job last moved; null if it never ran. Carried here so the roster need not page through history. */
   lastJobAt: DateLikeSchema.nullish(),
-  /** The bot's own notes, written by itself at report time. Shown, never edited; the user's only move is to clear them. */
+  /** The bot's own notes, written by itself at answer time. Shown, never edited; the user's only move is to clear them. */
   note: z.string().nullish(),
   noteAt: DateLikeSchema.nullish(),
 });
@@ -97,6 +102,12 @@ export const BotFormSchema = z.object({
   /** Unset by default (runs on the app default). A half pick is emptied, see `pickedModel`. */
   provider: textModelProviderSchema.nullish(),
   model: z.string().trim().max(80).nullish(),
+  /** Empty derives it from the model; a number overrides. Below the floor a run cannot start. */
+  compactAt: z.coerce
+    .number()
+    .int()
+    .min(COMPACT_AT_MIN, `At least ${COMPACT_AT_MIN / 1000}k`)
+    .nullish(),
   disabled: z.boolean().optional(),
   toolIds: z.number().int().array().max(MAX_PINNED_TOOLS).default([]),
 });
@@ -132,6 +143,8 @@ export type JobBot = {
   model: string | null;
   /** Carried so a run that already has this bot can say so; `listJobBots` never returns a disabled one. */
   disabled: boolean;
+  /** Where its runs compact; null derives it from the model (ai/model compactBudget). */
+  compactAt: number | null;
 };
 
 /**
@@ -147,6 +160,7 @@ export const DEFAULT_BOT: JobBot = {
   provider: null,
   model: null,
   disabled: false,
+  compactAt: null,
 };
 
 // A bot's own instructions (database bot_note, features/bot/bot.notes): the setting
@@ -174,11 +188,15 @@ export type TaskStatus = (typeof TASK_STATUSES)[number];
 /** One page of history (config PAGE_SIZE). */
 export const TASK_HISTORY_PAGE = PAGE_SIZE;
 
-/** The single option offered when a job out of budget asks whether to go on. Button text and spoken word alike. */
+/** The single option offered when the app stopped a job and asks whether to go on. Button text and spoken word alike. */
 export const TASK_CONTINUE = "Continue";
 
-/** True when the ask is a budget stop (only option is TASK_CONTINUE), not a real question. */
-export const isBudgetAsk = (ask: { options: string[] } | null | undefined) => {
+/**
+ * True when the app stopped the job (step cap, closed browser, restart) rather
+ * than the bot asking something. Why it stopped is in the outcome text; every
+ * list calls it waiting on you, because the answer is the same click.
+ */
+export const isAppStop = (ask: { options: string[] } | null | undefined) => {
   const options = ask?.options ?? [];
   return options.length === 1 && options[0] === TASK_CONTINUE;
 };
@@ -205,7 +223,7 @@ const LineBase = z.object({
 export const TaskLineSchema = z.discriminatedUnion("kind", [
   /** What the user said (via Thursday): request, answer. */
   LineBase.extend({ kind: z.literal("user"), text: z.string() }),
-  /** Bot text; the last one is the report. */
+  /** Bot text; the last one is the answer. */
   LineBase.extend({ kind: z.literal("text"), text: z.string() }),
   /** Compaction summary (bot.run compact). The model resumes from here; the screen draws it as a divider. */
   LineBase.extend({ kind: z.literal("note"), text: z.string() }),
@@ -296,8 +314,12 @@ export const TaskSchema = z.object({
   outcome: z.string().nullable(),
   /** Set only while `waiting`. */
   ask: TaskAskSchema.nullable(),
-  /** Whether it has been relayed to Thursday. A highlight, not a filter. */
-  reported: z.boolean(),
+  /**
+   * Whether the user has had the ending: Thursday said it on a call, or a task
+   * list was on screen while it sat there. A cancel is seen by whoever cancelled.
+   * A highlight and a count, never a filter.
+   */
+  seen: z.boolean(),
   /** Burned so far, across every segment including borrowed bots. */
   tokens: TokenUsageSchema,
   /** Context size the model read on the last step (not a sum) and the compaction threshold (BOT_RUN.compactAt). 0 means no step ran yet. */

@@ -25,7 +25,7 @@ export const TOOL_NAMES = {
   ask_bot: "ask_bot",
   ask_thursday: "ask_thursday",
   ask_back: "ask_back",
-  report: "report",
+  answer: "answer",
 
   end_call: "end_call",
 

@@ -4,7 +4,7 @@ import {
   ChevronDown,
   ChevronUp,
   Flag,
-  Loader2,
+  type LucideIcon,
   Mic,
   MicOff,
   Settings2,
@@ -22,7 +22,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { SPEACH_MODEL_PROVIDER_LIST } from "@/features/ai/model.schema";
-import { DEFAULT_BOT } from "@/features/bot/bot.schema";
+import { type Bot, DEFAULT_BOT } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { BotRoom } from "@/features/bot/components/bot-room";
 import { toolIcon } from "@/features/bot/components/bot-tool";
@@ -114,6 +114,7 @@ export function CallScreen({
   const hers =
     messages.findLast((turn) => turn.role === "assistant")?.text ?? "";
   const sided = captionView === "sides" && status !== "idle";
+  const turns = useTurnPager(messages);
   return (
     <div className="relative flex h-full flex-col">
       <div className="absolute top-5 right-5 z-10">
@@ -121,7 +122,14 @@ export function CallScreen({
       </div>
 
       {/* Top padding in vh, like the face itself, so the face+text column sits below center */}
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5 pt-[7vh]">
+      {/* The wheel winds the turns back. It is on this column rather than on the
+          screen: the corner holds the settings dialog and the room its own list,
+          and a portal's wheel bubbles up the tree it was written in, not the one
+          it is drawn in. */}
+      <div
+        onWheel={sided ? turns.onWheel : undefined}
+        className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5 pt-[7vh]"
+      >
         {/* The face is the control. It reacts to the agent's own voice. */}
         <div className="relative w-[min(28rem,72vw,52vh)]">
           <button
@@ -150,7 +158,7 @@ export function CallScreen({
             />
           </button>
 
-          {sided && <SideCaptions messages={messages} />}
+          {sided && <SideCaptions shown={turns.shown} give={turns.give} />}
         </div>
 
         {/* The column is wider than the text (40rem); the side margins hold the caption chevrons (Flow) */}
@@ -510,8 +518,23 @@ function Step({
   );
 }
 
-/** Bars the mic meter draws, over the bands a voice actually sits in. */
-const MIC_BARS = ["a", "b", "c", "d", "e"];
+/**
+ * Bars the mic meter draws: each over its own slice of the bands, with a gain
+ * that answers what a voice does to them. Speech stacks its energy in the
+ * fundamental and thins out with every band above it, so one gain for all five
+ * draws a tall bar on the left and four stubs — the gain rises to meet the
+ * drop, and the whole row moves instead of its first quarter.
+ */
+const MIC_BARS = [
+  { id: "a", from: 0, to: 1, gain: 0.8 },
+  { id: "b", from: 1, to: 3, gain: 1 },
+  { id: "c", from: 3, to: 5, gain: 1.15 },
+  { id: "d", from: 5, to: 6, gain: 1.35 },
+  { id: "e", from: 6, to: 8, gain: 1.55 },
+];
+
+/** Bar height in px, silent and at full. */
+const MIC_BAR = { rest: 2, full: 14 };
 
 /**
  * The user's own level, read once per animation frame like the face reads
@@ -527,15 +550,28 @@ function MicMeter({
   getMicSpectrum?: () => ArrayLike<number>;
 }) {
   const bars = useRef<Record<string, HTMLSpanElement | null>>({});
+  // Height per bar, kept between frames so a bar can fall slower than it rises.
+  const held = useRef(MIC_BARS.map(() => 0));
 
   useEffect(() => {
     if (!live || !getMicSpectrum) return;
     let frame = requestAnimationFrame(function draw() {
       const bands = getMicSpectrum();
-      MIC_BARS.forEach((id, at) => {
-        const bar = bars.current[id];
-        if (bar) {
-          bar.style.height = `${2 + Math.min(1, bands[at] ?? 0) * 12}px`;
+      MIC_BARS.forEach((bar, at) => {
+        let peak = 0;
+        for (let k = bar.from; k < bar.to; k++) {
+          peak = Math.max(peak, bands[k] ?? 0);
+        }
+        // The curve is the loudness the ear hears, not the energy the mic reads:
+        // without it everything under half volume draws as the same short bar.
+        const want = Math.min(1, (peak * bar.gain) ** 0.8);
+        const was = held.current[at];
+        // Up in a frame or two to catch a syllable, down slowly enough to see.
+        const now = was + (want - was) * (want > was ? 0.6 : 0.16);
+        held.current[at] = now;
+        const node = bars.current[bar.id];
+        if (node) {
+          node.style.height = `${MIC_BAR.rest + now * (MIC_BAR.full - MIC_BAR.rest)}px`;
         }
       });
       frame = requestAnimationFrame(draw);
@@ -548,13 +584,13 @@ function MicMeter({
       aria-hidden
       className="flex h-3.5 w-[18px] shrink-0 items-center gap-0.5"
     >
-      {MIC_BARS.map((id) => (
+      {MIC_BARS.map((bar) => (
         <span
-          key={id}
+          key={bar.id}
           ref={(node) => {
-            bars.current[id] = node;
+            bars.current[bar.id] = node;
           }}
-          style={{ height: 2 }}
+          style={{ height: MIC_BAR.rest }}
           className="w-0.5 rounded-full bg-muted-foreground/70"
         />
       ))}
@@ -577,7 +613,7 @@ function Ear({
   getMicSpectrum?: () => ArrayLike<number>;
 }) {
   return (
-    <span className="flex items-center gap-2 text-[13px] leading-5 text-muted-foreground">
+    <span className="flex items-center gap-1.5 text-[13px] leading-5 text-muted-foreground">
       <MicMeter live={live} getMicSpectrum={getMicSpectrum} />
       Listening
     </span>
@@ -589,54 +625,110 @@ function Ear({
  * motion (loader in the icon slot, shine on the text), not color; the loader
  * resolving into the tool's own glyph is what "finished" looks like.
  *
- * No pill. This slot cross-fades with the listening chip, which has no
- * container, so an outline under one of the two read as the line changing
- * shape rather than changing state.
+ * The line itself wears no pill. This slot cross-fades with the listening chip,
+ * which has no container either, so an outline under one of the two read as the
+ * line changing shape rather than changing state.
  */
 function Activity({ tool, micOff }: { tool: ToolRun; micOff: boolean }) {
-  // a relay from a bot is a flag, like the report tool
+  // a relay from a bot is a flag, like the answer tool — unless it names the bot
   const relay = tool.kind === "relay";
   const Icon = relay ? Flag : toolIcon(tool.name);
+  // The sentence when there is one; otherwise the tool's own name is the line,
+  // rather than a tag repeating one.
+  const text = tool.line ?? tool.name;
+  const look = tool.line
+    ? "min-w-0 truncate text-[13px] leading-5 break-keep"
+    : "min-w-0 truncate font-mono text-xs leading-5";
+  // Only for the colour and silhouette the user picked; the name alone already
+  // draws a face, so a roster that has not arrived yet costs nothing.
+  const bots = useServerRoute<Bot[]>(queryKey.bot).data;
+  const bot = tool.bot
+    ? (bots?.find((one) => one.name === tool.bot) ?? null)
+    : null;
   return (
-    <span className="flex max-w-full items-center gap-2">
-      {/* 20px slot for a 14px glyph: the badge below needs the corner, and the
-          row keeps the icon width the listening meter beside it has */}
-      <span className="relative mr-0.5 grid size-5 shrink-0 place-items-center">
-        {tool.done ? (
-          <Icon className="size-3.5 text-muted-foreground" />
-        ) : (
-          <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-        )}
-        {/* The mic is closed because this is running, so the mark sits on its
-            cause. As a row of its own it read as a warning about the mic. The
-            padded disc is the separation the pill used to give it: on the bare
-            page the two glyphs otherwise share strokes and read as a smudge. */}
-        {micOff && (
-          <MicOff className="absolute -right-1.5 -bottom-1.5 size-4 rounded-full bg-background p-[3.5px] text-muted-foreground" />
+    <span className="flex max-w-full items-center gap-1.5">
+      {/* 18px slot, the width the listening meter beside it has, so the two
+          faces of this slot start on the same edge */}
+      <span className="relative grid size-[18px] shrink-0 place-items-center">
+        <Mark tool={tool} bot={bot} icon={Icon} />
+        {/* Running is the glyph being filled in, over its own dimmed self: the
+            spinner that used to stand here took the glyph off the screen for as
+            long as it ran, which is exactly when it says the most. */}
+        {!tool.done && (
+          <span className="absolute inset-0 grid animate-ink place-items-center">
+            <Mark tool={tool} bot={bot} icon={Icon} running />
+          </span>
         )}
       </span>
-      {/* The sentence when there is one; otherwise the tool's own name is the
-          line, rather than a tag repeating one. */}
-      {tool.line ? (
-        tool.done ? (
-          <span className="min-w-0 truncate text-[13px] leading-5 break-keep text-muted-foreground">
-            {tool.line}
-          </span>
-        ) : (
-          <ShinyText
-            text={tool.line}
-            speed={2.4}
-            color="var(--muted-foreground)"
-            shineColor="var(--foreground)"
-            className="min-w-0 truncate text-[13px] leading-5 break-keep"
-          />
-        )
+      {/* The sweep is what says this is still running, so it is on whatever the
+          line turns out to be — the sentence, or the bare tool name. */}
+      {tool.done ? (
+        <span className={cn(look, "text-muted-foreground")}>{text}</span>
       ) : (
-        <span className="min-w-0 truncate font-mono text-xs leading-5 text-muted-foreground">
-          {tool.name}
+        <ShinyText
+          text={text}
+          speed={2.4}
+          color="var(--muted-foreground)"
+          shineColor="var(--foreground)"
+          className={look}
+        />
+      )}
+      {/* The mic is closed because this is running, so it travels with the line.
+          A chip, where the line has none: on the bare page a second glyph beside
+          the tool's own shares strokes with it and reads as a smudge, and the
+          plate is what says this is a state rather than more of the sentence. */}
+      {micOff && (
+        <span className="flex shrink-0 items-center gap-1 rounded-full bg-muted/60 py-0.5 pr-2 pl-1.5 font-mono text-[11px] leading-4 text-muted-foreground">
+          <MicOff className="size-3 shrink-0" />
+          mic off
         </span>
       )}
     </span>
+  );
+}
+
+/**
+ * What the row draws in its glyph slot: the bot's own face when the line names
+ * one, the tool's glyph otherwise. Who work went to, and who brought an answer
+ * back, is a face everywhere else in the app — the roster, the pill, the room.
+ *
+ * `running` is the copy the ink wipes in, so it is the one at full strength.
+ */
+function Mark({
+  tool,
+  bot,
+  icon: Icon,
+  running,
+}: {
+  tool: ToolRun;
+  /** The row the name resolved to, when the roster has one; its look, not its identity. */
+  bot: Bot | null;
+  icon: LucideIcon;
+  running?: boolean;
+}) {
+  if (tool.bot) {
+    return (
+      <span className={cn("flex", !running && !tool.done && "opacity-40")}>
+        <BotMark
+          size={16}
+          seed={tool.bot}
+          vary={tool.bot}
+          color={bot?.icon?.color}
+          shape={bot?.icon?.shape}
+          outline={bot?.icon?.outline}
+          notify={false}
+        />
+      </span>
+    );
+  }
+  return (
+    <Icon
+      className={cn(
+        "size-3.5",
+        running ? "text-foreground" : "text-muted-foreground",
+        !running && !tool.done && "opacity-40",
+      )}
+    />
   );
 }
 
@@ -862,18 +954,24 @@ function Elapsed({ since }: { since: number | null }) {
 const VISIBLE = 3;
 
 /**
- * Wheel delta per turn. Deliberately heavy: a casual flick barely moves,
- * though the few pixels of give show it is not stuck.
+ * Wheel delta per turn. Deliberately heavy — a turn is a paragraph, and a
+ * trackpad flick that pages three of them reads as losing the conversation
+ * rather than moving through it. The give is what says it is not stuck.
  */
-const STEP = 200;
+const STEP = 360;
+
+/** How far the plates lean while the wheel is short of a turn, px. */
+const GIVE = 10;
+
+/** How long the wheel keeps what it has gathered. Past this the lean springs back and the count starts over, so half a turn never waits around to be completed by the next flick. */
+const SETTLE_MS = 220;
 
 /**
- * Recent turns beside the face: yours on the right, hers on the left, each on
- * a fill with no edge. Anchored outside the face box (`right-full` /
- * `left-full`) so they never cover it. Older turns sit higher, smaller, and
- * their plate recedes.
+ * Where the wheel has wound the turns back to. Lives on the screen rather than
+ * in the plates: the three plates are small and sit off to the sides, so a
+ * wheel over the face — where the cursor is — used to reach nothing at all.
  */
-function SideCaptions({ messages }: { messages: CallMessage[] }) {
+function useTurnPager(messages: CallMessage[]) {
   const [back, setBack] = useState(0);
   const [give, setGive] = useState(0);
   const drag = useRef(0);
@@ -887,13 +985,9 @@ function SideCaptions({ messages }: { messages: CallMessage[] }) {
     const grew = messages.length - seen.current;
     seen.current = messages.length;
     if (grew > 0) {
-      setBack((was) =>
-        was > 0
-          ? Math.min(was + grew, Math.max(0, messages.length - VISIBLE))
-          : 0,
-      );
+      setBack((was) => (was > 0 ? Math.min(was + grew, furthest) : 0));
     }
-  }, [messages.length]);
+  }, [messages.length, furthest]);
 
   useEffect(
     () => () => {
@@ -902,7 +996,9 @@ function SideCaptions({ messages }: { messages: CallMessage[] }) {
     [],
   );
 
-  const wind = (event: React.WheelEvent) => {
+  const onWheel = (event: React.WheelEvent) => {
+    // nothing behind the three on screen: no travel, and no lean pretending there is
+    if (furthest === 0) return;
     drag.current += event.deltaY;
     const steps = Math.trunc(drag.current / STEP);
     if (steps !== 0) {
@@ -916,12 +1012,31 @@ function SideCaptions({ messages }: { messages: CallMessage[] }) {
     settle.current = setTimeout(() => {
       drag.current = 0;
       setGive(0);
-    }, 160);
+    }, SETTLE_MS);
   };
 
   const end = messages.length - back;
-  const shown = messages.slice(Math.max(0, end - VISIBLE), end);
+  return {
+    shown: messages.slice(Math.max(0, end - VISIBLE), end),
+    give,
+    onWheel,
+  };
+}
 
+/**
+ * Recent turns beside the face: yours on the right, hers on the left, each on
+ * a fill with no edge. Anchored outside the face box (`right-full` /
+ * `left-full`) so they never cover it. Older turns sit higher, smaller, and
+ * their plate recedes.
+ */
+function SideCaptions({
+  shown,
+  give,
+}: {
+  shown: CallMessage[];
+  /** How far into the next turn the wheel is, -1..1; the plates lean by it. */
+  give: number;
+}) {
   return (
     <>
       {shown.map((message, index) => {
@@ -938,10 +1053,9 @@ function SideCaptions({ messages }: { messages: CallMessage[] }) {
         return (
           <div
             key={message.id}
-            onWheel={wind}
             style={{
               top: `${top}%`,
-              transform: `translateY(calc(-50% + ${-give * 6}px))`,
+              transform: `translateY(calc(-50% + ${-give * GIVE}px))`,
             }}
             className={cn(
               // fixed-width slot, natural-width plate: short lines stay short and hug the face

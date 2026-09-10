@@ -1,6 +1,9 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { queryKey } from "@/app/api/query-key";
+import { toast } from "@/components/ui/toast";
+import { markSeenAction } from "@/features/bot/bot.action";
 import type {
   Bot,
   BotIcon,
@@ -8,7 +11,10 @@ import type {
   Task,
   TokenUsage,
 } from "@/features/bot/bot.schema";
-import type { DateLike } from "@/lib/date-like";
+import { type DateLike, toDate } from "@/lib/date-like";
+import { unwrapResult } from "@/lib/protocol/result";
+import { revalidate } from "@/lib/protocol/use-server-route";
+import { errorToString } from "@/lib/utils";
 
 /**
  * Client mirror of tasks, keyed by task rather than as one message stream so
@@ -77,8 +83,8 @@ export type TaskView = {
   outcome: string | null;
   /** What it is asking while `waiting`. */
   ask: { question: string; options: string[] } | null;
-  /** Whether it has been relayed to Thursday; otherwise the room shows a dot. */
-  relayed: boolean;
+  /** Whether the user has had the ending (Task `seen`). */
+  seen: boolean;
   /** Burned so far. */
   tokens: TokenUsage;
   /** Context read on the last step and the compaction threshold; the header meter is their ratio. Both 0 means no step ran yet. */
@@ -219,9 +225,9 @@ export function taskFromRow(row: Task, bots?: Bot[]): TaskView {
     }
   }
 
-  // The ending lives on the row, not in the thread: the report is the last text
+  // The ending lives on the row, not in the thread: the answer is the last text
   // said, failure exists only here. `waiting` is treated like done: a job that
-  // stopped for budget reported first, so that line is a result.
+  // the app stopped answered first, so that line is a result.
   if (row.status === "failed" && row.outcome) {
     lines.push({
       id: `${row.id}-end`,
@@ -246,7 +252,7 @@ export function taskFromRow(row: Task, bots?: Bot[]): TaskView {
     status: row.status === "running" ? "working" : row.status,
     outcome: row.outcome,
     ask: row.ask,
-    relayed: row.reported,
+    seen: row.seen,
     tokens: row.tokens,
     contextTokens: row.contextTokens,
     contextBudget: row.contextBudget,
@@ -266,7 +272,7 @@ export function lastSaid(task: TaskView): Chatter | null {
 /**
  * What the screen did to a task. Announced so the call can hear it: a poll
  * cannot tell a screen answer from a voice answer, and a cancel is never relayed
- * (bot.runner cancelTask marks it reported).
+ * (bot.runner cancelTask marks it seen).
  */
 export type ScreenAct =
   /** Answered a waiting task, interjected into a running one, or continued a finished one. */
@@ -423,4 +429,42 @@ export function latestPerBot(list: TaskView[]): BotLine[] {
   }
 
   return [...byBot.values()];
+}
+
+/**
+ * Opening a job's detail is reading its ending: the thread in the room, a row
+ * expanded in Settings › Tasks. That is what clears its dot — a list scrolled
+ * past or a line heard on a call is not. Keyed by `updatedAt` as well, because a
+ * follow-up ends a job a second time and that ending is new again.
+ */
+export function useSeenOnDetail(
+  task:
+    | { id: string; status: string; seen: boolean; updatedAt: DateLike }
+    | null
+    | undefined,
+) {
+  const sent = useRef(new Set<string>());
+  const id = task?.id ?? null;
+  const key = task ? `${task.id}@${toDate(task.updatedAt).getTime()}` : null;
+  const owed =
+    !!task &&
+    (task.status === "done" || task.status === "failed") &&
+    !task.seen;
+
+  useEffect(() => {
+    if (!id || !key || !owed || sent.current.has(key)) return;
+    sent.current.add(key);
+    void markSeenAction([id])
+      .then(unwrapResult)
+      .then(() => revalidate(queryKey.tasks))
+      .catch((cause) => {
+        // Released, so opening it again tries again
+        sent.current.delete(key);
+        toast.add({
+          type: "error",
+          title: "Could not mark the task as read",
+          description: errorToString(cause),
+        });
+      });
+  }, [id, key, owed]);
 }

@@ -7,7 +7,9 @@ import {
   ChevronRight,
   Clapperboard,
   Image as ImageIcon,
+  KeyRound,
   type LucideIcon,
+  Search,
   TriangleAlert,
 } from "lucide-react";
 import { useState } from "react";
@@ -34,6 +36,7 @@ import {
   type ConfigEntry,
   type ConfigGroup,
   type ConfigStatus,
+  EXA_API_KEY,
   groupSatisfied,
   isConfigSet,
 } from "@/features/config/config.const";
@@ -55,6 +58,9 @@ import { cn, WAITING_INK } from "@/lib/utils";
 export function ConfigSetting() {
   return <ConfigGroups section="keys" />;
 }
+
+/** A key that is not a provider's still wears a mark, or its row is a hole in the column. */
+const KEY_MARKS: Record<string, LucideIcon> = { [EXA_API_KEY]: Search };
 
 /** One mark per studio kind, drawn as the output (transcription is captions, not a mic). */
 const KIND_MARKS: Record<MediaKind, LucideIcon> = {
@@ -181,11 +187,9 @@ function KeyRow({
       onClick={() => openConfigDialog(entry, set)}
       className="group flex w-full items-center gap-3 p-4 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
     >
-      {entry.provider && (
-        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted/60">
-          <ProviderIcon provider={entry.provider} className="size-4" />
-        </span>
-      )}
+      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted/60">
+        <KeyMark entry={entry} />
+      </span>
       <span className="min-w-0 flex-1 space-y-0.5">
         <span className="block truncate text-sm font-medium">
           {entry.label}
@@ -213,6 +217,14 @@ function KeyRow({
       <ChevronRight className="size-4 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-foreground" />
     </button>
   );
+}
+
+/** Whose key it is, or what it buys when it belongs to no provider. */
+function KeyMark({ entry }: { entry: ConfigEntry }) {
+  if (entry.provider)
+    return <ProviderIcon provider={entry.provider} className="size-4" />;
+  const Mark = KEY_MARKS[entry.key] ?? KeyRound;
+  return <Mark className="size-4 text-muted-foreground" />;
 }
 
 /**

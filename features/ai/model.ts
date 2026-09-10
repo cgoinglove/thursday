@@ -22,7 +22,8 @@ import { publicError } from "@/lib/public-error";
 import { clip, errorToString } from "@/lib/utils";
 import {
   canMakeKind,
-  cheapestModelOf,
+  compactAtFor,
+  contextWindowOf,
   defaultModelOf,
   GATEWAY_TEXT,
   type GatewayModel,
@@ -143,6 +144,7 @@ type CatalogRow = {
   deprecated_at?: number | null;
   modalities?: { output?: string[] | null } | null;
   pricing?: Record<string, unknown> | null;
+  context_window?: number | null;
 };
 
 /** USD per 1M tokens from the gateway's per-token string. Null is "it did not say", never zero. */
@@ -244,12 +246,36 @@ export async function readGatewayCatalog(): Promise<GatewayModel[]> {
         tags: row.tags ?? [],
         price: priceOfGatewayModel(row),
         retiring: Boolean(row.deprecated_at),
+        contextWindow:
+          typeof row.context_window === "number" && row.context_window > 0
+            ? row.context_window
+            : null,
       }),
     )
     .sort((a, b) => a.id.localeCompare(b.id));
 
   catalogCache = { at: Date.now(), models: list };
   return list;
+}
+
+/**
+ * Where a run summarises itself, in tokens (bot.run): what the bot's owner set,
+ * else the model's own window worked out the same way the settings screen does
+ * (model.schema compactAtFor). An unknown window falls back to `BOT_RUN.compactAt`,
+ * which assumes the window a current model carries.
+ */
+export async function compactBudget(
+  ref: TextModelRef,
+  /** What the bot's owner set, if anything (bot.compactAt); it wins. */
+  chosen?: number | null,
+): Promise<number> {
+  if (chosen && chosen > 0) return chosen;
+  // Never worth failing a run over: an unreachable catalog is a fallback, not an error
+  const catalog =
+    ref.provider === "vercel-ai-gateway"
+      ? await readGatewayCatalog().catch(() => [])
+      : [];
+  return compactAtFor(contextWindowOf(ref.provider, ref.model, catalog));
 }
 
 /**
@@ -338,27 +364,6 @@ export async function resolveDefaultModel(
     }
   }
   publicError("No model key is set — add one in Config");
-}
-
-/**
- * The model a search runs on: this run's own when it has a native search, else the first
- * search-capable provider with a key, else null (the tool drops off the list).
- */
-export async function resolveSearchModel(
-  run?: TextModel | null,
-): Promise<TextModel | null> {
-  if (run?.searchTools) return run;
-
-  for (const provider of TEXT_MODEL_PROVIDER_LIST) {
-    const apiKey = await readConfig(provider.apiKeyName);
-    // The smallest one it has: this call reads pages and hands back a
-    // paragraph, and nobody upstream can tell what it ran on
-    const model = cheapestModelOf(provider);
-    if (!apiKey || !model) continue;
-    const candidate = buildTextModel({ provider: provider.id, model }, apiKey);
-    if (candidate.searchTools) return candidate;
-  }
-  return null;
 }
 
 /** The sdk declares this one but does not export it — read off the function that takes it. */

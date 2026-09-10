@@ -39,7 +39,13 @@ export type ConfigEntry = {
  * Every group id. A union, not a string, because `isCallable` looks the voice
  * group up by id and a typo there silently makes the app always callable.
  */
-export const CONFIG_GROUP_IDS = ["voice", "text", "bots", "studio"] as const;
+export const CONFIG_GROUP_IDS = [
+  "voice",
+  "text",
+  "search",
+  "bots",
+  "studio",
+] as const;
 export type ConfigGroupId = (typeof CONFIG_GROUP_IDS)[number];
 
 /** The group a call runs on: one of its keys must be set (config.query isCallable). */
@@ -103,6 +109,13 @@ const mediaEntry = (kind: MediaKind): ConfigEntry => ({
     })),
   ),
 });
+
+/**
+ * What a bot searches the web with. Set, every bot searches through Exa in one HTTP call;
+ * unset, only a bot whose own model carries a native search has the tool at all — there is
+ * no borrowed model to search on (ai/tools/search.tool).
+ */
+export const EXA_API_KEY = "EXA_API_KEY";
 
 /** What a bot runs on when it has not picked its own model (bot.schema `provider`/`model`). */
 export const DEFAULT_MODEL_KEY = "DEFAULT_MODEL";
@@ -169,6 +182,20 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
     entries: TEXT_MODEL_PROVIDER_LIST.filter(
       (provider) => !isVoiceKey(provider),
     ).map(keyEntry),
+  },
+  {
+    id: "search",
+    title: "search",
+    hint: "how bots look things up — one key, or their own model's",
+    section: "keys",
+    require: "none",
+    entries: [
+      {
+        key: EXA_API_KEY,
+        label: "Exa",
+        hint: "web search in one call — dashboard.exa.ai",
+      },
+    ],
   },
   {
     id: "bots",

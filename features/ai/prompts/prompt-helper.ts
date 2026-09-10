@@ -7,6 +7,7 @@ import type {
   MemoryIndexEntry,
 } from "@/features/memory/memory.schema";
 import type { SkillMetadata } from "@/features/skills/skills.discover";
+import { delegatedLabel } from "@/features/thursday/tool-line";
 import { toDate } from "@/lib/date-like";
 import { logger } from "@/lib/logger";
 import { estimateTokens, sectionTokens } from "@/lib/tokens";
@@ -201,14 +202,7 @@ function turnLine(turn: RecentCall["turns"][number], call: RecentCall): string {
   const args = `you → ${turn.tool ?? "tool"} ${clip(turn.text, PROMPT_LINE.toolArgs)}`;
   if (turn.tool !== TOOL_NAMES.delegate) return args;
 
-  const label = ((): string | null => {
-    try {
-      const said = JSON.parse(turn.text) as { label?: unknown };
-      return typeof said.label === "string" ? said.label : null;
-    } catch {
-      return null;
-    }
-  })();
+  const label = delegatedLabel(turn.tool, turn.text);
   const job = label ? call.jobs?.find((one) => one.label === label) : undefined;
   if (!job) return args;
 
@@ -221,7 +215,7 @@ function turnLine(turn: RecentCall["turns"][number], call: RecentCall): string {
 /** The last calls as stored, newest last, cut to a token budget. A tool turn carries the call, not the result. */
 export function recentCallLines(calls: RecentCall[], budget: number): string {
   // Newest line backwards until the budget is spent, then put it back in order.
-  // Measured on the rendered line: a job's report is on it and its arguments are not
+  // Measured on the rendered line: a job's answer is on it and its arguments are not
   const kept: { call: RecentCall; line: string }[] = [];
   let spent = 0;
   outer: for (let c = calls.length - 1; c >= 0; c--) {

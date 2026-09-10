@@ -63,6 +63,13 @@ export function Boot({
       }}
     >
       <AsciiField boot rim={face.rim} centerY={face.centerY} onSettled={lift} />
+
+      {/* Nothing here can lift the curtain without the client, so a load that
+          never hydrates is a blank screen. Revealed by CSS alone (globals.css
+          `stalled`), well after any healthy start. */}
+      <p className="absolute inset-x-0 bottom-16 animate-stalled text-center text-[13px] text-muted-foreground opacity-0">
+        The page did not start. Reload it.
+      </p>
     </div>
   );
 }

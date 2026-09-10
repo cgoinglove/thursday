@@ -8,7 +8,7 @@ import { insideWorkspace } from "@/features/workspace/workspace";
 /**
  * Specs for the tools that move work between the voice session and bots. Only what the model
  * sees lives here; execution belongs to whoever runs the tool (load-tools, bot.run), and the
- * screen draws a call off its spec (task.query). `report` has its own execute because what it
+ * screen draws a call off its spec (task.query). `answer` has its own execute because what it
  * checks is a file on disk.
  */
 
@@ -45,12 +45,12 @@ export const askBotSpec = {
     request: z
       .string()
       .describe(
-        "The part they take, as a brief: the outcome you want, the shape to hand it back in (a path, a number, a list), and every name, path, number and limit that bears on it. They see nothing but this and `context` — not the call, not your thread — so write it long rather than short; a brief that leaves them guessing costs a whole run.",
+        "The part they take: the outcome you want, the shape to hand it back in (a path, a number, a list), and every name, path, number and limit that bears on it. It reaches them under the job and the call it came from, which are attached for you — write the part, not the job again.",
       ),
     context: z
       .string()
       .describe(
-        "The job you were given, quoted, and whatever you have found that bears on this part — exact values, and the paths of files you wrote for them to read. They cannot see your work, your tool output, or the call.",
+        "What you have done on the job so far and why this part is theirs — exact values, and the paths of files you wrote for them to read. They see this, the part, the job and the call; not your thread or your tool output, so a value you leave out is one they fetch again.",
       ),
   }),
 };
@@ -103,36 +103,32 @@ export const askThursdaySpec = {
 
 /**
  * The one way a run ends on its own terms; the loop is stopped by it (`hasToolCall`, bot.run).
- * `complete` cannot be inferred: a run out of steps and a finished run look the same from outside.
+ * Whether the job is over is the runtime's to say, never an argument: an answer ends it, and a
+ * run the app stopped first (bot.run `stopped`) waits to be continued.
  * `notes` is what the bot wants changed about its own instructions, in its own words — never
  * the text itself. A bot that rewrites the whole thing here edits it around the job it was on
  * and drops what that job was not about; a pass of its own writes it (features/bot/bot.notes).
  */
-export const reportSpec = (notes: boolean) => ({
-  name: TOOL_NAMES.report,
+export const answerSpec = (notes: boolean) => ({
+  name: TOOL_NAMES.answer,
   description:
-    "Hand back what the job produced. Calling this ends the job — nothing after it runs.",
+    "Answer the job you were given. Calling this ends the job — nothing after it runs.",
   parameters: z.object({
     result: z
       .string()
       .describe(
-        "The result itself, in a few lines — what you found or did, not a replay of how. Thursday reads this out loud, so write what a person needs to hear. If you could not do it, say what stopped you.",
-      ),
-    complete: z
-      .boolean()
-      .describe(
-        "True when the whole request is done. False when work is left over — the user is then asked whether to keep going, and `result` is what they decide on.",
+        "The answer itself — what you found or did, not a replay of how. As long as the answer needs and no longer: one number is one line. In the user's language; the thread is on their screen. If you could not do it, say what stopped you.",
       ),
     ...(notes
       ? {
-          notes: reportNotes,
+          notes: answerNotes,
         }
       : {}),
   }),
 });
 
 /** Only attached while Settings > Bots keeps them (bot.schema BOT_NOTES_KEY). */
-const reportNotes = z
+const answerNotes = z
   .string()
   .nullish()
   .describe(
@@ -150,7 +146,7 @@ export const taskSpec = {
       .string()
       .nullish()
       .describe(
-        "The job, by its label or by the handle a past call's transcript carries. With `status`: null for every job in one line each — that is the list — or name one to get its report in full.",
+        'The job, by its label or by the handle a past call\'s transcript carries. Leave it out with `answer` and it goes to the job that moved last — what "that one" means a moment after it answered. With `status`: null for every job in one line each — that is the list — or name one to get its answer in full.',
       ),
     answer: z
       .string()
@@ -168,36 +164,42 @@ export const askThursdayTool = tool({
 });
 
 /**
- * `report` does have an execute, and it only acknowledges. The loop is stopped
+ * `answer` does have an execute, and it only acknowledges. The loop is stopped
  * by `hasToolCall` after the step, not by the absence of an execute — that way
  * the call and its result are both written to the thread, and a resumed run
  * reads a finished exchange rather than a call left hanging.
  */
-export const createReportTool = (notes: boolean) => {
-  const spec = reportSpec(notes);
+export const createAnswerTool = (notes: boolean) => {
+  const spec = answerSpec(notes);
   return tool({
     description: spec.description,
     inputSchema: spec.parameters,
-    execute: async ({ result, complete }) => {
+    execute: async ({ result }) => {
       const missing = await missingFiles(result);
       if (missing.length) {
-        return `${NOT_HANDED_BACK} these files do not exist — ${missing.join(", ")}. Write them first, or take the paths out of the result.`;
+        return `${NOT_ANSWERED} these files do not exist — ${missing.join(", ")}. Write them first, or take the paths out of the answer.`;
       }
-      return complete
-        ? "Handed back. The job is closed; nothing further runs."
-        : "Handed back as unfinished. The user decides whether to continue.";
+      return "Answered. The job is closed; nothing further runs.";
     },
   });
 };
 
 /**
- * A report naming a workspace file that does not exist is refused: the path becomes a link
+ * An answer naming a workspace file that does not exist is refused: the path becomes a link
  * and opens by itself (bot.runner artifactIn). Paths outside the workspace are not checked.
  */
-const NOT_HANDED_BACK = "Not handed back:";
+const NOT_ANSWERED = "Not answered:";
 
-export const reportAccepted = (output: unknown): boolean =>
-  typeof output !== "string" || !output.startsWith(NOT_HANDED_BACK);
+/**
+ * `answer` was called `report` before it was renamed. A stored thread keeps the name the
+ * call was made under, and the room draws that call as the job's prose — so the three
+ * places that read messages back match either name. Nothing writes the old one.
+ */
+export const isAnswerCall = (toolName: string): boolean =>
+  toolName === TOOL_NAMES.answer || toolName === "report";
+
+export const answerAccepted = (output: unknown): boolean =>
+  typeof output !== "string" || !output.startsWith(NOT_ANSWERED);
 
 async function missingFiles(result: string): Promise<string[]> {
   const missing: string[] = [];

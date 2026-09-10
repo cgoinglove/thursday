@@ -326,11 +326,11 @@ what to drop and you drop it.`,
  * The bot's write. Same act under the same name, without what only the call can
  * do: no `replaces`, no carried lines, no naming a note — a bot has neither the
  * user in front of it nor the listing's history. Rare by nature; what the job
- * turned up belongs in the report, and only what outlives the job comes here.
+ * turned up belongs in the answer, and only what outlives the job comes here.
  */
 export const botRememberTool = tool({
   description:
-    "Save a lasting fact about the user. Only for what outlives this job; what the job itself turned up goes in the report.",
+    "Save a lasting fact about the user. Only for what outlives this job; what the job itself turned up goes in the answer.",
   inputSchema: z.object({
     path: z
       .string()
@@ -373,7 +373,7 @@ export const botRememberTool = tool({
       "bot",
     );
 
-    // A write filed elsewhere must be said, or the report claims the wrong place
+    // A write filed elsewhere must be said, or the answer claims the wrong place
     const elsewhere =
       filed === said ? "" : ` "${said}" is not a path this listing can carry.`;
     // A note created without a line is listed by its first fact until one is

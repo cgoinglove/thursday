@@ -49,7 +49,9 @@ next-env.d.ts
 # editor agent tooling, not the app's
 # Tool skills are installed per machine and symlink into /.agents, so a
 # committed one is a dangling link on every clone.
-/.claude/skills
+/.claude/skills/*
+# This repo's own conventions ship with it; skills a contributor installs do not
+!/.claude/skills/thursday/
 /.agents
 .playwright-cli
 .playwright

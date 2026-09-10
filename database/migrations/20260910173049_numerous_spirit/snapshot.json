@@ -1,9 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "8d76418e-1d02-443b-a2c2-169dbc60b854",
+  "id": "6b6b7855-1695-4eb9-82a8-2ff1ece78c4a",
   "prevIds": [
-    "29a28c64-b7c8-4371-b74a-4148c02fd422"
+    "00000000-0000-0000-0000-000000000000"
   ],
   "ddl": [
     {
@@ -44,10 +44,6 @@
     },
     {
       "name": "memory_note",
-      "entityType": "tables"
-    },
-    {
-      "name": "memory_tidy_run",
       "entityType": "tables"
     },
     {
@@ -165,6 +161,16 @@
       "default": null,
       "generated": null,
       "name": "model",
+      "entityType": "columns",
+      "table": "bot"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "compact_at",
       "entityType": "columns",
       "table": "bot"
     },
@@ -305,16 +311,6 @@
       "default": null,
       "generated": null,
       "name": "ended_at",
-      "entityType": "columns",
-      "table": "call"
-    },
-    {
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "tidied_at",
       "entityType": "columns",
       "table": "call"
     },
@@ -519,6 +515,16 @@
       "table": "memory_fact"
     },
     {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "call_id",
+      "entityType": "columns",
+      "table": "memory_fact"
+    },
+    {
       "type": "integer",
       "notNull": true,
       "autoincrement": false,
@@ -617,126 +623,6 @@
       "name": "updated_at",
       "entityType": "columns",
       "table": "memory_note"
-    },
-    {
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "id",
-      "entityType": "columns",
-      "table": "memory_tidy_run"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "status",
-      "entityType": "columns",
-      "table": "memory_tidy_run"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "provider",
-      "entityType": "columns",
-      "table": "memory_tidy_run"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "model",
-      "entityType": "columns",
-      "table": "memory_tidy_run"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "call_ids",
-      "entityType": "columns",
-      "table": "memory_tidy_run"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": "0",
-      "generated": null,
-      "name": "messages",
-      "entityType": "columns",
-      "table": "memory_tidy_run"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": "'[]'",
-      "generated": null,
-      "name": "changes",
-      "entityType": "columns",
-      "table": "memory_tidy_run"
-    },
-    {
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "error",
-      "entityType": "columns",
-      "table": "memory_tidy_run"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": "0",
-      "generated": null,
-      "name": "input_tokens",
-      "entityType": "columns",
-      "table": "memory_tidy_run"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": "0",
-      "generated": null,
-      "name": "output_tokens",
-      "entityType": "columns",
-      "table": "memory_tidy_run"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "started_at",
-      "entityType": "columns",
-      "table": "memory_tidy_run"
-    },
-    {
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "ended_at",
-      "entityType": "columns",
-      "table": "memory_tidy_run"
     },
     {
       "type": "integer",
@@ -914,7 +800,7 @@
       "autoincrement": false,
       "default": "false",
       "generated": null,
-      "name": "reported",
+      "name": "seen",
       "entityType": "columns",
       "table": "task"
     },
@@ -1075,6 +961,21 @@
     },
     {
       "columns": [
+        "call_id"
+      ],
+      "tableTo": "call",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "name": "fk_memory_fact_call_id_call_id_fk",
+      "entityType": "fks",
+      "table": "memory_fact"
+    },
+    {
+      "columns": [
         "task_id"
       ],
       "tableTo": "task",
@@ -1185,15 +1086,6 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "memory_tidy_run_pk",
-      "table": "memory_tidy_run",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
       "name": "task_message_pk",
       "table": "task_message",
       "entityType": "pks"
@@ -1258,6 +1150,20 @@
       "where": null,
       "origin": "manual",
       "name": "idx_memory_fact_always",
+      "entityType": "indexes",
+      "table": "memory_fact"
+    },
+    {
+      "columns": [
+        {
+          "value": "call_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_memory_fact_call",
       "entityType": "indexes",
       "table": "memory_fact"
     },

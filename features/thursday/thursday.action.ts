@@ -152,6 +152,14 @@ export const deleteCallAction = serverAction(async (callId: string) => {
 });
 
 /**
+ * Deletes every ended call and its turns; returns how many went. A call still
+ * on the line stays, as it does for one (deleteCall).
+ */
+export const deleteEndedCallsAction = serverAction(async () =>
+  deleteEndedCalls(),
+);
+
+/**
  * Wipes what the app has kept of its own use: every ended call and its turns,
  * every job and its thread, and every memory note. Keys, bots and connectors
  * stay — the set `pnpm reset` calls History.

@@ -19,14 +19,7 @@
   "[json]": {
     "editor.defaultFormatter": "biomejs.biome"
   },
-  "workbench.colorCustomizations": {
-    "titleBar.activeBackground": "#1e3a8a",
-    "titleBar.inactiveBackground": "#172554",
-    "statusBar.background": "#1e3a8a",
-    "statusBar.foreground": "#ffffff",
-    "activityBar.background": "#172554",
-    "activityBar.foreground": "#ffffff"
-  }
+  
 }
 
 

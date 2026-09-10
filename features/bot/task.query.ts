@@ -1,9 +1,10 @@
 import type { AssistantContent, ModelMessage, ToolContent } from "ai";
 import { and, desc, eq, inArray, isNull, lt, max, sql } from "drizzle-orm";
 import { appEvents } from "@/app/api/events/app-event.server";
+import { INBOX_FINISHED } from "@/config";
 import { database } from "@/database/db";
 import { taskMessageTable, taskTable } from "@/database/tables";
-import { reportAccepted } from "@/features/ai/tools/bot.tool";
+import { answerAccepted, isAnswerCall } from "@/features/ai/tools/bot.tool";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { clip } from "@/lib/utils";
 import {
@@ -29,7 +30,7 @@ const taskView = {
   status: taskTable.status,
   outcome: taskTable.outcome,
   pending: taskTable.pending,
-  reported: taskTable.reported,
+  seen: taskTable.seen,
   inputTokens: taskTable.inputTokens,
   outputTokens: taskTable.outputTokens,
   contextTokens: taskTable.contextTokens,
@@ -46,7 +47,7 @@ type TaskRow = {
   status: TaskStatus;
   outcome: string | null;
   pending: { toolCallId: string | null; options: string[] } | null;
-  reported: boolean;
+  seen: boolean;
   inputTokens: number;
   outputTokens: number;
   contextTokens: number;
@@ -55,12 +56,9 @@ type TaskRow = {
   updatedAt: Date;
 };
 
-/** How many finished tasks the inbox keeps; the rest live in Settings > Tasks. */
-const INBOX_RECENT_FINISHED = 3;
-
 /**
  * One row plus the thread's first message. `request` is what the screen shows;
- * `opening` is what the model reads (request plus recent call turns). The screen
+ * `opening` is what the model reads (who is who, the job, the call it came from). The screen
  * skips seq 0 and shows `request` instead (linesOf).
  */
 export async function insertTask(input: {
@@ -68,7 +66,7 @@ export async function insertTask(input: {
   label: string;
   request: string;
   callId?: string | null;
-  opening: string;
+  opening: Extract<ModelMessage, { role: "user" }>["content"];
 }) {
   const { opening, ...row } = input;
   const [task] = await database
@@ -91,7 +89,7 @@ export async function updateTask(
     status: TaskStatus;
     outcome: string | null;
     pending: { toolCallId: string | null; options: string[] } | null;
-    reported: boolean;
+    seen: boolean;
     endedAt: Date | null;
   }>,
 ) {
@@ -102,12 +100,12 @@ export async function updateTask(
   changed();
 }
 
-/** Bypasses `updateTask` on purpose: reporting is not movement and must not reorder the inbox by updatedAt. */
-export async function markReported(ids: string[]) {
+/** Bypasses `updateTask` on purpose: being seen is not movement and must not reorder the inbox by updatedAt. */
+export async function markSeen(ids: string[]) {
   if (ids.length === 0) return;
   await database
     .update(taskTable)
-    .set({ reported: true })
+    .set({ seen: true })
     .where(inArray(taskTable.id, ids));
   changed();
 }
@@ -155,7 +153,7 @@ export async function findTask(id: string) {
   return task ?? null;
 }
 
-/** Inbox: everything running or waiting plus the most recently finished few, newest first. `reported` is not a filter here. */
+/** Inbox: everything running or waiting plus the latest INBOX_FINISHED endings, newest first. `seen` is not a filter here. */
 export async function listInboxTasks(): Promise<Task[]> {
   const [open, finished] = await Promise.all([
     database
@@ -168,7 +166,7 @@ export async function listInboxTasks(): Promise<Task[]> {
       .from(taskTable)
       .where(inArray(taskTable.status, ["done", "failed"]))
       .orderBy(desc(taskTable.updatedAt))
-      .limit(INBOX_RECENT_FINISHED),
+      .limit(INBOX_FINISHED),
   ]);
   const rows = [...open, ...finished].sort(
     (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
@@ -337,7 +335,8 @@ export async function lastSeq(taskId: string): Promise<number> {
 /**
  * The task's own thread as the model sees it: parent-less messages in order.
  * What a borrowed bot said inside an `ask_bot` call is not here; its result is.
- * Starts at the last compact row when there is one.
+ * After a compaction it is the opening, then the last compact row on: a summary
+ * replaces what came after the job and the call, never the job and the call.
  */
 export async function listThread(taskId: string): Promise<ModelMessage[]> {
   const rows = await database
@@ -352,9 +351,10 @@ export async function listThread(taskId: string): Promise<ModelMessage[]> {
     )
     .orderBy(taskMessageTable.seq);
   const from = rows.findLastIndex((row) => row.compact);
-  return rows
-    .slice(Math.max(from, 0))
-    .map((row) => ({ role: row.role, content: row.content }) as ModelMessage);
+  const kept = from > 0 ? [rows[0], ...rows.slice(from)] : rows;
+  return kept.map(
+    (row) => ({ role: row.role, content: row.content }) as ModelMessage,
+  );
 }
 
 /** One row in the screen's shape; `pending` folds into `ask`. */
@@ -428,8 +428,7 @@ function labelOf(args: Record<string, unknown>): string | null {
 }
 
 /**
- * One tool call as one line. Shared by the screen and by the resumed bot's
- * re-read history (bot.run condenseThread). No per-tool summary table: the
+ * One tool call as one line, for the screen. No per-tool summary table: the
  * label is model-written (bash `description`), other tools use the first
  * telling argument, else the argument shape.
  */
@@ -560,8 +559,8 @@ function linesOf(message: StoredMessage, owner: string): TaskLine[] {
           question: String(args.question ?? ""),
           options: optionsOf(args.options),
         });
-      } else if (part.toolName === TOOL_NAMES.report) {
-        // The report is a tool call but draws as text: it is the last thing said
+      } else if (isAnswerCall(part.toolName)) {
+        // The answer is a tool call but draws as text: it is the last thing said
         // in the thread, and taskFromRow promotes it to the result line
         const text = String(args.result ?? "").trim();
         if (text) lines.push({ ...base, id: id(index), kind: "text", text });
@@ -620,8 +619,8 @@ function linesOf(message: StoredMessage, owner: string): TaskLine[] {
     const lines: TaskLine[] = [];
     (message.content as ToolContent).forEach((part, index) => {
       if (part.type !== "tool-result") return;
-      if (part.toolName === TOOL_NAMES.report && reportAccepted(part.output)) {
-        // An accepted report's result is only a confirmation; the report itself
+      if (isAnswerCall(part.toolName) && answerAccepted(part.output)) {
+        // An accepted answer's result is only a confirmation; the answer itself
         // was drawn from the call. A rejected one is drawn: it explains the next step
         return;
       }

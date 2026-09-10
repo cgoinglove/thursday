@@ -3,7 +3,7 @@ import {
   type SpeachModelProviderId,
   speachModelRefSchema,
 } from "@/features/ai/model.schema";
-import { botIconSchema } from "@/features/bot/bot.schema";
+import { botIconSchema, type TaskStatus } from "@/features/bot/bot.schema";
 import { ASCII_CHARSETS, FACE_KINDS } from "@/features/thursday/face.const";
 import type { DateLike } from "@/lib/date-like";
 import { COMMON_VALIDATE } from "@/lib/limits";
@@ -177,4 +177,11 @@ export type CallRecord = {
   /** null when the hang-up was never recorded. */
   endedAt: DateLike | null;
   turns: (CallTurn & { at: DateLike })[];
+  /** Jobs this call opened, as they stand now; the log draws each under the line that opened it. */
+  jobs: {
+    id: string;
+    label: string;
+    status: TaskStatus;
+    outcome: string | null;
+  }[];
 };

@@ -23,7 +23,7 @@ import { desktopNotify } from "@/lib/desktop-notify";
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
 import { createKeyedLock } from "@/lib/queue";
-import { condenseThread, runBot, type TaskEvent } from "./bot.run";
+import { resumeThread, runBot, type TaskEvent } from "./bot.run";
 import { TASK_CONTINUE, type TaskStatus } from "./bot.schema";
 import {
   addTaskUsage,
@@ -72,7 +72,7 @@ const running: Map<string, Run> = ((globalThis as Pinned).__botRuns ??=
  */
 const taskLock = ((globalThis as Pinned).__botTaskLock ??= createKeyedLock());
 
-/** Opens a job. The opening message is the request plus the last turns of the call (bot.prompt buildTaskOpening) and is the thread's first row. */
+/** Opens a job. The opening message — who is who, the job, the call it came from (bot.prompt buildTaskOpening) — is the thread's first row. */
 export async function startTask(input: {
   bot: string;
   request: string;
@@ -82,7 +82,11 @@ export async function startTask(input: {
   const conversation = input.callId
     ? await listCallTurns(input.callId, OPENING_TURNS)
     : [];
-  const opening = buildTaskOpening({ request: input.request, conversation });
+  const opening = buildTaskOpening({
+    bot: input.bot,
+    request: input.request,
+    conversation,
+  });
   const task = await insertTask({ ...input, opening });
   launch(task.id, {
     bot: input.bot,
@@ -127,11 +131,11 @@ export async function answerTask(id: string, answer: string) {
       status: "running",
       outcome: null,
       pending: null,
-      reported: false,
+      seen: false,
       endedAt: null,
     });
-    // Stored whole, read back folded (bot.run condenseThread)
-    launch(id, { bot: task.bot, messages: condenseThread([...thread, reply]) });
+    // Resumed on the rows as they were stored (bot.run resumeThread)
+    launch(id, { bot: task.bot, messages: resumeThread([...thread, reply]) });
   });
 }
 
@@ -177,13 +181,16 @@ export async function cancelTask(id: string) {
   return taskLock(id, async () => {
     const task = await findTask(id);
     if (!task) publicError("No such job.");
+    // A job that already ended has an answer in `outcome`; cancelling would
+    // write "Cancelled." over the thing it was run for.
+    if (task.endedAt) publicError("That job has already ended.");
     running.get(id)?.stop.abort();
     await updateTask(id, {
       status: "failed",
       outcome: "Cancelled.",
       pending: null,
       // Nobody needs to be told what they just did themselves
-      reported: true,
+      seen: true,
       endedAt: new Date(),
     });
     // Cancel is a real end, so the browser session closes here; the abort in
@@ -244,7 +251,7 @@ async function abandon(id: string, why: string) {
     status: "waiting",
     outcome: `${why}. Everything it had done is still here. Pick it back up?`,
     pending: { toolCallId: null, options: [TASK_CONTINUE] },
-    reported: false,
+    seen: false,
     endedAt: null,
   });
 }
@@ -265,7 +272,7 @@ export async function pauseTasks(reason: string) {
         status: "waiting",
         outcome: `${reason} Everything it had done is still here. Pick it back up?`,
         pending: { toolCallId: null, options: [TASK_CONTINUE] },
-        reported: false,
+        seen: false,
         endedAt: null,
       });
       // The window stays open: this row is on the screen and answering resumes
@@ -507,17 +514,17 @@ async function drive(
             outcome: event.question,
             pending: { toolCallId: event.id, options: event.options },
           };
-        } else if (event.type === "report") {
-          // An incomplete report goes back to waiting with the continue option.
-          // The outcome is the report text verbatim; the same text is the
-          // thread line (bot.query linesOf).
-          ending = {
-            status: event.complete ? "done" : "waiting",
-            outcome: event.text,
-            pending: event.complete
-              ? null
-              : { toolCallId: null, options: [TASK_CONTINUE] },
-          };
+        } else if (event.type === "answer") {
+          // An answer ends the job; one the app stopped (bot.run `stopped`) waits
+          // with the continue option. The outcome is the answer text verbatim;
+          // the same text is the thread line (bot.query linesOf).
+          ending = event.stopped
+            ? {
+                status: "waiting",
+                outcome: event.text,
+                pending: { toolCallId: null, options: [TASK_CONTINUE] },
+              }
+            : { status: "done", outcome: event.text, pending: null };
         } else if (event.type === "error") {
           broken = event.message;
           ending = {
@@ -567,7 +574,7 @@ async function drive(
   try {
     await updateTask(id, {
       ...final,
-      reported: false,
+      seen: false,
       endedAt: final.status === "waiting" ? null : new Date(),
     });
   } catch (cause) {
@@ -605,7 +612,7 @@ async function drive(
   }
 }
 
-/** The document a report names: the artifacts folder first, otherwise the first drawable file. */
+/** The document an answer names: the artifacts folder first, otherwise the first drawable file. */
 function artifactIn(outcome: string): string | null {
   const paths = pathsIn(outcome);
   return (

@@ -20,12 +20,6 @@ machines. Two things follow, and they are not style preferences:
   accident. `ux.local.md` is the working example. Never `git add -f` one, and never rename one
   into the tree to "keep it for later"; if it is worth keeping, it is worth writing properly.
 
-# This is NOT the Next.js you know
-
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
 # Layout
 
 ```
@@ -68,14 +62,9 @@ with `THURSDAY_APP_DIR` / `THURSDAY_HOME`. Nothing else reads `cwd`; every path 
 `npx thursday-agent` is the same two roots pointed elsewhere: the package for one, `~/.thursday` for
 the other (`bin/thursday.mjs`). It is why the app is publishable at all — nothing writes beside itself.
 
-**Shipping** — `next build` writes a standalone server; `scripts/pack.mts` turns it into `dist/`, which
-is what `npm publish` takes. Three things about npm shape the app: it deletes every folder named
-`node_modules` from a tarball unless the package declares it bundled (so pnpm installs hoisted,
-`pnpm-workspace.yaml`, and pack lifts Turbopack's `.next/node_modules` aliases one level up); it gates
-install scripts, so the package has none — nothing may stand between `npx` and a running app, and what
-an install used to fetch is fetched at boot instead (`workspace.ensureBrowser`), in the background; and
-a published tree carries no source, so anything read by name at run time (skills, migrations) is named
-in `outputFileTracingIncludes`, not left to the trace.
+Anything past that lives in one skill, `.claude/skills/thursday/`, read when you are inside the area
+it covers — prompts and the bot runtime, screens, the database, shipping. Its `SKILL.md` says which
+file to open for what. Keep it true the same way you keep this file true.
 
 # Conventions
 
@@ -83,87 +72,18 @@ in `outputFileTracingIncludes`, not left to the trace.
   components and knows nothing about models. Tools, prompts and model-facing names all live in
   `features/ai/`. The only code that calls into `features/ai` is what actually runs a model
   (`bot.run`, `bot.runner`, `thursday.action`).
-- **Tool names come from one file.** `features/ai/tools/tool-name.ts` is the source; tools and prompts
+- **Tool names come from one file.** `features/ai/tools/tool-name.ts` is the source; tools and
+  prompts
   import it. schema/query files never contain a tool name.
-- **Prompts are split by runtime, not by chapter.** Each prompt file loads its own data and exports one
+- **Prompts are split by runtime, not by chapter.** Each prompt file loads its own data and
+  exports one
   function. Shared helpers only format rows; they never decide what to say. Tool descriptions say
   *what* a tool is; prompts say *when* to use it. Prompts are assembled per session, never cached.
-- **A fact goes where it can still act.** What only the machine knows is read rather than guessed —
-  which runtimes and package managers are here — but it is read as the prompt is assembled
-  (`workspace.ts` `readMachineTools`, one `command -v` sweep per job, ~5ms) and stated in the
-  Environment chapter, because it decides the *first* command and anything attached to a result
-  arrives a step too late to. Measured: a bot told what is here still verifies, but narrowly
-  (`node -v` instead of `which node bun tsx ts-node pnpm`), and sometimes not at all — one skipped
-  step is worth many times the line that skipped it. What a run can only learn by hitting it rides
-  on the first `bash` result instead (`ai/tools/workspace.tool` `SHELL_GUIDE`), once per run: a new
-  shell per command, no answer to a question and a kill at `EXEC_TIMEOUT_MS`, keys stripped from the
-  environment — an empty variable is not an unset one, and nothing in a command's output says which.
-  Only the procedure moved out of the prompt; the capability stays (`MACHINE`), because a bot not
-  told it may install stops rather than asks. Do not put in either what the model already does:
-  `nohup … > file 2>&1 &` was written into the guide and measured to be what it reached for anyway.
-- **A tool argument that may be null may also be left out** (`.nullish()`, not `.nullable()`).
-  Measured: `.nullable()` puts the key in the schema's `required` list, so a model that omits an
-  optional argument fails validation outright and spends a step recovering — which cheap models do
-  routinely. The exception is an argument where null is an *instruction* rather than an absence:
-  `memory_show.path` is `.nullable()` because null means "take it off the screen", and a forgotten
-  key would hide a note instead of showing one.
-- **The app's own tools are never deferred.** MCP tools sit behind `tool_search` because a server can
-  publish hundreds; a runtime holds about ten of its own, and hiding those to save a few hundred
-  tokens costs a step to find them and reads as a capability that is not there. What grows with use
-  is the listings (memory, skills, connected tools), not the prose — measure before cutting either.
-  Past `PROMPT_CROWDED` the Bots and Skills screens say what the set costs, because the lines are
-  the user's to add and nothing else in the app would tell them. Stating the cost, never capping.
-- **A prompt says what it costs.** Every assembly logs its own breakdown by chapter, and the tool
-  set logs its own (`prompts/prompt-helper` `logPromptSize`, `load-tools` `logToolSize`). What grows
-  is the listings, which belong to the user, so nothing in the app would otherwise notice — the
-  numbers in the bullet above were a guess until they were measured, and the guess was wrong in both
-  directions. Past `PROMPT_BUDGET` the line is a warning naming the chapter carrying it, so a shipped
-  install says so as well, where a debug line never prints.
-- **Tools run on the server.** A call's tool invocation is forwarded by the page to the server, so tools
+- **Tools run on the server.** A call's tool invocation is forwarded by the page to the server, so
+  tools
   call domain queries directly. The one exception is anything that touches the call itself (hang up).
 - **Long-running work continues after the response** (`after`). Everything that happens is written as
   rows, so what the screen draws and what the model re-reads are the same rows.
-- **Memory is written as it is said, and nothing re-reads it afterwards.** A second pass over
-  finished calls was tried and removed: its only trigger was the call ending, which is the moment
-  the browser is most likely to go, and the presence rule then killed the run mid-read — so it
-  spent a context, stamped nothing and read the same turns again next time. What memory holds is
-  what a hand actually wrote while it was there. A memory that has grown says so in the call
-  prompt instead (`prompt-helper` `tidying`, config `MEMORY_LIMITS`), and the user is the one who
-  drops a line.
-- **Memory is one note kept by three hands, and each fact records whose.** The user typing on the
-  screen, the call as they talk, a bot that turned something up mid-job —
-  `memory_fact.source` (memory.schema `MemorySource`). No model chooses it: the runtime knows
-  which it is (`load-tools`), so it cannot be claimed. It is for the person looking at their own
-  memory and stays off every model-facing surface: a bare `bot` beside a line says nothing a reader
-  can act on — it cannot tell whether that bot was itself — and costs a sentence to explain. Null
-  where it was never recorded — unknown, not guessed. The two chapters a bot could confuse now name each
-  other: memory is about the user and everyone reads it, `bot_note` is about this machine and only
-  that bot does.
-- **A bot is switched off in one read.** `listJobBots` is the only place `bot.disabled` is
-  filtered, and every roster a model sees is built from it — both prompts, and the list
-  `delegate` names on a miss — so off is off everywhere without a second rule to keep.
-  `findJobBot` resolves a switched-off bot on purpose: a job already under way resumes through
-  it, and stranding a thread the user can still answer is worse than one bot finishing what it
-  was already given. What refuses is the *pick*: `delegate`, and `bot.run` for every fresh start
-  behind it (`ask_bot`, the screen's hand-over). The fallback worker answers "no bots exist" and
-  never "every bot is off" — conjuring one there would undo the choice.
-- **A bot writes its own prompt, but never writes it itself.** `bot_note` is one block of
-  prose per bot, keyed by name so the default bot has one too, capped at `BOT_NOTES.chars`:
-  what working on this machine has taught it, read at the top of its every job and by nobody
-  else. On `report` it says only what it wants *changed* — add, correct or drop,
-  in its own words at any length, and nothing to say is the usual answer — and
-  `features/bot/bot.notes` rewrites the block from that: the same model the job ran on,
-  no system prompt, one user turn holding the block and the request, one tool, forced. Two
-  models because they are two jobs; a bot that rewrites the block itself edits it around the
-  job it was on and drops what that job was not about, which is measured, not assumed. No
-  request, no pass, so a job that taught nothing costs nothing, and a line carries forward by
-  nobody mentioning it. Concurrency is one per-bot lane (`lib/queue`): the second pass reads
-  what the first wrote. One switch for the whole set (`BOT_NOTES_KEY`, on unless switched
-  off) and it is structural — off, the chapter is not drawn and `report` has no field for it,
-  so nothing describes a change nobody will make. Memory is the user and everyone reads it;
-  this is how the work goes here and only that bot reads it. The screen shows it under the
-  bot's face, where it reads as part of who the bot is rather than one more setting, and can
-  only throw it away — a line the user typed would come back rewritten by the next pass.
 - **No browser, nothing runs.** `presence` (app/api/events) says whether a browser is on the stream;
   when the last one has been gone a while, jobs stop and wait and open calls close.
   Wired once at boot (`instrumentation`), not in each domain.
@@ -175,66 +95,6 @@ in `outputFileTracingIncludes`, not left to the trace.
   line both import that one. A second icon table is how they end up disagreeing. So is a domain's
   nav badge: `features/<d>/components/<d>-badge.tsx` reads that domain's own key and draws
   `NavBadge`. It loads with the app, so it never lives in the lazily-loaded setting screen.
-- **Settings screens live in their domain** (`features/<d>/components/<d>-setting.tsx`).
-  `features/settings/` holds only the shell (nav, dialog) and shared setting grammar. The shell
-  gives a section the space under the header; the section fills it and draws its own scroll area,
-  so it picks a width and ends in a rail:
-  - **One column** (`SettingColumn`, centred, 880) carries the section title, a list body, the
-    skeleton and the rail's words — the same on every section, so nothing moves when the section
-    changes. A per-section width was tried and reverted: it moved the title and the skeleton on
-    every switch, which reads as three designs rather than one.
-  - **What is a surface fills the section instead**: a reader's panes (`SettingPanes` — Memory,
-    Bots, Workspace) and every rail's rule go edge to edge. Both panes reach the bottom edge, so
-    nothing clips, and the rail below them is the section's, not a pane's.
-  - **A section waits in the shape it arrives in.** `SettingSkeleton` is the column's;
-    `SettingPanesSkeleton` is the panes', built out of `SettingPanes` so the two cannot drift.
-    Both waits use it — the section's own read and the chunk (`lazySection`'s second argument) —
-    or opening one section draws two layouts. Neither belongs in a dialog: a dialog has its own
-    padding, so it waits as plain `Skeleton` lines shaped like what is coming.
-  - `SettingRail` is the bottom edge of every section: what the whole set is, plus the actions
-    that act on all of it. It also gives a short section a bottom, so the empty half of a tall
-    dialog reads as margin rather than a truncated page. **What cannot be undone is not a rail
-    action**: the rail is on screen the whole time a section is open, so a wipe sits at the foot
-    of the body as a `Danger zone` group and is reached by scrolling to it (Thursday's Reset
-    history). A panes section has no body to put one in, so its rail keeps that action
-    (Workspace's Empty scratch).
-  - **Every list in a section body is the same card** (`SettingItems`), however long it runs:
-    Tasks was a full-bleed log of dividers and read as a different app one nav row over.
-    Dividers-only belongs where there is already a surface — a reader's pane, a dialog.
-    A group label (`SettingGroup`) is plain text above its card, never a tinted band.
-  - **`SettingGroup` is the only shape a section is built from**: a header line (label, its
-    `hint`, a `filter`, and the set's state at the far end), a body, and a `note` under it —
-    never that markup written out by hand. A switch that runs something by itself is
-    `SettingToggle`; a line that qualifies a body is `SettingNote`.
-  - **One spacing rhythm, set in `setting-ui.tsx` and nowhere else**: 32px between groups, 12px
-    from a label to its body, 8px from a body to the note about it. What reads as cramped is the
-    ratio, not the numbers — a group 20px from its neighbour and 8px from its own label leaves
-    the label floating between two cards instead of belonging to one.
-  - A row's second line is its state, not a second name for it, and stays tight; a sentence that
-    wraps gets its own leading. Any list that grows carries a `SettingFilter` — on its group's
-    header line when it filters that group, on the section's (`SettingToolbar`) when it filters
-    more than one. Cmd+K focuses it, Cmd+1..9 jump sections, arrows move inside the nav.
-- **Artifacts and Workspace are two sections because they answer two questions.** Artifacts
-  (`features/artifact`) lists **the top of `artifacts/` only, one entry per row** — which is
-  already how the bots file things: a skill writes `artifacts/<name>.html`, a job that makes a set
-  writes `artifacts/<name>/`. So the folder is the index; nothing is recorded, and no artifact is
-  attributed to a job. The menu is flat and newest-first, and **a folder does not open into another
-  listing** — it opens as a sheet of what it holds, which is what a set of pictures is for.
-  Navigating a tree, and everything a bot wrote that is not finished work, is Workspace's. Both
-  open files through the same `FilePreview`, so the caps below hold in both.
-- **`file-kind.ts` decides what the Workspace section shows.** A file's `viewKindOf` says how the
-  screen opens it *and* whether it is listed at all — a kind of `none` is never listed — and
-  `isListedFolder` says the same for folders: hidden ones and what a package manager installs are
-  machinery, not work. Giving an extension a kind puts it on that screen; taking one away removes it.
-- **Nothing in the Workspace section is recursive.** A folder's size is every file under it, and a
-  bot that ran one `pnpm install` puts 16,000 of them in the tree — so no folder is measured and
-  no total is summed. One `readdir` per folder, one `stat` per file actually drawn, capped at
-  `WORKSPACE_VIEW.rows` with the rest behind Show more, so a folder of twenty and a folder of
-  twenty thousand cost the same. Only files carry a size, because one `stat` is free. `du`
-  questions go to Reveal folder. What the browser is handed is capped the same way
-  (`WORKSPACE_VIEW.textMax` / `elementMax`): text arrives as a Range and says it is a head, and an
-  image or page past the cap is not drawn at all — an `<img>` decodes whole and a dead tab
-  explains nothing. Audio and video are uncapped; they stream.
 - **A number that tunes behaviour is in `config.ts`; a number that *is* the drawing stays where it
   is drawn.** A cap, a deadline, a page size, a step limit, how long something is kept — named in
   `config.ts` with a paragraph saying what moving it does, even when one file reads it. An easing
@@ -245,44 +105,6 @@ in `outputFileTracingIncludes`, not left to the trace.
   user what to drop — the ask, which both can act on, never the mechanism: only one of them has a
   screen to put a note on, and how is the call prompt's to say.
 - **Don't split files by size.** A long file that does one thing stays one file.
-- **The workspace is split by how long what is in it lives.** `artifacts/` is the user's finished
-  work and stays — flat and unattributed, one top-level entry per result, which is what the Artifacts
-  screen reads. `projects/` is code that outlives the job that started it. `scratch/<label>-<id>/` is
-  one job's working material and goes when the job's row does (`workspace.ts` `jobScratch` /
-  `removeJobScratch`, from `bot.runner`): per *job* rather than per bot, because several bots work
-  inside one job (`ask_bot`) and one bot runs many jobs — and because a job ends, which is the only
-  thing that makes its material safe to clear. `bots/<name>/` is one bot's own kit across every job
-  it runs; its notes are prose and capped, and this is where the rest goes. `.output/`, where tool
-  output past `TOOL_OUTPUT.max` spills, is pruned by age when a job's shell closes, the way browser
-  snapshots already were.
-- **SQLite has one writer, so the app makes one request at a time** (`database/db.ts` `oneAtATime`).
-  Several flows write at once — a run per job, a background pass, the routes the browser
-  hits every time a write emits an event — and SQLite answers the losers with `SQLITE_BUSY` instead
-  of queueing them. Measured on the real write paths: three runs, one background pass and two readers gave
-  245 failures in a tenth of a second; serialising gave 0 in the same time, because the writes were
-  always going to happen one after another. The busy timeout does **not** substitute for it (with it
-  set, the same run still lost all 245 after waiting 52 seconds — a starved writer keeps losing), and
-  it belongs on `createClient` rather than in a `PRAGMA`: a libsql client is a connection *pool*, and
-  a pragma reaches only the connection that ran it — one of eight came back with the timeout set and
-  seven with zero. The lane wraps the client, not each query, because a rule kept at seventy call
-  sites returns the first time one is missed. A transaction holds the lane until it settles, so a
-  transaction body must use its `tx` and never `database`.
-- **A run records its own ending; nothing else polls for it.** `drive` marks the task `failed` in its
-  own `catch`, and that write is durable because writes are serialised — the zombie rows that started
-  this were the failure write losing to `SQLITE_BUSY`, not a missing watchdog. The only reconcile is
-  at boot (`bot.runner` `sweepTasks`), where every `running` row provably belongs to a dead process;
-  it lands them as `waiting` with the one continue option, the shape a step limit already leaves, so
-  the thread stays whole and answering resumes it. A run that ends badly also writes one line into
-  its own thread (`ThreadWriter.note`, a user row marked `note`): a thread that simply stops shows a
-  tool call with no answer, and neither the room nor a resumed run can say why. `note` is separate
-  from `compact` on purpose — how a row reads and where a resume starts are two facts, and a break
-  marked `compact` would throw the thread away.
-- **An event the call seam has no case for is logged, not dropped** (`lib/realtime/realtime.driver`).
-  Providers speak this protocol with their own additions, and a missing case is invisible: the event
-  goes nowhere and the conversation quietly loses what it carried. A user turn whose transcription
-  failed is the example that cost the most — the item never got words, an item with no words is not
-  reported at all, and the turn vanished from the transcript that bot briefings and the call prompt
-  both draw from. Once per type per session, so a busy stream cannot drown it.
 - **An interface with one implementation is two files, not an interface.** Don't add ports.
 
 # Data flow
@@ -357,54 +179,46 @@ A 30-second poll remains as a safety net. No WebSockets.
 - Domain-agnostic components are shadcn (`components/ui/`). Check there before writing a new one.
 - Markdown renders through `markdown.tsx` (wraps streamdown).
 - Confirmations and prompts: `notify.confirm` / `notify.prompt`. Destructive actions confirm first.
-- Notifications: `toast.add`, only for things that happen off-screen. Skip it when the result is visible.
+- Notifications: `toast.add`, only for things that happen off-screen. Skip it when the result is
+  visible.
 - Waiting is always a loader: buttons swap their icon for a Loader, lists use `Skeleton`. Never dots
   or pulses, and never a new element that shifts the row when it finishes.
-- Two status colors only: amber (waiting on me — `WAITING_INK` in `lib/utils`) and red (failed —
-  `text-destructive`). Success, connected and enabled have no color. There is no brand color, so a
-  green would become one. The settings nav reports the same two and nothing else (`NavBadge`).
+- Two status colors only: amber (needs me — a question, a stopped job, an answer not yet opened;
+  `WAITING_INK` in `lib/utils`) and red (failed — `text-destructive`). Success, connected and enabled
+  have no color of their own: an unopened answer is amber because it waits on me, not because it
+  worked. There is no brand color, so a green would become one. The settings nav reports the same two
+  and nothing else (`NavBadge`).
 - Errors are never swallowed. Inline or toast, they reach the user.
-- **A task's thread is a room its own bot owns** (`bot-room.tsx` `Conversation`). That bot holds the
-  left; everyone it talks to — Thursday, and any bot it delegated to — answers from the right, and
-  one 80% cap sits on the turn's column so a report and a one-line remark end on the same edge.
-  A bot arriving is a centred system line (`Invite`), drawn once, where an `ask` first names it —
-  not an arrow on somebody's message, and never on the way back: after that the side and the face
-  say who is speaking, the way a group chat does. **The report is not a card**: it is already inside
-  a thread inside a section, and a third border reads as a second chat window. What tells it from a
-  passing remark is that it is the only prose there at foreground weight, plus the files it names.
-  Who was in the room is `rosterOf` — derived from the lines, never a table.
 
 # Rules
 
+- **Say what you are about to change, and wait.** Investigating is free — read, grep, query the
+  local database, measure. Editing a file, spending a real model call on the user's key, or
+  writing into the tree is not. A question is a question, not approval.
+- **Several agents work here at once, and a dev server is usually running.** Stage only the files
+  you touched, by name — never `git add -A`, which sweeps in someone else's half-finished work.
+  Re-read a file before editing it: if it changed under you, that is the current state, not a
+  mistake to undo. Never revert an uncommitted line you did not write, and never commit on
+  someone's behalf.
 - Timestamps are `DateLike` (`lib/date-like`): ISO strings on the wire, `Date` in drizzle.
   `z.coerce.date()` lies on the client.
 - Shared logic goes to `lib/utils.ts` or the matching lib file before it is written twice. Don't
   generalize something used once.
 - Verify with `pnpm typecheck` and `pnpm lint`. Schema changes: `pnpm db:generate` (applied at boot),
   `pnpm db:migrate` for the current DB. Never `db:push`.
-- **A generated migration is edited before it is committed, so running it twice is not an error.**
-  `db:generate` writes bare `CREATE TABLE` / `CREATE INDEX`; add `IF NOT EXISTS` to every one, and
-  `IF EXISTS` to every `DROP`. Drizzle skips what it has already recorded, so this is not for the
-  normal path — it is for the DB that has the table but not the row: a `db:push` from before the
-  rule above, a hand-restored file, a migration that half-applied. That DB currently dies at boot
-  (`instrumentation` migrates first), and the message names a table, not a cause.
-  SQLite has no conditional `ALTER`, so a column add cannot be guarded this way; when one is
-  unavoidable, say so in the PR rather than hiding it behind a rewritten table.
 - Prompt or tool-description changes: read the assembled result, not just the file. UI changes: run
   the app and look. Judge bot behavior by counting stored turns and tool calls, not by feel.
 - Comments are English, present tense and short. They explain what the code cannot: an invariant, an
   external constraint, the one-line why behind a surprising choice. No history, no narrative.
 - Model-facing text (prompts, tool descriptions, `.describe()`) is English and imperative.
-- New files go in the commit (`git add -A`) — which is why anything private must be named
-  `*.local.*` before it is written, not after. Two things are easy to get wrong the other way:
-  a generated migration (`database/migrations/…`) MUST be committed or a fresh clone boots
-  against the wrong schema, and a stray shell redirect at the repo root must not be.
-- Commit and pull-request titles are [conventional commits](https://www.conventionalcommits.org)
-  (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, `feat!:`). Not a style preference:
-  release-please reads them to decide the next version and write CHANGELOG.md, so a feature
-  landing under `chore:` never ships. Never hand-edit `CHANGELOG.md`, `package.json`'s `version`
-  or `.release-please-manifest.json` — a release is a merged Release PR, never a pushed tag.
-- When a structural decision changes, update this file in the same diff.
+- A new file you created goes in the commit with the rest of your change — which is why anything
+  private is named `*.local.*` before it is written, not after. Two are easy to get wrong: a
+  generated migration (`database/migrations/…`) MUST be committed or a fresh clone boots against
+  the wrong schema, and a stray shell redirect at the repo root must not be.
+- **Keep this file and the skill true.** When a change makes a line here wrong, fix it in the same
+  commit; when it settles something new and non-obvious, add it. Short entries here, the long ones
+  in the skill. Delete what the code no longer does — a stale rule is followed as confidently as a
+  live one.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

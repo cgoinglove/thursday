@@ -1,3 +1,4 @@
+import type { ModelMessage } from "ai";
 import { BOT_NOTES, PATHS, PROMPT_LINE } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import {
@@ -43,21 +44,22 @@ import {
  * Each chapter decides for itself whether it is included. Assembled on every run, never cached,
  * so a skill or server added a minute ago is in the next job's prompt.
  * Two seats share this prompt: the bot holding the job, and one borrowed for a part of it
- * (`ask_bot`). Only identity, roster, asking and finishing differ between them.
+ * (`ask_bot`). Only identity, roster, asking and answering differ between them.
  *
  * @param self This run's bot name; used only to drop itself from the roster.
  * @param persona Owner's instruction for this bot from settings.
- * @param askedBy Name of the borrowing bot in the borrowed seat; null for the bot holding the job.
+ * @param seat The borrowed seat — who handed it this part, every bot above it on the job, whether it may borrow in turn; null for the bot holding the job.
  */
 export async function loadBotPrompt(
   self: string,
   persona?: string | null,
-  askedBy?: string | null,
+  seat?: { askedBy: string; above: string[]; canBorrow: boolean } | null,
   /** The two folders that are this run's rather than the user's (bot.run). */
   folders?: { scratch: string | null; own: string },
 ): Promise<LoadedPrompt> {
   const sandbox = await openWorkspace();
   const name = self.trim();
+  const askedBy = seat?.askedBy ?? null;
   const [
     skills,
     index,
@@ -84,8 +86,14 @@ export async function loadBotPrompt(
     readMachineTools(sandbox),
   ]);
 
-  // Drop self so a bot cannot call itself; a borrowed bot has no roster at all (bot.run MAX_DEPTH)
-  const peers = askedBy ? [] : allBots.filter((bot) => bot.name !== name);
+  // Drop itself and every bot above it on this job, which are blocked waiting on
+  // it; the last seat the depth allows has no roster at all (config BOT_RUN.depth)
+  const peers =
+    seat && !seat.canBorrow
+      ? []
+      : allBots.filter(
+          (bot) => bot.name !== name && !seat?.above.includes(bot.name),
+        );
 
   const text = [
     askedBy ? borrowedIdentity(name, askedBy) : identity(name),
@@ -96,7 +104,7 @@ export async function loadBotPrompt(
     environment(sandbox.cwd, machine, folders),
     roster(peers),
     askedBy ? askingBack(askedBy) : ASKING,
-    askedBy ? handingUp(askedBy) : FINISHING,
+    askedBy ? handingUp(askedBy) : ANSWERING,
     // Last, so it is the closest thing to the work and outranks the rest
     ownerInstruction(persona),
   ]
@@ -117,7 +125,7 @@ export async function loadBotPrompt(
 function identity(name: string): string {
   return [
     // Named, because the owner's prompt may not name it and its own instructions are addressed to it
-    `You are ${name}, a worker. Thursday handed you a job while she keeps talking to the user — they speak to her and to nobody else, and what she reads them out of your report is the only part of this that reaches them. You are not in that conversation and never address the user. This thread is drawn on their screen while you work, though: not written to them, but not private either. ${nowLine()}`,
+    `You are ${name}, a worker. Thursday handed you a job while she keeps talking to the user — they speak to her and to nobody else, and what she says out of your answer is the only part of this that reaches them. You are not in that conversation and never address the user. This thread is drawn on their screen while you work, though: not written to them, but not private either. ${nowLine()}`,
     MACHINE,
     NO_GUESSING,
   ].join("\n\n");
@@ -126,7 +134,7 @@ function identity(name: string): string {
 /** The borrowed seat: above it is the borrowing bot, not Thursday. */
 function borrowedIdentity(name: string, askedBy: string): string {
   return [
-    `You are ${name}, a worker. ${askedBy} is holding a job Thursday handed them and has handed one part of it to you. The user speaks to Thursday and to nobody else; you never address them, and what you hand back goes into ${askedBy}'s report as-is. This thread is drawn on their screen while you work: not written to them, but not private either. ${nowLine()}`,
+    `You are ${name}, a worker. ${askedBy} has handed you one part of a job Thursday handed over; your first message says who holds it and how it reached you. The user speaks to Thursday and to nobody else; you never address them, and what you hand back goes into ${askedBy}'s answer as-is. This thread is drawn on their screen while you work: not written to them, but not private either. ${nowLine()}`,
     MACHINE,
     NO_GUESSING,
   ].join("\n\n");
@@ -163,7 +171,7 @@ function memory(
 
 What the user's assistant knows about them. Thursday keeps it as she talks with them, and everyone reads it.
 
-Yours to read, and to add to when the work turns up something about *them* that outlives the job; what the job itself turned up goes in your report. It describes the user, not you: how they are named and spoken to is hers to use with them, not yours to borrow. What you learn about this machine is not memory — that is your own instructions, below.`;
+Yours to read, and to add to when the work turns up something about *them* that outlives the job; what the job itself turned up goes in your answer. It describes the user, not you: how they are named and spoken to is hers to use with them, not yours to borrow. What you learn about this machine is not memory — that is your own instructions, below.`;
 
   const alreadyKnown = carried.length
     ? `Already known:
@@ -182,7 +190,7 @@ A topic not listed is one nobody knows anything about.`;
 
 /**
  * The bot's own notes, carried between jobs (database bot_note). Always drawn, empty or not,
- * so a first job knows it has them. What belongs in them is on `report`, the only place a
+ * so a first job knows it has them. What belongs in them is on `answer`, the only place a
  * change can be asked for (tools/bot.tool); the chapter is what they are and that they last.
  * The line about what goes in first shows only while they are empty — a standing instruction
  * to write something turns every job into a note, and there is nothing to nudge once a bot
@@ -271,7 +279,7 @@ ${peers.map((bot) => `- **${bot.name}** — ${bot.description}`).join("\n")}
 
 These lines were written for the user, who reads them on their own screen: where one says "you" it means them, not you.
 
-A part of your job another bot is for goes to \`${TOOL_NAMES.ask_bot}\`, because their tools and their practice are the reason they exist. What you build is made of what they bring back, so send for it before you build. A part you could finish in a couple of commands is yours; one that would take a run of its own is theirs. The job stays yours and you report; they see only your brief — not the call, not this thread.`;
+A part of your job another bot is for goes to \`${TOOL_NAMES.ask_bot}\`, because their tools and their practice are the reason they exist. What you build is made of what they bring back, so send for it before you build. A part you could finish in a couple of commands is yours; one that would take a run of its own is theirs. What you were handed stays yours and you answer for it. They get the job, the call it came from and what you write them — not this thread.`;
 }
 
 /** The only place a run can stop. The user's request to buy, pay or top up is itself the go-ahead. */
@@ -288,56 +296,125 @@ const askingBack = (askedBy: string) => `## Asking
 What you cannot get for yourself goes to \`${TOOL_NAMES.ask_back}\`: ${askedBy} handed you this part and answers from what they have. They cannot take a question to the user, so for what is the user's alone take the safer reading and say so in what you hand back. Ask before you start, once, whole.`;
 
 /**
- * The cap used to be stated here, on the theory that a ceiling read as a budget is one
- * a run fills and that naming it as a ceiling would stop that. Measured the other way:
- * told the number, runs work to it — the figure reads as an allowance whatever the
- * clause after it says. So the number is out and only the recovery stays, which never
- * depended on it. Nothing here asks for fewer steps either: a run that spends them is
- * recovering, not counting, and a sentence cannot shorten a recovery. The cap is
- * enforced where it cannot be argued with (bot.run `stepCountIs`, and `lastStep`
- * forcing the final step to end the job).
- */
-const RUNNING_LONG = `Running long, end with what you have and \`complete: false\` while the summary is still yours to write.`;
-
-/**
- * The job ends in the thing that was asked for; no prescribed document shape.
+ * An answer is sized by the request, not by the shape of a document: this is where
+ * the only upper bound on a run is stated, and the one place that says the spoken
+ * line is hers to compose. Nothing here asks for a script — a bot that writes to be
+ * heard writes for a length rather than for a question, and the padding it adds to
+ * reach that length is steps, not words.
+ * The step cap is stated nowhere a bot reads: told the number, runs work to it. It is
+ * enforced where it cannot be argued with (bot.run `stepCountIs`, and `lastStep`).
  * Images in `.md` need absolute routes because a document opens from two places and relative paths resolve differently.
  */
-const FINISHING = `## Finishing
+const ANSWERING = `## Answering
 
-Every job ends with \`${TOOL_NAMES.report}\`, in the user's language, written to be heard — she reads it out loud. **The job ends in the thing that was asked for**: an action with the action done, photos in a page with the photos in it, a comparison in a table. Anything that does not fit in a few lines is a file under \`${PATHS.artifacts}/\`, and the report names its path — it becomes a link on their screen. In a \`.md\`, images only by absolute route (\`/api/file/${PATHS.artifacts}/…\`).
+Every job ends with \`${TOOL_NAMES.answer}\`. **Answer what was asked, at the size it was asked**: a question ends in its answer — one number is one line — and a thing to make comes back made, an action done, photos in a page, a comparison in a table. Once you have what they asked for the job is done; the next thing you would go and check is theirs to ask for.
 
-\`complete: false\` when part of the request is genuinely undone — say where you got to and the user decides. ${RUNNING_LONG}`;
+You are answering Thursday, not the user: she is on the call and picks what to say out of this. Write it plainly, in the user's language — the thread is on their screen as you write it. Anything past a few lines is a file under \`${PATHS.artifacts}/\`, and the answer names its path — it becomes a link on their screen. In a \`.md\`, images only by absolute route (\`/api/file/${PATHS.artifacts}/…\`).`;
 
-const handingUp = (askedBy: string) => `## Finishing
+const handingUp = (askedBy: string) => `## Answering
 
-Every part ends with \`${TOOL_NAMES.report}\`; what you hand back goes into ${askedBy}'s own report. Hand back what the brief asked for, in the shape it asked for, with everything you learned that bears on it — exact values, the paths of files you wrote, what did not work. They cannot see your thread, so long is right here. \`complete: false\` when part of the brief is undone, with where you got to. ${RUNNING_LONG}`;
+Every part ends with \`${TOOL_NAMES.answer}\`; what you hand back goes into ${askedBy}'s own answer. Hand back what the brief asked for, in the shape it asked for, with everything you learned that bears on it — exact values, the paths of files you wrote, what did not work. They cannot see your thread, so long is right here.`;
 
 /** How many turns of the call travel with the job: enough for one missed detail, not enough to bury the request. */
 export const OPENING_TURNS = 10;
 
+/** A user message's content; every seat's first message is two text parts (buildTaskOpening). */
+export type OpeningContent = Extract<ModelMessage, { role: "user" }>["content"];
+
 /**
- * The first message a bot reads: the request plus the last turns of the call, verbatim.
- * The request is one sentence the realtime model produced; a detail the user said may only be here.
- * Stored as the thread's first row (seq 0) so it survives a resume (bot.runner).
+ * The first message of the bot holding a job, stored as the thread's first row
+ * (seq 0, bot.runner startTask) and read whole on every resume and after every
+ * compaction. Two text parts: who is who on this job, then the chain — the job
+ * as Thursday handed it and the call it came from, verbatim, because the request
+ * is one sentence the realtime model produced and a detail the user said may
+ * only be in the call. The chain is what a borrowed bot inherits (buildHandoff),
+ * so its headings name people and never say "you".
  */
 export function buildTaskOpening(input: {
+  bot: string;
   request: string;
   conversation: { role: "user" | "assistant"; text: string }[];
-}): string {
+}): OpeningContent {
   const turns = input.conversation.filter((turn) => turn.text.trim());
-  if (!turns.length) return input.request;
+  const job = `## Thursday → ${input.bot}: the job\n\n${input.request.trim()}`;
+  const call = turns.length
+    ? `## The call the job came from — its last ${turns.length} turns, verbatim
 
-  const lines = turns.map(
+A detail missing from the job may be here — a name, a number, which of two. Where the two disagree the job wins, unless they asked out loud for something to be done and the job only asks about it: then the doing is the job.
+
+${turns
+  .map(
     (turn) =>
       `${turn.role === "user" ? "user" : "thursday"}: ${clip(turn.text, PROMPT_LINE.callTurn)}`,
+  )
+  .join("\n")}`
+    : "";
+  return [
+    { type: "text", text: whoIsWho([input.bot]) },
+    { type: "text", text: [job, call].filter(Boolean).join("\n\n") },
+  ];
+}
+
+/**
+ * The first message of a borrowed bot, built by the bot that borrows it (bot.run
+ * `ask_bot`) and never stored: the chain it inherits, copied as it is, then what
+ * the borrowing bot has done and the part it hands over. `bots` runs from the
+ * bot holding the job down to this one, so each hand-off adds one name and two
+ * sections and every seat reads the same shape.
+ */
+export function buildHandoff(input: {
+  chain: string;
+  bots: string[];
+  did: string | null;
+  part: string;
+}): OpeningContent {
+  const to = input.bots.at(-1) ?? "";
+  const from = input.bots.at(-2) ?? "";
+  const did = input.did?.trim()
+    ? `## ${from} → ${to}: what ${from} has done, and why this part is ${to}'s\n\n${input.did.trim()}`
+    : "";
+  const part = `## ${from} → ${to}: the part\n\n${input.part.trim()}`;
+  return [
+    { type: "text", text: whoIsWho(input.bots) },
+    {
+      type: "text",
+      text: [input.chain, did, part].filter(Boolean).join("\n\n"),
+    },
+  ];
+}
+
+/**
+ * The chain out of a seat's first message, for the next hand-off. A thread
+ * opened before the two-part shape has its opening as one string, which is the
+ * whole chain there was.
+ */
+export function chainOf(first: ModelMessage | undefined): string {
+  if (first?.role !== "user") return "";
+  if (typeof first.content === "string") return first.content;
+  const texts = first.content.flatMap((part) =>
+    part.type === "text" ? [part.text] : [],
   );
-  return `${input.request}
+  return texts.at(-1) ?? "";
+}
 
-## The call, just before this reached you
+/** Who is who on this job; the last of `bots` is the one reading it. */
+function whoIsWho(bots: string[]): string {
+  const you = bots.length - 1;
+  const lines = bots.map((bot, index) => {
+    if (index === 0) {
+      return index === you
+        ? `- **${bot} (you)** — Thursday handed you this job. You answer to Thursday, and your answer is the only part of it that reaches the user.`
+        : `- **${bot}** — holds the job Thursday handed over, and answers for it.`;
+    }
+    const from = bots[index - 1];
+    return index === you
+      ? `- **${bot} (you)** — ${from} handed you one part of it: the last section below. You answer to ${from}; nobody else hears from you.`
+      : `- **${bot}** — ${from} handed them one part of it.`;
+  });
+  return `## Who is who on this job
 
-A detail that is not in the request may be here — a name, a number, which one of two. The request wins where they disagree, with one exception: when they asked out loud for something to be *done* and the request only asks about it, the doing is the job.
-
+- **The user** — talks only to Thursday, on a voice call. No bot addresses them.
+- **Thursday** — the user's assistant on that call. Hands jobs to bots and tells the user what comes back.
 ${lines.join("\n")}`;
 }
 

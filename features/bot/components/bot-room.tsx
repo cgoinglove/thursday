@@ -30,13 +30,12 @@ import { Markdown } from "@/components/ui/markdown";
 import ShinyText from "@/components/ui/shiny-text";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
-import { BOT_RUN } from "@/config";
-import { markReportedAction, startTaskAction } from "@/features/bot/bot.action";
+import { startTaskAction } from "@/features/bot/bot.action";
 import {
   type Bot,
   type BotIcon,
   DEFAULT_BOT,
-  isBudgetAsk,
+  isAppStop,
   TASK_CONTINUE,
 } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
@@ -46,8 +45,7 @@ import { TaskReply, useAnswerTask } from "@/features/bot/components/task-reply";
 import { openSettings } from "@/features/settings/settings.store";
 import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
 import { FileViewer } from "@/features/workspace/components/file-view";
-import { shortAgo, toDate } from "@/lib/date-like";
-import { unwrapResult } from "@/lib/protocol/result";
+import { shortAgo } from "@/lib/date-like";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import {
@@ -71,6 +69,7 @@ import {
   type TaskViewStatus,
   threadItems,
   useBotTasks,
+  useSeenOnDetail,
 } from "../task.store";
 import { BotTool } from "./bot-tool";
 
@@ -178,34 +177,14 @@ export const BotRoom = memo(function BotRoom() {
     }
   }, [tasks, handoff]);
 
-  // Opening a finished thread marks it reported. The key includes updatedAt: a
-  // follow-up request finishes again and that result is unread. markReported does not
-  // move `updatedAt`, so the set only bridges the gap until the next poll.
-  const marked = useRef(new Set<string>());
-  useEffect(() => {
-    if (!current || current.relayed) return;
-    if (current.status !== "done" && current.status !== "failed") return;
-    const key = `${current.id}@${toDate(current.updatedAt).getTime()}`;
-    if (marked.current.has(key)) return;
-    marked.current.add(key);
-    // unwrapResult folds Result failures and rejections into one path; on failure
-    // release the key so the task can be marked again.
-    void markReportedAction([current.id])
-      .then(unwrapResult)
-      .then(() => revalidate(queryKey.tasks))
-      .catch((cause) => {
-        marked.current.delete(key);
-        toast.add({
-          type: "error",
-          title: "Could not mark the task as read",
-          description: errorToString(cause),
-        });
-      });
-  }, [current]);
+  // Reading a thread is reading its ending; that is what clears its dot.
+  useSeenOnDetail(open ? current : null);
 
   const busy = tasks.filter((entry) => entry.status === "working").length;
   const attention = newest.filter(needsYou);
   const pending = attention.length;
+  const unread = newest.filter(isUnread);
+  const failed = unread.filter((entry) => entry.status === "failed").length;
 
   const closeCompose = useCallback(() => setComposing(false), []);
 
@@ -267,6 +246,8 @@ export const BotRoom = memo(function BotRoom() {
           count={tasks.length}
           busy={busy}
           pending={pending}
+          unread={unread.length}
+          failed={failed}
           composing={composing}
           onCompose={() => setComposing(true)}
           onCloseCompose={closeCompose}
@@ -275,8 +256,10 @@ export const BotRoom = memo(function BotRoom() {
             setOpen(true);
           }}
           onOpen={() => {
-            // A single waiting task opens straight into its thread.
-            if (!picked && attention.length === 1) setPicked(attention[0].id);
+            // One thing to look at opens straight into its thread: a single
+            // question, or with none waiting, a single answer nobody has read.
+            const only = attention.length ? attention : unread;
+            if (!picked && only.length === 1) setPicked(only[0].id);
             setOpen(true);
           }}
         />
@@ -441,7 +424,7 @@ function crewOf(
   };
 }
 
-/** Blanks the question in the reply box when it already is the last thread line (budget stops). */
+/** Blanks the question in the reply box when it already is the last thread line (stops the app made). */
 function askFor(task: TaskView): TaskView["ask"] {
   if (!task.ask?.question) return task.ask;
   const last = task.lines.at(-1);
@@ -451,14 +434,18 @@ function askFor(task: TaskView): TaskView["ask"] {
 }
 
 /**
- * A task that cannot move until the user answers: a question, or a budget stop.
+ * A task that cannot move until the user answers: a question, or a stop the app made.
  *
  * A finished job is not on this list. It has nothing for the user to do, and
- * counting it here made the chip hold itself open over a report nobody had to
- * act on. A report says itself once, in the sentence, and then it is a row in
+ * counting it here made the chip hold itself open over an answer nobody had to
+ * act on. An answer says itself once, in the sentence, and then it is a row in
  * the room like every other one.
  */
 const needsYou = (task: TaskView) => task.status === "waiting";
+
+/** An ending nobody has opened. It needs the user too, to read rather than to answer. */
+const isUnread = (task: TaskView) =>
+  (task.status === "done" || task.status === "failed") && !task.seen;
 
 /**
  * What the room itself is doing, and nothing else — the right side of the pill.
@@ -471,16 +458,35 @@ function restingState({
   count,
   busy,
   pending,
+  unread,
+  failed,
 }: {
   count: number;
   busy: number;
   pending: number;
+  /** Endings nobody has opened, failures included. */
+  unread: number;
+  failed: number;
 }): { text: string; tone: string; shine: boolean } {
   if (pending > 0)
     return {
       text: pending === 1 ? "waiting on you" : `${pending} waiting on you`,
       tone: WAITING_INK,
       shine: true,
+    };
+  // Unread outranks running: a job still going will say so again, and an answer
+  // left unopened will not.
+  if (failed > 0)
+    return {
+      text: failed === 1 ? "1 failed" : `${failed} failed`,
+      tone: "text-destructive",
+      shine: false,
+    };
+  if (unread > 0)
+    return {
+      text: unread === 1 ? "1 new answer" : `${unread} new answers`,
+      tone: WAITING_INK,
+      shine: false,
     };
   if (busy > 0)
     return {
@@ -520,6 +526,8 @@ function Chip({
   count,
   busy,
   pending,
+  unread,
+  failed,
   composing,
   onCompose,
   onCloseCompose,
@@ -535,13 +543,15 @@ function Chip({
   count: number;
   busy: number;
   pending: number;
+  unread: number;
+  failed: number;
   composing: boolean;
   onCompose: () => void;
   onCloseCompose: () => void;
   onPick: (id: string) => void;
   onOpen: () => void;
 }) {
-  const state = restingState({ count, busy, pending });
+  const state = restingState({ count, busy, pending, unread, failed });
   const grown = composing || pending > 0;
 
   return (
@@ -633,12 +643,14 @@ function Chip({
             {/* Always 16px, empty or not: a glyph that comes and goes moves the
                 sentence's right end even when the sentence has not changed. */}
             <span className="grid size-4 shrink-0 place-items-center">
-              {pending === 0 && busy > 0 && (
+              {pending === 0 && unread === 0 && busy > 0 && (
                 <Loader2 className="size-4 animate-spin text-muted-foreground/70" />
               )}
-              {pending === 0 && busy === 0 && count > 0 && (
-                <Check className="size-4 text-muted-foreground/60" />
-              )}
+              {pending === 0 &&
+                failed === 0 &&
+                (unread > 0 || (busy === 0 && count > 0)) && (
+                  <Check className="size-4 text-muted-foreground/60" />
+                )}
             </span>
           </span>
         </button>
@@ -838,6 +850,9 @@ const GHOSTS: CrewFace[] = ["alto", "brio", "cinder", "delta"].map(
 /** A single face reads as one worker, not as a crew; below this the row is padded out. */
 const FLOOR = 3;
 
+/** The awake halo, in the mark's own view-box units: about 2px of blur at 28px. */
+const AWAKE_GLOW = 20;
+
 /**
  * The crew, and what each of them is doing.
  *
@@ -877,25 +892,12 @@ function Crew({
                 face.standIn && "opacity-35",
                 face.awake && "-translate-y-0.5 scale-110",
               )}
-              style={{
-                zIndex: crew.length - index,
-                color: face.icon?.color ?? undefined,
-                // The glow is the bot's own colour, so who is moving reads before
-                // any word does. currentColor keeps it right when nobody chose one.
-                filter: face.awake
-                  ? "drop-shadow(0 0 5px color-mix(in srgb, currentColor 55%, transparent))"
-                  : undefined,
-              }}
+              style={{ zIndex: crew.length - index }}
             >
-              <BotMark
-                size={28}
-                seed={face.name}
-                vary={face.name}
-                color={face.icon?.color}
-                shape={face.icon?.shape}
-                outline={face.icon?.outline}
-                notify={face.waiting}
-              />
+              {/* The halo is the mark's own (bot-mark `glow`), not a filter on
+                  this box: a filter here also lands on the bubble above, which
+                  came out tinted in the bot's colour and wearing its blur. */}
+              <CrewMark face={face} />
               {bubble && <HandoffBubble handoff={bubble} />}
             </span>
             {face.word && (
@@ -928,6 +930,30 @@ function Crew({
         </span>
       )}
     </span>
+  );
+}
+
+/**
+ * One crew face. Awake, it wears a halo in its own colour, so who is moving
+ * reads before any word does; the options object is memoized because a new one
+ * every render re-derives the silhouette behind it.
+ */
+function CrewMark({ face }: { face: CrewFace }) {
+  const glow = useMemo(
+    () => (face.awake ? { glow: AWAKE_GLOW } : undefined),
+    [face.awake],
+  );
+  return (
+    <BotMark
+      size={28}
+      seed={face.name}
+      vary={face.name}
+      color={face.icon?.color}
+      shape={face.icon?.shape}
+      outline={face.icon?.outline}
+      notify={face.waiting}
+      options={glow}
+    />
   );
 }
 
@@ -1105,7 +1131,7 @@ const STATE_LOOK: Record<TaskViewStatus, string> = {
 
 function State({ task }: { task: TaskView }) {
   const look =
-    task.status === "done" && task.relayed
+    task.status === "done" && task.seen
       ? "text-muted-foreground"
       : STATE_LOOK[task.status];
 
@@ -1229,18 +1255,17 @@ function TaskList({
 
 function TaskRow({ task, onPick }: { task: TaskView; onPick: () => void }) {
   const attention = needsYou(task);
-  // secondLine runs plainText over the whole report. Every sync rebuilds each TaskView
+  // secondLine runs plainText over the whole answer. Every sync rebuilds each TaskView
   // (task.store), so depend on the fields that change the line, not on `task`.
   const last = task.lines.at(-1);
   const line = useMemo(
     () => secondLine(task),
-    [task.status, task.outcome, task.relayed, task.ask, last?.id],
+    [task.status, task.outcome, task.seen, task.ask, last?.id],
   );
   const [answer, answering] = useAnswerTask();
   const [sending, setSending] = useState<string | null>(null);
   // Options are answered inline, without opening the thread.
   const options = task.status === "waiting" ? (task.ask?.options ?? []) : [];
-  const budget = isBudgetAsk(task.ask);
 
   return (
     // The row is not itself a button: the option buttons cannot nest inside one.
@@ -1327,21 +1352,12 @@ function TaskRow({ task, onPick }: { task: TaskView; onPick: () => void }) {
                 await answer(task, option);
                 setSending(null);
               }}
-              className={cn(
-                "h-7 gap-1.5 rounded-full bg-background px-3 text-[12px]",
-                // A budget stop is not a question, so it does not take the waiting colour.
-                !budget && "border-amber-500/35",
-              )}
+              className="h-7 gap-1.5 rounded-full border-amber-500/35 bg-background px-3 text-[12px]"
             >
-              {budget && option === TASK_CONTINUE && (
+              {option === TASK_CONTINUE && (
                 <ChevronsRight className="size-3.5 text-muted-foreground" />
               )}
               {option}
-              {budget && option === TASK_CONTINUE && (
-                <span className="font-mono text-[10px] text-muted-foreground">
-                  +{BOT_RUN.steps} steps
-                </span>
-              )}
             </Button>
           ))}
         </div>
@@ -1353,29 +1369,28 @@ function TaskRow({ task, onPick }: { task: TaskView; onPick: () => void }) {
 /** Second row of a task line: the question, the outcome, or the bot's last step. */
 function secondLine(task: TaskView): { text: string; tone: string } {
   if (task.status === "waiting" && task.ask) {
-    // Budget stops are not questions; keep them out of the waiting colour.
-    if (isBudgetAsk(task.ask)) {
-      return {
-        text: plainText(task.outcome ?? task.ask.question),
-        tone: "text-muted-foreground",
-      };
-    }
+    // A budget stop is not a question, but it waits on the user exactly as one
+    // does, so it carries the waiting colour too; only the words differ.
     return {
-      text: task.ask.question,
+      text: isAppStop(task.ask)
+        ? plainText(task.outcome ?? task.ask.question)
+        : task.ask.question,
       tone: WAITING_INK,
     };
   }
   // Reports are markdown; keep only the text.
+  // An ending the user has opened steps back; red stays red, only quieter.
+  const had = task.seen;
   if (task.status === "failed") {
     return {
       text: plainText(task.outcome ?? "Failed"),
-      tone: "text-destructive",
+      tone: had ? "text-destructive/70" : "text-destructive",
     };
   }
   if (task.status === "done") {
     return {
       text: plainText(task.outcome ?? "Done"),
-      tone: task.relayed ? "text-muted-foreground" : "text-foreground",
+      tone: had ? "text-muted-foreground" : "text-foreground",
     };
   }
   const last = lastSaid(task);
@@ -1549,7 +1564,7 @@ function Turn({
   return (
     <div className={cn("flex gap-2.5", side === "end" && "flex-row-reverse")}>
       {mark}
-      {/* One cap on the turn's column, not one per block inside it: a report and
+      {/* One cap on the turn's column, not one per block inside it: an answer and
           a one-line remark from the same bot then end on the same edge. The
           answering side hugs that edge, so the two sides face each other. */}
       <div
@@ -1641,7 +1656,7 @@ function Line({ line, taskId }: { line: Chatter; taskId: string }) {
     );
   }
 
-  // Passing remarks are muted; the report is the one thing here at full weight.
+  // Passing remarks are muted; the answer is the one thing here at full weight.
   if (!isOutcome(line)) {
     return (
       <p className="px-1 text-[12.5px] leading-relaxed break-keep text-muted-foreground">
@@ -1674,7 +1689,7 @@ function Line({ line, taskId }: { line: Chatter; taskId: string }) {
   const failed = line.kind === "error";
 
   return (
-    // The report is not a card. It sits in a thread that is already in a box,
+    // The answer is not a card. It sits in a thread that is already in a box,
     // in a section that is another: a fourth border reads as a second chat
     // window. What tells it from a passing remark is that it is the only prose
     // here at foreground weight, plus the files it names — and its copy button
@@ -1695,7 +1710,7 @@ function Line({ line, taskId }: { line: Chatter; taskId: string }) {
         {line.text}
       </Markdown>
       {/* The files it names, and the copy — one row, because the end of the
-          report is where a reader is when they want either. */}
+          answer is where a reader is when they want either. */}
       <div className="mt-2 flex items-center gap-2">
         <PathChips text={line.text} className="min-w-0" />
         {!failed && (
@@ -1708,7 +1723,7 @@ function Line({ line, taskId }: { line: Chatter; taskId: string }) {
   );
 }
 
-/** Copies the report. The icon confirms; a toast only reports failure. */
+/** Copies the answer. The icon confirms; a toast only reports failure. */
 function CopyReport({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   const back = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1723,7 +1738,7 @@ function CopyReport({ text }: { text: string }) {
   return (
     <button
       type="button"
-      aria-label="Copy the report"
+      aria-label="Copy the answer"
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(text);
@@ -1733,7 +1748,7 @@ function CopyReport({ text }: { text: string }) {
         } catch (cause) {
           toast.add({
             type: "error",
-            title: "Could not copy the report",
+            title: "Could not copy the answer",
             description: errorToString(cause),
           });
         }

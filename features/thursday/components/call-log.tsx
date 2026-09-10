@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/notify";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CALL_HISTORY_PAGE } from "@/config";
+import type { TaskStatus } from "@/features/bot/bot.schema";
 import { toolIcon } from "@/features/bot/components/bot-tool";
 import {
   SettingDialogContent,
@@ -18,10 +19,10 @@ import {
 import { toDate, whenOf } from "@/lib/date-like";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { useServerPages } from "@/lib/protocol/use-server-pages";
-import { cn } from "@/lib/utils";
-import { deleteCallAction } from "../thursday.action";
+import { cn, plainText, WAITING_INK } from "@/lib/utils";
+import { deleteCallAction, deleteEndedCallsAction } from "../thursday.action";
 import { type CallRecord, type CallTurn } from "../thursday.schema";
-import { toolLine } from "../tool-line";
+import { delegatedLabel, toolLine } from "../tool-line";
 import { ThursdayMark } from "./thursday-mark";
 
 /** The Settings › Thursday row that opens the call history dialog. */
@@ -62,6 +63,22 @@ export function CallHistoryRow() {
   );
 }
 
+type CallJob = CallRecord["jobs"][number];
+
+/** How a job reads under the line that opened it. Only waiting and failed carry colour. */
+const JOB_WORD: Record<TaskStatus, string> = {
+  running: "working",
+  waiting: "waiting on you",
+  done: "done",
+  failed: "failed",
+};
+const JOB_LOOK: Record<TaskStatus, string> = {
+  running: "text-muted-foreground",
+  waiting: WAITING_INK,
+  done: "text-muted-foreground",
+  failed: "text-destructive",
+};
+
 /** The box the log fills, kept while it loads so the dialog does not resize. */
 const LOG_BOX = "h-[min(34rem,58vh)] min-h-64 px-1";
 
@@ -94,6 +111,23 @@ function CallLog() {
   });
 
   const calls = useMemo(() => [...items].reverse(), [items]);
+
+  const [dropAll, droppingAll] = useServerAction(deleteEndedCallsAction, {
+    okMessage: (count) =>
+      count === 1 ? "1 call deleted" : `${count} calls deleted`,
+    onOk: refresh,
+  });
+
+  const confirmDropAll = async () => {
+    const confirmed = await notify.confirm({
+      title: "Delete every call?",
+      description:
+        "Every turn of every call goes — and she stops reading any of it back into the next call. A call still on the line stays.",
+      okText: "Delete all",
+      destructive: true,
+    });
+    if (confirmed) dropAll();
+  };
 
   const scroller = useRef<HTMLDivElement>(null);
   /** Has the first page been dropped at its bottom yet. */
@@ -130,25 +164,43 @@ function CallLog() {
           yours, in the order it was said.
         </p>
       ) : (
-        <div
-          ref={scroller}
-          onScroll={(event) => {
-            const box = event.currentTarget;
-            held.current = box.scrollHeight - box.scrollTop;
-          }}
-          className={cn(LOG_BOX, "overflow-y-auto overscroll-contain pb-6")}
-        >
-          <SettingMore
-            hasMore={hasMore}
-            loading={isLoadingMore}
-            sentinelRef={sentinelRef}
-            count={1}
-            ghost={<CallGhost />}
-          />
-          {calls.map((call) => (
-            <Thread key={call.id} call={call} onDropped={refresh} />
-          ))}
-        </div>
+        <>
+          <div
+            ref={scroller}
+            onScroll={(event) => {
+              const box = event.currentTarget;
+              held.current = box.scrollHeight - box.scrollTop;
+            }}
+            className={cn(LOG_BOX, "overflow-y-auto overscroll-contain pb-6")}
+          >
+            <SettingMore
+              hasMore={hasMore}
+              loading={isLoadingMore}
+              sentinelRef={sentinelRef}
+              count={1}
+              ghost={<CallGhost />}
+            />
+            {calls.map((call, index) => (
+              <Thread
+                key={call.id}
+                call={call}
+                first={index === 0}
+                onDropped={refresh}
+              />
+            ))}
+          </div>
+          <div className="flex justify-end">
+            <Button
+              variant="ghost"
+              loading={droppingAll}
+              onClick={confirmDropAll}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 />
+              Delete all
+            </Button>
+          </div>
+        </>
       )}
     </>
   );
@@ -157,27 +209,35 @@ function CallLog() {
 /** Placeholder for an older call while its page loads; sits above the oldest call. */
 function CallGhost() {
   return (
-    <div className="space-y-3 pb-3">
-      <div className="flex items-center gap-3 py-5">
-        <span className="h-px flex-1 bg-border/60" />
-        <Skeleton className="h-6 w-36 rounded-full" />
-        <span className="h-px flex-1 bg-border/60" />
-        <span className="size-7 shrink-0" />
+    <div className="pb-3">
+      <div className="flex h-7 items-center gap-2.5">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-3 w-10" />
       </div>
+      <div className="mt-2 mb-[18px] h-px bg-border/60" />
       <div className="flex justify-end">
-        <Skeleton className="h-9 w-3/5 rounded-2xl rounded-br-md" />
+        <Skeleton className="h-9 w-3/5 rounded-2xl rounded-br-sm" />
       </div>
-      <Skeleton className="h-5 w-2/3" />
+      <div className="mt-3 flex items-start gap-2">
+        <Skeleton className="mt-0.5 size-[18px] shrink-0 rounded-full" />
+        <Skeleton className="mt-1 h-3.5 w-2/3" />
+      </div>
     </div>
   );
 }
 
-/** One call: a header with its time and duration, then its turns. */
+/** Whose run a turn is in. Her words and her tools are one run: both are her acting. */
+const sideOf = (turn: CallTurn) => (turn.role === "user" ? "user" : "her");
+
+/** One call: a datestamp over a hairline, then its turns. */
 function Thread({
   call,
+  first,
   onDropped,
 }: {
   call: CallRecord;
+  /** The topmost call loaded; nothing above it to be set apart from. */
+  first: boolean;
   /** Re-reads every page after a delete. */
   onDropped: () => void;
 }) {
@@ -205,21 +265,23 @@ function Thread({
 
   return (
     <>
-      {/* The delete button keeps its slot so the date pill does not shift on hover. */}
-      <div className="group flex items-center gap-3 py-5">
-        <span className="h-px flex-1 bg-border/60" />
+      <div
+        className={cn(
+          "group flex items-center gap-2.5",
+          first ? "mt-1" : "mt-11",
+        )}
+      >
         <span
           title={`${call.provider} · ${call.model}`}
-          className="flex shrink-0 items-center gap-2 rounded-full bg-muted/60 py-1 pr-3 pl-2.5 ring-1 ring-border/50"
+          className="font-mono text-[10px] tracking-[0.14em] uppercase"
         >
-          <Phone className="size-3 text-muted-foreground" />
-          <span className="font-mono text-[11px]">{whenOf(started)}</span>
-          <span className="font-mono text-[10px] text-muted-foreground">
-            {ran}
-          </span>
+          {whenOf(started)}
         </span>
-        <span className="h-px flex-1 bg-border/60" />
-        <span className="flex size-7 shrink-0 items-center justify-center">
+        <span className="font-mono text-[10px] text-muted-foreground">
+          {ran}
+        </span>
+        {/* The slot is held so the row keeps its height while the button is hidden. */}
+        <span className="ml-auto flex size-7 shrink-0 items-center justify-center">
           {call.endedAt && (
             <Button
               size="icon-sm"
@@ -234,6 +296,7 @@ function Thread({
           )}
         </span>
       </div>
+      <div className="mt-2 mb-[18px] h-px bg-border/60" />
 
       {fold(call.turns).map(({ turn, repeats }, index, folded) => {
         const before = folded[index - 1]?.turn;
@@ -242,14 +305,21 @@ function Thread({
           <Turn
             key={turn.id}
             turn={turn}
+            job={jobOf(call, turn)}
             repeats={repeats}
-            opensRun={before?.role !== turn.role}
-            closesRun={after?.role !== turn.role}
+            opensRun={!before || sideOf(before) !== sideOf(turn)}
+            closesRun={!after || sideOf(after) !== sideOf(turn)}
           />
         );
       })}
     </>
   );
+}
+
+/** The job a `delegate` turn opened, found by label the way her prompt finds it. */
+function jobOf(call: CallRecord, turn: CallTurn): CallJob | undefined {
+  const label = delegatedLabel(turn.tool, turn.text);
+  return label ? call.jobs.find((job) => job.label === label) : undefined;
 }
 
 /** Collapses consecutive identical tool turns (same name and arguments) into one with a count. */
@@ -285,75 +355,127 @@ function spanOf(from: Date, to: Date): string {
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
 }
 
-/** One spoken turn. Plain text, never markdown: asterisks were said aloud. */
+/**
+ * One spoken turn. Plain text, never markdown: asterisks were said aloud.
+ * Only the user speaks in bubbles; her words sit bare in her column, so her
+ * text and her tool lines start on one edge.
+ */
 function Turn({
   turn,
+  job,
   opensRun,
   closesRun,
   repeats = 1,
 }: {
   turn: CallTurn;
+  /** What became of the job a `delegate` turn opened (ToolTurn only). */
+  job?: CallJob;
   opensRun: boolean;
   closesRun: boolean;
   /** Consecutive repeats of the same tool turn (ToolTurn only). */
   repeats?: number;
 }) {
-  if (turn.role === "tool") return <ToolTurn turn={turn} repeats={repeats} />;
+  if (turn.role === "tool")
+    return (
+      <ToolTurn turn={turn} job={job} repeats={repeats} opensRun={opensRun} />
+    );
 
-  const mine = turn.role === "user";
+  if (turn.role === "user")
+    return (
+      <div className={cn("flex justify-end", opensRun ? "mt-3" : "mt-1")}>
+        <p
+          className={cn(
+            "max-w-[min(34rem,78%)] rounded-2xl bg-muted px-3.5 py-2 text-[13.5px] leading-relaxed break-keep whitespace-pre-wrap",
+            closesRun && "rounded-br-sm",
+          )}
+        >
+          {turn.text}
+        </p>
+      </div>
+    );
 
   return (
-    <div
-      className={cn(
-        "flex items-end gap-2",
-        opensRun ? "mt-3" : "mt-1",
-        mine ? "justify-end" : "justify-start",
-      )}
-    >
-      {!mine && (
-        // The slot is held even without the mark so a run stays in one column.
-        <span className="mb-0.5 grid size-[18px] shrink-0 place-items-center">
-          {closesRun && <ThursdayMark size={18} />}
-        </span>
-      )}
-
-      <p
-        className={cn(
-          "max-w-[min(34rem,78%)] px-3.5 py-2 text-[13.5px] leading-relaxed break-keep whitespace-pre-wrap",
-          mine
-            ? "rounded-2xl bg-muted"
-            : "rounded-2xl bg-card ring-1 ring-border/70",
-          closesRun && (mine ? "rounded-br-sm" : "rounded-bl-sm"),
-        )}
-      >
+    <div className={cn("flex items-start gap-2", opensRun ? "mt-3" : "mt-1")}>
+      {/* mt-0.5 centres the 18px face on the first 22px line */}
+      <FaceSlot face={opensRun} className="mt-0.5" />
+      <p className="max-w-[min(34rem,78%)] text-[13.5px] leading-relaxed break-keep whitespace-pre-wrap">
         {turn.text}
       </p>
     </div>
   );
 }
 
-/** A tool turn: centered line with the readable sentence, then the tool name. */
-function ToolTurn({ turn, repeats }: { turn: CallTurn; repeats: number }) {
+/**
+ * Her column. Her face marks where her run opens — the first thing she does
+ * after the user speaks, a sentence or a tool — and the slot is held empty for
+ * the rest of the run so it stays on one edge.
+ */
+function FaceSlot({ face, className }: { face: boolean; className?: string }) {
+  return (
+    <span
+      className={cn("grid size-[18px] shrink-0 place-items-center", className)}
+    >
+      {face && <ThursdayMark size={18} />}
+    </span>
+  );
+}
+
+/** A tool turn: her column, then the glyph, the readable sentence and the tool name. */
+function ToolTurn({
+  turn,
+  job,
+  repeats,
+  opensRun,
+}: {
+  turn: CallTurn;
+  job?: CallJob;
+  repeats: number;
+  opensRun: boolean;
+}) {
   const name = turn.tool ?? "";
   const Icon = toolIcon(name);
   const said = toolLine(name, turn.text);
 
   return (
-    <div className="mt-3 mb-1 flex justify-center">
-      <span className="flex max-w-full items-center gap-2 rounded-full bg-muted/40 px-2.5 py-1 text-muted-foreground">
-        <Icon className="size-3 shrink-0" />
-        {said && (
-          <span className="truncate text-[11px] break-keep">{said}</span>
-        )}
-        <span className="shrink-0 font-mono text-[10px] text-muted-foreground/60">
-          {name}
-        </span>
-        {repeats > 1 && (
-          <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
-            ×{repeats}
+    <>
+      <div
+        className={cn("flex items-center gap-2", opensRun ? "mt-3" : "mt-1.5")}
+      >
+        <FaceSlot face={opensRun} />
+        <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+          <Icon className="size-3 shrink-0" />
+          {said && (
+            <span className="truncate text-[11px] break-keep">{said}</span>
+          )}
+          <span className="shrink-0 font-mono text-[10px] text-muted-foreground/60">
+            {name}
           </span>
-        )}
-      </span>
-    </div>
+          {repeats > 1 && (
+            <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
+              ×{repeats}
+            </span>
+          )}
+        </span>
+      </div>
+      {/* Under the line that opened it, in her column (18px face + 8px gap): what
+        became of the job, as it stands now. */}
+      {job && (
+        <p className="mt-0.5 ml-[26px] flex min-w-0 items-baseline gap-1.5 text-[11px]">
+          <span
+            className={cn(
+              "shrink-0 font-mono text-[10px]",
+              JOB_LOOK[job.status],
+            )}
+          >
+            {JOB_WORD[job.status]}
+          </span>
+          {job.outcome && job.status !== "running" && (
+            <span className="truncate text-muted-foreground">
+              {plainText(job.outcome)}
+            </span>
+          )}
+        </p>
+      )}
+    </>
   );
 }

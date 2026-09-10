@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BOT_RUN } from "@/config";
 import {
   REALTIME_PROVIDERS,
   type SpeachModelProviderId,
@@ -42,7 +43,46 @@ export const MODEL_TIERS = ["small", "mid", "large"] as const;
 export type ModelTier = (typeof MODEL_TIERS)[number];
 
 /** One model worth offering, as the picker reads it. */
-export type SuggestModel = { id: string; label: string; tier: ModelTier };
+export type SuggestModel = {
+  id: string;
+  label: string;
+  tier: ModelTier;
+  /**
+   * Context window in tokens, from the gateway's catalog for the same model. Only
+   * the gateway can be asked at run time (readGatewayCatalog), so a provider used
+   * directly reads its window here instead of guessing. Null where the gateway
+   * does not carry the model: the run falls back to `BOT_RUN.compactAt`.
+   */
+  context?: number | null;
+};
+
+/**
+ * A model's context window where the app can know it: the gateway's catalog row
+ * for a gateway model, else the window stamped on a directly used provider's
+ * shelf (`SuggestModel.context`). Null when neither says. Pure, so the settings
+ * screen and a run (ai/model compactBudget) read the same number.
+ */
+export function contextWindowOf(
+  provider: TextModelProviderId,
+  model: string,
+  catalog: readonly GatewayModel[] = [],
+): number | null {
+  if (provider === "vercel-ai-gateway") {
+    return catalog.find((row) => row.id === model)?.contextWindow ?? null;
+  }
+  const shelf = TEXT_MODEL_PROVIDERS[provider].suggestModels;
+  return shelf.find((row) => row.id === model)?.context ?? null;
+}
+
+/**
+ * Where a run on a model with this window summarises itself, in tokens:
+ * `BOT_RUN.compactHeadroom` of the window, or `BOT_RUN.compactAt` when the window
+ * is unknown. What a bot's settings fill in, and what a run falls back to.
+ */
+export const compactAtFor = (window: number | null | undefined): number =>
+  window && window > 0
+    ? Math.round(window * BOT_RUN.compactHeadroom)
+    : BOT_RUN.compactAt;
 
 /** Providers that make non-text media. Kept apart from the text providers: the key is the same, but a text provider does not necessarily draw (Anthropic). */
 export const mediaModelProviderSchema = z.enum([
@@ -370,10 +410,30 @@ export const TEXT_MODEL_PROVIDERS: Record<
     label: "Open AI",
     apiKeyName: "OPENAI_API_KEY",
     suggestModels: [
-      { id: "gpt-5.6-luna", label: "5.6 Luna", tier: "small" },
-      { id: "gpt-5.6-terra", label: "5.6 Terra", tier: "mid" },
-      { id: "gpt-5.6-sol", label: "5.6 Sol", tier: "large" },
-      { id: "gpt-6-astra", label: "6 Astra", tier: "large" },
+      {
+        id: "gpt-5.6-luna",
+        label: "5.6 Luna",
+        tier: "small",
+        context: 1_050_000,
+      },
+      {
+        id: "gpt-5.6-terra",
+        label: "5.6 Terra",
+        tier: "mid",
+        context: 1_050_000,
+      },
+      {
+        id: "gpt-5.6-sol",
+        label: "5.6 Sol",
+        tier: "large",
+        context: 1_050_000,
+      },
+      {
+        id: "gpt-6-astra",
+        label: "6 Astra",
+        tier: "large",
+        context: 1_050_000,
+      },
     ],
   },
   anthropic: {
@@ -381,8 +441,18 @@ export const TEXT_MODEL_PROVIDERS: Record<
     apiKeyName: "ANTHROPIC_API_KEY",
     suggestModels: [
       { id: "claude-haiku-4-5", label: "Haiku 4.5", tier: "small" },
-      { id: "claude-sonnet-5", label: "Sonnet 5", tier: "mid" },
-      { id: "claude-opus-5", label: "Opus 5", tier: "large" },
+      {
+        id: "claude-sonnet-5",
+        label: "Sonnet 5",
+        tier: "mid",
+        context: 1_000_000,
+      },
+      {
+        id: "claude-opus-5",
+        label: "Opus 5",
+        tier: "large",
+        context: 1_000_000,
+      },
       { id: "claude-fable-5-1", label: "Fable 5.1", tier: "large" },
     ],
   },
@@ -390,14 +460,26 @@ export const TEXT_MODEL_PROVIDERS: Record<
     label: "Gemini",
     apiKeyName: "GOOGLE_GENERATIVE_AI_API_KEY",
     suggestModels: [
-      { id: "gemini-3.5-flash-lite", label: "3.5 Flash Lite", tier: "small" },
-      { id: "gemini-3.8-flash", label: "3.8 Flash", tier: "mid" },
+      {
+        id: "gemini-3.5-flash-lite",
+        label: "3.5 Flash Lite",
+        tier: "small",
+        context: 1_000_000,
+      },
+      {
+        id: "gemini-3.8-flash",
+        label: "3.8 Flash",
+        tier: "mid",
+        context: 1_000_000,
+      },
     ],
   },
   xai: {
     label: "xAI",
     apiKeyName: "XAI_API_KEY",
-    suggestModels: [{ id: "grok-4.6", label: "Grok 4.6", tier: "large" }],
+    suggestModels: [
+      { id: "grok-4.6", label: "Grok 4.6", tier: "large", context: 500_000 },
+    ],
   },
   /**
    * Cross-vendor shelf, cheapest first, shown until the live catalog arrives. Vendor names are
@@ -413,19 +495,49 @@ export const TEXT_MODEL_PROVIDERS: Record<
         label: "Gemini 3.8 Flash",
         tier: "small",
       },
-      { id: "openai/gpt-5.6-luna", label: "GPT 5.6 Luna", tier: "small" },
+      {
+        id: "openai/gpt-5.6-luna",
+        label: "GPT 5.6 Luna",
+        tier: "small",
+        context: 1_050_000,
+      },
       { id: "zai/glm-5.3", label: "GLM 5.3", tier: "mid" },
-      { id: "spacexai/grok-4.6", label: "Grok 4.6", tier: "mid" },
+      {
+        id: "spacexai/grok-4.6",
+        label: "Grok 4.6",
+        tier: "mid",
+        context: 500_000,
+      },
       {
         id: "anthropic/claude-sonnet-5",
         label: "Claude Sonnet 5",
         tier: "mid",
       },
-      { id: "openai/gpt-5.6-terra", label: "GPT 5.6 Terra", tier: "mid" },
+      {
+        id: "openai/gpt-5.6-terra",
+        label: "GPT 5.6 Terra",
+        tier: "mid",
+        context: 1_050_000,
+      },
       { id: "moonshotai/kimi-k3", label: "Kimi K3", tier: "mid" },
-      { id: "openai/gpt-5.6-sol", label: "GPT 5.6 Sol", tier: "large" },
-      { id: "anthropic/claude-opus-5", label: "Claude Opus 5", tier: "large" },
-      { id: "openai/gpt-6-astra", label: "GPT 6 Astra", tier: "large" },
+      {
+        id: "openai/gpt-5.6-sol",
+        label: "GPT 5.6 Sol",
+        tier: "large",
+        context: 1_050_000,
+      },
+      {
+        id: "anthropic/claude-opus-5",
+        label: "Claude Opus 5",
+        tier: "large",
+        context: 1_000_000,
+      },
+      {
+        id: "openai/gpt-6-astra",
+        label: "GPT 6 Astra",
+        tier: "large",
+        context: 1_050_000,
+      },
     ],
   },
 };
@@ -581,4 +693,6 @@ export type GatewayModel = {
   price: GatewayPrice;
   /** The gateway has dated its retirement. */
   retiring: boolean;
+  /** Context window in tokens; null when the gateway did not say. What a run compacts against (bot.run). */
+  contextWindow: number | null;
 };

@@ -33,7 +33,7 @@ function iconFor(path: string): LucideIcon {
   return ICONS[kind] ?? File;
 }
 
-/** File paths mentioned in a report, as chips. Derived from the text, never stored; where a file opens is fileTarget's call. */
+/** File paths mentioned in an answer, as chips. Derived from the text, never stored; where a file opens is fileTarget's call. */
 export function PathChips({
   text,
   className,

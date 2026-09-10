@@ -71,6 +71,14 @@ export const PATHS = {
 /** Rows per page for every scrolling list. */
 export const PAGE_SIZE = 50;
 
+/**
+ * Finished jobs the inbox carries beside everything still running or waiting.
+ * The room in the call screen's corner and the Tasks badge read that one list,
+ * so this is also the most unopened answers the badge can owe: one more ending
+ * pushes the oldest off both, still unread in Settings › Tasks.
+ */
+export const INBOX_FINISHED = 3;
+
 /** History page size in calls, not rows; each call carries every turn. */
 export const CALL_HISTORY_PAGE = 10;
 
@@ -117,24 +125,32 @@ export const TOOL_OUTPUT = { max: 8_000, head: 5_500, tail: 1_500 };
 
 /**
  * Limits on one bot run (features/bot/bot.run).
- * - `steps`  steps per segment; at the limit the last step is forced to `report`
+ * - `steps`  steps per segment; at the limit the last step is forced to `answer`
  *            and the job waits for the user to continue.
- * - `compactAt`  context size in tokens at which the run compacts: the model
- *            summarizes the thread so far and continues from that summary.
- *            Must stay below the model's window.
+ * - `compactAt`  context size in tokens at which the run compacts when the model's
+ *            window cannot be known (model.ts compactBudget asks the gateway's
+ *            catalog, and a provider used directly carries one per model). Set
+ *            for the windows current models carry: a smaller model the app
+ *            knows nothing about can reach its limit first, and nothing catches
+ *            that overflow yet.
+ * - `compactHeadroom`  fraction of a known window used as the budget. Not
+ *            tidiness: the summarising call sends the whole context plus its
+ *            instructions and must get a summary back, so it needs room above
+ *            the threshold that triggered it.
  * - `summaryWords`  summary length: one word per `perTokens` of budget, clamped
  *            to `min`..`max`.
- * - `resumeMessages`  messages re-read after the last compact when resuming.
- * - `depth`  how deep `ask_bot` may go. A borrowed bot cannot borrow another.
+ * - `depth`  how many hand-offs `ask_bot` may go below the bot holding the job:
+ *            2 is that bot, one it borrows, and one that bot borrows. The last
+ *            seat has no `ask_bot`, and no seat may borrow a bot above it.
  * - `askBack`  `ask_back` calls a borrowed bot gets per part. At zero the tool
  *            is removed rather than left to refuse.
  */
 export const BOT_RUN = {
-  steps: 30,
-  compactAt: 120_000,
+  steps: 100,
+  compactAt: 500_000,
+  compactHeadroom: 0.8,
   summaryWords: { min: 600, max: 3000, perTokens: 200 },
-  resumeMessages: 20,
-  depth: 1,
+  depth: 2,
   askBack: 3,
 };
 
@@ -145,7 +161,7 @@ export const BOT_RUN = {
  * `steps` is the rewrite pass: one call is the whole job, the rest headroom for
  * a rejected argument list (features/bot/bot.notes).
  */
-export const BOT_NOTES = { chars: 400, steps: 3 };
+export const BOT_NOTES = { chars: 2000, steps: 3 };
 
 /** Name of the shipped browser skill (PATHS.skills.default); a seed bot claims it by name. */
 export const BROWSER_SKILL = "browser";
@@ -223,6 +239,17 @@ export const MEMORY_LIMITS = {
   factsPerNote: 50,
   carried: 20,
 };
+
+/**
+ * One web search (features/ai/tools/search.tool), Exa or a model's own.
+ * - `sources`  hits worth carrying back; past this it is noise.
+ * - `excerptChars`  how much of one page rides back with it; a bot that wants
+ *            the whole page fetches it.
+ * - `timeoutMs`  one deadline for both ways in. Nobody is watching a search, so
+ *            a request that never answers would hold the step until the job's
+ *            own timeout; a line saying so is worth more than the wait.
+ */
+export const SEARCH = { sources: 6, excerptChars: 1_200, timeoutMs: 30_000 };
 
 /**
  * How many bots or skills may pile up before the screen says what they cost.

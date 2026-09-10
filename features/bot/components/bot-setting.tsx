@@ -22,14 +22,25 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from "@/components/ui/input-group";
 import { notify } from "@/components/ui/notify";
 import ShinyText from "@/components/ui/shiny-text";
 import { Swatch } from "@/components/ui/swatch";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { BOT_NOTES, PROMPT_CROWDED } from "@/config";
+import { BOT_NOTES, BOT_RUN, PROMPT_CROWDED } from "@/config";
 import { ModelPicker } from "@/features/ai/components/model-picker";
-import type { TextModelProviderId } from "@/features/ai/model.schema";
+import {
+  compactAtFor,
+  contextWindowOf,
+  type GatewayModel,
+  type TextModelProviderId,
+} from "@/features/ai/model.schema";
 import {
   clearBotNoteAction,
   createBotAction,
@@ -42,7 +53,6 @@ import {
   type Bot,
   type BotForm,
   type BotIcon,
-  isBudgetAsk,
   MAX_PINNED_TOOLS,
   randomBotIcon,
   type Task,
@@ -280,7 +290,11 @@ function RosterRow({
   );
 }
 
-/** What the bot is doing, most urgent first. A budget stop waits but is not amber (isBudgetAsk). */
+/**
+ * What the bot is doing, most urgent first. Every wait is amber: the job moves
+ * again only when the user answers, whatever stopped it. Which kind of stop it
+ * was is the words' job, not the colour's.
+ */
 function liveLine(
   job: Task | null,
   lastJobAt: Bot["lastJobAt"],
@@ -291,9 +305,7 @@ function liveLine(
   amber?: boolean;
 } {
   if (job?.status === "waiting") {
-    return isBudgetAsk(job.ask)
-      ? { text: "out of steps" }
-      : { text: "waiting on you", shine: true, amber: true };
+    return { text: "waiting on you", shine: true, amber: true };
   }
   if (job?.status === "running") {
     return { text: `working · ${job.label}`, shine: true };
@@ -673,10 +685,34 @@ function BotPage({
     icon: bot?.icon ?? randomBotIcon(),
     provider: (bot?.provider ?? null) as TextModelProviderId | null,
     model: bot?.model ?? "",
+    // In thousands of tokens, the unit the field is typed in
+    compactAt: bot?.compactAt ? String(bot.compactAt / 1000) : "",
     toolIds: bot?.tools.map((tool) => tool.id) ?? [],
   }));
-  const { name, description, systemPrompt, icon, provider, model, toolIds } =
-    fields;
+  const {
+    name,
+    description,
+    systemPrompt,
+    icon,
+    provider,
+    model,
+    compactAt,
+    toolIds,
+  } = fields;
+  // Typed by hand; otherwise the field shows what the picked model fills in
+  const [compactEdited, setCompactEdited] = useState(Boolean(bot?.compactAt));
+  // Read here as well as in the picker: a pick has to fill in from it the moment it happens
+  const catalog = useServerRoute<GatewayModel[]>(queryKey.modelCatalog);
+  const windowOf = (of: TextModelProviderId | null, id: string) =>
+    of && id.trim() ? contextWindowOf(of, id.trim(), catalog.data) : null;
+  const pickedWindow = windowOf(provider, model);
+  const filledK =
+    provider && model.trim() ? filledTokens(pickedWindow) / 1000 : null;
+  const shownK = compactEdited
+    ? compactAt
+    : filledK === null
+      ? ""
+      : String(filledK);
 
   const [save] = useServerAction(updateBotAction, {
     onOk: () => revalidate(queryKey.bot),
@@ -720,6 +756,9 @@ function BotPage({
       icon,
       provider,
       model: model.trim(),
+      compactAt: compactEdited
+        ? tokensFromK(compactAt)
+        : filledTokens(pickedWindow),
       toolIds,
     });
   };
@@ -810,7 +849,7 @@ function BotPage({
                   commit({ description: next });
                 }
               }}
-              placeholder="Searches the web and reports back"
+              placeholder="Searches the web and answers"
               maxLength={COMMON_VALIDATE.description.max}
             />
           </div>
@@ -874,10 +913,52 @@ function BotPage({
             model={model}
             onChange={(next) => {
               patch({ provider: next.provider, model: next.model });
+              // A new model fills in its own point; a number typed for the old one no longer fits
+              setCompactEdited(false);
               // A provider without a model is not a model; save once both are picked.
-              if (next.model) commit(next);
+              if (next.model) {
+                commit({
+                  ...next,
+                  compactAt: filledTokens(windowOf(next.provider, next.model)),
+                });
+              }
             }}
           />
+        </Row>
+
+        <Row label="Compacts at">
+          <InputGroup>
+            <InputGroupInput
+              inputMode="decimal"
+              value={shownK}
+              placeholder={model.trim() ? "" : "Pick a model first"}
+              onChange={(event) => {
+                setCompactEdited(true);
+                patch({ compactAt: event.target.value });
+              }}
+              onBlur={() => {
+                if (!compactEdited) return;
+                // Typing is a draft; only a settled field is a value. Emptied, the field goes back to the model's own
+                const typed = tokensFromK(compactAt);
+                if (typed === null) setCompactEdited(false);
+                else patch({ compactAt: String(typed / 1000) });
+                commit({
+                  compactAt:
+                    typed ?? (model.trim() ? filledTokens(pickedWindow) : null),
+                });
+              }}
+            />
+            <InputGroupAddon align="inline-end">
+              <InputGroupText>k tokens</InputGroupText>
+            </InputGroupAddon>
+          </InputGroup>
+          <p className="text-xs text-muted-foreground">
+            {compactNote({
+              model: model.trim(),
+              window: pickedWindow,
+              shown: tokensFromK(shownK),
+            })}
+          </p>
         </Row>
 
         <Row label="Tools">
@@ -984,6 +1065,33 @@ function BotRail({ bot }: { bot: Bot | null }) {
   );
 }
 
+/** "800", "800k" or "1.2" → tokens (800,000 / 1,200); null when there is no number. */
+function tokensFromK(text: string): number | null {
+  const k = Number(text.replace(/[^0-9.]/g, ""));
+  return Number.isFinite(k) && k > 0 ? Math.round(k * 1000) : null;
+}
+
+/** What a model fills in, rounded to the field's unit so the saved number is the one shown (model.schema compactAtFor). */
+const filledTokens = (window: number | null) =>
+  Math.round(compactAtFor(window) / 1000) * 1000;
+
+/** The line under the field: where the number came from. */
+function compactNote(input: {
+  model: string;
+  window: number | null;
+  shown: number | null;
+}): string {
+  if (!input.model) return "Filled in from the model once one is picked.";
+  const filled = filledTokens(input.window);
+  const summarize = "A job summarizes itself here and carries on.";
+  if (input.shown !== null && input.shown !== filled) {
+    return `Set by hand. Picking a model fills in its own again. ${summarize}`;
+  }
+  return input.window
+    ? `${Math.round(BOT_RUN.compactHeadroom * 100)}% of this model's ${(input.window / 1000).toLocaleString()}k context window. ${summarize}`
+    : `This model's context window is unknown, so the default is filled in. ${summarize}`;
+}
+
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex gap-3">
@@ -1043,12 +1151,7 @@ function Recent({ jobs }: { jobs: Task[] }) {
 function jobState(job: Task): { text: string; tone: string } {
   switch (job.status) {
     case "waiting":
-      return isBudgetAsk(job.ask)
-        ? { text: "out of steps", tone: "text-muted-foreground" }
-        : {
-            text: "waiting on you",
-            tone: WAITING_INK,
-          };
+      return { text: "waiting on you", tone: WAITING_INK };
     case "running":
       return { text: "working", tone: "text-muted-foreground" };
     case "failed":

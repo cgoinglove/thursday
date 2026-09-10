@@ -17,7 +17,7 @@ import { readBotNote, writeBotNote } from "./bot.query";
  * every job of its own (ai/prompts/bot.prompt).
  *
  * The bot never writes the block. It says what it wants changed, in its own words, on
- * `report` (ai/tools/bot.tool `notes`), and this rewrites the block from that. Two models
+ * `answer` (ai/tools/bot.tool `notes`), and this rewrites the block from that. Two models
  * because they are two jobs: a bot that has just finished work edits around the work, while
  * a model handed one document and three change requests does what it was handed. Same model
  * the job ran on, no system prompt, one tool, forced.
@@ -82,7 +82,7 @@ export async function keepNotes(input: KeepNotesInput): Promise<string | null> {
         ],
       });
     } catch (cause) {
-      // Never the job's problem: its report is already handed back.
+      // Never the job's problem: its answer is already handed back.
       logger.warn(`notes pass for ${input.bot} failed: ${cause}`);
     }
     return kept;
@@ -97,7 +97,7 @@ export async function keepNotes(input: KeepNotesInput): Promise<string | null> {
 function briefing(current: string | null, want: string): string {
   return `You keep one worker's notes. It is an agent with a shell on this machine; the notes are its own, read at the start of every job it runs and by nobody else. They hold what this machine has taught it — the command that works here, the flag without which something fails, the tool this platform does not have. Write what the worker found, never what it proposed.
 
-Four things do not belong, however true today: what is in a folder right now, what a job produced, anything about the person the work is for, and how to satisfy the worker's own tools (\`report\`, \`write_file\`, \`bash\` — those belong to the app it runs inside and change with it). A program *on the machine* is the opposite and does belong.
+Four things do not belong, however true today: what is in a folder right now, what a job produced, anything about the person the work is for, and how to satisfy the worker's own tools (\`answer\`, \`write_file\`, \`bash\` — those belong to the app it runs inside and change with it). A program *on the machine* is the opposite and does belong.
 
 Nor does how the worker should behave. Whoever owns it writes that separately and it outranks these, so a note about manner or language is either already said or about to be overruled.
 

@@ -12,6 +12,7 @@ import {
 import { CALL_HISTORY_PAGE } from "@/config";
 import { database } from "@/database/db";
 import { callMessageTable, callTable } from "@/database/tables";
+import { listCallJobs } from "@/features/bot/task.query";
 import { readConfig, writeConfig } from "@/features/config/config.query";
 import {
   type CallRecord,
@@ -278,9 +279,21 @@ export async function listCallHistory(options: {
     else turns.set(callId, [turn]);
   }
 
+  // A job belongs to the call that opened it, and this is how the log still says
+  // what became of it once the call is over.
+  const jobs = await listCallJobs(calls.map((call) => call.id));
+
   return calls.map((call) => ({
     ...call,
     turns: turns.get(call.id) ?? [],
+    jobs: jobs
+      .filter((job) => job.callId === call.id)
+      .map((job) => ({
+        id: job.id,
+        label: job.label,
+        status: job.status,
+        outcome: job.outcome,
+      })),
   }));
 }
 

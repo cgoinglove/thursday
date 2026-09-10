@@ -14,10 +14,9 @@ import { Button } from "@/components/ui/button";
 import { FoldedText } from "@/components/ui/folded-text";
 import ShinyText from "@/components/ui/shiny-text";
 import { Textarea } from "@/components/ui/textarea";
-import { BOT_RUN } from "@/config";
 import { answerTaskAction, cancelTaskAction } from "@/features/bot/bot.action";
 import {
-  isBudgetAsk,
+  isAppStop,
   TASK_CONTINUE,
   type TaskAsk,
   type TaskStatus,
@@ -106,7 +105,7 @@ export function TaskReply({
   };
 
   const asking = status === "waiting" ? task.ask : null;
-  const budget = isBudgetAsk(asking);
+  const appStop = isAppStop(asking);
   const placeholder = asking
     ? asking.options.length
       ? "Or put it another way…"
@@ -241,11 +240,10 @@ export function TaskReply({
   return (
     <div
       className={cn(
-        "space-y-2.5 rounded-2xl px-3.5 py-3 ring-1",
-        // A budget stop is not a question, so it does not take the waiting colour.
-        budget
-          ? "bg-muted/40 ring-border/50"
-          : "bg-amber-500/8 ring-amber-500/25",
+        // Every wait takes the waiting colour: the job moves again only when
+        // the user answers, whatever stopped it. Which stop it was is the
+        // words' job, not the colour's.
+        "space-y-2.5 rounded-2xl bg-amber-500/8 px-3.5 py-3 ring-1 ring-amber-500/25",
         className,
       )}
     >
@@ -257,7 +255,7 @@ export function TaskReply({
       </p>
 
       {/* Empty when the question already is the last thread line (bot-room askFor).
-          A bot that stops on its own result sends the whole report as the question, and
+          A bot that stops on its own result sends the whole answer as the question, and
           this panel does not scroll — the thread above it does — so it is folded. */}
       {asking.question && (
         <FoldedText
@@ -279,15 +277,10 @@ export function TaskReply({
               onClick={() => send(option)}
               className="h-7 gap-1.5 rounded-full bg-background px-3 text-[12px]"
             >
-              {budget && option === TASK_CONTINUE && (
+              {appStop && option === TASK_CONTINUE && (
                 <ChevronsRight className="size-3.5 text-muted-foreground" />
               )}
               {option}
-              {budget && option === TASK_CONTINUE && (
-                <span className="font-mono text-[10px] text-muted-foreground">
-                  +{BOT_RUN.steps} steps
-                </span>
-              )}
             </Button>
           ))}
         </div>
@@ -295,14 +288,18 @@ export function TaskReply({
 
       {form}
 
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => stop(task.id)}
-        className="font-mono text-[10px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
-      >
-        Stop this task instead
-      </button>
+      {/* Only a job still going can be stopped: cancelling writes "Cancelled."
+          over the outcome, which on a finished job is the answer itself. */}
+      {status === "waiting" && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => stop(task.id)}
+          className="font-mono text-[10px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+        >
+          Stop this task instead
+        </button>
+      )}
     </div>
   );
 }

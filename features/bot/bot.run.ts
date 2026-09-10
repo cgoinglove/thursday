@@ -14,15 +14,20 @@ import {
 import { BOT_RUN } from "@/config";
 import { loadTools } from "@/features/ai/load-tools";
 import {
+  compactBudget,
   getTextModel,
   modelErrorToString,
   resolveDefaultModel,
 } from "@/features/ai/model";
-import { loadBotPrompt } from "@/features/ai/prompts/bot.prompt";
 import {
+  buildHandoff,
+  chainOf,
+  loadBotPrompt,
+} from "@/features/ai/prompts/bot.prompt";
+import {
+  answerAccepted,
   askBackSpec,
   askBotSpec,
-  reportAccepted,
 } from "@/features/ai/tools/bot.tool";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import {
@@ -38,14 +43,13 @@ import {
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
 import { estimateTokens } from "@/lib/tokens";
-import { clip } from "@/lib/utils";
 import { hasNotesRequest, keepNotes } from "./bot.notes";
 import { findJobBot, readBotNotesOn } from "./bot.query";
-import { findTask, optionsOf, toolLine } from "./task.query";
+import { findTask, optionsOf } from "./task.query";
 
 /**
  * The bot loop behind `delegate`: one model with its own prompt, tools and
- * context. Only the `report` reaches Thursday; every event goes through
+ * context. Only the `answer` reaches Thursday; every event goes through
  * `emit` and the runner (bot.runner) writes it to the task's thread.
  */
 
@@ -89,10 +93,12 @@ export type BotEvent =
    */
   | { type: "waiting"; id: string | null; question: string; options: string[] }
   /**
-   * The only thing that reaches Thursday. `complete` is what the model said
-   * (bot.tool reportSpec), or false when the step cap forced the report.
+   * The only thing that reaches Thursday. `stopped` is the app's word, never the
+   * model's: the step cap forced this answer, the answer was refused on the last
+   * step, or the run ended with nothing handed back. A stopped job waits to be
+   * continued; any other answer ends it.
    */
-  | { type: "report"; text: string; complete: boolean }
+  | { type: "answer"; text: string; stopped: boolean }
   | { type: "error"; message: string };
 
 /** The event as the thread sees it: which bot, inside which `ask_bot` call. */
@@ -116,12 +122,12 @@ export type RunOptions = {
 };
 
 /**
- * Both limits come from config BOT_RUN. At the step cap the last step is
- * forced to `report` (lastStep) and the job goes to `waiting`. Past the
- * context budget the run compacts (compact) and continues from the summary.
+ * At the step cap the last step is forced to `answer` (lastStep) and the job goes
+ * to `waiting`. The context budget is the model's own window where that can be
+ * known (model.ts compactBudget); past it the run compacts and carries on from
+ * the summary.
  */
 const MAX_STEPS = BOT_RUN.steps;
-const CONTEXT_BUDGET = BOT_RUN.compactAt;
 
 /**
  * Where a run starts: a job's thread (the opening message first time, past
@@ -130,7 +136,16 @@ const CONTEXT_BUDGET = BOT_RUN.compactAt;
  */
 export type RunInput =
   | { bot: string; messages: ModelMessage[] }
-  | { bot: string; request: string; context?: string | null; askedBy: string };
+  | {
+      bot: string;
+      request: string;
+      context?: string | null;
+      askedBy: string;
+      /** What the borrowing bot inherited, handed down under the part (bot.prompt buildHandoff). */
+      chain: string;
+      /** Every bot above this one on the job, the holder first; `askedBy` is the last. */
+      above: string[];
+    };
 
 export async function runBot(
   input: RunInput,
@@ -178,7 +193,13 @@ export async function runBot(
     loadBotPrompt(
       name,
       bot.systemPrompt,
-      "askedBy" in input ? input.askedBy : null,
+      "askedBy" in input
+        ? {
+            askedBy: input.askedBy,
+            above: input.above,
+            canBorrow: depth < BOT_RUN.depth,
+          }
+        : null,
       { scratch, own },
     ),
     loadTools({
@@ -188,27 +209,44 @@ export async function runBot(
       model,
     }),
   ]);
-  const budget = CONTEXT_BUDGET;
+  // What the owner set, else the model's own window, else the constant (model.ts compactBudget)
+  const budget = await compactBudget(model.ref, bot.compactAt);
 
   const history: ModelMessage[] =
     "messages" in input
       ? input.messages
-      : [{ role: "user", content: taskPrompt(input) }];
+      : [
+          {
+            role: "user",
+            content: buildHandoff({
+              chain: input.chain,
+              bots: [...input.above, name],
+              did: input.context ?? null,
+              part: input.request,
+            }),
+          },
+        ];
 
   /** Remaining `ask_back` calls for a borrowed bot; the tool counts it down. */
   const asks = { left: BOT_RUN.askBack };
+  // A borrowed bot asks back instead of asking Thursday. Any seat above the
+  // depth limit may borrow in turn, handing down the chain it was handed.
+  const seatTools =
+    "askedBy" in input ? withAskBack(tools, asks, options) : tools;
   const agentTools =
-    depth >= BOT_RUN.depth
-      ? withAskBack(tools, asks, options)
-      : withAskBot(tools, {
+    depth < BOT_RUN.depth
+      ? withAskBot(seatTools, {
           name,
           model: model.model,
           instructions: prompt.text,
           peers: prompt.peers,
           depth,
+          chain: chainOf(history[0]),
+          above: "askedBy" in input ? input.above : [],
           options,
           emit,
-        });
+        })
+      : seatTools;
 
   /**
    * A compaction decided in `prepareStep` is emitted from the loop at
@@ -226,18 +264,18 @@ export async function runBot(
     model: model.model,
     instructions: prompt.text,
     tools: agentTools,
-    // The loop ends on an accepted report or at the step cap (the last step is
-    // forced to report). A refused report does not end it. `ask_thursday` has
+    // The loop ends on an accepted answer or at the step cap (the last step is
+    // forced to answer). A refused answer does not end it. `ask_thursday` has
     // no execute, but invalid arguments come back as a tool-error and the loop
     // would go on, so the stop is on the call itself.
     stopWhen: [
       stepCountIs(MAX_STEPS),
-      reportAccepted_,
+      answerAccepted_,
       hasToolCall(TOOL_NAMES.ask_thursday),
     ],
     prepareStep: async ({ stepNumber, steps, messages }) => {
       let step = lastStep(stepNumber);
-      // Remove `ask_back` once spent. The last step is already narrowed to `report`.
+      // Remove `ask_back` once spent. The last step is already narrowed to `answer`.
       if (!step.activeTools && asks.left <= 0) {
         step = {
           ...step,
@@ -251,8 +289,8 @@ export async function runBot(
       const measured = steps.at(-1)?.usage.inputTokens ?? 0;
       const size = Math.max(measured, sizeOf(messages));
       let next = messages;
-      // Nothing past the opening is nothing to compact
-      if (size > budget && messages.length >= 2) {
+      // The opening survives every compaction, so past it and one summary there is nothing to compact
+      if (size > budget && messages.length > 2) {
         const summary = await compact(model.model, agentTools, messages, {
           signal: options.signal,
           budget,
@@ -267,7 +305,7 @@ export async function runBot(
           messages: messages.length,
           tokens: size,
         };
-        next = [{ role: "user", content: summary.text }];
+        next = [messages[0], { role: "user", content: summary.text }];
       }
 
       // Notes said during the last step go in as user turns after everything
@@ -301,13 +339,15 @@ export async function runBot(
   });
 
   let writing = "";
-  /** The last chunk of prose; used only if the run ends without a report. */
+  /** The last chunk of prose; used only if the run ends without an answer. */
   let last: string | null = null;
   /** The `ask_thursday` call the loop stopped on. */
   let asked: { id: string; question: string; options: string[] } | null = null;
-  /** The report (bot.tool reportSpec). */
-  let reported: { text: string; complete: boolean } | null = null;
-  /** What the bot wants changed about its own instructions (bot.tool `notes`); applied after the report. */
+  /** The answer (bot.tool answerSpec). */
+  let answered: { text: string; stopped: boolean } | null = null;
+  /** Index of the step being read; `lastStep` narrows the one at MAX_STEPS - 1. */
+  let stepAt = -1;
+  /** What the bot wants changed about its own instructions (bot.tool `notes`); applied after the answer. */
   let wants: string | null = null;
 
   // An abort ends the stream without a finish; release any waiting take.
@@ -316,6 +356,7 @@ export async function runBot(
     for await (const part of result.fullStream) {
       switch (part.type) {
         case "start-step":
+          stepAt += 1;
           if (pending.compact) {
             await emit(pending.compact);
             pending.compact = null;
@@ -349,11 +390,12 @@ export async function runBot(
               question: String(args.question ?? ""),
               options: optionsOf(args.options),
             };
-          } else if (part.toolName === TOOL_NAMES.report) {
-            const args = part.input as { result?: unknown; complete?: unknown };
-            reported = {
+          } else if (part.toolName === TOOL_NAMES.answer) {
+            const args = part.input as { result?: unknown };
+            answered = {
               text: String(args.result ?? "").trim(),
-              complete: args.complete !== false,
+              // The last step offers nothing but `answer`: an answer there is the cap's doing
+              stopped: stepAt >= MAX_STEPS - 1,
             };
             wants = notesRequestOf(part.input);
           }
@@ -367,16 +409,16 @@ export async function runBot(
         }
 
         case "tool-result":
-          // A refused report is not the ending, unless the step cap ends the run
-          // on this step; then the text still reaches the user, never as complete.
+          // A refused answer is not the ending, unless the step cap ends the run
+          // on this step; then the text still reaches the user, as a stop.
           if (
-            part.toolName === TOOL_NAMES.report &&
-            reported &&
-            !reportAccepted(part.output)
+            part.toolName === TOOL_NAMES.answer &&
+            answered &&
+            !answerAccepted(part.output)
           ) {
-            reported = {
-              text: `${reported.text}\n\n${outputText(part.output)}`,
-              complete: false,
+            answered = {
+              text: `${answered.text}\n\n${outputText(part.output)}`,
+              stopped: true,
             };
           }
           // A provider-executed tool (web search) lands here too; the step's own
@@ -417,15 +459,15 @@ export async function runBot(
     return;
   }
 
-  // Asking wins over reporting: the loop halts on the ask.
+  // Asking wins over answering: the loop halts on the ask.
   if (asked) {
     await emit({ type: "waiting", ...asked });
     return;
   }
 
-  if (reported) {
-    await emit({ type: "report", ...reported });
-    // After the report, never before, and only when the bot asked for something:
+  if (answered) {
+    await emit({ type: "answer", ...answered });
+    // After the answer, never before, and only when the bot asked for something:
     // a job that changed nothing about this machine must not cost a model call.
     if (hasNotesRequest(wants) && (await readBotNotesOn())) {
       await keepNotes({
@@ -438,28 +480,29 @@ export async function runBot(
     return;
   }
 
-  // The sdk stops on a step with no tool call regardless of `stopWhen`. The
-  // prose is passed on as a report, never as complete.
+  // The sdk stops on a step with no tool call regardless of `stopWhen`. Prose
+  // there is an answer given without the tool and ends the job like one; nothing
+  // at all, or prose on the step the cap narrowed to `answer`, is a stop.
   await emit({
-    type: "report",
+    type: "answer",
     text: last ?? "Stopped without handing anything back.",
-    complete: false,
+    stopped: last === null || stepAt >= MAX_STEPS - 1,
   });
 }
 
-/** The last step ended on a report the tool accepted. `hasToolCall` would also stop on a refused one. */
-const reportAccepted_ = ({ steps }: { steps: StepResult<ToolSet>[] }) =>
+/** The last step ended on an answer the tool accepted. `hasToolCall` would also stop on a refused one. */
+const answerAccepted_ = ({ steps }: { steps: StepResult<ToolSet>[] }) =>
   steps
     .at(-1)
     ?.toolResults.some(
       (result) =>
-        result.toolName === TOOL_NAMES.report && reportAccepted(result.output),
+        result.toolName === TOOL_NAMES.answer && answerAccepted(result.output),
     ) ?? false;
 
 /** A provider that cannot send null in a string field writes the word instead. */
 const NO_NOTES = new Set(["null", "none", "n/a", "-", "없음"]);
 
-/** `report`'s `notes` as the pass takes it. */
+/** `answer`'s `notes` as the pass takes it. */
 function notesRequestOf(input: unknown): string | null {
   const said = (input as { notes?: unknown })?.notes;
   const text = typeof said === "string" ? said.trim() : "";
@@ -467,14 +510,14 @@ function notesRequestOf(input: unknown): string | null {
 }
 
 /**
- * The step before the cap is narrowed to `report` and required to call it,
+ * The step before the cap is narrowed to `answer` and required to call it,
  * so a run out of budget ends with something a person can act on.
  */
 function lastStep(stepNumber: number): NonNullable<PrepareStepResult<ToolSet>> {
   if (stepNumber < MAX_STEPS - 1) return {};
   return {
-    activeTools: [TOOL_NAMES.report],
-    toolChoice: { type: "tool", toolName: TOOL_NAMES.report },
+    activeTools: [TOOL_NAMES.answer],
+    toolChoice: { type: "tool", toolName: TOOL_NAMES.answer },
   };
 }
 
@@ -496,15 +539,18 @@ function sizeOf(messages: ModelMessage[]): number {
 /** Instructions for compacting. The summary replaces everything above it, opening included, so it must restate the job. */
 const compactInstructions = (
   words: number,
-) => `Compact your context. Everything above is your own work on this job so far; after this message it is replaced by what you write now, and you carry on from that alone. Write what a fresh copy of you needs to continue without re-reading anything:
+) => `Compact your context. The first message above — the job, the call it came from, and anything handed over with it — stays exactly as it is. Everything after it is replaced by what you write now, and you carry on from that first message and this alone; nothing else above can be read again. Write it for a fresh copy of you that has your tools, your instructions and that first message, but has seen none of the rest.
 
-- The job as it was given — the request, quoted, and the details from the call that matter.
-- What you have done and what you found, with the exact values: numbers, names, urls, dates, ids, error messages.
-- Files you wrote or read, by path, and what each holds.
-- What is still left to do, in order, and any decision or answer you are waiting on.
-- What did not work, so it is not tried again.
+Cover all of it, and prefer a fact over a description of a fact:
 
-Plain text, under ${words} words. No preamble and no headings about the summary itself — start with the job.`;
+- **Where the job stands against that first message.** Do not restate the job or the call; say what has changed since — a choice made, a detail settled, an answer that came back, a correction, anything you are still waiting on.
+- **What is already true.** Every value you have — numbers, names, dates, ids, urls, prices, times — written out, not referred to. A value you leave out is one the next steps go and fetch again.
+- **Where you are.** Which page the browser is on by url, whether you are signed in and to what, what is running, what you were in the middle of. Element refs do not survive this: name what to look for, never a ref.
+- **Files.** Every path you wrote or read, and one line on what each holds.
+- **What did not work**, and why: the url that 404s, the endpoint that needs POST not GET, the selector that is not there, the site that refuses a headless browser, the argument a tool rejected. This is the part that stops the next steps repeating an hour of yours.
+- **What is left**, in the order you would do it.
+
+Plain text, under ${words} words. No preamble, no headings about the summary itself, no account of how you have been going.`;
 
 /** Word cap for a summary, scaled to the budget it stands in for (config BOT_RUN.summaryWords). */
 const summaryWords = (budget: number) => {
@@ -512,9 +558,9 @@ const summaryWords = (budget: number) => {
   return Math.min(max, Math.max(min, Math.round(budget / perTokens)));
 };
 
-/** Prefix of the first message after a compaction (and on a resume). */
+/** Prefix of the summary that follows the first message after a compaction (and on a resume). */
 const COMPACT_PREAMBLE =
-  "The context was compacted here. Below is your own summary of the job up to this point; continue from it.";
+  "Everything between the first message and here was compacted. Below is your own summary of it; carry on from the first message and this.";
 
 /**
  * The model summarizes its own context and continues from the summary. Tools
@@ -606,7 +652,7 @@ function resolveModel(bot: JobBot) {
   return resolveDefaultModel().then(getTextModel);
 }
 
-/** A whole run as one string; this is all `ask_bot` receives. An incomplete report still comes back, marked as such. */
+/** A whole run as one string; this is all `ask_bot` receives. A stopped run still comes back, marked as such. */
 export async function runBotToText(
   input: Extract<RunInput, { request: string }>,
   options: RunOptions,
@@ -616,10 +662,10 @@ export async function runBotToText(
   await runBot(input, {
     ...options,
     emit: async (event) => {
-      if (event.type === "report") {
-        outcome = event.complete
-          ? event.text
-          : `${event.text}\n\n(As far as they got — they ran out of steps.)`;
+      if (event.type === "answer") {
+        outcome = event.stopped
+          ? `${event.text}\n\n(As far as they got — they stopped before finishing.)`
+          : event.text;
       }
       if (event.type === "error") failure = event.message;
       await options.emit(event);
@@ -646,6 +692,10 @@ function withAskBot(
     /** Bots it can call; itself excluded (bot.prompt). */
     peers: string[];
     depth: number;
+    /** The chain this bot inherited, handed down under the part it hands over. */
+    chain: string;
+    /** Bots above this one on the job, which are blocked waiting on it. */
+    above: string[];
     options: RunOptions;
     emit: (event: BotEvent) => Promise<void>;
   },
@@ -658,6 +708,10 @@ function withAskBot(
       description: askBotSpec.description,
       inputSchema: askBotSpec.parameters,
       execute: async ({ bot, request, context }, call) => {
+        // A bot above is blocked waiting on this very call; borrowing it back never returns
+        if (bot === asker.name || asker.above.includes(bot)) {
+          return `${bot} is already on this job, above you and waiting on your part. Pick another bot, or do it yourself.`;
+        }
         // The borrowed bot gets its own browser session under this call's id.
         // When it answers, the same rule as a job's end: what it showed on their
         // screen stays, what nobody can see closes (workspace.ts closeHiddenBrowser).
@@ -682,7 +736,14 @@ function withAskBot(
         };
         try {
           const outcome = await runBotToText(
-            { bot, request, context, askedBy: asker.name },
+            {
+              bot,
+              request,
+              context,
+              askedBy: asker.name,
+              chain: asker.chain,
+              above: [...asker.above, asker.name],
+            },
             {
               ...asker.options,
               depth: asker.depth + 1,
@@ -703,7 +764,7 @@ function withAskBot(
   return agentTools;
 }
 
-/** Appended under the report: what the borrowed bot asked and what this bot answered. */
+/** Appended under the answer: what the borrowed bot asked and what this bot answered. */
 function exchangeLines(
   bot: string,
   exchanges: { question: string; answer: string }[],
@@ -803,91 +864,60 @@ async function answerBack(input: {
 }
 
 /**
- * The stored thread cut down for a resume: tool results dropped, tool calls
- * kept as one line each (task.query toolLine), ask/answer/report exchanges
- * kept as text. The opening always, then only the last `keep` messages.
- * Output is user/assistant text only, so a run stopped mid-step has no
- * dangling tool call.
+ * The stored thread as a resuming run reads it: the rows as they were written,
+ * each tool call with its result, so a resumed run carries on the conversation
+ * it was having and a provider's prefix cache still matches from its first call.
+ * The one repair is a call whose result never arrived — the run was stopped
+ * between the two (a closed browser pauses every run, a restart abandons them)
+ * and a call with no result is refused outright — which gets one saying so,
+ * right after it. Nothing else changes: `compact` is the one thing that
+ * shortens a bot's own thread.
  */
-export function condenseThread(
-  thread: ModelMessage[],
-  keep = BOT_RUN.resumeMessages,
-): ModelMessage[] {
-  const [opening, ...rest] = thread;
-  const flat: { role: "user" | "assistant"; content: string }[] = [];
-  const say = (role: "user" | "assistant", text: string) => {
-    const line = text.trim();
-    if (!line) return;
-    const last = flat.at(-1);
-    // Merge consecutive same-role messages; some providers require alternation.
-    if (last?.role === role) last.content = `${last.content}\n\n${line}`;
-    else flat.push({ role, content: line });
-  };
-
-  for (const message of rest) {
-    if (message.role === "user") {
-      say(
-        "user",
-        typeof message.content === "string"
-          ? message.content
-          : message.content
-              .flatMap((part) => (part.type === "text" ? [part.text] : []))
-              .join("\n"),
-      );
-    } else if (message.role === "assistant") {
-      if (typeof message.content === "string") {
-        say("assistant", message.content);
-        continue;
-      }
-      for (const part of message.content) {
-        if (part.type === "text") say("assistant", part.text);
-        else if (part.type === "tool-call") say("assistant", callNote(part));
-      }
-    } else if (message.role === "tool") {
-      for (const part of message.content) {
-        if (part.type !== "tool-result") continue;
-        if (
-          part.toolName === TOOL_NAMES.ask_thursday ||
-          part.toolName === TOOL_NAMES.ask_back
-        ) {
-          // Thursday, or the bot that borrowed this one
-          say("user", outputText(part.output));
-        } else if (part.toolName === TOOL_NAMES.ask_bot) {
-          say(
-            "assistant",
-            `(they answered: ${clip(outputText(part.output), 600)})`,
-          );
-        }
-        // Other tool results are dropped
-      }
+export function resumeThread(thread: ModelMessage[]): ModelMessage[] {
+  const answered = new Set<string>();
+  for (const message of thread) {
+    if (message.role !== "tool") continue;
+    for (const part of message.content) {
+      if (part.type === "tool-result") answered.add(part.toolCallId);
     }
   }
 
-  const tail = flat.slice(-keep);
-  return opening ? [opening, ...tail] : tail;
+  const out: ModelMessage[] = [];
+  let owed: Extract<ModelMessage, { role: "tool" }>["content"] = [];
+  for (const message of thread) {
+    if (owed.length && message.role === "tool") {
+      out.push({ ...message, content: [...owed, ...message.content] });
+      owed = [];
+      continue;
+    }
+    if (owed.length) {
+      out.push({ role: "tool", content: owed });
+      owed = [];
+    }
+    out.push(message);
+    if (message.role !== "assistant" || typeof message.content === "string") {
+      continue;
+    }
+    owed = message.content.flatMap((part) =>
+      part.type === "tool-call" && !answered.has(part.toolCallId)
+        ? [
+            {
+              type: "tool-result" as const,
+              toolCallId: part.toolCallId,
+              toolName: part.toolName,
+              output: { type: "text" as const, value: INTERRUPTED },
+            },
+          ]
+        : [],
+    );
+  }
+  if (owed.length) out.push({ role: "tool", content: owed });
+  return out;
 }
 
-/**
- * One tool call as one line for a resuming model. Conversation calls read as
- * conversation; the rest use the same `toolLine` the screen draws (task.query).
- */
-function callNote(part: { toolName: string; input: unknown }): string {
-  const args = (part.input ?? {}) as Record<string, unknown>;
-  if (part.toolName === TOOL_NAMES.ask_thursday) {
-    return `(asked Thursday: ${String(args.question ?? "")})`;
-  }
-  if (part.toolName === TOOL_NAMES.ask_back) {
-    return `(asked back: ${String(args.question ?? "")})`;
-  }
-  if (part.toolName === TOOL_NAMES.ask_bot) {
-    return `(asked ${String(args.bot ?? "")} for: ${String(args.request ?? "")})`;
-  }
-  if (part.toolName === TOOL_NAMES.report) {
-    // A mid-thread report is a stretch that ended; the follow-up under it needs it.
-    return `(handed back: ${clip(String(args.result ?? ""), 300)})`;
-  }
-  return `[${part.toolName} ${toolLine(part.toolName, args)}]`;
-}
+/** What a resumed run reads where a call's result never arrived (resumeThread). */
+const INTERRUPTED =
+  "No result: the run was stopped before this call returned. Check what it did before relying on it.";
 
 /** Just the text out of the shape a tool result reached the model in (ai-sdk ToolResultOutput). */
 function outputText(output: unknown): string {
@@ -899,16 +929,4 @@ function outputText(output: unknown): string {
       : JSON.stringify(wrapped.value ?? "");
   }
   return JSON.stringify(output ?? "");
-}
-
-/** The borrowed bot's first user message: the request plus what the asking bot already knows. */
-function taskPrompt(input: {
-  request: string;
-  context?: string | null;
-  askedBy: string;
-}) {
-  const context = input.context?.trim();
-  return context
-    ? `${input.request}\n\n## What ${input.askedBy} already knows\n\n${context}`
-    : input.request;
 }

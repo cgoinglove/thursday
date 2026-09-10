@@ -5,10 +5,9 @@ import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { toast } from "@/components/ui/toast";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
-import { markReportedAction } from "@/features/bot/bot.action";
 import {
   type Bot,
-  isBudgetAsk,
+  isAppStop,
   TASK_CONTINUE,
   type Task,
 } from "@/features/bot/bot.schema";
@@ -45,7 +44,7 @@ import type {
   LiveStatus,
 } from "./thursday.schema";
 import { thursdaySettings, useThursdayStore } from "./thursday.store";
-import { toolLine } from "./tool-line";
+import { toolBot, toolLine } from "./tool-line";
 
 /**
  * One live call, plus the task inbox the app watches even with no call open.
@@ -103,6 +102,14 @@ const IDLE_GRACE_MS = 15_000;
 /** The countdown shows on screen inside this window. */
 const IDLE_WARN_MS = 15_000;
 
+/**
+ * The user finished a turn and nothing came back — no words, no tool — for this
+ * long. The line is up and the model is not on it, so there is no goodbye to
+ * ask for: the page hangs up. Only armed while an answer is owed, so a quiet
+ * line still ends the slow way (IDLE_HANG_UP_MS).
+ */
+const AGENT_SILENT_MS = 30_000;
+
 const IDLE_LINE =
   "The user has said nothing for a minute. Say a one-line goodbye, then call end_call.";
 
@@ -112,13 +119,9 @@ const IDLE_LINE =
  */
 const RELAY_MIC_MS = 15_000;
 
-/**
- * A line queued for the model. `mark` is the task id to mark reported once the
- * line is actually sent, not when it is queued.
- */
+/** A line queued for the model. */
 type Said = {
   line: string;
-  mark?: string;
   /** Shown on the activity line when the line is sent. */
   show?: ToolRun;
 };
@@ -132,8 +135,10 @@ export type ToolRun = {
   name: string;
   line: string | null;
   done: boolean;
-  /** A relay from a bot (report or question) rather than a tool; `name` is the task label. */
+  /** A relay from a bot (answer or question) rather than a tool; `name` is the task label. */
   kind?: "tool" | "relay";
+  /** The bot this names, when it names one: the row draws its face instead of a glyph. */
+  bot?: string | null;
 };
 
 export function useThursday() {
@@ -162,12 +167,16 @@ export function useThursday() {
     spoke: boolean;
     giveUp: ReturnType<typeof setTimeout> | null;
   }>({ tool: false, reading: false, spoke: false, giveUp: null });
-  /** Last activity time, and whether the goodbye was requested. */
+  /**
+   * Last activity time, whether the goodbye was requested, and when an answer
+   * started being owed (null once she answers or works).
+   */
   const idle = useRef<{
     since: number;
     asked: boolean;
+    owed: number | null;
     grace: ReturnType<typeof setTimeout> | null;
-  }>({ since: 0, asked: false, grace: null });
+  }>({ since: 0, asked: false, owed: null, grace: null });
   const linger = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Every server-run tool in this call starts with this signal, so one abort
   // reaches running browser commands. Delegated tasks are server-owned and outlive the call
@@ -176,14 +185,15 @@ export function useThursday() {
   const callId = useRef<string | null>(null);
   /**
    * Relays sent this call, keyed by relayKey (id + updatedAt): an answered task
-   * comes back with reported=false and may ask again, so the id alone would
-   * silence its second question.
+   * can stop to ask again, so the id alone would silence its second question.
    */
   const relayed = useRef(new Set<string>());
+  /** When this call was placed. An ending from before it is already in her prompt. */
+  const placedAt = useRef(0);
   /**
    * Lines for the model, including ones raised before the line opens. Held
-   * until the session exists so nothing is marked reported unheard; this is
-   * also what lets a call-back queue its line first.
+   * until the session exists, which is also what lets a call-back queue its
+   * line first.
    */
   const outboxRef = useRef<Outbox<Said> | null>(null);
   const outbox = (outboxRef.current ??= createOutbox<Said>());
@@ -206,6 +216,7 @@ export function useThursday() {
     setTool({
       name: call.name,
       line: toolLine(call.name, call.arguments),
+      bot: toolBot(call.name, call.arguments),
       done: false,
     });
   }, []);
@@ -355,23 +366,26 @@ export function useThursday() {
     if (tasks) botTasks.sync(tasks, bots);
   }, [tasks, bots]);
 
-  // Finished or waiting tasks are relayed once. Sending while the line is still
-  // opening is fine: the outbox holds the line. `status` is in deps because the
-  // guard is a ref; without it a list that arrived before the line opened
-  // would wait for the next tasks change
+  // A question is relayed on every call, because it still needs an answer. An
+  // ending is relayed only on the call it happened during: one from before is
+  // already in her prompt, on the `delegate` line that opened it. Telling is not
+  // seeing — the badge clears when the user opens the job. Sending while the
+  // line is still opening is fine: the outbox holds the line. `status` is in
+  // deps because the guard is a ref; without it a list that arrived before the
+  // line opened would wait for the next tasks change
   useEffect(() => {
     if (!tasks || !calling.current) return;
     for (const task of tasks) {
-      if (task.status === "running" || task.reported) continue;
+      if (task.status === "running") continue;
+      if (
+        task.status !== "waiting" &&
+        toDate(task.updatedAt).getTime() < placedAt.current
+      )
+        continue;
       const key = relayKey(task);
       if (relayed.current.has(key)) continue;
       relayed.current.add(key);
-      // marked reported when the line is actually sent (outbox callback), not here
-      outbox.send({
-        line: relayLine(task),
-        mark: task.id,
-        show: relayShow(task),
-      });
+      outbox.send({ line: relayLine(task), show: relayShow(task) });
     }
   }, [tasks, outbox, status]);
 
@@ -384,7 +398,7 @@ export function useThursday() {
           line:
             act.kind === "answered"
               ? `The user answered task "${act.label}" on screen: ${act.answer}. The bot is going on with that — do not ask again.`
-              : `The user stopped task "${act.label}" on screen. It is not running any more — do not wait for it or report on it.`,
+              : `The user stopped task "${act.label}" on screen. It is not running any more — do not wait for it or say anything more about it.`,
         });
       }),
     [outbox],
@@ -400,7 +414,7 @@ export function useThursday() {
     calling.current = false;
     opening.current = false;
     relayed.current.clear();
-    // unsent lines belong to tasks still not reported; the next call resends them
+    // unsent lines go: a question is relayed again next call, an ending is in her prompt
     outbox.close();
     outbox.clear();
     // holds the closed session; the next call sets its own
@@ -413,7 +427,7 @@ export function useThursday() {
     // a pending face timer must not fire after the call
     restFace();
     if (idle.current.grace) clearTimeout(idle.current.grace);
-    idle.current = { since: 0, asked: false, grace: null };
+    idle.current = { since: 0, asked: false, owed: null, grace: null };
     setIdleLeft(null);
     setSince(null);
     setStatus("idle");
@@ -458,8 +472,17 @@ export function useThursday() {
    * agent activity does not, so the goodbye cannot cancel itself.
    */
   const stir = useCallback((who: "user" | "agent") => {
-    idle.current.since = Date.now();
-    if (who !== "user") return;
+    const now = Date.now();
+    idle.current.since = now;
+    if (who !== "user") {
+      // Words or a tool: she is on the line, so nothing is owed.
+      idle.current.owed = null;
+      return;
+    }
+    // Rewound by anything the user does, transcript deltas included, so a long
+    // turn is never mistaken for a line that stopped answering; it runs from the
+    // moment they stopped rather than from the moment they started.
+    idle.current.owed = now;
     if (idle.current.grace) clearTimeout(idle.current.grace);
     idle.current.grace = null;
     idle.current.asked = false;
@@ -472,6 +495,17 @@ export function useThursday() {
     const tick = setInterval(() => {
       const live = session.current;
       if (!live) return;
+      const owed = idle.current.owed;
+      if (owed !== null && Date.now() - owed >= AGENT_SILENT_MS) {
+        // Nothing to say goodbye with; the model is what would have said it.
+        toast.add({
+          type: "error",
+          title: "Call ended",
+          description: "The model stopped answering.",
+        });
+        void hangUp();
+        return;
+      }
       const left = IDLE_HANG_UP_MS - (Date.now() - idle.current.since);
       setIdleLeft(
         left <= IDLE_WARN_MS && !idle.current.asked
@@ -498,6 +532,7 @@ export function useThursday() {
     // from here on this is a call; the outbox holds lines until the session exists
     opening.current = true;
     calling.current = true;
+    placedAt.current = Date.now();
     outbox.clear();
     try {
       const handshake = unwrapResult(await openCallAction(thursdaySettings()));
@@ -600,8 +635,6 @@ export function useThursday() {
         live.say(queued.length === 1 ? queued[0].line : mergedRelay(queued));
         const last = queued.at(-1)?.show;
         if (last) showRelay(last);
-        const marks = queued.flatMap((one) => one.mark ?? []);
-        if (marks.length) markReported(marks);
         outbox.close();
       };
 
@@ -668,7 +701,7 @@ export function useThursday() {
     if (!tasks) return;
     const wants = tasks.filter(
       (task) =>
-        !task.reported &&
+        !task.seen &&
         (asksSomething(task) ||
           (callBack === "any" && task.status !== "running")),
     );
@@ -808,25 +841,12 @@ function persistTurn(
     });
 }
 
-/** Failure surfaces as a toast: an unmarked report is read again next call. */
-function markReported(ids: string[]) {
-  markReportedAction(ids)
-    .then(unwrapResult)
-    .catch((cause) =>
-      toast.add({
-        type: "error",
-        title: "Could not mark the report as delivered",
-        description: errorToString(cause),
-      }),
-    );
-}
-
 /**
- * Waiting on a real question. A budget ask (out of steps) waits in the inbox
+ * Waiting on a real question. A job the app stopped waits in the inbox
  * instead of ringing.
  */
 function asksSomething(task: Task) {
-  return task.status === "waiting" && !isBudgetAsk(task.ask);
+  return task.status === "waiting" && !isAppStop(task.ask);
 }
 
 /**
@@ -834,16 +854,16 @@ function asksSomething(task: Task) {
  * sender and recipient or the model answers it as user speech.
  */
 function relayLine(task: Task) {
-  // The label travels with the report: what the user says next about this job
+  // The label travels with the answer: what the user says next about this job
   // is a word to it, and the task tool takes it by that name
   const from = `[${task.bot} → you, about "${task.label}" — not the user speaking; they have not heard this. Anything more on this job goes to the task tool as "${task.label}", never a new job.]`;
   switch (task.status) {
     case "waiting": {
-      // a budget ask is reported, not read as a question
+      // a stop is told, not read as a question
       const options = task.ask?.options ?? [];
       const said = task.ask?.question ?? task.outcome ?? "";
-      if (isBudgetAsk(task.ask)) {
-        return `${from} Out of steps. Where it got to: ${said} Ask whether to keep going; if yes, send "${TASK_CONTINUE}" with the task tool.`;
+      if (isAppStop(task.ask)) {
+        return `${from} It stopped before finishing. Where it got to: ${said} Ask whether to keep going; if yes, send "${TASK_CONTINUE}" with the task tool.`;
       }
       const list = options.length ? ` Options: ${options.join(" / ")}.` : "";
       return `${from} It asks: ${said}${list} Answer with the task tool if you can; otherwise ask the user and send back what they say.`;
@@ -851,7 +871,7 @@ function relayLine(task: Task) {
     case "failed":
       return `${from} It could not finish: ${task.outcome ?? ""}`;
     default:
-      return `${from} Done. Its report: ${task.outcome ?? ""}`;
+      return `${from} Done. Its answer: ${task.outcome ?? ""}`;
   }
 }
 
@@ -870,13 +890,13 @@ ${queued.map((one) => one.line).join("\n\n")}`;
 function relayShow(task: Task): ToolRun {
   const line =
     task.status === "waiting"
-      ? isBudgetAsk(task.ask)
-        ? `${task.bot} is out of steps`
+      ? isAppStop(task.ask)
+        ? `${task.bot} stopped`
         : `${task.bot} is asking`
       : task.status === "failed"
         ? `${task.bot} could not finish`
-        : `Report from ${task.bot}`;
-  return { kind: "relay", name: task.label, line, done: true };
+        : `Answer from ${task.bot}`;
+  return { kind: "relay", name: task.label, line, done: true, bot: task.bot };
 }
 
 export type { CallMessage, CallStatus };
