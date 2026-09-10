@@ -3,6 +3,7 @@
 import { useBotAlert } from "@/features/bot/components/bot-badge";
 import { useTaskAlert } from "@/features/bot/components/task-badge";
 import { useConfigAlert } from "@/features/config/components/config-badge";
+import { useModelsAlert } from "@/features/config/components/models-badge";
 import { useMcpAlert } from "@/features/connectors/components/mcp-badge";
 import type { SettingSectionId } from "./settings.store";
 
@@ -32,5 +33,6 @@ export function useSectionAlerts(): Partial<
   const tasks = useTaskAlert();
   const mcp = useMcpAlert();
   const config = useConfigAlert();
-  return { bot, tasks, mcp, config };
+  const models = useModelsAlert();
+  return { bot, tasks, mcp, config, models };
 }

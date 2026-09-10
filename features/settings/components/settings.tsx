@@ -29,6 +29,7 @@ import { BotBadge } from "@/features/bot/components/bot-badge";
 import { BotsMark } from "@/features/bot/components/bot-mark";
 import { TaskBadge } from "@/features/bot/components/task-badge";
 import { ConfigBadge } from "@/features/config/components/config-badge";
+import { ModelsBadge } from "@/features/config/components/models-badge";
 import { McpBadge } from "@/features/connectors/components/mcp-badge";
 import { McpMark } from "@/features/connectors/components/mcp-mark";
 import { MemoryMark } from "@/features/memory/components/memory-mark";
@@ -203,6 +204,7 @@ export const SECTIONS: readonly {
     hint: "What bots draw, film, speak and transcribe with",
     icon: Aperture,
     Component: ModelsSetting,
+    Badge: ModelsBadge,
   },
   {
     id: "config",
