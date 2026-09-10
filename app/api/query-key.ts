@@ -134,6 +134,8 @@ export const queryKey = {
    * {toolCallId, callId, name, input}; one JSON Result per call, abortable.
    */
   toolCall: "/api/thursday/tool-call",
+  /** POST, one step of an edit from the memory screen (memory.edit). */
+  memoryEdit: "/api/memory/edit",
 
   /** Providers this app can call and whether each key is set */
   llmModel: "/api/llm-model",

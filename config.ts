@@ -225,6 +225,13 @@ export const MEMORY_LIMITS = {
 };
 
 /**
+ * Editing memory from its own screen (features/memory/memory.edit): model steps
+ * one request may take before it stops. A step ends at the changes it asks for,
+ * so this is also how many rounds of cards one request can raise.
+ */
+export const MEMORY_EDIT = { steps: 10 };
+
+/**
  * How many bots or skills may pile up before the screen says what they cost.
  * Every one of either is a line in every prompt assembled afterwards — measured,
  * a skill runs about 43 tokens in a bot's prompt and a roster entry about 48 —

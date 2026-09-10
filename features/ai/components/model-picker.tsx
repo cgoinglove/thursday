@@ -35,10 +35,13 @@ export function ModelPicker({
   provider,
   model,
   kind,
+  unset,
   onChange,
 }: {
   provider: TextModelProviderId | null;
   model: string;
+  /** What no provider reads as, when the caller has no default to fall back to. */
+  unset?: string;
   /** What the model makes. Absent means a text model (bots, calls); set, only providers and suggestions for that kind remain. */
   kind?: MediaKind;
   onChange: (next: { provider: TextModelProviderId; model: string }) => void;
@@ -90,7 +93,7 @@ export function ModelPicker({
               // Unset is a value, not a blank: a text model falls back to the app
               // default (model.ts resolveDefaultModel), a media kind is simply not offered
               <span className="text-muted-foreground">
-                {kind ? "Not picked" : "App default"}
+                {unset ?? (kind ? "Not picked" : "App default")}
               </span>
             )}
             <ChevronDown className="size-3.5 text-muted-foreground" />

@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { PAGE_SIZE } from "@/config";
+import { MemoryEdit } from "@/features/memory/components/memory-edit";
 import {
   addFactsAction,
   createNoteAction,
@@ -70,79 +71,83 @@ export function MemorySetting() {
   if (error) return <SettingError message={error.message} />;
 
   return (
-    <SettingPanes
-      footer={picked && <NoteReadLog note={picked} />}
-      left={
-        <div className="flex flex-col py-2">
-          <button
-            type="button"
-            onClick={openMemoryCreate}
-            className="mx-2 mb-1 flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-muted-foreground outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
-          >
-            <Plus className="size-3.5 shrink-0" />
-            New note
-          </button>
+    // The edit floats over the panes, above the rail (memory-edit)
+    <div className="relative h-full min-h-0">
+      <SettingPanes
+        footer={picked && <NoteReadLog note={picked} />}
+        left={
+          <div className="flex flex-col py-2">
+            <button
+              type="button"
+              onClick={openMemoryCreate}
+              className="mx-2 mb-1 flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-muted-foreground outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
+            >
+              <Plus className="size-3.5 shrink-0" />
+              New note
+            </button>
 
-          {SECTIONS.map(({ key, label }) => {
-            const rows = notes.filter((note) => sectionOf(note.path) === key);
-            if (rows.length === 0) return null;
+            {SECTIONS.map(({ key, label }) => {
+              const rows = notes.filter((note) => sectionOf(note.path) === key);
+              if (rows.length === 0) return null;
 
-            return (
-              <Fragment key={key}>
-                <span className="px-3 pt-3 pb-1 font-mono text-[10px] text-muted-foreground/60">
-                  {label}
-                  {key === "inbox" && (
-                    <span className="pl-1.5 text-muted-foreground/50">
-                      waiting to be filed
-                    </span>
-                  )}
-                </span>
-                {rows.map((note) => (
-                  <NoteLink
-                    key={note.id}
-                    note={note}
-                    active={note.id === picked?.id}
-                    onPick={() => setPickedId(note.id)}
-                  />
-                ))}
-              </Fragment>
-            );
-          })}
-          <SettingMore
-            hasMore={hasMore}
-            loading={isLoadingMore}
-            sentinelRef={sentinelRef}
-            count={3}
-            ghost={
-              <div className="mx-2 flex items-center gap-2 px-2 py-2">
-                <Skeleton className="h-3 w-28" />
-                <span className="flex-1" />
-                <Skeleton className="h-2.5 w-2.5" />
-              </div>
-            }
-          />
-        </div>
-      }
-      right={
-        picked ? (
-          // Keyed so editing state does not carry over to the next note.
-          <NotePage key={picked.id} note={picked} />
-        ) : (
-          <div className="space-y-4 p-8">
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              During calls Thursday saves what it picks up — that a teammate
-              moved teams, that you take meetings in the morning — and reads it
-              back before answering. File the first note yourself and it starts
-              the next call already knowing something.
-            </p>
-            <Button variant="outline" onClick={openMemoryCreate}>
-              <Plus />
-              Add note
-            </Button>
+              return (
+                <Fragment key={key}>
+                  <span className="px-3 pt-3 pb-1 font-mono text-[10px] text-muted-foreground/60">
+                    {label}
+                    {key === "inbox" && (
+                      <span className="pl-1.5 text-muted-foreground/50">
+                        waiting to be filed
+                      </span>
+                    )}
+                  </span>
+                  {rows.map((note) => (
+                    <NoteLink
+                      key={note.id}
+                      note={note}
+                      active={note.id === picked?.id}
+                      onPick={() => setPickedId(note.id)}
+                    />
+                  ))}
+                </Fragment>
+              );
+            })}
+            <SettingMore
+              hasMore={hasMore}
+              loading={isLoadingMore}
+              sentinelRef={sentinelRef}
+              count={3}
+              ghost={
+                <div className="mx-2 flex items-center gap-2 px-2 py-2">
+                  <Skeleton className="h-3 w-28" />
+                  <span className="flex-1" />
+                  <Skeleton className="h-2.5 w-2.5" />
+                </div>
+              }
+            />
           </div>
-        )
-      }
-    />
+        }
+        right={
+          picked ? (
+            // Keyed so editing state does not carry over to the next note.
+            <NotePage key={picked.id} note={picked} />
+          ) : (
+            <div className="space-y-4 p-8">
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                During calls Thursday saves what it picks up — that a teammate
+                moved teams, that you take meetings in the morning — and reads
+                it back before answering. File the first note yourself and it
+                starts the next call already knowing something.
+              </p>
+              <Button variant="outline" onClick={openMemoryCreate}>
+                <Plus />
+                Add note
+              </Button>
+            </div>
+          )
+        }
+      />
+      <MemoryEdit notes={notes} />
+    </div>
   );
 }
 

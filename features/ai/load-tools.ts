@@ -41,7 +41,7 @@ import { resolveSearchModel } from "./model";
  * when Settings › Thursday says so (thursday.query readCallSkillsOn).
  */
 
-export type ToolTarget = "thursday" | "bot";
+export type ToolTarget = "thursday" | "bot" | "memory-edit";
 
 /** Which runtime is running, and what that run knows about itself. */
 export type ToolRun =
@@ -58,7 +58,13 @@ export type ToolRun =
       taskId?: string | null;
       /** The model this run already resolved (bot.run resolveModel); `web_search` runs on it (model.ts resolveSearchModel). */
       model?: TextModel | null;
-    };
+    }
+  /** An edit from the memory screen (memory/memory.edit): memory's two writes, each stopping for the user. */
+  | { target: "memory-edit" };
+
+/** A tool the model can call and the run cannot: the call comes back unanswered for someone to decide. */
+const withoutExecute = ({ execute: _execute, ...rest }: ToolSet[string]) =>
+  rest as ToolSet[string];
 
 /**
  * Starting work and following it. bot.runner is imported dynamically to break a cycle
@@ -233,6 +239,19 @@ export async function loadTools(run: ToolRun): Promise<ToolSet> {
 }
 
 async function buildTools(run: ToolRun): Promise<ToolSet> {
+  if (run.target === "memory-edit") {
+    // The screen applies each call the user saves, one at a time (memory.edit applyMemoryEditCall)
+    const hand = createMemoryTools("user");
+    return {
+      [TOOL_NAMES.memory_remember]: withoutExecute(
+        hand[TOOL_NAMES.memory_remember],
+      ),
+      [TOOL_NAMES.memory_forget]: withoutExecute(
+        hand[TOOL_NAMES.memory_forget],
+      ),
+    };
+  }
+
   // The runtime is the hand: the call as the user talks, a bot mid-job
   // (memory.tool botRememberTool records its own).
   const memory = createMemoryTools(

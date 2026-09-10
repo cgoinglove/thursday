@@ -14,6 +14,7 @@ import {
 import { isMemoryPath } from "@/features/memory/memory.schema";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
+import { applyMemoryEditCall } from "./memory.edit";
 
 const PathSchema = z.string().trim().refine(isMemoryPath, "Invalid note path");
 
@@ -84,3 +85,8 @@ export const setFactAlwaysLoadAction = serverAction(
     if (result === "missing") publicError("Fact not found");
   },
 );
+
+/** A card saved on the memory screen: that one change is written now (memory.edit). */
+export const applyMemoryEditAction = serverAction(async (call: unknown) => ({
+  output: await applyMemoryEditCall(call),
+}));
