@@ -14,7 +14,9 @@ import {
 } from "@/features/thursday/thursday.query";
 import { pathsIn } from "@/features/workspace/file-kind";
 import {
+  closeHiddenBrowser,
   closeJobShell,
+  pruneJobFiles,
   removeJobScratch,
 } from "@/features/workspace/workspace";
 import { desktopNotify } from "@/lib/desktop-notify";
@@ -266,7 +268,9 @@ export async function pauseTasks(reason: string) {
         reported: false,
         endedAt: null,
       });
-      void closeJobShell(id);
+      // The window stays open: this row is on the screen and answering resumes
+      // into the page it left off at — including a sign-in the user is mid-way
+      // through, which is the one thing only that window can finish.
     });
   }
 }
@@ -571,9 +575,10 @@ async function drive(
     return;
   }
 
-  // Close the job's browser session (workspace.ts jobShellEnv) unless waiting:
-  // a bot stopped at a login wall needs the page the user is typing into.
-  if (final.status !== "waiting") void closeJobShell(id);
+  // A waiting job keeps its browser: answering resumes into the page it left
+  // off at. An ended one closes only what nobody can see (closeHiddenBrowser).
+  if (final.status === "waiting") void pruneJobFiles();
+  else void closeHiddenBrowser(id);
 
   const task = await findTask(id);
   if (!task) return;

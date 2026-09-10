@@ -225,6 +225,48 @@ export async function ensureBrowser(): Promise<void> {
   );
 }
 
+/** What a job leaves on disk: stale browser snapshots and spilled tool output. */
+export async function pruneJobFiles(): Promise<void> {
+  await pruneBrowserFiles();
+  await pruneOutputFiles();
+}
+
+type ListedBrowser = { name: string; headed?: boolean; attached?: boolean };
+
+/**
+ * A job that ended closes the browser nobody can see. Headless is the bot's
+ * working copy; `--headed` is the bot putting a window on their screen on
+ * purpose — an order at checkout, a map with a pin, a sign-in — and that one is
+ * theirs to close (`skills/browser`). A session attached to their own Chrome is
+ * never touched. Anything unreadable — no playwright, a failed or folded `list`
+ * — leaves the browser as it is.
+ */
+export async function closeHiddenBrowser(taskId: string): Promise<void> {
+  const sandbox = await openWorkspace();
+  const env = jobShellEnv(taskId);
+  const listed = await sandbox
+    .exec("playwright-cli list --json", { env, timeoutMs: 15_000 })
+    .catch(() => null);
+  let session: ListedBrowser | undefined;
+  try {
+    const { browsers } = JSON.parse(listed?.stdout ?? "") as {
+      browsers?: ListedBrowser[];
+    };
+    session = browsers?.find((b) => b.name === env.PLAYWRIGHT_CLI_SESSION);
+  } catch {}
+  if (session?.headed === false && !session.attached) {
+    await sandbox
+      .exec("playwright-cli close", { env, timeoutMs: 15_000 })
+      .catch(() => {});
+  }
+  await pruneJobFiles();
+}
+
+/**
+ * Closes the job's browser whatever it shows. Only for a job the user cancelled
+ * or deleted: its row is gone, so a window left open would belong to nothing on
+ * the screen.
+ */
 export async function closeJobShell(taskId: string): Promise<void> {
   const sandbox = await openWorkspace();
   await sandbox
@@ -233,8 +275,7 @@ export async function closeJobShell(taskId: string): Promise<void> {
       timeoutMs: 15_000,
     })
     .catch(() => {});
-  await pruneBrowserFiles();
-  await pruneOutputFiles();
+  await pruneJobFiles();
 }
 
 /**

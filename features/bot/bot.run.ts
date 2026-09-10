@@ -31,7 +31,7 @@ import {
   type TokenUsage,
 } from "@/features/bot/bot.schema";
 import {
-  closeJobShell,
+  closeHiddenBrowser,
   openBotFolder,
   openJobScratch,
 } from "@/features/workspace/workspace";
@@ -664,8 +664,9 @@ function withAskBot(
       description: askBotSpec.description,
       inputSchema: askBotSpec.parameters,
       execute: async ({ bot, request, context }, call) => {
-        // The borrowed bot gets its own browser session under this call's id,
-        // closed when the call ends; the runner closes the job's own.
+        // The borrowed bot gets its own browser session under this call's id.
+        // When it answers, the same rule as a job's end: what it showed on their
+        // screen stays, what nobody can see closes (workspace.ts closeHiddenBrowser).
         const taskId = asker.options.taskId
           ? `${asker.options.taskId}-${call.toolCallId.slice(0, 8)}`
           : null;
@@ -700,7 +701,7 @@ function withAskBot(
             ? `${outcome}\n\n${exchangeLines(bot, exchanges)}`
             : outcome;
         } finally {
-          if (taskId) void closeJobShell(taskId);
+          if (taskId) void closeHiddenBrowser(taskId);
         }
       },
     }),

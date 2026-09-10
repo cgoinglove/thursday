@@ -1,6 +1,6 @@
 ---
 name: browser
-description: "Any browser and anything on the web — a page, a click, a form, a sign-in, a tab. Open a page and read it, fill a form, sign in, download, screenshot, print a page or an HTML file to PDF. This opens a real window on their screen, and it is how a browser is reached even when one is already running on their Mac (`attach`) — a browser is never driven by clicking it through the machine. A page that wants a sign-in is still this skill's job: the user signs in themselves, in the window this opens."
+description: "Any browser and anything on the web — a page, a click, a form, a sign-in, a tab. Open a page and read it, fill a form, sign in, download, screenshot, print a page or an HTML file to PDF. It can put a real window on their screen to show them the thing itself — an order at checkout, a map, a page — and it is how a browser is reached even when one is already running on their Mac (`attach`) — a browser is never driven by clicking it through the machine. A page that wants a sign-in is still this skill's job: a kept session, the browser they are already in, or the window this opens in front of them."
 allowed-tools: Bash(playwright-cli:*) Bash(npx:*) Bash(npm:*)
 ---
 
@@ -15,8 +15,8 @@ Everything the app has to say about the browser is here; the prompts do not
 repeat it.
 
 **Every browser goes through here.** A job that names a browser, a site, a URL,
-a sign-in or a tab is this one's. The window `playwright-cli` opens is a real
-one on their screen — they can watch it and type into it. Never drive Chrome by
+a sign-in or a tab is this one's. With `--headed` the window `playwright-cli`
+opens is a real one on their screen — they can watch it and type into it. Never drive Chrome by
 clicking it through the machine (`osascript`, `peekaboo`, System Events): that
 window cannot be snapshotted or acted on by ref. For the browser they already
 have open — a tab they left, a profile they are signed into — attach instead:
@@ -24,13 +24,21 @@ have open — a tab they left, a profile they are signed into — attach instead
 
 **Your browser is this job's own.** Its session is already in your shell
 (`PLAYWRIGHT_CLI_SESSION`): never pass `-s=`, never `close-all` or `kill-all` —
-other jobs are running theirs. The server closes yours when the job ends.
+other jobs are running theirs.
 
-**Headless unless they should see it.** Add `--headed` when the window is the
-point — a sign-in, something they asked to watch — and say so in your
-`description`. A site that will want a session before it shows you anything — a
-shop, a console, a dashboard, an account page — starts `--headed --persistent`
-rather than finding out headless and starting over.
+**Headless is yours; headed is theirs.** A browser opens headless: nobody sees
+it, and the app closes it when the job ends. `--headed` puts a real window on
+their screen, and that window outlives the job — the app never closes it, they
+do. So you can show them the thing itself instead of describing it: the order
+sitting at checkout for them to confirm, the map with the pin dropped, the page
+they asked to watch, a sign-in for them to finish. Open it `--headed`, leave it
+open, and say in your answer that it is on their screen. A window you opened
+headed only to get past a wall and are done with, `close` yourself. Only a job
+they cancel or delete takes its windows with it.
+
+A site that will want a session before it shows you anything — a shop, a
+console, a dashboard, an account page — starts `--headed --persistent` rather
+than finding out headless and starting over.
 
 **Blocked, not broken.** A 403, an "access denied" page, a wall about automated
 traffic is refusing the headless browser, not the job. `close`, then
@@ -39,29 +47,35 @@ most of it, and is worth trying before you conclude anything about the site.
 Still refused after that, the wall is real: say so in your report, with the url
 and whatever you did bring back.
 
-**A sign-in is not a wall.** The user is at this screen and signs in
-themselves, in a window you put in front of them. Never type a password, a
-one-time code, or answer a passkey prompt — not with `fill`, `type` or `eval`.
-An email or username they gave you is not a secret: fill it, press next, stop
-at the password. When you do not have it, look before you ask — `memory_recall`
-the note for that site or account carries the address they use; only when it is
-nowhere does the sign-in go back to them. When a page wants the secret half:
+**A sign-in is a fork, not a wall.** Four ways through, and which one fits is
+yours to read off the job:
 
-```bash
-playwright-cli close
-playwright-cli open <the login url> --headed --persistent
-```
+- **A session you already kept.** `ls <your folder>/.auth/`, then `state-load`
+  that file and `goto` the site — cookies without a reload leave the signed-out
+  page that was already drawn, which reads as an expired session when it is not.
+  Cheapest when it works, so look before anything else.
+- **The browser they are already in.** `attach --cdp=chrome` carries their own
+  profile and whatever it is signed into.
+- **They sign in themselves.** `open <the login url> --headed --persistent` —
+  the login page, not the front door — then `ask_thursday` in one line saying
+  what to sign into and that the window is open, options `Signed in` / `Not
+  now`, and stop. The window stays open while the job waits; continue from a
+  fresh `snapshot` when the answer comes. A captcha is the same move. Not
+  `show` — it blocks waiting for annotations nobody will send.
+- **They gave you the credentials.** Then type them. Something they handed you
+  to use is not a secret you are keeping for them, and stopping to ask again
+  spends their turn on a decision they already made.
 
-Open the login page itself, not the front door. Then `ask_thursday` in one
-line — what to sign into, that the window is open — with options
-`Signed in` / `Not now`, and stop. The window stays open while the job waits.
-When the answer comes back, continue from a fresh `snapshot`. A captcha is the
-same move. Never `show` — it blocks waiting for annotations nobody will send.
+The line is where the secret comes from, not what kind it is: never guess,
+invent, or go looking for one somewhere they did not point you at. An email or
+username they gave you is not a secret — fill it and press next. `memory_recall`
+the note for that site when you are missing the address they use.
 
-**Keep a sign-in for the next job.** After one succeeds:
-`state-save .auth/<site>.json`. Before a site that will want one, `ls .auth/`
-and `state-load .auth/<site>.json` if its file is there. These files never go
-in a report.
+**Keep a sign-in for the next job.** `mkdir -p <your folder>/.auth` and
+`state-save` into it after one succeeds — your own folder, the one your
+instructions name, because a session is yours across jobs and the workspace root
+is nobody's. Say that you kept it: it signs every later job in as them, which is
+theirs to want or not. These files never go in a report.
 
 **Reading a page.** Every command writes a snapshot file and prints its path.
 `find "Create Key"` returns only the matching nodes with a few lines around
