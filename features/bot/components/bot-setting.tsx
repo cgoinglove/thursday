@@ -2,6 +2,7 @@
 
 import {
   Check,
+  CircleAlert,
   History,
   PencilLine,
   Plus,
@@ -46,9 +47,20 @@ import {
   randomBotIcon,
   type Task,
 } from "@/features/bot/bot.schema";
-import { BOT_SEEDS, type BotSeed } from "@/features/bot/bot.seed";
+import {
+  BOT_SEEDS,
+  type BotSeed,
+  rollSeedColors,
+} from "@/features/bot/bot.seed";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import {
+  type ConfigStatus,
+  isConfigSet,
+  MEDIA_MODEL_KEYS,
+  mediaModelWords,
+} from "@/features/config/config.const";
+import {
+  SettingDialogContent,
   SettingError,
   SettingNote,
   SettingPanes,
@@ -77,6 +89,14 @@ export function BotSetting() {
   /** Picked roster entry: a bot name, NEW, or null for the first bot. */
   const [picked, setPicked] = useState<string | null>(null);
 
+  /**
+   * One roll for this screen, in BOT_SEEDS order. The faces on the invite, in the
+   * picker and on the bot that gets created are then the same colour, because
+   * `createSeedBotsAction` takes it (bot.seed rollSeedColors rolls per install so
+   * no two rosters look alike; a seed itself carries none).
+   */
+  const [inks] = useState(rollSeedColors);
+
   if (isLoading) return <SettingPanesSkeleton />;
   if (error) return <SettingError message={error.message} />;
 
@@ -84,29 +104,41 @@ export function BotSetting() {
   const on = bots.filter((bot) => !bot.disabled).length;
   const have = new Set(bots.map((bot) => bot.name));
   const missing = BOT_SEEDS.filter((seed) => !have.has(seed.name));
-  const current =
-    drafting || picked === SEEDS
-      ? null
-      : (bots.find((bot) => bot.name === picked) ?? bots[0] ?? null);
+  const current = drafting
+    ? null
+    : (bots.find((bot) => bot.name === picked) ?? bots[0] ?? null);
 
   return (
     <SettingPanes
-      footer={picked === SEEDS ? null : <BotRail bot={current} />}
+      footer={bots.length === 0 ? null : <BotRail bot={current} />}
       left={
         <div className="flex flex-col py-2">
-          <button
-            type="button"
-            onClick={() => setPicked(NEW)}
-            className={cn(
-              "mx-2 mb-1 flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
-              drafting
-                ? "bg-secondary text-foreground"
-                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+          {/* The two ways to get a bot, on one line and apart from the roster
+              under it: a seed is not a bot you have */}
+          <div className="mx-2 mb-1 flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPicked(NEW)}
+              className={cn(
+                "flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
+                drafting
+                  ? "bg-secondary text-foreground"
+                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+              )}
+            >
+              <Plus className="size-3.5 shrink-0" />
+              New bot
+            </button>
+
+            {bots.length > 0 && missing.length > 0 && (
+              <SeedInvite
+                missing={missing}
+                inks={inks}
+                have={have}
+                onDone={(name) => setPicked(name)}
+              />
             )}
-          >
-            <Plus className="size-3.5 shrink-0" />
-            New bot
-          </button>
+          </div>
 
           {bots.map((bot) => (
             <RosterRow
@@ -118,14 +150,6 @@ export function BotSetting() {
             />
           ))}
 
-          {missing.length > 0 && (
-            <SeedEntry
-              missing={missing}
-              active={picked === SEEDS}
-              onPick={() => setPicked(SEEDS)}
-            />
-          )}
-
           {/* Only bots that are on: a switched-off one is in no prompt to crowd. */}
           {on > PROMPT_CROWDED.bots && (
             <SettingNote className="mx-3 mt-2 leading-relaxed">
@@ -136,9 +160,7 @@ export function BotSetting() {
         </div>
       }
       right={
-        picked === SEEDS ? (
-          <SeedPackage have={have} onDone={(name) => setPicked(name)} />
-        ) : drafting ? (
+        drafting ? (
           <BotPage
             key="new"
             jobs={[]}
@@ -154,6 +176,14 @@ export function BotSetting() {
               .filter((job) => job.bot === current.name)
               .slice(0, RECENT)}
             onDone={() => setPicked(null)}
+          />
+        ) : missing.length > 0 ? (
+          // Nothing on the roster: the offer is the only thing this pane could
+          // hold, so it fills it rather than sitting in a dialog nobody opened
+          <SeedPackage
+            have={have}
+            inks={inks}
+            onDone={(name) => setPicked(name)}
           />
         ) : (
           <div className="space-y-4 p-8">
@@ -175,8 +205,6 @@ export function BotSetting() {
 
 /** Roster selections that are not a bot; values no bot name can be. */
 const NEW = " new";
-const SEEDS = " seeds";
-
 /** Jobs shown under Recent on a bot's page. */
 const RECENT = 3;
 
@@ -287,75 +315,36 @@ function sinceWord(at: DateLike): string {
   const ago = shortAgo(at);
   return ago === "now" ? "just now" : `${ago} ago`;
 }
-
 /**
- * The ready-made bots (bot.seed) as one entry rather than three rows.
- *
- * They used to fill an empty roster, which made a roster with nothing in it look
- * full and made the row you clicked create rather than open. Here they sit behind
- * a single line carrying the faces of the ones you do not have, and it is shown
- * only while at least one is still on offer.
+ * What a seed still needs before it can work, as one line, or null when it needs
+ * nothing. A missing studio model is not a fallback — the tool is absent — so the
+ * row says so before the bot finds out mid-job. Ticking is never blocked: the list
+ * states the cost, it does not cap it.
  */
-function SeedEntry({
-  missing,
-  active,
-  onPick,
-}: {
-  missing: BotSeed[];
-  active: boolean;
-  onPick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onPick}
-      className={cn(
-        "mx-2 mt-1 flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
-        active ? "bg-secondary" : "hover:bg-muted/60",
-      )}
-    >
-      <span className="flex shrink-0 items-center">
-        {missing.map((seed, index) => (
-          <span key={seed.name} className={cn("block", index > 0 && "-ml-1.5")}>
-            <BotMark size={22} {...markProps(seed.name, seed.icon)} />
-          </span>
-        ))}
-      </span>
-      <span className="min-w-0 flex-1 space-y-0.5">
-        <span
-          className={cn(
-            "block truncate text-[13px]",
-            active ? "font-medium" : "text-foreground/90",
-          )}
-        >
-          Ready-made
-        </span>
-        <span className="block truncate font-mono text-[10px] leading-4 text-muted-foreground">
-          {missing.length === BOT_SEEDS.length
-            ? `${missing.length} bots`
-            : `${missing.length} left`}
-        </span>
-      </span>
-    </button>
+function unmetLine(
+  seed: BotSeed,
+  isSet: (key: string) => boolean,
+): string | null {
+  const unmet = (seed.requires ?? []).filter(
+    (kind) => !isSet(MEDIA_MODEL_KEYS[kind]),
   );
+  if (!unmet.length) return null;
+  return `needs ${unmet.map(mediaModelWords).join(" and ")}`;
 }
 
 /**
- * The package itself: the seeds ticked already, because the package is the
- * recommendation (`BotSeed.recommended`) and unticking is the decision. One
- * already on the roster is locked on and says so — `createBot` would only answer
- * "already exists", which is an error about something this screen already knows.
- *
- * One call creates all of them; `createSeedBotsAction` has always taken an array.
+ * The picker's state, shared by the two places the offer appears: the pane an
+ * empty roster opens on, and the dialog the roster's invite opens. Seeds are
+ * ticked already, because the set is the recommendation and unticking is the
+ * decision; one already on the roster is locked on and says so, since `createBot`
+ * would only answer "already exists", which is an error about something this
+ * screen already knows. One call creates all of them.
  */
-function SeedPackage({
-  have,
-  onDone,
-}: {
-  /** Names already on the roster. */
-  have: Set<string>;
-  onDone: (name: string | null) => void;
-}) {
+function useSeedPicks(
+  have: Set<string>,
+  inks: string[],
+  onDone: (name: string | null) => void,
+) {
   const [off, setOff] = useState<Set<string>>(new Set());
   const [add, adding] = useServerAction(createSeedBotsAction, {
     onOk: (made) => {
@@ -363,10 +352,168 @@ function SeedPackage({
       onDone(made.created[0] ?? null);
     },
   });
+  // Same key the Models section and its badge read, so one fetch answers all three.
+  const { data: config } = useServerRoute<ConfigStatus[]>(queryKey.config);
+  const isSet = (key: string) => isConfigSet(config, key);
 
-  const wanted = BOT_SEEDS.filter(
-    (seed) => !have.has(seed.name) && !off.has(seed.name),
+  // Seeds not on the roster yet. `have` is the whole roster, so counting against
+  // its size goes negative the moment a bot nobody seeded is on it.
+  const addable = BOT_SEEDS.filter((seed) => !have.has(seed.name));
+  const wanted = addable.filter((seed) => !off.has(seed.name));
+
+  return {
+    isSet,
+    adding,
+    addable,
+    wanted,
+    ticked: (seed: BotSeed) => have.has(seed.name) || !off.has(seed.name),
+    toggle: (name: string) =>
+      setOff((was) => {
+        const next = new Set(was);
+        if (next.has(name)) next.delete(name);
+        else next.add(name);
+        return next;
+      }),
+    submit: () =>
+      add(
+        wanted.map((seed) => ({
+          name: seed.name,
+          color: inks[BOT_SEEDS.indexOf(seed)],
+        })),
+      ),
+  };
+}
+
+/** The rows themselves. Both wrappers draw these and supply their own chrome. */
+function SeedRows({
+  have,
+  inks,
+  picks,
+}: {
+  have: Set<string>;
+  inks: string[];
+  picks: ReturnType<typeof useSeedPicks>;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      {BOT_SEEDS.map((seed, at) => {
+        const owned = have.has(seed.name);
+        const on = picks.ticked(seed);
+        const needs = unmetLine(seed, picks.isSet);
+        return (
+          <div
+            key={seed.name}
+            className={cn(
+              "rounded-xl ring-1 transition-colors",
+              owned
+                ? "opacity-45 ring-border/60"
+                : on
+                  ? "ring-foreground"
+                  : "ring-border/60",
+            )}
+          >
+            <button
+              type="button"
+              disabled={owned || picks.adding}
+              aria-pressed={on}
+              onClick={() => picks.toggle(seed.name)}
+              className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-default"
+            >
+              <BotMark
+                size={28}
+                {...markProps(seed.name, seed.icon)}
+                color={inks[at]}
+                className={cn(
+                  "shrink-0 transition-opacity",
+                  !on && "opacity-35",
+                )}
+              />
+              {/* The hint stays on one line: the list grows, and a wrapping
+                  sentence per row is what made this read as a page of prose */}
+              <span className="min-w-0 flex-1 space-y-px">
+                <span className="block text-[14px] leading-[18px] font-medium">
+                  {seed.name}
+                </span>
+                <span className="block truncate text-[12px] leading-[17px] text-muted-foreground">
+                  {seed.hint}
+                </span>
+              </span>
+              {owned ? (
+                <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                  already added
+                </span>
+              ) : needs ? (
+                <span
+                  className={cn(
+                    "flex shrink-0 items-center gap-1.5 font-mono text-[11px]",
+                    WAITING_INK,
+                  )}
+                >
+                  <CircleAlert className="size-3" />
+                  {needs}
+                </span>
+              ) : null}
+              <span
+                className={cn(
+                  "grid size-5 shrink-0 place-items-center rounded-full transition-colors",
+                  on
+                    ? "bg-foreground text-background"
+                    : "ring-1 ring-border/60 ring-inset",
+                )}
+              >
+                {on && <Check className="size-3" />}
+              </span>
+            </button>
+          </div>
+        );
+      })}
+    </div>
   );
+}
+
+/** Says what Add will do, so the count is checkable before the click. */
+function SeedActions({
+  picks,
+  onCancel,
+}: {
+  picks: ReturnType<typeof useSeedPicks>;
+  onCancel: () => void;
+}) {
+  return (
+    <>
+      <Button variant="ghost" onClick={onCancel}>
+        Cancel
+      </Button>
+      <Button
+        loading={picks.adding}
+        disabled={picks.wanted.length === 0}
+        onClick={picks.submit}
+      >
+        <Plus />
+        {picks.wanted.length === 1
+          ? `Add ${picks.wanted[0].name}`
+          : `Add ${picks.wanted.length} bots`}
+      </Button>
+    </>
+  );
+}
+
+/**
+ * The offer as a pane: what an empty roster opens on, because nothing else could
+ * be there. A roster with bots on it gets `SeedInvite` and a dialog instead — a
+ * row among the bots read as a bot the user already had.
+ */
+function SeedPackage({
+  have,
+  inks,
+  onDone,
+}: {
+  /** Names already on the roster. */
+  have: Set<string>;
+  inks: string[];
+  onDone: (name: string | null) => void;
+}) {
+  const picks = useSeedPicks(have, inks, onDone);
 
   return (
     <div className="flex min-h-full flex-col">
@@ -376,105 +523,112 @@ function SeedPackage({
 
       <div className="px-8 pt-7 pb-1">
         <h3 className="text-[17px] font-medium tracking-tight">
-          {BOT_SEEDS.length === 1
-            ? "One bot comes with her"
-            : `${BOT_SEEDS.length === 2 ? "Two" : BOT_SEEDS.length} bots come with her`}
+          Bots you can add
         </h3>
         <p className="mt-1.5 max-w-lg text-[13px] leading-relaxed text-muted-foreground break-keep">
-          They take the work that would leave the call silent, and report back.
-          Untick anything you would rather not have; each runs on the app
-          default model until you give it one of its own.
+          Each one is a starting point — rename it, re-prompt it, give it a
+          model of its own. What a bot needs before it can work stands on its
+          row; until then it runs on the app default model.
         </p>
       </div>
 
-      <div className="flex flex-col gap-2 px-8 pt-4">
-        {BOT_SEEDS.map((seed) => {
-          const owned = have.has(seed.name);
-          const on = owned || !off.has(seed.name);
-          return (
-            <div
-              key={seed.name}
-              className={cn(
-                "rounded-2xl ring-1 transition-colors",
-                owned
-                  ? "opacity-45 ring-border/60"
-                  : on
-                    ? "ring-foreground"
-                    : "ring-border/60",
-              )}
-            >
-              <button
-                type="button"
-                disabled={owned || adding}
-                aria-pressed={on}
-                onClick={() =>
-                  setOff((was) => {
-                    const next = new Set(was);
-                    if (next.has(seed.name)) next.delete(seed.name);
-                    else next.add(seed.name);
-                    return next;
-                  })
-                }
-                className="flex w-full items-center gap-3.5 rounded-2xl px-4 py-3 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-default"
-              >
-                <BotMark
-                  size={32}
-                  {...markProps(seed.name, seed.icon)}
-                  className={cn(
-                    "shrink-0 transition-opacity",
-                    !on && "opacity-35",
-                  )}
-                />
-                <span className="min-w-0 flex-1 space-y-0.5">
-                  <span className="block text-[14px] font-medium">
-                    {seed.name}
-                  </span>
-                  <span className="block text-[12px] leading-normal text-muted-foreground break-keep">
-                    {seed.description}
-                  </span>
-                </span>
-                {owned && (
-                  <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                    already added
-                  </span>
-                )}
-                <span
-                  className={cn(
-                    "grid size-6 shrink-0 place-items-center rounded-full transition-colors",
-                    on
-                      ? "bg-foreground text-background"
-                      : "ring-1 ring-border/60 ring-inset",
-                  )}
-                >
-                  {on && <Check className="size-3.5" />}
-                </span>
-              </button>
-            </div>
-          );
-        })}
+      <div className="px-8 pt-4">
+        <SeedRows have={have} inks={inks} picks={picks} />
       </div>
 
       <div className="mt-auto flex items-center gap-3 border-t border-border/60 px-8 py-4">
         <span className="flex-1 font-mono text-[11px] text-muted-foreground">
-          {wanted.length === 0
+          {picks.wanted.length === 0
             ? "nothing ticked"
-            : `${wanted.length} of ${BOT_SEEDS.length - have.size} ticked`}
+            : `${picks.wanted.length} of ${picks.addable.length} ticked`}
         </span>
-        <Button variant="ghost" onClick={() => onDone(null)}>
-          Cancel
-        </Button>
-        {/* Says what it will do, so the count is checkable before the click. */}
-        <Button
-          loading={adding}
-          disabled={wanted.length === 0}
-          onClick={() => add(wanted.map((seed) => ({ name: seed.name })))}
-        >
-          {wanted.length === 1
-            ? `Add ${wanted[0].name}`
-            : `Add ${wanted.length} bots`}
-        </Button>
+        <SeedActions picks={picks} onCancel={() => onDone(null)} />
       </div>
     </div>
+  );
+}
+
+/** The same offer in a dialog, which brings its own padding and its own footer. */
+function SeedDialog({
+  have,
+  inks,
+  onDone,
+}: {
+  have: Set<string>;
+  inks: string[];
+  onDone: (name: string | null) => void;
+}) {
+  const picks = useSeedPicks(have, inks, onDone);
+
+  return (
+    <SettingDialogContent
+      title="Bots you can add"
+      description="Each one is a starting point — rename it, re-prompt it, give it a model of its own. What a bot needs before it can work stands on its row."
+      footer={<SeedActions picks={picks} onCancel={() => onDone(null)} />}
+    >
+      <SeedRows have={have} inks={inks} picks={picks} />
+    </SettingDialogContent>
+  );
+}
+
+/**
+ * The invite, on the New bot line rather than in the roster: both are ways to get
+ * a bot, and neither is a bot you have. It carries the faces of the ones still on
+ * offer, in the colours they would be created with, because a row of names would
+ * read as one more list and the faces are what says these are bots.
+ */
+function SeedInvite({
+  missing,
+  inks,
+  have,
+  onDone,
+}: {
+  missing: BotSeed[];
+  inks: string[];
+  have: Set<string>;
+  onDone: (name: string | null) => void;
+}) {
+  return (
+    <button
+      type="button"
+      title="Ready-made bots"
+      aria-label={`Ready-made bots, ${missing.length} on offer`}
+      onClick={() =>
+        notify.component({
+          className: "sm:max-w-xl",
+          renderer: ({ close }) => (
+            <SeedDialog
+              have={have}
+              inks={inks}
+              onDone={(name) => {
+                close();
+                onDone(name);
+              }}
+            />
+          ),
+        })
+      }
+      className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-muted-foreground outline-none transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
+    >
+      {/* Says the same thing the words next to it do, about a different set: these
+          are bots to add. It carries the affordance on its own when one seed is
+          left and the faces are a single dot */}
+      <Plus className="size-3 shrink-0" />
+      {missing.map((seed, at) => (
+        <span
+          key={seed.name}
+          className={cn("block", at > 0 && "-ml-1.5")}
+          style={{ zIndex: missing.length - at }}
+        >
+          <BotMark
+            size={20}
+            {...markProps(seed.name, seed.icon)}
+            color={inks[BOT_SEEDS.indexOf(seed)]}
+            notify={false}
+          />
+        </span>
+      ))}
+    </button>
   );
 }
 

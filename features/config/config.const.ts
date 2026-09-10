@@ -84,6 +84,10 @@ const MEDIA_ENTRY: Record<MediaKind, { label: string; hint: string }> = {
   },
 };
 
+/** "an image model" — how a screen names one that is missing. The article differs by kind. */
+export const mediaModelWords = (kind: MediaKind) =>
+  `${kind === "image" ? "an" : "a"} ${kind} model`;
+
 /** Each of these costs real money per call, so none is offered until it is picked (ai/model resolveMediaRef). */
 
 const mediaEntry = (kind: MediaKind): ConfigEntry => ({
