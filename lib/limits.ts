@@ -9,6 +9,6 @@ export const COMMON_VALIDATE = {
     max: 100,
   },
   prompt: {
-    max: 2000,
+    max: 4000,
   },
 };
