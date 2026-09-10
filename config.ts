@@ -130,7 +130,7 @@ export const TOOL_OUTPUT = { max: 8_000, head: 5_500, tail: 1_500 };
  *            is removed rather than left to refuse.
  */
 export const BOT_RUN = {
-  steps: 25,
+  steps: 30,
   compactAt: 120_000,
   summaryWords: { min: 600, max: 3000, perTokens: 200 },
   resumeMessages: 20,

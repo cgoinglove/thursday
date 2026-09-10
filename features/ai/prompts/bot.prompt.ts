@@ -1,4 +1,4 @@
-import { BOT_NOTES, BOT_RUN, PATHS, PROMPT_LINE } from "@/config";
+import { BOT_NOTES, PATHS, PROMPT_LINE } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import {
   listJobBots,
@@ -287,7 +287,17 @@ const askingBack = (askedBy: string) => `## Asking
 
 What you cannot get for yourself goes to \`${TOOL_NAMES.ask_back}\`: ${askedBy} handed you this part and answers from what they have. They cannot take a question to the user, so for what is the user's alone take the safer reading and say so in what you hand back. Ask before you start, once, whole.`;
 
-const STEP_CAP = `Your steps are capped at ${BOT_RUN.steps}; running long, report what you have with \`complete: false\` while the summary is still yours to write.`;
+/**
+ * The cap used to be stated here, on the theory that a ceiling read as a budget is one
+ * a run fills and that naming it as a ceiling would stop that. Measured the other way:
+ * told the number, runs work to it — the figure reads as an allowance whatever the
+ * clause after it says. So the number is out and only the recovery stays, which never
+ * depended on it. Nothing here asks for fewer steps either: a run that spends them is
+ * recovering, not counting, and a sentence cannot shorten a recovery. The cap is
+ * enforced where it cannot be argued with (bot.run `stepCountIs`, and `lastStep`
+ * forcing the final step to end the job).
+ */
+const RUNNING_LONG = `Running long, end with what you have and \`complete: false\` while the summary is still yours to write.`;
 
 /**
  * The job ends in the thing that was asked for; no prescribed document shape.
@@ -297,11 +307,11 @@ const FINISHING = `## Finishing
 
 Every job ends with \`${TOOL_NAMES.report}\`, in the user's language, written to be heard — she reads it out loud. **The job ends in the thing that was asked for**: an action with the action done, photos in a page with the photos in it, a comparison in a table. Anything that does not fit in a few lines is a file under \`${PATHS.artifacts}/\`, and the report names its path — it becomes a link on their screen. In a \`.md\`, images only by absolute route (\`/api/file/${PATHS.artifacts}/…\`).
 
-\`complete: false\` when part of the request is genuinely undone — say where you got to and the user decides. ${STEP_CAP}`;
+\`complete: false\` when part of the request is genuinely undone — say where you got to and the user decides. ${RUNNING_LONG}`;
 
 const handingUp = (askedBy: string) => `## Finishing
 
-Every part ends with \`${TOOL_NAMES.report}\`; what you hand back goes into ${askedBy}'s own report. Hand back what the brief asked for, in the shape it asked for, with everything you learned that bears on it — exact values, the paths of files you wrote, what did not work. They cannot see your thread, so long is right here. \`complete: false\` when part of the brief is undone, with where you got to. ${STEP_CAP}`;
+Every part ends with \`${TOOL_NAMES.report}\`; what you hand back goes into ${askedBy}'s own report. Hand back what the brief asked for, in the shape it asked for, with everything you learned that bears on it — exact values, the paths of files you wrote, what did not work. They cannot see your thread, so long is right here. \`complete: false\` when part of the brief is undone, with where you got to. ${RUNNING_LONG}`;
 
 /** How many turns of the call travel with the job: enough for one missed detail, not enough to bury the request. */
 export const OPENING_TURNS = 10;
