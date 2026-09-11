@@ -356,7 +356,7 @@ export const PROMPT_LINE = {
  *            air between them.
  */
 export const ASCII_FACE = {
-  charset: "ascii",
+  charset: "emojiOnly",
   fontSize: { default: 8, min: 4, max: 16 },
   density: { default: 1.4, min: 0.6, max: 2 },
 } as const;
