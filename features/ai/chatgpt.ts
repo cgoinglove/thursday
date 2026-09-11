@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { createServer, type Server } from "node:http";
+import { createServer, type RequestListener, type Server } from "node:http";
 import { createOpenAI } from "@ai-sdk/openai";
 import { type LanguageModel, wrapLanguageModel } from "ai";
 import { formatDistanceToNowStrict } from "date-fns";
@@ -28,6 +28,12 @@ const TOKEN_URL = "https://auth.openai.com/oauth/token";
 /** The only redirect registered for that client, so the answer comes back to this port and no other. */
 const CALLBACK_PORT = 1455;
 const REDIRECT_URI = `http://localhost:${CALLBACK_PORT}/auth/callback`;
+/**
+ * Both loopbacks: `localhost` in the browser reaches whichever answers first, and an
+ * address bound here outranks another app's `::` or `0.0.0.0` on the same port — so the
+ * answer cannot land in someone else's server.
+ */
+const CALLBACK_HOSTS = ["127.0.0.1", "::1"];
 const SCOPE = "openid profile email offline_access";
 const CODEX_URL = "https://chatgpt.com/backend-api/codex";
 /** The access token's claim naming the account and its plan. */
@@ -51,11 +57,11 @@ const SignInSchema = z.object({
 type SignIn = z.infer<typeof SignInSchema>;
 
 type Pinned = {
-  __chatgptListener?: Server | null;
+  __chatgptListeners?: Server[] | null;
   __chatgptRenewal?: ReturnType<typeof createKeyedLock>;
 };
 
-/** Pinned to globalThis: next dev reloads this module, and the listener holding the port and the renewal lane must be the originals. */
+/** Pinned to globalThis: next dev reloads this module, and the listeners holding the port and the renewal lane must be the originals. */
 const pinned = globalThis as Pinned;
 
 /**
@@ -74,7 +80,8 @@ export async function startChatGptSignIn(): Promise<string> {
   const verifier = randomBytes(32).toString("base64url");
   const state = randomBytes(16).toString("hex");
 
-  const server = createServer((request, response) => {
+  const servers: Server[] = [];
+  const answer: RequestListener = (request, response) => {
     void answerCallback(request.url ?? "/", { state, verifier }).then(
       (page) => {
         response.writeHead(page.status, {
@@ -85,29 +92,42 @@ export async function startChatGptSignIn(): Promise<string> {
             autoClose: page.status === 200,
           }),
           () => {
-            if (page.last && pinned.__chatgptListener === server) {
+            if (page.last && pinned.__chatgptListeners === servers) {
               stopListening();
             }
           },
         );
       },
     );
-  });
+  };
 
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(CALLBACK_PORT, "127.0.0.1", () => resolve());
-  }).catch((cause: NodeJS.ErrnoException) => {
-    publicError(
-      cause.code === "EADDRINUSE"
-        ? `Port ${CALLBACK_PORT} is in use — another ChatGPT or Codex sign-in is waiting. Finish or close it, then try again.`
-        : `Could not wait for the sign-in: ${errorToString(cause)}`,
+  for (const host of CALLBACK_HOSTS) {
+    const server = createServer(answer);
+    const failure = await new Promise<NodeJS.ErrnoException | null>(
+      (resolve) => {
+        server.once("error", resolve);
+        server.listen(CALLBACK_PORT, host, () => resolve(null));
+      },
     );
-  });
-  pinned.__chatgptListener = server;
+    if (!failure) {
+      servers.push(server);
+      continue;
+    }
+    // No IPv6 on this machine: nobody else can answer there either
+    if (failure.code === "EADDRNOTAVAIL" || failure.code === "EAFNOSUPPORT") {
+      continue;
+    }
+    for (const bound of servers) bound.close();
+    publicError(
+      failure.code === "EADDRINUSE"
+        ? `Port ${CALLBACK_PORT} is in use by another app — often a ChatGPT or Codex sign-in still waiting. Finish or close it, then try again.`
+        : `Could not wait for the sign-in: ${errorToString(failure)}`,
+    );
+  }
+  pinned.__chatgptListeners = servers;
   // A page nobody finishes must not hold the port for the life of the process
   setTimeout(() => {
-    if (pinned.__chatgptListener === server) stopListening();
+    if (pinned.__chatgptListeners === servers) stopListening();
   }, CHATGPT_SIGN_IN.waitMs).unref();
 
   const url = new URL(AUTHORIZE_URL);
@@ -128,10 +148,12 @@ export async function startChatGptSignIn(): Promise<string> {
 }
 
 function stopListening() {
-  const server = pinned.__chatgptListener;
-  pinned.__chatgptListener = null;
-  server?.close();
-  server?.closeIdleConnections();
+  const servers = pinned.__chatgptListeners;
+  pinned.__chatgptListeners = null;
+  for (const server of servers ?? []) {
+    server.close();
+    server.closeIdleConnections();
+  }
 }
 
 type CallbackPage = {
