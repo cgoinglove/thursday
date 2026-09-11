@@ -1,10 +1,15 @@
 <div align="center">
 
-<img src="docs/images/hero.png" alt="Thursday" width="760">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/face-dark.png">
+  <img src="docs/images/face-light.png" alt="Thursday's face: an orb of emoji that swells when she speaks" width="320">
+</picture>
+
+# Thursday
 
 ### Everyone wanted Friday. This is Thursday.
 
-**A voice agent that lives on your machine.** You talk. It works. You keep talking.
+**An open-source voice agent that lives on your machine.** You talk. It works. You keep talking.
 
 [![npm](https://img.shields.io/npm/v/thursday-agent?style=flat-square&color=111&label=npm)](https://www.npmjs.com/package/thursday-agent)
 [![CI](https://img.shields.io/github/actions/workflow/status/cgoinglove/thursday/ci.yml?style=flat-square&label=ci)](https://github.com/cgoinglove/thursday/actions/workflows/ci.yml)
@@ -21,7 +26,7 @@
 npx thursday-agent
 ```
 
-One API key, typed into the first screen. No `.env`, no account, no cloud. That is the whole setup.
+One API key, typed into the first screen. Then say **"hey thursday."** No `.env`, no account, no cloud. That is the whole setup.
 
 <br>
 
@@ -32,6 +37,14 @@ One API key, typed into the first screen. No `.env`, no account, no cloud. That 
 She answers *"On it — Navigator went to look"* and **keeps talking to you.** A bot opens the shops in a real browser, reads the pages, builds the page. Two minutes later it opens on your screen.
 
 You never watched a spinner. You never stopped talking.
+
+<br>
+
+## She has a face, and it is made of emoji
+
+Hundreds of them, packed into one orb. When she talks, the rim swells with her voice and every syllable shakes a few loose — you can tell she is speaking with the sound off.
+
+Rather have letters, a sprinkle, or a plain mark with two eyes? Settings › Thursday.
 
 <br>
 
@@ -64,7 +77,7 @@ The split is not new. OpenAI's own [realtime-agents](https://github.com/openai/o
 
 They are frameworks and demonstrations: excellent parts for building a voice agent. What they hand the supervisor is a tool list.
 
-Thursday hands it a machine — a shell, the Chrome you are already signed into, skills, connectors, a workspace, and jobs that keep running after you hang up. It is a harness first, and speech is how you operate it. That is the whole difference, and it is the half that takes the work.
+Thursday hands it a machine — a shell, a real browser, skills, connectors, a workspace, and jobs that keep running after you hang up. It is a harness first, and speech is how you operate it. That is the whole difference, and it is the half that takes the work.
 
 </details>
 
@@ -72,18 +85,17 @@ Thursday hands it a machine — a shell, the Chrome you are already signed into,
 
 ## What a bot actually has
 
-Not an API sandbox. **Your computer.**
+Not an API sandbox. **Your computer** — down to the Chrome you are already signed into, which no agent in someone else's cloud can borrow.
 
 - **A shell** — real commands on your real files
-- **A real browser** — and it attaches to the Chrome you are *already signed into*. Your email, your accounts, your 2FA already done. **A cloud agent physically cannot do this.**
+- **A real browser** — its own, or attached to your Chrome. When there is something for you to see — a checkout, a map, a sign-in — it opens a window on your screen and leaves it there
 - **Skills** — the browser, this Mac, building a page; `npx skills add` for the rest
 - **46 connectors** — Notion, GitHub, Linear, Slack, Figma, Stripe, Supabase… one click each
 - **A studio** — image, video, speech, transcription
+- **Its own memory** — what it learned doing the job, kept as files you can open on its page
 - **Each other** — a bot hands a part of its job to the bot that exists for it
 
-![A bot gets your shell, your skills, and the Chrome you are already signed into](docs/images/machine.png)
-
-It signs in where it has to, in a window you can watch, and stops at exactly one thing: **the password.** That half is yours. Everything else it finishes.
+It signs in the way you would let it: a session it kept, your own Chrome, you in the window it opened, or the login you gave it — after asking. And there is one button it never presses: **pay.** It takes the order to the last screen, leaves it open in front of you, and tells you what it buys and for how much.
 
 <br>
 
@@ -93,23 +105,23 @@ It signs in where it has to, in a window you can watch, and stops at exactly one
 
 Jarvis holds the job and decides neither half is his. Navigator opens six shops and reads them. Scribe builds the page out of what came back. It reaches you as one line, out loud — and the room is there to read if you ever want to know how.
 
+Those three come with her. Two more are ready-made in Settings — **Insta** draws the post, writes the caption and puts it up once you say so; **Voyage** plans the trip with a map for each day — and one of your own takes a name and a sentence.
+
 <br>
 
 ## Hang up. It keeps going.
 
-The job is not in the call. It runs on the server and the screen is a projection of it — so hang up mid-sentence, open a new tab, come back in ten minutes. She tells you what came in, or rings you, if you let her.
+The job is not in the call. It runs on the server and the screen is a projection of it — so hang up mid-sentence, open a new tab, come back in ten minutes. She tells you what came in, or rings you, if you let her. The tab says it too: `(2) Thursday` means two things are waiting on you.
 
-![The call ends at 0:12; the job runs to 2:41](docs/images/keeps-going.png)
-
-Close the app entirely and it does the honest thing instead: ten seconds with no browser on it and every running job stops where it stands, keeps its thread, and waits for you to pick it back up. **Nothing spends your keys while you are not looking.**
+Close the app and it does the honest thing: ten seconds with no browser on it and every running job stops where it stands. **Nothing spends your keys while you are not looking.** Open it again and they pick themselves back up — the same after a restart, a `Ctrl+C`, or a model that went quiet for a minute.
 
 <br>
 
 ## It remembers you, and you can read it
 
-One fact per line, in the database on your disk. Open the Memory screen and read every one — where it came from, when it landed, whether it rides in every call — and delete any of them.
+One fact per line, in the database on your disk. Open the Memory screen and read every one — where it came from, when it landed, whether it rides in every call — and delete any of them. Or type what changed, *"I moved to Busan"*, and watch the edit land.
 
-And after every call a text model **re-reads what was actually said** and reconciles the notes with it — so what she keeps is not only what she thought to write down mid-sentence.
+Every fact remembers the call it was said in, so when one line is not enough she can go back and read the conversation.
 
 <br>
 
@@ -117,10 +129,10 @@ And after every call a text model **re-reads what was actually said** and reconc
 
 | | |
 |---|---|
-| **Your browser** | Bots attach to the Chrome already open on your desk — your sessions, your logins |
+| **Your browser** | Bots drive a real browser on your machine — and can attach to the Chrome already open on your desk |
 | **Your machine** | Real commands on real files. Not a VM with a copy |
 | **Your keys** | A SQLite file on your disk, stripped from the shell a bot runs in |
-| **Your memory** | Facts in a file on your disk. Read, edit and delete them on the screen |
+| **Your memory** | Facts in a database on your disk. Read, edit and delete them on the screen |
 | **No account** | Nothing to sign up for. The "server" is a Node process on `127.0.0.1` |
 
 **Honest caveat:** the *intelligence* is remote. There is no local realtime speech model worth putting a call on yet, so the audio goes to OpenAI or xAI. Everything else never leaves the machine. When a local voice model lands, this is the app that is ready for it.
@@ -141,7 +153,7 @@ It runs in the terminal you started it in, like `n8n`. There is no daemon and no
 
 | | |
 |---|---|
-| **Stop it** | `Ctrl+C` |
+| **Stop it** | `Ctrl+C` — running jobs are parked and pick up at the next start |
 | **Start it again** | the same `npx thursday-agent` |
 | **Close the terminal** | it stops with the terminal — nothing is left running |
 | **Keep it up while you work** | run it in its own tab, or `npx thursday-agent &` |
@@ -153,7 +165,12 @@ It runs in the terminal you started it in, like `n8n`. There is no daemon and no
 ```
 ~/.thursday
 ├── local.db          calls, memory, bots, jobs, keys
-└── .ai-workspace     what the bots wrote: artifacts, projects, scratch, skills
+└── .ai-workspace
+    ├── artifacts/    what the bots made for you
+    ├── projects/     code they build
+    ├── bots/         each bot's own memory and kept sign-ins
+    ├── .agents/      skills you installed
+    └── scratch/      one folder per job, cleared three days after it ends
 ```
 
 The first run also fetches the browser bots drive (~280 MB) in the background, once. That one lands in Playwright's own cache — `~/Library/Caches/ms-playwright`, or `~/.cache/ms-playwright` on Linux — so every run after it, and every upgrade, skips the download.
@@ -178,7 +195,7 @@ Node 22.18+ and pnpm 10+. The first run fetches the browser bots drive (~280 MB)
 | | Providers |
 |---|---|
 | **Voice** (the call) | OpenAI Realtime · xAI Grok Voice |
-| **Text** (the bots) | OpenAI · Anthropic · Google · xAI · Vercel AI Gateway — every model it carries, live |
+| **Text** (the bots) | OpenAI · Anthropic · Google · xAI · Vercel AI Gateway — every model it carries, live · your ChatGPT plan, by signing in |
 | **Studio** | OpenAI · Google · xAI · Vercel AI Gateway |
 
 Every bot can run on its own model. Give the errand-runner something cheap and the planner something good.
@@ -190,12 +207,12 @@ Every bot can run on its own model. Give the errand-runner something cheap and t
 
 - "What did I download this week?" — one command, run while you talk
 - "Remember my sister's birthday is March 3rd." — saved the moment it lands
-- "Anything from my landlord in my email?" — attaches to the Chrome you are signed into
-- "Set up a Google account just for my bots." — stops at the password, then carries on
+- "Anything from my landlord in my email?" — read in the Chrome you are signed into
+- "Find the cheapest flight to Osaka on the 14th." — left at the pay button, on your screen
+- "Plan three days in Kyoto, with a map for each day." — Voyage
+- "Make a post about Friday's gig and put it on Instagram." — Insta, once you say so
 - "Write up what we decided today as a one-pager." — opens as a document, not a chat bubble
-- "Draw me a logo for a bakery called Crumb."
 - "Go through my card statements and list every subscription I am paying for."
-- "Book a table for four on Friday, somewhere my sister can actually eat."
 - "Watch this page and tell me when the price drops."
 - "Build me a page of thirty wedding pose photos."
 
@@ -215,9 +232,9 @@ Tell me what you said to her and where it stopped. That is the roadmap.
 
 ## The part where I am honest with you
 
-She is a language model with a shell, a browser and your API keys. **That is the product, not an accident.** Keys are stripped from the environment the shell runs in. Writes are fenced to a workspace. The server is localhost-only. Passwords, one-time codes and passkeys stay yours to type.
+She is a language model with a shell, a browser and your API keys. **That is the product, not an accident.** Keys are stripped from the environment the shell runs in. The server is localhost-only. A login you gave a bot is asked about before it is used, and a payment is left for you to press — instructions a skill carries, not a lock the code holds.
 
-Reads are not fenced, and they are not meant to be — a bot that cannot look around cannot do the job. That includes the database your keys sit in.
+The shell is not fenced, and it is not meant to be — a bot that cannot look around cannot do the job, and a command writes wherever you can. That includes the database your keys sit in.
 
 It is not a sandbox and it does not pretend to be. → [SECURITY.md](SECURITY.md)
 

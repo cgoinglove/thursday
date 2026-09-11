@@ -20,13 +20,20 @@ What the app does to keep that narrow:
   narrower than it sounds and is meant to be: the database those keys live in
   is a file on the same machine, and a bot has a shell. Reads are not fenced —
   a bot that cannot look around cannot do the work.
-- **Writes are fenced.** A bot writes inside its workspace (`.ai-workspace`) and
-  is refused the app's own directory (`features/workspace/workspace.ts`).
+- **The file tool is fenced; the shell is not.** `write_file` refuses the app's
+  own directory and the workspace root, and inside the workspace accepts only its
+  folders (`features/workspace/workspace.ts`). A path outside the workspace is
+  accepted. `bash` has no such check: a command writes wherever your user can.
 - **The server binds to localhost.** `npx thursday` listens on `127.0.0.1`.
   Do not put it on `0.0.0.0` and expect it to hold: there is no authentication,
   because there is no second user.
-- **Passwords, one-time codes and passkeys are yours.** Bots are told to open
-  the sign-in page and stop; you type the secret half in the window they opened.
+- **A sign-in is asked for, and a payment is yours to press.** A bot signs in
+  with a session it kept, the Chrome you already use, or a window where you sign
+  in yourself. Credentials you gave it are used only after it asks. A purchase is
+  taken to the last screen and left open on yours. It never guesses a secret or
+  goes looking for one (`skills/browser/SKILL.md`). These are instructions in a
+  skill, not code: the app cannot stop a model that ignores them. A session it
+  keeps (`bots/<name>/.auth/`) signs every later job in as you.
 
 What it does not do: sandbox the shell, sign what a bot downloads, or review the
 skills you install. A skill is code you chose to trust.

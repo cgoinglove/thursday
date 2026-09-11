@@ -30,9 +30,11 @@ A bot is a text model — any of OpenAI, Anthropic, Google, xAI, or whatever the
 
 A job ends in the thing that was asked for — the account made, the page built, the comparison in a table — and a report, written to be heard, because she reads it out loud. Anything that does not fit in a few lines is a file under `artifacts/`, and the report names it.
 
-What only you can give — a password, a one-time code, a passkey, a decision between two real options — stops the job at that point. The bot sets it up one action away, asks, and continues when the answer comes.
+What only you can give — a sign-in it holds no session for, a decision between two real options — stops the job at that point. The bot sets it up one action away, asks, and continues when the answer comes. Credentials you handed it are used only after it asks. A payment is the one thing it never finishes: it takes the purchase to the last screen, leaves that window open on yours, and reports what it buys and for how much.
 
-Three bots come with the app, split by temperament: **Jarvis** plans a job, hands parts to whoever fits and does the rest; **Navigator** goes and looks; **Scribe** writes. Make more in settings: a name, a sentence about what it is for, optionally a model and a few pinned tools. The sentence is what she reads when deciding who gets the job.
+Three bots come with the app, split by temperament: **Jarvis** plans a job, hands parts to whoever fits and does the rest; **Navigator** goes and looks; **Scribe** writes. More are ready-made in settings — **Insta** draws, captions and posts to Instagram, **Voyage** plans a trip with a map for each day — or make your own: a name, a sentence about what it is for, optionally a model and a few pinned tools. The sentence is what she reads when deciding who gets the job. A bot can be switched off without being deleted.
+
+Each bot keeps its own memory as files in its folder (`bots/<name>/memory/`), one topic per file, and reads the list at the start of every job. Its page in settings shows them; open one in place or delete it.
 
 ## Jobs outlive the call
 
@@ -40,15 +42,17 @@ A job runs on the server. It is not in the tab, and it does not stop when you ha
 
 A job that stopped to ask, or ran out of its step budget, is resumed from where it stopped: the same thread, with your answer appended. A long thread is compacted — the model summarizes what happened so far and continues from the summary.
 
-## Memory is a folder
+With no browser on the app for ten seconds, running jobs stop where they stand, so nothing spends your keys while nobody is looking. A job the app stopped — a closed tab, a restart, a model call that failed — picks itself back up when it can, up to three times in a row before it waits for you. A job a bot or a person stopped waits for a person.
 
-Memory is plain notes on your disk, in the data folder (`~/.thursday` when installed with `npx`, the checkout otherwise). Each note is a topic — `profile`, `preferences`, `people/…`, and whatever she creates. A few are `alwaysLoad` and travel into every call: your name, your language, how you like to be addressed, the rules you gave her.
+## Memory you can read
 
-You can open any note from settings and read exactly what she knows. When the listing gets long she says so in a lull, puts a note on your screen and forgets only what you name.
+Memory is notes in the database on your disk, in the data folder (`~/.thursday` when installed with `npx`, the checkout otherwise). Each note is a topic — `profile`, `preferences`, `people/…`, and whatever she creates — and holds one fact per line. A few are `alwaysLoad` and travel into every call: your name, your language, how you like to be addressed, the rules you gave her.
 
-Writing mid-conversation catches what she noticed; it misses what only reads back as important afterwards. So when a call ends, a text model re-reads the most recent turns and reconciles the notes with them — correcting what changed, adding what was said in passing. Calls are stamped as they are read, so a backlog of short calls collapses into one pass rather than one per call.
+She writes the moment something worth keeping comes up. Each fact remembers the call it was said in, so when a line is not enough she can open that conversation again. Nothing re-reads calls after they end: what is kept is what was written.
 
-Bots read memory but do not write it. What a bot learns goes into its report; whether it is worth keeping is her call, with you.
+You can open any note from settings and read exactly what she knows. To change it, type what changed on the Memory screen, pick a model, and watch each edit land. When the listing gets long she says so in a lull, puts a note on your screen and forgets only what you name.
+
+Bots read your memory but do not write it. What a bot learns about its own work goes into its own memory files; what it learns about you goes into its report, and whether that is worth keeping is her call, with you.
 
 ## What is not here
 
