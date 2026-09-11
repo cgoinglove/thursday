@@ -21,10 +21,16 @@ for (let at = 0; at < args.length; at++) {
 
 const port = String(await freePort(asked));
 const next = createRequire(import.meta.url).resolve("next/dist/bin/next");
+// This machine only, as `thursday` does; `-H` still opens it on purpose
+const hostname = rest.some(
+  (arg) => arg === "-H" || arg.startsWith("--hostname"),
+)
+  ? []
+  : ["--hostname", process.env.HOSTNAME || "127.0.0.1"];
 
 const child = spawn(
   process.execPath,
-  [next, "dev", "--port", port, ...rest],
+  [next, "dev", "--port", port, ...hostname, ...rest],
   // PORT beside the flag: config.ts APP_URL reads it before Next has listened
   { stdio: "inherit", env: { ...process.env, PORT: port } },
 );
