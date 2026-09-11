@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.4.0...thursday-agent-v0.5.0) (2026-09-11)
+
+
+### Features
+
+* introduce AGENTS.md for Thursday voice agent documentation and update various files ([3dbb6fb](https://github.com/cgoinglove/thursday/commit/3dbb6fbcbcfc753f744e9398d193ab929f1ec0ec))
+
 ## [0.4.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.3.0...thursday-agent-v0.4.0) (2026-09-11)
 
 
