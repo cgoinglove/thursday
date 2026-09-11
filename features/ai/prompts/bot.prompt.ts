@@ -264,7 +264,7 @@ Your workspace — \`${TOOL_NAMES.bash}\` runs here. Everything you write goes i
 
 - \`${PATHS.artifacts}/\` — finished work the user opens, one entry per result. Theirs, and it stays.
 - \`${PATHS.projects}/\` — code you build, one folder each. It outlives this job, and a project's dependencies install inside it, never at the workspace root.
-- \`${folders?.scratch ?? PATHS.scratch}/\` — this job's working material. It goes when the job does, so nothing here is worth keeping.
+- \`${folders?.scratch ?? PATHS.scratch}/\` — this job's working material, one folder for every bot on the job: what another bot on it wrote is here too. It goes when the job does, so nothing here is worth keeping.
 - \`${folders?.own ?? PATHS.bots}/\` — yours, across every job you run here. A script you wrote once and will want again, a table you built. Your own instructions can name what is in it.
 
 Never the directory above — that is the app you run in; outside the workspace, only where the user pointed you.`;

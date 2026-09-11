@@ -53,8 +53,8 @@ export type ToolRun =
       target: "bot";
       /** This run's bot name, the key of the bot table. */
       bot: string;
-      /** This job; the bot's shell pins its browser session to it (workspace.ts). */
-      taskId?: string | null;
+      /** The browser session this run's shell drives (workspace.ts jobShellEnv): the job's, or a borrowed bot's own. */
+      session?: string | null;
       /** The model this run already resolved (bot.run resolveModel); its own native search is what `web_search` uses when no Exa key is set (tools/search.tool). */
       model?: TextModel | null;
     }
@@ -305,11 +305,12 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     // Exa when its key is set, else this bot's own model when it can search;
     // absent when neither, and the browser is the way in (search.tool)
     ...(await createSearchTool(run.model, sandbox)),
-    // The browser rides in the shell: its session is this job's, set by the
-    // server rather than typed by the model (workspace.ts jobShellEnv)
+    // The browser rides in the shell: its session is this seat's — the job's, or
+    // a borrowed bot's own — set by the server rather than typed by the model
+    // (workspace.ts jobShellEnv)
     ...createWorkspaceTools(sandbox, {
       write: true,
-      env: jobShellEnv(run.taskId),
+      env: jobShellEnv(run.session),
       // What the shell is like and what this machine has, on the first command
       // of the run only (workspace.tool shellGuide). The call gets no guide:
       // one command is a glance, not a job to plan around

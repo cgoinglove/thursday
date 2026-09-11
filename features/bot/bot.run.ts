@@ -137,8 +137,17 @@ export type RunOptions = {
   depth?: number;
   /** The `ask_bot` call this run answers; null for the job's own bot. */
   parent?: string | null;
-  /** The job this runs inside. The shell pins its browser session to it (workspace.ts). */
+  /**
+   * The job this runs inside, for every seat on it — a borrowed bot's too. Its row
+   * names the one folder they all work in (workspace.ts jobScratch).
+   */
   taskId?: string | null;
+  /**
+   * The browser session this seat's shell drives (workspace.ts jobShellEnv): the
+   * job's own when unset, a borrowed bot's under its call, so two seats never click
+   * in one window.
+   */
+  session?: string | null;
   /**
    * Drained once per step boundary; each string goes in front of the model as
    * a user turn before the next step. Only the job's own bot has one.
@@ -208,7 +217,7 @@ export async function runBot(
 
   // Tools are built on the model: web search runs on this bot's model (load-tools).
   const model = await resolveModel(bot);
-  // The job's row. A borrowed run's id is the job's plus its call, and finds none.
+  // The job's row: the same one for every seat on the job, a borrowed bot's too
   const row = options.taskId ? await findTask(options.taskId) : null;
   // One folder per job, not per bot: bots borrowed with `ask_bot` work inside
   // the same job and share its material (workspace.ts jobScratch).
@@ -232,16 +241,18 @@ export async function runBot(
     loadTools({
       target: "bot",
       bot: name,
-      taskId: options.taskId,
+      // A borrowed bot drives a browser session of its own; everyone else the job's
+      session: options.session ?? options.taskId,
       model,
     }),
   ]);
   // What the owner set, else the model's own window, else the constant (model.ts
   // compactBudget), and never above where this job last fit: a context the model
-  // refused as too long lowers the job's own number (bot.runner parkTask)
+  // refused as too long lowers the job's own number (bot.runner parkTask). That
+  // number is the holder's; a borrowed bot runs on a model of its own.
   const budget = Math.min(
     await compactBudget(model.ref, bot.compactAt),
-    row?.contextBudget || Number.POSITIVE_INFINITY,
+    ("askedBy" in input ? 0 : row?.contextBudget) || Number.POSITIVE_INFINITY,
   );
 
   const history: ModelMessage[] =
@@ -938,11 +949,12 @@ function withAskBot(
         if (bot === asker.name || asker.above.includes(bot)) {
           return `${bot} is already on this job, above you and waiting on your part. Pick another bot, or do it yourself.`;
         }
-        // The borrowed bot gets its own browser session under this call's id.
-        // When it answers, the same rule as a job's end: what it showed on their
-        // screen stays, what nobody can see closes (workspace.ts closeHiddenBrowser).
-        const taskId = asker.options.taskId
-          ? `${asker.options.taskId}-${call.toolCallId.slice(0, 8)}`
+        // The borrowed bot works in the job's folder but drives a browser session
+        // of its own, under this call's id. When it answers, the same rule as a
+        // job's end: what it showed on their screen stays, what nobody can see
+        // closes (workspace.ts closeHiddenBrowser).
+        const session = asker.options.taskId
+          ? `${asker.options.session ?? asker.options.taskId}-${call.toolCallId.slice(0, 8)}`
           : null;
         const exchanges: { question: string; answer: string }[] = [];
         const answer = async (question: string) => {
@@ -977,7 +989,7 @@ function withAskBot(
               signal: call.abortSignal ?? asker.options.signal,
               depth: asker.depth + 1,
               parent: call.toolCallId,
-              taskId,
+              session,
               answer,
             },
           );
@@ -985,7 +997,7 @@ function withAskBot(
             ? `${outcome}\n\n${exchangeLines(bot, exchanges)}`
             : outcome;
         } finally {
-          if (taskId) void closeHiddenBrowser(taskId);
+          if (session) void closeHiddenBrowser(session);
         }
       },
     }),

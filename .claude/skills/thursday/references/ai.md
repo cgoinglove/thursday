@@ -229,7 +229,12 @@ prompt, a tool description, the bot loop, or how memory is kept.
   one job's working material and goes when the job's row does (`workspace.ts` `jobScratch` /
   `removeJobScratch`, from `bot.runner`): per *job* rather than per bot, because several bots work
   inside one job (`ask_bot`) and one bot runs many jobs — and because a job ends, which is the only
-  thing that makes its material safe to clear. `bots/<name>/` is one bot's own kit across every job
+  thing that makes its material safe to clear. Every seat on a job gets that one folder from the job's
+  own id (`bot.run` `RunOptions.taskId`), and the prompt names it to each of them (`bot.prompt`
+  environment); a borrowed bot's separate browser session travels apart from it
+  (`RunOptions.session`). The two used to be one field, so a borrowed run looked its job up by an id
+  with its call appended, found no row, and was handed a `job-…` folder of its own that no job
+  deletion ever removed. `bots/<name>/` is one bot's own kit across every job
   it runs; its notes are prose and capped, and this is where the rest goes — a saved sign-in
   (`.auth/<site>.json`) among them, because a session is one bot's across jobs and the workspace root
   is nobody's. The skill and the Insta seed used to name different homes for it and the same login
