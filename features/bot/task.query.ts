@@ -262,6 +262,19 @@ export async function listRunningTaskIds() {
   return rows.map((row) => row.id);
 }
 
+/** Every job with what names its folder and whether it still keeps it (bot.runner sweepJobFiles). */
+export async function listTaskFolders() {
+  return await database
+    .select({
+      id: taskTable.id,
+      label: taskTable.label,
+      status: taskTable.status,
+      endedAt: taskTable.endedAt,
+      updatedAt: taskTable.updatedAt,
+    })
+    .from(taskTable);
+}
+
 /** Jobs the app parked to pick back up by itself (bot.runner parkTask), and when each may go. */
 export async function listAutoStoppedTasks() {
   const rows = await database

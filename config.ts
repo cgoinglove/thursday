@@ -45,8 +45,9 @@ export const PATHS = {
    * Workspace folders a bot may write into, relative to the workspace. They are
    * split by how long what is in them lives: `artifacts` finished results the
    * user opens and `projects` code that outlives any one job are the user's and
-   * stay; `scratch/<job>` dies with the job that made it; `bots/<name>` lasts as
-   * long as the bot. The workspace root is refused.
+   * stay; `scratch/<job>` goes with its job, or once the job has ended
+   * WORKSPACE_KEEP ago; `bots/<name>` lasts as long as the bot. The workspace
+   * root is refused.
    */
   artifacts: "artifacts",
   projects: "projects",
@@ -226,16 +227,19 @@ export const STUDIO_SERVER = "studio";
 export const CONNECTED_TOOL_TIMEOUT_MS = 10 * 60_000;
 
 /**
- * How long what a job left behind stays (features/workspace/workspace).
- * - `snapshotsMs`  playwright-cli never deletes its snapshots, and refs go
- *            stale on the next click, so anything older belongs to no job.
- * - `outputMs`  tool output over `TOOL_OUTPUT.max` is written out in full;
- *            long enough to still be looking, short enough that the folder
- *            does not become the biggest thing in the workspace.
+ * How long what jobs leave behind stays before the app clears it by itself
+ * (bot.runner sweepJobFiles). Deleting a job clears its folder at once.
+ * - `forMs`  one age for all of it: a job's scratch folder, counted from when
+ *            the job ended (a job running or waiting keeps its folder however
+ *            old), a scratch folder no job owns, spilled tool output, and the
+ *            browser's snapshots and logs. Long enough to come back to a job
+ *            days later; what is worth keeping goes in `artifacts/`, which is
+ *            never cleared.
+ * - `sweepEveryMs`  how often the app looks, besides once at boot.
  */
 export const WORKSPACE_KEEP = {
-  snapshotsMs: 60 * 60 * 1000,
-  outputMs: 24 * 60 * 60 * 1000,
+  forMs: 3 * 24 * 60 * 60 * 1000,
+  sweepEveryMs: 60 * 60 * 1000,
 };
 
 /**

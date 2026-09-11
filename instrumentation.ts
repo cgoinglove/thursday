@@ -1,7 +1,9 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
-  const { APP_DIR, APP_NAME, DATA_DIR } = await import("@/config");
+  const { APP_DIR, APP_NAME, DATA_DIR, WORKSPACE_KEEP } = await import(
+    "@/config"
+  );
   const { logger } = await import("@/lib/logger");
 
   const { migrateDatabase } = await import("@/database/migrate");
@@ -12,8 +14,20 @@ export async function register() {
   await ensureRootNotes();
 
   // Tasks left `running` by the previous process are not running now.
-  const { sweepTasks } = await import("@/features/bot/bot.runner");
+  const { sweepJobFiles, sweepTasks } = await import(
+    "@/features/bot/bot.runner"
+  );
   await sweepTasks();
+
+  // What jobs left behind is cleared by age (config WORKSPACE_KEEP): once now,
+  // then on a timer. Housekeeping rather than work, so no browser is needed.
+  // After sweepTasks, so a job the last process left running counts as waiting.
+  const sweepFiles = () =>
+    void sweepJobFiles().catch((cause) =>
+      logger.error("sweep job files", cause),
+    );
+  sweepFiles();
+  setInterval(sweepFiles, WORKSPACE_KEEP.sweepEveryMs).unref();
 
   // Same for calls: an open call row from a vanished tab would route finished
   // jobs to a listener that is not there (bot.runner).

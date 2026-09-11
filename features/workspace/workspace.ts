@@ -279,10 +279,15 @@ export async function closeJobShell(taskId: string): Promise<void> {
   await pruneJobFiles();
 }
 
-async function pruneOutputFiles(): Promise<void> {
-  const dir = join(WORKSPACE, PATHS.output);
+const pruneOutputFiles = () => pruneOldFiles(PATHS.output);
+
+const pruneBrowserFiles = () => pruneOldFiles(BROWSER_DIR);
+
+/** Files directly in a workspace folder that have not changed for WORKSPACE_KEEP.forMs. */
+async function pruneOldFiles(folder: string): Promise<void> {
+  const dir = join(WORKSPACE, folder);
   const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
-  const cutoff = Date.now() - WORKSPACE_KEEP.outputMs;
+  const cutoff = Date.now() - WORKSPACE_KEEP.forMs;
   for (const entry of entries) {
     if (!entry.isFile()) continue;
     const file = join(dir, entry.name);
@@ -291,16 +296,35 @@ async function pruneOutputFiles(): Promise<void> {
   }
 }
 
-async function pruneBrowserFiles(): Promise<void> {
-  const dir = join(WORKSPACE, BROWSER_DIR);
-  const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
-  const cutoff = Date.now() - WORKSPACE_KEEP.snapshotsMs;
-  for (const entry of entries) {
-    if (!entry.isFile()) continue;
-    const file = join(dir, entry.name);
-    const info = await stat(file).catch(() => null);
-    if (info && info.mtimeMs < cutoff) await unlink(file).catch(() => {});
+/** Every folder under `scratch/`, workspace-relative, as jobScratch names them. */
+export async function listScratchFolders(): Promise<string[]> {
+  const entries = await readdir(join(WORKSPACE, PATHS.scratch), {
+    withFileTypes: true,
+  }).catch(() => []);
+  return entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => `${PATHS.scratch}/${entry.name}`);
+}
+
+/**
+ * Removes the workspace folders among `folders` that have not changed for
+ * WORKSPACE_KEEP.forMs, judged by the folder itself. Only for folders no job owns
+ * (bot.runner sweepJobFiles): a job that has just made its folder is never old
+ * enough to be caught. Returns what went.
+ */
+export async function removeUnchangedFolders(
+  folders: string[],
+): Promise<string[]> {
+  const cutoff = Date.now() - WORKSPACE_KEEP.forMs;
+  const removed: string[] = [];
+  for (const folder of folders) {
+    const full = join(WORKSPACE, folder);
+    const info = await stat(full).catch(() => null);
+    if (!info?.isDirectory() || info.mtimeMs >= cutoff) continue;
+    await rm(full, { recursive: true, force: true }).catch(() => {});
+    removed.push(folder);
   }
+  return removed;
 }
 
 /**

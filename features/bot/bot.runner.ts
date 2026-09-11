@@ -4,7 +4,7 @@ import {
   appEvents,
   presence,
 } from "@/app/api/events/app-event.server";
-import { BOT_RUN, PATHS } from "@/config";
+import { BOT_RUN, PATHS, WORKSPACE_KEEP } from "@/config";
 import {
   type ModelFailure,
   modelErrorToString,
@@ -23,8 +23,11 @@ import { pathsIn } from "@/features/workspace/file-kind";
 import {
   closeHiddenBrowser,
   closeJobShell,
+  jobScratch,
+  listScratchFolders,
   pruneJobFiles,
   removeJobScratch,
+  removeUnchangedFolders,
 } from "@/features/workspace/workspace";
 import { desktopNotify } from "@/lib/desktop-notify";
 import { logger } from "@/lib/logger";
@@ -44,6 +47,7 @@ import {
   listAutoStoppedTasks,
   listBorrowedTails,
   listRunningTaskIds,
+  listTaskFolders,
   listThread,
   type TaskMessageInput,
   updateTask,
@@ -289,6 +293,48 @@ export async function removeFinishedTasks(): Promise<number> {
   const removed = await deleteFinishedTasks();
   for (const task of removed) await removeJobScratch(task.id, task.label);
   return removed.length;
+}
+
+/**
+ * Clears what jobs left behind by age (config WORKSPACE_KEEP), at boot and on a
+ * timer (instrumentation): a job's folder once the job ended that long ago — a job
+ * running or waiting keeps its own however old — a scratch folder no job owns once
+ * it has not changed that long, and spilled output and browser snapshots that old
+ * (pruneJobFiles). A job's folder goes under the job's lock, so a word that picks
+ * the job back up in that moment never finds its material gone. Returns the
+ * folders that went.
+ */
+export async function sweepJobFiles(): Promise<string[]> {
+  const cutoff = Date.now() - WORKSPACE_KEEP.forMs;
+  const stale = (task: {
+    status: TaskStatus;
+    endedAt: Date | null;
+    updatedAt: Date;
+  }) =>
+    (task.status === "done" || task.status === "failed") &&
+    (task.endedAt ?? task.updatedAt).getTime() < cutoff;
+
+  // Folders on disk; each one a job owns is taken out as its job is read
+  const unowned = new Set(await listScratchFolders());
+  const removed: string[] = [];
+  for (const task of await listTaskFolders()) {
+    const folder = jobScratch(task.id, task.label);
+    if (!unowned.delete(folder) || !stale(task)) continue;
+    await taskLock(task.id, async () => {
+      const now = await findTask(task.id);
+      if (!now || !stale(now)) return;
+      await removeJobScratch(task.id, task.label);
+      removed.push(folder);
+    });
+  }
+  removed.push(...(await removeUnchangedFolders([...unowned])));
+  await pruneJobFiles();
+  if (removed.length) {
+    logger.info(
+      `cleared ${removed.length} old job folder(s): ${removed.join(", ")}`,
+    );
+  }
+  return removed;
 }
 
 /**

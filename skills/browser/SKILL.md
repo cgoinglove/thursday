@@ -101,7 +101,7 @@ A click that seems to do nothing may have opened a tab: `tab-list`,
 `goto http://127.0.0.1:48800/<file>.html`; `pdf --filename=out.pdf` prints
 it. Kill the server when done.
 
-Snapshots land in `.playwright-cli/` and are cleared after an hour. A file you
+Snapshots land in `.playwright-cli/` and are cleared after a few days. A file you
 name — `--filename=`, a `pdf`, a download — goes under `scratch/`, or
 `artifacts/` when it is the result.
 
