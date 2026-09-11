@@ -53,11 +53,11 @@ export const PATHS = {
   projects: "projects",
   scratch: "scratch",
   /**
-   * A bot's own corner, one folder per bot. Its notes are prose and capped; this
-   * is where the rest goes — a script it wrote once and reuses, a table it built,
-   * anything worth having on the next job. Kept apart from `scratch` because the
-   * two die at different times: a job's material dies with the job, a bot's kit
-   * lives as long as the bot.
+   * A bot's own corner, one folder per bot: its memory (`memory/`, features/bot/bot.memory),
+   * a sign-in it kept, a script it wrote once and reuses, a table it built — anything
+   * worth having on the next job. Kept apart from `scratch` because the two die at
+   * different times: a job's material dies with the job, a bot's kit lives as long as
+   * the bot.
    */
   bots: "bots",
   /** Where tool output over TOOL_OUTPUT is written in full. */
@@ -149,8 +149,8 @@ export const TOOL_OUTPUT = { max: 8_000, head: 5_500, tail: 1_500 };
  *            connection for dead and stops (bot.run silenceWatch). Not counted
  *            while a tool or a compaction does the work; those bound themselves.
  *            A model that thinks before its first word is silent that long, so
- *            this is minutes. A one-shot call (compaction, answering `ask_back`,
- *            the notes pass) sends nothing until it is done and gets it whole.
+ *            this is minutes. A one-shot call (compaction, answering `ask_back`)
+ *            sends nothing until it is done and gets it whole.
  * - `autoResumes`  times a job the app stopped — a restart, a closed browser, a
  *            model call a retry or a compaction can fix — picks itself back up.
  *            Counted since a person last spoke to it, so a job that keeps taking
