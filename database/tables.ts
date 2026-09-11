@@ -4,7 +4,11 @@ import { int, text } from "drizzle-orm/sqlite-core/columns";
 import { sqliteTable } from "drizzle-orm/sqlite-core/table";
 import z from "zod";
 import type { TextModelProviderId } from "@/features/ai/model.schema";
-import { botIconSchema, type TaskStatus } from "@/features/bot/bot.schema";
+import {
+  botIconSchema,
+  type TaskPending,
+  type TaskStatus,
+} from "@/features/bot/bot.schema";
 import {
   MCPOAuthData,
   MCPServerConfig,
@@ -148,15 +152,11 @@ export const taskTable = sqliteTable("task", {
   /** Last message, or the pending question. */
   outcome: text("outcome"),
   /**
-   * While `waiting`: the `ask_thursday` call the answer resolves, and its options;
-   * null once answered. `toolCallId` null means the app stopped the run rather
-   * than the bot asking, and the answer becomes a new user turn instead of a
-   * tool result.
+   * While `waiting`: what it waits on (bot.schema TaskPending); null once answered.
+   * `toolCallId` null means the app stopped the run rather than the bot asking,
+   * and the answer becomes a new user turn instead of a tool result.
    */
-  pending: text("pending", { mode: "json" }).$type<{
-    toolCallId: string | null;
-    options: string[];
-  }>(),
+  pending: text("pending", { mode: "json" }).$type<TaskPending>(),
   /**
    * Whether the user has had the ending: relayed on a call, or on a task list
    * they had open. Highlight and badge only; the inbox selects by status.
@@ -169,7 +169,11 @@ export const taskTable = sqliteTable("task", {
   outputTokens: int("output_tokens").notNull().default(0),
   /** Context size of the last step, not a total; overwritten every step. */
   contextTokens: int("context_tokens").notNull().default(0),
-  /** Compaction threshold recorded at the first step, so the screen can draw the meter without config. */
+  /**
+   * Where this job compacts, written at every step so the screen can draw the meter
+   * without config. Lowered when the model refused the context as too long
+   * (bot.runner parkTask), and a resume never runs above it (bot.run `budget`).
+   */
   contextBudget: int("context_budget").notNull().default(0),
   createdAt: int("created_at", { mode: "timestamp" })
     .notNull()

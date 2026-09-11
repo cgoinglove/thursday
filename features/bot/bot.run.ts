@@ -1,10 +1,12 @@
 import {
+  type FinishReason,
   generateText,
   hasToolCall,
   type LanguageModel,
   type LanguageModelUsage,
   type ModelMessage,
   type PrepareStepResult,
+  pruneMessages,
   type StepResult,
   stepCountIs,
   ToolLoopAgent,
@@ -16,7 +18,9 @@ import { loadTools } from "@/features/ai/load-tools";
 import {
   compactBudget,
   getTextModel,
+  type ModelFailure,
   modelErrorToString,
+  modelFailureOf,
   resolveDefaultModel,
 } from "@/features/ai/model";
 import {
@@ -31,12 +35,14 @@ import {
 } from "@/features/ai/tools/bot.tool";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import {
+  COMPACT_AT_MIN,
   type JobBot,
   NO_TOKENS,
   type TokenUsage,
 } from "@/features/bot/bot.schema";
 import {
   closeHiddenBrowser,
+  filesOnDisk,
   openBotFolder,
   openJobScratch,
 } from "@/features/workspace/workspace";
@@ -45,7 +51,12 @@ import { publicError } from "@/lib/public-error";
 import { estimateTokens } from "@/lib/tokens";
 import { hasNotesRequest, keepNotes } from "./bot.notes";
 import { findJobBot, readBotNotesOn } from "./bot.query";
-import { findTask, optionsOf } from "./task.query";
+import {
+  findTask,
+  listWrittenPaths,
+  optionsOf,
+  writtenPathsIn,
+} from "./task.query";
 
 /**
  * The bot loop behind `delegate`: one model with its own prompt, tools and
@@ -59,7 +70,14 @@ export type BotEvent =
   | { type: "text"; text: string }
   /** A tool call. `id` is where the result lands. */
   | { type: "tool"; id: string; name: string; input: unknown }
-  | { type: "tool-result"; id: string; name: string; output: unknown }
+  | {
+      type: "tool-result";
+      id: string;
+      name: string;
+      output: unknown;
+      /** The tool threw; `output` is what it said. */
+      error?: boolean;
+    }
   /**
    * A step finished; `messages` is what the model sees next time.
    * `budget` is where this run compacts (config BOT_RUN).
@@ -95,11 +113,21 @@ export type BotEvent =
   /**
    * The only thing that reaches Thursday. `stopped` is the app's word, never the
    * model's: the step cap forced this answer, the answer was refused on the last
-   * step, or the run ended with nothing handed back. A stopped job waits to be
-   * continued; any other answer ends it.
+   * step, the output limit cut it off, or the run ended with nothing handed back.
+   * A stopped job waits to be continued; any other answer ends it.
    */
   | { type: "answer"; text: string; stopped: boolean }
-  | { type: "error"; message: string };
+  /**
+   * The run broke. `failure` is whose it is to fix (model.ts modelFailureOf) — a
+   * retry's, a compaction's, or a person's — and `budget` where to compact next
+   * time, when the model refused the context as too long.
+   */
+  | {
+      type: "error";
+      message: string;
+      failure: ModelFailure;
+      budget?: number;
+    };
 
 /** The event as the thread sees it: which bot, inside which `ask_bot` call. */
 export type TaskEvent = BotEvent & { bot: string; parent: string | null };
@@ -162,6 +190,7 @@ export async function runBot(
     await emit({
       type: "error",
       message: `No bot named "${input.bot}". Use a name from the list.`,
+      failure: "fatal",
     });
     return;
   }
@@ -172,21 +201,19 @@ export async function runBot(
     await emit({
       type: "error",
       message: `${bot.name} is switched off. Use a name from the list.`,
+      failure: "fatal",
     });
     return;
   }
 
   // Tools are built on the model: web search runs on this bot's model (load-tools).
   const model = await resolveModel(bot);
+  // The job's row. A borrowed run's id is the job's plus its call, and finds none.
+  const row = options.taskId ? await findTask(options.taskId) : null;
   // One folder per job, not per bot: bots borrowed with `ask_bot` work inside
   // the same job and share its material (workspace.ts jobScratch).
   const [scratch, own] = await Promise.all([
-    options.taskId
-      ? openJobScratch(
-          options.taskId,
-          (await findTask(options.taskId))?.label ?? "job",
-        )
-      : null,
+    options.taskId ? openJobScratch(options.taskId, row?.label ?? "job") : null,
     openBotFolder(name),
   ]);
   const [prompt, tools] = await Promise.all([
@@ -209,8 +236,13 @@ export async function runBot(
       model,
     }),
   ]);
-  // What the owner set, else the model's own window, else the constant (model.ts compactBudget)
-  const budget = await compactBudget(model.ref, bot.compactAt);
+  // What the owner set, else the model's own window, else the constant (model.ts
+  // compactBudget), and never above where this job last fit: a context the model
+  // refused as too long lowers the job's own number (bot.runner parkTask)
+  const budget = Math.min(
+    await compactBudget(model.ref, bot.compactAt),
+    row?.contextBudget || Number.POSITIVE_INFINITY,
+  );
 
   const history: ModelMessage[] =
     "messages" in input
@@ -260,6 +292,11 @@ export async function runBot(
     interjections: string[];
   } = { compact: null, interjections: [] };
 
+  /** Stops the stream when the model goes quiet (config BOT_RUN.silenceMs). */
+  const quiet = silenceWatch(BOT_RUN.silenceMs);
+  /** Context size the latest step went out at; an overflow shrinks the budget from it. */
+  let sent = 0;
+
   const agent = new ToolLoopAgent({
     model: model.model,
     instructions: prompt.text,
@@ -288,24 +325,29 @@ export async function runBot(
       // estimate cannot see; the estimate covers a provider that reports none.
       const measured = steps.at(-1)?.usage.inputTokens ?? 0;
       const size = Math.max(measured, sizeOf(messages));
+      sent = size;
       let next = messages;
       // The opening survives every compaction, so past it and one summary there is nothing to compact
       if (size > budget && messages.length > 2) {
+        // One long call that sends nothing until it is done, and bounds itself
+        quiet.hold();
         const summary = await compact(model.model, agentTools, messages, {
           signal: options.signal,
           budget,
-        });
+        }).finally(quiet.release);
         logger.debug(
           `compacted ${messages.length} messages at ${size} tokens (budget ${budget})`,
         );
+        // Which files the job has is read off its rows and the disk, never asked of the model
+        const text = `${summary.text}${await filesUnder(row?.id ?? null, messages, scratch)}`;
         pending.compact = {
           type: "compact",
-          text: summary.text,
+          text,
           usage: summary.usage,
           messages: messages.length,
           tokens: size,
         };
-        next = [messages[0], { role: "user", content: summary.text }];
+        next = [messages[0], { role: "user", content: text }];
       }
 
       // Notes said during the last step go in as user turns after everything
@@ -328,9 +370,15 @@ export async function runBot(
   // Step messages arrive by callback and the stream by loop, with no ordering
   // between them: the callback queues, the loop takes at `finish-step`.
   const steps = stepQueue();
+  // The job stopping and the model going quiet end the stream the same way;
+  // which of the two it was is read at `abort`
+  const stop = options.signal
+    ? AbortSignal.any([options.signal, quiet.signal])
+    : quiet.signal;
+  quiet.touch();
   const result = await agent.stream({
     messages: history,
-    abortSignal: options.signal,
+    abortSignal: stop,
     onStepEnd: (step) =>
       steps.push({
         messages: step.response.messages,
@@ -349,11 +397,33 @@ export async function runBot(
   let stepAt = -1;
   /** What the bot wants changed about its own instructions (bot.tool `notes`); applied after the answer. */
   let wants: string | null = null;
+  /** Why the latest step ended; prose cut off at the output limit is not an answer. */
+  let finish: FinishReason | null = null;
+  /** Tool calls still running: the model is not expected to send anything meanwhile. */
+  const working = new Set<string>();
+
+  /** A break as the runner takes it; an overflow carries where to compact next time. */
+  const failed = (cause: unknown): Extract<BotEvent, { type: "error" }> => {
+    const failure = modelFailureOf(cause);
+    const message = modelErrorToString(cause);
+    if (failure !== "overflow") return { type: "error", message, failure };
+    const shrunk = Math.floor(
+      Math.min(budget, sent || budget) * BOT_RUN.overflowShrink,
+    );
+    return {
+      type: "error",
+      message,
+      failure,
+      budget: Math.max(COMPACT_AT_MIN, shrunk),
+    };
+  };
 
   // An abort ends the stream without a finish; release any waiting take.
-  options.signal?.addEventListener("abort", () => steps.end(), { once: true });
+  stop.addEventListener("abort", () => steps.end(), { once: true });
   try {
     for await (const part of result.fullStream) {
+      // Anything at all is the model still there
+      quiet.touch();
       switch (part.type) {
         case "start-step":
           stepAt += 1;
@@ -399,6 +469,15 @@ export async function runBot(
             };
             wants = notesRequestOf(part.input);
           }
+          // A tool at work sends nothing, and bounds itself (bash, connected
+          // tools, a borrowed bot's own watch); `ask_thursday` never runs
+          if (
+            !part.providerExecuted &&
+            part.toolName !== TOOL_NAMES.ask_thursday
+          ) {
+            working.add(part.toolCallId);
+            quiet.hold();
+          }
           await emit({
             type: "tool",
             id: part.toolCallId,
@@ -409,6 +488,7 @@ export async function runBot(
         }
 
         case "tool-result":
+          if (working.delete(part.toolCallId)) quiet.release();
           // A refused answer is not the ending, unless the step cap ends the run
           // on this step; then the text still reaches the user, as a stop.
           if (
@@ -431,17 +511,39 @@ export async function runBot(
           });
           break;
 
+        case "tool-error":
+          if (working.delete(part.toolCallId)) quiet.release();
+          // The model reads it and carries on; the row shows it now rather than
+          // when the step ends
+          await emit({
+            type: "tool-result",
+            id: part.toolCallId,
+            name: part.toolName,
+            output: modelErrorToString(part.error),
+            error: true,
+          });
+          break;
+
         case "finish-step": {
+          finish = part.finishReason;
           const step = await steps.take();
           if (step) await emit({ type: "step", ...step, budget });
           break;
         }
 
-        case "error":
+        case "abort":
+          // The job was stopped: whoever stopped it writes the row (bot.runner)
+          if (options.signal?.aborted) return;
+          // Otherwise the model went quiet (silenceWatch)
           await emit({
             type: "error",
-            message: modelErrorToString(part.error),
+            message: part.reason ?? "The model stopped sending.",
+            failure: "transient",
           });
+          return;
+
+        case "error":
+          await emit(failed(part.error));
           return;
 
         default:
@@ -450,12 +552,15 @@ export async function runBot(
     }
   } finally {
     steps.end();
+    quiet.end();
   }
 
   try {
     await result.response;
   } catch (cause) {
-    await emit({ type: "error", message: modelErrorToString(cause) });
+    // Stopped between steps: whoever stopped it writes the row
+    if (options.signal?.aborted) return;
+    await emit(failed(cause));
     return;
   }
 
@@ -480,13 +585,24 @@ export async function runBot(
     return;
   }
 
+  // The provider's filter stopped the answer: there is nothing to continue past
+  if (finish === "content-filter") {
+    await emit({
+      type: "error",
+      message: "The provider's content filter stopped the response.",
+      failure: "fatal",
+    });
+    return;
+  }
+
   // The sdk stops on a step with no tool call regardless of `stopWhen`. Prose
-  // there is an answer given without the tool and ends the job like one; nothing
-  // at all, or prose on the step the cap narrowed to `answer`, is a stop.
+  // there is an answer given without the tool and ends the job like one;
+  // nothing at all, prose cut off at the output limit, or prose on the step the
+  // cap narrowed to `answer`, is a stop — continuing picks up where it broke off.
   await emit({
     type: "answer",
     text: last ?? "Stopped without handing anything back.",
-    stopped: last === null || stepAt >= MAX_STEPS - 1,
+    stopped: last === null || finish === "length" || stepAt >= MAX_STEPS - 1,
   });
 }
 
@@ -562,11 +678,47 @@ const summaryWords = (budget: number) => {
 const COMPACT_PREAMBLE =
   "Everything between the first message and here was compacted. Below is your own summary of it; carry on from the first message and this.";
 
+/** Heads the file list under a compaction summary (filesUnder). */
+const FILES_HEAD =
+  "Files this job has on disk now — open one rather than fetching again what is in it:";
+
+/**
+ * The files a job has on disk, as lines under its compaction summary. Read off the
+ * job's rows — every `write_file`, its borrowed bots' included — and off its folder,
+ * never asked of the model: a path a summary leaves out is work the next steps redo.
+ * A borrowed run has no rows of its own and reads the messages it is compacting.
+ * A listing that fails costs the list, never the compaction.
+ */
+async function filesUnder(
+  taskId: string | null,
+  messages: ModelMessage[],
+  folder: string | null,
+): Promise<string> {
+  try {
+    const written = taskId
+      ? await listWrittenPaths(taskId)
+      : writtenPathsIn(messages.map((message) => message.content));
+    const files = await filesOnDisk(written, folder);
+    if (!files.length) return "";
+    const shown = files.slice(-BOT_RUN.compactFiles);
+    const older = files.length - shown.length;
+    const lines = shown.map((path) => `- ${path}`);
+    if (older) lines.unshift(`- …and ${older} older ones`);
+    return `\n\n${FILES_HEAD}\n${lines.join("\n")}`;
+  } catch (cause) {
+    logger.warn("files under the summary could not be listed", cause);
+    return "";
+  }
+}
+
 /**
  * The model summarizes its own context and continues from the summary. Tools
  * are passed with calling off: providers refuse a history of tool calls
- * without the tools that made them. A failure throws and the runner closes
- * the run as `failed`; the thread stays.
+ * without the tools that made them. A context too long to summarise whole —
+ * the very thing a compaction is for — is tried once more without the tool
+ * calls and results but the last few. A failure throws with its cause kept:
+ * the runner parks what a retry or a smaller budget can fix (bot.runner
+ * parkTask) and fails the rest; the thread stays.
  */
 async function compact(
   model: LanguageModel,
@@ -574,36 +726,65 @@ async function compact(
   messages: ModelMessage[],
   options: { signal?: AbortSignal; budget: number },
 ): Promise<{ text: string; usage: TokenUsage }> {
+  let failure: unknown;
   try {
-    const { text, usage } = await generateText({
-      model,
-      tools,
-      toolChoice: "none",
-      messages: [
-        ...messages,
-        {
-          role: "user",
-          content: compactInstructions(summaryWords(options.budget)),
-        },
-      ],
-      abortSignal: options.signal,
-    });
-    const summary = text.trim();
-    if (summary) {
-      return {
-        text: `${COMPACT_PREAMBLE}\n\n${summary}`,
-        usage: usageOf(usage),
-      };
-    }
+    return await summarize(model, tools, messages, options);
   } catch (cause) {
     if (options.signal?.aborted) throw cause;
-    throw new Error(
-      `Could not compact the context (${modelErrorToString(cause)}).`,
-    );
+    failure = cause;
+  }
+  if (modelFailureOf(failure) === "overflow") {
+    // pruneMessages drops a call together with its result, so the thread stays whole
+    const lighter = pruneMessages({
+      messages,
+      toolCalls: "before-last-4-messages",
+      emptyMessages: "remove",
+    });
+    try {
+      return await summarize(model, tools, lighter, options);
+    } catch (cause) {
+      if (options.signal?.aborted) throw cause;
+      failure = cause;
+    }
   }
   throw new Error(
-    "The summary of the context came back empty, so there is nothing to carry on from.",
+    `Could not compact the context (${modelErrorToString(failure)}).`,
+    { cause: failure },
   );
+}
+
+/** One summarising call. Nothing streams back, so its whole length is one silence (config BOT_RUN.silenceMs). */
+async function summarize(
+  model: LanguageModel,
+  tools: ToolSet,
+  messages: ModelMessage[],
+  options: { signal?: AbortSignal; budget: number },
+): Promise<{ text: string; usage: TokenUsage }> {
+  const { text, usage } = await generateText({
+    model,
+    tools,
+    toolChoice: "none",
+    messages: [
+      ...messages,
+      {
+        role: "user",
+        content: compactInstructions(summaryWords(options.budget)),
+      },
+    ],
+    abortSignal: options.signal,
+    timeout: BOT_RUN.silenceMs,
+  });
+  const summary = text.trim();
+  if (!summary) {
+    // A blank reply is the model's hiccup, not the job's: worth another try
+    throw Object.assign(
+      new Error(
+        "The summary of the context came back empty, so there is nothing to carry on from.",
+      ),
+      { isRetryable: true },
+    );
+  }
+  return { text: `${COMPACT_PREAMBLE}\n\n${summary}`, usage: usageOf(usage) };
 }
 
 /** Step messages handed from `onStepEnd` to the loop. A take that arrives before the push waits. */
@@ -634,6 +815,51 @@ function stepQueue() {
     end() {
       ended = true;
       for (const waiter of waiting.splice(0)) waiter(null);
+    },
+  };
+}
+
+/**
+ * The clock behind `BOT_RUN.silenceMs`: aborts its signal once nothing has
+ * arrived for that long. Held while something other than the model does the
+ * work — a tool, a compaction — since those send nothing and bound themselves;
+ * `touch` starts it over. Not the sdk's `timeout.chunkMs`: that clock keeps
+ * running while tools execute, so a long command or a borrowed bot's whole run
+ * would trip it.
+ */
+function silenceWatch(ms: number) {
+  const stop = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let held = 0;
+  let ended = false;
+  const arm = () => {
+    clearTimeout(timer);
+    timer = undefined;
+    if (ended || held > 0) return;
+    timer = setTimeout(() => {
+      stop.abort(
+        new DOMException(
+          `The model sent nothing for ${Math.round(ms / 60_000)} minutes.`,
+          "TimeoutError",
+        ),
+      );
+    }, ms);
+  };
+  return {
+    signal: stop.signal,
+    touch: arm,
+    hold: () => {
+      held += 1;
+      arm();
+    },
+    release: () => {
+      held = Math.max(0, held - 1);
+      arm();
+    },
+    /** The run is over; nothing is watched any more. */
+    end: () => {
+      ended = true;
+      arm();
     },
   };
 }
@@ -746,6 +972,9 @@ function withAskBot(
             },
             {
               ...asker.options,
+              // This call's signal, not the job's: a stream that ends — the job
+              // stopping, or the model going quiet — ends the part it waited on
+              signal: call.abortSignal ?? asker.options.signal,
               depth: asker.depth + 1,
               parent: call.toolCallId,
               taskId,
@@ -846,6 +1075,8 @@ async function answerBack(input: {
         },
       ],
       abortSignal: input.signal,
+      // One-shot: nothing streams back, so its whole length is one silence
+      timeout: BOT_RUN.silenceMs,
     });
     return {
       text:
@@ -868,15 +1099,23 @@ async function answerBack(input: {
  * each tool call with its result, so a resumed run carries on the conversation
  * it was having and a provider's prefix cache still matches from its first call.
  * The one repair is a call whose result never arrived — the run was stopped
- * between the two (a closed browser pauses every run, a restart abandons them)
- * and a call with no result is refused outright — which gets one saying so,
- * right after it. Nothing else changes: `compact` is the one thing that
- * shortens a bot's own thread.
+ * between the two (a closed browser, a restart, a model that went quiet) and a
+ * call with no result is refused outright — which gets one saying so, right
+ * after it. An `ask_bot` call cut off that way carries what the borrowed bot
+ * had written by then, so its part is picked up rather than asked for again
+ * from nothing. Nothing else changes: `compact` is the one thing that shortens
+ * a bot's own thread.
  */
-export function resumeThread(thread: ModelMessage[]): ModelMessage[] {
+export function resumeThread(
+  thread: ModelMessage[],
+  /** Borrowed bots' last lines, by `ask_bot` call id (task.query listBorrowedTails). */
+  borrowed: ReadonlyMap<string, { bot: string; tail: string }> = new Map(),
+): ModelMessage[] {
   const answered = new Set<string>();
   for (const message of thread) {
-    if (message.role !== "tool") continue;
+    // A provider-run tool (web search) answers inside the assistant message
+    if (message.role !== "tool" && message.role !== "assistant") continue;
+    if (typeof message.content === "string") continue;
     for (const part of message.content) {
       if (part.type === "tool-result") answered.add(part.toolCallId);
     }
@@ -905,7 +1144,10 @@ export function resumeThread(thread: ModelMessage[]): ModelMessage[] {
               type: "tool-result" as const,
               toolCallId: part.toolCallId,
               toolName: part.toolName,
-              output: { type: "text" as const, value: INTERRUPTED },
+              output: {
+                type: "text" as const,
+                value: interrupted(part, borrowed),
+              },
             },
           ]
         : [],
@@ -918,6 +1160,19 @@ export function resumeThread(thread: ModelMessage[]): ModelMessage[] {
 /** What a resumed run reads where a call's result never arrived (resumeThread). */
 const INTERRUPTED =
   "No result: the run was stopped before this call returned. Check what it did before relying on it.";
+
+/** INTERRUPTED, or for a borrowed bot's part, what it had written when the run stopped. */
+function interrupted(
+  call: { toolCallId: string; toolName: string },
+  borrowed: ReadonlyMap<string, { bot: string; tail: string }>,
+): string {
+  const cut =
+    call.toolName === TOOL_NAMES.ask_bot
+      ? borrowed.get(call.toolCallId)
+      : undefined;
+  if (!cut) return INTERRUPTED;
+  return `No result: the run was stopped before ${cut.bot} answered, and they are not working on it any more. What they had written by then:\n\n${cut.tail}\n\nCheck what they did before relying on it, then finish the part yourself or hand them what is left.`;
+}
 
 /** Just the text out of the shape a tool result reached the model in (ai-sdk ToolResultOutput). */
 function outputText(output: unknown): string {

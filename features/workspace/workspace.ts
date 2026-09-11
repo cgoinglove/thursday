@@ -17,7 +17,7 @@ import {
   WORKSPACE_KEEP,
 } from "@/config";
 import { logger } from "@/lib/logger";
-import { createSandBox, type Sandbox } from "@/lib/sandbox";
+import { createSandBox, type Sandbox, walkFiles } from "@/lib/sandbox";
 
 /**
  * Where the sandbox is opened. The app's own skills live outside the
@@ -330,6 +330,38 @@ export async function openWorkspace(): Promise<Sandbox> {
     spill: { dir: PATHS.output, ...TOOL_OUTPUT },
     toolPath: TOOL_PATH,
   });
+}
+
+/** Files read off one job's folder at most; a folder of generated files is not a list anyone reads. */
+const JOB_FOLDER_WALK = 500;
+
+/**
+ * What of a job's files is on disk: the paths it gave `write_file` that still exist,
+ * and every file under its own folder however it got there — a shell command, a
+ * download, a screenshot. Workspace-relative where inside the workspace, each once,
+ * the most recently changed last (bot.run filesUnder).
+ */
+export async function filesOnDisk(
+  written: string[],
+  folder: string | null,
+): Promise<string[]> {
+  const candidates = written.map((path) => resolve(WORKSPACE, path));
+  if (folder) {
+    let walked = 0;
+    for await (const full of walkFiles(join(WORKSPACE, folder))) {
+      candidates.push(full);
+      walked += 1;
+      if (walked >= JOB_FOLDER_WALK) break;
+    }
+  }
+  const found = new Map<string, number>();
+  for (const full of candidates) {
+    const info = await stat(full).catch(() => null);
+    if (!info?.isFile()) continue;
+    const rel = relative(WORKSPACE, full);
+    found.set(rel && !rel.startsWith("..") ? rel : full, info.mtimeMs);
+  }
+  return [...found].sort((a, b) => a[1] - b[1]).map(([path]) => path);
 }
 
 /**

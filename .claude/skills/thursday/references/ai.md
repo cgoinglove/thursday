@@ -176,16 +176,47 @@ prompt, a tool description, the bot loop, or how memory is kept.
   this is how the work goes here and only that bot reads it. The screen shows it under the
   bot's face, where it reads as part of who the bot is rather than one more setting, and can
   only throw it away — a line the user typed would come back rewritten by the next pass.
-- **A run records its own ending; nothing else polls for it.** `drive` marks the task `failed` in its
-  own `catch`, and that write is durable because writes are serialised — the zombie rows that started
-  this were the failure write losing to `SQLITE_BUSY`, not a missing watchdog. The only reconcile is
-  at boot (`bot.runner` `sweepTasks`), where every `running` row provably belongs to a dead process;
-  it lands them as `waiting` with the one continue option, the shape a step limit already leaves, so
-  the thread stays whole and answering resumes it. A run that ends badly also writes one line into
-  its own thread (`ThreadWriter.note`, a user row marked `note`): a thread that simply stops shows a
-  tool call with no answer, and neither the room nor a resumed run can say why. `note` is separate
-  from `compact` on purpose — how a row reads and where a resume starts are two facts, and a break
-  marked `compact` would throw the thread away.
+- **A run records its own ending; nothing else polls for it.** `drive` writes the ending in its own
+  `catch`, and that write is durable because writes are serialised — the zombie rows that started
+  this were the failure write losing to `SQLITE_BUSY`, not a missing watchdog — and tried again
+  (`writeEnding`), because a miss is only found at the next boot. The only reconcile is at boot
+  (`bot.runner` `sweepTasks`), where every `running` row provably belongs to a dead process; it parks
+  them (below), so the thread stays whole and the job picks itself back up. A run that ends badly
+  also writes one line into its own thread (`ThreadWriter.note`, a user row marked `note`): a thread
+  that simply stops shows a tool call with no answer, and neither the room nor a resumed run can say
+  why. `note` is separate from `compact` on purpose — how a row reads and where a resume starts are
+  two facts, and a break marked `compact` would throw the thread away.
+- **Who stopped a run decides who starts it again.** The bot stopping — the step cap, prose cut off
+  at the output limit (`finishReason` `length`), an empty reply — waits for Continue. A person
+  stopping it, or a question, waits for a person. A `fatal` failure (`model.ts` `modelFailureOf`: a
+  key, the credit, a model id, a content filter) is `failed`. The app stopping it is the rest — a
+  restart, a closed browser, a shutdown, a model call a retry or a compaction fixes — and `parkTask`
+  handles all of them one way: a note in the thread saying why and that anything under way may be
+  half done; `waiting` with the continue option and `pending.auto`; and a timer that resumes it, with
+  no turn added, once a browser is on the app (`resumeTask`; `presence.onBack` calls
+  `resumeStoppedTasks`). A failed call waits first (`BOT_RUN.retryAfterMs`). A refused context also
+  lowers the job's `contextBudget` (`BOT_RUN.overflowShrink`), which a resume never runs above, so
+  the resume compacts first. The count that stops a crash loop is read off the thread, not stored:
+  `countStopsSinceSpoken` counts non-compact notes back to the last row a person wrote, and past
+  `BOT_RUN.autoResumes` the park waits for a person instead. A parked job is not relayed to the call
+  and never rings it (`TaskAsk.auto`): it is running again in a moment. Runs start with no `after()`,
+  because `onBack` fires inside the event stream's own request, and an `after` callback there waits
+  for that stream to close.
+- **Nothing a run waits on is unbounded.** A model call that sends nothing for `BOT_RUN.silenceMs` is
+  stopped (`bot.run` `silenceWatch`) and parked as `transient`. The sdk's `timeout.chunkMs` was not
+  used: its clock keeps running while tools execute, so a 180-second command or a borrowed bot's
+  whole run would trip it. The watch is held while a tool call is outstanding or a compaction runs,
+  and those bound themselves: `bash` at `EXEC_TIMEOUT_MS`, then SIGKILL to the group after
+  `EXEC_KILL_GRACE_MS` (a command that ignored SIGTERM held its step, and `pauseTasks`, for good);
+  connected tools at `CONNECTED_TOOL_TIMEOUT_MS` (the MCP client waits forever given no signal); a
+  borrowed bot by its own watch, on the `ask_bot` call's signal, so a parent stream that ends ends it.
+  A timeout arrives as an `abort` stream part, not an `error`, and `result.response` still resolves
+  when a step was recorded — unhandled, a timed-out run would be written as `done`. One-shot calls
+  (compaction, `answerBack`, the notes pass) take `silenceMs` as their whole timeout. The sdk's
+  `streamRetries` is not among `ToolLoopAgent`'s settings, so a provider breaking off mid-answer is a
+  `transient` park like any other failed call. A tool that throws is drawn at once as an
+  `error-text` result rather than when its step ends. `ThreadWriter` closes when its
+  run returns, so a borrowed run still unwinding cannot write into a thread a resume has taken.
 - **An event the call seam has no case for is logged, not dropped** (`lib/realtime/realtime.driver`).
   Providers speak this protocol with their own additions, and a missing case is invisible: the event
   goes nowhere and the conversation quietly loses what it carried. A user turn whose transcription
@@ -225,9 +256,11 @@ prompt, a tool description, the bot loop, or how memory is kept.
   gateway's row for the same model) — and `BOT_RUN.compactAt` when it cannot. The fraction is not
   tidiness: the summarising call sends the whole context plus its instructions and must get a summary
   back, so it needs room above the threshold that triggered it. The fallback, 500k, assumes the window a current
-  model carries: a smaller model missing from both the catalog and the shelf can reach its limit first. Nothing catches an overflow
-  today: the ai sdk has no context-length error class, so a provider's refusal arrives as a plain
-  `APICallError` and kills the run.
+  model carries: a smaller model missing from both the catalog and the shelf can reach its limit first. The ai
+  sdk has no context-length error class, so a provider's refusal is read off its words (`model.ts`
+  `modelFailureOf`), lowers that job's own threshold, and parks the job to compact on resume (above).
+  A summary itself refused as too long is tried once more without the older tool calls and results
+  (`pruneMessages`, which drops a call together with its result).
   The Bots screen fills the number in from the same two helpers (`model.schema` contextWindowOf,
   compactAtFor), in thousands of tokens, and fills it in again whenever the model is changed there —
   a number saved once and never refilled outlives the model it was worked out for.
@@ -241,8 +274,11 @@ prompt, a tool description, the bot loop, or how memory is kept.
   a call whose result never arrived because the run was stopped between the two — a closed browser
   pauses every run, a restart abandons them, and an `ask_bot` call waits minutes on the borrowed run —
   gets a result saying so, because a call with no result is refused outright (the ai sdk has
-  `MissingToolResultsError` for it). Talking to a running job does not do this: it is queued and read
-  before the next step. A thread too big for the model is `compact`'s job.
+  `MissingToolResultsError` for it). An `ask_bot` call cut off that way carries what the borrowed bot
+  had written by then (`task.query` `listBorrowedTails`: its last paragraphs and the tool it reached
+  for next), so the part is carried on rather than asked for again from nothing. Talking to a running
+  job does not do this: it is queued and read before the next step. A thread too big for the model is
+  `compact`'s job.
 - **Every seat opens on the same two-part message.** The first message a bot reads is who is who on
   the job, then the chain: the job as Thursday handed it, the call it came from verbatim, and one pair
   of sections per hand-off since — what the handing bot has done and why, then the part
@@ -265,3 +301,8 @@ prompt, a tool description, the bot loop, or how memory is kept.
   the first message — in the run (`prepareStep` keeps `messages[0]`) and on a resume (`listThread`
   reads seq 0, then the last compact row on). The job and the call are read verbatim for the life of
   the job, so the summary is told not to restate them, only where the job stands against them.
+  Under the summary the app lists the files the job has on disk (`bot.run` `filesUnder`): every path
+  it gave `write_file`, read off its rows, and everything in its own folder, read off the disk —
+  rather than trusting the model to name them, since a path a summary drops is work the next steps
+  redo. Nothing more is asked of the model at compaction. Whether bots still fetch again after one
+  is to be counted from stored threads before the summary is asked to save anything itself.

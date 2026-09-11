@@ -221,15 +221,23 @@ export class McpManager {
     return attempt;
   }
 
-  /** Run a tool, opening or reviving the session if needed. Every call pushes the idle timer back. */
+  /**
+   * Run a tool, opening or reviving the session if needed. Every call pushes the idle timer back.
+   * `signal` is the only bound: the client waits forever when given none.
+   */
   async callTool(
     name: string,
     tool: string,
     args?: Record<string, unknown>,
+    signal?: AbortSignal,
   ): Promise<CallToolResult> {
     const client = await this.ensureClient(name);
     try {
-      const result = await client.callTool({ name: tool, arguments: args });
+      const result = await client.callTool({
+        name: tool,
+        arguments: args,
+        options: signal ? { signal } : undefined,
+      });
       this.touch(name);
       return result;
     } catch (error) {

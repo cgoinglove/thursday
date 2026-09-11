@@ -82,7 +82,7 @@ export type TaskView = {
   /** Text it came back with; only after it returned. */
   outcome: string | null;
   /** What it is asking while `waiting`. */
-  ask: { question: string; options: string[] } | null;
+  ask: Task["ask"];
   /** Whether the user has had the ending (Task `seen`). */
   seen: boolean;
   /** Burned so far. */

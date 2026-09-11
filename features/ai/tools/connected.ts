@@ -1,5 +1,5 @@
 import z from "zod";
-import { STUDIO_SERVER } from "@/config";
+import { CONNECTED_TOOL_TIMEOUT_MS, STUDIO_SERVER } from "@/config";
 import {
   McpAuthRequiredError,
   mcpManager,
@@ -80,6 +80,8 @@ export async function findConnectedSchemas(
 /**
  * Run one, wherever it lives. Long answers are folded (lib/sandbox fold). Failures are reported,
  * not thrown; a server that wants the user to sign in first comes back as its own status with the url.
+ * One deadline covers both sources (config CONNECTED_TOOL_TIMEOUT_MS): nothing behind this door
+ * bounds itself, and a tool that never answers would hold the job's step for good.
  */
 export async function callConnectedTool(
   sandbox: Sandbox,
@@ -88,11 +90,15 @@ export async function callConnectedTool(
   args: Record<string, unknown> | undefined,
   abortSignal?: AbortSignal,
 ): Promise<McpCallOutcome> {
+  const deadline = AbortSignal.timeout(CONNECTED_TOOL_TIMEOUT_MS);
+  const signal = abortSignal
+    ? AbortSignal.any([abortSignal, deadline])
+    : deadline;
   try {
     const text =
       server === STUDIO_SERVER
-        ? await callStudioTool(sandbox, name, args, abortSignal)
-        : await callMcpTool(server, name, args);
+        ? await callStudioTool(sandbox, name, args, signal)
+        : await callMcpTool(server, name, args, signal);
     if (typeof text !== "string") return text;
     return {
       status: "ok",
@@ -104,6 +110,12 @@ export async function callConnectedTool(
         status: "auth_required",
         server,
         authorizationUrl: error.authorizationUrl,
+      };
+    }
+    if (deadline.aborted && !abortSignal?.aborted) {
+      return {
+        status: "error",
+        text: `${name} on ${server} gave no answer in ${CONNECTED_TOOL_TIMEOUT_MS / 60_000} minutes and was given up on.`,
       };
     }
     return { status: "error", text: errorToString(error) };
@@ -131,9 +143,10 @@ async function callMcpTool(
   server: string,
   name: string,
   args: Record<string, unknown> | undefined,
+  signal: AbortSignal,
 ): Promise<string | McpCallOutcome> {
   const outcome = flattenToolResult(
-    await mcpManager.callTool(server, name, args),
+    await mcpManager.callTool(server, name, args, signal),
   );
   return outcome.status === "ok" ? outcome.text : outcome;
 }

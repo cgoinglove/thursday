@@ -6,7 +6,7 @@ import {
   tool,
 } from "ai";
 import * as z from "zod";
-import { BOT_NOTES } from "@/config";
+import { BOT_NOTES, BOT_RUN } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { logger } from "@/lib/logger";
 import { createKeyedLock } from "@/lib/queue";
@@ -57,6 +57,8 @@ export async function keepNotes(input: KeepNotesInput): Promise<string | null> {
         model: input.model,
         messages: [{ role: "user", content: briefing(current, input.want) }],
         abortSignal: input.signal,
+        // Nothing streams back from a one-shot call, so its whole length is one silence
+        timeout: BOT_RUN.silenceMs,
         tools: {
           [TOOL_NAMES.update_notes]: tool({
             description: "Hand back the updated prompt.",

@@ -138,6 +138,9 @@ const child = spawn(process.execPath, [join(APP, "server.js")], {
     // This machine only. A voice agent with a shell is not a thing to expose.
     HOSTNAME: process.env.HOSTNAME || "127.0.0.1",
     NODE_ENV: "production",
+    // The server parks running jobs on a stop before it exits (instrumentation);
+    // without this, Next exits on the signal first
+    NEXT_MANUAL_SIG_HANDLE: "true",
   },
 });
 

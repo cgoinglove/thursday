@@ -8,6 +8,8 @@ import {
   type experimental_generateVideo,
   type ImageModel,
   type LanguageModel,
+  NoOutputGeneratedError,
+  RetryError,
   type SpeechModel,
   type ToolSet,
   type TranscriptionModel,
@@ -66,6 +68,92 @@ export function modelErrorToString(cause: unknown): string {
       ? ` ${clip(body, PROVIDER_BODY_MAX)}`
       : "";
   return `${cause.message}${status}${said}`;
+}
+
+/**
+ * What a failed model call means for the run that made it (bot.runner): `transient`
+ * is trouble a moment fixes — a rate limit, an overload, a dropped connection, a call
+ * that went quiet; `overflow` is a context the model refused as too long, which a
+ * compaction fixes; anything else is `fatal`, a person's to act on (a key, the credit,
+ * a model id). The sdk wraps retries and causes, so the whole chain is read.
+ */
+export type ModelFailure = "transient" | "overflow" | "fatal";
+
+/** Connection failures by the code Node or undici gives them. */
+const NETWORK_CODES = new Set([
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "EPIPE",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "ENETUNREACH",
+  "EHOSTUNREACH",
+  "UND_ERR_SOCKET",
+  "UND_ERR_CLOSED",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+  "UND_ERR_BODY_TIMEOUT",
+]);
+
+/**
+ * How providers word a context too long for the model; the sdk has no error class for
+ * it. Read off a 400 or a 413, or off an error with no status of its own — a retry
+ * wrapper repeats the words of the one it wraps.
+ */
+const TOO_LONG =
+  /context[ _-]?(length|window)|maximum context|prompt is too long|too many (input )?tokens|input token count|exceeds? the (maximum|model'?s?) (context|input|prompt|number of tokens)|maximum prompt length|request (entity )?too large/i;
+
+export function modelFailureOf(cause: unknown): ModelFailure {
+  let transient = false;
+  for (const error of causeChain(cause)) {
+    const { statusCode, isRetryable, code, name, message } = error as {
+      statusCode?: unknown;
+      isRetryable?: unknown;
+      code?: unknown;
+      name?: unknown;
+      message?: unknown;
+    };
+    const body = APICallError.isInstance(error)
+      ? (error.responseBody ?? "")
+      : "";
+    if (
+      (statusCode === undefined || statusCode === 400 || statusCode === 413) &&
+      TOO_LONG.test(`${String(message ?? "")} ${body}`)
+    ) {
+      return "overflow";
+    }
+    if (
+      isRetryable === true ||
+      name === "TimeoutError" ||
+      NoOutputGeneratedError.isInstance(error) ||
+      (typeof statusCode === "number" &&
+        (statusCode === 408 ||
+          statusCode === 409 ||
+          statusCode === 429 ||
+          statusCode >= 500)) ||
+      (typeof code === "string" && NETWORK_CODES.has(code))
+    ) {
+      transient = true;
+    }
+  }
+  return transient ? "transient" : "fatal";
+}
+
+/** An error and everything it wraps — its `cause`, each attempt of a retry. */
+function causeChain(cause: unknown): object[] {
+  const chain: object[] = [];
+  const queue: unknown[] = [cause];
+  while (queue.length && chain.length < 12) {
+    const next = queue.shift();
+    if (typeof next !== "object" || next === null || chain.includes(next)) {
+      continue;
+    }
+    chain.push(next);
+    if (RetryError.isInstance(next)) queue.push(...next.errors);
+    if ("cause" in next) queue.push(next.cause);
+  }
+  return chain;
 }
 
 /** A resolved model. Provider-native tools (web search) are built off the provider instance, not the model, so both come out of one switch. */

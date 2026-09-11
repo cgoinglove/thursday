@@ -192,6 +192,19 @@ export const TASK_HISTORY_PAGE = PAGE_SIZE;
 export const TASK_CONTINUE = "Continue";
 
 /**
+ * What a `waiting` job waits on (database task.pending). `toolCallId` is the
+ * `ask_thursday` call the answer resolves, null when the app stopped the run and
+ * offers to continue. `auto` marks a stop the app picks back up by itself once a
+ * browser is on the app, not before `retryAt` (epoch ms) (bot.runner parkTask).
+ */
+export type TaskPending = {
+  toolCallId: string | null;
+  options: string[];
+  auto?: boolean;
+  retryAt?: number;
+};
+
+/**
  * True when the app stopped the job (step cap, closed browser, restart) rather
  * than the bot asking something. Why it stopped is in the outcome text; every
  * list calls it waiting on you, because the answer is the same click.
@@ -296,10 +309,15 @@ export function taskActivity(lines: TaskLine[], max = 120): string | null {
   return doing ? clip(doing, max) : null;
 }
 
-/** What a `waiting` task asks: question from the row's `outcome`, options from `pending`. */
+/**
+ * What a `waiting` task asks: question from the row's `outcome`, options from
+ * `pending`. `auto` is a stop the app picks back up by itself (TaskPending), so
+ * nobody is told about it and nobody is rung for it.
+ */
 export const TaskAskSchema = z.object({
   question: z.string(),
   options: z.string().array(),
+  auto: z.boolean(),
 });
 
 export type TaskAsk = z.infer<typeof TaskAskSchema>;

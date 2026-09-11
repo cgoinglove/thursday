@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve as pathResolve, relative, sep } from "node:path";
-import { EXEC_TIMEOUT_MS } from "@/config";
+import { EXEC_KILL_GRACE_MS, EXEC_TIMEOUT_MS } from "@/config";
 
 export type ExecResult = { stdout: string; stderr: string; exitCode: number };
 
@@ -55,6 +55,25 @@ const IGNORE = new Set([
 ]);
 
 /**
+ * Every file under `dir`, skipping dot entries and the folders a build or a
+ * package manager fills (IGNORE). A folder that cannot be read yields nothing.
+ */
+export async function* walkFiles(dir: string): AsyncGenerator<string> {
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const e of entries) {
+    if (IGNORE.has(e.name) || e.name.startsWith(".")) continue;
+    const full = join(dir, e.name);
+    if (e.isDirectory()) yield* walkFiles(full);
+    else if (e.isFile()) yield full;
+  }
+}
+
+/**
  * Environment for every shell the agent runs: nobody watches it, so no pager
  * may stall it, and secrets do not travel to children. playwright-cli runs
  * from here too and needs only a working PATH.
@@ -101,21 +120,6 @@ export const createSandBox = ({
   const res = (p: string) =>
     p.startsWith("/") || /^[A-Za-z]:/.test(p) ? p : pathResolve(cwd, p);
 
-  async function* walk(dir: string): AsyncGenerator<string> {
-    let entries;
-    try {
-      entries = await readdir(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of entries) {
-      if (IGNORE.has(e.name) || e.name.startsWith(".")) continue;
-      const full = join(dir, e.name);
-      if (e.isDirectory()) yield* walk(full);
-      else if (e.isFile()) yield full;
-    }
-  }
-
   // A very simple glob → regex. Only **/, * and ? are supported
   const globToRe = (g: string) =>
     new RegExp(
@@ -148,7 +152,7 @@ export const createSandBox = ({
       const root = res(path);
       const re = globToRe(pattern);
       const out: string[] = [];
-      for await (const f of walk(root)) {
+      for await (const f of walkFiles(root)) {
         const rel = relative(root, f).split(sep).join("/");
         if (re.test(rel) || re.test(f)) out.push(f);
         if (out.length >= limit) break;
@@ -173,15 +177,51 @@ export const createSandBox = ({
         child.stdout?.on("data", (d) => (stdout += d));
         child.stderr?.on("data", (d) => (stderr += d));
 
-        const stop = (why: string) => {
-          stderr += `\n[${why}]`;
+        const group = (name: NodeJS.Signals) => {
           try {
             // A negative pid means the group: the shell and everything under it
-            if (child.pid) process.kill(-child.pid, "SIGTERM");
+            if (child.pid) process.kill(-child.pid, name);
           } catch {
             // Already gone, or no process groups on this platform
-            child.kill("SIGTERM");
+            child.kill(name);
           }
+        };
+
+        let settled = false;
+        let killing: ReturnType<typeof setTimeout> | undefined;
+        let letGo: ReturnType<typeof setTimeout> | undefined;
+
+        const done = async (result: ExecResult) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          clearTimeout(killing);
+          clearTimeout(letGo);
+          signal?.removeEventListener("abort", onAbort);
+          resolve({
+            ...result,
+            stdout: await foldLong(result.stdout, "stdout", cwd, spill),
+            stderr: await foldLong(result.stderr, "stderr", cwd, spill),
+          });
+        };
+
+        const stop = (why: string) => {
+          if (killing || settled) return;
+          stderr += `\n[${why}]`;
+          group("SIGTERM");
+          // A command that ignores SIGTERM would hold its step, and everything
+          // waiting on the job, for good (config EXEC_KILL_GRACE_MS)
+          killing = setTimeout(() => {
+            stderr += "\n[Killed: it did not exit on SIGTERM]";
+            group("SIGKILL");
+            // Output held open by a process that left the group never closes;
+            // what arrived by now is the result
+            letGo = setTimeout(() => {
+              child.stdout?.destroy();
+              child.stderr?.destroy();
+              void done({ stdout, stderr, exitCode: -1 });
+            }, 1_000);
+          }, EXEC_KILL_GRACE_MS);
         };
 
         const timer = setTimeout(
@@ -192,16 +232,6 @@ export const createSandBox = ({
         const onAbort = () => stop("Aborted");
         if (signal?.aborted) onAbort();
         else signal?.addEventListener("abort", onAbort, { once: true });
-
-        const done = async (result: ExecResult) => {
-          clearTimeout(timer);
-          signal?.removeEventListener("abort", onAbort);
-          resolve({
-            ...result,
-            stdout: await foldLong(result.stdout, "stdout", cwd, spill),
-            stderr: await foldLong(result.stderr, "stderr", cwd, spill),
-          });
-        };
 
         child.on("close", (code) =>
           done({ stdout, stderr, exitCode: code ?? -1 }),

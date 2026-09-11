@@ -131,8 +131,8 @@ export const TOOL_OUTPUT = { max: 8_000, head: 5_500, tail: 1_500 };
  *            window cannot be known (model.ts compactBudget asks the gateway's
  *            catalog, and a provider used directly carries one per model). Set
  *            for the windows current models carry: a smaller model the app
- *            knows nothing about can reach its limit first, and nothing catches
- *            that overflow yet.
+ *            knows nothing about can reach its limit first, and its refusal
+ *            then lowers that job's own threshold (`overflowShrink`).
  * - `compactHeadroom`  fraction of a known window used as the budget. Not
  *            tidiness: the summarising call sends the whole context plus its
  *            instructions and must get a summary back, so it needs room above
@@ -144,6 +144,24 @@ export const TOOL_OUTPUT = { max: 8_000, head: 5_500, tail: 1_500 };
  *            seat has no `ask_bot`, and no seat may borrow a bot above it.
  * - `askBack`  `ask_back` calls a borrowed bot gets per part. At zero the tool
  *            is removed rather than left to refuse.
+ * - `silenceMs`  how long a model call may send nothing before the run takes the
+ *            connection for dead and stops (bot.run silenceWatch). Not counted
+ *            while a tool or a compaction does the work; those bound themselves.
+ *            A model that thinks before its first word is silent that long, so
+ *            this is minutes. A one-shot call (compaction, answering `ask_back`,
+ *            the notes pass) sends nothing until it is done and gets it whole.
+ * - `autoResumes`  times a job the app stopped — a restart, a closed browser, a
+ *            model call a retry or a compaction can fix — picks itself back up.
+ *            Counted since a person last spoke to it, so a job that keeps taking
+ *            the server down stops and waits for a person instead.
+ * - `retryAfterMs`  wait before each of those resumes after a failed model
+ *            call, by how many came before. A restart or a closed browser resumes
+ *            as soon as a browser is on the app.
+ * - `overflowShrink`  what a job's compaction threshold is multiplied by when the
+ *            model refuses its context as too long, so the resume compacts first.
+ * - `compactFiles`  files the app lists under a compaction summary — what the job
+ *            has on disk, the newest kept (bot.run filesUnder). Past it the list
+ *            says how many older ones there are; all of them stay in the Workspace.
  */
 export const BOT_RUN = {
   steps: 100,
@@ -152,6 +170,11 @@ export const BOT_RUN = {
   summaryWords: { min: 600, max: 3000, perTokens: 200 },
   depth: 2,
   askBack: 3,
+  silenceMs: 5 * 60_000,
+  autoResumes: 3,
+  retryAfterMs: [30_000, 120_000, 300_000],
+  overflowShrink: 0.6,
+  compactFiles: 40,
 };
 
 /**
@@ -181,11 +204,27 @@ export const BROWSER_VIEWPORT = "700x700";
 export const EXEC_TIMEOUT_MS = 180_000;
 
 /**
+ * How long a shell command that was stopped — its timeout, or its job stopping —
+ * gets to exit on SIGTERM before its whole process group is killed (lib/sandbox).
+ * A command that ignores the first signal would otherwise hold its step, and
+ * everything waiting on the job, for good.
+ */
+export const EXEC_KILL_GRACE_MS = 5_000;
+
+/**
  * Name of the built-in "server" holding media tools (image, TTS, STT, video),
  * exposed to bots like an MCP server (features/ai/tools/connected). Shared so
  * connectors can refuse registering a real server under this name.
  */
 export const STUDIO_SERVER = "studio";
+
+/**
+ * How long one connected tool — an MCP server's, or the studio's — may take before
+ * it is given up on and the model told so (features/ai/tools/connected). Nothing else
+ * bounds it: the MCP client waits forever by default. A video model is the slow end
+ * of what is honest.
+ */
+export const CONNECTED_TOOL_TIMEOUT_MS = 10 * 60_000;
 
 /**
  * How long what a job left behind stays (features/workspace/workspace).

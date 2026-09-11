@@ -377,6 +377,8 @@ export function useThursday() {
     if (!tasks || !calling.current) return;
     for (const task of tasks) {
       if (task.status === "running") continue;
+      // A stop the app picks back up by itself is not news: it runs again in a moment
+      if (task.ask?.auto) continue;
       if (
         task.status !== "waiting" &&
         toDate(task.updatedAt).getTime() < placedAt.current
@@ -702,6 +704,7 @@ export function useThursday() {
     const wants = tasks.filter(
       (task) =>
         !task.seen &&
+        !task.ask?.auto &&
         (asksSomething(task) ||
           (callBack === "any" && task.status !== "running")),
     );

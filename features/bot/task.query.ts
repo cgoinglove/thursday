@@ -1,5 +1,15 @@
 import type { AssistantContent, ModelMessage, ToolContent } from "ai";
-import { and, desc, eq, inArray, isNull, lt, max, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  max,
+  sql,
+} from "drizzle-orm";
 import { appEvents } from "@/app/api/events/app-event.server";
 import { INBOX_FINISHED } from "@/config";
 import { database } from "@/database/db";
@@ -12,6 +22,7 @@ import {
   TASK_HISTORY_PAGE,
   type Task,
   type TaskLine,
+  type TaskPending,
   type TaskStatus,
   type TokenUsage,
 } from "./bot.schema";
@@ -46,7 +57,7 @@ type TaskRow = {
   request: string;
   status: TaskStatus;
   outcome: string | null;
-  pending: { toolCallId: string | null; options: string[] } | null;
+  pending: TaskPending | null;
   seen: boolean;
   inputTokens: number;
   outputTokens: number;
@@ -88,9 +99,11 @@ export async function updateTask(
   patch: Partial<{
     status: TaskStatus;
     outcome: string | null;
-    pending: { toolCallId: string | null; options: string[] } | null;
+    pending: TaskPending | null;
     seen: boolean;
     endedAt: Date | null;
+    /** Where the job compacts from now on; also written at every step (addTaskUsage). */
+    contextBudget: number;
   }>,
 ) {
   await database
@@ -249,6 +262,164 @@ export async function listRunningTaskIds() {
   return rows.map((row) => row.id);
 }
 
+/** Jobs the app parked to pick back up by itself (bot.runner parkTask), and when each may go. */
+export async function listAutoStoppedTasks() {
+  const rows = await database
+    .select({ id: taskTable.id, pending: taskTable.pending })
+    .from(taskTable)
+    .where(eq(taskTable.status, "waiting"));
+  return rows.flatMap((row) =>
+    row.pending?.auto
+      ? [{ id: row.id, retryAt: row.pending.retryAt ?? 0 }]
+      : [],
+  );
+}
+
+/**
+ * How many times the app has stopped this job since a person last said anything
+ * to it: the notes it left in the thread — a break, a park — back to the last row
+ * a person wrote: the opening, an answer, a word to a running job. Read off the
+ * rows rather than kept as a count, so it cannot drift from what the thread shows.
+ */
+export async function countStopsSinceSpoken(taskId: string): Promise<number> {
+  const rows = await database
+    .select({
+      role: taskMessageTable.role,
+      bot: taskMessageTable.bot,
+      note: taskMessageTable.note,
+      compact: taskMessageTable.compact,
+    })
+    .from(taskMessageTable)
+    .where(
+      and(eq(taskMessageTable.taskId, taskId), isNull(taskMessageTable.parent)),
+    )
+    .orderBy(desc(taskMessageTable.seq));
+  let stops = 0;
+  for (const row of rows) {
+    if (row.note) {
+      if (!row.compact) stops += 1;
+      continue;
+    }
+    // A person: the opening and every answer are written with no bot, and a
+    // word to a running job is a user row in the bot's name
+    if (row.bot === null || row.role === "user") break;
+  }
+  return stops;
+}
+
+/** How much of a cut-off borrowed bot's prose a resume carries: its last few paragraphs. */
+const TAIL = { texts: 3, chars: 600 };
+
+/**
+ * What each borrowed bot had written when its `ask_bot` call stopped, by that
+ * call's id: its last few paragraphs, and the tool it reached for after them. A
+ * resumed run reads it where the call's result never arrived (bot.run
+ * resumeThread), so a part cut off half-way is carried on, not asked for afresh.
+ */
+export async function listBorrowedTails(
+  taskId: string,
+): Promise<Map<string, { bot: string; tail: string }>> {
+  const rows = await database
+    .select({
+      parent: taskMessageTable.parent,
+      bot: taskMessageTable.bot,
+      content: taskMessageTable.content,
+    })
+    .from(taskMessageTable)
+    .where(
+      and(
+        eq(taskMessageTable.taskId, taskId),
+        isNotNull(taskMessageTable.parent),
+        eq(taskMessageTable.role, "assistant"),
+      ),
+    )
+    .orderBy(taskMessageTable.seq);
+
+  const calls = new Map<
+    string,
+    { bot: string; texts: string[]; then: string | null }
+  >();
+  for (const row of rows) {
+    if (!row.parent) continue;
+    const call = calls.get(row.parent) ?? {
+      bot: row.bot ?? "",
+      texts: [],
+      then: null,
+    };
+    const content = row.content as AssistantContent;
+    const parts =
+      typeof content === "string"
+        ? [{ type: "text" as const, text: content }]
+        : content;
+    for (const part of parts) {
+      if (part.type === "text" && part.text.trim()) {
+        call.texts.push(part.text.trim());
+        call.then = null;
+      } else if (part.type === "tool-call") {
+        call.then =
+          `${part.toolName} ${toolLine(part.toolName, part.input)}`.trim();
+      }
+    }
+    calls.set(row.parent, call);
+  }
+
+  const tails = new Map<string, { bot: string; tail: string }>();
+  for (const [id, call] of calls) {
+    const tail = [
+      ...call.texts.slice(-TAIL.texts).map((text) => clip(text, TAIL.chars)),
+      call.then ? `Then: ${call.then}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+    if (tail) tails.set(id, { bot: call.bot, tail });
+  }
+  return tails;
+}
+
+/**
+ * Paths a list of message contents gave `write_file`, oldest first and each once; a
+ * path written again moves to the end. A refused write is here too, so whoever shows
+ * them checks the disk (workspace.ts filesOnDisk).
+ */
+export function writtenPathsIn(contents: unknown[]): string[] {
+  const paths = new Set<string>();
+  for (const content of contents) {
+    if (!Array.isArray(content)) continue;
+    for (const part of content as {
+      type?: unknown;
+      toolName?: unknown;
+      input?: unknown;
+    }[]) {
+      if (
+        part.type !== "tool-call" ||
+        part.toolName !== TOOL_NAMES.write_file
+      ) {
+        continue;
+      }
+      const path = (part.input as { path?: unknown } | null)?.path;
+      if (typeof path !== "string" || !path.trim()) continue;
+      paths.delete(path.trim());
+      paths.add(path.trim());
+    }
+  }
+  return [...paths];
+}
+
+/** Every path this job gave `write_file`: its own bot and each bot it borrowed (writtenPathsIn). */
+export async function listWrittenPaths(taskId: string): Promise<string[]> {
+  const rows = await database
+    .select({ content: taskMessageTable.content })
+    .from(taskMessageTable)
+    .where(
+      and(
+        eq(taskMessageTable.taskId, taskId),
+        eq(taskMessageTable.role, "assistant"),
+      ),
+    )
+    .orderBy(taskMessageTable.seq);
+  return writtenPathsIn(rows.map((row) => row.content));
+}
+
 /**
  * Finds a task by id or by exact label (case-insensitive). No looser matching:
  * a miss returns null and the caller lists recent tasks instead.
@@ -365,7 +536,11 @@ function viewOf(row: TaskRow, lines: TaskLine[]): Task {
     ...rest,
     ask:
       row.status === "waiting"
-        ? { question: row.outcome ?? "", options: pending?.options ?? [] }
+        ? {
+            question: row.outcome ?? "",
+            options: pending?.options ?? [],
+            auto: pending?.auto === true,
+          }
         : null,
     tokens: { input: inputTokens, output: outputTokens },
     lines,
