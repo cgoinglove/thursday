@@ -163,16 +163,14 @@ Written by the person this bot works for. Where these and anything above disagre
 ${persona.trim()}`
     : "";
 
-/** A bot reads memory and adds to it; revising and the names the user says are the call's (load-tools), so the chapter is that small. */
+/** A bot only reads memory; every write, revising and the names the user says are the call's (load-tools), so the chapter is that small. */
 function memory(
   index: MemoryIndexEntry[],
   carried: MemoryAlwaysLoaded[],
 ): string {
-  const head = `## Memory
+  const head = `## The user's memory
 
-What the user's assistant knows about them. Thursday keeps it as she talks with them, and everyone reads it.
-
-Yours to read, and to add to when the work turns up something about *them* that outlives the job; what the job itself turned up goes in your answer. It describes the user, not you: how they are named and spoken to is hers to use with them, not yours to borrow. What you learn about the work is not about them — that is your own memory, below.`;
+What Thursday knows about the user, kept as she talks with them. Every bot reads it; none writes to it. Open a note with \`${TOOL_NAMES.memory_recall}\` when the job needs something about them — the address they sign in with, the name to book under — and put what you find out about them in your answer; she decides what to keep. It describes them, not you: how they are named and spoken to is hers to use. What you learn about the work goes in your own memory, below.`;
 
   const alreadyKnown = carried.length
     ? `Already known:

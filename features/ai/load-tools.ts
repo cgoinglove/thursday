@@ -11,10 +11,7 @@ import {
 } from "@/features/ai/tools/bot.tool";
 import { CALL_TOOLS } from "@/features/ai/tools/call.tool";
 import { createMcpTools } from "@/features/ai/tools/mcp.tool";
-import {
-  botRememberTool,
-  createMemoryTools,
-} from "@/features/ai/tools/memory.tool";
+import { createMemoryTools } from "@/features/ai/tools/memory.tool";
 import { createSearchTool } from "@/features/ai/tools/search.tool";
 import { createSkillTools } from "@/features/ai/tools/skills.tool";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
@@ -259,8 +256,7 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     };
   }
 
-  // The runtime is the hand: the call as the user talks, a bot mid-job
-  // (memory.tool botRememberTool records its own).
+  // The call's hand. A bot is handed only the reads from it (below).
   const memory = createMemoryTools(
     "call",
     run.target === "thursday" ? (run.callId ?? null) : null,
@@ -296,11 +292,9 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
   // for `ask_back` in a borrowed bot. `answer` ends every run.
   const skills = await loadSkills(sandbox);
   return {
-    // A bot reads memory and adds to it; the rest of the set is the call's
-    // (memory.tool botRememberTool), and there is no screen to show a note on
+    // A bot only reads memory: every write is the call's, and there is no screen to show a note on
     [TOOL_NAMES.memory_recall]: memory[TOOL_NAMES.memory_recall],
     [TOOL_NAMES.memory_conversation]: memory[TOOL_NAMES.memory_conversation],
-    [TOOL_NAMES.memory_remember]: botRememberTool,
     // Exa when its key is set, else this bot's own model when it can search;
     // absent when neither, and the browser is the way in (search.tool)
     ...(await createSearchTool(run.model, sandbox)),
