@@ -6,7 +6,6 @@ const LINES: Record<string, string> = {
   [TOOL_NAMES.memory_recall]: "Checking your notes",
   [TOOL_NAMES.memory_remember]: "Noting that down",
   [TOOL_NAMES.memory_forget]: "Forgetting that",
-  [TOOL_NAMES.memory_show]: "Putting your notes on screen",
   [TOOL_NAMES.bash]: "Doing it on this computer",
   [TOOL_NAMES.web_search]: "Searching the web",
   [TOOL_NAMES.load_skill]: "Reading how to do this",

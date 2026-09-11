@@ -7,7 +7,6 @@ export const TOOL_NAMES = {
   memory_recall: "memory_recall",
   memory_remember: "memory_remember",
   memory_forget: "memory_forget",
-  memory_show: "memory_show",
   memory_conversation: "memory_conversation",
 
   bash: "bash",

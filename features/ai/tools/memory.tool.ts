@@ -1,6 +1,5 @@
 import { tool } from "ai";
 import * as z from "zod";
-import { appEvents } from "@/app/api/events/app-event.server";
 import { MEMORY_CONVERSATION_PAGE, MEMORY_LIMITS } from "@/config";
 import {
   callStamp,
@@ -57,9 +56,9 @@ const noConversation = (source: MemorySource | null) =>
 /**
  * Said when a note has outgrown the recommended size, and only then — the write
  * itself always goes through. It names no tool: this one answers the call and a
- * bot, and only one of them has a screen to put a note on. How to do it is the
- * call prompt's (prompts/thursday.prompt); the ask is the same either way,
- * because a bot that turned up a fact can hand the same request back with it.
+ * bot, and how to settle it with the user is the call's to say (prompts/thursday.prompt);
+ * the ask is the same either way, because a bot that turned up a fact can hand
+ * the same request back with it.
  */
 const overSize = (count: number) =>
   count > MEMORY_LIMITS.factsPerNote
@@ -114,7 +113,9 @@ export const createMemoryTools = (
         .object({
           text: z
             .string()
-            .describe("One statement that stands on its own later."),
+            .describe(
+              'One statement that stands on its own later — a date as a date, never "next week".',
+            ),
           replaces: z
             .number()
             .int()
@@ -126,7 +127,7 @@ export const createMemoryTools = (
             .boolean()
             .nullish()
             .describe(
-              `True carries this line into every call's instructions without opening its note — for what to call them, their language and register, a standing rule. At most ${MEMORY_LIMITS.carried}. Null leaves it; false makes a carried line an ordinary fact.`,
+              `True carries this line into every call's instructions without opening its note — for what every call needs before any note is opened: what to call them, their language and register. At most ${MEMORY_LIMITS.carried}. Null leaves it; false makes a carried line an ordinary fact.`,
             ),
         })
         .array()
@@ -175,23 +176,23 @@ export const createMemoryTools = (
         };
       }
       // A new path outside the convention goes to inbox, which keeps its own line and takes no aliases
-      const filed =
-        known || isMemoryPath(said)
-          ? { path: target, description, aliases, facts }
-          : {
-              path: MEMORY_INBOX,
-              description: appNoteLine(MEMORY_INBOX),
-              facts,
-            };
+      const toInbox = !known && !isMemoryPath(said);
+      const filed = toInbox
+        ? {
+            path: MEMORY_INBOX,
+            description: appNoteLine(MEMORY_INBOX),
+            facts,
+          }
+        : { path: target, description, aliases, facts };
 
       const write = await writeNotes([filed], source, callId);
 
       // The write already succeeded; what follows are requests, not failures.
-      // A path filed elsewhere must be said, or the model reports it saved where it asked.
-      const elsewhere =
-        filed.path !== said
-          ? ` Filed under ${filed.path}: "${said}" is not a path this listing can carry. If that is not where it belongs, write it again under one that is.`
-          : "";
+      // Only a path that landed in inbox is said: one reached by a name the
+      // listing carries is where it was asked for, however it was spelled.
+      const elsewhere = toInbox
+        ? ` Filed under ${filed.path}: "${said}" is not a path this listing can carry. If that is not where it belongs, write it again under one that is.`
+        : "";
 
       const unnamed = write.unnamed.length
         ? ` ${write.unnamed[0]} is new and has no line yet — the listing shows its first fact instead. Call again with \`description\` (one line about what it is) and \`aliases\` (the names they say for it).`
@@ -265,59 +266,61 @@ export const createMemoryTools = (
     },
   }),
 
-  [TOOL_NAMES.memory_show]: tool({
-    description: `Put a note on the user's screen so they can see it while you
-talk about it, and take it away again. They cannot edit it there — they say
-what to drop and you drop it.`,
-    inputSchema: z.object({
-      path: z
-        .string()
-        .nullable()
-        .describe(
-          "The note to put on screen, exactly as the listing writes it. Null takes it away.",
-        ),
-    }),
-    execute: async ({ path }) => {
-      if (!path?.trim()) {
-        appEvents.emit({ type: "memory-view", path: null });
-        return { note: "Taken off the screen." };
-      }
-      // The screen gets only the path and reads facts over GET, so deletions show up on their own
-      const { notes } = await readNotes([path], { touch: false });
-      const note = notes[0];
-      if (!note) {
-        return { note: `Nothing on the listing called ${path.trim()}.` };
-      }
-      appEvents.emit({ type: "memory-view", path: note.path });
-      return {
-        ...note,
-        note: "It is on their screen now, in this order. Ask what they no longer need, and forget only what they name.",
-      };
-    },
-  }),
-
   [TOOL_NAMES.memory_forget]: tool({
-    description: "Delete one fact for good.",
+    description: "Delete facts for good.",
     inputSchema: z.object({
-      factId: z
+      factIds: z
         .number()
         .int()
-        .describe("The id that came with the fact when the note was opened."),
+        .array()
+        .min(1)
+        .describe(
+          "The ids that came with the facts when their notes were opened — every one to delete, in one call.",
+        ),
     }),
-    execute: async ({ factId }) => {
-      const forgotten = await forgetFactById(factId);
-      if (!forgotten) {
-        return { note: `No fact with id ${factId}. Nothing was deleted.` };
+    execute: async ({ factIds }) => {
+      const missing: number[] = [];
+      /** Notes that lost their last fact, and went with it (memory.query forgetFactById). */
+      const gone: string[] = [];
+      /** Notes that still hold something, handed back as they are now. */
+      const left = new Set<string>();
+      for (const id of new Set(factIds)) {
+        const forgotten = await forgetFactById(id);
+        if (!forgotten) {
+          missing.push(id);
+          continue;
+        }
+        if (forgotten.noteGone) {
+          left.delete(forgotten.path);
+          gone.push(forgotten.path);
+        } else {
+          left.add(forgotten.path);
+        }
       }
 
-      // The note goes with its last fact; the listing still shows it until the next session, so say so
-      if (forgotten.noteGone) {
+      if (!gone.length && !left.size) {
         return {
-          note: `${GONE} That was the last fact under ${forgotten.path}, so the note went with it.`,
+          note: `No fact with id ${missing.join(", ")}. Nothing was deleted.`,
         };
       }
-      const { notes } = await readNotes([forgotten.path], { touch: false });
-      return { ...notes[0], note: GONE };
+
+      // The notes that went are still on the listing until the next session, so say so
+      const said = [
+        GONE,
+        gone.length === 1
+          ? `That was the last fact under ${gone[0]}, so the note went with it.`
+          : gone.length
+            ? `That was the last of ${gone.join(", ")}, so those notes went with them.`
+            : "",
+        missing.length
+          ? `No fact with id ${missing.join(", ")}, so those were skipped.`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      if (!left.size) return { note: said };
+      const { notes } = await readNotes([...left], { touch: false });
+      return { notes: notes.map(withCount), note: said };
     },
   }),
 });

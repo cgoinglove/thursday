@@ -113,8 +113,8 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   the number answers to — the person tuning the app, or the thing being drawn.
 - **A tool two runtimes share names no tool in what it returns.** `memory_recall` answers the call
   and a bot. Past `MEMORY_LIMITS.factsPerNote` it says the note has outgrown its size and to ask the
-  user what to drop — the ask, which both can act on, never the mechanism: only one of them has a
-  screen to put a note on, and how is the call prompt's to say.
+  user what to drop — the ask, which both can act on, never the mechanism: how to settle it with the
+  user is the call prompt's to say.
 - **Don't split files by size.** A long file that does one thing stays one file.
 - **An interface with one implementation is two files, not an interface.** Don't add ports.
 

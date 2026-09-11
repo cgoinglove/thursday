@@ -204,6 +204,14 @@ export const BROWSER_VIEWPORT = "700x700";
 export const EXEC_TIMEOUT_MS = 180_000;
 
 /**
+ * How long one shell command may run during a call (ai/load-tools, the call's
+ * `bash`). The mic is closed while a tool runs, so this is how long one command
+ * can hold the call silent; anything slower is a job for a bot. Raising it lets
+ * the call run slower commands itself, and keeps the line quiet that much longer.
+ */
+export const CALL_EXEC_TIMEOUT_MS = 15_000;
+
+/**
  * How long a shell command that was stopped — its timeout, or its job stopping —
  * gets to exit on SIGTERM before its whole process group is killed (lib/sandbox).
  * A command that ignores the first signal would otherwise hold its step, and
@@ -266,15 +274,16 @@ export const PROMPT_BUDGET = 6_000;
 
 /**
  * What counts as too much memory to hold in one piece (features/memory), counted
- * in facts. Nothing truncates: the first two put a line in the call prompt asking
- * her to sort it out with the user before she raises anything else, and the third
- * is the only hard one. Facts rather than tokens because it is the number the user
- * sees on their own screen and the number a model is told after every write — a
- * token estimate is nobody's unit and cannot be acted on.
+ * in facts. Nothing truncates: past either of the first two a call opens by asking
+ * her to sort it out with the user before anything she would raise herself
+ * (thursday.prompt tidyOpening), and the third is the only hard one. Facts rather
+ * than tokens because it is the number the user sees on their own screen and the
+ * number a model is told after every write — a token estimate is nobody's unit and
+ * cannot be acted on.
  * - `facts`  facts held across every note, above which the listing is too long.
  * - `factsPerNote`  facts in one note, above which that note is named instead.
- * - `carried`  facts loaded into every prompt without opening a note; enforced
- *            by the write path, which refuses the next one.
+ * - `carried`  facts loaded into every call's prompt without opening a note; past
+ *            it the write path stores the next one as an ordinary fact and says so.
  */
 export const MEMORY_LIMITS = {
   facts: 400,

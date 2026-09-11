@@ -1,8 +1,8 @@
 import { asSchema, type ToolSet, tool } from "ai";
 import { formatDistanceToNowStrict } from "date-fns";
-import { IS_DEV } from "@/config";
+import { CALL_EXEC_TIMEOUT_MS, IS_DEV } from "@/config";
 import type { TextModel } from "@/features/ai/model";
-import { clockNow, tidying } from "@/features/ai/prompts/prompt-helper";
+import { clockNow } from "@/features/ai/prompts/prompt-helper";
 import {
   answerTool,
   askThursdayTool,
@@ -17,7 +17,6 @@ import { createSkillTools } from "@/features/ai/tools/skills.tool";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { createWorkspaceTools } from "@/features/ai/tools/workspace.tool";
 import { taskActivity } from "@/features/bot/bot.schema";
-import { listNoteIndex } from "@/features/memory/memory.query";
 import { loadSkills } from "@/features/skills/skills.discover";
 import { readCallSkillsOn } from "@/features/thursday/thursday.query";
 import { jobShellEnv, openWorkspace } from "@/features/workspace/workspace";
@@ -30,8 +29,8 @@ import { clip } from "@/lib/utils";
  * Which tools each runtime is handed; what it is told about them is the prompt's job.
  * Every tool runs on the server, including calls made during a voice session; only `end_call`
  * has no execute (the page hangs up). The split is by time, not capability: anything that
- * presupposes waiting (MCP, studio, browser) belongs to the bot. Every runtime writes to
- * memory, but only the call gets the whole of it: revising, carrying and naming need the user there.
+ * presupposes waiting (MCP, studio, browser) belongs to the bot. Only the call and an edit on
+ * the memory screen write to memory: revising, carrying and naming need the user there. A bot reads it.
  * Skills are the one thing that crosses back, and only when asked for: the call reads one itself
  * when Settings › Thursday says so (thursday.query readCallSkillsOn).
  */
@@ -83,7 +82,13 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
 
         // The row carries the bot's own spelling, not the transcript's
         const { startTask } = await import("@/features/bot/bot.runner");
-        const id = await startTask({ bot: found.name, request, label, callId });
+        const id = await startTask({
+          bot: found.name,
+          request,
+          label,
+          callId,
+          from: "thursday",
+        });
         return {
           taskId: id,
           // The label is the handle: without it in front of her, a follow-up
@@ -182,7 +187,7 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
           return { label: one.label, status: "cancelled" };
         }
         if (!answer?.trim()) return "Say what to pass on.";
-        await answerTask(one.id, answer.trim());
+        await answerTask(one.id, answer.trim(), "thursday");
         return {
           // Named even when the model named it: with no job given this is the
           // one that moved last, and saying which makes a wrong one obvious
@@ -265,9 +270,6 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
   const sandbox = await openWorkspace();
 
   if (run.target === "thursday") {
-    // memory_show only when there is something to tidy (prompt-helper tidying)
-    const { [TOOL_NAMES.memory_show]: show, ...always } = memory;
-    const { crowded, heavy } = tidying(await listNoteIndex());
     // Off unless switched on: a skill is a page of instructions arriving
     // mid-sentence. Switched off, the prompt does not list them as hers either
     // (thursday.prompt), so the two always say the same thing
@@ -276,11 +278,15 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
       : {};
 
     return {
-      ...always,
-      ...(crowded || heavy.length ? { [TOOL_NAMES.memory_show]: show } : {}),
+      ...memory,
       ...skills,
-      // The shell alone. A whole file is a job, not a glance (workspace.tool)
-      ...createWorkspaceTools(sandbox, { write: false }),
+      // The shell alone, for no longer than a call can sit silent on it: the mic
+      // is closed while a tool runs (config CALL_EXEC_TIMEOUT_MS). A whole file is
+      // a job, not a glance (workspace.tool)
+      ...createWorkspaceTools(sandbox, {
+        write: false,
+        timeoutMs: CALL_EXEC_TIMEOUT_MS,
+      }),
       // Handing work over, following it, and hanging up belong to the voice session only
       ...createTaskTools(run.callId),
       ...CALL_TOOLS,

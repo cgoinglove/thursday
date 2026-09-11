@@ -18,6 +18,8 @@ export const createWorkspaceTools = (
     env?: Record<string, string>;
     /** Attach the shell guide to this run's first `bash` result (bots only). */
     guide?: boolean;
+    /** How long one command may run; unset is the sandbox's own limit (config EXEC_TIMEOUT_MS). */
+    timeoutMs?: number;
   },
 ): ToolSet => {
   /** Fold absolute sandbox paths against cwd; they still resolve when handed back. */
@@ -45,6 +47,7 @@ export const createWorkspaceTools = (
       const result = await sandbox.exec(command, {
         signal: abortSignal,
         env: options.env,
+        timeoutMs: options.timeoutMs,
       });
       if (!owed) return result;
       owed = false;

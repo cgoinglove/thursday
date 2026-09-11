@@ -110,7 +110,12 @@ export const startTaskAction = serverAction(
     const worker = await findBot(bot);
     if (!worker) publicError(`No bot called "${bot}".`);
     const label = labelFor(said);
-    const id = await startTask({ bot: worker.name, request: said, label });
+    const id = await startTask({
+      bot: worker.name,
+      request: said,
+      label,
+      from: "user",
+    });
     return { id, label, bot: worker.name };
   },
 );

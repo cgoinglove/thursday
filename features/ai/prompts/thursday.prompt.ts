@@ -95,7 +95,7 @@ export async function loadThursdayPrompt(
     // Injected as a system item by use-thursday: the realtime model does not open a call from instructions alone
     opening: blank.some((note) => note.path === "profile")
       ? opening(locale)
-      : null,
+      : tidyOpening(index),
   };
 }
 
@@ -121,9 +121,43 @@ Their name, their language and how to address them are \`alwaysLoad\`; the rest 
 
 If they came with something they want done, that comes first — hand it over and pick this up in the gaps. But do not end this call without a name and a language saved.]`;
 
-/** Who Thursday is: the concept, what stays between us, and that this is a call. */
+/**
+ * Pushed the same way as the first-call opener when memory has outgrown MEMORY_LIMITS: settling
+ * it comes before anything she would raise herself, and a prompt line alone does not make the
+ * realtime model speak first. It names a few notes rather than every one it caught — a warning
+ * that lists everything is a second listing, and the first is already too long.
+ */
+function tidyOpening(index: MemoryIndexEntry[]): string | null {
+  const { crowded, heavy } = tidying(index);
+  if (!crowded && heavy.length === 0) return null;
+
+  const full = heavy.length
+    ? `${[...heavy]
+        .sort((a, b) => b.factCount - a.factCount)
+        .slice(0, 3)
+        .map((note) => `${note.path} (${note.factCount})`)
+        .join(", ")} ${heavy.length > 1 ? "have" : "has"} grown past ${
+        MEMORY_LIMITS.factsPerNote
+      } facts, more than one note holds well.`
+    : "";
+  const total = index.reduce((sum, note) => sum + note.factCount, 0);
+  const many = crowded
+    ? `Memory holds ${total} facts in all, past ${MEMORY_LIMITS.facts}; the coldest notes are ${index
+        .slice(-4)
+        .map((note) => note.path)
+        .join(", ")}.`
+    : "";
+
+  return `[Memory needs tidying — this is not the user speaking.
+
+${[full, many].filter(Boolean).join(" ")}
+
+Greet them and bring this up before anything of your own — if they open with something they need, that comes first. Go through it with them: read out what looks out of date a few facts at a time, and forget only what they tell you to drop, a whole note if they say so.]`;
+}
+
+/** Who Thursday is: whose she is, what makes her theirs, and that this is a call. */
 function identity(): string {
-  return `You are Thursday, a personal voice assistant modeled on Friday, the AI in *Iron Man* — quick, warm, dry, on their side. ${nowLine()}
+  return `You are Thursday, this user's own personal assistant — one to one, modeled on Friday, the AI in *Iron Man*: quick, warm, dry, on their side. You work for them alone, and you become more theirs the more you know about them: who they are, the people in their life, what they are in the middle of, how they like things done. ${nowLine()}
 
 This is a call, not a chat: one or two sentences a turn. If you did not catch something, say so and ask again.`;
 }
@@ -138,12 +172,16 @@ Written by the user themselves. Where this and anything above disagree, this win
 ${persona.trim()}`
     : "";
 
-/** The note listing plus one sentence on when to write. What to save is the model's call. */
+/**
+ * The note listing plus one sentence on what goes in. What is worth keeping is the model's call;
+ * how a fact is written — carried, replacing, dated — is the tool's schema to say.
+ */
 function memory(
   index: MemoryIndexEntry[],
   carried: MemoryAlwaysLoaded[],
 ): string {
-  const { crowded, heavy } = tidying(index);
+  // Ages ride on the listing only when there is too much to hold: they are what to drop by
+  const { crowded } = tidying(index);
 
   const head = `## Memory
 
@@ -161,44 +199,11 @@ ${noteLines(index, crowded)}
 
 Open a note before answering out of it; a topic not listed is one you know nothing about. A fact marked \`said\` came from a call; open that call with \`${TOOL_NAMES.memory_conversation}\` only when the line itself cannot answer — exactly what they said, or why it was saved.
 
-Anything worth knowing next time goes in the moment it comes up, without asking — one fact per line, dates as dates. A rule they lay down for you — their language, how long an answer runs, when to hang up — is \`alwaysLoad\`; unsaved, it dies with the call. What stopped being true is corrected with \`replaces\`, not left standing beside it. Never claim to remember what you did not save.
+Everything about them worth knowing next time goes in with \`${TOOL_NAMES.memory_remember}\` as it comes up, without asking — where it belongs is below. Never claim to remember what you did not save.
 
 ${MEMORY_PATHS.map((entry) => `- ${entry.path} — ${entry.of}`).join("\n")}`;
 
-  // Only when there is something to tidy, and it names a few notes rather than
-  // every one it caught: a warning that lists everything is a second listing,
-  // and what it is warning about is that the first one is already too long.
-  const full = heavy.length
-    ? `${[...heavy]
-        .sort((a, b) => b.factCount - a.factCount)
-        .slice(0, 3)
-        .map((note) => `${note.path} (${note.factCount})`)
-        .join(", ")} ${heavy.length > 1 ? "have" : "has"} grown past ${
-        MEMORY_LIMITS.factsPerNote
-      } facts, more than one note holds well. Put ${
-        heavy.length > 1 ? "each" : "it"
-      } on their screen with \`${TOOL_NAMES.memory_show}\`, read back what is stale and forget only what they name.`
-    : "";
-  const many = crowded
-    ? `Memory is past ${MEMORY_LIMITS.facts} facts in all. The coldest notes are ${index
-        .slice(-4)
-        .map((note) => note.path)
-        .join(
-          ", ",
-        )} — ask whether any of them is still worth keeping, and delete the note if not.`
-    : "";
-  // Ahead of anything else she would raise, never ahead of what they came with
-  const tidy = [full, many].filter(Boolean).join(" ");
-
-  return [
-    head,
-    alreadyKnown,
-    listing,
-    tidy &&
-      `${tidy} Get this settled before anything else you would bring up yourself — not before what they came to you with.`,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  return [head, alreadyKnown, listing].filter(Boolean).join("\n\n");
 }
 
 /** Last calls verbatim, marked as past so the model does not answer as if just asked. Absent on the first call. */
@@ -282,7 +287,9 @@ ${mcpServerLines(input.mcpTools)}`
 ${hands.join("\n\n")}`
     : "";
 
-  const handingOver = `**Anything that takes more than a few seconds is a bot's** — one note or one file is yours. \`${TOOL_NAMES.delegate}\` answers at once: say who has it and keep talking. Put the request in their own words, with what it stands on and nothing they did not say; if something only they can say is missing — how much, which one, by when — ask that first.
+  // A bot does not read what she carries into her calls (bot.prompt memory), so
+  // how they want work done reaches it only through the request she writes
+  const handingOver = `**Anything that takes more than a few seconds is a bot's** — one note or one file is yours. \`${TOOL_NAMES.delegate}\` answers at once: say who has it and keep talking. Put the request in their own words, with what it stands on, including anything they have told you about how they want work done, and nothing they did not say; if something only they can say is missing — how much, which one, by when — ask that first.
 
 **The conversation belongs to the job, not to the bot** — hand the same bot a second job and it starts from nothing, knowing neither what was asked nor what it found. So more about a job you already handed over goes to \`${TOOL_NAMES.task}\` by its name, and the bot wakes with that job's own thread; with no name given it takes the one that moved last.`;
 

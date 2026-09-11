@@ -34,7 +34,13 @@ import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
 import { createKeyedLock } from "@/lib/queue";
 import { resumeThread, runBot, type TaskEvent } from "./bot.run";
-import { TASK_CONTINUE, type TaskPending, type TaskStatus } from "./bot.schema";
+import {
+  TASK_CONTINUE,
+  type TaskPending,
+  type TaskSpeaker,
+  type TaskStatus,
+  tagSpeaker,
+} from "./bot.schema";
 import {
   addTaskUsage,
   countStopsSinceSpoken,
@@ -100,24 +106,28 @@ const pausing = ((globalThis as Pinned).__botPausing ??= {
   current: Promise.resolve(),
 });
 
-/** Opens a job. The opening message — who is who, the job, the call it came from (bot.prompt buildTaskOpening) — is the thread's first row. */
+/** Opens a job. The opening message — who is on it, the job, the call it came from (bot.prompt buildTaskOpening) — is the thread's first row. */
 export async function startTask(input: {
   bot: string;
   request: string;
   label: string;
   callId?: string | null;
+  /** Who handed it over: Thursday during a call, or the user on screen. */
+  from: TaskSpeaker;
 }) {
-  const conversation = input.callId
-    ? await listCallTurns(input.callId, OPENING_TURNS)
+  const { from, ...row } = input;
+  const conversation = row.callId
+    ? await listCallTurns(row.callId, OPENING_TURNS)
     : [];
   const opening = buildTaskOpening({
-    bot: input.bot,
-    request: input.request,
+    bot: row.bot,
+    request: row.request,
     conversation,
+    from,
   });
-  const task = await insertTask({ ...input, opening });
+  const task = await insertTask({ ...row, opening });
   launch(task.id, {
-    bot: input.bot,
+    bot: row.bot,
     messages: [{ role: "user", content: opening }],
   });
   return task.id;
@@ -129,14 +139,25 @@ export async function startTask(input: {
  * before its next step; the step in flight finishes), or a follow-up to a
  * finished one. Only when the run has already ended does the running case
  * fall through to stop, append, relaunch.
+ *
+ * @param from Who said it. The words go on the thread tagged with it (bot.schema
+ * tagSpeaker): Thursday passing something on from a call and the user typing on
+ * screen reach the bot down this one pipe, and a go-ahead means something
+ * different from each. Unset for words that already carry their tags — the notes
+ * a finished run left unread (drive).
  */
-export async function answerTask(id: string, answer: string) {
+export async function answerTask(
+  id: string,
+  answer: string,
+  from?: TaskSpeaker,
+) {
+  const said = from ? tagSpeaker(from, answer) : answer;
   return taskLock(id, async () => {
     const task = await findTask(id);
     if (!task) publicError("No such job.");
 
     const live = running.get(id);
-    if (live && task.status === "running" && live.note(answer)) {
+    if (live && task.status === "running" && live.note(said)) {
       logger.debug(`task ${id}: interjection queued`);
       return;
     }
@@ -148,7 +169,7 @@ export async function answerTask(id: string, answer: string) {
     forgetResume(id);
 
     const thread = await listThread(id);
-    const { reply, as } = joinThread(task, answer, thread);
+    const { reply, as } = joinThread(task, said, thread);
     logger.debug(`task ${id}: ${as}`);
 
     await upsertMessage(id, (await lastSeq(id)) + 1, {

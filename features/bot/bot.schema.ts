@@ -206,6 +206,29 @@ export const TASK_HISTORY_PAGE = PAGE_SIZE;
 export const TASK_CONTINUE = "Continue";
 
 /**
+ * Who a person's words to a job came from (bot.runner answerTask). Thursday
+ * passing something on from a call and the user typing on screen reach a bot
+ * down one pipe, so the words carry it in front of them.
+ */
+export type TaskSpeaker = "thursday" | "user";
+
+const SPEAKER_TAGS: Record<TaskSpeaker, string> = {
+  thursday: "Thursday, on the call:",
+  user: "The user, on screen:",
+};
+
+export const tagSpeaker = (from: TaskSpeaker, text: string): string =>
+  `${SPEAKER_TAGS[from]} ${text}`;
+
+/** The words without their tag, as the screen draws a person's line (task.query linesOf). */
+export const untagSpeaker = (text: string): string => {
+  for (const tag of Object.values(SPEAKER_TAGS)) {
+    if (text.startsWith(`${tag} `)) return text.slice(tag.length + 1);
+  }
+  return text;
+};
+
+/**
  * What a `waiting` job waits on (database task.pending). `toolCallId` is the
  * `ask_thursday` call the answer resolves, null when the app stopped the run and
  * offers to continue. `auto` marks a stop the app picks back up by itself once a

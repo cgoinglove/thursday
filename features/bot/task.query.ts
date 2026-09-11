@@ -25,6 +25,7 @@ import {
   type TaskPending,
   type TaskStatus,
   type TokenUsage,
+  untagSpeaker,
 } from "./bot.schema";
 
 // Tasks and their threads. Bots themselves (roster, pinned tools) are bot.query.
@@ -726,7 +727,8 @@ function linesOf(message: StoredMessage, owner: string): TaskLine[] {
         : text;
       return [{ ...base, id: id(0), kind: "stop", text: why }];
     }
-    return [{ ...base, id: id(0), kind: "user", text }];
+    // Tagged with who said it for the bot (bot.schema tagSpeaker); the screen draws the words
+    return [{ ...base, id: id(0), kind: "user", text: untagSpeaker(text) }];
   }
 
   if (message.role === "assistant") {
@@ -829,7 +831,12 @@ function linesOf(message: StoredMessage, owner: string): TaskLine[] {
         const text = resultParts(part.output, RESULT_LINES)
           .flatMap((result) => (result.type === "text" ? [result.text] : []))
           .join("\n");
-        lines.push({ ...base, id: id(index), kind: "user", text });
+        lines.push({
+          ...base,
+          id: id(index),
+          kind: "user",
+          text: untagSpeaker(text),
+        });
       } else if (
         part.toolName === TOOL_NAMES.ask_bot ||
         part.toolName === TOOL_NAMES.ask_back

@@ -1,19 +1,14 @@
 import type { ModelMessage } from "ai";
+import { format } from "date-fns";
 import { PATHS, PROMPT_LINE, WORKSPACE_KEEP } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { botMemoryFolder, listBotMemory } from "@/features/bot/bot.memory";
 import { listJobBots, readBotMemoryOn } from "@/features/bot/bot.query";
-import type { BotMemory, JobBot } from "@/features/bot/bot.schema";
+import type { BotMemory, JobBot, TaskSpeaker } from "@/features/bot/bot.schema";
 import { findPinnedTools } from "@/features/connectors/mcp.query";
 import type { McpToolRef } from "@/features/connectors/mcp.schema";
-import {
-  listAlwaysLoaded,
-  listNoteIndex,
-} from "@/features/memory/memory.query";
-import type {
-  MemoryAlwaysLoaded,
-  MemoryIndexEntry,
-} from "@/features/memory/memory.schema";
+import { listNoteIndex } from "@/features/memory/memory.query";
+import type { MemoryIndexEntry } from "@/features/memory/memory.schema";
 import {
   loadSkills,
   type SkillMetadata,
@@ -23,11 +18,11 @@ import {
   openWorkspace,
   readMachineTools,
 } from "@/features/workspace/workspace";
+import { toDate } from "@/lib/date-like";
 import { logger } from "@/lib/logger";
 import { clip } from "@/lib/utils";
 import { listConnectedToolNames } from "../tools/connected";
 import {
-  carriedLines,
   type LoadedPrompt,
   logPromptSize,
   mcpToolLines,
@@ -57,31 +52,21 @@ export async function loadBotPrompt(
   const sandbox = await openWorkspace();
   const name = self.trim();
   const askedBy = seat?.askedBy ?? null;
-  const [
-    skills,
-    index,
-    carried,
-    mcpTools,
-    pinned,
-    allBots,
-    kept,
-    memoryOn,
-    machine,
-  ] = await Promise.all([
-    loadSkills(sandbox),
-    listNoteIndex(),
-    listAlwaysLoaded(),
-    // User-connected servers and the app's studio in one list (tools/connected)
-    listConnectedToolNames(),
-    // MCP tools this bot already holds; dropped from the listing below
-    findPinnedTools(name),
-    listJobBots(),
-    // What this bot kept on earlier jobs, read off its own folder (bot.memory)
-    listBotMemory(name),
-    readBotMemoryOn(),
-    // One `command -v` sweep; what is here decides the first command (environment)
-    readMachineTools(sandbox),
-  ]);
+  const [skills, index, mcpTools, pinned, allBots, kept, memoryOn, machine] =
+    await Promise.all([
+      loadSkills(sandbox),
+      listNoteIndex(),
+      // User-connected servers and the app's studio in one list (tools/connected)
+      listConnectedToolNames(),
+      // MCP tools this bot already holds; dropped from the listing below
+      findPinnedTools(name),
+      listJobBots(),
+      // What this bot kept on earlier jobs, read off its own folder (bot.memory)
+      listBotMemory(name),
+      readBotMemoryOn(),
+      // One `command -v` sweep; what is here decides the first command (environment)
+      readMachineTools(sandbox),
+    ]);
 
   // Drop itself and every bot above it on this job, which are blocked waiting on
   // it; the last seat the depth allows has no roster at all (config BOT_RUN.depth)
@@ -94,11 +79,12 @@ export async function loadBotPrompt(
 
   const text = [
     askedBy ? borrowedIdentity(name, askedBy) : identity(name),
-    memory(index, carried),
-    memoryOn ? ownMemory(botMemoryFolder(name), kept) : "",
+    memory(index),
     connectedTools(mcpTools, pinned),
     methods(skills),
     environment(sandbox.cwd, machine, folders),
+    // After Environment: its folder is named against the Cwd said there
+    memoryOn ? ownMemory(botMemoryFolder(name), kept) : "",
     roster(peers),
     askedBy ? askingBack(askedBy) : ASKING,
     askedBy ? handingUp(askedBy) : ANSWERING,
@@ -118,20 +104,37 @@ export async function loadBotPrompt(
   };
 }
 
-/** Who the bot is, what machine it is on, and that guesses are not results. */
+/**
+ * The two people every seat works between. Said before anything else, so the
+ * rest of the prompt — whose memory, who reads the answer — has someone to refer to.
+ */
+const PEOPLE = `- **The user** — the one person all of this is for. They talk with Thursday by voice, and they follow this job on their screen.
+- **Thursday** — their own personal assistant, one to one. She holds the conversation with them, hands bots the work that takes time, and tells them what comes back.`;
+
+/**
+ * Who is who, what machine it is on, and that guesses are not results. How this
+ * job reached it is the first message's to say (buildTaskOpening).
+ */
 function identity(name: string): string {
   return [
     // Named, because the owner's prompt may not name it and its own instructions are addressed to it
-    `You are ${name}, a worker. Thursday handed you a job while she keeps talking to the user — they speak to her and to nobody else, and what she says out of your answer is the only part of this that reaches them. You are not in that conversation and never address the user. This thread is drawn on their screen while you work, though: not written to them, but not private either. ${nowLine()}`,
+    `You are ${name}, one of the bots that work for the user. ${nowLine()}
+
+${PEOPLE}
+- **You** — you do the work. Your answer goes to Thursday, not to the user, and she tells them what they need from it.`,
     MACHINE,
     NO_GUESSING,
   ].join("\n\n");
 }
 
-/** The borrowed seat: above it is the borrowing bot, not Thursday. */
+/** The borrowed seat: between it and Thursday is the bot that borrowed it. */
 function borrowedIdentity(name: string, askedBy: string): string {
   return [
-    `You are ${name}, a worker. ${askedBy} has handed you one part of a job Thursday handed over; your first message says who holds it and how it reached you. The user speaks to Thursday and to nobody else; you never address them, and what you hand back goes into ${askedBy}'s answer as-is. This thread is drawn on their screen while you work: not written to them, but not private either. ${nowLine()}`,
+    `You are ${name}, one of the bots that work for the user. ${nowLine()}
+
+${PEOPLE}
+- **${askedBy}** — a bot on this job, who handed you one part of it. They cannot see your thread.
+- **You** — you do that part. What you hand back goes into ${askedBy}'s work as it is, never to Thursday or the user.`,
     MACHINE,
     NO_GUESSING,
   ].join("\n\n");
@@ -159,44 +162,34 @@ Written by the person this bot works for. Where these and anything above disagre
 ${persona.trim()}`
     : "";
 
-/** A bot only reads memory; every write, revising and the names the user says are the call's (load-tools), so the chapter is that small. */
-function memory(
-  index: MemoryIndexEntry[],
-  carried: MemoryAlwaysLoaded[],
-): string {
-  const head = `## The user's memory
+/**
+ * Thursday's memory, which a bot only reads (load-tools). The listing alone: the
+ * lines she carries into every call are written for her — what to call them, how
+ * long an answer runs — and are hers to act on, not a bot's.
+ */
+function memory(index: MemoryIndexEntry[]): string {
+  return `## Thursday's memory of the user
 
-What Thursday knows about the user, kept as she talks with them. Every bot reads it; none writes to it. Open a note with \`${TOOL_NAMES.memory_recall}\` when the job needs something about them — the address they sign in with, the name to book under — and put what you find out about them in your answer; she decides what to keep. It describes them, not you: how they are named and spoken to is hers to use. What you learn about the work goes in your own memory, below.`;
+What Thursday keeps from talking with them. Open a note from the listing with \`${TOOL_NAMES.memory_recall}\` when the job needs something about them; what you find out about them goes in your answer, and she keeps what matters.
 
-  const alreadyKnown = carried.length
-    ? `Already known:
+path — what is under it (facts) "what the user calls it"
 
-${carriedLines(carried)}`
-    : "";
-
-  const listing = `path — what is under it (facts) "what the user calls it"
-
-${noteLines(index)}
-
-A topic not listed is one nobody knows anything about.`;
-
-  return [head, alreadyKnown, listing].filter(Boolean).join("\n\n");
+${noteLines(index)}`;
 }
 
 /**
- * The bot's own memory (features/bot/bot.memory), listed by each file's first line so what a
- * file holds costs one line until a job opens it. Always drawn, so a first job knows it has one.
- * Nothing says what usually goes in first: a line like that is what a first job writes, whether
- * or not the job taught it anything.
+ * The bot's own memory (features/bot/bot.memory), listed by each file's first line and the day
+ * it last changed, both read off the disk, so what a file holds costs one line until a job opens
+ * it. Always drawn, so a first job knows it has one. Nothing says what usually goes in first: a
+ * line like that is what a first job writes, whether or not the job taught it anything.
  */
 function ownMemory(folder: string, kept: BotMemory): string {
   const listing = kept.entries.length
     ? kept.entries
-        .map(({ file, line }) =>
-          line
-            ? `- ${file} — ${clip(line, PROMPT_LINE.botMemory)}`
-            : `- ${file}`,
-        )
+        .map(({ file, line, at }) => {
+          const said = line ? ` — ${clip(line, PROMPT_LINE.botMemory)}` : "";
+          return `- ${file}${said} · ${format(toDate(at), "yyyy-MM-dd")}`;
+        })
         .join("\n")
     : "Empty.";
   const rest =
@@ -206,7 +199,7 @@ function ownMemory(folder: string, kept: BotMemory): string {
 
   return `## Your memory
 
-What you kept from your own earlier jobs, in \`${folder}/\`: one topic per file, its first line saying what it holds, read by no other bot. Keep what a later job would otherwise have to find out again — how a site signs in, the way through its screens, a command that turned out right — and fix or delete a file that proved wrong. No passwords, keys or codes.
+What you kept from your own earlier jobs, in \`${folder}/\` under the Cwd above: one topic per file, its first line saying what it holds, read by no other bot. Keep what a later job would otherwise have to find out again — how a site signs in, the way through its screens, a command that turned out right — with the date you found it true, and fix or delete a file that proved wrong. No passwords, keys or codes.
 
 ${listing}${rest}`;
 }
@@ -314,7 +307,7 @@ const ANSWERING = `## Answering
 
 Every job ends with \`${TOOL_NAMES.answer}\`. **Answer what was asked, at the size it was asked**: a question ends in its answer — one number is one line — and a thing to make comes back made, an action done, photos in a page, a comparison in a table. Once you have what they asked for the job is done; the next thing you would go and check is theirs to ask for.
 
-You are answering Thursday, not the user: she is on the call and picks what to say out of this. Write it plainly, in the user's language — the thread is on their screen as you write it. Anything past a few lines is a file under \`${PATHS.artifacts}/\`, and the answer names its path — it becomes a link on their screen. In a \`.md\`, images only by absolute route (\`/api/file/${PATHS.artifacts}/…\`).`;
+You are answering Thursday, not the user: she picks what to say out of this. Write it plainly, in the user's language — the thread is on their screen as you write it. Anything past a few lines is a file under \`${PATHS.artifacts}/\`, and the answer names its path — it becomes a link on their screen. In a \`.md\`, images only by absolute route (\`/api/file/${PATHS.artifacts}/…\`).`;
 
 const handingUp = (askedBy: string) => `## Answering
 
@@ -329,19 +322,22 @@ export type OpeningContent = Extract<ModelMessage, { role: "user" }>["content"];
 /**
  * The first message of the bot holding a job, stored as the thread's first row
  * (seq 0, bot.runner startTask) and read whole on every resume and after every
- * compaction. Two text parts: who is who on this job, then the chain — the job
- * as Thursday handed it and the call it came from, verbatim, because the request
- * is one sentence the realtime model produced and a detail the user said may
- * only be in the call. The chain is what a borrowed bot inherits (buildHandoff),
- * so its headings name people and never say "you".
+ * compaction. Two text parts: who is on this job and how it reached them, then
+ * the chain — the job as it was handed over and, for a job from a call, that
+ * call verbatim, because the request is one sentence the realtime model produced
+ * and a detail the user said may only be in the call. The chain is what a
+ * borrowed bot inherits (buildHandoff), so its headings name people and never say "you".
  */
 export function buildTaskOpening(input: {
   bot: string;
   request: string;
   conversation: { role: "user" | "assistant"; text: string }[];
+  /** Who handed the job over: Thursday during a call, or the user on screen. */
+  from: TaskSpeaker;
 }): OpeningContent {
   const turns = input.conversation.filter((turn) => turn.text.trim());
-  const job = `## Thursday → ${input.bot}: the job\n\n${input.request.trim()}`;
+  const by = input.from === "user" ? "The user" : "Thursday";
+  const job = `## ${by} → ${input.bot}: the job\n\n${input.request.trim()}`;
   const call = turns.length
     ? `## The call the job came from — its last ${turns.length} turns, verbatim
 
@@ -355,7 +351,7 @@ ${turns
   .join("\n")}`
     : "";
   return [
-    { type: "text", text: whoIsWho([input.bot]) },
+    { type: "text", text: whoIsWho([input.bot], input.from) },
     { type: "text", text: [job, call].filter(Boolean).join("\n\n") },
   ];
 }
@@ -402,24 +398,30 @@ export function chainOf(first: ModelMessage | undefined): string {
   return texts.at(-1) ?? "";
 }
 
-/** Who is who on this job; the last of `bots` is the one reading it. */
-function whoIsWho(bots: string[]): string {
+/**
+ * The bots on this job, and how it reached the one reading it — the last of
+ * `bots`. The user and Thursday are in every seat's prompt (identity); `from` is
+ * read only when the reader holds the job.
+ */
+function whoIsWho(bots: string[], from?: TaskSpeaker): string {
   const you = bots.length - 1;
   const lines = bots.map((bot, index) => {
     if (index === 0) {
       return index === you
-        ? `- **${bot} (you)** — Thursday handed you this job. You answer to Thursday, and your answer is the only part of it that reaches the user.`
-        : `- **${bot}** — holds the job Thursday handed over, and answers for it.`;
+        ? `- **${bot} (you)** — ${
+            from === "user"
+              ? "the user handed you this job on their screen, not during a call"
+              : "Thursday handed you this job during a call"
+          }.`
+        : `- **${bot}** — holds this job and answers for it.`;
     }
-    const from = bots[index - 1];
+    const by = bots[index - 1];
     return index === you
-      ? `- **${bot} (you)** — ${from} handed you one part of it: the last section below. You answer to ${from}; nobody else hears from you.`
-      : `- **${bot}** — ${from} handed them one part of it.`;
+      ? `- **${bot} (you)** — ${by} handed you one part of it: the last section below. You answer to ${by}; nobody else hears from you.`
+      : `- **${bot}** — ${by} handed them one part of it.`;
   });
-  return `## Who is who on this job
+  return `## Who is on this job
 
-- **The user** — talks only to Thursday, on a voice call. No bot addresses them.
-- **Thursday** — the user's assistant on that call. Hands jobs to bots and tells the user what comes back.
 ${lines.join("\n")}`;
 }
 

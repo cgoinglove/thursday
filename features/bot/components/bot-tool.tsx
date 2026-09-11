@@ -64,7 +64,6 @@ const TOOL_ICONS: Record<string, LucideIcon> = {
   memory_recall: MemoryMark,
   memory_remember: MemoryMark,
   memory_forget: MemoryMark,
-  memory_show: MemoryMark,
   load_skill: SkillsMark,
   tool_search: McpMark,
   tool_call: McpMark,

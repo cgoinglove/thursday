@@ -217,7 +217,7 @@ function describe(
 ): Change {
   const args = (input ?? {}) as {
     path?: string;
-    factId?: number;
+    factIds?: (number | null | undefined)[] | null;
     description?: string | null;
     aliases?: (string | undefined)[] | null;
     facts?:
@@ -234,12 +234,14 @@ function describe(
   }
 
   if (name === TOOL_NAMES.memory_forget) {
-    const fact = args.factId != null ? known.get(args.factId) : undefined;
-    const fallback = args.factId != null ? `Fact #${args.factId}` : "";
+    const ids = (args.factIds ?? []).filter((id) => id != null);
+    const facts = ids.map((id) => known.get(id));
     return {
       kind: "Forget",
-      path: fact?.path ?? "",
-      lines: [{ before: fact?.text ?? fallback }],
+      path: facts.find((fact) => fact)?.path ?? "",
+      lines: ids.map((id, index) => ({
+        before: facts[index]?.text ?? `Fact #${id}`,
+      })),
       carried: false,
     };
   }

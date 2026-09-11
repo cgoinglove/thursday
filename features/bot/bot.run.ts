@@ -344,6 +344,7 @@ export async function runBot(
         const summary = await compact(model.model, agentTools, messages, {
           signal: options.signal,
           budget,
+          instructions: prompt.text,
         }).finally(quiet.release);
         logger.debug(
           `compacted ${messages.length} messages at ${size} tokens (budget ${budget})`,
@@ -701,17 +702,19 @@ async function filesUnder(
 /**
  * The model summarizes its own context and continues from the summary. Tools
  * are passed with calling off: providers refuse a history of tool calls
- * without the tools that made them. A context too long to summarise whole —
- * the very thing a compaction is for — is tried once more without the tool
- * calls and results but the last few. A failure throws with its cause kept:
- * the runner parks what a retry or a smaller budget can fix (bot.runner
- * parkTask) and fails the rest; the thread stays.
+ * without the tools that made them. The run's own instructions go too: the
+ * summary is written by the bot the thread belongs to, and the provider's
+ * cached prefix, instructions first, still matches the run's. A context too
+ * long to summarise whole — the very thing a compaction is for — is tried once
+ * more without the tool calls and results but the last few. A failure throws
+ * with its cause kept: the runner parks what a retry or a smaller budget can
+ * fix (bot.runner parkTask) and fails the rest; the thread stays.
  */
 async function compact(
   model: LanguageModel,
   tools: ToolSet,
   messages: ModelMessage[],
-  options: { signal?: AbortSignal; budget: number },
+  options: { signal?: AbortSignal; budget: number; instructions: string },
 ): Promise<{ text: string; usage: TokenUsage }> {
   let failure: unknown;
   try {
@@ -745,10 +748,11 @@ async function summarize(
   model: LanguageModel,
   tools: ToolSet,
   messages: ModelMessage[],
-  options: { signal?: AbortSignal; budget: number },
+  options: { signal?: AbortSignal; budget: number; instructions: string },
 ): Promise<{ text: string; usage: TokenUsage }> {
   const { text, usage } = await generateText({
     model,
+    system: options.instructions,
     tools,
     toolChoice: "none",
     messages: [

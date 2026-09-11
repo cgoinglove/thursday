@@ -29,7 +29,6 @@ import { toolIcon } from "@/features/bot/components/bot-tool";
 import { installSeedBots } from "@/features/bot/seed-bots";
 import { VoiceKeys } from "@/features/config/components/voice-key";
 import { type ConfigStatus, isConfigSet } from "@/features/config/config.const";
-import { MemoryView } from "@/features/memory/components/memory-view";
 import { SECTIONS, Settings } from "@/features/settings/components/settings";
 import {
   type SectionAlert,
@@ -214,8 +213,6 @@ export function CallScreen({
         </div>
       </div>
 
-      {/* Memory the model opens for reading (memory_show) */}
-      <MemoryView />
       {/* Documents a finished task produced; opens itself on the artifact event */}
       <ArtifactView />
 

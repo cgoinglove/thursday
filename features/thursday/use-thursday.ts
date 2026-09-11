@@ -654,7 +654,7 @@ export function useThursday() {
       // line open: flush held lines first
       outbox.open((one) => flush([one]));
 
-      // First call: the opening system entry makes the model speak first, on the same path as a relay
+      // An opening — a first call, or memory to tidy — makes the model speak first, on the same path as a relay
       if (handshake.opening) {
         readAloud();
         live.say(handshake.opening);
