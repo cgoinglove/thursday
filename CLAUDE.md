@@ -73,10 +73,6 @@ with `THURSDAY_APP_DIR` / `THURSDAY_HOME`. Nothing else reads `cwd`; every path 
 `npx thursday-agent` is the same two roots pointed elsewhere: the package for one, `~/.thursday` for
 the other (`bin/thursday.mjs`). It is why the app is publishable at all — nothing writes beside itself.
 
-Anything past that lives in one skill, `.claude/skills/thursday/`, read when you are inside the area
-it covers — prompts and the bot runtime, screens, the database, shipping. Its `SKILL.md` says which
-file to open for what. Keep it true the same way you keep this file true.
-
 # Conventions
 
 - **Domains hold data, `features/ai` holds the model.** A domain folder has schema, query, action and
@@ -229,10 +225,9 @@ A 30-second poll remains as a safety net. No WebSockets.
   private is named `*.local.*` before it is written, not after. Two are easy to get wrong: a
   generated migration (`database/migrations/…`) MUST be committed or a fresh clone boots against
   the wrong schema, and a stray shell redirect at the repo root must not be.
-- **Keep this file and the skill true.** When a change makes a line here wrong, fix it in the same
-  commit; when it settles something new and non-obvious, add it. Short entries here, the long ones
-  in the skill. Delete what the code no longer does — a stale rule is followed as confidently as a
-  live one.
+- **Keep this file true.** When a change makes a line here wrong, fix it in the same commit; when
+  it settles something new and non-obvious, add it. Delete what the code no longer does — a stale
+  rule is followed as confidently as a live one.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
