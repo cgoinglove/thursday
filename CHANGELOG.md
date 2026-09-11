@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.3.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.2.0...thursday-agent-v0.3.0) (2026-09-11)
+
+
+### Features
+
+* a bot can be switched off ([e4175f4](https://github.com/cgoinglove/thursday/commit/e4175f40f32fdaa16a12178352798bf5532eeb0d))
+* a bot can leave a browser open to show you, and only the hidden one closes ([368f5b5](https://github.com/cgoinglove/thursday/commit/368f5b514c449a53bfd5ac906d7bdd61cb7c7dd6))
+* a centred bot face, a tab that shows what waits on you, and shine that reads on light ([108ff2d](https://github.com/cgoinglove/thursday/commit/108ff2dc3cb04903eb6d40490d5a1aa47473ef40))
+* a fact opens the conversation it was said in, and nothing reads calls back ([e876132](https://github.com/cgoinglove/thursday/commit/e87613283537973fb6affcdff8c1c440db69211d))
+* bot runs pick themselves back up after a restart, a closed browser or a model that goes quiet ([0875907](https://github.com/cgoinglove/thursday/commit/0875907e5d025e693bcb6576e57d6b0ba521e19a))
+* bots keep their own memory as files, not one rewritten note ([7adba40](https://github.com/cgoinglove/thursday/commit/7adba4037992b176305b2b51cc6a5d938ae13d59))
+* bots read the user's memory and no longer write to it ([b4cfc4d](https://github.com/cgoinglove/thursday/commit/b4cfc4de9292c64b77e90d217da1ea8af3289462))
+* clear what jobs leave behind after three days ([4c47663](https://github.com/cgoinglove/thursday/commit/4c47663e6c4a6f5aca8078d11ed7dd4eb9a5cdb8))
+* edit memory from its own screen, one change at a time ([c8d9fb9](https://github.com/cgoinglove/thursday/commit/c8d9fb990313b8c46a18123f5c5f2926056984d0))
+* enhance documentation and configuration for thursday skill ([7382b4f](https://github.com/cgoinglove/thursday/commit/7382b4f3d86cf5b0d6f4272adc52c00d148a0b91))
+* implement ChatGPT sign-in functionality and related configurations ([d8afa1d](https://github.com/cgoinglove/thursday/commit/d8afa1d8549cf3838e6dc5d0c6effc782cefab5c))
+* offer ready-made bots from the New bot line, with what each still needs ([cf91f7a](https://github.com/cgoinglove/thursday/commit/cf91f7ae325f677599e77e0c85bbce1d510867b1))
+* say on the Models section when no studio model is picked ([a5e7a52](https://github.com/cgoinglove/thursday/commit/a5e7a529a31436d13e3b16a6daa206e2d2b54b39))
+* see what a bot keeps on its page, open a file in place, delete one ([f0c60d3](https://github.com/cgoinglove/thursday/commit/f0c60d3179f9876c57469d83699be56b30747558))
+* seed Insta and Voyage, and offer only the recommended three at install ([10ccb34](https://github.com/cgoinglove/thursday/commit/10ccb342478c740a07defde4ee6168bb2ebe90a9))
+* stream memory edits from the memory tab, reading notes on demand ([5290d13](https://github.com/cgoinglove/thursday/commit/5290d13d0c101618ab731756bdc473ae09b98521))
+* update ASCII_FACE charset to support emoji only ([71829c4](https://github.com/cgoinglove/thursday/commit/71829c424d5e580ad071c919cb600dc4c918a2a9))
+
+
+### Fixes
+
+* a bot borrowed onto a job works in the job's folder ([9b358a2](https://github.com/cgoinglove/thursday/commit/9b358a29e006ff1b54620a2739a1859f924bff93))
+* let a seed bot's prompt be saved past the old cap ([ddc2296](https://github.com/cgoinglove/thursday/commit/ddc22965e61a630d35f38a351add5763f8b251ee))
+* point the model shelves at ids the providers still answer ([30a5705](https://github.com/cgoinglove/thursday/commit/30a570590c3b34edfe71d79b73cd12798f28913f))
+* stop telling a bot its step count, and raise the cap to 30 ([e0d0eba](https://github.com/cgoinglove/thursday/commit/e0d0eba08bf6f0e364e684891f9db7ea0ed21ede))
+
+
+### Docs
+
+* say what memory actually is, and where reads are not fenced ([1855214](https://github.com/cgoinglove/thursday/commit/18552148baea3b9245ef918d8e13de16a77b0cb4))
+
 ## [0.2.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.1.2...thursday-agent-v0.2.0) (2026-09-09)
 
 
