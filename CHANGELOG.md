@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.4.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.3.0...thursday-agent-v0.4.0) (2026-09-11)
+
+
+### Features
+
+* say who is who in every prompt, and who said what to a job ([d1a3ef8](https://github.com/cgoinglove/thursday/commit/d1a3ef8becf97c91cf81a33c20b345858d0c7c90))
+
+
+### Fixes
+
+* draw an app stop in the bot room as a stop, not a compaction ([4d7a9e4](https://github.com/cgoinglove/thursday/commit/4d7a9e4d3b714c7f460d5ad210153a8610d4d6ad))
+* keep the dev server on this machine, as the CLI already does ([99e89df](https://github.com/cgoinglove/thursday/commit/99e89dfdbb001d5da45be229d834cfd3bef4f050))
+* listen for the ChatGPT sign-in on both loopbacks ([bed977c](https://github.com/cgoinglove/thursday/commit/bed977c093795038e5d965fc6bb7fddba33e1d7f))
+* say why an old database can't boot, instead of a raw SQLITE_ERROR ([7b31b15](https://github.com/cgoinglove/thursday/commit/7b31b151a66b9ef8cdf06371ca78e1ba2dab59d5))
+* start on a port nothing holds on any address, in dev as well as the CLI ([1248102](https://github.com/cgoinglove/thursday/commit/12481029def17add255d6d6584d10874ecfe7c6b))
+
+
+### Docs
+
+* lead with the emoji face, and say what bots do now ([13347ad](https://github.com/cgoinglove/thursday/commit/13347adb7a51ed63e54ed9e25375c0c02ad1d1e7))
+* redraw the three README artboards for the emoji face ([57eba59](https://github.com/cgoinglove/thursday/commit/57eba59873d0c0bb51810bbd4baa1ae307340328))
+
 ## [0.3.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.2.0...thursday-agent-v0.3.0) (2026-09-11)
 
 
