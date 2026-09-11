@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { notify } from "@/components/ui/notify";
-import ShinyText from "@/components/ui/shiny-text";
+import { ShinyText } from "@/components/ui/shiny-text";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   cancelTaskAction,
@@ -284,8 +284,6 @@ function Row({
                   <ShinyText
                     text={line.text}
                     speed={2.2}
-                    color="var(--muted-foreground)"
-                    shineColor="var(--foreground)"
                     className="min-w-0 truncate"
                   />
                 ) : (
@@ -480,8 +478,6 @@ function StepLog({ task }: { task: Task }) {
               <ShinyText
                 text={step.note ?? step.input}
                 speed={2.2}
-                color="var(--muted-foreground)"
-                shineColor="var(--foreground)"
                 className="min-w-0 flex-1 truncate"
               />
             ) : (

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { type Ref, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/notify";
-import ShinyText from "@/components/ui/shiny-text";
+import { ShinyText } from "@/components/ui/shiny-text";
 import TextType from "@/components/ui/text-type";
 import { APP_NAME } from "@/config";
 import { ModelPicker } from "@/features/ai/components/model-picker";
@@ -333,8 +333,6 @@ function BotStep({
             <ShinyText
               text="handed-over work shows up here"
               speed={2.2}
-              color="var(--muted-foreground)"
-              shineColor="var(--foreground)"
               className="font-mono text-[10.5px] leading-4"
             />
           </>

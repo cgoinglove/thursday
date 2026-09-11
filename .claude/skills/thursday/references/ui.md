@@ -42,6 +42,12 @@ screen. Domain-agnostic components are shadcn (`components/ui/`) — check there
     wraps gets its own leading. Any list that grows carries a `SettingFilter` — on its group's
     header line when it filters that group, on the section's (`SettingToolbar`) when it filters
     more than one. Cmd+K focuses it, Cmd+1..9 jump sections, arrows move inside the nav.
+  - **Only the gateway's key row says what is left on it** (ai/model `readGatewayCredits`). The
+    gateway answers `/v1/credits` to the key the user typed; OpenAI, Anthropic and xAI keep a
+    balance behind a second admin or management key, Gemini bills through Google Cloud, and Exa
+    shows it only on its dashboard — a balance on any other row means asking for another key. A
+    key the gateway refuses is drawn, not toasted: red on the row, its own words in the dialog.
+    It is read only while Keys is on screen, never at boot, so the nav badge stays out of it.
 - **Artifacts and Workspace are two sections because they answer two questions.** Artifacts
   (`features/artifact`) lists **the top of `artifacts/` only, one entry per row** — which is
   already how the bots file things: a skill writes `artifacts/<name>.html`, a job that makes a set
@@ -81,6 +87,14 @@ screen. Domain-agnostic components are shadcn (`components/ui/`) — check there
   a thread inside a section, and a third border reads as a second chat window. What tells it from a
   passing remark is that it is the only prose there at foreground weight, plus the files it names.
   Who was in the room is `rosterOf` — derived from the lines, never a table.
+- **Only the resting pill grows** (`bot-room` `BotRoom`, `Chip`). The corner is 80% of the window so
+  each working bot's words can be read, but the open room and a pill grown into a card of questions
+  keep 33rem: a reply's long lines would otherwise stretch them across the screen.
+- **The tab says what the corner says** (`thursday/components/tab-state`). The title leads with
+  `(n)`, the Tasks badge's count, and a live call keeps its waveform at the end. The icon is
+  Thursday's mark at rest (`bot-mark` `markAtRest`) wearing the worst section alert's dot, in the
+  browser bar's own light or dark ink. `app/favicon.ico` is `tabIconSvg(null)` rasterized, for the
+  first paint; it goes stale only if her seed or the mark's geometry changes.
 - **An ending is seen when the user opens it** (`task.seen`): its thread in the room in the call
   screen's corner, or its row expanded in Settings › Tasks (task.store `useSeenOnDetail`) — or a
   cancel, which whoever cancelled has already seen. A list scrolled past does not count, and neither

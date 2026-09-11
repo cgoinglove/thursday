@@ -160,6 +160,21 @@
   }
 }
 
+/* ShinyText's sweep: the band crosses the words from left to right and starts
+   over. The component sets the duration from its `speed`. */
+@theme {
+  --animate-shine: shine 2.4s linear infinite;
+
+  @keyframes shine {
+    from {
+      background-position: 150% center;
+    }
+    to {
+      background-position: -50% center;
+    }
+  }
+}
+
 /* The boot curtain (boot.tsx) is opaque and only the client lifts it, so a load
    whose script never runs — a chunk that did not arrive, a dev server restarted
    mid-load — is a blank screen with nothing on it to read. This line is drawn on

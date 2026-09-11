@@ -5,6 +5,7 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/notify";
+import { ShinyText } from "@/components/ui/shiny-text";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CALL_HISTORY_PAGE } from "@/config";
 import type { TaskStatus } from "@/features/bot/bot.schema";
@@ -461,14 +462,21 @@ function ToolTurn({
         became of the job, as it stands now. */}
       {job && (
         <p className="mt-0.5 ml-[26px] flex min-w-0 items-baseline gap-1.5 text-[11px]">
-          <span
-            className={cn(
-              "shrink-0 font-mono text-[10px]",
-              JOB_LOOK[job.status],
-            )}
-          >
-            {JOB_WORD[job.status]}
-          </span>
+          {job.status === "running" ? (
+            <ShinyText
+              text={JOB_WORD.running}
+              className="shrink-0 font-mono text-[10px]"
+            />
+          ) : (
+            <span
+              className={cn(
+                "shrink-0 font-mono text-[10px]",
+                JOB_LOOK[job.status],
+              )}
+            >
+              {JOB_WORD[job.status]}
+            </span>
+          )}
           {job.outcome && job.status !== "running" && (
             <span className="truncate text-muted-foreground">
               {plainText(job.outcome)}

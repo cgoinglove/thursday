@@ -13,7 +13,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
-import ShinyText from "@/components/ui/shiny-text";
+import { ShinyText } from "@/components/ui/shiny-text";
 import TextType from "@/components/ui/text-type";
 import {
   Tooltip,
@@ -46,13 +46,13 @@ import {
   type ThursdayFace,
 } from "@/features/thursday/thursday.schema";
 import { useThursdayStore } from "@/features/thursday/thursday.store";
-import { useCallTitle } from "@/features/thursday/use-call-title";
 import { type ToolRun, useThursday } from "@/features/thursday/use-thursday";
 import { ArtifactView } from "@/features/workspace/components/artifact-view";
 import { useHotkeyLabel } from "@/hooks/use-hotkey";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn } from "@/lib/utils";
 import { Face } from "./face";
+import { TabState } from "./tab-state";
 
 /**
  * The call screen. The face is the only control; text stays beside it and is
@@ -665,13 +665,7 @@ function Activity({ tool, micOff }: { tool: ToolRun; micOff: boolean }) {
       {tool.done ? (
         <span className={cn(look, "text-muted-foreground")}>{text}</span>
       ) : (
-        <ShinyText
-          text={text}
-          speed={2.4}
-          color="var(--muted-foreground)"
-          shineColor="var(--foreground)"
-          className={look}
-        />
+        <ShinyText text={text} speed={2.4} className={look} />
       )}
       {/* The mic is closed because this is running, so it travels with the line.
           A chip, where the line has none: on the bare page a second glyph beside
@@ -818,7 +812,13 @@ function Hint({
   let key: string;
   if (busy) {
     key = status;
-    body = status === "connecting" ? "Connecting…" : "Ending…";
+    // still moving, so it shines like every other line that is
+    body = (
+      <ShinyText
+        text={status === "connecting" ? "Connecting…" : "Ending…"}
+        className="text-muted-foreground/70"
+      />
+    );
   } else if (live && idleLeft !== null) {
     key = "quiet";
     body = `Quiet — ending in ${idleLeft}s. Say anything to stay.`;
@@ -1114,8 +1114,6 @@ export function Thursday() {
   // a preference, not a fact about the model (thursday.store)
   const face = useThursdayFace();
   const captionView = useThursdayStore((state) => state.captionView);
-  // the tab title shows the call state off-screen
-  useCallTitle(status !== "idle");
 
   /**
    * Same question as the server's `isCallable`, asked here because the answer
@@ -1127,21 +1125,25 @@ export function Thursday() {
   );
 
   return (
-    <CallScreen
-      status={status}
-      messages={messages}
-      tool={tool}
-      onTap={call}
-      wakePhrase={wakePhrase}
-      hotkeyLabel={hotkeyLabel}
-      idleLeft={idleLeft}
-      since={since}
-      micOff={micOff}
-      getSpectrum={getSpectrum}
-      getMicSpectrum={getMicSpectrum}
-      face={face}
-      captionView={captionView}
-      callable={callable}
-    />
+    <>
+      {/* the tab shows the call and what is owed while the app is off-screen */}
+      <TabState live={status !== "idle"} />
+      <CallScreen
+        status={status}
+        messages={messages}
+        tool={tool}
+        onTap={call}
+        wakePhrase={wakePhrase}
+        hotkeyLabel={hotkeyLabel}
+        idleLeft={idleLeft}
+        since={since}
+        micOff={micOff}
+        getSpectrum={getSpectrum}
+        getMicSpectrum={getMicSpectrum}
+        face={face}
+        captionView={captionView}
+        callable={callable}
+      />
+    </>
   );
 }

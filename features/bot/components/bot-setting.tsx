@@ -29,11 +29,10 @@ import {
   InputGroupText,
 } from "@/components/ui/input-group";
 import { notify } from "@/components/ui/notify";
-import ShinyText from "@/components/ui/shiny-text";
-import { Swatch } from "@/components/ui/swatch";
+import { ShinyText } from "@/components/ui/shiny-text";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { BOT_NOTES, BOT_RUN, PROMPT_CROWDED } from "@/config";
+import { APP_NAME, BOT_NOTES, BOT_RUN, PROMPT_CROWDED } from "@/config";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import {
   compactAtFor,
@@ -63,6 +62,7 @@ import {
   rollSeedColors,
 } from "@/features/bot/bot.seed";
 import { BotMark } from "@/features/bot/components/bot-mark";
+import { MarkPalette } from "@/features/bot/components/mark-palette";
 import {
   type ConfigStatus,
   isConfigSet,
@@ -84,7 +84,7 @@ import { COMMON_VALIDATE } from "@/lib/limits";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, formatCount, WAITING_INK } from "@/lib/utils";
-import { MARK_PALETTE, MARK_SHAPES, MARK_SYSTEM } from "../mark.const";
+import { MARK_SHAPES, MARK_SYSTEM } from "../mark.const";
 
 /**
  * The bots Thursday hands background work to. Roster on the left, the picked bot's
@@ -263,23 +263,11 @@ function RosterRow({
           {bot.name}
         </span>
         {line.shine ? (
-          // The colours come from CSS variables so they follow the theme.
-          <span
-            className={cn(
-              "block",
-              line.amber
-                ? "[--rest:var(--color-amber-700)] [--shine:var(--color-amber-400)] dark:[--rest:var(--color-amber-400)] dark:[--shine:var(--color-amber-100)]"
-                : "[--rest:var(--muted-foreground)] [--shine:var(--foreground)]",
-            )}
-          >
-            <ShinyText
-              text={line.text}
-              speed={2.4}
-              color="var(--rest)"
-              shineColor="var(--shine)"
-              className="truncate font-mono text-[11px] leading-4"
-            />
-          </span>
+          <ShinyText
+            text={line.text}
+            tone={line.amber ? "waiting" : "muted"}
+            className="block truncate font-mono text-[11px] leading-4"
+          />
         ) : (
           <span className="block truncate font-mono text-[11px] leading-4 text-muted-foreground">
             {line.text}
@@ -823,37 +811,54 @@ function BotPage({
       </div>
 
       <div className="flex-1 space-y-5 p-6">
-        <div className="flex items-start gap-4">
-          <BotMark size={72} {...markProps(name, icon)} className="shrink-0" />
-          <div className="min-w-0 flex-1 space-y-2.5">
-            {bot ? (
-              <p className="truncate text-lg leading-8 font-medium">
-                {bot.name}
-              </p>
-            ) : (
-              <Input
-                value={name}
-                onChange={(event) => patch({ name: event.target.value })}
-                placeholder="researcher"
-                spellCheck={false}
-                maxLength={COMMON_VALIDATE.name.max}
-                autoFocus
-              />
-            )}
+        <MarkPicker
+          name={name}
+          icon={icon}
+          onChange={(next) => {
+            patch({ icon: next });
+            commit({ icon: next });
+          }}
+        />
+
+        <Row label="Name">
+          {bot ? (
+            <p className="truncate text-sm leading-8 font-medium">{bot.name}</p>
+          ) : (
             <Input
-              value={description}
-              onChange={(event) => patch({ description: event.target.value })}
-              onBlur={() => {
-                const next = description.trim();
-                if (bot && next && next !== bot.description) {
-                  commit({ description: next });
-                }
-              }}
-              placeholder="Searches the web and answers"
-              maxLength={COMMON_VALIDATE.description.max}
+              value={name}
+              onChange={(event) => patch({ name: event.target.value })}
+              placeholder="researcher"
+              spellCheck={false}
+              maxLength={COMMON_VALIDATE.name.max}
+              autoFocus
             />
-          </div>
-        </div>
+          )}
+          {/* Renaming is delete and recreate (bot.query updateBot), so say it before the name is typed */}
+          <p className="text-xs text-muted-foreground">
+            {bot
+              ? `What ${APP_NAME} calls it when she hands it work. Fixed once the bot is made.`
+              : `What ${APP_NAME} calls it when she hands it work. Up to ${COMMON_VALIDATE.name.max} characters, and it can’t be renamed later.`}
+          </p>
+        </Row>
+
+        <Row label="Description">
+          <Input
+            value={description}
+            onChange={(event) => patch({ description: event.target.value })}
+            onBlur={() => {
+              const next = description.trim();
+              if (bot && next && next !== bot.description) {
+                commit({ description: next });
+              }
+            }}
+            placeholder="Searches the web and answers"
+            maxLength={COMMON_VALIDATE.description.max}
+          />
+          <p className="text-xs text-muted-foreground">
+            The one line {APP_NAME} and the other bots read when they decide who
+            gets a job.
+          </p>
+        </Row>
 
         {bot?.note && (
           /* Not a Row like the fields above it: those are settings the owner
@@ -898,14 +903,6 @@ function BotPage({
             </div>
           </div>
         )}
-
-        <MarkPicker
-          icon={icon}
-          onChange={(next) => {
-            patch({ icon: next });
-            commit({ icon: next });
-          }}
-        />
 
         <Row label="Runs on">
           <ModelPicker
@@ -1132,11 +1129,18 @@ function Recent({ jobs }: { jobs: Task[] }) {
               className="flex h-9 items-center gap-3 border-t border-border/60 text-[13px]"
             >
               <span className="min-w-0 flex-1 truncate">{job.label}</span>
-              <span
-                className={cn("shrink-0 font-mono text-[11px]", state.tone)}
-              >
-                {state.text}
-              </span>
+              {job.status === "running" ? (
+                <ShinyText
+                  text={state.text}
+                  className="shrink-0 font-mono text-[11px]"
+                />
+              ) : (
+                <span
+                  className={cn("shrink-0 font-mono text-[11px]", state.tone)}
+                >
+                  {state.text}
+                </span>
+              )}
               <span className="w-28 shrink-0 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
                 {whenOf(job.updatedAt)}
               </span>
@@ -1161,81 +1165,74 @@ function jobState(job: Task): { text: string; tone: string } {
   }
 }
 
-/** Palette swatch and silhouette for a BotMark; the caller draws the face. */
+/**
+ * The face, with what paints it right under it: the palette, then the
+ * silhouette. Laid out like Thursday's own face picker, so both faces are
+ * chosen the same way.
+ */
 function MarkPicker({
+  name,
   icon,
   onChange,
 }: {
+  name: string;
   icon: BotIcon;
   onChange: (icon: BotIcon) => void;
 }) {
   return (
-    <>
-      <Row label="Color">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {/* MARK_SYSTEM is an explicit "follow the theme ink", distinct from no colour. */}
-          <Swatch
-            color={null}
-            picked={icon.color === MARK_SYSTEM}
-            onPick={() => onChange({ ...icon, color: MARK_SYSTEM })}
-          />
-          {MARK_PALETTE.map((color) => (
-            <Swatch
-              key={color}
-              color={color}
-              picked={icon.color === color}
-              onPick={() =>
-                onChange({
-                  ...icon,
-                  color: icon.color === color ? undefined : color,
-                })
-              }
-            />
-          ))}
-        </div>
-      </Row>
+    <div className="flex flex-col items-center gap-4 pt-3 pb-2">
+      <BotMark size={112} {...markProps(name, icon)} className="shrink-0" />
+
+      {/* MARK_SYSTEM is an explicit "follow the theme ink", distinct from no
+          colour; picking the colour already on it goes back to none. */}
+      <MarkPalette
+        color={icon.color}
+        themePicked={icon.color === MARK_SYSTEM}
+        onTheme={() => onChange({ ...icon, color: MARK_SYSTEM })}
+        onPick={(color) =>
+          onChange({ ...icon, color: icon.color === color ? undefined : color })
+        }
+      />
 
       {/* Every chip is a toggle: unpicked means "whatever the name seeds", not a value */}
-      <Row label="Face">
-        <div className="flex gap-1">
-          {MARK_SHAPES.map((shape) => (
-            <button
-              key={shape}
-              type="button"
-              onClick={() =>
-                onChange({
-                  ...icon,
-                  shape: icon.shape === shape ? undefined : shape,
-                })
-              }
-              className={cn(
-                "rounded-md px-2 py-1 font-mono text-[11px] capitalize transition-colors",
-                icon.shape === shape
-                  ? "bg-foreground text-background"
-                  : "bg-muted text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {shape}
-            </button>
-          ))}
-          <span className="mx-1 w-px self-stretch bg-border/60" />
+      <div className="flex gap-1">
+        {MARK_SHAPES.map((shape) => (
           <button
+            key={shape}
             type="button"
             onClick={() =>
-              onChange({ ...icon, outline: icon.outline ? undefined : true })
+              onChange({
+                ...icon,
+                shape: icon.shape === shape ? undefined : shape,
+              })
             }
             className={cn(
-              "rounded-md px-2 py-1 font-mono text-[11px] transition-colors",
-              icon.outline
+              "rounded-md px-2 py-1 font-mono text-[11px] capitalize transition-colors",
+              icon.shape === shape
                 ? "bg-foreground text-background"
                 : "bg-muted text-muted-foreground hover:text-foreground",
             )}
           >
-            outline
+            {shape}
           </button>
-        </div>
-      </Row>
-    </>
+        ))}
+        <span className="mx-1 w-px self-stretch bg-border/60" />
+        <button
+          type="button"
+          onClick={() =>
+            onChange({ ...icon, outline: icon.outline ? undefined : true })
+          }
+          className={cn(
+            "rounded-md px-2 py-1 font-mono text-[11px] transition-colors",
+            icon.outline
+              ? "bg-foreground text-background"
+              : "bg-muted text-muted-foreground hover:text-foreground",
+          )}
+        >
+          outline
+        </button>
+      </div>
+    </div>
   );
 }
 

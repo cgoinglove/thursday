@@ -16,7 +16,7 @@ import {
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
-import ShinyText from "@/components/ui/shiny-text";
+import { ShinyText } from "@/components/ui/shiny-text";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import { ProviderIcon } from "@/features/ai/components/provider-icon";
 import type { TextModelProviderId } from "@/features/ai/model.schema";

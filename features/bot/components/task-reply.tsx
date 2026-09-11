@@ -12,7 +12,7 @@ import { useEffect, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { FoldedText } from "@/components/ui/folded-text";
-import ShinyText from "@/components/ui/shiny-text";
+import { ShinyText } from "@/components/ui/shiny-text";
 import { Textarea } from "@/components/ui/textarea";
 import { answerTaskAction, cancelTaskAction } from "@/features/bot/bot.action";
 import {
@@ -186,21 +186,13 @@ export function TaskReply({
             <span className="shrink-0">Before its next step:</span>
             {/* Still in the air until the bot picks it up, so it shines like every
                 other line that is still moving. */}
-            <ShinyText
-              text={queued}
-              speed={2.2}
-              color="var(--muted-foreground)"
-              shineColor="var(--foreground)"
-              className="min-w-0 truncate"
-            />
+            <ShinyText text={queued} speed={2.2} className="min-w-0 truncate" />
           </p>
         ) : (
           // The job is moving while this line is up, so the line moves too.
           <ShinyText
             text={`${task.bot} is on it — Thursday steers it by voice.`}
             speed={2.4}
-            color="var(--muted-foreground)"
-            shineColor="var(--foreground)"
             className="min-w-0 flex-1 truncate text-[12.5px] leading-5 break-keep"
           />
         )}

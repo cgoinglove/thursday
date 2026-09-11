@@ -1438,6 +1438,35 @@ export function BotMark({
   );
 }
 
+/**
+ * A mark at rest as bare path data, for a surface React does not draw — the tab's
+ * icon. The silhouette and eyes `<BotMark seed>` draws with no other props, in the
+ * 240-unit box (VIEW_BOX adds the headroom around it).
+ */
+export function markAtRest(seed: number | string): {
+  head: string;
+  eyes: [string, string];
+} {
+  const cfg = MARK_DEFAULTS;
+  const eye = (cx: number, tilt: number) =>
+    eyePath({
+      len: cfg.eyeLen,
+      width: cfg.eyeWidth,
+      bend: cfg.eyeBend,
+      taper: cfg.eyeTaper,
+      tilt,
+      cx,
+      cy: cfg.eyeY,
+    });
+  return {
+    head: radiiToPath(radiiFor(cfg, cfg.shape, hashSeed(seed))),
+    eyes: [
+      eye(CENTER - cfg.eyeGap / 2, cfg.eyeTilt),
+      eye(CENTER + cfg.eyeGap / 2, cfg.eyeTilt + cfg.eyeSkew),
+    ],
+  };
+}
+
 /** Mark for bots as a group (the settings section icon). No color or shape of its own:
  *  `currentColor` and the default silhouette, since it names the room, not a bot. */
 export function BotsMark({

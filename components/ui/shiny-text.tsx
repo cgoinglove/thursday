@@ -1,141 +1,55 @@
-import {
-  motion,
-  useAnimationFrame,
-  useMotionValue,
-  useTransform,
-} from "motion/react";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
+import { cn, WAITING_INK } from "@/lib/utils";
 
-interface ShinyTextProps {
+/**
+ * The resting ink and the band that crosses it. On a light page the band moves
+ * toward the ink: a lighter band on light ground reads as the words fading out.
+ */
+const TONES = {
+  muted: { rest: "text-muted-foreground", band: "via-foreground" },
+  waiting: { rest: WAITING_INK, band: "via-amber-950 dark:via-amber-100" },
+} as const;
+
+export type ShinyTone = keyof typeof TONES;
+
+/**
+ * Words for something still moving. They are drawn once as plain text, so they
+ * cut short, wrap and select like any other; the sweep is a copy laid over them
+ * that carries only the band. A gradient clipped to the glyphs cannot draw the
+ * "…" a box truncates to, so the ellipsis belongs to the plain layer.
+ *
+ * Truncate on this component, not on a parent: it is an inline-block, and a
+ * parent cannot put an ellipsis inside one.
+ */
+export function ShinyText({
+  text,
+  tone = "muted",
+  speed = 2.4,
+  className,
+}: {
   text: string;
-  disabled?: boolean;
+  tone?: ShinyTone;
+  /** Seconds for the band to cross once. */
   speed?: number;
   className?: string;
-  color?: string;
-  shineColor?: string;
-  spread?: number;
-  yoyo?: boolean;
-  pauseOnHover?: boolean;
-  direction?: "left" | "right";
-  delay?: number;
-}
-
-const ShinyText: React.FC<ShinyTextProps> = ({
-  text,
-  disabled = false,
-  speed = 2,
-  className = "",
-  color = "#b5b5b5",
-  shineColor = "#ffffff",
-  spread = 120,
-  yoyo = false,
-  pauseOnHover = false,
-  direction = "left",
-  delay = 0,
-}) => {
-  const [isPaused, setIsPaused] = useState(false);
-  const progress = useMotionValue(0);
-  const elapsedRef = useRef(0);
-  const lastTimeRef = useRef<number | null>(null);
-  const directionRef = useRef(direction === "left" ? 1 : -1);
-
-  const animationDuration = speed * 1000;
-  const delayDuration = delay * 1000;
-
-  useAnimationFrame((time) => {
-    if (disabled || isPaused) {
-      lastTimeRef.current = null;
-      return;
-    }
-
-    if (lastTimeRef.current === null) {
-      lastTimeRef.current = time;
-      return;
-    }
-
-    const deltaTime = time - lastTimeRef.current;
-    lastTimeRef.current = time;
-
-    elapsedRef.current += deltaTime;
-
-    // Animation goes from 0 to 100
-    if (yoyo) {
-      const cycleDuration = animationDuration + delayDuration;
-      const fullCycle = cycleDuration * 2;
-      const cycleTime = elapsedRef.current % fullCycle;
-
-      if (cycleTime < animationDuration) {
-        // Forward animation: 0 -> 100
-        const p = (cycleTime / animationDuration) * 100;
-        progress.set(directionRef.current === 1 ? p : 100 - p);
-      } else if (cycleTime < cycleDuration) {
-        // Delay at end
-        progress.set(directionRef.current === 1 ? 100 : 0);
-      } else if (cycleTime < cycleDuration + animationDuration) {
-        // Reverse animation: 100 -> 0
-        const reverseTime = cycleTime - cycleDuration;
-        const p = 100 - (reverseTime / animationDuration) * 100;
-        progress.set(directionRef.current === 1 ? p : 100 - p);
-      } else {
-        // Delay at start
-        progress.set(directionRef.current === 1 ? 0 : 100);
-      }
-    } else {
-      const cycleDuration = animationDuration + delayDuration;
-      const cycleTime = elapsedRef.current % cycleDuration;
-
-      if (cycleTime < animationDuration) {
-        // Animation phase: 0 -> 100
-        const p = (cycleTime / animationDuration) * 100;
-        progress.set(directionRef.current === 1 ? p : 100 - p);
-      } else {
-        // Delay phase - hold at end (shine off-screen)
-        progress.set(directionRef.current === 1 ? 100 : 0);
-      }
-    }
-  });
-
-  useEffect(() => {
-    directionRef.current = direction === "left" ? 1 : -1;
-    elapsedRef.current = 0;
-    progress.set(0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [direction]);
-
-  // Transform: p=0 -> 150% (shine off right), p=100 -> -50% (shine off left)
-  const backgroundPosition = useTransform(
-    progress,
-    (p) => `${150 - p * 2}% center`,
-  );
-
-  const handleMouseEnter = useCallback(() => {
-    if (pauseOnHover) setIsPaused(true);
-  }, [pauseOnHover]);
-
-  const handleMouseLeave = useCallback(() => {
-    if (pauseOnHover) setIsPaused(false);
-  }, [pauseOnHover]);
-
-  const gradientStyle: React.CSSProperties = {
-    backgroundImage: `linear-gradient(${spread}deg, ${color} 0%, ${color} 35%, ${shineColor} 50%, ${color} 65%, ${color} 100%)`,
-    backgroundSize: "200% auto",
-    WebkitBackgroundClip: "text",
-    backgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-  };
-
+}) {
+  const { rest, band } = TONES[tone];
   return (
-    // inline-block beats a caller's `block`, so it also carries the max: without
-    // one it grows to its text and spills past the parent instead of truncating.
-    <motion.span
-      className={`inline-block max-w-full ${className}`}
-      style={{ ...gradientStyle, backgroundPosition }}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+    <span
+      data-slot="shiny-text"
+      className={cn("relative inline-block max-w-full", rest, className)}
     >
       {text}
-    </motion.span>
+      <span
+        aria-hidden
+        style={{ animationDuration: `${speed}s` } as CSSProperties}
+        className={cn(
+          "pointer-events-none absolute inset-0 animate-shine overflow-hidden bg-linear-120 from-transparent from-35% via-50% to-transparent to-65% bg-size-[200%_auto] bg-clip-text text-transparent p-[inherit] select-none [text-overflow:inherit] motion-reduce:hidden",
+          band,
+        )}
+      >
+        {text}
+      </span>
+    </span>
   );
-};
-
-export default ShinyText;
+}

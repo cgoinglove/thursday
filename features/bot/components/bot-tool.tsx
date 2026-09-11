@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { type ComponentType, type ReactNode, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
-import ShinyText from "@/components/ui/shiny-text";
+import { ShinyText } from "@/components/ui/shiny-text";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ResultPart } from "@/features/bot/bot.schema";
 import { McpMark } from "@/features/connectors/components/mcp-mark";
@@ -254,8 +254,6 @@ function Frame({
               <ShinyText
                 text={tool.note}
                 speed={2.4}
-                color="var(--muted-foreground)"
-                shineColor="var(--foreground)"
                 className="min-w-0 flex-1 truncate text-[12px] leading-4 break-keep"
               />
             ) : (
@@ -273,8 +271,6 @@ function Frame({
           <ShinyText
             text={tool.input}
             speed={2.4}
-            color="var(--muted-foreground)"
-            shineColor="var(--foreground)"
             className="min-w-0 flex-1 truncate font-mono text-[11px] leading-4"
           />
         ) : (

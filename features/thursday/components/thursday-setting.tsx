@@ -12,7 +12,6 @@ import { Combobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { notify } from "@/components/ui/notify";
 import { Segmented } from "@/components/ui/segmented";
-import { Swatch } from "@/components/ui/swatch";
 import { Textarea } from "@/components/ui/textarea";
 import { ProviderIcon } from "@/features/ai/components/provider-icon";
 import {
@@ -20,7 +19,8 @@ import {
   SPEACH_MODEL_PROVIDER_LIST,
   type SpeachModelRef,
 } from "@/features/ai/model.schema";
-import { MARK_PALETTE_ROWS, MARK_SHAPES } from "@/features/bot/mark.const";
+import { MarkPalette } from "@/features/bot/components/mark-palette";
+import { MARK_SHAPES } from "@/features/bot/mark.const";
 import {
   SettingChoiceRows,
   SettingError,
@@ -299,41 +299,14 @@ function FacePicker({
           </p>
         </div>
 
-        {/* Only the mark takes a color; the orb follows the theme (OrbFace ignores it).
-            Rows break where the palette breaks (MARK_PALETTE_ROWS); the theme dot stands apart. */}
+        {/* Only the mark takes a color; the orb follows the theme (OrbFace ignores it). */}
         {value.kind === "mark" && (
-          // both rows center as one block and left-align inside it
-          <div className="flex justify-center px-2">
-            <div className="flex flex-col gap-2.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <Swatch
-                  color={null}
-                  picked={!value.color}
-                  onPick={() => patch({ color: undefined })}
-                />
-                <span className="w-2" />
-                {MARK_PALETTE_ROWS[0].map((color) => (
-                  <Swatch
-                    key={color}
-                    color={color}
-                    picked={value.color === color}
-                    onPick={() => patch({ color })}
-                  />
-                ))}
-              </div>
-              {/* indent by the theme dot and its gap so the dark row lines up under the first light color */}
-              <div className="flex flex-wrap items-center gap-2 pl-9">
-                {MARK_PALETTE_ROWS[1].map((color) => (
-                  <Swatch
-                    key={color}
-                    color={color}
-                    picked={value.color === color}
-                    onPick={() => patch({ color })}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
+          <MarkPalette
+            color={value.color}
+            themePicked={!value.color}
+            onTheme={() => patch({ color: undefined })}
+            onPick={(color) => patch({ color })}
+          />
         )}
 
         {value.kind === "mark" && (

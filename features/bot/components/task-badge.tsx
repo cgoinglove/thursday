@@ -12,7 +12,7 @@ import { useServerRoute } from "@/lib/protocol/use-server-route";
  * wait on them — and among those, a failure, which is red. The inbox holds only
  * the latest INBOX_FINISHED endings, so every one counted has a row to open.
  */
-function useTaskReport() {
+export function useTaskReport() {
   const { data } = useServerRoute<Task[]>(queryKey.tasks);
   const tasks = data ?? [];
   const unread = (task: Task) =>

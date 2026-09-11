@@ -27,7 +27,7 @@ import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
 import { FoldedText } from "@/components/ui/folded-text";
 import { Markdown } from "@/components/ui/markdown";
-import ShinyText from "@/components/ui/shiny-text";
+import { ShinyText, type ShinyTone } from "@/components/ui/shiny-text";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { startTaskAction } from "@/features/bot/bot.action";
@@ -189,9 +189,11 @@ export const BotRoom = memo(function BotRoom() {
   const closeCompose = useCallback(() => setComposing(false), []);
 
   return (
-    <div className="pointer-events-none absolute right-5 bottom-5 z-10 flex w-132 max-w-[calc(100vw-2.5rem)] flex-col items-end gap-2">
+    // As wide as the resting pill may grow: 80% of the window. The open room
+    // keeps its own 33rem inside it.
+    <div className="pointer-events-none absolute right-5 bottom-5 z-10 flex w-[min(80vw,calc(100vw-2.5rem))] flex-col items-end gap-2">
       {open ? (
-        <div className="pointer-events-auto flex max-h-[min(44rem,78vh)] w-full animate-in flex-col overflow-hidden rounded-3xl bg-background/75 shadow-2xl shadow-black/6 ring-1 ring-border/50 backdrop-blur-xl fade-in slide-in-from-bottom-1 duration-200">
+        <div className="pointer-events-auto flex max-h-[min(44rem,78vh)] w-132 max-w-full animate-in flex-col overflow-hidden rounded-3xl bg-background/75 shadow-2xl shadow-black/6 ring-1 ring-border/50 backdrop-blur-xl fade-in slide-in-from-bottom-1 duration-200">
           {current ? (
             <>
               <ThreadHeader
@@ -450,9 +452,9 @@ const isUnread = (task: TaskView) =>
 /**
  * What the room itself is doing, and nothing else — the right side of the pill.
  *
- * Only `waiting on you` sweeps. A shine means something is happening right now,
- * which is what the words beside the faces are for; the spinner already says a
- * job is running, and two things sweeping in one pill read as a loading screen.
+ * What is still moving shines, like every other running line: a wait in amber,
+ * running jobs in muted ink beside the spinner. An ending does not — an answer
+ * nobody has opened is something to read, not something happening.
  */
 function restingState({
   count,
@@ -467,12 +469,12 @@ function restingState({
   /** Endings nobody has opened, failures included. */
   unread: number;
   failed: number;
-}): { text: string; tone: string; shine: boolean } {
+}): { text: string; tone: string; shine: ShinyTone | null } {
   if (pending > 0)
     return {
       text: pending === 1 ? "waiting on you" : `${pending} waiting on you`,
       tone: WAITING_INK,
-      shine: true,
+      shine: "waiting",
     };
   // Unread outranks running: a job still going will say so again, and an answer
   // left unopened will not.
@@ -480,23 +482,23 @@ function restingState({
     return {
       text: failed === 1 ? "1 failed" : `${failed} failed`,
       tone: "text-destructive",
-      shine: false,
+      shine: null,
     };
   if (unread > 0)
     return {
       text: unread === 1 ? "1 new answer" : `${unread} new answers`,
       tone: WAITING_INK,
-      shine: false,
+      shine: null,
     };
   if (busy > 0)
     return {
       text: busy === 1 ? "working" : `${busy} running`,
       tone: "text-muted-foreground",
-      shine: false,
+      shine: "muted",
     };
   if (count > 0)
-    return { text: "all done", tone: "text-muted-foreground", shine: false };
-  return { text: "no jobs yet", tone: "text-muted-foreground", shine: false };
+    return { text: "all done", tone: "text-muted-foreground", shine: null };
+  return { text: "no jobs yet", tone: "text-muted-foreground", shine: null };
 }
 
 /**
@@ -560,8 +562,10 @@ function Chip({
         // Not `overflow-hidden`: a hand-off bubble stands above the row, outside
         // this box. The growing part clips itself instead.
         "pointer-events-auto w-fit max-w-full bg-background/78 ring-1 ring-border/50 backdrop-blur-md transition-shadow duration-300",
+        // A card with questions in it keeps the room's width: only the resting
+        // row grows with the corner, and a reply's long lines would stretch it.
         grown
-          ? "min-w-96 rounded-3xl shadow-lg shadow-black/8"
+          ? "max-w-[min(33rem,100%)] min-w-96 rounded-3xl shadow-lg shadow-black/8"
           : "rounded-full shadow-sm shadow-black/3",
       )}
     >
@@ -617,18 +621,12 @@ function Chip({
               the right. `ml-auto` keeps it there when the crew says nothing. */}
           <span className="ml-auto flex h-7 shrink-0 items-center gap-1.5">
             {state.shine ? (
-              // Neither waiting nor running is a state at rest, but only one of
-              // them needs you. The colours are classes because they differ per
-              // theme, and ShinyText reads the variables they set.
-              <span className="block [--rest:var(--color-amber-700)] [--shine:var(--color-amber-400)] dark:[--rest:var(--color-amber-400)] dark:[--shine:var(--color-amber-100)]">
-                <ShinyText
-                  text={state.text}
-                  speed={2.6}
-                  color="var(--rest)"
-                  shineColor="var(--shine)"
-                  className="truncate text-[14px] leading-5 tracking-[-0.15px]"
-                />
-              </span>
+              <ShinyText
+                text={state.text}
+                tone={state.shine}
+                speed={2.6}
+                className="block truncate text-[14px] leading-5 tracking-[-0.15px]"
+              />
             ) : (
               <span
                 key={state.text}
@@ -907,8 +905,6 @@ function Crew({
                 <ShinyText
                   text={face.word}
                   speed={2.6}
-                  color="var(--muted-foreground)"
-                  shineColor="var(--foreground)"
                   className="truncate text-[13px] leading-5 tracking-[-0.1px]"
                 />
               </span>
@@ -1140,8 +1136,6 @@ function State({ task }: { task: TaskView }) {
       <ShinyText
         text="working"
         speed={2.2}
-        color="var(--muted-foreground)"
-        shineColor="var(--foreground)"
         className="shrink-0 font-mono text-[10px]"
       />
     );
@@ -1317,8 +1311,6 @@ function TaskRow({ task, onPick }: { task: TaskView; onPick: () => void }) {
               <ShinyText
                 text={line.text}
                 speed={2.2}
-                color="var(--muted-foreground)"
-                shineColor="var(--foreground)"
                 className={cn(
                   "min-w-0 flex-1 truncate text-[12px] leading-4",
                   line.tone,
@@ -1454,17 +1446,34 @@ export function Conversation({
             <Group key={item.key} group={item.group} task={task} />
           ),
         )}
-        {task.status === "working" && task.lines.length === 0 && (
-          <ShinyText
-            text={`${task.bot.name} is taking it on…`}
-            speed={2.2}
-            color="var(--muted-foreground)"
-            shineColor="var(--foreground)"
-            className="block px-1 font-mono text-[10px]"
-          />
-        )}
+        {task.status === "working" && <NextMove task={task} />}
       </div>
     </FileViewer>
+  );
+}
+
+/**
+ * The foot of a running thread while nothing on it is moving: the bot is
+ * writing its next step. A tool mid-call already shines on its own row, so this
+ * steps aside for it.
+ */
+function NextMove({ task }: { task: TaskView }) {
+  if (task.lines.some((line) => line.tool && line.tool.results === undefined)) {
+    return null;
+  }
+  const last = task.lines.at(-1);
+  // After a hand-off, in either direction, the move is the receiver's
+  const who = last?.kind === "ask" && last.to ? last.to : last?.bot;
+  return (
+    <ShinyText
+      text={
+        who
+          ? `${who.name} is on the next step…`
+          : `${task.bot.name} is taking it on…`
+      }
+      speed={2.2}
+      className="block px-1 font-mono text-[10px]"
+    />
   );
 }
 
