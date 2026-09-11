@@ -1,11 +1,12 @@
 import type { ModelMessage } from "ai";
-import { BOT_NOTES, PATHS, PROMPT_LINE } from "@/config";
+import { PATHS, PROMPT_LINE } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import {
-  listJobBots,
-  readBotNote,
-  readBotNotesOn,
-} from "@/features/bot/bot.query";
+  type BotMemory,
+  botMemoryFolder,
+  listBotMemory,
+} from "@/features/bot/bot.memory";
+import { listJobBots, readBotMemoryOn } from "@/features/bot/bot.query";
 import type { JobBot } from "@/features/bot/bot.schema";
 import { findPinnedTools } from "@/features/connectors/mcp.query";
 import type { McpToolRef } from "@/features/connectors/mcp.schema";
@@ -67,8 +68,8 @@ export async function loadBotPrompt(
     mcpTools,
     pinned,
     allBots,
-    ownNote,
-    notesOn,
+    kept,
+    memoryOn,
     machine,
   ] = await Promise.all([
     loadSkills(sandbox),
@@ -79,9 +80,9 @@ export async function loadBotPrompt(
     // MCP tools this bot already holds; dropped from the listing below
     findPinnedTools(name),
     listJobBots(),
-    // What this bot left itself; kept by the pass that runs after a job (bot.notes)
-    readBotNote(name),
-    readBotNotesOn(),
+    // What this bot kept on earlier jobs, read off its own folder (bot.memory)
+    listBotMemory(name),
+    readBotMemoryOn(),
     // One `command -v` sweep; what is here decides the first command (environment)
     readMachineTools(sandbox),
   ]);
@@ -98,7 +99,7 @@ export async function loadBotPrompt(
   const text = [
     askedBy ? borrowedIdentity(name, askedBy) : identity(name),
     memory(index, carried),
-    notesOn ? notes(ownNote) : "",
+    memoryOn ? ownMemory(botMemoryFolder(name), kept) : "",
     connectedTools(mcpTools, pinned),
     methods(skills),
     environment(sandbox.cwd, machine, folders),
@@ -171,7 +172,7 @@ function memory(
 
 What the user's assistant knows about them. Thursday keeps it as she talks with them, and everyone reads it.
 
-Yours to read, and to add to when the work turns up something about *them* that outlives the job; what the job itself turned up goes in your answer. It describes the user, not you: how they are named and spoken to is hers to use with them, not yours to borrow. What you learn about this machine is not memory — that is your own instructions, below.`;
+Yours to read, and to add to when the work turns up something about *them* that outlives the job; what the job itself turned up goes in your answer. It describes the user, not you: how they are named and spoken to is hers to use with them, not yours to borrow. What you learn about the work is not about them — that is your own memory, below.`;
 
   const alreadyKnown = carried.length
     ? `Already known:
@@ -189,21 +190,31 @@ A topic not listed is one nobody knows anything about.`;
 }
 
 /**
- * The bot's own notes, carried between jobs (database bot_note). Always drawn, empty or not,
- * so a first job knows it has them. What belongs in them is on `answer`, the only place a
- * change can be asked for (tools/bot.tool); the chapter is what they are and that they last.
- * The line about what goes in first shows only while they are empty — a standing instruction
- * to write something turns every job into a note, and there is nothing to nudge once a bot
- * has one. The count is here for the same reason: the room left is a fact, not a target.
+ * The bot's own memory (features/bot/bot.memory), listed by each file's first line so what a
+ * file holds costs one line until a job opens it. Always drawn, so a first job knows it has one.
+ * Nothing says what usually goes in first: a line like that is what a first job writes, whether
+ * or not the job taught it anything.
  */
-function notes(own: string | null): string {
-  return `## Your own instructions
+function ownMemory(folder: string, kept: BotMemory): string {
+  const listing = kept.entries.length
+    ? kept.entries
+        .map(({ file, line }) =>
+          line
+            ? `- ${file} — ${clip(line, PROMPT_LINE.botMemory)}`
+            : `- ${file}`,
+        )
+        .join("\n")
+    : "Empty.";
+  const rest =
+    kept.total > kept.entries.length
+      ? `\n\nThe newest ${kept.entries.length} of ${kept.total}; \`ls ${folder}\` for the rest.`
+      : "";
 
-What you wrote to yourself on earlier jobs here, to get better at this machine. Only you read it, and it is the one thing that reaches your next job. What belongs in it is what working here is like — the command that turns out to be the right one, the flag it needs, the tool this platform does not have. Not what the user is like: that is Memory, above, and everyone reads that one.
+  return `## Your memory
 
-${own ?? "Empty. What usually goes in first is whatever you had to find out before you could start."}
+What you kept from your own earlier jobs, in \`${folder}/\`: one topic per file, its first line saying what it holds, read by no other bot. Keep what a later job would otherwise have to find out again — how a site signs in, the way through its screens, a command that turned out right — and fix or delete a file that proved wrong. No passwords, keys or codes.
 
-(${own?.length ?? 0}/${BOT_NOTES.chars} characters)`;
+${listing}${rest}`;
 }
 
 /**
@@ -265,7 +276,7 @@ Your workspace — \`${TOOL_NAMES.bash}\` runs here. Everything you write goes i
 - \`${PATHS.artifacts}/\` — finished work the user opens, one entry per result. Theirs, and it stays.
 - \`${PATHS.projects}/\` — code you build, one folder each. It outlives this job, and a project's dependencies install inside it, never at the workspace root.
 - \`${folders?.scratch ?? PATHS.scratch}/\` — this job's working material, one folder for every bot on the job: what another bot on it wrote is here too. It goes when the job does, so nothing here is worth keeping.
-- \`${folders?.own ?? PATHS.bots}/\` — yours, across every job you run here. A script you wrote once and will want again, a table you built. Your own instructions can name what is in it.
+- \`${folders?.own ?? PATHS.bots}/\` — yours, across every job you run here: your memory, a script you wrote once and will want again, a table you built.
 
 Never the directory above — that is the app you run in; outside the workspace, only where the user pointed you.`;
 

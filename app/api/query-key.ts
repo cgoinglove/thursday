@@ -54,8 +54,8 @@ export const queryKey = {
    */
   bot: "/api/bot",
 
-  /** boolean: whether bots keep their own instructions (Settings > Bots) */
-  botNotes: "/api/bot/notes",
+  /** boolean: whether bots keep their own memory (Settings > Bots) */
+  botMemory: "/api/bot/memory",
 
   /**
    * Inbox: Task[] newest first with threads, everything running or asking plus

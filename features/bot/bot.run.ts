@@ -49,8 +49,7 @@ import {
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
 import { estimateTokens } from "@/lib/tokens";
-import { hasNotesRequest, keepNotes } from "./bot.notes";
-import { findJobBot, readBotNotesOn } from "./bot.query";
+import { findJobBot } from "./bot.query";
 import {
   findTask,
   listWrittenPaths,
@@ -406,8 +405,6 @@ export async function runBot(
   let answered: { text: string; stopped: boolean } | null = null;
   /** Index of the step being read; `lastStep` narrows the one at MAX_STEPS - 1. */
   let stepAt = -1;
-  /** What the bot wants changed about its own instructions (bot.tool `notes`); applied after the answer. */
-  let wants: string | null = null;
   /** Why the latest step ended; prose cut off at the output limit is not an answer. */
   let finish: FinishReason | null = null;
   /** Tool calls still running: the model is not expected to send anything meanwhile. */
@@ -478,7 +475,6 @@ export async function runBot(
               // The last step offers nothing but `answer`: an answer there is the cap's doing
               stopped: stepAt >= MAX_STEPS - 1,
             };
-            wants = notesRequestOf(part.input);
           }
           // A tool at work sends nothing, and bounds itself (bash, connected
           // tools, a borrowed bot's own watch); `ask_thursday` never runs
@@ -583,16 +579,6 @@ export async function runBot(
 
   if (answered) {
     await emit({ type: "answer", ...answered });
-    // After the answer, never before, and only when the bot asked for something:
-    // a job that changed nothing about this machine must not cost a model call.
-    if (hasNotesRequest(wants) && (await readBotNotesOn())) {
-      await keepNotes({
-        bot: name,
-        model: model.model,
-        want: wants as string,
-        signal: options.signal,
-      });
-    }
     return;
   }
 
@@ -625,16 +611,6 @@ const answerAccepted_ = ({ steps }: { steps: StepResult<ToolSet>[] }) =>
       (result) =>
         result.toolName === TOOL_NAMES.answer && answerAccepted(result.output),
     ) ?? false;
-
-/** A provider that cannot send null in a string field writes the word instead. */
-const NO_NOTES = new Set(["null", "none", "n/a", "-", "없음"]);
-
-/** `answer`'s `notes` as the pass takes it. */
-function notesRequestOf(input: unknown): string | null {
-  const said = (input as { notes?: unknown })?.notes;
-  const text = typeof said === "string" ? said.trim() : "";
-  return text && !NO_NOTES.has(text.toLowerCase()) ? text : null;
-}
 
 /**
  * The step before the cap is narrowed to `answer` and required to call it,

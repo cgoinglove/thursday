@@ -178,13 +178,12 @@ export const BOT_RUN = {
 };
 
 /**
- * A bot's own notes (database bot_note): one block of prose it writes to itself, at most
- * this many characters. One block and not a list, because it is read as instructions — the
- * bot's own, under the owner's. A ceiling, not a target: most bots never approach it.
- * `steps` is the rewrite pass: one call is the whole job, the rest headroom for
- * a rejected argument list (features/bot/bot.notes).
+ * How many files of a bot's own memory (`bots/<name>/memory/`, features/bot/bot.memory) its
+ * prompt lists, newest first, one line each. Every line is paid on every step of every job
+ * that bot runs; a file past the count stays on disk and the listing says how to reach it.
+ * Raising it shows more of a long memory for more tokens on each of those steps.
  */
-export const BOT_NOTES = { chars: 2000, steps: 3 };
+export const BOT_MEMORY_LISTED = 20;
 
 /** Name of the shipped browser skill (PATHS.skills.default); a seed bot claims it by name. */
 export const BROWSER_SKILL = "browser";
@@ -310,4 +309,6 @@ export const PROMPT_LINE = {
   jobOutcome: 160,
   /** One call turn travelling with a job in its opening message. */
   callTurn: 160,
+  /** The first line a file in a bot's own memory is listed by (config BOT_MEMORY_LISTED). */
+  botMemory: 100,
 };

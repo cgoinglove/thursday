@@ -47,22 +47,6 @@ export const botTable = sqliteTable("bot", {
     .$defaultFn(() => new Date()),
 });
 
-/**
- * A bot's own notes: what it decided to carry into its next job, rewritten
- * whole at every `report` (features/ai/tools/bot.tool). Keyed by name and
- * deliberately not a foreign key, for the same reason task.bot is not one —
- * the default bot has no row and keeps notes like any other. Capped at
- * BOT_RUN.noteChars, which is the point: the cap makes the bot pick again what
- * survives instead of appending.
- */
-export const botNoteTable = sqliteTable("bot_note", {
-  bot: text("bot").primaryKey(),
-  text: text("text").notNull(),
-  updatedAt: int("updated_at", { mode: "timestamp" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-});
-
 /** One row per registered MCP server. Its tools live in mcp_tool. */
 export const mcpServerTable = sqliteTable("mcp_server", {
   /** Also the prefix of every tool name shown to the model. */

@@ -105,11 +105,8 @@ export const askThursdaySpec = {
  * The one way a run ends on its own terms; the loop is stopped by it (`hasToolCall`, bot.run).
  * Whether the job is over is the runtime's to say, never an argument: an answer ends it, and a
  * run the app stopped first (bot.run `stopped`) waits to be continued.
- * `notes` is what the bot wants changed about its own instructions, in its own words — never
- * the text itself. A bot that rewrites the whole thing here edits it around the job it was on
- * and drops what that job was not about; a pass of its own writes it (features/bot/bot.notes).
  */
-export const answerSpec = (notes: boolean) => ({
+export const answerSpec = {
   name: TOOL_NAMES.answer,
   description:
     "Answer the job you were given. Calling this ends the job — nothing after it runs.",
@@ -119,21 +116,8 @@ export const answerSpec = (notes: boolean) => ({
       .describe(
         "The answer itself — what you found or did, not a replay of how. As long as the answer needs and no longer: one number is one line. In the user's language; the thread is on their screen. If you could not do it, say what stopped you.",
       ),
-    ...(notes
-      ? {
-          notes: answerNotes,
-        }
-      : {}),
   }),
-});
-
-/** Only attached while Settings > Bots keeps them (bot.schema BOT_NOTES_KEY). */
-const answerNotes = z
-  .string()
-  .nullish()
-  .describe(
-    "What should change in your own instructions before your next job here — something to add, something wrong to correct, something to drop. Your own words, any length; someone else writes it in. Nothing to say is the usual answer, and leaving it out costs nothing: they already say what they say.",
-  );
+};
 
 /** The voice session's handle on a job already handed over. Run by the server, like `delegate` (load-tools). */
 export const taskSpec = {
@@ -169,20 +153,17 @@ export const askThursdayTool = tool({
  * the call and its result are both written to the thread, and a resumed run
  * reads a finished exchange rather than a call left hanging.
  */
-export const createAnswerTool = (notes: boolean) => {
-  const spec = answerSpec(notes);
-  return tool({
-    description: spec.description,
-    inputSchema: spec.parameters,
-    execute: async ({ result }) => {
-      const missing = await missingFiles(result);
-      if (missing.length) {
-        return `${NOT_ANSWERED} these files do not exist — ${missing.join(", ")}. Write them first, or take the paths out of the answer.`;
-      }
-      return "Answered. The job is closed; nothing further runs.";
-    },
-  });
-};
+export const answerTool = tool({
+  description: answerSpec.description,
+  inputSchema: answerSpec.parameters,
+  execute: async ({ result }) => {
+    const missing = await missingFiles(result);
+    if (missing.length) {
+      return `${NOT_ANSWERED} these files do not exist — ${missing.join(", ")}. Write them first, or take the paths out of the answer.`;
+    }
+    return "Answered. The job is closed; nothing further runs.";
+  },
+});
 
 /**
  * An answer naming a workspace file that does not exist is refused: the path becomes a link

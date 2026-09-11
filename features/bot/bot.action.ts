@@ -5,12 +5,11 @@ import { textModelProviderSchema } from "@/features/ai/model.schema";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
 import {
-  clearBotNote,
   createBot,
   deleteBot,
   findBot,
   updateBot,
-  writeBotNotesOn,
+  writeBotMemoryOn,
 } from "./bot.query";
 import {
   answerTask,
@@ -80,18 +79,9 @@ export const deleteBotAction = serverAction(async (name: string) => {
   if (!(await deleteBot(name))) publicError("Bot not found");
 });
 
-/**
- * Throws away what a bot wrote about itself. The only human touch on notes:
- * they are never edited here, because a line the user typed would come back
- * rewritten by the bot's next answer.
- */
-export const clearBotNoteAction = serverAction(async (name: string) => {
-  await clearBotNote(name);
-});
-
-/** Switched off, no bot writes to its own instructions and none is shown one. What is already written stays. */
-export const setBotNotesOnAction = serverAction(async (on: unknown) => {
-  await writeBotNotesOn(on === true);
+/** Switched off, no bot is shown its own memory. What is already written stays on disk. */
+export const setBotMemoryOnAction = serverAction(async (on: unknown) => {
+  await writeBotMemoryOn(on === true);
 });
 
 // Tasks are opened by the `delegate` tool during a call, or here when the user

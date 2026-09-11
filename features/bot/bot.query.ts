@@ -1,9 +1,7 @@
 import { eq, inArray, sql } from "drizzle-orm";
-import { BOT_NOTES } from "@/config";
 import { database } from "@/database/db";
 import {
   botMcpToolTable,
-  botNoteTable,
   botTable,
   mcpToolTable,
   taskTable,
@@ -11,11 +9,11 @@ import {
 import type { TextModelProviderId } from "@/features/ai/model.schema";
 import { readConfig, writeConfig } from "@/features/config/config.query";
 import {
-  BOT_NOTES_KEY,
+  BOT_MEMORY_KEY,
   type BotForm,
   type BotIcon,
   DEFAULT_BOT,
-  isBotNotesOn,
+  isBotMemoryOn,
   type JobBot,
   type PinnedTool,
   pickedModel,
@@ -89,7 +87,7 @@ export async function findJobBot(name: string): Promise<JobBot | null> {
 
 /** Bots with their pinned tools and token totals: a set of queries plus grouping, not a join. */
 export async function findAllBots() {
-  const [bots, pins, spent, notes] = await Promise.all([
+  const [bots, pins, spent] = await Promise.all([
     database.select().from(botTable).orderBy(botTable.createdAt),
     database
       .select({
@@ -111,7 +109,6 @@ export async function findAllBots() {
       })
       .from(taskTable)
       .groupBy(taskTable.bot),
-    database.select().from(botNoteTable),
   ]);
 
   const byBot = new Map<string, PinnedTool[]>();
@@ -133,59 +130,21 @@ export async function findAllBots() {
         : [[row.bot, new Date(Number(row.lastJobAt) * 1000)] as const],
     ),
   );
-  const noteOf = new Map(notes.map((row) => [row.bot, row]));
   return bots.map((bot) => ({
     ...bot,
     tools: byBot.get(bot.name) ?? [],
     tokens: tokensOf.get(bot.name) ?? { input: 0, output: 0 },
     lastJobAt: lastJobOf.get(bot.name) ?? null,
-    note: noteOf.get(bot.name)?.text ?? null,
-    noteAt: noteOf.get(bot.name)?.updatedAt ?? null,
   }));
 }
 
-// A bot's own notes. Nothing here belongs to a job: the row survives every job
-// the bot runs and is read back into its next prompt (ai/prompts/bot.prompt).
-
-/** What this bot has written to itself. Keyed by name, so DEFAULT_BOT has one too. */
-export async function readBotNote(bot: string): Promise<string | null> {
-  const [row] = await database
-    .select({ text: botNoteTable.text })
-    .from(botNoteTable)
-    .where(eq(botNoteTable.bot, bot));
-  return row?.text ?? null;
+/** Whether bots keep their own memory at all (bot.schema BOT_MEMORY_KEY). */
+export async function readBotMemoryOn(): Promise<boolean> {
+  return isBotMemoryOn(await readConfig(BOT_MEMORY_KEY));
 }
 
-/**
- * The whole block, as the pass rewrote it (bot.notes). Cut rather than refused: the schema
- * already caps it, and a run that gets this far has handed its answer back. Empty clears it.
- */
-export async function writeBotNote(bot: string, text: string): Promise<void> {
-  const next = text.trim().slice(0, BOT_NOTES.chars).trim();
-  if (!next) return clearBotNote(bot);
-
-  const updatedAt = new Date();
-  await database
-    .insert(botNoteTable)
-    .values({ bot, text: next, updatedAt })
-    .onConflictDoUpdate({
-      target: botNoteTable.bot,
-      set: { text: next, updatedAt },
-    });
-}
-
-/** Whether any bot keeps its own instructions at all (bot.schema BOT_NOTES_KEY). */
-export async function readBotNotesOn(): Promise<boolean> {
-  return isBotNotesOn(await readConfig(BOT_NOTES_KEY));
-}
-
-export async function writeBotNotesOn(on: boolean): Promise<void> {
-  await writeConfig(BOT_NOTES_KEY, on ? "on" : "off");
-}
-
-/** The one thing the user does to notes: throw them away when a bot has learned something wrong. */
-export async function clearBotNote(bot: string): Promise<void> {
-  await database.delete(botNoteTable).where(eq(botNoteTable.bot, bot));
+export async function writeBotMemoryOn(on: boolean): Promise<void> {
+  await writeConfig(BOT_MEMORY_KEY, on ? "on" : "off");
 }
 
 export async function findBot(name: string) {
@@ -251,7 +210,5 @@ export async function deleteBot(name: string) {
     .delete(botTable)
     .where(eq(botTable.name, name))
     .returning({ name: botTable.name });
-  // Notes are keyed by name with no foreign key, so nothing cascades for them.
-  await clearBotNote(name);
   return removed.length > 0;
 }

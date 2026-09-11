@@ -4,8 +4,8 @@ import { IS_DEV } from "@/config";
 import type { TextModel } from "@/features/ai/model";
 import { clockNow, tidying } from "@/features/ai/prompts/prompt-helper";
 import {
+  answerTool,
   askThursdayTool,
-  createAnswerTool,
   delegateSpec,
   taskSpec,
 } from "@/features/ai/tools/bot.tool";
@@ -19,7 +19,6 @@ import { createSearchTool } from "@/features/ai/tools/search.tool";
 import { createSkillTools } from "@/features/ai/tools/skills.tool";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { createWorkspaceTools } from "@/features/ai/tools/workspace.tool";
-import { readBotNotesOn } from "@/features/bot/bot.query";
 import { taskActivity } from "@/features/bot/bot.schema";
 import { listNoteIndex } from "@/features/memory/memory.query";
 import { loadSkills } from "@/features/skills/skills.discover";
@@ -320,7 +319,6 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     ...(await createMcpTools(run.bot, sandbox)),
     ...createSkillTools({ sandbox, skills }),
     [TOOL_NAMES.ask_thursday]: askThursdayTool,
-    // No field for its own instructions when nobody keeps them (bot.schema BOT_NOTES_KEY)
-    [TOOL_NAMES.answer]: createAnswerTool(await readBotNotesOn()),
+    [TOOL_NAMES.answer]: answerTool,
   };
 }

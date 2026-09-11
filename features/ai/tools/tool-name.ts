@@ -28,8 +28,6 @@ export const TOOL_NAMES = {
   answer: "answer",
 
   end_call: "end_call",
-
-  update_notes: "update_notes",
 } as const;
 
 /**
