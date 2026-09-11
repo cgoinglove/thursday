@@ -22,14 +22,15 @@ window cannot be snapshotted or acted on by ref. For the browser they already
 have open — a tab they left, a profile they are signed into — attach instead:
 `playwright-cli attach --cdp=chrome`.
 
-**Your browser is this job's own.** Its session is already in your shell
+**Your browser is your own on this job.** Its session is already in your shell
 (`PLAYWRIGHT_CLI_SESSION`): never pass `-s=`, never `close-all` or `kill-all` —
-other jobs are running theirs.
+other bots and jobs are running theirs. A follow-up uses this same session:
+read `snapshot` to continue where you left off; use `open` only if it is closed.
 
 **Headless is yours; headed is theirs.** A browser opens headless: nobody sees
-it, and the app closes it when the job ends. `--headed` puts a real window on
-their screen, and that window outlives the job — the app never closes it, they
-do. So you can show them the thing itself instead of describing it: the order
+it, and the app keeps it for follow-ups until the job's workspace expires.
+`--headed` puts a real window on their screen, and that window outlives the job
+until they close it or cancel or delete the job. Show them the thing itself: the order
 sitting at checkout for them to confirm, the map with the pin dropped, the page
 they asked to watch, a sign-in for them to finish. Open it `--headed`, leave it
 open, and say in your answer that it is on their screen. A window you opened

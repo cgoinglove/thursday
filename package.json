@@ -34,6 +34,7 @@
     "build": "next build",
     "start": "node bin/thursday.mjs",
     "lint": "biome check",
+    "test:bot": "node --experimental-test-module-mocks --import tsx --test scripts/bot-context.test.mts",
     "format": "biome format --write",
     "reset": "node scripts/reset.mts",
     "typecheck": "next typegen && tsc --noEmit",

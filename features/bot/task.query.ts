@@ -344,21 +344,23 @@ export async function listBorrowedTails(
       and(
         eq(taskMessageTable.taskId, taskId),
         isNotNull(taskMessageTable.parent),
-        eq(taskMessageTable.role, "assistant"),
+        inArray(taskMessageTable.role, ["assistant", "tool"]),
       ),
     )
     .orderBy(taskMessageTable.seq);
 
   const calls = new Map<
     string,
-    { bot: string; texts: string[]; then: string | null }
+    { bot: string; texts: string[]; then: string | null; exchanges: string[] }
   >();
+  const questions = new Map<string, string>();
   for (const row of rows) {
     if (!row.parent) continue;
     const call = calls.get(row.parent) ?? {
       bot: row.bot ?? "",
       texts: [],
       then: null,
+      exchanges: [],
     };
     const content = row.content as AssistantContent;
     const parts =
@@ -372,6 +374,21 @@ export async function listBorrowedTails(
       } else if (part.type === "tool-call") {
         call.then =
           `${part.toolName} ${toolLine(part.toolName, part.input)}`.trim();
+        if (part.toolName === TOOL_NAMES.ask_back)
+          questions.set(
+            part.toolCallId,
+            String((part.input as { question?: string }).question ?? ""),
+          );
+      } else if (
+        part.type === "tool-result" &&
+        part.toolName === TOOL_NAMES.ask_back
+      ) {
+        const answer = resultParts(part.output, Number.POSITIVE_INFINITY)
+          .flatMap((part) => (part.type === "text" ? [part.text] : []))
+          .join("\n");
+        call.exchanges.push(
+          `They asked you: ${questions.get(part.toolCallId) ?? ""}\nYou answered: ${answer}`,
+        );
       }
     }
     calls.set(row.parent, call);
@@ -381,6 +398,7 @@ export async function listBorrowedTails(
   for (const [id, call] of calls) {
     const tail = [
       ...call.texts.slice(-TAIL.texts).map((text) => clip(text, TAIL.chars)),
+      ...call.exchanges.map((text) => clip(text, TAIL.chars)),
       call.then ? `Then: ${call.then}` : "",
     ]
       .filter(Boolean)
@@ -542,6 +560,63 @@ export async function listThread(taskId: string): Promise<ModelMessage[]> {
   );
 }
 
+/** A participant keeps its own work across every request, including requests from different bots. */
+export async function listBotThread(taskId: string, bot: string) {
+  const rows = await database
+    .select()
+    .from(taskMessageTable)
+    .where(
+      and(
+        eq(taskMessageTable.taskId, taskId),
+        isNotNull(taskMessageTable.parent),
+        eq(sql`lower(${taskMessageTable.bot})`, bot.toLowerCase()),
+      ),
+    )
+    .orderBy(taskMessageTable.seq);
+  // Older runs store their opening only in the caller's tool arguments.
+  const requests = await database
+    .select({ content: taskMessageTable.content, bot: taskMessageTable.bot })
+    .from(taskMessageTable)
+    .where(
+      and(
+        eq(taskMessageTable.taskId, taskId),
+        eq(taskMessageTable.role, "assistant"),
+      ),
+    )
+    .orderBy(taskMessageTable.seq);
+  const openings = new Map<string, ModelMessage>();
+  for (const row of requests) {
+    if (!Array.isArray(row.content)) continue;
+    for (const part of row.content) {
+      if (part.type !== "tool-call" || part.toolName !== TOOL_NAMES.ask_bot)
+        continue;
+      const input = part.input as { request?: string; context?: string };
+      openings.set(part.toolCallId, {
+        role: "user",
+        content: `${row.bot} → ${bot}:\n\n${input.request ?? ""}\n\n${input.context ?? ""}`,
+      });
+    }
+  }
+  const history: { message: ModelMessage; compact: boolean }[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    if (row.parent && !seen.has(row.parent)) {
+      seen.add(row.parent);
+      if (row.role !== "user" || row.compact) {
+        const opening = openings.get(row.parent);
+        if (opening) history.push({ message: opening, compact: false });
+      }
+    }
+    history.push({
+      message: { role: row.role, content: row.content } as ModelMessage,
+      compact: row.compact,
+    });
+  }
+  const from = history.findLastIndex((row) => row.compact);
+  const kept = from > 0 ? [history[0], ...history.slice(from)] : history;
+  return kept.map((row) => row.message);
+}
+
 /** One row in the screen's shape; `pending` folds into `ask`. */
 function viewOf(row: TaskRow, lines: TaskLine[]): Task {
   // contextTokens and contextBudget pass through in `rest`
@@ -577,10 +652,33 @@ async function withLines(rows: TaskRow[]): Promise<Task[]> {
 
   // ask_back lines name no addressee; the task's own bot is the addressee
   const owners = new Map(rows.map((row) => [row.id, row.bot]));
+  const askers = new Map<string, string>();
+  for (const message of messages) {
+    if (message.role !== "assistant" || !Array.isArray(message.content))
+      continue;
+    for (const part of message.content) {
+      if (
+        part.type === "tool-call" &&
+        part.toolName === TOOL_NAMES.ask_bot &&
+        message.bot
+      ) {
+        askers.set(`${message.taskId}:${part.toolCallId}`, message.bot);
+      }
+    }
+  }
   const byTask = new Map<string, TaskLine[]>();
   for (const message of messages) {
     const list = byTask.get(message.taskId) ?? [];
-    list.push(...linesOf(message, owners.get(message.taskId) ?? ""));
+    list.push(
+      ...linesOf(
+        message,
+        (message.parent
+          ? askers.get(`${message.taskId}:${message.parent}`)
+          : null) ??
+          owners.get(message.taskId) ??
+          "",
+      ),
+    );
     byTask.set(message.taskId, list);
   }
   return rows.map((row) => viewOf(row, byTask.get(row.id) ?? []));
@@ -715,7 +813,12 @@ function linesOf(message: StoredMessage, owner: string): TaskLine[] {
   const content = message.content;
 
   if (message.role === "user") {
-    if (message.seq === 0) return [];
+    // Participant requests already appear as the caller's ask_bot line.
+    if (
+      message.seq === 0 ||
+      (message.parent && !message.compact && !message.note)
+    )
+      return [];
     const text = typeof content === "string" ? content : textOf(content);
     if (!text) return [];
     // The app's own lines, never the user's words. `compact` alone marks a

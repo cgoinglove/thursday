@@ -141,15 +141,12 @@ export function taskFromRow(row: Task, bots?: Bot[]): TaskView {
   const openLines = new Map<string, number>();
   /** `ask_bot` call id to who was asked, so the answer draws as a reply. */
   const asked = new Map<string, BotRef>();
+  const askers = new Map<string, BotRef>();
 
   for (const line of row.lines) {
     // A borrowed bot speaks to the borrower; the job's own bot speaks to nobody
     const bot = line.bot ? ref(line.bot) : owner;
-    const to = line.parent
-      ? asked.get(line.parent)?.name
-        ? owner
-        : null
-      : null;
+    const to = line.parent ? (askers.get(line.parent) ?? null) : null;
     switch (line.kind) {
       case "user":
         lines.push({
@@ -207,6 +204,7 @@ export function taskFromRow(row: Task, bots?: Bot[]): TaskView {
       case "ask": {
         const other = ref(line.to);
         asked.set(line.callId, other);
+        askers.set(line.callId, bot);
         lines.push({
           id: line.id,
           bot,

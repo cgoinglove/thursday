@@ -41,17 +41,21 @@ import {
   type TokenUsage,
 } from "@/features/bot/bot.schema";
 import {
-  closeHiddenBrowser,
+  botBrowserSession,
   filesOnDisk,
   openBotFolder,
   openJobScratch,
 } from "@/features/workspace/workspace";
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
+import { createKeyedLock } from "@/lib/queue";
 import { estimateTokens } from "@/lib/tokens";
+import { PromiseChain } from "@/lib/utils";
 import { findJobBot } from "./bot.query";
 import {
   findTask,
+  listBorrowedTails,
+  listBotThread,
   listWrittenPaths,
   optionsOf,
   writtenPathsIn,
@@ -65,6 +69,11 @@ import {
 
 /** One thing that happened in a run. The runner adds which bot and inside which `ask_bot` call. */
 export type BotEvent =
+  /** A request enters this participant's own thread before its model runs. */
+  | {
+      type: "request";
+      content: Extract<ModelMessage, { role: "user" }>["content"];
+    }
   /** A finished chunk of prose. */
   | { type: "text"; text: string }
   /** A tool call. `id` is where the result lands. */
@@ -147,6 +156,8 @@ export type RunOptions = {
    * in one window.
    */
   session?: string | null;
+  /** Shared by every participant in this live segment; history itself lives in the DB. */
+  desks?: ReturnType<typeof createBotDesks>;
   /**
    * Drained once per step boundary; each string goes in front of the model as
    * a user turn before the next step. Only the job's own bot has one.
@@ -189,11 +200,11 @@ export async function runBot(
 ): Promise<void> {
   const depth = options.depth ?? 0;
   const parent = options.parent ?? null;
-  const name = input.bot.trim();
+  const bot = await findJobBot(input.bot.trim());
+  const name = bot?.name ?? input.bot.trim();
   const emit = (event: BotEvent) =>
     options.emit({ ...event, bot: name, parent });
 
-  const bot = await findJobBot(name);
   if (!bot) {
     await emit({
       type: "error",
@@ -205,13 +216,41 @@ export async function runBot(
   // Switched off is not a bot to pick — the backstop for every fresh start
   // (`delegate`, `ask_bot`, the screen). A resume carries `messages` instead and
   // is let through: its thread already exists and the user can still answer it.
-  if (bot.disabled && "request" in input) {
+  const previous =
+    "askedBy" in input && options.taskId
+      ? await listBotThread(options.taskId, name)
+      : [];
+  if (bot.disabled && "request" in input && !previous.length) {
     await emit({
       type: "error",
       message: `${bot.name} is switched off. Use a name from the list.`,
       failure: "fatal",
     });
     return;
+  }
+
+  options = { ...options, desks: options.desks ?? createBotDesks() };
+  let history: ModelMessage[];
+  if ("messages" in input) {
+    history = input.messages;
+  } else {
+    const content = previous.length
+      ? `## ${input.askedBy} → ${name}: the next request\n\n${input.request.trim()}${input.context?.trim() ? `\n\n## What ${input.askedBy} passes on\n\n${input.context.trim()}` : ""}`
+      : buildHandoff({
+          chain: input.chain,
+          bots: [...input.above, name],
+          did: input.context ?? null,
+          part: input.request,
+        });
+    history = [
+      ...resumeThread(
+        previous,
+        options.taskId ? await listBorrowedTails(options.taskId) : undefined,
+      ),
+      { role: "user", content },
+    ];
+    options.signal?.throwIfAborted();
+    await emit({ type: "request", content });
   }
 
   // Tools are built on the model: web search runs on this bot's model (load-tools).
@@ -253,21 +292,6 @@ export async function runBot(
     await compactBudget(model.ref, bot.compactAt),
     ("askedBy" in input ? 0 : row?.contextBudget) || Number.POSITIVE_INFINITY,
   );
-
-  const history: ModelMessage[] =
-    "messages" in input
-      ? input.messages
-      : [
-          {
-            role: "user",
-            content: buildHandoff({
-              chain: input.chain,
-              bots: [...input.above, name],
-              did: input.context ?? null,
-              part: input.request,
-            }),
-          },
-        ];
 
   /** Remaining `ask_back` calls for a borrowed bot; the tool counts it down. */
   const asks = { left: BOT_RUN.askBack };
@@ -879,15 +903,20 @@ export async function runBotToText(
   await runBot(input, {
     ...options,
     emit: async (event) => {
-      if (event.type === "answer") {
+      if (
+        event.parent === (options.parent ?? null) &&
+        event.type === "answer"
+      ) {
         outcome = event.stopped
           ? `${event.text}\n\n(As far as they got — they stopped before finishing.)`
           : event.text;
       }
-      if (event.type === "error") failure = event.message;
+      if (event.parent === (options.parent ?? null) && event.type === "error")
+        failure = event.message;
       await options.emit(event);
     },
   });
+  options.signal?.throwIfAborted();
   if (failure) publicError(failure);
   return outcome;
 }
@@ -918,6 +947,11 @@ function withAskBot(
   },
 ): ToolSet {
   if (asker.peers.length === 0) return tools;
+  // Calls made in the same step answer from one evolving conversation.
+  const conversations = new WeakMap<
+    ModelMessage[],
+    { messages: ModelMessage[]; answer: ReturnType<typeof PromiseChain> }
+  >();
 
   const agentTools: ToolSet = {
     ...tools,
@@ -925,64 +959,141 @@ function withAskBot(
       description: askBotSpec.description,
       inputSchema: askBotSpec.parameters,
       execute: async ({ bot, request, context }, call) => {
-        // A bot above is blocked waiting on this very call; borrowing it back never returns
+        const found = await findJobBot(bot);
+        if (!found) return `No bot named "${bot}". Use a name from the list.`;
+        bot = found.name;
         if (bot === asker.name || asker.above.includes(bot)) {
-          return `${bot} is already on this job, above you and waiting on your part. Pick another bot, or do it yourself.`;
+          return `${bot} is already above you and waiting on this part. Use ask_back for a question, or pick another bot.`;
         }
-        // The borrowed bot works in the job's folder but drives a browser session
-        // of its own, under this call's id. When it answers, the same rule as a
-        // job's end: what it showed on their screen stays, what nobody can see
-        // closes (workspace.ts closeHiddenBrowser).
-        const session = asker.options.taskId
-          ? `${asker.options.session ?? asker.options.taskId}-${call.toolCallId.slice(0, 8)}`
-          : null;
-        const exchanges: { question: string; answer: string }[] = [];
-        const answer = async (question: string) => {
-          const reply = await answerBack({
-            model: asker.model,
-            instructions: asker.instructions,
-            // Same tools, calling off (see compact).
-            tools: agentTools,
-            messages: call.messages,
-            asked: { bot, request },
-            question,
-            signal: asker.options.signal,
-          });
-          await asker.emit({ type: "answered", question, ...reply });
-          exchanges.push({ question, answer: reply.text });
-          return reply.text;
-        };
-        try {
-          const outcome = await runBotToText(
-            {
-              bot,
-              request,
-              context,
-              askedBy: asker.name,
-              chain: asker.chain,
-              above: [...asker.above, asker.name],
-            },
-            {
-              ...asker.options,
-              // This call's signal, not the job's: a stream that ends — the job
-              // stopping, or the model going quiet — ends the part it waited on
-              signal: call.abortSignal ?? asker.options.signal,
-              depth: asker.depth + 1,
-              parent: call.toolCallId,
-              session,
-              answer,
-            },
-          );
-          return exchanges.length
-            ? `${outcome}\n\n${exchangeLines(bot, exchanges)}`
-            : outcome;
-        } finally {
-          if (session) void closeHiddenBrowser(session);
-        }
+        const signal = call.abortSignal ?? asker.options.signal;
+        const desks = asker.options.desks!;
+        return desks.run(asker.name, bot, signal, async () => {
+          const session = asker.options.taskId
+            ? botBrowserSession(asker.options.taskId, bot)
+            : null;
+          const exchanges: { question: string; answer: string }[] = [];
+          let conversation = conversations.get(call.messages);
+          if (!conversation) {
+            conversation = {
+              messages: [...call.messages],
+              answer: PromiseChain(),
+            };
+            conversations.set(call.messages, conversation);
+          }
+          const current = conversation;
+          const answer = (question: string) =>
+            current.answer(async () => {
+              signal?.throwIfAborted();
+              const reply = await answerBack({
+                model: asker.model,
+                instructions: asker.instructions,
+                tools: agentTools,
+                messages: current.messages,
+                asked: { bot, request },
+                question,
+                signal,
+              });
+              current.messages.push(
+                {
+                  role: "user",
+                  content: `${bot} asks about the part you handed over:\n\n${question}`,
+                },
+                { role: "assistant", content: reply.text },
+              );
+              await asker.emit({ type: "answered", question, ...reply });
+              exchanges.push({ question, answer: reply.text });
+              return reply.text;
+            });
+          try {
+            const outcome = await runBotToText(
+              {
+                bot,
+                request,
+                context,
+                askedBy: asker.name,
+                chain: asker.chain,
+                above: [...asker.above, asker.name],
+              },
+              {
+                ...asker.options,
+                signal,
+                depth: asker.depth + 1,
+                parent: call.toolCallId,
+                session,
+                // Only the task's owner drains words sent by the user.
+                notes: undefined,
+                answer,
+              },
+            );
+            return exchanges.length
+              ? `${outcome}\n\n${exchangeLines(bot, exchanges)}`
+              : outcome;
+          } catch (cause) {
+            signal?.throwIfAborted();
+            publicError(
+              [modelErrorToString(cause), exchangeLines(bot, exchanges)]
+                .filter(Boolean)
+                .join("\n\n"),
+            );
+          }
+        });
       },
     }),
   };
   return agentTools;
+}
+
+/** One execution per participant, with wait-cycle detection across concurrent branches. */
+export function createBotDesks() {
+  const lock = createKeyedLock();
+  const waiting = new Map<string, Map<string, number>>();
+  const pending = new Set<Promise<unknown>>();
+  const reaches = (
+    from: string,
+    to: string,
+    seen = new Set<string>(),
+  ): boolean => {
+    if (from === to) return true;
+    if (seen.has(from)) return false;
+    seen.add(from);
+    return [...(waiting.get(from)?.keys() ?? [])].some((next) =>
+      reaches(next, to, seen),
+    );
+  };
+  return {
+    async run<T>(
+      from: string,
+      to: string,
+      signal: AbortSignal | undefined,
+      work: () => Promise<T>,
+    ): Promise<T> {
+      signal?.throwIfAborted();
+      if (reaches(to, from))
+        publicError(
+          `${to} is waiting on your work. Finish this part before asking them, or choose another bot.`,
+        );
+      const edges = waiting.get(from) ?? new Map<string, number>();
+      waiting.set(from, edges);
+      edges.set(to, (edges.get(to) ?? 0) + 1);
+      const run = lock(to, async () => {
+        signal?.throwIfAborted();
+        return work();
+      });
+      pending.add(run);
+      try {
+        return await run;
+      } finally {
+        pending.delete(run);
+        const left = (edges.get(to) ?? 1) - 1;
+        if (left) edges.set(to, left);
+        else edges.delete(to);
+        if (!edges.size) waiting.delete(from);
+      }
+    },
+    async settle() {
+      while (pending.size) await Promise.allSettled([...pending]);
+    },
+  };
 }
 
 /** Appended under the answer: what the borrowed bot asked and what this bot answered. */

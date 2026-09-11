@@ -240,7 +240,8 @@ export const CONNECTED_TOOL_TIMEOUT_MS = 10 * 60_000;
  * - `forMs`  one age for all of it: a job's scratch folder, counted from when
  *            the job ended (a job running or waiting keeps its folder however
  *            old), a scratch folder no job owns, spilled tool output, and the
- *            browser's snapshots and logs. Long enough to come back to a job
+ *            browser's snapshots and logs. Headless participant browsers close
+ *            when the ended job's folder expires too. Long enough to return to a job
  *            days later; what is worth keeping goes in `artifacts/`, which is
  *            never cleared.
  * - `sweepEveryMs`  how often the app looks, besides once at boot.

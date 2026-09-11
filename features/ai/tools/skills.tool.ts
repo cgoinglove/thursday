@@ -6,9 +6,8 @@ import { splitFrontmatter } from "@/features/skills/skills.query";
 import type { Sandbox } from "@/lib/sandbox";
 
 /**
- * A skill's full text is returned once per run; repeat loads get a pointer
- * back to the first result, since every step resends the whole context.
- * The tool set is built per run, so the `loaded` set lives in this closure.
+ * Reuse instructions only while their full text remains in this bot's context.
+ * A resume can carry them; compaction can remove them.
  */
 export const createSkillTools = ({
   skills,
@@ -17,7 +16,6 @@ export const createSkillTools = ({
   skills: SkillMetadata[];
   sandbox: Sandbox;
 }) => {
-  const loaded = new Set<string>();
   return {
     [TOOL_NAMES.load_skill]: tool({
       description:
@@ -29,7 +27,7 @@ export const createSkillTools = ({
             "Exact name from the Skills list. Do not guess names that are not on it.",
           ),
       }),
-      execute: async ({ name }) => {
+      execute: async ({ name }, { messages }) => {
         const skill = skills.find(
           (s) => s.name.toLowerCase() === name.toLowerCase(),
         );
@@ -41,10 +39,30 @@ export const createSkillTools = ({
         }
 
         const skillFile = `${skill.path}/SKILL.md`;
-        if (loaded.has(skill.path)) {
+        const carried = messages.some(
+          (message) =>
+            Array.isArray(message.content) &&
+            message.content.some((part) => {
+              if (
+                part.type !== "tool-result" ||
+                part.toolName !== TOOL_NAMES.load_skill ||
+                part.output.type !== "json"
+              )
+                return false;
+              const value = part.output.value as {
+                skillDirectory?: string;
+                content?: string;
+              } | null;
+              return (
+                value?.skillDirectory === skill.path &&
+                typeof value.content === "string"
+              );
+            }),
+        );
+        if (carried) {
           return {
             skillDirectory: skill.path,
-            note: `You already loaded '${skill.name}' in this run — its instructions are above, unchanged. Scroll back to that result rather than reading it again; if you need the file itself, read ${skillFile} with the shell.`,
+            note: `Use the full '${skill.name}' instructions already in your conversation. To check for changes on disk, read ${skillFile} with the shell.`,
           };
         }
 
@@ -55,7 +73,6 @@ export const createSkillTools = ({
           path: skill.path,
           limit: 50,
         });
-        loaded.add(skill.path);
 
         return {
           skillDirectory: skill.path,

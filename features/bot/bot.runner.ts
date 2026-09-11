@@ -33,7 +33,12 @@ import { desktopNotify } from "@/lib/desktop-notify";
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
 import { createKeyedLock } from "@/lib/queue";
-import { resumeThread, runBot, type TaskEvent } from "./bot.run";
+import {
+  createBotDesks,
+  resumeThread,
+  runBot,
+  type TaskEvent,
+} from "./bot.run";
 import {
   TASK_CONTINUE,
   type TaskPending,
@@ -44,7 +49,6 @@ import {
 import {
   addTaskUsage,
   countStopsSinceSpoken,
-  deleteFinishedTasks,
   deleteMessages,
   deleteTask,
   findTask,
@@ -275,7 +279,8 @@ export async function cancelTask(id: string) {
     // write "Cancelled." over the thing it was run for.
     if (task.endedAt) publicError("That job has already ended.");
     forgetResume(id);
-    running.get(id)?.stop.abort();
+    const live = running.get(id);
+    live?.stop.abort();
     await updateTask(id, {
       status: "failed",
       outcome: "Cancelled.",
@@ -286,24 +291,27 @@ export async function cancelTask(id: string) {
     });
     // Cancel is a real end, so the browser session closes here; the abort in
     // answerTask is followed by a relaunch and must not close it.
-    void closeJobShell(id);
+    await live?.done;
+    await closeJobShell(id);
   });
 }
 
 /** Deletes the job, stopping it first if it is still running. */
 export async function removeTask(id: string) {
-  return taskLock(id, async () => {
-    const task = await findTask(id);
-    forgetResume(id);
-    running.get(id)?.stop.abort();
-    running.delete(id);
-    void closeJobShell(id);
-    const gone = await deleteTask(id);
-    // The working folder's lifetime is the row's: with the job gone, what it was
-    // working with is nobody's (workspace.ts jobScratch).
-    if (gone && task) await removeJobScratch(id, task.label);
-    return gone;
-  });
+  return taskLock(id, () => removeLockedTask(id));
+}
+
+/** The caller holds taskLock, so a follow-up cannot race deletion or browser cleanup. */
+async function removeLockedTask(id: string) {
+  const task = await findTask(id);
+  forgetResume(id);
+  const live = running.get(id);
+  live?.stop.abort();
+  await live?.done;
+  await closeJobShell(id);
+  const gone = await deleteTask(id);
+  if (gone && task) await removeJobScratch(id, task.label);
+  return gone;
 }
 
 /**
@@ -312,9 +320,16 @@ export async function removeTask(id: string) {
  * and only one of the two is the database's.
  */
 export async function removeFinishedTasks(): Promise<number> {
-  const removed = await deleteFinishedTasks();
-  for (const task of removed) await removeJobScratch(task.id, task.label);
-  return removed.length;
+  let removed = 0;
+  for (const task of await listTaskFolders()) {
+    if (task.status !== "done" && task.status !== "failed") continue;
+    await taskLock(task.id, async () => {
+      const current = await findTask(task.id);
+      if (current?.status !== "done" && current?.status !== "failed") return;
+      if (await removeLockedTask(task.id)) removed += 1;
+    });
+  }
+  return removed;
 }
 
 /**
@@ -345,6 +360,7 @@ export async function sweepJobFiles(): Promise<string[]> {
     await taskLock(task.id, async () => {
       const now = await findTask(task.id);
       if (!now || !stale(now)) return;
+      await closeHiddenBrowser(task.id);
       await removeJobScratch(task.id, task.label);
       removed.push(folder);
     });
@@ -652,6 +668,12 @@ class ThreadWriter {
     if (this.closed) return;
     const step = this.step(event);
     switch (event.type) {
+      case "request":
+        return this.write(++this.seq, event, {
+          role: "user",
+          content: event.content,
+        });
+
       case "text":
         step.assistant ??= ++this.seq;
         step.parts.assistant.push({ type: "text", text: event.text });
@@ -747,6 +769,7 @@ async function drive(
   notes: string[],
 ) {
   const thread = new ThreadWriter(id, await lastSeq(id));
+  const desks = createBotDesks();
 
   let ending: {
     status: TaskStatus;
@@ -767,6 +790,7 @@ async function drive(
     await runBot(input, {
       signal,
       taskId: id,
+      desks,
       notes: () => notes.splice(0),
       emit: async (event) => {
         await thread.on(event);
@@ -829,6 +853,8 @@ async function drive(
       pending: null,
     };
   } finally {
+    // A resumed segment cannot overtake a participant still unwinding its tools.
+    await desks.settle();
     thread.close();
     running.delete(id);
   }
@@ -881,10 +907,9 @@ async function drive(
     return;
   }
 
-  // A waiting job keeps its browser: answering resumes into the page it left
-  // off at. An ended one closes only what nobody can see (closeHiddenBrowser).
-  if (park || final.status === "waiting") void pruneJobFiles();
-  else void closeHiddenBrowser(id);
+  // Follow-ups can reopen a completed job. Its participants keep their browsers
+  // until cancellation, deletion, or the workspace retention sweep.
+  void pruneJobFiles();
 
   const task = await findTask(id);
   if (!task) return;

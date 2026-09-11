@@ -34,12 +34,12 @@ export const delegateSpec = {
 
 /**
  * `context` carries what the asking bot found, since its thread is not handed over (bot.run).
- * `request` is a brief, not a line: the borrowed bot sees nothing else.
+ * A returning participant keeps its own thread; `context` adds only what this caller knows.
  */
 export const askBotSpec = {
   name: TOOL_NAMES.ask_bot,
   description:
-    "Hand one part of the job you are holding to another bot and wait for what they bring back. The job stays yours.",
+    "Send a request to another bot on this job and wait for their reply. The same bot continues its own work and conversation whenever you ask it again. The job stays yours.",
   parameters: z.object({
     bot: z.string().describe("A name from the bot list."),
     request: z
@@ -50,7 +50,7 @@ export const askBotSpec = {
     context: z
       .string()
       .describe(
-        "What you have done on the job so far and why this part is theirs — exact values, and the paths of files you wrote for them to read. They see this, the part, the job and the call; not your thread or your tool output, so a value you leave out is one they fetch again.",
+        "Pass on what you know that they do not: exact values and paths they need. They keep their own previous work and your exchanges, but cannot read your private thread or tool output.",
       ),
   }),
 };

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   mkdir,
   readdir,
@@ -156,6 +157,10 @@ export const jobShellEnv = (
       }
     : {};
 
+/** A participant's browser belongs to the job and its canonical bot name, across every caller. */
+export const botBrowserSession = (taskId: string, bot: string) =>
+  `${taskId}-bot-${createHash("sha256").update(bot.toLowerCase()).digest("hex").slice(0, 20)}`;
+
 /** Set by `ensureBrowser`, read by `readMachineTools`; null until it has finished. */
 let browserReady: boolean | null = null;
 
@@ -243,39 +248,41 @@ type ListedBrowser = { name: string; headed?: boolean; attached?: boolean };
  * — leaves the browser as it is.
  */
 export async function closeHiddenBrowser(taskId: string): Promise<void> {
+  await closeBrowsers(taskId, false);
+}
+
+/** Cancel and delete close every participant's window, but never an attached personal browser. */
+export async function closeJobShell(taskId: string): Promise<void> {
+  await closeBrowsers(taskId, true);
+}
+
+async function closeBrowsers(taskId: string, visible: boolean): Promise<void> {
   const sandbox = await openWorkspace();
   const env = jobShellEnv(taskId);
   const listed = await sandbox
     .exec("playwright-cli list --json", { env, timeoutMs: 15_000 })
     .catch(() => null);
-  let session: ListedBrowser | undefined;
+  let sessions: ListedBrowser[] = [];
   try {
     const { browsers } = JSON.parse(listed?.stdout ?? "") as {
       browsers?: ListedBrowser[];
     };
-    session = browsers?.find((b) => b.name === env.PLAYWRIGHT_CLI_SESSION);
+    sessions =
+      browsers?.filter(
+        (b) =>
+          b.name === env.PLAYWRIGHT_CLI_SESSION ||
+          b.name.startsWith(`${env.PLAYWRIGHT_CLI_SESSION}-`),
+      ) ?? [];
   } catch {}
-  if (session?.headed === false && !session.attached) {
+  for (const session of sessions) {
+    if (session.attached || (!visible && session.headed !== false)) continue;
     await sandbox
-      .exec("playwright-cli close", { env, timeoutMs: 15_000 })
+      .exec("playwright-cli close", {
+        env: { ...env, PLAYWRIGHT_CLI_SESSION: session.name },
+        timeoutMs: 15_000,
+      })
       .catch(() => {});
   }
-  await pruneJobFiles();
-}
-
-/**
- * Closes the job's browser whatever it shows. Only for a job the user cancelled
- * or deleted: its row is gone, so a window left open would belong to nothing on
- * the screen.
- */
-export async function closeJobShell(taskId: string): Promise<void> {
-  const sandbox = await openWorkspace();
-  await sandbox
-    .exec("playwright-cli close", {
-      env: jobShellEnv(taskId),
-      timeoutMs: 15_000,
-    })
-    .catch(() => {});
   await pruneJobFiles();
 }
 

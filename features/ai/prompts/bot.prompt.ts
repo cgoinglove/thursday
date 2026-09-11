@@ -232,7 +232,7 @@ function methods(skills: SkillMetadata[]): string {
 
   return `## Skills
 
-Written-down methods. When the job is one of these, read it with \`${TOOL_NAMES.load_skill}\` before starting.
+Written-down methods. Use the instructions already in your conversation. When the job needs a skill whose full instructions are absent, read it with \`${TOOL_NAMES.load_skill}\` before starting.
 
 ${skillLines(skills)}`;
 }
