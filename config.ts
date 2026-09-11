@@ -294,6 +294,33 @@ export const MEMORY_LIMITS = {
 export const SEARCH = { sources: 6, excerptChars: 1_200, timeoutMs: 30_000 };
 
 /**
+ * At or under this many dollars left on the gateway key, its row in Settings › Keys
+ * turns amber (ai/model readGatewayCredits): a video clip or a long job can spend
+ * that before it finishes. Raising it warns sooner; 0 warns only once nothing is left.
+ */
+export const GATEWAY_LOW_CREDIT = 1;
+
+/**
+ * Signing in to ChatGPT (features/ai/chatgpt), whose plan runs bots in place of an API key.
+ * - `waitMs`  how long the app listens for the sign-in page's answer. Past it the port is
+ *            let go and signing in starts over from Config; shorter frees it sooner when
+ *            a page is abandoned, too short cuts off someone still typing a password.
+ * - `renewBeforeMs`  how long before the access token runs out it is renewed. Too close
+ *            to the edge and a request leaves with a token that dies on the way.
+ */
+export const CHATGPT_SIGN_IN = {
+  waitMs: 10 * 60_000,
+  renewBeforeMs: 5 * 60_000,
+};
+
+/**
+ * At or past this share of a GPT Subscription window used, its row in Settings › Keys turns
+ * amber (ai/chatgpt readChatGptUsage): a long job can spend the rest before it finishes and
+ * then waits for the window to reset. Lower warns sooner; 100 warns only once it is spent.
+ */
+export const CHATGPT_USAGE_HIGH = 80;
+
+/**
  * How many bots or skills may pile up before the screen says what they cost.
  * Every one of either is a line in every prompt assembled afterwards — measured,
  * a skill runs about 43 tokens in a bot's prompt and a roster entry about 48 —
@@ -316,3 +343,20 @@ export const PROMPT_LINE = {
   /** The first line a file in a bot's own memory is listed by (config BOT_MEMORY_LISTED). */
   botMemory: 100,
 };
+
+/**
+ * Thursday's ascii face until a browser keeps one of its own (features/thursday
+ * face.store holds the pick in localStorage; Settings › Thursday changes it).
+ * The ranges bound both what is stored and the settings sliders.
+ * - `charset`  `ascii` draws characters only, `emoji` sprinkles emoji in,
+ *            `emojiOnly` draws nothing else. Emoji cost more to draw per frame.
+ * - `fontSize`  glyph size in px. Smaller glyphs pack more cells into the same
+ *            orb: a finer grain, and more to draw on every frame.
+ * - `density`  cells per glyph pitch. Above 1 packs them tighter; below leaves
+ *            air between them.
+ */
+export const ASCII_FACE = {
+  charset: "ascii",
+  fontSize: { default: 8, min: 4, max: 16 },
+  density: { default: 1.4, min: 0.6, max: 2 },
+} as const;

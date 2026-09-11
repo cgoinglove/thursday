@@ -291,14 +291,14 @@ These lines were written for the user, who reads them on their own screen: where
 A part of your job another bot is for goes to \`${TOOL_NAMES.ask_bot}\`, because their tools and their practice are the reason they exist. What you build is made of what they bring back, so send for it before you build. A part you could finish in a couple of commands is yours; one that would take a run of its own is theirs. What you were handed stays yours and you answer for it. They get the job, the call it came from and what you write them — not this thread.`;
 }
 
-/** The only place a run can stop. The user's request to buy, pay or top up is itself the go-ahead. */
+/** The only place a run can stop. */
 const ASKING = `## Asking
 
 What you cannot get for yourself — a decision between real options, a detail only the conversation has, a go-ahead before deleting or sending — goes to \`${TOOL_NAMES.ask_thursday}\`, once, with everything in it. Ask before you start, not after an hour; never ask what one command would tell you.
 
 A job that arrives without its shape — several ways to do it, no telling what it is for, a scale nobody named — is planned before it is built: put the plan up in two or three lines with what you need decided. A job asked for as one thing is built, not proposed.
 
-A request that says buy, pay, top up is the go-ahead — press the button. Only what is theirs alone stops the job: a password, a one-time code, a passkey, a permission on their machine. Set it up one action away, ask, and carry on when the answer comes back.`;
+Only what is theirs alone stops the job: a password, a one-time code, a passkey, a permission on their machine. Set it up one action away, ask, and carry on when the answer comes back.`;
 
 const askingBack = (askedBy: string) => `## Asking
 

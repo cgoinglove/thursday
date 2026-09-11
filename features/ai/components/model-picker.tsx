@@ -22,6 +22,7 @@ import type {
   TextModelProviderId,
 } from "../model.schema";
 import { canMakeKind, MEDIA_MODEL_PROVIDERS } from "../model.schema";
+import { ChatGptSignIn } from "./chatgpt-sign-in";
 import { ModelBrowser } from "./model-browser";
 import { ProviderIcon } from "./provider-icon";
 
@@ -179,6 +180,18 @@ export function AskForKey({
       onSaved();
     },
   });
+
+  // Signed in to, not typed; the sign-in's `config` signal re-reads hasKey and this goes away
+  if (provider.signIn) {
+    return (
+      <div className="flex items-center justify-between gap-2">
+        <p className="px-1 font-mono text-[11px] text-muted-foreground">
+          Runs on your plan once you sign in
+        </p>
+        <ChatGptSignIn variant="outline" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex gap-2">

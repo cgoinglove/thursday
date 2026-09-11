@@ -52,12 +52,14 @@ const MARK_STATE: Record<CallStatus, MarkState> = {
  */
 const MARK_VOICE: Partial<MarkOptions> = {
   /**
-   * Only the outline moves. `pulse` and `stretch` move the whole mark, which
-   * at face size reads as a wobbling object rather than speech.
+   * The outline carries the voice. `pulse` and `stretch` move the whole mark,
+   * which at face size reads as a wobbling object rather than speech; `punch`
+   * with no pulse only squashes it a touch on each syllable.
    */
-  ripple: 14,
+  ripple: 18,
+  bandEase: 0.03,
   pulse: 0,
-  punch: 0,
+  punch: 0.05,
   stretch: 0,
 };
 

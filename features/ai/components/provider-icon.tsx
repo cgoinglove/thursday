@@ -28,6 +28,7 @@ const getIconByProvider = (
     case "google":
       return GoogleIcon;
     case "openai":
+    case "chatgpt":
       return OpenAIIcon;
     case "vercel-ai-gateway":
       return VercelIcon;

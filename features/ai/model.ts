@@ -14,6 +14,7 @@ import {
   type ToolSet,
   type TranscriptionModel,
 } from "ai";
+import { GATEWAY_LOW_CREDIT } from "@/config";
 import {
   DEFAULT_MODEL_KEY,
   MEDIA_MODEL_KEYS,
@@ -22,12 +23,14 @@ import { readConfig } from "@/features/config/config.query";
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
 import { clip, errorToString } from "@/lib/utils";
+import { chatGptModel } from "./chatgpt";
 import {
   canMakeKind,
   compactAtFor,
   contextWindowOf,
   defaultModelOf,
   GATEWAY_TEXT,
+  type GatewayCredits,
   type GatewayModel,
   type GatewayPrice,
   MEDIA_MODEL_PROVIDERS,
@@ -175,6 +178,9 @@ export function buildTextModel(ref: TextModelRef, apiKey: string): TextModel {
         searchTools: { search: openai.tools.webSearch() },
       };
     }
+    case "chatgpt":
+      // Signs every request with the stored sign-in itself (ai/chatgpt), so no key is passed
+      return { ref, model: chatGptModel(ref.model), searchTools: null };
     case "anthropic": {
       const anthropic = createAnthropic({ apiKey });
       return {
@@ -346,6 +352,46 @@ export async function readGatewayCatalog(): Promise<GatewayModel[]> {
   return list;
 }
 
+/** Unlike the listing, this answers only to a key. */
+const GATEWAY_CREDITS_URL = "https://ai-gateway.vercel.sh/v1/credits";
+
+/**
+ * What is left on the gateway key. The gateway is the one provider that tells this to the key
+ * a user typed; the others keep a balance behind an admin key. A key it turns away is a state
+ * of that key, not a failed read, so it comes back as `refused` in the gateway's own words.
+ */
+export async function readGatewayCredits(): Promise<GatewayCredits | null> {
+  const apiKey = await readConfig(
+    TEXT_MODEL_PROVIDERS["vercel-ai-gateway"].apiKeyName,
+  );
+  if (!apiKey) return null;
+
+  const response = await fetch(GATEWAY_CREDITS_URL, {
+    headers: { accept: "application/json", authorization: `Bearer ${apiKey}` },
+  }).catch((cause: unknown) => {
+    logger.warn({ cause }, "gateway credits unreachable");
+    publicError("Could not reach the gateway");
+  });
+
+  const body = (await response.json().catch(() => null)) as {
+    balance?: string;
+    error?: { message?: string };
+  } | null;
+  const said = clip(body?.error?.message ?? "", PROVIDER_BODY_MAX);
+
+  if (response.status === 401 || response.status === 403)
+    return { refused: said || `The gateway answered ${response.status}` };
+  if (!response.ok)
+    publicError(
+      `The gateway answered ${response.status}${said ? `: ${said}` : ""}`,
+    );
+
+  const balance = Number(body?.balance);
+  if (!body?.balance || !Number.isFinite(balance))
+    publicError("The gateway did not say what is left");
+  return { balance, low: balance <= GATEWAY_LOW_CREDIT };
+}
+
 /**
  * Where a run summarises itself, in tokens (bot.run): what the bot's owner set,
  * else the model's own window worked out the same way the settings screen does
@@ -394,9 +440,15 @@ async function callableRows<T extends { id: string }>(
 }
 
 export async function getTextModel(ref: TextModelRef): Promise<TextModel> {
-  const { label, apiKeyName } = TEXT_MODEL_PROVIDERS[ref.provider];
+  const { label, apiKeyName, signIn } = TEXT_MODEL_PROVIDERS[ref.provider];
   const apiKey = await readConfig(apiKeyName);
-  if (!apiKey) publicError(`No ${label} key — add one in Config.`);
+  if (!apiKey) {
+    publicError(
+      signIn
+        ? `${label} is not signed in — sign in from Config.`
+        : `No ${label} key — add one in Config.`,
+    );
+  }
   return buildTextModel(ref, apiKey);
 }
 

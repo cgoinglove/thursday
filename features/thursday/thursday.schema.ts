@@ -1,4 +1,5 @@
 import z from "zod";
+import { ASCII_FACE } from "@/config";
 import {
   type SpeachModelProviderId,
   speachModelRefSchema,
@@ -48,10 +49,18 @@ export type CallHandshake = {
  */
 export const ThursdayFaceSchema = botIconSchema.extend({
   kind: z.enum(FACE_KINDS).default("ascii"),
-  charset: z.enum(ASCII_CHARSETS).default("ascii"),
+  charset: z.enum(ASCII_CHARSETS).default(ASCII_FACE.charset),
   /** Glyph size in px. */
-  fontSize: z.number().min(4).max(16).default(8),
-  density: z.number().min(0.6).max(2).default(1.4),
+  fontSize: z
+    .number()
+    .min(ASCII_FACE.fontSize.min)
+    .max(ASCII_FACE.fontSize.max)
+    .default(ASCII_FACE.fontSize.default),
+  density: z
+    .number()
+    .min(ASCII_FACE.density.min)
+    .max(ASCII_FACE.density.max)
+    .default(ASCII_FACE.density.default),
 });
 
 export type ThursdayFace = z.infer<typeof ThursdayFaceSchema>;

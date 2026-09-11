@@ -12,6 +12,8 @@ export type AppEvent =
   | { type: "memory" }
   /** Signal: a server was registered, removed, synced, or finished OAuth. */
   | { type: "mcp" }
+  /** Signal: a sign-in was written away from the settings screen (ai/chatgpt's sign-in answer). */
+  | { type: "config" }
   /** Data: show this note on screen, or hide it when null (memory.tool). */
   | { type: "memory-view"; path: string | null }
   /** Data: a finished job produced a document; `path` is workspace-relative. */
@@ -32,6 +34,7 @@ export const SIGNALS: Record<Signal, true> = {
   tasks: true,
   memory: true,
   mcp: true,
+  config: true,
 };
 
 export const isSignal = (

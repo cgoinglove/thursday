@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { ASCII_FACE } from "@/config";
+import {
+  createVoiceFollower,
+  SPECTRUM_BANDS,
+} from "@/lib/realtime/realtime.tap";
 import {
   ALPHA_TOP,
   CHAR_RATE,
@@ -132,44 +137,47 @@ const DESIGN = 680;
 /** Radius (reference units) within which cells exist. Must stay under DESIGN/2 or the canvas clips it. */
 const FIELD_R = 328;
 
-/** Gain on incoming band values: speech bands average 0.15-0.35, and the top is clamped anyway. */
-const VOICE_GAIN = 2.6;
-
 /** Speaking: reference-unit px the rim is pushed by each channel. */
-/** Swell at average loudness 1 */
-const SPEAK_SWELL = 58;
+/** Where the rim sits while the voice is at the bottom of its range */
+const SPEAK_BASE = 184;
+/** Swell across a phrase at the top of the voice's range */
+const SPEAK_SWELL = 40;
 /** Kick per syllable */
-const SPEAK_KICK = 58;
+const SPEAK_KICK = 120;
 /** Rotating lobes, harmonics 2 and up (the first harmonic shifts the whole circle) */
 const SPEAK_LOBES = 4;
 /** Max depth of one lobe */
-const SPEAK_LOBE_R = 40;
+const SPEAK_LOBE_R = 34;
 /**
- * Rim range. Max must stay inside FIELD_R or outgoing rings die at the edge;
- * min keeps a deep breath from collapsing to a dot.
+ * Rim range. Past SPEAK_KNEE the rim slows into SPEAK_MAX rather than stopping
+ * at it, so a loud syllable still reads as a push instead of a flat edge. Max
+ * stays inside FIELD_R or thrown crumbs die at the edge; min keeps a deep
+ * breath from collapsing to a dot.
  */
 const SPEAK_MIN = 130;
+const SPEAK_KNEE = 244;
 const SPEAK_MAX = 278;
-/** Syllable ring speed (px/s) and lifetime (s) */
-const RING_SPEED = 100;
-const RING_LIFE = 0.55;
-/** Rings alive at once, so fast speech does not flood the field */
+/** How far a rim cell sits in or out of the rim: the edge is crumbly, not drawn with a compass */
+const SPEAK_ROUGH = 20;
+/** Share of cells a syllable throws outward; the rest stay, so what leaves is crumbs, not a ring */
+const SPECK_SHARE = 0.22;
+/** Crumb speed (px/s) and lifetime (s) */
+const RING_SPEED = 90;
+const RING_LIFE = 0.7;
+/** Syllables in flight at once, so fast speech does not flood the field */
 const MAX_RINGS = 5;
 
 /** Per-frame values derived from the voice; every cell reads the same ones. */
 type Voice = {
-  /** Three time constants; fast/mid detect syllables, slow sets size */
-  fast: number;
-  mid: number;
-  slow: number;
+  /** The voice inside its own range over about half a second (realtime.tap createVoiceFollower) */
+  phrase: number;
   /** Spring kicked by each syllable */
   bob: number;
   bobVel: number;
-  lastOnset: number;
   /** Lobe strength and angle */
   amp: number[];
   phase: number[];
-  /** One outgoing ring per syllable */
+  /** One throw of crumbs per syllable */
   rings: { born: number; power: number }[];
 };
 
@@ -228,6 +236,8 @@ type Cell = {
   death: number;
   /** Emoji slot in emoji mode */
   emoji: boolean;
+  /** Below SPECK_SHARE, a crumb a syllable throws outward */
+  speck: number;
   /** Index of the ERROR letter this cell belongs to, or -1 */
   letter: number;
 };
@@ -276,6 +286,13 @@ function idleValue(cell: Cell, t: number) {
   return (0.58 + w * 0.2 + breath) * body;
 }
 
+/** The rim's radius for a raw push: as pushed up to SPEAK_KNEE, then easing into SPEAK_MAX. */
+function rimAt(raw: number) {
+  if (raw <= SPEAK_KNEE) return Math.max(SPEAK_MIN, raw);
+  const room = SPEAK_MAX - SPEAK_KNEE;
+  return SPEAK_KNEE + room * Math.tanh((raw - SPEAK_KNEE) / room);
+}
+
 /**
  * Brightness of one mode; mode transitions blend two of these.
  * @param e seconds since the mode started
@@ -305,12 +322,16 @@ function valueFor(m: AsciiOrbMode, cell: Cell, t: number, e: number, v: Voice) {
      * Speaking. Frequency is not mapped to angle: a voice's spectrum barely
      * moves within a sentence, so that freezes into a fixed star. The voice
      * gives size, syllables and lobe strength; rotation comes from time, each
-     * lobe at its own speed in alternating directions.
+     * lobe at its own speed in alternating directions. No line in it is clean:
+     * the rim is crumbly, and a syllable throws crumbs rather than a ring.
      */
     case "speaking": {
       const grow = smoothstep(0, 1, Math.min(1, e / 0.8));
 
-      let raw = IDLE_R + (SPEAK_SWELL * v.slow + SPEAK_KICK * v.bob) * grow;
+      let raw =
+        IDLE_R +
+        (SPEAK_BASE - IDLE_R + SPEAK_SWELL * v.phrase + SPEAK_KICK * v.bob) *
+          grow;
       for (let i = 0; i < SPEAK_LOBES; i++) {
         raw +=
           SPEAK_LOBE_R *
@@ -318,26 +339,41 @@ function valueFor(m: AsciiOrbMode, cell: Cell, t: number, e: number, v: Voice) {
           Math.sin((i + 2) * cell.angle + v.phase[i]) *
           grow;
       }
-      const edge = Math.max(SPEAK_MIN, Math.min(SPEAK_MAX, raw));
+      const edge = rimAt(raw);
 
-      const d = cell.dist - edge;
-      const rim = Math.exp(-(d * d) / 900);
-      const core = Math.exp(-(cell.dist * cell.dist) / 6000) * 0.55;
-      const inside = cell.dist < edge ? 0.3 * (1 - cell.dist / edge) ** 0.6 : 0;
+      // each cell sits a little in or out of the rim, and the offset drifts
+      const rough =
+        (cell.grain - 0.5) * SPEAK_ROUGH +
+        Math.sin(cell.angle * 5 + t * 0.9 + cell.seed * 6.283) *
+          SPEAK_ROUGH *
+          0.3;
+      const d = cell.dist - (edge + rough);
+      const rim = Math.exp(-(d * d) / 800);
+      const core = Math.exp(-(cell.dist * cell.dist) / 6000) * 0.5;
+      // a soft fill toward the center, with the idle wave still moving through it
+      const inside =
+        cell.dist < edge
+          ? 0.3 *
+            (1 - cell.dist / edge) ** 0.6 *
+            (0.75 + 0.25 * Math.sin(cell.dist * 0.05 - t * 1.2))
+          : 0;
 
-      // one ring per syllable, born at the rim and moving outward
+      // crumbs: a sparse share of cells, each thrown past the rim at its own speed
       let out = 0;
-      for (let i = 0; i < v.rings.length; i++) {
-        const ring = v.rings[i];
-        const age = t - ring.born;
-        const dd = cell.dist - (edge + age * RING_SPEED);
-        out +=
-          Math.exp(-(dd * dd) / 2200) *
-          ring.power *
-          Math.max(0, 1 - age / RING_LIFE);
+      if (cell.speck < SPECK_SHARE) {
+        const speed = RING_SPEED * (0.6 + cell.grain * 0.9);
+        for (let i = 0; i < v.rings.length; i++) {
+          const ring = v.rings[i];
+          const age = t - ring.born;
+          const dd = cell.dist - (edge + 6 + age * speed);
+          out +=
+            Math.exp(-(dd * dd) / 500) *
+            ring.power *
+            Math.max(0, 1 - age / RING_LIFE);
+        }
       }
 
-      return rim + core + inside + out * 0.8;
+      return rim + core + inside + out;
     }
 
     /**
@@ -387,10 +423,10 @@ function valueFor(m: AsciiOrbMode, cell: Cell, t: number, e: number, v: Voice) {
 export function AsciiOrb({
   className,
   mode = "idle",
-  charset = "ascii",
+  charset = ASCII_FACE.charset,
   emotion = null,
-  fontSize = 8,
-  density = 1.4,
+  fontSize = ASCII_FACE.fontSize.default,
+  density = ASCII_FACE.density.default,
   size = DESIGN,
   color = DEFAULT_COLOR,
   getSpectrum,
@@ -432,12 +468,9 @@ export function AsciiOrb({
   specRef.current = getSpectrum;
 
   const voiceRef = useRef<Voice>({
-    fast: 0,
-    mid: 0,
-    slow: 0,
+    phrase: 0,
     bob: 0,
     bobVel: 0,
-    lastOnset: -Infinity,
     amp: new Array<number>(SPEAK_LOBES).fill(0),
     // distinct start phases, or the lobes overlap into one lump at first
     phase: Array.from({ length: SPEAK_LOBES }, (_, i) => i * 2.1),
@@ -502,6 +535,7 @@ export function AsciiOrb({
           birth: hash(c * 3.1 + 7, r * 5.7 + 2),
           death: hash(c * 9.4 + 3, r * 2.6 + 8),
           emoji: hash(c * 2.7 + 31, r * 5.9 + 17) < EMOJI_RATIO,
+          speck: hash(c * 4.1 + 23, r * 6.3 + 41),
           letter,
         });
       }
@@ -583,8 +617,8 @@ export function AsciiOrb({
   // animation loop
   useEffect(() => {
     let raf = 0;
-    const BINS = 28;
-    const spec = new Array<number>(BINS);
+    const follower = createVoiceFollower();
+    const murmur = new Array<number>(SPECTRUM_BANDS).fill(0);
 
     let lastT = performance.now() * 0.001;
 
@@ -604,49 +638,27 @@ export function AsciiOrb({
       bk.asciiN.fill(0);
       bk.emojiN.fill(0);
 
-      // Live voice when available. Bands (usually 8) are fewer than BINS (28)
-      // and the orb reads this array by angle, so interpolate to avoid steps
-      const live = specRef.current?.();
-      if (live && live.length > 1) {
-        const last = live.length - 1;
-        for (let i = 0; i < BINS; i++) {
-          // fold the band index so it returns to the first band over one revolution; a plain stretch shows a seam at 0 degrees
-          const fold = Math.abs((((i / BINS) * 2 + 1) % 2) - 1);
-          const at = fold * last;
-          const lo = Math.floor(at);
-          const hi = Math.min(last, lo + 1);
-          spec[i] = live[lo] + (live[hi] - live[lo]) * (at - lo);
-        }
-      } else {
-        for (let i = 0; i < BINS; i++) {
+      // Live voice when available; without one a murmur keeps the orb alive (previews)
+      let live: ArrayLike<number> | undefined = specRef.current?.();
+      if (!live || live.length < 2) {
+        for (let k = 0; k < murmur.length; k++) {
           const a =
-            Math.sin(t * 1.7 + i * 1.7) * 0.5 +
-            Math.sin(t * 0.8 + i * 0.6) * 0.3 +
-            Math.sin(t * 3.0 + i * 2.9) * 0.2;
-          spec[i] = a * 0.5 + 0.5;
+            Math.sin(t * 1.7 + k * 1.7) * 0.5 +
+            Math.sin(t * 0.8 + k * 0.6) * 0.3 +
+            Math.sin(t * 3.0 + k * 2.9) * 0.2;
+          murmur[k] = a * 0.5 + 0.5;
         }
+        live = murmur;
       }
 
-      // derive size, syllables and lobes from the voice (once per frame)
+      // size, syllables and lobes from the voice, once per frame; each band is
+      // read inside its own range, or a voice's narrow loud spectrum pins the rim
       const voice = voiceRef.current;
-      let loud = 0;
-      for (let i = 0; i < BINS; i++) loud += spec[i];
-      loud = Math.min(1, (loud / BINS) * VOICE_GAIN);
-
-      // three time constants: a syllable is a frame above the recent average, not a loud frame
-      voice.fast += (loud - voice.fast) * 0.3;
-      voice.mid += (loud - voice.mid) * 0.06;
-      voice.slow += (loud - voice.slow) * 0.02;
-
-      if (
-        voice.fast > voice.mid * 1.25 + 0.02 &&
-        voice.fast > 0.07 &&
-        t - voice.lastOnset > 0.14
-      ) {
-        voice.lastOnset = t;
-        const power = Math.min(1, voice.fast * 1.7);
-        voice.bobVel += 0.05 * power;
-        voice.rings.push({ born: t, power });
+      const heard = follower.read(live, dt);
+      voice.phrase = heard.phrase;
+      if (heard.onset > 0) {
+        voice.bobVel += 0.06 * heard.onset;
+        voice.rings.push({ born: t, power: heard.onset });
         if (voice.rings.length > MAX_RINGS) voice.rings.shift();
       }
       // a spring with a period of about 1s; kick it on syllables instead of driving position, or 60fps noise becomes jitter
@@ -654,15 +666,19 @@ export function AsciiOrb({
       voice.bob += voice.bobVel;
 
       for (let i = 0; i < SPEAK_LOBES; i++) {
-        const from = ((i / SPEAK_LOBES) * BINS) | 0;
-        const to = (((i + 1) / SPEAK_LOBES) * BINS) | 0;
+        // neighbouring bands per lobe, low lobes from low bands
+        const from = Math.floor((i * heard.bands.length) / SPEAK_LOBES);
+        const to = Math.max(
+          from + 1,
+          Math.floor(((i + 1) * heard.bands.length) / SPEAK_LOBES),
+        );
         let energy = 0;
-        for (let j = from; j < to; j++) energy += spec[j];
-        energy = Math.min(1, (energy / Math.max(1, to - from)) * VOICE_GAIN);
+        for (let j = from; j < to; j++) energy += heard.bands[j];
+        energy /= to - from;
         // a random factor that changes about once per second, so lobes keep moving through a held vowel
         const wander = 0.7 + hash(((t * 0.9) | 0) + i * 31, i) * 0.6;
         // different time constants per harmonic, or the star only scales
-        voice.amp[i] += (energy * wander - voice.amp[i]) * (0.02 + i * 0.012);
+        voice.amp[i] += (energy * wander - voice.amp[i]) * (0.05 + i * 0.02);
         // own speed, alternating direction, so no standing wave forms
         voice.phase[i] += dt * (0.5 + i * 0.37) * (i % 2 ? -1 : 1);
       }

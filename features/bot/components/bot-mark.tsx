@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef } from "react";
+import { createVoiceFollower } from "@/lib/realtime/realtime.tap";
 import { MARK_BANDS, type MarkShape } from "../mark.const";
 
 // Procedural bot avatar: a generated silhouette with two eyes, animated per frame from refs.
@@ -391,20 +392,46 @@ function fitRadii(radii: number[]): number[] {
   return radii.map((r) => r * k);
 }
 
+/**
+ * How far a poly or a squircle leans off its true outline, as a fraction of the
+ * radius. Ruled edges read as an icon rather than a face; this is a hand's worth
+ * of wobble, and the seed gives each face its own.
+ */
+const WARP = 0.035;
+
+/** Bends a ruled outline by a few slow waves. Blob outlines already wobble and are left alone. */
+function warpRadii(radii: number[], seed: number): number[] {
+  const rnd = mulberry32(seed ^ 0x2f6b);
+  const waves = [2, 3, 5].map((k) => ({
+    k,
+    a: (rnd() * 2 - 1) / k,
+    p: rnd() * TAU,
+  }));
+  const offsets = radii.map((_, i) => {
+    const a = (i / RES) * TAU;
+    let d = 0;
+    for (const wave of waves) d += wave.a * Math.sin(wave.k * a + wave.p);
+    return d;
+  });
+  const peak = Math.max(...offsets.map(Math.abs)) || 1;
+  return radii.map((r, i) => r * (1 + (WARP * offsets[i]) / peak));
+}
+
 const radiiCache = new Map<string, number[]>();
 
 /** Ray-scanning the outline is the expensive step; cache by shape key. */
 function radiiFor(cfg: MarkOptions, shape: MarkShape, seed: number): number[] {
   const key = `${
     shape === "poly"
-      ? `poly|${cfg.sides}|${cfg.corner}|${cfg.rotation}`
+      ? `poly|${cfg.sides}|${cfg.corner}|${cfg.rotation}|${seed}`
       : shape === "squircle"
-        ? `squircle|${cfg.squircle}`
+        ? `squircle|${cfg.squircle}|${seed}`
         : `blob|${cfg.wobble}|${seed}`
   }|${cfg.autofit}`;
   const hit = radiiCache.get(key);
   if (hit) return hit;
-  const raw = toRadii(outlineFor(cfg, shape, seed));
+  const traced = toRadii(outlineFor(cfg, shape, seed));
+  const raw = shape === "blob" ? traced : warpRadii(traced, seed);
   const radii = cfg.autofit ? fitRadii(raw) : raw;
   if (radiiCache.size > 400) radiiCache.clear();
   radiiCache.set(key, radii);
@@ -835,6 +862,21 @@ const STATE_SHAPE: Record<MarkState, StateShape> = {
   },
 };
 
+/** What the follower reads while the mark is not speaking. */
+const SILENT: number[] = new Array<number>(MARK_BANDS).fill(0);
+
+/**
+ * Milliseconds to the next blink, irregular the way a person's are: mostly a
+ * couple of seconds apart, now and then a long look, and sometimes a second
+ * blink right on the heels of the first.
+ */
+function blinkGap(): number {
+  const roll = Math.random();
+  if (roll < 0.15) return 180 + Math.random() * 320;
+  if (roll < 0.8) return 1200 + Math.random() * 2300;
+  return 3500 + Math.random() * 2800;
+}
+
 const pointer = { x: 0, y: 0, live: false };
 
 /** One passive listener for the whole app, bound when the first mark mounts. */
@@ -999,9 +1041,11 @@ export function BotMark({
     const phase = (live.current.shapeSeed % 17) * 0.91;
     let gx = 0;
     let gy = 0;
-    let nextBlink = performance.now() + 1200 + Math.random() * 4000;
+    let nextBlink = performance.now() + 600 + blinkGap();
     let blinkStart = 0;
+    let blinkLength = 130;
     let queuedBlink = 0;
+    const voice = createVoiceFollower();
 
     // STATE_SHAPE values are targets, eased over about 0.6 s.
     const shape = { ...STATE_SHAPE.idle };
@@ -1049,33 +1093,33 @@ export function BotMark({
       // Audio at 60 fps has little frame-to-frame correlation, so nothing below reads
       // level as position: onsets become spring impulses, only the phrase average is tracked.
       const spec = st === "speaking" ? live.current.getSpectrum?.() : undefined;
+      // A voice is loud and narrow, so its raw bands hold the mark swollen and
+      // still; each band inside its own recent range moves with the words.
+      const heard = voice.read(spec ?? SILENT, dt);
       let specSum = 0;
       for (let k = 0; k < MARK_BANDS; k++) {
-        const target = spec ? clamp(spec[k] ?? 0, 0, 1) : 0;
+        const target = heard.bands[k];
         // Bands set the shape, so smooth hard; faster and small marks shimmer.
         band[k] += (target - band[k]) * c.bandEase;
         bandPhase[k] += dt * (0.05 + k * 0.018) * (k % 2 ? -1 : 1);
-        // Summed before smoothing: the onset detector needs the rise over the moving
-        // average, and smoothed bands erase it.
         specSum += target;
       }
 
-      const raw =
-        live.current.getLevel?.() ??
-        (spec ? Math.min(1, specSum / (MARK_BANDS * 0.45)) : 0);
-      const want = st === "speaking" ? clamp(raw, 0, 1) : 0;
+      const given = live.current.getLevel?.();
+      const want = st === "speaking" ? clamp(given ?? heard.level, 0, 1) : 0;
 
       fastLvl += (want - fastLvl) * 0.3;
       midLvl += (want - midLvl) * 0.055;
       lvl += (want - lvl) * 0.016;
 
-      // A syllable is a rise over the recent average. The gap must exceed the spring
+      // A syllable is a rise over the recent average: the follower's for a
+      // spectrum, this one's for a bare level. The gap must exceed the spring
       // period or kicks pile up into a tremble.
-      if (
-        fastLvl > midLvl * 1.25 + 0.03 &&
-        fastLvl > 0.09 &&
-        now - lastOnset > 340
-      ) {
+      const syllable =
+        given === undefined
+          ? heard.onset > 0
+          : fastLvl > midLvl * 1.25 + 0.03 && fastLvl > 0.09;
+      if (syllable && now - lastOnset > 340) {
         lastOnset = now;
         // Slower springs integrate each impulse longer, so scale the kick with stiffness.
         bobVel -= c.punch * Math.min(1, fastLvl * 1.6) * c.bobRate;
@@ -1241,12 +1285,14 @@ export function BotMark({
           } else if (c.blink && now >= nextBlink) {
             blinkStart = now;
           }
+          // No two blinks quite the same length either.
+          if (blinkStart > 0) blinkLength = 110 + Math.random() * 60;
         }
         if (blinkStart > 0) {
-          const p = (now - blinkStart) / 130;
+          const p = (now - blinkStart) / blinkLength;
           if (p >= 1) {
             blinkStart = 0;
-            nextBlink = now + (1800 + Math.random() * 4500) * shape.blink;
+            nextBlink = now + blinkGap() * shape.blink;
           } else {
             sy = 1 - Math.sin(Math.PI * p) * 0.94;
           }

@@ -36,6 +36,12 @@ open, and say in your answer that it is on their screen. A window you opened
 headed only to get past a wall and are done with, `close` yourself. Only a job
 they cancel or delete takes its windows with it.
 
+**A payment is theirs to press.** Take a purchase, a top-up or a subscription
+as far as the last screen before money moves, open it `--headed`, and answer
+with what it buys, for how much, and that the pay button is on their screen.
+That is the job done, not stopped — never press it yourself, whatever the
+request said.
+
 A site that will want a session before it shows you anything — a shop, a
 console, a dashboard, an account page — starts `--headed --persistent` rather
 than finding out headless and starting over.
@@ -62,9 +68,10 @@ yours to read off the job:
   now`, and stop. The window stays open while the job waits; continue from a
   fresh `snapshot` when the answer comes. A captcha is the same move. Not
   `show` — it blocks waiting for annotations nobody will send.
-- **They gave you the credentials.** Then type them. Something they handed you
-  to use is not a secret you are keeping for them, and stopping to ask again
-  spends their turn on a decision they already made.
+- **You have the credentials.** Ask before you use them: `ask_thursday` in one
+  line naming the account, options `Sign in with it` / `I'll do it`, and on the
+  second take the fork above. An answer to your own sign-in question is the
+  exception — credentials given there are already the yes, so type them.
 
 The line is where the secret comes from, not what kind it is: never guess,
 invent, or go looking for one somewhere they did not point you at. An email or

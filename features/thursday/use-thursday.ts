@@ -358,6 +358,11 @@ export function useThursday() {
       void revalidate(queryKey.mcp);
       void revalidate(queryKey.mcpTools);
     },
+    // A sign-in finished in its own window (ai/chatgpt): the key rows and the model picker both read it
+    config: () => {
+      void revalidate(queryKey.config);
+      void revalidate(queryKey.llmModel);
+    },
   });
 
   // faces come from the bot list

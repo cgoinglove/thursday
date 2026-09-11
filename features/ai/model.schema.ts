@@ -9,6 +9,7 @@ import {
 
 export const textModelProviderSchema = z.enum([
   "openai",
+  "chatgpt",
   "anthropic",
   "google",
   "xai",
@@ -403,6 +404,8 @@ export const TEXT_MODEL_PROVIDERS: Record<
   {
     label: string;
     apiKeyName: string;
+    /** Reached by signing in to an account rather than a pasted key; `apiKeyName` is where the sign-in is kept. */
+    signIn?: true;
     suggestModels: SuggestModel[];
   }
 > = {
@@ -433,6 +436,42 @@ export const TEXT_MODEL_PROVIDERS: Record<
         label: "6 Astra",
         tier: "large",
         context: 1_050_000,
+      },
+    ],
+  },
+  /**
+   * The Codex models a ChatGPT plan carries, reached by signing in (ai/chatgpt). Which ones a
+   * plan opens differs — a Free plan lists Luna, Terra and 5.5 — and the backend caps every
+   * window at 272k, whatever the same model takes over the API.
+   */
+  chatgpt: {
+    label: "GPT Subscription",
+    apiKeyName: "CHATGPT_SIGN_IN",
+    signIn: true,
+    suggestModels: [
+      {
+        id: "gpt-5.6-luna",
+        label: "5.6 Luna",
+        tier: "small",
+        context: 272_000,
+      },
+      {
+        id: "gpt-5.6-terra",
+        label: "5.6 Terra",
+        tier: "mid",
+        context: 272_000,
+      },
+      {
+        id: "gpt-5.6-sol",
+        label: "5.6 Sol",
+        tier: "large",
+        context: 272_000,
+      },
+      {
+        id: "gpt-6-astra",
+        label: "6 Astra",
+        tier: "large",
+        context: 272_000,
       },
     ],
   },
@@ -658,7 +697,29 @@ export type AiProvider = {
   apiKeyName: string;
   hasKey: boolean;
   suggestModels: SuggestModel[];
+  /** Signs in to an account instead of taking a key (TEXT_MODEL_PROVIDERS `signIn`). */
+  signIn?: true;
+  /** The plan the signed-in account is on, as the provider names it; sign-in providers only. */
+  plan?: string | null;
 };
+
+/**
+ * What a GPT Subscription sign-in has used (ai/chatgpt readChatGptUsage): the tightest window of
+ * its plan and when it frees up, with `plan` as the backend names it now. `refused` is a sign-in
+ * the plan turned away, in its own words.
+ */
+export type SubscriptionUsage =
+  | {
+      plan: string | null;
+      usedPercent: number;
+      /** ISO; null when the backend did not say. */
+      resetsAt: string | null;
+      /** The window is used up: jobs on it stop until it resets. */
+      spent: boolean;
+      /** Spent, or past `CHATGPT_USAGE_HIGH`: amber on its row. */
+      high: boolean;
+    }
+  | { refused: string };
 
 /** What a gateway row can be picked as: text, one of the studio kinds, or a word this app offers nowhere (embedding, reranking, realtime). */
 export const GATEWAY_TEXT = "language";
@@ -696,3 +757,16 @@ export type GatewayModel = {
   /** Context window in tokens; null when the gateway did not say. What a run compacts against (bot.run). */
   contextWindow: number | null;
 };
+
+/**
+ * What is left on the gateway key (ai/model `readGatewayCredits`). A key the gateway turns
+ * away is not a failed read: `refused` carries its words, drawn on the key's row and dialog.
+ */
+export type GatewayCredits =
+  | {
+      /** USD. */
+      balance: number;
+      /** At or under `GATEWAY_LOW_CREDIT` (config): amber, it waits on a top-up. */
+      low: boolean;
+    }
+  | { refused: string };

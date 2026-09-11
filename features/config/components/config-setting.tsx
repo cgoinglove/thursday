@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDistanceToNowStrict } from "date-fns";
 import {
   AudioLines,
   Captions,
@@ -17,12 +18,17 @@ import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { notify } from "@/components/ui/notify";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ChatGptSignIn } from "@/features/ai/components/chatgpt-sign-in";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import { ProviderIcon } from "@/features/ai/components/provider-icon";
 import {
+  type AiProvider,
+  type GatewayCredits,
   type MediaKind,
   parseMediaModel,
   parseTextModel,
+  type SubscriptionUsage,
   type TextModelProviderId,
 } from "@/features/ai/model.schema";
 import { BotsMark } from "@/features/bot/components/bot-mark";
@@ -46,6 +52,7 @@ import {
   SettingError,
   SettingGroup,
   SettingItems,
+  SettingNote,
   SettingRailNote,
   SettingScreen,
   SettingSkeleton,
@@ -181,10 +188,19 @@ function KeyRow({
   /** Its group must have a key and has none, so this row is waiting on the user. */
   needed: boolean;
 }) {
+  const credits = useGatewayCredits(entry, set);
+  const usage = useSubscriptionUsage(entry, set);
+  const plan = useSignInPlan(entry, set);
+  const state = usage.data
+    ? usageState(usage.data)
+    : keyState(set, needed, credits.data, entry.signIn);
+
   return (
     <button
       type="button"
-      onClick={() => openConfigDialog(entry, set)}
+      onClick={() =>
+        entry.signIn ? openSignInDialog(entry) : openConfigDialog(entry, set)
+      }
       className="group flex w-full items-center gap-3 p-4 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
     >
       <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted/60">
@@ -195,28 +211,131 @@ function KeyRow({
           {entry.label}
         </span>
         <span className="block truncate font-mono text-xs text-muted-foreground">
-          {entry.key}
+          {/* A sign-in's config key is nothing to read; the plan it is on is */}
+          {entry.signIn
+            ? set
+              ? usageLine(usage.data, plan)
+              : "sign in with your account"
+            : entry.key}
         </span>
       </span>
 
-      <span
-        className={cn(
-          "flex shrink-0 items-center gap-1.5 font-mono text-xs",
-          set
-            ? "text-muted-foreground"
-            : needed
-              ? WAITING_INK
-              : "text-muted-foreground/60",
-        )}
-      >
-        {set && <Check className="size-3" />}
-        {!set && needed && <TriangleAlert className="size-3" />}
-        {set ? "Set" : needed ? "Needed" : "Not set"}
-      </span>
+      {credits.isLoading || usage.isLoading ? (
+        // Only this end waits, so the row keeps its shape while the gateway or the plan answers
+        <Skeleton className="h-3 w-20 shrink-0" />
+      ) : (
+        <span
+          className={cn(
+            "flex shrink-0 items-center gap-1.5 font-mono text-xs",
+            state.ink,
+          )}
+        >
+          {state.warn ? (
+            <TriangleAlert className="size-3" />
+          ) : (
+            set && <Check className="size-3" />
+          )}
+          {state.text}
+        </span>
+      )}
 
       <ChevronRight className="size-4 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-foreground" />
     </button>
   );
+}
+
+/** US dollars, as the gateway bills. */
+const USD = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+});
+
+/**
+ * What a key says at the end of its row. A key only knows whether it is set, except the
+ * gateway's, which also says what is left on it: amber waits on a top-up, red is a refusal.
+ */
+function keyState(
+  set: boolean,
+  needed: boolean,
+  credits: GatewayCredits | null | undefined,
+  signIn?: true,
+): { text: string; ink: string; warn: boolean } {
+  if (!set)
+    return needed
+      ? { text: "Needed", ink: WAITING_INK, warn: true }
+      : {
+          text: signIn ? "Signed out" : "Not set",
+          ink: "text-muted-foreground/60",
+          warn: false,
+        };
+  if (!credits)
+    return {
+      text: signIn ? "Signed in" : "Set",
+      ink: "text-muted-foreground",
+      warn: false,
+    };
+  if ("refused" in credits)
+    return { text: "Key refused", ink: "text-destructive", warn: true };
+  return {
+    text: `${USD.format(credits.balance)} left`,
+    ink: credits.low ? WAITING_INK : "text-muted-foreground",
+    warn: credits.low,
+  };
+}
+
+/** What is left on the gateway key (ai/model readGatewayCredits); any other key reads nothing. */
+function useGatewayCredits(entry: ConfigEntry, set: boolean) {
+  return useServerRoute<GatewayCredits | null>(
+    set && entry.provider === "vercel-ai-gateway"
+      ? queryKey.gatewayCredits
+      : null,
+  );
+}
+
+/** The plan a signed-in account is on (llm-model route); a key row reads nothing. */
+function useSignInPlan(entry: ConfigEntry, set: boolean) {
+  const { data } = useServerRoute<AiProvider[]>(
+    set && entry.signIn ? queryKey.llmModel : null,
+  );
+  return data?.find((provider) => provider.id === entry.provider)?.plan ?? null;
+}
+
+/** How much of the subscription's plan is used (ai/chatgpt readChatGptUsage); a key row reads nothing. */
+function useSubscriptionUsage(entry: ConfigEntry, set: boolean) {
+  return useServerRoute<SubscriptionUsage | null>(
+    set && entry.signIn ? queryKey.subscriptionUsage : null,
+  );
+}
+
+/**
+ * What a subscription says at the end of its row: the share of its tightest window used. Amber
+ * once it is nearly or wholly spent, because the jobs on it are about to wait for the reset; red
+ * is a sign-in the plan refused.
+ */
+function usageState(usage: SubscriptionUsage): {
+  text: string;
+  ink: string;
+  warn: boolean;
+} {
+  if ("refused" in usage)
+    return { text: "Sign-in refused", ink: "text-destructive", warn: true };
+  return {
+    text: usage.spent ? "Limit reached" : `${usage.usedPercent}% used`,
+    ink: usage.high ? WAITING_INK : "text-muted-foreground",
+    warn: usage.high,
+  };
+}
+
+/** A signed-in row's second line: the plan as the backend names it now, and when its window frees up. */
+function usageLine(
+  usage: SubscriptionUsage | null | undefined,
+  plan: string | null,
+): string {
+  const live = usage && !("refused" in usage) ? usage : null;
+  const name = `${live?.plan ?? plan ?? "unknown"} plan`;
+  return live?.resetsAt
+    ? `${name} · resets in ${formatDistanceToNowStrict(new Date(live.resetsAt))}`
+    : name;
 }
 
 /** Whose key it is, or what it buys when it belongs to no provider. */
@@ -450,6 +569,91 @@ function ChoiceDialog({
   );
 }
 
+function openSignInDialog(entry: ConfigEntry) {
+  return notify.component({
+    className: "sm:max-w-md",
+    renderer: ({ close }) => <SignInDialog entry={entry} onDone={close} />,
+  });
+}
+
+/**
+ * An account instead of a key. Read live: the sign-in finishes in a window of its own, and the
+ * `config` signal it raises (use-thursday) is what turns this dialog to signed in.
+ */
+function SignInDialog({
+  entry,
+  onDone,
+}: {
+  entry: ConfigEntry;
+  onDone: () => void;
+}) {
+  const { data } = useServerRoute<ConfigStatus[]>(queryKey.config);
+  const signedIn = isConfigSet(data, entry.key);
+  const plan = useSignInPlan(entry, signedIn);
+  const usage = useSubscriptionUsage(entry, signedIn);
+  const state = usage.data ? usageState(usage.data) : null;
+  const [signOut, signingOut] = useServerAction(removeConfigAction, {
+    okMessage: `Signed out of ${entry.label}`,
+    onOk: () => {
+      revalidate(queryKey.config);
+      revalidate(queryKey.llmModel);
+      onDone();
+    },
+  });
+
+  return (
+    <SettingDialogContent
+      title={entry.label}
+      description={
+        signedIn ? (
+          <>
+            Signed in ·{" "}
+            <span className="font-mono">{usageLine(usage.data, plan)}</span>
+            {state && (
+              <>
+                {" · "}
+                <span className={cn("font-mono", state.ink)}>{state.text}</span>
+              </>
+            )}
+          </>
+        ) : (
+          "Sign in with your ChatGPT account instead of a key"
+        )
+      }
+      footer={
+        <>
+          {signedIn && (
+            <Button
+              variant="ghost"
+              loading={signingOut}
+              onClick={() => signOut(entry.key)}
+            >
+              Sign out
+            </Button>
+          )}
+          <Button variant="ghost" onClick={onDone}>
+            {signedIn ? "Close" : "Cancel"}
+          </Button>
+          {!signedIn && <ChatGptSignIn />}
+        </>
+      }
+    >
+      <div className="space-y-2">
+        <SettingNote>
+          {signedIn
+            ? "Bots on this subscription spend your plan's usage, not a key. When it runs out, the job stops and says when it resets."
+            : "The sign-in opens in its own window. Approve it there, and this turns to signed in by itself."}
+        </SettingNote>
+        {usage.data && "refused" in usage.data && (
+          <SettingNote className="wrap-break-word text-destructive">
+            {usage.data.refused}
+          </SettingNote>
+        )}
+      </div>
+    </SettingDialogContent>
+  );
+}
+
 function openConfigDialog(entry: ConfigEntry, set: boolean) {
   return notify.component({
     className: "sm:max-w-md",
@@ -470,8 +674,10 @@ function ConfigDialog({
   onDone: () => void;
 }) {
   const [value, setValue] = useState("");
+  const { data: credits } = useGatewayCredits(entry, set);
+  const state = credits ? keyState(set, false, credits) : null;
 
-  // The model picker reads hasKey too
+  // The model picker reads hasKey too, and the gateway's credits sit under the same url
   const refresh = () => {
     revalidate(queryKey.config);
     revalidate(queryKey.llmModel);
@@ -499,6 +705,12 @@ function ConfigDialog({
         <>
           <span className="font-mono">{entry.key}</span>
           {entry.hint && <> · {entry.hint}</>}
+          {state && (
+            <>
+              {" · "}
+              <span className={cn("font-mono", state.ink)}>{state.text}</span>
+            </>
+          )}
         </>
       }
       footer={
@@ -525,18 +737,25 @@ function ConfigDialog({
         </>
       }
     >
-      <Input
-        value={value}
-        onChange={(event) => setValue(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && value.trim().length >= 8)
-            save(entry.key, value);
-        }}
-        placeholder={set ? "New value — replaces the current key" : entry.key}
-        spellCheck={false}
-        type="password"
-        autoFocus
-      />
+      <div className="space-y-2">
+        <Input
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && value.trim().length >= 8)
+              save(entry.key, value);
+          }}
+          placeholder={set ? "New value — replaces the current key" : entry.key}
+          spellCheck={false}
+          type="password"
+          autoFocus
+        />
+        {credits && "refused" in credits && (
+          <SettingNote className="wrap-break-word text-destructive">
+            {credits.refused}
+          </SettingNote>
+        )}
+      </div>
     </SettingDialogContent>
   );
 }

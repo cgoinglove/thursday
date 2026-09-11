@@ -29,6 +29,8 @@ export type ConfigEntry = {
   text?: true;
   /** Whose key this is; draws the mark in front of the row. */
   provider?: TextModelProviderId;
+  /** Signed in to rather than typed: the row signs in, and the write action takes no value for it. */
+  signIn?: true;
   /** Present means a choice, not a secret: the value may be shown and served. */
   choices?: ConfigChoice[];
   /** A studio kind. The value is `provider/model`, picked with the model picker, so ids outside `choices` are accepted. */
@@ -157,10 +159,13 @@ export function acceptsChoice(entry: ConfigEntry, value: string): boolean {
 const isVoiceKey = (provider: { apiKeyName: string }) =>
   voiceKeys.includes(provider.apiKeyName);
 
-const keyEntry = (provider: (typeof TEXT_MODEL_PROVIDER_LIST)[number]) => ({
+const keyEntry = (
+  provider: (typeof TEXT_MODEL_PROVIDER_LIST)[number],
+): ConfigEntry => ({
   key: provider.apiKeyName,
   label: provider.label,
   provider: provider.id,
+  signIn: provider.signIn,
 });
 
 export const CONFIG_GROUPS: ConfigGroup[] = [

@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { notify } from "@/components/ui/notify";
 import { Segmented } from "@/components/ui/segmented";
 import { Textarea } from "@/components/ui/textarea";
+import { ASCII_FACE } from "@/config";
 import { ProviderIcon } from "@/features/ai/components/provider-icon";
 import {
   type AiProvider,
@@ -355,8 +356,8 @@ function FacePicker({
 
             <Row label="Size">
               <Slider
-                min={4}
-                max={16}
+                min={ASCII_FACE.fontSize.min}
+                max={ASCII_FACE.fontSize.max}
                 step={1}
                 value={value.fontSize}
                 format={(n) => `${n}px`}
@@ -366,8 +367,8 @@ function FacePicker({
 
             <Row label="Density">
               <Slider
-                min={0.6}
-                max={2}
+                min={ASCII_FACE.density.min}
+                max={ASCII_FACE.density.max}
                 step={0.1}
                 value={value.density}
                 format={(n) => `${n.toFixed(1)}x`}

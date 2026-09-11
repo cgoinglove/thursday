@@ -141,4 +141,14 @@ export const queryKey = {
   llmModel: "/api/llm-model",
   /** Models reachable with the AI Gateway key; gateway only */
   modelCatalog: "/api/llm-model/catalog",
+  /**
+   * GatewayCredits | null: what is left on the gateway key, null without one.
+   * Under `llmModel`, so the key dialog's revalidate re-reads it after a save.
+   */
+  gatewayCredits: "/api/llm-model/credits",
+  /**
+   * SubscriptionUsage | null: how much of the GPT Subscription plan is used, null when
+   * signed out. Under `llmModel`, so signing in or out re-reads it.
+   */
+  subscriptionUsage: "/api/llm-model/subscription",
 } as const;

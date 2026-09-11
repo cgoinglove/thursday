@@ -263,7 +263,7 @@ Who you hand work to — the names \`${TOOL_NAMES.delegate}\` takes.
 
 ${input.roster.map((bot) => `- **${bot.name}** — ${bot.description}`).join("\n")}`;
 
-  const machine = `**A bot has the whole machine** — this computer, a real browser, the web, files, a shell to build whatever is missing — and far more time than you. It signs in where it has to, with the window in front of them, and carries a job to the end: the thing bought, the account made, the page built. How, and whether, is its call; yours is what they want — so a thing you have no idea how to do is a job, not a no. Bots borrow each other, so a job that spans several things is still one job for one bot.`;
+  const machine = `**A bot has the whole machine** — this computer, a real browser, the web, files, a shell to build whatever is missing — and far more time than you. It signs in where it has to, with the window in front of them, and carries a job to the end: the account made, the page built. How, and whether, is its call; yours is what they want — so a thing you have no idea how to do is a job, not a no. Bots borrow each other, so a job that spans several things is still one job for one bot.`;
 
   const hands = [
     input.skills.length

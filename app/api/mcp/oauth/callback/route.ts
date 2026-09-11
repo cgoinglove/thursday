@@ -1,4 +1,5 @@
 import { mcpManager } from "@/features/connectors/mcp.manager";
+import { oauthPage } from "@/lib/oauth-page";
 import { errorToString } from "@/lib/utils";
 
 /**
@@ -30,26 +31,9 @@ export async function GET(request: Request) {
 function page(
   title: string,
   detail: string,
-  { autoClose = false }: { autoClose?: boolean } = {},
+  options: { autoClose?: boolean } = {},
 ) {
-  const html = `<!doctype html>
-<meta charset="utf-8">
-<title>${title}</title>
-<body style="font-family: ui-monospace, monospace; display: grid; place-items: center; min-height: 100dvh; margin: 0">
-  <div style="text-align: center; max-width: 28rem; padding: 1.5rem">
-    <p style="font-size: 1.125rem; margin: 0 0 .5rem">${escapeHtml(title)}</p>
-    <p style="color: #666; font-size: .875rem; margin: 0">${escapeHtml(detail)}</p>
-  </div>
-  ${autoClose ? "<script>setTimeout(() => window.close(), 900)</script>" : ""}
-</body>`;
-  return new Response(html, {
+  return new Response(oauthPage(title, detail, options), {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
-}
-
-function escapeHtml(text: string) {
-  return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
 }
