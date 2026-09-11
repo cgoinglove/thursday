@@ -1,8 +1,10 @@
 "use client";
 
+import { format } from "date-fns";
 import {
   ArrowUp,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsRight,
@@ -10,6 +12,7 @@ import {
   History,
   Loader2,
   Plus,
+  RotateCw,
   X,
 } from "lucide-react";
 import {
@@ -45,7 +48,7 @@ import { TaskReply, useAnswerTask } from "@/features/bot/components/task-reply";
 import { openSettings } from "@/features/settings/settings.store";
 import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
 import { FileViewer } from "@/features/workspace/components/file-view";
-import { shortAgo } from "@/lib/date-like";
+import { shortAgo, toDate } from "@/lib/date-like";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import {
@@ -1630,6 +1633,8 @@ function Group({ group, task }: { group: ChatterGroup; task: TaskView }) {
         {runs(group.lines).map((run) =>
           run.kind === "tools" ? (
             <Steps key={run.key} lines={run.lines} taskId={task.id} />
+          ) : run.kind === "stops" ? (
+            <Stops key={run.key} lines={run.lines} />
           ) : (
             run.lines.map((line) => (
               <Line key={line.id} line={line} taskId={task.id} />
@@ -1793,17 +1798,65 @@ function Steps({ lines, taskId }: { lines: Chatter[]; taskId: string }) {
   );
 }
 
-/** Splits one speaker's lines into runs of tool calls and runs of everything else. */
+/**
+ * Where the app stopped the run (bot.runner parkTask): a failed model call, a
+ * restart, a closed browser. Muted and in the bot's turn, since the bot goes on
+ * from here. The same reason in a row is one line with a count; opening it lists
+ * each stop by the time it happened.
+ */
+function Stops({ lines }: { lines: Chatter[] }) {
+  return (
+    <details className="group min-w-0 px-1 text-muted-foreground">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[12.5px] leading-relaxed outline-none [&::-webkit-details-marker]:hidden">
+        <RotateCw className="size-3 shrink-0" />
+        <span className="min-w-0 truncate">{leadOf(lines[0].text)}</span>
+        {lines.length > 1 && (
+          <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
+            ×{lines.length}
+          </span>
+        )}
+        <ChevronDown className="size-2.5 shrink-0 text-muted-foreground/70 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="mt-1 space-y-1 pl-4.5 text-[11px] leading-relaxed">
+        {lines.map((line) => (
+          <p key={line.id} className="flex gap-2 break-keep">
+            {line.at && (
+              <span className="shrink-0 font-mono text-muted-foreground/70 tabular-nums">
+                {format(toDate(line.at), "HH:mm:ss")}
+              </span>
+            )}
+            <span className="min-w-0">{line.text}</span>
+          </p>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+/** What stopped it, without the words behind it: a stop names those in parentheses (bot.runner parkTask). */
+const leadOf = (text: string) => text.split(" (")[0].replace(/\.$/, "");
+
+/** Splits one speaker's lines into runs of tool calls, of stops, and of everything else. */
 type Run =
   | { kind: "tools"; key: string; lines: Chatter[] }
+  | { kind: "stops"; key: string; lines: Chatter[] }
   | { kind: "said"; key: string; lines: Chatter[] };
 
 function runs(lines: Chatter[]): Run[] {
   const out: Run[] = [];
   for (const line of lines) {
-    const kind = line.kind === "tool" && line.tool ? "tools" : "said";
+    const kind =
+      line.kind === "tool" && line.tool
+        ? "tools"
+        : line.kind === "stop"
+          ? "stops"
+          : "said";
     const open = out.at(-1);
-    if (open && open.kind === kind) open.lines.push(line);
+    // Stops fold only while the reason repeats; another reason is a line of its own
+    const same =
+      open?.kind === kind &&
+      (kind !== "stops" || leadOf(open.lines[0].text) === leadOf(line.text));
+    if (open && same) open.lines.push(line);
     else out.push({ kind, key: line.id, lines: [line] });
   }
   return out;

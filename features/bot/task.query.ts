@@ -688,6 +688,13 @@ export async function readToolResult(
   return null;
 }
 
+/** Said to a resumed run after why it stopped. The screen shows only the why (linesOf). */
+const IN_FLIGHT =
+  "Anything that was under way — a command, a page loading, a download — may not have finished: check before relying on it, then carry on.";
+
+/** The thread line a stop the app made leaves (bot.runner parkTask). */
+export const stopNote = (why: string) => `${why} ${IN_FLIGHT}`;
+
 type StoredMessage = typeof taskMessageTable.$inferSelect;
 
 /**
@@ -710,10 +717,15 @@ function linesOf(message: StoredMessage, owner: string): TaskLine[] {
     if (message.seq === 0) return [];
     const text = typeof content === "string" ? content : textOf(content);
     if (!text) return [];
-    // The app's own line — a compaction marker, or why a run stopped — never
-    // the user's words. `compact` is read too: rows written before `note` was.
-    if (message.note || message.compact)
-      return [{ ...base, id: id(0), kind: "note", text }];
+    // The app's own lines, never the user's words. `compact` alone marks a
+    // compaction: rows written before `note` existed carry only that.
+    if (message.compact) return [{ ...base, id: id(0), kind: "note", text }];
+    if (message.note) {
+      const why = text.endsWith(IN_FLIGHT)
+        ? text.slice(0, -IN_FLIGHT.length).trimEnd()
+        : text;
+      return [{ ...base, id: id(0), kind: "stop", text: why }];
+    }
     return [{ ...base, id: id(0), kind: "user", text }];
   }
 

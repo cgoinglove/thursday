@@ -24,7 +24,11 @@ import { errorToString } from "@/lib/utils";
 
 export type BotRef = { name: string; icon?: BotIcon | null };
 
-/** `note` is a marker, not speech: a compaction summary (bot.run compact). Draw as a divider. */
+/**
+ * `note` and `stop` are the app's markers, not speech. `note` is a compaction
+ * summary (bot.run compact), drawn as a divider; `stop` is where the app stopped
+ * the run (bot.runner parkTask), drawn muted in the bot's turn.
+ */
 export type ChatterKind =
   | "say"
   | "ask"
@@ -32,7 +36,8 @@ export type ChatterKind =
   | "user"
   | "result"
   | "error"
-  | "note";
+  | "note"
+  | "stop";
 
 /** One tool call. `name` picks the renderer (components/bot-tool); `results` arrive after the call. */
 export type ToolUse = {
@@ -63,6 +68,8 @@ export type Chatter = {
   tool?: ToolUse;
   /** Options attached to a question; only on the line where the bot stopped to ask. */
   options?: string[];
+  /** When it was written; only for kind `stop`, whose repeats fold into one line. */
+  at?: DateLike;
 };
 
 /** `waiting`: the bot stopped to ask the user something. */
@@ -158,6 +165,16 @@ export function taskFromRow(row: Task, bots?: Bot[]): TaskView {
         break;
       case "note":
         lines.push({ id: line.id, bot, to, text: line.text, kind: "note" });
+        break;
+      case "stop":
+        lines.push({
+          id: line.id,
+          bot,
+          to,
+          text: line.text,
+          kind: "stop",
+          at: line.at,
+        });
         break;
       case "tool":
         openLines.set(line.callId, lines.length);
@@ -264,7 +281,8 @@ export function taskFromRow(row: Task, bots?: Bot[]): TaskView {
 export function lastSaid(task: TaskView): Chatter | null {
   for (let at = task.lines.length - 1; at >= 0; at--) {
     const line = task.lines[at];
-    if (line.kind !== "user" && line.kind !== "note") return line;
+    if (line.kind !== "user" && line.kind !== "note" && line.kind !== "stop")
+      return line;
   }
   return null;
 }
@@ -412,7 +430,8 @@ export function latestPerBot(list: TaskView[]): BotLine[] {
       byBot.set(task.bot.name, { bot: task.bot, task, line: null, open: 0 });
     }
     for (const line of task.lines) {
-      if (line.kind === "user" || line.kind === "note") continue;
+      if (line.kind === "user" || line.kind === "note" || line.kind === "stop")
+        continue;
       byBot.set(line.bot.name, {
         bot: line.bot,
         task,

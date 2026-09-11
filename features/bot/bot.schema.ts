@@ -254,6 +254,8 @@ export const TaskLineSchema = z.discriminatedUnion("kind", [
   LineBase.extend({ kind: z.literal("text"), text: z.string() }),
   /** Compaction summary (bot.run compact). The model resumes from here; the screen draws it as a divider. */
   LineBase.extend({ kind: z.literal("note"), text: z.string() }),
+  /** Why the app stopped the run (bot.runner parkTask, a run that broke), without what the resumed run is told to check. */
+  LineBase.extend({ kind: z.literal("stop"), text: z.string() }),
   LineBase.extend({
     kind: z.literal("tool"),
     callId: z.string(),

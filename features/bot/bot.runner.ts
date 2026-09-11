@@ -49,6 +49,7 @@ import {
   listRunningTaskIds,
   listTaskFolders,
   listThread,
+  stopNote,
   type TaskMessageInput,
   updateTask,
   upsertMessage,
@@ -465,7 +466,7 @@ async function parkTask(
   const inMs =
     auto && stop.retry ? waits[Math.min(stops, waits.length - 1)] : 0;
 
-  await writeNote(id, `${stop.why} ${IN_FLIGHT}`).catch((cause) =>
+  await writeNote(id, stopNote(stop.why)).catch((cause) =>
     logger.warn(`task ${id}: stop not written`, cause),
   );
   await writeEnding(id, {
@@ -484,10 +485,6 @@ async function parkTask(
   });
   if (auto) scheduleResume(id, inMs);
 }
-
-/** Said to a resumed run after why it stopped. */
-const IN_FLIGHT =
-  "Anything that was under way — a command, a page loading, a download — may not have finished: check before relying on it, then carry on.";
 
 const spell = (ms: number) =>
   ms < 60_000
