@@ -56,6 +56,11 @@ export const queryKey = {
 
   /** boolean: whether bots keep their own memory (Settings > Bots) */
   botMemory: "/api/bot/memory",
+  /** BotMemory: one bot's own memory files, newest first (Settings > Bots) */
+  botMemoryFiles: (bot: string) => ({
+    url: "/api/bot/memory/files",
+    query: { bot },
+  }),
 
   /**
    * Inbox: Task[] newest first with threads, everything running or asking plus

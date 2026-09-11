@@ -1,13 +1,9 @@
 import type { ModelMessage } from "ai";
 import { PATHS, PROMPT_LINE, WORKSPACE_KEEP } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
-import {
-  type BotMemory,
-  botMemoryFolder,
-  listBotMemory,
-} from "@/features/bot/bot.memory";
+import { botMemoryFolder, listBotMemory } from "@/features/bot/bot.memory";
 import { listJobBots, readBotMemoryOn } from "@/features/bot/bot.query";
-import type { JobBot } from "@/features/bot/bot.schema";
+import type { BotMemory, JobBot } from "@/features/bot/bot.schema";
 import { findPinnedTools } from "@/features/connectors/mcp.query";
 import type { McpToolRef } from "@/features/connectors/mcp.schema";
 import {

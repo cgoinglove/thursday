@@ -2,6 +2,7 @@ import { open, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { BOT_MEMORY_LISTED } from "@/config";
 import { botFolder, WORKSPACE } from "@/features/workspace/workspace";
+import type { BotMemory, BotMemoryFile } from "./bot.schema";
 
 /**
  * A bot's own memory: files it keeps in its folder, one topic each, written and read with
@@ -13,37 +14,45 @@ import { botFolder, WORKSPACE } from "@/features/workspace/workspace";
 export const botMemoryFolder = (bot: string): string =>
   `${botFolder(bot)}/memory`;
 
-export type BotMemory = {
-  /** Newest first, at most BOT_MEMORY_LISTED. `line` is empty for a file with nothing in it. */
-  entries: { file: string; line: string }[];
-  /** Every file in the folder, listed or not. */
-  total: number;
-};
-
 /** Enough of a file to find its first line in; the rest is the bot's to open. */
 const HEAD_BYTES = 1024;
 
-export async function listBotMemory(bot: string): Promise<BotMemory> {
-  const dir = join(WORKSPACE, botMemoryFolder(bot));
+/**
+ * Newest first. `limit` is how many are read for their first line: the prompt lists
+ * BOT_MEMORY_LISTED, the bot's page (Settings > Bots) as many as a Workspace folder shows.
+ */
+export async function listBotMemory(
+  bot: string,
+  limit = BOT_MEMORY_LISTED,
+): Promise<BotMemory> {
+  const folder = botMemoryFolder(bot);
+  const dir = join(WORKSPACE, folder);
   const names = await readdir(dir).catch(() => []);
   const found = await Promise.all(
     names
       .filter((name) => !name.startsWith("."))
       .map(async (name) => {
         const info = await stat(join(dir, name)).catch(() => null);
-        return info?.isFile() ? { name, changed: info.mtimeMs } : null;
+        return info?.isFile()
+          ? { name, changed: info.mtimeMs, bytes: info.size }
+          : null;
       }),
   );
   const files = found
     .filter((file) => file !== null)
     .sort((a, b) => b.changed - a.changed);
   const entries = await Promise.all(
-    files.slice(0, BOT_MEMORY_LISTED).map(async ({ name }) => ({
-      file: name,
-      line: await firstLine(join(dir, name)),
-    })),
+    files.slice(0, limit).map(
+      async ({ name, changed, bytes }): Promise<BotMemoryFile> => ({
+        file: name,
+        path: `${folder}/${name}`,
+        line: await firstLine(join(dir, name)),
+        at: new Date(changed),
+        bytes,
+      }),
+    ),
   );
-  return { entries, total: files.length };
+  return { folder, entries, total: files.length };
 }
 
 /**

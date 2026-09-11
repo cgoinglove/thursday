@@ -170,6 +170,27 @@ export const BOT_MEMORY_KEY = "BOT_MEMORY";
 export const isBotMemoryOn = (value: string | undefined) =>
   value?.trim() !== "off";
 
+/** One file of a bot's own memory (bot.memory), as its prompt lists it and its page draws it. */
+export const BotMemoryFileSchema = z.object({
+  file: z.string(),
+  /** Workspace-relative, for reading or deleting it the way Workspace does. */
+  path: z.string(),
+  /** The line it is listed by; empty for a file with nothing in it. */
+  line: z.string(),
+  at: DateLikeSchema,
+  bytes: z.number(),
+});
+export type BotMemoryFile = z.infer<typeof BotMemoryFileSchema>;
+
+export type BotMemory = {
+  /** Workspace-relative: `bots/<name>/memory`. */
+  folder: string;
+  /** Newest first, as many as the reader asked for. */
+  entries: BotMemoryFile[];
+  /** Every file in the folder, listed or not. */
+  total: number;
+};
+
 /**
  * `waiting`: the bot stopped on a question only the user can answer; the answer
  * resumes the same thread. `done` and `failed` can be resumed as well.

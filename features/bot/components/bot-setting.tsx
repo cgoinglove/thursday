@@ -2,7 +2,9 @@
 
 import {
   Check,
+  ChevronRight,
   CircleAlert,
+  FolderOpen,
   History,
   Plus,
   Trash2,
@@ -29,6 +31,7 @@ import {
 } from "@/components/ui/input-group";
 import { notify } from "@/components/ui/notify";
 import { ShinyText } from "@/components/ui/shiny-text";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { APP_NAME, BOT_RUN, PROMPT_CROWDED } from "@/config";
@@ -50,6 +53,8 @@ import {
   type Bot,
   type BotForm,
   type BotIcon,
+  type BotMemory,
+  type BotMemoryFile,
   MAX_PINNED_TOOLS,
   randomBotIcon,
   type Task,
@@ -76,6 +81,15 @@ import {
   SettingRailNote,
 } from "@/features/settings/components/setting-ui";
 import { openSettings } from "@/features/settings/settings.store";
+import {
+  FileBody,
+  useFileText,
+} from "@/features/workspace/components/file-view";
+import { viewKindOf } from "@/features/workspace/file-kind";
+import {
+  deleteWorkspaceFileAction,
+  openFileAction,
+} from "@/features/workspace/workspace.action";
 import { useObjectState } from "@/hooks/use-object-state";
 import { type DateLike, shortAgo, whenOf } from "@/lib/date-like";
 import { COMMON_VALIDATE } from "@/lib/limits";
@@ -925,6 +939,8 @@ function BotPage({
           )}
         </Row>
 
+        {bot && <Memory bot={bot.name} />}
+
         {bot && <Recent jobs={jobs} />}
 
         {!bot && (
@@ -945,6 +961,154 @@ function BotPage({
     </div>
   );
 }
+
+/**
+ * What this bot keeps for its next jobs (bot.memory), drawn the way Recent is: one
+ * line per file, newest first. A row opens in place. Deleting is the one thing done
+ * to a file from here — writing one is the bot's.
+ */
+function Memory({ bot }: { bot: string }) {
+  const key = queryKey.botMemoryFiles(bot);
+  const { data, isLoading } = useServerRoute<BotMemory>(key);
+  const [open, setOpen] = useState<string | null>(null);
+  const [reveal] = useServerAction(openFileAction);
+  const [remove, removing] = useServerAction(deleteWorkspaceFileAction, {
+    okMessage: "File deleted",
+    onOk: () => {
+      setOpen(null);
+      revalidate(key);
+      revalidate(queryKey.workspace);
+    },
+  });
+
+  const confirmRemove = async (file: BotMemoryFile) => {
+    const confirmed = await notify.confirm({
+      title: `Delete ${file.file}?`,
+      description: `It is deleted from disk for good, and ${bot}'s next job starts without it.`,
+      okText: "Delete",
+      destructive: true,
+    });
+    if (confirmed) remove(file.path);
+  };
+
+  return (
+    <div className="pt-1">
+      <div className="flex h-6 items-center">
+        <span className="font-mono text-xs text-muted-foreground">Memory</span>
+        <span className="flex-1" />
+        {data && data.total > 0 && (
+          <>
+            <span className="pr-1 font-mono text-[11px] text-muted-foreground tabular-nums">
+              {data.total === 1 ? "1 file" : `${data.total} files`}
+            </span>
+            <button
+              type="button"
+              title="Show in the file manager"
+              onClick={() => reveal(data.folder)}
+              className="flex items-center gap-1 rounded-md px-1.5 py-1 font-mono text-[11px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <FolderOpen className="size-3" />
+              Folder
+            </button>
+          </>
+        )}
+      </div>
+      {isLoading ? (
+        <div className="flex h-9 items-center border-t border-border/60">
+          <Skeleton className="h-3 w-56" />
+        </div>
+      ) : !data?.entries.length ? (
+        <p className="py-2 text-[13px] text-muted-foreground">
+          Nothing kept yet.
+        </p>
+      ) : (
+        data.entries.map((file) => {
+          const isOpen = open === file.path;
+          return (
+            <div key={file.path} className="border-t border-border/60">
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                onClick={() => setOpen(isOpen ? null : file.path)}
+                className="flex h-9 w-full items-center gap-3 text-left text-[13px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate",
+                    isOpen && "font-medium",
+                  )}
+                >
+                  {file.line || file.file}
+                </span>
+                <span className="w-36 shrink-0 truncate font-mono text-[11px] text-muted-foreground">
+                  {file.file}
+                </span>
+                <span className="w-28 shrink-0 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
+                  {whenOf(file.at)}
+                </span>
+                <ChevronRight
+                  className={cn(
+                    "size-3 shrink-0 text-muted-foreground transition-transform",
+                    isOpen && "rotate-90",
+                  )}
+                />
+              </button>
+              {isOpen && (
+                <div className="flex items-start gap-3">
+                  <div className="max-h-96 min-w-0 flex-1 overflow-y-auto">
+                    <MemoryText path={file.path} />
+                  </div>
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label={`Delete ${file.file}`}
+                    loading={removing}
+                    onClick={() => confirmRemove(file)}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
+              )}
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+/** An opened memory file, read and capped the way Workspace reads one (file-view useFileText). */
+function MemoryText({ path }: { path: string }) {
+  const { content, failure, truncated } = useFileText(path);
+  if (failure) {
+    return <p className="pb-3 font-mono text-xs text-destructive">{failure}</p>;
+  }
+  if (content === null) {
+    return (
+      <div className="space-y-2 pb-3">
+        <Skeleton className="h-4 w-5/6" />
+        <Skeleton className="h-4 w-2/3" />
+      </div>
+    );
+  }
+  const kind = viewKindOf(path);
+  return (
+    <FileBody
+      kind={kind}
+      content={kind === "markdown" ? underItsRow(content) : content}
+      truncated={truncated}
+      where="inline"
+    />
+  );
+}
+
+/**
+ * A markdown memory file as it reads under its row: the row already carries the
+ * file's first line, so frontmatter and a leading heading are not drawn again.
+ */
+const underItsRow = (content: string) =>
+  content.replace(/^---\n[\s\S]*?\n---\n/, "").replace(/^\s*#[^\n]*\n?/, "");
 
 /**
  * What the roster's pick is, and the one setting that is the whole set's rather

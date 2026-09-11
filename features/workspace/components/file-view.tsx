@@ -158,10 +158,12 @@ export function FileLink({
 const PAD: Record<FileViewPlace, { prose: string; block: string }> = {
   dialog: { prose: "px-5 py-4", block: "px-4 py-3" },
   page: { prose: "px-5 py-6 sm:px-8", block: "px-5 py-5" },
+  // Opened under a list row, which already sets the edges
+  inline: { prose: "pb-3", block: "pb-3" },
 };
 
-/** Where the file is read: inside the dialog or on its own page. */
-export type FileViewPlace = "dialog" | "page";
+/** Where the file is read: inside the dialog, on its own page, or opened in place under a row. */
+export type FileViewPlace = "dialog" | "page" | "inline";
 
 export function FileBody({
   kind,
