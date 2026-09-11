@@ -1,11 +1,6 @@
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/face-dark.png">
-  <img src="docs/images/face-light.png" alt="Thursday's face: an orb of emoji that swells when she speaks" width="320">
-</picture>
-
-# Thursday
+<img src="docs/images/hero.png" alt="Thursday — an open-source voice agent with a face made of emoji" width="760">
 
 ### Everyone wanted Friday. This is Thursday.
 
@@ -41,6 +36,13 @@ You never watched a spinner. You never stopped talking.
 <br>
 
 ## She has a face, and it is made of emoji
+
+<div align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/face-dark.png">
+  <img src="docs/images/face-light.png" alt="Thursday's face: an orb of emoji that swells when she speaks" width="280">
+</picture>
+</div>
 
 Hundreds of them, packed into one orb. When she talks, the rim swells with her voice and every syllable shakes a few loose — you can tell she is speaking with the sound off.
 
@@ -95,6 +97,8 @@ Not an API sandbox. **Your computer** — down to the Chrome you are already sig
 - **Its own memory** — what it learned doing the job, kept as files you can open on its page
 - **Each other** — a bot hands a part of its job to the bot that exists for it
 
+![A bot gets your shell, your skills and a real browser — and leaves the checkout for you](docs/images/machine.png)
+
 It signs in the way you would let it: a session it kept, your own Chrome, you in the window it opened, or the login you gave it — after asking. And there is one button it never presses: **pay.** It takes the order to the last screen, leaves it open in front of you, and tells you what it buys and for how much.
 
 <br>
@@ -112,6 +116,8 @@ Those three come with her. Two more are ready-made in Settings — **Insta** dra
 ## Hang up. It keeps going.
 
 The job is not in the call. It runs on the server and the screen is a projection of it — so hang up mid-sentence, open a new tab, come back in ten minutes. She tells you what came in, or rings you, if you let her. The tab says it too: `(2) Thursday` means two things are waiting on you.
+
+![The call ends at 0:12; the job runs to 2:41](docs/images/keeps-going.png)
 
 Close the app and it does the honest thing: ten seconds with no browser on it and every running job stops where it stands. **Nothing spends your keys while you are not looking.** Open it again and they pick themselves back up — the same after a restart, a `Ctrl+C`, or a model that went quiet for a minute.
 
