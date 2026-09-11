@@ -21,9 +21,9 @@ export const APP_DIR = process.env.THURSDAY_APP_DIR?.trim() || process.cwd();
 export const DATA_DIR = process.env.THURSDAY_HOME?.trim() || process.cwd();
 
 /**
- * Where the browser reaches this app: `THURSDAY_URL`, else localhost on `PORT`
- * (default 3000). Used as the MCP OAuth redirect URL, which fails silently
- * after login when wrong.
+ * Where the browser reaches this app: `THURSDAY_URL`, else localhost on `PORT`,
+ * which both starters set to the free port they found (bin/port.mjs). Used as
+ * the MCP OAuth redirect URL, which fails silently after login when wrong.
  */
 export const APP_URL =
   process.env.THURSDAY_URL?.trim() ||

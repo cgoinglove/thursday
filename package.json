@@ -30,7 +30,7 @@
     "node": ">=22.18"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev.mts",
     "build": "next build",
     "start": "node bin/thursday.mjs",
     "lint": "biome check",

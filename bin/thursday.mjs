@@ -6,9 +6,9 @@
 import { spawn } from "node:child_process";
 import { existsSync, symlinkSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { createServer } from "node:net";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { freePort } from "./port.mjs";
 import { ROOT, toolPath } from "./tools.mjs";
 
 const { version, name } = JSON.parse(
@@ -34,7 +34,7 @@ if (has("-h", "--help")) {
     $ thursday [options]
 
   Options
-    --port <n>     Port to serve on (default 3000)
+    --port <n>     Port to serve on (default 3000, or the next free one)
     --home <dir>   Where your data lives (default ~/.thursday)
     --no-open      Do not open a browser
     -v, --version  Print the version
@@ -48,37 +48,6 @@ if (has("-h", "--help")) {
 if (has("-v", "--version")) {
   console.log(version);
   process.exit(0);
-}
-
-/** Whether something already holds the port we are about to bind. */
-const taken = (port) =>
-  new Promise((resolve) => {
-    const probe = createServer()
-      .once("error", () => resolve(true))
-      .once("listening", () => probe.close(() => resolve(false)))
-      .listen(port, "127.0.0.1");
-  });
-
-/**
- * 3000 is the most occupied port on a developer's machine, and the first thing
- * `npx thursday-agent` does is bind it — so an untouched install used to end in
- * an EADDRINUSE stack trace. A port nobody asked for is ours to move; a port
- * that was asked for is not, and saying so is more use than moving it quietly.
- */
-async function freePort(asked) {
-  const from = Number(asked ?? 3000);
-  if (!(await taken(from))) return from;
-  if (asked !== undefined) {
-    console.error(
-      `\n  Port ${from} is already in use.\n  Try another: thursday --port ${from + 1}\n`,
-    );
-    process.exit(1);
-  }
-  for (let port = from + 1; port < from + 20; port++) {
-    if (!(await taken(port))) return port;
-  }
-  console.error(`\n  Nothing free between ${from} and ${from + 20}.\n`);
-  process.exit(1);
 }
 
 const asked = flag("port") ?? process.env.PORT;

@@ -16,7 +16,7 @@ Useful:
 
 | | |
 |---|---|
-| `pnpm dev` | the app, with hot reload |
+| `pnpm dev` | the app, with hot reload — on 3000, or the next free port |
 | `pnpm typecheck` / `pnpm lint` | what CI runs |
 | `pnpm reset` | wipe local data (calls, jobs, memory) and optionally the build |
 | `pnpm build` && `pnpm start` | the production server, as `npx thursday` runs it |
