@@ -17,10 +17,10 @@ machines. Two things follow, and they are not style preferences:
   machine paths, keys, or half-finished thoughts in a comment.
 - **Anything private is named `*.local.*`** — a scratch note, a task list, a plan, a local
   override. `.gitignore` covers that shape, so a file named this way can never be committed by
-  accident. `Codex.local.md` is the working example: how you like to work with an agent — when to
-  ask, how to commit — goes there, and Codex loads it beside this file. This file holds only
-  what the code requires. Never `git add -f` one, and never rename one into the tree to "keep it
-  for later"; if it is worth keeping, it is worth writing properly.
+  accident: how you like to work with an agent — when to ask, how to commit — goes in a
+  `*.local.md` file next to this one, loaded by whichever agent tool reads it. This file holds
+  only what the code requires. Never `git add -f` one, and never rename one into the tree to
+  "keep it for later"; if it is worth keeping, it is worth writing properly.
 
 # Layout
 
@@ -94,6 +94,10 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   (`bot.runner` `launch`), never `after()`: runs also start from a returning browser and a retry
   timer, where `after` throws or waits for the event stream to close. Everything that happens is
   written as rows, so what the screen draws and what the model re-reads are the same rows.
+- **One participant per bot per task.** A bot resumes its own stored thread across requests,
+  including requests from different callers. `parent` names the current exchange, not the bot's
+  identity. Browser sessions use the task and canonical bot name. Requests to the same bot run
+  sequentially; wait cycles are refused. Only exchanged messages cross participant contexts.
 - **No browser, nothing runs.** `presence` (app/api/events) says whether a browser is on the stream;
   when the last one has been gone a while, jobs stop and wait and open calls close. When one comes
   back, the jobs the app stopped pick themselves back up (`bot.runner` `parkTask`); what a bot or a
