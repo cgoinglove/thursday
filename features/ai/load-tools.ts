@@ -264,14 +264,16 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     };
   }
 
+  // Off, no call is written down (Settings › Thursday › Transcript): a fact is
+  // not tied to a call that kept nothing, and there is no conversation to open
+  const transcript = await readCallTranscriptOn();
   // The call's hand. A bot is handed only the reads from it (below).
   const { [TOOL_NAMES.memory_conversation]: conversation, ...memory } =
     createMemoryTools(
       "call",
-      run.target === "thursday" ? (run.callId ?? null) : null,
+      run.target === "thursday" && transcript ? (run.callId ?? null) : null,
     );
-  // Off, no call is written down, so there is none to open (Settings › Thursday › Transcript)
-  const readBack: ToolSet = (await readCallTranscriptOn())
+  const readBack: ToolSet = transcript
     ? { [TOOL_NAMES.memory_conversation]: conversation }
     : {};
 
