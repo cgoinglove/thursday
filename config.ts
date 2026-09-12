@@ -275,7 +275,7 @@ export const PROMPT_BUDGET = 6_000;
 
 /**
  * What counts as too much memory to hold in one piece (features/memory), counted
- * in facts. Nothing truncates: past either of the first two a call opens by asking
+ * in facts. Nothing is deleted on its own: past either of the first two a call opens by asking
  * her to sort it out with the user before anything she would raise herself
  * (thursday.prompt tidyOpening), and the third is the only hard one. Facts rather
  * than tokens because it is the number the user sees on their own screen and the
@@ -285,11 +285,16 @@ export const PROMPT_BUDGET = 6_000;
  * - `factsPerNote`  facts in one note, above which that note is named instead.
  * - `carried`  facts loaded into every call's prompt without opening a note; past
  *            it the write path stores the next one as an ordinary fact and says so.
+ * - `expanded`  facts of profile and preferences written out in each call's prompt
+ *            without opening them — carried ones first, then the newest. The rest
+ *            are counted there and she opens the note for them. Raising it costs
+ *            every call up to twice that many lines; bots never see these.
  */
 export const MEMORY_LIMITS = {
   facts: 400,
   factsPerNote: 50,
   carried: 20,
+  expanded: 10,
 };
 
 /**

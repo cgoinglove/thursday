@@ -7,12 +7,15 @@ import type { McpToolRef } from "@/features/connectors/mcp.schema";
 import {
   listAlwaysLoaded,
   listNoteIndex,
+  readNotes,
 } from "@/features/memory/memory.query";
 import {
   isAlwaysListed,
+  MEMORY_ALWAYS_LISTED,
   MEMORY_PATHS,
   type MemoryAlwaysLoaded,
   type MemoryIndexEntry,
+  type MemoryNoteView,
 } from "@/features/memory/memory.schema";
 import {
   loadSkills,
@@ -52,12 +55,14 @@ export async function loadThursdayPrompt(
 ): Promise<LoadedPrompt> {
   const sandbox = await openWorkspace();
   const transcript = await readCallTranscriptOn();
-  const [skills, index, carried, mcpTools, roster, calls, hers] =
+  const [skills, index, carried, open, mcpTools, roster, calls, hers] =
     await Promise.all([
       loadSkills(sandbox),
       listNoteIndex(),
       // Facts carried into every call without opening a note
       listAlwaysLoaded(),
+      // Written out in the prompt, which is not the user asking for them: no read counted
+      readNotes(MEMORY_ALWAYS_LISTED, { touch: false }),
       listConnectedToolNames(),
       listJobBots(),
       // Off, nothing of a call is read back (Settings › Thursday › Transcript)
@@ -76,7 +81,7 @@ export async function loadThursdayPrompt(
   // Order matters: recent calls go last so the current call follows them in time order
   const text = [
     identity(),
-    memory(index, carried, transcript),
+    memory(index, carried, open.notes, transcript),
     // A skill is listed once, on the side that can read it: hers when the
     // setting hands her the tool, a bot's when it does not
     bots({ roster, skills: hers ? [] : skills, mcpTools }),
@@ -162,7 +167,7 @@ Greet them and bring this up before anything of your own — if they open with s
 function identity(): string {
   return `You are Thursday, this user's own personal assistant — one to one, modeled on Friday, the AI in *Iron Man*: quick, warm, dry, on their side. You work for them alone, and you become more theirs the more you know about them: who they are, the people in their life, what they are in the middle of, how they like things done. ${nowLine()}
 
-This is a call, not a chat: one or two sentences a turn. If you did not catch something, say so and ask again.`;
+This is a call, not a chat: one or two sentences a turn. Talk in the language they use with you, or the one they asked you for — these instructions, tool results and notes from jobs are in English, and that says nothing about theirs. If you did not catch something, say so and ask again.`;
 }
 
 /** Owner's instruction from settings; no heading when empty. */
@@ -176,31 +181,45 @@ ${persona.trim()}`
     : "";
 
 /**
- * The note listing plus one sentence on what goes in. What is worth keeping is the model's call;
- * how a fact is written — carried, replacing, dated — is the tool's schema to say.
+ * Profile and preferences written out, the note listing, and one sentence on what goes in. What
+ * is worth keeping is the model's call; how a fact is written — carried, replacing, dated — is the
+ * tool's schema to say.
  */
 function memory(
   index: MemoryIndexEntry[],
   carried: MemoryAlwaysLoaded[],
+  /** The always-listed notes, whole (MEMORY_ALWAYS_LISTED). */
+  open: MemoryNoteView[],
   /** Off, no call is written down, so there is none behind a `said` fact to open. */
   transcript: boolean,
 ): string {
   // Ages ride on the listing only when there is too much to hold: they are what to drop by
   const { crowded } = tidying(index);
+  // A note written out here is left off the listing, and so are its carried lines
+  const written = new Set(open.map((note) => note.path));
+  const carriedIds = new Set(carried.map((fact) => fact.id));
 
   const head = `## Memory
 
 What you have kept from talking with this user — the only thing that survives a session.`;
 
-  const alreadyKnown = carried.length
+  const openNotes = `Who they are and how they want things, already open — the #id is what \`replaces\` and \`${TOOL_NAMES.memory_forget}\` take:
+
+${open.map((note) => openNoteLines(note, carriedIds)).join("\n\n")}`;
+
+  const elsewhere = carried.filter((fact) => !written.has(fact.path));
+  const alreadyKnown = elsewhere.length
     ? `Already known — carried into every call:
 
-${carriedLines(carried)}`
+${carriedLines(elsewhere)}`
     : "";
 
-  const listing = `path — what is under it (facts) "what the user calls it"
+  const listing = `Every other note — path — what is under it (facts) "what the user calls it":
 
-${noteLines(index, crowded)}
+${noteLines(
+  index.filter((note) => !written.has(note.path)),
+  crowded,
+)}
 
 Open a note before answering out of it; a topic not listed is one you know nothing about.${
     transcript
@@ -212,7 +231,34 @@ Everything about them worth knowing next time goes in with \`${TOOL_NAMES.memory
 
 ${MEMORY_PATHS.map((entry) => `- ${entry.path} — ${entry.of}`).join("\n")}`;
 
-  return [head, alreadyKnown, listing].filter(Boolean).join("\n\n");
+  return [head, openNotes, alreadyKnown, listing].filter(Boolean).join("\n\n");
+}
+
+/**
+ * One always-listed note as the call reads it: its carried facts and then the newest, up to
+ * MEMORY_LIMITS.expanded, in the order they were saved. A carried line is never left out, even
+ * past the cap. The rest are counted, with the way to open them.
+ */
+function openNoteLines(note: MemoryNoteView, carried: Set<number>): string {
+  const pinned = note.facts.filter((fact) => carried.has(fact.id));
+  const rest = note.facts.filter((fact) => !carried.has(fact.id));
+  const room = Math.max(0, MEMORY_LIMITS.expanded - pinned.length);
+  const shown = new Set(
+    [...pinned, ...rest.slice(Math.max(0, rest.length - room))].map(
+      (fact) => fact.id,
+    ),
+  );
+  const lines = note.facts
+    .filter((fact) => shown.has(fact.id))
+    .map((fact) => `- ${fact.text} #${fact.id}`);
+  const hidden = note.facts.length - lines.length;
+  if (hidden) {
+    lines.push(
+      `- … ${hidden} older not shown — \`${TOOL_NAMES.memory_recall}\` ${note.path} opens the whole note`,
+    );
+  }
+  return `${note.path} — ${note.description}
+${lines.length ? lines.join("\n") : "- (nothing yet)"}`;
 }
 
 /** Last calls verbatim, marked as past so the model does not answer as if just asked. Absent on the first call. */
