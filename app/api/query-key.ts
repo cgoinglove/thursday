@@ -134,6 +134,9 @@ export const queryKey = {
   /** boolean: whether the call may read a skill itself (Settings › Thursday) */
   callSkills: "/api/thursday/skills",
 
+  /** CallTranscript: whether the user's side of a call is written down, and each provider's model (Settings › Thursday) */
+  callTranscript: "/api/thursday/transcript",
+
   /**
    * POST, not a read; the one endpoint here SWR never touches. Body is
    * {toolCallId, callId, name, input}; one JSON Result per call, abortable.

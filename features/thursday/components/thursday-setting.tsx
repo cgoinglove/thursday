@@ -22,6 +22,8 @@ import {
 } from "@/features/ai/model.schema";
 import { MarkPalette } from "@/features/bot/components/mark-palette";
 import { MARK_SHAPES } from "@/features/bot/mark.const";
+import { KEY_MIN, KeyInput } from "@/features/config/components/voice-key";
+import { setConfigAction } from "@/features/config/config.action";
 import {
   SettingChoiceRows,
   SettingError,
@@ -48,12 +50,15 @@ import {
 import {
   resetHistoryAction,
   setCallSkillsAction,
+  setCallTranscriptAction,
+  setTranscriptionModelAction,
 } from "@/features/thursday/thursday.action";
 import {
   CALL_BACK_LABEL,
   CALL_BACK_MODES,
   CAPTION_VIEWS,
   type CallBack,
+  type CallTranscript,
   type CaptionView,
   type Hotkey,
   type ThursdayFace,
@@ -149,8 +154,10 @@ export function ThursdaySetting() {
         onChange={(hotkey) => patch({ hotkey })}
       />
 
-      {/* Server-side, unlike everything above it: the tool set is built where a
-          call opens (ai/load-tools) */}
+      {/* Server-side, unlike everything above it: the prompt, the tool set and a
+          job's opening are built where no browser is */}
+      <TranscriptSetting hasKey={hasKey} />
+
       <SkillsSetting />
 
       <Instructions
@@ -160,6 +167,54 @@ export function ThursdaySetting() {
 
       <ResetHistory />
     </SettingScreen>
+  );
+}
+
+/**
+ * Whether the user's side of a call is written down, and by which model. On by
+ * default. Off costs less — transcription is billed by the minute on top of the
+ * call — and takes with it everything that reads a call back.
+ */
+function TranscriptSetting({ hasKey }: { hasKey: (name: string) => boolean }) {
+  const { data } = useServerRoute<CallTranscript>(queryKey.callTranscript);
+  const [setOn] = useServerAction(setCallTranscriptAction, {
+    onOk: () => revalidate(queryKey.callTranscript),
+  });
+  const [setModel] = useServerAction(setTranscriptionModelAction, {
+    onOk: () => revalidate(queryKey.callTranscript),
+  });
+
+  return (
+    <SettingGroup label="Transcript">
+      <SettingToggle
+        label="Write down what you say"
+        description="On, your words are kept with hers, so later calls, her memory and the jobs she hands over can read them back. Off costs less: her side still shows, and nothing of the call is kept."
+        checked={data?.on ?? true}
+        disabled={data === undefined}
+        onChange={(on) => setOn(on)}
+      >
+        {SPEACH_MODEL_PROVIDER_LIST.filter((provider) =>
+          hasKey(provider.apiKeyName),
+        ).map((provider) => (
+          <div key={provider.id} className="flex items-center gap-3">
+            <ProviderIcon provider={provider.id} className="size-4 shrink-0" />
+            <Combobox
+              value={data?.models[provider.id] ?? ""}
+              onChange={(next) => setModel(provider.id, next || null)}
+              options={provider.transcriptionModels.map((entry) => ({
+                value: entry.id,
+                label: entry.label,
+                hint: entry.id,
+              }))}
+              aria-label={`${provider.label} transcription model`}
+              placeholder={provider.transcriptionModels[0].id}
+              empty="Not on the list — it still runs"
+              className="min-w-0 flex-1"
+            />
+          </div>
+        ))}
+      </SettingToggle>
+    </SettingGroup>
   );
 }
 
@@ -450,6 +505,16 @@ function ProviderRow({
   const voice = value?.voice ?? provider.defaultVoice;
   const model = value?.model ?? "";
 
+  const [draft, setDraft] = useState("");
+  const [save, saving] = useServerAction(setConfigAction, {
+    onOk: () => {
+      revalidate(queryKey.llmModel);
+      setDraft("");
+      if (!picked) onPick({ voice: null, model: null });
+    },
+  });
+  const ready = draft.trim().length >= KEY_MIN;
+
   return (
     <div className={cn("p-4", picked && "bg-muted/40")}>
       <button
@@ -477,6 +542,22 @@ function ProviderRow({
           picked && <Check className="size-4 shrink-0" />
         )}
       </button>
+
+      {/* No key yet: paste one here instead of leaving for Config */}
+      {!hasKey && (
+        <div className="pt-3">
+          <KeyInput
+            dense
+            provider={provider}
+            saved={false}
+            value={draft}
+            ready={ready}
+            saving={saving}
+            onValue={setDraft}
+            onSubmit={() => ready && save(provider.apiKeyName, draft)}
+          />
+        </div>
+      )}
 
       {/* Model and voices only matter once this is the one answering */}
       {picked && (
@@ -576,6 +657,11 @@ function Captions({
   value: CaptionView;
   onChange: (view: CaptionView) => void;
 }) {
+  const { data: transcript } = useServerRoute<CallTranscript>(
+    queryKey.callTranscript,
+  );
+  const off = transcript?.on === false;
+
   return (
     <SettingGroup label="Captions">
       <SettingChoiceRows
@@ -583,8 +669,12 @@ function Captions({
           value: view,
           label: CAPTION_LABEL[view].label,
           hint: CAPTION_LABEL[view].hint,
+          disabled:
+            off &&
+            view === "sides" &&
+            "Transcript is off — there is no side of yours to show.",
         }))}
-        value={value}
+        value={off ? "center" : value}
         onChange={onChange}
       />
     </SettingGroup>

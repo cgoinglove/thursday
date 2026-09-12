@@ -22,6 +22,7 @@ import {
   type CallGroup,
   listRecentTurns,
   readCallSkillsOn,
+  readCallTranscriptOn,
 } from "@/features/thursday/thursday.query";
 import { openWorkspace } from "@/features/workspace/workspace";
 import { logger } from "@/lib/logger";
@@ -50,6 +51,7 @@ export async function loadThursdayPrompt(
   locale?: string | null,
 ): Promise<LoadedPrompt> {
   const sandbox = await openWorkspace();
+  const transcript = await readCallTranscriptOn();
   const [skills, index, carried, mcpTools, roster, calls, hers] =
     await Promise.all([
       loadSkills(sandbox),
@@ -58,7 +60,8 @@ export async function loadThursdayPrompt(
       listAlwaysLoaded(),
       listConnectedToolNames(),
       listJobBots(),
-      listRecentTurns(RECENT_CALL.rows),
+      // Off, nothing of a call is read back (Settings › Thursday › Transcript)
+      transcript ? listRecentTurns(RECENT_CALL.rows) : ([] as CallGroup[]),
       // Whether she was handed `load_skill` (Settings › Thursday, load-tools)
       readCallSkillsOn(),
     ]);
@@ -73,7 +76,7 @@ export async function loadThursdayPrompt(
   // Order matters: recent calls go last so the current call follows them in time order
   const text = [
     identity(),
-    memory(index, carried),
+    memory(index, carried, transcript),
     // A skill is listed once, on the side that can read it: hers when the
     // setting hands her the tool, a bot's when it does not
     bots({ roster, skills: hers ? [] : skills, mcpTools }),
@@ -179,6 +182,8 @@ ${persona.trim()}`
 function memory(
   index: MemoryIndexEntry[],
   carried: MemoryAlwaysLoaded[],
+  /** Off, no call is written down, so there is none behind a `said` fact to open. */
+  transcript: boolean,
 ): string {
   // Ages ride on the listing only when there is too much to hold: they are what to drop by
   const { crowded } = tidying(index);
@@ -197,7 +202,11 @@ ${carriedLines(carried)}`
 
 ${noteLines(index, crowded)}
 
-Open a note before answering out of it; a topic not listed is one you know nothing about. A fact marked \`said\` came from a call; open that call with \`${TOOL_NAMES.memory_conversation}\` only when the line itself cannot answer — exactly what they said, or why it was saved.
+Open a note before answering out of it; a topic not listed is one you know nothing about.${
+    transcript
+      ? ` A fact marked \`said\` came from a call; open that call with \`${TOOL_NAMES.memory_conversation}\` only when the line itself cannot answer — exactly what they said, or why it was saved.`
+      : ""
+  }
 
 Everything about them worth knowing next time goes in with \`${TOOL_NAMES.memory_remember}\` as it comes up, without asking — where it belongs is below. Never claim to remember what you did not save.
 

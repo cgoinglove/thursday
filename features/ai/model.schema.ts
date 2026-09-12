@@ -609,6 +609,8 @@ export const SPEACH_MODEL_PROVIDERS: Record<
     keyPrefix: string[];
     /** Newest first — the head of this list is the default. */
     models: { id: string; label: string }[];
+    /** What writes down the user's side of a call (Settings › Thursday › Transcript). The head is the default. */
+    transcriptionModels: { id: string; label: string }[];
     voices: string[];
     defaultVoice: string;
   }
@@ -621,6 +623,12 @@ export const SPEACH_MODEL_PROVIDERS: Record<
       { id: "gpt-realtime-2.1", label: "Realtime 2.1" },
       { id: "gpt-realtime-2.1-mini", label: "Realtime 2.1 mini" },
       { id: "gpt-realtime-2", label: "Realtime 2" },
+    ],
+    // Only the live model streams words while they speak; the file models answer once the turn ends, for less
+    transcriptionModels: [
+      { id: "gpt-live-transcribe", label: "Live Transcribe" },
+      { id: "gpt-4o-transcribe", label: "4o Transcribe" },
+      { id: "gpt-4o-mini-transcribe", label: "4o mini Transcribe" },
     ],
     // The spec's VoiceIdsShared enum; `marin` and `cedar` lead as the realtime docs' best-quality voices
     voices: [
@@ -646,6 +654,7 @@ export const SPEACH_MODEL_PROVIDERS: Record<
       // Tracks whatever xAI ships next; second because a name that moves under a running call is not a default
       { id: "grok-voice-latest", label: "Voice latest" },
     ],
+    transcriptionModels: [{ id: "grok-transcribe", label: "Grok Transcribe" }],
     // `eve` is xAI's own default. All built-in ids; a cloned voice from POST /v1/custom-voices goes in the same field
     voices: ["eve", "ara", "leo", "rex", "sal"],
     defaultVoice: "eve",

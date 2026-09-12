@@ -70,11 +70,16 @@ export const FACE_DEFAULT: ThursdayFace = ThursdayFaceSchema.parse({});
 /**
  * Config keys (features/config config.query) the call's server-side settings
  * live under. Everything else about the call is the browser's (thursday.store);
- * these two places build the tool set, so they cannot be.
+ * these are read where the prompt, the tool set and a job's opening are built,
+ * so they cannot be.
  */
 export const THURSDAY_KEYS = {
   /** "on" hands the call `load_skill`; anything else, unset included, is off. */
   skills: "THURSDAY_SKILLS",
+  /** "off" stops writing the user's side down; anything else, unset included, is on. */
+  transcript: "THURSDAY_TRANSCRIPT",
+  /** JSON, voice provider → transcription model id; a provider left out runs its first. */
+  transcriptionModel: "THURSDAY_TRANSCRIPTION_MODEL",
 } as const;
 
 /**
@@ -82,6 +87,27 @@ export const THURSDAY_KEYS = {
  * mid-sentence spends the session's context on it (ai/load-tools).
  */
 export const isSkillsOn = (value: string | undefined) => value?.trim() === "on";
+
+/**
+ * On unless switched off. Off, the user's side of a call is never written down,
+ * so nothing that reads a call back runs either: saved turns, the Recent
+ * conversation chapter, the turns in a job's opening, `memory_conversation`.
+ */
+export const isTranscriptOn = (value: string | undefined) =>
+  value?.trim() !== "off";
+
+/** Each voice provider's picked transcription model. */
+export const TranscriptionModelsSchema = z.record(
+  z.string(),
+  z.string().trim().min(1).max(128),
+);
+
+/** The Transcript switch as Settings reads it. */
+export type CallTranscript = {
+  on: boolean;
+  /** Only what was picked; a provider missing here runs its first `transcriptionModels` entry. */
+  models: Partial<Record<SpeachModelProviderId, string>>;
+};
 
 export const WAKE_PHRASE = { min: 3, max: 32 };
 

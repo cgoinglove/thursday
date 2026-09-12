@@ -150,6 +150,8 @@ export function useThursday() {
 
   const [status, setStatus] = useState<CallStatus>("idle");
   const [messages, setMessages] = useState<CallMessage[]>([]);
+  /** Whether the open call writes the user's side down (its handshake says). */
+  const [transcript, setTranscript] = useState(true);
   const [tool, setTool] = useState<ToolRun | null>(null);
   /** When the line opened (ms). */
   const [since, setSince] = useState<number | null>(null);
@@ -544,6 +546,9 @@ export function useThursday() {
     try {
       const handshake = unwrapResult(await openCallAction(thursdaySettings()));
       callId.current = handshake.callId;
+      // Off, nothing of this call is kept (Settings › Thursday › Transcript)
+      const keep = handshake.session.transcription !== null;
+      setTranscript(keep);
 
       const stop = new AbortController();
       working.current = stop;
@@ -582,8 +587,9 @@ export function useThursday() {
           },
           turn: (turn) => {
             stir(turn.role === "user" ? "user" : "agent");
-            // tool turns are saved but not shown
-            if (turn.role !== "tool") {
+            // Tool turns are saved but not shown. Hanging up clears the screen
+            // before `close()` finalizes open turns, so only the live call draws.
+            if (turn.role !== "tool" && callId.current === handshake.callId) {
               turns[turn.seq] = {
                 id: turn.id,
                 role: turn.role,
@@ -592,7 +598,7 @@ export function useThursday() {
               // holes are turns whose text has not arrived
               setMessages(turns.filter(Boolean).slice(-KEEP_MESSAGES));
             }
-            if (turn.done) {
+            if (turn.done && keep) {
               const { id, role, tool, text, seq } = turn;
               persistTurn(
                 handshake.callId,
@@ -748,7 +754,10 @@ export function useThursday() {
     enabled: status === "idle" && wake.enabled && !wakeBlocked,
     phrases: [wake.phrase],
     onWake: () => void call(),
-    onError: () => setWakeBlocked(true),
+    onError: (reason) => {
+      setWakeBlocked(true);
+      toast.add({ type: "error", title: "Wake word off", description: reason });
+    },
   });
 
   // Hotkey presses `call` like the face tap, so it hangs up during a call; disabled while the line goes up or down
@@ -763,6 +772,8 @@ export function useThursday() {
   return {
     status,
     messages,
+    /** Off: there is no user side, so captions show only her last line. */
+    transcript,
     tool,
     /** Seconds until idle hang-up; null outside the warning window. */
     idleLeft,

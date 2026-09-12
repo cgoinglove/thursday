@@ -29,7 +29,9 @@ export const createXaiSession = realtimeSession({
         input: {
           format: { type: "audio/pcm", rate: PCM_SAMPLE_RATE },
           // Naming the model makes transcripts stream while the user is still speaking.
-          transcription: { model: "grok-transcribe" },
+          ...(setup.transcription
+            ? { transcription: { model: setup.transcription } }
+            : {}),
         },
         output: { format: { type: "audio/pcm", rate: PCM_SAMPLE_RATE } },
       },

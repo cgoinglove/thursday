@@ -76,7 +76,7 @@ export type XaiSessionConfig = {
       transport?: "json" | "binary";
       transcription?: {
         /** Naming the model is the switch that turns on streaming `.updated` transcripts. */
-        model?: "grok-transcribe";
+        model?: string;
         /** BCP-47. */
         language_hint?: string;
         keyterms?: string[];

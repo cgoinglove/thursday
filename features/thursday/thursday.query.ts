@@ -14,11 +14,15 @@ import { database } from "@/database/db";
 import { callMessageTable, callTable } from "@/database/tables";
 import { listCallJobs } from "@/features/bot/task.query";
 import { readConfig, writeConfig } from "@/features/config/config.query";
+import type { SpeachModelProviderId } from "@/lib/realtime/realtime.schema";
 import {
   type CallRecord,
+  type CallTranscript,
   type CallTurn,
   isSkillsOn,
+  isTranscriptOn,
   THURSDAY_KEYS,
+  TranscriptionModelsSchema,
 } from "./thursday.schema";
 
 /**
@@ -33,6 +37,51 @@ export async function readCallSkillsOn(): Promise<boolean> {
 
 export async function writeCallSkillsOn(on: boolean) {
   await writeConfig(THURSDAY_KEYS.skills, on ? "on" : "off");
+}
+
+/**
+ * Whether the user's side of a call is written down (Settings › Thursday ›
+ * Transcript). Read where a call opens, where its prompt and tools are built,
+ * and where a job it hands over is opened.
+ */
+export async function readCallTranscriptOn(): Promise<boolean> {
+  return isTranscriptOn(await readConfig(THURSDAY_KEYS.transcript));
+}
+
+export async function readCallTranscript(): Promise<CallTranscript> {
+  const [on, models] = await Promise.all([
+    readCallTranscriptOn(),
+    readConfig(THURSDAY_KEYS.transcriptionModel),
+  ]);
+  return { on, models: parseTranscriptionModels(models) };
+}
+
+export async function writeCallTranscriptOn(on: boolean) {
+  await writeConfig(THURSDAY_KEYS.transcript, on ? "on" : "off");
+}
+
+/** Null goes back to the provider's first model. */
+export async function writeTranscriptionModel(
+  provider: SpeachModelProviderId,
+  model: string | null,
+) {
+  const { models } = await readCallTranscript();
+  await writeConfig(
+    THURSDAY_KEYS.transcriptionModel,
+    JSON.stringify({ ...models, [provider]: model ?? undefined }),
+  );
+}
+
+/** The key can also come from env, where anything may be written: a bad value is no picks. */
+function parseTranscriptionModels(
+  value: string | undefined,
+): CallTranscript["models"] {
+  if (!value) return {};
+  try {
+    return TranscriptionModelsSchema.parse(JSON.parse(value));
+  } catch {
+    return {};
+  }
 }
 
 export async function insertCall(input: { provider: string; model: string }) {

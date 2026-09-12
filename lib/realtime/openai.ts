@@ -6,9 +6,6 @@ import { createWebRtcTransport } from "./realtime.transport";
 
 const CALLS_URL = "https://api.openai.com/v1/realtime/calls";
 
-/** Streams user transcripts as recognized; the file models report only after the turn ends. */
-const TRANSCRIPTION_MODEL = "gpt-live-transcribe";
-
 export const createOpenAiSession = realtimeSession({
   transport: ({ credential, audio, on }) =>
     createWebRtcTransport({
@@ -26,7 +23,11 @@ export const createOpenAiSession = realtimeSession({
       model: setup.model,
       instructions: setup.instructions,
       audio: {
-        input: { transcription: { model: TRANSCRIPTION_MODEL } },
+        input: {
+          transcription: setup.transcription
+            ? { model: setup.transcription }
+            : null,
+        },
         output: { voice: setup.voice },
       },
       tools: toFunctionTools(setup.tools),

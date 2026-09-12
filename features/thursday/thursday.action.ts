@@ -16,14 +16,20 @@ import { deleteAllNotes } from "@/features/memory/memory.query";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
 import { issueClientSecret } from "@/lib/realtime/client-secret";
-import type { ToolManifest } from "@/lib/realtime/realtime.schema";
+import {
+  REALTIME_PROVIDERS,
+  type ToolManifest,
+} from "@/lib/realtime/realtime.schema";
 import {
   deleteCall,
   deleteEndedCalls,
   endCall,
   insertCall,
+  readCallTranscript,
   saveTurns,
   writeCallSkillsOn,
+  writeCallTranscriptOn,
+  writeTranscriptionModel,
 } from "./thursday.query";
 import {
   type CallHandshake,
@@ -92,9 +98,10 @@ export const openCallAction = serverAction(
     if (!apiKey) publicError(`No ${provider.label} key — add one in Config.`);
 
     // Assembled per call, never cached: the prompt reads what earlier calls stored.
-    const [prompt, tools] = await Promise.all([
+    const [prompt, tools, transcript] = await Promise.all([
       loadThursdayPrompt(thursday.systemPrompt, thursday.locale),
       loadToolManifest(),
+      readCallTranscript(),
     ]);
 
     // Free-text model ids are not validated here; the provider rejects at issue time.
@@ -117,6 +124,11 @@ export const openCallAction = serverAction(
         voice: ref.voice ?? provider.defaultVoice,
         instructions: prompt.text,
         tools,
+        // Null tells the page not to save the call either
+        transcription: transcript.on
+          ? (transcript.models[ref.provider] ??
+            provider.transcriptionModels[0].id)
+          : null,
       },
       opening: prompt.opening,
     };
@@ -130,6 +142,24 @@ export const openCallAction = serverAction(
 export const setCallSkillsAction = serverAction(async (on: unknown) => {
   await writeCallSkillsOn(z.boolean().parse(on));
 });
+
+/**
+ * The Transcript switch. Nothing is cached: the next call reads it where it
+ * opens, where its prompt and tools are built, and where it hands over a job.
+ */
+export const setCallTranscriptAction = serverAction(async (on: unknown) => {
+  await writeCallTranscriptOn(z.boolean().parse(on));
+});
+
+/** Null goes back to the provider's first model. Ids are not checked: the provider refuses at connect. */
+export const setTranscriptionModelAction = serverAction(
+  async (provider: unknown, model: unknown) => {
+    await writeTranscriptionModel(
+      z.enum(REALTIME_PROVIDERS).parse(provider),
+      z.string().trim().min(1).max(128).nullable().parse(model),
+    );
+  },
+);
 
 export const saveTurnsAction = serverAction(
   async (callId: string, turns: unknown) => {

@@ -18,7 +18,10 @@ import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { createWorkspaceTools } from "@/features/ai/tools/workspace.tool";
 import { taskActivity } from "@/features/bot/bot.schema";
 import { loadSkills } from "@/features/skills/skills.discover";
-import { readCallSkillsOn } from "@/features/thursday/thursday.query";
+import {
+  readCallSkillsOn,
+  readCallTranscriptOn,
+} from "@/features/thursday/thursday.query";
 import { jobShellEnv, openWorkspace } from "@/features/workspace/workspace";
 import { toDate } from "@/lib/date-like";
 import { logger } from "@/lib/logger";
@@ -262,10 +265,15 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
   }
 
   // The call's hand. A bot is handed only the reads from it (below).
-  const memory = createMemoryTools(
-    "call",
-    run.target === "thursday" ? (run.callId ?? null) : null,
-  );
+  const { [TOOL_NAMES.memory_conversation]: conversation, ...memory } =
+    createMemoryTools(
+      "call",
+      run.target === "thursday" ? (run.callId ?? null) : null,
+    );
+  // Off, no call is written down, so there is none to open (Settings › Thursday › Transcript)
+  const readBack: ToolSet = (await readCallTranscriptOn())
+    ? { [TOOL_NAMES.memory_conversation]: conversation }
+    : {};
 
   const sandbox = await openWorkspace();
 
@@ -279,6 +287,7 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
 
     return {
       ...memory,
+      ...readBack,
       ...skills,
       // The shell alone, for no longer than a call can sit silent on it: the mic
       // is closed while a tool runs (config CALL_EXEC_TIMEOUT_MS). A whole file is
@@ -300,7 +309,7 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
   return {
     // A bot only reads memory: every write is the call's, and there is no screen to show a note on
     [TOOL_NAMES.memory_recall]: memory[TOOL_NAMES.memory_recall],
-    [TOOL_NAMES.memory_conversation]: memory[TOOL_NAMES.memory_conversation],
+    ...readBack,
     // Exa when its key is set, else this bot's own model when it can search;
     // absent when neither, and the browser is the way in (search.tool)
     ...(await createSearchTool(run.model, sandbox)),

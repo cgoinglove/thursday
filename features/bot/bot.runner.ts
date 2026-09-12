@@ -18,6 +18,7 @@ import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import {
   isAnyCallLive,
   listCallTurns,
+  readCallTranscriptOn,
 } from "@/features/thursday/thursday.query";
 import { pathsIn } from "@/features/workspace/file-kind";
 import {
@@ -120,9 +121,11 @@ export async function startTask(input: {
   from: TaskSpeaker;
 }) {
   const { from, ...row } = input;
-  const conversation = row.callId
-    ? await listCallTurns(row.callId, OPENING_TURNS)
-    : [];
+  // Off, the call was never written down (Settings › Thursday › Transcript)
+  const conversation =
+    row.callId && (await readCallTranscriptOn())
+      ? await listCallTurns(row.callId, OPENING_TURNS)
+      : [];
   const opening = buildTaskOpening({
     bot: row.bot,
     request: row.request,

@@ -66,6 +66,8 @@ export type RealtimeSessionSetup = {
   voice: string;
   instructions: string;
   tools: ToolManifest[];
+  /** The model that writes down what the user says; null asks for none, and her words still arrive. */
+  transcription: string | null;
 };
 
 /**

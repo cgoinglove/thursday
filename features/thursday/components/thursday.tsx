@@ -1105,6 +1105,7 @@ export function Thursday() {
     getMicSpectrum,
     wakePhrase,
     hotkey,
+    transcript,
   } = useThursday();
   // one entry point per line: the wake phrase if any, else the hotkey
   const hotkeyLabel = useHotkeyLabel(hotkey);
@@ -1138,7 +1139,8 @@ export function Thursday() {
         getSpectrum={getSpectrum}
         getMicSpectrum={getMicSpectrum}
         face={face}
-        captionView={captionView}
+        // Without a transcript there is no user side to set beside hers
+        captionView={transcript ? captionView : "center"}
         callable={callable}
       />
     </>
