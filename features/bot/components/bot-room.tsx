@@ -1437,7 +1437,7 @@ export function Conversation({
             box.scrollHeight - box.scrollTop - box.clientHeight < 24;
         }}
         className={cn(
-          "max-h-[64vh] space-y-3 overflow-y-auto px-4 pt-6 pb-4 mask-[linear-gradient(to_bottom,transparent,black_2rem)] scrollbar-none",
+          "min-w-0 max-h-[64vh] space-y-3 overflow-y-auto px-4 pt-6 pb-4 mask-[linear-gradient(to_bottom,transparent,black_2rem)] scrollbar-none",
           className,
         )}
       >
@@ -1488,7 +1488,11 @@ function Request({ task }: { task: TaskView }) {
       <FromThursday>
         <Bubble align="end" className="max-w-full">
           <BubbleContent className="rounded-tr-md py-2 pr-2 pl-3.5">
-            <FoldedText text={task.request} subject="request" />
+            <FoldedText
+              text={task.request}
+              subject="request"
+              className="wrap-anywhere"
+            />
           </BubbleContent>
         </Bubble>
       </FromThursday>
@@ -1602,8 +1606,8 @@ function Group({ group, task }: { group: ChatterGroup; task: TaskView }) {
         <FromThursday>
           {group.lines.map((line) => (
             <Bubble key={line.id} align="end" className="max-w-full">
-              <BubbleContent className="rounded-tr-md px-3.5 text-[13px] leading-snug break-keep">
-                {line.text}
+              <BubbleContent className="rounded-tr-md px-3.5">
+                <MessageText className="leading-snug">{line.text}</MessageText>
               </BubbleContent>
             </Bubble>
           ))}
@@ -1646,6 +1650,25 @@ function Group({ group, task }: { group: ChatterGroup; task: TaskView }) {
   );
 }
 
+function MessageText({
+  children,
+  className,
+}: {
+  children: string;
+  className?: string;
+}) {
+  return (
+    <Markdown
+      className={cn(
+        "min-w-0 max-w-full text-[13px] leading-relaxed wrap-anywhere break-keep [&_h1]:text-[15px] [&_h2]:text-[14px] [&_h3]:text-[13px] [&_h3]:font-semibold [&_li]:my-0.5 [&_table]:text-[12px] [&_table]:wrap-normal [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+        className,
+      )}
+    >
+      {children}
+    </Markdown>
+  );
+}
+
 function Line({ line, taskId }: { line: Chatter; taskId: string }) {
   // Consecutive tool calls are grouped in Steps; a lone one lands here.
   if (line.kind === "tool" && line.tool) {
@@ -1658,14 +1681,14 @@ function Line({ line, taskId }: { line: Chatter; taskId: string }) {
       <details className="w-full py-1 text-muted-foreground">
         <summary className="flex cursor-pointer list-none items-center gap-2.5 outline-none [&::-webkit-details-marker]:hidden">
           <span className="h-px flex-1 bg-border" />
-          <span className="shrink-0 font-mono text-[10px]">
+          <span className="min-w-0 text-center font-mono text-[10px]">
             Compacted — it goes on from its summary
           </span>
           <span className="h-px flex-1 bg-border" />
         </summary>
-        <p className="mt-2 rounded-xl bg-muted/40 px-3 py-2 text-[11px] leading-relaxed whitespace-pre-wrap break-keep">
+        <MessageText className="mt-2 rounded-xl bg-muted/40 px-3 py-2 text-[11px]">
           {line.text}
-        </p>
+        </MessageText>
       </details>
     );
   }
@@ -1673,9 +1696,9 @@ function Line({ line, taskId }: { line: Chatter; taskId: string }) {
   // Passing remarks are muted; the answer is the one thing here at full weight.
   if (!isOutcome(line)) {
     return (
-      <p className="px-1 text-[12.5px] leading-relaxed break-keep text-muted-foreground">
+      <MessageText className="px-1 text-[12.5px] text-muted-foreground">
         {line.text}
-      </p>
+      </MessageText>
     );
   }
 
@@ -1683,13 +1706,13 @@ function Line({ line, taskId }: { line: Chatter; taskId: string }) {
   if (line.options) {
     return (
       <div className="w-fit max-w-full space-y-1.5 rounded-2xl bg-amber-500/8 px-3 py-2 ring-1 ring-amber-500/25">
-        <p className="text-[13px] leading-snug break-keep">{line.text}</p>
+        <MessageText className="leading-snug">{line.text}</MessageText>
         {line.options.length > 0 && (
           <p className="flex flex-wrap gap-1">
             {line.options.map((option) => (
               <span
                 key={option}
-                className="rounded-full bg-background/70 px-2 py-0.5 font-mono text-[10px] text-muted-foreground"
+                className="min-w-0 max-w-full rounded-full bg-background/70 px-2 py-0.5 font-mono text-[10px] wrap-anywhere text-muted-foreground"
               >
                 {option}
               </span>
@@ -1715,14 +1738,9 @@ function Line({ line, taskId }: { line: Chatter; taskId: string }) {
           Could not finish
         </p>
       )}
-      <Markdown
-        className={cn(
-          "overflow-x-auto text-[13px] leading-relaxed break-keep [&_h1]:text-[15px] [&_h2]:text-[14px] [&_h3]:text-[13px] [&_h3]:font-semibold [&_li]:my-0.5 [&_table]:text-[12px] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-          failed && "text-destructive",
-        )}
-      >
+      <MessageText className={cn(failed && "text-destructive")}>
         {line.text}
-      </Markdown>
+      </MessageText>
       {/* The files it names, and the copy — one row, because the end of the
           answer is where a reader is when they want either. */}
       <div className="mt-2 flex items-center gap-2">
