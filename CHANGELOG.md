@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.6.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.5.0...thursday-agent-v0.6.0) (2026-09-12)
+
+
+### Features
+
+* let the call's transcript be switched off, and what reads it back with it ([65096de](https://github.com/cgoinglove/thursday/commit/65096de2a50f596562b0c409e2164ff9e18a30f4))
+* write profile and preferences out in the call prompt, and talk in the user's language ([fa47fa5](https://github.com/cgoinglove/thursday/commit/fa47fa582663aa236678c514f990215ec710ecfb))
+
+
+### Fixes
+
+* refuse a memory path outside the convention instead of filing it in inbox ([9903fdb](https://github.com/cgoinglove/thursday/commit/9903fdbfc840ad9ac1c37aae8056da23160dc4a2))
+* tie no fact to a call while its transcript is off ([d0e73fe](https://github.com/cgoinglove/thursday/commit/d0e73fe602263cdcda1ac37422525d6d00a0da91))
+
+
+### Under the hood
+
+* enhance message rendering in bot room component ([b06066d](https://github.com/cgoinglove/thursday/commit/b06066dfef0ff037cd99b7ec7a38958efe5df605))
+
+
+### Docs
+
+* rewrite the README as a pitch, and keep the room where bots talk to each other ([3d1ae82](https://github.com/cgoinglove/thursday/commit/3d1ae8268b9e3ddd9b7eec1a42eaca3aa338f8c4))
+
 ## [0.5.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.4.0...thursday-agent-v0.5.0) (2026-09-11)
 
 
