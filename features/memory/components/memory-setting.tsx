@@ -48,7 +48,7 @@ const SECTIONS: { key: MemorySection; label: string }[] = [
   { key: "people", label: "People" },
   { key: "projects", label: "Projects" },
   { key: "topics", label: "Topics" },
-  { key: "inbox", label: "Inbox" },
+  { key: "other", label: "Other" },
 ];
 
 export function MemorySetting() {
@@ -94,11 +94,6 @@ export function MemorySetting() {
                 <Fragment key={key}>
                   <span className="px-3 pt-3 pb-1 font-mono text-[10px] text-muted-foreground/60">
                     {label}
-                    {key === "inbox" && (
-                      <span className="pl-1.5 text-muted-foreground/50">
-                        waiting to be filed
-                      </span>
-                    )}
                   </span>
                   {rows.map((note) => (
                     <NoteLink
@@ -457,7 +452,7 @@ const NOTE_KINDS = [
   },
 ] as const;
 
-/** Kind + name becomes the path; profile and inbox stay agent-managed. */
+/** Kind + name becomes the path; profile and preferences stay agent-managed. */
 export function openMemoryCreate() {
   return notify.component({
     className: "sm:max-w-lg",

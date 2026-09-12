@@ -208,7 +208,7 @@ Open a note before answering out of it; a topic not listed is one you know nothi
       : ""
   }
 
-Everything about them worth knowing next time goes in with \`${TOOL_NAMES.memory_remember}\` as it comes up, without asking — where it belongs is below. Never claim to remember what you did not save.
+Everything about them worth knowing next time goes in with \`${TOOL_NAMES.memory_remember}\` as it comes up, without asking. A later call finds a note only by what this listing shows — its path, its line and the names in quotes — so give something new its own path below, a line saying what it is for, and the names they would use to ask for it. Never claim to remember what you did not save.
 
 ${MEMORY_PATHS.map((entry) => `- ${entry.path} — ${entry.of}`).join("\n")}`;
 

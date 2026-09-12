@@ -71,16 +71,12 @@ export const MEMORY_PATHS = [
     of: "Something with an end — a trip, a purchase, a deadline, a thing being built",
   },
   { path: "topics/", of: "Something ongoing that keeps coming back" },
-  { path: "inbox", of: "Nowhere obvious yet" },
 ] as const;
-
-/** Where anything outside the convention lands. */
-export const MEMORY_INBOX = "inbox";
 
 /** Notes without a section. */
 export const MEMORY_ROOT_NOTES = MEMORY_PATHS.filter(
   (entry) => !entry.path.endsWith("/"),
-).map((entry) => entry.path) as ("profile" | "preferences" | "inbox")[];
+).map((entry) => entry.path) as ("profile" | "preferences")[];
 
 /** Notes about a named thing live under one of these. */
 export const MEMORY_SECTIONS = MEMORY_PATHS.filter((entry) =>
@@ -97,31 +93,27 @@ const MEMORY_PATH_RE = new RegExp(
 
 export const isMemoryPath = (path: string) => MEMORY_PATH_RE.test(path);
 
-/** Notes that stay listed with zero facts; their description is app-owned. */
+/**
+ * Notes that stay listed with zero facts. Their listing line is the app's, not
+ * a model's: memory.query ensureRootNotes resets it at boot and a model's
+ * `description` for one is ignored (ai/tools/memory.tool), so the line cannot
+ * drift with whoever wrote last.
+ */
 export const MEMORY_ALWAYS_LISTED: string[] = ["profile", "preferences"];
 
 export const isAlwaysListed = (path: string) =>
   MEMORY_ALWAYS_LISTED.includes(path);
 
-/**
- * Notes whose listing line the app writes rather than a model: the two root
- * notes it keeps (memory.query ensureRootNotes) and the inbox, which is where
- * a fact lands when its path is not one this listing can carry. A model's
- * `description` for one of these is ignored, so the line cannot drift with
- * whoever wrote last (ai/tools/memory.tool).
- */
-export const APP_NAMED_NOTES = [...MEMORY_ALWAYS_LISTED, MEMORY_INBOX];
-
-export const isAppNamed = (path: string) => APP_NAMED_NOTES.includes(path);
-
 /** The line the app writes for one of those. */
 export const appNoteLine = (path: string) =>
   MEMORY_PATHS.find((entry) => entry.path === path)?.of ?? null;
 
-export type MemorySection =
-  | "you"
-  | (typeof MEMORY_SECTIONS)[number]
-  | typeof MEMORY_INBOX;
+/**
+ * `other` holds a path outside the convention. A model cannot create one
+ * (memory_remember refuses it), so only rows older than that rule land there,
+ * kept on screen to open and delete.
+ */
+export type MemorySection = "you" | (typeof MEMORY_SECTIONS)[number] | "other";
 
 /** How the screen groups notes; derived from MEMORY_PATHS. */
 export function sectionOf(path: string): MemorySection {
@@ -129,7 +121,7 @@ export function sectionOf(path: string): MemorySection {
   const head = path.slice(0, path.indexOf("/"));
   return (MEMORY_SECTIONS as readonly string[]).includes(head)
     ? (head as (typeof MEMORY_SECTIONS)[number])
-    : MEMORY_INBOX;
+    : "other";
 }
 
 // Model-facing shapes: narrower than the UI's on purpose.

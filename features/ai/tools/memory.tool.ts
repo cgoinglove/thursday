@@ -15,15 +15,20 @@ import {
   writeNotes,
 } from "@/features/memory/memory.query";
 import {
-  APP_NAMED_NOTES,
   appNoteLine,
-  isAppNamed,
+  isAlwaysListed,
   isMemoryPath,
-  MEMORY_INBOX,
+  MEMORY_ALWAYS_LISTED,
+  MEMORY_PATHS,
   type MemoryNoteView,
   type MemorySource,
 } from "@/features/memory/memory.schema";
 import { readCallConversation } from "@/features/thursday/thursday.query";
+
+/** `profile, preferences, people/<name>, …` — the shapes a new note's path may take. */
+const PATH_SHAPES = MEMORY_PATHS.map((entry) =>
+  entry.path.endsWith("/") ? `${entry.path}<name>` : entry.path,
+).join(", ");
 
 const GONE =
   "Deleted for good. The listing in your instructions is from when this session opened and still shows it that way until the next one.";
@@ -139,7 +144,7 @@ export const createMemoryTools = (
         .string()
         .nullish()
         .describe(
-          `One line saying what this note is about, not what it currently says. Give it for a new note, or when the line no longer fits. Null leaves it; ${APP_NAMED_NOTES.join(", ")} keep their own line.`,
+          `One line saying what this note is about, not what it currently says. Give it for a new note, or when the line no longer fits. Null leaves it; ${MEMORY_ALWAYS_LISTED.join(", ")} keep their own line.`,
         ),
       aliases: z
         .string()
@@ -150,17 +155,16 @@ export const createMemoryTools = (
         ),
     }),
     execute: async (input) => {
-      // Resolve the name the way recall does (memory.query resolveNotePath), so a note opened by alias is written to itself, not inbox
+      // Resolve the name the way recall does (memory.query resolveNotePath), so a note opened by alias is written to itself
       const said = input.path.trim();
       const known = await resolveNotePath(said);
       const aliases = input.aliases ?? null;
-      // The listing line of the app-named notes is the app's (memory.schema
-      // isAppNamed); the model's description is ignored there and its own line
-      // written instead, so the inbox cannot end up described by whatever fell
-      // into it. `alwaysLoad` is not forced on them: the first-call opener
-      // (thursday.prompt) asks the model to set it.
+      // The listing line of the always-listed notes is the app's (memory.schema
+      // MEMORY_ALWAYS_LISTED); the model's description is ignored there and
+      // its own line written instead. `alwaysLoad` is not forced on them: the
+      // first-call opener (thursday.prompt) asks the model to set it.
       const target = known ?? said;
-      const description = isAppNamed(target)
+      const description = isAlwaysListed(target)
         ? appNoteLine(target)
         : input.description?.trim() || null;
       const facts = input.facts ?? [];
@@ -169,31 +173,26 @@ export const createMemoryTools = (
           note: "Nothing to write: send facts, a line, names, or any of them.",
         };
       }
+      // Refused rather than filed elsewhere: a note is found by its path, line and names, and a catch-all keeps none of them
+      if (!known && !isMemoryPath(said)) {
+        return {
+          note: `Nothing was saved: "${said}" is not a path this listing can carry. Write it again under one of ${PATH_SHAPES}.`,
+        };
+      }
       // Naming amends, never creates: a note without facts is not listed (memory.query listNoteIndex)
       if (!known && !facts.length) {
         return {
           note: `Nothing on the listing called ${said}. A note comes into being with a fact — send at least one.`,
         };
       }
-      // A new path outside the convention goes to inbox, which keeps its own line and takes no aliases
-      const toInbox = !known && !isMemoryPath(said);
-      const filed = toInbox
-        ? {
-            path: MEMORY_INBOX,
-            description: appNoteLine(MEMORY_INBOX),
-            facts,
-          }
-        : { path: target, description, aliases, facts };
 
-      const write = await writeNotes([filed], source, callId);
+      const write = await writeNotes(
+        [{ path: target, description, aliases, facts }],
+        source,
+        callId,
+      );
 
       // The write already succeeded; what follows are requests, not failures.
-      // Only a path that landed in inbox is said: one reached by a name the
-      // listing carries is where it was asked for, however it was spelled.
-      const elsewhere = toInbox
-        ? ` Filed under ${filed.path}: "${said}" is not a path this listing can carry. If that is not where it belongs, write it again under one that is.`
-        : "";
-
       const unnamed = write.unnamed.length
         ? ` ${write.unnamed[0]} is new and has no line yet — the listing shows its first fact instead. Call again with \`description\` (one line about what it is) and \`aliases\` (the names they say for it).`
         : "";
@@ -208,7 +207,7 @@ export const createMemoryTools = (
       const written = withCount(write.notes[0]);
       return {
         ...written,
-        note: `${WROTE}${elsewhere}${unnamed}${notLoaded}${overSize(written.factCount)}`,
+        note: `${WROTE}${unnamed}${notLoaded}${overSize(written.factCount)}`,
       };
     },
   }),
