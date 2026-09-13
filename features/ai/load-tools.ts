@@ -3,12 +3,7 @@ import { formatDistanceToNowStrict } from "date-fns";
 import { CALL_EXEC_TIMEOUT_MS, IS_DEV } from "@/config";
 import type { TextModel } from "@/features/ai/model";
 import { clockNow } from "@/features/ai/prompts/prompt-helper";
-import {
-  answerTool,
-  askThursdayTool,
-  delegateSpec,
-  taskSpec,
-} from "@/features/ai/tools/bot.tool";
+import { delegateSpec, taskSpec } from "@/features/ai/tools/bot.tool";
 import { CALL_TOOLS } from "@/features/ai/tools/call.tool";
 import { createMcpTools } from "@/features/ai/tools/mcp.tool";
 import { createMemoryTools } from "@/features/ai/tools/memory.tool";
@@ -104,8 +99,8 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
     [TOOL_NAMES.task]: tool({
       description: taskSpec.description,
       inputSchema: taskSpec.parameters,
-      execute: async ({ action, task, answer }) => {
-        const { listTaskHistory, resolveTask } = await import(
+      execute: async ({ action, task, answer, recipient, replyTo }) => {
+        const { listTaskOverview, resolveTask } = await import(
           "@/features/bot/task.query"
         );
         if (action === "status") {
@@ -125,11 +120,17 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
             const found = await resolveTask(task);
             const one = found;
             if (!one) return await noSuchJob(task);
+            const { findTaskView } = await import("@/features/bot/task.query");
+            const room = (await findTaskView(one.id))?.room;
             return {
               ...now,
               ...dropped,
               label: one.label,
+              id: one.id,
               bot: one.bot,
+              ...(room
+                ? { participants: room.participants, questions: room.questions }
+                : {}),
               status: one.status,
               since: formatDistanceToNowStrict(toDate(one.updatedAt), {
                 addSuffix: true,
@@ -140,16 +141,26 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
                 : {}),
             };
           }
-          const tasks = await listTaskHistory({ limit: 8 });
+          const tasks = await listTaskOverview();
           // No threads — only as much as is worth reading out: what it is
           // asking, the one line of what it is doing, or how it ended
           return {
             ...now,
             ...dropped,
             tasks: tasks.map((task) => ({
+              id: task.id,
               label: task.label,
               bot: task.bot,
               status: task.status,
+              ...(task.room
+                ? {
+                    participants: task.room.participants,
+                    questions: task.room.questions.map((question) => ({
+                      ...question,
+                      text: clip(question.text, 200),
+                    })),
+                  }
+                : {}),
               since: formatDistanceToNowStrict(toDate(task.updatedAt), {
                 addSuffix: true,
               }),
@@ -190,7 +201,13 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
           return { label: one.label, status: "cancelled" };
         }
         if (!answer?.trim()) return "Say what to pass on.";
-        await answerTask(one.id, answer.trim(), "thursday");
+        await answerTask(
+          one.id,
+          answer.trim(),
+          "thursday",
+          recipient ?? undefined,
+          replyTo ?? undefined,
+        );
         return {
           // Named even when the model named it: with no job given this is the
           // one that moved last, and saying which makes a wrong one obvious
@@ -209,8 +226,8 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
 
 /** An unresolved reference answers with the recent jobs; a bare "no such job" is read as an error and relayed as one. */
 async function noSuchJob(ref: string): Promise<string> {
-  const { listTaskHistory } = await import("@/features/bot/task.query");
-  const recent = await listTaskHistory({ limit: 5 });
+  const { listTaskOverview } = await import("@/features/bot/task.query");
+  const recent = await listTaskOverview();
   if (!recent.length) return "No jobs have been handed over yet.";
   const names = recent
     .map((task) => `"${task.label}" (${task.bot}, ${task.status})`)
@@ -305,8 +322,7 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
   }
 
   // A bot works inside a job it did not open: it can pull another bot in but cannot start a job.
-  // `ask_bot` and `ask_back` are attached by the runner (bot.run), which swaps `ask_thursday`
-  // for `ask_back` in a borrowed bot. `answer` ends every run.
+  // The runner attaches messaging with the active continuation (bot.run).
   const skills = await loadSkills(sandbox);
   return {
     // A bot only reads memory: every write is the call's, and there is no screen to show a note on
@@ -329,7 +345,5 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     // Pinned tools come with schemas; the rest sit behind `tool_search`, absent when nothing is left to find (mcp.tool)
     ...(await createMcpTools(run.bot, sandbox)),
     ...createSkillTools({ sandbox, skills }),
-    [TOOL_NAMES.ask_thursday]: askThursdayTool,
-    [TOOL_NAMES.answer]: answerTool,
   };
 }

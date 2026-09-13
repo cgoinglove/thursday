@@ -8,6 +8,7 @@ import { DateLikeSchema } from "@/lib/date-like";
 import { COMMON_VALIDATE } from "@/lib/limits";
 import { clip } from "@/lib/utils";
 import { MARK_SHAPES, randomMarkColors } from "./mark.const";
+import { ROOM_THURSDAY, RoomViewSchema } from "./room.schema";
 
 /** How a bot's mark is drawn. Both fields are optional; the seed alone gives every bot a distinct face. */
 export const botIconSchema = z.object({
@@ -49,6 +50,10 @@ export const botNameSchema = z
   .string()
   .trim()
   .transform((name) => name.replace(/\s+/g, " "))
+  .refine(
+    (name) => name.toLowerCase() !== ROOM_THURSDAY.toLowerCase(),
+    "Thursday is reserved for the voice assistant.",
+  )
   .pipe(
     z.string().min(1, "A name is required").max(COMMON_VALIDATE.name.max),
     // .regex(/^\p{L}+(?: \p{L}+)*$/u, "Letters and single spaces only"),
@@ -228,17 +233,14 @@ export const untagSpeaker = (text: string): string => {
   return text;
 };
 
-/**
- * What a `waiting` job waits on (database task.pending). `toolCallId` is the
- * `ask_thursday` call the answer resolves, null when the app stopped the run and
- * offers to continue. `auto` marks a stop the app picks back up by itself once a
- * browser is on the app, not before `retryAt` (epoch ms) (bot.runner parkTask).
- */
+/** A room's primary user question or resume control. toolCallId reads legacy questions only. */
 export type TaskPending = {
   toolCallId: string | null;
   options: string[];
   auto?: boolean;
   retryAt?: number;
+  messageId?: string;
+  bot?: string;
 };
 
 /**
@@ -267,6 +269,7 @@ const LineBase = z.object({
   seq: z.number(),
   bot: z.string().nullable(),
   parent: z.string().nullable(),
+  to: z.string().nullish(),
   at: DateLikeSchema,
 });
 
@@ -355,6 +358,8 @@ export function taskActivity(lines: TaskLine[], max = 120): string | null {
  */
 export const TaskAskSchema = z.object({
   question: z.string(),
+  messageId: z.string().optional(),
+  bot: z.string().optional(),
   options: z.string().array(),
   auto: z.boolean(),
 });
@@ -386,6 +391,11 @@ export const TaskSchema = z.object({
   updatedAt: DateLikeSchema,
   /** Thread reduced for drawing; the model's messages stay on the server. */
   lines: TaskLineSchema.array(),
+  room: RoomViewSchema.nullish(),
 });
 
 export type Task = z.infer<typeof TaskSchema>;
+
+/** A participant can ask the user while other participants keep working. */
+export const needsTaskReply = (task: { status: string; room?: Task["room"] }) =>
+  task.status === "waiting" || !!task.room?.questions.length;

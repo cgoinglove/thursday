@@ -32,17 +32,14 @@ export async function boot() {
   const { sweepCalls } = await import("@/features/thursday/thursday.query");
   await sweepCalls();
 
-  // With no browser on the app nothing runs: jobs stop and wait, and a call
-  // left open closes. When one is back, what the app stopped — a restart, a
-  // closed browser, a model call that failed for a moment — picks itself back
-  // up (bot.runner parkTask); what a bot or a person stopped waits for a person.
+  // Browser absence pauses work automatically. Restart and failure require manual resume.
   const { presence } = await import("@/app/api/events/app-event.server");
   const { pauseTasks, resumeStoppedTasks } = await import(
     "@/features/bot/bot.runner"
   );
   presence.onGone(() => {
     logger.info("browser gone — stopping what was running");
-    void pauseTasks("The browser closed while this was running.").catch(
+    void pauseTasks("The browser closed while this was running.", true).catch(
       (cause) => logger.error("pause tasks", cause),
     );
     void sweepCalls().catch((cause) => logger.error("sweep calls", cause));
@@ -53,10 +50,7 @@ export async function boot() {
     );
   });
 
-  // A stop sent to `thursday` parks what is running before the process goes,
-  // so the next start picks it back up instead of finding it cut off. The
-  // launcher hands the signal over (bin/thursday.mjs NEXT_MANUAL_SIG_HANDLE);
-  // `next dev` never does, and a restart there is found at boot (sweepTasks).
+  // The launcher forwards shutdown signals so pending work records its manual resume boundary.
   if (process.env.NEXT_MANUAL_SIG_HANDLE) {
     let stopping = false;
     for (const [signal, code] of [

@@ -75,10 +75,12 @@ export const PAGE_SIZE = 50;
 /**
  * Finished jobs the inbox carries beside everything still running or waiting.
  * The room in the call screen's corner and the Tasks badge read that one list,
- * so this is also the most unopened answers the badge can owe: one more ending
- * pushes the oldest off both, still unread in Settings › Tasks.
+ * Unread endings remain in the inbox regardless of this limit.
  */
 export const INBOX_FINISHED = 3;
+
+/** Jobs returned to the call: prioritize open work, then fill with recent endings. */
+export const TASK_STATUS_LIMIT = 10;
 
 /** History page size in calls, not rows; each call carries every turn. */
 export const CALL_HISTORY_PAGE = 10;
@@ -140,24 +142,16 @@ export const TOOL_OUTPUT = { max: 8_000, head: 5_500, tail: 1_500 };
  *            the threshold that triggered it.
  * - `summaryWords`  summary length: one word per `perTokens` of budget, clamped
  *            to `min`..`max`.
- * - `depth`  how many hand-offs `ask_bot` may go below the bot holding the job:
- *            2 is that bot, one it borrows, and one that bot borrows. The last
- *            seat has no `ask_bot`, and no seat may borrow a bot above it.
- * - `askBack`  `ask_back` calls a borrowed bot gets per part. At zero the tool
- *            is removed rather than left to refuse.
+ * - `participants`  distinct bots allowed in one room. Existing participants remain reusable.
+ * - `concurrent`  participant turns allowed to run together in one task. A bot still runs once at a time.
+ * - `turns`  automatic turns across the whole room between user messages or manual resumes.
+ * - `queuedMessages`  open exchanges allowed in one room, including questions waiting on the user.
  * - `silenceMs`  how long a model call may send nothing before the run takes the
  *            connection for dead and stops (bot.run silenceWatch). Not counted
  *            while a tool or a compaction does the work; those bound themselves.
  *            A model that thinks before its first word is silent that long, so
- *            this is minutes. A one-shot call (compaction, answering `ask_back`)
+ *            this is minutes. A one-shot call (compaction)
  *            sends nothing until it is done and gets it whole.
- * - `autoResumes`  times a job the app stopped — a restart, a closed browser, a
- *            model call a retry or a compaction can fix — picks itself back up.
- *            Counted since a person last spoke to it, so a job that keeps taking
- *            the server down stops and waits for a person instead.
- * - `retryAfterMs`  wait before each of those resumes after a failed model
- *            call, by how many came before. A restart or a closed browser resumes
- *            as soon as a browser is on the app.
  * - `overflowShrink`  what a job's compaction threshold is multiplied by when the
  *            model refuses its context as too long, so the resume compacts first.
  * - `compactFiles`  files the app lists under a compaction summary — what the job
@@ -169,11 +163,12 @@ export const BOT_RUN = {
   compactAt: 500_000,
   compactHeadroom: 0.8,
   summaryWords: { min: 600, max: 3000, perTokens: 200 },
-  depth: 2,
-  askBack: 3,
+  // Bound concurrent work and the whole conversation between user interjections.
+  participants: 12,
+  concurrent: 4,
+  turns: 120,
+  queuedMessages: 200,
   silenceMs: 5 * 60_000,
-  autoResumes: 3,
-  retryAfterMs: [30_000, 120_000, 300_000],
   overflowShrink: 0.6,
   compactFiles: 40,
 };

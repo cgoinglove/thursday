@@ -51,6 +51,8 @@ Ask for a one-page lookbook of coats for the trip. **Jarvis** takes the job and 
 
 Every handoff is written down. Open the room to see who did what, or type into it and the job picks up where it left off.
 
+Each bot keeps its own conversation and browser identity for that task. Messages are asynchronous: a bot can work while a colleague works, rest until a reply arrives, and return to the same conversation. Use **Step in** to address a particular bot. After a server interruption, continue manually from the saved work. See [task rooms](docs/task-rooms.md) for the engine and recovery guarantees.
+
 <br>
 
 ## Things worth saying out loud

@@ -15,6 +15,7 @@ import { type DateLike, toDate } from "@/lib/date-like";
 import { unwrapResult } from "@/lib/protocol/result";
 import { revalidate } from "@/lib/protocol/use-server-route";
 import { errorToString } from "@/lib/utils";
+import { ROOM_THURSDAY, type RoomView } from "./room.schema";
 
 /**
  * Client mirror of tasks, keyed by task rather than as one message stream so
@@ -27,7 +28,7 @@ export type BotRef = { name: string; icon?: BotIcon | null };
 /**
  * `note` and `stop` are the app's markers, not speech. `note` is a compaction
  * summary (bot.run compact), drawn as a divider; `stop` is where the app stopped
- * the run (bot.runner parkTask), drawn muted in the bot's turn.
+ * the run (bot.runner), drawn muted in the bot's turn.
  */
 export type ChatterKind =
   | "say"
@@ -85,6 +86,7 @@ export type TaskView = {
   /** Who it went to. Other bots may join through `ask`. */
   bot: BotRef;
   lines: Chatter[];
+  room?: RoomView | null;
   status: TaskViewStatus;
   /** Text it came back with; only after it returned. */
   outcome: string | null;
@@ -101,16 +103,13 @@ export type TaskView = {
   updatedAt: DateLike;
 };
 
-/** The list scrolls; this only bounds very long calls. */
-const KEEP = 30;
-
 let tasks: TaskView[] = [];
 /** Whether server rows arrived at least once. Before that, an empty list means "unknown", not "none". */
 let primed = false;
 const listeners = new Set<() => void>();
 
 function commit(next: TaskView[]) {
-  tasks = next.slice(-KEEP);
+  tasks = next;
   for (const listener of listeners) listener();
 }
 
@@ -146,13 +145,17 @@ export function taskFromRow(row: Task, bots?: Bot[]): TaskView {
   for (const line of row.lines) {
     // A borrowed bot speaks to the borrower; the job's own bot speaks to nobody
     const bot = line.bot ? ref(line.bot) : owner;
-    const to = line.parent ? (askers.get(line.parent) ?? null) : null;
+    const to = line.to
+      ? ref(line.to)
+      : line.parent
+        ? (askers.get(line.parent) ?? null)
+        : null;
     switch (line.kind) {
       case "user":
         lines.push({
           id: line.id,
-          bot: owner,
-          to: null,
+          bot: line.to ? ref(line.to) : owner,
+          to: line.to ? ref(line.to) : null,
           text: line.text,
           kind: "user",
         });
@@ -260,6 +263,7 @@ export function taskFromRow(row: Task, bots?: Bot[]): TaskView {
 
   return {
     id: row.id,
+    room: row.room,
     request: row.request,
     label: row.label,
     bot: owner,
@@ -292,25 +296,36 @@ export function lastSaid(task: TaskView): Chatter | null {
  */
 export type ScreenAct =
   /** Answered a waiting task, interjected into a running one, or continued a finished one. */
-  | { kind: "answered"; id: string; label: string; answer: string }
+  | {
+      kind: "answered";
+      id: string;
+      label: string;
+      answer: string;
+      recipient?: string;
+      replyTo?: string;
+    }
   /** Stopped the task. */
   | { kind: "stopped"; id: string; label: string };
 
-/**
- * Unsent drafts, keyed by task rather than held by the reply box, so switching
- * threads keeps them apart and the room can ask whether the user is typing on
- * a task. Not subscribed to: read at event time, not at render.
- */
-const drafts = new Map<string, string>();
+/** Drafts and selected recipients survive switching tasks, independently for each participant. */
+const drafts = new Map<string, Map<string, string>>();
+const recipients = new Map<string, string>();
 
 export const taskDrafts = {
-  get: (id: string) => drafts.get(id) ?? "",
-  set(id: string, text: string) {
-    if (text) drafts.set(id, text);
+  recipient: (id: string) => recipients.get(id),
+  select: (id: string, bot: string) => {
+    recipients.set(id, bot);
+  },
+  get: (id: string, bot: string) => drafts.get(id)?.get(bot) ?? "",
+  set(id: string, bot: string, text: string) {
+    const own = drafts.get(id) ?? new Map<string, string>();
+    if (text) own.set(bot, text);
+    else own.delete(bot);
+    if (own.size) drafts.set(id, own);
     else drafts.delete(id);
   },
-  /** Whether a non-blank draft exists for this task. */
-  typing: (id: string) => (drafts.get(id)?.trim().length ?? 0) > 0,
+  typing: (id: string) =>
+    [...(drafts.get(id)?.values() ?? [])].some((text) => text.trim()),
 };
 
 const acted = new Set<(act: ScreenAct) => void>();
@@ -388,8 +403,9 @@ export type ThreadItem =
   | { kind: "group"; key: string; group: ChatterGroup };
 
 export function threadItems(task: TaskView): ThreadItem[] {
-  // The task's own bot was invited by Thursday; the request draws that one.
-  const seen = new Set([task.bot.name]);
+  // The request draws Thursday and the owner entering together. A later reply
+  // to Thursday is conversation with that existing participant, not an invite.
+  const seen = new Set([task.bot.name, ROOM_THURSDAY]);
   const out: ThreadItem[] = [];
   for (const group of groupChatter(task.lines)) {
     if (group.to && !seen.has(group.to.name)) {

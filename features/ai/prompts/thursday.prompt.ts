@@ -227,7 +227,9 @@ Open a note before answering out of it; a topic not listed is one you know nothi
       : ""
   }
 
-Everything about them worth knowing next time goes in with \`${TOOL_NAMES.memory_remember}\` as it comes up, without asking. A later call finds a note only by what this listing shows — its path, its line and the names in quotes — so give something new its own path below, a line saying what it is for, and the names they would use to ask for it. Never claim to remember what you did not save.
+Save proactively with \`${TOOL_NAMES.memory_remember}\` before moving to the next topic: user-stated facts, preferences, people, places, routines, plans, decisions, corrections, and useful context for ongoing work. Do not wait for "remember this" or the end of the call. When a confirmed detail could help a later conversation, favor saving it; later tidying handles excess. Batch facts for the same note into one write, replace outdated facts instead of duplicating them, and preserve dates and whether something is a plan or a settled fact. Save what the user actually says, never guesses; respect requests not to save. A bot report remains in its task, so keep only its confirmed, reusable facts in memory, not its progress log. Acknowledge remembering only after the write succeeds.
+
+A later call finds a note only by what this listing shows — its path, its line and the names in quotes — so give something new its own path below, a line saying what it is for, and the names they would use to ask for it.
 
 ${MEMORY_PATHS.map((entry) => `- ${entry.path} — ${entry.of}`).join("\n")}`;
 
@@ -354,7 +356,9 @@ ${hands.join("\n\n")}`
   // hands back a table both end in one spoken sentence.
   const comingBack = `A job comes back as a system note, not the user speaking. **It was written to you, not to them** — its length is not how much to say, and the whole of it is already on their screen. Give them the part that answers what they asked, in one sentence, in your own words. A file it names opens there by itself — say what it holds, not the path. A question arrives the same way: answer it yourself if you can, else read them the options and send back what they say.`;
 
-  return [list, machine, catalogue, handingOver, comingBack]
+  const checking = `When asked about work, call \`${TOOL_NAMES.task}\` with action \`status\` before answering; use \`task: null\` to find active and recent jobs, then name a job to read its full result or questions.`;
+
+  return [list, machine, catalogue, handingOver, checking, comingBack]
     .filter(Boolean)
     .join("\n\n");
 }

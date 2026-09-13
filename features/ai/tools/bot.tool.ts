@@ -1,17 +1,8 @@
-import { stat } from "node:fs/promises";
-import { tool } from "ai";
 import * as z from "zod";
+import { TASK_STATUS_LIMIT } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
-import { pathsIn } from "@/features/workspace/file-kind";
-import { insideWorkspace } from "@/features/workspace/workspace";
 
-/**
- * Specs for the tools that move work between the voice session and bots. Only what the model
- * sees lives here; execution belongs to whoever runs the tool (load-tools, bot.run), and the
- * screen draws a call off its spec (task.query). `answer` has its own execute because what it
- * checks is a file on disk.
- */
-
+/** Tools for starting a task, sending messages, and following work from the call. */
 export const delegateSpec = {
   name: TOOL_NAMES.delegate,
   description:
@@ -32,89 +23,27 @@ export const delegateSpec = {
   }),
 };
 
-/**
- * `context` carries what the asking bot found, since its thread is not handed over (bot.run).
- * A returning participant keeps its own thread; `context` adds only what this caller knows.
- */
-export const askBotSpec = {
-  name: TOOL_NAMES.ask_bot,
+export const sendMessageSpec = {
   description:
-    "Send a request to another bot on this job and wait for their reply. The same bot continues its own work and conversation whenever you ask it again. The job stays yours.",
+    "Send a message to a participant in this task or to Thursday. Return a delivery receipt immediately; receive their reply later in your conversation.",
   parameters: z.object({
-    bot: z.string().describe("A name from the bot list."),
-    request: z
+    to: z
       .string()
-      .describe(
-        "The part they take: the outcome you want, the shape to hand it back in (a path, a number, a list), and every name, path, number and limit that bears on it. It reaches them under the job and the call it came from, which are attached for you — write the part, not the job again.",
-      ),
-    context: z
+      .trim()
+      .min(1)
+      .describe("Choose a bot from the roster, or Thursday to reach the user."),
+    text: z
       .string()
+      .trim()
+      .min(1)
       .describe(
-        "Pass on what you know that they do not: exact values and paths they need. They keep their own previous work and your exchanges, but cannot read your private thread or tool output.",
+        "Write the message and include the context the recipient needs.",
       ),
-  }),
-};
-
-/**
- * The borrowed bot's one way up. The borrowing bot answers in one model call over its own
- * context, without tools (bot.run answerBack); nothing stops. No options, since nobody reads
- * these aloud; the count is structural (bot.run MAX_ASK_BACK).
- */
-export const askBackSpec = {
-  name: TOOL_NAMES.ask_back,
-  description:
-    "Ask the bot that handed you this part. They answer from what they have — the original request, the call it came from, what they found before asking you.",
-  parameters: z.object({
-    question: z
+    replyTo: z
       .string()
-      .describe(
-        "One whole question — what you need and why. They cannot take it to the user for you, so ask what they would know.",
-      ),
-  }),
-};
-
-/**
- * A bot stopping in front of something it cannot get on its own. No `execute` on purpose:
- * the loop halts on a tool without one (ai-sdk), the run is stored as `waiting`, and the
- * answer returns as this call's result on resume (bot.runner). Only the bot holding the job
- * may ask. Options are the one structure that works both on screen and read aloud; there is
- * no input type.
- */
-export const askThursdaySpec = {
-  name: TOOL_NAMES.ask_thursday,
-  description:
-    "Ask Thursday, who handed you this job. The job stops until an answer comes back.",
-  parameters: z.object({
-    question: z
-      .string()
-      .describe(
-        "One whole question — what you need and why. One or two sentences, in the user's language: she may read it to them out loud, options and all.",
-      ),
-    // A string is accepted as well as an array: a provider may serialize the array as one
-    // joined string, and a schema rejection only loops. The reader takes arrays only (task.query optionsOf)
-    options: z
-      .union([z.string().array(), z.string()])
       .nullish()
       .describe(
-        'Only when there really are choices — two or three, each short, as an array: ["Signed in", "Not yet"]. Null for an open question.',
-      ),
-  }),
-};
-
-/**
- * The one way a run ends on its own terms; the loop is stopped by it (`hasToolCall`, bot.run).
- * Whether the job is over is the runtime's to say, never an argument: an answer ends it, and a
- * run the app stopped first (bot.run `stopped`) waits to be continued.
- */
-export const answerSpec = {
-  name: TOOL_NAMES.answer,
-  description:
-    "Answer the job you were given. Calling this ends the job — nothing after it runs.",
-  parameters: z.object({
-    result: z
-      .string()
-      .describe(
-        "The answer itself — what you found or did, not a replay of how. As long as the answer needs and no longer: one number is one line. In the user's language; the thread is on their screen. If you could not do it, say what stopped you.",
+        "Use an incoming message ID to send an explicit reply; omit to start a new exchange. Your ordinary final text already replies to your current correspondent.",
       ),
   }),
 };
@@ -122,15 +51,26 @@ export const answerSpec = {
 /** The voice session's handle on a job already handed over. Run by the server, like `delegate` (load-tools). */
 export const taskSpec = {
   name: TOOL_NAMES.task,
-  description:
-    "Check a job you handed over, answer what it is asking, or cancel it.",
+  description: `List up to ${TASK_STATUS_LIMIT} jobs, prioritizing running and waiting work before recent completed or failed jobs; inspect one job, answer it, or cancel it.`,
   parameters: z.object({
     action: z.enum(["status", "answer", "cancel"]),
+    recipient: z
+      .string()
+      .nullish()
+      .describe(
+        "With answer, name the participant to receive the message; omit for the coordinator or the pending question.",
+      ),
+    replyTo: z
+      .string()
+      .nullish()
+      .describe(
+        "With answer, use the message ID of the question being answered when several questions are open.",
+      ),
     task: z
       .string()
       .nullish()
       .describe(
-        'The job, by its label or by the handle a past call\'s transcript carries. Leave it out with `answer` and it goes to the job that moved last — what "that one" means a moment after it answered. With `status`: null for every job in one line each — that is the list — or name one to get its answer in full.',
+        `Identify the job by label or ID. With status, omit or use null to list up to ${TASK_STATUS_LIMIT} jobs, prioritizing open work and filling remaining places with recent endings; name one to read its full result and pending questions. With answer, omit to address the job that moved last.`,
       ),
     answer: z
       .string()
@@ -140,58 +80,3 @@ export const taskSpec = {
       ),
   }),
 };
-
-/** Deliberately no `execute` — the loop halts here. See askThursdaySpec. */
-export const askThursdayTool = tool({
-  description: askThursdaySpec.description,
-  inputSchema: askThursdaySpec.parameters,
-});
-
-/**
- * `answer` does have an execute, and it only acknowledges. The loop is stopped
- * by `hasToolCall` after the step, not by the absence of an execute — that way
- * the call and its result are both written to the thread, and a resumed run
- * reads a finished exchange rather than a call left hanging.
- */
-export const answerTool = tool({
-  description: answerSpec.description,
-  inputSchema: answerSpec.parameters,
-  execute: async ({ result }) => {
-    const missing = await missingFiles(result);
-    if (missing.length) {
-      return `${NOT_ANSWERED} these files do not exist — ${missing.join(", ")}. Write them first, or take the paths out of the answer.`;
-    }
-    return "Answered. The job is closed; nothing further runs.";
-  },
-});
-
-/**
- * An answer naming a workspace file that does not exist is refused: the path becomes a link
- * and opens by itself (bot.runner artifactIn). Paths outside the workspace are not checked.
- */
-const NOT_ANSWERED = "Not answered:";
-
-/**
- * `answer` was called `report` before it was renamed. A stored thread keeps the name the
- * call was made under, and the room draws that call as the job's prose — so the three
- * places that read messages back match either name. Nothing writes the old one.
- */
-export const isAnswerCall = (toolName: string): boolean =>
-  toolName === TOOL_NAMES.answer || toolName === "report";
-
-export const answerAccepted = (output: unknown): boolean =>
-  typeof output !== "string" || !output.startsWith(NOT_ANSWERED);
-
-async function missingFiles(result: string): Promise<string[]> {
-  const missing: string[] = [];
-  for (const rel of pathsIn(result)) {
-    const full = await insideWorkspace(rel);
-    if (!full) continue;
-    const exists = await stat(full).then(
-      (info) => info.isFile(),
-      () => false,
-    );
-    if (!exists) missing.push(rel);
-  }
-  return missing;
-}

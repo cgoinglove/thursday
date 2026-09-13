@@ -1,20 +1,15 @@
 import type { AssistantContent, ModelMessage, ToolContent } from "ai";
-import {
-  and,
-  desc,
-  eq,
-  inArray,
-  isNotNull,
-  isNull,
-  lt,
-  max,
-  sql,
-} from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, lt, max, sql } from "drizzle-orm";
 import { appEvents } from "@/app/api/events/app-event.server";
-import { INBOX_FINISHED } from "@/config";
+import { INBOX_FINISHED, TASK_STATUS_LIMIT } from "@/config";
 import { database } from "@/database/db";
-import { taskMessageTable, taskTable } from "@/database/tables";
-import { answerAccepted, isAnswerCall } from "@/features/ai/tools/bot.tool";
+import {
+  taskDeliveryTable,
+  taskMessageTable,
+  taskRelayTable,
+  taskTable,
+  taskWorkTable,
+} from "@/database/tables";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { clip } from "@/lib/utils";
 import {
@@ -27,6 +22,7 @@ import {
   type TokenUsage,
   untagSpeaker,
 } from "./bot.schema";
+import { ROOM_THURSDAY } from "./room.schema";
 
 // Tasks and their threads. Bots themselves (roster, pinned tools) are bot.query.
 
@@ -167,9 +163,9 @@ export async function findTask(id: string) {
   return task ?? null;
 }
 
-/** Inbox: everything running or waiting plus the latest INBOX_FINISHED endings, newest first. `seen` is not a filter here. */
+/** Keep open work, unread endings and unrelayed messages alongside recent read endings. */
 export async function listInboxTasks(): Promise<Task[]> {
-  const [open, finished] = await Promise.all([
+  const [open, finished, unread, unrelayed] = await Promise.all([
     database
       .select(taskView)
       .from(taskTable)
@@ -181,10 +177,50 @@ export async function listInboxTasks(): Promise<Task[]> {
       .where(inArray(taskTable.status, ["done", "failed"]))
       .orderBy(desc(taskTable.updatedAt))
       .limit(INBOX_FINISHED),
+    database
+      .select(taskView)
+      .from(taskTable)
+      .where(
+        and(
+          inArray(taskTable.status, ["done", "failed"]),
+          eq(taskTable.seen, false),
+        ),
+      ),
+    database
+      .select(taskView)
+      .from(taskTable)
+      .where(
+        inArray(
+          taskTable.id,
+          database
+            .select({ id: taskRelayTable.taskId })
+            .from(taskRelayTable)
+            .where(eq(taskRelayTable.accepted, false)),
+        ),
+      ),
   ]);
-  const rows = [...open, ...finished].sort(
-    (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
-  );
+  const rows = [
+    ...new Map(
+      [...open, ...finished, ...unread, ...unrelayed].map((row) => [
+        row.id,
+        row,
+      ]),
+    ).values(),
+  ].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  return withLines(rows);
+}
+
+/** The call's bounded overview includes older open work before recent endings. */
+export async function listTaskOverview(): Promise<Task[]> {
+  const rows = await database
+    .select(taskView)
+    .from(taskTable)
+    .orderBy(
+      sql`case when ${taskTable.status} in ('running', 'waiting') then 0 else 1 end`,
+      desc(taskTable.updatedAt),
+      desc(taskTable.id),
+    )
+    .limit(TASK_STATUS_LIMIT);
   return withLines(rows);
 }
 
@@ -276,7 +312,7 @@ export async function listTaskFolders() {
     .from(taskTable);
 }
 
-/** Jobs the app parked to pick back up by itself (bot.runner parkTask), and when each may go. */
+/** Jobs paused for browser absence; legacy retry timestamps remain readable. */
 export async function listAutoStoppedTasks() {
   const rows = await database
     .select({ id: taskTable.id, pending: taskTable.pending })
@@ -287,125 +323,6 @@ export async function listAutoStoppedTasks() {
       ? [{ id: row.id, retryAt: row.pending.retryAt ?? 0 }]
       : [],
   );
-}
-
-/**
- * How many times the app has stopped this job since a person last said anything
- * to it: the notes it left in the thread — a break, a park — back to the last row
- * a person wrote: the opening, an answer, a word to a running job. Read off the
- * rows rather than kept as a count, so it cannot drift from what the thread shows.
- */
-export async function countStopsSinceSpoken(taskId: string): Promise<number> {
-  const rows = await database
-    .select({
-      role: taskMessageTable.role,
-      bot: taskMessageTable.bot,
-      note: taskMessageTable.note,
-      compact: taskMessageTable.compact,
-    })
-    .from(taskMessageTable)
-    .where(
-      and(eq(taskMessageTable.taskId, taskId), isNull(taskMessageTable.parent)),
-    )
-    .orderBy(desc(taskMessageTable.seq));
-  let stops = 0;
-  for (const row of rows) {
-    if (row.note) {
-      if (!row.compact) stops += 1;
-      continue;
-    }
-    // A person: the opening and every answer are written with no bot, and a
-    // word to a running job is a user row in the bot's name
-    if (row.bot === null || row.role === "user") break;
-  }
-  return stops;
-}
-
-/** How much of a cut-off borrowed bot's prose a resume carries: its last few paragraphs. */
-const TAIL = { texts: 3, chars: 600 };
-
-/**
- * What each borrowed bot had written when its `ask_bot` call stopped, by that
- * call's id: its last few paragraphs, and the tool it reached for after them. A
- * resumed run reads it where the call's result never arrived (bot.run
- * resumeThread), so a part cut off half-way is carried on, not asked for afresh.
- */
-export async function listBorrowedTails(
-  taskId: string,
-): Promise<Map<string, { bot: string; tail: string }>> {
-  const rows = await database
-    .select({
-      parent: taskMessageTable.parent,
-      bot: taskMessageTable.bot,
-      content: taskMessageTable.content,
-    })
-    .from(taskMessageTable)
-    .where(
-      and(
-        eq(taskMessageTable.taskId, taskId),
-        isNotNull(taskMessageTable.parent),
-        inArray(taskMessageTable.role, ["assistant", "tool"]),
-      ),
-    )
-    .orderBy(taskMessageTable.seq);
-
-  const calls = new Map<
-    string,
-    { bot: string; texts: string[]; then: string | null; exchanges: string[] }
-  >();
-  const questions = new Map<string, string>();
-  for (const row of rows) {
-    if (!row.parent) continue;
-    const call = calls.get(row.parent) ?? {
-      bot: row.bot ?? "",
-      texts: [],
-      then: null,
-      exchanges: [],
-    };
-    const content = row.content as AssistantContent;
-    const parts =
-      typeof content === "string"
-        ? [{ type: "text" as const, text: content }]
-        : content;
-    for (const part of parts) {
-      if (part.type === "text" && part.text.trim()) {
-        call.texts.push(part.text.trim());
-        call.then = null;
-      } else if (part.type === "tool-call") {
-        call.then =
-          `${part.toolName} ${toolLine(part.toolName, part.input)}`.trim();
-        if (part.toolName === TOOL_NAMES.ask_back)
-          questions.set(
-            part.toolCallId,
-            String((part.input as { question?: string }).question ?? ""),
-          );
-      } else if (
-        part.type === "tool-result" &&
-        part.toolName === TOOL_NAMES.ask_back
-      ) {
-        const answer = resultParts(part.output, Number.POSITIVE_INFINITY)
-          .flatMap((part) => (part.type === "text" ? [part.text] : []))
-          .join("\n");
-        call.exchanges.push(
-          `They asked you: ${questions.get(part.toolCallId) ?? ""}\nYou answered: ${answer}`,
-        );
-      }
-    }
-    calls.set(row.parent, call);
-  }
-
-  const tails = new Map<string, { bot: string; tail: string }>();
-  for (const [id, call] of calls) {
-    const tail = [
-      ...call.texts.slice(-TAIL.texts).map((text) => clip(text, TAIL.chars)),
-      ...call.exchanges.map((text) => clip(text, TAIL.chars)),
-      call.then ? `Then: ${call.then}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-    if (tail) tails.set(id, { bot: call.bot, tail });
-  }
-  return tails;
 }
 
 /**
@@ -535,31 +452,6 @@ export async function lastSeq(taskId: string): Promise<number> {
   return row?.seq ?? -1;
 }
 
-/**
- * The task's own thread as the model sees it: parent-less messages in order.
- * What a borrowed bot said inside an `ask_bot` call is not here; its result is.
- * After a compaction it is the opening, then the last compact row on: a summary
- * replaces what came after the job and the call, never the job and the call.
- */
-export async function listThread(taskId: string): Promise<ModelMessage[]> {
-  const rows = await database
-    .select({
-      role: taskMessageTable.role,
-      content: taskMessageTable.content,
-      compact: taskMessageTable.compact,
-    })
-    .from(taskMessageTable)
-    .where(
-      and(eq(taskMessageTable.taskId, taskId), isNull(taskMessageTable.parent)),
-    )
-    .orderBy(taskMessageTable.seq);
-  const from = rows.findLastIndex((row) => row.compact);
-  const kept = from > 0 ? [rows[0], ...rows.slice(from)] : rows;
-  return kept.map(
-    (row) => ({ role: row.role, content: row.content }) as ModelMessage,
-  );
-}
-
 /** A participant keeps its own work across every request, including requests from different bots. */
 export async function listBotThread(taskId: string, bot: string) {
   const rows = await database
@@ -629,6 +521,8 @@ function viewOf(row: TaskRow, lines: TaskLine[]): Task {
             question: row.outcome ?? "",
             options: pending?.options ?? [],
             auto: pending?.auto === true,
+            messageId: pending?.messageId,
+            bot: pending?.bot,
           }
         : null,
     tokens: { input: inputTokens, output: outputTokens },
@@ -650,6 +544,31 @@ async function withLines(rows: TaskRow[]): Promise<Task[]> {
     )
     .orderBy(taskMessageTable.seq);
 
+  const taskIds = rows.map((row) => row.id);
+  const [works, deliveries, relays] = await Promise.all([
+    database
+      .select()
+      .from(taskWorkTable)
+      .where(inArray(taskWorkTable.taskId, taskIds)),
+    database
+      .select()
+      .from(taskDeliveryTable)
+      .where(
+        and(
+          inArray(taskDeliveryTable.taskId, taskIds),
+          eq(taskDeliveryTable.visible, true),
+        ),
+      ),
+    database
+      .select()
+      .from(taskRelayTable)
+      .where(
+        and(
+          inArray(taskRelayTable.taskId, taskIds),
+          eq(taskRelayTable.accepted, false),
+        ),
+      ),
+  ]);
   // ask_back lines name no addressee; the task's own bot is the addressee
   const owners = new Map(rows.map((row) => [row.id, row.bot]));
   const askers = new Map<string, string>();
@@ -666,6 +585,9 @@ async function withLines(rows: TaskRow[]): Promise<Task[]> {
       }
     }
   }
+  for (const item of works)
+    askers.set(`${item.taskId}:${item.id}`, item.caller);
+  const exchanges = new Set(works.map((item) => item.id));
   const byTask = new Map<string, TaskLine[]>();
   for (const message of messages) {
     const list = byTask.get(message.taskId) ?? [];
@@ -677,11 +599,55 @@ async function withLines(rows: TaskRow[]): Promise<Task[]> {
           : null) ??
           owners.get(message.taskId) ??
           "",
+        message.parent !== null && exchanges.has(message.parent),
       ),
     );
     byTask.set(message.taskId, list);
   }
-  return rows.map((row) => viewOf(row, byTask.get(row.id) ?? []));
+  return rows.map((row) => {
+    const own = works.filter((item) => item.taskId === row.id);
+    const rank = [
+      "running",
+      "queued",
+      "paused",
+      "waiting",
+      "done",
+      "cancelled",
+    ];
+    const participants = [...new Set(own.map((item) => item.bot))]
+      .filter((bot) => bot !== ROOM_THURSDAY)
+      .map((bot) => ({
+        bot,
+        state: own
+          .filter((item) => item.bot === bot)
+          .sort((a, b) => rank.indexOf(a.state) - rank.indexOf(b.state))[0]
+          .state,
+      }));
+    return {
+      ...viewOf(row, byTask.get(row.id) ?? []),
+      room: own.length
+        ? {
+            participants,
+            questions: own
+              .filter((item) => item.state === "external")
+              .map((item) => ({
+                id: item.id,
+                bot: item.caller,
+                text: item.result ?? "",
+              })),
+            deliveries: deliveries
+              .filter((item) => item.taskId === row.id)
+              .map((item) => ({
+                id: item.key,
+                bot: own.find((w) => w.id === item.workId)?.bot ?? row.bot,
+                text: item.text,
+                delivered: item.consumed,
+              })),
+            relays: relays.filter((item) => item.taskId === row.id),
+          }
+        : null,
+    };
+  });
 }
 
 /** One-line cap: room for a path, small enough for a row. */
@@ -802,11 +768,17 @@ type StoredMessage = typeof taskMessageTable.$inferSelect;
  * get their own kinds because the screen draws them as speech. `owner` is the
  * task's bot, the addressee of an ask_back line.
  */
-function linesOf(message: StoredMessage, owner: string): TaskLine[] {
+function linesOf(
+  message: StoredMessage,
+  owner: string,
+  roomMessage: boolean,
+): TaskLine[] {
+  if (message.hidden) return [];
   const base = {
     seq: message.seq,
     bot: message.bot,
     parent: message.parent,
+    to: message.role === "user" ? message.bot : owner,
     at: message.createdAt,
   };
   const id = (index: number) => `${message.id}-${index}`;
@@ -816,7 +788,7 @@ function linesOf(message: StoredMessage, owner: string): TaskLine[] {
     // Participant requests already appear as the caller's ask_bot line.
     if (
       message.seq === 0 ||
-      (message.parent && !message.compact && !message.note)
+      (message.parent && !roomMessage && !message.compact && !message.note)
     )
       return [];
     const text = typeof content === "string" ? content : textOf(content);
@@ -869,14 +841,17 @@ function linesOf(message: StoredMessage, owner: string): TaskLine[] {
         // in the thread, and taskFromRow promotes it to the result line
         const text = String(args.result ?? "").trim();
         if (text) lines.push({ ...base, id: id(index), kind: "text", text });
-      } else if (part.toolName === TOOL_NAMES.ask_bot) {
+      } else if (
+        part.toolName === TOOL_NAMES.ask_bot ||
+        part.toolName === TOOL_NAMES.send_message
+      ) {
         lines.push({
           ...base,
           id: id(index),
           kind: "ask",
           callId: part.toolCallId,
-          to: String(args.bot ?? ""),
-          text: String(args.request ?? ""),
+          to: String(args.bot ?? args.to ?? ""),
+          text: String(args.request ?? args.text ?? ""),
         });
       } else if (part.toolName === TOOL_NAMES.ask_back) {
         // Borrowed bot asking its borrower; the addressee is not in the args
@@ -924,6 +899,11 @@ function linesOf(message: StoredMessage, owner: string): TaskLine[] {
     const lines: TaskLine[] = [];
     (message.content as ToolContent).forEach((part, index) => {
       if (part.type !== "tool-result") return;
+      if (
+        part.toolName === TOOL_NAMES.send_message &&
+        part.output.type !== "error-text"
+      )
+        return;
       if (isAnswerCall(part.toolName) && answerAccepted(part.output)) {
         // An accepted answer's result is only a confirmation; the answer itself
         // was drawn from the call. A rejected one is drawn: it explains the next step
@@ -1076,4 +1056,18 @@ function textParts(text: string, limit: number): ResultPart[] {
     .filter(Boolean)
     .slice(0, limit)
     .map((line) => ({ type: "text" as const, text: line }));
+}
+
+/** Legacy completion tools remain prose when an older transcript is opened. */
+const isAnswerCall = (name: string) =>
+  name === TOOL_NAMES.answer || name === TOOL_NAMES.report;
+
+function answerAccepted(output: unknown) {
+  const text =
+    typeof output === "string"
+      ? output
+      : output && typeof output === "object" && "value" in output
+        ? output.value
+        : null;
+  return typeof text !== "string" || !text.startsWith("Not answered:");
 }

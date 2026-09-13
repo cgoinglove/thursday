@@ -1,0 +1,1 @@
+ALTER TABLE `task_work` ADD `context_budget` integer DEFAULT 0 NOT NULL;

@@ -31,27 +31,16 @@ import {
   skillLines,
 } from "./prompt-helper";
 
-/**
- * Everything a bot hears. One chapter per function or const; the loader is the table of contents.
- * Each chapter decides for itself whether it is included. Assembled on every run, never cached,
- * so a skill or server added a minute ago is in the next job's prompt.
- * Two seats share this prompt: the bot holding the job, and one borrowed for a part of it
- * (`ask_bot`). Only identity, roster, asking and answering differ between them.
- *
- * @param self This run's bot name; used only to drop itself from the roster.
- * @param persona Owner's instruction for this bot from settings.
- * @param seat The borrowed seat — who handed it this part, every bot above it on the job, whether it may borrow in turn; null for the bot holding the job.
- */
+/** Assemble this participant's instructions and current return route on every turn. */
 export async function loadBotPrompt(
   self: string,
   persona?: string | null,
-  seat?: { askedBy: string; above: string[]; canBorrow: boolean } | null,
+  seat?: { owner: string; caller: string; messageId: string | null } | null,
   /** The two folders that are this run's rather than the user's (bot.run). */
   folders?: { scratch: string | null; own: string },
 ): Promise<LoadedPrompt> {
   const sandbox = await openWorkspace();
   const name = self.trim();
-  const askedBy = seat?.askedBy ?? null;
   const [skills, index, mcpTools, pinned, allBots, kept, memoryOn, machine] =
     await Promise.all([
       loadSkills(sandbox),
@@ -68,17 +57,10 @@ export async function loadBotPrompt(
       readMachineTools(sandbox),
     ]);
 
-  // Drop itself and every bot above it on this job, which are blocked waiting on
-  // it; the last seat the depth allows has no roster at all (config BOT_RUN.depth)
-  const peers =
-    seat && !seat.canBorrow
-      ? []
-      : allBots.filter(
-          (bot) => bot.name !== name && !seat?.above.includes(bot.name),
-        );
+  const peers = allBots.filter((bot) => bot.name !== name);
 
   const text = [
-    askedBy ? borrowedIdentity(name, askedBy) : identity(name),
+    identity(name, seat),
     memory(index),
     connectedTools(mcpTools, pinned),
     methods(skills),
@@ -86,8 +68,7 @@ export async function loadBotPrompt(
     // After Environment: its folder is named against the Cwd said there
     memoryOn ? ownMemory(botMemoryFolder(name), kept) : "",
     roster(peers),
-    askedBy ? askingBack(askedBy) : ASKING,
-    askedBy ? handingUp(askedBy) : ANSWERING,
+    collaboration((seat?.owner ?? name) === name),
     // Last, so it is the closest thing to the work and outranks the rest
     ownerInstruction(persona),
   ]
@@ -115,26 +96,22 @@ const PEOPLE = `- **The user** — the one person all of this is for. They talk 
  * Who is who, what machine it is on, and that guesses are not results. How this
  * job reached it is the first message's to say (buildTaskOpening).
  */
-function identity(name: string): string {
+function identity(
+  name: string,
+  seat?: { owner: string; caller: string; messageId: string | null } | null,
+): string {
   return [
-    // Named, because the owner's prompt may not name it and its own instructions are addressed to it
-    `You are ${name}, one of the bots that work for the user. ${nowLine()}
+    `You are ${name}, a participant in this task. ${nowLine()}
 
 ${PEOPLE}
-- **You** — you do the work. Your answer goes to Thursday, not to the user, and she tells them what they need from it.`,
-    MACHINE,
-    NO_GUESSING,
-  ].join("\n\n");
-}
-
-/** The borrowed seat: between it and Thursday is the bot that borrowed it. */
-function borrowedIdentity(name: string, askedBy: string): string {
-  return [
-    `You are ${name}, one of the bots that work for the user. ${nowLine()}
-
-${PEOPLE}
-- **${askedBy}** — a bot on this job, who handed you one part of it. They cannot see your thread.
-- **You** — you do that part. What you hand back goes into ${askedBy}'s work as it is, never to Thursday or the user.`,
+- **${seat?.owner ?? name}** — coordinates this task and brings its results to Thursday.
+- **You** — keep your own work and conversation across turns. Other participants receive the messages you send, not your private history.
+${
+  seat
+    ? `
+Current conversation: ${seat.caller} → ${name}. Your ordinary final text returns to ${seat.caller}. Message ID: ${seat.messageId ?? "initial request"}.`
+    : ""
+}`,
     MACHINE,
     NO_GUESSING,
   ].join("\n\n");
@@ -277,41 +254,20 @@ ${peers.map((bot) => `- **${bot.name}** — ${bot.description}`).join("\n")}
 
 These lines were written for the user, who reads them on their own screen: where one says "you" it means them, not you.
 
-A part of your job another bot is for goes to \`${TOOL_NAMES.ask_bot}\`, because their tools and their practice are the reason they exist. What you build is made of what they bring back, so send for it before you build. A part you could finish in a couple of commands is yours; one that would take a run of its own is theirs. What you were handed stays yours and you answer for it. They get the job, the call it came from and what you write them — not this thread.`;
+Send relevant work to another bot with \`${TOOL_NAMES.send_message}\`. Include the context they need: their own history persists, but yours is private. Choose collaborators by what the task needs.`;
 }
 
-/** The only place a run can stop. */
-const ASKING = `## Asking
+function collaboration(owner: boolean): string {
+  return `## Working together
 
-What you cannot get for yourself — a decision between real options, a detail only the conversation has, a go-ahead before deleting or sending — goes to \`${TOOL_NAMES.ask_thursday}\`, once, with everything in it. Ask before you start, not after an hour; never ask what one command would tell you.
+Use \`${TOOL_NAMES.send_message}\` to contact another participant when you need their help, a clarification, or to share something they need. Continue independent work after sending; replies arrive as new messages. End your turn when you have nothing more to do now. Incoming messages can bring you back.
 
-A job that arrives without its shape — several ways to do it, no telling what it is for, a scale nobody named — is planned before it is built: put the plan up in two or three lines with what you need decided. A job asked for as one thing is built, not proposed.
+Address Thursday when you need a decision, permission, or information only the user has. Set up the decision with enough context to answer it; continue work that does not depend on it. Do not guess their answer.
 
-Only what is theirs alone stops the job: a password, a one-time code, a passkey, a permission on their machine. Set it up one action away, ask, and carry on when the answer comes back.`;
+${owner ? "Bring together the work you receive for Thursday. State what was accomplished and what remains unresolved, at the level of detail the user requested." : "Return the findings your current correspondent needs, including exact values, useful file paths, and anything unverified. They cannot read your private work."}
 
-const askingBack = (askedBy: string) => `## Asking
-
-What you cannot get for yourself goes to \`${TOOL_NAMES.ask_back}\`: ${askedBy} handed you this part and answers from what they have. They cannot take a question to the user, so for what is the user's alone take the safer reading and say so in what you hand back. Ask before you start, once, whole.`;
-
-/**
- * An answer is sized by the request, not by the shape of a document: this is where
- * the only upper bound on a run is stated, and the one place that says the spoken
- * line is hers to compose. Nothing here asks for a script — a bot that writes to be
- * heard writes for a length rather than for a question, and the padding it adds to
- * reach that length is steps, not words.
- * The step cap is stated nowhere a bot reads: told the number, runs work to it. It is
- * enforced where it cannot be argued with (bot.run `stepCountIs`, and `lastStep`).
- * Images in `.md` need absolute routes because a document opens from two places and relative paths resolve differently.
- */
-const ANSWERING = `## Answering
-
-Every job ends with \`${TOOL_NAMES.answer}\`. **Answer what was asked, at the size it was asked**: a question ends in its answer — one number is one line — and a thing to make comes back made, an action done, photos in a page, a comparison in a table. Once you have what they asked for the job is done; the next thing you would go and check is theirs to ask for.
-
-You are answering Thursday, not the user: she picks what to say out of this. Write it plainly, in the user's language — the thread is on their screen as you write it. Anything past a few lines is a file under \`${PATHS.artifacts}/\`, and the answer names its path — it becomes a link on their screen. In a \`.md\`, images only by absolute route (\`/api/file/${PATHS.artifacts}/…\`).`;
-
-const handingUp = (askedBy: string) => `## Answering
-
-Every part ends with \`${TOOL_NAMES.answer}\`; what you hand back goes into ${askedBy}'s own answer. Hand back what the brief asked for, in the shape it asked for, with everything you learned that bears on it — exact values, the paths of files you wrote, what did not work. They cannot see your thread, so long is right here.`;
+Write plainly in the user's language. Put substantial deliverables under \`${PATHS.artifacts}/\` and include their paths. In Markdown files, reference images by absolute route (\`/api/file/${PATHS.artifacts}/…\`).`;
+}
 
 /** How many turns of the call travel with the job: enough for one missed detail, not enough to bury the request. */
 export const OPENING_TURNS = 10;
@@ -319,15 +275,7 @@ export const OPENING_TURNS = 10;
 /** A user message's content; every seat's first message is two text parts (buildTaskOpening). */
 export type OpeningContent = Extract<ModelMessage, { role: "user" }>["content"];
 
-/**
- * The first message of the bot holding a job, stored as the thread's first row
- * (seq 0, bot.runner startTask) and read whole on every resume and after every
- * compaction. Two text parts: who is on this job and how it reached them, then
- * the chain — the job as it was handed over and, for a job from a call, that
- * call verbatim, because the request is one sentence the realtime model produced
- * and a detail the user said may only be in the call. The chain is what a
- * borrowed bot inherits (buildHandoff), so its headings name people and never say "you".
- */
+/** The coordinator keeps the request and available call transcript through every compaction. */
 export function buildTaskOpening(input: {
   bot: string;
   request: string;
@@ -351,78 +299,12 @@ ${turns
   .join("\n")}`
     : "";
   return [
-    { type: "text", text: whoIsWho([input.bot], input.from) },
-    { type: "text", text: [job, call].filter(Boolean).join("\n\n") },
-  ];
-}
-
-/**
- * The first message of a borrowed bot, built by the bot that borrows it (bot.run
- * `ask_bot`) and never stored: the chain it inherits, copied as it is, then what
- * the borrowing bot has done and the part it hands over. `bots` runs from the
- * bot holding the job down to this one, so each hand-off adds one name and two
- * sections and every seat reads the same shape.
- */
-export function buildHandoff(input: {
-  chain: string;
-  bots: string[];
-  did: string | null;
-  part: string;
-}): OpeningContent {
-  const to = input.bots.at(-1) ?? "";
-  const from = input.bots.at(-2) ?? "";
-  const did = input.did?.trim()
-    ? `## ${from} → ${to}: what ${from} has done, and why this part is ${to}'s\n\n${input.did.trim()}`
-    : "";
-  const part = `## ${from} → ${to}: the part\n\n${input.part.trim()}`;
-  return [
-    { type: "text", text: whoIsWho(input.bots) },
     {
       type: "text",
-      text: [input.chain, did, part].filter(Boolean).join("\n\n"),
+      text: `You are ${input.bot}. ${by} hands you this task${input.from === "user" ? " on screen" : " during a call"}.`,
     },
+    { type: "text", text: [job, call].filter(Boolean).join("\n\n") },
   ];
-}
-
-/**
- * The chain out of a seat's first message, for the next hand-off. A thread
- * opened before the two-part shape has its opening as one string, which is the
- * whole chain there was.
- */
-export function chainOf(first: ModelMessage | undefined): string {
-  if (first?.role !== "user") return "";
-  if (typeof first.content === "string") return first.content;
-  const texts = first.content.flatMap((part) =>
-    part.type === "text" ? [part.text] : [],
-  );
-  return texts.at(-1) ?? "";
-}
-
-/**
- * The bots on this job, and how it reached the one reading it — the last of
- * `bots`. The user and Thursday are in every seat's prompt (identity); `from` is
- * read only when the reader holds the job.
- */
-function whoIsWho(bots: string[], from?: TaskSpeaker): string {
-  const you = bots.length - 1;
-  const lines = bots.map((bot, index) => {
-    if (index === 0) {
-      return index === you
-        ? `- **${bot} (you)** — ${
-            from === "user"
-              ? "the user handed you this job on their screen, not during a call"
-              : "Thursday handed you this job during a call"
-          }.`
-        : `- **${bot}** — holds this job and answers for it.`;
-    }
-    const by = bots[index - 1];
-    return index === you
-      ? `- **${bot} (you)** — ${by} handed you one part of it: the last section below. You answer to ${by}; nobody else hears from you.`
-      : `- **${bot}** — ${by} handed them one part of it.`;
-  });
-  return `## Who is on this job
-
-${lines.join("\n")}`;
 }
 
 /** One line per kind, absences included. Only a bot gets these: the call runs one command as a glance. */

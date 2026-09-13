@@ -5,6 +5,7 @@ import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { toast } from "@/components/ui/toast";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
+import { acceptTaskRelaysAction } from "@/features/bot/bot.action";
 import {
   type Bot,
   isAppStop,
@@ -122,6 +123,7 @@ const RELAY_MIC_MS = 15_000;
 /** A line queued for the model. */
 type Said = {
   line: string;
+  relayId?: number;
   /** Shown on the activity line when the line is sent. */
   show?: ToolRun;
 };
@@ -383,6 +385,47 @@ export function useThursday() {
   useEffect(() => {
     if (!tasks || !calling.current) return;
     for (const task of tasks) {
+      if (task.room) {
+        const reports = [
+          ...task.room.relays,
+          ...task.room.questions
+            .filter(
+              (question) =>
+                !task.room?.relays.some(
+                  (relay) => relay.messageId === question.id,
+                ),
+            )
+            .map((question) => ({
+              id: undefined,
+              bot: question.bot,
+              text: question.text,
+              kind: "question" as const,
+              messageId: question.id,
+            })),
+        ];
+        for (const relay of reports) {
+          const key = relay.messageId
+            ? `question:${relay.messageId}`
+            : `room:${relay.id}`;
+          if (relayed.current.has(key)) continue;
+          relayed.current.add(key);
+          const routing = relay.messageId
+            ? ` Reply with task ${task.id}, recipient ${relay.bot}, replyTo ${relay.messageId}.`
+            : "";
+          outbox.send({
+            line: `[${relay.bot} → Thursday, task "${task.label}" (${task.id}), ${relay.kind}. This is a bot message, not the user speaking.${routing}]\n${relay.text}`,
+            relayId: relay.id,
+            show: {
+              kind: "relay",
+              name: task.label,
+              line: `${relay.bot}: ${relay.kind}`,
+              done: true,
+              bot: relay.bot,
+            },
+          });
+        }
+        continue;
+      }
       if (task.status === "running") continue;
       // A stop the app picks back up by itself is not news: it runs again in a moment
       if (task.ask?.auto) continue;
@@ -406,7 +449,7 @@ export function useThursday() {
         outbox.send({
           line:
             act.kind === "answered"
-              ? `The user answered task "${act.label}" on screen: ${act.answer}. The bot is going on with that — do not ask again.`
+              ? `The user sent a message to ${act.recipient ?? "the coordinator"} in task "${act.label}" (${act.id}) on screen${act.replyTo ? `, replying to ${act.replyTo}` : ""}: ${act.answer}. That participant receives it directly.`
               : `The user stopped task "${act.label}" on screen. It is not running any more — do not wait for it or say anything more about it.`,
         });
       }),
@@ -646,6 +689,19 @@ export function useThursday() {
         // not the user's turn while the model reads this
         readAloud();
         live.say(queued.length === 1 ? queued[0].line : mergedRelay(queued));
+        const ids = queued.flatMap((item) =>
+          item.relayId ? [item.relayId] : [],
+        );
+        if (ids.length)
+          void acceptTaskRelaysAction(ids)
+            .then(unwrapResult)
+            .catch((cause) =>
+              toast.add({
+                type: "error",
+                title: "Could not record relay delivery",
+                description: errorToString(cause),
+              }),
+            );
         const last = queued.at(-1)?.show;
         if (last) showRelay(last);
         outbox.close();
@@ -865,6 +921,7 @@ function persistTurn(
  * instead of ringing.
  */
 function asksSomething(task: Task) {
+  if (task.room) return task.room.questions.length > 0;
   return task.status === "waiting" && !isAppStop(task.ask);
 }
 

@@ -91,19 +91,26 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   tools call domain queries directly. The one exception is anything that touches the call itself
   (hang up).
 - **Long-running work is the server's, not the request's.** A job's run is a promise the server holds
-  (`bot.runner` `launch`), never `after()`: runs also start from a returning browser and a retry
-  timer, where `after` throws or waits for the event stream to close. Everything that happens is
-  written as rows, so what the screen draws and what the model re-reads are the same rows.
+  (`bot.runner` `launch`), never `after()`: messages and returning browsers also start runs
+  outside a request. Everything that happens is written as rows, so what the screen draws and
+  what the model re-reads are the same rows.
 - **One participant per bot per task.** A bot resumes its own stored thread across requests,
   including requests from different callers. `parent` names the current exchange, not the bot's
   identity. Browser sessions use the task and canonical bot name. Requests to the same bot run
-  sequentially; wait cycles are refused. Only exchanged messages cross participant contexts.
+  sequentially. Messages are asynchronous: a waiting A can handle a question from B in its own
+  context. Only exchanged messages cross participant contexts. `room.query` owns durable inboxes,
+  continuation claims and return routes; `bot.runner` owns live promises.
 - **No browser, nothing runs.** `presence` (app/api/events) says whether a browser is on the stream;
   when the last one has been gone a while, jobs stop and wait and open calls close. When one comes
-  back, the jobs the app stopped pick themselves back up (`bot.runner` `parkTask`); what a bot or a
-  person stopped waits for a person. Wired once at boot (`instrumentation`), not in each domain.
-- **What cannot be won by instruction is enforced by structure**: tool sets, step limits, ask-back
-  counts, output truncation, shell env. Do not add prompt sentences for things the code can enforce.
+  back, only jobs paused for browser absence pick themselves back up. A server restart, model
+  failure, resource limit or user stop waits for a person. Wired once at boot (`instrumentation`),
+  not in each domain.
+- **What cannot be won by instruction is enforced by structure**: tool sets, per-turn and per-room
+  limits, output truncation, shell env. Do not add prompt sentences for things the code can enforce.
+- **A turn ending is not a task ending.** Bots finish with ordinary text or silence. The coordinator
+  reports once its downstream work settles; idle rooms remain resumable. Store local calls before
+  their effects and results before the next model step. Repair missing results only in the model
+  projection, with their outcome explicitly unknown. Never replay arbitrary tools automatically.
 - **Vocabulary belongs to whoever produces it.** Band counts come from the tap that fills them,
   provider lists from where the drivers live. No re-export doors. A domain's glyph is vocabulary too:
   it lives in that domain as `components/<name>-mark.tsx` (`bot-mark`, `mcp-mark`), and the settings
@@ -212,6 +219,9 @@ A 30-second poll remains as a safety net. No WebSockets.
   because it worked. There is no brand color, so a green would become one. The settings nav reports
   the same two and nothing else (`NavBadge`).
 - Errors are never swallowed. Inline or toast, they reach the user.
+- Task questions remain visible while other bots work. Unread endings stay in the inbox until
+  opened; a voice relay acknowledgement never counts as reading. Use neutral surfaces for these
+  notices and explicit labels for questions and new results.
 
 # Rules
 
@@ -219,8 +229,9 @@ A 30-second poll remains as a safety net. No WebSockets.
   `z.coerce.date()` lies on the client.
 - Shared logic goes to `lib/utils.ts` or the matching lib file before it is written twice. Don't
   generalize something used once.
-- Verify with `pnpm typecheck` and `pnpm lint`. Schema changes: `pnpm db:generate` (applied at boot),
-  `pnpm db:migrate` for the current DB. Never `db:push`.
+- Verify with `pnpm typecheck` and `pnpm lint`; client/server boundary changes also require
+  `pnpm build`, because TypeScript does not validate Next.js directives. Schema changes:
+  `pnpm db:generate` (applied at boot), `pnpm db:migrate` for the current DB. Never `db:push`.
 - Prompt or tool-description changes: read the assembled result, not just the file. UI changes: run
   the app and look. Judge bot behavior by counting stored turns and tool calls, not by feel.
 - Comments are English, present tense and short. They explain what the code cannot: an invariant, an

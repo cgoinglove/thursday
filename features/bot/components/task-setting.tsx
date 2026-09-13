@@ -357,6 +357,7 @@ function Row({
               label: task.label,
               bot: task.bot,
               ask: task.ask,
+              room: task.room,
             }}
             status={task.status}
           />

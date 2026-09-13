@@ -86,7 +86,7 @@ export const setBotMemoryOnAction = serverAction(async (on: unknown) => {
 
 // Tasks are opened by the `delegate` tool during a call, or here when the user
 // hands one over from the screen. Each returns at once, the run itself continues
-// in bot.runner behind `after()`.
+// as promises held by bot.runner.
 
 /** Words a label keeps; the rest of the message is the request, which the bot reads in full. */
 const LABEL_WORDS = 4;
@@ -121,11 +121,11 @@ export const startTaskAction = serverAction(
 );
 
 export const answerTaskAction = serverAction(
-  async (ref: string, answer: string) => {
+  async (ref: string, answer: string, recipient?: string, replyTo?: string) => {
     const task = await resolveTask(ref);
     if (!task) publicError(`No job called "${ref}".`);
     if (!answer.trim()) publicError("Nothing to tell it.");
-    await answerTask(task.id, answer.trim());
+    await answerTask(task.id, answer.trim(), "user", recipient, replyTo);
     return { id: task.id, label: task.label, status: "running" as const };
   },
 );
@@ -149,4 +149,9 @@ export const deleteTaskAction = serverAction(async (id: string) => {
 /** Empties the log of what is over. Running and waiting jobs are not touched. */
 export const clearFinishedTasksAction = serverAction(async () => {
   return { removed: await removeFinishedTasks() };
+});
+
+export const acceptTaskRelaysAction = serverAction(async (ids: unknown) => {
+  const { acceptRoomRelays } = await import("./room.query");
+  await acceptRoomRelays(z.number().int().positive().array().parse(ids));
 });

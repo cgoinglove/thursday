@@ -39,6 +39,7 @@ import {
   type BotIcon,
   DEFAULT_BOT,
   isAppStop,
+  needsTaskReply,
   TASK_CONTINUE,
 } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
@@ -211,6 +212,7 @@ export const BotRoom = memo(function BotRoom() {
                   label: current.label,
                   bot: current.bot.name,
                   ask: askFor(current),
+                  room: current.room,
                 }}
                 status={
                   current.status === "working" ? "running" : current.status
@@ -247,7 +249,7 @@ export const BotRoom = memo(function BotRoom() {
           more={more}
           bubbles={bubbles}
           bots={bots}
-          rows={attention}
+          rows={newest.filter((task) => needsYou(task) || isUnread(task))}
           count={tasks.length}
           busy={busy}
           pending={pending}
@@ -438,15 +440,7 @@ function askFor(task: TaskView): TaskView["ask"] {
     : task.ask;
 }
 
-/**
- * A task that cannot move until the user answers: a question, or a stop the app made.
- *
- * A finished job is not on this list. It has nothing for the user to do, and
- * counting it here made the chip hold itself open over an answer nobody had to
- * act on. An answer says itself once, in the sentence, and then it is a row in
- * the room like every other one.
- */
-const needsYou = (task: TaskView) => task.status === "waiting";
+const needsYou = needsTaskReply;
 
 /** An ending nobody has opened. It needs the user too, to read rather than to answer. */
 const isUnread = (task: TaskView) =>
@@ -514,10 +508,8 @@ function restingState({
  * takes the glyph away. Anything that passes between two parties is neither, so
  * it rides above a face in a bubble.
  *
- * While something is waiting on an answer its rows are grown in place above the
- * row. Nothing here sits behind a disclosure: they appear because there is
- * something to answer and leave when it is answered. The pill's own click opens
- * the room, to read.
+ * Questions and unread results grow above the row until answered or opened.
+ * The pill's own click opens the room to read the full history.
  *
  * The corner radius does not animate with the height: interpolating a pill radius
  * down to a card radius while the box is also resizing warps the corners in flight.
@@ -543,7 +535,7 @@ function Chip({
   more: number;
   bubbles: Map<string, Handoff>;
   bots?: Bot[];
-  /** Everything waiting on an answer, newest first. */
+  /** Open questions and unread endings, newest first. */
   rows: TaskView[];
   count: number;
   busy: number;
@@ -557,7 +549,7 @@ function Chip({
   onOpen: () => void;
 }) {
   const state = restingState({ count, busy, pending, unread, failed });
-  const grown = composing || pending > 0;
+  const grown = composing || rows.length > 0;
 
   return (
     <div
@@ -568,7 +560,7 @@ function Chip({
         // A card with questions in it keeps the room's width: only the resting
         // row grows with the corner, and a reply's long lines would stretch it.
         grown
-          ? "max-w-[min(33rem,100%)] min-w-96 rounded-3xl shadow-lg shadow-black/8"
+          ? "w-132 rounded-3xl shadow-lg shadow-black/8"
           : "rounded-full shadow-sm shadow-black/3",
       )}
     >
@@ -587,12 +579,23 @@ function Chip({
           ) : (
             <>
               <p className="flex items-center gap-2 px-3 py-2 font-mono text-[10px] tracking-wide text-muted-foreground">
-                <span className="flex-1">needs you · {pending}</span>
+                <span className="flex-1">
+                  {[
+                    pending > 0
+                      ? `${pending} ${pending === 1 ? "needs" : "need"} a reply`
+                      : "",
+                    unread > 0
+                      ? `${unread} new ${unread === 1 ? "result" : "results"}`
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
                 <ComposeButton onClick={onCompose} />
               </p>
               {/* px-1: a row keeps its own 8px, so its mark lands on the rail while
                   the shape it lights up on hover stays inside the card's corners */}
-              <div className="px-1.5 pb-2">
+              <div className="max-h-[45vh] overflow-y-auto px-1.5 pb-2">
                 {rows.map((task) => (
                   <TaskRow
                     key={task.id}
@@ -1198,6 +1201,7 @@ const GROUPS: {
   holds: (task: TaskView) => boolean;
 }[] = [
   { id: "you", label: "needs you", holds: needsYou },
+  { id: "unread", label: "new results", holds: isUnread },
   {
     id: "working",
     label: "working",
@@ -1215,7 +1219,8 @@ function TaskList({
 }) {
   const bucket = new Map<string, TaskView[]>();
   for (const task of tasks) {
-    const group = GROUPS.find((one) => one.holds(task)) ?? GROUPS[2];
+    const group =
+      GROUPS.find((one) => one.holds(task)) ?? GROUPS[GROUPS.length - 1];
     const rows = bucket.get(group.id);
     if (rows) rows.push(task);
     else bucket.set(group.id, [task]);
@@ -1257,7 +1262,14 @@ function TaskRow({ task, onPick }: { task: TaskView; onPick: () => void }) {
   const last = task.lines.at(-1);
   const line = useMemo(
     () => secondLine(task),
-    [task.status, task.outcome, task.seen, task.ask, last?.id],
+    [
+      task.status,
+      task.outcome,
+      task.seen,
+      task.ask,
+      task.room?.questions,
+      last?.id,
+    ],
   );
   const [answer, answering] = useAnswerTask();
   const [sending, setSending] = useState<string | null>(null);
@@ -1289,6 +1301,17 @@ function TaskRow({ task, onPick }: { task: TaskView; onPick: () => void }) {
         </span>
 
         <span className="min-w-0 flex-1">
+          {(attention || isUnread(task)) && (
+            <span className="block text-[10px] font-medium text-foreground">
+              {task.room?.questions.length
+                ? `Reply needed · ${[...new Set(task.room.questions.map((question) => question.bot))].join(", ")}`
+                : task.status === "waiting"
+                  ? "Needs your input"
+                  : task.status === "failed"
+                    ? "Failed · Unread"
+                    : "Completed · Unread"}
+            </span>
+          )}
           <span className="flex items-center justify-between gap-2">
             <span
               className={cn(
@@ -1310,7 +1333,7 @@ function TaskRow({ task, onPick }: { task: TaskView; onPick: () => void }) {
             )}
             {/* Anything still moving says so by shining, here as in the thread
                 (bot-tool) and the pill (Folded). */}
-            {task.status === "working" ? (
+            {task.status === "working" && !attention ? (
               <ShinyText
                 text={line.text}
                 speed={2.2}
@@ -1347,7 +1370,7 @@ function TaskRow({ task, onPick }: { task: TaskView; onPick: () => void }) {
                 await answer(task, option);
                 setSending(null);
               }}
-              className="h-7 gap-1.5 rounded-full border-amber-500/35 bg-background px-3 text-[12px]"
+              className="h-7 gap-1.5 rounded-full border-border bg-background px-3 text-[12px]"
             >
               {option === TASK_CONTINUE && (
                 <ChevronsRight className="size-3.5 text-muted-foreground" />
@@ -1363,6 +1386,10 @@ function TaskRow({ task, onPick }: { task: TaskView; onPick: () => void }) {
 
 /** Second row of a task line: the question, the outcome, or the bot's last step. */
 function secondLine(task: TaskView): { text: string; tone: string } {
+  const question = task.room?.questions[0];
+  if (question) {
+    return { text: plainText(question.text), tone: "text-foreground" };
+  }
   if (task.status === "waiting" && task.ask) {
     // A budget stop is not a question, but it waits on the user exactly as one
     // does, so it carries the waiting colour too; only the words differ.
@@ -1693,6 +1720,29 @@ function Line({ line, taskId }: { line: Chatter; taskId: string }) {
     );
   }
 
+  // A durable room message is an action, not narration. Keep it at the point
+  // where it was sent and name its recipient. Structure, rather than another
+  // colour, distinguishes questions from the rest of this monochrome room.
+  if (line.kind === "ask" && line.to) {
+    const toThursday = line.to.name === THURSDAY.name;
+    return (
+      <div className="w-fit max-w-full space-y-1.5 rounded-2xl bg-muted/55 px-3 py-2 ring-1 ring-border/80">
+        <p
+          className={cn(
+            "flex items-center gap-1.5 font-mono text-[10px]",
+            toThursday ? "text-foreground" : "text-muted-foreground",
+          )}
+        >
+          <ChevronsRight className="size-3 shrink-0" />
+          {toThursday
+            ? `Question for ${line.to.name}`
+            : `Message to ${line.to.name}`}
+        </p>
+        <MessageText className="leading-snug">{line.text}</MessageText>
+      </div>
+    );
+  }
+
   // Passing remarks are muted; the answer is the one thing here at full weight.
   if (!isOutcome(line)) {
     return (
@@ -1705,7 +1755,7 @@ function Line({ line, taskId }: { line: Chatter; taskId: string }) {
   // A question the bot stopped on; the options are what was offered at the time.
   if (line.options) {
     return (
-      <div className="w-fit max-w-full space-y-1.5 rounded-2xl bg-amber-500/8 px-3 py-2 ring-1 ring-amber-500/25">
+      <div className="w-fit max-w-full space-y-1.5 rounded-2xl bg-muted/55 px-3 py-2 ring-1 ring-border/80">
         <MessageText className="leading-snug">{line.text}</MessageText>
         {line.options.length > 0 && (
           <p className="flex flex-wrap gap-1">

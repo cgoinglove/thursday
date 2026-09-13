@@ -1,5 +1,11 @@
 import type { ModelMessage } from "ai";
-import { index, primaryKey, unique } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import {
+  index,
+  primaryKey,
+  unique,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 import { int, text } from "drizzle-orm/sqlite-core/columns";
 import { sqliteTable } from "drizzle-orm/sqlite-core/table";
 import z from "zod";
@@ -9,6 +15,7 @@ import {
   type TaskPending,
   type TaskStatus,
 } from "@/features/bot/bot.schema";
+import type { WorkState } from "@/features/bot/room.schema";
 import {
   MCPOAuthData,
   MCPServerConfig,
@@ -129,10 +136,16 @@ export const taskTable = sqliteTable("task", {
   /** The full briefing; first user message of the thread, reused on resume. */
   request: text("request").notNull(),
   /**
-   * running | waiting (asked via `ask_thursday`, resumes on answer) | done | failed.
+   * running | waiting (question, idle or paused) | done | failed.
    * A done job goes back to running when it gets a follow-up answer.
    */
   status: text("status").notNull().$type<TaskStatus>(),
+  /** A user message or resume opens a new reporting epoch. */
+  generation: int("generation").notNull().default(0),
+  /** Automatic turns consumed since the last user message or resume. */
+  turns: int("turns").notNull().default(0),
+  /** Whether the current activity has already received one owner wrap-up. */
+  wrapped: int("wrapped", { mode: "boolean" }).notNull().default(false),
   /** Last message, or the pending question. */
   outcome: text("outcome"),
   /**
@@ -192,6 +205,8 @@ export const taskMessageTable = sqliteTable(
     bot: text("bot"),
     /** `ask_bot` tool-call id on a borrowed bot's messages; rows with null are the job's own thread. */
     parent: text("parent"),
+    /** Incoming bot messages are already visible at their sender. */
+    hidden: int("hidden", { mode: "boolean" }).notNull().default(false),
     role: text("role").notNull().$type<ModelMessage["role"]>(),
     /** ModelMessage content as-is, tool calls and results included. */
     content: text("content", { mode: "json" })
@@ -214,6 +229,70 @@ export const taskMessageTable = sqliteTable(
   // Streaming and end-of-step writes upsert on this key.
   (t) => [unique("uq_task_message_seq").on(t.taskId, t.seq)],
 );
+
+/** One conversation continuation. All continuations for a bot share its task history. */
+export const taskWorkTable = sqliteTable(
+  "task_work",
+  {
+    id: text("id").primaryKey(),
+    taskId: text("task_id")
+      .notNull()
+      .references(() => taskTable.id, { onDelete: "cascade" }),
+    bot: text("bot").notNull(),
+    caller: text("caller").notNull(),
+    /** The continuation a natural reply wakes; not the participant's identity. */
+    parentId: text("parent_id"),
+    state: text("state").notNull().$type<WorkState>(),
+    generation: int("generation").notNull().default(0),
+    /** A provider overflow lowers this participant's future compaction threshold. */
+    contextBudget: int("context_budget").notNull().default(0),
+    result: text("result"),
+    createdAt: int("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (t) => [
+    index("idx_task_work_queue").on(t.taskId, t.state, t.createdAt),
+    index("idx_task_work_parent").on(t.parentId),
+    uniqueIndex("uq_task_work_running_bot")
+      .on(t.taskId, t.bot)
+      .where(sql`${t.state} = 'running'`),
+  ],
+);
+
+/** Durable inbox; insertion into a participant's transcript is transactional. */
+export const taskDeliveryTable = sqliteTable(
+  "task_delivery",
+  {
+    id: int("id").primaryKey({ autoIncrement: true }),
+    key: text("key").notNull().unique(),
+    taskId: text("task_id")
+      .notNull()
+      .references(() => taskTable.id, { onDelete: "cascade" }),
+    workId: text("work_id")
+      .notNull()
+      .references(() => taskWorkTable.id, { onDelete: "cascade" }),
+    speaker: text("speaker").notNull(),
+    text: text("text").notNull(),
+    visible: int("visible", { mode: "boolean" }).notNull().default(false),
+    consumed: int("consumed", { mode: "boolean" }).notNull().default(false),
+  },
+  (t) => [index("idx_task_delivery_inbox").on(t.workId, t.consumed, t.id)],
+);
+
+/** Durable facts for Thursday; reading the task is separate from relaying it. */
+export const taskRelayTable = sqliteTable("task_relay", {
+  id: int("id").primaryKey({ autoIncrement: true }),
+  key: text("key").notNull().unique(),
+  taskId: text("task_id")
+    .notNull()
+    .references(() => taskTable.id, { onDelete: "cascade" }),
+  bot: text("bot").notNull(),
+  text: text("text").notNull(),
+  kind: text("kind").notNull().$type<"question" | "report" | "interrupted">(),
+  messageId: text("message_id"),
+  accepted: int("accepted", { mode: "boolean" }).notNull().default(false),
+});
 
 /**
  * One row per call; turns are in call_message. The browser holds the

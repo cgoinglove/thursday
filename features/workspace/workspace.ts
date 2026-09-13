@@ -159,7 +159,7 @@ export const jobShellEnv = (
 
 /** A participant's browser belongs to the job and its canonical bot name, across every caller. */
 export const botBrowserSession = (taskId: string, bot: string) =>
-  `${taskId}-bot-${createHash("sha256").update(bot.toLowerCase()).digest("hex").slice(0, 20)}`;
+  `${taskId}-bot-${createHash("sha256").update(bot.trim().toLowerCase()).digest("hex").slice(0, 20)}`;
 
 /** Set by `ensureBrowser`, read by `readMachineTools`; null until it has finished. */
 let browserReady: boolean | null = null;
@@ -240,7 +240,7 @@ export async function pruneJobFiles(): Promise<void> {
 type ListedBrowser = { name: string; headed?: boolean; attached?: boolean };
 
 /**
- * A job that ended closes the browser nobody can see. Headless is the bot's
+ * An expired job's workspace closes browsers nobody can see. Headless is the bot's
  * working copy; `--headed` is the bot putting a window on their screen on
  * purpose — an order at checkout, a map with a pin, a sign-in — and that one is
  * theirs to close (`skills/browser`). A session attached to their own Chrome is
@@ -393,6 +393,25 @@ export async function filesOnDisk(
     found.set(rel && !rel.startsWith("..") ? rel : full, info.mtimeMs);
   }
   return [...found].sort((a, b) => a[1] - b[1]).map(([path]) => path);
+}
+
+/** Verify links before a completed report opens them as finished work. */
+export async function missingWorkspaceFiles(
+  paths: string[],
+): Promise<string[]> {
+  const missing: string[] = [];
+  for (const path of paths) {
+    const full = await insideWorkspace(path);
+    // User files are checked at runtime and never belong in the application bundle.
+    if (
+      full &&
+      !(
+        await stat(/* turbopackIgnore: true */ full).catch(() => null)
+      )?.isFile()
+    )
+      missing.push(path);
+  }
+  return missing;
 }
 
 /**
