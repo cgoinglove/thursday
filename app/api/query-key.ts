@@ -8,10 +8,14 @@ const encodePath = (path: string) =>
   path.split("/").map(encodeURIComponent).join("/");
 
 /**
- * Inverse of encodePath for catch-all segments. No decoding: Next already
+ * Inverse of encodePath for route-handler segments. No decoding: Next already
  * decodes segments, and decoding again throws on names containing `%`.
  */
 export const decodePath = (segments: string[]) => segments.join("/");
+
+/** Next.js page params retain URL encoding; decode once, including literal percent signs. */
+export const decodePagePath = (segments: string[]) =>
+  segments.map(decodeURIComponent).join("/");
 
 export const queryKey = {
   /** MemoryNote[] first page: pinned first, then by warmth */
@@ -49,7 +53,7 @@ export const queryKey = {
   }),
 
   /**
-   * Bot[]. `tasks` and `taskHistory` sit under this prefix, so editing a bot
+   * Bot[]. `threads` and `threadHistory` sit under this prefix, so editing a bot
    * also revalidates the inbox and loaded history pages.
    */
   bot: "/api/bot",
@@ -63,23 +67,23 @@ export const queryKey = {
   }),
 
   /**
-   * Inbox: Task[] newest first with threads, everything running or asking plus
-   * the most recent finished few. Read by use-thursday only; the `tasks` signal
+   * Inbox: Thread[] newest first with their lines, everything running or asking plus
+   * the most recent finished few. Read by use-thursday only; the `threads` signal
    * triggers revalidation, with a 30s poll as fallback.
    */
-  tasks: "/api/bot/task",
+  threads: "/api/bot/thread",
   /**
-   * History page: Task[] newest first. `before` is the last page's final
+   * History page: Thread[] newest first. `before` is the last page's final
    * updatedAt (ISO), null for the first page.
    */
-  taskHistory: (before: string | null) => ({
-    url: "/api/bot/task",
+  threadHistory: (before: string | null) => ({
+    url: "/api/bot/thread",
     query: { history: 1, before },
   }),
   /** ResultPart[]: the full result of one tool call; lists carry only a few lines. */
-  toolResult: (taskId: string | null, callId: string | null) => ({
-    url: "/api/bot/task",
-    pathVariable: [taskId],
+  toolResult: (threadId: string | null, callId: string | null) => ({
+    url: "/api/bot/thread",
+    pathVariable: [threadId],
     query: { call: callId },
   }),
   /**
@@ -133,9 +137,6 @@ export const queryKey = {
 
   /** boolean: whether the call may read a skill itself (Settings › Thursday) */
   callSkills: "/api/thursday/skills",
-
-  /** CallTranscript: whether the user's side of a call is written down, and each provider's model (Settings › Thursday) */
-  callTranscript: "/api/thursday/transcript",
 
   /**
    * POST, not a read; the one endpoint here SWR never touches. Body is

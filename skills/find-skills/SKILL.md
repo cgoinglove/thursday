@@ -24,14 +24,9 @@ npx skills add <owner>/<repo>@<skill> -y
 Never `-g`. That installs to the machine's own user directory, where this app
 never looks — the command reports success and the skill is nowhere.
 
-**A skill you install now is loadable next job, not this one.** Your skill list
-was built when this run started, so `load_skill` does not know the new name
-yet. For the rest of this job, read it yourself — the folder is the one the
-install printed:
-
-```bash
-cat .agents/skills/<skill>/SKILL.md
-```
+**Load it as soon as it is installed.** `load_skill` with the installed name
+finds it on disk, though your Skills list was read before the install; the list
+shows it from the next run.
 
 **Install it, do not offer it.** The user is not at this screen; you are inside
 a job someone else is holding. Pick one, install it, use it, and name it in

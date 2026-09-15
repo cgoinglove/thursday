@@ -1,46 +1,28 @@
 import z from "zod";
 import { ASCII_FACE } from "@/config";
-import {
-  type SpeachModelProviderId,
-  speachModelRefSchema,
-} from "@/features/ai/model.schema";
-import { botIconSchema, type TaskStatus } from "@/features/bot/bot.schema";
+import { LiveSettingsSchema } from "@/features/ai/live.schema";
+import { botIconSchema, type ThreadStatus } from "@/features/bot/bot.schema";
 import { ASCII_CHARSETS, FACE_KINDS } from "@/features/thursday/face.const";
 import type { DateLike } from "@/lib/date-like";
-import { COMMON_VALIDATE } from "@/lib/limits";
-import type { RealtimeCredential } from "@/lib/realtime/realtime.schema";
-import type { RealtimeSessionSetup } from "@/lib/realtime/realtime.session";
+import { LiveFragmentSchema } from "@/lib/live/live.schema";
 
 // Shared by server and browser: nothing here may touch the DB.
 
 /** The payload openCallAction parses. Browser-only settings live in thursday.store. */
-export const ThursdaySettingsSchema = z.object({
-  systemPrompt: z.string().max(COMMON_VALIDATE.prompt.max).nullish(),
-  /** null until picked; the server then falls back to a provider with a key. */
-  model: speachModelRefSchema.nullish(),
+export const ThursdaySettingsSchema = LiveSettingsSchema.extend({
   /** `navigator.language` (e.g. "ko-KR"). Only the first call's opening line uses it. */
   locale: z.string().max(35).nullish(),
 });
 
 export type ThursdaySettings = z.infer<typeof ThursdaySettingsSchema>;
 
-/**
- * What the browser receives to open a call. `credential` is used to connect;
- * `session` is sent as `session.update` after connecting (nothing is baked
- * into the secret).
- */
+/** The browser receives the SDP answer, the row to save turns to, and the opening. */
 export type CallHandshake = {
   /** The row every saved turn hangs off. Exists before the connection. */
   callId: string;
-  provider: SpeachModelProviderId;
-  credential: RealtimeCredential;
-  /** Sent as `session.update` once open; anything absent is the provider default. */
-  session: RealtimeSessionSetup;
-  /**
-   * A system item to inject as soon as the line opens so the model speaks
-   * first. Instructions alone do not make a realtime model open the conversation.
-   */
-  opening: string | null;
+  sdp: string;
+  /** Trusted instructions sent after session.started, so she speaks first. */
+  opening: string;
 };
 
 /**
@@ -70,16 +52,11 @@ export const FACE_DEFAULT: ThursdayFace = ThursdayFaceSchema.parse({});
 /**
  * Config keys (features/config config.query) the call's server-side settings
  * live under. Everything else about the call is the browser's (thursday.store);
- * these are read where the prompt, the tool set and a job's opening are built,
- * so they cannot be.
+ * these are read where the prompts and the tool set are built, so they cannot be.
  */
 export const THURSDAY_KEYS = {
   /** "on" hands the call `load_skill`; anything else, unset included, is off. */
   skills: "THURSDAY_SKILLS",
-  /** "off" stops writing the user's side down; anything else, unset included, is on. */
-  transcript: "THURSDAY_TRANSCRIPT",
-  /** JSON, voice provider → transcription model id; a provider left out runs its first. */
-  transcriptionModel: "THURSDAY_TRANSCRIPTION_MODEL",
 } as const;
 
 /**
@@ -87,27 +64,6 @@ export const THURSDAY_KEYS = {
  * mid-sentence spends the session's context on it (ai/load-tools).
  */
 export const isSkillsOn = (value: string | undefined) => value?.trim() === "on";
-
-/**
- * On unless switched off. Off, the user's side of a call is never written down,
- * so nothing that reads a call back runs either: saved turns, the Recent
- * conversation chapter, the turns in a job's opening, `memory_conversation`.
- */
-export const isTranscriptOn = (value: string | undefined) =>
-  value?.trim() !== "off";
-
-/** Each voice provider's picked transcription model. */
-export const TranscriptionModelsSchema = z.record(
-  z.string(),
-  z.string().trim().min(1).max(128),
-);
-
-/** The Transcript switch as Settings reads it. */
-export type CallTranscript = {
-  on: boolean;
-  /** Only what was picked; a provider missing here runs its first `transcriptionModels` entry. */
-  models: Partial<Record<SpeachModelProviderId, string>>;
-};
 
 export const WAKE_PHRASE = { min: 3, max: 32 };
 
@@ -181,6 +137,8 @@ export const CallTurnSchema = z.object({
   text: z.string(),
   /** Position in the conversation (call_message.seq). */
   seq: z.number().int().min(0),
+  /** Null on legacy rows and tool calls. Display groups can be revised. */
+  fragments: z.array(LiveFragmentSchema).nullish(),
 });
 
 export type CallTurn = z.infer<typeof CallTurnSchema>;
@@ -188,14 +146,13 @@ export type CallTurn = z.infer<typeof CallTurnSchema>;
 export type CallStatus =
   | "idle"
   | "connecting"
+  | "ending"
   | "listening"
   | "speaking"
   /** A tool is running. */
   | "working"
   /** Handing work to a background bot. */
   | "delegating";
-// No "ending" status: session.close() is synchronous, so it would be
-// overwritten by idle in the same batch and never render.
 
 /** The statuses a live call moves between. */
 export type LiveStatus = Extract<
@@ -208,15 +165,20 @@ export type CallRecord = {
   id: string;
   provider: string;
   model: string;
+  /** The Responses model that held the tools; null on rows written before Live. */
+  backendModel: string | null;
   startedAt: DateLike;
   /** null when the hang-up was never recorded. */
   endedAt: DateLike | null;
+  /** What the provider said on close, and the active seconds it billed. Null when unconfirmed. */
+  endedReason: string | null;
+  seconds: number | null;
   turns: (CallTurn & { at: DateLike })[];
   /** Jobs this call opened, as they stand now; the log draws each under the line that opened it. */
   jobs: {
     id: string;
     label: string;
-    status: TaskStatus;
+    status: ThreadStatus;
     outcome: string | null;
   }[];
 };

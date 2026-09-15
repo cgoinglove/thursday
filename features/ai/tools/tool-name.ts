@@ -20,7 +20,7 @@ export const TOOL_NAMES = {
   web_search: "web_search",
 
   delegate: "delegate",
-  task: "task",
+  thread: "thread",
   send_message: "send_message",
   // Historical tool names remain readable in stored conversations.
   ask_bot: "ask_bot",

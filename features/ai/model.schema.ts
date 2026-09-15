@@ -1,9 +1,5 @@
 import { z } from "zod";
 import { BOT_RUN } from "@/config";
-import {
-  REALTIME_PROVIDERS,
-  type SpeachModelProviderId,
-} from "@/lib/realtime/realtime.schema";
 
 /** Providers and model catalogs. Nothing is stored here; a model is named by whatever runs on it. */
 
@@ -24,20 +20,6 @@ export const textModelRefSchema = z.object({
 
 export type TextModelProviderId = z.infer<typeof textModelProviderSchema>;
 export type TextModelRef = z.infer<typeof textModelRefSchema>;
-
-/** Who runs the call. The ids are the realtime drivers that exist (lib/realtime/realtime.schema). */
-export const speachModelProviderSchema = z.enum(REALTIME_PROVIDERS);
-
-export const speachModelRefSchema = z.object({
-  provider: speachModelProviderSchema,
-  /** Null means whatever that provider's default voice is. */
-  voice: z.string().trim().min(1).max(64).nullish(),
-  /** Null means that provider's first model (SPEACH_MODEL_PROVIDERS). Free text so a new model needs no edit here. */
-  model: z.string().trim().min(1).max(80).nullish(),
-});
-
-export type { SpeachModelProviderId };
-export type SpeachModelRef = z.infer<typeof speachModelRefSchema>;
 
 /** Size of a suggested model, not quality. A label rather than a price because prices move. */
 export const MODEL_TIERS = ["small", "mid", "large"] as const;
@@ -594,102 +576,6 @@ const modelOfTier = (
 /** What a provider runs when nobody picked: the middle of its row. */
 export const defaultModelOf = (provider: { suggestModels: SuggestModel[] }) =>
   modelOfTier(provider, "mid");
-
-/**
- * The speech-to-speech backends. `models` and `voices` are suggestion lists, not validation
- * lists (the api takes more, e.g. a cloned voice id); the first model is the default. Written
- * out rather than fetched, best first.
- */
-export const SPEACH_MODEL_PROVIDERS: Record<
-  SpeachModelProviderId,
-  {
-    label: string;
-    apiKeyName: string;
-    /** What a key of theirs starts with (`detectSpeachProvider`); longest match wins. */
-    keyPrefix: string[];
-    /** Newest first — the head of this list is the default. */
-    models: { id: string; label: string }[];
-    /** What writes down the user's side of a call (Settings › Thursday › Transcript). The head is the default. */
-    transcriptionModels: { id: string; label: string }[];
-    voices: string[];
-    defaultVoice: string;
-  }
-> = {
-  openai: {
-    apiKeyName: TEXT_MODEL_PROVIDERS.openai.apiKeyName,
-    label: TEXT_MODEL_PROVIDERS.openai.label,
-    keyPrefix: ["sk-"],
-    models: [
-      { id: "gpt-realtime-2.1", label: "Realtime 2.1" },
-      { id: "gpt-realtime-2.1-mini", label: "Realtime 2.1 mini" },
-      { id: "gpt-realtime-2", label: "Realtime 2" },
-    ],
-    // Only the live model streams words while they speak; the file models answer once the turn ends, for less
-    transcriptionModels: [
-      { id: "gpt-live-transcribe", label: "Live Transcribe" },
-      { id: "gpt-4o-transcribe", label: "4o Transcribe" },
-      { id: "gpt-4o-mini-transcribe", label: "4o mini Transcribe" },
-    ],
-    // The spec's VoiceIdsShared enum; `marin` and `cedar` lead as the realtime docs' best-quality voices
-    voices: [
-      "marin",
-      "cedar",
-      "alloy",
-      "ash",
-      "ballad",
-      "coral",
-      "echo",
-      "sage",
-      "shimmer",
-      "verse",
-    ],
-    defaultVoice: "marin",
-  },
-  xai: {
-    apiKeyName: TEXT_MODEL_PROVIDERS.xai.apiKeyName,
-    label: TEXT_MODEL_PROVIDERS.xai.label,
-    keyPrefix: ["xai-"],
-    models: [
-      { id: "grok-voice-think-fast-2.0", label: "Voice Think Fast 2.0" },
-      // Tracks whatever xAI ships next; second because a name that moves under a running call is not a default
-      { id: "grok-voice-latest", label: "Voice latest" },
-    ],
-    transcriptionModels: [{ id: "grok-transcribe", label: "Grok Transcribe" }],
-    // `eve` is xAI's own default. All built-in ids; a cloned voice from POST /v1/custom-voices goes in the same field
-    voices: ["eve", "ara", "leo", "rex", "sal"],
-    defaultVoice: "eve",
-  },
-};
-
-/**
- * Which voice provider a pasted key belongs to; null when unknown. `sk-ant-` is excluded
- * because Anthropic keys share OpenAI's prefix and Anthropic cannot take a call.
- */
-export function detectSpeachProvider(
-  key: string,
-): SpeachModelProviderId | null {
-  const trimmed = key.trim();
-  if (!trimmed || trimmed.startsWith("sk-ant-")) return null;
-
-  let found: SpeachModelProviderId | null = null;
-  let longest = 0;
-  for (const id of Object.keys(
-    SPEACH_MODEL_PROVIDERS,
-  ) as SpeachModelProviderId[]) {
-    for (const prefix of SPEACH_MODEL_PROVIDERS[id].keyPrefix) {
-      if (trimmed.startsWith(prefix) && prefix.length > longest) {
-        found = id;
-        longest = prefix.length;
-      }
-    }
-  }
-  return found;
-}
-
-/** The record above in a stable order — the voice picker walks it. */
-export const SPEACH_MODEL_PROVIDER_LIST = (
-  Object.keys(SPEACH_MODEL_PROVIDERS) as SpeachModelProviderId[]
-).map((id) => ({ id, ...SPEACH_MODEL_PROVIDERS[id] }));
 
 /** The record above in a stable order — routes and pickers walk it. */
 export const TEXT_MODEL_PROVIDER_LIST = (

@@ -2,64 +2,41 @@
 
 import { asSchema } from "ai";
 import z from "zod";
+import { LIVE_PROVIDER } from "@/features/ai/live.schema";
 import { loadTools } from "@/features/ai/load-tools";
-import {
-  SPEACH_MODEL_PROVIDER_LIST,
-  SPEACH_MODEL_PROVIDERS,
-  type SpeachModelRef,
-} from "@/features/ai/model.schema";
+import { loadLivePrompt } from "@/features/ai/prompts/live.prompt";
 import { loadThursdayPrompt } from "@/features/ai/prompts/thursday.prompt";
-import { removeTask } from "@/features/bot/bot.runner";
-import { listAllTaskIds } from "@/features/bot/task.query";
+import { removeThread } from "@/features/bot/bot.runner";
+import { listAllThreadIds } from "@/features/bot/thread.query";
 import { readConfig } from "@/features/config/config.query";
 import { deleteAllNotes } from "@/features/memory/memory.query";
+import {
+  LIVE_MODEL,
+  LiveCloseSchema,
+  type ToolManifest,
+} from "@/lib/live/live.schema";
+import { createLiveCall } from "@/lib/live/live.server";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
-import { issueClientSecret } from "@/lib/realtime/client-secret";
-import {
-  REALTIME_PROVIDERS,
-  type ToolManifest,
-} from "@/lib/realtime/realtime.schema";
 import {
   deleteCall,
   deleteEndedCalls,
   endCall,
   insertCall,
-  readCallTranscript,
   saveTurns,
   writeCallSkillsOn,
-  writeCallTranscriptOn,
-  writeTranscriptionModel,
 } from "./thursday.query";
 import {
   type CallHandshake,
   CallTurnSchema,
-  type ThursdaySettings,
   ThursdaySettingsSchema,
 } from "./thursday.schema";
 
 // Server actions run one at a time per client, so the recording actions stay
 // small: a tool call mid-sentence may be queued behind them.
 
-/** The picked model if its key still exists, else the first provider with a key. */
-async function resolveVoiceModel(
-  picked: ThursdaySettings["model"],
-): Promise<SpeachModelRef> {
-  if (
-    picked &&
-    (await readConfig(SPEACH_MODEL_PROVIDERS[picked.provider].apiKeyName))
-  ) {
-    return picked;
-  }
-
-  // Voice and model ids are provider-specific, so neither carries over.
-  for (const provider of SPEACH_MODEL_PROVIDER_LIST) {
-    if (await readConfig(provider.apiKeyName)) {
-      return { provider: provider.id, voice: null, model: null };
-    }
-  }
-  publicError("No voice key — calls run on one. Add one in Config.");
-}
+/** An offer with every ICE candidate gathered stays far below this. */
+const SDP_MAX_LENGTH = 65_536;
 
 /**
  * The same tool set /api/thursday/tool-call executes. Tools without `execute`
@@ -84,53 +61,56 @@ async function loadToolManifest(): Promise<ToolManifest[]> {
 }
 
 /**
- * Opens a call: inserts the row and returns the credential plus what to send
- * once connected. Settings live in the browser (thursday.store), so they arrive
- * as an argument and are parsed, not trusted.
+ * Opens a Live call from the browser's SDP offer. Both prompts, the tool manifest
+ * and the account key stay here; the browser gets the SDP answer, the call row
+ * and what it needs to draw and save the call.
  */
 export const openCallAction = serverAction(
-  async (settings: ThursdaySettings): Promise<CallHandshake> => {
+  async (settings: unknown, sdp: unknown): Promise<CallHandshake> => {
     const thursday = ThursdaySettingsSchema.parse(settings);
+    const offer = z.string().min(1).max(SDP_MAX_LENGTH).parse(sdp);
+    const apiKey = await readConfig(LIVE_PROVIDER.apiKeyName);
+    if (!apiKey) {
+      publicError(`No ${LIVE_PROVIDER.label} key — add one in Config.`);
+    }
 
-    const ref = await resolveVoiceModel(thursday.model);
-    const provider = SPEACH_MODEL_PROVIDERS[ref.provider];
-    const apiKey = await readConfig(provider.apiKeyName);
-    if (!apiKey) publicError(`No ${provider.label} key — add one in Config.`);
-
-    // Assembled per call, never cached: the prompt reads what earlier calls stored.
-    const [prompt, tools, transcript] = await Promise.all([
-      loadThursdayPrompt(thursday.systemPrompt, thursday.locale),
+    // Assembled per call, never cached: both prompts read what earlier calls stored.
+    const [voice, backend, tools] = await Promise.all([
+      loadLivePrompt({
+        voicePrompt: thursday.voicePrompt,
+        webSearch: thursday.webSearch,
+        locale: thursday.locale,
+      }),
+      loadThursdayPrompt(thursday.backendPrompt),
       loadToolManifest(),
-      readCallTranscript(),
     ]);
 
-    // Free-text model ids are not validated here; the provider rejects at issue time.
-    const model = ref.model ?? provider.models[0].id;
-    // Issue before insert: a rejected credential must not leave an open call row
-    // nobody can close.
-    const credential = await issueClientSecret({
-      provider: ref.provider,
+    // Connect before insert: a refused key or model must not leave an open row nobody can close.
+    // Free-text model ids are not checked here; the provider refuses them and says why.
+    const connection = await createLiveCall({
       apiKey,
-      model,
+      sdp: offer,
+      voice: thursday.voice,
+      instructions: voice.text,
+      input: voice.input,
+      backend: {
+        model: thursday.backendModel,
+        instructions: backend,
+        tools,
+        reasoningEffort: thursday.reasoningEffort,
+        webSearch: thursday.webSearch,
+      },
     });
-    const callId = await insertCall({ provider: ref.provider, model });
+    const callId = await insertCall({
+      provider: LIVE_PROVIDER.id,
+      model: LIVE_MODEL,
+      backendModel: thursday.backendModel,
+    });
 
     return {
       callId,
-      provider: ref.provider,
-      credential,
-      session: {
-        model,
-        voice: ref.voice ?? provider.defaultVoice,
-        instructions: prompt.text,
-        tools,
-        // Null tells the page not to save the call either
-        transcription: transcript.on
-          ? (transcript.models[ref.provider] ??
-            provider.transcriptionModels[0].id)
-          : null,
-      },
-      opening: prompt.opening,
+      sdp: connection.transport.sdp,
+      opening: voice.opening,
     };
   },
 );
@@ -143,33 +123,24 @@ export const setCallSkillsAction = serverAction(async (on: unknown) => {
   await writeCallSkillsOn(z.boolean().parse(on));
 });
 
-/**
- * The Transcript switch. Nothing is cached: the next call reads it where it
- * opens, where its prompt and tools are built, and where it hands over a job.
- */
-export const setCallTranscriptAction = serverAction(async (on: unknown) => {
-  await writeCallTranscriptOn(z.boolean().parse(on));
-});
-
-/** Null goes back to the provider's first model. Ids are not checked: the provider refuses at connect. */
-export const setTranscriptionModelAction = serverAction(
-  async (provider: unknown, model: unknown) => {
-    await writeTranscriptionModel(
-      z.enum(REALTIME_PROVIDERS).parse(provider),
-      z.string().trim().min(1).max(128).nullable().parse(model),
-    );
-  },
-);
-
 export const saveTurnsAction = serverAction(
   async (callId: string, turns: unknown) => {
     await saveTurns(callId, CallTurnSchema.array().min(1).parse(turns));
   },
 );
 
-export const endCallAction = serverAction(async (callId: string) => {
-  await endCall(callId);
-});
+/**
+ * Ends the row. `close` is what `session.closed` confirmed; absent when the
+ * confirmation never came, which leaves the billed seconds unknown.
+ */
+export const endCallAction = serverAction(
+  async (callId: unknown, close?: unknown) => {
+    await endCall(
+      z.string().min(1).parse(callId),
+      LiveCloseSchema.nullish().parse(close),
+    );
+  },
+);
 
 /**
  * Deletes a call and its turns; the next call's prompt no longer includes it.
@@ -191,19 +162,19 @@ export const deleteEndedCallsAction = serverAction(async () =>
 
 /**
  * Wipes what the app has kept of its own use: every ended call and its turns,
- * every job and its thread, and every memory note. Keys, bots and connectors
+ * every thread and its messages, and every memory note. Keys, bots and connectors
  * stay — the set `pnpm reset` calls History.
  *
  * History is not one domain, so this reaches into three and each clears its own
- * rows. Live work is stopped before its row goes: `removeTask` aborts a running
+ * rows. Live work is stopped before its row goes: `removeThread` aborts a running
  * job and closes its shell.
  */
 export const resetHistoryAction = serverAction(async () => {
-  const taskIds = await listAllTaskIds();
-  for (const id of taskIds) await removeTask(id);
+  const threadIds = await listAllThreadIds();
+  for (const id of threadIds) await removeThread(id);
 
   const calls = await deleteEndedCalls();
   const notes = await deleteAllNotes();
 
-  return { calls, tasks: taskIds.length, notes };
+  return { calls, threads: threadIds.length, notes };
 });

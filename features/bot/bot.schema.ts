@@ -7,10 +7,10 @@ import {
 import { DateLikeSchema } from "@/lib/date-like";
 import { COMMON_VALIDATE } from "@/lib/limits";
 import { clip } from "@/lib/utils";
-import { MARK_SHAPES, randomMarkColors } from "./mark.const";
+import { MARK_PAINT_IDS, MARK_SHAPES, randomMarkColors } from "./mark.const";
 import { ROOM_THURSDAY, RoomViewSchema } from "./room.schema";
 
-/** How a bot's mark is drawn. Both fields are optional; the seed alone gives every bot a distinct face. */
+/** How a bot's mark is drawn. Every field is optional; the seed alone gives every bot a distinct face. */
 export const botIconSchema = z.object({
   /** A hex colour, or MARK_SYSTEM to follow the theme. Stored so a chosen "system" differs from no choice. */
   color: z
@@ -20,6 +20,8 @@ export const botIconSchema = z.object({
   shape: z.enum(MARK_SHAPES).optional(),
   /** Draw as an outline instead of a fill. */
   outline: z.boolean().optional(),
+  /** A paint (MARK_PAINTS) worn in place of the colour; the colour stays for when it comes off. */
+  paint: z.enum(MARK_PAINT_IDS).optional(),
 });
 
 export const botSystemPromptSchema = z.string().max(COMMON_VALIDATE.prompt.max);
@@ -200,32 +202,37 @@ export type BotMemory = {
  * `waiting`: the bot stopped on a question only the user can answer; the answer
  * resumes the same thread. `done` and `failed` can be resumed as well.
  */
-export const TASK_STATUSES = ["running", "waiting", "done", "failed"] as const;
+export const THREAD_STATUSES = [
+  "running",
+  "waiting",
+  "done",
+  "failed",
+] as const;
 
-export type TaskStatus = (typeof TASK_STATUSES)[number];
+export type ThreadStatus = (typeof THREAD_STATUSES)[number];
 
 /** One page of history (config PAGE_SIZE). */
-export const TASK_HISTORY_PAGE = PAGE_SIZE;
+export const THREAD_HISTORY_PAGE = PAGE_SIZE;
 
 /** The single option offered when the app stopped a job and asks whether to go on. Button text and spoken word alike. */
-export const TASK_CONTINUE = "Continue";
+export const THREAD_CONTINUE = "Continue";
 
 /**
- * Who a person's words to a job came from (bot.runner answerTask). Thursday
+ * Who a person's words to a job came from (bot.runner answerThread). Thursday
  * passing something on from a call and the user typing on screen reach a bot
  * down one pipe, so the words carry it in front of them.
  */
-export type TaskSpeaker = "thursday" | "user";
+export type ThreadSpeaker = "thursday" | "user";
 
-const SPEAKER_TAGS: Record<TaskSpeaker, string> = {
+const SPEAKER_TAGS: Record<ThreadSpeaker, string> = {
   thursday: "Thursday, on the call:",
   user: "The user, on screen:",
 };
 
-export const tagSpeaker = (from: TaskSpeaker, text: string): string =>
+export const tagSpeaker = (from: ThreadSpeaker, text: string): string =>
   `${SPEAKER_TAGS[from]} ${text}`;
 
-/** The words without their tag, as the screen draws a person's line (task.query linesOf). */
+/** The words without their tag, as the screen draws a person's line (thread.query linesOf). */
 export const untagSpeaker = (text: string): string => {
   for (const tag of Object.values(SPEAKER_TAGS)) {
     if (text.startsWith(`${tag} `)) return text.slice(tag.length + 1);
@@ -234,7 +241,7 @@ export const untagSpeaker = (text: string): string => {
 };
 
 /** A room's primary user question or resume control. toolCallId reads legacy questions only. */
-export type TaskPending = {
+export type ThreadPending = {
   toolCallId: string | null;
   options: string[];
   auto?: boolean;
@@ -250,10 +257,10 @@ export type TaskPending = {
  */
 export const isAppStop = (ask: { options: string[] } | null | undefined) => {
   const options = ask?.options ?? [];
-  return options.length === 1 && options[0] === TASK_CONTINUE;
+  return options.length === 1 && options[0] === THREAD_CONTINUE;
 };
 
-/** One piece of a tool result as the screen draws it. Full output stays in the server thread. */
+/** One piece of a tool result as the screen draws it. Full output stays in the stored messages. */
 export const ResultPartSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("text"), text: z.string() }),
   /** data: or http(s) url usable in an <img>. */
@@ -273,14 +280,14 @@ const LineBase = z.object({
   at: DateLikeSchema,
 });
 
-export const TaskLineSchema = z.discriminatedUnion("kind", [
+export const ThreadLineSchema = z.discriminatedUnion("kind", [
   /** What the user said (via Thursday): request, answer. */
   LineBase.extend({ kind: z.literal("user"), text: z.string() }),
   /** Bot text; the last one is the answer. */
   LineBase.extend({ kind: z.literal("text"), text: z.string() }),
   /** Compaction summary (bot.run compact). The model resumes from here; the screen draws it as a divider. */
   LineBase.extend({ kind: z.literal("note"), text: z.string() }),
-  /** Why the app stopped the run (bot.runner parkTask, a run that broke), without what the resumed run is told to check. */
+  /** Why the app stopped the run (bot.runner parkThread, a run that broke), without what the resumed run is told to check. */
   LineBase.extend({ kind: z.literal("stop"), text: z.string() }),
   LineBase.extend({
     kind: z.literal("tool"),
@@ -297,9 +304,9 @@ export const TaskLineSchema = z.discriminatedUnion("kind", [
     kind: z.literal("tool-result"),
     callId: z.string(),
     name: z.string(),
-    /** A glance's worth; the rest is behind `queryKey.toolResult`. */
+    /** A glance: a few text lines, each clipped. The whole output is behind `queryKey.toolResult`. */
     results: ResultPartSchema.array(),
-    /** Something was clipped. */
+    /** The output holds more than the glance: more lines, a clipped line, or an image. */
     more: z.boolean(),
   }),
   /**
@@ -309,6 +316,7 @@ export const TaskLineSchema = z.discriminatedUnion("kind", [
     callId: z.string(),
     to: z.string(),
     text: z.string(),
+    question: z.boolean().optional(),
   }),
   LineBase.extend({
     kind: z.literal("ask-result"),
@@ -325,10 +333,10 @@ export const TaskLineSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
-export type TaskLine = z.infer<typeof TaskLineSchema>;
+export type ThreadLine = z.infer<typeof ThreadLineSchema>;
 
 /** One line of where a job is: the bot's last text plus the tool it reached for after. Stops at a user-side line. */
-export function taskActivity(lines: TaskLine[], max = 120): string | null {
+export function threadActivity(lines: ThreadLine[], max = 120): string | null {
   let doing: string | null = null;
   for (let at = lines.length - 1; at >= 0; at--) {
     const line = lines[at];
@@ -352,11 +360,11 @@ export function taskActivity(lines: TaskLine[], max = 120): string | null {
 }
 
 /**
- * What a `waiting` task asks: question from the row's `outcome`, options from
- * `pending`. `auto` is a stop the app picks back up by itself (TaskPending), so
+ * What a `waiting` thread asks: question from the row's `outcome`, options from
+ * `pending`. `auto` is a stop the app picks back up by itself (ThreadPending), so
  * nobody is told about it and nobody is rung for it.
  */
-export const TaskAskSchema = z.object({
+export const ThreadAskSchema = z.object({
   question: z.string(),
   messageId: z.string().optional(),
   bot: z.string().optional(),
@@ -364,20 +372,20 @@ export const TaskAskSchema = z.object({
   auto: z.boolean(),
 });
 
-export type TaskAsk = z.infer<typeof TaskAskSchema>;
+export type ThreadAsk = z.infer<typeof ThreadAskSchema>;
 
-/** Task as the screen and voice tools see it. */
-export const TaskSchema = z.object({
+/** Thread as the screen and voice tools see it. */
+export const ThreadSchema = z.object({
   id: z.string(),
   bot: z.string(),
   label: z.string(),
   request: z.string(),
-  status: z.enum(TASK_STATUSES),
+  status: z.enum(THREAD_STATUSES),
   outcome: z.string().nullable(),
   /** Set only while `waiting`. */
-  ask: TaskAskSchema.nullable(),
+  ask: ThreadAskSchema.nullable(),
   /**
-   * Whether the user has had the ending: Thursday said it on a call, or a task
+   * Whether the user has had the ending: Thursday said it on a call, or a thread
    * list was on screen while it sat there. A cancel is seen by whoever cancelled.
    * A highlight and a count, never a filter.
    */
@@ -389,13 +397,15 @@ export const TaskSchema = z.object({
   contextBudget: z.number(),
   createdAt: DateLikeSchema,
   updatedAt: DateLikeSchema,
-  /** Thread reduced for drawing; the model's messages stay on the server. */
-  lines: TaskLineSchema.array(),
+  /** Lines to draw; the model's messages stay on the server. */
+  lines: ThreadLineSchema.array(),
   room: RoomViewSchema.nullish(),
 });
 
-export type Task = z.infer<typeof TaskSchema>;
+export type Thread = z.infer<typeof ThreadSchema>;
 
 /** A participant can ask the user while other participants keep working. */
-export const needsTaskReply = (task: { status: string; room?: Task["room"] }) =>
-  task.status === "waiting" || !!task.room?.questions.length;
+export const needsThreadReply = (thread: {
+  status: string;
+  room?: Thread["room"];
+}) => thread.status === "waiting" || !!thread.room?.questions.length;

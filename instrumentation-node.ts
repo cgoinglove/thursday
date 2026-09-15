@@ -1,25 +1,36 @@
 export async function boot() {
-  const { APP_DIR, APP_NAME, DATA_DIR, WORKSPACE_KEEP } = await import(
-    "@/config"
-  );
+  const { APP_DIR, APP_NAME, DATA_DIR, DB_FILE_NAME, WORKSPACE_KEEP } =
+    await import("@/config");
   const { logger } = await import("@/lib/logger");
 
+  // Nothing can run on a database this build cannot migrate, and nothing can
+  // remove it while this process holds it: say why, then exit with the code
+  // both starters answer by offering to remove it (bin/database.mjs).
   const { migrateDatabase } = await import("@/database/migrate");
-  await migrateDatabase();
+  await migrateDatabase().catch((cause) => {
+    const path = DB_FILE_NAME.replace(/^file:/, "");
+    logger.error(`Cannot migrate ${path}`);
+    console.error(
+      `  ${cause instanceof Error ? cause.message : cause}\n` +
+        "  Removing it starts over with an empty one. API keys, bots, connectors, calls, threads and memory go with it; the workspace and skills stay.\n" +
+        `  rm "${path}" "${path}-wal" "${path}-shm"\n`,
+    );
+    process.exit(65);
+  });
 
   // The two notes about the user must exist before any prompt lists them.
   const { ensureRootNotes } = await import("@/features/memory/memory.query");
   await ensureRootNotes();
 
-  // Tasks left `running` by the previous process are not running now.
-  const { sweepJobFiles, sweepTasks } = await import(
+  // Threads left `running` by the previous process are not running now.
+  const { sweepJobFiles, sweepThreads } = await import(
     "@/features/bot/bot.runner"
   );
-  await sweepTasks();
+  await sweepThreads();
 
   // What jobs left behind is cleared by age (config WORKSPACE_KEEP): once now,
   // then on a timer. Housekeeping rather than work, so no browser is needed.
-  // After sweepTasks, so a job the last process left running counts as waiting.
+  // After sweepThreads, so a job the last process left running counts as waiting.
   const sweepFiles = () =>
     void sweepJobFiles().catch((cause) =>
       logger.error("sweep job files", cause),
@@ -34,19 +45,19 @@ export async function boot() {
 
   // Browser absence pauses work automatically. Restart and failure require manual resume.
   const { presence } = await import("@/app/api/events/app-event.server");
-  const { pauseTasks, resumeStoppedTasks } = await import(
+  const { pauseThreads, resumeStoppedThreads } = await import(
     "@/features/bot/bot.runner"
   );
   presence.onGone(() => {
     logger.info("browser gone — stopping what was running");
-    void pauseTasks("The browser closed while this was running.", true).catch(
-      (cause) => logger.error("pause tasks", cause),
+    void pauseThreads("The browser closed while this was running.", true).catch(
+      (cause) => logger.error("pause threads", cause),
     );
     void sweepCalls().catch((cause) => logger.error("sweep calls", cause));
   });
   presence.onBack(() => {
-    void resumeStoppedTasks().catch((cause) =>
-      logger.error("resume tasks", cause),
+    void resumeStoppedThreads().catch((cause) =>
+      logger.error("resume threads", cause),
     );
   });
 
@@ -61,9 +72,9 @@ export async function boot() {
         if (stopping) return;
         stopping = true;
         logger.info(`${signal} — parking what was running`);
-        const parked = pauseTasks(
+        const parked = pauseThreads(
           "The server was shut down while this was running.",
-        ).catch((cause) => logger.error("pause tasks", cause));
+        ).catch((cause) => logger.error("pause threads", cause));
         // The launcher kills the server four seconds after passing a stop on
         const late = new Promise((resolve) => setTimeout(resolve, 3_000));
         void Promise.race([parked, late]).finally(() => process.exit(code));

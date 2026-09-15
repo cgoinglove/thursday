@@ -27,7 +27,7 @@ import { Segmented } from "@/components/ui/segmented";
 import { ArtifactMark } from "@/features/artifact/components/artifact-mark";
 import { BotBadge } from "@/features/bot/components/bot-badge";
 import { BotsMark } from "@/features/bot/components/bot-mark";
-import { TaskBadge } from "@/features/bot/components/task-badge";
+import { ThreadBadge } from "@/features/bot/components/thread-badge";
 import { ConfigBadge } from "@/features/config/components/config-badge";
 import { ModelsBadge } from "@/features/config/components/models-badge";
 import { McpBadge } from "@/features/connectors/components/mcp-badge";
@@ -70,9 +70,9 @@ const BotSetting = lazySection(
     })),
   SettingPanesSkeleton,
 );
-const TaskSetting = lazySection(() =>
-  import("@/features/bot/components/task-setting").then((m) => ({
-    default: m.TaskSetting,
+const ThreadSetting = lazySection(() =>
+  import("@/features/bot/components/thread-setting").then((m) => ({
+    default: m.ThreadSetting,
   })),
 );
 const ConfigSetting = lazySection(() =>
@@ -134,7 +134,7 @@ export const SECTIONS: readonly {
     id: "thursday",
     label: "Thursday",
     group: "call",
-    hint: "Her face, voice and prompt",
+    hint: "Her face, models, and how a call starts",
     icon: ThursdayAsciiMark,
     Component: ThursdaySetting,
   },
@@ -156,13 +156,13 @@ export const SECTIONS: readonly {
     Badge: BotBadge,
   },
   {
-    id: "tasks",
-    label: "Tasks",
+    id: "threads",
+    label: "Threads",
     group: "work",
     hint: "Jobs the bots were handed, and what came of them",
     icon: ListChecks,
-    Component: TaskSetting,
-    Badge: TaskBadge,
+    Component: ThreadSetting,
+    Badge: ThreadBadge,
   },
   {
     id: "artifact",

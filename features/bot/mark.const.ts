@@ -1,4 +1,4 @@
-import { SPECTRUM_BANDS } from "@/lib/realtime/realtime.tap";
+import { SPECTRUM_BANDS } from "@/lib/live/live.tap";
 
 /**
  * Vocabulary a mark is drawn from. Lives outside the renderer (a client
@@ -9,7 +9,7 @@ import { SPECTRUM_BANDS } from "@/lib/realtime/realtime.tap";
 export const MARK_BANDS = SPECTRUM_BANDS;
 
 /** Every silhouette a mark can draw. */
-export const MARK_SHAPES = ["blob", "poly", "squircle"] as const;
+export const MARK_SHAPES = ["blob", "poly", "squircle", "heart"] as const;
 
 export type MarkShape = (typeof MARK_SHAPES)[number];
 
@@ -39,23 +39,11 @@ const MARK_COLORS = [
   { id: "emerald", label: "Emerald", value: "#10B981" },
   { id: "yellow", label: "Yellow", value: "#EAB308" },
   { id: "stone", label: "Stone", value: "#78716C" },
-  // Dark enough to carry weight on light themes, light enough not to sink into a dark background.
-  { id: "navy", label: "Navy", value: "#1E3A8A", dark: true },
-  { id: "ocean", label: "Ocean", value: "#155E75", dark: true },
-  { id: "pine", label: "Pine", value: "#166534", dark: true },
-  { id: "moss", label: "Moss", value: "#3F6212", dark: true },
-  { id: "olive", label: "Olive", value: "#854D0E", dark: true },
-  { id: "rust", label: "Rust", value: "#9A3412", dark: true },
-  { id: "wine", label: "Wine", value: "#9F1239", dark: true },
-  { id: "plum", label: "Plum", value: "#6B21A8", dark: true },
-  { id: "grape", label: "Grape", value: "#5B21B6", dark: true },
-  { id: "iron", label: "Iron", value: "#334155", dark: true },
+  // No darker neutrals: black is the theme dot, and a dark grey sinks into a dark theme.
 ] as const satisfies readonly {
   id: string;
   label: string;
   value: string;
-  /** Marks the dark row; MARK_PALETTE_ROWS splits on it. */
-  dark?: true;
 }[];
 
 export type MarkColor = (typeof MARK_COLORS)[number];
@@ -83,10 +71,61 @@ export function randomMarkColors(count: number): string[] {
   return pool.slice(0, count);
 }
 
-/** MARK_PALETTE split into a light row and a dark row, so pickers break the line on meaning. */
-export const MARK_PALETTE_ROWS: string[][] = [
-  MARK_COLORS.filter(
-    (color) => color.value !== MARK_SYSTEM && !("dark" in color),
-  ).map((color) => color.value),
-  MARK_COLORS.filter((color) => "dark" in color).map((color) => color.value),
+/** How the renderer lays a paint's colours out. */
+export type MarkPaintLook = "flow" | "duo" | "aurora";
+
+const hues = (list: number[], lightness: number, chroma: number) =>
+  list.map((hue) => `oklch(${lightness} ${chroma} ${hue})`);
+
+/**
+ * Paints a body can wear in place of its colour. Each names its colours once, for
+ * the renderer and for the swatch that picks it. Aurora lists its night first
+ * (two colours), then one light per curtain.
+ */
+export const MARK_PAINTS = {
+  rainbow: {
+    label: "Rainbow",
+    look: "flow",
+    colors: hues([0, 45, 90, 140, 190, 240, 290, 330, 360], 0.77, 0.16),
+  },
+  duo: { label: "Duo", look: "duo", colors: ["#818CF8", "#F472B6"] },
+  aurora: {
+    label: "Aurora",
+    look: "aurora",
+    edge: "dark",
+    colors: ["#1a2f73", "#2c56c9", "#34d399", "#22d3ee", "#a7f3d0"],
+  },
+  "aurora-pink": {
+    label: "Pink aurora",
+    look: "aurora",
+    edge: "dark",
+    colors: ["#3a1478", "#7c3aed", "#f472b6", "#e879f9", "#fbcfe8"],
+  },
+} satisfies Record<
+  string,
+  {
+    label: string;
+    look: MarkPaintLook;
+    colors: string[];
+    /** A dark body: the mark draws its eyes, which as holes would show the dark page it sinks into. */
+    edge?: "dark";
+  }
+>;
+
+export type MarkPaint = keyof typeof MARK_PAINTS;
+
+export type MarkPaintSpec = (typeof MARK_PAINTS)[MarkPaint];
+
+export const MARK_PAINT_IDS = Object.keys(MARK_PAINTS) as [
+  MarkPaint,
+  ...MarkPaint[],
 ];
+
+/** A paint as a still CSS background, for the swatch that picks it. */
+export function paintSwatch(paint: MarkPaint): string {
+  const { look, colors } = MARK_PAINTS[paint];
+  if (look === "aurora") {
+    return `radial-gradient(circle at 35% 30%, ${colors[2]}, transparent 70%), linear-gradient(180deg, ${colors[0]}, ${colors[1]})`;
+  }
+  return `linear-gradient(135deg, ${colors.join(", ")})`;
+}

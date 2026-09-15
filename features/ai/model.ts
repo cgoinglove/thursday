@@ -39,7 +39,6 @@ import {
   type MediaModelRef,
   parseMediaModel,
   parseTextModel,
-  SPEACH_MODEL_PROVIDER_LIST,
   type SuggestModel,
   TEXT_MODEL_PROVIDER_LIST,
   TEXT_MODEL_PROVIDERS,
@@ -455,8 +454,7 @@ export async function getTextModel(ref: TextModelRef): Promise<TextModel> {
 /**
  * The model when nobody picked one; a bot with no model asks here on every run (bot.run
  * resolveModel). Order: the named provider, then the default set in Settings > Models, then
- * the provider the calls run on (a voice key is also a text key, model.schema
- * SPEACH_MODEL_PROVIDERS), then any provider with a key.
+ * OpenAI and xAI, then any provider with a key.
  */
 export async function resolveDefaultModel(
   providerId?: string,
@@ -472,10 +470,9 @@ export async function resolveDefaultModel(
   const named = providerId
     ? TEXT_MODEL_PROVIDER_LIST.find((v) => v.id === providerId)
     : undefined;
-  // The provider the calls run on; REALTIME_PROVIDERS is a subset of the text list, so ids carry over (realtime.schema)
-  const voiced = SPEACH_MODEL_PROVIDER_LIST.map((provider) => ({
-    ...TEXT_MODEL_PROVIDERS[provider.id],
-    id: provider.id,
+  const preferred = (["openai", "xai"] as const).map((id) => ({
+    ...TEXT_MODEL_PROVIDERS[id],
+    id,
   }));
 
   if (named) {
@@ -493,7 +490,7 @@ export async function resolveDefaultModel(
   )
     return chosen;
 
-  for (const provider of [...voiced, ...TEXT_MODEL_PROVIDER_LIST]) {
+  for (const provider of [...preferred, ...TEXT_MODEL_PROVIDER_LIST]) {
     if (!(await readConfig(provider.apiKeyName))) continue;
     const model = await workhorse(provider);
     if (model) {

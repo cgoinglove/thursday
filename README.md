@@ -23,7 +23,7 @@ An open-source voice-first agent harness, in the same spirit as [OpenClaw](https
 npx thursday-agent
 ```
 
-Add one OpenAI or xAI key on the first screen. Then say **“hey thursday.”** No Thursday account and no `.env` file.
+Add an OpenAI API key on the first screen. Then say **“hey thursday.”** No Thursday account and no `.env` file.
 
 <br>
 
@@ -45,13 +45,13 @@ That is the Friday feeling: you think out loud, your assistant answers, and work
 
 Thursday does not hand your request to a single agent and hope. The bots talk to each other.
 
-![Jarvis splits the job, Navigator reads six shops, Scribe builds the page — a room nobody typed in](docs/images/task-thread.png)
+![Jarvis splits the job, Navigator reads six shops, Scribe builds the page — a room nobody typed in](docs/images/thread-room.png)
 
 Ask for a one-page lookbook of coats for the trip. **Jarvis** takes the job and decides neither part is its own. **Navigator** opens six shops in a real browser and brings back prices, links, and pictures. **Scribe** turns that into the page. Jarvis makes sure the pieces fit and hands the result to Thursday — and you hear one sentence.
 
 Every handoff is written down. Open the room to see who did what, or type into it and the job picks up where it left off.
 
-Each bot keeps its own conversation and browser identity for that task. Messages are asynchronous: a bot can work while a colleague works, rest until a reply arrives, and return to the same conversation. Use **Step in** to address a particular bot. After a server interruption, continue manually from the saved work. See [task rooms](docs/task-rooms.md) for the engine and recovery guarantees.
+Each bot keeps its own conversation and browser identity for that thread. Messages are asynchronous: a bot can work while a colleague works, rest until a reply arrives, and return to the same conversation. Use **Step in** to address a particular bot. After a server interruption, continue manually from the saved work. See [thread rooms](docs/thread-rooms.md) for the engine and recovery guarantees.
 
 <br>
 
@@ -77,7 +77,7 @@ Each bot keeps its own conversation and browser identity for that task. Messages
 - **Bring your tools and models.** Connect MCP servers, choose models, and create bots with their own roles, tools, and memory.
 - **End the call when you are done talking.** Jobs keep working while the app stays open. Close the app and they pause until you return.
 
-Thursday ships with Jarvis to plan, Navigator to browse, and Scribe to write. Make your own with a name and one sentence about what it is for — and when a real decision is needed, a bot asks you.
+Thursday ships with Jarvis to plan, Analyst to find the numbers, and Lambda to turn work that repeats into scripts. Make your own with a name and one sentence about what it is for — and when a real decision is needed, a bot asks you.
 
 <br>
 
@@ -85,7 +85,7 @@ Thursday ships with Jarvis to plan, Navigator to browse, and Scribe to write. Ma
 
 The app, database, workspace, keys, memory, and browser sessions live on your computer. The server binds to `127.0.0.1`; there is no Thursday account or hosted control plane.
 
-Calls and agent tasks still use the model providers you configure. A connected service receives the requests you deliberately send through it. Thursday is a powerful local agent with a real shell, not a security sandbox — read [SECURITY.md](SECURITY.md) before giving it sensitive access.
+Calls and bot threads still use the model providers you configure. A connected service receives the requests you deliberately send through it. Thursday is a powerful local agent with a real shell, not a security sandbox — read [SECURITY.md](SECURITY.md) before giving it sensitive access.
 
 <br>
 
@@ -112,7 +112,7 @@ Requires Node 22.18+. It opens on `localhost:3000`, or the next free port. The f
 
 | | Providers |
 |---|---|
-| **Voice** | OpenAI Realtime · xAI Grok Voice |
+| **Voice** | OpenAI GPT-Live 1, with a GPT-5.6 Luna backend by default |
 | **Bots** | OpenAI · Anthropic · Google · xAI · Vercel AI Gateway · ChatGPT sign-in |
 | **Studio** | OpenAI · Google · xAI · Vercel AI Gateway |
 

@@ -28,17 +28,18 @@ import { SkillsMark } from "@/features/skills/components/skills-mark";
 import { FileLink } from "@/features/workspace/components/file-view";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn } from "@/lib/utils";
-import type { ToolUse } from "../task.store";
+import type { ToolUse } from "../thread.store";
 
 /*
  * Tool calls rendered per tool: TOOL_VIEWS by name, GenericTool for the rest. Results
- * arrive with only a few lines (bot.query RESULT_LINES); "Everything" fetches the rest on demand.
+ * arrive as a glance (thread.query RESULT_LINES, each line clipped); "Everything"
+ * fetches the whole output, and only once it is opened.
  */
 
 type ToolProps = {
   tool: ToolUse;
   /** Half of the key for fetching the full result. */
-  taskId?: string;
+  threadId?: string;
   /** Start folded to the title line. A running tool is always expanded regardless. */
   collapsed?: boolean;
 };
@@ -68,7 +69,7 @@ const TOOL_ICONS: Record<string, LucideIcon> = {
   tool_search: McpMark,
   tool_call: McpMark,
   delegate: Send,
-  task: ListChecks,
+  thread: ListChecks,
   ask_bot: MessageSquare,
   ask_back: MessageSquare,
   ask_thursday: MessageSquare,
@@ -83,10 +84,10 @@ export function BotTool(props: ToolProps) {
   return <View {...props} />;
 }
 
-function WebSearchTool({ tool, taskId, collapsed }: ToolProps) {
+function WebSearchTool({ tool, threadId, collapsed }: ToolProps) {
   const hits = texts(tool.results);
   return (
-    <Frame tool={tool} taskId={taskId} icon={Search} collapsed={collapsed}>
+    <Frame tool={tool} threadId={threadId} icon={Search} collapsed={collapsed}>
       <p className="px-3 pt-1 pb-1.5 text-[13px] leading-snug break-keep">
         “{tool.input}”
       </p>
@@ -107,10 +108,15 @@ function WebSearchTool({ tool, taskId, collapsed }: ToolProps) {
   );
 }
 
-function ShellTool({ tool, taskId, collapsed }: ToolProps) {
+function ShellTool({ tool, threadId, collapsed }: ToolProps) {
   const out = texts(tool.results);
   return (
-    <Frame tool={tool} taskId={taskId} icon={Terminal} collapsed={collapsed}>
+    <Frame
+      tool={tool}
+      threadId={threadId}
+      icon={Terminal}
+      collapsed={collapsed}
+    >
       <pre className="mx-3 overflow-x-auto rounded-lg bg-foreground/5 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed scrollbar-none dark:bg-black/25">
         <span className="text-muted-foreground/60">$ </span>
         {tool.input}
@@ -126,11 +132,11 @@ function ShellTool({ tool, taskId, collapsed }: ToolProps) {
 function MonoTool({
   icon,
   tool,
-  taskId,
+  threadId,
   collapsed,
 }: ToolProps & { icon: LucideIcon }) {
   return (
-    <Frame tool={tool} taskId={taskId} icon={icon} collapsed={collapsed}>
+    <Frame tool={tool} threadId={threadId} icon={icon} collapsed={collapsed}>
       <p className="truncate px-3 pt-1 pb-1.5 font-mono text-[11px]">
         {tool.input}
       </p>
@@ -144,17 +150,17 @@ const OPEN_BUTTON =
 
 /**
  * A file the bot read or wrote, with an Open link. Opens `tool.path`: `input` is folded
- * to one line, and a truncated path is a 404 (task.query LINE_MAX).
+ * to one line, and a truncated path is a 404 (thread.query LINE_MAX).
  */
 function FileTool({
   icon,
   tool,
-  taskId,
+  threadId,
   collapsed,
 }: ToolProps & { icon: LucideIcon }) {
   const path = tool.path ?? tool.input;
   return (
-    <Frame tool={tool} taskId={taskId} icon={icon} collapsed={collapsed}>
+    <Frame tool={tool} threadId={threadId} icon={icon} collapsed={collapsed}>
       <div className="flex items-center gap-2 px-3 pt-1 pb-1.5">
         <span className="min-w-0 flex-1 truncate font-mono text-[11px]">
           {tool.input}
@@ -170,10 +176,15 @@ function FileTool({
 }
 
 /** A generated image. The path is the first result line, not the input: the name is made while generating. */
-function DrawnTool({ tool, taskId, collapsed }: ToolProps) {
+function DrawnTool({ tool, threadId, collapsed }: ToolProps) {
   const [path] = texts(tool.results);
   return (
-    <Frame tool={tool} taskId={taskId} icon={ImageIcon} collapsed={collapsed}>
+    <Frame
+      tool={tool}
+      threadId={threadId}
+      icon={ImageIcon}
+      collapsed={collapsed}
+    >
       <p className="px-3 pt-1 text-[12px] leading-snug break-keep">
         {tool.input}
       </p>
@@ -193,11 +204,11 @@ function DrawnTool({ tool, taskId, collapsed }: ToolProps) {
 }
 
 /** Anything without a view of its own, MCP tools included. */
-function GenericTool({ tool, taskId, collapsed }: ToolProps) {
+function GenericTool({ tool, threadId, collapsed }: ToolProps) {
   return (
     <Frame
       tool={tool}
-      taskId={taskId}
+      threadId={threadId}
       icon={toolIcon(tool.name)}
       collapsed={collapsed}
     >
@@ -211,12 +222,12 @@ function GenericTool({ tool, taskId, collapsed }: ToolProps) {
 
 /**
  * The shell every tool view sits in: a one-line step (icon, label, call, tool name,
- * state) with the body below it. A running tool is always expanded; a truncated
- * result gets "Everything" at the bottom.
+ * state) with the body below it. A running tool is always expanded; a finished one
+ * that returned anything gets "Everything" at the bottom.
  */
 function Frame({
   tool,
-  taskId,
+  threadId,
   icon: Icon,
   collapsed = false,
   children,
@@ -224,7 +235,9 @@ function Frame({
   const running = tool.results === undefined;
   const [open, setOpen] = useState(!collapsed);
   const shown = open || running;
-  const more = tool.more && taskId && tool.callId;
+  // The glance is text only and clipped, so any output can be opened whole
+  const whole =
+    threadId && tool.callId && ((tool.results?.length ?? 0) > 0 || tool.more);
 
   return (
     <div
@@ -294,8 +307,8 @@ function Frame({
       {shown && (
         <div className="pb-1.5 pl-[1.625rem]">
           {children}
-          {more && (
-            <Everything taskId={taskId} callId={tool.callId as string} />
+          {whole && (
+            <Everything threadId={threadId} callId={tool.callId as string} />
           )}
         </div>
       )}
@@ -304,10 +317,16 @@ function Frame({
 }
 
 /** The rest of a truncated result, fetched only when opened. */
-function Everything({ taskId, callId }: { taskId: string; callId: string }) {
+function Everything({
+  threadId,
+  callId,
+}: {
+  threadId: string;
+  callId: string;
+}) {
   const [open, setOpen] = useState(false);
   const { data, isLoading } = useServerRoute<ResultPart[]>(
-    open ? queryKey.toolResult(taskId, callId) : null,
+    open ? queryKey.toolResult(threadId, callId) : null,
   );
 
   return (

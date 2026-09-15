@@ -210,7 +210,6 @@ function FirstLook({ ink }: { ink: Ink }) {
               key={seed.name}
               size={22}
               seed={seed.name}
-              vary={seed.name}
               color={ink(seed)}
               shape={seed.icon?.shape}
               outline={seed.icon?.outline}
@@ -321,7 +320,6 @@ function BotStep({
                   key={seed.name}
                   size={22}
                   seed={seed.name}
-                  vary={seed.name}
                   color={ink(seed)}
                   shape={seed.icon?.shape}
                   outline={seed.icon?.outline}
@@ -402,7 +400,6 @@ function SeedRow({
         <BotMark
           size={28}
           seed={seed.name}
-          vary={seed.name}
           color={ink}
           shape={seed.icon?.shape}
           outline={seed.icon?.outline}

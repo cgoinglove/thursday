@@ -39,6 +39,7 @@ export type FaceProps = {
 const MARK_STATE: Record<CallStatus, MarkState> = {
   idle: "idle",
   connecting: "connecting",
+  ending: "connecting",
   listening: "listening",
   speaking: "speaking",
   working: "thinking",
@@ -71,6 +72,7 @@ function MarkFace({ status, size, getSpectrum, look, className }: FaceProps) {
       color={look.color}
       shape={look.shape}
       outline={look.outline}
+      paint={look.paint}
       state={MARK_STATE[status]}
       getSpectrum={getSpectrum}
       options={MARK_VOICE}
@@ -85,6 +87,7 @@ function MarkFace({ status, size, getSpectrum, look, className }: FaceProps) {
  * which is the orb at rest between calls. delegating borrows the working comet.
  */
 const ORB_MODE: Record<CallStatus, AsciiOrbMode> = {
+  ending: "connecting",
   idle: "idle",
   connecting: "connecting",
   listening: "connecting",

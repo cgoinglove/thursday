@@ -39,9 +39,9 @@ import {
 import { logger } from "@/lib/logger";
 import { estimateTokens } from "@/lib/tokens";
 import { findJobBot } from "./bot.query";
-import { findTask, listWrittenPaths, writtenPathsIn } from "./task.query";
+import { findThread, listWrittenPaths, writtenPathsIn } from "./thread.query";
 
-/** Events from one participant turn; the runner persists them in that participant's thread. */
+/** Events from one participant turn; the runner persists them in that participant's transcript. */
 export type BotEvent =
   /** A finished chunk of prose. */
   | { type: "text"; text: string }
@@ -99,12 +99,12 @@ export type BotEvent =
     };
 
 /** The event as the thread sees it: which participant and continuation. */
-export type TaskEvent = BotEvent & { bot: string; parent: string | null };
+export type ThreadEvent = BotEvent & { bot: string; parent: string | null };
 
 export type RunOptions = {
   signal?: AbortSignal;
   parent?: string | null;
-  taskId?: string | null;
+  threadId?: string | null;
   session?: string | null;
   caller: string;
   owner: string;
@@ -114,9 +114,11 @@ export type RunOptions = {
     id: string;
     to: string;
     text: string;
+    kind?: "message" | "question";
+    options?: string[] | null;
     replyTo?: string | null;
   }) => Promise<unknown>;
-  emit: (event: TaskEvent) => Promise<void>;
+  emit: (event: ThreadEvent) => Promise<void>;
 };
 
 const MAX_STEPS = BOT_RUN.steps;
@@ -144,10 +146,12 @@ export async function runBot(
 
   // Tools are built on the model: web search runs on this bot's model (load-tools).
   const model = await resolveModel(bot);
-  const row = options.taskId ? await findTask(options.taskId) : null;
-  // Participants share task files while retaining their own context and browser.
+  const row = options.threadId ? await findThread(options.threadId) : null;
+  // Participants share thread files while retaining their own context and browser.
   const [scratch, own] = await Promise.all([
-    options.taskId ? openJobScratch(options.taskId, row?.label ?? "job") : null,
+    options.threadId
+      ? openJobScratch(options.threadId, row?.label ?? "job")
+      : null,
     openBotFolder(name),
   ]);
   const [prompt, tools] = await Promise.all([
@@ -162,7 +166,7 @@ export async function runBot(
       bot: name,
       session:
         options.session ??
-        (options.taskId ? botBrowserSession(options.taskId, name) : null),
+        (options.threadId ? botBrowserSession(options.threadId, name) : null),
       model,
     }),
   ]);
@@ -177,12 +181,18 @@ export async function runBot(
       Number.POSITIVE_INFINITY,
   );
 
+  // A committed question to the user ends the turn; the answer brings the bot back (room.query tellRoom).
+  let asked = false;
   const agentTools: ToolSet = {
     ...tools,
     [TOOL_NAMES.send_message]: tool({
       description: sendMessageSpec.description,
       inputSchema: sendMessageSpec.parameters,
-      execute: (input, call) => options.send({ ...input, id: call.toolCallId }),
+      execute: async (input, call) => {
+        const receipt = await options.send({ ...input, id: call.toolCallId });
+        if (input.kind === "question") asked = true;
+        return receipt;
+      },
     }),
   };
   // Persist local calls before their side effects, and results before another model step.
@@ -251,7 +261,7 @@ export async function runBot(
     model: model.model,
     instructions: prompt.text,
     tools: agentTools,
-    stopWhen: stepCountIs(MAX_STEPS),
+    stopWhen: [stepCountIs(MAX_STEPS), () => asked],
     prepareStep: async ({ stepNumber, steps, messages }) => {
       await writtenStep;
       options.signal?.throwIfAborted();
@@ -481,8 +491,10 @@ export async function runBot(
   await emit({
     type: "turn-end",
     text: last,
+    // A turn that asked the user ends on its tool call by design, not cut off
     stopped:
-      finish === "length" || finish === "error" || finish === "tool-calls",
+      !asked &&
+      (finish === "length" || finish === "error" || finish === "tool-calls"),
   });
 }
 
@@ -504,11 +516,11 @@ function sizeOf(messages: ModelMessage[]): number {
 /** Instructions for compacting. The summary replaces everything above it, opening included, so it must restate the job. */
 const compactInstructions = (
   words: number,
-) => `Compact your context. The first message above — the job, the call it came from, and anything handed over with it — stays exactly as it is. Everything after it is replaced by what you write now, and you carry on from that first message and this alone; nothing else above can be read again. Write it for a fresh copy of you that has your tools, your instructions and that first message, but has seen none of the rest.
+) => `Compact your context. The first message above — who handed you the job, and the job — stays exactly as it is. Everything after it is replaced by what you write now, and you carry on from that first message and this alone; nothing else above can be read again. Write it for a fresh copy of you that has your tools, your instructions and that first message, but has seen none of the rest.
 
 Cover all of it, and prefer a fact over a description of a fact:
 
-- **Where the job stands against that first message.** Do not restate the job or the call; say what has changed since — a choice made, a detail settled, an answer that came back, a correction, anything you are still waiting on.
+- **Where the job stands against that first message.** Do not restate the job; say what has changed since — a choice made, a detail settled, an answer that came back, a correction, anything you are still waiting on.
 - **What is already true.** Every value you have — numbers, names, dates, ids, urls, prices, times — written out, not referred to. A value you leave out is one the next steps go and fetch again.
 - **Where you are.** Which page the browser is on by url, whether you are signed in and to what, what is running, what you were in the middle of. Element refs do not survive this: name what to look for, never a ref.
 - **Files.** Every path you wrote or read, and one line on what each holds.
@@ -535,17 +547,17 @@ const FILES_HEAD =
  * The files a job has on disk, as lines under its compaction summary. Read off the
  * job's rows — every participant's `write_file` — and off its folder,
  * never asked of the model: a path a summary leaves out is work the next steps redo.
- * Without a task, the run reads only the messages it is compacting.
+ * Without a thread, the run reads only the messages it is compacting.
  * A listing that fails costs the list, never the compaction.
  */
 async function filesUnder(
-  taskId: string | null,
+  threadId: string | null,
   messages: ModelMessage[],
   folder: string | null,
 ): Promise<string> {
   try {
-    const written = taskId
-      ? await listWrittenPaths(taskId)
+    const written = threadId
+      ? await listWrittenPaths(threadId)
       : writtenPathsIn(messages.map((message) => message.content));
     const files = await filesOnDisk(written, folder);
     if (!files.length) return "";
@@ -564,11 +576,11 @@ async function filesUnder(
  * The model summarizes its own context and continues from the summary. Tools
  * are passed with calling off: providers refuse a history of tool calls
  * without the tools that made them. The run's own instructions go too: the
- * summary is written by the bot the thread belongs to, and the provider's
+ * summary is written by the bot the transcript belongs to, and the provider's
  * cached prefix, instructions first, still matches the run's. A context too
  * long to summarise whole — the very thing a compaction is for — is tried once
  * more without the tool calls and results but the last few. A failure throws
- * with its cause kept. The room pauses for manual recovery; the thread stays.
+ * with its cause kept. The room pauses for manual recovery; the transcript stays.
  */
 async function compact(
   model: LanguageModel,
@@ -584,7 +596,7 @@ async function compact(
     failure = cause;
   }
   if (modelFailureOf(failure) === "overflow") {
-    // pruneMessages drops a call together with its result, so the thread stays whole
+    // pruneMessages drops a call together with its result, so the transcript stays whole
     const lighter = pruneMessages({
       messages,
       toolCalls: "before-last-4-messages",
@@ -660,7 +672,7 @@ function stepQueue() {
     /**
      * No more steps are coming; release waiting takes with `null`. Without
      * this, a `finish-step` whose `onStepEnd` never fires (abort, provider
-     * error mid-step) parks the loop forever, and `answerTask` waits on
+     * error mid-step) parks the loop forever, and `answerThread` waits on
      * `run.done` while holding the job's lock (bot.runner).
      */
     end() {
@@ -730,8 +742,8 @@ function resolveModel(bot: JobBot) {
 }
 
 /** Build a valid model projection without changing the recorded interruption history. */
-export function resumeThread(
-  thread: ModelMessage[],
+export function resumeTranscript(
+  transcript: ModelMessage[],
   receipts: ReadonlyMap<string, { messageId: string; to: string }> = new Map(),
 ): ModelMessage[] {
   type Result = Extract<
@@ -740,7 +752,7 @@ export function resumeThread(
   >;
   const results = new Map<string, Result>();
   const embedded = new Set<string>();
-  for (const message of thread) {
+  for (const message of transcript) {
     if (message.role !== "tool" && message.role !== "assistant") continue;
     if (!Array.isArray(message.content)) continue;
     for (const part of message.content) {
@@ -751,7 +763,7 @@ export function resumeThread(
   }
   const out: ModelMessage[] = [];
   const used = new Set<string>();
-  for (const message of thread) {
+  for (const message of transcript) {
     if (message.role === "tool") {
       const other = message.content.filter(
         (part) => part.type !== "tool-result",

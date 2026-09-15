@@ -1,22 +1,16 @@
 "use client";
 
-import type { BotRef } from "../task.store";
+import type { BotRef } from "../thread.store";
 import { BotMark } from "./bot-mark";
 
 /** Faces drawn before the count carries the rest. */
 const SHOWN = 3;
 
 /**
- * Who was in this room. A task that never left its own bot draws nothing: the
+ * Who was in this room. A thread that never left its own bot draws nothing: the
  * row already shows that bot's face, and a stack of one says less than none.
  */
-export function BotRoster({
-  bots,
-  taskId,
-}: {
-  bots: BotRef[];
-  taskId: string;
-}) {
+export function BotRoster({ bots }: { bots: BotRef[] }) {
   if (bots.length < 2) return null;
 
   return (
@@ -24,19 +18,20 @@ export function BotRoster({
       className="flex shrink-0 items-center gap-1.5"
       title={bots.map((bot) => bot.name).join(", ")}
     >
-      <span className="flex items-center">
+      <span className="flex items-center gap-0.5">
         {bots.slice(0, SHOWN).map((bot) => (
-          // A 3px shingle: enough to read as a group, not enough to hide a face.
+          // Side by side, not shingled: parting overlapped faces takes a ring, and
+          // a ring around a shape that is not a circle covers its neighbour.
           <BotMark
             key={bot.name}
             size={18}
             seed={bot.name}
-            vary={taskId}
             color={bot.icon?.color}
             shape={bot.icon?.shape}
             outline={bot.icon?.outline}
+            paint={bot.icon?.paint}
             notify={false}
-            className="-ml-[3px] rounded-[7px] ring-2 ring-background first:ml-0"
+            className="shrink-0"
           />
         ))}
       </span>

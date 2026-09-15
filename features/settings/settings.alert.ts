@@ -1,7 +1,7 @@
 "use client";
 
 import { useBotAlert } from "@/features/bot/components/bot-badge";
-import { useTaskAlert } from "@/features/bot/components/task-badge";
+import { useThreadAlert } from "@/features/bot/components/thread-badge";
 import { useConfigAlert } from "@/features/config/components/config-badge";
 import { useModelsAlert } from "@/features/config/components/models-badge";
 import { useMcpAlert } from "@/features/connectors/components/mcp-badge";
@@ -30,9 +30,9 @@ export function useSectionAlerts(): Partial<
   Record<SettingSectionId, SectionAlert>
 > {
   const bot = useBotAlert();
-  const tasks = useTaskAlert();
+  const threads = useThreadAlert();
   const mcp = useMcpAlert();
   const config = useConfigAlert();
   const models = useModelsAlert();
-  return { bot, tasks, mcp, config, models };
+  return { bot, threads, mcp, config, models };
 }

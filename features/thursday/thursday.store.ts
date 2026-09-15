@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { LIVE_DEFAULTS, migrateLiveSettings } from "@/features/ai/live.schema";
 import {
   CALL_BACK_DEFAULT,
   type CallBack,
@@ -43,8 +44,7 @@ type ThursdayStore = Stored & {
 };
 
 const EMPTY: Stored = {
-  systemPrompt: null,
-  model: null,
+  ...LIVE_DEFAULTS,
   wake: WAKE_DEFAULT,
   hotkey: HOTKEY_DEFAULT,
   callBack: CALL_BACK_DEFAULT,
@@ -59,10 +59,12 @@ export const useThursdayStore = create<ThursdayStore>()(
     }),
     {
       name: "thursday.settings",
-      // Parse on the way out so a hand-edited value cannot reach issuance.
+      // Parsed on the way in so a hand-edited value cannot reach a call. Live
+      // fields recover one by one (migrateLiveSettings), the rest by `.catch` above.
       merge: (persisted, current) => {
-        const parsed = StoredSchema.safeParse(persisted);
-        return { ...current, ...(parsed.success ? parsed.data : EMPTY) };
+        const parsed = StoredSchema.safeParse(migrateLiveSettings(persisted));
+        const restored = parsed.success ? parsed.data : EMPTY;
+        return { ...current, ...restored };
       },
     },
   ),
@@ -70,9 +72,11 @@ export const useThursdayStore = create<ThursdayStore>()(
 
 /** What openCallAction needs and nothing else. */
 export const thursdaySettings = (): ThursdaySettings => {
-  const { systemPrompt, model } = useThursdayStore.getState();
   // Not stored: a fact of this browser, read when the call opens.
   const locale =
     typeof navigator === "undefined" ? null : (navigator.language ?? null);
-  return { systemPrompt, model, locale };
+  return ThursdaySettingsSchema.parse({
+    ...useThursdayStore.getState(),
+    locale,
+  });
 };

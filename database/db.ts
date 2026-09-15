@@ -46,7 +46,7 @@ function connect(): Client {
   });
 
   // Under the default rollback journal a reader and the writer take turns: a bot
-  // writing its thread holds off the routes reading it, and a route read holds
+  // writing its messages holds off the routes reading it, and a route read holds
   // off the write that ends a run. WAL lets them run at once. This one is safe
   // to send as a pragma because it is a property of the file, not of the
   // connection: it survives, and every later connection opens into WAL.

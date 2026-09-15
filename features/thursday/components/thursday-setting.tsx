@@ -11,33 +11,36 @@ import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { notify } from "@/components/ui/notify";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Segmented } from "@/components/ui/segmented";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ASCII_FACE } from "@/config";
-import { ProviderIcon } from "@/features/ai/components/provider-icon";
 import {
-  type AiProvider,
-  SPEACH_MODEL_PROVIDER_LIST,
-  type SpeachModelRef,
-} from "@/features/ai/model.schema";
+  LIVE_BACKEND_MODELS,
+  LIVE_DEFAULTS,
+  LIVE_PROVIDER,
+  LIVE_REASONING,
+  LIVE_VOICES,
+  type LiveSettings,
+} from "@/features/ai/live.schema";
+import type { AiProvider } from "@/features/ai/model.schema";
 import { MarkPalette } from "@/features/bot/components/mark-palette";
 import { MARK_SHAPES } from "@/features/bot/mark.const";
 import { KEY_MIN, KeyInput } from "@/features/config/components/voice-key";
 import { setConfigAction } from "@/features/config/config.action";
 import {
-  SettingChoiceRows,
   SettingError,
   SettingGroup,
-  SettingItems,
   SettingNote,
   SettingRailNote,
   SettingScreen,
   SettingSkeleton,
-  SettingToggle,
 } from "@/features/settings/components/setting-ui";
 import type { SkillSummary } from "@/features/skills/skills.schema";
 import { CallHistoryRow } from "@/features/thursday/components/call-log";
 import { FACES, Face } from "@/features/thursday/components/face";
+import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
 import {
   ASCII_CHARSETS,
   type AsciiCharset,
@@ -50,15 +53,13 @@ import {
 import {
   resetHistoryAction,
   setCallSkillsAction,
-  setCallTranscriptAction,
-  setTranscriptionModelAction,
 } from "@/features/thursday/thursday.action";
 import {
   CALL_BACK_LABEL,
   CALL_BACK_MODES,
   CAPTION_VIEWS,
   type CallBack,
-  type CallTranscript,
+  CallBackSchema,
   type CaptionView,
   type Hotkey,
   type ThursdayFace,
@@ -74,15 +75,16 @@ import {
   useHotkeyLabel,
 } from "@/hooks/use-hotkey";
 import { COMMON_VALIDATE } from "@/lib/limits";
+import { LIVE_MODEL } from "@/lib/live/live.schema";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
 
 /**
- * Settings for the call: face, voice provider, captions, wake word, call-back,
- * shortcut, skills, reading calls back, instructions. Everything up to the
- * shortcut is kept in the browser (thursday.store, face.store); the two after
- * it are the server's, because they are read where no browser is.
+ * Settings for the call: face, captions, the two models, how a call starts, and
+ * its history. Everything but the skills switch is kept in the browser
+ * (thursday.store, face.store) and read when a call opens; skills are the
+ * server's, because they are read where no browser is.
  */
 export function ThursdaySetting() {
   // local store: no waiting, no revalidation
@@ -99,148 +101,418 @@ export function ThursdaySetting() {
   if (isLoading) return <SettingSkeleton rows={4} />;
   if (error) return <SettingError message={error.message} />;
 
-  const picked = thursday.model?.provider ?? null;
-  const hasKey = (name: string) =>
-    providers.some((entry) => entry.apiKeyName === name && entry.hasKey);
+  const hasKey = providers.some(
+    (entry) => entry.apiKeyName === LIVE_PROVIDER.apiKeyName && entry.hasKey,
+  );
 
   return (
     <SettingScreen
       footer={
         <SettingRailNote>
-          Her prompt is assembled fresh on every call — memory, the roster and
-          your skills go in.
+          Both of her prompts are assembled fresh on every call — memory, the
+          roster and your skills go in. Changes here apply from the next call.
         </SettingRailNote>
       }
     >
       <FacePicker value={face} onChange={setThursdayFace} />
-
-      {/* Read, not changed, so it sits at the top */}
-      <CallHistoryRow />
-
-      <SettingGroup
-        label="Voice"
-        note={!picked && "Nothing picked — calls run on whichever key is set."}
-      >
-        <SettingItems>
-          {SPEACH_MODEL_PROVIDER_LIST.map((provider) => (
-            <ProviderRow
-              key={provider.id}
-              provider={provider}
-              // only the picked provider gets a value; model and voice are that provider's names
-              value={picked === provider.id ? thursday.model : null}
-              hasKey={hasKey(provider.apiKeyName)}
-              onPick={(next) =>
-                patch({ model: { provider: provider.id, ...next } })
-              }
-            />
-          ))}
-        </SettingItems>
-      </SettingGroup>
 
       <Captions
         value={thursday.captionView}
         onChange={(captionView) => patch({ captionView })}
       />
 
-      <WakeWord value={thursday.wake} onChange={(wake) => patch({ wake })} />
+      <ModelsSetting value={thursday} hasKey={hasKey} onChange={patch} />
 
-      <CallBackPicker
-        value={thursday.callBack}
-        onChange={(callBack) => patch({ callBack })}
-      />
+      {/* Every way a call starts other than pressing her face, read at once */}
+      <SettingGroup label="Starting a call">
+        <Tiles columns={3}>
+          <WakeWord
+            value={thursday.wake}
+            onChange={(wake) => patch({ wake })}
+          />
+          <Shortcut
+            value={thursday.hotkey}
+            onChange={(hotkey) => patch({ hotkey })}
+          />
+          <CallBackPicker
+            value={thursday.callBack}
+            onChange={(callBack) => patch({ callBack })}
+          />
+        </Tiles>
+      </SettingGroup>
 
-      <Shortcut
-        value={thursday.hotkey}
-        onChange={(hotkey) => patch({ hotkey })}
-      />
-
-      {/* Server-side, unlike everything above it: the prompt, the tool set and a
-          job's opening are built where no browser is */}
-      <TranscriptSetting hasKey={hasKey} />
-
-      <SkillsSetting />
-
-      <Instructions
-        value={thursday.systemPrompt ?? ""}
-        onSave={(systemPrompt) => patch({ systemPrompt })}
-      />
-
-      <ResetHistory />
+      <SettingGroup label="History">
+        <Tiles columns={2}>
+          <CallHistoryRow />
+          <ResetHistory />
+        </Tiles>
+      </SettingGroup>
     </SettingScreen>
   );
 }
 
-/**
- * Whether the user's side of a call is written down, and by which model. On by
- * default. Off costs less — transcription is billed by the minute on top of the
- * call — and takes with it everything that reads a call back.
- */
-function TranscriptSetting({ hasKey }: { hasKey: (name: string) => boolean }) {
-  const { data } = useServerRoute<CallTranscript>(queryKey.callTranscript);
-  const [setOn] = useServerAction(setCallTranscriptAction, {
-    onOk: () => revalidate(queryKey.callTranscript),
-  });
-  const [setModel] = useServerAction(setTranscriptionModelAction, {
-    onOk: () => revalidate(queryKey.callTranscript),
-  });
-
+/** Tiles side by side in one bordered card, stacked when the column is narrow. */
+function Tiles({ columns, children }: { columns: 2 | 3; children: ReactNode }) {
   return (
-    <SettingGroup label="Transcript">
-      <SettingToggle
-        label="Write down what you say"
-        description="On, your words are kept with hers, so later calls, her memory and the jobs she hands over can read them back. Off costs less: her side still shows, and nothing of the call is kept."
-        checked={data?.on ?? true}
-        disabled={data === undefined}
-        onChange={(on) => setOn(on)}
+    <div className="@container">
+      <div
+        className={cn(
+          "grid divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60",
+          columns === 3
+            ? "@3xl:grid-cols-3 @3xl:divide-x @3xl:divide-y-0"
+            : "@xl:grid-cols-2 @xl:divide-x @xl:divide-y-0",
+        )}
       >
-        {SPEACH_MODEL_PROVIDER_LIST.filter((provider) =>
-          hasKey(provider.apiKeyName),
-        ).map((provider) => (
-          <div key={provider.id} className="flex items-center gap-3">
-            <ProviderIcon provider={provider.id} className="size-4 shrink-0" />
-            <Combobox
-              value={data?.models[provider.id] ?? ""}
-              onChange={(next) => setModel(provider.id, next || null)}
-              options={provider.transcriptionModels.map((entry) => ({
-                value: entry.id,
-                label: entry.label,
-                hint: entry.id,
-              }))}
-              aria-label={`${provider.label} transcription model`}
-              placeholder={provider.transcriptionModels[0].id}
-              empty="Not on the list — it still runs"
-              className="min-w-0 flex-1"
-            />
-          </div>
-        ))}
-      </SettingToggle>
-    </SettingGroup>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** A tile's first line: what it is, and its switch when it has one. */
+function TileHead({
+  label,
+  children,
+}: {
+  label: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="flex min-h-5 items-center gap-3">
+      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+        {label}
+      </span>
+      {children}
+    </div>
   );
 }
 
 /**
- * Whether the call is handed `load_skill`. Off by default: reading a skill is a
- * page of instructions arriving mid-sentence, and everything a skill describes
- * that takes time is a bot's anyway. `SettingToggle`, like Wake and Shortcut.
+ * Both models a call runs on, in one card: the Live voice and the Responses
+ * backend that holds her tools (thursday.prompt). They share the OpenAI key, so
+ * a missing key is asked for once, above both.
  */
-function SkillsSetting() {
-  const { data } = useServerRoute<boolean>(queryKey.callSkills);
-  const [setOn] = useServerAction(setCallSkillsAction, {
+function ModelsSetting({
+  value,
+  hasKey,
+  onChange,
+}: {
+  value: LiveSettings;
+  hasKey: boolean;
+  onChange: (change: Partial<LiveSettings>) => void;
+}) {
+  return (
+    <SettingGroup
+      label="Models"
+      note="Both run on your OpenAI key. Instructions are saved when you leave the field."
+    >
+      <div className="@container divide-y divide-border/60 rounded-xl border border-border/60">
+        {!hasKey && <KeyRow />}
+
+        <ModelSection name="Voice" fact="billed by the minute">
+          <div className="grid gap-4 @xl:grid-cols-2">
+            <ModelBlock label="model">
+              {/* Locked: LIVE_MODEL is the only Live model a call opens on */}
+              <Combobox
+                value={LIVE_MODEL}
+                onChange={() => undefined}
+                options={[{ value: LIVE_MODEL, label: "GPT-Live 1" }]}
+                aria-label="Voice model"
+                disabled
+              />
+            </ModelBlock>
+
+            <ModelBlock label="voice">
+              <Combobox
+                value={value.voice}
+                onChange={(voice) =>
+                  onChange({ voice: voice.trim() || LIVE_DEFAULTS.voice })
+                }
+                options={LIVE_VOICES.map((voice) => ({
+                  value: voice,
+                  label: voice,
+                }))}
+                aria-label="Voice"
+                placeholder={LIVE_DEFAULTS.voice}
+                empty="Not on the list — it still runs"
+              />
+            </ModelBlock>
+          </div>
+
+          <ModelBlock label="instructions">
+            <PromptField
+              value={value.voicePrompt}
+              onCommit={(voicePrompt) => onChange({ voicePrompt })}
+              placeholder="How to address you, how much to say, what to skip."
+              aria-label="Voice instructions"
+            />
+          </ModelBlock>
+        </ModelSection>
+
+        <ModelSection name="Backend" fact="billed per token">
+          <ModelBlock label="model">
+            <BackendModelPicker
+              value={value.backendModel}
+              onChange={(backendModel) => onChange({ backendModel })}
+            />
+          </ModelBlock>
+
+          {/* Auto omits the parameter, so a model without reasoning still runs */}
+          <ModelBlock label="reasoning">
+            <Segmented
+              aria-label="Reasoning effort"
+              className="w-full flex-wrap *:flex-1"
+              options={REASONING_OPTIONS}
+              value={value.reasoningEffort ?? "auto"}
+              onChange={(effort) =>
+                onChange({ reasoningEffort: effort === "auto" ? null : effort })
+              }
+            />
+          </ModelBlock>
+
+          <ModelBlock label="tools">
+            <BackendTools
+              webSearch={value.webSearch}
+              onWebSearch={(webSearch) => onChange({ webSearch })}
+            />
+          </ModelBlock>
+
+          <ModelBlock label="instructions">
+            <PromptField
+              value={value.backendPrompt}
+              onCommit={(backendPrompt) => onChange({ backendPrompt })}
+              placeholder="How work should be handed over, what to check first."
+              aria-label="Backend instructions"
+            />
+          </ModelBlock>
+        </ModelSection>
+      </div>
+    </SettingGroup>
+  );
+}
+
+/** One model's half of the card: its name and how it bills, then what to choose. */
+function ModelSection({
+  name,
+  fact,
+  children,
+}: {
+  name: string;
+  fact: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="grid gap-4 p-5 @2xl:grid-cols-[8.5rem_minmax(0,1fr)] @2xl:gap-6">
+      <span className="space-y-0.5">
+        <span className="block text-sm font-medium">{name}</span>
+        <span className="block font-mono text-[11px] text-muted-foreground">
+          {fact}
+        </span>
+      </span>
+      <div className="min-w-0 space-y-4">{children}</div>
+    </div>
+  );
+}
+
+function ModelBlock({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="min-w-0 space-y-2">
+      <span className="block font-mono text-[11px] text-muted-foreground">
+        {label}
+      </span>
+      {children}
+    </div>
+  );
+}
+
+/** No key yet: paste one here, above both models, instead of leaving for Keys. */
+function KeyRow() {
+  const [draft, setDraft] = useState("");
+  const [save, saving] = useServerAction(setConfigAction, {
+    onOk: () => {
+      revalidate(queryKey.llmModel);
+      revalidate(queryKey.config);
+      setDraft("");
+    },
+  });
+  const ready = draft.trim().length >= KEY_MIN;
+
+  return (
+    <div className="space-y-3 p-5">
+      <span className="block space-y-0.5">
+        <span className={cn("block text-sm font-medium", WAITING_INK)}>
+          No OpenAI key
+        </span>
+        <span className="block text-xs text-muted-foreground">
+          Her voice and the backend both run on it
+        </span>
+      </span>
+      <KeyInput
+        dense
+        provider={LIVE_PROVIDER}
+        saved={false}
+        value={draft}
+        ready={ready}
+        saving={saving}
+        onValue={setDraft}
+        onSubmit={() => ready && save(LIVE_PROVIDER.apiKeyName, draft)}
+      />
+    </div>
+  );
+}
+
+/**
+ * The recent models as cards, and a field for any other id; the provider says
+ * at call time whether it runs. A typed id is saved on Enter or when the field
+ * is left, never per keystroke, and clearing it goes back to the default.
+ */
+function BackendModelPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (model: string) => void;
+}) {
+  const listed = LIVE_BACKEND_MODELS.some((model) => model.id === value);
+  const other = useDraft(
+    listed ? "" : value,
+    (next) => onChange(next || LIVE_DEFAULTS.backendModel),
+    { min: 0 },
+  );
+
+  return (
+    <div className="space-y-2">
+      <div
+        role="radiogroup"
+        aria-label="Backend model"
+        className="grid grid-cols-2 gap-2 @3xl:grid-cols-4"
+      >
+        {LIVE_BACKEND_MODELS.map((model) => {
+          const picked = model.id === value;
+          return (
+            <button
+              key={model.id}
+              type="button"
+              role="radio"
+              aria-checked={picked}
+              onClick={() => onChange(model.id)}
+              className={cn(
+                "min-w-0 space-y-0.5 rounded-lg border px-3 py-2.5 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+                picked
+                  ? "border-foreground bg-muted/40"
+                  : "border-border/60 hover:bg-muted/50",
+              )}
+            >
+              <span className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                  {model.label}
+                </span>
+                {picked && <Check className="size-3.5 shrink-0" />}
+              </span>
+              <span className="block truncate font-mono text-[11px] text-muted-foreground">
+                {model.id} · {model.tier}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <Input
+        value={other.value}
+        onChange={(event) => other.set(event.target.value)}
+        onBlur={other.commit}
+        onKeyDown={other.onKeyDown}
+        placeholder="Other model id"
+        aria-label="Other backend model id"
+        spellCheck={false}
+        className="font-mono text-sm"
+      />
+    </div>
+  );
+}
+
+const REASONING_OPTIONS: readonly {
+  value: "auto" | (typeof LIVE_REASONING)[number];
+  label: string;
+  title: string;
+}[] = [
+  { value: "auto", label: "auto", title: "The model's own default" },
+  ...LIVE_REASONING.map((effort) => ({
+    value: effort,
+    label: effort,
+    title: `Reasoning effort ${effort}`,
+  })),
+];
+
+/**
+ * What the backend may reach for. Web search is this browser's setting; the
+ * skills switch hands the call `load_skill` and is the server's, because tools
+ * are built where no browser is. Off by default: reading a skill is a page of
+ * instructions arriving mid-sentence.
+ */
+function BackendTools({
+  webSearch,
+  onWebSearch,
+}: {
+  webSearch: boolean;
+  onWebSearch: (on: boolean) => void;
+}) {
+  const { data: skills } = useServerRoute<boolean>(queryKey.callSkills);
+  const [setSkills] = useServerAction(setCallSkillsAction, {
     onOk: () => revalidate(queryKey.callSkills),
   });
 
   return (
-    <SettingGroup label="Skills">
-      <SettingToggle
-        label="Read a skill herself"
-        description="A skill is how a thing is done here, written down. On, she opens one mid-call and follows it; off, only bots read them."
-        checked={data ?? false}
-        disabled={data === undefined}
-        onChange={(on) => setOn(on)}
-      >
-        <InstalledSkills />
-      </SettingToggle>
-    </SettingGroup>
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-x-7 gap-y-3">
+        <InlineSwitch
+          label="Search the web"
+          checked={webSearch}
+          onChange={onWebSearch}
+        />
+        <InlineSwitch
+          label="Read skills herself"
+          checked={skills ?? false}
+          disabled={skills === undefined}
+          onChange={(on) => setSkills(on)}
+        />
+      </div>
+      {webSearch && (
+        <SettingNote>
+          Each search adds to the backend's OpenAI usage.
+        </SettingNote>
+      )}
+      {skills && <InstalledSkills />}
+    </div>
+  );
+}
+
+function InlineSwitch({
+  label,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (on: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center gap-2.5 text-sm">
+      <Switch
+        checked={checked}
+        disabled={disabled}
+        onCheckedChange={onChange}
+      />
+      {label}
+    </label>
   );
 }
 
@@ -258,23 +530,49 @@ function InstalledSkills() {
   );
 }
 
+/** Added instructions: a draft while typing, saved when the field is left. */
+function PromptField({
+  value,
+  onCommit,
+  placeholder,
+  "aria-label": ariaLabel,
+}: {
+  value: string;
+  onCommit: (next: string) => void;
+  placeholder: string;
+  "aria-label": string;
+}) {
+  const draft = useDraft(value, onCommit, { min: 0 });
+
+  return (
+    <Textarea
+      value={draft.value}
+      maxLength={COMMON_VALIDATE.prompt.max}
+      onChange={(event) => draft.set(event.target.value)}
+      onBlur={draft.commit}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+    />
+  );
+}
+
 /**
  * Wipes what the app has kept of its own use, in one go: calls, jobs and
  * memory. The same set `pnpm reset` calls History, so the terminal and this
  * button agree. Keys, bots and connectors stay.
  *
- * Last group in the section, not in the rail: the rail is on screen the whole
- * time a section is open, and the one thing here that cannot be undone should
- * be reached by scrolling to it.
+ * Last in the section, not in the rail: the rail is on screen the whole time a
+ * section is open, and the one thing here that cannot be undone should be
+ * reached by scrolling to it.
  */
 function ResetHistory() {
   const [reset, resetting] = useServerAction(resetHistoryAction, {
-    okMessage: ({ calls, tasks, notes }) =>
-      `Wiped ${calls} calls, ${tasks} jobs, ${notes} notes`,
+    okMessage: ({ calls, threads, notes }) =>
+      `Wiped ${calls} calls, ${threads} jobs, ${notes} notes`,
     onOk: () => {
       // Prefix match, so every loaded history page goes too.
       revalidate(queryKey.memory);
-      revalidate(queryKey.tasks);
+      revalidate(queryKey.threads);
       revalidate(queryKey.callHistory(null));
     },
   });
@@ -291,30 +589,28 @@ function ResetHistory() {
   };
 
   return (
-    <SettingGroup label="Danger zone" note="Keys, bots and connectors stay.">
-      <SettingItems>
-        <div className="flex items-center gap-3 p-4">
-          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
-            <TriangleAlert className="size-4" />
-          </span>
-          <span className="min-w-0 flex-1 space-y-0.5">
-            <span className="block text-sm font-medium">Reset history</span>
-            <span className="block text-xs text-muted-foreground">
-              Every call, every job and everything she remembers
-            </span>
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            loading={resetting}
-            onClick={confirmReset}
-            className="shrink-0 text-destructive hover:text-destructive"
-          >
-            Reset
-          </Button>
-        </div>
-      </SettingItems>
-    </SettingGroup>
+    <div className="flex min-w-0 items-center gap-3 p-4">
+      <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+        <TriangleAlert className="size-4" />
+      </span>
+      <span className="min-w-0 flex-1 space-y-0.5">
+        <span className="block truncate text-sm font-medium">
+          Reset history
+        </span>
+        <span className="block truncate text-xs text-muted-foreground">
+          Calls, jobs and memory. Keys and bots stay.
+        </span>
+      </span>
+      <Button
+        variant="outline"
+        size="sm"
+        loading={resetting}
+        onClick={confirmReset}
+        className="shrink-0 text-destructive hover:text-destructive"
+      >
+        Reset
+      </Button>
+    </div>
   );
 }
 
@@ -355,13 +651,18 @@ function FacePicker({
           </p>
         </div>
 
-        {/* Only the mark takes a color; the orb follows the theme (OrbFace ignores it). */}
+        {/* Only the mark takes a color; the orb follows the theme (OrbFace ignores it).
+            A paint covers the colour without clearing it; picking a colour takes it off. */}
         {value.kind === "mark" && (
           <MarkPalette
-            color={value.color}
-            themePicked={!value.color}
-            onTheme={() => patch({ color: undefined })}
-            onPick={(color) => patch({ color })}
+            color={value.paint ? undefined : value.color}
+            themePicked={!value.paint && !value.color}
+            onTheme={() => patch({ color: undefined, paint: undefined })}
+            onPick={(color) => patch({ color, paint: undefined })}
+            paint={value.paint}
+            onPaint={(paint) =>
+              patch({ paint: value.paint === paint ? undefined : paint })
+            }
           />
         )}
 
@@ -485,123 +786,6 @@ function Slider({
   );
 }
 
-/**
- * One provider row: model and voice unfold only once picked. The model is a
- * combobox because the list is open; new ids can be typed.
- */
-function ProviderRow({
-  provider,
-  value,
-  hasKey,
-  onPick,
-}: {
-  provider: (typeof SPEACH_MODEL_PROVIDER_LIST)[number];
-  /** null unless this provider is the picked one. */
-  value: SpeachModelRef | null | undefined;
-  hasKey: boolean;
-  onPick: (next: Omit<SpeachModelRef, "provider">) => void;
-}) {
-  const picked = Boolean(value);
-  const voice = value?.voice ?? provider.defaultVoice;
-  const model = value?.model ?? "";
-
-  const [draft, setDraft] = useState("");
-  const [save, saving] = useServerAction(setConfigAction, {
-    onOk: () => {
-      revalidate(queryKey.llmModel);
-      setDraft("");
-      if (!picked) onPick({ voice: null, model: null });
-    },
-  });
-  const ready = draft.trim().length >= KEY_MIN;
-
-  return (
-    <div className={cn("p-4", picked && "bg-muted/40")}>
-      <button
-        type="button"
-        disabled={picked}
-        onClick={() => onPick({ voice: null, model: null })}
-        className="flex w-full items-center gap-3 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-default"
-      >
-        <ProviderIcon provider={provider.id} className="size-4 shrink-0" />
-        <span className="min-w-0 flex-1 space-y-0.5">
-          <span className="block truncate text-sm font-medium">
-            {provider.label}
-          </span>
-          <span className="block truncate font-mono text-xs text-muted-foreground">
-            {model || provider.models[0].id}
-          </span>
-        </span>
-
-        {!hasKey ? (
-          <span className="flex shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground">
-            <TriangleAlert className="size-3" />
-            No key
-          </span>
-        ) : (
-          picked && <Check className="size-4 shrink-0" />
-        )}
-      </button>
-
-      {/* No key yet: paste one here instead of leaving for Config */}
-      {!hasKey && (
-        <div className="pt-3">
-          <KeyInput
-            dense
-            provider={provider}
-            saved={false}
-            value={draft}
-            ready={ready}
-            saving={saving}
-            onValue={setDraft}
-            onSubmit={() => ready && save(provider.apiKeyName, draft)}
-          />
-        </div>
-      )}
-
-      {/* Model and voices only matter once this is the one answering */}
-      {picked && (
-        <div className="space-y-3 pt-3">
-          <Combobox
-            value={model}
-            onChange={(next) =>
-              onPick({ voice: value?.voice ?? null, model: next || null })
-            }
-            options={provider.models.map((entry) => ({
-              value: entry.id,
-              label: entry.label,
-              hint: entry.id,
-            }))}
-            aria-label={`${provider.label} realtime model`}
-            placeholder={provider.models[0].id}
-            empty="Not on the list — it still runs"
-          />
-
-          <div className="flex flex-wrap gap-1.5">
-            {provider.voices.map((name) => (
-              <button
-                key={name}
-                type="button"
-                onClick={() =>
-                  onPick({ voice: name, model: value?.model ?? null })
-                }
-                className={cn(
-                  "rounded-full border px-2.5 py-1 font-mono text-[11px] transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-                  name === voice
-                    ? "border-foreground/40 text-foreground"
-                    : "border-border/60 text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 const CAPTION_LABEL: Record<CaptionView, { label: string; hint: string }> = {
   center: {
     label: "Her last line",
@@ -613,6 +797,86 @@ const CAPTION_LABEL: Record<CaptionView, { label: string; hint: string }> = {
   },
 };
 
+/** How much of the conversation shows while speaking, picked by what it looks like. */
+function Captions({
+  value,
+  onChange,
+}: {
+  value: CaptionView;
+  onChange: (view: CaptionView) => void;
+}) {
+  return (
+    <SettingGroup label="Captions">
+      <div className="@container">
+        <div
+          role="radiogroup"
+          aria-label="Captions"
+          className="grid gap-3 @xl:grid-cols-2"
+        >
+          {CAPTION_VIEWS.map((view) => {
+            const picked = view === value;
+            return (
+              <button
+                key={view}
+                type="button"
+                role="radio"
+                aria-checked={picked}
+                onClick={() => onChange(view)}
+                className={cn(
+                  "min-w-0 space-y-3 rounded-xl border p-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+                  picked
+                    ? "border-foreground"
+                    : "border-border/60 hover:bg-muted/50",
+                )}
+              >
+                <CaptionSketch view={view} />
+                <span className="flex items-center gap-3 px-1 pb-0.5">
+                  <span className="min-w-0 flex-1 space-y-0.5">
+                    <span className="block truncate text-sm font-medium">
+                      {CAPTION_LABEL[view].label}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {CAPTION_LABEL[view].hint}
+                    </span>
+                  </span>
+                  {picked && <Check className="size-4 shrink-0" />}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </SettingGroup>
+  );
+}
+
+/** The call screen in miniature: her mark, and where the words sit. */
+function CaptionSketch({ view }: { view: CaptionView }) {
+  const line = "block h-1 max-w-full rounded-full bg-foreground/20";
+
+  return (
+    <span className="flex h-24 items-center justify-center rounded-lg bg-muted">
+      {view === "center" ? (
+        <span className="flex flex-col items-center gap-2.5">
+          <ThursdayMark size={32} />
+          <span className={cn(line, "w-28")} />
+        </span>
+      ) : (
+        <span className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-6">
+          <span className="space-y-1.5">
+            <span className={cn(line, "w-24")} />
+            <span className={cn(line, "w-16")} />
+          </span>
+          <ThursdayMark size={32} />
+          <span>
+            <span className={cn(line, "ml-auto w-20")} />
+          </span>
+        </span>
+      )}
+    </span>
+  );
+}
+
 /** Whether a call may be opened without the user. Modes are in thursday.schema CALL_BACK_MODES. */
 function CallBackPicker({
   value,
@@ -622,23 +886,32 @@ function CallBackPicker({
   onChange: (mode: CallBack) => void;
 }) {
   return (
-    <SettingGroup
-      label="Calls you"
-      note={
-        value !== "off" &&
-        "Needs this tab open. A tab that has been silent since it loaded may not be allowed to make a sound — the desktop notification covers that."
-      }
-    >
-      <SettingChoiceRows
-        options={CALL_BACK_MODES.map((mode) => ({
-          value: mode,
-          label: CALL_BACK_LABEL[mode],
-          hint: CALL_BACK_HINT[mode],
-        }))}
+    <div className="min-w-0 space-y-3 p-4">
+      <TileHead label="She calls you" />
+      <RadioGroup
+        aria-label="She calls you"
         value={value}
-        onChange={onChange}
-      />
-    </SettingGroup>
+        onValueChange={(mode) => onChange(CallBackSchema.parse(mode))}
+        className="gap-2.5"
+      >
+        {CALL_BACK_MODES.map((mode) => (
+          <label
+            key={mode}
+            className="flex min-w-0 items-center gap-2.5 text-sm"
+          >
+            <RadioGroupItem value={mode} />
+            <span className="truncate">{CALL_BACK_LABEL[mode]}</span>
+          </label>
+        ))}
+      </RadioGroup>
+      <SettingNote>{CALL_BACK_HINT[value]}</SettingNote>
+      {value !== "off" && (
+        <SettingNote>
+          Needs this tab open. A tab that has been silent since it loaded may
+          not be allowed to make a sound — the desktop notification covers that.
+        </SettingNote>
+      )}
+    </div>
   );
 }
 
@@ -648,38 +921,6 @@ const CALL_BACK_HINT: Record<CallBack, string> = {
   waiting: "A job that stopped to ask gets her to ring you.",
   any: "Anything a bot finishes, she opens a line to tell you.",
 };
-
-/** How much of the conversation shows while speaking. */
-function Captions({
-  value,
-  onChange,
-}: {
-  value: CaptionView;
-  onChange: (view: CaptionView) => void;
-}) {
-  const { data: transcript } = useServerRoute<CallTranscript>(
-    queryKey.callTranscript,
-  );
-  const off = transcript?.on === false;
-
-  return (
-    <SettingGroup label="Captions">
-      <SettingChoiceRows
-        options={CAPTION_VIEWS.map((view) => ({
-          value: view,
-          label: CAPTION_LABEL[view].label,
-          hint: CAPTION_LABEL[view].hint,
-          disabled:
-            off &&
-            view === "sides" &&
-            "Transcript is off — there is no side of yours to show.",
-        }))}
-        value={off ? "center" : value}
-        onChange={onChange}
-      />
-    </SettingGroup>
-  );
-}
 
 /**
  * Wake word switch and phrase. Enabled means the browser recognizer holds the
@@ -703,32 +944,33 @@ function WakeWord({
   const terse = draft.value.trim().split(/\s+/).length < 2;
 
   return (
-    <SettingGroup label="Wake">
-      <SettingToggle
-        label="Answer to her name"
-        description="Between calls, the browser listens for the phrase below and picks up when it hears it."
-        checked={value.enabled}
-        onChange={(enabled) => onChange({ ...value, enabled })}
-      >
-        <div className="space-y-2">
-          <Input
-            value={draft.value}
-            maxLength={WAKE_PHRASE.max}
-            spellCheck={false}
-            onChange={(event) => draft.set(event.target.value)}
-            onBlur={draft.commit}
-            onKeyDown={draft.onKeyDown}
-            aria-label="Wake phrase"
-            className="font-mono text-sm"
-          />
-          <SettingNote>
-            {terse
-              ? "One word will wake her by accident — say hello first."
-              : "Heard loosely, in English. Near misses count."}
-          </SettingNote>
-        </div>
-      </SettingToggle>
-    </SettingGroup>
+    <div className="min-w-0 space-y-3 p-4">
+      <TileHead label="Wake phrase">
+        <Switch
+          aria-label="Answer to her name"
+          checked={value.enabled}
+          onCheckedChange={(enabled) => onChange({ ...value, enabled })}
+        />
+      </TileHead>
+      <Input
+        value={draft.value}
+        maxLength={WAKE_PHRASE.max}
+        spellCheck={false}
+        disabled={!value.enabled}
+        onChange={(event) => draft.set(event.target.value)}
+        onBlur={draft.commit}
+        onKeyDown={draft.onKeyDown}
+        aria-label="Wake phrase"
+        className="font-mono text-sm"
+      />
+      <SettingNote>
+        {!value.enabled
+          ? "Between calls, the browser listens for it and picks up."
+          : terse
+            ? "One word will wake her by accident — say hello first."
+            : "Heard loosely, in English. Near misses count."}
+      </SettingNote>
+    </div>
   );
 }
 
@@ -765,78 +1007,42 @@ function Shortcut({
   };
 
   return (
-    <SettingGroup label="Shortcut">
-      <SettingToggle
-        label="Answer to a key"
-        description="With this tab in front, the key below starts a call — and ends the one that is running."
-        checked={value.enabled}
-        onChange={(enabled) => onChange({ ...value, enabled })}
-      >
-        <div className="space-y-2">
-          <button
-            type="button"
-            {...HOTKEY_CAPTURE}
-            onClick={() => {
-              setBare(false);
-              setListening(true);
-            }}
-            onBlur={() => setListening(false)}
-            onKeyDown={listening ? record : undefined}
-            className={cn(
-              "w-full rounded-lg border px-3 py-2 font-mono text-sm outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
-              listening
-                ? "border-foreground/40 text-muted-foreground"
-                : "border-border/60 hover:bg-muted/50",
-            )}
-          >
-            {listening ? "Press the keys…" : (label ?? "Set a shortcut")}
-          </button>
-          <SettingNote>
-            {bare
-              ? "Hold Ctrl, Alt or Cmd — a plain key is typing."
-              : listening
-                ? "Esc to keep the one you have."
-                : "Only while this tab has focus. Not while you are typing."}
-          </SettingNote>
-        </div>
-      </SettingToggle>
-    </SettingGroup>
-  );
-}
-
-/** Appended to the persona, not replacing it; the voice-assistant rules stay in the server prompt. */
-function Instructions({
-  value,
-  onSave,
-}: {
-  value: string;
-  onSave: (systemPrompt: string) => void;
-}) {
-  const [draft, setDraft] = useState(value);
-
-  return (
-    <SettingGroup
-      label="Instructions"
-      right={`${draft.length}/${COMMON_VALIDATE.prompt.max}`}
-    >
-      <div className="space-y-3">
-        <Textarea
-          value={draft}
-          maxLength={COMMON_VALIDATE.prompt.max}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="Anything else she should know before the first word — how to address you, what to skip."
-          className="min-h-28"
+    <div className="min-w-0 space-y-3 p-4">
+      <TileHead label="Shortcut">
+        <Switch
+          aria-label="Answer to a key"
+          checked={value.enabled}
+          onCheckedChange={(enabled) => onChange({ ...value, enabled })}
         />
-        <div className="flex justify-end">
-          <Button
-            size="sm"
-            disabled={draft === value}
-            onClick={() => onSave(draft)}
-          >
-            Save
-          </Button>
-        </div>
-      </div>
-    </SettingGroup>
+      </TileHead>
+      <button
+        type="button"
+        {...HOTKEY_CAPTURE}
+        disabled={!value.enabled}
+        onClick={() => {
+          setBare(false);
+          setListening(true);
+        }}
+        onBlur={() => setListening(false)}
+        onKeyDown={listening ? record : undefined}
+        className={cn(
+          "flex h-8 w-full items-center justify-center rounded-lg border px-3 font-mono text-sm outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50",
+          listening
+            ? "border-foreground/40 text-muted-foreground"
+            : "border-border/60 hover:bg-muted/50",
+        )}
+      >
+        {listening ? "Press the keys…" : (label ?? "Set a shortcut")}
+      </button>
+      <SettingNote>
+        {bare
+          ? "Hold Ctrl, Alt or Cmd — a plain key is typing."
+          : listening
+            ? "Esc to keep the one you have."
+            : value.enabled
+              ? "Only while this tab has focus. Not while you are typing."
+              : "Starts a call, and ends the one that is running."}
+      </SettingNote>
+    </div>
   );
 }

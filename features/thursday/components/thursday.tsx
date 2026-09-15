@@ -21,7 +21,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { SPEACH_MODEL_PROVIDER_LIST } from "@/features/ai/model.schema";
+import { LIVE_PROVIDER } from "@/features/ai/live.schema";
 import { type Bot, DEFAULT_BOT } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { BotRoom } from "@/features/bot/components/bot-room";
@@ -75,8 +75,6 @@ export type CallScreenProps = {
   idleLeft?: number | null;
   /** When the line opened (ms). */
   since?: number | null;
-  /** Mic muted (use-thursday micOff): a tool is running or a relay is being read. */
-  micOff?: boolean;
   getSpectrum?: () => ArrayLike<number>;
   /** The user's own mic bands, for the listening meter. */
   getMicSpectrum?: () => ArrayLike<number>;
@@ -96,7 +94,6 @@ export function CallScreen({
   hotkeyLabel = null,
   idleLeft = null,
   since = null,
-  micOff = false,
   getSpectrum,
   getMicSpectrum,
   captionView = "center",
@@ -106,8 +103,8 @@ export function CallScreen({
   // without a key the face opens the key prompt instead of a call
   const [asking, setAsking] = useState(false);
   const asleep = !callable && status === "idle";
-  const busy = status === "connecting";
-  const live = status !== "idle" && status !== "connecting";
+  const busy = status === "connecting" || status === "ending";
+  const live = status !== "idle" && !busy;
   // The caption box holds her words and nothing else, so the line she just
   // said stays put while she listens or works.
   const hers =
@@ -169,7 +166,6 @@ export function CallScreen({
               (use-thursday). */}
           <ActivityRow
             tool={tool}
-            micOff={micOff}
             listening={status === "listening"}
             getMicSpectrum={getMicSpectrum}
           />
@@ -180,6 +176,7 @@ export function CallScreen({
             text={sided || status === "idle" ? "" : hers}
             fixed
             paged
+            fadeIn
             className="w-full max-w-160 text-center text-base"
           />
 
@@ -213,7 +210,7 @@ export function CallScreen({
         </div>
       </div>
 
-      {/* Documents a finished task produced; opens itself on the artifact event */}
+      {/* Documents a finished thread produced; opens itself on the artifact event */}
       <ArtifactView />
 
       <BotRoom />
@@ -223,7 +220,7 @@ export function CallScreen({
 
 /**
  * The corner is one group: three rooms as single buttons, everything else
- * behind the gear. Tasks is left out because the other corner is that room.
+ * behind the gear. Threads is left out because the other corner is that room.
  */
 const CORNER = ["thursday", "memory", "bot"] as const;
 
@@ -333,7 +330,7 @@ const CAPTION_PADS = ["px-4 py-3", "px-3.5 py-2.5", "px-3 py-2"];
  * page's own — the ascii field is boot and intro only — so an outline covers
  * nothing and ends up being the whole design.
  *
- * Yours is the surface `Bubble` already gives your words in the task thread
+ * Yours is the surface `Bubble` already gives your words in a thread
  * (primary, light ink); hers is the page's grey. Age recedes in the fill, not
  * in the block's opacity, which would take the ink down with it.
  */
@@ -368,6 +365,7 @@ function Flow({
   lines = CAPTION_LINES,
   fixed = false,
   paged = false,
+  fadeIn = false,
   className,
 }: {
   text: string;
@@ -378,6 +376,8 @@ function Flow({
   fixed?: boolean;
   /** Page overflow with chevrons; needs side margin. */
   paged?: boolean;
+  /** Each new character fades in as it arrives; what is already drawn stays put. */
+  fadeIn?: boolean;
   className?: string;
 }) {
   const box = useRef<HTMLParagraphElement>(null);
@@ -420,7 +420,17 @@ function Flow({
       className={cn("break-keep", paged && "transition-transform duration-200")}
     >
       {lead}
-      {text}
+      {fadeIn
+        ? // char + index: a character already drawn keeps its key and never fades twice
+          Array.from(text).map((char, index) => (
+            <span
+              key={`${char}${index}`}
+              className="animate-in fade-in duration-300 motion-reduce:animate-none"
+            >
+              {char}
+            </span>
+          ))
+        : text}
     </p>
   );
 
@@ -626,7 +636,7 @@ function Ear({
  * which has no container either, so an outline under one of the two read as the
  * line changing shape rather than changing state.
  */
-function Activity({ tool, micOff }: { tool: ToolRun; micOff: boolean }) {
+function Activity({ tool }: { tool: ToolRun }) {
   // a relay from a bot is a flag, like the answer tool — unless it names the bot
   const relay = tool.kind === "relay";
   const Icon = relay ? Flag : toolIcon(tool.name);
@@ -664,16 +674,6 @@ function Activity({ tool, micOff }: { tool: ToolRun; micOff: boolean }) {
       ) : (
         <ShinyText text={text} speed={2.4} className={look} />
       )}
-      {/* The mic is closed because this is running, so it travels with the line.
-          A chip, where the line has none: on the bare page a second glyph beside
-          the tool's own shares strokes with it and reads as a smudge, and the
-          plate is what says this is a state rather than more of the sentence. */}
-      {micOff && (
-        <span className="flex shrink-0 items-center gap-1 rounded-full bg-muted/60 py-0.5 pr-2 pl-1.5 font-mono text-[11px] leading-4 text-muted-foreground">
-          <MicOff className="size-3 shrink-0" />
-          mic off
-        </span>
-      )}
     </span>
   );
 }
@@ -703,10 +703,10 @@ function Mark({
         <BotMark
           size={16}
           seed={tool.bot}
-          vary={tool.bot}
           color={bot?.icon?.color}
           shape={bot?.icon?.shape}
           outline={bot?.icon?.outline}
+          paint={bot?.icon?.paint}
           notify={false}
         />
       </span>
@@ -730,12 +730,10 @@ function Mark({
  */
 function ActivityRow({
   tool,
-  micOff,
   listening,
   getMicSpectrum,
 }: {
   tool: ToolRun | null;
-  micOff: boolean;
   listening: boolean;
   getMicSpectrum?: () => ArrayLike<number>;
 }) {
@@ -750,7 +748,7 @@ function ActivityRow({
     <div className="grid h-7 max-w-full items-center justify-items-center">
       {shown && (
         <Fade at="col-start-1 row-start-1 max-w-full" shown={tool !== null}>
-          <Activity tool={shown} micOff={micOff} />
+          <Activity tool={shown} />
         </Fade>
       )}
       <Fade at="col-start-1 row-start-1" shown={hearing}>
@@ -802,7 +800,7 @@ function Hint({
   wakePhrase: string | null;
   hotkeyLabel: string | null;
 }) {
-  const busy = status === "connecting";
+  const busy = status === "connecting" || status === "ending";
   const live = status !== "idle" && !busy;
 
   let body: React.ReactNode;
@@ -910,7 +908,6 @@ function NeedsKey({
         <BotMark
           size={24}
           seed={DEFAULT_BOT.name}
-          vary={DEFAULT_BOT.name}
           color={DEFAULT_BOT.icon?.color}
           shape={DEFAULT_BOT.icon?.shape}
           outline={DEFAULT_BOT.icon?.outline}
@@ -1099,13 +1096,11 @@ export function Thursday() {
     tool,
     idleLeft,
     since,
-    micOff,
     call,
     getSpectrum,
     getMicSpectrum,
     wakePhrase,
     hotkey,
-    transcript,
   } = useThursday();
   // one entry point per line: the wake phrase if any, else the hotkey
   const hotkeyLabel = useHotkeyLabel(hotkey);
@@ -1118,9 +1113,7 @@ export function Thursday() {
    * can change during a call (NeedsKey). Unknown counts as not callable.
    */
   const { data: config } = useServerRoute<ConfigStatus[]>(queryKey.config);
-  const callable = SPEACH_MODEL_PROVIDER_LIST.some((provider) =>
-    isConfigSet(config, provider.apiKeyName),
-  );
+  const callable = isConfigSet(config, LIVE_PROVIDER.apiKeyName);
 
   return (
     <>
@@ -1135,12 +1128,10 @@ export function Thursday() {
         hotkeyLabel={hotkeyLabel}
         idleLeft={idleLeft}
         since={since}
-        micOff={micOff}
         getSpectrum={getSpectrum}
         getMicSpectrum={getMicSpectrum}
         face={face}
-        // Without a transcript there is no user side to set beside hers
-        captionView={transcript ? captionView : "center"}
+        captionView={captionView}
         callable={callable}
       />
     </>

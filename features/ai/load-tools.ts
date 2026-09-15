@@ -3,7 +3,7 @@ import { formatDistanceToNowStrict } from "date-fns";
 import { CALL_EXEC_TIMEOUT_MS, IS_DEV } from "@/config";
 import type { TextModel } from "@/features/ai/model";
 import { clockNow } from "@/features/ai/prompts/prompt-helper";
-import { delegateSpec, taskSpec } from "@/features/ai/tools/bot.tool";
+import { delegateSpec, threadSpec } from "@/features/ai/tools/bot.tool";
 import { CALL_TOOLS } from "@/features/ai/tools/call.tool";
 import { createMcpTools } from "@/features/ai/tools/mcp.tool";
 import { createMemoryTools } from "@/features/ai/tools/memory.tool";
@@ -11,15 +11,13 @@ import { createSearchTool } from "@/features/ai/tools/search.tool";
 import { createSkillTools } from "@/features/ai/tools/skills.tool";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { createWorkspaceTools } from "@/features/ai/tools/workspace.tool";
-import { taskActivity } from "@/features/bot/bot.schema";
+import { threadActivity } from "@/features/bot/bot.schema";
 import { loadSkills } from "@/features/skills/skills.discover";
-import {
-  readCallSkillsOn,
-  readCallTranscriptOn,
-} from "@/features/thursday/thursday.query";
+import { readCallSkillsOn } from "@/features/thursday/thursday.query";
 import { jobShellEnv, openWorkspace } from "@/features/workspace/workspace";
 import { toDate } from "@/lib/date-like";
 import { logger } from "@/lib/logger";
+import { isPublicError } from "@/lib/public-error";
 import { estimateTokens } from "@/lib/tokens";
 import { clip } from "@/lib/utils";
 
@@ -39,7 +37,7 @@ export type ToolTarget = "thursday" | "bot" | "memory-edit";
 export type ToolRun =
   | {
       target: "thursday";
-      /** The current call; written on the task row `delegate` opens. */
+      /** The current call; written on the thread row `delegate` opens. */
       callId?: string | null;
     }
   | {
@@ -59,7 +57,7 @@ export type ToolRun =
  * (runner -> bot.run -> this file). `delegate` records which call opened the job; that decides
  * who is told when it ends (bot.runner).
  */
-function createTaskTools(callId: string | null | undefined): ToolSet {
+function createThreadTools(callId: string | null | undefined): ToolSet {
   return {
     [TOOL_NAMES.delegate]: tool({
       description: delegateSpec.description,
@@ -79,8 +77,8 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
         }
 
         // The row carries the bot's own spelling, not the transcript's
-        const { startTask } = await import("@/features/bot/bot.runner");
-        const id = await startTask({
+        const { startThread } = await import("@/features/bot/bot.runner");
+        const id = await startThread({
           bot: found.name,
           request,
           label,
@@ -88,20 +86,20 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
           from: "thursday",
         });
         return {
-          taskId: id,
+          threadId: id,
           // The label is the handle: without it in front of her, a follow-up
           // becomes a second job instead of a word to the one running
-          note: `${found.name} has "${label}". Say so and keep talking — the result is put in front of you later. Everything further about it — an answer, a correction, carrying it on after it answers — is \`${TOOL_NAMES.task}\` with "${label}".`,
+          note: `${found.name} has "${label}". Its updates reach the conversation on their own. Anything further about this work — an answer, a correction, the next step once it finishes — is \`${TOOL_NAMES.thread}\` with "${label}".`,
         };
       },
     }),
 
-    [TOOL_NAMES.task]: tool({
-      description: taskSpec.description,
-      inputSchema: taskSpec.parameters,
-      execute: async ({ action, task, answer, recipient, replyTo }) => {
-        const { listTaskOverview, resolveTask } = await import(
-          "@/features/bot/task.query"
+    [TOOL_NAMES.thread]: tool({
+      description: threadSpec.description,
+      inputSchema: threadSpec.parameters,
+      execute: async ({ action, thread, answer, recipient, replyTo }) => {
+        const { listThreadOverview, resolveThread } = await import(
+          "@/features/bot/thread.query"
         );
         if (action === "status") {
           // `status` only reads, and text left in `answer` reaches nobody — it
@@ -116,12 +114,14 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
           // opened and a call can run for hours; `since` is measured against this.
           const now = { now: clockNow() };
           // A named job comes back whole; the list clips outcomes, and the model pads a clipped answer
-          if (task) {
-            const found = await resolveTask(task);
+          if (thread) {
+            const found = await resolveThread(thread);
             const one = found;
-            if (!one) return await noSuchJob(task);
-            const { findTaskView } = await import("@/features/bot/task.query");
-            const room = (await findTaskView(one.id))?.room;
+            if (!one) return await noSuchJob(thread);
+            const { findThreadView } = await import(
+              "@/features/bot/thread.query"
+            );
+            const room = (await findThreadView(one.id))?.room;
             return {
               ...now,
               ...dropped,
@@ -141,37 +141,37 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
                 : {}),
             };
           }
-          const tasks = await listTaskOverview();
-          // No threads — only as much as is worth reading out: what it is
+          const threads = await listThreadOverview();
+          // No messages — only as much as is worth reading out: what it is
           // asking, the one line of what it is doing, or how it ended
           return {
             ...now,
             ...dropped,
-            tasks: tasks.map((task) => ({
-              id: task.id,
-              label: task.label,
-              bot: task.bot,
-              status: task.status,
-              ...(task.room
+            threads: threads.map((thread) => ({
+              id: thread.id,
+              label: thread.label,
+              bot: thread.bot,
+              status: thread.status,
+              ...(thread.room
                 ? {
-                    participants: task.room.participants,
-                    questions: task.room.questions.map((question) => ({
+                    participants: thread.room.participants,
+                    questions: thread.room.questions.map((question) => ({
                       ...question,
                       text: clip(question.text, 200),
                     })),
                   }
                 : {}),
-              since: formatDistanceToNowStrict(toDate(task.updatedAt), {
+              since: formatDistanceToNowStrict(toDate(thread.updatedAt), {
                 addSuffix: true,
               }),
-              ...(task.ask
-                ? { asking: task.ask.question, options: task.ask.options }
+              ...(thread.ask
+                ? { asking: thread.ask.question, options: thread.ask.options }
                 : {}),
-              ...(task.status === "running"
-                ? { now: taskActivity(task.lines) }
+              ...(thread.status === "running"
+                ? { now: threadActivity(thread.lines) }
                 : {}),
-              ...(task.outcome && task.status !== "waiting"
-                ? { outcome: clip(task.outcome, 200) }
+              ...(thread.outcome && thread.status !== "waiting"
+                ? { outcome: clip(thread.outcome, 200) }
                 : {}),
             })),
           };
@@ -180,39 +180,85 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
         // "that one" means out loud, and making the model fetch a label it
         // already heard is what sends it to `delegate` instead. Cancel still
         // needs the name: it cannot be taken back.
-        const { listInboxTasks } = await import("@/features/bot/task.query");
-        const one = task
-          ? await resolveTask(task)
-          : action === "answer"
-            ? ((await listInboxTasks())[0] ?? null)
+        const { listInboxThreads, markSeen } = await import(
+          "@/features/bot/thread.query"
+        );
+        const unnamed = !thread && (action === "answer" || action === "open");
+        const inbox = unnamed ? await listInboxThreads() : [];
+        // An unnamed answer is for the open question; with questions in two
+        // jobs, which one it answers is the user's to say
+        const asking =
+          action === "answer"
+            ? inbox.filter((row) => row.room?.questions.length)
+            : [];
+        if (asking.length > 1)
+          return `Questions are waiting in more than one job: ${asking
+            .map(
+              (row) =>
+                `"${row.label}" (${row.room?.questions.map((question) => question.bot).join(", ")})`,
+            )
+            .join(", ")}. Name the job.`;
+        const one = thread
+          ? await resolveThread(thread)
+          : unnamed
+            ? (asking[0] ?? inbox[0] ?? null)
             : null;
         if (!one) {
-          if (task) return await noSuchJob(task);
-          return action === "answer"
+          if (thread) return await noSuchJob(thread);
+          return unnamed
             ? "No job has moved yet — say which one, or check `status` first."
             : "Say which job — by its label. Call `status` with no job named to see them.";
         }
 
-        const { answerTask, cancelTask } = await import(
+        if (action === "open") {
+          // The room on the call screen draws the inbox; an older job is only in the history
+          const room = unnamed ? inbox : await listInboxThreads();
+          if (!room.some((row) => row.id === one.id))
+            return `"${one.label}" is older than the call screen keeps; it is under Settings › Threads.`;
+          const { appEvents } = await import(
+            "@/app/api/events/app-event.server"
+          );
+          appEvents.emit({ type: "showThread", threadId: one.id });
+          return { label: one.label, open: true };
+        }
+        if (action === "seen") {
+          // The same as opening it on screen: it leaves the work waiting on the user
+          await markSeen([one.id]);
+          return { label: one.label, seen: true };
+        }
+        const { answerThread, cancelThread } = await import(
           "@/features/bot/bot.runner"
         );
         if (action === "cancel") {
-          await cancelTask(one.id);
+          await cancelThread(one.id);
           return { label: one.label, status: "cancelled" };
         }
         if (!answer?.trim()) return "Say what to pass on.";
-        await answerTask(
-          one.id,
-          answer.trim(),
-          "thursday",
-          recipient ?? undefined,
-          replyTo ?? undefined,
-        );
+        let told: Awaited<ReturnType<typeof answerThread>>;
+        try {
+          told = await answerThread(
+            one.id,
+            answer.trim(),
+            "thursday",
+            recipient ?? undefined,
+            replyTo ?? undefined,
+          );
+        } catch (cause) {
+          // Which question, or that it is gone, is the model's to fix: one line it can act on
+          if (isPublicError(cause)) return cause.message;
+          throw cause;
+        }
+        if (told?.answered)
+          return {
+            label: one.label,
+            answered: told.answered,
+            note: `${told.answered.bot} has the answer to its question and goes on from it.`,
+          };
         return {
           // Named even when the model named it: with no job given this is the
           // one that moved last, and saying which makes a wrong one obvious
           label: one.label,
-          bot: one.bot,
+          bot: told?.to ?? one.bot,
           status: "running",
           note:
             one.status === "running"
@@ -226,11 +272,11 @@ function createTaskTools(callId: string | null | undefined): ToolSet {
 
 /** An unresolved reference answers with the recent jobs; a bare "no such job" is read as an error and relayed as one. */
 async function noSuchJob(ref: string): Promise<string> {
-  const { listTaskOverview } = await import("@/features/bot/task.query");
-  const recent = await listTaskOverview();
+  const { listThreadOverview } = await import("@/features/bot/thread.query");
+  const recent = await listThreadOverview();
   if (!recent.length) return "No jobs have been handed over yet.";
   const names = recent
-    .map((task) => `"${task.label}" (${task.bot}, ${task.status})`)
+    .map((thread) => `"${thread.label}" (${thread.bot}, ${thread.status})`)
     .join(", ");
   return `There is no job called "${ref}". The latest are: ${names}. Call again with one of those names.`;
 }
@@ -281,18 +327,16 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     };
   }
 
-  // Off, no call is written down (Settings › Thursday › Transcript): a fact is
-  // not tied to a call that kept nothing, and there is no conversation to open
-  const transcript = await readCallTranscriptOn();
-  // The call's hand. A bot is handed only the reads from it (below).
+  // The call's hand; a fact it writes is tied to the call it was said in. A bot
+  // is handed only the reads from it (below).
   const { [TOOL_NAMES.memory_conversation]: conversation, ...memory } =
     createMemoryTools(
       "call",
-      run.target === "thursday" && transcript ? (run.callId ?? null) : null,
+      run.target === "thursday" ? (run.callId ?? null) : null,
     );
-  const readBack: ToolSet = transcript
-    ? { [TOOL_NAMES.memory_conversation]: conversation }
-    : {};
+  const readBack: ToolSet = {
+    [TOOL_NAMES.memory_conversation]: conversation,
+  };
 
   const sandbox = await openWorkspace();
 
@@ -308,15 +352,14 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
       ...memory,
       ...readBack,
       ...skills,
-      // The shell alone, for no longer than a call can sit silent on it: the mic
-      // is closed while a tool runs (config CALL_EXEC_TIMEOUT_MS). A whole file is
-      // a job, not a glance (workspace.tool)
+      // The shell alone, for no longer than her answer can wait on it (config
+      // CALL_EXEC_TIMEOUT_MS). A whole file is a job, not a glance (workspace.tool)
       ...createWorkspaceTools(sandbox, {
         write: false,
         timeoutMs: CALL_EXEC_TIMEOUT_MS,
       }),
       // Handing work over, following it, and hanging up belong to the voice session only
-      ...createTaskTools(run.callId),
+      ...createThreadTools(run.callId),
       ...CALL_TOOLS,
     };
   }
@@ -341,6 +384,8 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
       // of the run only (workspace.tool shellGuide). The call gets no guide:
       // one command is a glance, not a job to plan around
       guide: true,
+      // Its own memory stays within its limits whichever of the two writes it (bot.memory)
+      memoryOf: run.bot,
     }),
     // Pinned tools come with schemas; the rest sit behind `tool_search`, absent when nothing is left to find (mcp.tool)
     ...(await createMcpTools(run.bot, sandbox)),

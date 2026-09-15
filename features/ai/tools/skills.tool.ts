@@ -1,7 +1,10 @@
 import { tool } from "ai";
 import z from "zod";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
-import type { SkillMetadata } from "@/features/skills/skills.discover";
+import {
+  loadSkills,
+  type SkillMetadata,
+} from "@/features/skills/skills.discover";
 import { splitFrontmatter } from "@/features/skills/skills.query";
 import type { Sandbox } from "@/lib/sandbox";
 
@@ -24,17 +27,19 @@ export const createSkillTools = ({
         name: z
           .string()
           .describe(
-            "Exact name from the Skills list. Do not guess names that are not on it.",
+            "Exact name from the Skills list, or of a skill installed during this job. Do not guess names.",
           ),
       }),
       execute: async ({ name }, { messages }) => {
-        const skill = skills.find(
-          (s) => s.name.toLowerCase() === name.toLowerCase(),
-        );
+        const named = (list: SkillMetadata[]) =>
+          list.find((s) => s.name.toLowerCase() === name.toLowerCase());
+        // The list is read when the run starts; a skill installed since is only on disk
+        const listed = named(skills) ? skills : await loadSkills(sandbox);
+        const skill = named(listed);
         if (!skill) {
           return {
             error: `No skill named '${name}'.`,
-            available: skills.map((s) => s.name),
+            available: listed.map((s) => s.name),
           };
         }
 

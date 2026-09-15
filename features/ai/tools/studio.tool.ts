@@ -92,7 +92,7 @@ async function save(
 
 /** The path first, on its own line: whoever draws this row reads line one as the file to open. */
 const saved = (path: string) =>
-  `${path}\nSaved. Give the user this path — the file opens from the task row. Do not describe it back to them; they can open it.`;
+  `${path}\nSaved. Give the user this path — the file opens from the thread row. Do not describe it back to them; they can open it.`;
 
 /** `video/mp4` → `mp4`, with a fallback for a provider that says nothing. */
 const extOf = (mediaType: string | undefined, fallback: string) =>

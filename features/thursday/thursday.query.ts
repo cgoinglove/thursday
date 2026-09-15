@@ -12,17 +12,14 @@ import {
 import { CALL_HISTORY_PAGE } from "@/config";
 import { database } from "@/database/db";
 import { callMessageTable, callTable } from "@/database/tables";
-import { listCallJobs } from "@/features/bot/task.query";
+import { listCallJobs } from "@/features/bot/thread.query";
 import { readConfig, writeConfig } from "@/features/config/config.query";
-import type { SpeachModelProviderId } from "@/lib/realtime/realtime.schema";
+import type { LiveClose } from "@/lib/live/live.schema";
 import {
   type CallRecord,
-  type CallTranscript,
   type CallTurn,
   isSkillsOn,
-  isTranscriptOn,
   THURSDAY_KEYS,
-  TranscriptionModelsSchema,
 } from "./thursday.schema";
 
 /**
@@ -39,52 +36,11 @@ export async function writeCallSkillsOn(on: boolean) {
   await writeConfig(THURSDAY_KEYS.skills, on ? "on" : "off");
 }
 
-/**
- * Whether the user's side of a call is written down (Settings › Thursday ›
- * Transcript). Read where a call opens, where its prompt and tools are built,
- * and where a job it hands over is opened.
- */
-export async function readCallTranscriptOn(): Promise<boolean> {
-  return isTranscriptOn(await readConfig(THURSDAY_KEYS.transcript));
-}
-
-export async function readCallTranscript(): Promise<CallTranscript> {
-  const [on, models] = await Promise.all([
-    readCallTranscriptOn(),
-    readConfig(THURSDAY_KEYS.transcriptionModel),
-  ]);
-  return { on, models: parseTranscriptionModels(models) };
-}
-
-export async function writeCallTranscriptOn(on: boolean) {
-  await writeConfig(THURSDAY_KEYS.transcript, on ? "on" : "off");
-}
-
-/** Null goes back to the provider's first model. */
-export async function writeTranscriptionModel(
-  provider: SpeachModelProviderId,
-  model: string | null,
-) {
-  const { models } = await readCallTranscript();
-  await writeConfig(
-    THURSDAY_KEYS.transcriptionModel,
-    JSON.stringify({ ...models, [provider]: model ?? undefined }),
-  );
-}
-
-/** The key can also come from env, where anything may be written: a bad value is no picks. */
-function parseTranscriptionModels(
-  value: string | undefined,
-): CallTranscript["models"] {
-  if (!value) return {};
-  try {
-    return TranscriptionModelsSchema.parse(JSON.parse(value));
-  } catch {
-    return {};
-  }
-}
-
-export async function insertCall(input: { provider: string; model: string }) {
+export async function insertCall(input: {
+  provider: string;
+  model: string;
+  backendModel: string;
+}) {
   const [call] = await database
     .insert(callTable)
     .values({ id: crypto.randomUUID(), ...input })
@@ -92,11 +48,23 @@ export async function insertCall(input: { provider: string; model: string }) {
   return call.id;
 }
 
-/** Ends the call; false if it already ended, so end-of-call work runs once. */
-export async function endCall(id: string): Promise<boolean> {
+/**
+ * Ends the call; false if it already ended, so end-of-call work runs once.
+ * `close` is what the provider confirmed on `session.closed`; without it the
+ * row keeps null seconds, which reads as "never confirmed", not as zero.
+ */
+export async function endCall(
+  id: string,
+  close?: LiveClose | null,
+): Promise<boolean> {
   const ended = await database
     .update(callTable)
-    .set({ endedAt: new Date() })
+    .set({
+      endedAt: new Date(),
+      ...(close
+        ? { endedReason: close.reason, seconds: close.seconds ?? null }
+        : {}),
+    })
     .where(and(eq(callTable.id, id), isNull(callTable.endedAt)))
     .returning({ id: callTable.id });
   return ended.length > 0;
@@ -110,10 +78,16 @@ export async function saveTurns(callId: string, turns: CallTurn[]) {
   for (const turn of turns) {
     await database
       .insert(callMessageTable)
-      .values({ callId, ...turn })
+      .values({ callId, ...turn, fragments: turn.fragments ?? null })
       .onConflictDoUpdate({
         target: [callMessageTable.callId, callMessageTable.id],
-        set: { text: turn.text, role: turn.role, tool: turn.tool ?? null },
+        set: {
+          text: turn.text,
+          role: turn.role,
+          tool: turn.tool ?? null,
+          // A late fragment revises the group; the originals go with it.
+          fragments: turn.fragments ?? null,
+        },
       });
   }
 }
@@ -167,27 +141,6 @@ export async function listRecentTurns(limit: number): Promise<CallGroup[]> {
   return [...groups.values()]
     .reverse()
     .map((group) => ({ ...group, turns: group.turns.reverse() }));
-}
-
-/** The last spoken turns of one call in order, without tool turns. */
-export async function listCallTurns(
-  callId: string,
-  limit: number,
-): Promise<{ role: "user" | "assistant"; text: string }[]> {
-  const rows = await database
-    .select({ role: callMessageTable.role, text: callMessageTable.text })
-    .from(callMessageTable)
-    .where(
-      and(
-        eq(callMessageTable.callId, callId),
-        inArray(callMessageTable.role, ["user", "assistant"]),
-      ),
-    )
-    .orderBy(desc(callMessageTable.seq))
-    .limit(limit);
-  return rows
-    .reverse()
-    .map((row) => ({ role: row.role as "user" | "assistant", text: row.text }));
 }
 
 /**
@@ -251,7 +204,7 @@ export async function isAnyCallLive() {
 
 /**
  * Deletes an ended call and its turns (call_message cascades). A live call is
- * refused: its tab keeps writing turns against the row. Tasks keep a dangling
+ * refused: its tab keeps writing turns against the row. Threads keep a dangling
  * `callId`, which reads as "not on the line".
  */
 export async function deleteCall(id: string): Promise<boolean> {
@@ -287,8 +240,11 @@ export async function listCallHistory(options: {
       id: callTable.id,
       provider: callTable.provider,
       model: callTable.model,
+      backendModel: callTable.backendModel,
       startedAt: callTable.startedAt,
       endedAt: callTable.endedAt,
+      endedReason: callTable.endedReason,
+      seconds: callTable.seconds,
     })
     .from(callTable)
     .innerJoin(callMessageTable, eq(callMessageTable.callId, callTable.id))
@@ -309,6 +265,7 @@ export async function listCallHistory(options: {
       tool: callMessageTable.tool,
       text: callMessageTable.text,
       seq: callMessageTable.seq,
+      fragments: callMessageTable.fragments,
       at: callMessageTable.at,
     })
     .from(callMessageTable)

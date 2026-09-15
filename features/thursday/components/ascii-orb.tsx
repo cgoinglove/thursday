@@ -2,10 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { ASCII_FACE } from "@/config";
-import {
-  createVoiceFollower,
-  SPECTRUM_BANDS,
-} from "@/lib/realtime/realtime.tap";
+import { createVoiceFollower, SPECTRUM_BANDS } from "@/lib/live/live.tap";
 import {
   ALPHA_TOP,
   CHAR_RATE,
@@ -169,7 +166,7 @@ const MAX_RINGS = 5;
 
 /** Per-frame values derived from the voice; every cell reads the same ones. */
 type Voice = {
-  /** The voice inside its own range over about half a second (realtime.tap createVoiceFollower) */
+  /** The voice inside its own range over about half a second (live.tap createVoiceFollower) */
   phrase: number;
   /** Spring kicked by each syllable */
   bob: number;

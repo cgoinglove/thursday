@@ -1,6 +1,11 @@
 import { format, formatDistanceToNowStrict } from "date-fns";
-import { MEMORY_LIMITS, PROMPT_BUDGET, PROMPT_LINE } from "@/config";
-import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
+import {
+  MEMORY_LIMITS,
+  PROMPT_BUDGET,
+  PROMPT_LINE,
+  STUDIO_SERVER,
+} from "@/config";
+import { STUDIO_TOOLS, TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import type { McpToolRef } from "@/features/connectors/mcp.schema";
 import type {
   MemoryAlwaysLoaded,
@@ -14,8 +19,9 @@ import { estimateTokens, sectionTokens } from "@/lib/tokens";
 import { clip } from "@/lib/utils";
 
 /**
- * Row-to-line formatters shared by thursday.prompt and bot.prompt, plus the tidying check.
- * Nothing here wraps a sentence; headings and paragraphs live in the prompt that says them.
+ * Row-to-line formatters shared by the call prompts (live, thursday) and bot.prompt, plus the tidying check.
+ * Nothing here wraps a sentence; headings and paragraphs live in the prompt that says them. The one
+ * exception is `thursdayIdentity`, the words both call prompts open with.
  */
 
 /** What one assembled prompt hands back to the run that asked for it. */
@@ -23,8 +29,6 @@ export type LoadedPrompt = {
   text: string;
   /** Who this run can reach with `ask_bot`. When empty the runner does not attach the tool (bot.run). */
   peers: string[];
-  /** System item injected the moment the line opens so the assistant speaks first (thursday.prompt opening). Always null for a bot. */
-  opening: string | null;
 };
 
 /**
@@ -57,6 +61,17 @@ export const clockNow = (now = new Date()) =>
 
 /** `**Now**: 2026-09-02 (Wed) 15:41 Asia/Seoul` */
 export const nowLine = (now = new Date()) => `**Now**: ${clockNow(now)}`;
+
+/**
+ * Who Thursday is, in the words both call prompts open with. The Live voice and its Responses
+ * backend are one assistant, so neither is told it is part of something else, and one sentence
+ * here keeps the two from drifting. The Friday lineage makes "Thursday" a name, not a weekday,
+ * in whatever language she speaks.
+ */
+export const thursdayIdentity = (now = new Date()) =>
+  `You are Thursday, this user's own personal assistant, modeled on Friday, the AI in *Iron Man*: quick, warm, dry, and on their side. ${nowLine(now)}
+
+What they tell you is kept from call to call, so you know them better each time, and whatever they want done can be done for them in the background.`;
 
 /**
  * When a call happened, the one way every prompt and tool says it: local, the
@@ -110,9 +125,39 @@ export function noteLines(index: MemoryIndexEntry[], age = false): string {
     .join("\n");
 }
 
-/** `- Their name is Yuri · profile #12` */
-export const carriedLines = (loaded: MemoryAlwaysLoaded[]): string =>
-  loaded.map((fact) => `- ${fact.text} · ${fact.path} #${fact.id}`).join("\n");
+/** `- Their name is Yuri · profile #12`; without the id for the voice, which holds no tool that takes one. */
+export const carriedLines = (
+  loaded: MemoryAlwaysLoaded[],
+  options: { ids?: boolean } = {},
+): string =>
+  loaded
+    .map(
+      (fact) =>
+        `- ${fact.text} · ${fact.path}${options.ids === false ? "" : ` #${fact.id}`}`,
+    )
+    .join("\n");
+
+/**
+ * The facts of an always-listed note that a call prompt writes out: its carried ones, then the
+ * newest, up to MEMORY_LIMITS.expanded, in the order they were saved. A carried fact is never
+ * left out, even past the cap. Shared so the voice and the backend read the same lines; `hidden`
+ * is what is left for opening the note.
+ */
+export function expandedFacts<Fact extends { id: number }>(
+  facts: Fact[],
+  carried: Set<number>,
+): { shown: Fact[]; hidden: number } {
+  const pinned = facts.filter((fact) => carried.has(fact.id));
+  const rest = facts.filter((fact) => !carried.has(fact.id));
+  const room = Math.max(0, MEMORY_LIMITS.expanded - pinned.length);
+  const kept = new Set(
+    [...pinned, ...rest.slice(Math.max(0, rest.length - room))].map(
+      (fact) => fact.id,
+    ),
+  );
+  const shown = facts.filter((fact) => kept.has(fact.id));
+  return { shown, hidden: facts.length - shown.length };
+}
 
 /**
  * Whether it is time to tidy, and why: too much held in all (the coldest notes
@@ -126,7 +171,7 @@ export const tidying = (index: MemoryIndexEntry[]) => ({
   heavy: index.filter((note) => note.factCount > MEMORY_LIMITS.factsPerNote),
 });
 
-/** A bot gets the whole description; `short` gives the voice prompt the first sentence only. */
+/** A bot gets the whole description; `short` gives the call the first sentence only. */
 export const skillLines = (
   skills: SkillMetadata[],
   options: { short?: boolean } = {},
@@ -160,18 +205,31 @@ export function mcpToolLines(tools: McpToolRef[]): string {
     .join("\n");
 }
 
-/** `- **github**: 2 tools` — the voice prompt's list: what exists, not what to call. */
-export function mcpServerLines(tools: McpToolRef[]): string {
-  const byServer = new Map<string, number>();
-  for (const entry of tools) {
-    byServer.set(entry.server, (byServer.get(entry.server) ?? 0) + 1);
-  }
-  return [...byServer]
-    .map(
-      ([server, count]) =>
-        `- **${server}**: ${count} tool${count === 1 ? "" : "s"}`,
-    )
-    .join("\n");
+/** The studio's tools in plain words: their names are a bot's to call, not a list for the call to read. */
+const STUDIO_WORDS: Record<string, string> = {
+  [STUDIO_TOOLS.generate_image]: "images",
+  [STUDIO_TOOLS.generate_speech]: "speech",
+  [STUDIO_TOOLS.transcribe]: "transcription",
+  [STUDIO_TOOLS.generate_video]: "video",
+};
+
+/**
+ * `browser, computer, github, images` — what bots can reach for, by name only: skills and
+ * connected servers in one line, with nothing saying which is which. The call needs the range,
+ * not how each one is used; a bot's own prompt carries that.
+ */
+export function reachNames(
+  skills: SkillMetadata[],
+  tools: McpToolRef[],
+): string {
+  const connected = tools.map((tool) =>
+    tool.server === STUDIO_SERVER
+      ? (STUDIO_WORDS[tool.name] ?? tool.name)
+      : tool.server,
+  );
+  return [
+    ...new Set([...skills.map((skill) => skill.name), ...connected]),
+  ].join(", ");
 }
 
 export type RecentCall = {

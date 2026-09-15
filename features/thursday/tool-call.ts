@@ -1,17 +1,17 @@
 "use client";
 
 import { queryKey } from "@/app/api/query-key";
+import type { LiveToolCall } from "@/lib/live/live.session";
 import { type Result, unwrapResult } from "@/lib/protocol/result";
-import type { RealtimeToolCall } from "@/lib/realtime/realtime.session";
 import { errorToString } from "@/lib/utils";
 
 /**
- * Runs a tool the realtime model called on the server and returns the string
+ * Runs a tool the Live backend called on the server and returns the string
  * for the model. Never throws: every failure comes back as one readable line.
  */
 export async function runRemoteTool(
   callId: string,
-  call: RealtimeToolCall,
+  call: LiveToolCall,
   /** Aborted when the call ends, so a running tool stops with it (route). */
   signal?: AbortSignal,
 ): Promise<string> {

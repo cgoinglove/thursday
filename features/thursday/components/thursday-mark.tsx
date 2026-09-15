@@ -23,6 +23,7 @@ export function ThursdayMark({
       color={face.color}
       shape={face.shape}
       outline={face.outline}
+      paint={face.paint}
       notify={false}
       className={className}
     />

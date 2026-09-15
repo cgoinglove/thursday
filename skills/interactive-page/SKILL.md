@@ -1,10 +1,15 @@
 ---
 name: interactive-page
-description: "A result meant to be used, not just read: controls, tabs, charts, a calculator. One self-contained HTML file opened from your report; a result only read is a .md."
+description: "Charts, diagrams and pages people use: a mermaid block the app draws inside a .md report, a system map shown as its own page, or an interactive page — controls, tabs, a calculator — as one self-contained HTML file."
 license: Complete terms in LICENSE.txt
 ---
 
 # Interactive Page
+
+## Charts and diagrams
+
+- In a report, a `mermaid` block in the `.md` is drawn by the app. Candlesticks, hover and zoom need a page.
+- A system map shown as its own page: the archify engine in `scripts/archify`; read `references/diagram.md` first.
 
 ## In this app
 
@@ -15,7 +20,7 @@ license: Complete terms in LICENSE.txt
   fine: pnpm hard-links the store, so the 300 MB `node_modules` costs disk once.
 - `bundle-artifact.sh`, run inside the project, builds one self-contained file
   and copies it to `artifacts/<name>.html` — that is the path it prints, and the
-  path you hand back. The user opens it from the task row; the source stays in
+  path you hand back. The user opens it from the thread row; the source stays in
   `projects/` and is not named in the report.
 - To look at it yourself, the `browser` skill: it refuses `file:` URLs, so
   serve the folder first (`python3 -m http.server 48800 --bind 127.0.0.1 --directory <dir> &`),
@@ -109,7 +114,7 @@ This creates `bundle.html` - a self-contained file with all JavaScript, CSS, and
 
 ### Step 4: Hand back the path
 
-Report the `artifacts/<project-name>.html` path the script printed. The user opens it from the task row.
+Report the `artifacts/<project-name>.html` path the script printed. The user opens it from the thread row.
 
 ### Step 5: Testing/Visualizing the Page (Optional)
 

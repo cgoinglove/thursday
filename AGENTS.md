@@ -1,7 +1,8 @@
 # thursday
 
-A local-first voice agent. A realtime speech model ("Thursday") holds the call and only touches
-what can be answered in a glance (memory, one shell command). Anything that takes time — MCP, skills,
+A local-first voice agent. GPT-Live 1 ("Thursday") holds the call; a separate Responses backend
+(GPT-5.6 Luna by default) runs the call's tools.
+The call only touches what can be answered in a glance (memory, one shell command). Anything that takes time — MCP, skills,
 a browser, minute-long jobs — is delegated to text-model bots that run in the background with a
 shell, a browser and skills; a skill is the one thing that can be handed back to the call
 (Settings › Thursday, off by default). Jobs outlive the call: they run on the server, and the
@@ -15,7 +16,7 @@ machines. Two things follow, and they are not style preferences:
   the one translated file; everywhere else in the tree is English — comments, prompts, strings,
   identifiers, commit messages. Not even as an example inside a comment. No personal names,
   machine paths, keys, or half-finished thoughts in a comment.
-- **Anything private is named `*.local.*`** — a scratch note, a task list, a plan, a local
+- **Anything private is named `*.local.*`** — a scratch note, a to-do list, a plan, a local
   override. `.gitignore` covers that shape, so a file named this way can never be committed by
   accident: how you like to work with an agent — when to ask, how to commit — goes in a
   `*.local.md` file next to this one, loaded by whichever agent tool reads it. This file holds
@@ -31,16 +32,23 @@ features/<name>/          One domain: its data and its screens. A new feature co
                           Writes emit appEvents here, so every caller notifies the same way.
   <name>.action.ts        "use server" + serverAction. Writes.
   <name>.*.ts             run / manager / store files when the domain needs them.
-                          A second query file (`task.query.ts`) when one table is its own subject.
+                          A second query file (`thread.query.ts`) when one table is its own subject.
   components/             Screens for this domain only, including its settings panel.
 features/ai/              Everything the model sees. Composes domain query/schema into prompts and tools.
   tools/<d>.tool.ts       The tools one domain answers (memory, bot, workspace, mcp, …): name, description,
                           args, execute. Execute calls the domain query.
   tools/tool-name.ts      Every name the model sees. Tools and prompts both import from here.
-  prompts/thursday.prompt.ts     Everything the call hears; loads its own data and assembles the prompt.
+  prompts/live.prompt.ts         What the Live voice hears: who Thursday is, the delegation policy (what the
+                                 backend can do, when to hand over), what she knows about the user; earlier
+                                 calls as `input`; on how to speak, only the guide's backchannel and
+                                 interruption policies. No tool names or procedures.
+  prompts/thursday.prompt.ts     What the call's Responses backend hears: who Thursday is, the voice
+                                 conversation it works from, memory with ids, roster, the machine, what to
+                                 return, earlier calls with their jobs.
   prompts/bot.prompt.ts          Everything a bot hears. Shares no text with the call prompt.
   prompts/memory-edit.prompt.ts  Everything an edit typed on the Memory screen hears.
-  prompts/prompt-helper.ts       Voice-less helpers: row-to-line formatters and a few thresholds.
+  prompts/prompt-helper.ts       Row-to-line formatters, a few thresholds, and the identity both call
+                                 prompts open with.
   load-tools.ts           Which runtime holds which tools (ToolRun: the call, a bot, a memory edit).
   model.ts / model.schema.ts   Which model runs, and how it is built.
   components/             The model's own controls: model picker and browser, provider icons.
@@ -50,18 +58,22 @@ app/                      Routing shell only. api/<d>/route.ts is one serverRout
 components/ui/            Domain-agnostic UI (shadcn), plus markdown, notify and toast.
 hooks/                    Domain-agnostic React hooks.
 lib/                      Domain-agnostic only: protocol/ (Result, actions, routes, SWR, paging, event bus,
-                          presence), realtime/ (the call seam), sandbox.ts (interface + creator),
+                          presence), live/ (the call seam: Live session, WebRTC, audio tap), sandbox.ts
+                          (interface + creator),
                           public-error, logger, date-like, queue, tokens, limits, utils.
 database/db.ts            The one client, and the lane every request goes through (SQLite has one writer).
 database/tables.ts        All drizzle tables (relations and migrations look at one place).
 database/migrations/      Generated by `pnpm db:generate`, applied at boot (`migrate.ts`).
 config.ts                 App knobs: name, the two roots, paths, page sizes, limits. Not secrets (features/config).
 bin/                      What ships and runs outside Next: the `thursday` CLI, where the app's own
-                          CLIs are, and the port both starters pick. Plain .mjs — it runs before anything is built.
+                          CLIs are, the port both starters pick, and what both do when boot cannot migrate the
+                          database (ask to remove it, start again). Plain .mjs — it runs before anything is built.
 scripts/dev.mts           `pnpm dev`: `next dev` on 127.0.0.1, on a port nothing holds on any address, handed over as `PORT`.
 scripts/reset.mts         Wipes local data (calls, jobs, memory) and optionally the build. `pnpm reset`.
 scripts/pack.mts          Builds `dist/`, the tree npm publishes. `pnpm release`.
 skills/                   Skills shipped with the app (read-only). User skills live in the workspace.
+                          interactive-page/scripts/archify is a trimmed copy of archify (MIT; its README says
+                          what was cut). Lint skips it; update it by copying upstream, not by editing it here.
 ```
 
 Domains today: `thursday` (the call), `bot` (bots and the jobs they run), `memory`, `workspace` (the
@@ -82,23 +94,44 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   `memory.edit`. Anything may import the model's vocabulary — `model.schema` (the model a row
   names), `tools/tool-name` (a screen drawing a tool line), `ai/components` (the model picker).
 - **Tool names come from one file.** `features/ai/tools/tool-name.ts` is the source. Tools and prompts
-  import it, and so does code that reads stored tool calls back (`task.query`, the call screen's
+  import it, and so does code that reads stored tool calls back (`thread.query`, the call screen's
   `tool-line`); nobody types a tool name as a string.
 - **Prompts are split by runtime, not by chapter.** Each prompt file loads its own data and exports
   one function. Shared helpers only format rows; they never decide what to say. Tool descriptions say
   *what* a tool is; prompts say *when* to use it. Prompts are assembled per session, never cached.
+- **The call is one Thursday on two models.** The Live voice and its Responses backend open with the
+  same identity (`thursdayIdentity`, the one sentence a helper holds) and read the same memory; neither
+  is told it is part of something else. The voice prompt uses the GPT-Live guide's `Delegation policy`
+  labels and, on how to speak, only its starter backchannel and interruption policies, as written;
+  the backend prompt uses the guide's backend template
+  (voice conversation context, its chapters, return the result), and its chapter names are the
+  capabilities the voice lists. A relay carries facts — who, which thread, where an answer goes —
+  never instructions, since the backend reads it too.
 - **Tools run on the server.** A call's tool invocation is forwarded by the page to the server, so
   tools call domain queries directly. The one exception is anything that touches the call itself
   (hang up).
+- **Voice is GPT-Live, not Realtime.** The server exchanges the browser's SDP through
+  `/v1/live/sessions`; the API key, both prompts and the tool manifest stay on the server. Live
+  speech and Responses work have independent lifecycles. Collect function calls from nested
+  `response.output_item.done`, return all outputs, then explicitly continue the backend.
+  Live never speaks unprompted: every call opens with an instruction to speak first, and open
+  work (unseen endings and stops, unanswered questions) goes in when neither side has been
+  transcribed for `CALL_RELAY.quietMs` and comes back until it is handled. Updates go in by
+  kind — trusted behaviour as
+  `session.instructions.append`, bot output as `commentary`, never the reverse — and a relay row
+  is accepted only once Live acknowledges it. Transcript fragments have timestamps, not final
+  turns: caption groups remain revisable and are saved with their fragments. Close with
+  `session.close` and wait for `session.closed` before releasing transport resources, with a
+  bounded timeout. The full contract is `docs/live-calls.md`.
 - **Long-running work is the server's, not the request's.** A job's run is a promise the server holds
   (`bot.runner` `launch`), never `after()`: messages and returning browsers also start runs
   outside a request. Everything that happens is written as rows, so what the screen draws and
   what the model re-reads are the same rows.
-- **One participant per bot per task.** A bot resumes its own stored thread across requests,
+- **One participant per bot per thread.** A bot resumes its own stored transcript across requests,
   including requests from different callers. `parent` names the current exchange, not the bot's
-  identity. Browser sessions use the task and canonical bot name. Requests to the same bot run
+  identity. Browser sessions use the thread and canonical bot name. Requests to the same bot run
   sequentially. Messages are asynchronous: a waiting A can handle a question from B in its own
-  context. Only exchanged messages cross participant contexts. `room.query` owns durable inboxes,
+  context, but a bot waiting on the user's answer runs nothing until it arrives; its inbox holds. Only exchanged messages cross participant contexts. `room.query` owns durable inboxes,
   continuation claims and return routes; `bot.runner` owns live promises.
 - **No browser, nothing runs.** `presence` (app/api/events) says whether a browser is on the stream;
   when the last one has been gone a while, jobs stop and wait and open calls close. When one comes
@@ -107,7 +140,7 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   not in each domain.
 - **What cannot be won by instruction is enforced by structure**: tool sets, per-turn and per-room
   limits, output truncation, shell env. Do not add prompt sentences for things the code can enforce.
-- **A turn ending is not a task ending.** Bots finish with ordinary text or silence. The coordinator
+- **A turn ending is not a thread ending.** Bots finish with ordinary text or silence. The coordinator
   reports once its downstream work settles; idle rooms remain resumable. Store local calls before
   their effects and results before the next model step. Repair missing results only in the model
   projection, with their outcome explicitly unknown. Never replay arbitrary tools automatically.
@@ -191,8 +224,8 @@ are not masked: return one line the model can read and recover from.
 
 **What an outside API answered is never masked.** A provider's refusal is the user's to act on — the
 key, the credit, the model id — and only the provider can say which, so the seam that made the call
-raises it public rather than letting the boundary swallow it: `issueClientSecret` (lib/realtime) for
-the call's token, `modelErrorToString` (features/ai/model) for anything the ai sdk wrapped, which also
+raises it public rather than letting the boundary swallow it: `createLiveCall` (lib/live) for
+the call's connection, `modelErrorToString` (features/ai/model) for anything the ai sdk wrapped, which also
 carries out the body when the sdk's message is the status word alone.
 
 **Server → browser** — no polling. When a fact happens on the server (a row was written, a browser
@@ -219,14 +252,38 @@ A 30-second poll remains as a safety net. No WebSockets.
   because it worked. There is no brand color, so a green would become one. The settings nav reports
   the same two and nothing else (`NavBadge`).
 - Errors are never swallowed. Inline or toast, they reach the user.
-- Task questions remain visible while other bots work. Unread endings stay in the inbox until
-  opened; a voice relay acknowledgement never counts as reading. Use neutral surfaces for these
+- Thread questions remain visible while other bots work. Unread endings stay in the inbox until
+  the user opens them — Thursday's `thread` `open` counts — or Thursday has told them and marked
+  them seen (`thread` `seen`); a relay acknowledgement alone never counts as reading. Use neutral surfaces for these
   notices and explicit labels for questions and new results.
+- Ask the user with an explicit question message; ordinary Thursday messages never block a thread,
+  and a question pauses only the bot that asked it. Show one question at a time with optional choices and free text, on a borderless sheet where the
+  composer sits; it joins the thread as a record once answered. Its ID selects the recipient and
+  its own draft; sending one answer never clears another question's text.
+- A thread reads as a conversation from the open tab's bot: that bot holds the left on no surface,
+  and everyone else answers from the right — the user's side in the one dark bubble, other bots on
+  `secondary`. The dark bubble's contents take the opposite theme through `.inverse`
+  (`app/globals.css`), tokens and `dark:` alike. A message to a bot other than the tab's names it
+  with a mention at its head.
+- Every message draws as words — the user's, questions, answers and reports between participants,
+  a bot's reply, the ending — never as the tool call that sent it. The open tab's bot's own work
+  draws in full. Another bot's work between the messages it sends or receives (steps, stops, the
+  words beside a call) folds into one row before its next message, and the row opens in place. A
+  thread opens on its own bot's tab, which holds
+  every participant; another bot's tab holds only its own lines and the messages that reached it,
+  and the composer follows the open tab. Thursday is never invited and never drawn as a bot.
+- A bot draws with the face picked on its page wherever it appears; nothing varies its mark by
+  thread or place, only its state: the notify dot while it waits on the user, crossed-out eyes on
+  a failed thread (a Stop ends one that way too).
+- The pill's bubble shows one thing that just happened, over the face of whoever spoke: that face,
+  an arrow and the bots it reached, then the words. Questions and stops take amber, failures red.
 
 # Rules
 
 - Timestamps are `DateLike` (`lib/date-like`): ISO strings on the wire, `Date` in drizzle.
   `z.coerce.date()` lies on the client.
+- File route handlers receive decoded path segments; viewer pages receive encoded segments in
+  this Next.js version. Use `decodePath` for handlers and `decodePagePath` for pages, exactly once.
 - Shared logic goes to `lib/utils.ts` or the matching lib file before it is written twice. Don't
   generalize something used once.
 - Verify with `pnpm typecheck` and `pnpm lint`; client/server boundary changes also require

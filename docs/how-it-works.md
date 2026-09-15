@@ -4,9 +4,11 @@ The README says what Thursday is. This says what each part may touch, so you can
 
 ## The call
 
-A call is a session with a realtime speech model — OpenAI Realtime or xAI Grok Voice, whichever key you gave. Audio in, audio out, interruptions and all. The model hears a prompt assembled the moment the line opens: who she is, what she remembers about you, which bots exist, what was said on the last calls.
+A call runs on GPT-Live 1 for full-duplex speech and a separate Responses model for reasoning and tools. GPT-5.6 Luna is the default backend. Settings › Thursday picks the voice, the backend model and its reasoning effort, web search, and separate instructions for the voice and the backend. Both prompts are assembled when each call opens, from memory, the bot roster and previous conversations: the voice's says how to talk and what the backend can do, the backend's holds the tools and how to use them.
 
-She holds three things and nothing else:
+The browser exchanges its WebRTC offer through the server; the OpenAI key, both prompts and the tool list stay on the server. Live keeps listening while the backend works. Voice sessions are billed per active minute, including silence and waiting; backend usage is billed separately per token through the API, not a ChatGPT subscription. Transcripts are included in Live, and every call is kept on this machine for call history, later calls, memory and the bots it hands work to. A call closes only after Live confirms session finalization or the close deadline expires, and call history keeps the seconds it confirmed. The details are in [live-calls.md](live-calls.md).
+
+The backend has three capabilities:
 
 - **Memory.** A folder of notes about you. She reads a note before answering out of it and writes the moment something worth keeping comes up — one fact per line, dates as dates. A rule you lay down ("answer in Korean", "keep it short") is carried into every call.
 - **One command.** A shell, for the things that take a second: open a file, play something, look at what is in a folder. One command is something she does, not a job she hands over.
@@ -14,7 +16,7 @@ She holds three things and nothing else:
 
 Everything else — anything that takes more than a few seconds — she hands to a bot with `delegate` and keeps talking. That is deliberate: the call must never go silent, and a speech model that runs a browser would be silent for minutes.
 
-When a job comes back, it arrives as a system note, not as you speaking. She tells you in one sentence, in her own words. A file the job made opens on your screen by itself; a question the job asks becomes buttons on screen and words in your ear.
+When a job comes back, it reaches her as a bot's message, not as you speaking. She tells you in one sentence, in her own words. A file the job made opens on your screen by itself; a question the job asks becomes buttons on screen and words in your ear.
 
 ## Bots
 
@@ -32,7 +34,7 @@ A job ends in the thing that was asked for — the account made, the page built,
 
 What only you can give — a sign-in it holds no session for, a decision between two real options — stops the job at that point. The bot sets it up one action away, asks, and continues when the answer comes. Credentials you handed it are used only after it asks. A payment is the one thing it never finishes: it takes the purchase to the last screen, leaves that window open on yours, and reports what it buys and for how much.
 
-Three bots come with the app, split by temperament: **Jarvis** plans a job, hands parts to whoever fits and does the rest; **Navigator** goes and looks; **Scribe** writes. More are ready-made in settings — **Insta** draws, captions and posts to Instagram, **Voyage** plans a trip with a map for each day — or make your own: a name, a sentence about what it is for, optionally a model and a few pinned tools. The sentence is what she reads when deciding who gets the job. A bot can be switched off without being deleted.
+Three bots come with the app, split by temperament: **Jarvis** plans a job, hands parts to whoever fits and does the rest; **Analyst** finds the numbers and shows them as tables and charts; **Lambda** turns work that repeats into scripts and runs them on a schedule once allowed. More are ready-made in settings — **Marketer** works by the marketing skill each job needs, installing it when it is missing, and **Insta** draws, captions and posts to Instagram — or make your own: a name, a sentence about what it is for, optionally a model and a few pinned tools. The sentence is what she reads when deciding who gets the job. A bot can be switched off without being deleted.
 
 Each bot keeps its own memory as files in its folder (`bots/<name>/memory/`), one topic per file, and reads the list at the start of every job. Its page in settings shows them; open one in place or delete it.
 

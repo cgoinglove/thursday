@@ -1,8 +1,15 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef } from "react";
-import { createVoiceFollower } from "@/lib/realtime/realtime.tap";
-import { MARK_BANDS, type MarkShape } from "../mark.const";
+import { createVoiceFollower } from "@/lib/live/live.tap";
+import {
+  MARK_BANDS,
+  MARK_PAINTS,
+  type MarkPaint,
+  type MarkPaintLook,
+  type MarkPaintSpec,
+  type MarkShape,
+} from "../mark.const";
 
 // Procedural bot avatar: a generated silhouette with two eyes, animated per frame from refs.
 
@@ -117,6 +124,22 @@ function polyOutline(sides: number, cornerRatio: number, rotDeg: number): Pt[] {
       const a = a1 + sweep * (s / 20);
       out.push([cc[0] + Math.cos(a) * rho, cc[1] + Math.sin(a) * rho]);
     }
+  }
+  return out;
+}
+
+/** The classic heart curve, a little taller than wide. */
+function heartOutline(): Pt[] {
+  const out: Pt[] = [];
+  for (let i = 0; i < 400; i++) {
+    const t = (i / 400) * TAU;
+    const x = 16 * Math.sin(t) ** 3;
+    const y =
+      13 * Math.cos(t) -
+      5 * Math.cos(2 * t) -
+      2 * Math.cos(3 * t) -
+      Math.cos(4 * t);
+    out.push([CENTER + x * 6.6, CENTER - (y + 2.2) * 7.26]);
   }
   return out;
 }
@@ -297,7 +320,7 @@ const MARK_DEFAULTS: MarkOptions = {
   shape: "blob",
   sides: 3,
   corner: 0.74,
-  rotation: -180,
+  rotation: 0,
   squircle: 4.6,
   wobble: 0.2,
   seed: 113,
@@ -350,7 +373,7 @@ const MARK_DEFAULTS: MarkOptions = {
 };
 
 /* Per-instance variation: shape and color stay, only the values inside the shape roll
- * from a seed the caller picks (task id for one face per task, bot name for one per bot). */
+ * from a seed the caller picks (thread id for one face per thread, bot name for one per bot). */
 const VARY = {
   /** Blob depth. The seed already changes the whole silhouette, so keep this slight. */
   wobble: [0.8, 1.35],
@@ -400,7 +423,7 @@ function fitRadii(radii: number[]): number[] {
 const WARP = 0.035;
 
 /** Bends a ruled outline by a few slow waves. Blob outlines already wobble and are left alone. */
-function warpRadii(radii: number[], seed: number): number[] {
+function warpRadii(radii: number[], seed: number, depth = WARP): number[] {
   const rnd = mulberry32(seed ^ 0x2f6b);
   const waves = [2, 3, 5].map((k) => ({
     k,
@@ -414,7 +437,33 @@ function warpRadii(radii: number[], seed: number): number[] {
     return d;
   });
   const peak = Math.max(...offsets.map(Math.abs)) || 1;
-  return radii.map((r, i) => r * (1 + (WARP * offsets[i]) / peak));
+  return radii.map((r, i) => r * (1 + (depth * offsets[i]) / peak));
+}
+
+/**
+ * A true heart has the only sharp tip and deep notch of any mark. Averaging the
+ * radii blunts both, then it bends and leans by the seed like poly and squircle
+ * do, a little more.
+ */
+function softenHeart(radii: number[], seed: number): number[] {
+  let soft = radii;
+  for (let pass = 0; pass < 2; pass++) {
+    const prev = soft;
+    soft = prev.map((_, i) => {
+      let sum = 0;
+      for (let k = -3; k <= 3; k++) sum += prev[(i + k + RES) % RES];
+      return sum / 7;
+    });
+  }
+  const mean = soft.reduce((sum, r) => sum + r, 0) / RES;
+  const bent = warpRadii(
+    soft.map((r) => r * 0.95 + mean * 0.05),
+    seed,
+    0.05,
+  );
+  // A few degrees of lean, one sample at a time.
+  const lean = Math.round((mulberry32(seed ^ 0x51f1)() * 2 - 1) * 3);
+  return lean ? bent.map((_, i) => bent[(i - lean + RES * 2) % RES]) : bent;
 }
 
 const radiiCache = new Map<string, number[]>();
@@ -426,12 +475,19 @@ function radiiFor(cfg: MarkOptions, shape: MarkShape, seed: number): number[] {
       ? `poly|${cfg.sides}|${cfg.corner}|${cfg.rotation}|${seed}`
       : shape === "squircle"
         ? `squircle|${cfg.squircle}|${seed}`
-        : `blob|${cfg.wobble}|${seed}`
+        : shape === "heart"
+          ? `heart|${seed}`
+          : `blob|${cfg.wobble}|${seed}`
   }|${cfg.autofit}`;
   const hit = radiiCache.get(key);
   if (hit) return hit;
   const traced = toRadii(outlineFor(cfg, shape, seed));
-  const raw = shape === "blob" ? traced : warpRadii(traced, seed);
+  const raw =
+    shape === "blob"
+      ? traced
+      : shape === "heart"
+        ? softenHeart(traced, seed)
+        : warpRadii(traced, seed);
   const radii = cfg.autofit ? fitRadii(raw) : raw;
   if (radiiCache.size > 400) radiiCache.clear();
   radiiCache.set(key, radii);
@@ -441,7 +497,80 @@ function radiiFor(cfg: MarkOptions, shape: MarkShape, seed: number): number[] {
 function outlineFor(cfg: MarkOptions, shape: MarkShape, seed: number): Pt[] {
   if (shape === "squircle") return squircleOutline(cfg.squircle);
   if (shape === "poly") return polyOutline(cfg.sides, cfg.corner, cfg.rotation);
+  if (shape === "heart") return heartOutline();
   return blobOutline(seed, cfg.wobble);
+}
+
+/**
+ * Where a mark sits between the smallest the app draws (14px, 0) and the bot
+ * page's 112px (1). The SVG scales evenly, but a small face has fewer pixels for
+ * each band, so paints and a crossed-out X are drawn denser as this falls.
+ */
+const growOf = (size: number) => clamp((size - 14) / 98, 0, 1);
+
+/** One run of the sliding rainbow: shorter on small marks, so more of its colours fit. */
+const spanOf = (grow: number) => 345 * (0.7 + 0.3 * grow);
+
+/** Where each look's gradient runs, in the 240-unit box. */
+function paintAxis(
+  look: MarkPaintLook,
+  grow: number,
+): Pick<
+  React.SVGProps<SVGLinearGradientElement>,
+  "gradientUnits" | "x1" | "y1" | "x2" | "y2" | "spreadMethod"
+> {
+  if (look === "flow") {
+    return {
+      gradientUnits: "userSpaceOnUse",
+      x1: 0,
+      y1: 0,
+      x2: spanOf(grow),
+      y2: 0,
+      spreadMethod: "repeat",
+    };
+  }
+  // In box units like the rest, so the wider blurred layer wears the same ramp as the head.
+  return {
+    gradientUnits: "userSpaceOnUse",
+    x1: 0,
+    y1: 0,
+    x2: look === "duo" ? BOX : 0,
+    y2: BOX,
+  };
+}
+
+/** A paint's stops. Aurora's gradient is only its night. */
+function paintStops({
+  look,
+  colors,
+}: MarkPaintSpec): { offset: number; color: string }[] {
+  const used = look === "aurora" ? colors.slice(0, 2) : colors;
+  return used.map((color, i) => ({ offset: i / (used.length - 1), color }));
+}
+
+/** Aurora's curtains: where each hangs, how far it sways and how long one sway takes (s). */
+const CURTAINS = [
+  { cx: 42, sway: 40, period: 5 },
+  { cx: 134, sway: -35, period: 6.5 },
+  { cx: 209, sway: 29, period: 4.5 },
+];
+const CURTAIN_Y = 91;
+/** Curtains grow broader and softer on small marks, so they read as a glow, not a stripe. */
+const curtainRxOf = (grow: number) => 60 - 29 * grow;
+const curtainBlurOf = (grow: number) => 34 - 12 * grow;
+
+/** Below this relative luminance a body sinks into a dark page. */
+const DARK_BODY = 0.06;
+
+/** Relative luminance of a #rrggbb colour; null for anything else (currentColor follows the theme). */
+function luminance(color: string): number | null {
+  const hex = /^#([0-9a-f]{6})$/i.exec(color);
+  if (!hex) return null;
+  const channel = (at: number) => {
+    const c = Number.parseInt(hex[1].slice(at, at + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
 }
 
 /* Idle beats: small unrelated motions picked at random, weighted by state. Each returns
@@ -904,12 +1033,16 @@ export type BotMarkProps = {
   shape?: MarkShape;
   /**
    * Nudges this instance's silhouette (VARY) while keeping shape and color. A value is
-   * the seed (task id or bot name); `true` uses useId so server and client agree.
+   * the seed (thread id or bot name); `true` uses useId so server and client agree.
    */
   vary?: boolean | number | string;
   /** Stroke instead of fill; same as `options.fill: false`. */
   outline?: boolean;
+  /** A paint (MARK_PAINTS) worn in place of `color`. */
+  paint?: MarkPaint;
   notify?: boolean;
+  /** The work this face stands for failed (a Stop ends that way too): the eyes are crossed out. */
+  failed?: boolean;
   state?: MarkState;
   /** Read once per animation frame. Use this for live audio instead of React state. */
   getLevel?: () => number;
@@ -938,7 +1071,9 @@ export function BotMark({
   shape,
   vary,
   outline,
+  paint,
   notify,
+  failed,
   state = "idle",
   getLevel,
   getSpectrum,
@@ -969,6 +1104,8 @@ export function BotMark({
   const haloId = `${clipId}-halo`;
   const maskId = `${clipId}-mask`;
   const shadowId = `${clipId}-shadow`;
+  const paintId = `${clipId}-paint`;
+  const curtainId = `${clipId}-curtain`;
   const lifeRef = useRef<SVGGElement>(null);
   const eyesRef = useRef<SVGGElement>(null);
   const headRef = useRef<SVGPathElement>(null);
@@ -980,6 +1117,11 @@ export function BotMark({
   const shadowRef = useRef<SVGPathElement>(null);
   const maskHeadRef = useRef<SVGPathElement>(null);
   const rimRef = useRef<SVGPathElement>(null);
+  const paintRef = useRef<SVGLinearGradientElement>(null);
+  const curtainRefs = useRef<(SVGEllipseElement | null)[]>([]);
+  const inkEyesRef = useRef<SVGGElement>(null);
+  const inkEyeLRef = useRef<SVGGElement>(null);
+  const inkEyeRRef = useRef<SVGGElement>(null);
   const localSvg = useRef<SVGSVGElement>(null);
   const svg = svgRef ?? localSvg;
 
@@ -992,6 +1134,16 @@ export function BotMark({
   const theShape = shape ?? cfg.shape;
   const theFg = color ?? cfg.color;
   const notifying = notify ?? cfg.notify;
+  const spec = paint ? MARK_PAINTS[paint] : null;
+  const grow = growOf(size);
+  // A dark body draws its eyes: as holes they show the dark page it sinks into.
+  const edge = spec
+    ? "edge" in spec
+      ? spec.edge
+      : null
+    : (luminance(theFg) ?? 1) < DARK_BODY
+      ? "dark"
+      : null;
 
   // While deforming, the head is redrawn per frame; memo only seeds the initial `d`.
   const radii = useMemo(
@@ -1031,8 +1183,30 @@ export function BotMark({
   // the tree at 60 fps. `radii` and `shapeSeed` go through the ref rather than the
   // effect deps: the loop mounts once, and restarting it on a seed change (the create
   // form retypes the name) would snap the eyes and reset the blink and breath phase.
-  const live = useRef({ cfg, state, getLevel, getSpectrum, radii, shapeSeed });
-  live.current = { cfg, state, getLevel, getSpectrum, radii, shapeSeed };
+  const look = spec?.look ?? null;
+  const crossed = Boolean(failed);
+  const live = useRef({
+    cfg,
+    state,
+    getLevel,
+    getSpectrum,
+    radii,
+    shapeSeed,
+    look,
+    crossed,
+    grow,
+  });
+  live.current = {
+    cfg,
+    state,
+    getLevel,
+    getSpectrum,
+    radii,
+    shapeSeed,
+    look,
+    crossed,
+    grow,
+  };
 
   useEffect(() => {
     bindPointer();
@@ -1208,6 +1382,28 @@ export function BotMark({
         );
       }
 
+      // Paints run on plain seconds, not `c.speed`: they are surface, not mood.
+      const paintLook = live.current.look;
+      if (paintLook) {
+        const secs = now / 1000;
+        const grow = live.current.grow;
+        if (paintLook === "flow") {
+          // Slanted and sliding one run every 3.6 s, so the colours meet at no point.
+          paintRef.current?.setAttribute(
+            "gradientTransform",
+            `rotate(-35 ${CENTER} ${CENTER}) translate(${f(-((secs / 3.6) % 1) * spanOf(grow))} 0)`,
+          );
+        } else if (paintLook === "aurora") {
+          for (const [i, curtain] of CURTAINS.entries()) {
+            const e = 0.5 - 0.5 * Math.cos((secs / curtain.period) * TAU);
+            curtainRefs.current[i]?.setAttribute(
+              "transform",
+              `translate(${f(curtain.sway * e)} 0) translate(${curtain.cx} ${CURTAIN_Y}) skewX(${f(20 * e - 10)}) scale(1 ${f(1 + 0.18 * e)}) translate(${-curtain.cx} ${-CURTAIN_Y})`,
+            );
+          }
+        }
+      }
+
       // Eight bands folded into three, driving harmonics 2..4 only; higher harmonics on
       // an already bumpy silhouette read as noise.
       const lowE = (band[0] + band[1] + band[2]) / 3;
@@ -1278,7 +1474,8 @@ export function BotMark({
             0.38 * Math.sin(t * 0.47 + phase * 2.1));
 
         let sy = 1;
-        if (blinkStart === 0) {
+        // Crossed-out eyes do not blink.
+        if (blinkStart === 0 && !live.current.crossed) {
           if (queuedBlink > 0 && now >= queuedBlink) {
             blinkStart = now;
             queuedBlink = 0;
@@ -1297,10 +1494,9 @@ export function BotMark({
             sy = 1 - Math.sin(Math.PI * p) * 0.94;
           }
         }
-        eyesRef.current.setAttribute(
-          "transform",
-          `translate(${f(gx + act.eyeX + shape.gazeX)} ${f(gy + drift + act.eyeY + shape.gazeY)}) translate(${CENTER} ${c.eyeY}) scale(1 ${sy.toFixed(3)}) translate(${-CENTER} ${-c.eyeY})`,
-        );
+        const eyesAt = `translate(${f(gx + act.eyeX + shape.gazeX)} ${f(gy + drift + act.eyeY + shape.gazeY)}) translate(${CENTER} ${c.eyeY}) scale(1 ${sy.toFixed(3)}) translate(${-CENTER} ${-c.eyeY})`;
+        eyesRef.current.setAttribute("transform", eyesAt);
+        inkEyesRef.current?.setAttribute("transform", eyesAt);
 
         // Each eye scales about its own center; scaling both together widens the gap instead.
         const eyeWid = act.eyeWid * (1 - lvl * 0.13) * shape.eyes;
@@ -1315,9 +1511,11 @@ export function BotMark({
           const tilt = i === 0 ? c.eyeTilt : c.eyeTilt + c.eyeSkew;
           const len = eyeLen.toFixed(3);
           const wid = eyeWid.toFixed(3);
-          ref.current.setAttribute(
+          const eyeAt = `translate(${f(cx)} ${c.eyeY}) rotate(${f(tilt)}) scale(${len} ${wid}) rotate(${f(-tilt)}) translate(${f(-cx)} ${-c.eyeY})`;
+          ref.current.setAttribute("transform", eyeAt);
+          (i === 0 ? inkEyeLRef : inkEyeRRef).current?.setAttribute(
             "transform",
-            `translate(${f(cx)} ${c.eyeY}) rotate(${f(tilt)}) scale(${len} ${wid}) rotate(${f(-tilt)}) translate(${f(-cx)} ${-c.eyeY})`,
+            eyeAt,
           );
         }
       }
@@ -1328,6 +1526,22 @@ export function BotMark({
   }, [svg]);
 
   const nAngle = (cfg.notifyAngle * Math.PI) / 180;
+  const ink = spec ? `url(#${paintId})` : "var(--fg)";
+  // Smaller marks get a thicker, wider X: at 18px the 112px stroke is under a pixel.
+  const xHalf = f(18 - 3 * grow);
+  const xStroke = f(22 - 9 * grow);
+  const eye = (d: string, cx: number, color: string) =>
+    failed ? (
+      <path
+        d={`M${cx - xHalf} ${cfg.eyeY - xHalf}L${cx + xHalf} ${cfg.eyeY + xHalf}M${cx + xHalf} ${cfg.eyeY - xHalf}L${cx - xHalf} ${cfg.eyeY + xHalf}`}
+        fill="none"
+        stroke={color}
+        strokeWidth={xStroke}
+        strokeLinecap="round"
+      />
+    ) : (
+      <path d={d} fill={color} />
+    );
 
   return (
     <svg
@@ -1352,10 +1566,10 @@ export function BotMark({
             <g clipPath={`url(#${clipId})`}>
               <g ref={eyesRef}>
                 <g ref={eyeLRef}>
-                  <path d={eyeL} fill="#000" />
+                  {eye(eyeL, CENTER - cfg.eyeGap / 2, "#000")}
                 </g>
                 <g ref={eyeRRef}>
-                  <path d={eyeR} fill="#000" />
+                  {eye(eyeR, CENTER + cfg.eyeGap / 2, "#000")}
                 </g>
               </g>
             </g>
@@ -1416,6 +1630,34 @@ export function BotMark({
             <feGaussianBlur stdDeviation={cfg.glow} />
           </filter>
         )}
+        {spec && (
+          <linearGradient
+            ref={paintRef}
+            id={paintId}
+            {...paintAxis(spec.look, grow)}
+          >
+            {paintStops(spec).map((stop) => (
+              <stop
+                key={`${stop.offset}-${stop.color}`}
+                offset={stop.offset}
+                stopColor={stop.color}
+              />
+            ))}
+          </linearGradient>
+        )}
+        {spec?.look === "aurora" && (
+          <filter
+            id={curtainId}
+            filterUnits="userSpaceOnUse"
+            x={-PAD * 4}
+            y={-PAD * 4}
+            width={BOX + PAD * 8}
+            height={BOX + PAD * 8}
+            colorInterpolationFilters="sRGB"
+          >
+            <feGaussianBlur stdDeviation={f(curtainBlurOf(grow))} />
+          </filter>
+        )}
       </defs>
       <g ref={lifeRef}>
         {cfg.shadow > 0 && (
@@ -1449,25 +1691,67 @@ export function BotMark({
             strokeLinejoin="round"
           />
         )}
-        <path
-          ref={headRef}
-          d={headPath}
-          fill={cfg.fill ? "var(--fg)" : "none"}
-          stroke={cfg.fill ? "none" : "var(--fg)"}
-          strokeWidth={cfg.fill ? 0 : cfg.strokeWidth}
-          strokeLinejoin="round"
-          mask={cfg.fill ? `url(#${maskId})` : undefined}
-        />
+        {cfg.fill ? (
+          // Everything the body wears shares its one mask, so a paint's layers keep the eyes cut.
+          <g mask={`url(#${maskId})`}>
+            <path ref={headRef} d={headPath} fill={ink} />
+            {spec?.look === "aurora" && (
+              // Blurred on a layer wider than the face, so the curtains melt into the night
+              // while the mask keeps the outline and the eyes sharp.
+              <g filter={`url(#${curtainId})`}>
+                <rect
+                  x={-PAD * 4}
+                  y={-PAD * 4}
+                  width={BOX + PAD * 8}
+                  height={BOX + PAD * 8}
+                  fill={ink}
+                />
+                {CURTAINS.map((curtain, i) => (
+                  <ellipse
+                    key={curtain.cx}
+                    ref={(node) => {
+                      curtainRefs.current[i] = node;
+                    }}
+                    cx={curtain.cx}
+                    cy={CURTAIN_Y}
+                    rx={f(curtainRxOf(grow))}
+                    ry={138}
+                    fill={spec.colors[2 + i]}
+                    style={{ mixBlendMode: "screen" }}
+                  />
+                ))}
+              </g>
+            )}
+          </g>
+        ) : (
+          <path
+            ref={headRef}
+            d={headPath}
+            fill="none"
+            stroke={ink}
+            strokeWidth={cfg.strokeWidth}
+            strokeLinejoin="round"
+          />
+        )}
+        {cfg.fill && edge === "dark" && (
+          // Eye holes show the page, and a dark body on a dark page swallows them.
+          <g clipPath={`url(#${clipId})`} opacity={0.92}>
+            <g ref={inkEyesRef}>
+              <g ref={inkEyeLRef}>
+                {eye(eyeL, CENTER - cfg.eyeGap / 2, "#fff")}
+              </g>
+              <g ref={inkEyeRRef}>
+                {eye(eyeR, CENTER + cfg.eyeGap / 2, "#fff")}
+              </g>
+            </g>
+          </g>
+        )}
         {/* Outlined marks have no silhouette to cut into, so the eyes are drawn. */}
         {!cfg.fill && (
           <g clipPath={`url(#${clipId})`}>
             <g ref={eyesRef}>
-              <g ref={eyeLRef}>
-                <path d={eyeL} fill="var(--fg)" />
-              </g>
-              <g ref={eyeRRef}>
-                <path d={eyeR} fill="var(--fg)" />
-              </g>
+              <g ref={eyeLRef}>{eye(eyeL, CENTER - cfg.eyeGap / 2, ink)}</g>
+              <g ref={eyeRRef}>{eye(eyeR, CENTER + cfg.eyeGap / 2, ink)}</g>
             </g>
           </g>
         )}

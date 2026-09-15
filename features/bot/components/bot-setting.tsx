@@ -57,7 +57,7 @@ import {
   type BotMemoryFile,
   MAX_PINNED_TOOLS,
   randomBotIcon,
-  type Task,
+  type Thread,
 } from "@/features/bot/bot.schema";
 import {
   BOT_SEEDS,
@@ -105,8 +105,10 @@ import { MARK_SHAPES, MARK_SYSTEM } from "../mark.const";
 export function BotSetting() {
   const { data, isLoading, error } = useServerRoute<Bot[]>(queryKey.bot);
   const bots = data ?? [];
-  // First page of history, not the inbox: the inbox keeps only a few finished tasks.
-  const { data: history } = useServerRoute<Task[]>(queryKey.taskHistory(null));
+  // First page of history, not the inbox: the inbox keeps only a few finished threads.
+  const { data: history } = useServerRoute<Thread[]>(
+    queryKey.threadHistory(null),
+  );
   const jobs = history ?? [];
   /** Picked roster entry: a bot name, NEW, or null for the first bot. */
   const [picked, setPicked] = useState<string | null>(null);
@@ -239,7 +241,7 @@ function RosterRow({
 }: {
   bot: Bot;
   /** Latest job if it is on the first history page; `bot.lastJobAt` covers the rest. */
-  job: Task | null;
+  job: Thread | null;
   active: boolean;
   onPick: () => void;
 }) {
@@ -258,6 +260,7 @@ function RosterRow({
         {...markProps(bot.name, bot.icon)}
         state={job?.status === "running" ? "thinking" : "idle"}
         notify={job?.status === "waiting"}
+        failed={job?.status === "failed"}
         className={cn("shrink-0", bot.disabled && "opacity-45")}
       />
       <span
@@ -296,7 +299,7 @@ function RosterRow({
  * was is the words' job, not the colour's.
  */
 function liveLine(
-  job: Task | null,
+  job: Thread | null,
   lastJobAt: Bot["lastJobAt"],
   disabled: boolean,
 ): {
@@ -654,6 +657,7 @@ function markProps(name: string, icon?: BotIcon | null) {
     color: icon?.color,
     shape: icon?.shape,
     outline: icon?.outline,
+    paint: icon?.paint,
   };
 }
 
@@ -670,7 +674,7 @@ function BotPage({
 }: {
   bot?: Bot;
   /** Recent jobs for this bot (RECENT); empty for a new bot. */
-  jobs: Task[];
+  jobs: Thread[];
   /** Created or deleted; where the roster should look next. */
   onDone: (name: string | null) => void;
   /** New bot only: folds the form. */
@@ -1201,8 +1205,8 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/** This bot's recent jobs; the full list is in Settings > Tasks. */
-function Recent({ jobs }: { jobs: Task[] }) {
+/** This bot's recent jobs; the full list is in Settings > Threads. */
+function Recent({ jobs }: { jobs: Thread[] }) {
   return (
     <div className="pt-1">
       <div className="flex h-6 items-center">
@@ -1210,7 +1214,7 @@ function Recent({ jobs }: { jobs: Task[] }) {
         <span className="flex-1" />
         <button
           type="button"
-          onClick={() => openSettings("tasks")}
+          onClick={() => openSettings("threads")}
           className="flex items-center gap-1 rounded-md px-1.5 py-1 font-mono text-[11px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <History className="size-3" />
@@ -1253,7 +1257,7 @@ function Recent({ jobs }: { jobs: Task[] }) {
   );
 }
 
-function jobState(job: Task): { text: string; tone: string } {
+function jobState(job: Thread): { text: string; tone: string } {
   switch (job.status) {
     case "waiting":
       return { text: "waiting on you", tone: WAITING_INK };
@@ -1285,13 +1289,27 @@ function MarkPicker({
       <BotMark size={112} {...markProps(name, icon)} className="shrink-0" />
 
       {/* MARK_SYSTEM is an explicit "follow the theme ink", distinct from no
-          colour; picking the colour already on it goes back to none. */}
+          colour; picking the colour already on it goes back to none. A paint
+          covers the colour without clearing it; picking a colour takes it off. */}
       <MarkPalette
-        color={icon.color}
-        themePicked={icon.color === MARK_SYSTEM}
-        onTheme={() => onChange({ ...icon, color: MARK_SYSTEM })}
+        color={icon.paint ? undefined : icon.color}
+        themePicked={!icon.paint && icon.color === MARK_SYSTEM}
+        onTheme={() =>
+          onChange({ ...icon, paint: undefined, color: MARK_SYSTEM })
+        }
         onPick={(color) =>
-          onChange({ ...icon, color: icon.color === color ? undefined : color })
+          onChange({
+            ...icon,
+            paint: undefined,
+            color: !icon.paint && icon.color === color ? undefined : color,
+          })
+        }
+        paint={icon.paint}
+        onPaint={(paint) =>
+          onChange({
+            ...icon,
+            paint: icon.paint === paint ? undefined : paint,
+          })
         }
       />
 

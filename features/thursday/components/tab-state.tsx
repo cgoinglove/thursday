@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { APP_NAME } from "@/config";
 import { markAtRest } from "@/features/bot/components/bot-mark";
-import { useTaskReport } from "@/features/bot/components/task-badge";
+import { useThreadReport } from "@/features/bot/components/thread-badge";
 import {
   type SectionAlert,
   useSectionAlerts,
@@ -48,7 +48,7 @@ export function tabIconSvg(alert: SectionAlert): string {
 
 /**
  * The tab, for when the app is not the window in front. The title leads with
- * what is owed — the Tasks badge's count — and a live call keeps its waveform at
+ * what is owed — the Threads badge's count — and a live call keeps its waveform at
  * the end, so neither takes the other's place. The icon wears the settings
  * corner's dot: amber waits on the user, red is broken, and a section with
  * nothing to count still gets the dot.
@@ -57,7 +57,7 @@ export function tabIconSvg(alert: SectionAlert): string {
  * changing re-renders only this.
  */
 export function TabState({ live }: { live: boolean }) {
-  const { owed } = useTaskReport();
+  const { owed } = useThreadReport();
   const alerts = useSectionAlerts();
   const alert = worstAlert(Object.values(alerts).map((each) => each ?? null));
 

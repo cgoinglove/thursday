@@ -4,9 +4,15 @@
 // not make Next's `::` bind fail — so it would start beside another app on the
 // same port (bin/port.mjs). Run by `node`, like scripts/reset.mts.
 
-import { spawn } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import { createRequire } from "node:module";
+import {
+  askToRemoveDatabase,
+  MIGRATION_FAILED_EXIT,
+} from "../bin/database.mjs";
 import { freePort } from "../bin/port.mjs";
+// config.ts has no dependencies; the database is the one the server opens.
+import { DB_FILE_NAME } from "../config.ts";
 
 const args = process.argv.slice(2);
 /** Taken out of the arguments, so Next is only ever handed a port already checked. */
@@ -28,14 +34,24 @@ const hostname = rest.some(
   ? []
   : ["--hostname", process.env.HOSTNAME || "127.0.0.1"];
 
-const child = spawn(
-  process.execPath,
-  [next, "dev", "--port", port, ...hostname, ...rest],
-  // PORT beside the flag: config.ts APP_URL reads it before Next has listened
-  { stdio: "inherit", env: { ...process.env, PORT: port } },
-);
+let child: ChildProcess;
+/** Started again once a database the server could not migrate is removed. */
+function start() {
+  child = spawn(
+    process.execPath,
+    [next, "dev", "--port", port, ...hostname, ...rest],
+    // PORT beside the flag: config.ts APP_URL reads it before Next has listened
+    { stdio: "inherit", env: { ...process.env, PORT: port } },
+  );
+  child.on("exit", async (code) => {
+    const dbPath = DB_FILE_NAME.replace(/^file:/, "");
+    if (code === MIGRATION_FAILED_EXIT && (await askToRemoveDatabase(dbPath)))
+      return start();
+    process.exit(code ?? 0);
+  });
+}
+start();
 
 // Ctrl+C reaches next dev through the process group; stay until it has closed
 process.on("SIGINT", () => {});
 process.on("SIGTERM", () => child.kill("SIGTERM"));
-child.on("exit", (code) => process.exit(code ?? 0));

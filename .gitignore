@@ -58,7 +58,7 @@ next-env.d.ts
 .design
 skills-lock.json
 # Anything a contributor keeps to themselves. This is the one naming rule the
-# repo has: a scratch note, a task list, a local override — name it *.local.*
+# repo has: a scratch note, a to-do list, a local override — name it *.local.*
 # and it can never be committed by accident (CLAUDE.md says the same).
 *.local.*
 

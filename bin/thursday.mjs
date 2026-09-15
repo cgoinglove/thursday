@@ -8,6 +8,7 @@ import { existsSync, symlinkSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { askToRemoveDatabase, MIGRATION_FAILED_EXIT } from "./database.mjs";
 import { freePort } from "./port.mjs";
 import { ROOT, toolPath } from "./tools.mjs";
 
@@ -54,6 +55,8 @@ const asked = flag("port") ?? process.env.PORT;
 const port = String(await freePort(asked));
 const home = resolve(flag("home") || process.env.THURSDAY_HOME || DEFAULT_HOME);
 const url = `http://localhost:${port}`;
+/** Where config.ts DB_FILE_NAME puts the database under the home. */
+const database = join(home, "local.db");
 
 /**
  * The published package is the standalone tree itself (scripts/pack); a
@@ -92,40 +95,54 @@ if (APP !== ROOT) {
 
 console.log(`\n  ${name} ${version}\n  ${url}\n  data: ${home}\n`);
 
-const child = spawn(process.execPath, [join(APP, "server.js")], {
-  stdio: "inherit",
-  env: {
-    ...process.env,
-    // Set explicitly: the standalone server chdirs into its own folder, so
-    // neither root may be left to the cwd (config.ts)
-    THURSDAY_APP_DIR: APP,
-    THURSDAY_HOME: home,
-    THURSDAY_URL: url,
-    // Where a bot's shell finds playwright-cli (workspace.ts TOOL_PATH)
-    THURSDAY_TOOL_PATH: toolPath().join(":"),
-    PORT: port,
-    // This machine only. A voice agent with a shell is not a thing to expose.
-    HOSTNAME: process.env.HOSTNAME || "127.0.0.1",
-    NODE_ENV: "production",
-    // The server parks running jobs on a stop before it exits (instrumentation);
-    // without this, Next exits on the signal first
-    NEXT_MANUAL_SIG_HANDLE: "true",
-  },
-});
+let child;
+let opened = has("--no-open");
 
-if (!has("--no-open")) {
+/** The server. Started again once a database it could not migrate is removed. */
+function start() {
+  const server = spawn(process.execPath, [join(APP, "server.js")], {
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      // Set explicitly: the standalone server chdirs into its own folder, so
+      // neither root may be left to the cwd (config.ts)
+      THURSDAY_APP_DIR: APP,
+      THURSDAY_HOME: home,
+      THURSDAY_URL: url,
+      // Where a bot's shell finds playwright-cli (workspace.ts TOOL_PATH)
+      THURSDAY_TOOL_PATH: toolPath().join(":"),
+      PORT: port,
+      // This machine only. A voice agent with a shell is not a thing to expose.
+      HOSTNAME: process.env.HOSTNAME || "127.0.0.1",
+      NODE_ENV: "production",
+      // The server parks running jobs on a stop before it exits (instrumentation);
+      // without this, Next exits on the signal first
+      NEXT_MANUAL_SIG_HANDLE: "true",
+    },
+  });
+  child = server;
+  server.on("exit", async (code) => {
+    if (code === MIGRATION_FAILED_EXIT && (await askToRemoveDatabase(database)))
+      return start();
+    process.exit(code ?? 0);
+  });
+
+  if (opened) return;
   const open =
     process.platform === "darwin"
       ? ["open", [url]]
       : process.platform === "win32"
         ? ["cmd", ["/c", "start", "", url]]
         : ["xdg-open", [url]];
-  // After the port is listening; a browser that will not open is not a failure
-  setTimeout(
-    () => spawn(open[0], open[1], { stdio: "ignore" }).on("error", () => {}),
-    1500,
-  ).unref();
+  // After the port is listening, and only on a server still up: one that could
+  // not migrate is asking in the terminal. A browser that will not open is not a failure
+  setTimeout(() => {
+    if (opened || server.exitCode !== null) return;
+    opened = true;
+    spawn(open[0], open[1], { stdio: "ignore" }).on("error", () => {});
+  }, 1500).unref();
 }
+start();
 
 /**
  * Ctrl+C reaches the whole process group, so the server normally hears it first
@@ -145,4 +162,3 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
     setTimeout(() => child.kill("SIGKILL"), 4000).unref();
   });
 }
-child.on("exit", (code) => process.exit(code ?? 0));

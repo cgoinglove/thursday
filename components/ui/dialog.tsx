@@ -78,6 +78,17 @@ function DialogContent({
   );
 }
 
+/** The popup alone: no backdrop, no centring, no close button. The caller places it. */
+function DialogPopup({ className, ...props }: DialogPrimitive.Popup.Props) {
+  return (
+    <DialogPrimitive.Popup
+      data-slot="dialog-popup"
+      className={cn("outline-none", className)}
+      {...props}
+    />
+  );
+}
+
 function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -153,6 +164,7 @@ export {
   DialogFooter,
   DialogHeader,
   DialogOverlay,
+  DialogPopup,
   DialogPortal,
   DialogTitle,
   DialogTrigger,

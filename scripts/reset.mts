@@ -26,7 +26,7 @@ const DB_FILE = relative(ROOT, DB_PATH) || DB_PATH;
  * table referencing a root without cascade fails the delete instead of being
  * wiped.
  */
-const HISTORY_ROOTS = ["call", "task", "memory_note"];
+const HISTORY_ROOTS = ["call", "thread", "memory_note"];
 
 type Group = {
   name: string;
@@ -147,7 +147,7 @@ const GROUPS: Group[] = [
   ),
   {
     name: "History",
-    note: "calls, tasks, memory — keys, bots and connectors stay",
+    note: "calls, threads, memory — keys, bots and connectors stay",
     live: () => countHistory() > 0,
     measure: () => `${countHistory()} rows`,
     wipe: wipeHistory,

@@ -110,7 +110,7 @@ export async function insideWorkspace(rel: string): Promise<string | null> {
  * Finished work never lands here: that is `artifacts/`, which stays flat and
  * unattributed, and code is `projects/`, which outlives the job that started it.
  */
-export function jobScratch(taskId: string, label: string): string {
+export function jobScratch(threadId: string, label: string): string {
   const slug =
     label
       .trim()
@@ -118,7 +118,7 @@ export function jobScratch(taskId: string, label: string): string {
       .replace(/[^\p{L}\p{N}]+/gu, "-")
       .replace(/^-+|-+$/g, "")
       .slice(0, 40) || "job";
-  return `${PATHS.scratch}/${slug}-${taskId.slice(0, 6)}`;
+  return `${PATHS.scratch}/${slug}-${threadId.slice(0, 6)}`;
 }
 
 /** Where one bot keeps what it wants on its next job (config PATHS.bots). */
@@ -133,10 +133,10 @@ export async function openBotFolder(bot: string): Promise<string> {
 
 /** Creates it, so a job never has to and never writes to the shared root by mistake. */
 export async function openJobScratch(
-  taskId: string,
+  threadId: string,
   label: string,
 ): Promise<string> {
-  const path = jobScratch(taskId, label);
+  const path = jobScratch(threadId, label);
   await mkdir(join(WORKSPACE, path), { recursive: true });
   return path;
 }
@@ -147,19 +147,19 @@ export async function openJobScratch(
  * runner can close exactly this session when the job ends.
  */
 export const jobShellEnv = (
-  taskId: string | null | undefined,
+  threadId: string | null | undefined,
 ): Record<string, string> =>
-  taskId
+  threadId
     ? {
-        PLAYWRIGHT_CLI_SESSION: `task-${taskId}`,
+        PLAYWRIGHT_CLI_SESSION: `thread-${threadId}`,
         // Read by playwright-cli; the window it opens is on the user's screen
         PLAYWRIGHT_MCP_VIEWPORT_SIZE: BROWSER_VIEWPORT,
       }
     : {};
 
 /** A participant's browser belongs to the job and its canonical bot name, across every caller. */
-export const botBrowserSession = (taskId: string, bot: string) =>
-  `${taskId}-bot-${createHash("sha256").update(bot.trim().toLowerCase()).digest("hex").slice(0, 20)}`;
+export const botBrowserSession = (threadId: string, bot: string) =>
+  `${threadId}-bot-${createHash("sha256").update(bot.trim().toLowerCase()).digest("hex").slice(0, 20)}`;
 
 /** Set by `ensureBrowser`, read by `readMachineTools`; null until it has finished. */
 let browserReady: boolean | null = null;
@@ -247,18 +247,21 @@ type ListedBrowser = { name: string; headed?: boolean; attached?: boolean };
  * never touched. Anything unreadable — no playwright, a failed or folded `list`
  * — leaves the browser as it is.
  */
-export async function closeHiddenBrowser(taskId: string): Promise<void> {
-  await closeBrowsers(taskId, false);
+export async function closeHiddenBrowser(threadId: string): Promise<void> {
+  await closeBrowsers(threadId, false);
 }
 
 /** Cancel and delete close every participant's window, but never an attached personal browser. */
-export async function closeJobShell(taskId: string): Promise<void> {
-  await closeBrowsers(taskId, true);
+export async function closeJobShell(threadId: string): Promise<void> {
+  await closeBrowsers(threadId, true);
 }
 
-async function closeBrowsers(taskId: string, visible: boolean): Promise<void> {
+async function closeBrowsers(
+  threadId: string,
+  visible: boolean,
+): Promise<void> {
   const sandbox = await openWorkspace();
-  const env = jobShellEnv(taskId);
+  const env = jobShellEnv(threadId);
   const listed = await sandbox
     .exec("playwright-cli list --json", { env, timeoutMs: 15_000 })
     .catch(() => null);
@@ -415,15 +418,15 @@ export async function missingWorkspaceFiles(
 }
 
 /**
- * Removes a job's working folder. Its lifetime is the task's: when the row goes,
+ * Removes a job's working folder. Its lifetime is the thread's: when the row goes,
  * so does what it was working with (features/bot/bot.runner). Never touches
  * `artifacts` or `projects` — those are the user's and outlive every job.
  */
 export async function removeJobScratch(
-  taskId: string,
+  threadId: string,
   label: string,
 ): Promise<void> {
-  await rm(join(WORKSPACE, jobScratch(taskId, label)), {
+  await rm(join(WORKSPACE, jobScratch(threadId, label)), {
     recursive: true,
     force: true,
   }).catch(() => {});

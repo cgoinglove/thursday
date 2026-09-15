@@ -1,0 +1,650 @@
+"use client";
+
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { queryKey } from "@/app/api/query-key";
+import { toast } from "@/components/ui/toast";
+import { markSeenAction } from "@/features/bot/bot.action";
+import type {
+  Bot,
+  BotIcon,
+  ResultPart,
+  Thread,
+  TokenUsage,
+} from "@/features/bot/bot.schema";
+import { type DateLike, toDate } from "@/lib/date-like";
+import { unwrapResult } from "@/lib/protocol/result";
+import { revalidate } from "@/lib/protocol/use-server-route";
+import { errorToString } from "@/lib/utils";
+import { ROOM_THURSDAY, type RoomView } from "./room.schema";
+
+/**
+ * Client mirror of threads, keyed by thread rather than as one message stream so
+ * concurrent delegations stay readable. Rebuilt whole from server rows via
+ * `sync`; the screen never writes lines here directly.
+ */
+
+export type BotRef = { name: string; icon?: BotIcon | null };
+
+/**
+ * `note` and `stop` are the app's markers, not speech. `note` is a compaction
+ * summary (bot.run compact), drawn as a divider; `stop` is where the app stopped
+ * the run (bot.runner), drawn muted in the bot's turn.
+ */
+export type ChatterKind =
+  | "say"
+  | "ask"
+  | "tool"
+  | "user"
+  | "result"
+  | "error"
+  | "note"
+  | "stop";
+
+/** One tool call. `name` picks the renderer (components/bot-tool); `results` arrive after the call. */
+export type ToolUse = {
+  name: string;
+  /** Query, command, url: whatever it was called with. */
+  input: string;
+  /** Model-written label (bash description). */
+  note?: string | null;
+  /** Unclipped path a file tool received; what "Open" opens. */
+  path?: string | null;
+  /** A glance's worth of text lines; arrives after the call. */
+  results?: ResultPart[];
+  /** Key for the full result on the server (queryKey.toolResult). */
+  callId?: string;
+  /** The output holds more than `results`: more lines, a clipped line, or an image. */
+  more?: boolean;
+};
+
+export type Chatter = {
+  id: string;
+  /** Who speaks. */
+  bot: BotRef;
+  /** Who is addressed; null is to nobody. */
+  to: BotRef | null;
+  text: string;
+  kind: ChatterKind;
+  question?: boolean;
+  /** Only for kind `tool`. */
+  tool?: ToolUse;
+  /** Options attached to a question; only on the line where the bot stopped to ask. */
+  options?: string[];
+  /** When it was written; only for kind `stop`, whose repeats fold into one line. */
+  at?: DateLike;
+};
+
+/** `waiting`: the bot stopped to ask the user something. */
+export type ThreadViewStatus = "working" | "waiting" | "done" | "failed";
+
+export type ThreadView = {
+  /** Anything the caller can match on; a tool call id will do. */
+  id: string;
+  /** What Thursday asked for, verbatim. */
+  request: string;
+  /** A few words naming the thread; every ambient view prefixes lines with it. Falls back to the head of the request. */
+  label: string;
+  /** Who it went to. Other bots may join through `ask`. */
+  bot: BotRef;
+  lines: Chatter[];
+  room?: RoomView | null;
+  status: ThreadViewStatus;
+  /** Text it came back with; only after it returned. */
+  outcome: string | null;
+  /** What it is asking while `waiting`. */
+  ask: Thread["ask"];
+  /** Whether the user has had the ending (Thread `seen`). */
+  seen: boolean;
+  /** Burned so far. */
+  tokens: TokenUsage;
+  /** Context read on the last step and the compaction threshold; the header meter is their ratio. Both 0 means no step ran yet. */
+  contextTokens: number;
+  contextBudget: number;
+  /** Last movement. */
+  updatedAt: DateLike;
+};
+
+let threads: ThreadView[] = [];
+/** Whether server rows arrived at least once. Before that, an empty list means "unknown", not "none". */
+let primed = false;
+const listeners = new Set<() => void>();
+
+function commit(next: ThreadView[]) {
+  threads = next;
+  for (const listener of listeners) listener();
+}
+
+export const botThreads = {
+  /** Replaces everything with the server rows (newest first). A rebuild, not a diff. */
+  sync(rows: Thread[], bots?: Bot[]) {
+    primed = true;
+    commit([...rows].reverse().map((row) => threadFromRow(row, bots)));
+  },
+
+  /** Whether truth arrived at least once. */
+  primed: () => primed,
+};
+
+/**
+ * One row in the shape the screen draws: the thread replayed as a conversation.
+ * Pure, so it can be rebuilt on every sync. Faces come from the bot list; bots
+ * not in it (deleted, default) draw by name only.
+ */
+export function threadFromRow(row: Thread, bots?: Bot[]): ThreadView {
+  const ref = (name: string): BotRef => ({
+    name,
+    icon: bots?.find((bot) => bot.name === name)?.icon ?? null,
+  });
+  const owner = ref(row.bot);
+  const lines: Chatter[] = [];
+  /** Tool call id to the line its result belongs to. */
+  const openLines = new Map<string, number>();
+  /** `ask_bot` call id to who was asked, so the answer draws as a reply. */
+  const asked = new Map<string, BotRef>();
+  const askers = new Map<string, BotRef>();
+  /** Message call id to its line, so a refused send can be redrawn as the step it was. */
+  const sends = new Map<string, number>();
+
+  for (const line of row.lines) {
+    // A borrowed bot speaks to the borrower; the job's own bot speaks to nobody
+    const bot = line.bot ? ref(line.bot) : owner;
+    const to = line.to
+      ? ref(line.to)
+      : line.parent
+        ? (askers.get(line.parent) ?? null)
+        : null;
+    switch (line.kind) {
+      case "user":
+        lines.push({
+          id: line.id,
+          bot: line.to ? ref(line.to) : owner,
+          to: line.to ? ref(line.to) : null,
+          text: line.text,
+          kind: "user",
+        });
+        break;
+      case "text":
+        lines.push({ id: line.id, bot, to, text: line.text, kind: "say" });
+        break;
+      case "note":
+        lines.push({ id: line.id, bot, to, text: line.text, kind: "note" });
+        break;
+      case "stop":
+        lines.push({
+          id: line.id,
+          bot,
+          to,
+          text: line.text,
+          kind: "stop",
+          at: line.at,
+        });
+        break;
+      case "tool":
+        openLines.set(line.callId, lines.length);
+        lines.push({
+          id: line.id,
+          bot,
+          to,
+          text: line.note ?? line.input,
+          kind: "tool",
+          tool: {
+            name: line.name,
+            input: line.input,
+            note: line.note,
+            path: line.path,
+            callId: line.callId,
+          },
+        });
+        break;
+      case "tool-result": {
+        const at = openLines.get(line.callId) ?? sends.get(line.callId);
+        const open = at === undefined ? undefined : lines[at];
+        if (open?.tool && at !== undefined) {
+          lines[at] = {
+            ...open,
+            tool: { ...open.tool, results: line.results, more: line.more },
+          };
+        } else if (open?.kind === "ask" && at !== undefined) {
+          // Only a send the tool refused leaves a result here (thread.query): it
+          // reached nobody, so it draws as the failed step it was, not as speech.
+          lines[at] = {
+            id: open.id,
+            bot: open.bot,
+            to: null,
+            text: open.text,
+            kind: "tool",
+            tool: {
+              name: line.name,
+              input: open.text,
+              callId: line.callId,
+              results: line.results,
+              more: line.more,
+            },
+          };
+        }
+        break;
+      }
+      case "ask": {
+        sends.set(line.callId, lines.length);
+        const other = ref(line.to);
+        asked.set(line.callId, other);
+        askers.set(line.callId, bot);
+        lines.push({
+          id: line.id,
+          bot,
+          to: other,
+          text: line.text,
+          kind: "ask",
+          question: line.question,
+        });
+        break;
+      }
+      case "ask-result": {
+        const other = asked.get(line.callId);
+        if (other && line.text) {
+          lines.push({
+            id: line.id,
+            bot: other,
+            to: bot,
+            text: line.text,
+            kind: "ask",
+          });
+        }
+        break;
+      }
+      case "waiting":
+        lines.push({
+          id: line.id,
+          bot,
+          to: null,
+          text: line.question,
+          kind: "result",
+          options: line.options,
+        });
+        break;
+    }
+  }
+
+  // The ending lives on the row, not in the messages: the answer is the last text
+  // said, failure exists only here. `waiting` is treated like done: a job that
+  // the app stopped answered first, so that line is a result.
+  if (row.status === "failed" && row.outcome) {
+    lines.push({
+      id: `${row.id}-end`,
+      bot: owner,
+      to: null,
+      text: row.outcome,
+      kind: "error",
+    });
+  } else if (row.status === "done" || row.status === "waiting") {
+    const last = lines.at(-1);
+    if (last && last.kind === "say" && last.text === row.outcome) {
+      lines[lines.length - 1] = { ...last, kind: "result" };
+    }
+  }
+
+  return {
+    id: row.id,
+    room: row.room,
+    request: row.request,
+    label: row.label,
+    bot: owner,
+    lines,
+    status: row.status === "running" ? "working" : row.status,
+    outcome: row.outcome,
+    ask: row.ask,
+    seen: row.seen,
+    tokens: row.tokens,
+    contextTokens: row.contextTokens,
+    contextBudget: row.contextBudget,
+    updatedAt: row.updatedAt,
+  };
+}
+
+/** Last thing on the bot side (skips user answers and app markers). */
+export function lastSaid(thread: ThreadView): Chatter | null {
+  for (let at = thread.lines.length - 1; at >= 0; at--) {
+    const line = thread.lines[at];
+    if (line.kind !== "user" && line.kind !== "note" && line.kind !== "stop")
+      return line;
+  }
+  return null;
+}
+
+/**
+ * What the screen did to a thread. Announced so the call can hear it: a poll
+ * cannot tell a screen answer from a voice answer, and a cancel is never relayed
+ * (bot.runner cancelThread marks it seen).
+ */
+export type ScreenAct =
+  /** Answered a waiting thread, interjected into a running one, or continued a finished one. */
+  | {
+      kind: "answered";
+      id: string;
+      label: string;
+      answer: string;
+      recipient?: string;
+      replyTo?: string;
+    }
+  /** Stopped the thread. */
+  | { kind: "stopped"; id: string; label: string };
+
+/** Drafts and selected recipients survive switching threads, independently for each participant. */
+const drafts = new Map<string, Map<string, string>>();
+const recipients = new Map<string, string>();
+
+export const threadDrafts = {
+  recipient: (id: string) => recipients.get(id),
+  select: (id: string, bot: string) => {
+    recipients.set(id, bot);
+  },
+  get: (id: string, bot: string, question?: string) =>
+    drafts.get(id)?.get(JSON.stringify([bot, question ?? null])) ?? "",
+  set(id: string, bot: string, text: string, question?: string) {
+    const own = drafts.get(id) ?? new Map<string, string>();
+    const key = JSON.stringify([bot, question ?? null]);
+    if (text) own.set(key, text);
+    else own.delete(key);
+    if (own.size) drafts.set(id, own);
+    else drafts.delete(id);
+  },
+  typing: (id: string) =>
+    [...(drafts.get(id)?.values() ?? [])].some((text) => text.trim()),
+};
+
+const acted = new Set<(act: ScreenAct) => void>();
+
+export const screenActs = {
+  announce(act: ScreenAct) {
+    for (const listener of acted) listener(act);
+  },
+  subscribe(listener: (act: ScreenAct) => void) {
+    acted.add(listener);
+    return () => {
+      acted.delete(listener);
+    };
+  },
+};
+
+const EMPTY: ThreadView[] = [];
+
+export function useBotThreads(): ThreadView[] {
+  return useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => threads,
+    () => EMPTY,
+  );
+}
+
+export const isOutcome = (line: Chatter) =>
+  line.kind === "result" || line.kind === "error";
+
+/** Every bot in this thread, the thread's own first, in the order each speaks or is spoken to. */
+export function rosterOf(thread: ThreadView): BotRef[] {
+  const out: BotRef[] = [thread.bot];
+  for (const line of thread.lines) {
+    for (const bot of [line.bot, line.to]) {
+      if (
+        bot &&
+        bot.name !== ROOM_THURSDAY &&
+        !out.some((one) => one.name === bot.name)
+      )
+        out.push(bot);
+    }
+  }
+  return out;
+}
+
+/** The model message a line was cut from: thread.query ids its lines `<message id>-<part>`. */
+const messageOf = (line: Chatter) => line.id.slice(0, line.id.lastIndexOf("-"));
+
+/** Who says a line. The user's words carry the bot that heard them as `bot`. */
+const speakerOf = (line: Chatter): BotRef =>
+  line.kind === "user" ? { name: ROOM_THURSDAY } : line.bot;
+
+/** Who a line reached: the bot that heard the user's words, else whom it names. */
+export const heardBy = (line: Chatter): BotRef | null =>
+  line.kind === "user" ? line.bot : line.to;
+
+/**
+ * Which lines are messages: the user's words, anything sent between
+ * participants (questions, answers, reports), an ending, and a bot's words in a
+ * model message that did nothing else — its reply. Everything else is a bot's
+ * work: steps, stops, compactions and the words beside a call.
+ */
+function messagesIn(lines: Chatter[]): (line: Chatter) => boolean {
+  const acting = new Set(
+    lines
+      .filter((line) => line.kind === "tool" || line.kind === "ask")
+      .map(messageOf),
+  );
+  return (line) =>
+    line.kind === "user" ||
+    line.kind === "ask" ||
+    isOutcome(line) ||
+    (line.kind === "say" && !acting.has(messageOf(line)));
+}
+
+/**
+ * One thing in a speaker's turn: a message, or its work since the last message
+ * it sent or received. Open work has no message after it yet: what the bot is
+ * on now, or where it stopped.
+ */
+export type TurnEntry =
+  | { kind: "message"; key: string; line: Chatter }
+  | { kind: "work"; key: string; lines: Chatter[]; open: boolean };
+
+/**
+ * The thread in the order it is drawn: a bot arriving, a line of its own the
+ * first time a message names it, and turns — one speaker's entries in a row.
+ */
+export type ThreadItem =
+  | { kind: "invite"; key: string; from: BotRef; to: BotRef }
+  | { kind: "turn"; key: string; speaker: BotRef; entries: TurnEntry[] };
+
+type Drawn =
+  | Extract<ThreadItem, { kind: "invite" }>
+  | { kind: "entry"; speaker: BotRef; entry: TurnEntry };
+
+type Work = { bot: BotRef; lines: Chatter[]; at: number };
+
+const workEntry = (work: Work, open: boolean): Drawn => ({
+  kind: "entry",
+  speaker: work.bot,
+  entry: {
+    kind: "work",
+    key: `${work.lines[0].id}-work`,
+    lines: work.lines,
+    open,
+  },
+});
+
+/**
+ * The thread as a conversation, from one bot's tab. The thread's own bot's tab
+ * holds every line; another bot's holds its own lines and the messages that
+ * reached it, which is what its context holds. A bot's work folds into one entry
+ * before the next message it sends or receives, so a message follows the work
+ * that led to it.
+ */
+export function threadItems(
+  thread: ThreadView,
+  tab: string,
+  /** Bots at work or waiting on the user; one with no open work gets an empty open entry at the end. */
+  live: BotRef[] = [],
+): ThreadItem[] {
+  const isMessage = messagesIn(thread.lines);
+  const lines =
+    tab === thread.bot.name
+      ? thread.lines
+      : thread.lines.filter(
+          (line) =>
+            speakerOf(line).name === tab ||
+            (isMessage(line) && heardBy(line)?.name === tab),
+        );
+
+  // Who joined is decided on the whole thread, so a bot's tab never credits
+  // another invite to it. The request draws Thursday and the owner entering.
+  const seen = new Set([thread.bot.name, ROOM_THURSDAY]);
+  const joins = new Map<string, { from: BotRef; to: BotRef }>();
+  for (const line of thread.lines) {
+    const to = heardBy(line);
+    if (to && !seen.has(to.name)) {
+      seen.add(to.name);
+      joins.set(line.id, { from: speakerOf(line), to });
+    }
+    seen.add(line.bot.name);
+  }
+
+  const drawn: Drawn[] = [];
+  /** Each bot's work since its last message, and how much was drawn when its latest line came. */
+  const working = new Map<string, Work>();
+  const settle = (bot: BotRef | null) => {
+    const work = bot ? working.get(bot.name) : undefined;
+    if (!work) return;
+    working.delete(work.bot.name);
+    drawn.push(workEntry(work, false));
+  };
+  for (const line of lines) {
+    if (!isMessage(line)) {
+      const work = working.get(line.bot.name) ?? {
+        bot: line.bot,
+        lines: [],
+        at: 0,
+      };
+      work.lines.push(line);
+      work.at = drawn.length;
+      working.set(line.bot.name, work);
+      continue;
+    }
+    // What the bot it reached did before it arrived, then what led the speaker to it.
+    const speaker = speakerOf(line);
+    settle(heardBy(line));
+    const join = joins.get(line.id);
+    if (join) drawn.push({ kind: "invite", key: `${line.id}-joins`, ...join });
+    settle(speaker);
+    drawn.push({
+      kind: "entry",
+      speaker,
+      entry: { kind: "message", key: line.id, line },
+    });
+  }
+
+  // Work no message has followed stays where its latest line came. Inserted from
+  // the back, so earlier places hold and ties keep the order they started in.
+  const open = [...working.values()].sort((a, b) => a.at - b.at).reverse();
+  for (const work of open) drawn.splice(work.at, 0, workEntry(work, true));
+  for (const bot of live) {
+    if (working.has(bot.name)) continue;
+    drawn.push({
+      kind: "entry",
+      speaker: bot,
+      entry: { kind: "work", key: `${bot.name}-now`, lines: [], open: true },
+    });
+  }
+
+  const items: ThreadItem[] = [];
+  for (const one of drawn) {
+    const turn = items.at(-1);
+    if (one.kind === "invite") items.push(one);
+    else if (turn?.kind === "turn" && turn.speaker.name === one.speaker.name)
+      turn.entries.push(one.entry);
+    else
+      items.push({
+        kind: "turn",
+        key: one.entry.key,
+        speaker: one.speaker,
+        entries: [one.entry],
+      });
+  }
+  return items;
+}
+
+/**
+ * Each bot's latest line and the thread it belongs to. Bots that took a job but
+ * have not spoken yet are included with `line` null.
+ */
+export type BotLine = {
+  bot: BotRef;
+  thread: ThreadView;
+  line: Chatter | null;
+  /** How many of their threads are still running. */
+  open: number;
+};
+
+export function latestPerBot(list: ThreadView[]): BotLine[] {
+  const byBot = new Map<string, BotLine>();
+
+  for (const thread of list) {
+    // Assigned but still silent; still in the room
+    if (!byBot.has(thread.bot.name)) {
+      byBot.set(thread.bot.name, {
+        bot: thread.bot,
+        thread,
+        line: null,
+        open: 0,
+      });
+    }
+    for (const line of thread.lines) {
+      if (line.kind === "user" || line.kind === "note" || line.kind === "stop")
+        continue;
+      byBot.set(line.bot.name, {
+        bot: line.bot,
+        thread,
+        line,
+        open: byBot.get(line.bot.name)?.open ?? 0,
+      });
+    }
+  }
+
+  for (const thread of list) {
+    if (thread.status !== "working") continue;
+    const entry = byBot.get(thread.bot.name);
+    if (entry) entry.open += 1;
+  }
+
+  return [...byBot.values()];
+}
+
+/**
+ * Opening a job's detail is reading its ending: the thread in the room, a row
+ * expanded in Settings › Threads. That, or Thursday marking it seen once she has
+ * told them (`thread` `seen`), is what clears its dot — a list scrolled past is
+ * not. Keyed by `updatedAt` as well, because a follow-up ends a job a second time
+ * and that ending is new again.
+ */
+export function useSeenOnDetail(
+  thread:
+    | { id: string; status: string; seen: boolean; updatedAt: DateLike }
+    | null
+    | undefined,
+) {
+  const sent = useRef(new Set<string>());
+  const id = thread?.id ?? null;
+  const key = thread
+    ? `${thread.id}@${toDate(thread.updatedAt).getTime()}`
+    : null;
+  const owed =
+    !!thread &&
+    (thread.status === "done" || thread.status === "failed") &&
+    !thread.seen;
+
+  useEffect(() => {
+    if (!id || !key || !owed || sent.current.has(key)) return;
+    sent.current.add(key);
+    void markSeenAction([id])
+      .then(unwrapResult)
+      .then(() => revalidate(queryKey.threads))
+      .catch((cause) => {
+        // Released, so opening it again tries again
+        sent.current.delete(key);
+        toast.add({
+          type: "error",
+          title: "Could not mark the thread as read",
+          description: errorToString(cause),
+        });
+      });
+  }, [id, key, owed]);
+}

@@ -1,10 +1,10 @@
+import { LIVE_PROVIDER } from "@/features/ai/live.schema";
 import {
   canMakeKind,
   MEDIA_MODEL_PROVIDER_LIST,
   type MediaKind,
   parseMediaModel,
   parseTextModel,
-  SPEACH_MODEL_PROVIDERS,
   TEXT_MODEL_PROVIDER_LIST,
   type TextModelProviderId,
 } from "@/features/ai/model.schema";
@@ -67,12 +67,8 @@ export type ConfigGroup = {
   entries: ConfigEntry[];
 };
 
-/** Calls run on one of these. */
-const voiceKeys = [
-  ...new Set(
-    Object.values(SPEACH_MODEL_PROVIDERS).map((entry) => entry.apiKeyName),
-  ),
-];
+/** Live voice and Responses delegation share this API key. */
+const voiceKeys = [LIVE_PROVIDER.apiKeyName];
 
 /** The studio model per kind, as `provider/model`. Unset means the tool is absent, not a fallback. */
 export const MEDIA_MODEL_KEYS: Record<MediaKind, string> = {
@@ -172,10 +168,10 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
   {
     id: "voice",
     title: "voice",
-    hint: "calls run on one of these",
+    hint: "calls run on this key",
     section: "keys",
     require: "any",
-    note: "one is required",
+    note: "required for calls",
     entries: TEXT_MODEL_PROVIDER_LIST.filter(isVoiceKey).map(keyEntry),
   },
   {

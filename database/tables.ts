@@ -12,8 +12,8 @@ import z from "zod";
 import type { TextModelProviderId } from "@/features/ai/model.schema";
 import {
   botIconSchema,
-  type TaskPending,
-  type TaskStatus,
+  type ThreadPending,
+  type ThreadStatus,
 } from "@/features/bot/bot.schema";
 import type { WorkState } from "@/features/bot/room.schema";
 import {
@@ -126,7 +126,7 @@ export const botMcpToolTable = sqliteTable(
  * A job handed to a bot. Outlives the call that opened it. Two independent
  * axes: `status` is where the job is, `seen` is whether the user has had the ending.
  */
-export const taskTable = sqliteTable("task", {
+export const threadTable = sqliteTable("thread", {
   /** uuid; the spoken and shown identifier is `label`. */
   id: text("id").primaryKey(),
   /** Bot name, deliberately not a foreign key: the default bot has no row, and a deleted bot's jobs stay. */
@@ -139,7 +139,7 @@ export const taskTable = sqliteTable("task", {
    * running | waiting (question, idle or paused) | done | failed.
    * A done job goes back to running when it gets a follow-up answer.
    */
-  status: text("status").notNull().$type<TaskStatus>(),
+  status: text("status").notNull().$type<ThreadStatus>(),
   /** A user message or resume opens a new reporting epoch. */
   generation: int("generation").notNull().default(0),
   /** Automatic turns consumed since the last user message or resume. */
@@ -149,13 +149,13 @@ export const taskTable = sqliteTable("task", {
   /** Last message, or the pending question. */
   outcome: text("outcome"),
   /**
-   * While `waiting`: what it waits on (bot.schema TaskPending); null once answered.
+   * While `waiting`: what it waits on (bot.schema ThreadPending); null once answered.
    * `toolCallId` null means the app stopped the run rather than the bot asking,
    * and the answer becomes a new user turn instead of a tool result.
    */
-  pending: text("pending", { mode: "json" }).$type<TaskPending>(),
+  pending: text("pending", { mode: "json" }).$type<ThreadPending>(),
   /**
-   * Whether the user has had the ending: relayed on a call, or on a task list
+   * Whether the user has had the ending: relayed on a call, or on a thread list
    * they had open. Highlight and badge only; the inbox selects by status.
    */
   seen: int("seen", { mode: "boolean" }).notNull().default(false),
@@ -169,7 +169,7 @@ export const taskTable = sqliteTable("task", {
   /**
    * Where this job compacts, written at every step so the screen can draw the meter
    * without config. Lowered when the model refused the context as too long
-   * (bot.runner parkTask), and a resume never runs above it (bot.run `budget`).
+   * (bot.runner parkThread), and a resume never runs above it (bot.run `budget`).
    */
   contextBudget: int("context_budget").notNull().default(0),
   createdAt: int("created_at", { mode: "timestamp" })
@@ -184,17 +184,17 @@ export const taskTable = sqliteTable("task", {
 });
 
 /**
- * A job's thread, one ModelMessage per row. Read back as the model's own
+ * A thread's messages, one ModelMessage per row. Read back as the model's own
  * history on resume, and drawn by the screen from the same rows.
  */
-export const taskMessageTable = sqliteTable(
-  "task_message",
+export const threadMessageTable = sqliteTable(
+  "thread_message",
   {
     /** Surrogate key; ordering is `seq`. */
     id: int("id").primaryKey({ autoIncrement: true }),
-    taskId: text("task_id")
+    threadId: text("thread_id")
       .notNull()
-      .references(() => taskTable.id, { onDelete: "cascade" }),
+      .references(() => threadTable.id, { onDelete: "cascade" }),
     /**
      * Position in the thread, assigned by the runner before content exists:
      * a step is written while streaming and again when it ends, and bots
@@ -203,7 +203,7 @@ export const taskMessageTable = sqliteTable(
     seq: int("seq").notNull(),
     /** Bot that produced the message; null is the user side (request, answers). */
     bot: text("bot"),
-    /** `ask_bot` tool-call id on a borrowed bot's messages; rows with null are the job's own thread. */
+    /** `ask_bot` tool-call id on a borrowed bot's messages; rows with null are the thread's own conversation. */
     parent: text("parent"),
     /** Incoming bot messages are already visible at their sender. */
     hidden: int("hidden", { mode: "boolean" }).notNull().default(false),
@@ -212,13 +212,13 @@ export const taskMessageTable = sqliteTable(
     content: text("content", { mode: "json" })
       .notNull()
       .$type<ModelMessage["content"]>(),
-    /** A compaction summary (user row). Resume reads from the last one (task.query listThread). */
+    /** A compaction summary (user row). Resume reads from the last one (room.query listParticipantTranscript). */
     compact: int("compact", { mode: "boolean" }).notNull().default(false),
     /**
      * The app speaking rather than anyone in the room: why a run stopped, and
      * the compaction marker. Separate from `compact`, which says where a resume
      * starts — how a row reads and where a resume begins are two facts, and a
-     * break row marked `compact` would throw the thread away on the next run.
+     * break row marked `compact` would throw the history away on the next run.
      */
     note: int("note", { mode: "boolean" }).notNull().default(false),
     /** Informational; ordering is `seq`. */
@@ -227,17 +227,17 @@ export const taskMessageTable = sqliteTable(
       .$defaultFn(() => new Date()),
   },
   // Streaming and end-of-step writes upsert on this key.
-  (t) => [unique("uq_task_message_seq").on(t.taskId, t.seq)],
+  (t) => [unique("uq_thread_message_seq").on(t.threadId, t.seq)],
 );
 
-/** One conversation continuation. All continuations for a bot share its task history. */
-export const taskWorkTable = sqliteTable(
-  "task_work",
+/** One conversation continuation. All continuations for a bot share its thread history. */
+export const threadWorkTable = sqliteTable(
+  "thread_work",
   {
     id: text("id").primaryKey(),
-    taskId: text("task_id")
+    threadId: text("thread_id")
       .notNull()
-      .references(() => taskTable.id, { onDelete: "cascade" }),
+      .references(() => threadTable.id, { onDelete: "cascade" }),
     bot: text("bot").notNull(),
     caller: text("caller").notNull(),
     /** The continuation a natural reply wakes; not the participant's identity. */
@@ -247,49 +247,55 @@ export const taskWorkTable = sqliteTable(
     /** A provider overflow lowers this participant's future compaction threshold. */
     contextBudget: int("context_budget").notNull().default(0),
     result: text("result"),
+    options: text("options", { mode: "json" })
+      .$type<string[]>()
+      .notNull()
+      .default([]),
     createdAt: int("created_at", { mode: "timestamp_ms" })
       .notNull()
       .$defaultFn(() => new Date()),
   },
   (t) => [
-    index("idx_task_work_queue").on(t.taskId, t.state, t.createdAt),
-    index("idx_task_work_parent").on(t.parentId),
-    uniqueIndex("uq_task_work_running_bot")
-      .on(t.taskId, t.bot)
+    index("idx_thread_work_queue").on(t.threadId, t.state, t.createdAt),
+    index("idx_thread_work_parent").on(t.parentId),
+    uniqueIndex("uq_thread_work_running_bot")
+      .on(t.threadId, t.bot)
       .where(sql`${t.state} = 'running'`),
   ],
 );
 
 /** Durable inbox; insertion into a participant's transcript is transactional. */
-export const taskDeliveryTable = sqliteTable(
-  "task_delivery",
+export const threadDeliveryTable = sqliteTable(
+  "thread_delivery",
   {
     id: int("id").primaryKey({ autoIncrement: true }),
     key: text("key").notNull().unique(),
-    taskId: text("task_id")
+    threadId: text("thread_id")
       .notNull()
-      .references(() => taskTable.id, { onDelete: "cascade" }),
+      .references(() => threadTable.id, { onDelete: "cascade" }),
     workId: text("work_id")
       .notNull()
-      .references(() => taskWorkTable.id, { onDelete: "cascade" }),
+      .references(() => threadWorkTable.id, { onDelete: "cascade" }),
     speaker: text("speaker").notNull(),
     text: text("text").notNull(),
     visible: int("visible", { mode: "boolean" }).notNull().default(false),
     consumed: int("consumed", { mode: "boolean" }).notNull().default(false),
   },
-  (t) => [index("idx_task_delivery_inbox").on(t.workId, t.consumed, t.id)],
+  (t) => [index("idx_thread_delivery_inbox").on(t.workId, t.consumed, t.id)],
 );
 
-/** Durable facts for Thursday; reading the task is separate from relaying it. */
-export const taskRelayTable = sqliteTable("task_relay", {
+/** Durable facts for Thursday; reading the thread is separate from relaying it. */
+export const threadRelayTable = sqliteTable("thread_relay", {
   id: int("id").primaryKey({ autoIncrement: true }),
   key: text("key").notNull().unique(),
-  taskId: text("task_id")
+  threadId: text("thread_id")
     .notNull()
-    .references(() => taskTable.id, { onDelete: "cascade" }),
+    .references(() => threadTable.id, { onDelete: "cascade" }),
   bot: text("bot").notNull(),
   text: text("text").notNull(),
-  kind: text("kind").notNull().$type<"question" | "report" | "interrupted">(),
+  kind: text("kind")
+    .notNull()
+    .$type<"message" | "question" | "report" | "interrupted">(),
   messageId: text("message_id"),
   accepted: int("accepted", { mode: "boolean" }).notNull().default(false),
 });
@@ -303,9 +309,18 @@ export const callTable = sqliteTable("call", {
   /** Recorded per call, since settings and fallbacks change between calls. */
   provider: text("provider").notNull(),
   model: text("model").notNull(),
+  /** The Responses model that held the tools. Null on rows written before Live. */
+  backendModel: text("backend_model"),
   startedAt: int("started_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
+  /**
+   * What the provider said when the session closed, and the active seconds it
+   * billed. Null when the confirmation never arrived — a call is charged by
+   * active time, so "unknown" is a fact worth telling apart from zero.
+   */
+  endedReason: text("ended_reason"),
+  seconds: int("seconds"),
   /**
    * null while open, or when nobody recorded the hangup (tab vanished).
    * Decides whether a finished job notifies the call or the desktop (bot.runner).
@@ -330,6 +345,14 @@ export const callMessageTable = sqliteTable(
     /** Tool name for `tool` turns; `text` is then the argument JSON. */
     tool: text("tool"),
     text: text("text").notNull(),
+    /**
+     * The exact transcript fragments this display group was folded from, with
+     * their intervals (lib/live LiveFragment). Null on tool turns and on rows
+     * written before Live: a group is revisable, the fragments are not.
+     */
+    fragments: text("fragments", { mode: "json" }).$type<
+      { start: number; end: number; text: string }[]
+    >(),
     /** Insert time; ordering is `seq`. */
     at: int("at", { mode: "timestamp" })
       .notNull()

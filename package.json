@@ -11,7 +11,7 @@
     "agent-skills",
     "local-first",
     "mcp",
-    "openai-realtime",
+    "openai-live",
     "assistant",
     "nextjs"
   ],
@@ -30,10 +30,11 @@
     "node": ">=22.18"
   },
   "scripts": {
-    "dev": "node scripts/dev.mts",
+    "dev": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/dev.mts",
     "build": "next build",
     "start": "node bin/thursday.mjs",
     "lint": "biome check",
+    "test:live": "node --experimental-test-module-mocks --import tsx --test scripts/live-session.test.mts scripts/live-history.test.mts",
     "test:bot": "node --experimental-test-module-mocks --import tsx --test scripts/bot-context.test.mts",
     "format": "biome format --write",
     "reset": "node scripts/reset.mts",

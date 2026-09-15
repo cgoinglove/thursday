@@ -1,36 +1,53 @@
 import { createHash } from "node:crypto";
 import type { ModelMessage } from "ai";
 import { and, eq, inArray, max, or, sql } from "drizzle-orm";
+import type { z } from "zod";
 import { appEvents } from "@/app/api/events/app-event.server";
 import { BOT_RUN } from "@/config";
 import { database } from "@/database/db";
 import {
-  taskDeliveryTable as delivery,
-  taskMessageTable as message,
-  taskRelayTable as relay,
-  taskTable as task,
-  taskWorkTable as work,
+  threadDeliveryTable as delivery,
+  threadMessageTable as message,
+  threadRelayTable as relay,
+  threadTable as thread,
+  threadWorkTable as work,
 } from "@/database/tables";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { publicError } from "@/lib/public-error";
-import { TASK_CONTINUE, tagSpeaker } from "./bot.schema";
-import { ROOM_THURSDAY } from "./room.schema";
-import type { TaskMessageInput } from "./task.query";
-import { listBotThread } from "./task.query";
+import { THREAD_CONTINUE, tagSpeaker } from "./bot.schema";
+import { ROOM_THURSDAY, RoomMessageSchema } from "./room.schema";
+import type { ThreadMessageInput } from "./thread.query";
+import { listBotTranscript } from "./thread.query";
 
 type Tx = Parameters<Parameters<typeof database.transaction>[0]>[0];
 export type RoomWork = typeof work.$inferSelect;
-const changed = () => appEvents.emit({ type: "tasks" });
+const changed = () => appEvents.emit({ type: "threads" });
 const terminal = (state: RoomWork["state"]) =>
   state === "done" || state === "cancelled";
-const messageKey = (taskId: string, bot: string, callId: string) =>
+const messageKey = (threadId: string, bot: string, callId: string) =>
   `message:${createHash("sha256")
-    .update(JSON.stringify([taskId, bot, callId]))
+    .update(JSON.stringify([threadId, bot, callId]))
     .digest("hex")}`;
+
+/** Whether a bot has a question to the user still open. Until it is answered the bot runs nothing. */
+async function isAsking(tx: Tx, threadId: string, bot: string) {
+  const [open] = await tx
+    .select({ id: work.id })
+    .from(work)
+    .where(
+      and(
+        eq(work.threadId, threadId),
+        eq(work.state, "external"),
+        eq(work.caller, bot),
+      ),
+    )
+    .limit(1);
+  return !!open;
+}
 
 /** Recover a committed send whose receipt was lost before the next transcript write. */
 export async function listRoomReceipts(
-  taskId: string,
+  threadId: string,
   bot: string,
   history: ModelMessage[],
 ) {
@@ -43,19 +60,19 @@ export async function listRoomReceipts(
         )
       : [],
   );
-  const keys = calls.map((id) => messageKey(taskId, bot, id));
+  const keys = calls.map((id) => messageKey(threadId, bot, id));
   const receipts = new Map<string, { messageId: string; to: string }>();
   if (!keys.length) return receipts;
   const [requests, replies] = await Promise.all([
     database
       .select({ key: work.id, to: work.bot })
       .from(work)
-      .where(and(eq(work.taskId, taskId), inArray(work.id, keys))),
+      .where(and(eq(work.threadId, threadId), inArray(work.id, keys))),
     database
       .select({ key: delivery.key, to: work.bot })
       .from(delivery)
       .innerJoin(work, eq(work.id, delivery.workId))
-      .where(and(eq(delivery.taskId, taskId), inArray(delivery.key, keys))),
+      .where(and(eq(delivery.threadId, threadId), inArray(delivery.key, keys))),
   ]);
   const byKey = new Map(
     [...requests, ...replies].map((row) => [row.key, row.to]),
@@ -69,44 +86,44 @@ export async function listRoomReceipts(
 
 async function append(
   tx: Tx,
-  taskId: string,
-  row: TaskMessageInput & { hidden?: boolean },
+  threadId: string,
+  row: ThreadMessageInput & { hidden?: boolean },
 ) {
   const [last] = await tx
     .select({ seq: max(message.seq) })
     .from(message)
-    .where(eq(message.taskId, taskId));
+    .where(eq(message.threadId, threadId));
   const seq = (last?.seq ?? -1) + 1;
-  await tx.insert(message).values({ taskId, seq, ...row });
+  await tx.insert(message).values({ threadId, seq, ...row });
   return seq;
 }
 
 /** Allocate at the database boundary; independent participant writers never share a counter. */
 export async function appendRoomMessage(
-  taskId: string,
-  row: TaskMessageInput & { hidden?: boolean },
+  threadId: string,
+  row: ThreadMessageInput & { hidden?: boolean },
 ) {
-  const seq = await database.transaction((tx) => append(tx, taskId, row));
+  const seq = await database.transaction((tx) => append(tx, threadId, row));
   changed();
   return seq;
 }
 
-export async function listRoomWork(taskId: string) {
+export async function listRoomWork(threadId: string) {
   return database
     .select()
     .from(work)
-    .where(eq(work.taskId, taskId))
+    .where(eq(work.threadId, threadId))
     .orderBy(work.createdAt, work.id);
 }
 
 /** Every continuation at this desk inherits the smallest threshold that its provider accepted. */
-export async function roomContextBudget(taskId: string, bot: string) {
+export async function roomContextBudget(threadId: string, bot: string) {
   const [row] = await database
     .select({
       budget: sql<number | null>`min(nullif(${work.contextBudget}, 0))`,
     })
     .from(work)
-    .where(and(eq(work.taskId, taskId), eq(work.bot, bot)));
+    .where(and(eq(work.threadId, threadId), eq(work.bot, bot)));
   return row?.budget ?? undefined;
 }
 
@@ -121,21 +138,21 @@ export async function lowerRoomContextBudget(run: RoomWork, budget: number) {
   changed();
 }
 
-/** Old tasks enter the room engine on first resume. Their existing transcript stays intact. */
-export async function ensureRoom(taskId: string) {
+/** Old threads enter the room engine on first resume. Their existing transcript stays intact. */
+export async function ensureRoom(threadId: string) {
   await database.transaction(async (tx) => {
     const existing = await tx
       .select({ id: work.id })
       .from(work)
-      .where(eq(work.taskId, taskId))
+      .where(eq(work.threadId, threadId))
       .limit(1);
     if (existing.length) return;
-    const [row] = await tx.select().from(task).where(eq(task.id, taskId));
-    if (!row) publicError("No such task.");
+    const [row] = await tx.select().from(thread).where(eq(thread.id, threadId));
+    if (!row) publicError("No such thread.");
     const rootId = crypto.randomUUID();
     await tx.insert(work).values({
       id: rootId,
-      taskId,
+      threadId,
       bot: row.bot,
       caller: ROOM_THURSDAY,
       state: "queued",
@@ -143,7 +160,7 @@ export async function ensureRoom(taskId: string) {
     const history = await tx
       .select()
       .from(message)
-      .where(eq(message.taskId, taskId))
+      .where(eq(message.threadId, threadId))
       .orderBy(message.seq);
     const completed = new Set(
       history.flatMap((row) =>
@@ -188,13 +205,13 @@ export async function ensureRoom(taskId: string) {
         : [],
     );
     for (const item of legacy) {
-      const id = `legacy:${taskId}:${item.callId}`;
+      const id = `legacy:${threadId}:${item.callId}`;
       const parentId = legacy.some((other) => other.callId === item.parent)
-        ? `legacy:${taskId}:${item.parent}`
+        ? `legacy:${threadId}:${item.parent}`
         : rootId;
       await tx.insert(work).values({
         id,
-        taskId,
+        threadId,
         bot: item.bot,
         caller: item.caller,
         parentId,
@@ -204,7 +221,7 @@ export async function ensureRoom(taskId: string) {
       });
       await deliver(tx, {
         key: id,
-        taskId,
+        threadId,
         workId: id,
         speaker: item.caller,
         text: `Resume this interrupted exchange using your saved work.\n\n${item.text}`,
@@ -238,6 +255,12 @@ async function current(tx: Tx, run: RoomWork) {
 
 async function deliver(tx: Tx, input: typeof delivery.$inferInsert) {
   await tx.insert(delivery).values(input).onConflictDoNothing();
+  const [target] = await tx
+    .select({ bot: work.bot })
+    .from(work)
+    .where(eq(work.id, input.workId));
+  // A bot waiting on the user's answer reads nothing before it: its inbox holds (tellRoom wakes it)
+  if (target && (await isAsking(tx, input.threadId, target.bot))) return;
   await tx
     .update(work)
     .set({ state: "queued" })
@@ -248,11 +271,18 @@ async function deliver(tx: Tx, input: typeof delivery.$inferInsert) {
 
 export async function sendRoomMessage(
   run: RoomWork,
-  input: { id: string; to: string; text: string; replyTo?: string | null },
+  raw: z.input<typeof RoomMessageSchema> & { id: string },
 ) {
+  const input = { ...RoomMessageSchema.parse(raw), id: raw.id };
+  if (input.kind === "question" && input.to !== ROOM_THURSDAY)
+    publicError(
+      "Address user questions to Thursday; use a message to contact another bot.",
+    );
+  if (input.options?.length && input.kind !== "question")
+    publicError("Offer answer choices only with a user question.");
   const result = await database.transaction(async (tx) => {
     await current(tx, run);
-    const key = messageKey(run.taskId, run.bot, input.id);
+    const key = messageKey(run.threadId, run.bot, input.id);
     const [existing] = await tx.select().from(work).where(eq(work.id, key));
     if (existing) return { messageId: key, to: existing.bot };
     const [reply] = await tx
@@ -267,7 +297,9 @@ export async function sendRoomMessage(
       const [target] = await tx
         .select()
         .from(work)
-        .where(and(eq(work.id, input.replyTo), eq(work.taskId, run.taskId)));
+        .where(
+          and(eq(work.id, input.replyTo), eq(work.threadId, run.threadId)),
+        );
       if (
         !target ||
         target.bot !== run.bot ||
@@ -280,7 +312,7 @@ export async function sendRoomMessage(
       if (target.parentId) {
         await deliver(tx, {
           key,
-          taskId: run.taskId,
+          threadId: run.threadId,
           workId: target.parentId,
           speaker: run.bot,
           text: input.text,
@@ -289,7 +321,10 @@ export async function sendRoomMessage(
       }
       // Thursday has no model continuation to wake; the message enters the user inbox below.
     }
-    const all = await tx.select().from(work).where(eq(work.taskId, run.taskId));
+    const all = await tx
+      .select()
+      .from(work)
+      .where(eq(work.threadId, run.threadId));
     const bots = new Set(
       all.map((row) => row.bot).filter((bot) => bot !== ROOM_THURSDAY),
     );
@@ -298,57 +333,93 @@ export async function sendRoomMessage(
       !bots.has(input.to) &&
       bots.size >= BOT_RUN.participants
     )
-      publicError("This task has reached its participant limit.");
+      publicError("This thread has reached its participant limit.");
     if (
       all.filter((row) => !terminal(row.state)).length >= BOT_RUN.queuedMessages
     )
-      publicError("This task has reached its pending message limit.");
+      publicError("This thread has reached its pending message limit.");
+    const held =
+      input.to !== ROOM_THURSDAY &&
+      (await isAsking(tx, run.threadId, input.to));
     await tx.insert(work).values({
       id: key,
-      taskId: run.taskId,
+      threadId: run.threadId,
       bot: input.to,
       caller: run.bot,
       parentId: run.id,
-      state: input.to === ROOM_THURSDAY ? "external" : "queued",
+      state:
+        input.to === ROOM_THURSDAY
+          ? input.kind === "question"
+            ? "external"
+            : "done"
+          : held
+            ? "waiting"
+            : "queued",
       result: input.to === ROOM_THURSDAY ? input.text : null,
+      options: [...new Set(input.options ?? [])],
     });
     if (input.to === ROOM_THURSDAY) {
       await tx.insert(relay).values({
         key,
-        taskId: run.taskId,
+        threadId: run.threadId,
         bot: run.bot,
         text: input.text,
-        kind: "question",
-        messageId: key,
+        kind: input.kind,
+        messageId: input.kind === "question" ? key : null,
       });
     } else {
       await deliver(tx, {
         key,
-        taskId: run.taskId,
+        threadId: run.threadId,
         workId: key,
         speaker: run.bot,
         text: input.text,
       });
     }
     await tx
-      .update(task)
+      .update(thread)
       .set({ wrapped: false, updatedAt: new Date() })
-      .where(eq(task.id, run.taskId));
-    return { messageId: key, to: input.to };
+      .where(eq(thread.id, run.threadId));
+    return {
+      messageId: key,
+      to: input.to,
+      ...(held
+        ? {
+            note: `${input.to} is waiting for the user's answer and reads this after it.`,
+          }
+        : {}),
+    };
   });
   changed();
   return result;
 }
 
-export async function claimRoomWork(taskId: string) {
+export async function claimRoomWork(threadId: string) {
+  let parked = false;
   const claimed = await database.transaction(async (tx) => {
-    const [room] = await tx.select().from(task).where(eq(task.id, taskId));
+    const [room] = await tx
+      .select()
+      .from(thread)
+      .where(eq(thread.id, threadId));
     if (!room || room.status !== "running") return null;
     const all = await tx
       .select()
       .from(work)
-      .where(eq(work.taskId, taskId))
+      .where(eq(work.threadId, threadId))
       .orderBy(sql`${work}.rowid`);
+    // A queued turn of a bot waiting on the user waits with it; the answer queues it again (tellRoom)
+    const asking = new Set(
+      all.filter((row) => row.state === "external").map((row) => row.caller),
+    );
+    for (const row of all) {
+      if (row.state !== "queued" || !asking.has(row.bot)) continue;
+      await tx
+        .update(work)
+        .set({ state: "waiting" })
+        .where(eq(work.id, row.id));
+      row.state = "waiting";
+      parked = true;
+    }
     const active = all.filter((row) => row.state === "running");
     if (active.length >= BOT_RUN.concurrent) return null;
     const next = all.find(
@@ -361,7 +432,7 @@ export async function claimRoomWork(taskId: string) {
       await tx
         .update(work)
         .set({ state: "paused" })
-        .where(and(eq(work.taskId, taskId), eq(work.state, "queued")));
+        .where(and(eq(work.threadId, threadId), eq(work.state, "queued")));
       return null;
     }
     const [run] = await tx
@@ -370,12 +441,12 @@ export async function claimRoomWork(taskId: string) {
       .where(eq(work.id, next.id))
       .returning();
     await tx
-      .update(task)
+      .update(thread)
       .set({ turns: room.turns + 1 })
-      .where(eq(task.id, taskId));
+      .where(eq(thread.id, threadId));
     return run;
   });
-  if (claimed) changed();
+  if (claimed || parked) changed();
   return claimed;
 }
 
@@ -390,7 +461,7 @@ export async function consumeRoomInbox(run: RoomWork): Promise<string[]> {
       .orderBy(delivery.id);
     for (const row of rows) {
       const text = deliveryText(row);
-      await append(tx, run.taskId, {
+      await append(tx, run.threadId, {
         bot: run.bot,
         parent: run.id,
         role: "user",
@@ -427,11 +498,14 @@ export async function finishRoomWork(run: RoomWork, text: string) {
       .from(delivery)
       .where(and(eq(delivery.workId, run.id), eq(delivery.consumed, false)))
       .limit(1);
-    const state = pending.length
-      ? "queued"
-      : children.some((row) => !terminal(row.state))
-        ? "waiting"
-        : "done";
+    // Waiting on the user's answer holds the inbox (deliver); the answer queues it (tellRoom)
+    const asking = await isAsking(tx, run.threadId, run.bot);
+    const state =
+      pending.length && !asking
+        ? "queued"
+        : pending.length || children.some((row) => !terminal(row.state))
+          ? "waiting"
+          : "done";
     await tx
       .update(work)
       .set({ state, result: text })
@@ -445,15 +519,21 @@ export async function finishRoomWork(run: RoomWork, text: string) {
       if (parent && parent.state !== "cancelled") {
         await deliver(tx, {
           key: `return:${run.id}:${run.generation}`,
-          taskId: run.taskId,
+          threadId: run.threadId,
           workId: parent.id,
           speaker: run.bot,
           text: text || "This turn ended without a message.",
         });
       }
     }
-    const [room] = await tx.select().from(task).where(eq(task.id, run.taskId));
-    const all = await tx.select().from(work).where(eq(work.taskId, run.taskId));
+    const [room] = await tx
+      .select()
+      .from(thread)
+      .where(eq(thread.id, run.threadId));
+    const all = await tx
+      .select()
+      .from(work)
+      .where(eq(work.threadId, run.threadId));
     if (
       room &&
       run.bot === room.bot &&
@@ -461,23 +541,25 @@ export async function finishRoomWork(run: RoomWork, text: string) {
       all.every((row) => terminal(row.state))
     ) {
       await tx
-        .update(task)
+        .update(thread)
         .set({
           status: text ? "done" : "waiting",
           outcome: text || "The room is idle. Send a message to continue.",
-          pending: text ? null : { toolCallId: null, options: [TASK_CONTINUE] },
+          pending: text
+            ? null
+            : { toolCallId: null, options: [THREAD_CONTINUE] },
           wrapped: true,
           endedAt: text ? new Date() : null,
           seen: false,
           updatedAt: new Date(),
         })
-        .where(eq(task.id, run.taskId));
+        .where(eq(thread.id, run.threadId));
       if (text)
         await tx
           .insert(relay)
           .values({
-            key: `report:${run.taskId}:${room.generation}`,
-            taskId: run.taskId,
+            key: `report:${run.threadId}:${room.generation}`,
+            threadId: run.threadId,
             bot: run.bot,
             text,
             kind: "report",
@@ -489,69 +571,75 @@ export async function finishRoomWork(run: RoomWork, text: string) {
 }
 
 /** Called after runnable participants have been claimed; never confuse an idle room with successful work. */
-export async function settleRoom(taskId: string) {
+export async function settleRoom(threadId: string) {
   await database.transaction(async (tx) => {
-    const [room] = await tx.select().from(task).where(eq(task.id, taskId));
+    const [room] = await tx
+      .select()
+      .from(thread)
+      .where(eq(thread.id, threadId));
     if (!room || room.status !== "running") return;
-    const all = await tx.select().from(work).where(eq(work.taskId, taskId));
+    const all = await tx.select().from(work).where(eq(work.threadId, threadId));
     if (all.some((row) => row.state === "queued" || row.state === "running"))
       return;
     const question = all.find((row) => row.state === "external");
     if (question) {
       await tx
-        .update(task)
+        .update(thread)
         .set({
           status: "waiting",
           outcome: question.result,
           pending: {
             toolCallId: null,
-            options: [],
+            options: question.options,
             messageId: question.id,
             bot: question.caller,
           },
           updatedAt: new Date(),
         })
-        .where(eq(task.id, taskId));
+        .where(eq(thread.id, threadId));
       return;
     }
     if (all.some((row) => !terminal(row.state)) || room.wrapped) {
       await tx
-        .update(task)
+        .update(thread)
         .set({
           status: "waiting",
           outcome:
             room.turns >= BOT_RUN.turns
               ? "The room reached its automatic turn limit. Continue from the saved conversation."
               : "Work is paused. Continue from the saved conversation.",
-          pending: { toolCallId: null, options: [TASK_CONTINUE] },
+          pending: { toolCallId: null, options: [THREAD_CONTINUE] },
           updatedAt: new Date(),
         })
-        .where(eq(task.id, taskId));
+        .where(eq(thread.id, threadId));
       return;
     }
     const id = crypto.randomUUID();
     await tx.insert(work).values({
       id,
-      taskId,
+      threadId,
       bot: room.bot,
       caller: ROOM_THURSDAY,
       state: "queued",
     });
     await deliver(tx, {
       key: id,
-      taskId,
+      threadId,
       workId: id,
-      speaker: "Task activity",
+      speaker: "Thread activity",
       text: "The participants have finished their current turns. Bring together the results you received for Thursday, including anything still unresolved.",
     });
-    await tx.update(task).set({ wrapped: true }).where(eq(task.id, taskId));
+    await tx
+      .update(thread)
+      .set({ wrapped: true })
+      .where(eq(thread.id, threadId));
   });
   changed();
 }
 
-export async function pauseRoom(taskId: string, why: string, auto = false) {
+export async function pauseRoom(threadId: string, why: string, auto = false) {
   await database.transaction(async (tx) => {
-    const all = await tx.select().from(work).where(eq(work.taskId, taskId));
+    const all = await tx.select().from(work).where(eq(work.threadId, threadId));
     for (const row of all.filter(
       (row) => row.state === "running" || row.state === "queued",
     )) {
@@ -559,7 +647,7 @@ export async function pauseRoom(taskId: string, why: string, auto = false) {
         .update(work)
         .set({ state: "paused", generation: row.generation + 1 })
         .where(eq(work.id, row.id));
-      await append(tx, taskId, {
+      await append(tx, threadId, {
         bot: row.bot,
         parent: row.id,
         role: "user",
@@ -568,23 +656,23 @@ export async function pauseRoom(taskId: string, why: string, auto = false) {
       });
     }
     await tx
-      .update(task)
+      .update(thread)
       .set({
         status: "waiting",
         outcome: why,
         pending: {
           toolCallId: null,
-          options: [TASK_CONTINUE],
+          options: [THREAD_CONTINUE],
           ...(auto ? { auto: true, retryAt: Date.now() } : {}),
         },
         seen: false,
         endedAt: null,
         updatedAt: new Date(),
       })
-      .where(eq(task.id, taskId));
+      .where(eq(thread.id, threadId));
     await tx.insert(relay).values({
       key: crypto.randomUUID(),
-      taskId,
+      threadId,
       bot: all.find((row) => !row.parentId)?.bot ?? "Bot",
       text: why,
       kind: "interrupted",
@@ -594,52 +682,96 @@ export async function pauseRoom(taskId: string, why: string, auto = false) {
   changed();
 }
 
-export async function resumeRoom(taskId: string, manual = true) {
+export async function resumeRoom(threadId: string, manual = true) {
   await database.transaction(async (tx) => {
     await tx
       .update(work)
       .set({ state: "queued" })
-      .where(and(eq(work.taskId, taskId), eq(work.state, "paused")));
+      .where(and(eq(work.threadId, threadId), eq(work.state, "paused")));
     await tx
-      .update(task)
+      .update(thread)
       .set({
         status: "running",
         ...(manual
-          ? { generation: sql`${task.generation} + 1`, turns: 0 }
+          ? { generation: sql`${thread.generation} + 1`, turns: 0 }
           : {}),
         pending: null,
         outcome: null,
         endedAt: null,
         updatedAt: new Date(),
       })
-      .where(eq(task.id, taskId));
+      .where(eq(thread.id, threadId));
   });
   changed();
 }
 
+/**
+ * The question words from the user side answer: the one the named bot is waiting
+ * on, or with no bot named the only one open. Several and none named is the
+ * sender's to settle, so it is refused with the list.
+ */
+function questionFor(open: RoomWork[], recipient?: string) {
+  const asked = recipient
+    ? open.filter((row) => row.caller === recipient)
+    : open;
+  if (asked.length <= 1) return asked[0];
+  publicError(
+    `Several questions are waiting for an answer: ${asked
+      .map(
+        (row) =>
+          `${row.caller} (replyTo ${row.id}): “${(row.result ?? "").slice(0, 160)}”`,
+      )
+      .join("; ")}. Answer one of them by its replyTo.`,
+  );
+}
+
+/** Queue every turn a bot held while it waited on the user that has something to read. */
+async function wake(tx: Tx, threadId: string, bot: string) {
+  const unread = tx
+    .select({ workId: delivery.workId })
+    .from(delivery)
+    .where(and(eq(delivery.threadId, threadId), eq(delivery.consumed, false)));
+  await tx
+    .update(work)
+    .set({ state: "queued" })
+    .where(
+      and(
+        eq(work.threadId, threadId),
+        eq(work.bot, bot),
+        inArray(work.state, ["waiting", "done"]),
+        inArray(work.id, unread),
+      ),
+    );
+}
+
 /** User messages enter the recipient's active continuation, retaining its original return route. */
 export async function tellRoom(
-  taskId: string,
+  threadId: string,
   text: string,
   speaker: string,
   recipient?: string,
   replyTo?: string,
+  /** False for Continue, which never answers a question. */
+  answering = true,
 ) {
-  const id = await database.transaction(async (tx) => {
-    const [room] = await tx.select().from(task).where(eq(task.id, taskId));
-    if (!room) publicError("No such task.");
+  const told = await database.transaction(async (tx) => {
+    const [room] = await tx
+      .select()
+      .from(thread)
+      .where(eq(thread.id, threadId));
+    if (!room) publicError("No such thread.");
     const all = await tx
       .select()
       .from(work)
-      .where(eq(work.taskId, taskId))
+      .where(eq(work.threadId, threadId))
       .orderBy(work.createdAt);
-    const questionId =
-      replyTo ?? (!recipient ? room.pending?.messageId : undefined);
-    const question = questionId
-      ? all.find((row) => row.id === questionId && row.state === "external")
-      : undefined;
-    if (questionId && !question)
-      publicError("That question is no longer waiting for an answer.");
+    const open = all.filter((row) => row.state === "external");
+    const question = replyTo
+      ? (open.find((row) => row.id === replyTo) ??
+        publicError("That question is no longer waiting for an answer."))
+      : answering
+        ? questionFor(open, recipient)
+        : undefined;
     const bot = question?.caller ?? recipient ?? room.bot;
     let target = question
       ? all.find((row) => row.id === question.parentId)
@@ -671,7 +803,7 @@ export async function tellRoom(
               .insert(work)
               .values({
                 id: crypto.randomUUID(),
-                taskId,
+                threadId,
                 bot: room.bot,
                 caller: ROOM_THURSDAY,
                 state: "waiting",
@@ -691,7 +823,7 @@ export async function tellRoom(
           .insert(work)
           .values({
             id: crypto.randomUUID(),
-            taskId,
+            threadId,
             bot,
             caller: parentId ? room.bot : ROOM_THURSDAY,
             parentId,
@@ -700,24 +832,36 @@ export async function tellRoom(
           .returning()
       )[0];
     }
+    // The bot is told which question the next words answer; the screen draws only the words (hidden)
+    if (question)
+      await deliver(tx, {
+        key: `answer:${question.id}`,
+        threadId,
+        workId: target.id,
+        speaker: "Thread activity",
+        text: `The next message answers your question to the user: “${question.result ?? ""}”`,
+      });
     const key = crypto.randomUUID();
     await deliver(tx, {
       key,
-      taskId,
+      threadId,
       workId: target.id,
       speaker,
       text,
       visible: true,
     });
+    // Answered, the bot reads again: every turn it held while waiting is queued in arrival order
+    if (question && !(await isAsking(tx, threadId, bot)))
+      await wake(tx, threadId, bot);
     await tx
       .update(work)
       .set({ state: "queued" })
-      .where(and(eq(work.taskId, taskId), eq(work.state, "paused")));
+      .where(and(eq(work.threadId, threadId), eq(work.state, "paused")));
     await tx
-      .update(task)
+      .update(thread)
       .set({
         status: "running",
-        generation: sql`${task.generation} + 1`,
+        generation: sql`${thread.generation} + 1`,
         turns: 0,
         wrapped: false,
         pending: null,
@@ -726,21 +870,27 @@ export async function tellRoom(
         seen: false,
         updatedAt: new Date(),
       })
-      .where(eq(task.id, taskId));
-    return key;
+      .where(eq(thread.id, threadId));
+    return {
+      key,
+      to: bot,
+      answered: question
+        ? { bot: question.caller, question: question.result ?? "" }
+        : null,
+    };
   });
   changed();
-  return id;
+  return told;
 }
 
-export async function cancelRoom(taskId: string) {
+export async function cancelRoom(threadId: string) {
   await database.transaction(async (tx) => {
     await tx
       .update(work)
       .set({ state: "cancelled", generation: sql`${work.generation} + 1` })
       .where(
         and(
-          eq(work.taskId, taskId),
+          eq(work.threadId, threadId),
           inArray(work.state, [
             "queued",
             "running",
@@ -753,26 +903,26 @@ export async function cancelRoom(taskId: string) {
     await tx
       .update(relay)
       .set({ accepted: true })
-      .where(eq(relay.taskId, taskId));
+      .where(eq(relay.threadId, threadId));
   });
   changed();
 }
 
-export async function listParticipantThread(
-  taskId: string,
+export async function listParticipantTranscript(
+  threadId: string,
   bot: string,
 ): Promise<ModelMessage[]> {
   const [room] = await database
-    .select({ bot: task.bot })
-    .from(task)
-    .where(eq(task.id, taskId));
-  if (room && room.bot !== bot) return listBotThread(taskId, bot);
+    .select({ bot: thread.bot })
+    .from(thread)
+    .where(eq(thread.id, threadId));
+  if (room && room.bot !== bot) return listBotTranscript(threadId, bot);
   const rows = await database
     .select()
     .from(message)
     .where(
       and(
-        eq(message.taskId, taskId),
+        eq(message.threadId, threadId),
         or(
           eq(message.bot, bot),
           room?.bot === bot

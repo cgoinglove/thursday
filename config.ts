@@ -9,6 +9,40 @@ export const IS_DEV = process.env.NODE_ENV === "development";
 export const APP_NAME = "Thursday";
 
 /**
+ * Live call limits. Startup and close deadlines release stalled connections;
+ * transcriptGapMs groups nearby fragments for captions, never for tool execution.
+ * transcriptSaveMs sets the checkpoint interval; appendMs bounds update acknowledgements.
+ * backendOutputTokens bounds each delegated answer, including reasoning tokens.
+ */
+export const LIVE_CALL = {
+  startupMs: 30_000,
+  closeMs: 15_000,
+  transcriptGapMs: 1_500,
+  transcriptSaveMs: 500,
+  appendMs: 15_000,
+  backendOutputTokens: 4_096,
+};
+
+/**
+ * Background work put to the voice during a call (useThursday). Live never speaks
+ * unprompted, so what waits on the user reaches them only when the page puts it in.
+ * - `quietMs`  how long neither side's words have been transcribed before open work goes
+ *   in. Shorter talks over the user; longer leaves results waiting through pauses.
+ * - `relistMs`  how long something already put to her, and still not handled (unseen,
+ *   unanswered), waits before it goes in again.
+ * - `tries`  how many times one item goes in during a call.
+ * - `perTurn`  how many items go in at once; the rest wait for the next quiet moment.
+ * - `readMs`  how long an update she never voices holds back the next one.
+ */
+export const CALL_RELAY = {
+  quietMs: 7_000,
+  relistMs: 60_000,
+  tries: 3,
+  perTurn: 3,
+  readMs: 15_000,
+};
+
+/**
  * The app's own files (build, migrations, shipped skills). `THURSDAY_APP_DIR`
  * overrides; defaults to the cwd.
  */
@@ -74,13 +108,13 @@ export const PAGE_SIZE = 50;
 
 /**
  * Finished jobs the inbox carries beside everything still running or waiting.
- * The room in the call screen's corner and the Tasks badge read that one list,
+ * The room in the call screen's corner and the Threads badge read that one list,
  * Unread endings remain in the inbox regardless of this limit.
  */
 export const INBOX_FINISHED = 3;
 
 /** Jobs returned to the call: prioritize open work, then fill with recent endings. */
-export const TASK_STATUS_LIMIT = 10;
+export const THREAD_STATUS_LIMIT = 10;
 
 /** History page size in calls, not rows; each call carries every turn. */
 export const CALL_HISTORY_PAGE = 10;
@@ -143,7 +177,7 @@ export const TOOL_OUTPUT = { max: 8_000, head: 5_500, tail: 1_500 };
  * - `summaryWords`  summary length: one word per `perTokens` of budget, clamped
  *            to `min`..`max`.
  * - `participants`  distinct bots allowed in one room. Existing participants remain reusable.
- * - `concurrent`  participant turns allowed to run together in one task. A bot still runs once at a time.
+ * - `concurrent`  participant turns allowed to run together in one thread. A bot still runs once at a time.
  * - `turns`  automatic turns across the whole room between user messages or manual resumes.
  * - `queuedMessages`  open exchanges allowed in one room, including questions waiting on the user.
  * - `silenceMs`  how long a model call may send nothing before the run takes the
@@ -174,12 +208,17 @@ export const BOT_RUN = {
 };
 
 /**
- * How many files of a bot's own memory (`bots/<name>/memory/`, features/bot/bot.memory) its
- * prompt lists, newest first, one line each. Every line is paid on every step of every job
- * that bot runs; a file past the count stays on disk and the listing says how to reach it.
- * Raising it shows more of a long memory for more tokens on each of those steps.
+ * How much a bot's own memory (`bots/<name>/memory/`, features/bot/bot.memory) holds. Its
+ * prompt lists every file by its first line, paid on every step of every job that bot runs,
+ * and a job that opens a file reads all of it. A `bash` or `write_file` that leaves more files,
+ * or a longer file, is undone and its result names the limit, so the bot deletes, merges or
+ * shortens and writes again. Lowering either removes nothing already kept; the bot hears of it
+ * on its next write there.
+ * - `files`  files the folder keeps, every one of them listed.
+ * - `chars`  characters in one file, not counting whitespace at either end. Characters rather
+ *            than tokens because a bot can count them itself (`wc -m`).
  */
-export const BOT_MEMORY_LISTED = 20;
+export const BOT_MEMORY_LIMITS = { files: 20, chars: 10_000 };
 
 /** Name of the shipped browser skill (PATHS.skills.default); a seed bot claims it by name. */
 export const BROWSER_SKILL = "browser";
@@ -200,9 +239,10 @@ export const EXEC_TIMEOUT_MS = 180_000;
 
 /**
  * How long one shell command may run during a call (ai/load-tools, the call's
- * `bash`). The mic is closed while a tool runs, so this is how long one command
- * can hold the call silent; anything slower is a job for a bot. Raising it lets
- * the call run slower commands itself, and keeps the line quiet that much longer.
+ * `bash`). She keeps listening, but the backend cannot answer until the command
+ * returns, so this is how long one command can hold her answer back; anything
+ * slower is a job for a bot. Raising it lets the call run slower commands itself,
+ * and leaves the user waiting that much longer for the result.
  */
 export const CALL_EXEC_TIMEOUT_MS = 15_000;
 
@@ -272,7 +312,7 @@ export const PROMPT_BUDGET = 6_000;
  * What counts as too much memory to hold in one piece (features/memory), counted
  * in facts. Nothing is deleted on its own: past either of the first two a call opens by asking
  * her to sort it out with the user before anything she would raise herself
- * (thursday.prompt tidyOpening), and the third is the only hard one. Facts rather
+ * (live.prompt tidyPolicy and its opening), and the third is the only hard one. Facts rather
  * than tokens because it is the number the user sees on their own screen and the
  * number a model is told after every write — a token estimate is nobody's unit and
  * cannot be acted on.
@@ -346,11 +386,9 @@ export const PROMPT_LINE = {
   skill: 90,
   /** Tool-call arguments; file contents or prompts may arrive as arguments. */
   toolArgs: 30,
-  /** A past job's answer in the transcript; the rest is asked for with `task`. */
+  /** A past job's answer in the transcript; the rest is asked for with `thread`. */
   jobOutcome: 160,
-  /** One call turn travelling with a job in its opening message. */
-  callTurn: 160,
-  /** The first line a file in a bot's own memory is listed by (config BOT_MEMORY_LISTED). */
+  /** The first line a file in a bot's own memory is listed by (config BOT_MEMORY_LIMITS). */
   botMemory: 100,
 };
 

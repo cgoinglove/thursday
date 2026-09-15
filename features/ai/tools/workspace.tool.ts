@@ -3,6 +3,7 @@ import { type ToolSet, tool } from "ai";
 import z from "zod";
 import { EXEC_TIMEOUT_MS } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
+import { holdBotMemory, keepBotMemory } from "@/features/bot/bot.memory";
 import { writeRefusal } from "@/features/workspace/workspace";
 import type { Sandbox } from "@/lib/sandbox";
 
@@ -20,6 +21,8 @@ export const createWorkspaceTools = (
     guide?: boolean;
     /** How long one command may run; unset is the sandbox's own limit (config EXEC_TIMEOUT_MS). */
     timeoutMs?: number;
+    /** The bot whose own memory neither tool may take past its limits (bot.memory keepBotMemory). */
+    memoryOf?: string;
   },
 ): ToolSet => {
   /** Fold absolute sandbox paths against cwd; they still resolve when handed back. */
@@ -30,6 +33,17 @@ export const createWorkspaceTools = (
 
   // The tool set is built per run, so one guide per run lives in this closure.
   let owed = options.guide === true;
+
+  /** Runs a step that can write, then puts back what it took past the bot's memory limits and says so. */
+  const guarded = async <T>(
+    step: () => Promise<T>,
+  ): Promise<{ result: T; memory: string | null }> => {
+    const bot = options.memoryOf;
+    if (!bot) return { result: await step(), memory: null };
+    const held = await holdBotMemory(bot);
+    const result = await step();
+    return { result, memory: await keepBotMemory(bot, held) };
+  };
 
   const bash = tool({
     description: "Run a bash command.",
@@ -44,14 +58,17 @@ export const createWorkspaceTools = (
     }),
     // The only tool here long-running enough to be cancelled.
     execute: async ({ command }, { abortSignal }) => {
-      const result = await sandbox.exec(command, {
-        signal: abortSignal,
-        env: options.env,
-        timeoutMs: options.timeoutMs,
-      });
-      if (!owed) return result;
+      const { result, memory } = await guarded(() =>
+        sandbox.exec(command, {
+          signal: abortSignal,
+          env: options.env,
+          timeoutMs: options.timeoutMs,
+        }),
+      );
+      const answer = memory ? { ...result, memory } : result;
+      if (!owed) return answer;
       owed = false;
-      return { ...result, guide: SHELL_GUIDE };
+      return { ...answer, guide: SHELL_GUIDE };
     },
   });
 
@@ -78,8 +95,10 @@ export const createWorkspaceTools = (
       const full = sandbox.resolve(path);
       const refusal = writeRefusal(full);
       if (refusal) return refusal;
-      await sandbox.writeFile(path, content);
-      return `Wrote ${short(full)} (${content.split("\n").length} lines)`;
+      const { memory } = await guarded(() => sandbox.writeFile(path, content));
+      return (
+        memory ?? `Wrote ${short(full)} (${content.split("\n").length} lines)`
+      );
     },
   });
 

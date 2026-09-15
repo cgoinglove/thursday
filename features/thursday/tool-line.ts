@@ -60,10 +60,12 @@ function fromArgs(name: string, args: Record<string, unknown>): string | null {
     const bot = typeof args.bot === "string" ? args.bot.trim() : "";
     return bot ? `Handing this to ${bot}` : "Handing this over";
   }
-  if (name === TOOL_NAMES.task) {
-    const label = typeof args.task === "string" ? args.task.trim() : "";
+  if (name === TOOL_NAMES.thread) {
+    const label = typeof args.thread === "string" ? args.thread.trim() : "";
     if (args.action === "answer") return "Passing that back";
     if (args.action === "cancel") return "Stopping that";
+    if (args.action === "open")
+      return label ? `Opening ${label}` : "Opening that";
     return label ? `Checking on ${label}` : "Checking the jobs";
   }
   return null;

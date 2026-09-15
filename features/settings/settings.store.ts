@@ -8,7 +8,7 @@ export const SETTING_SECTIONS = [
   "thursday",
   "memory",
   "bot",
-  "tasks",
+  "threads",
   "artifact",
   "workspace",
   "skills",

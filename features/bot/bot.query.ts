@@ -4,7 +4,7 @@ import {
   botMcpToolTable,
   botTable,
   mcpToolTable,
-  taskTable,
+  threadTable,
 } from "@/database/tables";
 import type { TextModelProviderId } from "@/features/ai/model.schema";
 import { readConfig, writeConfig } from "@/features/config/config.query";
@@ -98,17 +98,17 @@ export async function findAllBots() {
       })
       .from(botMcpToolTable)
       .innerJoin(mcpToolTable, eq(botMcpToolTable.toolId, mcpToolTable.id)),
-    // Grouped by name; tasks point at bots by name (tables.ts task.bot)
+    // Grouped by name; threads point at bots by name (tables.ts thread.bot)
     database
       .select({
-        bot: taskTable.bot,
-        input: sql<number>`coalesce(sum(${taskTable.inputTokens}), 0)`,
-        output: sql<number>`coalesce(sum(${taskTable.outputTokens}), 0)`,
+        bot: threadTable.bot,
+        input: sql<number>`coalesce(sum(${threadTable.inputTokens}), 0)`,
+        output: sql<number>`coalesce(sum(${threadTable.outputTokens}), 0)`,
         // Raw max over a timestamp column arrives as integer seconds
-        lastJobAt: sql<number | null>`max(${taskTable.updatedAt})`,
+        lastJobAt: sql<number | null>`max(${threadTable.updatedAt})`,
       })
-      .from(taskTable)
-      .groupBy(taskTable.bot),
+      .from(threadTable)
+      .groupBy(threadTable.bot),
   ]);
 
   const byBot = new Map<string, PinnedTool[]>();
@@ -170,7 +170,7 @@ export async function updateBot(name: string, patch: Partial<BotForm>) {
   // (pickedModel reads a missing field as null and would clear the other)
   const { toolIds, ...values } =
     "provider" in patch || "model" in patch ? pickedModel(patch) : patch;
-  // Renaming would orphan pinned tools and every task sent to the old name, so name is never patched
+  // Renaming would orphan pinned tools and every thread sent to the old name, so name is never patched
   delete (values as { name?: string }).name;
 
   const [bot] = Object.keys(values).length

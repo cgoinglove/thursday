@@ -8,13 +8,11 @@ import { notify } from "@/components/ui/notify";
 import { ShinyText } from "@/components/ui/shiny-text";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CALL_HISTORY_PAGE } from "@/config";
-import type { TaskStatus } from "@/features/bot/bot.schema";
+import type { ThreadStatus } from "@/features/bot/bot.schema";
 import { toolIcon } from "@/features/bot/components/bot-tool";
 import {
   SettingDialogContent,
   SettingError,
-  SettingGroup,
-  SettingItems,
   SettingMore,
 } from "@/features/settings/components/setting-ui";
 import { toDate, whenOf } from "@/lib/date-like";
@@ -26,54 +24,50 @@ import { type CallRecord, type CallTurn } from "../thursday.schema";
 import { delegatedLabel, toolLine } from "../tool-line";
 import { ThursdayMark } from "./thursday-mark";
 
-/** The Settings › Thursday row that opens the call history dialog. */
+/** The Settings › Thursday tile that opens the call history dialog. */
 export function CallHistoryRow() {
   return (
-    <SettingGroup label="Transcripts">
-      <SettingItems>
-        <button
-          type="button"
-          onClick={() =>
-            notify.component({
-              className: "sm:max-w-3xl",
-              renderer: () => (
-                <SettingDialogContent
-                  title="Call history"
-                  description="Everything said on the line, oldest at the top. Scroll up for older calls."
-                >
-                  <CallLog />
-                </SettingDialogContent>
-              ),
-            })
-          }
-          className="flex w-full items-center gap-3 p-4 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
-        >
-          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
-            <Phone className="size-4" />
-          </span>
-          <span className="min-w-0 flex-1 space-y-0.5">
-            <span className="block text-sm font-medium">Call history</span>
-            <span className="block text-xs text-muted-foreground">
-              Every call, word for word — hers and yours
-            </span>
-          </span>
-          <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-        </button>
-      </SettingItems>
-    </SettingGroup>
+    <button
+      type="button"
+      onClick={() =>
+        notify.component({
+          className: "sm:max-w-3xl",
+          renderer: () => (
+            <SettingDialogContent
+              title="Call history"
+              description="Everything said on the line, oldest at the top. Scroll up for older calls."
+            >
+              <CallLog />
+            </SettingDialogContent>
+          ),
+        })
+      }
+      className="flex w-full min-w-0 items-center gap-3 p-4 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
+    >
+      <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+        <Phone className="size-4" />
+      </span>
+      <span className="min-w-0 flex-1 space-y-0.5">
+        <span className="block text-sm font-medium">Call history</span>
+        <span className="block text-xs text-muted-foreground">
+          Every call, word for word — hers and yours
+        </span>
+      </span>
+      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+    </button>
   );
 }
 
 type CallJob = CallRecord["jobs"][number];
 
 /** How a job reads under the line that opened it. Only waiting and failed carry colour. */
-const JOB_WORD: Record<TaskStatus, string> = {
+const JOB_WORD: Record<ThreadStatus, string> = {
   running: "working",
   waiting: "waiting on you",
   done: "done",
   failed: "failed",
 };
-const JOB_LOOK: Record<TaskStatus, string> = {
+const JOB_LOOK: Record<ThreadStatus, string> = {
   running: "text-muted-foreground",
   waiting: WAITING_INK,
   done: "text-muted-foreground",
@@ -182,7 +176,7 @@ function CallLog() {
               ghost={<CallGhost />}
             />
             {calls.map((call, index) => (
-              <Thread
+              <CallEntry
                 key={call.id}
                 call={call}
                 first={index === 0}
@@ -231,7 +225,7 @@ function CallGhost() {
 const sideOf = (turn: CallTurn) => (turn.role === "user" ? "user" : "her");
 
 /** One call: a datestamp over a hairline, then its turns. */
-function Thread({
+function CallEntry({
   call,
   first,
   onDropped,
@@ -273,7 +267,15 @@ function Thread({
         )}
       >
         <span
-          title={`${call.provider} · ${call.model}`}
+          title={[
+            call.provider,
+            call.model,
+            call.backendModel,
+            call.seconds === null ? null : `${call.seconds}s active`,
+            call.endedReason,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
           className="font-mono text-[10px] tracking-[0.14em] uppercase"
         >
           {whenOf(started)}

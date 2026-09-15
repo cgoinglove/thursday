@@ -6,11 +6,7 @@ import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProviderIcon } from "@/features/ai/components/provider-icon";
-import {
-  detectSpeachProvider,
-  SPEACH_MODEL_PROVIDER_LIST,
-  type SpeachModelProviderId,
-} from "@/features/ai/model.schema";
+import { LIVE_PROVIDER } from "@/features/ai/live.schema";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn } from "@/lib/utils";
@@ -31,7 +27,7 @@ export type VoiceKeysHandle = {
 /** Shorter than this is not a key: no save button, no prompt on leaving. */
 export const KEY_MIN = 8;
 
-/** One field per voice provider. Used by the intro and by the call screen while no key is set. */
+/** The OpenAI key for Live voice and Responses delegation. Used by the intro and by the call screen while no key is set. */
 export function VoiceKeys({
   ref,
   autoFocus,
@@ -45,7 +41,7 @@ export function VoiceKeys({
   autoFocus?: boolean;
   dense?: boolean;
   onCancel?: () => void;
-  onSaved?: (provider: SpeachModelProviderId) => void;
+  onSaved?: (provider: "openai") => void;
   className?: string;
 }) {
   const { data: config } = useServerRoute<ConfigStatus[]>(queryKey.config);
@@ -62,9 +58,7 @@ export function VoiceKeys({
   const ready = (name: string) => (drafts[name]?.trim().length ?? 0) >= KEY_MIN;
 
   /** Saves one field. Failure is already toasted by the hook. */
-  const commit = async (
-    provider: (typeof SPEACH_MODEL_PROVIDER_LIST)[number],
-  ) => {
+  const commit = async (provider: typeof LIVE_PROVIDER) => {
     const name = provider.apiKeyName;
     if (!ready(name) || saving) return false;
     setSaving(name);
@@ -81,14 +75,9 @@ export function VoiceKeys({
   };
 
   useImperativeHandle(ref, () => ({
-    pending: () =>
-      SPEACH_MODEL_PROVIDER_LIST.some((provider) => ready(provider.apiKeyName)),
+    pending: () => ready(LIVE_PROVIDER.apiKeyName),
     flush: async () => {
-      for (const provider of SPEACH_MODEL_PROVIDER_LIST) {
-        if (!ready(provider.apiKeyName)) continue;
-        if (!(await commit(provider))) return false;
-      }
-      return true;
+      return ready(LIVE_PROVIDER.apiKeyName) ? commit(LIVE_PROVIDER) : true;
     },
   }));
 
@@ -114,22 +103,19 @@ export function VoiceKeys({
         </div>
       )}
 
-      {SPEACH_MODEL_PROVIDER_LIST.map((provider, index) => (
-        <KeyField
-          key={provider.id}
-          provider={provider}
-          saved={isConfigSet(config, provider.apiKeyName)}
-          autoFocus={autoFocus && index === 0}
-          dense={dense}
-          value={drafts[provider.apiKeyName] ?? ""}
-          ready={ready(provider.apiKeyName)}
-          saving={saving === provider.apiKeyName}
-          onValue={(next) =>
-            setDrafts((all) => ({ ...all, [provider.apiKeyName]: next }))
-          }
-          onSubmit={() => void commit(provider)}
-        />
-      ))}
+      <KeyField
+        provider={LIVE_PROVIDER}
+        saved={isConfigSet(config, LIVE_PROVIDER.apiKeyName)}
+        autoFocus={autoFocus}
+        dense={dense}
+        value={drafts[LIVE_PROVIDER.apiKeyName] ?? ""}
+        ready={ready(LIVE_PROVIDER.apiKeyName)}
+        saving={saving === LIVE_PROVIDER.apiKeyName}
+        onValue={(next) =>
+          setDrafts((all) => ({ ...all, [LIVE_PROVIDER.apiKeyName]: next }))
+        }
+        onSubmit={() => void commit(LIVE_PROVIDER)}
+      />
 
       <p
         className={cn(
@@ -138,8 +124,8 @@ export function VoiceKeys({
         )}
       >
         {dense
-          ? "One is enough."
-          : "One is enough — the other can wait. Stored on this machine, in this app's own database."}
+          ? "Live voice and reasoning share this OpenAI API key."
+          : "Live uses an OpenAI API key, billed separately from ChatGPT. Stored on this machine, in this app's database."}
       </p>
     </div>
   );
@@ -156,7 +142,7 @@ function KeyField({
   onValue,
   onSubmit,
 }: {
-  provider: (typeof SPEACH_MODEL_PROVIDER_LIST)[number];
+  provider: typeof LIVE_PROVIDER;
   saved: boolean;
   autoFocus?: boolean;
   dense?: boolean;
@@ -204,7 +190,7 @@ export function KeyInput({
   onValue,
   onSubmit,
 }: {
-  provider: (typeof SPEACH_MODEL_PROVIDER_LIST)[number];
+  provider: typeof LIVE_PROVIDER;
   saved: boolean;
   autoFocus?: boolean;
   dense?: boolean;
@@ -215,8 +201,8 @@ export function KeyInput({
   onSubmit: () => void;
 }) {
   // A mismatch warns but never blocks: key prefixes change
-  const looksLike = detectSpeachProvider(value);
-  const mismatch = looksLike !== null && looksLike !== provider.id;
+  const mismatch =
+    value.trim().startsWith("xai-") || value.trim().startsWith("sk-ant-");
 
   return (
     <form
@@ -233,9 +219,11 @@ export function KeyInput({
       <Input
         autoFocus={autoFocus}
         type="password"
+        aria-label="OpenAI API key"
+        autoComplete="off"
         value={value}
         spellCheck={false}
-        placeholder={saved ? "Replace it" : `${provider.keyPrefix[0]}…`}
+        placeholder={saved ? "Replace it" : "sk-…"}
         onChange={(event) => onValue(event.target.value)}
         className={cn(
           // shadcn's input paints its own dark background (`dark:bg-input/30`)

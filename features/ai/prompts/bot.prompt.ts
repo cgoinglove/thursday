@@ -1,10 +1,19 @@
 import type { ModelMessage } from "ai";
 import { format } from "date-fns";
-import { PATHS, PROMPT_LINE, WORKSPACE_KEEP } from "@/config";
+import {
+  BOT_MEMORY_LIMITS,
+  PATHS,
+  PROMPT_LINE,
+  WORKSPACE_KEEP,
+} from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { botMemoryFolder, listBotMemory } from "@/features/bot/bot.memory";
 import { listJobBots, readBotMemoryOn } from "@/features/bot/bot.query";
-import type { BotMemory, JobBot, TaskSpeaker } from "@/features/bot/bot.schema";
+import type {
+  BotMemory,
+  JobBot,
+  ThreadSpeaker,
+} from "@/features/bot/bot.schema";
 import { findPinnedTools } from "@/features/connectors/mcp.query";
 import type { McpToolRef } from "@/features/connectors/mcp.schema";
 import { listNoteIndex } from "@/features/memory/memory.query";
@@ -31,11 +40,14 @@ import {
   skillLines,
 } from "./prompt-helper";
 
+/** Where this turn sits: who coordinates the thread, who is asking, and the exchange it answers. */
+type Seat = { owner: string; caller: string; messageId: string | null };
+
 /** Assemble this participant's instructions and current return route on every turn. */
 export async function loadBotPrompt(
   self: string,
   persona?: string | null,
-  seat?: { owner: string; caller: string; messageId: string | null } | null,
+  seat?: Seat | null,
   /** The two folders that are this run's rather than the user's (bot.run). */
   folders?: { scratch: string | null; own: string },
 ): Promise<LoadedPrompt> {
@@ -68,7 +80,7 @@ export async function loadBotPrompt(
     // After Environment: its folder is named against the Cwd said there
     memoryOn ? ownMemory(botMemoryFolder(name), kept) : "",
     roster(peers),
-    collaboration((seat?.owner ?? name) === name),
+    collaboration(name, seat),
     // Last, so it is the closest thing to the work and outranks the rest
     ownerInstruction(persona),
   ]
@@ -81,49 +93,35 @@ export async function loadBotPrompt(
   return {
     text,
     peers: peers.map((bot) => bot.name),
-    opening: null,
   };
 }
 
 /**
- * The two people every seat works between. Said before anything else, so the
- * rest of the prompt — whose memory, who reads the answer — has someone to refer to.
+ * Who is who, how the job gets done, and that guesses are not results. The people come
+ * first so the rest — whose memory, who reads the answer — has someone to refer to. How
+ * this job reached it is the first message's to say (buildThreadOpening).
  */
-const PEOPLE = `- **The user** — the one person all of this is for. They talk with Thursday by voice, and they follow this job on their screen.
-- **Thursday** — their own personal assistant, one to one. She holds the conversation with them, hands bots the work that takes time, and tells them what comes back.`;
+function identity(name: string, seat?: Seat | null): string {
+  const owner = seat?.owner ?? name;
+  const coordinator =
+    owner === name
+      ? "**You** coordinate this thread: its result goes from you to Thursday."
+      : `**${owner}** coordinates this thread and brings its result to Thursday.`;
+  const current = seat
+    ? `\n\nCurrent conversation: ${seat.caller} → ${name}. Your final text goes back to ${seat.caller}. Message ID: ${seat.messageId ?? "initial request"}.`
+    : "";
 
-/**
- * Who is who, what machine it is on, and that guesses are not results. How this
- * job reached it is the first message's to say (buildTaskOpening).
- */
-function identity(
-  name: string,
-  seat?: { owner: string; caller: string; messageId: string | null } | null,
-): string {
-  return [
-    `You are ${name}, a participant in this task. ${nowLine()}
+  return `You are ${name}, one of the bots in this thread. ${nowLine()}
 
-${PEOPLE}
-- **${seat?.owner ?? name}** — coordinates this task and brings its results to Thursday.
-- **You** — keep your own work and conversation across turns. Other participants receive the messages you send, not your private history.
-${
-  seat
-    ? `
-Current conversation: ${seat.caller} → ${name}. Your ordinary final text returns to ${seat.caller}. Message ID: ${seat.messageId ?? "initial request"}.`
-    : ""
-}`,
-    MACHINE,
-    NO_GUESSING,
-  ].join("\n\n");
+- **The user** — the one person all of this is for. They talk with Thursday by voice and follow this thread on their screen.
+- **Thursday** — their personal assistant. She talks with them, hands bots the work that takes time, and tells them what comes back.
+- ${coordinator}
+- **Everyone on it** keeps their own work and conversation; the others see only the messages sent to them.${current}
+
+**The job is done, not described.** You are on the user's own computer, with a shell, files and the web, and how you get there is yours: when one way fails, try another; where no tool exists, write one — \`node\` is always here. Before deciding something cannot be done, look at what you have — your tools, the other bots, this machine. Bring back the thing itself — their account, their file, the real result — not a smaller, safer stand-in, and not a note on why not.
+
+**Never present a guess as a result.** Thursday says what you return out loud, as fact: say which part is unverified and why.`;
 }
-
-const MACHINE = `**You are on a real computer — the user's own.** You have a shell and a filesystem, and the job is done, not described: where there is no tool for something, write one — in \`node\` unless they asked for another language, the runtime this app itself runs on. Reach for \`${TOOL_NAMES.bash}\` before concluding that something cannot be done, but after the roster, not instead of it: a script you write to do another bot's job is the long way round.
-
-**What is missing gets installed**, onto the machine once they say yes. What is already there is nobody's question — Environment says what this machine has.
-
-**Bring back the thing itself** — their own machine, their own accounts, their own copy of whatever they sent you for — not a smaller safer version of it, and not a note on why you did not.`;
-
-const NO_GUESSING = `**Never present a guess as a result.** She says it out loud as fact. Say which part is unverified and why.`;
 
 /**
  * What the owner wrote about this bot in settings. Carries the sentence that
@@ -147,7 +145,7 @@ ${persona.trim()}`
 function memory(index: MemoryIndexEntry[]): string {
   return `## Thursday's memory of the user
 
-What Thursday keeps from talking with them. Open a note from the listing with \`${TOOL_NAMES.memory_recall}\` when the job needs something about them; what you find out about them goes in your answer, and she keeps what matters.
+What Thursday keeps from talking with them. When the job needs something about them, open the note with \`${TOOL_NAMES.memory_recall}\`; a fact marked \`said\` came from a call, and \`${TOOL_NAMES.memory_conversation}\` opens that call. What you learn about them goes in your answer — Thursday decides what to keep.
 
 path — what is under it (facts) "what the user calls it"
 
@@ -158,7 +156,8 @@ ${noteLines(index)}`;
  * The bot's own memory (features/bot/bot.memory), listed by each file's first line and the day
  * it last changed, both read off the disk, so what a file holds costs one line until a job opens
  * it. Always drawn, so a first job knows it has one. Nothing says what usually goes in first: a
- * line like that is what a first job writes, whether or not the job taught it anything.
+ * line like that is what a first job writes, whether or not the job taught it anything. The
+ * limits are said as a size only; a write past them is undone by the tools (bot.memory).
  */
 function ownMemory(folder: string, kept: BotMemory): string {
   const listing = kept.entries.length
@@ -176,7 +175,7 @@ function ownMemory(folder: string, kept: BotMemory): string {
 
   return `## Your memory
 
-What you kept from your own earlier jobs, in \`${folder}/\` under the Cwd above: one topic per file, its first line saying what it holds, read by no other bot. Keep what a later job would otherwise have to find out again — how a site signs in, the way through its screens, a command that turned out right — with the date you found it true, and fix or delete a file that proved wrong. No passwords, keys or codes.
+What you learned on your own earlier jobs, in \`${folder}/\`: one topic per file, its first line saying what it holds, read by no other bot, up to ${BOT_MEMORY_LIMITS.files} files of ${BOT_MEMORY_LIMITS.chars.toLocaleString("en-US")} characters each. It is how you get better at this work. When a job teaches you something a later one would otherwise find out again — how a site signs in, the way through its screens, a command that turned out right — keep it with the date it was true, and fix or delete what proved wrong. No passwords, keys or codes.
 
 ${listing}${rest}`;
 }
@@ -193,7 +192,7 @@ function connectedTools(tools: McpToolRef[], pinned: McpToolRef[]): string {
   if (unheld.length === 0) return "";
 
   const pinnedNote = held.size
-    ? ` What is not listed above you are already holding — it is in your tools.`
+    ? " The ones you already hold are in your tools instead."
     : "";
 
   return `## Connected tools
@@ -203,13 +202,13 @@ ${mcpToolLines(unheld)}
 Names only: \`${TOOL_NAMES.tool_search}\` returns what each one takes, \`${TOOL_NAMES.tool_call}\` runs one.${pinnedNote}`;
 }
 
-/** Full skill descriptions (the voice prompt shows only the first sentence). */
+/** Full skill descriptions: the description is what makes a skill the right one to open (the call shows only the first sentence). */
 function methods(skills: SkillMetadata[]): string {
   if (skills.length === 0) return "";
 
   return `## Skills
 
-Written-down methods. Use the instructions already in your conversation. When the job needs a skill whose full instructions are absent, read it with \`${TOOL_NAMES.load_skill}\` before starting.
+Written-down ways of doing things. Open one with \`${TOOL_NAMES.load_skill}\` before a job it covers, unless its instructions are already in your conversation.
 
 ${skillLines(skills)}`;
 }
@@ -220,7 +219,8 @@ ${skillLines(skills)}`;
  * out: a bot that has to check first spends a step on it, and one that guesses
  * writes for a runtime that is not here. Naming what is absent does as much
  * work as naming what is present — it is the half a model otherwise assumes.
- * The three folders are named once; `write_file` refuses anything else
+ * Said as what is here, not a limit: a bare listing reads as the only runtimes allowed.
+ * The folders are the app's rules; `write_file` refuses anything else
  * (workspace.ts writeRefusal).
  */
 const environment = (
@@ -233,18 +233,18 @@ Current Cwd: ${cwd}
 Platform: ${process.platform}
 ${machineLines(machine)}
 
-Read off this machine as the job opened, so it is current: reach for what is here instead of checking for it.
+Read off this machine as the job opened: what is already here, not the limit of what you can use.
 
-Your workspace — \`${TOOL_NAMES.bash}\` runs here. Everything you write goes in one of these, and they are kept apart because what is in them lives for different lengths of time:
+Your workspace, where \`${TOOL_NAMES.bash}\` runs. Everything you write goes in one of these folders, kept apart because what is in them lives for different lengths of time:
 
 - \`${PATHS.artifacts}/\` — finished work the user opens, one entry per result. Theirs, and it stays.
-- \`${PATHS.projects}/\` — code you build, one folder each. It outlives this job, and a project's dependencies install inside it, never at the workspace root.
-- \`${folders?.scratch ?? PATHS.scratch}/\` — this job's working material, one folder for every bot on the job: what another bot on it wrote is here too. It is cleared ${Math.round(WORKSPACE_KEEP.forMs / 86_400_000)} days after the job ends, so nothing here is worth keeping.
-- \`${folders?.own ?? PATHS.bots}/\` — yours, across every job you run here: your memory, a script you wrote once and will want again, a table you built.
+- \`${PATHS.projects}/\` — code you build, one folder each; it outlives this job, and its dependencies install inside it, never at the workspace root.
+- \`${folders?.scratch ?? PATHS.scratch}/\` — this job's working material, shared by every bot on it; cleared ${Math.round(WORKSPACE_KEEP.forMs / 86_400_000)} days after the job ends.
+- \`${folders?.own ?? PATHS.bots}/\` — yours across every job you run here: what you keep for next time.
 
-Never the directory above — that is the app you run in; outside the workspace, only where the user pointed you.`;
+Inside the workspace, set up whatever the job needs yourself; installing anything machine-wide waits for the user's yes. Never the directory above the workspace — it is the app's, not the user's; outside the workspace, only where the user pointed you.`;
 
-/** Same roster the voice prompt shows, used the other way: which part of a held job is another bot's. */
+/** The other bots, used the other way from the call's roster: which part of a held job is someone else's. */
 function roster(peers: JobBot[]): string {
   if (peers.length === 0) return "";
 
@@ -252,62 +252,62 @@ function roster(peers: JobBot[]): string {
 
 ${peers.map((bot) => `- **${bot.name}** — ${bot.description}`).join("\n")}
 
-These lines were written for the user, who reads them on their own screen: where one says "you" it means them, not you.
-
-Send relevant work to another bot with \`${TOOL_NAMES.send_message}\`. Include the context they need: their own history persists, but yours is private. Choose collaborators by what the task needs.`;
+These lines were written for the user: where one says "you", it means them. When part of the job is another bot's strength, bring it in with \`${TOOL_NAMES.send_message}\` rather than rebuilding it yourself.`;
 }
 
-function collaboration(owner: boolean): string {
+/**
+ * How participants reach each other. Nobody reads anyone else's transcript, so the one thing that
+ * decides whether collaboration works is what a single message carries.
+ */
+function collaboration(name: string, seat?: Seat | null): string {
+  const owner = (seat?.owner ?? name) === name;
+  const ending = owner
+    ? "Bring what you received together into one result for Thursday: what was done, where it is, and what is still open, at the detail the user asked for."
+    : `Your final text goes back to ${seat?.caller ?? "whoever asked"}: give them everything they need to carry on.`;
+
   return `## Working together
 
-Use \`${TOOL_NAMES.send_message}\` to contact another participant when you need their help, a clarification, or to share something they need. Continue independent work after sending; replies arrive as new messages. End your turn when you have nothing more to do now. Incoming messages can bring you back.
+Nobody sees your work but you, and you see only what others send you, so whatever crosses between you has to stand on its own. A request says what is wanted, what is already known or done, and where the files are; an answer gives exact values, file paths and what is still unverified. Tell whoever is waiting when something they depend on changes. End your turn when you have nothing more to do now: replies arrive as new messages and wake you.
 
-Address Thursday when you need a decision, permission, or information only the user has. Set up the decision with enough context to answer it; continue work that does not depend on it. Do not guess their answer.
+Ask Thursday with kind \`question\` only for a decision, permission or something only the user knows: clearly, with the context to answer, and short options when they help. Use kind \`message\` for news that needs no answer, and your final text for the result.
 
-${owner ? "Bring together the work you receive for Thursday. State what was accomplished and what remains unresolved, at the level of detail the user requested." : "Return the findings your current correspondent needs, including exact values, useful file paths, and anything unverified. They cannot read your private work."}
+${ending}
 
-Write plainly in the user's language. Put substantial deliverables under \`${PATHS.artifacts}/\` and include their paths. In Markdown files, reference images by absolute route (\`/api/file/${PATHS.artifacts}/…\`).`;
+Write in the user's language. Put finished work under \`${PATHS.artifacts}/\` and name the paths. The app opens Markdown with its tables and mermaid blocks drawn, CSV as a table, HTML and PDF as pages, and images, audio and video; in Markdown, reference images by absolute route (\`/api/file/${PATHS.artifacts}/…\`).`;
 }
 
-/** How many turns of the call travel with the job: enough for one missed detail, not enough to bury the request. */
-export const OPENING_TURNS = 10;
-
-/** A user message's content; every seat's first message is two text parts (buildTaskOpening). */
+/** A user message's content; every seat's first message is two text parts (buildThreadOpening). */
 export type OpeningContent = Extract<ModelMessage, { role: "user" }>["content"];
 
-/** The coordinator keeps the request and available call transcript through every compaction. */
-export function buildTaskOpening(input: {
+/**
+ * Who handed the job over, and the job — nothing from the call it came from. The request
+ * carries what the bot needs (delegate's schema says so), and the opening outlives every
+ * compaction: a call pasted here would still be read long after, by a user talking to the
+ * bot on screen.
+ */
+export function buildThreadOpening(input: {
   bot: string;
   request: string;
-  conversation: { role: "user" | "assistant"; text: string }[];
   /** Who handed the job over: Thursday during a call, or the user on screen. */
-  from: TaskSpeaker;
+  from: ThreadSpeaker;
 }): OpeningContent {
-  const turns = input.conversation.filter((turn) => turn.text.trim());
   const by = input.from === "user" ? "The user" : "Thursday";
-  const job = `## ${by} → ${input.bot}: the job\n\n${input.request.trim()}`;
-  const call = turns.length
-    ? `## The call the job came from — its last ${turns.length} turns, verbatim
-
-A detail missing from the job may be here — a name, a number, which of two. Where the two disagree the job wins, unless they asked out loud for something to be done and the job only asks about it: then the doing is the job.
-
-${turns
-  .map(
-    (turn) =>
-      `${turn.role === "user" ? "user" : "thursday"}: ${clip(turn.text, PROMPT_LINE.callTurn)}`,
-  )
-  .join("\n")}`
-    : "";
   return [
     {
       type: "text",
-      text: `You are ${input.bot}. ${by} hands you this task${input.from === "user" ? " on screen" : " during a call"}.`,
+      text: `You are ${input.bot}. ${by} hands you this thread${input.from === "user" ? " on screen" : " during a call"}.`,
     },
-    { type: "text", text: [job, call].filter(Boolean).join("\n\n") },
+    {
+      type: "text",
+      text: `## ${by} → ${input.bot}: the job\n\n${input.request.trim()}`,
+    },
   ];
 }
 
-/** One line per kind, absences included. Only a bot gets these: the call runs one command as a glance. */
+/**
+ * One line per kind, absences included. Only a bot gets these: the call runs one command as a
+ * glance. How to install a missing browser is the browser skill's to say, not the prompt's.
+ */
 function machineLines(machine: MachineTools): string {
   const line = (label: string, of: MachineTools["runtimes"]) =>
     `${label}: ${of.found.length ? of.found.join(", ") : "none"}.${
@@ -323,9 +323,7 @@ function machineLines(machine: MachineTools): string {
     `${line("Package managers", machine.managers)}${fenced}`,
     machine.browser === null
       ? ""
-      : machine.browser
-        ? "Browser: installed."
-        : "Browser: not installed — `playwright-cli install-browser chromium` puts one there.",
+      : `Browser: ${machine.browser ? "installed" : "not installed"}.`,
   ]
     .filter(Boolean)
     .join("\n");

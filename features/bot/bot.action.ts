@@ -12,15 +12,15 @@ import {
   writeBotMemoryOn,
 } from "./bot.query";
 import {
-  answerTask,
-  cancelTask,
-  removeFinishedTasks,
-  removeTask,
-  startTask,
+  answerThread,
+  cancelThread,
+  removeFinishedThreads,
+  removeThread,
+  startThread,
 } from "./bot.runner";
 import { BotFormSchema, botIconSchema } from "./bot.schema";
 import { findBotSeed, rollSeedColors } from "./bot.seed";
-import { markSeen, resolveTask } from "./task.query";
+import { markSeen, resolveThread } from "./thread.query";
 
 export const createBotAction = serverAction(async (input: unknown) => {
   const form = BotFormSchema.parse(input);
@@ -84,7 +84,7 @@ export const setBotMemoryOnAction = serverAction(async (on: unknown) => {
   await writeBotMemoryOn(on === true);
 });
 
-// Tasks are opened by the `delegate` tool during a call, or here when the user
+// Threads are opened by the `delegate` tool during a call, or here when the user
 // hands one over from the screen. Each returns at once, the run itself continues
 // as promises held by bot.runner.
 
@@ -103,14 +103,14 @@ function labelFor(request: string): string {
  * is the whole request — there is no conversation to draw the rest from, which is
  * why the box asks for a sentence rather than a word.
  */
-export const startTaskAction = serverAction(
+export const startThreadAction = serverAction(
   async (bot: string, request: string) => {
     const said = request.trim();
     if (!said) publicError("Nothing to hand over.");
     const worker = await findBot(bot);
     if (!worker) publicError(`No bot called "${bot}".`);
     const label = labelFor(said);
-    const id = await startTask({
+    const id = await startThread({
       bot: worker.name,
       request: said,
       label,
@@ -120,38 +120,38 @@ export const startTaskAction = serverAction(
   },
 );
 
-export const answerTaskAction = serverAction(
+export const answerThreadAction = serverAction(
   async (ref: string, answer: string, recipient?: string, replyTo?: string) => {
-    const task = await resolveTask(ref);
-    if (!task) publicError(`No job called "${ref}".`);
+    const thread = await resolveThread(ref);
+    if (!thread) publicError(`No job called "${ref}".`);
     if (!answer.trim()) publicError("Nothing to tell it.");
-    await answerTask(task.id, answer.trim(), "user", recipient, replyTo);
-    return { id: task.id, label: task.label, status: "running" as const };
+    await answerThread(thread.id, answer.trim(), "user", recipient, replyTo);
+    return { id: thread.id, label: thread.label, status: "running" as const };
   },
 );
 
-export const cancelTaskAction = serverAction(async (ref: string) => {
-  const task = await resolveTask(ref);
-  if (!task) publicError(`No job called "${ref}".`);
-  await cancelTask(task.id);
-  return { id: task.id, label: task.label, status: "cancelled" as const };
+export const cancelThreadAction = serverAction(async (ref: string) => {
+  const thread = await resolveThread(ref);
+  if (!thread) publicError(`No job called "${ref}".`);
+  await cancelThread(thread.id);
+  return { id: thread.id, label: thread.label, status: "cancelled" as const };
 });
 
-/** Marks endings as had by the user: relayed on a call, or on a task list they opened. Batched, since both reach many at once. */
+/** Marks endings as had by the user: relayed on a call, or on a thread list they opened. Batched, since both reach many at once. */
 export const markSeenAction = serverAction(async (ids: string[]) => {
   await markSeen(ids.filter((id) => typeof id === "string" && id));
 });
 
-export const deleteTaskAction = serverAction(async (id: string) => {
-  if (!(await removeTask(id))) publicError("Task not found");
+export const deleteThreadAction = serverAction(async (id: string) => {
+  if (!(await removeThread(id))) publicError("Thread not found");
 });
 
 /** Empties the log of what is over. Running and waiting jobs are not touched. */
-export const clearFinishedTasksAction = serverAction(async () => {
-  return { removed: await removeFinishedTasks() };
+export const clearFinishedThreadsAction = serverAction(async () => {
+  return { removed: await removeFinishedThreads() };
 });
 
-export const acceptTaskRelaysAction = serverAction(async (ids: unknown) => {
+export const acceptThreadRelaysAction = serverAction(async (ids: unknown) => {
   const { acceptRoomRelays } = await import("./room.query");
   await acceptRoomRelays(z.number().int().positive().array().parse(ids));
 });

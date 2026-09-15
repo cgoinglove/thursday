@@ -2,12 +2,15 @@
 
 import { format } from "date-fns";
 import {
+  ArrowRight,
   ArrowUp,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsRight,
+  CirclePause,
+  CircleQuestionMark,
   Copy,
   History,
   Loader2,
@@ -25,27 +28,32 @@ import {
   useRef,
   useState,
 } from "react";
+import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
 import { FoldedText } from "@/components/ui/folded-text";
 import { Markdown } from "@/components/ui/markdown";
 import { ShinyText, type ShinyTone } from "@/components/ui/shiny-text";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
-import { startTaskAction } from "@/features/bot/bot.action";
+import { startThreadAction } from "@/features/bot/bot.action";
 import {
   type Bot,
   type BotIcon,
   DEFAULT_BOT,
   isAppStop,
-  needsTaskReply,
-  TASK_CONTINUE,
+  needsThreadReply,
+  THREAD_CONTINUE,
 } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { BotRoster } from "@/features/bot/components/bot-roster";
 import { PathChips } from "@/features/bot/components/path-chips";
-import { TaskReply, useAnswerTask } from "@/features/bot/components/task-reply";
+import {
+  ThreadReply,
+  useAnswerThread,
+} from "@/features/bot/components/thread-reply";
 import { openSettings } from "@/features/settings/settings.store";
 import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
 import { FileViewer } from "@/features/workspace/components/file-view";
@@ -62,24 +70,25 @@ import {
 import { MARK_PALETTE, MARK_SHAPES } from "../mark.const";
 import {
   type BotRef,
-  botTasks,
+  botThreads,
   type Chatter,
-  type ChatterGroup,
+  heardBy,
   isOutcome,
   lastSaid,
   latestPerBot,
   rosterOf,
-  type TaskView,
-  type TaskViewStatus,
+  type ThreadItem,
+  type ThreadView,
+  type ThreadViewStatus,
   threadItems,
-  useBotTasks,
+  useBotThreads,
   useSeenOnDetail,
-} from "../task.store";
+} from "../thread.store";
 import { BotTool } from "./bot-tool";
 
 /**
- * The task room and inbox in the corner of the call screen: what is running, what is
- * asking, and what just finished (bot.query listInboxTasks). It only projects server
+ * The thread room and inbox in the corner of the call screen: what is running, what is
+ * asking, and what just finished (bot.query listInboxThreads). It only projects server
  * state.
  *
  * Folded, it is not a badge you have to open. Anything waiting on an answer is drawn
@@ -92,99 +101,74 @@ import { BotTool } from "./bot-tool";
  * memo: the parent re-renders per transcript chunk and this reads only its store.
  */
 export const BotRoom = memo(function BotRoom() {
-  const tasks = useBotTasks();
+  const threads = useBotThreads();
   const { data: bots } = useServerRoute<Bot[]>(queryKey.bot);
   const [open, setOpen] = useState(false);
   /** Open thread; null shows the list. */
   const [picked, setPicked] = useState<string | null>(null);
   /** Writing a new job, folded or in the room. */
   const [composing, setComposing] = useState(false);
+  /** The bot each thread shows, by thread id; a thread not in here is on All. */
+  const [sides, setSides] = useState<Record<string, string | null>>({});
 
-  const newest = [...tasks].reverse();
+  const newest = [...threads].reverse();
   const current = picked
     ? (newest.find((entry) => entry.id === picked) ?? null)
     : null;
 
-  const [bubbles, handoff] = useHandoffs();
-  const { crew, more } = useMemo(() => crewOf(bots, tasks), [bots, tasks]);
+  const [bubble, handoff] = useHandoff();
+  const { crew, more } = useMemo(() => crewOf(bots, threads), [bots, threads]);
 
-  // What each task was, and which hand-offs had already landed, at the previous
-  // sync. Only what changed since then just happened.
-  const known = useRef<Map<string, TaskViewStatus> | null>(null);
+  // What each thread and participant was, and which lines had landed, at the
+  // previous sync. Only what changed since then just happened.
+  const known = useRef<Map<string, ThreadViewStatus> | null>(null);
+  const standing = useRef(new Map<string, string>());
   const passed = useRef(new Set<string>());
 
   useEffect(() => {
-    if (!botTasks.primed()) return;
-    const now = new Map(newest.map((entry) => [entry.id, entry.status]));
+    if (!botThreads.primed()) return;
     const was = known.current;
-    known.current = now;
-
-    const seen = new Set<string>();
-    for (const task of tasks) {
-      for (const line of task.lines) {
-        if (line.kind === "ask" && line.to) seen.add(line.id);
-      }
-    }
+    known.current = new Map(threads.map((entry) => [entry.id, entry.status]));
+    const stood = standing.current;
+    standing.current = participantStates(threads);
     const had = passed.current;
-    passed.current = seen;
+    passed.current = new Set(
+      threads.flatMap((thread) => thread.lines.map((line) => line.id)),
+    );
 
-    // The first list only seeds the two: nothing on it just happened.
+    // The first list only seeds these: nothing on it just happened.
     if (!was) return;
 
-    // Bot to bot. A giver handing work to several at once would put a bubble
-    // over each of them, 20px apart, so a whole round is drawn once — over the
-    // giver — and the faces that took the work are awake, which says who.
-    const rounds = new Map<
-      string,
-      { from: BotRef; to: BotRef; text: string }[]
-    >();
-    for (const task of tasks) {
-      for (const line of task.lines) {
-        if (line.kind !== "ask" || !line.to || had.has(line.id)) continue;
-        const round = rounds.get(line.bot.name) ?? [];
-        round.push({ from: line.bot, to: line.to, text: line.text });
-        rounds.set(line.bot.name, round);
-      }
-    }
-    for (const [giver, round] of rounds) {
-      if (round.length === 1) {
-        handoff({
-          at: round[0].to.name,
-          from: round[0].from,
-          text: clipWord(round[0].text),
-        });
-        continue;
-      }
-      handoff({
-        at: giver,
-        from: round[0].from,
-        text: `sent ${round.length} parts out`,
-      });
-    }
-
-    for (const task of newest) {
-      if (was.get(task.id) === task.status || task.status !== "working")
-        continue;
-      // A job that was never seen is one arriving; one that was is you having
-      // answered it. The mark says who gave it away — and a job typed into the
-      // compose box is Thursday's here too, because a task row does not record
-      // which of the two started it.
-      handoff(
-        was.has(task.id)
-          ? { at: task.bot.name, from: null, text: "picked it back up" }
-          : {
-              at: task.bot.name,
-              from: THURSDAY,
-              text: `took on \u201c${clipWord(task.label)}\u201d`,
-            },
+    // One bubble at a time: of what this sync brought, the one that matters
+    // most, and of equals the later.
+    let top: Happening | null = null;
+    for (const thread of threads) {
+      const happened = happenedIn(
+        thread,
+        was.get(thread.id),
+        had,
+        stood,
+        standing.current,
       );
+      for (const one of happened) {
+        if (!top || one.rank >= top.rank) top = one;
+      }
     }
-  }, [tasks, handoff]);
+    if (top) handoff(top);
+  }, [threads, handoff]);
 
   // Reading a thread is reading its ending; that is what clears its dot.
   useSeenOnDetail(open ? current : null);
 
-  const busy = tasks.filter((entry) => entry.status === "working").length;
+  // Thursday put a job in front of the user (`thread` `open`): the room opens on it
+  useAppEvent({
+    showThread: (event) => {
+      setPicked(event.threadId);
+      setOpen(true);
+    },
+  });
+
+  const busy = threads.filter((entry) => entry.status === "working").length;
   const attention = newest.filter(needsYou);
   const pending = attention.length;
   const unread = newest.filter(isUnread);
@@ -201,13 +185,20 @@ export const BotRoom = memo(function BotRoom() {
           {current ? (
             <>
               <ThreadHeader
-                task={current}
+                thread={current}
                 onBack={() => setPicked(null)}
                 onClose={() => setOpen(false)}
               />
-              <Conversation task={current} className="min-h-0 flex-1" />
-              <TaskReply
-                task={{
+              <Conversation
+                thread={current}
+                tab={sides[current.id] ?? null}
+                onTab={(bot) =>
+                  setSides((was) => ({ ...was, [current.id]: bot }))
+                }
+                className="min-h-0 flex-1"
+              />
+              <ThreadReply
+                thread={{
                   id: current.id,
                   label: current.label,
                   bot: current.bot.name,
@@ -218,13 +209,15 @@ export const BotRoom = memo(function BotRoom() {
                   current.status === "working" ? "running" : current.status
                 }
                 lines={current.lines}
+                faces={rosterOf(current)}
+                to={sides[current.id] ?? current.bot.name}
                 className="mx-3 mb-2 shrink-0"
               />
             </>
           ) : (
             <>
               <ListHeader
-                count={tasks.length}
+                count={threads.length}
                 pending={pending}
                 composing={composing}
                 onCompose={() => setComposing(true)}
@@ -235,7 +228,7 @@ export const BotRoom = memo(function BotRoom() {
               {composing ? (
                 <Compose bots={bots} onDone={closeCompose} />
               ) : newest.length ? (
-                <TaskList tasks={newest} onPick={setPicked} />
+                <ThreadList threads={newest} onPick={setPicked} />
               ) : (
                 <Empty bots={bots} />
               )}
@@ -247,10 +240,10 @@ export const BotRoom = memo(function BotRoom() {
         <Chip
           crew={crew}
           more={more}
-          bubbles={bubbles}
+          bubble={bubble}
           bots={bots}
-          rows={newest.filter((task) => needsYou(task) || isUnread(task))}
-          count={tasks.length}
+          rows={newest.filter((thread) => needsYou(thread) || isUnread(thread))}
+          count={threads.length}
           busy={busy}
           pending={pending}
           unread={unread.length}
@@ -277,8 +270,6 @@ export const BotRoom = memo(function BotRoom() {
 
 /** Faces the row draws before the count takes over. */
 const CREW_MAX = 10;
-/** Stable identity for a row that can never have one up. */
-const EMPTY_BUBBLES: Map<string, Handoff> = new Map();
 /** How long a hand-off stays above a face, ms. */
 const HANDOFF_MS = 3400;
 /** A step is a glance, not a sentence. */
@@ -298,17 +289,39 @@ type CrewFace = {
   standIn?: boolean;
 };
 
+/** The glyph a hand-off's words carry when they report how something stands. */
+const SIGNS = {
+  done: Check,
+  failed: X,
+  question: CircleQuestionMark,
+  stopped: CirclePause,
+  resumed: RotateCw,
+} as const;
+
+/** The two status inks a sign can take: amber waits on the user, red failed. */
+const SIGN_INK: Partial<Record<keyof typeof SIGNS, string>> = {
+  question: WAITING_INK,
+  stopped: WAITING_INK,
+  failed: "text-destructive",
+};
+
 /**
- * Something passed between two parties. This is what a bubble is for, and the
- * only thing: a step is the bot working alone and belongs beside its face.
+ * Something that just happened: who spoke, to whom, and how it stands. A step
+ * is the bot working alone and belongs beside its face, not in a bubble.
  */
 type Handoff = {
-  /** Whose face it points at. */
+  /** Whose face it points at: whoever spoke, or the bot the user reached. */
   at: string;
-  /** Who gave it away. Null when it was the user, who has no mark. */
-  from: BotRef | null;
+  /** Who spoke; Thursday stands for the user's side. */
+  from: BotRef;
+  /** The bots it reached, drawn after an arrow. */
+  to: BotRef[];
   text: string;
+  sign?: keyof typeof SIGNS;
 };
+
+/** A hand-off, and how much it matters against others from the same sync. */
+type Happening = Handoff & { rank: number };
 
 const clipWord = (text: string) => {
   const one = plainText(text).replace(/\s+/g, " ").trim();
@@ -316,50 +329,238 @@ const clipWord = (text: string) => {
 };
 
 /**
- * Hand-offs currently up, one per face. A second one to the same face replaces
- * it rather than queueing: the newest thing that landed there is the true one.
- * Different faces hold their own at the same time — the fan-out that would make
- * two of them collide is folded into one before it gets here (BotRoom).
+ * The one hand-off up. A newer one replaces it rather than queueing: bubbles
+ * over neighbouring faces would cover each other, and the newest thing is the
+ * true one.
  */
-function useHandoffs(): [Map<string, Handoff>, (one: Handoff) => void] {
-  const [up, setUp] = useState<Map<string, Handoff>>(new Map());
-  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+function useHandoff(): [Handoff | null, (one: Handoff) => void] {
+  const [up, setUp] = useState<Handoff | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
     () => () => {
-      for (const timer of timers.current.values()) clearTimeout(timer);
+      if (timer.current) clearTimeout(timer.current);
     },
     [],
   );
 
   const show = useCallback((one: Handoff) => {
-    setUp((was) => new Map(was).set(one.at, one));
-    const held = timers.current.get(one.at);
-    if (held) clearTimeout(held);
-    timers.current.set(
-      one.at,
-      setTimeout(() => {
-        timers.current.delete(one.at);
-        setUp((was) => {
-          const next = new Map(was);
-          next.delete(one.at);
-          return next;
-        });
-      }, HANDOFF_MS),
-    );
+    setUp(one);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      setUp(null);
+    }, HANDOFF_MS);
   }, []);
 
   return [up, show];
 }
 
+/** Work states from the most active down; a bot with several continuations stands as its most active. */
+const ACTIVE = [
+  "running",
+  "queued",
+  "external",
+  "waiting",
+  "paused",
+  "done",
+  "cancelled",
+];
+
+/** Each room participant's state, keyed by thread and bot. */
+function participantStates(threads: ThreadView[]): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const thread of threads) {
+    for (const one of thread.room?.participants ?? []) {
+      const key = `${thread.id}\n${one.bot}`;
+      const held = out.get(key);
+      if (!held || ACTIVE.indexOf(one.state) < ACTIVE.indexOf(held)) {
+        out.set(key, one.state);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * What happened in one thread since the last sync, ranked so one bubble can
+ * stand for a sync: a failure, then a question, then an ending or a stop, then
+ * messages, then a job arriving, an answer, a bot finishing its part or going
+ * back to work.
+ */
+function happenedIn(
+  thread: ThreadView,
+  was: ThreadViewStatus | undefined,
+  had: Set<string>,
+  stood: Map<string, string>,
+  stands: Map<string, string>,
+): Happening[] {
+  const out: Happening[] = [];
+  const fresh = thread.lines.filter((line) => !had.has(line.id));
+  const own = thread.bot;
+
+  // Bot to bot. A giver handing work to several at once is one bubble naming them all.
+  const rounds = new Map<string, Chatter[]>();
+  for (const line of fresh) {
+    if (line.kind === "user") {
+      out.push({
+        rank: 1,
+        at: line.bot.name,
+        from: THURSDAY,
+        to: [line.bot],
+        text: clipWord(line.text),
+      });
+    } else if (line.kind === "stop") {
+      out.push({
+        rank: 3,
+        at: line.bot.name,
+        from: line.bot,
+        to: [],
+        sign: "stopped",
+        text: leadOf(line.text),
+      });
+    } else if (line.kind === "ask" && line.to?.name === THURSDAY.name) {
+      out.push(
+        line.question
+          ? {
+              rank: 4,
+              at: line.bot.name,
+              from: line.bot,
+              to: [],
+              sign: "question",
+              text: `asks you · ${clipWord(line.text)}`,
+            }
+          : {
+              rank: 2,
+              at: line.bot.name,
+              from: line.bot,
+              to: [THURSDAY],
+              text: clipWord(line.text),
+            },
+      );
+    } else if (line.kind === "ask" && line.to) {
+      rounds.set(line.bot.name, [...(rounds.get(line.bot.name) ?? []), line]);
+    }
+  }
+  for (const [giver, round] of rounds) {
+    const reached = new Map<string, BotRef>();
+    for (const line of round) {
+      if (line.to) reached.set(line.to.name, line.to);
+    }
+    out.push({
+      rank: 2,
+      at: giver,
+      from: round[0].bot,
+      to: [...reached.values()],
+      text:
+        round.length === 1
+          ? clipWord(round[0].text)
+          : `sent ${round.length} parts out`,
+    });
+  }
+
+  // Another bot done with its part and no last word; the thread's own ending is the job's.
+  for (const bot of rosterOf(thread)) {
+    const key = `${thread.id}\n${bot.name}`;
+    if (
+      bot.name !== own.name &&
+      stood.get(key) === "running" &&
+      stands.get(key) === "done" &&
+      !fresh.some(
+        (line) =>
+          line.bot.name === bot.name &&
+          (line.kind === "ask" || line.kind === "say"),
+      )
+    ) {
+      out.push({
+        rank: 1,
+        at: bot.name,
+        from: bot,
+        to: [],
+        sign: "done",
+        text: "finished its part",
+      });
+    }
+  }
+
+  if (!was) {
+    if (thread.status === "working") {
+      out.push({
+        rank: 1,
+        at: own.name,
+        from: THURSDAY,
+        to: [own],
+        text: `took on “${clipWord(thread.label)}”`,
+      });
+    }
+    return out;
+  }
+  if (was === thread.status) return out;
+  const label = clipWord(thread.label);
+  if (thread.status === "failed") {
+    out.push({
+      rank: 5,
+      at: own.name,
+      from: own,
+      to: [],
+      sign: "failed",
+      text: `failed · ${label}`,
+    });
+  } else if (thread.status === "done") {
+    out.push({
+      rank: 3,
+      at: own.name,
+      from: own,
+      to: [],
+      sign: "done",
+      text: `done · ${label}`,
+    });
+  } else if (thread.status === "working") {
+    // Words from the user already have their bubble.
+    if (!fresh.some((line) => line.kind === "user")) {
+      out.push({
+        rank: 1,
+        at: own.name,
+        from: own,
+        to: [],
+        sign: "resumed",
+        text: "picked it back up",
+      });
+    }
+  } else if (
+    !out.some((one) => one.sign === "question" || one.sign === "stopped")
+  ) {
+    // Waiting with no question or stop line of its own: a thread without a room.
+    const asker =
+      rosterOf(thread).find((bot) => bot.name === thread.ask?.bot) ?? own;
+    out.push(
+      isAppStop(thread.ask)
+        ? {
+            rank: 3,
+            at: own.name,
+            from: own,
+            to: [],
+            sign: "stopped",
+            text: "paused",
+          }
+        : {
+            rank: 4,
+            at: asker.name,
+            from: asker,
+            to: [],
+            sign: "question",
+            text: `asks you · ${clipWord(thread.ask?.question ?? "")}`,
+          },
+    );
+  }
+  return out;
+}
+
 /** The step a bot is on, as the model labelled it. */
 function wordOf(line: Chatter | null): string | null {
-  if (!line) return null;
-  if (line.kind === "tool" && line.tool) {
-    // The model's own label when it wrote one, else the raw call.
-    return clipWord(line.tool.note ?? `${line.tool.name} · ${line.tool.input}`);
-  }
-  return line.kind === "say" ? clipWord(line.text) : null;
+  return line?.kind === "tool" || line?.kind === "say"
+    ? clipWord(stepOf(line))
+    : null;
 }
 
 /**
@@ -368,21 +569,21 @@ function wordOf(line: Chatter | null): string | null {
  * Anyone moving sorts to the front, so the count at the tail only ever hides
  * idle bots — a bot with something to say always has a face to say it from,
  * which is what lets a hand-off point at one. A bot that spoke inside somebody
- * else's job is in the room too, whether or not it owns a task (latestPerBot).
+ * else's job is in the room too, whether or not it owns a thread (latestPerBot).
  */
 function crewOf(
   bots: Bot[] | undefined,
-  tasks: TaskView[],
+  threads: ThreadView[],
 ): { crew: CrewFace[]; more: number } {
   const live = new Map<string, { waiting: boolean; word: string | null }>();
-  for (const entry of latestPerBot(tasks)) {
-    const { task, bot, line } = entry;
+  for (const entry of latestPerBot(threads)) {
+    const { thread, bot, line } = entry;
     // Waiting outranks working: a bot that stopped to ask is not on a step.
-    if (task.status === "waiting" && task.bot.name === bot.name) {
+    if (thread.status === "waiting" && thread.bot.name === bot.name) {
       live.set(bot.name, { waiting: true, word: null });
       continue;
     }
-    if (task.status !== "working" || live.get(bot.name)?.waiting) continue;
+    if (thread.status !== "working" || live.get(bot.name)?.waiting) continue;
     live.set(bot.name, { waiting: false, word: wordOf(line) });
   }
 
@@ -431,20 +632,20 @@ function crewOf(
   };
 }
 
-/** Blanks the question in the reply box when it already is the last thread line (stops the app made). */
-function askFor(task: TaskView): TaskView["ask"] {
-  if (!task.ask?.question) return task.ask;
-  const last = task.lines.at(-1);
-  return last && isOutcome(last) && last.text === task.ask.question
-    ? { ...task.ask, question: "" }
-    : task.ask;
+/** Blanks the reason in the reply sheet when it already is the last thread line (stops the app made). */
+function askFor(thread: ThreadView): ThreadView["ask"] {
+  if (!thread.ask?.question || !isAppStop(thread.ask)) return thread.ask;
+  const last = thread.lines.at(-1);
+  return last && isOutcome(last) && last.text === thread.ask.question
+    ? { ...thread.ask, question: "" }
+    : thread.ask;
 }
 
-const needsYou = needsTaskReply;
+const needsYou = needsThreadReply;
 
 /** An ending nobody has opened. It needs the user too, to read rather than to answer. */
-const isUnread = (task: TaskView) =>
-  (task.status === "done" || task.status === "failed") && !task.seen;
+const isUnread = (thread: ThreadView) =>
+  (thread.status === "done" || thread.status === "failed") && !thread.seen;
 
 /**
  * What the room itself is doing, and nothing else — the right side of the pill.
@@ -483,7 +684,7 @@ function restingState({
     };
   if (unread > 0)
     return {
-      text: unread === 1 ? "1 new answer" : `${unread} new answers`,
+      text: unread === 1 ? "1 new result" : `${unread} new results`,
       tone: WAITING_INK,
       shine: null,
     };
@@ -517,7 +718,7 @@ function restingState({
 function Chip({
   crew,
   more,
-  bubbles,
+  bubble,
   bots,
   rows,
   count,
@@ -533,10 +734,11 @@ function Chip({
 }: {
   crew: CrewFace[];
   more: number;
-  bubbles: Map<string, Handoff>;
+  /** The hand-off up, if any (useHandoff). */
+  bubble: Handoff | null;
   bots?: Bot[];
   /** Open questions and unread endings, newest first. */
-  rows: TaskView[];
+  rows: ThreadView[];
   count: number;
   busy: number;
   pending: number;
@@ -596,11 +798,11 @@ function Chip({
               {/* px-1: a row keeps its own 8px, so its mark lands on the rail while
                   the shape it lights up on hover stays inside the card's corners */}
               <div className="max-h-[45vh] overflow-y-auto px-1.5 pb-2">
-                {rows.map((task) => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    onPick={() => onPick(task.id)}
+                {rows.map((thread) => (
+                  <ThreadRow
+                    key={thread.id}
+                    thread={thread}
+                    onPick={() => onPick(thread.id)}
                   />
                 ))}
               </div>
@@ -618,10 +820,15 @@ function Chip({
         <button
           type="button"
           onClick={onOpen}
-          aria-label={count ? `Tasks (${count})` : "Bots"}
+          aria-label={count ? `Threads (${count})` : "Bots"}
           className="flex min-w-0 flex-1 items-center gap-2 rounded-full text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
-          <Crew crew={crew} more={more} bubbles={bubbles} />
+          <Crew
+            crew={crew}
+            more={more}
+            // Grown, the rows already say what needs the user, and a bubble would cover them.
+            bubble={grown ? null : bubble}
+          />
 
           {/* The room's own state and its glyph: one group, and the only thing on
               the right. `ml-auto` keeps it there when the crew says nothing. */}
@@ -701,7 +908,7 @@ function RoundButton({
 
 /**
  * Handing a bot a job without the call in the room: pick one, write, send
- * (bot.action startTaskAction). The message is the whole request — there is no
+ * (bot.action startThreadAction). The message is the whole request — there is no
  * conversation to draw the rest from, which is why the box asks for a sentence.
  *
  * Nothing announces itself from here. The job shows up as a row on the next poll
@@ -710,9 +917,9 @@ function RoundButton({
 function Compose({ bots, onDone }: { bots?: Bot[]; onDone: () => void }) {
   const [picked, setPicked] = useState<BotRef | null>(null);
   const [draft, setDraft] = useState("");
-  const [start, starting] = useServerAction(startTaskAction, {
+  const [start, starting] = useServerAction(startThreadAction, {
     onOk: () => {
-      revalidate(queryKey.tasks);
+      revalidate(queryKey.threads);
       onDone();
     },
   });
@@ -752,10 +959,10 @@ function Compose({ bots, onDone }: { bots?: Bot[]; onDone: () => void }) {
               <BotMark
                 size={22}
                 seed={bot.name}
-                vary={bot.name}
                 color={bot.icon?.color}
                 shape={bot.icon?.shape}
                 outline={bot.icon?.outline}
+                paint={bot.icon?.paint}
                 className="shrink-0"
               />
               <span className="min-w-0 flex-1 truncate text-[13px]">
@@ -785,10 +992,10 @@ function Compose({ bots, onDone }: { bots?: Bot[]; onDone: () => void }) {
         <BotMark
           size={22}
           seed={picked.name}
-          vary={picked.name}
           color={picked.icon?.color}
           shape={picked.icon?.shape}
           outline={picked.icon?.outline}
+          paint={picked.icon?.paint}
           className="shrink-0"
         />
         <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium">
@@ -872,17 +1079,16 @@ const AWAKE_GLOW = 20;
 function Crew({
   crew,
   more,
-  bubbles,
+  bubble,
 }: {
   crew: CrewFace[];
   more: number;
-  /** Hand-offs currently up, keyed by the face they point at. */
-  bubbles: Map<string, Handoff>;
+  /** The hand-off up, drawn over the face it points at. */
+  bubble: Handoff | null;
 }) {
   return (
     <span className="flex min-w-0 shrink items-center">
       {crew.map((face, index) => {
-        const bubble = bubbles.get(face.name) ?? null;
         return (
           <Fragment key={face.name}>
             <span
@@ -890,19 +1096,26 @@ function Crew({
               // these are not circles. Earlier faces sit on top, so the dot on a
               // waiting face is never covered by its neighbour.
               className={cn(
-                "relative shrink-0 transition-[margin,transform] duration-500 ease-out",
+                "relative shrink-0 transition-[margin] duration-500 ease-out",
                 // A word to the left has already broken the shingle.
                 index > 0 && !crew[index - 1].word && "-ml-2",
                 face.standIn && "opacity-35",
-                face.awake && "-translate-y-0.5 scale-110",
               )}
               style={{ zIndex: crew.length - index }}
             >
               {/* The halo is the mark's own (bot-mark `glow`), not a filter on
                   this box: a filter here also lands on the bubble above, which
                   came out tinted in the bot's colour and wearing its blur. */}
-              <CrewMark face={face} />
-              {bubble && <HandoffBubble handoff={bubble} />}
+              <span
+                // The lift is the face's alone, so an awake face does not swell its bubble.
+                className={cn(
+                  "flex transition-transform duration-500 ease-out",
+                  face.awake && "-translate-y-0.5 scale-110",
+                )}
+              >
+                <CrewMark face={face} />
+              </span>
+              {bubble?.at === face.name && <HandoffBubble handoff={bubble} />}
             </span>
             {face.word && (
               // No box: the shine is what says this is happening right now, so a
@@ -949,10 +1162,10 @@ function CrewMark({ face }: { face: CrewFace }) {
     <BotMark
       size={28}
       seed={face.name}
-      vary={face.name}
       color={face.icon?.color}
       shape={face.icon?.shape}
       outline={face.icon?.outline}
+      paint={face.icon?.paint}
       notify={face.waiting}
       options={glow}
     />
@@ -960,37 +1173,69 @@ function CrewMark({ face }: { face: CrewFace }) {
 }
 
 /**
- * A hand-off, over the face it landed on. The mark at its head is whoever gave
- * it away — Thursday, another bot, or nobody at all when it was you.
+ * What just happened, over the face of whoever spoke: that face, an arrow and
+ * the bots it reached, then the words. A sign that waits on the user or failed
+ * takes that ink, like every other status.
  *
  * It sits outside the pill's box on purpose, in space the corner is not using;
  * the chip cannot clip its own children while one is up.
  */
 function HandoffBubble({ handoff }: { handoff: Handoff }) {
+  const Sign = handoff.sign ? SIGNS[handoff.sign] : null;
+  const ink = handoff.sign ? SIGN_INK[handoff.sign] : undefined;
   return (
-    <span className="pointer-events-none absolute bottom-[calc(100%+9px)] left-1/2 flex -translate-x-1/2 animate-in flex-col items-center whitespace-nowrap fade-in zoom-in-95 duration-200">
-      <span className="flex items-center gap-1.5 rounded-full bg-background px-2.5 py-1 text-[12.5px] leading-4 tracking-[-0.1px] shadow-lg shadow-black/10 ring-1 ring-border">
-        {handoff.from?.name === THURSDAY.name ? (
-          <ThursdayMark size={14} className="shrink-0 opacity-75" />
-        ) : (
-          handoff.from && (
-            <BotMark
-              size={14}
-              seed={handoff.from.name}
-              vary={handoff.from.name}
-              color={handoff.from.icon?.color}
-              shape={handoff.from.icon?.shape}
-              outline={handoff.from.icon?.outline}
-              className="shrink-0 opacity-75"
-            />
-          )
+    <span className="pointer-events-none absolute bottom-[calc(100%+10px)] left-1/2 flex w-max -translate-x-1/2 animate-in flex-col items-center fade-in zoom-in-95 duration-200">
+      <span
+        className={cn(
+          "flex items-center gap-2 rounded-full bg-background py-2 pr-3.5 pl-2.5 text-[13px] leading-[18px] tracking-[-0.1px] whitespace-nowrap shadow-lg shadow-black/10 ring-1 ring-border",
+          ink,
+        )}
+      >
+        <span className="flex shrink-0 items-center gap-1">
+          <Speaker bot={handoff.from} />
+          {handoff.to.length > 0 && (
+            <>
+              <ArrowRight className="size-3 text-muted-foreground/70" />
+              <span className="flex items-center gap-0.5">
+                {handoff.to.map((bot) => (
+                  <Speaker key={bot.name} bot={bot} />
+                ))}
+              </span>
+            </>
+          )}
+        </span>
+        {Sign && (
+          <Sign
+            className={cn(
+              "size-3.5 shrink-0",
+              !ink && "text-muted-foreground/70",
+            )}
+          />
         )}
         {handoff.text}
       </span>
       {/* Two triangles: the ring's, then the fill's a pixel over it. */}
-      <span className="-mt-px size-0 border-x-[5px] border-t-[6px] border-x-transparent border-t-border" />
-      <span className="-mt-[6.5px] size-0 border-x-[5px] border-t-[6px] border-x-transparent border-t-background" />
+      <span className="-mt-px size-0 border-x-[6px] border-t-[7px] border-x-transparent border-t-border" />
+      <span className="-mt-[7.5px] size-0 border-x-[6px] border-t-[7px] border-x-transparent border-t-background" />
     </span>
+  );
+}
+
+/** A face in a bubble: Thursday's own mark for the user's side, else the bot's. */
+function Speaker({ bot }: { bot: BotRef }) {
+  return bot.name === THURSDAY.name ? (
+    <ThursdayMark size={18} className="shrink-0" />
+  ) : (
+    <BotMark
+      size={18}
+      seed={bot.name}
+      color={bot.icon?.color}
+      shape={bot.icon?.shape}
+      outline={bot.icon?.outline}
+      paint={bot.icon?.paint}
+      notify={false}
+      className="shrink-0"
+    />
   );
 }
 
@@ -1028,7 +1273,7 @@ function ListHeader({
 }) {
   return (
     <div className="flex items-center gap-2 px-3.5 pt-3 pb-1.5">
-      <span className="text-[13px] font-medium">Tasks</span>
+      <span className="text-[13px] font-medium">Threads</span>
       {count > 0 && !composing && (
         <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
           {pending > 0 ? `${pending} for you · ${count}` : count}
@@ -1043,11 +1288,11 @@ function ListHeader({
 }
 
 function ThreadHeader({
-  task,
+  thread,
   onBack,
   onClose,
 }: {
-  task: TaskView;
+  thread: ThreadView;
   onBack: () => void;
   onClose: () => void;
 }) {
@@ -1063,32 +1308,41 @@ function ThreadHeader({
       </button>
       <BotMark
         size={22}
-        seed={task.bot.name}
-        vary={task.id}
-        color={task.bot.icon?.color}
-        shape={task.bot.icon?.shape}
-        outline={task.bot.icon?.outline}
+        seed={thread.bot.name}
+        color={thread.bot.icon?.color}
+        shape={thread.bot.icon?.shape}
+        outline={thread.bot.icon?.outline}
+        paint={thread.bot.icon?.paint}
         notify={false}
       />
       <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
-        {task.label}
+        {thread.label}
         <span
-          title={task.id}
+          title={thread.id}
           className="ml-1.5 font-mono text-[10px] font-normal text-muted-foreground/60"
         >
-          {task.id.slice(0, 8)}
+          {thread.id.slice(0, 8)}
         </span>
       </span>
-      <Tokens usage={task.tokens} />
-      <Context task={task} />
-      <State task={task} />
+      <ThreadFacts thread={thread} />
       <FoldButton onClick={onClose} />
     </div>
   );
 }
 
-/** Tokens this task has used: the total shown, the split in the title. */
-function Tokens({ usage }: { usage: TaskView["tokens"] }) {
+/** Where a thread stands: tokens, the context meter, the status word. The room's header and the Threads reader draw it. */
+export function ThreadFacts({ thread }: { thread: ThreadView }) {
+  return (
+    <>
+      <Tokens usage={thread.tokens} />
+      <Context thread={thread} />
+      <State thread={thread} />
+    </>
+  );
+}
+
+/** Tokens this thread has used: the total shown, the split in the title. */
+function Tokens({ usage }: { usage: ThreadView["tokens"] }) {
   const total = usage.input + usage.output;
   if (!total) return null;
   return (
@@ -1102,8 +1356,8 @@ function Tokens({ usage }: { usage: TaskView["tokens"] }) {
 }
 
 /** Context fill of the last step, not the running total. At the budget the bot compacts (bot.run compact) and the bar drops. */
-function Context({ task }: { task: TaskView }) {
-  const { contextTokens: used, contextBudget: budget } = task;
+function Context({ thread }: { thread: ThreadView }) {
+  const { contextTokens: used, contextBudget: budget } = thread;
   if (!used || !budget) return null;
   const full = Math.min(1, used / budget);
 
@@ -1124,20 +1378,20 @@ function Context({ task }: { task: TaskView }) {
 }
 
 /** Only waiting (amber) and failed (red) carry colour. */
-const STATE_LOOK: Record<TaskViewStatus, string> = {
+const STATE_LOOK: Record<ThreadViewStatus, string> = {
   working: "text-muted-foreground",
   waiting: WAITING_INK,
   done: "text-foreground",
   failed: "text-destructive",
 };
 
-function State({ task }: { task: TaskView }) {
+function State({ thread }: { thread: ThreadView }) {
   const look =
-    task.status === "done" && task.seen
+    thread.status === "done" && thread.seen
       ? "text-muted-foreground"
-      : STATE_LOOK[task.status];
+      : STATE_LOOK[thread.status];
 
-  if (task.status === "working") {
+  if (thread.status === "working") {
     return (
       <ShinyText
         text="working"
@@ -1154,7 +1408,7 @@ function State({ task }: { task: TaskView }) {
         look,
       )}
     >
-      {task.status}
+      {thread.status}
     </span>
   );
 }
@@ -1163,7 +1417,7 @@ function Empty({ bots }: { bots?: Bot[] }) {
   const { crew, more } = crewOf(bots, []);
   return (
     <div className="flex flex-col items-center gap-3 px-6 pt-3 pb-4 text-center">
-      <Crew crew={crew} more={more} bubbles={EMPTY_BUBBLES} />
+      <Crew crew={crew} more={more} bubble={null} />
       {bots?.length ? (
         <p className="text-[12px] text-muted-foreground">
           Nothing handed over yet — ask for something that takes a while.
@@ -1178,13 +1432,13 @@ function Empty({ bots }: { bots?: Bot[] }) {
   );
 }
 
-/** Link to the full task history in Settings; the inbox only holds recent tasks. */
+/** Link to the full thread history in Settings; the inbox only holds recent threads. */
 function Footer() {
   return (
     <div className="flex shrink-0 justify-end px-3 pb-2.5">
       <button
         type="button"
-        onClick={() => openSettings("tasks")}
+        onClick={() => openSettings("threads")}
         className="flex items-center gap-1 rounded-md px-1.5 py-1 font-mono text-[10px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <History className="size-3" />
@@ -1194,36 +1448,36 @@ function Footer() {
   );
 }
 
-/** List sections in order, split by what a task asks of the user rather than by status. First match wins. */
+/** List sections in order, split by what a thread asks of the user rather than by status. First match wins. */
 const GROUPS: {
   id: string;
   label: string;
-  holds: (task: TaskView) => boolean;
+  holds: (thread: ThreadView) => boolean;
 }[] = [
   { id: "you", label: "needs you", holds: needsYou },
   { id: "unread", label: "new results", holds: isUnread },
   {
     id: "working",
     label: "working",
-    holds: (task) => task.status === "working",
+    holds: (thread) => thread.status === "working",
   },
   { id: "done", label: "done", holds: () => true },
 ];
 
-function TaskList({
-  tasks,
+function ThreadList({
+  threads,
   onPick,
 }: {
-  tasks: TaskView[];
+  threads: ThreadView[];
   onPick: (id: string) => void;
 }) {
-  const bucket = new Map<string, TaskView[]>();
-  for (const task of tasks) {
+  const bucket = new Map<string, ThreadView[]>();
+  for (const thread of threads) {
     const group =
-      GROUPS.find((one) => one.holds(task)) ?? GROUPS[GROUPS.length - 1];
+      GROUPS.find((one) => one.holds(thread)) ?? GROUPS[GROUPS.length - 1];
     const rows = bucket.get(group.id);
-    if (rows) rows.push(task);
-    else bucket.set(group.id, [task]);
+    if (rows) rows.push(thread);
+    else bucket.set(group.id, [thread]);
   }
 
   return (
@@ -1241,11 +1495,11 @@ function TaskList({
             >
               {group.label} · {rows.length}
             </p>
-            {rows.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                onPick={() => onPick(task.id)}
+            {rows.map((thread) => (
+              <ThreadRow
+                key={thread.id}
+                thread={thread}
+                onPick={() => onPick(thread.id)}
               />
             ))}
           </Fragment>
@@ -1255,26 +1509,35 @@ function TaskList({
   );
 }
 
-function TaskRow({ task, onPick }: { task: TaskView; onPick: () => void }) {
-  const attention = needsYou(task);
-  // secondLine runs plainText over the whole answer. Every sync rebuilds each TaskView
-  // (task.store), so depend on the fields that change the line, not on `task`.
-  const last = task.lines.at(-1);
+function ThreadRow({
+  thread,
+  onPick,
+}: {
+  thread: ThreadView;
+  onPick: () => void;
+}) {
+  const attention = needsYou(thread);
+  // secondLine runs plainText over the whole answer. Every sync rebuilds each ThreadView
+  // (thread.store), so depend on the fields that change the line, not on `thread`.
+  const last = thread.lines.at(-1);
   const line = useMemo(
-    () => secondLine(task),
+    () => secondLine(thread),
     [
-      task.status,
-      task.outcome,
-      task.seen,
-      task.ask,
-      task.room?.questions,
+      thread.status,
+      thread.outcome,
+      thread.seen,
+      thread.ask,
+      thread.room?.questions,
       last?.id,
     ],
   );
-  const [answer, answering] = useAnswerTask();
+  const [answer, answering] = useAnswerThread();
   const [sending, setSending] = useState<string | null>(null);
   // Options are answered inline, without opening the thread.
-  const options = task.status === "waiting" ? (task.ask?.options ?? []) : [];
+  const options =
+    thread.status === "waiting" && isAppStop(thread.ask)
+      ? (thread.ask?.options ?? [])
+      : [];
 
   return (
     // The row is not itself a button: the option buttons cannot nest inside one.
@@ -1286,30 +1549,33 @@ function TaskRow({ task, onPick }: { task: TaskView; onPick: () => void }) {
       >
         <span
           className="relative flex size-8 shrink-0 items-center justify-center overflow-visible"
-          title={task.bot.name}
+          title={thread.bot.name}
         >
           <BotMark
             size={32}
-            seed={task.bot.name}
-            vary={task.id}
-            color={task.bot.icon?.color}
-            shape={task.bot.icon?.shape}
-            outline={task.bot.icon?.outline}
-            state={task.status === "working" ? "thinking" : "idle"}
+            seed={thread.bot.name}
+            color={thread.bot.icon?.color}
+            shape={thread.bot.icon?.shape}
+            outline={thread.bot.icon?.outline}
+            paint={thread.bot.icon?.paint}
+            state={thread.status === "working" ? "thinking" : "idle"}
             notify={attention}
+            failed={thread.status === "failed"}
           />
         </span>
 
         <span className="min-w-0 flex-1">
-          {(attention || isUnread(task)) && (
+          {(attention || isUnread(thread)) && (
             <span className="block text-[10px] font-medium text-foreground">
-              {task.room?.questions.length
-                ? `Reply needed · ${[...new Set(task.room.questions.map((question) => question.bot))].join(", ")}`
-                : task.status === "waiting"
-                  ? "Needs your input"
-                  : task.status === "failed"
+              {thread.room?.questions.length
+                ? `${thread.room.questions.length === 1 ? "Question" : `${thread.room.questions.length} questions`} · ${[...new Set(thread.room.questions.map((question) => question.bot))].join(", ")}`
+                : thread.status === "waiting"
+                  ? isAppStop(thread.ask)
+                    ? "Paused"
+                    : "Question"
+                  : thread.status === "failed"
                     ? "Failed · Unread"
-                    : "Completed · Unread"}
+                    : "New result"}
             </span>
           )}
           <span className="flex items-center justify-between gap-2">
@@ -1319,21 +1585,21 @@ function TaskRow({ task, onPick }: { task: TaskView; onPick: () => void }) {
                 attention ? "text-foreground" : "text-foreground/80",
               )}
             >
-              {task.label}
+              {thread.label}
             </span>
-            <BotRoster bots={rosterOf(task)} taskId={task.id} />
+            <BotRoster bots={rosterOf(thread)} />
             <span className="flex-1" />
             <span className="shrink-0 font-mono text-[11px] leading-4 text-muted-foreground/70 tabular-nums">
-              {shortAgo(task.updatedAt)}
+              {shortAgo(thread.updatedAt)}
             </span>
           </span>
           <span className="mt-px flex h-4 items-center gap-1.5">
-            {task.status === "working" && (
+            {thread.status === "working" && (
               <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground/70" />
             )}
             {/* Anything still moving says so by shining, here as in the thread
                 (bot-tool) and the pill (Folded). */}
-            {task.status === "working" && !attention ? (
+            {thread.status === "working" && !attention ? (
               <ShinyText
                 text={line.text}
                 speed={2.2}
@@ -1367,12 +1633,12 @@ function TaskRow({ task, onPick }: { task: TaskView; onPick: () => void }) {
               disabled={answering}
               onClick={async () => {
                 setSending(option);
-                await answer(task, option);
+                await answer(thread, option);
                 setSending(null);
               }}
               className="h-7 gap-1.5 rounded-full border-border bg-background px-3 text-[12px]"
             >
-              {option === TASK_CONTINUE && (
+              {option === THREAD_CONTINUE && (
                 <ChevronsRight className="size-3.5 text-muted-foreground" />
               )}
               {option}
@@ -1384,41 +1650,41 @@ function TaskRow({ task, onPick }: { task: TaskView; onPick: () => void }) {
   );
 }
 
-/** Second row of a task line: the question, the outcome, or the bot's last step. */
-function secondLine(task: TaskView): { text: string; tone: string } {
-  const question = task.room?.questions[0];
+/** Second row of a thread line: the question, the outcome, or the bot's last step. */
+function secondLine(thread: ThreadView): { text: string; tone: string } {
+  const question = thread.room?.questions[0];
   if (question) {
     return { text: plainText(question.text), tone: "text-foreground" };
   }
-  if (task.status === "waiting" && task.ask) {
+  if (thread.status === "waiting" && thread.ask) {
     // A budget stop is not a question, but it waits on the user exactly as one
     // does, so it carries the waiting colour too; only the words differ.
     return {
-      text: isAppStop(task.ask)
-        ? plainText(task.outcome ?? task.ask.question)
-        : task.ask.question,
+      text: isAppStop(thread.ask)
+        ? plainText(thread.outcome ?? thread.ask.question)
+        : thread.ask.question,
       tone: WAITING_INK,
     };
   }
   // Reports are markdown; keep only the text.
   // An ending the user has opened steps back; red stays red, only quieter.
-  const had = task.seen;
-  if (task.status === "failed") {
+  const had = thread.seen;
+  if (thread.status === "failed") {
     return {
-      text: plainText(task.outcome ?? "Failed"),
+      text: plainText(thread.outcome ?? "Failed"),
       tone: had ? "text-destructive/70" : "text-destructive",
     };
   }
-  if (task.status === "done") {
+  if (thread.status === "done") {
     return {
-      text: plainText(task.outcome ?? "Done"),
+      text: plainText(thread.outcome ?? "Done"),
       tone: had ? "text-muted-foreground" : "text-foreground",
     };
   }
-  const last = lastSaid(task);
+  const last = lastSaid(thread);
   if (!last) {
     return {
-      text: `${task.bot.name} is taking it on…`,
+      text: `${thread.bot.name} is taking it on…`,
       tone: "text-muted-foreground italic",
     };
   }
@@ -1432,30 +1698,94 @@ function secondLine(task: TaskView): { text: string; tone: string } {
   };
 }
 
-/** A task's whole thread. Follows the newest line while the reader is at the bottom. Also used by the Tasks settings screen. */
+/**
+ * The thread as it is drawn: without the questions still waiting on the user.
+ * The reply sheet holds those (ThreadReply), and each joins the thread as a record
+ * once answered. A room question is matched by who asked and what, since its ID
+ * names the exchange rather than the thread line.
+ */
+function withoutOpenQuestions(thread: ThreadView): ThreadView {
+  const open = new Set(
+    (thread.room?.questions ?? []).map(
+      (question) => `${question.bot}\n${question.text.trim()}`,
+    ),
+  );
+  const waiting =
+    thread.status === "waiting" && !thread.room && !isAppStop(thread.ask)
+      ? thread.lines.findLast((line) => line.options)
+      : undefined;
+  if (!open.size && !waiting) return thread;
+  return {
+    ...thread,
+    lines: thread.lines.filter(
+      (line) =>
+        line !== waiting &&
+        !(
+          line.kind === "ask" &&
+          line.question &&
+          line.to?.name === THURSDAY.name &&
+          open.has(`${line.bot.name}\n${line.text.trim()}`)
+        ),
+    ),
+  };
+}
+
+/**
+ * A whole thread as the conversation between its participants, from one bot's
+ * tab (thread.store threadItems). Follows the newest line while the reader is at
+ * the bottom. Also used by the Threads settings screen.
+ */
 export function Conversation({
-  task,
+  thread,
+  tab = null,
+  onTab,
   className,
+  tabsClassName,
 }: {
-  task: TaskView;
+  thread: ThreadView;
+  /** Another bot whose tab is open; null is the thread's own. */
+  tab?: string | null;
+  /** Keeps the picked tab. Without it the thread draws on its own bot's tab, with no tabs. */
+  onTab?: (bot: string | null) => void;
   className?: string;
+  tabsClassName?: string;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const following = useRef(true);
+  const roster = rosterOf(thread);
+  const side =
+    onTab && tab !== thread.bot.name && roster.some((bot) => bot.name === tab)
+      ? tab
+      : null;
+  const self = side ?? thread.bot.name;
+  // Who is still at it says so at the end of the tab that holds them.
+  const live = roster.filter(
+    (bot) => (!side || bot.name === side) && standingOf(thread, bot.name),
+  );
+  const items = threadItems(withoutOpenQuestions(thread), self, live);
 
-  // A different task starts at its own end.
+  // A different thread, or another side of it, starts at its own end.
   useEffect(() => {
     following.current = true;
-  }, [task.id]);
+  }, [thread.id, side]);
 
   useEffect(() => {
     const box = scroller.current;
     if (box && following.current) box.scrollTop = box.scrollHeight;
-  }, [task.lines, task.status]);
+  }, [thread.lines, thread.status, side]);
 
   return (
     // One FileViewer per conversation, not per bubble.
     <FileViewer>
+      {onTab && (
+        <ThreadTabs
+          thread={thread}
+          roster={roster}
+          side={side}
+          onPick={onTab}
+          className={tabsClassName}
+        />
+      )}
       <div
         ref={scroller}
         onScroll={(event) => {
@@ -1468,61 +1798,397 @@ export function Conversation({
           className,
         )}
       >
-        <Request task={task} />
-        {threadItems(task).map((item) =>
+        {!side && <Request thread={thread} />}
+        {items.map((item) =>
           item.kind === "invite" ? (
             <Invite key={item.key} from={item.from} to={item.to} />
           ) : (
-            <Group key={item.key} group={item.group} task={task} />
+            <SpeakerTurn
+              key={item.key}
+              turn={item}
+              thread={thread}
+              self={self}
+            />
           ),
         )}
-        {task.status === "working" && <NextMove task={task} />}
       </div>
     </FileViewer>
   );
 }
 
 /**
- * The foot of a running thread while nothing on it is moving: the bot is
- * writing its next step. A tool mid-call already shines on its own row, so this
- * steps aside for it.
+ * The thread's own bot first, where the thread opens and always there, then each
+ * bot it brought in. A running bot's tab spins and one waiting on the user
+ * carries its dot, so who is busy reads before any tab is opened.
  */
-function NextMove({ task }: { task: TaskView }) {
-  if (task.lines.some((line) => line.tool && line.tool.results === undefined)) {
-    return null;
-  }
-  const last = task.lines.at(-1);
-  // After a hand-off, in either direction, the move is the receiver's
-  const who = last?.kind === "ask" && last.to ? last.to : last?.bot;
+function ThreadTabs({
+  thread,
+  roster,
+  side,
+  onPick,
+  className,
+}: {
+  thread: ThreadView;
+  roster: BotRef[];
+  side: string | null;
+  onPick: (bot: string | null) => void;
+  className?: string;
+}) {
   return (
-    <ShinyText
-      text={
-        who
-          ? `${who.name} is on the next step…`
-          : `${task.bot.name} is taking it on…`
+    <Tabs
+      value={side ?? thread.bot.name}
+      onValueChange={(value) =>
+        onPick(value === thread.bot.name ? null : String(value))
       }
-      speed={2.2}
-      className="block px-1 font-mono text-[10px]"
-    />
+      className={cn("shrink-0 gap-0 px-3 pt-1 pb-0.5", className)}
+    >
+      <TabsList className="w-full justify-start gap-1 overflow-x-auto rounded-none bg-transparent p-0 scrollbar-none group-data-horizontal/tabs:h-auto">
+        {roster.map((bot) => {
+          const standing = standingOf(thread, bot.name);
+          return (
+            <TabsTrigger
+              key={bot.name}
+              value={bot.name}
+              className={cn(TAB, "pl-1.5")}
+            >
+              <BotMark
+                size={16}
+                seed={bot.name}
+                color={bot.icon?.color}
+                shape={bot.icon?.shape}
+                outline={bot.icon?.outline}
+                paint={bot.icon?.paint}
+                notify={standing === "asking"}
+                className="shrink-0"
+              />
+              <span className="max-w-28 truncate">{bot.name}</span>
+              {standing === "running" && (
+                <Loader2 className="size-3 animate-spin text-muted-foreground/70" />
+              )}
+            </TabsTrigger>
+          );
+        })}
+      </TabsList>
+    </Tabs>
   );
 }
 
-/** The delegated request, folded to three lines (FoldedText). */
-function Request({ task }: { task: TaskView }) {
+/** A tab as a pill that fills while its side is on screen, in place of the boxed look TabsTrigger brings. */
+const TAB =
+  "h-7 flex-none rounded-full px-3 py-0 text-[12px] text-muted-foreground hover:bg-muted/60 data-active:bg-muted data-active:text-foreground group-data-[variant=default]/tabs-list:data-active:shadow-none dark:data-active:border-transparent dark:data-active:bg-muted";
+
+/**
+ * Whether a bot is at work in this thread or waiting on the user's answer. A
+ * thread without a room runs only its own bot.
+ */
+function standingOf(
+  thread: ThreadView,
+  bot: string,
+): "running" | "asking" | null {
+  const { room } = thread;
+  if (!room) {
+    if (thread.status === "working") {
+      return bot === thread.bot.name ? "running" : null;
+    }
+    return thread.status === "waiting" &&
+      !isAppStop(thread.ask) &&
+      (thread.ask?.bot ?? thread.bot.name) === bot
+      ? "asking"
+      : null;
+  }
+  if (room.questions.some((question) => question.bot === bot)) return "asking";
+  return thread.status === "working" &&
+    room.participants.some((one) => one.bot === bot && one.state === "running")
+    ? "running"
+    : null;
+}
+
+/**
+ * One speaker's entries in a row. The open tab's bot holds the left, its work in
+ * full and its words on no surface; everyone else answers from the right — the
+ * user's side in the dark bubble, other bots on `secondary` with their work
+ * folded into rows. A message to a bot other than the tab's names it at its head,
+ * once while the addressee stays the same.
+ */
+function SpeakerTurn({
+  turn,
+  thread,
+  self,
+}: {
+  turn: Extract<ThreadItem, { kind: "turn" }>;
+  thread: ThreadView;
+  /** The bot whose tab is open. */
+  self: string;
+}) {
+  const mine = turn.speaker.name === self;
+  const surface: Surface = mine
+    ? "none"
+    : turn.speaker.name === THURSDAY.name
+      ? "dark"
+      : "secondary";
+  let named: string | null = null;
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <Turn
+        side={mine ? "start" : "end"}
+        name={turn.speaker.name}
+        mark={<TurnMark bot={turn.speaker} />}
+      >
+        {turn.entries.map((entry) => {
+          if (entry.kind === "work") {
+            return mine ? (
+              <OwnWork
+                key={entry.key}
+                lines={entry.lines}
+                trailing={entry.open}
+                bot={turn.speaker}
+                thread={thread}
+              />
+            ) : (
+              <WorkRow
+                key={entry.key}
+                lines={entry.lines}
+                trailing={entry.open}
+                bot={turn.speaker}
+                thread={thread}
+              />
+            );
+          }
+          const to = heardBy(entry.line);
+          const mention =
+            to &&
+            to.name !== turn.speaker.name &&
+            to.name !== self &&
+            to.name !== THURSDAY.name &&
+            to.name !== named
+              ? to
+              : null;
+          if (to) named = to.name;
+          return (
+            <Message
+              key={entry.key}
+              line={entry.line}
+              surface={surface}
+              mention={mention}
+            />
+          );
+        })}
+      </Turn>
+    </div>
+  );
+}
+
+/**
+ * A bot's work between its messages as one row: what it did, counted, once it
+ * has moved on, and the step it is on while it is still at it. It opens in
+ * place to the steps, stops and words beside them.
+ */
+function WorkRow({
+  lines,
+  trailing,
+  bot,
+  thread,
+}: {
+  lines: Chatter[];
+  /** No message has followed it yet, so it may be what the bot is on now. */
+  trailing: boolean;
+  bot: BotRef;
+  thread: ThreadView;
+}) {
+  const [open, setOpen] = useState(false);
+  const standing = trailing ? standingOf(thread, bot.name) : null;
+  const counts = countsOf(lines);
+  if (!standing && !counts) return null;
+  const last = lines.findLast(
+    (line) => line.kind === "tool" || line.kind === "say",
+  );
+  const shown = open && lines.length > 0;
+
+  return (
+    <div
+      className={cn(
+        "flex min-w-0 flex-col rounded-2xl bg-muted/40 p-1",
+        shown ? "w-full" : "w-fit max-w-full",
+      )}
+    >
+      <button
+        type="button"
+        disabled={!lines.length}
+        aria-expanded={shown}
+        onClick={() => setOpen((was) => !was)}
+        className="flex min-w-0 items-center gap-2 rounded-xl px-2.5 py-1.5 text-left outline-none transition-colors enabled:hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        {standing === "running" && (
+          <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground/60" />
+        )}
+        {standing ? (
+          <ShinyText
+            text={
+              standing === "asking"
+                ? "waiting on you"
+                : last
+                  ? stepOf(last)
+                  : "working"
+            }
+            tone={standing === "asking" ? "waiting" : "muted"}
+            speed={2.4}
+            className="min-w-0 truncate text-[12px] leading-4"
+          />
+        ) : (
+          <span className="min-w-0 truncate font-mono text-[10px] leading-4 text-muted-foreground">
+            {counts}
+          </span>
+        )}
+        {lines.length > 0 && (
+          <ChevronDown
+            className={cn(
+              "size-3 shrink-0 text-muted-foreground/50 transition-transform",
+              shown && "rotate-180",
+            )}
+          />
+        )}
+      </button>
+      {shown && (
+        <div className="flex min-w-0 flex-col gap-0.5 pt-0.5">
+          {runs(lines).map((run) =>
+            run.kind === "tools" ? (
+              run.lines.map(
+                (line) =>
+                  line.tool && (
+                    // All start collapsed; a running call expands itself (bot-tool Frame).
+                    <BotTool
+                      key={line.id}
+                      tool={line.tool}
+                      threadId={thread.id}
+                      collapsed
+                    />
+                  ),
+              )
+            ) : run.kind === "stops" ? (
+              <div key={run.key} className="px-1.5 py-1">
+                <Stops lines={run.lines} />
+              </div>
+            ) : (
+              run.lines.map((line) => <Line key={line.id} line={line} inset />)
+            ),
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The open tab's bot's own work, in full: nobody opens a row to read what the
+ * bot on screen did. While it is at it with nothing mid-call, a shining line says
+ * so; a call mid-way already shines on its own row.
+ */
+function OwnWork({
+  lines,
+  trailing,
+  bot,
+  thread,
+}: {
+  lines: Chatter[];
+  /** No message has followed it yet, so it may be what the bot is on now. */
+  trailing: boolean;
+  bot: BotRef;
+  thread: ThreadView;
+}) {
+  const standing = trailing ? standingOf(thread, bot.name) : null;
+  const calling = lines.some(
+    (line) => line.tool && line.tool.results === undefined,
+  );
   return (
     <>
-      <Invite from={THURSDAY} to={task.bot} />
-      <FromThursday>
-        <Bubble align="end" className="max-w-full">
-          <BubbleContent className="rounded-tr-md py-2 pr-2 pl-3.5">
-            <FoldedText
-              text={task.request}
-              subject="request"
-              className="wrap-anywhere"
+      {runs(lines).map((run) =>
+        run.kind === "tools" ? (
+          <Steps key={run.key} lines={run.lines} threadId={thread.id} />
+        ) : run.kind === "stops" ? (
+          <Stops key={run.key} lines={run.lines} />
+        ) : (
+          run.lines.map((line) => <Line key={line.id} line={line} />)
+        ),
+      )}
+      {standing && !calling && (
+        <ShinyText
+          text={standing === "asking" ? "waiting on you" : "on the next step…"}
+          tone={standing === "asking" ? "waiting" : "muted"}
+          speed={2.2}
+          className="block px-1 font-mono text-[10px]"
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * A run of tool calls as one box of collapsed rows, so the length costs scroll,
+ * not noise. A running call opens itself (bot-tool Frame).
+ */
+function Steps({ lines, threadId }: { lines: Chatter[]; threadId: string }) {
+  return (
+    <div className="flex w-full flex-col gap-0.5 rounded-2xl bg-muted/40 p-1">
+      {lines.length > 1 && (
+        <p className="px-2 py-1 font-mono text-[10px] text-muted-foreground">
+          {lines.length} steps
+        </p>
+      )}
+      {lines.map(
+        (line) =>
+          line.tool && (
+            <BotTool
+              key={line.id}
+              tool={line.tool}
+              threadId={threadId}
+              collapsed
             />
-          </BubbleContent>
-        </Bubble>
-      </FromThursday>
+          ),
+      )}
+    </div>
+  );
+}
+
+/** "3 steps · 1 note", leaving out what did not happen; notes are the words beside a call. */
+function countsOf(lines: Chatter[]): string {
+  const words = [
+    ["tool", "step"],
+    ["say", "note"],
+    ["stop", "stop"],
+    ["note", "compaction"],
+  ] as const;
+  return words
+    .map(
+      ([kind, word]) =>
+        [lines.filter((line) => line.kind === kind).length, word] as const,
+    )
+    .filter(([count]) => count > 0)
+    .map(([count, word]) => `${count} ${word}${count === 1 ? "" : "s"}`)
+    .join(" · ");
+}
+
+/** What a line is doing in the model's own words: a step's label, or what was said. */
+function stepOf(line: Chatter): string {
+  if (line.kind === "tool" && line.tool) {
+    return line.tool.note ?? `${line.tool.name} · ${line.tool.input}`;
+  }
+  return plainText(line.text).replace(/\s+/g, " ").trim();
+}
+
+/** The delegated request, folded to three lines (FoldedText). */
+function Request({ thread }: { thread: ThreadView }) {
+  return (
+    <>
+      <Invite from={THURSDAY} to={thread.bot} />
+      <Turn side="end" name={THURSDAY.name} mark={<TurnMark bot={THURSDAY} />}>
+        <Said dark className="py-2 pr-2 pl-3.5">
+          <FoldedText
+            text={thread.request}
+            subject="request"
+            className="wrap-anywhere"
+          />
+        </Said>
+      </Turn>
     </>
   );
 }
@@ -1560,6 +2226,7 @@ function Face({ bot }: { bot: BotRef }) {
         color={bot.icon?.color}
         shape={bot.icon?.shape}
         outline={bot.icon?.outline}
+        paint={bot.icon?.paint}
         notify={false}
         className="shrink-0"
       />
@@ -1568,30 +2235,61 @@ function Face({ bot }: { bot: BotRef }) {
   );
 }
 
-/** Thursday's side of the thread: the request, and any answer she carried back. */
-function FromThursday({ children }: { children: ReactNode }) {
-  return (
-    <Turn
-      side="end"
-      name="Thursday"
-      mark={
-        <BotMark
-          size={26}
-          seed="thursday"
-          notify={false}
-          className="mt-1 shrink-0"
-        />
-      }
-    >
-      {children}
-    </Turn>
+/** A turn's face: the user's side draws Thursday's, a bot its own. */
+function TurnMark({ bot }: { bot: BotRef }) {
+  return bot.name === THURSDAY.name ? (
+    <BotMark
+      size={26}
+      seed="thursday"
+      notify={false}
+      className="mt-1 shrink-0"
+    />
+  ) : (
+    <BotMark
+      size={26}
+      seed={bot.name}
+      color={bot.icon?.color}
+      shape={bot.icon?.shape}
+      outline={bot.icon?.outline}
+      paint={bot.icon?.paint}
+      notify={false}
+      className="mt-1 shrink-0"
+    />
   );
 }
 
 /**
- * One speaker's turn. The room belongs to the task's own bot, so it holds the
- * left; everyone it is talking to — Thursday, and any bot it delegated to —
- * answers from the right.
+ * Words from the other side of the tab. The user's side speaks in the one dark
+ * bubble, whose contents take the other theme (`.inverse`, globals.css) so
+ * Markdown's own surfaces — inline code, a code block, a link — stay readable on
+ * it; other bots answer on `secondary`. `.inverse` is not on `BubbleContent`
+ * itself, whose `bg-primary` would swap too.
+ */
+function Said({
+  dark = false,
+  children,
+  className,
+}: {
+  dark?: boolean;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <Bubble
+      align="end"
+      variant={dark ? "default" : "secondary"}
+      className="max-w-full"
+    >
+      <BubbleContent className={cn("rounded-tr-md px-3.5", className)}>
+        <div className={cn("min-w-0", dark && "inverse")}>{children}</div>
+      </BubbleContent>
+    </Bubble>
+  );
+}
+
+/**
+ * One speaker's turn: a face, the name, and what it said and did. The start side
+ * is the open tab's bot; the end side is everyone who talks with it.
  */
 function Turn({
   side,
@@ -1608,7 +2306,7 @@ function Turn({
     <div className={cn("flex gap-2.5", side === "end" && "flex-row-reverse")}>
       {mark}
       {/* One cap on the turn's column, not one per block inside it: an answer and
-          a one-line remark from the same bot then end on the same edge. The
+          a one-line remark from the same speaker then end on the same edge. The
           answering side hugs that edge, so the two sides face each other. */}
       <div
         className={cn(
@@ -1625,69 +2323,97 @@ function Turn({
   );
 }
 
-function Group({ group, task }: { group: ChatterGroup; task: TaskView }) {
-  // User lines (answers, follow-ups) render on Thursday's side.
-  if (group.lines[0]?.kind === "user") {
+/** Where a message sits: the tab's bot on none, the user's side dark, other bots `secondary`. */
+type Surface = "none" | "dark" | "secondary";
+
+/**
+ * A message: what passed between participants, a bot's reply, or the ending. A
+ * question keeps its word as a record; the ending carries the files it names and
+ * a copy. A failure is the app's words rather than the bot's, so it wears no
+ * surface.
+ */
+function Message({
+  line,
+  surface,
+  mention,
+}: {
+  line: Chatter;
+  surface: Surface;
+  /** The bot it is for, named at its head (SpeakerTurn). */
+  mention: BotRef | null;
+}) {
+  if (line.kind === "error") {
     return (
-      <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <FromThursday>
-          {group.lines.map((line) => (
-            <Bubble key={line.id} align="end" className="max-w-full">
-              <BubbleContent className="rounded-tr-md px-3.5">
-                <MessageText className="leading-snug">{line.text}</MessageText>
-              </BubbleContent>
-            </Bubble>
-          ))}
-        </FromThursday>
+      <div className="min-w-0 px-1">
+        <p className="mb-1.5 flex items-center gap-1.5 font-mono text-[10px] text-destructive">
+          <X className="size-3 shrink-0" />
+          Could not finish
+        </p>
+        <MessageText className="text-destructive">{line.text}</MessageText>
       </div>
     );
   }
 
+  // A question the bot stopped on (ask_thursday) is a result with options.
+  const question = Boolean(line.question || line.options);
+  const ending = line.kind === "result" && !line.options;
+  const bubble = surface !== "none";
+  const words = (
+    <>
+      {question && <QuestionWord />}
+      {mention ? (
+        <Mentioned bot={mention} bubble={bubble}>
+          {line.text}
+        </Mentioned>
+      ) : (
+        <MessageText bubble={bubble} className={cn(!ending && "leading-snug")}>
+          {line.text}
+        </MessageText>
+      )}
+    </>
+  );
+
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <Turn
-        side={group.bot.name === task.bot.name ? "start" : "end"}
-        name={group.bot.name}
-        mark={
-          <BotMark
-            size={26}
-            seed={group.bot.name}
-            vary={task.id}
-            color={group.bot.icon?.color}
-            shape={group.bot.icon?.shape}
-            outline={group.bot.icon?.outline}
-            notify={false}
-            className="mt-1 shrink-0"
-          />
-        }
-      >
-        {runs(group.lines).map((run) =>
-          run.kind === "tools" ? (
-            <Steps key={run.key} lines={run.lines} taskId={task.id} />
-          ) : run.kind === "stops" ? (
-            <Stops key={run.key} lines={run.lines} />
-          ) : (
-            run.lines.map((line) => (
-              <Line key={line.id} line={line} taskId={task.id} />
-            ))
-          ),
-        )}
-      </Turn>
-    </div>
+    <>
+      {bubble ? (
+        <Said dark={surface === "dark"}>{words}</Said>
+      ) : (
+        <div className="min-w-0 max-w-full px-1">{words}</div>
+      )}
+      {ending && (
+        // The files it names, and the copy: the end of the answer is where a
+        // reader is when they want either.
+        <div className="flex items-center gap-2 px-1">
+          <PathChips text={line.text} className="min-w-0" />
+          <CopyReport text={line.text} />
+        </div>
+      )}
+    </>
   );
 }
 
+/**
+ * Streamdown's code block as one surface inside a message bubble: its own frame
+ * there would be a box in a box.
+ */
+const IN_BUBBLE =
+  "[&_[data-streamdown=inline-code]]:text-[12px] [&_[data-streamdown=code-block]]:my-2 [&_[data-streamdown=code-block]]:gap-0 [&_[data-streamdown=code-block]]:rounded-[10px] [&_[data-streamdown=code-block]]:border-0 [&_[data-streamdown=code-block]]:bg-background [&_[data-streamdown=code-block]]:p-0 [&_[data-streamdown=code-block-header]]:h-7 [&_[data-streamdown=code-block-header]]:px-2.5 [&_[data-streamdown=code-block-header]]:text-[11px] [&_[data-streamdown=code-block-body]]:border-0 [&_[data-streamdown=code-block-body]]:bg-transparent! [&_[data-streamdown=code-block-body]]:px-2.5 [&_[data-streamdown=code-block-body]]:pt-0 [&_[data-streamdown=code-block-body]]:pb-2.5 [&_[data-streamdown=code-block-body]]:text-[12.5px] [&_[data-streamdown=code-block]_div:has(>[data-streamdown=code-block-actions])]:-mt-7 [&_[data-streamdown=code-block-actions]]:mr-1 [&_[data-streamdown=code-block-actions]]:border-0 [&_[data-streamdown=code-block-actions]]:bg-transparent!";
+
 function MessageText({
   children,
+  bubble = false,
   className,
 }: {
   children: string;
+  /** Inside a message bubble (Said). */
+  bubble?: boolean;
   className?: string;
 }) {
   return (
     <Markdown
       className={cn(
         "min-w-0 max-w-full text-[13px] leading-relaxed wrap-anywhere break-keep [&_h1]:text-[15px] [&_h2]:text-[14px] [&_h3]:text-[13px] [&_h3]:font-semibold [&_li]:my-0.5 [&_table]:text-[12px] [&_table]:wrap-normal [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+        bubble && IN_BUBBLE,
         className,
       )}
     >
@@ -1696,16 +2422,83 @@ function MessageText({
   );
 }
 
-function Line({ line, taskId }: { line: Chatter; taskId: string }) {
-  // Consecutive tool calls are grouped in Steps; a lone one lands here.
-  if (line.kind === "tool" && line.tool) {
-    return <BotTool tool={line.tool} taskId={taskId} />;
-  }
+/**
+ * Who a message is for, at its head: the addressee's face and name. In a bubble
+ * the chip takes the page's background, which stands off both bubbles in either
+ * theme; on no surface it is muted.
+ */
+function Mention({ bot, bubble }: { bot: BotRef; bubble: boolean }) {
+  return (
+    <span
+      className={cn(
+        "mr-1.5 inline-flex h-5 max-w-full items-center gap-1 rounded-full pr-2 pl-[3px] align-[-4px] text-[12px] leading-none font-medium whitespace-nowrap text-foreground",
+        bubble ? "bg-background" : "bg-muted",
+      )}
+    >
+      <BotMark
+        size={14}
+        seed={bot.name}
+        color={bot.icon?.color}
+        shape={bot.icon?.shape}
+        outline={bot.icon?.outline}
+        paint={bot.icon?.paint}
+        notify={false}
+        className="shrink-0"
+      />
+      <span className="truncate">{bot.name}</span>
+    </span>
+  );
+}
 
+/**
+ * Words that follow a mention. The Markdown box dissolves (`contents`) so its
+ * first paragraph runs on from the mention; later blocks still break lines.
+ */
+function Mentioned({
+  bot,
+  bubble,
+  children,
+}: {
+  bot: BotRef;
+  bubble: boolean;
+  children: string;
+}) {
+  return (
+    <div className="min-w-0 max-w-full text-[13px] leading-snug">
+      <Mention bot={bot} bubble={bubble} />
+      <MessageText
+        bubble={bubble}
+        className="contents leading-snug [&>p:first-child]:inline"
+      >
+        {children}
+      </MessageText>
+    </div>
+  );
+}
+
+/** A question kept as a record. While it waits, the reply sheet holds it in amber. */
+function QuestionWord() {
+  return (
+    <p className="mb-1 flex items-center gap-1.5 text-[12px] leading-4 font-medium text-muted-foreground">
+      <CircleQuestionMark className="size-3.5 shrink-0" />
+      Question
+    </p>
+  );
+}
+
+/** Work that is not a step: a compaction, or the words beside a call. */
+function Line({
+  line,
+  inset = false,
+}: {
+  line: Chatter;
+  /** Inside a work row, in line with its steps' labels. */
+  inset?: boolean;
+}) {
   // A compact summary (bot.run compact): a divider, with the summary behind it.
   if (line.kind === "note") {
     return (
-      <details className="w-full py-1 text-muted-foreground">
+      <details className="w-full px-2 py-1 text-muted-foreground">
         <summary className="flex cursor-pointer list-none items-center gap-2.5 outline-none [&::-webkit-details-marker]:hidden">
           <span className="h-px flex-1 bg-border" />
           <span className="min-w-0 text-center font-mono text-[10px]">
@@ -1720,88 +2513,15 @@ function Line({ line, taskId }: { line: Chatter; taskId: string }) {
     );
   }
 
-  // A durable room message is an action, not narration. Keep it at the point
-  // where it was sent and name its recipient. Structure, rather than another
-  // colour, distinguishes questions from the rest of this monochrome room.
-  if (line.kind === "ask" && line.to) {
-    const toThursday = line.to.name === THURSDAY.name;
-    return (
-      <div className="w-fit max-w-full space-y-1.5 rounded-2xl bg-muted/55 px-3 py-2 ring-1 ring-border/80">
-        <p
-          className={cn(
-            "flex items-center gap-1.5 font-mono text-[10px]",
-            toThursday ? "text-foreground" : "text-muted-foreground",
-          )}
-        >
-          <ChevronsRight className="size-3 shrink-0" />
-          {toThursday
-            ? `Question for ${line.to.name}`
-            : `Message to ${line.to.name}`}
-        </p>
-        <MessageText className="leading-snug">{line.text}</MessageText>
-      </div>
-    );
-  }
-
-  // Passing remarks are muted; the answer is the one thing here at full weight.
-  if (!isOutcome(line)) {
-    return (
-      <MessageText className="px-1 text-[12.5px] text-muted-foreground">
-        {line.text}
-      </MessageText>
-    );
-  }
-
-  // A question the bot stopped on; the options are what was offered at the time.
-  if (line.options) {
-    return (
-      <div className="w-fit max-w-full space-y-1.5 rounded-2xl bg-muted/55 px-3 py-2 ring-1 ring-border/80">
-        <MessageText className="leading-snug">{line.text}</MessageText>
-        {line.options.length > 0 && (
-          <p className="flex flex-wrap gap-1">
-            {line.options.map((option) => (
-              <span
-                key={option}
-                className="min-w-0 max-w-full rounded-full bg-background/70 px-2 py-0.5 font-mono text-[10px] wrap-anywhere text-muted-foreground"
-              >
-                {option}
-              </span>
-            ))}
-          </p>
-        )}
-      </div>
-    );
-  }
-
-  const failed = line.kind === "error";
-
   return (
-    // The answer is not a card. It sits in a thread that is already in a box,
-    // in a section that is another: a fourth border reads as a second chat
-    // window. What tells it from a passing remark is that it is the only prose
-    // here at foreground weight, plus the files it names — and its copy button
-    // rides the name line above (Turn's tail), where nothing else was.
-    <div className="min-w-0 px-1">
-      {failed && (
-        <p className="mb-1.5 flex items-center gap-1.5 font-mono text-[10px] text-destructive">
-          <X className="size-3 shrink-0" />
-          Could not finish
-        </p>
+    <MessageText
+      className={cn(
+        "text-[12.5px] text-muted-foreground",
+        inset ? "px-2.5 py-1" : "px-1",
       )}
-      <MessageText className={cn(failed && "text-destructive")}>
-        {line.text}
-      </MessageText>
-      {/* The files it names, and the copy — one row, because the end of the
-          answer is where a reader is when they want either. */}
-      <div className="mt-2 flex items-center gap-2">
-        <PathChips text={line.text} className="min-w-0" />
-        {!failed && (
-          <span className="ml-auto shrink-0">
-            <CopyReport text={line.text} />
-          </span>
-        )}
-      </div>
-    </div>
+    >
+      {line.text}
+    </MessageText>
   );
 }
 
@@ -1843,32 +2563,8 @@ function CopyReport({ text }: { text: string }) {
 }
 
 /**
- * A run of tool calls. Every step is drawn: the thread is the record of what the
- * bot did, and a tail that hides the rest behind a button asks the reader to
- * click before they can tell whether the bot went the right way. Each row is
- * one collapsed line, so the length costs scroll, not noise.
- */
-function Steps({ lines, taskId }: { lines: Chatter[]; taskId: string }) {
-  return (
-    <div className="flex w-full flex-col gap-0.5 rounded-2xl bg-muted/40 p-1">
-      {lines.length > 1 && (
-        <p className="px-2 py-1 font-mono text-[10px] text-muted-foreground">
-          {lines.length} steps
-        </p>
-      )}
-      {lines.map((line) =>
-        line.tool ? (
-          // All start collapsed; a running call expands itself (bot-tool Frame).
-          <BotTool key={line.id} tool={line.tool} taskId={taskId} collapsed />
-        ) : null,
-      )}
-    </div>
-  );
-}
-
-/**
- * Where the app stopped the run (bot.runner parkTask): a failed model call, a
- * restart, a closed browser. Muted and in the bot's turn, since the bot goes on
+ * Where the app stopped the run (bot.runner parkThread): a failed model call, a
+ * restart, a closed browser. Muted and in the bot's work, since the bot goes on
  * from here. The same reason in a row is one line with a count; opening it lists
  * each stop by the time it happened.
  */
@@ -1901,10 +2597,10 @@ function Stops({ lines }: { lines: Chatter[] }) {
   );
 }
 
-/** What stopped it, without the words behind it: a stop names those in parentheses (bot.runner parkTask). */
+/** What stopped it, without the words behind it: a stop names those in parentheses (bot.runner parkThread). */
 const leadOf = (text: string) => text.split(" (")[0].replace(/\.$/, "");
 
-/** Splits one speaker's lines into runs of tool calls, of stops, and of everything else. */
+/** Splits a bot's work into runs of tool calls, of stops, and of everything else. */
 type Run =
   | { kind: "tools"; key: string; lines: Chatter[] }
   | { kind: "stops"; key: string; lines: Chatter[] }

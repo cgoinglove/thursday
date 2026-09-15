@@ -2,7 +2,7 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/libsql/migrator";
-import { APP_DIR, DB_FILE_NAME } from "@/config";
+import { APP_DIR } from "@/config";
 import { database } from "./db";
 
 const MIGRATIONS_TABLE = "__drizzle_migrations";
@@ -13,7 +13,7 @@ const MIGRATIONS_TABLE = "__drizzle_migrations";
  * migration (`CREATE TABLE IF NOT EXISTS`, run again). The table already exists
  * under its old columns, so `migrate` runs partway and dies on the first
  * statement that touches one — a raw SQLITE_ERROR with no hint of the cause.
- * Caught here so the fix reaches the user as one line instead of a stack trace.
+ * Checked first so the failure names that cause.
  */
 async function assertMigratable(migrationsFolder: string): Promise<void> {
   const known = new Set(readdirSync(migrationsFolder));
@@ -28,11 +28,8 @@ async function assertMigratable(migrationsFolder: string): Promise<void> {
   const stale = rows.find((row) => row.name && !known.has(row.name));
   if (!stale) return;
 
-  const path = DB_FILE_NAME.replace(/^file:/, "");
   throw new Error(
-    `This database predates this build (migration "${stale.name}" no longer ships) and cannot be upgraded in place. ` +
-      `Stop the server, remove it, and start again — this only touches call/task/memory history, not your workspace or skills:\n` +
-      `  rm "${path}" "${path}-wal" "${path}-shm"`,
+    `It records migration "${stale.name}", which this build no longer ships.`,
   );
 }
 

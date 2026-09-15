@@ -1,6 +1,6 @@
 import { open, readFile, stat } from "node:fs/promises";
 import { notFound } from "next/navigation";
-import { decodePath, queryKey } from "@/app/api/query-key";
+import { decodePagePath, queryKey } from "@/app/api/query-key";
 import { WORKSPACE_VIEW } from "@/config";
 import { FileBody } from "@/features/workspace/components/file-view";
 import { viewKindOf } from "@/features/workspace/file-kind";
@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 type Params = { params: Promise<{ path: string[] }> };
 
 const relOf = async (params: Params["params"]) =>
-  decodePath((await params).path);
+  decodePagePath((await params).path);
 
 export async function generateMetadata({ params }: Params) {
   const rel = await relOf(params);
@@ -27,6 +27,8 @@ export default async function ArtifactPage({ params }: Params) {
   const rel = await relOf(params);
   const full = await insideWorkspace(rel);
   if (!full) notFound();
+  const info = await stat(full).catch(() => null);
+  if (!info?.isFile()) notFound();
 
   const kind = viewKindOf(rel);
 

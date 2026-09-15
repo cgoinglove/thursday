@@ -101,6 +101,16 @@ the next click. A page that looks empty right after loading is still rendering.
 A click that seems to do nothing may have opened a tab: `tab-list`,
 `tab-select N`.
 
+**One command, not one turn per step.** Chain steps that need no look in between
+with `&&`. What a click brings in is not there on the very next read: wait for
+its text in the same command, `--raw run-code "async page => { await page.waitForFunction(t => document.body.innerText.includes(t), '<text>'); }"`
+— `getByText(…).waitFor()` times out when the first match is hidden.
+
+**Search and locale.** Google and DuckDuckGo show a headless browser a robot
+check: find urls with a web search tool when you have one, or search on Bing.
+Pages answer in this machine's language and currency; put the country in the url
+when the job is about another.
+
 **Pictures for a document** come off the page, never from memory:
 `--raw eval "JSON.stringify([...document.images].filter(i => i.naturalWidth > 200).map(i => i.currentSrc))"`.
 

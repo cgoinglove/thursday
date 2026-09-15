@@ -122,12 +122,11 @@ name that does not match the folder, a name another skill already owns. A
 folder that does not pass is not a broken skill — it is a skill the app skips
 without telling anyone, which looks exactly like one that was never written.
 
-## Not alive until the next call
+## Listed from the next call
 
-The skill list is read when a session opens, so a skill written during a call
-does not exist yet in this one — it is not in the list and `load_skill` cannot
-find it. Do not try it and report a failure; say so plainly: it is there, it is
-valid, and it is usable from the next call on.
+The skill list is read when a session opens, so a skill written during a call is
+not in this one's list. `load_skill` with its exact name still finds it on disk.
+Report it as there, valid, and listed from the next call on.
 
 ## What this app does not do
 

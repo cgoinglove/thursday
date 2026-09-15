@@ -2,15 +2,8 @@ import type { ModelMessage } from "ai";
 import { appEvents, presence } from "@/app/api/events/app-event.server";
 import { PATHS, WORKSPACE_KEEP } from "@/config";
 import { modelErrorToString } from "@/features/ai/model";
-import {
-  buildTaskOpening,
-  OPENING_TURNS,
-} from "@/features/ai/prompts/bot.prompt";
-import {
-  isAnyCallLive,
-  listCallTurns,
-  readCallTranscriptOn,
-} from "@/features/thursday/thursday.query";
+import { buildThreadOpening } from "@/features/ai/prompts/bot.prompt";
+import { isAnyCallLive } from "@/features/thursday/thursday.query";
 import { pathsIn } from "@/features/workspace/file-kind";
 import {
   botBrowserSession,
@@ -30,8 +23,12 @@ import { publicError } from "@/lib/public-error";
 import { createKeyedLock } from "@/lib/queue";
 import { PromiseChain } from "@/lib/utils";
 import { findJobBot } from "./bot.query";
-import { resumeThread, runBot, type TaskEvent } from "./bot.run";
-import { TASK_CONTINUE, type TaskSpeaker, type TaskStatus } from "./bot.schema";
+import { resumeTranscript, runBot, type ThreadEvent } from "./bot.run";
+import {
+  THREAD_CONTINUE,
+  type ThreadSpeaker,
+  type ThreadStatus,
+} from "./bot.schema";
 import {
   appendRoomMessage,
   cancelRoom,
@@ -39,7 +36,7 @@ import {
   consumeRoomInbox,
   ensureRoom,
   finishRoomWork,
-  listParticipantThread,
+  listParticipantTranscript,
   listRoomReceipts,
   listRoomWork,
   lowerRoomContextBudget,
@@ -53,67 +50,64 @@ import {
 } from "./room.query";
 import { ROOM_THURSDAY } from "./room.schema";
 import {
-  addTaskUsage,
+  addThreadUsage,
   deleteMessages,
-  deleteTask,
-  findTask,
-  insertTask,
-  listAutoStoppedTasks,
-  listRunningTaskIds,
-  listTaskFolders,
-  updateTask,
+  deleteThread,
+  findThread,
+  insertThread,
+  listAutoStoppedThreads,
+  listRunningThreadIds,
+  listThreadFolders,
+  updateThread,
   upsertMessage,
-} from "./task.query";
+} from "./thread.query";
 
-type Run = { taskId: string; stop: AbortController; done: Promise<void> };
+type Run = { threadId: string; stop: AbortController; done: Promise<void> };
 type Pinned = {
   __roomRuns?: Map<string, Run>;
-  __roomTaskLock?: ReturnType<typeof createKeyedLock>;
+  __roomThreadLock?: ReturnType<typeof createKeyedLock>;
   __roomPausing?: { current: Promise<void> };
 };
 const running = ((globalThis as Pinned).__roomRuns ??= new Map<string, Run>());
-const taskLock = ((globalThis as Pinned).__roomTaskLock ??= createKeyedLock());
+const threadLock = ((globalThis as Pinned).__roomThreadLock ??=
+  createKeyedLock());
 const pausing = ((globalThis as Pinned).__roomPausing ??= {
   current: Promise.resolve(),
 });
 
-export async function startTask(input: {
+export async function startThread(input: {
   bot: string;
   request: string;
   label: string;
   callId?: string | null;
-  from: TaskSpeaker;
+  from: ThreadSpeaker;
 }) {
   const found = await findJobBot(input.bot);
   if (!found || found.disabled) publicError("Choose an enabled bot.");
   const { from, ...row } = { ...input, bot: found.name };
-  const conversation =
-    row.callId && (await readCallTranscriptOn())
-      ? await listCallTurns(row.callId, OPENING_TURNS)
-      : [];
-  const opening = buildTaskOpening({
+  const opening = buildThreadOpening({
     bot: row.bot,
     request: row.request,
-    conversation,
     from,
   });
-  const task = await insertTask({ ...row, opening });
-  await ensureRoom(task.id);
-  await pump(task.id);
-  return task.id;
+  const thread = await insertThread({ ...row, opening });
+  await ensureRoom(thread.id);
+  await pump(thread.id);
+  return thread.id;
 }
 
 /** A recipient selects a desk; replying to a question also names the exact exchange. */
-export async function answerTask(
+export async function answerThread(
   id: string,
   answer: string,
-  from: TaskSpeaker = "user",
+  from: ThreadSpeaker = "user",
   recipient?: string,
   replyTo?: string,
-) {
-  await taskLock(id, async () => {
-    const task = await findTask(id);
-    if (!task) publicError("No such task.");
+): Promise<Awaited<ReturnType<typeof tellRoom>> | null> {
+  let told: Awaited<ReturnType<typeof tellRoom>> | null = null;
+  await threadLock(id, async () => {
+    const thread = await findThread(id);
+    if (!thread) publicError("No such thread.");
     await ensureRoom(id);
     if (recipient) {
       const participants = await listRoomWork(id);
@@ -121,24 +115,26 @@ export async function answerTask(
         (row) => row.bot.toLowerCase() === recipient!.trim().toLowerCase(),
       );
       if (!found || found.bot === ROOM_THURSDAY)
-        publicError("Choose a participant in this task.");
+        publicError("Choose a participant in this thread.");
       recipient = found.bot;
     }
     if (
-      answer.trim() === TASK_CONTINUE &&
-      task.pending?.options.includes(TASK_CONTINUE)
+      answer.trim() === THREAD_CONTINUE &&
+      thread.pending?.options.includes(THREAD_CONTINUE)
     ) {
       await resumeRoom(id);
       const all = await listRoomWork(id);
       if (!all.some((row) => row.state === "queued"))
-        await tellRoom(
+        told = await tellRoom(
           id,
           "Continue from the saved conversation.",
           from === "user" ? "The user" : ROOM_THURSDAY,
           recipient,
+          undefined,
+          false,
         );
     } else {
-      await tellRoom(
+      told = await tellRoom(
         id,
         answer,
         from === "user" ? "The user" : ROOM_THURSDAY,
@@ -148,16 +144,17 @@ export async function answerTask(
     }
   });
   await pump(id);
+  return told;
 }
 
 /** Claiming is short and serialized; model execution never holds the room lock. */
 async function pump(id: string) {
-  await taskLock(id, async () => {
+  await threadLock(id, async () => {
     if (!presence.watching) {
-      const task = await findTask(id);
+      const thread = await findThread(id);
       if (
-        task?.status === "running" &&
-        ![...running.values()].some((run) => run.taskId === id)
+        thread?.status === "running" &&
+        ![...running.values()].some((run) => run.threadId === id)
       )
         await pauseRoom(
           id,
@@ -180,52 +177,54 @@ function launch(work: RoomWork) {
   const done = new Promise<void>((resolve) => {
     finish = resolve;
   });
-  running.set(work.id, { taskId: work.taskId, stop, done });
+  running.set(work.id, { threadId: work.threadId, stop, done });
   void drive(work, stop.signal)
-    .catch((cause) => logger.error(`task ${work.taskId}: participant`, cause))
+    .catch((cause) =>
+      logger.error(`thread ${work.threadId}: participant`, cause),
+    )
     .finally(() => {
       running.delete(work.id);
       finish();
-      void pump(work.taskId).catch((cause) =>
-        logger.error(`task ${work.taskId}: scheduling`, cause),
+      void pump(work.threadId).catch((cause) =>
+        logger.error(`thread ${work.threadId}: scheduling`, cause),
       );
     });
 }
 
 async function drive(work: RoomWork, signal: AbortSignal) {
-  const writer = new ThreadWriter(work, signal);
+  const writer = new TranscriptWriter(work, signal);
   let ending: { text: string; stopped: boolean } | null = null;
   let failure: string | null = null;
   try {
-    const task = await findTask(work.taskId);
-    if (!task) return;
-    const prior = await listParticipantThread(work.taskId, work.bot);
+    const thread = await findThread(work.threadId);
+    if (!thread) return;
+    const prior = await listParticipantTranscript(work.threadId, work.bot);
     if (!prior.length)
-      await appendRoomMessage(work.taskId, {
+      await appendRoomMessage(work.threadId, {
         bot: work.bot,
         parent: work.id,
         role: "user",
-        content: `Task: ${task.request}\nCoordinator: ${task.bot}. Continue as ${work.bot} in this task.`,
+        content: `Request: ${thread.request}\nCoordinator: ${thread.bot}. Continue as ${work.bot} in this thread.`,
         hidden: true,
       });
     await consumeRoomInbox(work);
-    const history = await listParticipantThread(work.taskId, work.bot);
+    const history = await listParticipantTranscript(work.threadId, work.bot);
     await runBot(
       {
         bot: work.bot,
-        messages: resumeThread(
+        messages: resumeTranscript(
           history,
-          await listRoomReceipts(work.taskId, work.bot, history),
+          await listRoomReceipts(work.threadId, work.bot, history),
         ),
       },
       {
         signal,
-        taskId: work.taskId,
+        threadId: work.threadId,
         parent: work.id,
         caller: work.caller,
-        owner: task.bot,
-        contextBudget: await roomContextBudget(work.taskId, work.bot),
-        session: botBrowserSession(work.taskId, work.bot),
+        owner: thread.bot,
+        contextBudget: await roomContextBudget(work.threadId, work.bot),
+        session: botBrowserSession(work.threadId, work.bot),
         notes: () => consumeRoomInbox(work),
         send: async (input) => {
           signal.throwIfAborted();
@@ -239,7 +238,7 @@ async function drive(work: RoomWork, signal: AbortSignal) {
             to = bot.name;
           }
           const receipt = await sendRoomMessage(work, { ...input, to });
-          void pump(work.taskId).catch((cause) =>
+          void pump(work.threadId).catch((cause) =>
             logger.error("room message scheduling", cause),
           );
           return receipt;
@@ -248,21 +247,23 @@ async function drive(work: RoomWork, signal: AbortSignal) {
           if (signal.aborted && event.type !== "tool-result") return;
           await writer.on(event);
           if (event.type === "step")
-            await addTaskUsage(
-              work.taskId,
+            await addThreadUsage(
+              work.threadId,
               event.usage,
-              work.bot === task.bot
+              work.bot === thread.bot
                 ? { tokens: event.usage.input, budget: event.budget }
                 : null,
             );
           if (event.type === "compact")
-            await addTaskUsage(work.taskId, event.usage);
+            await addThreadUsage(work.threadId, event.usage);
           if (event.type === "turn-end") ending = event;
           if (event.type === "error") {
             failure = event.message;
             if (event.budget) await lowerRoomContextBudget(work, event.budget);
-            if (event.budget && work.bot === task.bot)
-              await updateTask(work.taskId, { contextBudget: event.budget });
+            if (event.budget && work.bot === thread.bot)
+              await updateThread(work.threadId, {
+                contextBudget: event.budget,
+              });
           }
         },
       },
@@ -273,7 +274,7 @@ async function drive(work: RoomWork, signal: AbortSignal) {
   if (signal.aborted) return;
   const final = ending as { text: string; stopped: boolean } | null;
   if (!failure && final?.text && !final.stopped && !work.parentId) {
-    const all = await listRoomWork(work.taskId);
+    const all = await listRoomWork(work.threadId);
     if (
       all.every(
         (row) =>
@@ -292,8 +293,8 @@ async function drive(work: RoomWork, signal: AbortSignal) {
     const why =
       failure ??
       "The turn was interrupted. Continue from the saved conversation.";
-    void taskLock(work.taskId, async () => {
-      const current = (await listRoomWork(work.taskId)).find(
+    void threadLock(work.threadId, async () => {
+      const current = (await listRoomWork(work.threadId)).find(
         (row) => row.id === work.id,
       );
       if (
@@ -301,31 +302,34 @@ async function drive(work: RoomWork, signal: AbortSignal) {
         current.generation !== work.generation
       )
         return;
-      const drained = stopRuns(work.taskId);
-      await pauseRoom(work.taskId, why);
+      const drained = stopRuns(work.threadId);
+      await pauseRoom(work.threadId, why);
       await drained;
-    }).catch((cause) => logger.error(`task ${work.taskId}: pausing`, cause));
+    }).catch((cause) =>
+      logger.error(`thread ${work.threadId}: pausing`, cause),
+    );
     return;
   }
   await finishRoomWork(work, final.text);
-  const task = await findTask(work.taskId);
-  if (task?.status === "done") {
-    if (!(await isAnyCallLive())) desktopNotify(task.label, task.outcome ?? "");
-    const paths = await filesOnDisk(pathsIn(task.outcome ?? ""), null);
+  const thread = await findThread(work.threadId);
+  if (thread?.status === "done") {
+    if (!(await isAnyCallLive()))
+      desktopNotify(thread.label, thread.outcome ?? "");
+    const paths = await filesOnDisk(pathsIn(thread.outcome ?? ""), null);
     const path =
       paths.find((path) => path.startsWith(`${PATHS.artifacts}/`)) ?? paths[0];
     if (path)
       appEvents.emit({
         type: "artifact",
-        taskId: task.id,
-        label: task.label,
+        threadId: thread.id,
+        label: thread.label,
         path,
       });
   }
 }
 
 /** Streaming updates share stable row slots; tools may be observed before the stream reports them. */
-class ThreadWriter {
+class TranscriptWriter {
   private lane = PromiseChain();
   private assistant: number | null = null;
   private tool: number | null = null;
@@ -355,11 +359,11 @@ class ThreadWriter {
       compact,
       note: compact,
     };
-    if (seq === null) return appendRoomMessage(this.work.taskId, row);
-    await upsertMessage(this.work.taskId, seq, row);
+    if (seq === null) return appendRoomMessage(this.work.threadId, row);
+    await upsertMessage(this.work.threadId, seq, row);
     return seq;
   }
-  on(event: TaskEvent) {
+  on(event: ThreadEvent) {
     return this.lane(async () => {
       if (this.signal.aborted && event.type !== "tool-result") return;
       if (event.type === "text") {
@@ -421,7 +425,7 @@ class ThreadWriter {
         const stale = slots
           .slice(event.messages.length)
           .filter((seq): seq is number => seq !== null);
-        if (stale.length) await deleteMessages(this.work.taskId, stale);
+        if (stale.length) await deleteMessages(this.work.threadId, stale);
         this.assistant = this.tool = null;
         this.parts = { assistant: [], tool: [] };
       } else if (event.type === "compact") {
@@ -432,18 +436,18 @@ class ThreadWriter {
 }
 
 async function stopRuns(id: string) {
-  const live = [...running.values()].filter((run) => run.taskId === id);
+  const live = [...running.values()].filter((run) => run.threadId === id);
   for (const run of live) run.stop.abort();
   await Promise.all(live.map((run) => run.done));
 }
 
-export async function cancelTask(id: string) {
-  await taskLock(id, async () => {
-    const task = await findTask(id);
-    if (!task) publicError("No such task.");
-    if (task.endedAt) publicError("That task has already ended.");
+export async function cancelThread(id: string) {
+  await threadLock(id, async () => {
+    const thread = await findThread(id);
+    if (!thread) publicError("No such thread.");
+    if (thread.endedAt) publicError("That thread has already ended.");
     await cancelRoom(id);
-    await updateTask(id, {
+    await updateThread(id, {
       status: "failed",
       outcome: "Cancelled.",
       pending: null,
@@ -454,27 +458,27 @@ export async function cancelTask(id: string) {
     await closeJobShell(id);
   });
 }
-export async function removeTask(id: string) {
-  return taskLock(id, () => removeLockedTask(id));
+export async function removeThread(id: string) {
+  return threadLock(id, () => removeLockedThread(id));
 }
-async function removeLockedTask(id: string) {
-  const task = await findTask(id);
+async function removeLockedThread(id: string) {
+  const thread = await findThread(id);
   await cancelRoom(id);
   await stopRuns(id);
   await closeJobShell(id);
-  const removed = await deleteTask(id);
-  if (removed && task) await removeJobScratch(id, task.label);
+  const removed = await deleteThread(id);
+  if (removed && thread) await removeJobScratch(id, thread.label);
   return removed;
 }
 
-export async function removeFinishedTasks(): Promise<number> {
+export async function removeFinishedThreads(): Promise<number> {
   let removed = 0;
-  for (const task of await listTaskFolders()) {
-    if (task.status !== "done" && task.status !== "failed") continue;
-    await taskLock(task.id, async () => {
-      const current = await findTask(task.id);
+  for (const thread of await listThreadFolders()) {
+    if (thread.status !== "done" && thread.status !== "failed") continue;
+    await threadLock(thread.id, async () => {
+      const current = await findThread(thread.id);
       if (current?.status !== "done" && current?.status !== "failed") return;
-      if (await removeLockedTask(task.id)) removed += 1;
+      if (await removeLockedThread(thread.id)) removed += 1;
     });
   }
   return removed;
@@ -491,25 +495,25 @@ export async function removeFinishedTasks(): Promise<number> {
  */
 export async function sweepJobFiles(): Promise<string[]> {
   const cutoff = Date.now() - WORKSPACE_KEEP.forMs;
-  const stale = (task: {
-    status: TaskStatus;
+  const stale = (thread: {
+    status: ThreadStatus;
     endedAt: Date | null;
     updatedAt: Date;
   }) =>
-    (task.status === "done" || task.status === "failed") &&
-    (task.endedAt ?? task.updatedAt).getTime() < cutoff;
+    (thread.status === "done" || thread.status === "failed") &&
+    (thread.endedAt ?? thread.updatedAt).getTime() < cutoff;
 
   // Folders on disk; each one a job owns is taken out as its job is read
   const unowned = new Set(await listScratchFolders());
   const removed: string[] = [];
-  for (const task of await listTaskFolders()) {
-    const folder = jobScratch(task.id, task.label);
-    if (!unowned.delete(folder) || !stale(task)) continue;
-    await taskLock(task.id, async () => {
-      const now = await findTask(task.id);
+  for (const thread of await listThreadFolders()) {
+    const folder = jobScratch(thread.id, thread.label);
+    if (!unowned.delete(folder) || !stale(thread)) continue;
+    await threadLock(thread.id, async () => {
+      const now = await findThread(thread.id);
       if (!now || !stale(now)) return;
-      await closeHiddenBrowser(task.id);
-      await removeJobScratch(task.id, task.label);
+      await closeHiddenBrowser(thread.id);
+      await removeJobScratch(thread.id, thread.label);
       removed.push(folder);
     });
   }
@@ -524,11 +528,11 @@ export async function sweepJobFiles(): Promise<string[]> {
 }
 
 /** A server restart is a manual resume boundary: external effects may already have happened. */
-export async function sweepTasks() {
-  for (const id of await listRunningTaskIds()) {
-    await taskLock(id, async () => {
-      if ([...running.values()].some((run) => run.taskId === id)) return;
-      if ((await findTask(id))?.status !== "running") return;
+export async function sweepThreads() {
+  for (const id of await listRunningThreadIds()) {
+    await threadLock(id, async () => {
+      if ([...running.values()].some((run) => run.threadId === id)) return;
+      if ((await findThread(id))?.status !== "running") return;
       await ensureRoom(id);
       await pauseRoom(
         id,
@@ -537,13 +541,13 @@ export async function sweepTasks() {
     });
   }
 }
-export async function pauseTasks(reason: string, auto = false) {
+export async function pauseThreads(reason: string, auto = false) {
   const pause = (async () => {
-    const ids = await listRunningTaskIds();
+    const ids = await listRunningThreadIds();
     await Promise.all(
       ids.map((id) =>
-        taskLock(id, async () => {
-          if ((await findTask(id))?.status !== "running") return;
+        threadLock(id, async () => {
+          if ((await findThread(id))?.status !== "running") return;
           await stopRuns(id);
           await pauseRoom(id, reason, auto);
         }),
@@ -553,23 +557,23 @@ export async function pauseTasks(reason: string, auto = false) {
   pausing.current = pause;
   await pause;
 }
-export async function resumeStoppedTasks() {
+export async function resumeStoppedThreads() {
   await pausing.current;
   if (!presence.watching) return;
-  for (const task of await listAutoStoppedTasks()) {
-    await taskLock(task.id, async () => {
-      const current = await findTask(task.id);
+  for (const thread of await listAutoStoppedThreads()) {
+    await threadLock(thread.id, async () => {
+      const current = await findThread(thread.id);
       if (current?.status !== "waiting" || !current.pending?.auto) return;
-      if (!(await listRoomWork(task.id)).length) {
-        await ensureRoom(task.id);
+      if (!(await listRoomWork(thread.id)).length) {
+        await ensureRoom(thread.id);
         await pauseRoom(
-          task.id,
-          "This interrupted task uses an older workflow. Continue from its saved conversation.",
+          thread.id,
+          "This interrupted thread uses an older workflow. Continue from its saved conversation.",
         );
         return;
       }
-      await resumeRoom(task.id, false);
+      await resumeRoom(thread.id, false);
     });
-    await pump(task.id);
+    await pump(thread.id);
   }
 }

@@ -112,7 +112,7 @@ export const createMemoryTools = (
       path: z
         .string()
         .describe(
-          "Exactly as the listing writes it, or a new path following the same convention.",
+          "The group this note is found by — the person, project or topic its facts are about. Exactly as the listing writes it, or a new path following the same convention. A fact goes under the one note it is about; other notes name it rather than repeat it.",
         ),
       facts: z
         .object({
@@ -144,7 +144,7 @@ export const createMemoryTools = (
         .string()
         .nullish()
         .describe(
-          `One line saying what this note is about, not what it currently says. Give it for a new note, or when the line no longer fits. Null leaves it; ${MEMORY_ALWAYS_LISTED.join(", ")} keep their own line.`,
+          `One line saying what this note holds, so the listing alone tells which facts are inside. Give it for a new note, and again with new facts: rewritten from the current line and the new facts together, so it covers the whole note rather than only what was added. Null leaves it; ${MEMORY_ALWAYS_LISTED.join(", ")} keep their own line.`,
         ),
       aliases: z
         .string()
@@ -161,8 +161,8 @@ export const createMemoryTools = (
       const aliases = input.aliases ?? null;
       // The listing line of the always-listed notes is the app's (memory.schema
       // MEMORY_ALWAYS_LISTED); the model's description is ignored there and
-      // its own line written instead. `alwaysLoad` is not forced on them: the
-      // first-call opener (thursday.prompt) asks the model to set it.
+      // its own line written instead. `alwaysLoad` is not forced on them: its
+      // own schema says what it is for (what to call them, their language).
       const target = known ?? said;
       const description = isAlwaysListed(target)
         ? appNoteLine(target)
@@ -205,9 +205,14 @@ export const createMemoryTools = (
             )} saved as an ordinary fact. Say which carried line you would drop for it and let them choose.`
         : "";
       const written = withCount(write.notes[0]);
+      // New facts under a line that was not resent: the listing is what a later call opens a note by
+      const stale =
+        known && facts.length && !description
+          ? ` Its line still reads "${written.description}"; if that no longer says what the note holds, send \`description\`.`
+          : "";
       return {
         ...written,
-        note: `${WROTE}${unnamed}${notLoaded}${overSize(written.factCount)}`,
+        note: `${WROTE}${unnamed}${notLoaded}${stale}${overSize(written.factCount)}`,
       };
     },
   }),

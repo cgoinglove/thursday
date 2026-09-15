@@ -11,7 +11,7 @@ export const endCallSpec = {
   name: TOOL_NAMES.end_call,
   description: `End the call.
 
-Say goodbye first — nothing said after this reaches the user.`,
+The line drops as soon as this returns.`,
   parameters: z.object({}),
 };
 

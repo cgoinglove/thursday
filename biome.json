@@ -14,7 +14,8 @@
       "!dist",
       "!build",
       "!database/migrations",
-      "!.design"
+      "!.design",
+      "!skills/interactive-page/scripts/archify"
     ]
   },
   "formatter": {
