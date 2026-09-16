@@ -24,7 +24,7 @@ What the app does to keep that narrow:
   own directory and the workspace root, and inside the workspace accepts only its
   folders (`features/workspace/workspace.ts`). A path outside the workspace is
   accepted. `bash` has no such check: a command writes wherever your user can.
-- **The server binds to localhost.** `npx thursday` listens on `127.0.0.1`.
+- **The server binds to localhost.** `npx thursday-agent` listens on `127.0.0.1`.
   Do not put it on `0.0.0.0` and expect it to hold: there is no authentication,
   because there is no second user.
 - **A sign-in is asked for, and a payment is yours to press.** A bot signs in

@@ -4,7 +4,6 @@ import { Check, Plus, Search } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import { cn, WAITING_INK } from "@/lib/utils";
 
 /** Shared layout for settings screens: a list, dialogs for everything else. */
@@ -410,49 +409,6 @@ export function SettingNote({
     >
       {children}
     </p>
-  );
-}
-
-/**
- * A setting that runs by itself: one switch, and what it reveals while it is
- * on. Tinted rather than bordered — what it holds is state, not a set to pick
- * from. Its description is a sentence that wraps, so it gets its own leading;
- * a row's second line, which is one line of state, stays tight.
- */
-export function SettingToggle({
-  label,
-  description,
-  checked,
-  disabled,
-  onChange,
-  children,
-}: {
-  label: string;
-  description: ReactNode;
-  checked: boolean;
-  /** Holds the switch while its state is still arriving. */
-  disabled?: boolean;
-  onChange: (on: boolean) => void;
-  /** Drawn under the switch while it is on. */
-  children?: ReactNode;
-}) {
-  return (
-    <div className="space-y-3 rounded-xl bg-muted/30 p-4">
-      <label className="flex items-center gap-4">
-        <span className="min-w-0 flex-1 space-y-1">
-          <span className="block text-sm font-medium">{label}</span>
-          <span className="block text-xs leading-relaxed text-muted-foreground">
-            {description}
-          </span>
-        </span>
-        <Switch
-          checked={checked}
-          disabled={disabled}
-          onCheckedChange={onChange}
-        />
-      </label>
-      {checked && children}
-    </div>
   );
 }
 

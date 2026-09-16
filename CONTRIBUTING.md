@@ -17,9 +17,10 @@ Useful:
 | | |
 |---|---|
 | `pnpm dev` | the app, with hot reload — on 3000, or the next free port |
-| `pnpm typecheck` / `pnpm lint` | what CI runs |
+| `pnpm typecheck` / `pnpm lint` | types and lint |
+| `pnpm test:live` / `pnpm test:bot` / `pnpm test:artifact` | the call, bots, file viewer URLs — offline, providers mocked |
 | `pnpm reset` | wipe local data (calls, jobs, memory) and optionally the build |
-| `pnpm build` && `pnpm start` | the production server, as `npx thursday` runs it |
+| `pnpm build` && `pnpm start` | the production server, as `npx thursday-agent` runs it |
 | `pnpm pack:check` | build the tree npm would publish, into `dist/` |
 
 ## Before you open a pull request
@@ -27,12 +28,13 @@ Useful:
 - **Read [CLAUDE.md](CLAUDE.md) first.** It is not a style guide; it is where
   each kind of code lives and why. A change that lands in the wrong folder is
   the most common reason a review goes long.
-- `pnpm typecheck` and `pnpm lint` both pass.
+- `pnpm typecheck`, `pnpm lint` and the three test scripts pass — CI runs them,
+  then `pnpm build`.
 - **Changed a screen? Run the app and look at it.** Screenshots in the PR help.
 - **Changed a prompt or a tool description?** Read the assembled prompt, not the
   diff — the file is a fragment, the prompt is what the model gets.
 - **Changed the schema?** `pnpm db:generate`, and commit the migration. Never
-  `db:push`.
+  `drizzle-kit push`.
 - One change per pull request. A refactor bundled with a fix is two reviews
   wearing one hat.
 

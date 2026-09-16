@@ -6,7 +6,7 @@
 export type AppEvent =
   /** Sent on connect. A changed `boot` means the server restarted; re-read everything. */
   | { type: "hello"; boot: string }
-  /** Signal: a thread changed (every write in bot.query). */
+  /** Signal: a thread changed (every write in thread.query and room.query). */
   | { type: "threads" }
   /** Signal: a note or fact changed. */
   | { type: "memory" }

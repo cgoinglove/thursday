@@ -29,7 +29,6 @@ export type SkillFrontmatter = z.infer<typeof SkillFrontmatterSchema>;
 export const SkillDraftSchema = SkillFrontmatterSchema.extend({
   content: z.string().trim().min(1, "Content is required"),
 });
-export type SkillDraft = z.infer<typeof SkillDraftSchema>;
 
 /** A skill list row. */
 export type SkillSummary = SkillFrontmatter & {
@@ -56,4 +55,3 @@ export const SkillUploadSchema = z.object({
   fileName: z.string().trim().min(1),
   base64: z.string().min(1),
 });
-export type SkillUpload = z.infer<typeof SkillUploadSchema>;

@@ -74,29 +74,11 @@ export function plainText(markdown: string): string {
     .trim();
 }
 
-export const wait = (delay = 0) =>
-  new Promise<void>((resolve) => setTimeout(resolve, delay));
-
 export const isFunction = <
   T extends (...args: any[]) => any = (...args: any[]) => any,
 >(
   v: unknown,
 ): v is T => typeof v === "function";
-
-export const isNull = (value: any): value is null | undefined => value == null;
-
-export const groupBy = <T>(arr: T[], getter: keyof T | ((item: T) => string)) =>
-  arr.reduce(
-    (prev, item) => {
-      const key: string =
-        getter instanceof Function ? getter(item) : (item[getter] as string);
-
-      if (!prev[key]) prev[key] = [];
-      prev[key].push(item);
-      return prev;
-    },
-    {} as Record<string, T[]>,
-  );
 
 /** Runs async functions one at a time in order. A failure does not break the chain. */
 export const PromiseChain = () => {

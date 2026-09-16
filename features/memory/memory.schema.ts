@@ -52,7 +52,6 @@ export const MemoryNoteSchema = z.object({
   facts: MemoryFactSchema.array(),
 });
 
-export type MemoryFact = z.infer<typeof MemoryFactSchema>;
 export type MemoryNote = z.infer<typeof MemoryNoteSchema>;
 
 /**

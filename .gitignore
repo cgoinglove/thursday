@@ -54,7 +54,6 @@ next-env.d.ts
 .playwright-cli
 .playwright
 .parcel-cache
-.vercel
 .design
 skills-lock.json
 # Anything a contributor keeps to themselves. This is the one naming rule the

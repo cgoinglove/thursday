@@ -300,7 +300,7 @@ A 30-second poll remains as a safety net. No WebSockets.
   generalize something used once.
 - Verify with `pnpm typecheck` and `pnpm lint`; client/server boundary changes also require
   `pnpm build`, because TypeScript does not validate Next.js directives. Schema changes:
-  `pnpm db:generate` (applied at boot), `pnpm db:migrate` for the current DB. Never `db:push`.
+  `pnpm db:generate` (applied at boot), `pnpm db:migrate` for the current DB. Never `drizzle-kit push`.
 - Prompt or tool-description changes: read the assembled result, not just the file. UI changes: run
   the app and look. Judge bot behavior by counting stored turns and tool calls, not by feel.
 - Comments are English, present tense and short. They explain what the code cannot: an invariant, an

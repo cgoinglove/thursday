@@ -49,8 +49,6 @@ export const MCPOAuthDataSchema = z.object({
 
 export type MCPRemoteConfig = z.infer<typeof MCPRemoteConfigSchema>;
 
-export type MCPStdioConfig = z.infer<typeof MCPStdioConfigSchema>;
-
 export type MCPServerConfig = z.infer<typeof MCPConfigSchema>;
 
 export type MCPToolInfo = z.infer<typeof MCPToolInfoSchema>;

@@ -24,8 +24,8 @@ body:
     id: models
     attributes:
       label: Models
-      description: The voice model, and the model the bot ran on.
-      placeholder: OpenAI gpt-realtime-2.1 · bot on anthropic/claude-sonnet-5
+      description: The call's voice and backend models, and the model the bot ran on.
+      placeholder: gpt-live-1 · backend gpt-5.6-luna · bot on anthropic/claude-sonnet-5
 
   - type: textarea
     id: logs

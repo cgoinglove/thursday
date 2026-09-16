@@ -342,10 +342,6 @@ export const canMakeKind = (provider: string, kind: MediaKind): boolean =>
   (MEDIA_MODEL_PROVIDERS[provider as MediaModelProviderId]?.models[kind]
     ?.length ?? 0) > 0;
 
-/** How a pick is stored and shown: "openai/gpt-image-2". Split on the first slash only; gateway ids carry a slash of their own. */
-export const formatMediaModel = (ref: MediaModelRef) =>
-  `${ref.provider}/${ref.model}`;
-
 /** `provider/model` for a text model, as the default-model config stores it. */
 export function parseTextModel(value: string | undefined): TextModelRef | null {
   const [provider, ...rest] = (value ?? "").trim().split("/");
@@ -356,6 +352,7 @@ export function parseTextModel(value: string | undefined): TextModelRef | null {
   return parsed.success ? parsed.data : null;
 }
 
+/** How a media pick is stored: "openai/gpt-image-2". Split on the first slash only; gateway ids carry a slash of their own. */
 export function parseMediaModel(
   value: string | undefined,
 ): MediaModelRef | null {

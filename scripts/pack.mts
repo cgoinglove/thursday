@@ -15,7 +15,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 
 const ROOT = join(import.meta.dirname, "..");
 /** What `output: "standalone"` writes (next.config.ts). */
@@ -61,7 +61,18 @@ if (!existsSync(join(BUILD, "server.js"))) {
   die('No standalone server — is `output: "standalone"` still in next.config?');
 }
 
-cpSync(BUILD, DIST, { recursive: true });
+/**
+ * `*.local.*` is a contributor's own file (.gitignore), but the trace and
+ * `public/` carry what is on disk, ignored or not — docs and scripts notes
+ * arrive in the standalone tree. Every copy out of the checkout skips that
+ * shape. A dependency's files are its own, so node_modules copies as it is.
+ */
+const published = (root: string) => (source: string) => {
+  const path = relative(root, source).split(sep);
+  return path.includes("node_modules") || !/\.local\./.test(path.at(-1) ?? "");
+};
+
+cpSync(BUILD, DIST, { recursive: true, filter: published(BUILD) });
 
 /**
  * Next leaves these two out on purpose: a deployment usually puts them on a
@@ -75,7 +86,7 @@ for (const [from, to] of [
   [join(ROOT, "public"), join(DIST, "public")],
 ] as const) {
   rmSync(to, { recursive: true, force: true });
-  cpSync(from, to, { recursive: true });
+  cpSync(from, to, { recursive: true, filter: published(from) });
 }
 
 /**
@@ -96,7 +107,11 @@ for (const entry of readdirSync(DIST)) {
 
 for (const file of ["bin", "README.md", "LICENSE"]) {
   const from = join(ROOT, file);
-  if (existsSync(from)) cpSync(from, join(DIST, file), { recursive: true });
+  if (existsSync(from))
+    cpSync(from, join(DIST, file), {
+      recursive: true,
+      filter: published(ROOT),
+    });
 }
 
 /**
