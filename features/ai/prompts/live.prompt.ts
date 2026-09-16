@@ -99,9 +99,13 @@ export async function loadLivePrompt(options: {
   };
 }
 
-/** The guide's starter lines on listening and interruptions, as written: it says to keep the policy labels. */
+/**
+ * The guide's starter lines on listening and interruptions, labels kept as it says. The
+ * backchannel line is the one it invites changing: a long turn heard in silence reads as
+ * nobody listening.
+ */
 function speaking(): string {
-  return `Backchannel policy: Use moderate backchannels. Acknowledge naturally without competing with the main response.
+  return `Backchannel policy: Use moderate backchannels. When the user speaks at length, acknowledge now and then with a short listening sound so they know you are following, without competing with the main response.
 
 Interruption policy: Stop speaking when the user interrupts. Listen to what they say.`;
 }

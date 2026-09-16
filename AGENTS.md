@@ -103,7 +103,8 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   same identity and the same rule for ending the call (`thursdayIdentity`, `callEnding`, the only
   sentences a helper holds) and read the same memory; neither
   is told it is part of something else. The voice prompt uses the GPT-Live guide's `Delegation policy`
-  labels and, on how to speak, only its starter backchannel and interruption policies, as written;
+  labels and, on how to speak, only its starter backchannel and interruption policies, the backchannel line
+  asking for listening sounds through a long turn;
   the backend prompt uses the guide's backend template
   (voice conversation context, its chapters, return the result), and its chapter names are the
   capabilities the voice lists. A relay carries facts — who, which thread, where an answer goes —

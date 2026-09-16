@@ -842,6 +842,10 @@ test("both call prompts open as one Thursday: the voice gets the delegation poli
       on.text,
       /\n\nBackchannel policy: Use moderate backchannels\. .*\n\nInterruption policy: Stop speaking when the user interrupts\. Listen to what they say\.\n\nDelegation policy:\nBackend tools:\n- Memory:/,
     );
+    assert.match(
+      on.text,
+      /When the user speaks at length, acknowledge now and then/,
+    );
     assert.match(on.text, /\nDelegate to the backend when:\n/);
     assert.match(on.text, /\nDo not delegate to the backend when:\n/);
     assert.match(on.text, /What bots can reach for: browser, images, github\./);
