@@ -3,6 +3,7 @@ import { afterEach, mock, test } from "node:test";
 import { LIVE_CALL } from "../config.ts";
 import type {
   LiveActivity,
+  LiveReasoning,
   LiveToolCall,
   LiveTurn,
 } from "../lib/live/live.session.ts";
@@ -66,6 +67,7 @@ async function connect({
   const warnings: string[] = [];
   const failures: string[] = [];
   const activities: LiveActivity[] = [];
+  const reasonings: LiveReasoning[] = [];
   const closes: { reason: string; seconds: number | null }[] = [];
   const session = createLiveSession({
     initialize: async (sdp) => {
@@ -79,6 +81,7 @@ async function connect({
     },
     on: {
       runTool,
+      reasoning: (part) => reasonings.push(part),
       turn: (turn) => turns.push(turn),
       warn: (message) => warnings.push(message),
       failed: (message) => failures.push(message),
@@ -88,7 +91,16 @@ async function connect({
   });
   sessions.push(session);
   await session.connect();
-  return { session, levels, turns, warnings, failures, activities, closes };
+  return {
+    session,
+    levels,
+    turns,
+    warnings,
+    failures,
+    activities,
+    reasonings,
+    closes,
+  };
 }
 
 function nested(event: Record<string, unknown>) {
@@ -166,6 +178,72 @@ test("an incomplete response that asked for tools is continued once, and a secon
   await tick();
   assert.equal(count("response.item.create"), 3);
   assert.equal(count("response.create"), 1);
+});
+
+test("a finished reasoning summary part is reported once, whole, with its place in the call", async () => {
+  const { reasonings } = await connect();
+  nested({ type: "response.created", response: { id: "r1" } });
+  const part = (event: Record<string, unknown>) =>
+    nested({ item_id: "rs_1", output_index: 0, ...event });
+  part({
+    type: "response.reasoning_summary_text.delta",
+    summary_index: 0,
+    delta: "**Comparing",
+  });
+  part({
+    type: "response.reasoning_summary_text.done",
+    summary_index: 0,
+    text: "**Comparing markets**\n\nRates first.",
+  });
+  part({
+    type: "response.reasoning_summary_text.done",
+    summary_index: 1,
+    text: "**Handing over**",
+  });
+  await tick();
+  assert.deepEqual(
+    reasonings.map(({ id, text }) => [id, text]),
+    [
+      ["rs_1:0", "**Comparing markets**\n\nRates first."],
+      ["rs_1:1", "**Handing over**"],
+    ],
+  );
+  assert.ok(reasonings.every((part) => part.seq >= 0));
+});
+
+test("a function call cut off by the output cap is never run, and its response stops counting as work", async () => {
+  let ran = 0;
+  const { activities, turns } = await connect({
+    runTool: async () => {
+      ran += 1;
+      return "ok";
+    },
+  });
+  nested({ type: "response.created", response: { id: "r1" } });
+  await tick();
+  assert.equal(activities.at(-1)?.working, true);
+  nested({
+    type: "response.output_item.done",
+    item: {
+      type: "function_call",
+      id: "item-cut",
+      call_id: "cut",
+      name: "delegate",
+      arguments: '{"bot":"Analyst',
+      status: "incomplete",
+    },
+  });
+  // What Live sends instead of a terminal event for that response
+  wire.on.event({
+    type: "error",
+    error: { message: "Responses handoff incomplete." },
+  });
+  await tick();
+  assert.equal(ran, 0);
+  assert.equal(turns.filter((turn) => turn.role === "tool").length, 0);
+  assert.equal(count("response.item.create"), 0);
+  assert.equal(count("response.create"), 0);
+  assert.equal(activities.at(-1)?.working, false);
 });
 
 test("captions keep exact fragments through overlap and late delivery, and never show backend text", async (context) => {
@@ -451,8 +529,9 @@ test("startup sends voice and backend apart, seeds history, and keeps the key on
   assert.equal(responses.model, "gpt-5.6-luna");
   assert.equal(responses.instructions, "Tools only");
   assert.equal(responses.tools.length, 1);
-  assert.equal(responses.tools[0].strict, false);
-  assert.equal("reasoning" in responses, false);
+  assert.equal("strict" in responses.tools[0], false);
+  // No effort chosen: none is sent, and the summary is kept with the call
+  assert.deepEqual(responses.reasoning, { summary: "auto" });
   assert.equal(
     responses.tools.some(
       (tool: { type: string }) => tool.type === "web_search",
@@ -462,7 +541,7 @@ test("startup sends voice and backend apart, seeds history, and keeps the key on
   assert.equal(JSON.stringify(connection).includes("test-key"), false);
 });
 
-test("reasoning and web search are sent only when chosen", async () => {
+test("an effort and web search are sent only when chosen, and a summary unless reasoning is off", async () => {
   const requests = captureFetch();
   await createLiveCall({
     apiKey: "test-key",
@@ -478,8 +557,20 @@ test("reasoning and web search are sent only when chosen", async () => {
   });
   const responses = requests[0].session.delegation.responses;
   assert.equal(responses.model, "gpt-4.1");
-  assert.deepEqual(responses.reasoning, { effort: "low" });
+  assert.deepEqual(responses.reasoning, { effort: "low", summary: "auto" });
   assert.deepEqual(responses.tools.at(-1), { type: "web_search" });
+
+  await createLiveCall({
+    apiKey: "test-key",
+    sdp: "offer",
+    voice: "cedar",
+    instructions: "Talk",
+    input: [],
+    backend: backend({ reasoningEffort: "none" }),
+  });
+  assert.deepEqual(requests[1].session.delegation.responses.reasoning, {
+    effort: "none",
+  });
 });
 
 test("a provider refusal reaches the caller unchanged", async () => {

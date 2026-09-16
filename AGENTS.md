@@ -278,8 +278,11 @@ A 30-second poll remains as a safety net. No WebSockets.
 - A bot draws with the face picked on its page wherever it appears; nothing varies its mark by
   thread or place, only its state: the notify dot while it waits on the user, crossed-out eyes on
   a failed thread (a Stop ends one that way too).
-- The pill's bubble shows one thing that just happened, over the face of whoever spoke: that face,
-  an arrow and the bots it reached, then the words. Questions and stops take amber, failures red.
+- The pill's bubble shows one thing that just happened, over the face of whoever spoke: that face
+  with the bots it reached tucked behind it, then the words — no glyph between faces. Questions
+  and stops take amber, failures red. Clicking the pill opens the room's list, never a thread.
+  The open list keeps the pill's row at its foot, faces without step words, and a moment shows
+  there instead of in a bubble; only an open thread hides it.
 
 # Rules
 

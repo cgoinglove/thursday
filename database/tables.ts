@@ -366,6 +366,28 @@ export const callMessageTable = sqliteTable(
 );
 
 /**
+ * The backend's reasoning summaries on a call, kept to look into how it worked.
+ * Nothing draws them or reads them back into a prompt; they go with their call.
+ */
+export const callThoughtTable = sqliteTable(
+  "call_thought",
+  {
+    callId: text("call_id")
+      .notNull()
+      .references(() => callTable.id, { onDelete: "cascade" }),
+    /** Reasoning item and summary part (lib/live LiveReasoning); unique within a call. */
+    id: text("id").notNull(),
+    /** Where in the call it was thought, on call_message.seq's clock. */
+    seq: int("seq").notNull(),
+    text: text("text").notNull(),
+    at: int("at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (t) => [primaryKey({ columns: [t.callId, t.id] })],
+);
+
+/**
  * One note per subject. Path convention: 'profile' | 'preferences' | 'inbox'
  * | 'people/<name>' | 'projects/<name>' | 'topics/<topic>'.
  * Forgetting score = (hits + 1) / (1 + days since lastReadAt).

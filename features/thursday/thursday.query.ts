@@ -11,12 +11,17 @@ import {
 } from "drizzle-orm";
 import { CALL_HISTORY_PAGE } from "@/config";
 import { database } from "@/database/db";
-import { callMessageTable, callTable } from "@/database/tables";
+import {
+  callMessageTable,
+  callTable,
+  callThoughtTable,
+} from "@/database/tables";
 import { listCallJobs } from "@/features/bot/thread.query";
 import { readConfig, writeConfig } from "@/features/config/config.query";
 import type { LiveClose } from "@/lib/live/live.schema";
 import {
   type CallRecord,
+  type CallThought,
   type CallTurn,
   isSkillsOn,
   THURSDAY_KEYS,
@@ -90,6 +95,14 @@ export async function saveTurns(callId: string, turns: CallTurn[]) {
         },
       });
   }
+}
+
+/** A summary part arrives once, whole; a repeat keeps the first. */
+export async function saveThought(callId: string, thought: CallThought) {
+  await database
+    .insert(callThoughtTable)
+    .values({ callId, ...thought })
+    .onConflictDoNothing();
 }
 
 export type CallGroup = {

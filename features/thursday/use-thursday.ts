@@ -22,7 +22,7 @@ import {
   openLiveSession,
 } from "@/lib/live/live.session";
 import { type AudioTap, createAudioTap } from "@/lib/live/live.tap";
-import { unwrapResult } from "@/lib/protocol/result";
+import { type Result, unwrapResult } from "@/lib/protocol/result";
 import {
   revalidate,
   revalidateAll,
@@ -33,14 +33,10 @@ import { errorToString } from "@/lib/utils";
 import {
   endCallAction,
   openCallAction,
+  saveThoughtAction,
   saveTurnsAction,
 } from "./thursday.action";
-import type {
-  CallMessage,
-  CallStatus,
-  CallTurn,
-  LiveStatus,
-} from "./thursday.schema";
+import type { CallMessage, CallStatus, LiveStatus } from "./thursday.schema";
 import { thursdaySettings, useThursdayStore } from "./thursday.store";
 import { toolBot, toolLine } from "./tool-line";
 
@@ -713,6 +709,13 @@ export function useThursday() {
               hideTool(call.name);
             }
           },
+          reasoning: (part) =>
+            persist(saving, () =>
+              saveThoughtAction(line.callId, {
+                ...part,
+                seq: Math.max(0, Math.round(part.seq)),
+              }),
+            ),
           turn: (turn) => {
             stir(turn.role === "user" ? "user" : "agent");
             // New words from either side restart the relay's quiet clock; a blank fragment is not words
@@ -738,18 +741,18 @@ export function useThursday() {
               );
             }
             if (turn.done) {
-              persistTurn(
-                line.callId,
-                {
-                  id: turn.id,
-                  role: turn.role,
-                  tool: turn.tool,
-                  text: turn.text,
-                  // Live orders by audio milliseconds; the row keeps a whole number
-                  seq: Math.max(0, Math.round(turn.seq)),
-                  fragments: turn.fragments ?? null,
-                },
-                saving,
+              persist(saving, () =>
+                saveTurnsAction(line.callId, [
+                  {
+                    id: turn.id,
+                    role: turn.role,
+                    tool: turn.tool,
+                    text: turn.text,
+                    // Live orders by audio milliseconds; the row keeps a whole number
+                    seq: Math.max(0, Math.round(turn.seq)),
+                    fragments: turn.fragments ?? null,
+                  },
+                ]),
               );
             }
           },
@@ -983,13 +986,13 @@ function statusOf(activity: LiveActivity): LiveStatus {
  * Fire-and-forget save: one toast after SAVE_FAILURE_LIMIT failures, then
  * silence.
  */
-function persistTurn(
-  callId: string,
-  turn: CallTurn,
+/** One save for the call's rows; past SAVE_FAILURE_LIMIT the call stops trying and says so once. */
+function persist(
   saving: { failures: number },
+  save: () => Promise<Result<unknown>>,
 ) {
   if (saving.failures >= SAVE_FAILURE_LIMIT) return;
-  void saveTurnsAction(callId, [turn])
+  void save()
     .then((result) => unwrapResult(result))
     .catch((cause) => {
       saving.failures += 1;

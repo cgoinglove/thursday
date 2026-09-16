@@ -263,7 +263,7 @@ These lines were written for the user: where one says "you", it means them. When
 function collaboration(name: string, seat?: Seat | null): string {
   const owner = (seat?.owner ?? name) === name;
   const ending = owner
-    ? "Bring what you received together into one result for Thursday: what was done, where it is, and what is still open, at the detail the user asked for."
+    ? "Bring what you received together into one result for Thursday: what was done, where it is, what you decided that the request did not say, and what is still open, at the detail the user asked for."
     : `Your final text goes back to ${seat?.caller ?? "whoever asked"}: give them everything they need to carry on.`;
 
   return `## Working together

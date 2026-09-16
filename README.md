@@ -45,9 +45,9 @@ That is the Friday feeling: you think out loud, your assistant answers, and work
 
 Thursday does not hand your request to a single agent and hope. The bots talk to each other.
 
-![Jarvis splits the job, Analyst brings the numbers back, one page comes out — a room nobody typed in](docs/images/thread-room.png)
+![Planner splits the job, Analyst brings the numbers back, one page comes out — a room nobody typed in](docs/images/thread-room.png)
 
-Ask how your market moved this week, on one page. **Jarvis** takes the job, writes the plan down and hands the research out. **Analyst** pulls the numbers from where they are published, keeps every source, and draws them. Jarvis opens what came back, checks it against the plan, builds the page, and hands the result to Thursday — and you hear one sentence.
+Ask how your market moved this week, on one page. **Planner** takes the job, writes the plan down and hands the research out. **Analyst** pulls the numbers from where they are published, keeps every source, and draws them. Planner opens what came back, checks it against the plan, builds the page, and hands the result to Thursday — and you hear one sentence.
 
 Every handoff is written down. Open the room to see who did what, or type into it and the job picks up where it left off.
 
@@ -77,7 +77,7 @@ Each bot keeps its own conversation and browser identity for that thread. Messag
 - **Bring your tools and models.** Connect MCP servers, choose models, and create bots with their own roles, tools, and memory.
 - **End the call when you are done talking.** Jobs keep working while the app stays open. Close the app and they pause until you return.
 
-Thursday ships with Jarvis to plan, Analyst to find the numbers, and Lambda to turn work that repeats into scripts. Make your own with a name and one sentence about what it is for — and when a real decision is needed, a bot asks you.
+Thursday ships with Jarvis for anything nobody else is for, Analyst to find the numbers, and Lambda to turn work that repeats into scripts; Planner, for a job that needs a team, waits in settings with the rest. Make your own with a name and one sentence about what it is for — and when a real decision is needed, a bot asks you.
 
 <br>
 

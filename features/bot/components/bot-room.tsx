@@ -2,7 +2,6 @@
 
 import { format, isThisYear, isToday, isYesterday } from "date-fns";
 import {
-  ArrowRight,
   ArrowUp,
   Check,
   ChevronDown,
@@ -15,7 +14,6 @@ import {
   Loader2,
   Plus,
   RotateCw,
-  Search,
   X,
 } from "lucide-react";
 import {
@@ -34,7 +32,6 @@ import { queryKey } from "@/app/api/query-key";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
 import { FoldedText } from "@/components/ui/folded-text";
-import { Input } from "@/components/ui/input";
 import { Markdown } from "@/components/ui/markdown";
 import { ShinyText } from "@/components/ui/shiny-text";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,6 +46,7 @@ import {
   DEFAULT_BOT,
   isAppStop,
   needsThreadReply,
+  THREAD_CANCELLED,
   THREAD_CONTINUE,
   THREAD_HISTORY_PAGE,
   type Thread,
@@ -122,18 +120,20 @@ export const BotRoom = memo(function BotRoom() {
   const [sides, setSides] = useState<Record<string, string | null>>({});
   /** The list on screen: what is current, or everything that has ended. */
   const [tab, setTab] = useState<RoomTab>("now");
-  /** The History filter and scroll, kept while one of its threads is open. */
-  const [needle, setNeedle] = useState("");
+  /** Where History was scrolled, kept while one of its threads is open. */
   const scroll = useRef(0);
 
   const newest = [...threads].reverse();
   // An ending the user has opened moves to History once it has been over for
-  // ROOM_KEEP_READ_MS; until then it stays in reach on Now.
+  // ROOM_KEEP_READ_MS; until then it stays in reach on Now. A cancel is the
+  // user's own stop, with nothing to read, so it goes at once.
   const moment = Date.now();
-  const leavesAt = (entry: ThreadView) =>
-    entry.status === "done" && entry.seen
-      ? toDate(entry.updatedAt).getTime() + ROOM_KEEP_READ_MS
-      : Number.POSITIVE_INFINITY;
+  const leavesAt = (entry: ThreadView) => {
+    const ended = entry.status === "done" || entry.status === "failed";
+    if (!ended || !entry.seen) return Number.POSITIVE_INFINITY;
+    if (entry.outcome === THREAD_CANCELLED) return 0;
+    return toDate(entry.updatedAt).getTime() + ROOM_KEEP_READ_MS;
+  };
   const now = newest.filter((entry) => leavesAt(entry) > moment);
   // Nothing else re-renders the room when that time passes.
   const [, settle] = useState(0);
@@ -236,22 +236,25 @@ export const BotRoom = memo(function BotRoom() {
   });
 
   const busy = threads.filter((entry) => entry.status === "working").length;
-  const attention = newest.filter(needsYou);
-  const pending = attention.length;
+  const pending = newest.filter(needsYou).length;
   const unread = newest.filter(isUnread);
+  // In the open room the list says what each bot is on; its foot keeps the faces,
+  // so a step's words never come and go under the list.
+  const faces = useMemo(
+    () => crew.map((face) => ({ ...face, word: null })),
+    [crew],
+  );
 
   const closeCompose = useCallback(() => setComposing(false), []);
 
-  // The room opens on what is current again. A History thread left open would
-  // not be found once its pages stop being read.
+  // The room always opens on Now. A thread left open would greet the next click
+  // on the pill, and a History one would not be found once its pages stop being read.
   const fold = () => {
     setOpen(false);
-    if (tab === "history") {
-      setTab("now");
-      setNeedle("");
-      scroll.current = 0;
-      if (current && !newest.includes(current)) setPicked(null);
-    }
+    setComposing(false);
+    setPicked(null);
+    setTab("now");
+    scroll.current = 0;
   };
 
   return (
@@ -311,8 +314,6 @@ export const BotRoom = memo(function BotRoom() {
                 <HistoryList
                   pages={history}
                   threads={past}
-                  needle={needle}
-                  onNeedle={setNeedle}
                   scroll={scroll}
                   onPick={setPicked}
                 />
@@ -323,6 +324,23 @@ export const BotRoom = memo(function BotRoom() {
               ) : (
                 <Empty bots={bots} />
               )}
+              {/* The pill's own row at the room's foot: open, it is the same object
+                  grown. A hand-off speaks here rather than over the list's rows. */}
+              <CrewRow
+                crew={faces}
+                more={more}
+                bubble={null}
+                label="Fold the room away"
+                onClick={fold}
+                side={
+                  bubble ? (
+                    <Moment handoff={bubble} />
+                  ) : (
+                    // Open, the room is the hand the pill offers.
+                    <RoomState busy={busy} pending={pending} grown />
+                  )
+                }
+              />
             </>
           )}
         </div>
@@ -344,13 +362,8 @@ export const BotRoom = memo(function BotRoom() {
             setPicked(id);
             setOpen(true);
           }}
-          onOpen={() => {
-            // One thing to look at opens straight into its thread: a single
-            // question, or with none waiting, a single answer nobody has read.
-            const only = attention.length ? attention : unread;
-            if (!picked && only.length === 1) setPicked(only[0].id);
-            setOpen(true);
-          }}
+          // Always the list: a thread opens from its row, or when Thursday opens it.
+          onOpen={() => setOpen(true)}
         />
       )}
     </div>
@@ -403,7 +416,7 @@ type Handoff = {
   at: string;
   /** Who spoke; Thursday stands for the user's side. */
   from: BotRef;
-  /** The bots it reached, drawn after an arrow. */
+  /** The bots it reached, tucked behind the speaker's face. */
   to: BotRef[];
   text: string;
   sign?: keyof typeof SIGNS;
@@ -814,7 +827,6 @@ function Chip({
   onOpen: () => void;
 }) {
   const grown = composing || rows.length > 0;
-  const state = restingState({ busy, pending, grown });
 
   return (
     <div
@@ -876,56 +888,97 @@ function Chip({
       </div>
 
       {/* The pill row. Same geometry either way, so the card shrinks into it. */}
-      {/* px-3 is the chip's one rail: the faces here, the section line and every
-          row's mark all start at 12px, and the trailing glyph ends at 12px — which
-          is why the well carries no box of its own. */}
-      <div className="flex items-center gap-2 px-3 py-1.5">
-        <button
-          type="button"
-          onClick={onOpen}
-          aria-label={count ? `Threads (${count})` : "Bots"}
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-full text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-        >
-          <Crew
-            crew={crew}
-            more={more}
-            // Grown, the rows already say what needs the user, and a bubble would cover them.
-            bubble={grown ? null : bubble}
-          />
-
-          {/* The room's own state and its glyph: one group, and the only thing on
-              the right. `ml-auto` keeps it there when the crew says nothing. */}
-          {state && (
-            <span className="ml-auto flex h-7 shrink-0 items-center gap-1.5">
-              {state.shine ? (
-                <ShinyText
-                  text={state.text}
-                  speed={2.6}
-                  className="block truncate text-[14px] leading-5 tracking-[-0.15px]"
-                />
-              ) : (
-                <span
-                  key={state.text}
-                  className="block animate-in truncate text-[14px] leading-5 tracking-[-0.15px] text-muted-foreground fade-in duration-300"
-                >
-                  {state.text}
-                </span>
-              )}
-              {/* No empty slot: words without a spinner end at the pill's edge. */}
-              {state.spin && (
-                <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground/70" />
-              )}
-            </span>
-          )}
-        </button>
-
+      <CrewRow
+        crew={crew}
+        more={more}
+        // Grown, the rows already say what needs the user, and a bubble would cover them.
+        bubble={grown ? null : bubble}
+        label={count ? `Threads (${count})` : "Bots"}
+        onClick={onOpen}
+        side={<RoomState busy={busy} pending={pending} grown={grown} />}
+      >
         {composing && (
           <RoundButton onClick={onCloseCompose} label="Cancel the message">
             <X className="size-3.5" />
           </RoundButton>
         )}
-      </div>
+      </CrewRow>
     </div>
+  );
+}
+
+/**
+ * The pill's row: who is here on the left, what the room is doing on the right.
+ * The folded chip draws it and so does the open room's foot, so opening the room
+ * reads as the pill growing rather than as a card swapped in for it.
+ *
+ * px-3 is the chip's one rail: the faces here, the section line and every row's
+ * mark all start at 12px, and the trailing glyph ends at 12px — which is why the
+ * well carries no box of its own.
+ */
+function CrewRow({
+  crew,
+  more,
+  bubble,
+  side,
+  label,
+  onClick,
+  children,
+}: {
+  crew: CrewFace[];
+  more: number;
+  bubble: Handoff | null;
+  /** The right side: the room's state, or what just happened. */
+  side: ReactNode;
+  label: string;
+  onClick: () => void;
+  /** Beside the row's button rather than inside it. */
+  children?: ReactNode;
+}) {
+  return (
+    <div className="flex shrink-0 items-center gap-2 px-3 py-1.5">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        className="flex min-w-0 flex-1 items-center gap-2 rounded-full text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <Crew crew={crew} more={more} bubble={bubble} />
+        {side}
+      </button>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The room's own state and its glyph: one group, and the only thing on the right.
+ * `ml-auto` keeps it there when the crew says nothing.
+ */
+function RoomState(props: { busy: number; pending: number; grown: boolean }) {
+  const state = restingState(props);
+  if (!state) return null;
+  return (
+    <span className="ml-auto flex h-7 shrink-0 items-center gap-1.5">
+      {state.shine ? (
+        <ShinyText
+          text={state.text}
+          speed={2.6}
+          className="block truncate text-[14px] leading-5 tracking-[-0.15px]"
+        />
+      ) : (
+        <span
+          key={state.text}
+          className="block animate-in truncate text-[14px] leading-5 tracking-[-0.15px] text-muted-foreground fade-in duration-300"
+        >
+          {state.text}
+        </span>
+      )}
+      {/* No empty slot: words without a spinner end at the pill's edge. */}
+      {state.spin && (
+        <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground/70" />
+      )}
+    </span>
   );
 }
 
@@ -1211,50 +1264,79 @@ function CrewMark({ face }: { face: CrewFace }) {
 }
 
 /**
- * What just happened, over the face of whoever spoke: that face, an arrow and
- * the bots it reached, then the words. A sign that waits on the user or failed
- * takes that ink, like every other status.
+ * What just happened, over the face of whoever spoke: the faces, then the words.
  *
  * It sits outside the pill's box on purpose, in space the corner is not using;
  * the chip cannot clip its own children while one is up.
  */
 function HandoffBubble({ handoff }: { handoff: Handoff }) {
-  const Sign = handoff.sign ? SIGNS[handoff.sign] : null;
-  const ink = handoff.sign ? SIGN_INK[handoff.sign] : undefined;
   return (
     <span className="pointer-events-none absolute bottom-[calc(100%+10px)] left-1/2 flex w-max -translate-x-1/2 animate-in flex-col items-center fade-in zoom-in-95 duration-200">
-      <span
-        className={cn(
-          "flex items-center gap-2 rounded-full bg-background py-2 pr-3.5 pl-2.5 text-[13px] leading-[18px] tracking-[-0.1px] whitespace-nowrap shadow-lg shadow-black/10 ring-1 ring-border",
-          ink,
-        )}
-      >
-        <span className="flex shrink-0 items-center gap-1">
-          <Speaker bot={handoff.from} />
-          {handoff.to.length > 0 && (
-            <>
-              <ArrowRight className="size-3 text-muted-foreground/70" />
-              <span className="flex items-center gap-0.5">
-                {handoff.to.map((bot) => (
-                  <Speaker key={bot.name} bot={bot} />
-                ))}
-              </span>
-            </>
-          )}
-        </span>
-        {Sign && (
-          <Sign
-            className={cn(
-              "size-3.5 shrink-0",
-              !ink && "text-muted-foreground/70",
-            )}
-          />
-        )}
-        {handoff.text}
+      <span className="flex rounded-full bg-background py-2 pr-3.5 pl-2.5 shadow-lg shadow-black/10 ring-1 ring-border">
+        <HandoffWords handoff={handoff} />
       </span>
       {/* Two triangles: the ring's, then the fill's a pixel over it. */}
       <span className="-mt-px size-0 border-x-[6px] border-t-[7px] border-x-transparent border-t-border" />
       <span className="-mt-[7.5px] size-0 border-x-[6px] border-t-[7px] border-x-transparent border-t-background" />
+    </span>
+  );
+}
+
+/** A hand-off in the open room's foot, where the room's width holds it and no bubble covers the list. */
+function Moment({ handoff }: { handoff: Handoff }) {
+  return (
+    <span className="ml-auto flex h-7 min-w-0 shrink animate-in items-center pl-4 fade-in duration-200">
+      <HandoffWords handoff={handoff} />
+    </span>
+  );
+}
+
+/**
+ * A hand-off's faces, sign and words. A sign that waits on the user or failed
+ * takes that ink, like every other status.
+ */
+function HandoffWords({ handoff }: { handoff: Handoff }) {
+  const Sign = handoff.sign ? SIGNS[handoff.sign] : null;
+  const ink = handoff.sign ? SIGN_INK[handoff.sign] : undefined;
+  return (
+    <span
+      className={cn(
+        "flex min-w-0 items-center gap-2 text-[13px] leading-[18px] tracking-[-0.1px] whitespace-nowrap",
+        ink,
+      )}
+    >
+      <Party from={handoff.from} to={handoff.to} />
+      {Sign && (
+        <Sign
+          className={cn(
+            "size-3.5 shrink-0",
+            !ink && "text-muted-foreground/70",
+          )}
+        />
+      )}
+      <span className="min-w-0 truncate">{handoff.text}</span>
+    </span>
+  );
+}
+
+/**
+ * Whoever spoke in front and the bots it reached tucked behind, overlapped the
+ * way the crew row overlaps faces. Nothing is drawn between them: the order says
+ * who spoke, and a bubble's tail points at the same face.
+ */
+function Party({ from, to }: { from: BotRef; to: BotRef[] }) {
+  const faces = [from, ...to];
+  return (
+    <span className="flex shrink-0 items-center">
+      {faces.map((bot, index) => (
+        <span
+          key={bot.name}
+          className={cn("relative flex", index > 0 && "-ml-1.25")}
+          style={{ zIndex: faces.length - index }}
+        >
+          <Speaker bot={bot} />
+        </span>
+      ))}
     </span>
   );
 }
@@ -1471,22 +1553,14 @@ function State({ thread }: { thread: ThreadView }) {
   );
 }
 
+/** A room that has never had a thread. The faces are already in the room's foot. */
 function Empty({ bots }: { bots?: Bot[] }) {
-  const { crew, more } = crewOf(bots, []);
   return (
-    <div className="flex flex-col items-center gap-3 px-6 pt-3 pb-4 text-center">
-      <Crew crew={crew} more={more} bubble={null} />
-      {bots?.length ? (
-        <p className="text-[12px] text-muted-foreground">
-          Nothing handed over yet — ask for something that takes a while.
-        </p>
-      ) : (
-        <p className="text-[12px] text-muted-foreground">
-          Thursday hands work to {DEFAULT_BOT.name} until you make bots of your
-          own in Settings › Bots.
-        </p>
-      )}
-    </div>
+    <p className="px-6 pt-4 pb-5 text-center text-[12px] text-muted-foreground">
+      {bots?.length
+        ? "Nothing handed over yet — ask for something that takes a while."
+        : `Thursday hands work to ${DEFAULT_BOT.name} until you make bots of your own in Settings › Bots.`}
+    </p>
   );
 }
 
@@ -1501,23 +1575,17 @@ function Quiet() {
 
 /**
  * Every thread that has ended, newest first, grouped by day. Pages arrive as the
- * end of the list scrolls into view (listThreadHistory). The filter narrows what
- * has loaded, and the pages keep coming while the end is in view, so a search
- * reaches further back on its own.
+ * end of the list scrolls into view (listThreadHistory).
  */
 function HistoryList({
   pages,
   threads,
-  needle,
-  onNeedle,
   scroll,
   onPick,
 }: {
   pages: ServerPages<Thread>;
   /** The ended threads among the loaded pages. */
   threads: ThreadView[];
-  needle: string;
-  onNeedle: (next: string) => void;
   /** Where the list was left, restored when a thread opened from it closes. */
   scroll: RefObject<number>;
   onPick: (id: string) => void;
@@ -1529,18 +1597,8 @@ function HistoryList({
     [scroll],
   );
 
-  const word = needle.trim().toLowerCase();
-  const shown = word
-    ? threads.filter((thread) =>
-        [thread.label, thread.outcome, thread.bot.name]
-          .join(" ")
-          .toLowerCase()
-          .includes(word),
-      )
-    : threads;
-
   const days: { day: string; rows: ThreadView[] }[] = [];
-  for (const thread of shown) {
+  for (const thread of threads) {
     const day = dayOf(thread.updatedAt);
     const last = days.at(-1);
     if (last?.day === day) last.rows.push(thread);
@@ -1548,70 +1606,58 @@ function HistoryList({
   }
 
   return (
-    <>
-      <div className="relative mx-4 mt-0.5 mb-1 shrink-0">
-        <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          aria-label="Filter by label, bot or word"
-          placeholder="Filter by label, bot or word"
-          value={needle}
-          onChange={(event) => onNeedle(event.target.value)}
-          className="h-8 pl-8"
-        />
-      </div>
-      <div
-        ref={restore}
-        onScroll={(event) => {
-          scroll.current = event.currentTarget.scrollTop;
-        }}
-        className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pt-1 pb-2 scrollbar-none"
-      >
-        {pages.error ? (
-          <p className="px-2.5 py-3 text-[12px] text-destructive">
-            {pages.error.message}
-          </p>
-        ) : pages.isLoading ? (
-          <>
-            <GhostRow />
-            <GhostRow />
-            <GhostRow />
-          </>
-        ) : (
-          <>
-            {days.map((group, at) => (
-              <Fragment key={group.day}>
-                <p
-                  className={cn(
-                    "px-2.5 pb-1 font-mono text-[10px] text-muted-foreground",
-                    at === 0 ? "pt-1" : "pt-3",
-                  )}
-                >
-                  {group.day} · {group.rows.length}
-                </p>
-                {group.rows.map((thread) => (
-                  <ThreadRow
-                    key={thread.id}
-                    thread={thread}
-                    onPick={() => onPick(thread.id)}
-                  />
-                ))}
-              </Fragment>
-            ))}
-            {pages.hasMore ? (
-              <div ref={pages.sentinelRef}>
-                <GhostRow />
-              </div>
-            ) : (
-              days.length === 0 && (
-                <p className="px-6 pt-3 pb-4 text-center text-[12px] text-muted-foreground">
-                  {word ? "Nothing matches." : "Nothing has ended yet."}
-                </p>
-              )
-            )}
-          </>
-        )}
-      </div>
-    </>
+    <div
+      ref={restore}
+      onScroll={(event) => {
+        scroll.current = event.currentTarget.scrollTop;
+      }}
+      className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pt-1 pb-2 scrollbar-none"
+    >
+      {pages.error ? (
+        <p className="px-2.5 py-3 text-[12px] text-destructive">
+          {pages.error.message}
+        </p>
+      ) : pages.isLoading ? (
+        <>
+          <GhostRow />
+          <GhostRow />
+          <GhostRow />
+        </>
+      ) : (
+        <>
+          {days.map((group, at) => (
+            <Fragment key={group.day}>
+              <p
+                className={cn(
+                  "px-2.5 pb-1 font-mono text-[10px] text-muted-foreground",
+                  at === 0 ? "pt-1" : "pt-3",
+                )}
+              >
+                {group.day} · {group.rows.length}
+              </p>
+              {group.rows.map((thread) => (
+                <ThreadRow
+                  key={thread.id}
+                  thread={thread}
+                  onPick={() => onPick(thread.id)}
+                />
+              ))}
+            </Fragment>
+          ))}
+          {pages.hasMore ? (
+            <div ref={pages.sentinelRef}>
+              <GhostRow />
+            </div>
+          ) : (
+            days.length === 0 && (
+              <p className="px-6 pt-3 pb-4 text-center text-[12px] text-muted-foreground">
+                Nothing has ended yet.
+              </p>
+            )
+          )}
+        </>
+      )}
+    </div>
   );
 }
 

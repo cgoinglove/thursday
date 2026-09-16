@@ -67,7 +67,7 @@ export async function createLiveCall(options: {
     model: string;
     instructions: string;
     tools: ToolManifest[];
-    /** Omitted when null, so a model without reasoning still runs. */
+    /** No effort is sent when null, so a model without reasoning still runs. */
     reasoningEffort: string | null;
     webSearch: boolean;
   };
@@ -91,20 +91,30 @@ export async function createLiveCall(options: {
           responses: {
             model: options.backend.model,
             instructions: options.backend.instructions,
+            // `strict` is left out, not false: each tool whose schema allows it is
+            // decoded to its schema, and the rest fall back to best effort. `true`
+            // is refused while any schema has optional fields.
             tools: [
               ...options.backend.tools.map((tool) => ({
                 type: "function",
                 ...tool,
-                strict: false,
               })),
               ...(options.backend.webSearch ? [{ type: "web_search" }] : []),
             ],
             tool_choice: "auto",
             parallel_tool_calls: true,
             max_output_tokens: LIVE_CALL.backendOutputTokens,
-            ...(options.backend.reasoningEffort
-              ? { reasoning: { effort: options.backend.reasoningEffort } }
-              : {}),
+            // The summary is kept with the call (call_thought), never shown. A model
+            // without reasoning takes it and sends none; `none` has nothing to summarise.
+            reasoning:
+              options.backend.reasoningEffort === "none"
+                ? { effort: "none" }
+                : {
+                    ...(options.backend.reasoningEffort
+                      ? { effort: options.backend.reasoningEffort }
+                      : {}),
+                    summary: "auto",
+                  },
           },
         },
       },

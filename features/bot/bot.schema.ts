@@ -224,6 +224,9 @@ export const THREAD_HISTORY_PAGE = PAGE_SIZE;
 /** The single option offered when the app stopped a job and asks whether to go on. Button text and spoken word alike. */
 export const THREAD_CONTINUE = "Continue";
 
+/** The outcome a cancel writes. A cancel ends a thread as failed, so this is how it is told from a failure. */
+export const THREAD_CANCELLED = "Cancelled.";
+
 /**
  * Who a person's words to a job came from (bot.runner answerThread). Thursday
  * passing something on from a call and the user typing on screen reach a bot

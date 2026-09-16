@@ -443,8 +443,7 @@ function ThreadSheet({
         modal={false}
         disablePointerDismissal
       >
-        {/* contents: the settings dialog is a grid, and the portal's own box would take a row in it */}
-        <DialogPortal container={host} className="contents">
+        <DialogPortal container={host}>
           <DialogPopup className="absolute inset-y-0 right-0 z-10 flex w-[min(35rem,calc(100%-13rem))] flex-col border-l border-border/60 bg-popover text-popover-foreground shadow-2xl shadow-black/10 duration-150 data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-right-4 data-closed:animate-out data-closed:fade-out-0 data-closed:slide-out-to-right-4">
             {thread && view && (
               <>

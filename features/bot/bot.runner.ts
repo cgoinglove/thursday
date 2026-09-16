@@ -24,6 +24,7 @@ import { PromiseChain } from "@/lib/utils";
 import { findJobBot } from "./bot.query";
 import { resumeTranscript, runBot, type ThreadEvent } from "./bot.run";
 import {
+  THREAD_CANCELLED,
   THREAD_CONTINUE,
   type ThreadSpeaker,
   type ThreadStatus,
@@ -436,7 +437,7 @@ export async function cancelThread(id: string) {
     await cancelRoom(id);
     await updateThread(id, {
       status: "failed",
-      outcome: "Cancelled.",
+      outcome: THREAD_CANCELLED,
       pending: null,
       seen: true,
       endedAt: new Date(),

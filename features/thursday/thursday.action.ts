@@ -23,11 +23,13 @@ import {
   deleteEndedCalls,
   endCall,
   insertCall,
+  saveThought,
   saveTurns,
   writeCallSkillsOn,
 } from "./thursday.query";
 import {
   type CallHandshake,
+  CallThoughtSchema,
   CallTurnSchema,
   ThursdaySettingsSchema,
 } from "./thursday.schema";
@@ -131,6 +133,12 @@ export const setCallSkillsAction = serverAction(async (on: unknown) => {
 export const saveTurnsAction = serverAction(
   async (callId: string, turns: unknown) => {
     await saveTurns(callId, CallTurnSchema.array().min(1).parse(turns));
+  },
+);
+
+export const saveThoughtAction = serverAction(
+  async (callId: string, thought: unknown) => {
+    await saveThought(callId, CallThoughtSchema.parse(thought));
   },
 );
 

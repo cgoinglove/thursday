@@ -117,10 +117,11 @@ export const PAGE_SIZE = 50;
 export const INBOX_FINISHED = 3;
 
 /**
- * How long a finished thread the user has already opened stays on the room's Now
- * tab, ms from when it ended; after that it is under History only. Longer keeps
- * recent work in reach, 0 moves it the moment it is read. Only endings the inbox
- * still carries (INBOX_FINISHED) can stay.
+ * How long a finished thread the user has already opened, done or failed, stays on
+ * the room's Now tab, ms from when it ended; after that it is under History only.
+ * Longer keeps recent work in reach, 0 moves it the moment it is read. A cancel
+ * leaves at once whatever this is. Only endings the inbox still carries
+ * (INBOX_FINISHED) can stay.
  */
 export const ROOM_KEEP_READ_MS = 10 * 60_000;
 

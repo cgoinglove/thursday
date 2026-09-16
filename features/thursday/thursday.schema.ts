@@ -143,6 +143,15 @@ export const CallTurnSchema = z.object({
 
 export type CallTurn = z.infer<typeof CallTurnSchema>;
 
+/** One reasoning summary part of the backend (call_thought). */
+export const CallThoughtSchema = z.object({
+  id: z.string().min(1),
+  text: z.string(),
+  seq: z.number().int().min(0),
+});
+
+export type CallThought = z.infer<typeof CallThoughtSchema>;
+
 export type CallStatus =
   | "idle"
   | "connecting"

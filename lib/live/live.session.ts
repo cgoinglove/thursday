@@ -15,6 +15,18 @@ export type LiveTurn = {
   fragments?: LiveFragment[];
 };
 export type LiveToolCall = { id: string; name: string; arguments: string };
+/**
+ * One reasoning summary part of the backend, whole. A summary is the backend's
+ * own account of its thinking, not its reasoning tokens, and comes only while a
+ * model reasons.
+ */
+export type LiveReasoning = {
+  /** The reasoning item and the summary part within it. */
+  id: string;
+  text: string;
+  /** Where in the call, on the turns' clock. */
+  seq: number;
+};
 export type LiveActivity = {
   working: boolean;
   speaking: boolean;
@@ -33,6 +45,7 @@ type LiveOptions = {
   audio: LiveAudio;
   on: {
     runTool(call: LiveToolCall): Promise<string>;
+    reasoning?(part: LiveReasoning): void;
     turn(turn: LiveTurn): void;
     activity(activity: LiveActivity): void;
     finalized?(close: LiveClose): void;
@@ -119,12 +132,16 @@ type LiveEvent = {
       usage?: unknown;
     };
     response_id?: string;
+    item_id?: string;
+    summary_index?: number;
+    text?: string;
     item?: {
       type: string;
       id: string;
       call_id: string;
       name: string;
       arguments: string;
+      status?: string;
     };
   };
 };
@@ -385,6 +402,13 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
           response = { calls: new Map(), terminal: false, continued: false };
           responses.set(id, response);
         }
+        if (nested.type === "response.reasoning_summary_text.done") {
+          on.reasoning?.({
+            id: `${nested.item_id}:${nested.summary_index ?? 0}`,
+            text: nested.text ?? "",
+            seq: timeline,
+          });
+        }
         if (
           nested.type === "response.output_item.done" &&
           nested.item?.type === "function_call"
@@ -392,6 +416,18 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
           const item = nested.item;
           if (calls.has(item.call_id)) break;
           calls.add(item.call_id);
+          // Cut off by the output cap: the arguments are a fragment, and Live ends the
+          // handoff with a top-level error, never a terminal event for this response.
+          if (item.status === "incomplete") {
+            response.terminal = true;
+            response.continued = true;
+            logger.warn("Live backend call cut off; not run", {
+              responseId: id,
+              name: item.name,
+              arguments: item.arguments.slice(0, 200),
+            });
+            break;
+          }
           on.turn({
             id: item.id,
             role: "tool",

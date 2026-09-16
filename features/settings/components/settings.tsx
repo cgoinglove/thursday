@@ -297,11 +297,11 @@ export function Settings({ children }: { children?: ReactElement }) {
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? show() : hide())}>
       {children && <DialogTrigger render={children} />}
-      <DialogContent className="h-[min(52rem,calc(100vh-3rem))] gap-0 overflow-hidden p-0 sm:max-w-[min(80rem,calc(100vw-3rem))]">
+      {/* block, not grid: a popup portaled in here (the thread sheet and anything it opens) would take a row */}
+      <DialogContent className="block h-[min(52rem,calc(100vh-3rem))] overflow-hidden p-0 sm:max-w-[min(80rem,calc(100vw-3rem))]">
         <DialogTitle className="sr-only">Settings</DialogTitle>
 
-        {/* min-w-0: DialogContent is a grid, and a nowrap line would push it past max-w */}
-        <div className="flex h-full min-h-0 min-w-0">
+        <div className="flex h-full min-h-0">
           <nav
             aria-label="Settings sections"
             onKeyDown={(event) => {

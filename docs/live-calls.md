@@ -41,7 +41,7 @@ shows recent models; an older or custom ID can be typed and saved. Live accepts 
 reasoning effort when the call opens and fails the backend's first response when the
 model does not take it, so the server asks the token-count endpoint first, once per
 model and effort, and a refused effort is omitted rather than shown. A refused model
-or key still reaches the user when the call opens. Auto reasoning omits the parameter.
+or key still reaches the user when the call opens. Auto reasoning sends no effort.
 Web search adds the `web_search` tool only when switched on. Changes apply from the
 next call.
 
@@ -96,7 +96,16 @@ intentionally omit output items. Submit every function output with
 command continues backend work; it does not grant permission for Live to speak. A
 response that ends incomplete after asking for tools is still continued once its outputs
 are in, or the backend turn never finishes; a failed or cancelled response, or a second
-incomplete in a row, only warns.
+incomplete in a row, only warns. A function call the output cap cuts off arrives as an
+item with status `incomplete` and fragment arguments, and Live ends that handoff with a
+top-level `error` instead of a terminal event: the call is not run and its response
+counts as finished. The backend is asked for `reasoning.summary: "auto"` unless the
+effort is `none`. Each finished summary part (nested `response.reasoning_summary_text.done`,
+only while the model reasons) is stored with its call in `call_thought` to look into
+later; nothing draws it or reads it back into a prompt. Tools are sent without `strict`, so each schema that allows it is
+decoded to the schema; `strict: false` would let a model write arguments that are not
+JSON, and `strict: true` is refused while any schema has optional fields. Live has no
+`response.cancel`.
 
 Long work enters the existing bot runner and returns a thread receipt immediately.
 Background questions and results follow the existing durable relay queue. A voice
