@@ -21,7 +21,6 @@ import {
   LIVE_DEFAULTS,
   LIVE_PROVIDER,
   LIVE_REASONING,
-  LIVE_VOICES,
   type LiveSettings,
 } from "@/features/ai/live.schema";
 import type { AiProvider } from "@/features/ai/model.schema";
@@ -41,6 +40,7 @@ import type { SkillSummary } from "@/features/skills/skills.schema";
 import { CallHistoryRow } from "@/features/thursday/components/call-log";
 import { FACES, Face } from "@/features/thursday/components/face";
 import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
+import { VoicePicker } from "@/features/thursday/components/voice-picker";
 import {
   ASCII_CHARSETS,
   type AsciiCharset,
@@ -121,7 +121,12 @@ export function ThursdaySetting() {
         onChange={(captionView) => patch({ captionView })}
       />
 
-      <ModelsSetting value={thursday} hasKey={hasKey} onChange={patch} />
+      <ModelsSetting
+        value={thursday}
+        face={face}
+        hasKey={hasKey}
+        onChange={patch}
+      />
 
       {/* Every way a call starts other than pressing her face, read at once */}
       <SettingGroup label="Starting a call">
@@ -194,10 +199,13 @@ function TileHead({
  */
 function ModelsSetting({
   value,
+  face,
   hasKey,
   onChange,
 }: {
   value: LiveSettings;
+  /** The picker plays a sample through her own face. */
+  face: ThursdayFace;
   hasKey: boolean;
   onChange: (change: Partial<LiveSettings>) => void;
 }) {
@@ -221,23 +229,18 @@ function ModelsSetting({
                 disabled
               />
             </ModelBlock>
-
-            <ModelBlock label="voice">
-              <Combobox
-                value={value.voice}
-                onChange={(voice) =>
-                  onChange({ voice: voice.trim() || LIVE_DEFAULTS.voice })
-                }
-                options={LIVE_VOICES.map((voice) => ({
-                  value: voice,
-                  label: voice,
-                }))}
-                aria-label="Voice"
-                placeholder={LIVE_DEFAULTS.voice}
-                empty="Not on the list — it still runs"
-              />
-            </ModelBlock>
           </div>
+
+          {/* Its own row: opened, the picker holds her face beside the voices. */}
+          <ModelBlock label="voice">
+            <VoicePicker
+              voice={value.voice}
+              face={face}
+              onChange={(voice) =>
+                onChange({ voice: voice.trim() || LIVE_DEFAULTS.voice })
+              }
+            />
+          </ModelBlock>
 
           <ModelBlock label="instructions">
             <PromptField

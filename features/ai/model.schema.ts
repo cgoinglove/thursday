@@ -244,11 +244,6 @@ export const MEDIA_MODEL_PROVIDERS: Record<
           label: "Grok Imagine 2.0",
           tier: "small",
         },
-        {
-          id: "google/gemini-3.1-flash-image",
-          label: "Gemini 3.1 Flash Image",
-          tier: "mid",
-        },
         { id: "bfl/flux-2-pro", label: "FLUX 2 Pro", tier: "mid" },
         {
           id: "bytedance/seedream-5.0-pro",
@@ -256,11 +251,6 @@ export const MEDIA_MODEL_PROVIDERS: Record<
           tier: "mid",
         },
         { id: "recraft/recraft-v4.1", label: "Recraft V4.1", tier: "mid" },
-        {
-          id: "google/gemini-3-pro-image",
-          label: "Gemini 3 Pro Image",
-          tier: "large",
-        },
         {
           id: "openai/gpt-image-2.5-sunburst",
           label: "GPT Image 2.5 Sunburst",
@@ -642,7 +632,7 @@ export type GatewayModel = {
   label: string;
   /** Who runs it, the gateway's own word. Four of them are providers this app draws (provider-icon). */
   owner: string;
-  /** Settled in ai/model `readGatewayCatalog`, not passed through; null when the gateway did not say. */
+  /** The gateway's own word, as `readGatewayCatalog` received it; null when it did not say. */
   type?: string | null;
   /** The gateway's own words for what a model can do; only `tool-use` is read. */
   tags: string[];

@@ -68,6 +68,13 @@ const TOOL_LINGER_MS = 2500;
 const RELAY_LINGER_MS = 5000;
 
 /**
+ * Once the backend's turn is over, how long the activity line keeps saying it is
+ * working while it waits for her voice. Her first word is what normally ends it;
+ * this is only for a turn that never reaches one.
+ */
+const THINKING_TAIL_MS = 6000;
+
+/**
  * The face lags the activity line: only a tool held longer than this switches
  * to the working face. Shorter tools show on the line only.
  */
@@ -140,6 +147,11 @@ export function useThursday() {
   const [since, setSince] = useState<number | null>(null);
   /** Seconds until idle hang-up; set only inside IDLE_WARN_MS. */
   const [idleLeft, setIdleLeft] = useState<number | null>(null);
+  /** When the backend picked this turn up (ms); the activity line counts from it. */
+  const [thinkingSince, setThinkingSince] = useState<number | null>(null);
+  /** The same value where callbacks can read it, and the timer that ends it. */
+  const thinking = useRef<number | null>(null);
+  const thinkTail = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
    * A relayed update is out and has not been voiced yet: nothing else goes in
    * until her voice has started and stopped.
@@ -162,6 +174,8 @@ export function useThursday() {
     grace: ReturnType<typeof setTimeout> | null;
   }>({ since: 0, asked: false, owed: null, grace: null });
   const linger = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Whether the line holds a relay, so only a relay is finished by her voice. */
+  const relayOpen = useRef(false);
   // Every server-run tool in this call starts with this signal, so one abort
   // reaches running browser commands. Delegated threads are server-owned and outlive the call
   const working = useRef<AbortController | null>(null);
@@ -202,6 +216,7 @@ export function useThursday() {
 
   const showTool = useCallback((call: LiveToolCall) => {
     if (linger.current) clearTimeout(linger.current);
+    relayOpen.current = false;
     setTool({
       name: call.name,
       line: toolLine(call.name, call.arguments),
@@ -210,14 +225,15 @@ export function useThursday() {
     });
   }, []);
 
-  /** A relay takes the tool line and stays long enough to read. */
+  /**
+   * A relay takes the tool line and runs there like a tool does: while it goes in,
+   * and while she voices it. Her voice finishing it is what stops the motion
+   * (doneReading); after that it stays long enough to read.
+   */
   const showRelay = useCallback((run: ToolRun) => {
     if (linger.current) clearTimeout(linger.current);
-    setTool(run);
-    linger.current = setTimeout(
-      () => setTool((open) => (open?.kind === "relay" ? null : open)),
-      RELAY_LINGER_MS,
-    );
+    relayOpen.current = true;
+    setTool({ ...run, done: false });
   }, []);
 
   /** Tool finished; lingers, then clears. */
@@ -237,6 +253,16 @@ export function useThursday() {
   const doneReading = useCallback(() => {
     if (reading.current.giveUp) clearTimeout(reading.current.giveUp);
     reading.current = { on: false, spoke: false, giveUp: null };
+    if (!relayOpen.current) return;
+    relayOpen.current = false;
+    setTool((open) =>
+      open?.kind === "relay" ? { ...open, done: true } : open,
+    );
+    if (linger.current) clearTimeout(linger.current);
+    linger.current = setTimeout(
+      () => setTool((open) => (open?.kind === "relay" ? null : open)),
+      RELAY_LINGER_MS,
+    );
   }, []);
 
   /** An update is on the wire: nothing else goes in until she has voiced it. */
@@ -248,6 +274,44 @@ export function useThursday() {
       giveUp: setTimeout(doneReading, CALL_RELAY.readMs),
     };
   }, [doneReading]);
+
+  const setThinking = useCallback((at: number | null) => {
+    thinking.current = at;
+    setThinkingSince(at);
+  }, []);
+
+  /**
+   * What the activity line says about the backend. It starts when the backend takes the
+   * turn and ends on her first word, not on the response: a turn that calls two
+   * tools settles for a moment between them, and the wait before she speaks is
+   * still the same stretch of work. Both would otherwise read as the call stalling.
+   */
+  const holdThinking = useCallback(
+    (busy: boolean, speaking: boolean) => {
+      const dropTail = () => {
+        if (thinkTail.current) clearTimeout(thinkTail.current);
+        thinkTail.current = null;
+      };
+      // Her voice always wins: it is the answer the work was for
+      if (speaking) {
+        dropTail();
+        if (thinking.current !== null) setThinking(null);
+        return;
+      }
+      if (busy) {
+        dropTail();
+        if (thinking.current === null) setThinking(Date.now());
+        return;
+      }
+      if (thinking.current !== null && !thinkTail.current) {
+        thinkTail.current = setTimeout(() => {
+          thinkTail.current = null;
+          setThinking(null);
+        }, THINKING_TAIL_MS);
+      }
+    },
+    [setThinking],
+  );
 
   /**
    * Puts to her what background work still waits on the user, once neither
@@ -288,6 +352,8 @@ export function useThursday() {
       });
     }
     readAloud();
+    // On the line before it goes out, so it runs there for the whole wait
+    showRelay(last.show);
     void live
       .append(
         "commentary",
@@ -316,7 +382,6 @@ export function useThursday() {
           description: errorToString(cause),
         }),
       );
-    showRelay(last.show);
   }, [readAloud, doneReading, showRelay]);
 
   /**
@@ -463,6 +528,10 @@ export function useThursday() {
     setStatus(live ? "ending" : "idle");
     setMessages([]);
     setTool(null);
+    setThinking(null);
+    if (thinkTail.current) clearTimeout(thinkTail.current);
+    thinkTail.current = null;
+    relayOpen.current = false;
     // the room is not cleared: threads outlive the call
 
     // Waits (bounded) for session.closed, which saves the last turns and says
@@ -478,7 +547,7 @@ export function useThursday() {
       farewell.current.currentTime = 0;
       void farewell.current.play().catch(() => {});
     }
-  }, [outbox, restFace, doneReading]);
+  }, [outbox, restFace, doneReading, setThinking]);
 
   // Unmount during a call must release the mic and stop tools
   useEffect(() => {
@@ -499,6 +568,7 @@ export function useThursday() {
       if (linger.current) clearTimeout(linger.current);
       if (faceIn.current) clearTimeout(faceIn.current);
       if (reading.current.giveUp) clearTimeout(reading.current.giveUp);
+      if (thinkTail.current) clearTimeout(thinkTail.current);
       if (idle.current.grace) clearTimeout(idle.current.grace);
     };
   }, []);
@@ -668,7 +738,10 @@ export function useThursday() {
           // session facts drive the face through showFace; the tool line is drawn by the tool itself
           activity: (activity) => {
             showFace(statusOf(activity));
-            acting.current = activity.working || activity.tools.length > 0;
+            const busy = activity.working || activity.tools.length > 0;
+            acting.current = busy;
+            // From the moment the backend picks the turn up until her first word
+            holdThinking(busy, activity.speaking);
             // Sound on the mic alone does not rewind the clock: a noisy room would
             // keep a call open forever. Her words and backend work do.
             if (activity.speaking || activity.working || activity.tools.length)
@@ -751,6 +824,7 @@ export function useThursday() {
     outbox,
     readAloud,
     doneReading,
+    holdThinking,
   ]);
 
   /**
@@ -823,6 +897,8 @@ export function useThursday() {
     status,
     messages,
     tool,
+    /** When the backend picked the turn up (ms); null when it is not working. */
+    thinkingSince,
     /** Seconds until idle hang-up; null outside the warning window. */
     idleLeft,
     /** When the line opened (ms); null without a call. */

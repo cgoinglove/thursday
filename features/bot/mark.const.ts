@@ -48,7 +48,7 @@ const MARK_COLORS = [
 
 export type MarkColor = (typeof MARK_COLORS)[number];
 
-/** Colour by name, for code that hardcodes one (seed bots) so it stays inside the palette. */
+/** Colour by name, so code that names one (the status inks below) stays inside the palette. */
 export const MARK_INK = Object.fromEntries(
   MARK_COLORS.map((color) => [color.id, color.value]),
 ) as Record<MarkColor["id"], string>;
@@ -60,16 +60,6 @@ export const MARK_PALETTE: string[] = MARK_COLORS.filter(
 
 /** The app's two status colours. A face wearing one reads as a state it is not in, so no roll lands on them. */
 const STATUS_INK: string[] = [MARK_INK.amber, MARK_INK.red];
-
-/** `count` distinct colours in random order. Fewer than asked when the palette runs out. */
-export function randomMarkColors(count: number): string[] {
-  const pool = MARK_PALETTE.filter((color) => !STATUS_INK.includes(color));
-  for (let at = pool.length - 1; at > 0; at--) {
-    const swap = Math.floor(Math.random() * (at + 1));
-    [pool[at], pool[swap]] = [pool[swap], pool[at]];
-  }
-  return pool.slice(0, count);
-}
 
 /** How the renderer lays a paint's colours out. */
 export type MarkPaintLook = "flow" | "duo" | "aurora";
@@ -120,6 +110,29 @@ export const MARK_PAINT_IDS = Object.keys(MARK_PAINTS) as [
   MarkPaint,
   ...MarkPaint[],
 ];
+
+/** What a body wears: one palette colour, or one of MARK_PAINTS in its place. */
+export type MarkFill = { color: string } | { paint: MarkPaint };
+
+/**
+ * `count` distinct fills in random order. Colours and paints come out of one
+ * pool, so a paint is rolled as often as its share of the vocabulary; a face
+ * nobody drew wears the same range as one somebody picked. Fewer than asked when
+ * the pool runs out.
+ */
+export function randomMarkFills(count: number): MarkFill[] {
+  const pool: MarkFill[] = [
+    ...MARK_PALETTE.filter((color) => !STATUS_INK.includes(color)).map(
+      (color) => ({ color }),
+    ),
+    ...MARK_PAINT_IDS.map((paint) => ({ paint })),
+  ];
+  for (let at = pool.length - 1; at > 0; at--) {
+    const swap = Math.floor(Math.random() * (at + 1));
+    [pool[at], pool[swap]] = [pool[swap], pool[at]];
+  }
+  return pool.slice(0, count);
+}
 
 /** A paint as a still CSS background, for the swatch that picks it. */
 export function paintSwatch(paint: MarkPaint): string {

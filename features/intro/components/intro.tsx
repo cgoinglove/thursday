@@ -10,7 +10,7 @@ import TextType from "@/components/ui/text-type";
 import { APP_NAME } from "@/config";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import { type TextModelProviderId } from "@/features/ai/model.schema";
-import { DEFAULT_BOT } from "@/features/bot/bot.schema";
+import { type BotIcon, DEFAULT_BOT } from "@/features/bot/bot.schema";
 import {
   BOT_SEEDS,
   type BotSeed,
@@ -46,15 +46,14 @@ export function Intro({
   ready,
   /** Opened deliberately via `?intro`. */
   forced,
-  /** One colour per BOT_SEEDS entry (bot.seed rollSeedColors), rolled on the server so hydration keeps the same faces. */
-  colors,
+  /** One face per BOT_SEEDS entry (bot.seed rollSeedIcons), rolled on the server so hydration keeps the same faces. */
+  icons,
 }: {
   ready: boolean;
   forced: boolean;
-  colors: string[];
+  icons: BotIcon[];
 }) {
-  const ink = (seed: BotSeed) =>
-    colors[BOT_SEEDS.indexOf(seed)] ?? seed.icon?.color;
+  const face = (seed: BotSeed) => icons[BOT_SEEDS.indexOf(seed)];
 
   const router = useRouter();
   const [at, setAt] = useState(0);
@@ -117,7 +116,7 @@ export function Intro({
         // A half pick is not a model; the action falls back to the default
         provider: picks[seed.name]?.provider ?? null,
         model: picks[seed.name]?.model || null,
-        color: ink(seed),
+        icon: face(seed),
       })),
     );
     router.replace("/");
@@ -143,9 +142,9 @@ export function Intro({
       />
 
       <div className="absolute inset-x-12 top-22 bottom-44 flex flex-col items-center justify-center overflow-y-auto">
-        {at === 0 && <FirstLook ink={ink} />}
+        {at === 0 && <FirstLook face={face} />}
         {at === 1 && <KeyStep ref={keys} onSaved={() => setKeyed(true)} />}
-        {at === 2 && <BotStep picks={picks} ink={ink} onPatch={patch} />}
+        {at === 2 && <BotStep picks={picks} face={face} onPatch={patch} />}
       </div>
 
       <div className="absolute inset-x-0 bottom-13 flex flex-col items-center gap-5.5">
@@ -195,7 +194,7 @@ export function Intro({
 }
 
 /** Step one: the three lines the call screen actually draws, no chat bubbles. */
-function FirstLook({ ink }: { ink: Ink }) {
+function FirstLook({ face }: { face: Face }) {
   const crew = RECOMMENDED_SEEDS;
 
   return (
@@ -210,9 +209,7 @@ function FirstLook({ ink }: { ink: Ink }) {
               key={seed.name}
               size={22}
               seed={seed.name}
-              color={ink(seed)}
-              shape={seed.icon?.shape}
-              outline={seed.icon?.outline}
+              {...face(seed)}
               state="thinking"
               notify={false}
               className={cn("shrink-0", index > 0 && "-ml-1.5")}
@@ -274,8 +271,8 @@ function KeyStep({
 /** The first sentence of the app spells its number; past this the numeral is fine. */
 const COUNT_WORD: Record<number, string> = { 1: "One", 2: "Two", 3: "Three" };
 
-/** This intro's colour for a seed (bot.seed rollSeedColors). */
-type Ink = (seed: BotSeed) => string | undefined;
+/** This intro's face for a seed (bot.seed rollSeedIcons). */
+type Face = (seed: BotSeed) => BotIcon | undefined;
 
 /** What the intro knows about one bot. An empty model is the default and means "app default" at run time. */
 type Pick = {
@@ -287,11 +284,11 @@ type Pick = {
 /** Step three: which seed bots to install. */
 function BotStep({
   picks,
-  ink,
+  face,
   onPatch,
 }: {
   picks: Record<string, Pick>;
-  ink: Ink;
+  face: Face;
   onPatch: (name: string, next: Partial<Pick>) => void;
 }) {
   const on = RECOMMENDED_SEEDS.filter((seed) => picks[seed.name]?.on);
@@ -320,9 +317,7 @@ function BotStep({
                   key={seed.name}
                   size={22}
                   seed={seed.name}
-                  color={ink(seed)}
-                  shape={seed.icon?.shape}
-                  outline={seed.icon?.outline}
+                  {...face(seed)}
                   notify={false}
                   className={cn("shrink-0", index > 0 && "-ml-1.5")}
                 />
@@ -349,7 +344,7 @@ function BotStep({
             key={seed.name}
             seed={seed}
             pick={picks[seed.name]}
-            ink={ink(seed)}
+            icon={face(seed)}
             onPatch={(next) => onPatch(seed.name, next)}
           />
         ))}
@@ -374,12 +369,12 @@ function BotStep({
 function SeedRow({
   seed,
   pick,
-  ink,
+  icon,
   onPatch,
 }: {
   seed: BotSeed;
   pick?: Pick;
-  ink?: string;
+  icon?: BotIcon;
   onPatch: (next: Partial<Pick>) => void;
 }) {
   const on = Boolean(pick?.on);
@@ -400,9 +395,7 @@ function SeedRow({
         <BotMark
           size={28}
           seed={seed.name}
-          color={ink}
-          shape={seed.icon?.shape}
-          outline={seed.icon?.outline}
+          {...icon}
           state={on ? "thinking" : "idle"}
           notify={false}
           className={cn("shrink-0 transition-opacity", !on && "opacity-35")}

@@ -12,7 +12,6 @@ import {
   filesOnDisk,
   jobScratch,
   listScratchFolders,
-  missingWorkspaceFiles,
   pruneJobFiles,
   removeJobScratch,
   removeUnchangedFolders,
@@ -269,25 +268,13 @@ async function drive(work: RoomWork, signal: AbortSignal) {
       },
     );
   } catch (cause) {
-    if (!signal.aborted) failure = modelErrorToString(cause);
+    if (!signal.aborted) {
+      logger.error(`thread ${work.threadId}: ${work.bot} broke`, cause);
+      failure = modelErrorToString(cause);
+    }
   }
   if (signal.aborted) return;
   const final = ending as { text: string; stopped: boolean } | null;
-  if (!failure && final?.text && !final.stopped && !work.parentId) {
-    const all = await listRoomWork(work.threadId);
-    if (
-      all.every(
-        (row) =>
-          row.id === work.id ||
-          row.state === "done" ||
-          row.state === "cancelled",
-      )
-    ) {
-      const missing = await missingWorkspaceFiles(pathsIn(final.text));
-      if (missing.length)
-        failure = `The report references files that are not available: ${missing.join(", ")}. Continue to repair the files or correct the report.`;
-    }
-  }
   if (failure || !final || final.stopped) {
     // Release this run before the room lock drains it; cancellation holds the same lock.
     const why =

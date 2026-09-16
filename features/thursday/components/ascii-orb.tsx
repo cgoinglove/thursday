@@ -19,6 +19,10 @@ import type { AsciiCharset } from "../face.const";
 export type AsciiOrbMode =
   | "idle"
   | "connecting"
+  /** The user's turn: the resting body, retyping with the microphone */
+  | "listening"
+  /** Hanging up: the body draws in and goes out, leaving the field empty */
+  | "ending"
   | "speaking"
   /** Running a tool; alive without speaking */
   | "working"
@@ -46,6 +50,11 @@ export type AsciiOrbProps = {
    * speaking; without it a synthetic waveform keeps the orb alive (previews).
    */
   getSpectrum?: () => ArrayLike<number>;
+  /**
+   * Microphone bands, read the same way. While listening they set how fast the
+   * glyphs retype; without them listening is the resting body alone.
+   */
+  getMicSpectrum?: () => ArrayLike<number>;
   /** Side length (px). Everything scales with it; cell count scales with area. */
   size?: number;
   /**
@@ -135,25 +144,32 @@ const DESIGN = 680;
 const FIELD_R = 328;
 
 /** Speaking: reference-unit px the rim is pushed by each channel. */
-/** Where the rim sits while the voice is at the bottom of its range */
-const SPEAK_BASE = 184;
+/** Where the rim sits while the voice is at the bottom of its range: the resting body's radius (IDLE_R), so speaking starts her own size */
+const SPEAK_BASE = 170;
 /** Swell across a phrase at the top of the voice's range */
 const SPEAK_SWELL = 40;
-/** Kick per syllable */
-const SPEAK_KICK = 120;
+/** Kick per syllable. Held down on purpose: a syllable should push the rim, not throw it */
+const SPEAK_KICK = 85;
 /** Rotating lobes, harmonics 2 and up (the first harmonic shifts the whole circle) */
 const SPEAK_LOBES = 4;
 /** Max depth of one lobe */
-const SPEAK_LOBE_R = 34;
+const SPEAK_LOBE_R = 28;
+/**
+ * How fast the whole lobe pattern turns (rad/s), and how much a loud phrase adds.
+ * The lobes also drift against each other; this is the turn you actually see,
+ * since counter-drifting alone reads as shimmer rather than rotation.
+ */
+const SPEAK_SPIN = 1.1;
+const SPEAK_SPIN_VOICE = 0.9;
 /**
  * Rim range. Past SPEAK_KNEE the rim slows into SPEAK_MAX rather than stopping
  * at it, so a loud syllable still reads as a push instead of a flat edge. Max
  * stays inside FIELD_R or thrown crumbs die at the edge; min keeps a deep
  * breath from collapsing to a dot.
  */
-const SPEAK_MIN = 130;
-const SPEAK_KNEE = 244;
-const SPEAK_MAX = 278;
+const SPEAK_MIN = 110;
+const SPEAK_KNEE = 205;
+const SPEAK_MAX = 235;
 /** How far a rim cell sits in or out of the rim: the edge is crumbly, not drawn with a compass */
 const SPEAK_ROUGH = 20;
 /** Share of cells a syllable throws outward; the rest stay, so what leaves is crumbs, not a ring */
@@ -168,34 +184,102 @@ const MAX_RINGS = 5;
 type Voice = {
   /** The voice inside its own range over about half a second (live.tap createVoiceFollower) */
   phrase: number;
+  /** The user's voice, the same measure, from the microphone (listening) */
+  micPhrase: number;
+  /** The same voice syllable by syllable, so a word shows and not only a sentence */
+  micLevel: number;
   /** Spring kicked by each syllable */
   bob: number;
   bobVel: number;
   /** Lobe strength and angle */
   amp: number[];
   phase: number[];
+  /** The whole pattern's turn (rad), one way */
+  spin: number;
   /** One throw of crumbs per syllable */
   rings: { born: number; power: number }[];
 };
 
-/** Crossfade between modes (s) */
-const XFADE = 1.5;
-/** Time for a mode to fill in on its own (s) */
-const INTRO = XFADE;
+/**
+ * Seconds each channel of the field takes to arrive, and to leave. Leaving is
+ * slower everywhere: a behaviour that stops should wind down — crumbs already on
+ * their way keep coming and fade out — rather than being switched off the frame
+ * the mode changes (user, 09-16: "모으던 게 갑자기 없어져").
+ */
+const RISE = {
+  scale: 0.45,
+  lift: 0.22,
+  gather: 0.3,
+  comet: 0.45,
+  speech: 0.5,
+  err: 0.5,
+};
+const FALL = {
+  scale: 0.7,
+  lift: 0.4,
+  gather: 0.95,
+  comet: 0.9,
+  speech: 0.75,
+  err: 0.6,
+};
+/** Hanging up pulls the body in faster than anything else grows back. */
+const END_FALL = 0.4;
+
+/** Moves one channel toward its target; arriving and leaving have their own times. */
+function toward(
+  from: number,
+  to: number,
+  rise: number,
+  fall: number,
+  dt: number,
+) {
+  return from + (to - from) * Math.min(1, dt / (to > from ? rise : fall));
+}
 
 /**
- * Idle radius. The max drawable radius is DESIGN/2, so this sets the budget
- * for SPEAK_MAX and the rings above it. The visible body is about half, since
- * the idle wave fades from 0.55 x IDLE_R.
+ * The body every mode rests at. The max drawable radius is DESIGN/2, so this
+ * sets the budget for SPEAK_MAX and the crumbs thrown past it: leave room, or a
+ * loud voice fills the box and its swell has nowhere left to read (user, 09-16:
+ * "스피커 터지는 기분"). The visible body is about half, since the idle wave
+ * fades from 0.55 x IDLE_R.
  */
-const IDLE_R = 190;
+const IDLE_R = 170;
 
-/** Connecting: radius and width of the band that spreads and holds */
-const CONNECT_R = 235;
-const CONNECT_BAND = 6000;
+/**
+ * Connecting: crumbs travel in from the edge of the field to the resting body.
+ * Each ray carries its own crumb at its own phase, so nothing lines up into a
+ * ring.
+ */
+const GATHER_R = 320;
+const GATHER_RAYS = 9;
+/** One crumb's trip inward, in trips per second */
+const GATHER_RATE = 0.7;
+/**
+ * Connecting draws the body in to `DIP` of its size and fills back out over
+ * `GROW` as the crumbs land in it, so the gathering has somewhere to go instead
+ * of piling onto a body that is already full.
+ */
+const GATHER_DIP = 0.45;
+const GATHER_GROW = 1.3;
 
-/** Working: a comet orbiting just outside the idle circle */
-const WORK_R = 238;
+/**
+ * Listening: the resting body, its glyphs retyping as fast as the user speaks.
+ * Quiet is slower than idle, and a loud voice is PACE_VOICE times that; the
+ * shape never moves, which is the point.
+ */
+const LISTEN_PACE_QUIET = 0.5;
+const LISTEN_PACE_VOICE = 8;
+/**
+ * Brightness the voice adds: the field fills in as the user talks and thins out
+ * when they stop. Most of it follows the phrase so it holds through a sentence,
+ * the rest the syllable, so the words show without the body moving.
+ */
+const LISTEN_LIFT = 0.24;
+/** How fast the retype rate eases toward the voice, per frame */
+const PACE_EASE = 0.12;
+
+/** Working: a comet orbiting just outside the resting body */
+const WORK_R = 210;
 /** Orbit speed (rad/s); 3.0 is about one lap per 2s */
 const WORK_SPIN = 3;
 /** Orbit band width; larger blurs more */
@@ -275,12 +359,16 @@ function faceSample(
   return by < EYE_ROWS ? 1 : 2;
 }
 
-/** Idle: a soft breathing wave inside a small circle */
-function idleValue(cell: Cell, t: number) {
-  const body = 1 - smoothstep(IDLE_R * 0.55, IDLE_R, cell.dist);
+/**
+ * Idle: a soft breathing wave inside a small circle. `lift` brightens it in
+ * place; `scale` is the body's share of IDLE_R, which is how it opens and closes.
+ */
+function idleValue(cell: Cell, t: number, lift = 0, scale = 1) {
+  const r = IDLE_R * Math.max(0.02, scale);
+  const body = 1 - smoothstep(r * 0.55, r, cell.dist);
   const w = Math.sin(cell.dist * 0.05 - t * 0.4);
   const breath = Math.sin(t * 0.35) * 0.07;
-  return (0.58 + w * 0.2 + breath) * body;
+  return (0.58 + lift + w * 0.2 + breath) * body;
 }
 
 /** The rim's radius for a raw push: as pushed up to SPEAK_KNEE, then easing into SPEAK_MAX. */
@@ -291,130 +379,180 @@ function rimAt(raw: number) {
 }
 
 /**
- * Brightness of one mode; mode transitions blend two of these.
- * @param e seconds since the mode started
+ * What the field is doing right now. A mode does not draw a picture of its own:
+ * it names targets for these channels, and each eases toward its target on its
+ * own clock, so a behaviour arrives and — when the mode changes — winds down.
  */
-function valueFor(m: AsciiOrbMode, cell: Cell, t: number, e: number, v: Voice) {
+type Field = {
+  /** The body's radius as a share of IDLE_R; 0 is an empty field */
+  scale: number;
+  /** Brightness added to the body in place */
+  lift: number;
+  /** Crumbs streaming in from the edge of the field (connecting) */
+  gather: number;
+  /** A comet orbiting outside the body (working) */
+  comet: number;
+  /** Her voice: the rim it pushes and the crumbs a syllable throws (speaking) */
+  speech: number;
+  /** The ERROR letters */
+  err: number;
+};
+
+/** Where a mode wants the field. `e` is seconds since the mode was asked for. */
+function targetFor(m: AsciiOrbMode, e: number, v: Voice): Field {
+  const rest: Field = {
+    scale: 1,
+    lift: 0,
+    gather: 0,
+    comet: 0,
+    speech: 0,
+    err: 0,
+  };
   switch (m) {
     case "idle":
-      return idleValue(cell, t) * smoothstep(0, 1, Math.min(1, e / INTRO));
+      return rest;
 
-    // ring spreads outward while the idle circle clears
+    // draws in first, then fills back out as the crumbs land in it
     case "connecting": {
-      const k = smoothstep(0, 1, Math.min(1, e / 1.8));
-      // spread far enough to reach the outer debris
-      const d = cell.dist - CONNECT_R * k;
-      // a wide, soft band so no crisp donut edge forms
-      const band = Math.exp(-(d * d) / CONNECT_BAND);
-      // scatter intensity per cell by distance and angle so no inside/outside gradient forms
-      const grain =
-        0.2 +
-        hash(Math.floor(cell.dist / 9), Math.floor(cell.angle * 11)) * 0.85 +
-        hash(cell.seed * 137, 7) * 0.5;
-      const ring = band * grain * k;
-      return ring + idleValue(cell, t) * (1 - k);
+      const filled = 1 - Math.exp(-e / GATHER_GROW);
+      return {
+        ...rest,
+        scale: GATHER_DIP + (1 - GATHER_DIP) * filled,
+        lift: 0.06 * filled,
+        gather: 1,
+      };
     }
 
-    /**
-     * Speaking. Frequency is not mapped to angle: a voice's spectrum barely
-     * moves within a sentence, so that freezes into a fixed star. The voice
-     * gives size, syllables and lobe strength; rotation comes from time, each
-     * lobe at its own speed in alternating directions. No line in it is clean:
-     * the rim is crumbly, and a syllable throws crumbs rather than a ring.
-     */
-    case "speaking": {
-      const grow = smoothstep(0, 1, Math.min(1, e / 0.8));
+    // the body holds still; the user's voice shows as ink and as the retype rate
+    case "listening":
+      return {
+        ...rest,
+        lift: LISTEN_LIFT * (0.7 * v.micPhrase + 0.3 * v.micLevel),
+      };
 
-      let raw =
-        IDLE_R +
-        (SPEAK_BASE - IDLE_R + SPEAK_SWELL * v.phrase + SPEAK_KICK * v.bob) *
-          grow;
-      for (let i = 0; i < SPEAK_LOBES; i++) {
-        raw +=
-          SPEAK_LOBE_R *
-          v.amp[i] *
-          Math.sin((i + 2) * cell.angle + v.phase[i]) *
-          grow;
-      }
-      const edge = rimAt(raw);
+    case "speaking":
+      return { ...rest, speech: 1 };
 
-      // each cell sits a little in or out of the rim, and the offset drifts
-      const rough =
-        (cell.grain - 0.5) * SPEAK_ROUGH +
-        Math.sin(cell.angle * 5 + t * 0.9 + cell.seed * 6.283) *
-          SPEAK_ROUGH *
-          0.3;
-      const d = cell.dist - (edge + rough);
-      const rim = Math.exp(-(d * d) / 800);
-      const core = Math.exp(-(cell.dist * cell.dist) / 6000) * 0.5;
-      // a soft fill toward the center, with the idle wave still moving through it
-      const inside =
-        cell.dist < edge
-          ? 0.3 *
-            (1 - cell.dist / edge) ** 0.6 *
-            (0.75 + 0.25 * Math.sin(cell.dist * 0.05 - t * 1.2))
-          : 0;
+    case "working":
+      return { ...rest, comet: 1 };
 
-      // crumbs: a sparse share of cells, each thrown past the rim at its own speed
-      let out = 0;
-      if (cell.speck < SPECK_SHARE) {
-        const speed = RING_SPEED * (0.6 + cell.grain * 0.9);
-        for (let i = 0; i < v.rings.length; i++) {
-          const ring = v.rings[i];
-          const age = t - ring.born;
-          const dd = cell.dist - (edge + 6 + age * speed);
-          out +=
-            Math.exp(-(dd * dd) / 500) *
-            ring.power *
-            Math.max(0, 1 - age / RING_LIFE);
-        }
-      }
+    case "ending":
+      return { ...rest, scale: 0 };
 
-      return rim + core + inside + out;
-    }
+    case "error":
+      return { ...rest, scale: 0, err: 1 };
+  }
+}
 
-    /**
-     * Working: the idle circle stays and a comet orbits outside it. Ignores
-     * the voice and never ends.
-     */
-    case "working": {
-      const k = smoothstep(0, 1, Math.min(1, e / 0.7));
+/** Crumbs traveling in from the edge of the field to the body's rim, dimming as they land. */
+function gatherValue(cell: Cell, t: number, scale: number) {
+  const rim = IDLE_R * scale;
+  if (cell.speck >= 0.55 || cell.dist < rim * 0.8) return 0;
+  const ray = hash(Math.floor((cell.angle + Math.PI) * GATHER_RAYS), 5.3);
+  const p = (t * GATHER_RATE + ray) % 1;
+  const d =
+    cell.dist -
+    (rim + (GATHER_R - rim) * (1 - p) ** 1.25) -
+    (cell.grain - 0.5) * 16;
+  // dims as it lands, so a crumb is taken into the body rather than piling on it
+  return Math.exp(-(d * d) / 260) * smoothstep(0, 0.2, p) * (1 - p) * 1.1;
+}
 
-      // orbit: a thin band at a fixed radius
-      const d = cell.dist - WORK_R;
-      const band = Math.exp(-(d * d) / WORK_BAND);
+/** A comet on a thin orbit outside the body: sharp head, long tail. */
+function cometValue(cell: Cell, t: number) {
+  const d = cell.dist - WORK_R;
+  const band = Math.exp(-(d * d) / WORK_BAND);
+  const raw = cell.angle - t * WORK_SPIN;
+  const da = Math.atan2(Math.sin(raw), Math.cos(raw));
+  return band * Math.exp(-(da * da) / (da < 0 ? WORK_TAIL : WORK_HEAD));
+}
 
-      // sharp head, long tail
-      const raw = cell.angle - t * WORK_SPIN;
-      const da = Math.atan2(Math.sin(raw), Math.cos(raw));
-      const comet = Math.exp(-(da * da) / (da < 0 ? WORK_TAIL : WORK_HEAD));
+/**
+ * Her voice. Frequency is not mapped to angle: a voice's spectrum barely moves
+ * within a sentence, so that freezes into a fixed star. The voice gives the rim
+ * its size, its syllables and its lobes, and the whole pattern turns with time.
+ * No line in it is clean: the rim is crumbly, and a syllable throws crumbs
+ * rather than a ring.
+ */
+function speechValue(cell: Cell, t: number, v: Voice, amount: number) {
+  let raw = SPEAK_BASE + SPEAK_SWELL * v.phrase + SPEAK_KICK * v.bob;
+  for (let i = 0; i < SPEAK_LOBES; i++) {
+    raw +=
+      SPEAK_LOBE_R *
+      v.amp[i] *
+      Math.sin((i + 2) * (cell.angle + v.spin) + v.phase[i]);
+  }
+  // the rim grows out of the resting body as she starts and settles back into it
+  // when she stops; without this it appears at whatever the first syllable asks
+  // for, which reads as the circle jumping bigger
+  const edge = IDLE_R + (rimAt(raw) - IDLE_R) * amount;
 
-      // the center stays empty; a single orbit reads as "working"
-      return band * comet * k + idleValue(cell, t) * (1 - k);
-    }
+  // each cell sits a little in or out of the rim, and the offset drifts
+  const rough =
+    (cell.grain - 0.5) * SPEAK_ROUGH +
+    Math.sin(cell.angle * 5 + t * 0.9 + cell.seed * 6.283) * SPEAK_ROUGH * 0.3;
+  const d = cell.dist - (edge + rough);
+  let value =
+    Math.exp(-(d * d) / 800) + Math.exp(-(cell.dist * cell.dist) / 6000) * 0.5;
 
-    case "error": {
-      if (cell.letter < 0) return 0;
+  // a soft fill out to the rim, with the idle wave still moving through it
+  if (cell.dist < edge) {
+    value +=
+      0.22 *
+      (1 - cell.dist / edge) ** 0.6 *
+      (0.75 + 0.25 * Math.sin(cell.dist * 0.05 - t * 1.2));
+  }
 
-      const pe = e % ERR_CYCLE;
-      const li = cell.letter;
-      const jitter = cell.seed * 0.12;
-
-      const appear = smoothstep(
-        0,
-        1,
-        (pe - li * ERR_STEP_IN - jitter) / ERR_FADE_IN,
-      );
-      const vanish = smoothstep(
-        0,
-        1,
-        (pe - ERR_HOLD_UNTIL - li * ERR_STEP_OUT - jitter) / ERR_FADE_OUT,
-      );
-      const on = Math.max(0, appear - vanish);
-      const flick = 0.86 + Math.sin(t * 3.5 + cell.seed * 6) * 0.14;
-      return on * flick;
+  // crumbs: a sparse share of cells, each thrown past the rim at its own speed
+  if (cell.speck < SPECK_SHARE) {
+    const speed = RING_SPEED * (0.6 + cell.grain * 0.9);
+    for (let i = 0; i < v.rings.length; i++) {
+      const ring = v.rings[i];
+      const age = t - ring.born;
+      const dd = cell.dist - (edge + 6 + age * speed);
+      value +=
+        Math.exp(-(dd * dd) / 500) *
+        ring.power *
+        Math.max(0, 1 - age / RING_LIFE);
     }
   }
+  return value;
+}
+
+/** ERROR, letter by letter: each lights up in turn and goes out the same way. */
+function errorValue(cell: Cell, t: number, e: number) {
+  if (cell.letter < 0) return 0;
+  const pe = e % ERR_CYCLE;
+  const jitter = cell.seed * 0.12;
+  const appear = smoothstep(
+    0,
+    1,
+    (pe - cell.letter * ERR_STEP_IN - jitter) / ERR_FADE_IN,
+  );
+  const vanish = smoothstep(
+    0,
+    1,
+    (pe - ERR_HOLD_UNTIL - cell.letter * ERR_STEP_OUT - jitter) / ERR_FADE_OUT,
+  );
+  const flick = 0.86 + Math.sin(t * 3.5 + cell.seed * 6) * 0.14;
+  return Math.max(0, appear - vanish) * flick;
+}
+
+/**
+ * One cell's brightness: the body, plus whichever behaviours are up. Her voice
+ * hollows the body rather than replacing it, so there is nothing to dissolve
+ * between when she starts or stops.
+ */
+function fieldValue(cell: Cell, t: number, e: number, f: Field, v: Voice) {
+  let value =
+    f.scale > 0.02
+      ? idleValue(cell, t, f.lift, f.scale) * (1 - 0.6 * f.speech)
+      : 0;
+  if (f.gather > 0.01) value += gatherValue(cell, t, f.scale) * f.gather;
+  if (f.comet > 0.01) value += cometValue(cell, t) * f.comet;
+  if (f.speech > 0.01) value += speechValue(cell, t, v, f.speech) * f.speech;
+  if (f.err > 0.01) value += errorValue(cell, t, e) * f.err;
+  return value;
 }
 
 export function AsciiOrb({
@@ -427,6 +565,7 @@ export function AsciiOrb({
   size = DESIGN,
   color = DEFAULT_COLOR,
   getSpectrum,
+  getMicSpectrum,
 }: AsciiOrbProps) {
   const hostRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -463,20 +602,36 @@ export function AsciiOrb({
   // the loop mounts once with no deps, so the latest getter comes through a ref
   const specRef = useRef(getSpectrum);
   specRef.current = getSpectrum;
+  const micRef = useRef(getMicSpectrum);
+  micRef.current = getMicSpectrum;
 
   const voiceRef = useRef<Voice>({
     phrase: 0,
+    micPhrase: 0,
+    micLevel: 0,
     bob: 0,
     bobVel: 0,
     amp: new Array<number>(SPEAK_LOBES).fill(0),
     // distinct start phases, or the lobes overlap into one lump at first
     phase: Array.from({ length: SPEAK_LOBES }, (_, i) => i * 2.1),
+    spin: 0,
     rings: [],
   });
 
-  const curRef = useRef({ mode, start: 0 });
-  const prevRef = useRef<{ mode: AsciiOrbMode; start: number } | null>(null);
-  const xfadeStartRef = useRef(-Infinity);
+  /** The mode being asked for, and when it was asked for. */
+  const modeRef = useRef({ mode, start: 0 });
+  /**
+   * The field on screen. It only ever eases toward the mode's targets, so it
+   * starts drawn in and opens on the first frames like any other arrival.
+   */
+  const fieldRef = useRef<Field>({
+    scale: 0.3,
+    lift: 0,
+    gather: 0,
+    comet: 0,
+    speech: 0,
+    err: 0,
+  });
 
   // grid is rebuilt only when size or density changes
   useEffect(() => {
@@ -599,25 +754,24 @@ export function AsciiOrb({
     colorRef.current.target = color;
   }, [color]);
 
-  // mode change: remember the previous mode and start a crossfade
+  // a mode change only moves the targets; the field eases the rest of the way
   useEffect(() => {
-    const now = performance.now() * 0.001;
-    if (curRef.current.mode !== mode) {
-      prevRef.current = { ...curRef.current };
-      curRef.current = { mode, start: now };
-      xfadeStartRef.current = now;
-    } else {
-      curRef.current = { mode, start: now };
-    }
+    if (modeRef.current.mode === mode) return;
+    modeRef.current = { mode, start: performance.now() * 0.001 };
   }, [mode]);
 
   // animation loop
   useEffect(() => {
     let raf = 0;
     const follower = createVoiceFollower();
+    const micFollower = createVoiceFollower();
     const murmur = new Array<number>(SPECTRUM_BANDS).fill(0);
+    const silence = new Array<number>(SPECTRUM_BANDS).fill(0);
 
     let lastT = performance.now() * 0.001;
+    /** Glyph clock: it runs at the retype pace, so changing the pace never jumps a glyph */
+    let clock = 0;
+    let pace = 1;
 
     const draw = (nowMs: number) => {
       const t = nowMs * 0.001;
@@ -662,6 +816,19 @@ export function AsciiOrb({
       voice.bobVel += -voice.bob * 0.012 - voice.bobVel * 0.09;
       voice.bob += voice.bobVel;
 
+      // the microphone is read every frame but answers only while listening: it
+      // sets how fast the glyphs retype, and lifts the body across a phrase
+      const mic = micRef.current?.();
+      const micHeard = micFollower.read(mic ?? silence, dt);
+      voice.micPhrase = mic ? micHeard.phrase : 0;
+      voice.micLevel = mic ? micHeard.level : 0;
+      const wantPace =
+        mic && modeRef.current.mode === "listening"
+          ? LISTEN_PACE_QUIET + LISTEN_PACE_VOICE * micHeard.level
+          : 1;
+      pace += (wantPace - pace) * PACE_EASE;
+      clock += dt * pace;
+
       for (let i = 0; i < SPEAK_LOBES; i++) {
         // neighbouring bands per lobe, low lobes from low bands
         const from = Math.floor((i * heard.bands.length) / SPEAK_LOBES);
@@ -677,23 +844,33 @@ export function AsciiOrb({
         // different time constants per harmonic, or the star only scales
         voice.amp[i] += (energy * wander - voice.amp[i]) * (0.05 + i * 0.02);
         // own speed, alternating direction, so no standing wave forms
-        voice.phase[i] += dt * (0.5 + i * 0.37) * (i % 2 ? -1 : 1);
+        voice.phase[i] += dt * (0.9 + i * 0.5) * (i % 2 ? -1 : 1);
       }
+
+      // the pattern turns one way, faster while she is mid-phrase
+      voice.spin += dt * (SPEAK_SPIN + SPEAK_SPIN_VOICE * voice.phrase);
 
       while (voice.rings.length > 0 && t - voice.rings[0].born > RING_LIFE) {
         voice.rings.shift();
       }
 
-      const cur = curRef.current;
-      const prev = prevRef.current;
-      const k = smoothstep(
-        0,
-        1,
-        Math.min(1, (t - xfadeStartRef.current) / XFADE),
+      // the field eases toward what this mode wants, each channel on its own clock
+      const cur = modeRef.current;
+      const want = targetFor(cur.mode, t - cur.start, voice);
+      const f = fieldRef.current;
+      f.scale = toward(
+        f.scale,
+        want.scale,
+        RISE.scale,
+        cur.mode === "ending" ? END_FALL : FALL.scale,
+        dt,
       );
-      const blending = prev !== null && k < 1;
-      const keepGlyphSolid =
-        cur.mode === "error" || (blending && prev?.mode === "error");
+      f.lift = toward(f.lift, want.lift, RISE.lift, FALL.lift, dt);
+      f.gather = toward(f.gather, want.gather, RISE.gather, FALL.gather, dt);
+      f.comet = toward(f.comet, want.comet, RISE.comet, FALL.comet, dt);
+      f.speech = toward(f.speech, want.speech, RISE.speech, FALL.speech, dt);
+      f.err = toward(f.err, want.err, RISE.err, FALL.err, dt);
+      const keepGlyphSolid = f.err > 0.5;
 
       // expression state
       const emo = emoRef.current;
@@ -737,12 +914,7 @@ export function AsciiOrb({
       const all = cellsRef.current;
       for (let ci = 0; ci < all.length; ci++) {
         const cell = all[ci];
-        let v = valueFor(cur.mode, cell, t, t - cur.start, voice);
-
-        if (blending && prev) {
-          const pv = valueFor(prev.mode, cell, t, t - prev.start, voice);
-          v = pv + (v - pv) * k;
-        }
+        let v = fieldValue(cell, t, t - cur.start, f, voice);
 
         if (!(keepGlyphSolid && cell.letter >= 0)) {
           // per-cell brightness response breaks concentric rings; multiplicative, so empty (0) stays empty
@@ -798,7 +970,7 @@ export function AsciiOrb({
           : cs === "emojiOnly"
             ? EMOJI_CHAR_RATE
             : CHAR_RATE;
-        const slot = (t * rate + cell.seed * 7) | 0;
+        const slot = (clock * rate + cell.seed * 7) | 0;
 
         const showEmoji =
           cs === "emojiOnly" ||
@@ -855,8 +1027,6 @@ export function AsciiOrb({
         }
       }
       ctx.globalAlpha = 1;
-
-      if (!blending && prev) prevRef.current = null;
 
       raf = requestAnimationFrame(draw);
     };

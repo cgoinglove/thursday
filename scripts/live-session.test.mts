@@ -519,7 +519,7 @@ test("stored settings keep OpenAI choices and the shared instruction, drop a Gro
   assert.equal(openai.voicePrompt, "Call me Sam.");
   assert.equal(openai.backendPrompt, "Call me Sam.");
   assert.equal(openai.captionView, "sides");
-  assert.equal(openai.reasoningEffort, null);
+  assert.equal(openai.reasoningEffort, LIVE_DEFAULTS.reasoningEffort);
   assert.equal(openai.webSearch, false);
   assert.equal("model" in openai, false);
   assert.equal("systemPrompt" in openai, false);
@@ -538,8 +538,14 @@ test("stored settings keep OpenAI choices and the shared instruction, drop a Gro
   });
   assert.equal(broken.voice, LIVE_DEFAULTS.voice);
   assert.equal(broken.backendModel, "gpt-4.1");
-  assert.equal(broken.reasoningEffort, null);
+  assert.equal(broken.reasoningEffort, LIVE_DEFAULTS.reasoningEffort);
   assert.equal(broken.webSearch, true);
+
+  // A stored choice survives a change of default: auto stays auto
+  assert.equal(
+    migrateLiveSettings({ reasoningEffort: null }).reasoningEffort,
+    null,
+  );
 
   assert.deepEqual(migrateLiveSettings(null), LIVE_DEFAULTS);
 });
@@ -714,8 +720,11 @@ test("both call prompts open as one Thursday: the voice gets the delegation poli
     profileFacts = 0;
     const first = await loadLivePrompt({ webSearch: false, locale: "ko-KR" });
     assert.match(first.text, /## First call/);
+    // The one call that opens with nothing: she says who she is, then learns who they are
+    assert.match(first.opening ?? "", /say who you are/);
     assert.match(first.opening ?? "", /ask what to call them/);
     assert.match(first.opening ?? "", /ko-KR/);
+    assert.match(first.text, /what they do, how old they are, where they live/);
   } finally {
     memoryMock.restore();
     callMock.restore();

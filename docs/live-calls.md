@@ -120,7 +120,8 @@ it in. The relay clock (`useThursday` `relayOpenWork`) reads the inbox once a se
 open work only when neither side's words have been transcribed for `CALL_RELAY.quietMs` and
 no backend work or tool is running: questions not answered, jobs stopped, failed or finished
 and not yet seen, and progress from jobs still running. Up to `CALL_RELAY.perTurn` items go in
-one commentary append, most pressing first, and nothing else goes in until her voice has started
+one commentary append, most pressing first. The activity line carries the update from the moment
+it goes out until her voice has finished it, and nothing else goes in until her voice has started
 and stopped (at most `CALL_RELAY.readMs`). An item is handled when it is answered, marked seen
 by the backend's `thread` `seen` once the user has been told enough, or opened on screen — the
 backend's `thread` `open` opens it in the call screen's room (a `showThread` event). What is not

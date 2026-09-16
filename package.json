@@ -38,6 +38,7 @@
     "test:bot": "node --experimental-test-module-mocks --import tsx --test scripts/bot-context.test.mts",
     "format": "biome format --write",
     "reset": "node scripts/reset.mts",
+    "voice:samples": "node --env-file-if-exists=.env --import tsx scripts/voice-samples.mts",
     "typecheck": "next typegen && tsc --noEmit",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",

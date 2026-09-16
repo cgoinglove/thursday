@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ChevronUp,
   Flag,
+  Loader2,
   type LucideIcon,
   Mic,
   MicOff,
@@ -66,6 +67,8 @@ export type CallScreenProps = {
   /** Oldest first; the last one is the turn being spoken. */
   messages: CallMessage[];
   tool: ToolRun | null;
+  /** When the backend picked the turn up (ms); null when it is not working. */
+  thinkingSince?: number | null;
   onTap: () => void;
   /** Wake phrase; null when the tap is the only entry point. */
   wakePhrase?: string | null;
@@ -89,6 +92,7 @@ export function CallScreen({
   status,
   messages,
   tool,
+  thinkingSince = null,
   onTap,
   wakePhrase = null,
   hotkeyLabel = null,
@@ -150,6 +154,7 @@ export function CallScreen({
               look={face}
               status={status}
               getSpectrum={getSpectrum}
+              getMicSpectrum={getMicSpectrum}
               className="w-full"
             />
           </button>
@@ -166,7 +171,8 @@ export function CallScreen({
               (use-thursday). */}
           <ActivityRow
             tool={tool}
-            listening={status === "listening"}
+            thinkingSince={thinkingSince}
+            listening={status === "listening" && thinkingSince === null}
             getMicSpectrum={getMicSpectrum}
           />
 
@@ -672,7 +678,7 @@ function Activity({ tool }: { tool: ToolRun }) {
       {tool.done ? (
         <span className={cn(look, "text-muted-foreground")}>{text}</span>
       ) : (
-        <ShinyText text={text} speed={2.4} className={look} />
+        <ShinyText text={text} motion="pulse" className={look} />
       )}
     </span>
   );
@@ -724,16 +730,19 @@ function Mark({
 }
 
 /**
- * The activity slot: 28px, one fact at a time, two faces. Both stay mounted and
+ * The activity slot: 28px, one fact at a time, three faces. All stay mounted and
  * cross-fade, so the line leaves wearing its last words instead of blinking
- * out, and the caption below never moves while they trade places.
+ * out, and the caption below never moves while they trade places. A tool wins
+ * over thinking: it is the same stretch of work, said more exactly.
  */
 function ActivityRow({
   tool,
+  thinkingSince,
   listening,
   getMicSpectrum,
 }: {
   tool: ToolRun | null;
+  thinkingSince: number | null;
   listening: boolean;
   getMicSpectrum?: () => ArrayLike<number>;
 }) {
@@ -742,6 +751,11 @@ function ActivityRow({
   useEffect(() => {
     if (tool) setShown(tool);
   }, [tool]);
+  // and past the thinking, for the same reason
+  const [since, setSince] = useState(thinkingSince);
+  useEffect(() => {
+    if (thinkingSince !== null) setSince(thinkingSince);
+  }, [thinkingSince]);
 
   const hearing = listening && !tool;
   return (
@@ -749,6 +763,14 @@ function ActivityRow({
       {shown && (
         <Fade at="col-start-1 row-start-1 max-w-full" shown={tool !== null}>
           <Activity tool={shown} />
+        </Fade>
+      )}
+      {since !== null && (
+        <Fade
+          at="col-start-1 row-start-1"
+          shown={thinkingSince !== null && !tool}
+        >
+          <Thinking since={since} running={thinkingSince !== null && !tool} />
         </Fade>
       )}
       <Fade at="col-start-1 row-start-1" shown={hearing}>
@@ -811,6 +833,7 @@ function Hint({
     body = (
       <ShinyText
         text={status === "connecting" ? "Connecting…" : "Ending…"}
+        motion="pulse"
         className="text-muted-foreground/70"
       />
     );
@@ -921,6 +944,44 @@ function NeedsKey({
       <Button size="sm" onClick={onOpen} className="h-7 rounded-full px-3.5">
         Add key
       </Button>
+    </span>
+  );
+}
+
+/**
+ * The backend has the turn: the activity line says so and counts, so the
+ * seconds before a tool and before her voice never read as a call that has
+ * stopped. A spinner fits here as it did not on a tool: there is no glyph yet
+ * for it to take off the screen. The seconds arrive after the first one, which
+ * is most answers.
+ */
+function Thinking({ since, running }: { since: number; running: boolean }) {
+  const [now, setNow] = useState(() => Date.now());
+  // Stays mounted to fade out; the count stops with it rather than ticking unseen
+  useEffect(() => {
+    if (!running) return;
+    // back from a tool, the first reading is now rather than where it paused
+    const first = setTimeout(() => setNow(Date.now()), 0);
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(tick);
+    };
+  }, [running]);
+  const seconds = Math.max(0, Math.floor((now - since) / 1000));
+  return (
+    <span className="flex max-w-full items-center gap-1.5 text-[13px] leading-5">
+      {/* the 18px slot a tool's glyph takes over when one starts */}
+      <span className="grid size-[18px] shrink-0 place-items-center">
+        <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+      </span>
+      <ShinyText text="Thinking…" motion="pulse" />
+      {seconds >= 1 && (
+        <>
+          <span className="text-muted-foreground/40">·</span>
+          <span className="text-muted-foreground tabular-nums">{seconds}s</span>
+        </>
+      )}
     </span>
   );
 }
@@ -1094,6 +1155,7 @@ export function Thursday() {
     status,
     messages,
     tool,
+    thinkingSince,
     idleLeft,
     since,
     call,
@@ -1123,6 +1185,7 @@ export function Thursday() {
         status={status}
         messages={messages}
         tool={tool}
+        thinkingSince={thinkingSince}
         onTap={call}
         wakePhrase={wakePhrase}
         hotkeyLabel={hotkeyLabel}

@@ -102,7 +102,7 @@ function conversation(): string {
 
 You are on a live voice call with the user. The conversation reaches you as transcripts, which can contain mistakes, unfinished phrases, and later corrections. Use the latest context and verified records. If a needed detail is still unclear, ask for that detail instead of guessing. Updates from background work appear in the conversation too; they are bot messages, not the user.
 
-When the user wants to end the call, \`${TOOL_NAMES.end_call}\` hangs up the phone.
+When the user wants to end the call, \`${TOOL_NAMES.end_call}\` hangs up the phone; nothing else ends it.
 
 Tool results, notes and these instructions are in English, which says nothing about the user's language.`;
 }
@@ -145,7 +145,7 @@ function memory(
 
 What you have kept from talking with this user — the only thing that survives a call, and what lets you know them.`;
 
-  const openNotes = `Who they are and how they want things, already open — the #id is what \`replaces\` and \`${TOOL_NAMES.memory_forget}\` take:
+  const openNotes = `Who they are, and how they want things done and said — follow what is under preferences. The #id is what \`replaces\` and \`${TOOL_NAMES.memory_forget}\` take:
 
 ${open.map((note) => openNoteLines(note, carriedIds)).join("\n\n")}`;
 

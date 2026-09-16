@@ -24,16 +24,33 @@ export type ShinyTone = keyof typeof TONES;
 export function ShinyText({
   text,
   tone = "muted",
+  motion = "shine",
   speed = 2.4,
   className,
 }: {
   text: string;
   tone?: ShinyTone;
+  /** How it says it is still moving: a band crossing the words, or the words easing out and back. */
+  motion?: "shine" | "pulse";
   /** Seconds for the band to cross once. */
   speed?: number;
   className?: string;
 }) {
   const { rest, band } = TONES[tone];
+  if (motion === "pulse") {
+    return (
+      <span
+        data-slot="shiny-text"
+        className={cn(
+          "inline-block max-w-full animate-pulse motion-reduce:animate-none",
+          rest,
+          className,
+        )}
+      >
+        {text}
+      </span>
+    );
+  }
   return (
     <span
       data-slot="shiny-text"

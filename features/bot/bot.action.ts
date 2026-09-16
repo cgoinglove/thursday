@@ -19,7 +19,7 @@ import {
   startThread,
 } from "./bot.runner";
 import { BotFormSchema, botIconSchema } from "./bot.schema";
-import { findBotSeed, rollSeedColors } from "./bot.seed";
+import { findBotSeed, rollSeedIcons } from "./bot.seed";
 import { markSeen, resolveThread } from "./thread.query";
 
 export const createBotAction = serverAction(async (input: unknown) => {
@@ -41,8 +41,8 @@ const SeedPickSchema = z.object({
   name: z.string().trim().min(1).max(80),
   provider: textModelProviderSchema.nullish(),
   model: z.string().trim().min(1).max(80).nullish(),
-  /** The colour the intro already showed for this bot. Rolled here when the caller had no screen. */
-  color: botIconSchema.shape.color,
+  /** The face the intro already showed for this bot. Rolled here when the caller had no screen. */
+  icon: botIconSchema.optional(),
 });
 
 /**
@@ -53,9 +53,9 @@ const SeedPickSchema = z.object({
 export const createSeedBotsAction = serverAction(async (picks: unknown) => {
   const wanted = SeedPickSchema.array().max(20).parse(picks);
 
-  // Seeds carry no colour of their own (bot.seed); one roll covers the whole
-  // batch so bots made together never come out the same colour
-  const rolled = rollSeedColors();
+  // Seeds carry no face of their own (bot.seed); one roll covers the whole batch
+  // so bots made together never come out looking alike
+  const rolled = rollSeedIcons();
 
   const created: string[] = [];
   for (const [at, pick] of wanted.entries()) {
@@ -65,7 +65,7 @@ export const createSeedBotsAction = serverAction(async (picks: unknown) => {
       name: seed.name,
       description: seed.description,
       systemPrompt: seed.systemPrompt,
-      icon: { ...seed.icon, color: pick.color ?? rolled[at % rolled.length] },
+      icon: pick.icon ?? rolled[at % rolled.length],
       provider: pick.provider,
       model: pick.model,
       toolIds: [],

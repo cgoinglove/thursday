@@ -521,8 +521,7 @@ async function codexFetch(
 /**
  * A 429 is either a rate limit a moment fixes or the plan's usage spent until its window resets
  * — hours, or on Free a month. The second becomes a 402 in the backend's words: the sdk does not
- * retry it, and a job fails with it (model.ts modelFailureOf) instead of waking every few
- * minutes to be refused again.
+ * retry it, so a job fails with it at once instead of being refused again and again.
  */
 async function usageLimitOf(response: Response): Promise<Response> {
   const text = await response.text();

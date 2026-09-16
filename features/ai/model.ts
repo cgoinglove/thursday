@@ -8,7 +8,6 @@ import {
   type experimental_generateVideo,
   type ImageModel,
   type LanguageModel,
-  NoOutputGeneratedError,
   RetryError,
   type SpeechModel,
   type ToolSet,
@@ -29,7 +28,6 @@ import {
   compactAtFor,
   contextWindowOf,
   defaultModelOf,
-  GATEWAY_TEXT,
   type GatewayCredits,
   type GatewayModel,
   type GatewayPrice,
@@ -72,74 +70,31 @@ export function modelErrorToString(cause: unknown): string {
   return `${cause.message}${status}${said}`;
 }
 
-/**
- * What a failed model call means for the run that made it (bot.runner): `transient`
- * is trouble a moment fixes — a rate limit, an overload, a dropped connection, a call
- * that went quiet; `overflow` is a context the model refused as too long, which a
- * compaction fixes; anything else is `fatal`, a person's to act on (a key, the credit,
- * a model id). The sdk wraps retries and causes, so the whole chain is read.
- */
-export type ModelFailure = "transient" | "overflow" | "fatal";
-
-/** Connection failures by the code Node or undici gives them. */
-const NETWORK_CODES = new Set([
-  "ECONNRESET",
-  "ECONNREFUSED",
-  "ETIMEDOUT",
-  "EPIPE",
-  "ENOTFOUND",
-  "EAI_AGAIN",
-  "ENETUNREACH",
-  "EHOSTUNREACH",
-  "UND_ERR_SOCKET",
-  "UND_ERR_CLOSED",
-  "UND_ERR_CONNECT_TIMEOUT",
-  "UND_ERR_HEADERS_TIMEOUT",
-  "UND_ERR_BODY_TIMEOUT",
-]);
-
-/**
- * How providers word a context too long for the model; the sdk has no error class for
- * it. Read off a 400 or a 413, or off an error with no status of its own — a retry
- * wrapper repeats the words of the one it wraps.
- */
+/** How providers word a context too long for the model; the sdk has no error class for it. */
 const TOO_LONG =
   /context[ _-]?(length|window)|maximum context|prompt is too long|too many (input )?tokens|input token count|exceeds? the (maximum|model'?s?) (context|input|prompt|number of tokens)|maximum prompt length|request (entity )?too large/i;
 
-export function modelFailureOf(cause: unknown): ModelFailure {
-  let transient = false;
-  for (const error of causeChain(cause)) {
-    const { statusCode, isRetryable, code, name, message } = error as {
-      statusCode?: unknown;
-      isRetryable?: unknown;
-      code?: unknown;
-      name?: unknown;
-      message?: unknown;
-    };
-    const body = APICallError.isInstance(error)
-      ? (error.responseBody ?? "")
-      : "";
-    if (
-      (statusCode === undefined || statusCode === 400 || statusCode === 413) &&
-      TOO_LONG.test(`${String(message ?? "")} ${body}`)
-    ) {
-      return "overflow";
-    }
-    if (
-      isRetryable === true ||
-      name === "TimeoutError" ||
-      NoOutputGeneratedError.isInstance(error) ||
-      (typeof statusCode === "number" &&
-        (statusCode === 408 ||
-          statusCode === 409 ||
-          statusCode === 429 ||
-          statusCode >= 500)) ||
-      (typeof code === "string" && NETWORK_CODES.has(code))
-    ) {
-      transient = true;
-    }
-  }
-  return transient ? "transient" : "fatal";
+/**
+ * Whether the model refused the context as too long, which a compaction fixes; every
+ * other failure waits for a person. Read off the words of a 400, a 413, or an error
+ * with no status of its own, anywhere in the chain: a retry wrapper repeats the words
+ * of the one it wraps, and a streamed body the sdk could not read as an error keeps
+ * them in a bare `error` string.
+ */
+export function isContextOverflow(cause: unknown): boolean {
+  return causeChain(cause).some((error) => {
+    const {
+      statusCode,
+      message,
+      error: inner,
+    } = error as { statusCode?: unknown; message?: unknown; error?: unknown };
+    if (statusCode !== undefined && statusCode !== 400 && statusCode !== 413)
+      return false;
+    const body = APICallError.isInstance(error) ? error.responseBody : null;
+    return [message, inner, body].some(
+      (words) => typeof words === "string" && TOO_LONG.test(words),
+    );
+  });
 }
 
 /** An error and everything it wraps — its `cause`, each attempt of a retry. */
@@ -235,7 +190,6 @@ type CatalogRow = {
   type?: string | null;
   tags?: string[] | null;
   deprecated_at?: number | null;
-  modalities?: { output?: string[] | null } | null;
   pricing?: Record<string, unknown> | null;
   context_window?: number | null;
 };
@@ -245,18 +199,6 @@ function per1M(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
   const amount = Number(value);
   return Number.isFinite(amount) ? Math.round(amount * 1e6 * 1e4) / 1e4 : null;
-}
-
-/**
- * What a row may be offered as. The gateway's own word is right except for the models that
- * both talk and draw — Gemini's `*-image` family answers `language`, and a picker that
- * believed it would leave them out of the image list. Their output modality gives them away.
- */
-function kindOfGatewayModel(row: CatalogRow) {
-  const type = row.type ?? null;
-  if (type === GATEWAY_TEXT && (row.modalities?.output ?? []).includes("image"))
-    return "image";
-  return type;
 }
 
 /**
@@ -312,7 +254,7 @@ function priceOfGatewayModel(row: CatalogRow): GatewayPrice {
 
 /**
  * What the gateway carries now, every modality in one listing. Rows come back with their kind
- * settled (`kindOfGatewayModel`) and their price flattened (`priceOfGatewayModel`), so a screen
+ * as the gateway states it and their price flattened (`priceOfGatewayModel`), so a screen
  * filters and sorts on plain fields. The gateway is the only provider that can be asked.
  */
 export async function readGatewayCatalog(): Promise<GatewayModel[]> {
@@ -335,7 +277,10 @@ export async function readGatewayCatalog(): Promise<GatewayModel[]> {
         id: row.id,
         label: row.name || row.id,
         owner: row.owned_by || row.id.slice(0, row.id.indexOf("/")),
-        type: kindOfGatewayModel(row),
+        // The gateway's own word. A Gemini `*-image` row says `language` and lists
+        // `text,image` output, but the gateway's image endpoint takes `type: "image"`
+        // only, so offering one as an image model only makes a choice that always fails.
+        type: row.type ?? null,
         tags: row.tags ?? [],
         price: priceOfGatewayModel(row),
         retiring: Boolean(row.deprecated_at),

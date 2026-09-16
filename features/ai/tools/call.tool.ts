@@ -11,7 +11,7 @@ export const endCallSpec = {
   name: TOOL_NAMES.end_call,
   description: `End the call.
 
-The line drops as soon as this returns.`,
+The line stays open until this runs, and drops as soon as it returns.`,
   parameters: z.object({}),
 };
 

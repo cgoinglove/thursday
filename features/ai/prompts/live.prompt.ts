@@ -85,7 +85,7 @@ export async function loadLivePrompt(options: {
     input,
     // A prompt line alone does not make Live speak first; only an opening does
     opening: first
-      ? `Open the call now: greet the user in one line, in ${language}, and ask what to call them. Then stop and listen.`
+      ? `Open the call now, in ${language}: say who you are and what you are here to do for them, in a line or two, then ask what to call them. Then stop and listen.`
       : crowded || heavy.length
         ? "Open the call now: greet the user in one line and mention that saved memory needs tidying. Then stop and listen; anything they came with comes first."
         : "The call has just started. Speak first: greet the user naturally, in one line.",
@@ -119,10 +119,10 @@ ${tools.join("\n")}
 
 Delegate to the backend when:
 - The user wants something done, found out, remembered, corrected or forgotten.
-- The user mentions something worth keeping about themselves, the people in their life or their plans.
+- The user says something worth keeping — who they are, how they want things done and said, the people in their life, their plans. Hand it over as they say it, not at the end of the call.
 - The user asks about, answers, corrects or cancels background work.
 - The user asks about something they told you before that is not written out below.
-- The user wants to end the call. Say goodbye first: the line drops as soon as it ends.
+- The user wants to end the call. Say goodbye first, then hand it over: the line stays open until the backend ends it.
 
 Do not delegate to the backend when:
 - The user greets you, makes small talk, or asks you to repeat a result already given.
@@ -173,13 +173,13 @@ function known(
 
 ${parts.join("\n\n")}
 
-A topic not listed is one you know nothing about yet.`;
+Preferences are how they want things done and said: follow them. A topic not listed is one you know nothing about yet.`;
 }
 
 function firstCall(): string {
   return `## First call
 
-Nothing is known about this user yet. Find out what to call them. If they came with something they want done, that comes first.`;
+Nothing is known about this user yet, and this is the only call that opens that way: what you do not learn here you carry on without. Find out what to call them, their name, what they do, how old they are, where they live, and whatever else they offer about themselves. Ask across the whole call, one thing at a time, in the room a conversation leaves — never as a list of questions. Hand each over the moment they say it: nothing from this call is kept unless it goes to the backend. If they came with something they want done, that comes first.`;
 }
 
 /** Past MEMORY_LIMITS, settling memory with the user comes before anything she would raise herself. */

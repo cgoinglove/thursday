@@ -398,25 +398,6 @@ export async function filesOnDisk(
   return [...found].sort((a, b) => a[1] - b[1]).map(([path]) => path);
 }
 
-/** Verify links before a completed report opens them as finished work. */
-export async function missingWorkspaceFiles(
-  paths: string[],
-): Promise<string[]> {
-  const missing: string[] = [];
-  for (const path of paths) {
-    const full = await insideWorkspace(path);
-    // User files are checked at runtime and never belong in the application bundle.
-    if (
-      full &&
-      !(
-        await stat(/* turbopackIgnore: true */ full).catch(() => null)
-      )?.isFile()
-    )
-      missing.push(path);
-  }
-  return missing;
-}
-
 /**
  * Removes a job's working folder. Its lifetime is the thread's: when the row goes,
  * so does what it was working with (features/bot/bot.runner). Never touches

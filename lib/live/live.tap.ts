@@ -134,6 +134,32 @@ export function createAudioTap(): LiveAudio & {
   };
 }
 
+/**
+ * Bands for a clip this page plays itself (a voice sample), folded by the same
+ * tables a call's voice is, so a face moves the same way for both.
+ * `createMediaElementSource` diverts the element's own output, so the graph has
+ * to reach the destination or nothing is heard; an element can be routed only
+ * once, so a clip keeps its tap for as long as it exists.
+ */
+export function createClipTap(element: HTMLAudioElement) {
+  const context = new AudioContext();
+  const analyser = context.createAnalyser();
+  analyser.fftSize = 512;
+  analyser.smoothingTimeConstant = 0.55;
+  const bins = new Uint8Array(analyser.frequencyBinCount);
+  const out = new Array<number>(SPECTRUM_BANDS).fill(0);
+
+  context.createMediaElementSource(element).connect(analyser);
+  analyser.connect(context.destination);
+
+  return {
+    /** A context is born suspended; resume inside the gesture that plays. */
+    resume: () => context.resume().catch(() => {}),
+    read: () => bandsOf(analyser, bins, out),
+    close: () => context.close().catch(() => {}),
+  };
+}
+
 /** What a face moves with on one frame (createVoiceFollower). */
 export type VoiceFrame = {
   /** How far into its own range the voice is now, 0..1; 0 in silence. */

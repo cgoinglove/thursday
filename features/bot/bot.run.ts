@@ -17,9 +17,8 @@ import { loadTools } from "@/features/ai/load-tools";
 import {
   compactBudget,
   getTextModel,
-  type ModelFailure,
+  isContextOverflow,
   modelErrorToString,
-  modelFailureOf,
   resolveDefaultModel,
 } from "@/features/ai/model";
 import { loadBotPrompt } from "@/features/ai/prompts/bot.prompt";
@@ -87,16 +86,10 @@ export type BotEvent =
   /** Normal turn end; interruption is a runtime fact, separate from room completion. */
   | { type: "turn-end"; text: string; stopped: boolean }
   /**
-   * The run broke. `failure` is whose it is to fix (model.ts modelFailureOf) — a
-   * retry's, a compaction's, or a person's — and `budget` where to compact next
+   * The run broke, in words a person can act on; `budget` is where to compact next
    * time, when the model refused the context as too long.
    */
-  | {
-      type: "error";
-      message: string;
-      failure: ModelFailure;
-      budget?: number;
-    };
+  | { type: "error"; message: string; budget?: number };
 
 /** The event as the thread sees it: which participant and continuation. */
 export type ThreadEvent = BotEvent & { bot: string; parent: string | null };
@@ -138,7 +131,6 @@ export async function runBot(
     await emit({
       type: "error",
       message: `No bot named "${input.bot}". Use a name from the list.`,
-      failure: "fatal",
     });
     return;
   }
@@ -351,18 +343,21 @@ export async function runBot(
   /** Why the latest step ended; prose cut off at the output limit is not an answer. */
   let finish: FinishReason | null = null;
 
-  /** A break as the runner takes it; an overflow carries where to compact next time. */
+  /**
+   * Every way the stream breaks, as the runner takes it: the words for the row, and
+   * where to compact next time when the context was refused as too long. The row
+   * keeps only the words, so the whole cause is logged here.
+   */
   const failed = (cause: unknown): Extract<BotEvent, { type: "error" }> => {
-    const failure = modelFailureOf(cause);
+    logger.error(`${name}: the model run broke`, cause);
     const message = modelErrorToString(cause);
-    if (failure !== "overflow") return { type: "error", message, failure };
+    if (!isContextOverflow(cause)) return { type: "error", message };
     const shrunk = Math.floor(
       Math.min(budget, sent || budget) * BOT_RUN.overflowShrink,
     );
     return {
       type: "error",
       message,
-      failure,
       budget: Math.max(COMPACT_AT_MIN, shrunk),
     };
   };
@@ -445,12 +440,9 @@ export async function runBot(
         case "abort":
           // The job was stopped: whoever stopped it writes the row (bot.runner)
           if (options.signal?.aborted) return;
-          // Otherwise the model went quiet (silenceWatch)
-          await emit({
-            type: "error",
-            message: part.reason ?? "The model stopped sending.",
-            failure: "transient",
-          });
+          // Otherwise the model went quiet (silenceWatch). The sdk types `reason` as
+          // a string but hands over the signal's reason, the watch's DOMException.
+          await emit(failed(part.reason ?? "The model stopped sending."));
           return;
 
         case "error":
@@ -483,7 +475,6 @@ export async function runBot(
     await emit({
       type: "error",
       message: "The provider's content filter stopped the response.",
-      failure: "fatal",
     });
     return;
   }
@@ -595,7 +586,7 @@ async function compact(
     if (options.signal?.aborted) throw cause;
     failure = cause;
   }
-  if (modelFailureOf(failure) === "overflow") {
+  if (isContextOverflow(failure)) {
     // pruneMessages drops a call together with its result, so the transcript stays whole
     const lighter = pruneMessages({
       messages,

@@ -1061,9 +1061,6 @@ const GHOSTS: CrewFace[] = ["alto", "brio", "cinder", "delta"].map(
 /** A single face reads as one worker, not as a crew; below this the row is padded out. */
 const FLOOR = 3;
 
-/** The awake halo, in the mark's own view-box units: about 2px of blur at 28px. */
-const AWAKE_GLOW = 20;
-
 /**
  * The crew, and what each of them is doing.
  *
@@ -1072,9 +1069,9 @@ const AWAKE_GLOW = 20;
  * is on that step. Both are derived — there is no queue and no cap, because
  * every bot that is working is saying something true at the same time.
  *
- * A face that is moving is awake: lifted, swollen a little, and glowing in its
- * own colour. That layer alone survives every collision — three bots at once
- * are three awake faces, with no order to decide.
+ * A face that is moving is awake: lifted and swollen a little. That layer alone
+ * survives every collision — three bots at once are three awake faces, with no
+ * order to decide.
  */
 function Crew({
   crew,
@@ -1103,9 +1100,6 @@ function Crew({
               )}
               style={{ zIndex: crew.length - index }}
             >
-              {/* The halo is the mark's own (bot-mark `glow`), not a filter on
-                  this box: a filter here also lands on the bubble above, which
-                  came out tinted in the bot's colour and wearing its blur. */}
               <span
                 // The lift is the face's alone, so an awake face does not swell its bubble.
                 className={cn(
@@ -1148,16 +1142,8 @@ function Crew({
   );
 }
 
-/**
- * One crew face. Awake, it wears a halo in its own colour, so who is moving
- * reads before any word does; the options object is memoized because a new one
- * every render re-derives the silhouette behind it.
- */
+/** One crew face. Who is moving reads from the lift its row gives it. */
 function CrewMark({ face }: { face: CrewFace }) {
-  const glow = useMemo(
-    () => (face.awake ? { glow: AWAKE_GLOW } : undefined),
-    [face.awake],
-  );
   return (
     <BotMark
       size={28}
@@ -1167,7 +1153,6 @@ function CrewMark({ face }: { face: CrewFace }) {
       outline={face.icon?.outline}
       paint={face.icon?.paint}
       notify={face.waiting}
-      options={glow}
     />
   );
 }

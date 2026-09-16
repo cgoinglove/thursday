@@ -62,7 +62,7 @@ import {
 import {
   BOT_SEEDS,
   type BotSeed,
-  rollSeedColors,
+  rollSeedIcons,
 } from "@/features/bot/bot.seed";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { MarkPalette } from "@/features/bot/components/mark-palette";
@@ -115,11 +115,11 @@ export function BotSetting() {
 
   /**
    * One roll for this screen, in BOT_SEEDS order. The faces on the invite, in the
-   * picker and on the bot that gets created are then the same colour, because
-   * `createSeedBotsAction` takes it (bot.seed rollSeedColors rolls per install so
+   * picker and on the bot that gets created are then the same, because
+   * `createSeedBotsAction` takes it (bot.seed rollSeedIcons rolls per install so
    * no two rosters look alike; a seed itself carries none).
    */
-  const [inks] = useState(rollSeedColors);
+  const [faces] = useState(rollSeedIcons);
 
   if (isLoading) return <SettingPanesSkeleton />;
   if (error) return <SettingError message={error.message} />;
@@ -157,7 +157,7 @@ export function BotSetting() {
             {bots.length > 0 && missing.length > 0 && (
               <SeedInvite
                 missing={missing}
-                inks={inks}
+                faces={faces}
                 have={have}
                 onDone={(name) => setPicked(name)}
               />
@@ -206,7 +206,7 @@ export function BotSetting() {
           // hold, so it fills it rather than sitting in a dialog nobody opened
           <SeedPackage
             have={have}
-            inks={inks}
+            faces={faces}
             onDone={(name) => setPicked(name)}
           />
         ) : (
@@ -357,7 +357,7 @@ function unmetLine(
  */
 function useSeedPicks(
   have: Set<string>,
-  inks: string[],
+  faces: BotIcon[],
   onDone: (name: string | null) => void,
 ) {
   const [off, setOff] = useState<Set<string>>(new Set());
@@ -393,7 +393,7 @@ function useSeedPicks(
       add(
         wanted.map((seed) => ({
           name: seed.name,
-          color: inks[BOT_SEEDS.indexOf(seed)],
+          icon: faces[BOT_SEEDS.indexOf(seed)],
         })),
       ),
   };
@@ -402,11 +402,11 @@ function useSeedPicks(
 /** The rows themselves. Both wrappers draw these and supply their own chrome. */
 function SeedRows({
   have,
-  inks,
+  faces,
   picks,
 }: {
   have: Set<string>;
-  inks: string[];
+  faces: BotIcon[];
   picks: ReturnType<typeof useSeedPicks>;
 }) {
   return (
@@ -436,8 +436,7 @@ function SeedRows({
             >
               <BotMark
                 size={28}
-                {...markProps(seed.name, seed.icon)}
-                color={inks[at]}
+                {...markProps(seed.name, faces[at])}
                 className={cn(
                   "shrink-0 transition-opacity",
                   !on && "opacity-35",
@@ -520,15 +519,15 @@ function SeedActions({
  */
 function SeedPackage({
   have,
-  inks,
+  faces,
   onDone,
 }: {
   /** Names already on the roster. */
   have: Set<string>;
-  inks: string[];
+  faces: BotIcon[];
   onDone: (name: string | null) => void;
 }) {
-  const picks = useSeedPicks(have, inks, onDone);
+  const picks = useSeedPicks(have, faces, onDone);
 
   return (
     <div className="flex min-h-full flex-col">
@@ -548,7 +547,7 @@ function SeedPackage({
       </div>
 
       <div className="px-8 pt-4">
-        <SeedRows have={have} inks={inks} picks={picks} />
+        <SeedRows have={have} faces={faces} picks={picks} />
       </div>
 
       <div className="mt-auto flex items-center gap-3 border-t border-border/60 px-8 py-4">
@@ -566,14 +565,14 @@ function SeedPackage({
 /** The same offer in a dialog, which brings its own padding and its own footer. */
 function SeedDialog({
   have,
-  inks,
+  faces,
   onDone,
 }: {
   have: Set<string>;
-  inks: string[];
+  faces: BotIcon[];
   onDone: (name: string | null) => void;
 }) {
-  const picks = useSeedPicks(have, inks, onDone);
+  const picks = useSeedPicks(have, faces, onDone);
 
   return (
     <SettingDialogContent
@@ -581,7 +580,7 @@ function SeedDialog({
       description="Each one is a starting point — rename it, re-prompt it, give it a model of its own. What a bot needs before it can work stands on its row."
       footer={<SeedActions picks={picks} onCancel={() => onDone(null)} />}
     >
-      <SeedRows have={have} inks={inks} picks={picks} />
+      <SeedRows have={have} faces={faces} picks={picks} />
     </SettingDialogContent>
   );
 }
@@ -594,12 +593,12 @@ function SeedDialog({
  */
 function SeedInvite({
   missing,
-  inks,
+  faces,
   have,
   onDone,
 }: {
   missing: BotSeed[];
-  inks: string[];
+  faces: BotIcon[];
   have: Set<string>;
   onDone: (name: string | null) => void;
 }) {
@@ -614,7 +613,7 @@ function SeedInvite({
           renderer: ({ close }) => (
             <SeedDialog
               have={have}
-              inks={inks}
+              faces={faces}
               onDone={(name) => {
                 close();
                 onDone(name);
@@ -637,8 +636,7 @@ function SeedInvite({
         >
           <BotMark
             size={20}
-            {...markProps(seed.name, seed.icon)}
-            color={inks[BOT_SEEDS.indexOf(seed)]}
+            {...markProps(seed.name, faces[BOT_SEEDS.indexOf(seed)])}
             notify={false}
           />
         </span>

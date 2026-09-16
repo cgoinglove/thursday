@@ -295,14 +295,6 @@ export type MarkOptions = {
   speed: number;
   blink: boolean;
 
-  /** Peak opacity of the soft shadow that swells under the mark while thinking, percent. 0 disables. */
-  shadow: number;
-  /** Soft halo around the silhouette, cut out of the head; blur radius in view-box units. 0 disables. */
-  glow: number;
-  /** Aura color. null follows the mark color. */
-  glowColor: string | null;
-  /** Aura opacity, percent. */
-  glowStrength: number;
   /** Border around the silhouette so it still reads on a same-colored background. 0 disables. */
   rim: number;
   /** Defaults to the theme text color, the one color guaranteed to differ from the background. */
@@ -357,10 +349,6 @@ const MARK_DEFAULTS: MarkOptions = {
   speed: 1.7,
   blink: true,
 
-  shadow: 16,
-  glow: 0,
-  glowColor: null,
-  glowStrength: 55,
   rim: 0,
   rimColor: "currentColor",
 
@@ -891,8 +879,6 @@ type StateShape = {
   /** Constant gaze offset, box units, on top of pointer tracking and drift. */
   gazeX: number;
   gazeY: number;
-  /** 1 lets the shadow through, 0 blocks it; eased like the other channels. */
-  shadow: number;
 };
 
 /** Resting-pose targets per state. */
@@ -906,7 +892,6 @@ const STATE_SHAPE: Record<MarkState, StateShape> = {
     breathe: 1,
     float: 1,
     blink: 1,
-    shadow: 0,
     lean: 0,
     aspect: 1,
     gazeX: 0,
@@ -921,7 +906,6 @@ const STATE_SHAPE: Record<MarkState, StateShape> = {
     breathe: 2.2,
     float: 0.6,
     blink: 0.6,
-    shadow: 0,
     lean: 0,
     aspect: 1.03,
     gazeX: 0,
@@ -936,7 +920,6 @@ const STATE_SHAPE: Record<MarkState, StateShape> = {
     breathe: 0.45,
     float: 0.35,
     blink: 1.8,
-    shadow: 0,
     lean: 0,
     aspect: 0.97,
     gazeX: 0,
@@ -951,7 +934,6 @@ const STATE_SHAPE: Record<MarkState, StateShape> = {
     breathe: 1.3,
     float: 1.4,
     blink: 0.8,
-    shadow: 1,
     lean: 7,
     aspect: 1.04,
     gazeX: -9,
@@ -966,7 +948,6 @@ const STATE_SHAPE: Record<MarkState, StateShape> = {
     breathe: 0.6,
     float: 0.5,
     blink: 1.3,
-    shadow: 0,
     lean: -6,
     aspect: 1,
     gazeX: 15,
@@ -983,7 +964,6 @@ const STATE_SHAPE: Record<MarkState, StateShape> = {
     breathe: 0.4,
     float: 0.5,
     blink: 1.2,
-    shadow: 0,
     lean: 0,
     aspect: 1,
     gazeX: 0,
@@ -1100,10 +1080,7 @@ export function BotMark({
       ),
     [options, outline, varySeed],
   );
-  const glowId = `${clipId}-glow`;
-  const haloId = `${clipId}-halo`;
   const maskId = `${clipId}-mask`;
-  const shadowId = `${clipId}-shadow`;
   const paintId = `${clipId}-paint`;
   const curtainId = `${clipId}-curtain`;
   const lifeRef = useRef<SVGGElement>(null);
@@ -1112,9 +1089,6 @@ export function BotMark({
   const clipRef = useRef<SVGPathElement>(null);
   const eyeLRef = useRef<SVGGElement>(null);
   const eyeRRef = useRef<SVGGElement>(null);
-  const glowRef = useRef<SVGPathElement>(null);
-  const haloHeadRef = useRef<SVGPathElement>(null);
-  const shadowRef = useRef<SVGPathElement>(null);
   const maskHeadRef = useRef<SVGPathElement>(null);
   const rimRef = useRef<SVGPathElement>(null);
   const paintRef = useRef<SVGLinearGradientElement>(null);
@@ -1346,14 +1320,6 @@ export function BotMark({
         }
       }
 
-      if (shadowRef.current) {
-        const swell = 0.5 - 0.5 * Math.cos(t * 0.55);
-        shadowRef.current.setAttribute(
-          "opacity",
-          f((shape.shadow * swell * c.shadow) / 100).toString(),
-        );
-      }
-
       if (lifeRef.current) {
         const amp = (c.breathe * shape.breathe) / 100;
         const swell = (lvl * c.pulse) / 300 - bob * 0.05;
@@ -1437,9 +1403,6 @@ export function BotMark({
         const d = radiiToPath(next);
         headRef.current.setAttribute("d", d);
         clipRef.current?.setAttribute("d", d);
-        glowRef.current?.setAttribute("d", d);
-        haloHeadRef.current?.setAttribute("d", d);
-        shadowRef.current?.setAttribute("d", d);
         rimRef.current?.setAttribute("d", d);
         maskHeadRef.current?.setAttribute("d", d);
       }
@@ -1583,53 +1546,6 @@ export function BotMark({
             )}
           </mask>
         )}
-        {cfg.shadow > 0 && (
-          <filter
-            id={shadowId}
-            x="-60%"
-            y="-60%"
-            width="220%"
-            height="220%"
-            colorInterpolationFilters="sRGB"
-          >
-            <feGaussianBlur stdDeviation={9} />
-          </filter>
-        )}
-        {/* The aura is a halo around the silhouette, never a light behind it: the
-            eyes are holes cut out of the head, so anything drawn under it shines
-            straight through them and the face reads as hollow. */}
-        {cfg.glow > 0 && (
-          <mask
-            id={haloId}
-            maskUnits="userSpaceOnUse"
-            // The default region is the view box; the blur reaches past it.
-            x={-PAD * 4}
-            y={-PAD * 4}
-            width={BOX + PAD * 8}
-            height={BOX + PAD * 8}
-          >
-            <rect
-              x={-PAD * 4}
-              y={-PAD * 4}
-              width={BOX + PAD * 8}
-              height={BOX + PAD * 8}
-              fill="#fff"
-            />
-            <path ref={haloHeadRef} d={headPath} fill="#000" />
-          </mask>
-        )}
-        {cfg.glow > 0 && (
-          <filter
-            id={glowId}
-            x="-60%"
-            y="-60%"
-            width="220%"
-            height="220%"
-            colorInterpolationFilters="sRGB"
-          >
-            <feGaussianBlur stdDeviation={cfg.glow} />
-          </filter>
-        )}
         {spec && (
           <linearGradient
             ref={paintRef}
@@ -1660,26 +1576,6 @@ export function BotMark({
         )}
       </defs>
       <g ref={lifeRef}>
-        {cfg.shadow > 0 && (
-          <path
-            ref={shadowRef}
-            d={headPath}
-            fill="var(--fg)"
-            filter={`url(#${shadowId})`}
-            transform={`translate(0 ${12})`}
-            opacity={0}
-          />
-        )}
-        {cfg.glow > 0 && (
-          <path
-            ref={glowRef}
-            d={headPath}
-            fill={cfg.glowColor ?? "var(--fg)"}
-            filter={`url(#${glowId})`}
-            mask={`url(#${haloId})`}
-            opacity={cfg.glowStrength / 100}
-          />
-        )}
         {/* Under the fill, stroked at double width so only the outer half shows. */}
         {cfg.rim > 0 && (
           <path

@@ -41,13 +41,13 @@ That is the Friday feeling: you think out loud, your assistant answers, and work
 
 <br>
 
-## One sentence. Three bots. You typed none of it.
+## One sentence. Two bots. You typed none of it.
 
 Thursday does not hand your request to a single agent and hope. The bots talk to each other.
 
-![Jarvis splits the job, Navigator reads six shops, Scribe builds the page — a room nobody typed in](docs/images/thread-room.png)
+![Jarvis splits the job, Analyst brings the numbers back, one page comes out — a room nobody typed in](docs/images/thread-room.png)
 
-Ask for a one-page lookbook of coats for the trip. **Jarvis** takes the job and decides neither part is its own. **Navigator** opens six shops in a real browser and brings back prices, links, and pictures. **Scribe** turns that into the page. Jarvis makes sure the pieces fit and hands the result to Thursday — and you hear one sentence.
+Ask how your market moved this week, on one page. **Jarvis** takes the job, writes the plan down and hands the research out. **Analyst** pulls the numbers from where they are published, keeps every source, and draws them. Jarvis opens what came back, checks it against the plan, builds the page, and hands the result to Thursday — and you hear one sentence.
 
 Every handoff is written down. Open the room to see who did what, or type into it and the job picks up where it left off.
 

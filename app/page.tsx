@@ -1,4 +1,4 @@
-import { rollSeedColors } from "@/features/bot/bot.seed";
+import { rollSeedIcons } from "@/features/bot/bot.seed";
 import { isCallable } from "@/features/config/config.query";
 import { Intro } from "@/features/intro/components/intro";
 import { Boot } from "@/features/thursday/components/boot";
@@ -18,11 +18,11 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     <div className="h-full min-h-0 flex-1">
       <Thursday />
       {/* Decided on the server: toggling after hydration flashes the first frame.
-          The seed colours are rolled here for the same reason (bot.seed). */}
+          The seed faces are rolled here for the same reason (bot.seed). */}
       <Intro
         ready={ready}
         forced={intro !== undefined}
-        colors={rollSeedColors()}
+        icons={rollSeedIcons()}
       />
       <Boot over={onIntro ? "intro" : "call"} />
     </div>

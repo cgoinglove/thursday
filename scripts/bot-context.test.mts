@@ -1172,24 +1172,38 @@ test("a failed participant drains its peers before manual resume", async () => {
   assert.ok((await listRoomWork(id)).every((work) => work.state === "done"));
 });
 
-test("missing artifacts pause visibly and can be repaired with a natural follow-up", async () => {
-  plans.set("Alpha", [() => text("Open artifacts/report-check.md")]);
+test("a provider failure streamed as its parsed body pauses in the provider's words", async () => {
+  const { roomContextBudget } = await import("../features/bot/room.query.ts");
+  // A streamed body with no `message` string reaches the run as the object it was
+  // parsed into: the sdk wraps only bodies it can read words from.
+  const unavailable = { error: { code: 503, type: "upstream_unavailable" } };
+  const tooLong = "This model's maximum context length is 128000 tokens.";
+  plans.set("Alpha", [() => [{ type: "error", error: unavailable }]]);
   const id = await startThread({
     bot: "Alpha",
-    request: "Create a report",
-    label: "Report check",
+    request: "Fail with a provider body",
+    label: "Provider body",
     from: "user",
   });
   const paused = await waitFor(id, "waiting");
-  assert.ok(paused.outcome?.includes("files that are not available"));
-  plans.set("Alpha", [
-    () =>
-      call(T.write_file, {
-        path: "artifacts/report-check.md",
-        content: "# Verified report",
-      }),
-    () => text("Open artifacts/report-check.md"),
-  ]);
+  assert.equal(paused.outcome, JSON.stringify(unavailable));
+  const note = (await rowsOf(id)).at(-1);
+  assert.ok(note?.note);
+  assert.ok(String(note.content).startsWith(`${paused.outcome} Resume`));
+  assert.ok(
+    (await listRoomRelays()).some(
+      (relay) => relay.threadId === id && relay.text === paused.outcome,
+    ),
+  );
+  assert.equal(await roomContextBudget(id, "Alpha"), undefined);
+
+  plans.set("Alpha", [() => [{ type: "error", error: { error: tooLong } }]]);
+  await answerThread(id, "Continue");
+  assert.equal((await waitFor(id, "waiting")).outcome, tooLong);
+  // Read as an overflow: the next run compacts earlier instead of repeating it
+  assert.ok(await roomContextBudget(id, "Alpha"));
+
+  plans.set("Alpha", [() => text("Recovered after both failures")]);
   await answerThread(id, "Continue");
   await waitFor(id, "done");
 });

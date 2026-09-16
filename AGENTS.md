@@ -113,7 +113,8 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
 - **Voice is GPT-Live, not Realtime.** The server exchanges the browser's SDP through
   `/v1/live/sessions`; the API key, both prompts and the tool manifest stay on the server. Live
   speech and Responses work have independent lifecycles. Collect function calls from nested
-  `response.output_item.done`, return all outputs, then explicitly continue the backend.
+  `response.output_item.done`, return all outputs, then explicitly continue the backend. The mic
+  stays open for the whole call; nothing the page does closes it.
   Live never speaks unprompted: every call opens with an instruction to speak first, and open
   work (unseen endings and stops, unanswered questions) goes in when neither side has been
   transcribed for `CALL_RELAY.quietMs` and comes back until it is handled. Updates go in by
@@ -159,7 +160,8 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   and a bot. Past `MEMORY_LIMITS.factsPerNote` it says the note has outgrown its size and to ask the
   user what to drop — the ask, which both can act on, never the mechanism: how to settle it with the
   user is the call prompt's to say.
-- **Don't split files by size.** A long file that does one thing stays one file.
+- **Don't split files by size; split by subject.** A long file that does one thing stays one
+  file. A file that draws several subjects is several files, however short each one would be.
 - **An interface with one implementation is two files, not an interface.** Don't add ports.
 
 # Data flow
@@ -242,9 +244,10 @@ A 30-second poll remains as a safety net. No WebSockets.
 - Confirmations and prompts: `notify.confirm` / `notify.prompt`. Destructive actions confirm first.
 - Notifications: `toast.add`, only for things that happen off-screen. Skip it when the result is
   visible.
-- Waiting is always a loader: buttons swap their icon for a Loader, lists use `Skeleton`. Never dots
-  or pulses, and never a new element that shifts the row when it finishes.
-- Words for something still running shine (`ShinyText`). It takes its colours from the theme —
+- Waiting is always a loader: buttons swap their icon for a Loader, lists use `Skeleton`. Never dots,
+  and never a new element that shifts the row when it finishes.
+- Words for something still running shine (`ShinyText`), and pulse instead on the call screen
+  (`motion="pulse"`, the user's pick): one screen, one motion. It takes its colours from the theme —
   `tone="waiting"` for amber, never a colour — and truncates in its own box, not a parent's.
 - Two status colors only: amber (waits on the user — a question, a stopped job, an answer not yet
   opened; `WAITING_INK` in `lib/utils`) and red (failed — `text-destructive`). Success, connected and

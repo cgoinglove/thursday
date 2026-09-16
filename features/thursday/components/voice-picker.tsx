@@ -1,0 +1,204 @@
+"use client";
+
+import { Check, ChevronDown, X } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input, inputClassName } from "@/components/ui/input";
+import { ShinyText } from "@/components/ui/shiny-text";
+import {
+  LIVE_VOICE_NOTE,
+  LIVE_VOICES,
+  voiceSamplePath,
+} from "@/features/ai/live.schema";
+import { Face } from "@/features/thursday/components/face";
+import type { ThursdayFace } from "@/features/thursday/thursday.schema";
+import { createClipTap, SPECTRUM_BANDS } from "@/lib/live/live.tap";
+import { cn } from "@/lib/utils";
+
+/**
+ * Choosing a voice by ear. A name plays its recorded line and her own face
+ * speaks it — the same component and the same bands a call moves her with, so
+ * what you hear and see here is what the call will be. Only Save writes, so
+ * hearing eleven voices no longer stores eleven of them.
+ */
+
+const SILENT = new Array<number>(SPECTRUM_BANDS).fill(0);
+
+export function VoicePicker({
+  voice,
+  face,
+  onChange,
+}: {
+  /** The saved voice: what the next call opens with. */
+  voice: string;
+  face: ThursdayFace;
+  onChange: (voice: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [heard, setHeard] = useState(voice);
+  const [playing, setPlaying] = useState(false);
+  const [typed, setTyped] = useState("");
+
+  const clip = useRef<HTMLAudioElement>(null);
+  const tap = useRef<ReturnType<typeof createClipTap> | null>(null);
+  // The face reads the spectrum once per animation frame, so what it reads is a
+  // ref, not state: a stable function, and silence when nothing is playing.
+  const sounding = useRef(false);
+  const spectrum = useCallback(
+    () => (tap.current && sounding.current ? tap.current.read() : SILENT),
+    [],
+  );
+  const showPlaying = (on: boolean) => {
+    sounding.current = on;
+    setPlaying(on);
+  };
+
+  const stop = () => {
+    const audio = clip.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+    showPlaying(false);
+  };
+
+  const audition = (next: string) => {
+    const audio = clip.current;
+    if (!audio) return;
+    if (playing && next === heard) {
+      stop();
+      return;
+    }
+    setHeard(next);
+    setTyped("");
+    // The graph is built inside the gesture that plays: an AudioContext made
+    // before one is refused. An element is routed once, so this happens once.
+    tap.current ??= createClipTap(audio);
+    void tap.current.resume();
+    audio.src = voiceSamplePath(next);
+    showPlaying(true);
+    void audio.play().catch(() => showPlaying(false));
+  };
+
+  const close = () => {
+    stop();
+    setOpen(false);
+    setTyped("");
+    setHeard(voice);
+  };
+
+  const save = () => {
+    const picked = typed.trim() || heard;
+    stop();
+    setOpen(false);
+    setTyped("");
+    setHeard(picked);
+    if (picked !== voice) onChange(picked);
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Voice"
+        className={cn(
+          inputClassName,
+          "flex items-center gap-2 text-left font-mono text-sm hover:border-ring",
+        )}
+      >
+        <span className="shrink-0">{voice}</span>
+        <span className="min-w-0 truncate text-[11px] text-muted-foreground">
+          {LIVE_VOICE_NOTE[voice as keyof typeof LIVE_VOICE_NOTE]}
+        </span>
+        <ChevronDown className="ml-auto size-3.5 shrink-0 text-muted-foreground" />
+      </button>
+    );
+  }
+
+  return (
+    <div className="@container space-y-2">
+      {/* Nothing here plays through the page's own speakers but this element. */}
+      <audio ref={clip} onEnded={() => showPlaying(false)}>
+        <track kind="captions" />
+      </audio>
+
+      <div className="rounded-xl border border-border/60 p-3">
+        <div className="mb-2 flex items-center gap-2">
+          <span className="font-mono text-[11px] text-muted-foreground">
+            click a name to hear it
+          </span>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="ml-auto"
+            aria-label="Close"
+            onClick={close}
+          >
+            <X />
+          </Button>
+        </div>
+
+        <div className="grid gap-4 @md:grid-cols-[11rem_minmax(0,1fr)]">
+          <div className="flex flex-col items-center gap-2">
+            <Face
+              look={face}
+              status={playing ? "speaking" : "idle"}
+              getSpectrum={spectrum}
+              size={176}
+              className="w-44"
+            />
+            <span className="text-sm font-medium">
+              {playing ? <ShinyText text={heard} /> : heard}
+            </span>
+            <span className="h-4 font-mono text-[11px] text-muted-foreground">
+              {LIVE_VOICE_NOTE[heard as keyof typeof LIVE_VOICE_NOTE]}
+            </span>
+          </div>
+
+          <div className="max-h-56 min-w-0 overflow-y-auto">
+            {LIVE_VOICES.map((name) => (
+              <button
+                type="button"
+                key={name}
+                onClick={() => audition(name)}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-sm outline-none hover:bg-accent focus-visible:bg-accent",
+                  name === heard && "bg-accent text-accent-foreground",
+                )}
+              >
+                <span className="flex-1 text-left">
+                  {playing && name === heard ? <ShinyText text={name} /> : name}
+                </span>
+                <span className="shrink truncate font-mono text-[11px] text-muted-foreground">
+                  {LIVE_VOICE_NOTE[name]}
+                </span>
+                <Check
+                  className={cn(
+                    "size-3.5 shrink-0",
+                    name === voice ? "opacity-100" : "opacity-0",
+                  )}
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* A voice id that is not on the list still runs; it simply has no clip. */}
+      <div className="flex gap-2">
+        <Input
+          value={typed}
+          onChange={(event) => setTyped(event.target.value)}
+          placeholder="another voice id"
+          aria-label="Another voice id"
+          spellCheck={false}
+          className="font-mono text-sm"
+        />
+        <Button className="shrink-0" onClick={save}>
+          Save
+        </Button>
+      </div>
+    </div>
+  );
+}

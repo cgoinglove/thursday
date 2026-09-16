@@ -7,7 +7,7 @@ import {
 import { DateLikeSchema } from "@/lib/date-like";
 import { COMMON_VALIDATE } from "@/lib/limits";
 import { clip } from "@/lib/utils";
-import { MARK_PAINT_IDS, MARK_SHAPES, randomMarkColors } from "./mark.const";
+import { MARK_PAINT_IDS, MARK_SHAPES, randomMarkFills } from "./mark.const";
 import { ROOM_THURSDAY, RoomViewSchema } from "./room.schema";
 
 /** How a bot's mark is drawn. Every field is optional; the seed alone gives every bot a distinct face. */
@@ -26,13 +26,20 @@ export const botIconSchema = z.object({
 
 export const botSystemPromptSchema = z.string().max(COMMON_VALIDATE.prompt.max);
 
-/** Face for a bot nobody drew. Random rather than name-derived so two bots made in one call differ at a glance. */
-export function randomBotIcon(): BotIcon {
-  return {
-    color: randomMarkColors(1)[0],
+/**
+ * Faces for bots nobody drew, distinct from one another: the whole vocabulary is
+ * rolled, shape and paints included, so a face the app hands out and a face
+ * somebody picked are drawn from the same range. Random rather than name-derived
+ * so two bots made in one call differ at a glance.
+ */
+export function randomBotIcons(count: number): BotIcon[] {
+  return randomMarkFills(count).map((fill) => ({
+    ...fill,
     shape: MARK_SHAPES[Math.floor(Math.random() * MARK_SHAPES.length)],
-  };
+  }));
 }
+
+export const randomBotIcon = (): BotIcon => randomBotIcons(1)[0];
 
 /** Pinned MCP tools skip the in-call tool search. 10 is a prompt-size budget, not a DB limit. */
 export const MAX_PINNED_TOOLS = 10;

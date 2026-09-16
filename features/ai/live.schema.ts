@@ -35,6 +35,31 @@ export const LIVE_VOICES = [
   "verse",
 ] as const;
 
+/**
+ * Regional influence and presentation, as OpenAI documents them for the voices
+ * GPT-Live adds. The rest — marin, cedar and the voices shared with Realtime —
+ * have no documented character, and an invented one would read as fact.
+ */
+export const LIVE_VOICE_NOTE: Partial<
+  Record<(typeof LIVE_VOICES)[number], string>
+> = {
+  gleam: "North American · feminine",
+  meridian: "North American · masculine",
+  quartz: "Australian · feminine",
+  ripple: "Australian · masculine",
+  vesper: "British · masculine",
+  willow: "Irish · feminine",
+  stone: "Irish · masculine",
+  bossa: "Portuguese · feminine",
+  tempo: "Portuguese · masculine",
+  beacon: "Filipino · masculine",
+  delta: "Southern U.S. · feminine",
+  cinder: "Southern U.S. · masculine",
+};
+
+/** A recorded line in this voice, written by `pnpm voice:samples`. Only the listed voices have one. */
+export const voiceSamplePath = (voice: string) => `/voices/${voice}.ogg`;
+
 export const LIVE_BACKEND_MODELS = TEXT_MODEL_PROVIDERS.openai.suggestModels;
 export const LIVE_REASONING = [
   "none",
@@ -52,8 +77,11 @@ export const LiveSettingsSchema = z.object({
   voicePrompt: instruction,
   backendModel: z.string().trim().min(1).max(128).default(LIVE_BACKEND_MODEL),
   backendPrompt: instruction,
-  /** Null omits reasoning so older models can use their own supported defaults. */
-  reasoningEffort: z.enum(LIVE_REASONING).nullable().default(null),
+  /**
+   * A call waits out loud, so the backend reasons as little as the work allows.
+   * Null omits the parameter, for a model that only runs on its own default.
+   */
+  reasoningEffort: z.enum(LIVE_REASONING).nullable().default("low"),
   webSearch: z.boolean().default(false),
 });
 export type LiveSettings = z.infer<typeof LiveSettingsSchema>;

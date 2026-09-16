@@ -15,9 +15,28 @@ export function clip(text: string, max: number): string {
   return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}…` : flat;
 }
 
-/** Message of a caught `unknown`, in one line. */
+/** How much of a thrown object with no words of its own is worth reading back. */
+const THROWN_JSON_MAX = 300;
+
+/**
+ * Message of a caught `unknown`, in one line. Not everything thrown is an Error: a
+ * provider's streamed failure arrives as its parsed body, with the words in `message`
+ * or one `error` down, and an object without either reads back as its JSON.
+ */
 export function errorToString(cause: unknown): string {
-  return cause instanceof Error ? cause.message : String(cause);
+  if (cause instanceof Error) return cause.message;
+  if (typeof cause !== "object" || cause === null) return String(cause);
+  const { message, error } = cause as { message?: unknown; error?: unknown };
+  if (typeof message === "string" && message) return message;
+  if (typeof error === "string" && error) return error;
+  const inner = (error as { message?: unknown } | null | undefined)?.message;
+  if (typeof inner === "string" && inner) return inner;
+  try {
+    return clip(JSON.stringify(cause), THROWN_JSON_MAX);
+  } catch {
+    // A cycle or a bigint: no JSON, and the constructor is all there is to name
+    return `${cause.constructor?.name ?? "Object"} thrown without a message`;
+  }
 }
 
 /** 1234 → "1.2k", 1234567 → "1.2M". For numbers read only for their size, like tokens. */
