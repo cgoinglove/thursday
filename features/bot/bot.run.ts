@@ -18,6 +18,7 @@ import {
   compactBudget,
   getTextModel,
   isContextOverflow,
+  isProviderRefusal,
   modelErrorToString,
   resolveDefaultModel,
 } from "@/features/ai/model";
@@ -87,9 +88,10 @@ export type BotEvent =
   | { type: "turn-end"; text: string; stopped: boolean }
   /**
    * The run broke, in words a person can act on; `budget` is where to compact next
-   * time, when the model refused the context as too long.
+   * time, when the model refused the context as too long; `retry` whether another try
+   * may pass (config BOT_RUN.retryMs), false when only a person can change the outcome.
    */
-  | { type: "error"; message: string; budget?: number };
+  | { type: "error"; message: string; budget?: number; retry: boolean };
 
 /** The event as the thread sees it: which participant and continuation. */
 export type ThreadEvent = BotEvent & { bot: string; parent: string | null };
@@ -131,6 +133,7 @@ export async function runBot(
     await emit({
       type: "error",
       message: `No bot named "${input.bot}". Use a name from the list.`,
+      retry: false,
     });
     return;
   }
@@ -351,7 +354,8 @@ export async function runBot(
   const failed = (cause: unknown): Extract<BotEvent, { type: "error" }> => {
     logger.error(`${name}: the model run broke`, cause);
     const message = modelErrorToString(cause);
-    if (!isContextOverflow(cause)) return { type: "error", message };
+    const retry = !isProviderRefusal(cause);
+    if (!isContextOverflow(cause)) return { type: "error", message, retry };
     const shrunk = Math.floor(
       Math.min(budget, sent || budget) * BOT_RUN.overflowShrink,
     );
@@ -359,6 +363,7 @@ export async function runBot(
       type: "error",
       message,
       budget: Math.max(COMPACT_AT_MIN, shrunk),
+      retry,
     };
   };
 
@@ -475,6 +480,7 @@ export async function runBot(
     await emit({
       type: "error",
       message: "The provider's content filter stopped the response.",
+      retry: false,
     });
     return;
   }

@@ -15,7 +15,7 @@ import {
   LiveCloseSchema,
   type ToolManifest,
 } from "@/lib/live/live.schema";
-import { acceptedEffort, createLiveCall } from "@/lib/live/live.server";
+import { acceptedReasoning, createLiveCall } from "@/lib/live/live.server";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
 import {
@@ -77,7 +77,7 @@ export const openCallAction = serverAction(
     }
 
     // Assembled per call, never cached: both prompts read what earlier calls stored.
-    const [voice, backend, tools, reasoningEffort] = await Promise.all([
+    const [voice, backend, tools, reasoning] = await Promise.all([
       loadLivePrompt({
         voicePrompt: thursday.voicePrompt,
         webSearch: thursday.webSearch,
@@ -85,7 +85,7 @@ export const openCallAction = serverAction(
       }),
       loadThursdayPrompt(thursday.backendPrompt),
       loadToolManifest(),
-      acceptedEffort({
+      acceptedReasoning({
         apiKey,
         model: thursday.backendModel,
         effort: thursday.reasoningEffort,
@@ -104,7 +104,7 @@ export const openCallAction = serverAction(
         model: thursday.backendModel,
         instructions: backend,
         tools,
-        reasoningEffort,
+        reasoning,
         webSearch: thursday.webSearch,
       },
     });
@@ -131,14 +131,20 @@ export const setCallSkillsAction = serverAction(async (on: unknown) => {
 });
 
 export const saveTurnsAction = serverAction(
-  async (callId: string, turns: unknown) => {
-    await saveTurns(callId, CallTurnSchema.array().min(1).parse(turns));
+  async (callId: unknown, turns: unknown) => {
+    await saveTurns(
+      z.string().min(1).parse(callId),
+      CallTurnSchema.array().min(1).parse(turns),
+    );
   },
 );
 
 export const saveThoughtAction = serverAction(
-  async (callId: string, thought: unknown) => {
-    await saveThought(callId, CallThoughtSchema.parse(thought));
+  async (callId: unknown, thought: unknown) => {
+    await saveThought(
+      z.string().min(1).parse(callId),
+      CallThoughtSchema.parse(thought),
+    );
   },
 );
 

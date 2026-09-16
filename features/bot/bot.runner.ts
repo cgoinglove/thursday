@@ -1,7 +1,8 @@
+import { setTimeout as wait } from "node:timers/promises";
 import type { ModelMessage } from "ai";
 import { appEvents, presence } from "@/app/api/events/app-event.server";
-import { PATHS, WORKSPACE_KEEP } from "@/config";
-import { modelErrorToString } from "@/features/ai/model";
+import { BOT_RUN, PATHS, WORKSPACE_KEEP } from "@/config";
+import { isProviderRefusal, modelErrorToString } from "@/features/ai/model";
 import { buildThreadOpening } from "@/features/ai/prompts/bot.prompt";
 import { isAnyCallLive } from "@/features/thursday/thursday.query";
 import { pathsIn } from "@/features/workspace/file-kind";
@@ -18,7 +19,7 @@ import {
 } from "@/features/workspace/workspace";
 import { desktopNotify } from "@/lib/desktop-notify";
 import { logger } from "@/lib/logger";
-import { publicError } from "@/lib/public-error";
+import { isPublicError, publicError } from "@/lib/public-error";
 import { createKeyedLock } from "@/lib/queue";
 import { PromiseChain } from "@/lib/utils";
 import { findJobBot } from "./bot.query";
@@ -40,6 +41,7 @@ import {
   listRoomReceipts,
   listRoomWork,
   lowerRoomContextBudget,
+  noteRoomBreak,
   pauseRoom,
   type RoomWork,
   resumeRoom,
@@ -192,12 +194,66 @@ function launch(work: RoomWork) {
 }
 
 async function drive(work: RoomWork, signal: AbortSignal) {
+  let turn = await attempt(work, signal);
+  // A break gets one more try from the stored transcript; a refusal, the content
+  // filter and the step limit wait for a person, and so does a second break
+  if (turn?.failure?.retry && !signal.aborted) {
+    await noteRoomBreak(work, turn.failure.message);
+    // Only an abort rejects the wait, and the check below reads it
+    await wait(BOT_RUN.retryMs, undefined, { signal }).catch(() => {});
+    if (!signal.aborted) turn = await attempt(work, signal);
+  }
+  if (!turn || signal.aborted) return;
+  const failure = turn.failure?.message;
+  const final = turn.ending;
+  if (failure || !final || final.stopped) {
+    // Release this run before the room lock drains it; cancellation holds the same lock.
+    const why =
+      failure ??
+      "The turn was interrupted. Continue from the saved conversation.";
+    void threadLock(work.threadId, async () => {
+      const current = (await listRoomWork(work.threadId)).find(
+        (row) => row.id === work.id,
+      );
+      if (
+        current?.state !== "running" ||
+        current.generation !== work.generation
+      )
+        return;
+      const drained = stopRuns(work.threadId);
+      await pauseRoom(work.threadId, why);
+      await drained;
+    }).catch((cause) =>
+      logger.error(`thread ${work.threadId}: pausing`, cause),
+    );
+    return;
+  }
+  await finishRoomWork(work, final.text);
+  const thread = await findThread(work.threadId);
+  if (thread?.status === "done") {
+    if (!(await isAnyCallLive()))
+      desktopNotify(thread.label, thread.outcome ?? "");
+    const paths = await filesOnDisk(pathsIn(thread.outcome ?? ""), null);
+    const path =
+      paths.find((path) => path.startsWith(`${PATHS.artifacts}/`)) ?? paths[0];
+    if (path)
+      appEvents.emit({
+        type: "artifact",
+        threadId: thread.id,
+        label: thread.label,
+        path,
+      });
+  }
+}
+
+/** One run of a participant's turn from its stored transcript: how it ended, or why it broke. Null when the thread is gone. */
+async function attempt(work: RoomWork, signal: AbortSignal) {
   const writer = new TranscriptWriter(work, signal);
   let ending: { text: string; stopped: boolean } | null = null;
-  let failure: string | null = null;
+  let failure: { message: string; retry: boolean } | null = null;
   try {
     const thread = await findThread(work.threadId);
-    if (!thread) return;
+    if (!thread) return null;
     const prior = await listParticipantTranscript(work.threadId, work.bot);
     if (!prior.length)
       await appendRoomMessage(work.threadId, {
@@ -258,7 +314,7 @@ async function drive(work: RoomWork, signal: AbortSignal) {
             await addThreadUsage(work.threadId, event.usage);
           if (event.type === "turn-end") ending = event;
           if (event.type === "error") {
-            failure = event.message;
+            failure = { message: event.message, retry: event.retry };
             if (event.budget) await lowerRoomContextBudget(work, event.budget);
             if (event.budget && work.bot === thread.bot)
               await updateThread(work.threadId, {
@@ -271,49 +327,17 @@ async function drive(work: RoomWork, signal: AbortSignal) {
   } catch (cause) {
     if (!signal.aborted) {
       logger.error(`thread ${work.threadId}: ${work.bot} broke`, cause);
-      failure = modelErrorToString(cause);
+      failure = {
+        message: modelErrorToString(cause),
+        // A public error is the app refusing the turn (no key, no model), not a break
+        retry: !isPublicError(cause) && !isProviderRefusal(cause),
+      };
     }
   }
-  if (signal.aborted) return;
-  const final = ending as { text: string; stopped: boolean } | null;
-  if (failure || !final || final.stopped) {
-    // Release this run before the room lock drains it; cancellation holds the same lock.
-    const why =
-      failure ??
-      "The turn was interrupted. Continue from the saved conversation.";
-    void threadLock(work.threadId, async () => {
-      const current = (await listRoomWork(work.threadId)).find(
-        (row) => row.id === work.id,
-      );
-      if (
-        current?.state !== "running" ||
-        current.generation !== work.generation
-      )
-        return;
-      const drained = stopRuns(work.threadId);
-      await pauseRoom(work.threadId, why);
-      await drained;
-    }).catch((cause) =>
-      logger.error(`thread ${work.threadId}: pausing`, cause),
-    );
-    return;
-  }
-  await finishRoomWork(work, final.text);
-  const thread = await findThread(work.threadId);
-  if (thread?.status === "done") {
-    if (!(await isAnyCallLive()))
-      desktopNotify(thread.label, thread.outcome ?? "");
-    const paths = await filesOnDisk(pathsIn(thread.outcome ?? ""), null);
-    const path =
-      paths.find((path) => path.startsWith(`${PATHS.artifacts}/`)) ?? paths[0];
-    if (path)
-      appEvents.emit({
-        type: "artifact",
-        threadId: thread.id,
-        label: thread.label,
-        path,
-      });
-  }
+  return {
+    ending: ending as { text: string; stopped: boolean } | null,
+    failure: failure as { message: string; retry: boolean } | null,
+  };
 }
 
 /** Streaming updates share stable row slots; tools may be observed before the stream reports them. */

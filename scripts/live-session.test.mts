@@ -37,7 +37,7 @@ mock.module("../lib/live/live.transport.ts", {
 const { appendChunks, createLiveSession } = await import(
   "../lib/live/live.session.ts"
 );
-const { acceptedEffort, createLiveCall } = await import(
+const { acceptedReasoning, createLiveCall } = await import(
   "../lib/live/live.server.ts"
 );
 
@@ -177,6 +177,34 @@ test("an incomplete response that asked for tools is continued once, and a secon
   nested({ type: "response.failed", response: { id: "r3" } });
   await tick();
   assert.equal(count("response.item.create"), 3);
+  assert.equal(count("response.create"), 1);
+});
+
+test("a call completed before one the output cap cut off still has its result continued", async () => {
+  let ran = 0;
+  await connect({
+    runTool: async () => {
+      ran += 1;
+      return "ok";
+    },
+  });
+  nested({ type: "response.created", response: { id: "r1" } });
+  functionCall("a");
+  nested({
+    type: "response.output_item.done",
+    item: {
+      type: "function_call",
+      id: "item-cut",
+      call_id: "cut",
+      name: "delegate",
+      arguments: '{"bot":"Ana',
+      status: "incomplete",
+    },
+  });
+  await tick();
+  await tick();
+  assert.equal(ran, 1);
+  assert.equal(count("response.item.create"), 1);
   assert.equal(count("response.create"), 1);
 });
 
@@ -478,7 +506,7 @@ const backend = (overrides: Record<string, unknown> = {}) => ({
       parameters: { type: "object" as const, properties: {} },
     },
   ],
-  reasoningEffort: null,
+  reasoning: null,
   webSearch: false,
   ...overrides,
 });
@@ -530,8 +558,7 @@ test("startup sends voice and backend apart, seeds history, and keeps the key on
   assert.equal(responses.instructions, "Tools only");
   assert.equal(responses.tools.length, 1);
   assert.equal("strict" in responses.tools[0], false);
-  // No effort chosen: none is sent, and the summary is kept with the call
-  assert.deepEqual(responses.reasoning, { summary: "auto" });
+  assert.equal("reasoning" in responses, false);
   assert.equal(
     responses.tools.some(
       (tool: { type: string }) => tool.type === "web_search",
@@ -541,7 +568,7 @@ test("startup sends voice and backend apart, seeds history, and keeps the key on
   assert.equal(JSON.stringify(connection).includes("test-key"), false);
 });
 
-test("an effort and web search are sent only when chosen, and a summary unless reasoning is off", async () => {
+test("reasoning and web search are sent only when given", async () => {
   const requests = captureFetch();
   await createLiveCall({
     apiKey: "test-key",
@@ -551,7 +578,7 @@ test("an effort and web search are sent only when chosen, and a summary unless r
     input: [],
     backend: backend({
       model: "gpt-4.1",
-      reasoningEffort: "low",
+      reasoning: { effort: "low", summary: "auto" },
       webSearch: true,
     }),
   });
@@ -559,18 +586,6 @@ test("an effort and web search are sent only when chosen, and a summary unless r
   assert.equal(responses.model, "gpt-4.1");
   assert.deepEqual(responses.reasoning, { effort: "low", summary: "auto" });
   assert.deepEqual(responses.tools.at(-1), { type: "web_search" });
-
-  await createLiveCall({
-    apiKey: "test-key",
-    sdp: "offer",
-    voice: "cedar",
-    instructions: "Talk",
-    input: [],
-    backend: backend({ reasoningEffort: "none" }),
-  });
-  assert.deepEqual(requests[1].session.delegation.responses.reasoning, {
-    effort: "none",
-  });
 });
 
 test("a provider refusal reaches the caller unchanged", async () => {
@@ -593,19 +608,22 @@ test("a provider refusal reaches the caller unchanged", async () => {
   );
 });
 
-test("an effort the backend model refuses is dropped before the call, and asked about once", async () => {
+/** A token-count endpoint whose models refuse the reasoning settings they are given. */
+function refusingFetch(refuses: Record<string, string[]>) {
   const asked: string[] = [];
   mock.method(globalThis, "fetch", async (url: string, init: RequestInit) => {
     assert.equal(url, "https://api.openai.com/v1/responses/input_tokens");
     const body = JSON.parse(init.body as string);
-    asked.push(`${body.model} ${body.reasoning.effort}`);
-    return body.model === "gpt-4.1"
+    asked.push(`${body.model} ${JSON.stringify(body.reasoning)}`);
+    const refused = (refuses[body.model] ?? []).find(
+      (setting) => setting in body.reasoning,
+    );
+    return refused
       ? Response.json(
           {
             error: {
-              message:
-                "Unsupported parameter: 'reasoning.effort' is not supported with this model.",
-              param: "reasoning.effort",
+              message: `Unsupported parameter: 'reasoning.${refused}' is not supported with this model.`,
+              param: `reasoning.${refused}`,
               code: "unsupported_parameter",
             },
           },
@@ -613,18 +631,35 @@ test("an effort the backend model refuses is dropped before the call, and asked 
         )
       : Response.json({ input_tokens: 7 });
   });
-  const check = (model: string, effort: string | null) =>
-    acceptedEffort({ apiKey: "test", model, effort });
+  return asked;
+}
 
-  assert.equal(await check("gpt-4.1", "low"), null);
-  assert.equal(await check("gpt-4.1", "low"), null);
-  assert.equal(await check("gpt-5.6-luna", "low"), "low");
-  assert.equal(await check("gpt-5.6-luna", "low"), "low");
-  assert.equal(await check("gpt-4.1", null), null);
-  assert.deepEqual(asked, ["gpt-4.1 low", "gpt-5.6-luna low"]);
+test("a reasoning setting the backend model refuses is dropped before the call, and the answer is kept", async () => {
+  const asked = refusingFetch({ "gpt-4.1": ["effort"], legacy: ["summary"] });
+  const check = (model: string, effort: string | null) =>
+    acceptedReasoning({ apiKey: "test", model, effort });
+
+  assert.deepEqual(await check("gpt-4.1", "low"), { summary: "auto" });
+  assert.deepEqual(await check("gpt-4.1", "low"), { summary: "auto" });
+  assert.deepEqual(await check("gpt-5.6-luna", "low"), {
+    effort: "low",
+    summary: "auto",
+  });
+  assert.deepEqual(await check("gpt-5.6-luna", null), { summary: "auto" });
+  assert.equal(await check("gpt-4.1", "none"), null);
+  assert.deepEqual(await check("legacy", "high"), { effort: "high" });
+  assert.deepEqual(asked, [
+    'gpt-4.1 {"effort":"low","summary":"auto"}',
+    'gpt-4.1 {"summary":"auto"}',
+    'gpt-5.6-luna {"effort":"low","summary":"auto"}',
+    'gpt-5.6-luna {"summary":"auto"}',
+    'gpt-4.1 {"effort":"none"}',
+    'legacy {"effort":"high","summary":"auto"}',
+    'legacy {"effort":"high"}',
+  ]);
 });
 
-test("any other answer keeps the effort and is asked again next call", async () => {
+test("any other answer keeps the chosen settings and is asked again next call", async () => {
   let asked = 0;
   mock.method(globalThis, "fetch", async () => {
     asked += 1;
@@ -636,10 +671,10 @@ test("any other answer keeps the effort and is asked again next call", async () 
       : Promise.reject(new TypeError("fetch failed"));
   });
   const check = () =>
-    acceptedEffort({ apiKey: "test", model: "gpt-5.6-sol", effort: "high" });
+    acceptedReasoning({ apiKey: "test", model: "gpt-5.6-sol", effort: "high" });
 
-  assert.equal(await check(), "high");
-  assert.equal(await check(), "high");
+  assert.deepEqual(await check(), { effort: "high", summary: "auto" });
+  assert.deepEqual(await check(), { effort: "high", summary: "auto" });
   assert.equal(asked, 2);
 });
 

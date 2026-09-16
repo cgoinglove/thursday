@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { toast } from "@/components/ui/toast";
-import { CALL_RELAY } from "@/config";
+import { CALL_END, CALL_IDLE, CALL_RELAY } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { acceptThreadRelaysAction } from "@/features/bot/bot.action";
 import { type Bot, isAppStop, type Thread } from "@/features/bot/bot.schema";
@@ -45,9 +45,6 @@ import { toolBot, toolLine } from "./tool-line";
  * The server opens the Live session (openCallAction) and runs the tools
  * (tool-call); the page itself only hangs up.
  */
-
-/** Time for a tool result to reach the model before the line closes. */
-const HANG_UP_DELAY_MS = 400;
 
 /** Plays when the line opens. */
 const CONNECTED_SOUND = "/sounds/start_voice.ogg";
@@ -94,31 +91,17 @@ const KEEP_MESSAGES = 24;
 /** Safety net only; the event stream revalidates threads as they change. */
 const THREAD_POLL_FALLBACK_MS = 30_000;
 
-/** Notify once about failing saves, then stay quiet for the rest of the call. */
+/** Failed saves of one kind before the call stops saving that kind and says so, once. */
 const SAVE_FAILURE_LIMIT = 3;
 
 /**
- * With no words from the user, no voice from her and no backend work for this
- * long, she is asked to say goodbye and end the call.
+ * Put in as trusted behaviour just ahead of each relay. The relay itself carries
+ * facts only, since the backend reads relays too and routes answers by them.
  */
-const IDLE_HANG_UP_MS = 60_000;
+const RELAY_NOTE =
+  "An update from background work follows. If you have already told the user what it says, it need not be said again.";
 
-/** If the call does not end after the goodbye, the page hangs up. */
-const IDLE_GRACE_MS = 15_000;
-
-/** The countdown shows on screen inside this window. */
-const IDLE_WARN_MS = 15_000;
-
-/**
- * The user said something and nothing came back — no voice, no backend work —
- * for this long. The line is up and the model is not on it, so there is no
- * goodbye to ask for: the page hangs up. Armed only by transcribed words, never
- * by sound on the mic: a cough is not a question.
- */
-const AGENT_SILENT_MS = 30_000;
-
-const IDLE_LINE =
-  "The user has said nothing for a minute. Say a one-line goodbye and end the call.";
+const IDLE_LINE = `The user has said nothing for ${Math.round(CALL_IDLE.hangUpMs / 1000)} seconds. Say a one-line goodbye and end the call.`;
 
 /**
  * A tool the model is using, as the activity line draws it. `line` is the
@@ -157,7 +140,7 @@ export function useThursday() {
   const [tool, setTool] = useState<ToolRun | null>(null);
   /** When the line opened (ms). */
   const [since, setSince] = useState<number | null>(null);
-  /** Seconds until idle hang-up; set only inside IDLE_WARN_MS. */
+  /** Seconds until idle hang-up; set only inside CALL_IDLE.warnMs. */
   const [idleLeft, setIdleLeft] = useState<number | null>(null);
   /** When the backend picked this turn up (ms); the activity line counts from it. */
   const [thinkingSince, setThinkingSince] = useState<number | null>(null);
@@ -194,11 +177,23 @@ export function useThursday() {
   /** Row the turns are saved to; a ref so long-lived callbacks see it. */
   const callId = useRef<string | null>(null);
   /**
-   * Open work put to her this call, by item key (openWork): how many times, and
-   * when last. A key carries the job's last change, so a job that asks again is
-   * new work.
+   * Open work put to her while this page has been open, by item key (openWork):
+   * each goes in once a call. A key carries its job's last change, so a job that
+   * asks or ends again is new work.
    */
-  const listed = useRef(new Map<string, { times: number; at: number }>());
+  const told = useRef(new Set<string>());
+  /**
+   * Keys put in this call that her voice has not carried yet: rejected, cut short
+   * by a hang-up, or never spoken. Hanging up takes them out of `told`, so the
+   * next call puts them in again; what she voiced stays out.
+   */
+  const unvoiced = useRef(new Set<string>());
+  /** The keys of the update on the line now, carried once her voice starts and stops on it. */
+  const onLine = useRef<string[]>([]);
+  /** When her voice was last heard, for letting a goodbye finish (CALL_END). */
+  const voiced = useRef(0);
+  /** The hang-up waiting on her goodbye once the backend called end_call. */
+  const leaving = useRef<ReturnType<typeof setInterval> | null>(null);
   /** When either side's words were last transcribed: the quiet clock for relays. */
   const heard = useRef(0);
   /** Backend work or a call tool is running, as the last activity said. */
@@ -264,6 +259,11 @@ export function useThursday() {
   /** The relayed update was voiced, or waited on long enough: the next can go in. */
   const doneReading = useCallback(() => {
     if (reading.current.giveUp) clearTimeout(reading.current.giveUp);
+    // Her voice started and stopped on it: carried
+    if (reading.current.spoke) {
+      for (const key of onLine.current) unvoiced.current.delete(key);
+    }
+    onLine.current = [];
     reading.current = { on: false, spoke: false, giveUp: null };
     if (!relayOpen.current) return;
     relayOpen.current = false;
@@ -331,41 +331,39 @@ export function useThursday() {
    * running: questions not answered, jobs ended or stopped and not yet seen,
    * and progress from jobs still running. Live never speaks unprompted, so
    * nothing reaches the user unless this puts it in. Handling an item — an
-   * answer, `thread` `seen`, a click on screen — takes it off the next list;
-   * what is left comes back after CALL_RELAY.relistMs, CALL_RELAY.tries times
-   * a call.
+   * answer, `thread` `seen`, a click on screen — takes it off the list. Each
+   * item goes in once a call, and once her voice has carried it, not on later
+   * calls either (`told`, `unvoiced`). One append holds one kind, so an ending
+   * is never lost among questions. Nothing goes in once the call is ending.
    */
   const relayOpenWork = useCallback(() => {
     const live = session.current;
     const threads = latest.current;
     if (!live || !threads || reading.current.on || acting.current) return;
-    const now = Date.now();
-    if (now - heard.current < CALL_RELAY.quietMs) return;
-    const due = openWork(threads)
-      .filter((item) => {
-        const was = listed.current.get(item.key);
-        return (
-          !was ||
-          (item.again &&
-            was.times < CALL_RELAY.tries &&
-            now - was.at >= CALL_RELAY.relistMs)
-        );
-      })
+    if (leaving.current || idle.current.asked) return;
+    if (Date.now() - heard.current < CALL_RELAY.quietMs) return;
+    const open = openWork(threads).filter(
+      (item) => !told.current.has(item.key),
+    );
+    const first = open[0];
+    if (!first) return;
+    const due = open
+      .filter((item) => item.kind === first.kind)
       .slice(0, CALL_RELAY.perTurn);
-    const last = due.at(-1);
-    if (!last) return;
+    const lines = due.map((item) => item.line);
 
-    const before = due.map((item) => listed.current.get(item.key));
-    const lines = due.map((item, index) => item.line(Boolean(before[index])));
-    for (const [index, item] of due.entries()) {
-      listed.current.set(item.key, {
-        times: (before[index]?.times ?? 0) + 1,
-        at: now,
-      });
+    // Told as it goes out, even if Live refuses it: a refusal is tried again on the next
+    // call (unvoiced), never in a loop on this one
+    for (const item of due) {
+      told.current.add(item.key);
+      unvoiced.current.add(item.key);
     }
     readAloud();
+    onLine.current = due.map((item) => item.key);
     // On the line before it goes out, so it runs there for the whole wait
-    showRelay(last.show);
+    showRelay((due.at(-1) ?? first).show);
+    // Appends go out in order, so the note is in her context before the update
+    void live.append("instructions", RELAY_NOTE);
     void live
       .append(
         "commentary",
@@ -375,12 +373,6 @@ export function useThursday() {
       )
       .then((delivered) => {
         if (!delivered) {
-          // Not in her context: as if never listed, so the next quiet moment tries again
-          for (const [index, item] of due.entries()) {
-            const was = before[index];
-            if (was) listed.current.set(item.key, was);
-            else listed.current.delete(item.key);
-          }
           doneReading();
           return;
         }
@@ -515,6 +507,8 @@ export function useThursday() {
   const hangUp = useCallback(async () => {
     if (ending.current) return;
     ending.current = true;
+    if (leaving.current) clearInterval(leaving.current);
+    leaving.current = null;
     attempt.current += 1;
     const live = session.current;
     const call = callId.current;
@@ -523,8 +517,9 @@ export function useThursday() {
     callId.current = null;
     calling.current = false;
     opening.current = false;
-    // Open work is listed again next call; unsent context goes with the session
-    listed.current.clear();
+    // What she did not voice goes in again next call; unsent context goes with the session
+    for (const key of unvoiced.current) told.current.delete(key);
+    unvoiced.current.clear();
     outbox.close();
     outbox.clear();
     working.current?.abort();
@@ -583,8 +578,28 @@ export function useThursday() {
       if (thinkTail.current) clearTimeout(thinkTail.current);
       if (idle.current.grace) clearTimeout(idle.current.grace);
       if (failedFor.current) clearTimeout(failedFor.current);
+      if (leaving.current) clearInterval(leaving.current);
     };
   }, []);
+
+  /**
+   * The backend ended the call: hang up once her goodbye is over. She says it while
+   * the backend works, so it may be done already, still going, or yet to start;
+   * CALL_END bounds each case. The tool's own result always gets `quietMs` to go out.
+   */
+  const leave = useCallback(() => {
+    if (leaving.current) return;
+    const asked = Date.now();
+    leaving.current = setInterval(() => {
+      const now = Date.now();
+      // A goodbye heard just before the backend ended the call counts as said
+      const said = voiced.current > asked - CALL_END.unsaidMs;
+      const over = said
+        ? now - Math.max(voiced.current, asked) >= CALL_END.quietMs
+        : now - asked >= CALL_END.unsaidMs;
+      if (over || now - asked >= CALL_END.maxMs) void hangUp();
+    }, 100);
+  }, [hangUp]);
 
   /**
    * Rewinds the idle clock. `user` is words transcribed from them: an answer is
@@ -612,7 +627,7 @@ export function useThursday() {
       const live = session.current;
       if (!live) return;
       const owed = idle.current.owed;
-      if (owed !== null && Date.now() - owed >= AGENT_SILENT_MS) {
+      if (owed !== null && Date.now() - owed >= CALL_IDLE.agentSilentMs) {
         // Nothing to say goodbye with; the model is what would have said it.
         toast.add({
           type: "error",
@@ -622,9 +637,9 @@ export function useThursday() {
         void hangUp();
         return;
       }
-      const left = IDLE_HANG_UP_MS - (Date.now() - idle.current.since);
+      const left = CALL_IDLE.hangUpMs - (Date.now() - idle.current.since);
       setIdleLeft(
-        left <= IDLE_WARN_MS && !idle.current.asked
+        left <= CALL_IDLE.warnMs && !idle.current.asked
           ? Math.max(0, Math.ceil(left / 1000))
           : null,
       );
@@ -632,7 +647,7 @@ export function useThursday() {
 
       idle.current.asked = true;
       void live.append("instructions", IDLE_LINE);
-      idle.current.grace = setTimeout(() => void hangUp(), IDLE_GRACE_MS);
+      idle.current.grace = setTimeout(() => void hangUp(), CALL_IDLE.graceMs);
     }, 1000);
     return () => clearInterval(tick);
   }, [onCall, stir, hangUp]);
@@ -674,6 +689,7 @@ export function useThursday() {
       const stop = new AbortController();
       working.current = stop;
       const saving = { failures: 0 };
+      const thinkingSaves = { failures: 0 };
       /** Filled in by the handshake, read by callbacks that only run after it. */
       const line = { callId: "", opening: null as string | null };
 
@@ -696,10 +712,10 @@ export function useThursday() {
         on: {
           // the backend calls tools; the page forwards them to the server
           runTool: async (call) => {
-            // end_call is the page's only tool. Answer without awaiting: the line
-            // goes down with the call, so this reply must go first
+            // end_call is the page's only tool. The line goes down once her
+            // goodbye is over (leave), so this reply reaches the model first
             if (call.name === TOOL_NAMES.end_call) {
-              setTimeout(() => void hangUp(), HANG_UP_DELAY_MS);
+              leave();
               return "Ending the call.";
             }
             showTool(call);
@@ -710,14 +726,19 @@ export function useThursday() {
             }
           },
           reasoning: (part) =>
-            persist(saving, () =>
-              saveThoughtAction(line.callId, {
-                ...part,
-                seq: Math.max(0, Math.round(part.seq)),
-              }),
+            persist(
+              thinkingSaves,
+              () =>
+                saveThoughtAction(line.callId, {
+                  ...part,
+                  seq: Math.max(0, Math.round(part.seq)),
+                }),
+              "The backend's thinking is not being saved",
             ),
           turn: (turn) => {
-            stir(turn.role === "user" ? "user" : "agent");
+            // Her voice and backend work rewind the idle clock from activity, where an
+            // update she reads out is told apart; transcripts lag the audio and cannot
+            if (turn.role === "user") stir("user");
             // New words from either side restart the relay's quiet clock; a blank fragment is not words
             if (
               turn.role !== "tool" &&
@@ -763,9 +784,15 @@ export function useThursday() {
             acting.current = busy;
             // From the moment the backend picks the turn up until her first word
             holdThinking(busy, activity.speaking);
+            if (activity.speaking) voiced.current = Date.now();
             // Sound on the mic alone does not rewind the clock: a noisy room would
-            // keep a call open forever. Her words and backend work do.
-            if (activity.speaking || activity.working || activity.tools.length)
+            // keep a call open forever. Her words and backend work do, except an
+            // update she voices on her own: waiting results must not hold a call open.
+            if (
+              (activity.speaking && !reading.current.on) ||
+              activity.working ||
+              activity.tools.length
+            )
               stir("agent");
             // An update counts as voiced once her voice has started and stopped
             if (reading.current.on) {
@@ -832,8 +859,6 @@ export function useThursday() {
       calling.current = false;
       working.current = null;
       outbox.clear();
-      // nothing was put to her; the next call lists it all
-      listed.current.clear();
       setStatus("idle");
     }
   }, [
@@ -849,6 +874,7 @@ export function useThursday() {
     doneReading,
     holdThinking,
     showFailed,
+    leave,
   ]);
 
   /**
@@ -982,14 +1008,11 @@ function statusOf(activity: LiveActivity): LiveStatus {
   return "listening";
 }
 
-/**
- * Fire-and-forget save: one toast after SAVE_FAILURE_LIMIT failures, then
- * silence.
- */
-/** One save for the call's rows; past SAVE_FAILURE_LIMIT the call stops trying and says so once. */
+/** Fire-and-forget save; after SAVE_FAILURE_LIMIT failures of this kind it stops and says so once. */
 function persist(
   saving: { failures: number },
   save: () => Promise<Result<unknown>>,
+  stopped = "This call is not being saved",
 ) {
   if (saving.failures >= SAVE_FAILURE_LIMIT) return;
   void save()
@@ -999,7 +1022,7 @@ function persist(
       if (saving.failures !== SAVE_FAILURE_LIMIT) return;
       toast.add({
         type: "warning",
-        title: "This call is not being saved",
+        title: stopped,
         description: errorToString(cause),
       });
     });
@@ -1017,10 +1040,10 @@ function asksSomething(thread: Thread) {
 /** One piece of background work waiting on the user, as the relay clock puts it to her. */
 type OpenWork = {
   key: string;
-  /** Comes back while it stays unhandled; progress from a running job goes in once. */
-  again: boolean;
-  /** The relay text. `again` marks a repeat, so she can tell it from news. */
-  line: (again: boolean) => string;
+  /** What it is, so one append holds one kind. */
+  kind: "question" | "ending" | "progress";
+  /** The relay text. */
+  line: string;
   /** Relay rows it covers, accepted once it lands. */
   relayIds: number[];
   /** The same item on the activity line, so the user sees where her words came from. */
@@ -1048,8 +1071,8 @@ function openWork(threads: Thread[]): OpenWork[] {
     const relays = thread.room?.relays ?? [];
     const questions = thread.room?.questions ?? [];
     const changed = toDate(thread.updatedAt).getTime();
-    const bracket = (from: string, kind: string, again: boolean, tail = "") =>
-      `[${from} → Thursday, thread "${thread.label}" (${thread.id}), ${kind}${again ? ", again" : ""}.${tail}]`;
+    const bracket = (from: string, kind: string, tail = "") =>
+      `[${from} → Thursday, thread "${thread.label}" (${thread.id}), ${kind}.${tail}]`;
     const show = (bot: string, line: string): ToolRun => ({
       kind: "relay",
       name: thread.label,
@@ -1065,9 +1088,8 @@ function openWork(threads: Thread[]): OpenWork[] {
       items.push({
         rank: OPEN_RANK.question,
         key: `question:${question.id}`,
-        again: true,
-        line: (again) =>
-          `${bracket(question.bot, "question", again, ` Its answer goes to thread ${thread.id}, recipient ${question.bot}, replyTo ${question.id}.`)}\n${question.text}${options}`,
+        kind: "question",
+        line: `${bracket(question.bot, "question", ` Its answer goes to thread ${thread.id}, recipient ${question.bot}, replyTo ${question.id}.`)}\n${question.text}${options}`,
         relayIds: relays
           .filter((relay) => relay.messageId === question.id)
           .map((relay) => relay.id),
@@ -1090,9 +1112,8 @@ function openWork(threads: Thread[]): OpenWork[] {
       items.push({
         rank: OPEN_RANK.question,
         key: `question:${thread.id}@${changed}`,
-        again: true,
-        line: (again) =>
-          `${bracket(thread.bot, "question", again)}\n${ask.question}${options}`,
+        kind: "question",
+        line: `${bracket(thread.bot, "question")}\n${ask.question}${options}`,
         relayIds: [],
         show: show(thread.bot, `${thread.bot} is asking`),
       });
@@ -1123,8 +1144,8 @@ function openWork(threads: Thread[]): OpenWork[] {
       items.push({
         rank: OPEN_RANK[kind],
         key: `${kind}:${thread.id}@${changed}`,
-        again: true,
-        line: (again) => `${bracket(thread.bot, kind, again)}\n${said}`,
+        kind: "ending",
+        line: `${bracket(thread.bot, kind)}\n${said}`,
         // Its ending says what its progress messages said
         relayIds: loose.map((relay) => relay.id),
         show: show(
@@ -1143,8 +1164,8 @@ function openWork(threads: Thread[]): OpenWork[] {
       items.push({
         rank: OPEN_RANK.progress,
         key: `progress:${relay.id}`,
-        again: false,
-        line: () => `${bracket(relay.bot, relay.kind, false)}\n${relay.text}`,
+        kind: "progress",
+        line: `${bracket(relay.bot, relay.kind)}\n${relay.text}`,
         relayIds: [relay.id],
         show: show(relay.bot, `${relay.bot}: ${relay.kind}`),
       });

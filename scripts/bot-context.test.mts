@@ -3,7 +3,7 @@ import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, afterEach, mock, test } from "node:test";
-import { simulateReadableStream } from "ai";
+import { APICallError, simulateReadableStream } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 
 // The real runner, DB, tools and prompts run against an empty temporary home.
@@ -138,6 +138,9 @@ const {
   sendRoomMessage,
 } = await import("../features/bot/room.query.ts");
 const { presence } = await import("../app/api/events/app-event.server.ts");
+const { BOT_RUN } = await import("../config.ts");
+// The retry after a break waits in real time; the tests only need its order
+BOT_RUN.retryMs = 1;
 const { eq } = await import("drizzle-orm");
 await migrateDatabase();
 Object.defineProperty(presence, "watching", { get: () => true });
@@ -1138,6 +1141,13 @@ test("a failed participant drains its peers before manual resume", async () => {
         error: "Provider unavailable in this test (expected interruption)",
       },
     ],
+    () => [
+      {
+        type: "error",
+        error:
+          "Provider still unavailable on the retry (expected interruption)",
+      },
+    ],
   ]);
   plans.set("Beta", [
     () =>
@@ -1178,7 +1188,8 @@ test("a provider failure streamed as its parsed body pauses in the provider's wo
   // parsed into: the sdk wraps only bodies it can read words from.
   const unavailable = { error: { code: 503, type: "upstream_unavailable" } };
   const tooLong = "This model's maximum context length is 128000 tokens.";
-  plans.set("Alpha", [() => [{ type: "error", error: unavailable }]]);
+  const broken = () => [{ type: "error", error: unavailable }];
+  plans.set("Alpha", [broken, broken]);
   const id = await startThread({
     bot: "Alpha",
     request: "Fail with a provider body",
@@ -1187,9 +1198,13 @@ test("a provider failure streamed as its parsed body pauses in the provider's wo
   });
   const paused = await waitFor(id, "waiting");
   assert.equal(paused.outcome, JSON.stringify(unavailable));
-  const note = (await rowsOf(id)).at(-1);
-  assert.ok(note?.note);
-  assert.ok(String(note.content).startsWith(`${paused.outcome} Resume`));
+  // One note before the retry, one where the room paused
+  const rows = await rowsOf(id);
+  const notes = rows.filter((row) => row.note);
+  assert.equal(notes.length, 2);
+  assert.equal(notes.at(-1)?.seq, rows.at(-1)?.seq);
+  for (const note of notes)
+    assert.ok(String(note.content).startsWith(`${paused.outcome} Resume`));
   assert.ok(
     (await listRoomRelays()).some(
       (relay) => relay.threadId === id && relay.text === paused.outcome,
@@ -1197,15 +1212,53 @@ test("a provider failure streamed as its parsed body pauses in the provider's wo
   );
   assert.equal(await roomContextBudget(id, "Alpha"), undefined);
 
-  plans.set("Alpha", [() => [{ type: "error", error: { error: tooLong } }]]);
+  // Read as an overflow: the retry compacts earlier instead of pausing
+  plans.set("Alpha", [
+    () => [{ type: "error", error: { error: tooLong } }],
+    () => text("Recovered after the retry"),
+  ]);
   await answerThread(id, "Continue");
-  assert.equal((await waitFor(id, "waiting")).outcome, tooLong);
-  // Read as an overflow: the next run compacts earlier instead of repeating it
+  assert.equal(
+    (await waitFor(id, "done")).outcome,
+    "Recovered after the retry",
+  );
   assert.ok(await roomContextBudget(id, "Alpha"));
+});
 
-  plans.set("Alpha", [() => text("Recovered after both failures")]);
+test("a provider's refusal waits for a person at once; a break is tried once more on its own", async () => {
+  const refused = new APICallError({
+    message: "Invalid API key",
+    url: "https://provider.test/v1",
+    requestBodyValues: {},
+    statusCode: 401,
+    isRetryable: false,
+  });
+  plans.set("Alpha", [() => [{ type: "error", error: refused }]]);
+  const id = await startThread({
+    bot: "Alpha",
+    request: "Fail with a refusal",
+    label: "Refusal",
+    from: "user",
+  });
+  const paused = await waitFor(id, "waiting");
+  assert.equal(paused.outcome, "Invalid API key (401)");
+  const notes = async () => (await rowsOf(id)).filter((row) => row.note).length;
+  assert.equal(await notes(), 1);
+
+  plans.set("Alpha", [
+    () => [{ type: "error", error: "The stream broke in this test" }],
+    () => text("Finished on the retry"),
+  ]);
   await answerThread(id, "Continue");
-  await waitFor(id, "done");
+  assert.equal((await waitFor(id, "done")).outcome, "Finished on the retry");
+  assert.equal(await notes(), 2);
+  // The retry is not an interruption the call hears of
+  assert.equal(
+    (await listRoomRelays()).filter(
+      (relay) => relay.threadId === id && relay.kind === "interrupted",
+    ).length,
+    1,
+  );
 });
 
 test("compaction thresholds belong to the participant across different callers", async () => {

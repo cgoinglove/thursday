@@ -418,14 +418,15 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
           calls.add(item.call_id);
           // Cut off by the output cap: the arguments are a fragment, and Live ends the
           // handoff with a top-level error, never a terminal event for this response.
+          // Calls it completed before the cut still ran, so their results are continued once.
           if (item.status === "incomplete") {
             response.terminal = true;
-            response.continued = true;
             logger.warn("Live backend call cut off; not run", {
               responseId: id,
               name: item.name,
               arguments: item.arguments.slice(0, 200),
             });
+            void continueResponse(response);
             break;
           }
           on.turn({

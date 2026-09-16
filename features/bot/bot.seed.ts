@@ -20,8 +20,8 @@ import { type BotIcon, randomBotIcons } from "./bot.schema";
  * edit to it cannot be saved.
  *
  * The list is flat and grows. `recommended` is the only split: the intro offers
- * those three and says the rest are in Settings, because which subject bot a
- * person wants is not answerable on install day.
+ * every seed and ticks those, because which subject bot a person wants is not
+ * answerable on install day.
  */
 export type BotSeed = {
   name: string;
@@ -30,7 +30,7 @@ export type BotSeed = {
   /** What the screen shows under the name: one line, never wrapped. */
   hint: string;
   systemPrompt: string;
-  /** Ticked by default, and the intro's whole offer. */
+  /** Ticked by default in the intro, which offers every seed. */
   recommended?: boolean;
   /**
    * Studio models this bot cannot work without (config MEDIA_MODEL_KEYS). Unset
@@ -206,7 +206,7 @@ Once it is up, open the post and check its image is the size you built; a cut on
 export const findBotSeed = (name: string) =>
   BOT_SEEDS.find((one) => one.name === name) ?? null;
 
-/** What the intro offers; the rest wait in Settings › Bots. */
+/** What the intro ticks by default, and the crew its first step shows. */
 export const RECOMMENDED_SEEDS = BOT_SEEDS.filter((seed) => seed.recommended);
 
 /**

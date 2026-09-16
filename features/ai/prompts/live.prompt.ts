@@ -122,7 +122,7 @@ Delegate to the backend when:
 - The user says something worth keeping — who they are, how they want things done and said, the people in their life, their plans. Hand it over as they say it, not at the end of the call.
 - The user asks about, answers, corrects or cancels background work.
 - The user asks about something they told you before that is not written out below.
-- The user wants to end the call. Say goodbye first, then hand it over: the line stays open until the backend ends it.
+- The user wants to end the call. Hand it over at once and say goodbye while it goes: only the backend can end the line, and it lets your goodbye finish.
 
 Do not delegate to the backend when:
 - The user greets you, makes small talk, or asks you to repeat a result already given.
@@ -131,7 +131,7 @@ Do not delegate to the backend when:
 Delegate before giving an answer that depends on backend work.
 Do not guess the result while waiting.
 
-Background work you started is yours until it is done. Updates about it reach you when the line is quiet and keep coming back until they are handled. Tell the user the part that answers what they asked; the whole of it is on their screen.`;
+Background work you started is yours until it is done. Updates about it reach you once, when the line is quiet. Tell the user the part that answers what they asked; the whole of it is on their screen.`;
 }
 
 /**

@@ -9,51 +9,68 @@ const LiveConnectionSchema = z.object({
   transport: z.object({ type: z.literal("webrtc"), sdp: z.string().min(1) }),
 });
 
-/** `model effort` pairs already asked about, and whether the model takes that effort. */
-const effortTaken = new Map<string, boolean>();
+/** The backend's `reasoning` settings as Responses takes them. */
+export type BackendReasoning = { effort?: string; summary?: "auto" };
+
+/** What each model took, by model and chosen effort; only settled answers are kept. */
+const reasoningTaken = new Map<string, BackendReasoning | null>();
 
 /**
- * The effort to hand the backend, or null when its model refuses that effort.
- * Live opens the call either way and fails the first delegated response mid-call,
- * so the model is asked before the call: the token-count endpoint checks
- * `reasoning` without running the model. Only that refusal drops the effort and is
- * remembered; any other answer keeps it, since a key or model problem is Live's to report.
+ * The reasoning settings to hand the backend: the chosen effort, and a summary kept with
+ * the call (call_thought), none of either for `none`. Live opens the call with any of
+ * them and fails the first delegated response when the model refuses one, so the model
+ * is asked before the call: the token-count endpoint checks `reasoning` without running
+ * it. A setting refused by name is dropped and the rest asked again, and what was taken
+ * is remembered. Any other answer keeps what was chosen: a key or model problem is Live's
+ * to report when the call opens. A dropped setting is not shown; the call runs on the
+ * model's own (user, 09-16: "proceed even when it does not take it").
  */
-export async function acceptedEffort(options: {
+export async function acceptedReasoning(options: {
   apiKey: string;
   model: string;
   effort: string | null;
-}): Promise<string | null> {
+}): Promise<BackendReasoning | null> {
   const { apiKey, model, effort } = options;
-  if (!effort) return null;
-  const pair = `${model} ${effort}`;
-  const known = effortTaken.get(pair);
-  if (known !== undefined) return known ? effort : null;
+  const pair = `${model} ${effort ?? "auto"}`;
+  const known = reasoningTaken.get(pair);
+  if (known !== undefined) return known;
 
-  const response = await fetch(
-    "https://api.openai.com/v1/responses/input_tokens",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+  const wanted: BackendReasoning =
+    effort === "none"
+      ? { effort }
+      : { ...(effort ? { effort } : {}), summary: "auto" };
+  for (;;) {
+    const response = await fetch(
+      "https://api.openai.com/v1/responses/input_tokens",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        signal: AbortSignal.timeout(LIVE_CALL.reasoningCheckMs),
+        body: JSON.stringify({ model, input: ".", reasoning: wanted }),
       },
-      signal: AbortSignal.timeout(LIVE_CALL.effortCheckMs),
-      body: JSON.stringify({ model, input: ".", reasoning: { effort } }),
-    },
-  ).catch(() => null);
-  if (!response) return effort;
-  if (response.ok) {
-    effortTaken.set(pair, true);
-    return effort;
+    ).catch(() => null);
+    if (!response) return wanted;
+    const taken = Object.keys(wanted).length ? wanted : null;
+    if (response.ok) {
+      reasoningTaken.set(pair, taken);
+      return taken;
+    }
+    const payload = (await response.json().catch(() => null)) as {
+      error?: { param?: string | null };
+    } | null;
+    const refused = payload?.error?.param?.replace(/^reasoning\./, "");
+    if (refused !== "effort" && refused !== "summary") return wanted;
+    if (!(refused in wanted)) return wanted;
+    logger.warn(`${model} takes no reasoning ${refused}; calls omit it`);
+    delete wanted[refused];
+    if (!Object.keys(wanted).length) {
+      reasoningTaken.set(pair, null);
+      return null;
+    }
   }
-  const payload = (await response.json().catch(() => null)) as {
-    error?: { param?: string | null };
-  } | null;
-  if (payload?.error?.param !== "reasoning.effort") return effort;
-  logger.warn(`${model} takes no reasoning effort ${effort}; calls omit it`);
-  effortTaken.set(pair, false);
-  return null;
 }
 
 /** Exchanges an offer on the trusted server. The account key never reaches the browser. */
@@ -67,8 +84,8 @@ export async function createLiveCall(options: {
     model: string;
     instructions: string;
     tools: ToolManifest[];
-    /** No effort is sent when null, so a model without reasoning still runs. */
-    reasoningEffort: string | null;
+    /** What `acceptedReasoning` found the model takes; omitted when null. */
+    reasoning: BackendReasoning | null;
     webSearch: boolean;
   };
 }) {
@@ -104,17 +121,9 @@ export async function createLiveCall(options: {
             tool_choice: "auto",
             parallel_tool_calls: true,
             max_output_tokens: LIVE_CALL.backendOutputTokens,
-            // The summary is kept with the call (call_thought), never shown. A model
-            // without reasoning takes it and sends none; `none` has nothing to summarise.
-            reasoning:
-              options.backend.reasoningEffort === "none"
-                ? { effort: "none" }
-                : {
-                    ...(options.backend.reasoningEffort
-                      ? { effort: options.backend.reasoningEffort }
-                      : {}),
-                    summary: "auto",
-                  },
+            ...(options.backend.reasoning
+              ? { reasoning: options.backend.reasoning }
+              : {}),
           },
         },
       },

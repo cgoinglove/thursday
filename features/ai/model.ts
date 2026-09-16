@@ -75,11 +75,11 @@ const TOO_LONG =
   /context[ _-]?(length|window)|maximum context|prompt is too long|too many (input )?tokens|input token count|exceeds? the (maximum|model'?s?) (context|input|prompt|number of tokens)|maximum prompt length|request (entity )?too large/i;
 
 /**
- * Whether the model refused the context as too long, which a compaction fixes; every
- * other failure waits for a person. Read off the words of a 400, a 413, or an error
- * with no status of its own, anywhere in the chain: a retry wrapper repeats the words
- * of the one it wraps, and a streamed body the sdk could not read as an error keeps
- * them in a bare `error` string.
+ * Whether the model refused the context as too long, which a compaction fixes (whether
+ * anything else may pass on another try is `isProviderRefusal`). Read off the words of
+ * a 400, a 413, or an error with no status of its own, anywhere in the chain: a retry
+ * wrapper repeats the words of the one it wraps, and a streamed body the sdk could not
+ * read as an error keeps them in a bare `error` string.
  */
 export function isContextOverflow(cause: unknown): boolean {
   return causeChain(cause).some((error) => {
@@ -93,6 +93,28 @@ export function isContextOverflow(cause: unknown): boolean {
     const body = APICallError.isInstance(error) ? error.responseBody : null;
     return [message, inner, body].some(
       (words) => typeof words === "string" && TOO_LONG.test(words),
+    );
+  });
+}
+
+/** 4xx statuses that are a moment's trouble, not a refusal: a timeout, a conflict, a rate limit. */
+const PASSING_4XX = new Set([408, 409, 429]);
+
+/**
+ * Whether the provider refused the call — the key, the credit, the model id, a request
+ * it will never take — which only a person can change. Anything else broke on the way
+ * (a dropped or garbled stream, an overload, a model gone quiet) and may pass on another
+ * try, and so may a context refused as too long, once it is compacted.
+ */
+export function isProviderRefusal(cause: unknown): boolean {
+  if (isContextOverflow(cause)) return false;
+  return causeChain(cause).some((error) => {
+    const { statusCode } = error as { statusCode?: unknown };
+    return (
+      typeof statusCode === "number" &&
+      statusCode >= 400 &&
+      statusCode < 500 &&
+      !PASSING_4XX.has(statusCode)
     );
   });
 }

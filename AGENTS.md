@@ -117,7 +117,8 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   stays open for the whole call; nothing the page does closes it.
   Live never speaks unprompted: every call opens with an instruction to speak first, and open
   work (unseen endings and stops, unanswered questions) goes in when neither side has been
-  transcribed for `CALL_RELAY.quietMs` and comes back until it is handled. Updates go in by
+  transcribed for `CALL_RELAY.quietMs`, each item once a call and, once she has voiced it, not on a
+  later call while the page is open (a job that asks or ends again is a new item). Updates go in by
   kind — trusted behaviour as
   `session.instructions.append`, bot output as `commentary`, never the reverse — and a relay row
   is accepted only once Live acknowledges it. Transcript fragments have timestamps, not final
@@ -136,8 +137,9 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   continuation claims and return routes; `bot.runner` owns live promises.
 - **No browser, nothing runs.** `presence` (app/api/events) says whether a browser is on the stream;
   when the last one has been gone a while, jobs stop and wait and open calls close. When one comes
-  back, only jobs paused for browser absence pick themselves back up. A server restart, model
-  failure, resource limit or user stop waits for a person. Wired once at boot (`instrumentation`),
+  back, only jobs paused for browser absence pick themselves back up. A model call that breaks
+  is tried once more (`BOT_RUN.retryMs`); a second break, a provider's refusal, a server restart,
+  a resource limit or a user stop waits for a person. Wired once at boot (`instrumentation`),
   not in each domain.
 - **What cannot be won by instruction is enforced by structure**: tool sets, per-turn and per-room
   limits, output truncation, shell env. Do not add prompt sentences for things the code can enforce.
@@ -228,7 +230,9 @@ are not masked: return one line the model can read and recover from.
 key, the credit, the model id — and only the provider can say which, so the seam that made the call
 raises it public rather than letting the boundary swallow it: `createLiveCall` (lib/live) for
 the call's connection, `modelErrorToString` (features/ai/model) for anything the ai sdk wrapped, which also
-carries out the body when the sdk's message is the status word alone.
+carries out the body when the sdk's message is the status word alone. The one exception is a
+reasoning setting the backend model refuses before a call (`acceptedReasoning`): the call runs
+without it, because the user asked for the call, not for that setting.
 
 **Server → browser** — no polling. When a fact happens on the server (a row was written, a browser
 opened, something to say), `appEvents.emit` at that spot; the browser listens on one SSE stream. Two

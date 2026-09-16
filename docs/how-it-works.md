@@ -44,7 +44,7 @@ A job runs on the server. It is not in the tab, and it does not stop when you ha
 
 A job that stopped to ask, or ran out of its step budget, is resumed from where it stopped: the same thread, with your answer appended. A long thread is compacted — the model summarizes what happened so far and continues from the summary.
 
-With no browser on the app for ten seconds, running jobs stop where they stand, so nothing spends your keys while nobody is looking. A job the app stopped — a closed tab, a restart, a model call that failed — picks itself back up when it can, up to three times in a row before it waits for you. A job a bot or a person stopped waits for a person.
+With no browser on the app for ten seconds, running jobs stop where they stand, so nothing spends your keys while nobody is looking. A job stopped by a closed tab picks itself back up when you return. A model call that breaks on the way is tried once more on its own; a second break, a provider that refuses the key, the credit or the model, a restart, or a job a bot or a person stopped waits for you.
 
 ## Memory you can read
 

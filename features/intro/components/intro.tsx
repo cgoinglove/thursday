@@ -1,10 +1,15 @@
 "use client";
 
-import { Check, ChevronRight } from "lucide-react";
+import { Check, ChevronDown, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type Ref, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/notify";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { ShinyText } from "@/components/ui/shiny-text";
 import TextType from "@/components/ui/text-type";
 import { APP_NAME } from "@/config";
@@ -61,14 +66,14 @@ export function Intro({
   /** After the fade; then the element is removed entirely. */
   const [lifted, setLifted] = useState(false);
   const [keyed, setKeyed] = useState(ready);
-  const [picks, setPicks] = useState<Record<string, Pick>>(() =>
+  const [picked, setPicked] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
-      RECOMMENDED_SEEDS.map((seed) => [
-        seed.name,
-        { on: true, provider: null, model: "" },
-      ]),
+      BOT_SEEDS.map((seed) => [seed.name, Boolean(seed.recommended)]),
     ),
   );
+  // One model for every pick: a picker per bot is what made the step scroll.
+  // Each bot's own is on its page in Settings › Bots
+  const [runsOn, setRunsOn] = useState<RunsOn>({ provider: null, model: "" });
   const keys = useRef<VoiceKeysHandle>(null);
   const [saving, setSaving] = useState(false);
 
@@ -111,11 +116,11 @@ export function Intro({
     setGone(true);
     if (!keyed) return;
     installSeedBots(
-      RECOMMENDED_SEEDS.filter((seed) => picks[seed.name]?.on).map((seed) => ({
+      BOT_SEEDS.filter((seed) => picked[seed.name]).map((seed) => ({
         name: seed.name,
         // A half pick is not a model; the action falls back to the default
-        provider: picks[seed.name]?.provider ?? null,
-        model: picks[seed.name]?.model || null,
+        provider: runsOn.provider,
+        model: runsOn.model || null,
         icon: face(seed),
       })),
     );
@@ -123,8 +128,8 @@ export function Intro({
     router.refresh();
   };
 
-  const patch = (name: string, next: Partial<Pick>) =>
-    setPicks((all) => ({ ...all, [name]: { ...all[name], ...next } }));
+  const toggle = (name: string) =>
+    setPicked((all) => ({ ...all, [name]: !all[name] }));
 
   return (
     <div
@@ -144,7 +149,15 @@ export function Intro({
       <div className="absolute inset-x-12 top-22 bottom-44 flex flex-col items-center justify-center overflow-y-auto">
         {at === 0 && <FirstLook face={face} />}
         {at === 1 && <KeyStep ref={keys} onSaved={() => setKeyed(true)} />}
-        {at === 2 && <BotStep picks={picks} face={face} onPatch={patch} />}
+        {at === 2 && (
+          <BotStep
+            picked={picked}
+            runsOn={runsOn}
+            face={face}
+            onToggle={toggle}
+            onRunsOn={setRunsOn}
+          />
+        )}
       </div>
 
       <div className="absolute inset-x-0 bottom-13 flex flex-col items-center gap-5.5">
@@ -268,51 +281,63 @@ function KeyStep({
   );
 }
 
-/** The first sentence of the app spells its number; past this the numeral is fine. */
-const COUNT_WORD: Record<number, string> = { 1: "One", 2: "Two", 3: "Three" };
+/** The heading spells how many come along, up to every seed there is. */
+const COUNT_WORD: Record<number, string> = {
+  0: "No",
+  1: "One",
+  2: "Two",
+  3: "Three",
+  4: "Four",
+  5: "Five",
+  6: "Six",
+  7: "Seven",
+  8: "Eight",
+};
 
 /** This intro's face for a seed (bot.seed rollSeedIcons). */
 type Face = (seed: BotSeed) => BotIcon | undefined;
 
-/** What the intro knows about one bot. An empty model is the default and means "app default" at run time. */
-type Pick = {
-  on: boolean;
-  provider: TextModelProviderId | null;
-  model: string;
-};
+/** The one model every picked bot starts on. An empty model means "app default" at run time. */
+type RunsOn = { provider: TextModelProviderId | null; model: string };
 
-/** Step three: which seed bots to install. */
+/** Step three: which seed bots to install, and what they run on. */
 function BotStep({
-  picks,
+  picked,
+  runsOn,
   face,
-  onPatch,
+  onToggle,
+  onRunsOn,
 }: {
-  picks: Record<string, Pick>;
+  picked: Record<string, boolean>;
+  runsOn: RunsOn;
   face: Face;
-  onPatch: (name: string, next: Partial<Pick>) => void;
+  onToggle: (name: string) => void;
+  onRunsOn: (next: RunsOn) => void;
 }) {
-  const on = RECOMMENDED_SEEDS.filter((seed) => picks[seed.name]?.on);
-  const rest = BOT_SEEDS.length - RECOMMENDED_SEEDS.length;
+  const on = BOT_SEEDS.filter((seed) => picked[seed.name]);
+  const names = on.map((seed) => seed.name).join(", ");
+  const more = BOT_SEEDS.length - on.length;
 
   return (
     <div className="flex w-full max-w-2xl flex-col items-center">
       <h1 className="text-center text-[30px] font-medium tracking-tight text-balance break-keep">
-        {RECOMMENDED_SEEDS.length === 1
+        {on.length === 1
           ? "One bot comes with her."
-          : `${COUNT_WORD[RECOMMENDED_SEEDS.length] ?? RECOMMENDED_SEEDS.length} bots come with her.`}
+          : `${COUNT_WORD[on.length] ?? on.length} bots come with her.`}
       </h1>
       <p className="mt-3 max-w-lg text-center text-[15px] leading-relaxed text-pretty text-muted-foreground break-keep">
-        {RECOMMENDED_SEEDS.length === 1
+        {on.length === 1
           ? "It takes the work that would leave the call silent, and reports back."
           : "They take the work that would leave the call silent, and report back."}
       </p>
 
-      {/* The pill these faces will stand in (bot-room Folded) */}
+      {/* The pill the bots will stand in (bot-room Folded), with the whole crew in
+          it: who comes along is the line below */}
       <span className="mt-5 flex h-9 items-center gap-2 rounded-full bg-muted/50 py-1.5 pr-3.5 pl-1.5 ring-1 ring-border/60">
         {on.length > 0 ? (
           <>
             <span className="flex">
-              {on.map((seed, index) => (
+              {BOT_SEEDS.map((seed, index) => (
                 <BotMark
                   key={seed.name}
                   size={22}
@@ -336,101 +361,115 @@ function BotStep({
         )}
       </span>
 
-      {/* One column: the rows are a hint tall now, and two columns made the same
-          three bots read as a grid of choices rather than the crew */}
-      <div className="mt-4 flex w-full max-w-lg flex-col gap-2">
-        {RECOMMENDED_SEEDS.map((seed) => (
-          <SeedRow
-            key={seed.name}
-            seed={seed}
-            pick={picks[seed.name]}
-            icon={face(seed)}
-            onPatch={(next) => onPatch(seed.name, next)}
-          />
-        ))}
-      </div>
-
-      {/* Says the rest exist without asking anything about them: which subject
-          bot someone wants is not answerable before they have used the app */}
-      {rest > 0 && (
-        <p className="mt-3.5 text-[13px] text-muted-foreground">
-          More wait in Settings › Bots.
-        </p>
-      )}
+      {/* Every seed, behind one line: listed in place with a model row each, they
+          scrolled the step (canvas "Intro Bot Picker" C) */}
+      <Popover>
+        <PopoverTrigger
+          render={
+            <button
+              type="button"
+              className="group/seeds mt-4 flex h-12 w-full max-w-lg items-center gap-2 rounded-lg border border-border bg-background pr-3 pl-3.5 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 data-popup-open:bg-muted"
+            />
+          }
+        >
+          <span className="min-w-0 flex-1 truncate text-[14px] leading-5">
+            <span className="font-medium">
+              {names || "Pick who comes along"}
+            </span>
+            {names && more > 0 && (
+              <span className="text-muted-foreground">
+                {" "}
+                · {more} more to pick
+              </span>
+            )}
+          </span>
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-data-popup-open/seeds:rotate-180" />
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          sideOffset={6}
+          className="w-(--anchor-width) gap-0 p-1"
+        >
+          <p className="px-1.5 py-1 text-xs font-medium text-muted-foreground">
+            Bots
+          </p>
+          {BOT_SEEDS.map((seed) => (
+            <SeedOption
+              key={seed.name}
+              seed={seed}
+              on={Boolean(picked[seed.name])}
+              icon={face(seed)}
+              onToggle={() => onToggle(seed.name)}
+            />
+          ))}
+          <div className="-mx-1 my-1 h-px bg-border" />
+          <div className="flex items-center gap-2 px-1.5 pt-1 pb-0.5">
+            <span className="shrink-0 pr-0.5 text-[13px] text-muted-foreground">
+              Runs on
+            </span>
+            <div className="min-w-0 flex-1">
+              <ModelPicker
+                provider={runsOn.provider}
+                model={runsOn.model}
+                onChange={onRunsOn}
+              />
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
 
 /**
- * One seed bot row, on by default, in the same shape the Bots section draws
- * (bot-setting SeedPackage): face, name, and one line of hint that never wraps.
- * The model is not prefilled; empty means the app default.
+ * One seed in the list: face, name and its hint on one line, and whether it
+ * comes along. The hint is the bot form's one line (bot.seed), so it truncates
+ * rather than wraps.
  */
-function SeedRow({
+function SeedOption({
   seed,
-  pick,
+  on,
   icon,
-  onPatch,
+  onToggle,
 }: {
   seed: BotSeed;
-  pick?: Pick;
+  on: boolean;
   icon?: BotIcon;
-  onPatch: (next: Partial<Pick>) => void;
+  onToggle: () => void;
 }) {
-  const on = Boolean(pick?.on);
-
   return (
-    <div
-      className={cn(
-        "min-w-0 rounded-xl ring-1 transition-colors",
-        on ? "ring-foreground" : "ring-border/60",
-      )}
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={on}
+      className="flex w-full items-center gap-2.5 rounded-md p-1.5 text-left outline-none hover:bg-muted focus-visible:bg-muted"
     >
-      <button
-        type="button"
-        onClick={() => onPatch({ on: !on })}
-        aria-pressed={on}
-        className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      <BotMark
+        size={20}
+        seed={seed.name}
+        {...icon}
+        state={on ? "thinking" : "idle"}
+        notify={false}
+        className={cn("shrink-0 transition-opacity", !on && "opacity-35")}
+      />
+      <span className="flex min-w-0 flex-1 items-baseline gap-2">
+        <span className="shrink-0 text-[14px] leading-5 font-medium">
+          {seed.name}
+        </span>
+        <span className="truncate text-[12px] leading-5 text-muted-foreground">
+          {seed.hint}
+        </span>
+      </span>
+      <span
+        className={cn(
+          "grid size-4 shrink-0 place-items-center rounded-full transition-colors",
+          on
+            ? "bg-foreground text-background"
+            : "ring-1 ring-border ring-inset",
+        )}
       >
-        <BotMark
-          size={28}
-          seed={seed.name}
-          {...icon}
-          state={on ? "thinking" : "idle"}
-          notify={false}
-          className={cn("shrink-0 transition-opacity", !on && "opacity-35")}
-        />
-
-        <span className="min-w-0 flex-1 space-y-px">
-          <span className="block text-[14px] leading-[18px] font-medium">
-            {seed.name}
-          </span>
-          <span className="block truncate text-[12px] leading-[17px] text-muted-foreground">
-            {seed.hint}
-          </span>
-        </span>
-
-        <span
-          className={cn(
-            "grid size-5 shrink-0 place-items-center rounded-full transition-colors",
-            on
-              ? "bg-foreground text-background"
-              : "ring-1 ring-border/60 ring-inset",
-          )}
-        >
-          {on && <Check className="size-3" />}
-        </span>
-      </button>
-
-      {on && (
-        <div className="px-3.5 pb-3">
-          <ModelPicker
-            provider={pick?.provider ?? null}
-            model={pick?.model ?? ""}
-            onChange={(next) => onPatch(next)}
-          />
-        </div>
-      )}
-    </div>
+        {on && <Check className="size-2.5" />}
+      </span>
+    </button>
   );
 }

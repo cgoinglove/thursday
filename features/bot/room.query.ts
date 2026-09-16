@@ -98,6 +98,20 @@ async function append(
   return seq;
 }
 
+/** What a participant reads where its turn broke off, before it picks up again. */
+const breakNote = (run: Pick<RoomWork, "bot" | "id">, why: string) => ({
+  bot: run.bot,
+  parent: run.id,
+  role: "user" as const,
+  content: `${why} Resume from the saved state; inspect any tool whose result is missing before repeating it.`,
+  note: true,
+});
+
+/** A turn tried again after a break (bot.runner) reads why first, as a resumed one does. */
+export async function noteRoomBreak(run: RoomWork, why: string) {
+  await appendRoomMessage(run.threadId, breakNote(run, why));
+}
+
 /** Allocate at the database boundary; independent participant writers never share a counter. */
 export async function appendRoomMessage(
   threadId: string,
@@ -647,13 +661,7 @@ export async function pauseRoom(threadId: string, why: string, auto = false) {
         .update(work)
         .set({ state: "paused", generation: row.generation + 1 })
         .where(eq(work.id, row.id));
-      await append(tx, threadId, {
-        bot: row.bot,
-        parent: row.id,
-        role: "user",
-        content: `${why} Resume from the saved state; inspect any tool whose result is missing before repeating it.`,
-        note: true,
-      });
+      await append(tx, threadId, breakNote(row, why));
     }
     await tx
       .update(thread)

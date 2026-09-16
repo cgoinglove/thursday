@@ -38,10 +38,11 @@ additional voice instructions; for the backend, a model,
 optional reasoning effort, web search, and additional backend instructions. Both
 instruction fields add to the app's prompts and never replace them. The model list
 shows recent models; an older or custom ID can be typed and saved. Live accepts any
-reasoning effort when the call opens and fails the backend's first response when the
-model does not take it, so the server asks the token-count endpoint first, once per
-model and effort, and a refused effort is omitted rather than shown. A refused model
-or key still reaches the user when the call opens. Auto reasoning sends no effort.
+reasoning settings when the call opens and fails the backend's first response when the
+model does not take one, so the server asks the token-count endpoint first
+(`acceptedReasoning`), once per model and effort. A setting refused by name, the effort or
+the summary, is dropped and not shown; a refused model or key still reaches the user when the
+call opens. Auto reasoning sends no effort.
 Web search adds the `web_search` tool only when switched on. Changes apply from the
 next call.
 
@@ -99,7 +100,8 @@ are in, or the backend turn never finishes; a failed or cancelled response, or a
 incomplete in a row, only warns. A function call the output cap cuts off arrives as an
 item with status `incomplete` and fragment arguments, and Live ends that handoff with a
 top-level `error` instead of a terminal event: the call is not run and its response
-counts as finished. The backend is asked for `reasoning.summary: "auto"` unless the
+counts as finished, though calls it completed before the cut still have their results
+continued once. The backend is asked for `reasoning.summary: "auto"` unless the
 effort is `none`. Each finished summary part (nested `response.reasoning_summary_text.done`,
 only while the model reasons) is stored with its call in `call_thought` to look into
 later; nothing draws it or reads it back into a prompt. Tools are sent without `strict`, so each schema that allows it is
@@ -130,14 +132,21 @@ Live never speaks unprompted, so what waits on the user reaches them only when t
 it in. The relay clock (`useThursday` `relayOpenWork`) reads the inbox once a second and sends
 open work only when neither side's words have been transcribed for `CALL_RELAY.quietMs` and
 no backend work or tool is running: questions not answered, jobs stopped, failed or finished
-and not yet seen, and progress from jobs still running. Up to `CALL_RELAY.perTurn` items go in
-one commentary append, most pressing first. The activity line carries the update from the moment
+and not yet seen, and progress from jobs still running. Up to `CALL_RELAY.perTurn` items of one
+kind go in one commentary append, most pressing first, so an ending never shares an append with
+a question. The activity line carries the update from the moment
 it goes out until her voice has finished it, and nothing else goes in until her voice has started
 and stopped (at most `CALL_RELAY.readMs`). An item is handled when it is answered, marked seen
 by the backend's `thread` `seen` once the user has been told enough, or opened on screen — the
-backend's `thread` `open` opens it in the call screen's room (a `showThread` event). What is not
-handled comes back after `CALL_RELAY.relistMs`, marked "again", up to `CALL_RELAY.tries` times
-a call, and on the next call. Progress goes in once.
+backend's `thread` `open` opens it in the call screen's room (a `showThread` event). Each item
+goes in once a call (`told`, in memory), and it stays in the inbox and on screen until handled.
+One her voice carried stays out of later calls too while the page is open; one it did not (Live
+refused it, she never spoke, the call ended first) goes in again on the next call, never in a
+loop on this one. The key carries the job's last change, so a job that resumes and asks or ends
+again is a new item, and a reload puts what is still open in once more. Nothing goes in while
+the call is ending or a goodbye has been asked for. Each relay follows an `instructions` note
+that what she has already told the user need not be said again, so the relay itself stays
+facts only.
 
 A relay names the bot and the thread and, for a question, where its answer goes (thread,
 recipient, `replyTo`). The backend reads relays in its conversation and routes the user's
@@ -162,9 +171,16 @@ fragments and remain readable.
 Track listening, playback, and backend work independently, from local audio levels
 and backend events. The idle clock rewinds on transcribed words, her voice
 and backend work, not on microphone level alone, so a noisy room does not hold a call
-open.
+open, and not on an update she voices on her own, so waiting results do not either. After
+`CALL_IDLE.hangUpMs` she is asked for a goodbye, and the page hangs up
+`CALL_IDLE.graceMs` later if the line is still open.
 
 ## Closing and recovery
+
+The voice hands a request to end the call to the backend at once and says goodbye
+while `end_call` runs. The page does not close on `end_call` itself: it waits until her
+voice has been quiet for `CALL_END.quietMs`, or `CALL_END.unsaidMs` when no goodbye
+started, never past `CALL_END.maxMs`.
 
 Stop accepting new work, send `session.close`, and keep the connection while waiting
 for `session.closed`. Its reason and billed seconds are recorded on the call row

@@ -13,8 +13,8 @@ export const APP_NAME = "Thursday";
  * transcriptGapMs groups nearby fragments for captions, never for tool execution.
  * transcriptSaveMs sets the checkpoint interval; appendMs bounds update acknowledgements.
  * backendOutputTokens bounds each delegated answer, including reasoning tokens.
- * effortCheckMs bounds asking whether the backend model takes the chosen reasoning
- * effort, once per model and effort; past it the call opens with the effort as chosen.
+ * reasoningCheckMs bounds asking whether the backend model takes the chosen reasoning
+ * settings, once per model and effort; past it the call opens with them as chosen.
  */
 export const LIVE_CALL = {
   startupMs: 30_000,
@@ -23,26 +23,58 @@ export const LIVE_CALL = {
   transcriptSaveMs: 500,
   appendMs: 15_000,
   backendOutputTokens: 4_096,
-  effortCheckMs: 5_000,
+  reasoningCheckMs: 5_000,
 };
 
 /**
  * Background work put to the voice during a call (useThursday). Live never speaks
  * unprompted, so what waits on the user reaches them only when the page puts it in.
+ * Each item goes in once a call; once she has voiced it, not on a later call either,
+ * while the page stays open. A job that asks or ends again is a new item.
  * - `quietMs`  how long neither side's words have been transcribed before open work goes
  *   in. Shorter talks over the user; longer leaves results waiting through pauses.
- * - `relistMs`  how long something already put to her, and still not handled (unseen,
- *   unanswered), waits before it goes in again.
- * - `tries`  how many times one item goes in during a call.
- * - `perTurn`  how many items go in at once; the rest wait for the next quiet moment.
- * - `readMs`  how long an update she never voices holds back the next one.
+ * - `perTurn`  how many items of one kind go in at once. More puts several updates in
+ *   one breath; fewer spreads them over more quiet moments.
+ * - `readMs`  how long an update she never voices holds back the next one. Shorter can
+ *   put the next update over one she is about to say; longer stalls the queue.
  */
 export const CALL_RELAY = {
   quietMs: 7_000,
-  relistMs: 60_000,
-  tries: 3,
   perTurn: 3,
   readMs: 15_000,
+};
+
+/**
+ * When a quiet call ends itself (useThursday).
+ * - `hangUpMs`  how long the user has said nothing and she has neither answered nor worked
+ *   before she is asked to say goodbye. Updates she voices on her own (CALL_RELAY) do not
+ *   count, so waiting results cannot hold a call open. Noise transcribed as words does.
+ * - `graceMs`  how long the page waits after that request before it hangs up itself.
+ * - `warnMs`  how much of `hangUpMs` counts down on screen.
+ * - `agentSilentMs`  the user said something and nothing came back, no voice and no backend
+ *   work, for this long: the page hangs up, since the model is not on the line to say goodbye.
+ */
+export const CALL_IDLE = {
+  hangUpMs: 30_000,
+  graceMs: 15_000,
+  warnMs: 10_000,
+  agentSilentMs: 30_000,
+};
+
+/**
+ * How the page hangs up once the backend calls `end_call` (useThursday): her goodbye is let
+ * finish, within bounds.
+ * - `quietMs`  silence after her voice that counts as the goodbye being over, and the least
+ *   time the tool's own result gets to go out. Shorter clips a goodbye at a pause; longer
+ *   leaves dead air before the line drops.
+ * - `unsaidMs`  how long to wait for a goodbye that has not started; voice heard this
+ *   long before `end_call` counts as the goodbye already said.
+ * - `maxMs`  the longest the line stays open after `end_call`, however long she talks.
+ */
+export const CALL_END = {
+  quietMs: 600,
+  unsaidMs: 2_000,
+  maxMs: 8_000,
 };
 
 /**
@@ -200,6 +232,11 @@ export const TOOL_OUTPUT = { max: 8_000, head: 5_500, tail: 1_500 };
  *            sends nothing until it is done and gets it whole.
  * - `overflowShrink`  what a job's compaction threshold is multiplied by when the
  *            model refuses its context as too long, so the resume compacts first.
+ * - `retryMs`  wait before the one more try a turn gets when its model call breaks
+ *            (a dropped or garbled stream, an overload, a model gone quiet, a context
+ *            refused as too long). A second break, a provider's refusal (the key, the
+ *            credit, the model id), the content filter and the step limit wait for a
+ *            person. Longer rides out a longer outage; the turn holds its place meanwhile.
  * - `compactFiles`  files the app lists under a compaction summary — what the job
  *            has on disk, the newest kept (bot.run filesUnder). Past it the list
  *            says how many older ones there are; all of them stay in the Workspace.
@@ -216,6 +253,7 @@ export const BOT_RUN = {
   queuedMessages: 200,
   silenceMs: 5 * 60_000,
   overflowShrink: 0.6,
+  retryMs: 10_000,
   compactFiles: 40,
 };
 
