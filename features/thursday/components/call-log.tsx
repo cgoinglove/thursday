@@ -60,18 +60,18 @@ export function CallHistoryRow() {
 
 type CallJob = CallRecord["jobs"][number];
 
-/** How a job reads under the line that opened it. Only waiting and failed carry colour. */
+/** How a job reads under the line that opened it. Only waiting carries colour. */
 const JOB_WORD: Record<ThreadStatus, string> = {
   running: "working",
   waiting: "waiting on you",
   done: "done",
-  failed: "failed",
+  cancelled: "stopped",
 };
 const JOB_LOOK: Record<ThreadStatus, string> = {
   running: "text-muted-foreground",
   waiting: WAITING_INK,
   done: "text-muted-foreground",
-  failed: "text-destructive",
+  cancelled: "text-muted-foreground",
 };
 
 /** The box the log fills, kept while it loads so the dialog does not resize. */

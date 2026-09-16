@@ -5,13 +5,11 @@ import {
   ChevronDown,
   ExternalLink,
   FilePen,
-  Flag,
-  Globe,
-  Image as ImageIcon,
   ListChecks,
   Loader2,
   type LucideIcon,
   MessageSquare,
+  PhoneOff,
   Search,
   Send,
   Terminal,
@@ -21,6 +19,7 @@ import { type ComponentType, type ReactNode, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { ShinyText } from "@/components/ui/shiny-text";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import type { ResultPart } from "@/features/bot/bot.schema";
 import { McpMark } from "@/features/connectors/components/mcp-mark";
 import { MemoryMark } from "@/features/memory/components/memory-mark";
@@ -44,36 +43,31 @@ type ToolProps = {
   collapsed?: boolean;
 };
 
-export const TOOL_VIEWS: Record<string, ComponentType<ToolProps>> = {
-  web_search: WebSearchTool,
-  bash: ShellTool,
-  fetch: (props) => <MonoTool icon={Globe} {...props} />,
-  write_file: (props) => <FileTool icon={FilePen} {...props} />,
-  generate_image: DrawnTool,
+const TOOL_VIEWS: Partial<Record<string, ComponentType<ToolProps>>> = {
+  [TOOL_NAMES.web_search]: WebSearchTool,
+  [TOOL_NAMES.bash]: ShellTool,
+  [TOOL_NAMES.write_file]: (props) => <FileTool icon={FilePen} {...props} />,
 };
 
 /**
  * Icon per tool, for views with room for one glyph. A tool that belongs to a
  * domain draws that domain's own mark, so the pill and the nav never disagree.
  */
-const TOOL_ICONS: Record<string, LucideIcon> = {
-  web_search: Search,
-  bash: Terminal,
-  fetch: Globe,
-  write_file: FilePen,
-  generate_image: ImageIcon,
-  memory_recall: MemoryMark,
-  memory_remember: MemoryMark,
-  memory_forget: MemoryMark,
-  load_skill: SkillsMark,
-  tool_search: McpMark,
-  tool_call: McpMark,
-  delegate: Send,
-  thread: ListChecks,
-  ask_bot: MessageSquare,
-  ask_back: MessageSquare,
-  ask_thursday: MessageSquare,
-  answer: Flag,
+const TOOL_ICONS: Partial<Record<string, LucideIcon>> = {
+  [TOOL_NAMES.web_search]: Search,
+  [TOOL_NAMES.bash]: Terminal,
+  [TOOL_NAMES.write_file]: FilePen,
+  [TOOL_NAMES.memory_recall]: MemoryMark,
+  [TOOL_NAMES.memory_remember]: MemoryMark,
+  [TOOL_NAMES.memory_forget]: MemoryMark,
+  [TOOL_NAMES.memory_conversation]: MemoryMark,
+  [TOOL_NAMES.load_skill]: SkillsMark,
+  [TOOL_NAMES.tool_search]: McpMark,
+  [TOOL_NAMES.tool_call]: McpMark,
+  [TOOL_NAMES.delegate]: Send,
+  [TOOL_NAMES.thread]: ListChecks,
+  [TOOL_NAMES.send_message]: MessageSquare,
+  [TOOL_NAMES.end_call]: PhoneOff,
 };
 
 export const toolIcon = (name: string): LucideIcon =>
@@ -128,23 +122,6 @@ function ShellTool({ tool, threadId, collapsed }: ToolProps) {
   );
 }
 
-/** A path or url and what was read from it. */
-function MonoTool({
-  icon,
-  tool,
-  threadId,
-  collapsed,
-}: ToolProps & { icon: LucideIcon }) {
-  return (
-    <Frame tool={tool} threadId={threadId} icon={icon} collapsed={collapsed}>
-      <p className="truncate px-3 pt-1 pb-1.5 font-mono text-[11px]">
-        {tool.input}
-      </p>
-      <Lines lines={texts(tool.results)} mono />
-    </Frame>
-  );
-}
-
 const OPEN_BUTTON =
   "flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground outline-none transition-colors hover:bg-background hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50";
 
@@ -171,34 +148,6 @@ function FileTool({
         </FileLink>
       </div>
       <Lines lines={texts(tool.results)} mono />
-    </Frame>
-  );
-}
-
-/** A generated image. The path is the first result line, not the input: the name is made while generating. */
-function DrawnTool({ tool, threadId, collapsed }: ToolProps) {
-  const [path] = texts(tool.results);
-  return (
-    <Frame
-      tool={tool}
-      threadId={threadId}
-      icon={ImageIcon}
-      collapsed={collapsed}
-    >
-      <p className="px-3 pt-1 text-[12px] leading-snug break-keep">
-        {tool.input}
-      </p>
-      {path && (
-        <div className="flex items-center gap-2 px-3 pt-1 pb-1.5">
-          <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">
-            {path}
-          </span>
-          <FileLink path={path} label={`Open ${path}`} className={OPEN_BUTTON}>
-            <ExternalLink className="size-3" />
-            Open
-          </FileLink>
-        </div>
-      )}
     </Frame>
   );
 }

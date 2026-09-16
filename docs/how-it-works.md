@@ -1,65 +1,66 @@
 # How it works
 
-The README says what Thursday is. This says what each part may touch, so you can guess what will happen before you say it.
+What each part does, so you can guess what will happen before you say it.
 
 ## The call
 
-A call runs on GPT-Live 1 for full-duplex speech and a separate Responses model for reasoning and tools. GPT-5.6 Luna is the default backend. Settings › Thursday picks the voice, the backend model and its reasoning effort, web search, and separate instructions for the voice and the backend. Both prompts are assembled when each call opens, from memory, the bot roster and previous conversations: the voice's says how to talk and what the backend can do, the backend's holds the tools and how to use them.
+A call runs on two models: **GPT-Live 1** holds the conversation, and a Responses model (**GPT-5.6 Luna** by default) thinks and uses tools behind it. The voice keeps listening while the backend works.
 
-The browser exchanges its WebRTC offer through the server; the OpenAI key, both prompts and the tool list stay on the server. Live keeps listening while the backend works. Voice sessions are billed per active minute, including silence and waiting; backend usage is billed separately per token through the API, not a ChatGPT subscription. Transcripts are included in Live, and every call is kept on this machine for call history, later calls, memory and the bots it hands work to. A call closes only after Live confirms session finalization or the close deadline expires, and call history keeps the seconds it confirmed. The details are in [live-calls.md](live-calls.md).
+- **Quick things, she answers herself.** She reads and writes your memory and runs one shell command at a time: open a file, check a folder, play something.
+- **Everything else goes to a bot.** She hands it over and keeps talking. A speech model that ran a browser itself would go silent for minutes.
+- **When a job comes back,** she tells you in a sentence. A file it made opens on your screen, and a question it asks shows up as buttons.
 
-The backend has three capabilities:
+Settings › Thursday picks the voice, the backend model and its reasoning, web search, the wake word and hotkey, and whether she calls you when a job ends.
 
-- **Memory.** A folder of notes about you. She reads a note before answering out of it and writes the moment something worth keeping comes up — one fact per line, dates as dates. A rule you lay down ("answer in Korean", "keep it short") is carried into every call.
-- **One command.** A shell, for the things that take a second: open a file, play something, look at what is in a folder. One command is something she does, not a job she hands over.
-- **The roster.** The bots, by name, and what each is for.
-
-Everything else — anything that takes more than a few seconds — she hands to a bot with `delegate` and keeps talking. That is deliberate: the call must never go silent, and a speech model that runs a browser would be silent for minutes.
-
-When a job comes back, it reaches her as a bot's message, not as you speaking. She tells you in one sentence, in her own words. A file the job made opens on your screen by itself; a question the job asks becomes buttons on screen and words in your ear.
+The voice is billed per active minute, silence included; the backend is billed per token. Both use your OpenAI API key, not a ChatGPT subscription.
 
 ## Bots
 
-A bot is a text model — any of OpenAI, Anthropic, Google, xAI, or whatever the Vercel AI Gateway carries — with the whole machine:
+![A bot gets a shell, a real browser, skills, MCP servers, a studio and its own memory](images/machine.png)
 
-- a **shell** in a workspace folder, with no pager and no secrets in its environment
-- a **real browser** (Chromium through Playwright), headless until a sign-in or something you should see, and able to attach to the Chrome you already use
-- the **filesystem**, read anywhere, written only inside the workspace and where you pointed it
-- **skills** — written-down methods it reads before starting: the browser, this Mac, building a page, finding and writing skills
-- **MCP servers** you connected, searched by name and called by schema, with OAuth handled
-- a **studio** of image, video, speech and transcription models
-- **each other**: a bot hands a part of its job to the bot that exists for it, and folds the answer into its own report
+A bot is a text model from any provider you added, with:
 
-A job ends in the thing that was asked for — the account made, the page built, the comparison in a table — and a report, written to be heard, because she reads it out loud. Anything that does not fit in a few lines is a file under `artifacts/`, and the report names it.
+- a **shell** in a workspace folder
+- a **real browser** — its own, or the Chrome you already use
+- **your files** — it reads anywhere and writes where your user can; only its file tool is kept out of the app and the workspace root ([SECURITY.md](../SECURITY.md))
+- **skills**, methods it reads before it starts
+- **MCP servers** you connected
+- a **studio** for images, video, speech, and transcription
+- **each other**, to hand off part of a job
 
-What only you can give — a sign-in it holds no session for, a decision between two real options — stops the job at that point. The bot sets it up one action away, asks, and continues when the answer comes. Credentials you handed it are used only after it asks. A payment is the one thing it never finishes: it takes the purchase to the last screen, leaves that window open on yours, and reports what it buys and for how much.
+The first run lets you pick a few starter bots; more are ready in Settings › Bots, or make your own with a name and one sentence about what it is for. That sentence is how Thursday decides who gets a job. Switch a bot off without deleting it.
 
-Three bots come with the app, split by temperament: **Jarvis** takes anything nobody else is for — an order, a booking, a form — with no role of its own, only what every bot is given; **Analyst** finds the numbers and shows them on one page of tables and charts; **Lambda** turns work that repeats into scripts and runs them on a schedule once allowed. More are ready-made in settings — **Planner** runs a job that needs a team the way a chief executive would: decides what done means, assigns the parts, checks what comes back and signs off on one result; **Marketer** writes the copy, plans and reviews; **Shorts** scripts, draws and voices a vertical video; **Mail** reads the inbox and writes the replies; **Insta** builds the slides, writes the caption and posts to Instagram — or make your own: a name, a sentence about what it is for, optionally a model and a few pinned tools. The sentence is what she reads when deciding who gets the job. A bot can be switched off without being deleted.
+A job ends in the thing you asked for and a short report. Anything longer than a few lines is a file in `artifacts/`. When only you can do something — sign in, choose between two real options — the bot sets it up, asks, and waits. It never presses Pay: a purchase stops on the last screen, left open for you.
 
-Each bot keeps its own memory as files in its folder (`bots/<name>/memory/`), one topic per file, and reads the list at the start of every job. Its page in settings shows them; open one in place or delete it.
+Each bot keeps its own memory as files you can open from its page.
 
 ## Jobs outlive the call
 
-A job runs on the server. It is not in the tab, and it does not stop when you hang up. Every step — the request, each tool call, what came back, the report — is written as a row, and the screen is a projection of those rows. When you come back, the jobs that finished are waiting, and she tells you about them on the next call, or rings you if you turned that on.
+![Hang up mid-sentence and the job keeps going on the server](images/keeps-going.png)
 
-A job that stopped to ask, or ran out of its step budget, is resumed from where it stopped: the same thread, with your answer appended. A long thread is compacted — the model summarizes what happened so far and continues from the summary.
+- A job runs on the local server, not in the call. Hang up and it keeps going.
+- Every step is saved, so a job that stopped to ask picks up where it left off, and you can read the whole thread.
+- Close the app, and after ten seconds running jobs pause. Open it again and they continue, so nothing spends your keys while you are away.
+- A model call that fails is retried once. After that, the job waits for you.
 
-With no browser on the app for ten seconds, running jobs stop where they stand, so nothing spends your keys while nobody is looking. A job stopped by a closed tab picks itself back up when you return. A model call that breaks on the way is tried once more on its own; a second break, a provider that refuses the key, the credit or the model, a restart, or a job a bot or a person stopped waits for you.
+## Memory
 
-## Memory you can read
+Memory is a set of notes about you, one fact per line: your name, your language, the people you mention, the rules you give her. A few notes go into every call.
 
-Memory is notes in the database on your disk, in the data folder (`~/.thursday` when installed with `npx`, the checkout otherwise). Each note is a topic — `profile`, `preferences`, `people/…`, and whatever she creates — and holds one fact per line. A few are `alwaysLoad` and travel into every call: your name, your language, how you like to be addressed, the rules you gave her.
+Open any note in Settings › Memory to see exactly what she knows. To change it, type what changed and watch each edit land. Bots read your memory but never write it.
 
-She writes the moment something worth keeping comes up. Each fact remembers the call it was said in, so when a line is not enough she can open that conversation again. Nothing re-reads calls after they end: what is kept is what was written.
+## Where your data lives
 
-You can open any note from settings and read exactly what she knows. To change it, type what changed on the Memory screen, pick a model, and watch each edit land. When the listing gets long she says so in a lull, puts a note on your screen and forgets only what you name.
+```text
+~/.thursday
+├── local.db          calls, memory, bots, jobs, keys
+└── .ai-workspace
+    ├── artifacts/    finished work, a folder per bot
+    ├── projects/     code and longer-lived projects
+    ├── bots/         each bot's memory and saved sessions
+    └── .agents/      skills you installed
+```
 
-Bots read your memory but do not write it. What a bot learns about its own work goes into its own memory files; what it learns about you goes into its report, and whether that is worth keeping is her call, with you.
+When you run from source, the same files live in the checkout. The server listens only on `127.0.0.1`, and there is no login — see [SECURITY.md](../SECURITY.md).
 
-## What is not here
-
-- **No cloud.** The server is the one on your machine; keys are stored locally and sent only to the provider you chose.
-- **No account.** There is nothing to sign up for. There is also no login, which is why the server binds to `127.0.0.1` — see [SECURITY.md](../SECURITY.md).
-- **No prompt engineering on your side.** The prompts are assembled from your data on every session; the one thing you can add is an instruction to her, and one to each bot, in settings.
-
-For the code — which file owns what, and why — read [CLAUDE.md](../CLAUDE.md).
+For contributors: [live calls](live-calls.md) and [thread rooms](thread-rooms.md) are the engine contracts, and [AGENTS.md](../AGENTS.md) maps the code.

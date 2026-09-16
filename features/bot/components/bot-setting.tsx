@@ -260,7 +260,7 @@ function RosterRow({
         {...markProps(bot.name, bot.icon)}
         state={job?.status === "running" ? "thinking" : "idle"}
         notify={job?.status === "waiting"}
-        failed={job?.status === "failed"}
+        crossed={job?.status === "cancelled"}
         className={cn("shrink-0", bot.disabled && "opacity-45")}
       />
       <span
@@ -1261,8 +1261,8 @@ function jobState(job: Thread): { text: string; tone: string } {
       return { text: "waiting on you", tone: WAITING_INK };
     case "running":
       return { text: "working", tone: "text-muted-foreground" };
-    case "failed":
-      return { text: "failed", tone: "text-destructive" };
+    case "cancelled":
+      return { text: "stopped", tone: "text-muted-foreground" };
     default:
       return { text: "done", tone: "text-muted-foreground" };
   }

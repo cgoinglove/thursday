@@ -143,13 +143,14 @@ export const PAGE_SIZE = 50;
 
 /**
  * Finished jobs the inbox carries beside everything still running or waiting.
- * The room in the call screen's corner and the Threads badge read that one list,
- * Unread endings remain in the inbox regardless of this limit.
+ * The room in the call screen's corner and the Threads badge read that one list.
+ * Unread endings, and endings a call has not relayed, remain regardless of this
+ * limit. More keeps older endings in reach at the cost of a larger inbox read.
  */
 export const INBOX_FINISHED = 3;
 
 /**
- * How long a finished thread the user has already opened, done or failed, stays on
+ * How long a finished thread the user has already opened stays on
  * the room's Now tab, ms from when it ended; after that it is under History only.
  * Longer keeps recent work in reach, 0 moves it the moment it is read. A cancel
  * leaves at once whatever this is. Only endings the inbox still carries

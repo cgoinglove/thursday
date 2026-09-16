@@ -48,7 +48,7 @@ export type ToolRun =
       target: "bot";
       /** This run's bot name, the key of the bot table. */
       bot: string;
-      /** The browser session this run's shell drives (workspace.ts jobShellEnv): the job's, or a borrowed bot's own. */
+      /** The browser session this run's shell drives (workspace.ts jobShellEnv): this participant's own in the job. */
       session?: string | null;
       /** The model this run already resolved (bot.run resolveModel); its own native search is what `web_search` uses when no Exa key is set (tools/search.tool). */
       model?: TextModel | null;
@@ -58,8 +58,8 @@ export type ToolRun =
 
 /**
  * Starting work and following it. bot.runner is imported dynamically to break a cycle
- * (runner -> bot.run -> this file). `delegate` records which call opened the job; that decides
- * who is told when it ends (bot.runner).
+ * (runner -> bot.run -> this file). `delegate` records which call opened the job, so a
+ * later call's prompt finds the job under the line that opened it (Earlier calls).
  */
 function createThreadTools(callId: string | null | undefined): ToolSet {
   return {
@@ -119,8 +119,7 @@ function createThreadTools(callId: string | null | undefined): ToolSet {
           const now = { now: clockNow() };
           // A named job comes back whole; the list clips outcomes, and the model pads a clipped answer
           if (thread) {
-            const found = await resolveThread(thread);
-            const one = found;
+            const one = await resolveThread(thread);
             if (!one) return await noSuchJob(thread);
             const { findThreadView } = await import(
               "@/features/bot/thread.query"
@@ -132,9 +131,8 @@ function createThreadTools(callId: string | null | undefined): ToolSet {
               label: one.label,
               id: one.id,
               bot: one.bot,
-              ...(room
-                ? { participants: room.participants, questions: room.questions }
-                : {}),
+              participants: room?.participants ?? [],
+              questions: room?.questions ?? [],
               status: one.status,
               since: formatDistanceToNowStrict(toDate(one.updatedAt), {
                 addSuffix: true,
@@ -156,15 +154,11 @@ function createThreadTools(callId: string | null | undefined): ToolSet {
               label: thread.label,
               bot: thread.bot,
               status: thread.status,
-              ...(thread.room
-                ? {
-                    participants: thread.room.participants,
-                    questions: thread.room.questions.map((question) => ({
-                      ...question,
-                      text: clip(question.text, 200),
-                    })),
-                  }
-                : {}),
+              participants: thread.room.participants,
+              questions: thread.room.questions.map((question) => ({
+                ...question,
+                text: clip(question.text, 200),
+              })),
               since: formatDistanceToNowStrict(toDate(thread.updatedAt), {
                 addSuffix: true,
               }),
@@ -180,35 +174,37 @@ function createThreadTools(callId: string | null | undefined): ToolSet {
             })),
           };
         }
-        // A name is how a job is taken, but the one that just moved is what
-        // "that one" means out loud, and making the model fetch a label it
-        // already heard is what sends it to `delegate` instead. Cancel still
-        // needs the name: it cannot be taken back.
+        // A name is how a job is taken. Unnamed, `open` shows the job that just
+        // moved, and `answer` reaches the one open question; words with no question
+        // waiting belong to a job the user names, never to whichever moved last.
+        // Cancel always needs the name: it cannot be taken back.
         const { listInboxThreads, markSeen } = await import(
           "@/features/bot/thread.query"
         );
         const unnamed = !thread && (action === "answer" || action === "open");
         const inbox = unnamed ? await listInboxThreads() : [];
-        // An unnamed answer is for the open question; with questions in two
-        // jobs, which one it answers is the user's to say
         const asking =
           action === "answer"
-            ? inbox.filter((row) => row.room?.questions.length)
+            ? inbox.filter((row) => row.room.questions.length)
             : [];
         if (asking.length > 1)
           return `Questions are waiting in more than one job: ${asking
             .map(
               (row) =>
-                `"${row.label}" (${row.room?.questions.map((question) => question.bot).join(", ")})`,
+                `"${row.label}" (${row.room.questions.map((question) => question.bot).join(", ")})`,
             )
             .join(", ")}. Name the job.`;
         const one = thread
           ? await resolveThread(thread)
-          : unnamed
-            ? (asking[0] ?? inbox[0] ?? null)
-            : null;
+          : action === "answer"
+            ? (asking[0] ?? null)
+            : unnamed
+              ? (inbox[0] ?? null)
+              : null;
         if (!one) {
           if (thread) return await noSuchJob(thread);
+          if (action === "answer")
+            return `No question is waiting. Name the job this is for; \`${TOOL_NAMES.thread}\` \`status\` lists them.`;
           return unnamed
             ? "No job has moved yet — say which one, or check `status` first."
             : "Say which job — by its label. Call `status` with no job named to see them.";
@@ -378,14 +374,14 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     // Exa when its key is set, else this bot's own model when it can search;
     // absent when neither, and the browser is the way in (search.tool)
     ...(await createSearchTool(run.model, sandbox)),
-    // The browser rides in the shell: its session is this seat's — the job's, or
-    // a borrowed bot's own — set by the server rather than typed by the model
-    // (workspace.ts jobShellEnv), and so is the bot's artifacts folder
+    // The browser rides in the shell: its session is this participant's in this job,
+    // set by the server rather than typed by the model (workspace.ts jobShellEnv),
+    // and so is the bot's artifacts folder
     ...createWorkspaceTools(sandbox, {
       write: true,
       env: { ...jobShellEnv(run.session), ...botShellEnv(run.bot) },
       // What the shell is like and what this machine has, on the first command
-      // of the run only (workspace.tool shellGuide). The call gets no guide:
+      // of the run only (workspace.tool SHELL_GUIDE). The call gets no guide:
       // one command is a glance, not a job to plan around
       guide: true,
       // Its own memory stays within its limits whichever of the two writes it

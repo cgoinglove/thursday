@@ -4,11 +4,8 @@
 
 ### Everyone wanted Friday. This is Thursday.
 
-**Your own Iron Man moment.**
-
-Talk to your computer. Ask it to find something, make something, or get something done. Thursday talks back while agents do the work.
-
-An open-source voice-first agent harness, in the same spirit as [OpenClaw](https://github.com/openclaw/openclaw) and [Hermes](https://github.com/NousResearch/hermes-agent). Running on your own machine.
+Talk to your computer. Thursday talks back while bots do the work.<br>
+An open-source agent like [OpenClaw](https://github.com/openclaw/openclaw) and [Hermes](https://github.com/NousResearch/hermes-agent), built around your voice and running on your own machine.
 
 [![npm](https://img.shields.io/npm/v/thursday-agent?style=flat-square&color=111&label=npm)](https://www.npmjs.com/package/thursday-agent)
 [![CI](https://img.shields.io/github/actions/workflow/status/cgoinglove/thursday/ci.yml?style=flat-square&label=ci)](https://github.com/cgoinglove/thursday/actions/workflows/ci.yml)
@@ -19,106 +16,37 @@ An open-source voice-first agent harness, in the same spirit as [OpenClaw](https
 
 </div>
 
-```bash
-npx thursday-agent
-```
-
-Add an OpenAI API key on the first screen. Then say **“hey thursday.”** No Thursday account and no `.env` file.
-
-<br>
-
-## “Thursday, help me get ready for my trip.”
-
-Start with an idea. Work it out together, out loud.
-
-> **“Find three quiet stays in Kyoto under $180. Put the best options on one page.”**
-
-While a bot searches, keep talking: “Actually, somewhere I can walk to breakfast. What should I pack?” Thursday stays in the conversation while bots browse, compare, and build your page. When it is ready, the result comes back to you out loud and opens on your screen.
-
-![One voice conversation continues while a bot works in the background](docs/images/two-minds.png)
-
-That is the Friday feeling: you think out loud, your assistant answers, and work happens along the way.
-
-<br>
-
-## One sentence. Two bots. You typed none of it.
-
-Thursday does not hand your request to a single agent and hope. The bots talk to each other.
-
-![Planner splits the job, Analyst brings the numbers back, one page comes out — a room nobody typed in](docs/images/thread-room.png)
-
-Ask how your market moved this week, on one page. **Planner** takes the job, writes the plan down and hands the research out. **Analyst** pulls the numbers from where they are published, keeps every source, and draws them. Planner opens what came back, checks it against the plan, builds the page, and hands the result to Thursday — and you hear one sentence.
-
-Every handoff is written down. Open the room to see who did what, or type into it and the job picks up where it left off.
-
-Each bot keeps its own conversation and browser identity for that thread. Messages are asynchronous: a bot can work while a colleague works, rest until a reply arrives, and return to the same conversation. Use **Step in** to address a particular bot. After a server interruption, continue manually from the saved work. See [thread rooms](docs/thread-rooms.md) for the engine and recovery guarantees.
-
-<br>
-
-## Things worth saying out loud
-
-| Say | What happens |
-|---|---|
-| **“What did I download this week?”** | Thursday runs one quick command and answers in the call. |
-| **“Find the cheapest flight to Osaka on the 14th.”** | A bot searches in a real browser and leaves the useful page open. |
-| **“Turn today’s decisions into a one-page brief.”** | A bot writes the file and opens the finished artifact. |
-| **“Remember that I moved to Busan.”** | The fact goes into memory you can read, edit, and delete. |
-| **“Plan three days in Kyoto, with a map for each day.”** | Bots research and build a visual itinerary together. |
-| **“Anything from my landlord in email?”** | A bot checks the browser session you chose to attach and reports back. |
-
-<br>
-
-## Make it your kind of assistant
-
-- **Keep talking while it looks.** Bots handle the slow work. You can interrupt Thursday, change the subject, or think through the next idea together.
-- **Put your computer to work.** Bots use a shell, your files, and a real browser. Attach the Chrome session you choose to work with services you already use.
-- **Get something you can use.** Open the finished page, document, image, audio, or video. Keep the files and build on them.
-- **Explain yourself less next time.** Save preferences in memory and repeatable methods in Agent Skills. Read, edit, or delete what Thursday remembers.
-- **Bring your tools and models.** Connect MCP servers, choose models, and create bots with their own roles, tools, and memory.
-- **End the call when you are done talking.** Jobs keep working while the app stays open. Close the app and they pause until you return.
-
-Thursday ships with Jarvis for anything nobody else is for, Analyst to find the numbers, and Lambda to turn work that repeats into scripts; Planner, for a job that needs a team, waits in settings with the rest. Make your own with a name and one sentence about what it is for — and when a real decision is needed, a bot asks you.
-
-<br>
-
-## Local-first, precisely
-
-The app, database, workspace, keys, memory, and browser sessions live on your computer. The server binds to `127.0.0.1`; there is no Thursday account or hosted control plane.
-
-Calls and bot threads still use the model providers you configure. A connected service receives the requests you deliberately send through it. Thursday is a powerful local agent with a real shell, not a security sandbox — read [SECURITY.md](SECURITY.md) before giving it sensitive access.
-
-<br>
-
-## Install
+## Quick start
 
 ```bash
 npx thursday-agent
 ```
 
-Requires Node 22.18+. It opens on `localhost:3000`, or the next free port. The first run downloads the Chromium browser used by bots once, in the background. Built on macOS; Linux should work, and Windows is not yet tested.
+Paste an OpenAI API key, pick your starter bots, and say **“hey thursday.”**
 
-```text
-~/.thursday
-├── local.db          calls, memory, bots, jobs, keys
-└── .ai-workspace
-    ├── artifacts/    finished work, a folder per bot
-    ├── projects/     code and longer-lived projects
-    ├── bots/         each bot's memory and saved sessions
-    └── .agents/      skills you installed
-```
+![The call keeps going while a bot does the work](docs/images/two-minds.png)
 
-<details>
-<summary><b>Models and providers</b></summary>
+## Features
 
-| | Providers |
-|---|---|
-| **Voice** | OpenAI GPT-Live 1, with a GPT-5.6 Luna backend by default |
-| **Bots** | OpenAI · Anthropic · Google · xAI · Vercel AI Gateway · ChatGPT sign-in |
-| **Studio** | OpenAI · Google · xAI · Vercel AI Gateway |
+- **Just talk.** A real-time voice call you can interrupt. Start one with “hey thursday” or a hotkey.
+- **Bots do the slow work.** Anything that takes more than a few seconds goes to a bot in the background, and the conversation keeps going.
+- **Your real computer.** Bots get a shell, your files, and a real browser — even the Chrome you are already signed into. It stops at a Pay button and leaves it to you.
+- **Results you can open.** Pages, docs, charts, images, audio, and video, saved as files and opened on your screen.
+- **Hang up, it keeps going.** Jobs run on your machine and Thursday tells you when they are done.
+- **A team you build.** Make a bot with a name and one sentence. Bots pass work to each other and ask you when a decision is yours.
+- **Memory you can read.** What Thursday knows about you is plain notes. Open, edit, or delete any line.
+- **Skills and MCP.** Add Agent Skills and connect MCP servers.
+- **Any model.** OpenAI, Anthropic, Google, xAI, Vercel AI Gateway, or your ChatGPT sign-in, with a different model per bot.
+- **Local-first.** No Thursday account. The app, your data, and your keys stay on your computer.
 
-Every bot can use a different model.
+## Requirements
 
-</details>
+- Node.js 22.18+
+- An OpenAI API key for the voice
+- macOS. Linux should work; Windows is not tested yet.
+
+> [!NOTE]
+> Bots run real commands on your computer. Thursday is not a sandbox — read [SECURITY.md](SECURITY.md) before giving it access to anything sensitive.
 
 <details>
 <summary><b>Run from source</b></summary>
@@ -134,18 +62,12 @@ Requires pnpm 10+.
 
 </details>
 
-<br>
-
-## Your Friday starts with “hey thursday.”
-
-You do not need a suit of armor. Start with one thing you would rather say than do by hand.
-
-The project is in active `0.x` development. Tell us what you asked for and where it stopped — that is the roadmap.
-
 <div align="center">
 
-**If you want an agent you can talk to while it works, [star Thursday](https://github.com/cgoinglove/thursday).**
+<br>
 
-[How it works](docs/how-it-works.md) · [Contributing](CONTRIBUTING.md) · [Architecture](AGENTS.md) · [MIT](LICENSE)
+**[How it works](docs/how-it-works.md)** · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [MIT](LICENSE)
+
+If you want an assistant you can talk to while it works, [star Thursday](https://github.com/cgoinglove/thursday).
 
 </div>

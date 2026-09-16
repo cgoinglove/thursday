@@ -24,13 +24,6 @@ import { clip } from "@/lib/utils";
  * exceptions are `thursdayIdentity` and `callEnding`, the words both call prompts open with.
  */
 
-/** What one assembled prompt hands back to the run that asked for it. */
-export type LoadedPrompt = {
-  text: string;
-  /** Who this run can reach with `ask_bot`. When empty the runner does not attach the tool (bot.run). */
-  peers: string[];
-};
-
 /**
  * What one assembled prompt costs, said where it is assembled. The debug line is
  * the whole breakdown; past PROMPT_BUDGET it is a warning naming the chapter
@@ -53,13 +46,13 @@ export function logPromptSize(kind: string, text: string): void {
   }
 }
 
-/** `2026-09-02 (Wed) 15:41 Asia/Seoul` */
+/** `2026-09-02 (Wed) 15:41 Europe/Lisbon` */
 export const clockNow = (now = new Date()) =>
   `${format(now, "yyyy-MM-dd (EEE) HH:mm")} ${
     Intl.DateTimeFormat().resolvedOptions().timeZone
   }`;
 
-/** `**Now**: 2026-09-02 (Wed) 15:41 Asia/Seoul` */
+/** `**Now**: 2026-09-02 (Wed) 15:41 Europe/Lisbon` */
 export const nowLine = (now = new Date()) => `**Now**: ${clockNow(now)}`;
 
 /**
@@ -119,7 +112,7 @@ function sinceLast(at: MemoryIndexEntry["lastSeenAt"]): string {
   return `${Math.max(days, 0)}d`;
 }
 
-/** `- people/yuri — partner (3) "yuri" "wife" · 12d` */
+/** `- people/partner — partner (3) "my partner" · 12d` */
 export function noteLines(index: MemoryIndexEntry[], age = false): string {
   if (!index.length) return "(nothing saved yet)";
   return index
@@ -133,7 +126,7 @@ export function noteLines(index: MemoryIndexEntry[], age = false): string {
     .join("\n");
 }
 
-/** `- Their name is Yuri · profile #12`; without the id for the voice, which holds no tool that takes one. */
+/** `- Prefers to be called by their first name · profile #12`; without the id for the voice, which holds no tool that takes one. */
 export const carriedLines = (
   loaded: MemoryAlwaysLoaded[],
   options: { ids?: boolean } = {},

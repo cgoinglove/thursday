@@ -22,12 +22,6 @@ export const TOOL_NAMES = {
   delegate: "delegate",
   thread: "thread",
   send_message: "send_message",
-  // Historical tool names remain readable in stored conversations.
-  ask_bot: "ask_bot",
-  ask_thursday: "ask_thursday",
-  ask_back: "ask_back",
-  answer: "answer",
-  report: "report",
 
   end_call: "end_call",
 } as const;

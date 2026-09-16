@@ -283,11 +283,12 @@ A 30-second poll remains as a safety net. No WebSockets.
   every participant; another bot's tab holds only its own lines and the messages that reached it,
   and the composer follows the open tab. Thursday is never invited and never drawn as a bot.
 - A bot draws with the face picked on its page wherever it appears; nothing varies its mark by
-  thread or place, only its state: the notify dot while it waits on the user, crossed-out eyes on
-  a failed thread (a Stop ends one that way too).
+  thread or place, only its state: the amber notify dot while it waits on the user, crossed-out
+  eyes on a thread the user stopped (`cancelled`). A job never ends as a failure: a model that
+  breaks pauses it as waiting.
 - The pill's bubble shows one thing that just happened, over the face of whoever spoke: that face
   with the bots it reached tucked behind it, then the words — no glyph between faces. Questions
-  and stops take amber, failures red. Clicking the pill opens the room's list, never a thread.
+  and stops take amber. Clicking the pill opens the room's list, never a thread.
   The open list keeps the pill's row at its foot, faces without step words, and a moment shows
   there instead of in a bubble; only an open thread hides it.
 

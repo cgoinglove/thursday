@@ -59,7 +59,7 @@ export const sendMessageSpec = {
 /** The voice session's handle on a job already handed over. Run by the server, like `delegate` (load-tools). */
 export const threadSpec = {
   name: TOOL_NAMES.thread,
-  description: `List up to ${THREAD_STATUS_LIMIT} jobs, prioritizing running and waiting work before recent completed or failed jobs; inspect one job, answer it, cancel it, open it on the user's screen, or mark it seen — the same as the user opening it, which takes it off the work waiting on them.`,
+  description: `List up to ${THREAD_STATUS_LIMIT} jobs, prioritizing running and waiting work before recent endings; inspect one job, answer it, cancel it, open it on the user's screen, or mark it seen — the same as the user opening it, which takes it off the work waiting on them.`,
   parameters: z.object({
     action: z.enum(["status", "answer", "cancel", "open", "seen"]),
     recipient: z
@@ -78,7 +78,7 @@ export const threadSpec = {
       .string()
       .nullish()
       .describe(
-        `Identify the job by label or ID. With status, omit or use null to list up to ${THREAD_STATUS_LIMIT} jobs, prioritizing open work and filling remaining places with recent endings; name one to read its full result and pending questions. With answer or open, omit to address the job that moved last.`,
+        `Identify the job by label or ID. With status, omit or use null to list up to ${THREAD_STATUS_LIMIT} jobs, prioritizing open work and filling remaining places with recent endings; name one to read its full result and pending questions. With open, omit to show the job that moved last. With answer, omit only to answer the one question waiting.`,
       ),
     answer: z
       .string()

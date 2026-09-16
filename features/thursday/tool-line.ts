@@ -105,7 +105,7 @@ export function toolLine(name: string, args?: string): string | null {
  * face instead of a glyph: who it went to is a face everywhere else in the app.
  */
 export function toolBot(name: string, args?: string): string | null {
-  if (name !== TOOL_NAMES.delegate && name !== TOOL_NAMES.ask_bot) return null;
+  if (name !== TOOL_NAMES.delegate) return null;
   const bot = parseArgs(args)?.bot;
   return typeof bot === "string" && bot.trim() ? bot.trim() : null;
 }

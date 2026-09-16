@@ -38,7 +38,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
-import { ROOM_KEEP_READ_MS } from "@/config";
+import { PAGE_SIZE, ROOM_KEEP_READ_MS } from "@/config";
 import { startThreadAction } from "@/features/bot/bot.action";
 import {
   type Bot,
@@ -46,9 +46,7 @@ import {
   DEFAULT_BOT,
   isAppStop,
   needsThreadReply,
-  THREAD_CANCELLED,
   THREAD_CONTINUE,
-  THREAD_HISTORY_PAGE,
   type Thread,
 } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
@@ -75,12 +73,12 @@ import {
   WAITING_INK,
 } from "@/lib/utils";
 import { MARK_PALETTE, MARK_SHAPES } from "../mark.const";
+import { ROOM_THURSDAY } from "../room.schema";
 import {
   type BotRef,
   botThreads,
   type Chatter,
   heardBy,
-  isOutcome,
   lastSaid,
   latestPerBot,
   rosterOf,
@@ -96,17 +94,15 @@ import { BotTool } from "./bot-tool";
 
 /**
  * The thread room and inbox in the corner of the call screen: what is running, what is
- * asking, and what just finished (bot.query listInboxThreads). It only projects server
+ * asking, and what just finished (thread.query listInboxThreads). It only projects server
  * state.
  *
  * Folded, it is not a badge you have to open. Anything waiting on an answer is drawn
  * on the chip itself, with its buttons; what a bot is doing right now sits beside its
  * face, and what passed between two parties rides above one for a moment
- * (useHandoffs). Opening the room is for reading a thread, never for answering — a
- * chevron that reveals the rows would put a click in front of the one thing this
- * corner exists to remove.
+ * (useHandoff). Open, a thread can be read and answered in place.
  *
- * memo: the parent re-renders per transcript chunk and this reads only its store.
+ * memo: the parent re-renders per transcript chunk, and nothing here reads its props.
  */
 export const BotRoom = memo(function BotRoom() {
   const threads = useBotThreads();
@@ -129,9 +125,8 @@ export const BotRoom = memo(function BotRoom() {
   // user's own stop, with nothing to read, so it goes at once.
   const moment = Date.now();
   const leavesAt = (entry: ThreadView) => {
-    const ended = entry.status === "done" || entry.status === "failed";
-    if (!ended || !entry.seen) return Number.POSITIVE_INFINITY;
-    if (entry.outcome === THREAD_CANCELLED) return 0;
+    if (entry.status === "cancelled") return 0;
+    if (entry.status !== "done" || !entry.seen) return Number.POSITIVE_INFINITY;
     return toDate(entry.updatedAt).getTime() + ROOM_KEEP_READ_MS;
   };
   const now = newest.filter((entry) => leavesAt(entry) > moment);
@@ -158,7 +153,7 @@ export const BotRoom = memo(function BotRoom() {
         ? queryKey.threadHistory(toDate(tail.updatedAt).toISOString())
         : null;
     },
-    size: THREAD_HISTORY_PAGE,
+    size: PAGE_SIZE,
   });
   // Loaded pages stay cached while the tab is away and nothing refreshes them
   // then, so opening History reads them again — unless this is the first read.
@@ -171,7 +166,7 @@ export const BotRoom = memo(function BotRoom() {
   const past = useMemo(
     () =>
       history.items
-        .filter((row) => row.status === "done" || row.status === "failed")
+        .filter((row) => row.status === "done" || row.status === "cancelled")
         .map((row) => threadFromRow(row, bots)),
     [history.items, bots],
   );
@@ -283,13 +278,12 @@ export const BotRoom = memo(function BotRoom() {
                   id: current.id,
                   label: current.label,
                   bot: current.bot.name,
-                  ask: askFor(current),
+                  ask: current.ask,
                   room: current.room,
                 }}
                 status={
                   current.status === "working" ? "running" : current.status
                 }
-                lines={current.lines}
                 faces={rosterOf(current)}
                 to={sides[current.id] ?? current.bot.name}
                 className="mx-3 mb-2 shrink-0"
@@ -394,17 +388,16 @@ type CrewFace = {
 /** The glyph a hand-off's words carry when they report how something stands. */
 const SIGNS = {
   done: Check,
-  failed: X,
+  cancelled: X,
   question: CircleQuestionMark,
   stopped: CirclePause,
   resumed: RotateCw,
 } as const;
 
-/** The two status inks a sign can take: amber waits on the user, red failed. */
+/** The one status ink a sign can take: amber, for what waits on the user. */
 const SIGN_INK: Partial<Record<keyof typeof SIGNS, string>> = {
   question: WAITING_INK,
   stopped: WAITING_INK,
-  failed: "text-destructive",
 };
 
 /**
@@ -458,27 +451,12 @@ function useHandoff(): [Handoff | null, (one: Handoff) => void] {
   return [up, show];
 }
 
-/** Work states from the most active down; a bot with several continuations stands as its most active. */
-const ACTIVE = [
-  "running",
-  "queued",
-  "external",
-  "waiting",
-  "paused",
-  "done",
-  "cancelled",
-];
-
-/** Each room participant's state, keyed by thread and bot. */
+/** Each room participant's state, keyed by thread and bot (one per bot: thread.query withLines). */
 function participantStates(threads: ThreadView[]): Map<string, string> {
   const out = new Map<string, string>();
   for (const thread of threads) {
-    for (const one of thread.room?.participants ?? []) {
-      const key = `${thread.id}\n${one.bot}`;
-      const held = out.get(key);
-      if (!held || ACTIVE.indexOf(one.state) < ACTIVE.indexOf(held)) {
-        out.set(key, one.state);
-      }
+    for (const one of thread.room.participants) {
+      out.set(`${thread.id}\n${one.bot}`, one.state);
     }
   }
   return out;
@@ -599,14 +577,14 @@ function happenedIn(
   }
   if (was === thread.status) return out;
   const label = clipWord(thread.label);
-  if (thread.status === "failed") {
+  if (thread.status === "cancelled") {
     out.push({
-      rank: 5,
+      rank: 3,
       at: own.name,
       from: own,
       to: [],
-      sign: "failed",
-      text: `failed · ${label}`,
+      sign: "cancelled",
+      text: `stopped · ${label}`,
     });
   } else if (thread.status === "done") {
     out.push({
@@ -630,30 +608,18 @@ function happenedIn(
       });
     }
   } else if (
+    isAppStop(thread.ask) &&
     !out.some((one) => one.sign === "question" || one.sign === "stopped")
   ) {
-    // Waiting with no question or stop line of its own: a thread without a room.
-    const asker =
-      rosterOf(thread).find((bot) => bot.name === thread.ask?.bot) ?? own;
-    out.push(
-      isAppStop(thread.ask)
-        ? {
-            rank: 3,
-            at: own.name,
-            from: own,
-            to: [],
-            sign: "stopped",
-            text: "paused",
-          }
-        : {
-            rank: 4,
-            at: asker.name,
-            from: asker,
-            to: [],
-            sign: "question",
-            text: `asks you · ${clipWord(thread.ask?.question ?? "")}`,
-          },
-    );
+    // A stop with no stop line of its own: the turn limit, or a room gone idle
+    out.push({
+      rank: 3,
+      at: own.name,
+      from: own,
+      to: [],
+      sign: "stopped",
+      text: "paused",
+    });
   }
   return out;
 }
@@ -734,20 +700,11 @@ function crewOf(
   };
 }
 
-/** Blanks the reason in the reply sheet when it already is the last thread line (stops the app made). */
-function askFor(thread: ThreadView): ThreadView["ask"] {
-  if (!thread.ask?.question || !isAppStop(thread.ask)) return thread.ask;
-  const last = thread.lines.at(-1);
-  return last && isOutcome(last) && last.text === thread.ask.question
-    ? { ...thread.ask, question: "" }
-    : thread.ask;
-}
-
 const needsYou = needsThreadReply;
 
 /** An ending nobody has opened. It needs the user too, to read rather than to answer. */
 const isUnread = (thread: ThreadView) =>
-  (thread.status === "done" || thread.status === "failed") && !thread.seen;
+  thread.status === "done" && !thread.seen;
 
 /**
  * What the room itself is doing, and nothing else — the right side of the pill.
@@ -1292,8 +1249,8 @@ function Moment({ handoff }: { handoff: Handoff }) {
 }
 
 /**
- * A hand-off's faces, sign and words. A sign that waits on the user or failed
- * takes that ink, like every other status.
+ * A hand-off's faces, sign and words. A sign that waits on the user takes the
+ * waiting ink, like every other status.
  */
 function HandoffWords({ handoff }: { handoff: Handoff }) {
   const Sign = handoff.sign ? SIGNS[handoff.sign] : null;
@@ -1517,12 +1474,12 @@ function Context({ thread }: { thread: ThreadView }) {
   );
 }
 
-/** Only waiting (amber) and failed (red) carry colour. */
+/** Only waiting (amber) carries colour. */
 const STATE_LOOK: Record<ThreadViewStatus, string> = {
   working: "text-muted-foreground",
   waiting: WAITING_INK,
   done: "text-foreground",
-  failed: "text-destructive",
+  cancelled: "text-muted-foreground",
 };
 
 function State({ thread }: { thread: ThreadView }) {
@@ -1761,7 +1718,7 @@ function ThreadRow({
       thread.outcome,
       thread.seen,
       thread.ask,
-      thread.room?.questions,
+      thread.room.questions,
       last?.id,
     ],
   );
@@ -1794,22 +1751,20 @@ function ThreadRow({
             paint={thread.bot.icon?.paint}
             state={thread.status === "working" ? "thinking" : "idle"}
             notify={attention}
-            failed={thread.status === "failed"}
+            crossed={thread.status === "cancelled"}
           />
         </span>
 
         <span className="min-w-0 flex-1">
           {(attention || isUnread(thread)) && (
             <span className="block text-[10px] font-medium text-foreground">
-              {thread.room?.questions.length
+              {thread.room.questions.length
                 ? `${thread.room.questions.length === 1 ? "Question" : `${thread.room.questions.length} questions`} · ${[...new Set(thread.room.questions.map((question) => question.bot))].join(", ")}`
                 : thread.status === "waiting"
                   ? isAppStop(thread.ask)
                     ? "Paused"
                     : "Question"
-                  : thread.status === "failed"
-                    ? "Failed · Unread"
-                    : "New result"}
+                  : "New result"}
             </span>
           )}
           <span className="flex items-center justify-between gap-2">
@@ -1832,7 +1787,7 @@ function ThreadRow({
               <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground/70" />
             )}
             {/* Anything still moving says so by shining, here as in the thread
-                (bot-tool) and the pill (Folded). */}
+                (bot-tool) and the pill (Chip). */}
             {thread.status === "working" && !attention ? (
               <ShinyText
                 text={line.text}
@@ -1887,7 +1842,7 @@ function ThreadRow({
 
 /** Second row of a thread line: the question, the outcome, or the bot's last step. */
 function secondLine(thread: ThreadView): { text: string; tone: string } {
-  const question = thread.room?.questions[0];
+  const question = thread.room.questions[0];
   if (question) {
     return { text: plainText(question.text), tone: "text-foreground" };
   }
@@ -1901,14 +1856,10 @@ function secondLine(thread: ThreadView): { text: string; tone: string } {
       tone: WAITING_INK,
     };
   }
-  // Reports are markdown; keep only the text.
-  // An ending the user has opened steps back; red stays red, only quieter.
+  // Reports are markdown; keep only the text. An ending the user has opened steps back.
   const had = thread.seen;
-  if (thread.status === "failed") {
-    return {
-      text: plainText(thread.outcome ?? "Failed"),
-      tone: had ? "text-destructive/70" : "text-destructive",
-    };
+  if (thread.status === "cancelled") {
+    return { text: "Stopped", tone: "text-muted-foreground" };
   }
   if (thread.status === "done") {
     return {
@@ -1941,20 +1892,15 @@ function secondLine(thread: ThreadView): { text: string; tone: string } {
  */
 function withoutOpenQuestions(thread: ThreadView): ThreadView {
   const open = new Set(
-    (thread.room?.questions ?? []).map(
+    thread.room.questions.map(
       (question) => `${question.bot}\n${question.text.trim()}`,
     ),
   );
-  const waiting =
-    thread.status === "waiting" && !thread.room && !isAppStop(thread.ask)
-      ? thread.lines.findLast((line) => line.options)
-      : undefined;
-  if (!open.size && !waiting) return thread;
+  if (!open.size) return thread;
   return {
     ...thread,
     lines: thread.lines.filter(
       (line) =>
-        line !== waiting &&
         !(
           line.kind === "ask" &&
           line.question &&
@@ -2112,25 +2058,12 @@ function ThreadTabs({
 const TAB =
   "h-7 flex-none rounded-full px-3 py-0 text-[12px] text-muted-foreground hover:bg-muted/60 data-active:bg-muted data-active:text-foreground group-data-[variant=default]/tabs-list:data-active:shadow-none dark:data-active:border-transparent dark:data-active:bg-muted";
 
-/**
- * Whether a bot is at work in this thread or waiting on the user's answer. A
- * thread without a room runs only its own bot.
- */
+/** Whether a bot is at work in this thread or waiting on the user's answer. */
 function standingOf(
   thread: ThreadView,
   bot: string,
 ): "running" | "asking" | null {
   const { room } = thread;
-  if (!room) {
-    if (thread.status === "working") {
-      return bot === thread.bot.name ? "running" : null;
-    }
-    return thread.status === "waiting" &&
-      !isAppStop(thread.ask) &&
-      (thread.ask?.bot ?? thread.bot.name) === bot
-      ? "asking"
-      : null;
-  }
   if (room.questions.some((question) => question.bot === bot)) return "asking";
   return thread.status === "working" &&
     room.participants.some((one) => one.bot === bot && one.state === "running")
@@ -2429,11 +2362,10 @@ function Request({ thread }: { thread: ThreadView }) {
 }
 
 /**
- * Thursday's own face; she is not a bot and has no row to read one from. Also
- * who a hand-off came from when it came from the call — her mark is drawn by
- * her own domain (features/thursday), so this only has to name her.
+ * The user's side of a thread, which Thursday stands for; she is not a bot and has
+ * no row to read a face from. Her face is always ThursdayMark (features/thursday).
  */
-const THURSDAY: BotRef = { name: "Thursday" };
+const THURSDAY: BotRef = { name: ROOM_THURSDAY };
 
 /**
  * A bot joining the room. It is not a message — nobody said it — so it takes no
@@ -2455,16 +2387,20 @@ function Invite({ from, to }: { from: BotRef; to: BotRef }) {
 function Face({ bot }: { bot: BotRef }) {
   return (
     <span className="flex min-w-0 items-center gap-1.5">
-      <BotMark
-        size={15}
-        seed={bot.name}
-        color={bot.icon?.color}
-        shape={bot.icon?.shape}
-        outline={bot.icon?.outline}
-        paint={bot.icon?.paint}
-        notify={false}
-        className="shrink-0"
-      />
+      {bot.name === THURSDAY.name ? (
+        <ThursdayMark size={15} className="shrink-0" />
+      ) : (
+        <BotMark
+          size={15}
+          seed={bot.name}
+          color={bot.icon?.color}
+          shape={bot.icon?.shape}
+          outline={bot.icon?.outline}
+          paint={bot.icon?.paint}
+          notify={false}
+          className="shrink-0"
+        />
+      )}
       <span className="truncate">{bot.name}</span>
     </span>
   );
@@ -2473,12 +2409,7 @@ function Face({ bot }: { bot: BotRef }) {
 /** A turn's face: the user's side draws Thursday's, a bot its own. */
 function TurnMark({ bot }: { bot: BotRef }) {
   return bot.name === THURSDAY.name ? (
-    <BotMark
-      size={26}
-      seed="thursday"
-      notify={false}
-      className="mt-1 shrink-0"
-    />
+    <ThursdayMark size={26} className="mt-1 shrink-0" />
   ) : (
     <BotMark
       size={26}
@@ -2564,8 +2495,7 @@ type Surface = "none" | "dark" | "secondary";
 /**
  * A message: what passed between participants, a bot's reply, or the ending. A
  * question keeps its word as a record; the ending carries the files it names and
- * a copy. A failure is the app's words rather than the bot's, so it wears no
- * surface.
+ * a copy.
  */
 function Message({
   line,
@@ -2577,21 +2507,8 @@ function Message({
   /** The bot it is for, named at its head (SpeakerTurn). */
   mention: BotRef | null;
 }) {
-  if (line.kind === "error") {
-    return (
-      <div className="min-w-0 px-1">
-        <p className="mb-1.5 flex items-center gap-1.5 font-mono text-[10px] text-destructive">
-          <X className="size-3 shrink-0" />
-          Could not finish
-        </p>
-        <MessageText className="text-destructive">{line.text}</MessageText>
-      </div>
-    );
-  }
-
-  // A question the bot stopped on (ask_thursday) is a result with options.
-  const question = Boolean(line.question || line.options);
-  const ending = line.kind === "result" && !line.options;
+  const question = Boolean(line.question);
+  const ending = line.kind === "result";
   const bubble = surface !== "none";
   const words = (
     <>
@@ -2798,7 +2715,7 @@ function CopyReport({ text }: { text: string }) {
 }
 
 /**
- * Where the app stopped the run (bot.runner parkThread): a failed model call, a
+ * Where the app stopped the run (room.query pauseRoom, a break the runner retries): a failed model call, a
  * restart, a closed browser. Muted and in the bot's work, since the bot goes on
  * from here. The same reason in a row is one line with a count; opening it lists
  * each stop by the time it happened.
@@ -2832,7 +2749,7 @@ function Stops({ lines }: { lines: Chatter[] }) {
   );
 }
 
-/** What stopped it, without the words behind it: a stop names those in parentheses (bot.runner parkThread). */
+/** What stopped it, without the words behind it: a reason may name those in parentheses. */
 const leadOf = (text: string) => text.split(" (")[0].replace(/\.$/, "");
 
 /** Splits a bot's work into runs of tool calls, of stops, and of everything else. */

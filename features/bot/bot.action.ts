@@ -7,7 +7,7 @@ import { publicError } from "@/lib/public-error";
 import {
   createBot,
   deleteBot,
-  findBot,
+  findJobBot,
   updateBot,
   writeBotMemoryOn,
 } from "./bot.query";
@@ -107,8 +107,10 @@ export const startThreadAction = serverAction(
   async (bot: string, request: string) => {
     const said = request.trim();
     if (!said) publicError("Nothing to hand over.");
-    const worker = await findBot(bot);
-    if (!worker) publicError(`No bot called "${bot}".`);
+    // Resolved as a delegated job is, so an install with no bots still has its worker
+    const worker = await findJobBot(bot);
+    if (!worker || worker.disabled)
+      publicError(`No enabled bot called "${bot}".`);
     const label = labelFor(said);
     const id = await startThread({
       bot: worker.name,
@@ -137,7 +139,7 @@ export const cancelThreadAction = serverAction(async (ref: string) => {
   return { id: thread.id, label: thread.label, status: "cancelled" as const };
 });
 
-/** Marks endings as had by the user: relayed on a call, or on a thread list they opened. Batched, since both reach many at once. */
+/** Marks threads as read by the user: opened on screen. Their relays are settled with them (thread.query markSeen). */
 export const markSeenAction = serverAction(async (ids: string[]) => {
   await markSeen(ids.filter((id) => typeof id === "string" && id));
 });

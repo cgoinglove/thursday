@@ -1,5 +1,4 @@
 import z from "zod";
-import { PAGE_SIZE } from "@/config";
 import {
   type TextModelProviderId,
   textModelProviderSchema,
@@ -75,8 +74,6 @@ export const TokenUsageSchema = z.object({
 });
 
 export type TokenUsage = z.infer<typeof TokenUsageSchema>;
-
-export const NO_TOKENS: TokenUsage = { input: 0, output: 0 };
 
 /** A budget under this leaves no room for the opening message, so it is refused rather than stored. */
 export const COMPACT_AT_MIN = 8_000;
@@ -161,7 +158,8 @@ export type JobBot = {
 /**
  * Worker that exists when no bot row does, so a fresh install can delegate.
  * Has no prompt: the base persona (ai/prompts/bot.prompt) says everything it needs.
- * No seed may reuse this name, or the row shadows the fallback.
+ * The Jarvis seed takes the same name on purpose (bot.seed): installed, its row
+ * stands in for the fallback.
  */
 export const DEFAULT_BOT: JobBot = {
   name: "Jarvis",
@@ -206,26 +204,22 @@ export type BotMemory = {
 };
 
 /**
- * `waiting`: the bot stopped on a question only the user can answer; the answer
- * resumes the same thread. `done` and `failed` can be resumed as well.
+ * `waiting`: a bot asked the user something, or the app stopped the work; the
+ * answer resumes the same thread. `cancelled`: the user stopped it. A model that
+ * breaks pauses the job as `waiting` rather than ending it, so nothing ends as a
+ * failure. `done` and `cancelled` can be picked back up with a follow-up.
  */
 export const THREAD_STATUSES = [
   "running",
   "waiting",
   "done",
-  "failed",
+  "cancelled",
 ] as const;
 
 export type ThreadStatus = (typeof THREAD_STATUSES)[number];
 
-/** One page of history (config PAGE_SIZE). */
-export const THREAD_HISTORY_PAGE = PAGE_SIZE;
-
 /** The single option offered when the app stopped a job and asks whether to go on. Button text and spoken word alike. */
 export const THREAD_CONTINUE = "Continue";
-
-/** The outcome a cancel writes. A cancel ends a thread as failed, so this is how it is told from a failure. */
-export const THREAD_CANCELLED = "Cancelled.";
 
 /**
  * Who a person's words to a job came from (bot.runner answerThread). Thursday
@@ -250,24 +244,31 @@ export const untagSpeaker = (text: string): string => {
   return text;
 };
 
-/** A room's primary user question or resume control. toolCallId reads legacy questions only. */
+/**
+ * What a waiting thread waits on: a bot's question (`messageId`, the asker `bot`)
+ * or a stop the app made, which offers only Continue. `auto` is a stop the app
+ * picks back up by itself (browser absence).
+ */
 export type ThreadPending = {
-  toolCallId: string | null;
   options: string[];
   auto?: boolean;
-  retryAt?: number;
   messageId?: string;
   bot?: string;
 };
 
 /**
- * True when the app stopped the job (step cap, closed browser, restart) rather
- * than the bot asking something. Why it stopped is in the outcome text; every
- * list calls it waiting on you, because the answer is the same click.
+ * True when the app stopped the job (step cap, closed browser, restart, idle room)
+ * rather than a bot asking something. Why it stopped is in the outcome text; every
+ * list calls it waiting on you, because the answer is the same click. A question
+ * carries its message id, so a bot offering Continue as a choice is still asking.
  */
-export const isAppStop = (ask: { options: string[] } | null | undefined) => {
+export const isAppStop = (
+  ask: { options: string[]; messageId?: string } | null | undefined,
+) => {
   const options = ask?.options ?? [];
-  return options.length === 1 && options[0] === THREAD_CONTINUE;
+  return (
+    !ask?.messageId && options.length === 1 && options[0] === THREAD_CONTINUE
+  );
 };
 
 /** One piece of a tool result as the screen draws it. Full output stays in the stored messages. */
@@ -279,7 +280,7 @@ export const ResultPartSchema = z.discriminatedUnion("type", [
 
 export type ResultPart = z.infer<typeof ResultPartSchema>;
 
-/** One thread line as the screen sees it. `bot` is null on the user side; `parent` is the ask_bot call it happened under. */
+/** One thread line as the screen sees it. `bot` is null on the user side; `parent` is the exchange (thread_work) it was written under. */
 const LineBase = z.object({
   /** Row id plus part index; one message may hold several lines. */
   id: z.string(),
@@ -297,7 +298,7 @@ export const ThreadLineSchema = z.discriminatedUnion("kind", [
   LineBase.extend({ kind: z.literal("text"), text: z.string() }),
   /** Compaction summary (bot.run compact). The model resumes from here; the screen draws it as a divider. */
   LineBase.extend({ kind: z.literal("note"), text: z.string() }),
-  /** Why the app stopped the run (bot.runner parkThread, a run that broke), without what the resumed run is told to check. */
+  /** Why the app stopped the run (room.query pauseRoom, or a break the runner retries), without what the resumed run is told to check. */
   LineBase.extend({ kind: z.literal("stop"), text: z.string() }),
   LineBase.extend({
     kind: z.literal("tool"),
@@ -319,27 +320,13 @@ export const ThreadLineSchema = z.discriminatedUnion("kind", [
     /** The output holds more than the glance: more lines, a clipped line, or an image. */
     more: z.boolean(),
   }),
-  /**
-  /** Bot to bot: `ask_bot` (`to` is the borrowed bot) or `ask_back` (`to` is the job's bot, `parent` set). Both answer as `ask-result`. */
+  /** A message sent to another participant or to Thursday (send_message); `question` asks the user. */
   LineBase.extend({
     kind: z.literal("ask"),
     callId: z.string(),
     to: z.string(),
     text: z.string(),
     question: z.boolean().optional(),
-  }),
-  LineBase.extend({
-    kind: z.literal("ask-result"),
-    callId: z.string(),
-    text: z.string(),
-  }),
-  /** Asked Thursday; she or the user through her answers. */
-  LineBase.extend({
-    kind: z.literal("waiting"),
-    callId: z.string(),
-    question: z.string(),
-    /** Only real options. Buttons on screen, read aloud in the call. */
-    options: z.string().array(),
   }),
 ]);
 
@@ -355,14 +342,8 @@ export function threadActivity(lines: ThreadLine[], max = 120): string | null {
     } else if (line.kind === "text") {
       return clip(doing ? `${line.text} → ${doing}` : line.text, max);
     } else if (line.kind === "ask") {
-      // ask_bot reads as "for"; ask_back (has parent) reads as a plain question
-      return clip(
-        line.parent
-          ? `asked ${line.to}: ${line.text}`
-          : `asked ${line.to} for: ${line.text}`,
-        max,
-      );
-    } else if (line.kind === "user" || line.kind === "waiting") {
+      return clip(`asked ${line.to}: ${line.text}`, max);
+    } else if (line.kind === "user") {
       break;
     }
   }
@@ -395,12 +376,12 @@ export const ThreadSchema = z.object({
   /** Set only while `waiting`. */
   ask: ThreadAskSchema.nullable(),
   /**
-   * Whether the user has had the ending: Thursday said it on a call, or a thread
-   * list was on screen while it sat there. A cancel is seen by whoever cancelled.
-   * A highlight and a count, never a filter.
+   * Whether the user has had the ending: they opened the thread, or Thursday marked
+   * it once she had told them (`thread` `seen`). A cancel is seen by whoever
+   * cancelled. A highlight and a count, never a filter.
    */
   seen: z.boolean(),
-  /** Burned so far, across every segment including borrowed bots. */
+  /** Burned so far, across every participant. */
   tokens: TokenUsageSchema,
   /** Context size the model read on the last step (not a sum) and the compaction threshold (BOT_RUN.compactAt). 0 means no step ran yet. */
   contextTokens: z.number(),
@@ -409,7 +390,7 @@ export const ThreadSchema = z.object({
   updatedAt: DateLikeSchema,
   /** Lines to draw; the model's messages stay on the server. */
   lines: ThreadLineSchema.array(),
-  room: RoomViewSchema.nullish(),
+  room: RoomViewSchema,
 });
 
 export type Thread = z.infer<typeof ThreadSchema>;
@@ -417,5 +398,5 @@ export type Thread = z.infer<typeof ThreadSchema>;
 /** A participant can ask the user while other participants keep working. */
 export const needsThreadReply = (thread: {
   status: string;
-  room?: Thread["room"];
-}) => thread.status === "waiting" || !!thread.room?.questions.length;
+  room: Thread["room"];
+}) => thread.status === "waiting" || thread.room.questions.length > 0;

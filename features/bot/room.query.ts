@@ -15,9 +15,8 @@ import {
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { publicError } from "@/lib/public-error";
 import { THREAD_CONTINUE, tagSpeaker } from "./bot.schema";
-import { ROOM_THURSDAY, RoomMessageSchema } from "./room.schema";
+import { RESUME_CHECK, ROOM_THURSDAY, RoomMessageSchema } from "./room.schema";
 import type { ThreadMessageInput } from "./thread.query";
-import { listBotTranscript } from "./thread.query";
 
 type Tx = Parameters<Parameters<typeof database.transaction>[0]>[0];
 export type RoomWork = typeof work.$inferSelect;
@@ -103,7 +102,7 @@ const breakNote = (run: Pick<RoomWork, "bot" | "id">, why: string) => ({
   bot: run.bot,
   parent: run.id,
   role: "user" as const,
-  content: `${why} Resume from the saved state; inspect any tool whose result is missing before repeating it.`,
+  content: `${why} ${RESUME_CHECK}`,
   note: true,
 });
 
@@ -148,106 +147,6 @@ export async function lowerRoomContextBudget(run: RoomWork, budget: number) {
       .update(work)
       .set({ contextBudget: budget })
       .where(eq(work.id, run.id));
-  });
-  changed();
-}
-
-/** Old threads enter the room engine on first resume. Their existing transcript stays intact. */
-export async function ensureRoom(threadId: string) {
-  await database.transaction(async (tx) => {
-    const existing = await tx
-      .select({ id: work.id })
-      .from(work)
-      .where(eq(work.threadId, threadId))
-      .limit(1);
-    if (existing.length) return;
-    const [row] = await tx.select().from(thread).where(eq(thread.id, threadId));
-    if (!row) publicError("No such thread.");
-    const rootId = crypto.randomUUID();
-    await tx.insert(work).values({
-      id: rootId,
-      threadId,
-      bot: row.bot,
-      caller: ROOM_THURSDAY,
-      state: "queued",
-    });
-    const history = await tx
-      .select()
-      .from(message)
-      .where(eq(message.threadId, threadId))
-      .orderBy(message.seq);
-    const completed = new Set(
-      history.flatMap((row) =>
-        Array.isArray(row.content)
-          ? row.content.flatMap((part) =>
-              part.type === "tool-result" ? [part.toolCallId] : [],
-            )
-          : [],
-      ),
-    );
-    const legacy = history.flatMap((entry) =>
-      Array.isArray(entry.content)
-        ? entry.content.flatMap((part) => {
-            if (
-              part.type !== "tool-call" ||
-              part.toolName !== TOOL_NAMES.ask_bot ||
-              completed.has(part.toolCallId)
-            )
-              return [];
-            const args = part.input as {
-              bot?: string;
-              request?: string;
-              context?: string;
-            };
-            const name =
-              history.find((child) => child.parent === part.toolCallId)?.bot ??
-              args.bot;
-            return name
-              ? [
-                  {
-                    callId: part.toolCallId,
-                    bot: name,
-                    caller: entry.bot ?? row.bot,
-                    parent: entry.parent,
-                    text: [args.request, args.context]
-                      .filter(Boolean)
-                      .join("\n\n"),
-                  },
-                ]
-              : [];
-          })
-        : [],
-    );
-    for (const item of legacy) {
-      const id = `legacy:${threadId}:${item.callId}`;
-      const parentId = legacy.some((other) => other.callId === item.parent)
-        ? `legacy:${threadId}:${item.parent}`
-        : rootId;
-      await tx.insert(work).values({
-        id,
-        threadId,
-        bot: item.bot,
-        caller: item.caller,
-        parentId,
-        state: legacy.some((other) => other.parent === item.callId)
-          ? "waiting"
-          : "queued",
-      });
-      await deliver(tx, {
-        key: id,
-        threadId,
-        workId: id,
-        speaker: item.caller,
-        text: `Resume this interrupted exchange using your saved work.\n\n${item.text}`,
-      });
-      if (legacy.some((other) => other.parent === item.callId))
-        await tx.update(work).set({ state: "waiting" }).where(eq(work.id, id));
-    }
-    if (legacy.length)
-      await tx
-        .update(work)
-        .set({ state: "waiting" })
-        .where(eq(work.id, rootId));
   });
   changed();
 }
@@ -530,7 +429,22 @@ export async function finishRoomWork(run: RoomWork, text: string) {
         .select()
         .from(work)
         .where(eq(work.id, run.parentId));
-      if (parent && parent.state !== "cancelled") {
+      // An explicit reply (send_message replyTo) still unread is the answer; a
+      // silent ending adds nothing to it, and the reply already wakes the caller
+      const [replied] = text
+        ? []
+        : await tx
+            .select({ id: delivery.id })
+            .from(delivery)
+            .where(
+              and(
+                eq(delivery.workId, run.parentId),
+                eq(delivery.speaker, run.bot),
+                eq(delivery.consumed, false),
+              ),
+            )
+            .limit(1);
+      if (parent && parent.state !== "cancelled" && !replied) {
         await deliver(tx, {
           key: `return:${run.id}:${run.generation}`,
           threadId: run.threadId,
@@ -559,9 +473,7 @@ export async function finishRoomWork(run: RoomWork, text: string) {
         .set({
           status: text ? "done" : "waiting",
           outcome: text || "The room is idle. Send a message to continue.",
-          pending: text
-            ? null
-            : { toolCallId: null, options: [THREAD_CONTINUE] },
+          pending: text ? null : { options: [THREAD_CONTINUE] },
           wrapped: true,
           endedAt: text ? new Date() : null,
           seen: false,
@@ -603,7 +515,6 @@ export async function settleRoom(threadId: string) {
           status: "waiting",
           outcome: question.result,
           pending: {
-            toolCallId: null,
             options: question.options,
             messageId: question.id,
             bot: question.caller,
@@ -622,7 +533,7 @@ export async function settleRoom(threadId: string) {
             room.turns >= BOT_RUN.turns
               ? "The room reached its automatic turn limit. Continue from the saved conversation."
               : "Work is paused. Continue from the saved conversation.",
-          pending: { toolCallId: null, options: [THREAD_CONTINUE] },
+          pending: { options: [THREAD_CONTINUE] },
           updatedAt: new Date(),
         })
         .where(eq(thread.id, threadId));
@@ -669,9 +580,8 @@ export async function pauseRoom(threadId: string, why: string, auto = false) {
         status: "waiting",
         outcome: why,
         pending: {
-          toolCallId: null,
           options: [THREAD_CONTINUE],
-          ...(auto ? { auto: true, retryAt: Date.now() } : {}),
+          ...(auto ? { auto: true } : {}),
         },
         seen: false,
         endedAt: null,
@@ -709,6 +619,11 @@ export async function resumeRoom(threadId: string, manual = true) {
         updatedAt: new Date(),
       })
       .where(eq(thread.id, threadId));
+    // The stop it picks up from is no longer news
+    await tx
+      .update(relay)
+      .set({ accepted: true })
+      .where(and(eq(relay.threadId, threadId), eq(relay.kind, "interrupted")));
   });
   changed();
 }
@@ -879,6 +794,16 @@ export async function tellRoom(
         updatedAt: new Date(),
       })
       .where(eq(thread.id, threadId));
+    // Words that start it again supersede how it last stopped or ended
+    await tx
+      .update(relay)
+      .set({ accepted: true })
+      .where(
+        and(
+          eq(relay.threadId, threadId),
+          inArray(relay.kind, ["interrupted", "report"]),
+        ),
+      );
     return {
       key,
       to: bot,
@@ -924,7 +849,7 @@ export async function listParticipantTranscript(
     .select({ bot: thread.bot })
     .from(thread)
     .where(eq(thread.id, threadId));
-  if (room && room.bot !== bot) return listBotTranscript(threadId, bot);
+  // The coordinator's opening (seq 0) is written before any bot speaks
   const rows = await database
     .select()
     .from(message)

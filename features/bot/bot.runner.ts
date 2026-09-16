@@ -25,7 +25,7 @@ import { PromiseChain } from "@/lib/utils";
 import { findJobBot } from "./bot.query";
 import { resumeTranscript, runBot, type ThreadEvent } from "./bot.run";
 import {
-  THREAD_CANCELLED,
+  isAppStop,
   THREAD_CONTINUE,
   type ThreadSpeaker,
   type ThreadStatus,
@@ -35,7 +35,6 @@ import {
   cancelRoom,
   claimRoomWork,
   consumeRoomInbox,
-  ensureRoom,
   finishRoomWork,
   listParticipantTranscript,
   listRoomReceipts,
@@ -93,7 +92,6 @@ export async function startThread(input: {
     from,
   });
   const thread = await insertThread({ ...row, opening });
-  await ensureRoom(thread.id);
   await pump(thread.id);
   return thread.id;
 }
@@ -110,7 +108,6 @@ export async function answerThread(
   await threadLock(id, async () => {
     const thread = await findThread(id);
     if (!thread) publicError("No such thread.");
-    await ensureRoom(id);
     if (recipient) {
       const participants = await listRoomWork(id);
       const found = participants.find(
@@ -120,10 +117,8 @@ export async function answerThread(
         publicError("Choose a participant in this thread.");
       recipient = found.bot;
     }
-    if (
-      answer.trim() === THREAD_CONTINUE &&
-      thread.pending?.options.includes(THREAD_CONTINUE)
-    ) {
+    // Continue picks up a stop the app made; to a bot's question it is an answer like any other
+    if (answer.trim() === THREAD_CONTINUE && isAppStop(thread.pending)) {
       await resumeRoom(id);
       const all = await listRoomWork(id);
       if (!all.some((row) => row.state === "queued"))
@@ -316,10 +311,6 @@ async function attempt(work: RoomWork, signal: AbortSignal) {
           if (event.type === "error") {
             failure = { message: event.message, retry: event.retry };
             if (event.budget) await lowerRoomContextBudget(work, event.budget);
-            if (event.budget && work.bot === thread.bot)
-              await updateThread(work.threadId, {
-                contextBudget: event.budget,
-              });
           }
         },
       },
@@ -460,8 +451,8 @@ export async function cancelThread(id: string) {
     if (thread.endedAt) publicError("That thread has already ended.");
     await cancelRoom(id);
     await updateThread(id, {
-      status: "failed",
-      outcome: THREAD_CANCELLED,
+      status: "cancelled",
+      outcome: null,
       pending: null,
       seen: true,
       endedAt: new Date(),
@@ -486,10 +477,10 @@ async function removeLockedThread(id: string) {
 export async function removeFinishedThreads(): Promise<number> {
   let removed = 0;
   for (const thread of await listThreadFolders()) {
-    if (thread.status !== "done" && thread.status !== "failed") continue;
+    if (thread.status !== "done" && thread.status !== "cancelled") continue;
     await threadLock(thread.id, async () => {
       const current = await findThread(thread.id);
-      if (current?.status !== "done" && current?.status !== "failed") return;
+      if (current?.status !== "done" && current?.status !== "cancelled") return;
       if (await removeLockedThread(thread.id)) removed += 1;
     });
   }
@@ -512,7 +503,7 @@ export async function sweepJobFiles(): Promise<string[]> {
     endedAt: Date | null;
     updatedAt: Date;
   }) =>
-    (thread.status === "done" || thread.status === "failed") &&
+    (thread.status === "done" || thread.status === "cancelled") &&
     (thread.endedAt ?? thread.updatedAt).getTime() < cutoff;
 
   // Folders on disk; each one a job owns is taken out as its job is read
@@ -545,7 +536,6 @@ export async function sweepThreads() {
     await threadLock(id, async () => {
       if ([...running.values()].some((run) => run.threadId === id)) return;
       if ((await findThread(id))?.status !== "running") return;
-      await ensureRoom(id);
       await pauseRoom(
         id,
         "The server restarted. Resume from the saved conversation.",
@@ -572,20 +562,12 @@ export async function pauseThreads(reason: string, auto = false) {
 export async function resumeStoppedThreads() {
   await pausing.current;
   if (!presence.watching) return;
-  for (const thread of await listAutoStoppedThreads()) {
-    await threadLock(thread.id, async () => {
-      const current = await findThread(thread.id);
+  for (const id of await listAutoStoppedThreads()) {
+    await threadLock(id, async () => {
+      const current = await findThread(id);
       if (current?.status !== "waiting" || !current.pending?.auto) return;
-      if (!(await listRoomWork(thread.id)).length) {
-        await ensureRoom(thread.id);
-        await pauseRoom(
-          thread.id,
-          "This interrupted thread uses an older workflow. Continue from its saved conversation.",
-        );
-        return;
-      }
-      await resumeRoom(thread.id, false);
+      await resumeRoom(id, false);
     });
-    await pump(thread.id);
+    await pump(id);
   }
 }

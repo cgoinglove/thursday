@@ -1,7 +1,7 @@
 import type { AssistantContent, ModelMessage, ToolContent } from "ai";
-import { and, desc, eq, inArray, isNotNull, lt, max, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, max, sql } from "drizzle-orm";
 import { appEvents } from "@/app/api/events/app-event.server";
-import { INBOX_FINISHED, THREAD_STATUS_LIMIT } from "@/config";
+import { INBOX_FINISHED, PAGE_SIZE, THREAD_STATUS_LIMIT } from "@/config";
 import { database } from "@/database/db";
 import {
   threadDeliveryTable,
@@ -14,7 +14,6 @@ import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { clip } from "@/lib/utils";
 import {
   type ResultPart,
-  THREAD_HISTORY_PAGE,
   type Thread,
   type ThreadLine,
   type ThreadPending,
@@ -22,7 +21,7 @@ import {
   type TokenUsage,
   untagSpeaker,
 } from "./bot.schema";
-import { ROOM_THURSDAY } from "./room.schema";
+import { RESUME_CHECK, ROOM_THURSDAY } from "./room.schema";
 
 // Threads and their messages. Bots themselves (roster, pinned tools) are bot.query.
 
@@ -65,9 +64,10 @@ type ThreadRow = {
 };
 
 /**
- * One row plus the thread's first message. `request` is what the screen shows;
- * `opening` is what the model reads (who handed it over, and the job). The screen
- * skips seq 0 and shows `request` instead (linesOf).
+ * One row, the thread's first message and the coordinator's first exchange, in one
+ * transaction: a thread is a room from its first row. `request` is what the screen
+ * shows; `opening` is what the model reads (who handed it over, and the job). The
+ * screen skips seq 0 and shows `request` instead (linesOf).
  */
 export async function insertThread(input: {
   bot: string;
@@ -77,15 +77,29 @@ export async function insertThread(input: {
   opening: Extract<ModelMessage, { role: "user" }>["content"];
 }) {
   const { opening, ...row } = input;
-  const [thread] = await database
-    .insert(threadTable)
-    .values({ id: crypto.randomUUID(), status: "running", ...row })
-    .returning();
-  await upsertMessage(thread.id, 0, {
-    bot: null,
-    parent: null,
-    role: "user",
-    content: opening,
+  const thread = await database.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(threadTable)
+      .values({ id: crypto.randomUUID(), status: "running", ...row })
+      .returning();
+    await tx.insert(threadMessageTable).values({
+      threadId: created.id,
+      seq: 0,
+      bot: null,
+      parent: null,
+      role: "user",
+      content: opening,
+      compact: false,
+      note: false,
+    });
+    await tx.insert(threadWorkTable).values({
+      id: crypto.randomUUID(),
+      threadId: created.id,
+      bot: created.bot,
+      caller: ROOM_THURSDAY,
+      state: "queued",
+    });
+    return created;
   });
   changed();
   return thread;
@@ -99,8 +113,6 @@ export async function updateThread(
     pending: ThreadPending | null;
     seen: boolean;
     endedAt: Date | null;
-    /** Where the job compacts from now on; also written at every step (addThreadUsage). */
-    contextBudget: number;
   }>,
 ) {
   await database
@@ -110,18 +122,28 @@ export async function updateThread(
   changed();
 }
 
-/** Bypasses `updateThread` on purpose: being seen is not movement and must not reorder the inbox by updatedAt. */
+/**
+ * Bypasses `updateThread` on purpose: being seen is not movement and must not
+ * reorder the inbox by updatedAt. What was read on screen, or told enough on a
+ * call, has nothing left to relay, so its relays are settled with it.
+ */
 export async function markSeen(ids: string[]) {
   if (ids.length === 0) return;
-  await database
-    .update(threadTable)
-    .set({ seen: true })
-    .where(inArray(threadTable.id, ids));
+  await database.transaction(async (tx) => {
+    await tx
+      .update(threadTable)
+      .set({ seen: true })
+      .where(inArray(threadTable.id, ids));
+    await tx
+      .update(threadRelayTable)
+      .set({ accepted: true })
+      .where(inArray(threadRelayTable.threadId, ids));
+  });
   changed();
 }
 
 /**
- * Adds one step's usage (added, not set: borrowed-bot steps land on the same
+ * Adds one step's usage (added, not set: participants' steps land on the same
  * thread in parallel) without touching updatedAt. `context` is overwritten: it is
  * the current window fill and threshold, not a sum. null leaves it as is.
  */
@@ -174,7 +196,7 @@ export async function listInboxThreads(): Promise<Thread[]> {
     database
       .select(threadView)
       .from(threadTable)
-      .where(inArray(threadTable.status, ["done", "failed"]))
+      .where(inArray(threadTable.status, ["done", "cancelled"]))
       .orderBy(desc(threadTable.updatedAt))
       .limit(INBOX_FINISHED),
     database
@@ -182,7 +204,7 @@ export async function listInboxThreads(): Promise<Thread[]> {
       .from(threadTable)
       .where(
         and(
-          inArray(threadTable.status, ["done", "failed"]),
+          inArray(threadTable.status, ["done", "cancelled"]),
           eq(threadTable.seen, false),
         ),
       ),
@@ -235,7 +257,7 @@ export async function listThreadHistory(
       options.before ? lt(threadTable.updatedAt, options.before) : undefined,
     )
     .orderBy(desc(threadTable.updatedAt))
-    .limit(options.limit ?? THREAD_HISTORY_PAGE);
+    .limit(options.limit ?? PAGE_SIZE);
   return withLines(rows);
 }
 
@@ -271,18 +293,6 @@ export async function deleteThread(id: string) {
   return removed.length > 0;
 }
 
-/** Everything finished, done or failed. Running and waiting rows stay: they are still work. */
-export async function deleteFinishedThreads() {
-  const removed = await database
-    .delete(threadTable)
-    .where(inArray(threadTable.status, ["done", "failed"]))
-    // The label comes back too: a job's working folder is named for it and goes
-    // with the row (bot.runner removeFinishedThreads).
-    .returning({ id: threadTable.id, label: threadTable.label });
-  if (removed.length) changed();
-  return removed;
-}
-
 /** Every job, newest first. The caller stops each one before deleting it (bot.runner removeThread). */
 export async function listAllThreadIds(): Promise<string[]> {
   const rows = await database
@@ -314,17 +324,13 @@ export async function listThreadFolders() {
     .from(threadTable);
 }
 
-/** Jobs paused for browser absence; legacy retry timestamps remain readable. */
-export async function listAutoStoppedThreads() {
+/** Jobs paused for browser absence, which pick themselves back up. */
+export async function listAutoStoppedThreads(): Promise<string[]> {
   const rows = await database
     .select({ id: threadTable.id, pending: threadTable.pending })
     .from(threadTable)
     .where(eq(threadTable.status, "waiting"));
-  return rows.flatMap((row) =>
-    row.pending?.auto
-      ? [{ id: row.id, retryAt: row.pending.retryAt ?? 0 }]
-      : [],
-  );
+  return rows.flatMap((row) => (row.pending?.auto ? [row.id] : []));
 }
 
 /**
@@ -356,7 +362,7 @@ export function writtenPathsIn(contents: unknown[]): string[] {
   return [...paths];
 }
 
-/** Every path this job gave `write_file`: its own bot and each bot it borrowed (writtenPathsIn). */
+/** Every path this job gave `write_file`, from every participant (writtenPathsIn). */
 export async function listWrittenPaths(threadId: string): Promise<string[]> {
   const rows = await database
     .select({ content: threadMessageTable.content })
@@ -454,68 +460,8 @@ export async function lastSeq(threadId: string): Promise<number> {
   return row?.seq ?? -1;
 }
 
-/** A participant keeps its own work across every request, including requests from different bots. */
-export async function listBotTranscript(threadId: string, bot: string) {
-  const rows = await database
-    .select()
-    .from(threadMessageTable)
-    .where(
-      and(
-        eq(threadMessageTable.threadId, threadId),
-        isNotNull(threadMessageTable.parent),
-        eq(sql`lower(${threadMessageTable.bot})`, bot.toLowerCase()),
-      ),
-    )
-    .orderBy(threadMessageTable.seq);
-  // Older runs store their opening only in the caller's tool arguments.
-  const requests = await database
-    .select({
-      content: threadMessageTable.content,
-      bot: threadMessageTable.bot,
-    })
-    .from(threadMessageTable)
-    .where(
-      and(
-        eq(threadMessageTable.threadId, threadId),
-        eq(threadMessageTable.role, "assistant"),
-      ),
-    )
-    .orderBy(threadMessageTable.seq);
-  const openings = new Map<string, ModelMessage>();
-  for (const row of requests) {
-    if (!Array.isArray(row.content)) continue;
-    for (const part of row.content) {
-      if (part.type !== "tool-call" || part.toolName !== TOOL_NAMES.ask_bot)
-        continue;
-      const input = part.input as { request?: string; context?: string };
-      openings.set(part.toolCallId, {
-        role: "user",
-        content: `${row.bot} → ${bot}:\n\n${input.request ?? ""}\n\n${input.context ?? ""}`,
-      });
-    }
-  }
-  const history: { message: ModelMessage; compact: boolean }[] = [];
-  const seen = new Set<string>();
-  for (const row of rows) {
-    if (row.parent && !seen.has(row.parent)) {
-      seen.add(row.parent);
-      if (row.role !== "user" || row.compact) {
-        const opening = openings.get(row.parent);
-        if (opening) history.push({ message: opening, compact: false });
-      }
-    }
-    history.push({
-      message: { role: row.role, content: row.content } as ModelMessage,
-      compact: row.compact,
-    });
-  }
-  const from = history.findLastIndex((row) => row.compact);
-  const kept = from > 0 ? [history[0], ...history.slice(from)] : history;
-  return kept.map((row) => row.message);
-}
-
 /** One row in the screen's shape; `pending` folds into `ask`. */
-function viewOf(row: ThreadRow, lines: ThreadLine[]): Thread {
+function viewOf(row: ThreadRow, lines: ThreadLine[]): Omit<Thread, "room"> {
   // contextTokens and contextBudget pass through in `rest`
   const { pending, inputTokens, outputTokens, ...rest } = row;
   return {
@@ -574,37 +520,18 @@ async function withLines(rows: ThreadRow[]): Promise<Thread[]> {
         ),
       ),
   ]);
-  // ask_back lines name no addressee; the thread's own bot is the addressee
+  // A line is addressed to whoever opened the exchange it was written under
   const owners = new Map(rows.map((row) => [row.id, row.bot]));
-  const askers = new Map<string, string>();
-  for (const message of messages) {
-    if (message.role !== "assistant" || !Array.isArray(message.content))
-      continue;
-    for (const part of message.content) {
-      if (
-        part.type === "tool-call" &&
-        part.toolName === TOOL_NAMES.ask_bot &&
-        message.bot
-      ) {
-        askers.set(`${message.threadId}:${part.toolCallId}`, message.bot);
-      }
-    }
-  }
-  for (const item of works)
-    askers.set(`${item.threadId}:${item.id}`, item.caller);
-  const exchanges = new Set(works.map((item) => item.id));
+  const callers = new Map(works.map((item) => [item.id, item.caller]));
   const byThread = new Map<string, ThreadLine[]>();
   for (const message of messages) {
     const list = byThread.get(message.threadId) ?? [];
     list.push(
       ...linesOf(
         message,
-        (message.parent
-          ? askers.get(`${message.threadId}:${message.parent}`)
-          : null) ??
+        (message.parent ? callers.get(message.parent) : null) ??
           owners.get(message.threadId) ??
           "",
-        message.parent !== null && exchanges.has(message.parent),
       ),
     );
     byThread.set(message.threadId, list);
@@ -630,28 +557,26 @@ async function withLines(rows: ThreadRow[]): Promise<Thread[]> {
       }));
     return {
       ...viewOf(row, byThread.get(row.id) ?? []),
-      room: own.length
-        ? {
-            participants,
-            questions: own
-              .filter((item) => item.state === "external")
-              .map((item) => ({
-                id: item.id,
-                bot: item.caller,
-                text: item.result ?? "",
-                options: item.options,
-              })),
-            deliveries: deliveries
-              .filter((item) => item.threadId === row.id)
-              .map((item) => ({
-                id: item.key,
-                bot: own.find((w) => w.id === item.workId)?.bot ?? row.bot,
-                text: item.text,
-                delivered: item.consumed,
-              })),
-            relays: relays.filter((item) => item.threadId === row.id),
-          }
-        : null,
+      room: {
+        participants,
+        questions: own
+          .filter((item) => item.state === "external")
+          .map((item) => ({
+            id: item.id,
+            bot: item.caller,
+            text: item.result ?? "",
+            options: item.options,
+          })),
+        deliveries: deliveries
+          .filter((item) => item.threadId === row.id)
+          .map((item) => ({
+            id: item.key,
+            bot: own.find((w) => w.id === item.workId)?.bot ?? row.bot,
+            text: item.text,
+            delivered: item.consumed,
+          })),
+        relays: relays.filter((item) => item.threadId === row.id),
+      },
     };
   });
 }
@@ -691,7 +616,7 @@ function labelOf(args: Record<string, unknown>): string | null {
  * label is model-written (bash `description`), other tools use the first
  * telling argument, else the argument shape.
  */
-export function toolLine(name: string, input: unknown): string {
+function argumentLine(name: string, input: unknown): string {
   const args = (input ?? {}) as Record<string, unknown>;
   if (typeof args !== "object" || Array.isArray(args)) {
     return clip(String(input ?? ""), LINE_MAX);
@@ -769,16 +694,9 @@ export async function readToolResult(
   return null;
 }
 
-/** Said to a resumed run after why it stopped. The screen shows only the why (linesOf). */
-const IN_FLIGHT =
-  "Anything that was under way — a command, a page loading, a download — may not have finished: check before relying on it, then carry on.";
-
-/** The thread line a stop the app made leaves (bot.runner parkThread). */
-export const stopNote = (why: string) => `${why} ${IN_FLIGHT}`;
-
 /** Who a message call names, with Thursday spelled the room's way whatever case the model wrote. */
 function addresseeOf(args: Record<string, unknown>): string {
-  const to = String(args.bot ?? args.to ?? "").trim();
+  const to = String(args.to ?? "").trim();
   return to.toLowerCase() === ROOM_THURSDAY.toLowerCase() ? ROOM_THURSDAY : to;
 }
 
@@ -786,41 +704,30 @@ type StoredMessage = typeof threadMessageTable.$inferSelect;
 
 /**
  * One stored message as screen lines. seq 0 is the request and is drawn from the
- * row instead, so it yields nothing. Tool calls aimed at the user or another bot
- * get their own kinds because the screen draws them as speech. `owner` is the
- * thread's bot, the addressee of an ask_back line.
+ * row instead, so it yields nothing. A message call draws as speech. `addressee`
+ * is who opened the exchange the message was written under.
  */
-function linesOf(
-  message: StoredMessage,
-  owner: string,
-  roomMessage: boolean,
-): ThreadLine[] {
+function linesOf(message: StoredMessage, addressee: string): ThreadLine[] {
   if (message.hidden) return [];
   const base = {
     seq: message.seq,
     bot: message.bot,
     parent: message.parent,
-    to: message.role === "user" ? message.bot : owner,
+    to: message.role === "user" ? message.bot : addressee,
     at: message.createdAt,
   };
   const id = (index: number) => `${message.id}-${index}`;
   const content = message.content;
 
   if (message.role === "user") {
-    // Participant requests already appear as the caller's ask_bot line.
-    if (
-      message.seq === 0 ||
-      (message.parent && !roomMessage && !message.compact && !message.note)
-    )
-      return [];
+    if (message.seq === 0) return [];
     const text = typeof content === "string" ? content : textOf(content);
     if (!text) return [];
-    // The app's own lines, never the user's words. `compact` alone marks a
-    // compaction: rows written before `note` existed carry only that.
+    // The app's own lines, never the user's words
     if (message.compact) return [{ ...base, id: id(0), kind: "note", text }];
     if (message.note) {
-      const why = text.endsWith(IN_FLIGHT)
-        ? text.slice(0, -IN_FLIGHT.length).trimEnd()
+      const why = text.endsWith(RESUME_CHECK)
+        ? text.slice(0, -RESUME_CHECK.length).trimEnd()
         : text;
       return [{ ...base, id: id(0), kind: "stop", text: why }];
     }
@@ -849,46 +756,16 @@ function linesOf(
       }
       if (part.type !== "tool-call") return;
       const args = (part.input ?? {}) as Record<string, unknown>;
-      if (part.toolName === TOOL_NAMES.ask_thursday) {
-        lines.push({
-          ...base,
-          id: id(index),
-          kind: "waiting",
-          callId: part.toolCallId,
-          question: String(args.question ?? ""),
-          options: optionsOf(args.options),
-        });
-      } else if (isAnswerCall(part.toolName)) {
-        // The answer is a tool call but draws as text: it is the last thing said
-        // in the thread, and threadFromRow promotes it to the result line
-        const text = String(args.result ?? "").trim();
-        if (text) lines.push({ ...base, id: id(index), kind: "text", text });
-      } else if (
-        part.toolName === TOOL_NAMES.ask_bot ||
-        part.toolName === TOOL_NAMES.send_message
-      ) {
+      if (part.toolName === TOOL_NAMES.send_message) {
         lines.push({
           ...base,
           id: id(index),
           kind: "ask",
           callId: part.toolCallId,
           to: addresseeOf(args),
-          text: String(args.request ?? args.text ?? ""),
-          question:
-            part.toolName === TOOL_NAMES.send_message
-              ? args.kind === "question" ||
-                (args.kind === undefined && addresseeOf(args) === ROOM_THURSDAY)
-              : undefined,
-        });
-      } else if (part.toolName === TOOL_NAMES.ask_back) {
-        // Borrowed bot asking its borrower; the addressee is not in the args
-        lines.push({
-          ...base,
-          id: id(index),
-          kind: "ask",
-          callId: part.toolCallId,
-          to: owner,
-          text: String(args.question ?? ""),
+          text: String(args.text ?? ""),
+          // No kind is a message (room.schema RoomMessageSchema), never a question
+          question: args.kind === "question",
         });
       } else if (part.toolName === TOOL_NAMES.bash) {
         // Shell line: the command is the body, the model-written label sits above it
@@ -908,7 +785,7 @@ function linesOf(
           kind: "tool",
           callId: part.toolCallId,
           name: part.toolName,
-          input: toolLine(part.toolName, args),
+          input: argumentLine(part.toolName, args),
           // Any tool's model-written `description` is its label
           note: labelOf(args),
           // File tools open from the screen, so the path also travels unclipped
@@ -926,45 +803,13 @@ function linesOf(
     const lines: ThreadLine[] = [];
     (message.content as ToolContent).forEach((part, index) => {
       if (part.type !== "tool-result") return;
+      // A delivered message's receipt is not a step; a refused one is (thread.store)
       if (
         part.toolName === TOOL_NAMES.send_message &&
         part.output.type !== "error-text"
       )
         return;
-      if (isAnswerCall(part.toolName) && answerAccepted(part.output)) {
-        // An accepted answer's result is only a confirmation; the answer itself
-        // was drawn from the call. A rejected one is drawn: it explains the next step
-        return;
-      }
-      if (part.toolName === TOOL_NAMES.ask_thursday) {
-        // The user's answer, returned as the question's result
-        const text = resultParts(part.output, RESULT_LINES)
-          .flatMap((result) => (result.type === "text" ? [result.text] : []))
-          .join("\n");
-        lines.push({
-          ...base,
-          id: id(index),
-          kind: "user",
-          text: untagSpeaker(text),
-        });
-      } else if (
-        part.toolName === TOOL_NAMES.ask_bot ||
-        part.toolName === TOOL_NAMES.ask_back
-      ) {
-        // Another bot's answer: result of an ask, or of an ask_back
-        const text = resultParts(part.output, RESULT_LINES)
-          .flatMap((result) => (result.type === "text" ? [result.text] : []))
-          .join("\n");
-        lines.push({
-          ...base,
-          id: id(index),
-          kind: "ask-result",
-          callId: part.toolCallId,
-          text,
-        });
-      } else {
-        lines.push(resultLine(base, id(index), part));
-      }
+      lines.push(resultLine(base, id(index), part));
     });
     return lines;
   }
@@ -1003,18 +848,6 @@ function resultLine(
       peek.length > lines.length ||
       glance.some((text) => text.length > RESULT_LINE_MAX),
   };
-}
-
-/**
- * Options the model gave. Only arrays are read. Some providers serialise the
- * array as one string with no separator; that cannot be split back, so the
- * schema accepts a string (keeping the call valid) and it becomes an open
- * question here rather than a guess.
- */
-export function optionsOf(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.map((option) => String(option).trim()).filter(Boolean)
-    : [];
 }
 
 function textOf(parts: Array<{ type: string; text?: string }>): string {
@@ -1135,18 +968,4 @@ function textParts(text: string, limit: number, full = false): ResultPart[] {
     .filter(Boolean)
     .slice(0, limit)
     .map((line) => ({ type: "text" as const, text: line }));
-}
-
-/** Legacy completion tools remain prose when an older transcript is opened. */
-const isAnswerCall = (name: string) =>
-  name === TOOL_NAMES.answer || name === TOOL_NAMES.report;
-
-function answerAccepted(output: unknown) {
-  const text =
-    typeof output === "string"
-      ? output
-      : output && typeof output === "object" && "value" in output
-        ? output.value
-        : null;
-  return typeof text !== "string" || !text.startsWith("Not answered:");
 }

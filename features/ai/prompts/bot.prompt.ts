@@ -33,7 +33,6 @@ import { logger } from "@/lib/logger";
 import { clip } from "@/lib/utils";
 import { listConnectedToolNames } from "../tools/connected";
 import {
-  type LoadedPrompt,
   logPromptSize,
   mcpToolLines,
   noteLines,
@@ -51,7 +50,7 @@ export async function loadBotPrompt(
   seat?: Seat | null,
   /** This run's folders: the job's, the bot's own, and where its finished work goes (bot.run). */
   folders?: { scratch: string | null; own: string; artifacts: string },
-): Promise<LoadedPrompt> {
+): Promise<{ text: string }> {
   const sandbox = await openWorkspace();
   const name = self.trim();
   const [skills, index, mcpTools, pinned, allBots, kept, memoryOn, machine] =
@@ -91,10 +90,7 @@ export async function loadBotPrompt(
   logPromptSize("bot", text);
   logger.debug(`bot prompt\n${text}`);
 
-  return {
-    text,
-    peers: peers.map((bot) => bot.name),
-  };
+  return { text };
 }
 
 /**

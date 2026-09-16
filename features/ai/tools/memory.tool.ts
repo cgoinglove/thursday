@@ -126,7 +126,7 @@ export const createMemoryTools = (
             .int()
             .nullish()
             .describe(
-              "The id of the fact this replaces — from this note as handed back here or by `memory_recall`. Null if this is new. A fact that stopped being true is replaced rather than deleted, and so is a note saying the same thing twice: replacing keeps what changed on the record, deleting does not.",
+              `The id of the fact this replaces — from this note as handed back here or by \`${TOOL_NAMES.memory_recall}\`. Null if this is new. A fact that stopped being true is replaced rather than deleted, and so is a note saying the same thing twice: replacing keeps what changed on the record, deleting does not.`,
             ),
           alwaysLoad: z
             .boolean()
@@ -151,7 +151,7 @@ export const createMemoryTools = (
         .array()
         .nullish()
         .describe(
-          'What the user calls this note out loud, in the language they say it — the words they would use to ask for it, not the facts inside. A note at people/yuri might be "Yuri" and "my wife". Replaces the set it has, so send the whole set. Null leaves it.',
+          'What the user calls this note out loud, in the language they say it — the words they would use to ask for it, not the facts inside. A note at people/partner might be "my partner" and their first name. Replaces the set it has, so send the whole set. Null leaves it.',
         ),
     }),
     execute: async (input) => {

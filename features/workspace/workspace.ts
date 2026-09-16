@@ -112,11 +112,9 @@ export async function insideWorkspace(rel: string): Promise<string | null> {
 }
 
 /**
- * Where one job keeps what it is still working on. `scratch/` used to be shared
- * by every job at once, so nobody could tell whose a file was or when it stopped
- * mattering, and it only grew. A job has a beginning and an end, which is what
- * makes its working material safe to clear later — and it is the right unit
- * rather than the bot, because several bots work inside one job (`ask_bot`) and
+ * Where one job keeps what it is still working on. A job has a beginning and an
+ * end, which is what makes its working material safe to clear later — and it is
+ * the right unit rather than the bot, because several bots work inside one job and
  * one bot runs many jobs.
  *
  * Named for the label so the folder is readable on the Workspace screen, with

@@ -33,6 +33,13 @@ export const RoomQuestionSchema = z.object({
 
 export const ROOM_THURSDAY = "Thursday";
 
+/**
+ * What a participant reads after why its turn broke off (room.query breakNote).
+ * The screen draws only the why (thread.query linesOf).
+ */
+export const RESUME_CHECK =
+  "Resume from the saved state; inspect any tool whose result is missing before repeating it.";
+
 export const RoomViewSchema = z.object({
   participants: RoomParticipantSchema.array(),
   questions: RoomQuestionSchema.array(),

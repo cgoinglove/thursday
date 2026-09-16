@@ -85,7 +85,7 @@ function MarkFace({
       outline={look.outline}
       paint={look.paint}
       state={MARK_STATE[status]}
-      failed={failed}
+      crossed={failed}
       getSpectrum={getSpectrum}
       options={MARK_VOICE}
       notify={false}

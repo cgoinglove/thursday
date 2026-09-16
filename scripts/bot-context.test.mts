@@ -133,8 +133,6 @@ const {
   listRoomWork,
   listParticipantTranscript,
   listRoomRelays,
-  pauseRoom,
-  ensureRoom,
   sendRoomMessage,
 } = await import("../features/bot/room.query.ts");
 const { presence } = await import("../app/api/events/app-event.server.ts");
@@ -176,8 +174,8 @@ const waitFor = async (id: string, status: string) => {
   while (Date.now() < until) {
     const thread = await findThread(id);
     if (thread?.status === status) return thread;
-    if (thread?.status === "failed")
-      assert.fail(thread.outcome ?? "Thread failed");
+    if (thread?.status === "cancelled")
+      assert.fail(`Thread was cancelled before it became ${status}`);
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   assert.fail(`Thread did not become ${status}`);
@@ -203,7 +201,9 @@ test("thread overview keeps old open work and the inbox retains unread endings",
     listInboxThreads,
     markSeen,
   } = await import("../features/bot/thread.query.ts");
-  const { threadTable } = await import("../database/tables.ts");
+  const { threadRelayTable, threadTable } = await import(
+    "../database/tables.ts"
+  );
   const { loadTools } = await import("../features/ai/load-tools.ts");
   const { needsThreadReply } = await import("../features/bot/bot.schema.ts");
   const ids: string[] = [];
@@ -225,7 +225,7 @@ test("thread overview keeps old open work and the inbox retains unread endings",
               : index === 1
                 ? "waiting"
                 : index === 2
-                  ? "failed"
+                  ? "cancelled"
                   : "done",
           seen: false,
           outcome: index > 1 ? `Result ${index}` : null,
@@ -252,12 +252,27 @@ test("thread overview keeps old open work and the inbox retains unread endings",
     assert.equal(inbox.length, 14);
     assert.ok(
       inbox.some(
-        (thread) => thread.id === ids[2] && thread.status === "failed",
+        (thread) => thread.id === ids[2] && thread.status === "cancelled",
       ),
     );
     await markSeen([ids[2]]);
     assert.ok(
       !(await listInboxThreads()).some((thread) => thread.id === ids[2]),
+    );
+    // A report no call relayed holds its ending in the inbox; reading it settles that too
+    await database.insert(threadRelayTable).values({
+      key: `report:${ids[3]}:0`,
+      threadId: ids[3],
+      bot: "Alpha",
+      text: "Result 3",
+      kind: "report",
+    });
+    assert.ok(
+      (await listInboxThreads()).some((thread) => thread.id === ids[3]),
+    );
+    await markSeen([ids[3]]);
+    assert.ok(
+      !(await listInboxThreads()).some((thread) => thread.id === ids[3]),
     );
     assert.ok(
       needsThreadReply({
@@ -270,7 +285,13 @@ test("thread overview keeps old open work and the inbox retains unread endings",
         },
       }),
     );
-    assert.equal(needsThreadReply({ status: "running" }), false);
+    assert.equal(
+      needsThreadReply({
+        status: "running",
+        room: { participants: [], questions: [], deliveries: [], relays: [] },
+      }),
+      false,
+    );
   } finally {
     for (const id of ids) await deleteThread(id);
   }
@@ -425,6 +446,36 @@ test("a question pauses the bot that asked, and words to that bot answer it", as
   assert.equal((await findThread(id))?.outcome, "Ready report");
 });
 
+test("Continue offered as a choice answers the question rather than resuming a stop", async () => {
+  plans.set("Alpha", [
+    () =>
+      call(T.send_message, {
+        to: "Thursday",
+        text: "Keep going with the long version?",
+        kind: "question",
+        options: ["Continue", "Stop here"],
+      }),
+    (prompt) => {
+      assert.ok(prompt.includes("answers your question to the user"));
+      return text("Went on with the long version");
+    },
+  ]);
+  const id = await startThread({
+    bot: "Alpha",
+    request: "Choose",
+    label: "Continue as a choice",
+    from: "user",
+  });
+  const asking = await waitFor(id, "waiting");
+  assert.ok(asking.pending?.messageId);
+  const told = await answerThread(id, "Continue");
+  assert.equal(told?.answered?.bot, "Alpha");
+  assert.equal(
+    (await waitFor(id, "done")).outcome,
+    "Went on with the long version",
+  );
+});
+
 test("resume repairs only missing local tool results and preserves real ones", () => {
   const transcript: any[] = [
     {
@@ -463,7 +514,6 @@ test("same-bot requests serialize and committed sends deduplicate", async () => 
     label: "Queue",
     opening: "Queue",
   });
-  await ensureRoom(thread.id);
   const root = (await claimRoomWork(thread.id))!;
   const receipt = await sendRoomMessage(root, {
     id: "same-send",
@@ -567,7 +617,7 @@ test("cancellation drains tools and preserves the participant on follow-up", asy
   }
   await cancelThread(id);
   const rows = await rowsOf(id);
-  assert.equal((await findThread(id))?.status, "failed");
+  assert.equal((await findThread(id))?.status, "cancelled");
   assert.ok(
     (await listRoomWork(id)).every(
       (row) => row.state === "done" || row.state === "cancelled",
@@ -589,53 +639,6 @@ test("cancellation drains tools and preserves the participant on follow-up", asy
   await waitFor(id, "done");
   assert.ok((await rowsOf(id)).length > rows.length);
   assert.equal(botBrowserSession(id, "Beta"), botBrowserSession(id, " beta "));
-});
-
-test("an old interrupted delegation resumes the original child history", async () => {
-  const { insertThread } = await import("../features/bot/thread.query.ts");
-  const thread = await insertThread({
-    bot: "Alpha",
-    request: "Old request",
-    label: "Legacy",
-    opening: "Original opening",
-  });
-  await upsertMessage(thread.id, 1, {
-    bot: "Alpha",
-    parent: null,
-    role: "assistant",
-    content: [
-      {
-        type: "tool-call",
-        toolCallId: "old-delegation",
-        toolName: T.ask_bot,
-        input: { bot: "Beta", request: "Keep working" },
-      },
-    ],
-  });
-  await upsertMessage(thread.id, 2, {
-    bot: "Beta",
-    parent: "old-delegation",
-    role: "assistant",
-    content: "LEGACY_BETA_PRIVATE",
-  });
-  await ensureRoom(thread.id);
-  plans.set("Beta", [
-    (prompt) => {
-      assert.ok(prompt.includes("LEGACY_BETA_PRIVATE"));
-      return text("Legacy work recovered");
-    },
-  ]);
-  plans.set("Alpha", [
-    (prompt) => {
-      assert.ok(!prompt.includes("LEGACY_BETA_PRIVATE"));
-      assert.ok(prompt.includes("Legacy work recovered"));
-      return text("Legacy report");
-    },
-  ]);
-  await pauseRoom(thread.id, "Server restarted.");
-  await answerThread(thread.id, "Continue");
-  await waitFor(thread.id, "done");
-  assert.equal((await findThread(thread.id))?.outcome, "Legacy report");
 });
 
 test("compaction and an arriving message preserve the same inbox on resume", async () => {
@@ -909,7 +912,6 @@ test("a consumed inbox survives a crash before model execution and restart waits
     label: "Crash window",
     opening: "Crash opening",
   });
-  await ensureRoom(thread.id);
   const root = (await claimRoomWork(thread.id))!;
   await sendRoomMessage(root, {
     id: "crash-message",
@@ -990,7 +992,6 @@ test("a late inbox message queues another turn atomically with completion", asyn
     label: "Late input",
     opening: "Opening",
   });
-  await ensureRoom(thread.id);
   const run = (await claimRoomWork(thread.id))!;
   await consumeRoomInbox(run);
   await tellRoom(thread.id, "Arrived at completion", "The user");
@@ -1078,8 +1079,6 @@ test("the assembled participant prompt names its return route and exposes asynch
   assert.ok(
     prompt.text.includes("End your turn when you have nothing more to do now"),
   );
-  for (const legacy of [T.ask_bot, T.ask_back, T.ask_thursday, "`answer`"])
-    assert.ok(!prompt.text.includes(legacy));
   if (process.env.THURSDAY_TEST_SHOW_PROMPT)
     console.log(prompt.text, "\nTool:", sendMessageSpec.description);
 });
@@ -1097,7 +1096,6 @@ test("a committed message recovers its real receipt after the tool result is los
     label: "Receipt",
     opening: "Opening",
   });
-  await ensureRoom(thread.id);
   const run = (await claimRoomWork(thread.id))!;
   const receipt = await sendRoomMessage(run, {
     id: "lost-receipt",
@@ -1252,12 +1250,13 @@ test("a provider's refusal waits for a person at once; a break is tried once mor
   await answerThread(id, "Continue");
   assert.equal((await waitFor(id, "done")).outcome, "Finished on the retry");
   assert.equal(await notes(), 2);
-  // The retry is not an interruption the call hears of
+  // Resuming settles the stop it picked up from, and the retry is not an
+  // interruption the call hears of
   assert.equal(
     (await listRoomRelays()).filter(
       (relay) => relay.threadId === id && relay.kind === "interrupted",
     ).length,
-    1,
+    0,
   );
 });
 
@@ -1273,7 +1272,6 @@ test("compaction thresholds belong to the participant across different callers",
     label: "Budget",
     opening: "Opening",
   });
-  await ensureRoom(thread.id);
   const root = (await claimRoomWork(thread.id))!;
   await sendRoomMessage(root, {
     id: "budget-message",
@@ -1334,7 +1332,6 @@ test("the coordinator can address Thursday using the original incoming message I
     label: "Thursday reply",
     opening: "Opening",
   });
-  await ensureRoom(thread.id);
   const root = (await claimRoomWork(thread.id))!;
   const sent = await sendRoomMessage(root, {
     id: "reply-to-thursday",

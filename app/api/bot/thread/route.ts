@@ -1,4 +1,4 @@
-import { THREAD_HISTORY_PAGE } from "@/features/bot/bot.schema";
+import { PAGE_SIZE } from "@/config";
 import {
   listInboxThreads,
   listThreadHistory,
@@ -17,6 +17,6 @@ export const GET = serverRoute((request) => {
   const cursor = before ? new Date(before) : null;
   return listThreadHistory({
     before: cursor && !Number.isNaN(cursor.getTime()) ? cursor : null,
-    limit: THREAD_HISTORY_PAGE,
+    limit: PAGE_SIZE,
   });
 });

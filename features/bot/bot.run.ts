@@ -166,14 +166,12 @@ export async function runBot(
     }),
   ]);
   // What the owner set, else the model's own window, else the constant (model.ts
-  // compactBudget), and never above where this job last fit: a context the model
-  // refused as too long lowers the job's own number (bot.runner). That
-  // number belongs to the coordinator; peers use their own model budgets.
+  // compactBudget), and never above where this participant last fit: a context the
+  // model refused as too long lowers its own number (room.query
+  // lowerRoomContextBudget). The thread row's budget only draws the meter.
   const budget = Math.min(
     await compactBudget(model.ref, bot.compactAt),
     options.contextBudget || Number.POSITIVE_INFINITY,
-    (name === options.owner ? row?.contextBudget : 0) ||
-      Number.POSITIVE_INFINITY,
   );
 
   // A committed question to the user ends the turn; the answer brings the bot back (room.query tellRoom).

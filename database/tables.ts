@@ -136,7 +136,7 @@ export const threadTable = sqliteTable("thread", {
   /** The full briefing; first user message of the thread, reused on resume. */
   request: text("request").notNull(),
   /**
-   * running | waiting (question, idle or paused) | done | failed.
+   * running | waiting (question, idle or paused) | done | cancelled.
    * A done job goes back to running when it gets a follow-up answer.
    */
   status: text("status").notNull().$type<ThreadStatus>(),
@@ -149,27 +149,26 @@ export const threadTable = sqliteTable("thread", {
   /** Last message, or the pending question. */
   outcome: text("outcome"),
   /**
-   * While `waiting`: what it waits on (bot.schema ThreadPending); null once answered.
-   * `toolCallId` null means the app stopped the run rather than the bot asking,
-   * and the answer becomes a new user turn instead of a tool result.
+   * While `waiting`: what it waits on (bot.schema ThreadPending) — a bot's question,
+   * named by `messageId`, or a stop the app made; null once it runs again.
    */
   pending: text("pending", { mode: "json" }).$type<ThreadPending>(),
   /**
-   * Whether the user has had the ending: relayed on a call, or on a thread list
-   * they had open. Highlight and badge only; the inbox selects by status.
+   * Whether the user has had the ending: opened on screen, or marked by Thursday once
+   * told (`thread` `seen`). Highlight and badge only; the inbox selects by status.
    */
   seen: int("seen", { mode: "boolean" }).notNull().default(false),
-  /** The call that opened the job; null when resumed from the screen. Decides who gets the finish notice (bot.runner). */
+  /** The call that opened the job; null when started from the screen. A later call's prompt finds the job under it. */
   callId: text("call_id"),
-  /** Running totals across all segments, borrowed bots included; added per step. */
+  /** Running totals across every participant; added per step. */
   inputTokens: int("input_tokens").notNull().default(0),
   outputTokens: int("output_tokens").notNull().default(0),
   /** Context size of the last step, not a total; overwritten every step. */
   contextTokens: int("context_tokens").notNull().default(0),
   /**
-   * Where this job compacts, written at every step so the screen can draw the meter
-   * without config. Lowered when the model refused the context as too long
-   * (bot.runner parkThread), and a resume never runs above it (bot.run `budget`).
+   * Where the coordinator compacts, written at every step so the screen can draw the
+   * meter without config. Display only: a context refused as too long lowers the
+   * participant's own number (thread_work `context_budget`).
    */
   contextBudget: int("context_budget").notNull().default(0),
   createdAt: int("created_at", { mode: "timestamp" })
@@ -179,7 +178,7 @@ export const threadTable = sqliteTable("thread", {
   updatedAt: int("updated_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
-  /** Set on done/failed; reset to null on waiting. */
+  /** Set on done/cancelled; reset to null on waiting. */
   endedAt: int("ended_at", { mode: "timestamp" }),
 });
 
@@ -196,14 +195,14 @@ export const threadMessageTable = sqliteTable(
       .notNull()
       .references(() => threadTable.id, { onDelete: "cascade" }),
     /**
-     * Position in the thread, assigned by the runner before content exists:
-     * a step is written while streaming and again when it ends, and bots
-     * borrowed via `ask_bot` interleave in the same thread.
+     * Position in the thread, assigned before content exists: a step is written
+     * while streaming and again when it ends, and participants interleave in the
+     * same thread.
      */
     seq: int("seq").notNull(),
     /** Bot that produced the message; null is the user side (request, answers). */
     bot: text("bot"),
-    /** `ask_bot` tool-call id on a borrowed bot's messages; rows with null are the thread's own conversation. */
+    /** The exchange (thread_work id) the message was written under; null only on the opening. */
     parent: text("parent"),
     /** Incoming bot messages are already visible at their sender. */
     hidden: int("hidden", { mode: "boolean" }).notNull().default(false),

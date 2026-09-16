@@ -38,7 +38,6 @@ import {
 import { BotMark } from "@/features/bot/components/bot-mark";
 import {
   type BotRef,
-  type Chatter,
   screenActs,
   threadDrafts,
 } from "@/features/bot/thread.store";
@@ -52,7 +51,7 @@ type ReplyThread = {
   label: string;
   bot: string;
   ask: ThreadAsk | null;
-  room?: RoomView | null;
+  room: RoomView;
 };
 
 /**
@@ -65,15 +64,12 @@ type ReplyThread = {
 export function ThreadReply({
   thread,
   status,
-  lines = [],
   faces = [],
   to = null,
   className,
 }: {
   thread: ReplyThread;
   status: ThreadStatus;
-  /** Thread lines; a queued note shows until it appears here as a user line. */
-  lines?: Chatter[];
   /** Bots in the thread, for their faces; a name missing here draws without its colours. */
   faces?: BotRef[];
   /** The bot whose tab the thread is on: the composer's words go to it. */
@@ -85,13 +81,11 @@ export function ThreadReply({
     () => threadDrafts.recipient(thread.id) ?? thread.bot,
   );
   const [stepping, setStepping] = useState(false);
-  const [legacyQueued, setQueued] = useState<string | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   useEffect(() => {
     setRecipient(threadDrafts.recipient(thread.id) ?? thread.bot);
     setSelected(undefined);
     setStepping(false);
-    setQueued(null);
   }, [thread.id, thread.bot]);
   // Opening a bot's tab addresses the composer to it, kept like a pick in RecipientPicker.
   useEffect(() => {
@@ -99,16 +93,9 @@ export function ThreadReply({
     threadDrafts.select(thread.id, to);
     setRecipient(to);
   }, [thread.id, to]);
-  useEffect(() => {
-    if (
-      status !== "running" ||
-      lines.some((line) => line.kind === "user" && line.text === legacyQueued)
-    )
-      setQueued(null);
-  }, [status, lines, legacyQueued]);
 
-  const participants = thread.room?.participants ?? [];
-  const questions = thread.room?.questions ?? [];
+  const participants = thread.room.participants;
+  const questions = thread.room.questions;
   const questionIndex = Math.max(
     0,
     questions.findIndex((question) => question.id === selected),
@@ -116,15 +103,12 @@ export function ThreadReply({
   const question = questions[questionIndex];
   const asking = status === "waiting" ? thread.ask : null;
   const paused = isAppStop(asking);
-  const legacyQuestion = !thread.room && asking && !paused ? asking : null;
   const recipientName =
     question?.bot ??
-    legacyQuestion?.bot ??
-    (!thread.room ||
-    participants.some((participant) => participant.bot === recipient)
+    (participants.some((participant) => participant.bot === recipient)
       ? recipient
       : thread.bot);
-  const replyTo = question?.id ?? legacyQuestion?.messageId;
+  const replyTo = question?.id;
   const [answer, answering] = useAnswerThread();
   const [stop, stopping] = useServerAction(cancelThreadAction, {
     onOk: (stopped) => {
@@ -137,12 +121,10 @@ export function ThreadReply({
     },
   });
   const busy = answering || stopping;
-  const queued = thread.room
-    ? thread.room.deliveries
-        .filter((delivery) => !delivery.delivered)
-        .map((delivery) => `${delivery.bot}: ${delivery.text}`)
-        .join(" · ")
-    : legacyQueued;
+  const queued = thread.room.deliveries
+    .filter((delivery) => !delivery.delivered)
+    .map((delivery) => `${delivery.bot}: ${delivery.text}`)
+    .join(" · ");
   const active =
     participants
       .filter((participant) => participant.state === "running")
@@ -154,10 +136,7 @@ export function ThreadReply({
   const send = async (text: string) => {
     if (busy) return false;
     const sent = await answer(thread, text, recipientName, replyTo);
-    if (sent && status === "running") {
-      setQueued(text.trim());
-      setStepping(false);
-    }
+    if (sent && status === "running") setStepping(false);
     return sent;
   };
   /** A choice is sent as it is, through the same pipe as typed words. */
@@ -167,8 +146,8 @@ export function ThreadReply({
     setPicked(null);
   };
 
-  // Only a job still going can be stopped: cancelling writes "Cancelled." over
-  // the outcome, which on a finished job is the answer itself.
+  // Only a job still going can be stopped: a cancel clears the outcome, which on a
+  // finished job is the answer itself.
   const stopButton =
     status === "running" || status === "waiting" ? (
       <Button
@@ -189,9 +168,9 @@ export function ThreadReply({
       </Button>
     ) : null;
 
-  if (question || legacyQuestion) {
-    const options = question?.options ?? legacyQuestion?.options ?? [];
-    const text = question?.text ?? legacyQuestion?.question ?? "";
+  if (question) {
+    const options = question.options ?? [];
+    const text = question.text;
     return (
       <Sheet className={className}>
         <SheetHead bot={faceOf(recipientName)} word="Question">
@@ -242,10 +221,10 @@ export function ThreadReply({
           />
         )}
         <DraftComposer
-          key={JSON.stringify([thread.id, recipientName, replyTo ?? "legacy"])}
+          key={JSON.stringify([thread.id, recipientName, question.id])}
           threadId={thread.id}
           recipient={recipientName}
-          draftKey={replyTo ?? "legacy"}
+          draftKey={question.id}
           send={send}
           busy={busy}
           placeholder={

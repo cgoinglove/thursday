@@ -27,6 +27,7 @@ import {
 import { notify } from "@/components/ui/notify";
 import { ShinyText } from "@/components/ui/shiny-text";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PAGE_SIZE } from "@/config";
 import {
   cancelThreadAction,
   clearFinishedThreadsAction,
@@ -35,7 +36,7 @@ import {
 import {
   type Bot,
   isAppStop,
-  THREAD_HISTORY_PAGE,
+  needsThreadReply,
   type Thread,
   type ThreadLine,
 } from "@/features/bot/bot.schema";
@@ -67,13 +68,11 @@ import { cn, formatCount, plainText, WAITING_INK } from "@/lib/utils";
 import { ThreadReply } from "./thread-reply";
 
 /*
- * Every thread the bots have taken, newest first, cursor-paged (bot.query listThreadHistory):
- * the first page polls while a thread runs, later pages read below the previous page's
- * last timestamp so they never shift or overlap. A row opens its thread on a sheet beside the list.
+ * Every thread the bots have taken, newest first, cursor-paged (thread.query listThreadHistory):
+ * the `threads` signal re-reads the loaded pages, and later pages read below the previous
+ * page's last timestamp so they never shift or overlap. A row opens its thread on a sheet
+ * beside the list.
  */
-
-/** First-page refresh while a thread is running, ms. */
-const POLL_MS = 3000;
 
 export function ThreadSetting() {
   /** The thread on the sheet; null leaves the list alone. */
@@ -97,14 +96,7 @@ export function ThreadSetting() {
         ? queryKey.threadHistory(toDate(tail.updatedAt).toISOString())
         : null;
     },
-    size: THREAD_HISTORY_PAGE,
-    swr: {
-      // swr/infinite skips cached pages on a poll tick by default; re-read the first
-      // page only. Later pages sit below the cursor and stay put.
-      revalidateFirstPage: true,
-      refreshInterval: (pages: Thread[][] | undefined) =>
-        pages?.[0]?.some((thread) => thread.status === "running") ? POLL_MS : 0,
-    },
+    size: PAGE_SIZE,
   });
 
   // A thread that leaves the list (deleted, cleared) closes the sheet.
@@ -112,8 +104,8 @@ export function ThreadSetting() {
   // Opening a thread is reading its ending; that is what clears its dot.
   useSeenOnDetail(reading);
 
+  // The row says it stopped, and a deleted one leaves the list: neither needs a toast
   const [stop] = useServerAction(cancelThreadAction, {
-    okMessage: "Thread stopped",
     onOk: (stopped) => {
       revalidate(queryKey.threads);
       // Cancel is not relayed on its own; tell the open call.
@@ -125,11 +117,8 @@ export function ThreadSetting() {
     },
   });
   const [remove] = useServerAction(deleteThreadAction, {
-    okMessage: "Thread deleted",
     onOk: () => revalidate(queryKey.threads),
   });
-
-  // The rows leave the screen, so the result needs no toast
   const [clear] = useServerAction(clearFinishedThreadsAction, {
     onOk: () => revalidate(queryKey.threads),
   });
@@ -149,7 +138,7 @@ export function ThreadSetting() {
     const confirmed = await notify.confirm({
       title: "Clear finished jobs?",
       description:
-        "Everything done or failed goes, messages included. Running and waiting jobs stay.",
+        "Everything done or stopped goes, messages included. Running and waiting jobs stay.",
       okText: "Clear",
       destructive: true,
     });
@@ -182,7 +171,6 @@ export function ThreadSetting() {
   const waiting = threads.filter(
     (thread) => thread.status === "waiting",
   ).length;
-  const failed = threads.filter((thread) => thread.status === "failed").length;
 
   return (
     <>
@@ -192,7 +180,6 @@ export function ThreadSetting() {
             <SettingRailNote>
               {threads.length} loaded
               {waiting > 0 && ` · ${waiting} waiting on you`}
-              {failed > 0 && ` · ${failed} failed`}
             </SettingRailNote>
             <Button variant="outline" size="sm" onClick={confirmClear}>
               Clear finished
@@ -296,8 +283,8 @@ function Row({
             seed={thread.bot}
             {...markOf(thread.bot, bots)}
             state={running ? "thinking" : "idle"}
-            notify={thread.status === "waiting"}
-            failed={thread.status === "failed"}
+            notify={needsThreadReply(thread)}
+            crossed={thread.status === "cancelled"}
             className="shrink-0"
           />
 
@@ -453,8 +440,8 @@ function ThreadSheet({
                     seed={thread.bot}
                     {...markOf(thread.bot, bots)}
                     state={thread.status === "running" ? "thinking" : "idle"}
-                    notify={thread.status === "waiting"}
-                    failed={thread.status === "failed"}
+                    notify={needsThreadReply(thread)}
+                    crossed={thread.status === "cancelled"}
                     className="shrink-0"
                   />
                   <div className="min-w-0 flex-1">
@@ -534,10 +521,15 @@ function markOf(name: string, bots?: Bot[]) {
   };
 }
 
-/** Second row: the question, the outcome, or the last tool the bot reached for. */
+/**
+ * Second row: a question waiting on the user (a participant's, even while others
+ * work), the outcome, or the last tool the bot reached for.
+ */
 function secondLine(
   thread: Thread,
 ): { text: string; tone: string; tool?: string; shine?: boolean } | null {
+  const question = thread.room.questions[0];
+  if (question) return { text: plainText(question.text), tone: WAITING_INK };
   if (thread.status === "waiting" && thread.ask) {
     // A budget stop is not a question, but it waits on the user exactly as one
     // does, so it carries the waiting colour too; only the words differ.
@@ -548,14 +540,10 @@ function secondLine(
       tone: WAITING_INK,
     };
   }
-  // Reports are markdown; keep only the text.
-  // An ending the user has opened steps back; red stays red, only quieter.
+  // Reports are markdown; keep only the text. An ending the user has opened steps back.
   const had = thread.seen;
-  if (thread.status === "failed") {
-    return {
-      text: plainText(thread.outcome ?? "Failed"),
-      tone: had ? "text-destructive/70" : "text-destructive",
-    };
+  if (thread.status === "cancelled") {
+    return { text: "Stopped", tone: "text-muted-foreground" };
   }
   if (thread.status === "done") {
     return {
@@ -577,7 +565,7 @@ function secondLine(
       // Still running, so still moving: shine whether or not it is a tool line.
       return { text: line.text, tone: "text-muted-foreground", shine: true };
     }
-    if (line.kind === "user" || line.kind === "waiting") break;
+    if (line.kind === "user") break;
   }
   return {
     text: `${thread.bot} is taking it on…`,

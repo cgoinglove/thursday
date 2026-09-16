@@ -977,8 +977,8 @@ export type BotMarkProps = {
   /** A paint (MARK_PAINTS) worn in place of `color`. */
   paint?: MarkPaint;
   notify?: boolean;
-  /** The work this face stands for failed (a Stop ends that way too): the eyes are crossed out. */
-  failed?: boolean;
+  /** Eyes crossed out: a stopped thread, or a call that failed. */
+  crossed?: boolean;
   state?: MarkState;
   /** SPECTRUM_BANDS values in 0..1, low frequencies first, read once per frame. Where the energy sits sets the shape, how much sets the size. */
   getSpectrum?: () => ArrayLike<number>;
@@ -1005,7 +1005,7 @@ export function BotMark({
   outline,
   paint,
   notify,
-  failed,
+  crossed,
   state = "idle",
   getSpectrum,
   options,
@@ -1092,7 +1092,7 @@ export function BotMark({
   // effect deps: the loop mounts once, and restarting it on a seed change (the create
   // form retypes the name) would snap the eyes and reset the blink and breath phase.
   const look = spec?.look ?? null;
-  const crossed = Boolean(failed);
+  const eyesOut = Boolean(crossed);
   const live = useRef({
     cfg,
     state,
@@ -1100,7 +1100,7 @@ export function BotMark({
     radii,
     shapeSeed,
     look,
-    crossed,
+    crossed: eyesOut,
     grow,
   });
   live.current = {
@@ -1110,7 +1110,7 @@ export function BotMark({
     radii,
     shapeSeed,
     look,
-    crossed,
+    crossed: eyesOut,
     grow,
   };
 
@@ -1416,7 +1416,7 @@ export function BotMark({
   const xHalf = f(18 - 3 * grow);
   const xStroke = f(22 - 9 * grow);
   const eye = (d: string, cx: number, color: string) =>
-    failed ? (
+    eyesOut ? (
       <path
         d={`M${cx - xHalf} ${cfg.eyeY - xHalf}L${cx + xHalf} ${cfg.eyeY + xHalf}M${cx + xHalf} ${cfg.eyeY - xHalf}L${cx - xHalf} ${cfg.eyeY + xHalf}`}
         fill="none"

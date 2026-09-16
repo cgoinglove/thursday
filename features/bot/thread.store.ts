@@ -36,7 +36,6 @@ export type ChatterKind =
   | "tool"
   | "user"
   | "result"
-  | "error"
   | "note"
   | "stop";
 
@@ -68,26 +67,24 @@ export type Chatter = {
   question?: boolean;
   /** Only for kind `tool`. */
   tool?: ToolUse;
-  /** Options attached to a question; only on the line where the bot stopped to ask. */
-  options?: string[];
   /** When it was written; only for kind `stop`, whose repeats fold into one line. */
   at?: DateLike;
 };
 
 /** `waiting`: the bot stopped to ask the user something. */
-export type ThreadViewStatus = "working" | "waiting" | "done" | "failed";
+export type ThreadViewStatus = "working" | "waiting" | "done" | "cancelled";
 
 export type ThreadView = {
-  /** Anything the caller can match on; a tool call id will do. */
+  /** The thread row's id. */
   id: string;
   /** What Thursday asked for, verbatim. */
   request: string;
   /** A few words naming the thread; every ambient view prefixes lines with it. Falls back to the head of the request. */
   label: string;
-  /** Who it went to. Other bots may join through `ask`. */
+  /** Who it went to. Other bots join through messages (`ask`). */
   bot: BotRef;
   lines: Chatter[];
-  room?: RoomView | null;
+  room: RoomView;
   status: ThreadViewStatus;
   /** Text it came back with; only after it returned. */
   outcome: string | null;
@@ -139,14 +136,12 @@ export function threadFromRow(row: Thread, bots?: Bot[]): ThreadView {
   const lines: Chatter[] = [];
   /** Tool call id to the line its result belongs to. */
   const openLines = new Map<string, number>();
-  /** `ask_bot` call id to who was asked, so the answer draws as a reply. */
-  const asked = new Map<string, BotRef>();
   const askers = new Map<string, BotRef>();
   /** Message call id to its line, so a refused send can be redrawn as the step it was. */
   const sends = new Map<string, number>();
 
   for (const line of row.lines) {
-    // A borrowed bot speaks to the borrower; the job's own bot speaks to nobody
+    // A participant speaks to whoever opened its exchange; the job's own bot to nobody
     const bot = line.bot ? ref(line.bot) : owner;
     const to = line.to
       ? ref(line.to)
@@ -227,7 +222,6 @@ export function threadFromRow(row: Thread, bots?: Bot[]): ThreadView {
       case "ask": {
         sends.set(line.callId, lines.length);
         const other = ref(line.to);
-        asked.set(line.callId, other);
         askers.set(line.callId, bot);
         lines.push({
           id: line.id,
@@ -239,44 +233,11 @@ export function threadFromRow(row: Thread, bots?: Bot[]): ThreadView {
         });
         break;
       }
-      case "ask-result": {
-        const other = asked.get(line.callId);
-        if (other && line.text) {
-          lines.push({
-            id: line.id,
-            bot: other,
-            to: bot,
-            text: line.text,
-            kind: "ask",
-          });
-        }
-        break;
-      }
-      case "waiting":
-        lines.push({
-          id: line.id,
-          bot,
-          to: null,
-          text: line.question,
-          kind: "result",
-          options: line.options,
-        });
-        break;
     }
   }
 
-  // The ending lives on the row, not in the messages: the answer is the last text
-  // said, failure exists only here. `waiting` is treated like done: a job that
-  // the app stopped answered first, so that line is a result.
-  if (row.status === "failed" && row.outcome) {
-    lines.push({
-      id: `${row.id}-end`,
-      bot: owner,
-      to: null,
-      text: row.outcome,
-      kind: "error",
-    });
-  } else if (row.status === "done" || row.status === "waiting") {
+  // The answer is the last text said, and the row's outcome says which
+  if (row.status === "done") {
     const last = lines.at(-1);
     if (last && last.kind === "say" && last.text === row.outcome) {
       lines[lines.length - 1] = { ...last, kind: "result" };
@@ -348,8 +309,6 @@ export const threadDrafts = {
     if (own.size) drafts.set(id, own);
     else drafts.delete(id);
   },
-  typing: (id: string) =>
-    [...(drafts.get(id)?.values() ?? [])].some((text) => text.trim()),
 };
 
 const acted = new Set<(act: ScreenAct) => void>();
@@ -379,8 +338,7 @@ export function useBotThreads(): ThreadView[] {
   );
 }
 
-export const isOutcome = (line: Chatter) =>
-  line.kind === "result" || line.kind === "error";
+export const isOutcome = (line: Chatter) => line.kind === "result";
 
 /** Every bot in this thread, the thread's own first, in the order each speaks or is spoken to. */
 export function rosterOf(thread: ThreadView): BotRef[] {
@@ -566,12 +524,10 @@ export function threadItems(
  * Each bot's latest line and the thread it belongs to. Bots that took a job but
  * have not spoken yet are included with `line` null.
  */
-export type BotLine = {
+type BotLine = {
   bot: BotRef;
   thread: ThreadView;
   line: Chatter | null;
-  /** How many of their threads are still running. */
-  open: number;
 };
 
 export function latestPerBot(list: ThreadView[]): BotLine[] {
@@ -580,37 +536,21 @@ export function latestPerBot(list: ThreadView[]): BotLine[] {
   for (const thread of list) {
     // Assigned but still silent; still in the room
     if (!byBot.has(thread.bot.name)) {
-      byBot.set(thread.bot.name, {
-        bot: thread.bot,
-        thread,
-        line: null,
-        open: 0,
-      });
+      byBot.set(thread.bot.name, { bot: thread.bot, thread, line: null });
     }
     for (const line of thread.lines) {
       if (line.kind === "user" || line.kind === "note" || line.kind === "stop")
         continue;
-      byBot.set(line.bot.name, {
-        bot: line.bot,
-        thread,
-        line,
-        open: byBot.get(line.bot.name)?.open ?? 0,
-      });
+      byBot.set(line.bot.name, { bot: line.bot, thread, line });
     }
-  }
-
-  for (const thread of list) {
-    if (thread.status !== "working") continue;
-    const entry = byBot.get(thread.bot.name);
-    if (entry) entry.open += 1;
   }
 
   return [...byBot.values()];
 }
 
 /**
- * Opening a job's detail is reading its ending: the thread in the room, a row
- * expanded in Settings › Threads. That, or Thursday marking it seen once she has
+ * Opening a job's detail is reading its ending: the thread in the room, or on
+ * the Settings › Threads sheet. That, or Thursday marking it seen once she has
  * told them (`thread` `seen`), is what clears its dot — a list scrolled past is
  * not. Keyed by `updatedAt` as well, because a follow-up ends a job a second time
  * and that ending is new again.
@@ -626,10 +566,7 @@ export function useSeenOnDetail(
   const key = thread
     ? `${thread.id}@${toDate(thread.updatedAt).getTime()}`
     : null;
-  const owed =
-    !!thread &&
-    (thread.status === "done" || thread.status === "failed") &&
-    !thread.seen;
+  const owed = !!thread && thread.status === "done" && !thread.seen;
 
   useEffect(() => {
     if (!id || !key || !owed || sent.current.has(key)) return;

@@ -1076,10 +1076,7 @@ function persist(
  * Waiting on a real question. A job the app stopped waits in the inbox
  * instead of ringing.
  */
-function asksSomething(thread: Thread) {
-  if (thread.room) return thread.room.questions.length > 0;
-  return thread.status === "waiting" && !isAppStop(thread.ask);
-}
+const asksSomething = (thread: Thread) => thread.room.questions.length > 0;
 
 /** One piece of background work waiting on the user, as the relay clock puts it to her. */
 type OpenWork = {
@@ -1097,14 +1094,13 @@ type OpenWork = {
 const OPEN_RANK = {
   question: 0,
   stopped: 1,
-  failed: 2,
-  done: 3,
-  progress: 4,
+  done: 2,
+  progress: 3,
 } as const;
 
 /**
  * Everything in the inbox still waiting on the user, most pressing first:
- * questions, then jobs stopped, failed or finished and not yet seen, then
+ * questions, then jobs stopped or finished and not yet seen, then
  * progress from jobs still running. Sent as commentary; the bracket carries
  * facts only — who, which thread, where an answer goes — because the backend
  * reads relays too and routes answers by them.
@@ -1112,8 +1108,7 @@ const OPEN_RANK = {
 function openWork(threads: Thread[]): OpenWork[] {
   const items: (OpenWork & { rank: number })[] = [];
   for (const thread of threads) {
-    const relays = thread.room?.relays ?? [];
-    const questions = thread.room?.questions ?? [];
+    const { relays, questions } = thread.room;
     const changed = toDate(thread.updatedAt).getTime();
     const bracket = (from: string, kind: string, tail = "") =>
       `[${from} → Thursday, thread "${thread.label}" (${thread.id}), ${kind}.${tail}]`;
@@ -1141,50 +1136,23 @@ function openWork(threads: Thread[]): OpenWork[] {
       });
     }
 
-    // A job from before rooms asks through its own row
-    const ask =
-      !thread.room &&
-      thread.status === "waiting" &&
-      thread.ask &&
-      !isAppStop(thread.ask)
-        ? thread.ask
-        : null;
-    if (ask) {
-      const options = ask.options.length
-        ? ` Options: ${ask.options.join(" / ")}.`
-        : "";
-      items.push({
-        rank: OPEN_RANK.question,
-        key: `question:${thread.id}@${changed}`,
-        kind: "question",
-        line: `${bracket(thread.bot, "question")}\n${ask.question}${options}`,
-        relayIds: [],
-        show: show(thread.bot, `${thread.bot} is asking`),
-      });
-    }
-
     // Relay rows that belong to no open question
     const loose = relays.filter(
       (relay) => !questions.some((question) => question.id === relay.messageId),
     );
-    const ended = thread.status === "done" || thread.status === "failed";
+    // A cancel is the user's own and already seen; nothing about it is news
+    const ended = thread.status === "done";
     // A stop the app picks back up by itself is not news: it runs again in a moment
     const stopped =
       thread.status === "waiting" && isAppStop(thread.ask) && !thread.ask?.auto;
 
     if (ended || stopped) {
       if (thread.seen) continue;
-      const kind = stopped
-        ? "stopped"
-        : thread.status === "failed"
-          ? "failed"
-          : "done";
+      const kind = stopped ? "stopped" : "done";
       const said =
         kind === "stopped"
           ? `It stopped before finishing. Where it got to: ${thread.ask?.question ?? thread.outcome ?? ""}`
-          : kind === "failed"
-            ? `It could not finish: ${thread.outcome ?? ""}`
-            : `Done. Its answer: ${thread.outcome ?? ""}`;
+          : `Done. Its answer: ${thread.outcome ?? ""}`;
       items.push({
         rank: OPEN_RANK[kind],
         key: `${kind}:${thread.id}@${changed}`,
@@ -1196,9 +1164,7 @@ function openWork(threads: Thread[]): OpenWork[] {
           thread.bot,
           kind === "stopped"
             ? `${thread.bot} stopped`
-            : kind === "failed"
-              ? `${thread.bot} could not finish`
-              : `Answer from ${thread.bot}`,
+            : `Answer from ${thread.bot}`,
         ),
       });
       continue;
