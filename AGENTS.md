@@ -118,7 +118,8 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   stays open for the whole call; nothing the page does closes it.
   Live never speaks unprompted: every call opens with an instruction to speak first, and open
   work (unseen endings and stops, unanswered questions) goes in when neither side has been
-  transcribed for `CALL_RELAY.quietMs`, each item once a call and, once she has voiced it, not on a
+  transcribed for `CALL_RELAY.quietMs` (on a call the page placed for it, once she has said so),
+  each item once a call and, once she has voiced it, not on a
   later call while the page is open (a job that asks or ends again is a new item). Updates go in by
   kind — trusted behaviour as
   `session.instructions.append`, bot output as `commentary`, never the reverse — and a relay row

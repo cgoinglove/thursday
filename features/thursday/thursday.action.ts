@@ -65,10 +65,15 @@ async function loadToolManifest(): Promise<ToolManifest[]> {
 /**
  * Opens a Live call from the browser's SDP offer. Both prompts, the tool manifest
  * and the account key stay here; the browser gets the SDP answer, the call row
- * and what it needs to draw and save the call.
+ * and what it needs to draw and save the call. `calledBack` is the page placing it
+ * for waiting work rather than the user, which changes what she opens with.
  */
 export const openCallAction = serverAction(
-  async (settings: unknown, sdp: unknown): Promise<CallHandshake> => {
+  async (
+    settings: unknown,
+    sdp: unknown,
+    calledBack?: unknown,
+  ): Promise<CallHandshake> => {
     const thursday = ThursdaySettingsSchema.parse(settings);
     const offer = z.string().min(1).max(SDP_MAX_LENGTH).parse(sdp);
     const apiKey = await readConfig(LIVE_PROVIDER.apiKeyName);
@@ -82,6 +87,7 @@ export const openCallAction = serverAction(
         voicePrompt: thursday.voicePrompt,
         webSearch: thursday.webSearch,
         locale: thursday.locale,
+        calledBack: z.boolean().default(false).parse(calledBack),
       }),
       loadThursdayPrompt(thursday.backendPrompt),
       loadToolManifest(),

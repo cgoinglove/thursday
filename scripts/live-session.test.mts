@@ -903,6 +903,15 @@ test("both call prompts open as one Thursday: the voice gets the delegation poli
     assert.match(first.opening ?? "", /ask what to call them/);
     assert.match(first.opening ?? "", /ko-KR/);
     assert.match(first.text, /what they do, how old they are, where they live/);
+
+    // A call the page placed says so, ahead of even the first-call opening
+    const rung = await loadLivePrompt({
+      webSearch: false,
+      locale: "ko-KR",
+      calledBack: true,
+    });
+    assert.match(rung.opening, /You placed this call/);
+    assert.match(rung.opening, /say that is why you called/);
   } finally {
     memoryMock.restore();
     callMock.restore();

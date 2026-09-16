@@ -44,6 +44,8 @@ export async function loadLivePrompt(options: {
   voicePrompt?: string | null;
   webSearch: boolean;
   locale?: string | null;
+  /** The page placed this call because background work waits on the user (call-back). */
+  calledBack?: boolean;
 }): Promise<{ text: string; input: LiveInput[]; opening: string }> {
   const sandbox = await openWorkspace();
   const [carried, open, index, calls, skills, connected] = await Promise.all([
@@ -85,12 +87,15 @@ export async function loadLivePrompt(options: {
   return {
     text,
     input,
-    // A prompt line alone does not make Live speak first; only an opening does
-    opening: first
-      ? `Open the call now, in ${language}: say who you are and what you are here to do for them, in a line or two, then ask what to call them. Then stop and listen.`
-      : crowded || heavy.length
-        ? "Open the call now: greet the user in one line and mention that saved memory needs tidying. Then stop and listen; anything they came with comes first."
-        : "The call has just started. Speak first: greet the user naturally, in one line.",
+    // A prompt line alone does not make Live speak first; only an opening does.
+    // A call-back's opening holds no bot text: the update itself follows as commentary
+    opening: options.calledBack
+      ? "You placed this call because background work has something for the user; it comes in next. Speak first: greet them in one line and say that is why you called."
+      : first
+        ? `Open the call now, in ${language}: say who you are and what you are here to do for them, in a line or two, then ask what to call them. Then stop and listen.`
+        : crowded || heavy.length
+          ? "Open the call now: greet the user in one line and mention that saved memory needs tidying. Then stop and listen; anything they came with comes first."
+          : "The call has just started. Speak first: greet the user naturally, in one line.",
   };
 }
 

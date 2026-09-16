@@ -75,6 +75,10 @@ storage.
    (no profile facts) greets the user and asks what to call them, memory past
    `MEMORY_LIMITS` raises tidying, and any other call opens with a short greeting.
    Updates that arrived while connecting follow once she has voiced the opening.
+   A call the page placed for waiting work (call-back) opens instead with the fact that
+   she placed it, ahead of every other opening, and the first open work goes in as soon
+   as she has voiced that, without waiting for a quiet line: why she called is the first
+   thing asked. The opening names no bot text; the work itself follows as commentary.
 
 `input` opens with a developer message saying the turns after it are from earlier calls
 and that none is a request now, then holds user and assistant turns, newest kept first
