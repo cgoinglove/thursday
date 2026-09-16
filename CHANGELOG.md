@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.6.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.5.0...thursday-agent-v0.6.0) (2026-09-16)
+
+
+### Features
+
+* **call:** both call prompts open with the same rule for ending the call ([aec5932](https://github.com/cgoinglove/thursday/commit/aec5932cb578b81b8021ebb0647ca979a0d1c112))
+* **call:** the voice acknowledges now and then while the user speaks at length ([8b0a5f4](https://github.com/cgoinglove/thursday/commit/8b0a5f46a3a6ec64a96403de06c2e7f3ba84fa6f))
+* enhance artifact management and workspace organization ([88f9a5b](https://github.com/cgoinglove/thursday/commit/88f9a5bcb20a3686a7c393c35a70d2282e914f0b))
+* enhance call management and introduce new popover component ([7948f09](https://github.com/cgoinglove/thursday/commit/7948f09d5997935bc06fb8938d29af9a34f689c3))
+* enhance task management and messaging in Thursday agent ([d498ba4](https://github.com/cgoinglove/thursday/commit/d498ba4dd6afc9fda40eca23003eddecca5a7250))
+* give each seed bot a role it can work by alone ([10b4321](https://github.com/cgoinglove/thursday/commit/10b432146044fd85205c11ca4ae5173efa59640a))
+* introduce call reasoning summaries and enhance bot interactions ([bc12b8a](https://github.com/cgoinglove/thursday/commit/bc12b8aefed5bc9cecd1aaf74920447d6202bd6e))
+* let the call's transcript be switched off, and what reads it back with it ([65096de](https://github.com/cgoinglove/thursday/commit/65096de2a50f596562b0c409e2164ff9e18a30f4))
+* update bot roles and improve documentation ([807b232](https://github.com/cgoinglove/thursday/commit/807b2320dd7253a8bd30a4df1ec4695c37471779))
+* update thread management and enhance documentation ([554cd12](https://github.com/cgoinglove/thursday/commit/554cd1283924543f86cbe87a6dba8d9f3fe01c0c))
+* write profile and preferences out in the call prompt, and talk in the user's language ([fa47fa5](https://github.com/cgoinglove/thursday/commit/fa47fa582663aa236678c514f990215ec710ecfb))
+
+
+### Fixes
+
+* **call:** a call-back says it placed the call and puts its reason in at once ([2743418](https://github.com/cgoinglove/thursday/commit/2743418e560968e8068a3bc4d34bf18438d7244e))
+* **call:** owe an answer only for words she has not voiced after, and bound cut-off continuations ([422d0ae](https://github.com/cgoinglove/thursday/commit/422d0ae8d313e1fc6f7c4079425c00f9982f5bc5))
+* refuse a memory path outside the convention instead of filing it in inbox ([9903fdb](https://github.com/cgoinglove/thursday/commit/9903fdbfc840ad9ac1c37aae8056da23160dc4a2))
+* tie no fact to a call while its transcript is off ([d0e73fe](https://github.com/cgoinglove/thursday/commit/d0e73fe602263cdcda1ac37422525d6d00a0da91))
+
+
+### Under the hood
+
+* enhance message rendering in bot room component ([b06066d](https://github.com/cgoinglove/thursday/commit/b06066dfef0ff037cd99b7ec7a38958efe5df605))
+* **faces:** remove the orb's unreachable emotion system and the mark's unused knobs; the waiting dot is amber ([69f103e](https://github.com/cgoinglove/thursday/commit/69f103e7051e9347cc5ea9d92e6b80c540e16cff))
+
+
+### Docs
+
+* rewrite the README as a pitch, and keep the room where bots talk to each other ([3d1ae82](https://github.com/cgoinglove/thursday/commit/3d1ae8268b9e3ddd9b7eec1a42eaca3aa338f8c4))
+
 ## [0.5.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.4.0...thursday-agent-v0.5.0) (2026-09-11)
 
 
