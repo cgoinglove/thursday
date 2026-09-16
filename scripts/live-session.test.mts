@@ -62,7 +62,7 @@ async function connect({
 } = {}) {
   sent = [];
   released = false;
-  const levels = { input: 0, output: 0 };
+  const levels = { output: 0 };
   const turns: LiveTurn[] = [];
   const warnings: string[] = [];
   const failures: string[] = [];
@@ -205,6 +205,25 @@ test("a call completed before one the output cap cut off still has its result co
   await tick();
   assert.equal(ran, 1);
   assert.equal(count("response.item.create"), 1);
+  assert.equal(count("response.create"), 1);
+  // The continuation is cut off the same way: its result goes in, nothing continues it
+  nested({ type: "response.created", response: { id: "r2" } });
+  functionCall("b");
+  nested({
+    type: "response.output_item.done",
+    item: {
+      type: "function_call",
+      id: "item-cut-again",
+      call_id: "cut-again",
+      name: "delegate",
+      arguments: '{"bot":"Ana',
+      status: "incomplete",
+    },
+  });
+  await tick();
+  await tick();
+  assert.equal(ran, 2);
+  assert.equal(count("response.item.create"), 2);
   assert.equal(count("response.create"), 1);
 });
 
@@ -481,10 +500,11 @@ test("a long update goes chunk by chunk, and a rejected chunk drops the rest of 
 
 test("update chunks stay within the byte bound for any script and keep words whole", () => {
   const encoder = new TextEncoder();
-  const korean = "안녕하세요 오늘 일정은 세 가지입니다. ".repeat(40);
+  // Three UTF-8 bytes each, with spaces between words
+  const symbols = "\u2600\u2601\u2602\u2603 ".repeat(80);
   const emoji = "🙂".repeat(300);
   const english = "The flight leaves at nine. ".repeat(60);
-  for (const text of [korean, emoji, english]) {
+  for (const text of [symbols, emoji, english]) {
     const chunks = appendChunks(text);
     assert.ok(chunks.length > 1);
     assert.equal(chunks.join(""), text);

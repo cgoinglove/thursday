@@ -23,7 +23,7 @@ const reasoningTaken = new Map<string, BackendReasoning | null>();
  * it. A setting refused by name is dropped and the rest asked again, and what was taken
  * is remembered. Any other answer keeps what was chosen: a key or model problem is Live's
  * to report when the call opens. A dropped setting is not shown; the call runs on the
- * model's own (user, 09-16: "proceed even when it does not take it").
+ * model's own.
  */
 export async function acceptedReasoning(options: {
   apiKey: string;

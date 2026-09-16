@@ -8,7 +8,6 @@ import { CALL_END, CALL_IDLE, CALL_RELAY } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { acceptThreadRelaysAction } from "@/features/bot/bot.action";
 import { type Bot, isAppStop, type Thread } from "@/features/bot/bot.schema";
-import { MARK_BANDS } from "@/features/bot/mark.const";
 import { botThreads, screenActs } from "@/features/bot/thread.store";
 import { runRemoteTool } from "@/features/thursday/tool-call";
 import { isCombo, useHotkey } from "@/hooks/use-hotkey";
@@ -21,7 +20,11 @@ import {
   type LiveToolCall,
   openLiveSession,
 } from "@/lib/live/live.session";
-import { type AudioTap, createAudioTap } from "@/lib/live/live.tap";
+import {
+  type AudioTap,
+  createAudioTap,
+  SPECTRUM_BANDS,
+} from "@/lib/live/live.tap";
 import { type Result, unwrapResult } from "@/lib/protocol/result";
 import {
   revalidate,
@@ -95,8 +98,9 @@ const THREAD_POLL_FALLBACK_MS = 30_000;
 const SAVE_FAILURE_LIMIT = 3;
 
 /**
- * Put in as trusted behaviour just ahead of each relay. The relay itself carries
- * facts only, since the backend reads relays too and routes answers by them.
+ * Put in as trusted behaviour just ahead of the first relay of a call. The relay
+ * itself carries facts only, since the backend reads relays too and routes answers
+ * by them.
  */
 const RELAY_NOTE =
   "An update from background work follows. If you have already told the user what it says, it need not be said again.";
@@ -104,16 +108,18 @@ const RELAY_NOTE =
 const IDLE_LINE = `The user has said nothing for ${Math.round(CALL_IDLE.hangUpMs / 1000)} seconds. Say a one-line goodbye and end the call.`;
 
 /**
- * A tool the model is using, as the activity line draws it. `line` is the
- * human-readable sentence (tool-line), null when none exists; `name` is the
+ * What the activity line draws: a tool the model is using, or a relay. `line` is
+ * the human-readable sentence (tool-line), null when none exists; `name` is the
  * tool that actually ran.
  */
-export type ToolRun = {
+export type ActivityLine = {
   name: string;
   line: string | null;
   done: boolean;
+  /** The tool call this is, so one call finishing never ends another's line. */
+  id?: string;
   /** A relay from a bot (answer or question) rather than a tool; `name` is the thread label. */
-  kind?: "tool" | "relay";
+  kind?: "relay";
   /** The bot this names, when it names one: the row draws its face instead of a glyph. */
   bot?: string | null;
 };
@@ -137,7 +143,7 @@ export function useThursday() {
     setFailed(on);
   }, []);
   const [messages, setMessages] = useState<CallMessage[]>([]);
-  const [tool, setTool] = useState<ToolRun | null>(null);
+  const [tool, setTool] = useState<ActivityLine | null>(null);
   /** When the line opened (ms). */
   const [since, setSince] = useState<number | null>(null);
   /** Seconds until idle hang-up; set only inside CALL_IDLE.warnMs. */
@@ -190,8 +196,13 @@ export function useThursday() {
   const unvoiced = useRef(new Set<string>());
   /** The keys of the update on the line now, carried once her voice starts and stops on it. */
   const onLine = useRef<string[]>([]);
-  /** When her voice was last heard, for letting a goodbye finish (CALL_END). */
+  /**
+   * When her voice was last heard: for letting a goodbye finish (CALL_END), and for
+   * telling words she already answered from words still owed an answer.
+   */
   const voiced = useRef(0);
+  /** The relay note went in on this call (RELAY_NOTE). */
+  const relayNoted = useRef(false);
   /** The hang-up waiting on her goodbye once the backend called end_call. */
   const leaving = useRef<ReturnType<typeof setInterval> | null>(null);
   /** When either side's words were last transcribed: the quiet clock for relays. */
@@ -230,6 +241,7 @@ export function useThursday() {
     if (linger.current) clearTimeout(linger.current);
     relayOpen.current = false;
     setTool({
+      id: call.id,
       name: call.name,
       line: toolLine(call.name, call.arguments),
       bot: toolBot(call.name, call.arguments),
@@ -242,17 +254,17 @@ export function useThursday() {
    * and while she voices it. Her voice finishing it is what stops the motion
    * (doneReading); after that it stays long enough to read.
    */
-  const showRelay = useCallback((run: ToolRun) => {
+  const showRelay = useCallback((run: ActivityLine) => {
     if (linger.current) clearTimeout(linger.current);
     relayOpen.current = true;
     setTool({ ...run, done: false });
   }, []);
 
   /** Tool finished; lingers, then clears. */
-  const hideTool = useCallback((name: string) => {
+  const hideTool = useCallback((id: string) => {
     setTool((open) =>
       // a second tool already took the line; leave it
-      open?.name === name ? { ...open, done: true } : open,
+      open?.id === id ? { ...open, done: true } : open,
     );
     if (linger.current) clearTimeout(linger.current);
     linger.current = setTimeout(
@@ -371,8 +383,11 @@ export function useThursday() {
     onLine.current = due.map((item) => item.key);
     // On the line before it goes out, so it runs there for the whole wait
     showRelay((due.at(-1) ?? first).show);
-    // Appends go out in order, so the note is in her context before the update
-    void live.append("instructions", RELAY_NOTE);
+    // Appends go out in order, so the note is in her context before the first update
+    if (!relayNoted.current) {
+      relayNoted.current = true;
+      void live.append("instructions", RELAY_NOTE);
+    }
     void live
       .append(
         "commentary",
@@ -466,13 +481,10 @@ export function useThursday() {
   });
 
   // Server event stream (app/api/events): signals revalidate their key
-  const boot = useRef<string | null>(null);
   useAppEvent({
-    hello: (event) => {
+    hello: () => {
       // Sent on every connect, so this is also every reconnect: nothing that
-      // changed while the stream was down raised a signal anybody heard, and a
-      // changed `boot` means the server restarted on top of that
-      boot.current = event.boot;
+      // changed while the stream was down raised a signal anybody heard
       void revalidateAll();
     },
     threads: () => void revalidate(queryKey.threads),
@@ -505,8 +517,8 @@ export function useThursday() {
         if (!calling.current) return;
         outbox.send(
           act.kind === "answered"
-            ? `The user sent a message on screen to ${act.recipient ?? "the coordinator"} in thread "${act.label}" (${act.id})${act.replyTo ? `, replying to ${act.replyTo}` : ""}: ${act.answer}. That participant receives it directly; do not ask the same question again.`
-            : `The user stopped thread "${act.label}" on screen. It is not running any more; do not wait for it or say anything more about it.`,
+            ? `The user sent a message on screen to ${act.recipient ?? "the coordinator"} in thread "${act.label}" (${act.id})${act.replyTo ? `, replying to ${act.replyTo}` : ""}: ${act.answer}. It has reached that participant.`
+            : `The user stopped thread "${act.label}" on screen. It is no longer running.`,
         );
       }),
     [outbox],
@@ -526,6 +538,7 @@ export function useThursday() {
     callId.current = null;
     calling.current = false;
     opening.current = false;
+    relayNoted.current = false;
     rang.current = false;
     // What she did not voice goes in again next call; unsent context goes with the session
     for (const key of unvoiced.current) told.current.delete(key);
@@ -612,18 +625,20 @@ export function useThursday() {
   }, [hangUp]);
 
   /**
-   * Rewinds the idle clock. `user` is words transcribed from them: an answer is
-   * owed from then, and a requested goodbye is off. `agent` is her voice or
-   * backend work, which settles what is owed but cannot cancel its own goodbye.
+   * Rewinds the idle clock. `user` is new words transcribed from them, first seen at
+   * `said`: an answer is owed from then, and a requested goodbye is off. Transcripts
+   * lag the audio, so her voice heard since `said` already answered them. `agent` is
+   * her voice or backend work, which settles what is owed but cannot cancel its own
+   * goodbye.
    */
-  const stir = useCallback((who: "user" | "agent") => {
+  const stir = useCallback((who: "user" | "agent", said = 0) => {
     const now = Date.now();
     idle.current.since = now;
     if (who !== "user") {
       idle.current.owed = null;
       return;
     }
-    idle.current.owed = now;
+    if (voiced.current < said) idle.current.owed ??= now;
     if (idle.current.grace) clearTimeout(idle.current.grace);
     idle.current.grace = null;
     idle.current.asked = false;
@@ -685,6 +700,7 @@ export function useThursday() {
       opening.current = true;
       calling.current = true;
       finalized.current = null;
+      relayNoted.current = false;
       outbox.clear();
       attempt.current += 1;
       const mine = attempt.current;
@@ -708,6 +724,8 @@ export function useThursday() {
 
         // one turn per id; the session reports display groups one at a time
         const turns = new Map<string, CallMessage & { seq: number }>();
+        /** When the page first saw each of the user's display groups. */
+        const userSaid = new Map<string, number>();
 
         const live = await openLiveSession({
           initialize: async (sdp) => {
@@ -737,7 +755,7 @@ export function useThursday() {
               try {
                 return await runRemoteTool(line.callId, call, stop.signal);
               } finally {
-                hideTool(call.name);
+                hideTool(call.id);
               }
             },
             reasoning: (part) =>
@@ -751,16 +769,20 @@ export function useThursday() {
                 "The backend's thinking is not being saved",
               ),
             turn: (turn) => {
+              // New words, not a checkpoint of the same ones: a blank fragment is not words
+              const fresh =
+                turn.role !== "tool" &&
+                Boolean(turn.text.trim()) &&
+                turn.text !== turns.get(turn.id)?.text;
+              // New words from either side restart the relay's quiet clock
+              if (fresh) heard.current = Date.now();
               // Her voice and backend work rewind the idle clock from activity, where an
               // update she reads out is told apart; transcripts lag the audio and cannot
-              if (turn.role === "user") stir("user");
-              // New words from either side restart the relay's quiet clock; a blank fragment is not words
-              if (
-                turn.role !== "tool" &&
-                turn.text.trim() &&
-                turn.text !== turns.get(turn.id)?.text
-              )
-                heard.current = Date.now();
+              if (fresh && turn.role === "user") {
+                const said = userSaid.get(turn.id) ?? Date.now();
+                userSaid.set(turn.id, said);
+                stir("user", said);
+              }
               // Tool turns are saved but not shown. Hanging up clears the screen
               // before `close()` checkpoints open groups, so only the live call draws.
               if (turn.role !== "tool" && callId.current === line.callId) {
@@ -987,7 +1009,7 @@ export function useThursday() {
   };
 }
 
-const EMPTY_BANDS = new Array<number>(MARK_BANDS).fill(0);
+const EMPTY_BANDS = new Array<number>(SPECTRUM_BANDS).fill(0);
 
 /**
  * Calls opened without a gesture (wake word, call-back) get a suspended
@@ -1069,7 +1091,7 @@ type OpenWork = {
   /** Relay rows it covers, accepted once it lands. */
   relayIds: number[];
   /** The same item on the activity line, so the user sees where her words came from. */
-  show: ToolRun;
+  show: ActivityLine;
 };
 
 const OPEN_RANK = {
@@ -1095,7 +1117,7 @@ function openWork(threads: Thread[]): OpenWork[] {
     const changed = toDate(thread.updatedAt).getTime();
     const bracket = (from: string, kind: string, tail = "") =>
       `[${from} → Thursday, thread "${thread.label}" (${thread.id}), ${kind}.${tail}]`;
-    const show = (bot: string, line: string): ToolRun => ({
+    const show = (bot: string, line: string): ActivityLine => ({
       kind: "relay",
       name: thread.label,
       line,
@@ -1195,5 +1217,3 @@ function openWork(threads: Thread[]): OpenWork[] {
   }
   return items.sort((a, b) => a.rank - b.rank);
 }
-
-export type { CallMessage, CallStatus };

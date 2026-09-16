@@ -46,7 +46,10 @@ import {
   type ThursdayFace,
 } from "@/features/thursday/thursday.schema";
 import { useThursdayStore } from "@/features/thursday/thursday.store";
-import { type ToolRun, useThursday } from "@/features/thursday/use-thursday";
+import {
+  type ActivityLine,
+  useThursday,
+} from "@/features/thursday/use-thursday";
 import { ArtifactView } from "@/features/workspace/components/artifact-view";
 import { useHotkeyLabel } from "@/hooks/use-hotkey";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
@@ -68,7 +71,7 @@ export type CallScreenProps = {
   failed?: boolean;
   /** Oldest first; the last one is the turn being spoken. */
   messages: CallMessage[];
-  tool: ToolRun | null;
+  tool: ActivityLine | null;
   /** When the backend picked the turn up (ms); null when it is not working. */
   thinkingSince?: number | null;
   onTap: () => void;
@@ -646,7 +649,7 @@ function Ear({
  * which has no container either, so an outline under one of the two read as the
  * line changing shape rather than changing state.
  */
-function Activity({ tool }: { tool: ToolRun }) {
+function Activity({ tool }: { tool: ActivityLine }) {
   // a relay from a bot is a flag, like the answer tool — unless it names the bot
   const relay = tool.kind === "relay";
   const Icon = relay ? Flag : toolIcon(tool.name);
@@ -701,7 +704,7 @@ function Mark({
   icon: Icon,
   running,
 }: {
-  tool: ToolRun;
+  tool: ActivityLine;
   /** The row the name resolved to, when the roster has one; its look, not its identity. */
   bot: Bot | null;
   icon: LucideIcon;
@@ -745,7 +748,7 @@ function ActivityRow({
   listening,
   getMicSpectrum,
 }: {
-  tool: ToolRun | null;
+  tool: ActivityLine | null;
   thinkingSince: number | null;
   listening: boolean;
   getMicSpectrum?: () => ArrayLike<number>;

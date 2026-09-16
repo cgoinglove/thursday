@@ -30,14 +30,13 @@ export type LiveReasoning = {
 export type LiveActivity = {
   working: boolean;
   speaking: boolean;
-  hearing: boolean;
   tools: string[];
 };
 export type LiveAudio = {
   element: HTMLAudioElement;
   listen(stream: MediaStream): void;
   hear?(stream: MediaStream): void;
-  levels?(): { input: number; output: number };
+  levels?(): { output: number };
 };
 type LiveOptions = {
   /** Exchanges the offer on the server and returns the SDP answer. */
@@ -185,7 +184,6 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
   const appends: Append[] = [];
   /** The chunk on the wire, by the event id its acknowledgement names. */
   let pendingAppend: string | null = null;
-  let lastInput = -Infinity;
   let lastOutput = -Infinity;
 
   const flushTranscripts = () => {
@@ -218,23 +216,16 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
     const now = performance.now();
     const levels = audio.levels?.();
     // A short release follows the phrase rather than each syllable.
-    if (levels && levels.input > 0.015) lastInput = now;
     if (levels && levels.output > 0.01) lastOutput = now;
     const value = {
       speaking: now - lastOutput < 300,
-      hearing: now - lastInput < 300,
       working:
         [...responses.values()].some((response) => !response.terminal) ||
         tools.size > 0,
       tools: [...tools.values()],
     };
     const key = JSON.stringify(value);
-    if (
-      key !== activityKey ||
-      value.speaking ||
-      value.hearing ||
-      value.working
-    ) {
+    if (key !== activityKey || value.speaking || value.working) {
       activityKey = key;
       on.activity(value);
     }
@@ -418,7 +409,8 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
           calls.add(item.call_id);
           // Cut off by the output cap: the arguments are a fragment, and Live ends the
           // handoff with a top-level error, never a terminal event for this response.
-          // Calls it completed before the cut still ran, so their results are continued once.
+          // Calls it completed before the cut still ran, so their results are continued,
+          // under the same once-in-a-row bound as an incomplete response.
           if (item.status === "incomplete") {
             response.terminal = true;
             logger.warn("Live backend call cut off; not run", {
@@ -426,7 +418,10 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
               name: item.name,
               arguments: item.arguments.slice(0, 200),
             });
-            void continueResponse(response);
+            if (response.calls.size && !salvaging) {
+              salvaging = true;
+              void continueResponse(response);
+            } else response.continued = true;
             break;
           }
           on.turn({

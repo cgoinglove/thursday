@@ -93,7 +93,8 @@ export function createAudioTap(): LiveAudio & {
     element: audio,
 
     open,
-    levels: () => ({ input: level(mic), output: level(analyser) }),
+    /** Her voice's loudness, which is how the session tells she is speaking. */
+    levels: () => ({ output: level(analyser) }),
 
     /** Watch a stream something else is already playing. */
     listen(stream: MediaStream) {

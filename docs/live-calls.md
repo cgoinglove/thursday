@@ -149,9 +149,9 @@ One her voice carried stays out of later calls too while the page is open; one i
 refused it, she never spoke, the call ended first) goes in again on the next call, never in a
 loop on this one. The key carries the job's last change, so a job that resumes and asks or ends
 again is a new item, and a reload puts what is still open in once more. Nothing goes in while
-the call is ending or a goodbye has been asked for. Each relay follows an `instructions` note
-that what she has already told the user need not be said again, so the relay itself stays
-facts only.
+the call is ending or a goodbye has been asked for. The first relay of a call follows an
+`instructions` note that what she has already told the user need not be said again, so the
+relay itself stays facts only.
 
 A relay names the bot and the thread and, for a question, where its answer goes (thread,
 recipient, `replyTo`). The backend reads relays in its conversation and routes the user's
@@ -173,10 +173,12 @@ audio and never becomes a caption.
 revision replaces them and keeps the group's `seq`. Rows written before Live have no
 fragments and remain readable.
 
-Track listening, playback, and backend work independently, from local audio levels
-and backend events. The idle clock rewinds on transcribed words, her voice
-and backend work, not on microphone level alone, so a noisy room does not hold a call
-open, and not on an update she voices on her own, so waiting results do not either. After
+Track playback and backend work independently, from her audio level and backend events.
+The idle clock rewinds on new transcribed words, her voice and backend work, not on
+microphone level alone, so a noisy room does not hold a call open, and not on an update she
+voices on her own, so waiting results do not either. New words from the user are owed an
+answer unless her voice has been heard since they first came in, since transcripts lag the
+audio; with nothing back for `CALL_IDLE.agentSilentMs` the page hangs up. After
 `CALL_IDLE.hangUpMs` she is asked for a goodbye, and the page hangs up
 `CALL_IDLE.graceMs` later if the line is still open.
 
