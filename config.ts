@@ -13,6 +13,8 @@ export const APP_NAME = "Thursday";
  * transcriptGapMs groups nearby fragments for captions, never for tool execution.
  * transcriptSaveMs sets the checkpoint interval; appendMs bounds update acknowledgements.
  * backendOutputTokens bounds each delegated answer, including reasoning tokens.
+ * effortCheckMs bounds asking whether the backend model takes the chosen reasoning
+ * effort, once per model and effort; past it the call opens with the effort as chosen.
  */
 export const LIVE_CALL = {
   startupMs: 30_000,
@@ -21,6 +23,7 @@ export const LIVE_CALL = {
   transcriptSaveMs: 500,
   appendMs: 15_000,
   backendOutputTokens: 4_096,
+  effortCheckMs: 5_000,
 };
 
 /**
@@ -77,9 +80,9 @@ export const PATHS = {
   workspace: WORKSPACE,
   /**
    * Workspace folders a bot may write into, relative to the workspace. They are
-   * split by how long what is in them lives: `artifacts` finished results the
-   * user opens and `projects` code that outlives any one job are the user's and
-   * stay; `scratch/<job>` goes with its job, or once the job has ended
+   * split by how long what is in them lives: `artifacts/<bot>` finished results
+   * the user opens and `projects` code that outlives any one job are the user's
+   * and stay; `scratch/<job>` goes with its job, or once the job has ended
    * WORKSPACE_KEEP ago; `bots/<name>` lasts as long as the bot. The workspace
    * root is refused.
    */
@@ -113,6 +116,14 @@ export const PAGE_SIZE = 50;
  */
 export const INBOX_FINISHED = 3;
 
+/**
+ * How long a finished thread the user has already opened stays on the room's Now
+ * tab, ms from when it ended; after that it is under History only. Longer keeps
+ * recent work in reach, 0 moves it the moment it is read. Only endings the inbox
+ * still carries (INBOX_FINISHED) can stay.
+ */
+export const ROOM_KEEP_READ_MS = 10 * 60_000;
+
 /** Jobs returned to the call: prioritize open work, then fill with recent endings. */
 export const THREAD_STATUS_LIMIT = 10;
 
@@ -144,8 +155,8 @@ export const WORKSPACE_VIEW = {
 };
 
 /**
- * The Artifacts section (features/artifact), which lists the top of
- * `artifacts/` — one entry there is one artifact.
+ * The Artifacts section (features/artifact), which lists every bot's folder in
+ * `artifacts/` and what is loose there — one entry is one artifact.
  * - `rows`  entries the menu returns; the rest load on demand.
  * - `setFiles`  files one opened set draws before the sheet asks for more.
  * What the browser is handed is capped by WORKSPACE_VIEW: the two sections

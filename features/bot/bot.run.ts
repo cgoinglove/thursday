@@ -32,7 +32,7 @@ import {
 import {
   botBrowserSession,
   filesOnDisk,
-  openBotFolder,
+  openBotFolders,
   openJobScratch,
 } from "@/features/workspace/workspace";
 import { logger } from "@/lib/logger";
@@ -140,18 +140,18 @@ export async function runBot(
   const model = await resolveModel(bot);
   const row = options.threadId ? await findThread(options.threadId) : null;
   // Participants share thread files while retaining their own context and browser.
-  const [scratch, own] = await Promise.all([
+  const [scratch, { own, artifacts }] = await Promise.all([
     options.threadId
       ? openJobScratch(options.threadId, row?.label ?? "job")
       : null,
-    openBotFolder(name),
+    openBotFolders(name),
   ]);
   const [prompt, tools] = await Promise.all([
     loadBotPrompt(
       name,
       bot.systemPrompt,
       { owner: options.owner, caller: options.caller, messageId: parent },
-      { scratch, own },
+      { scratch, own, artifacts },
     ),
     loadTools({
       target: "bot",

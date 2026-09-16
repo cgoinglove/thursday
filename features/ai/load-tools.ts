@@ -14,7 +14,11 @@ import { createWorkspaceTools } from "@/features/ai/tools/workspace.tool";
 import { threadActivity } from "@/features/bot/bot.schema";
 import { loadSkills } from "@/features/skills/skills.discover";
 import { readCallSkillsOn } from "@/features/thursday/thursday.query";
-import { jobShellEnv, openWorkspace } from "@/features/workspace/workspace";
+import {
+  botShellEnv,
+  jobShellEnv,
+  openWorkspace,
+} from "@/features/workspace/workspace";
 import { toDate } from "@/lib/date-like";
 import { logger } from "@/lib/logger";
 import { isPublicError } from "@/lib/public-error";
@@ -376,16 +380,17 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     ...(await createSearchTool(run.model, sandbox)),
     // The browser rides in the shell: its session is this seat's — the job's, or
     // a borrowed bot's own — set by the server rather than typed by the model
-    // (workspace.ts jobShellEnv)
+    // (workspace.ts jobShellEnv), and so is the bot's artifacts folder
     ...createWorkspaceTools(sandbox, {
       write: true,
-      env: jobShellEnv(run.session),
+      env: { ...jobShellEnv(run.session), ...botShellEnv(run.bot) },
       // What the shell is like and what this machine has, on the first command
       // of the run only (workspace.tool shellGuide). The call gets no guide:
       // one command is a glance, not a job to plan around
       guide: true,
-      // Its own memory stays within its limits whichever of the two writes it (bot.memory)
-      memoryOf: run.bot,
+      // Its own memory stays within its limits whichever of the two writes it
+      // (bot.memory), and its finished work stays in its own folder
+      bot: run.bot,
     }),
     // Pinned tools come with schemas; the rest sit behind `tool_search`, absent when nothing is left to find (mcp.tool)
     ...(await createMcpTools(run.bot, sandbox)),

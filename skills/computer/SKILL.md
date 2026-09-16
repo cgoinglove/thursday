@@ -58,7 +58,7 @@ into any app. When a window wants one, tell the user in one line
 
 **Files.** Captures go under `scratch/` while you work
 (`--path scratch/<name>.png`); a picture that is the result of the job goes to
-`artifacts/`. Never write to the workspace root.
+your folder under `artifacts/`. Never write to the workspace root.
 
 **Ask before you change the user's things.** Looking is free — reading a
 window, listing apps, taking a capture. Sending a message, deleting a mail,

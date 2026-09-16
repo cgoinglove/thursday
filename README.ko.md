@@ -101,7 +101,7 @@ Node 22.18+가 필요합니다. `localhost:3000` 또는 다음 빈 포트에서 
 ~/.thursday
 ├── local.db          통화, 메모리, 봇, 작업, 키
 └── .ai-workspace
-    ├── artifacts/    완성된 결과물
+    ├── artifacts/    완성된 결과물, 봇마다 폴더 하나
     ├── projects/     코드와 오래 유지되는 프로젝트
     ├── bots/         봇마다 자기 메모리와 저장된 세션
     └── .agents/      설치한 스킬

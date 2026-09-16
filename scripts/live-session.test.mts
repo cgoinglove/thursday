@@ -36,7 +36,9 @@ mock.module("../lib/live/live.transport.ts", {
 const { appendChunks, createLiveSession } = await import(
   "../lib/live/live.session.ts"
 );
-const { createLiveCall } = await import("../lib/live/live.server.ts");
+const { acceptedEffort, createLiveCall } = await import(
+  "../lib/live/live.server.ts"
+);
 
 const sessions: ReturnType<typeof createLiveSession>[] = [];
 afterEach(async () => {
@@ -498,6 +500,56 @@ test("a provider refusal reaches the caller unchanged", async () => {
     }),
     /This project cannot access gpt-live-1/,
   );
+});
+
+test("an effort the backend model refuses is dropped before the call, and asked about once", async () => {
+  const asked: string[] = [];
+  mock.method(globalThis, "fetch", async (url: string, init: RequestInit) => {
+    assert.equal(url, "https://api.openai.com/v1/responses/input_tokens");
+    const body = JSON.parse(init.body as string);
+    asked.push(`${body.model} ${body.reasoning.effort}`);
+    return body.model === "gpt-4.1"
+      ? Response.json(
+          {
+            error: {
+              message:
+                "Unsupported parameter: 'reasoning.effort' is not supported with this model.",
+              param: "reasoning.effort",
+              code: "unsupported_parameter",
+            },
+          },
+          { status: 400 },
+        )
+      : Response.json({ input_tokens: 7 });
+  });
+  const check = (model: string, effort: string | null) =>
+    acceptedEffort({ apiKey: "test", model, effort });
+
+  assert.equal(await check("gpt-4.1", "low"), null);
+  assert.equal(await check("gpt-4.1", "low"), null);
+  assert.equal(await check("gpt-5.6-luna", "low"), "low");
+  assert.equal(await check("gpt-5.6-luna", "low"), "low");
+  assert.equal(await check("gpt-4.1", null), null);
+  assert.deepEqual(asked, ["gpt-4.1 low", "gpt-5.6-luna low"]);
+});
+
+test("any other answer keeps the effort and is asked again next call", async () => {
+  let asked = 0;
+  mock.method(globalThis, "fetch", async () => {
+    asked += 1;
+    return asked === 1
+      ? Response.json(
+          { error: { message: "Incorrect API key provided", param: null } },
+          { status: 401 },
+        )
+      : Promise.reject(new TypeError("fetch failed"));
+  });
+  const check = () =>
+    acceptedEffort({ apiKey: "test", model: "gpt-5.6-sol", effort: "high" });
+
+  assert.equal(await check(), "high");
+  assert.equal(await check(), "high");
+  assert.equal(asked, 2);
 });
 
 test("stored settings keep OpenAI choices and the shared instruction, drop a Grok voice, and recover field by field", async () => {

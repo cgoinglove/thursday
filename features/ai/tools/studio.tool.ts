@@ -8,7 +8,6 @@ import {
 } from "ai";
 import { format } from "date-fns";
 import z from "zod";
-import { PATHS } from "@/config";
 import {
   buildImageModel,
   buildSpeechModel,
@@ -25,8 +24,19 @@ import { errorToString } from "@/lib/utils";
  * Media tools (image, speech, transcription, video), exposed behind `tool_search`/`tool_call`
  * under one server name (config STUDIO_SERVER) like an MCP server's tools. They are code rather
  * than skills or shell commands because each needs a key, and keys never reach a bot's shell.
- * Bytes go to a file under `artifacts/`; only the path travels, since tool results are replayed on every resume.
+ * Bytes go to a file in the calling bot's artifacts folder; only the path travels, since tool results are replayed on every resume.
  */
+
+/**
+ * What a run hands a studio tool: the shell's sandbox, and `artifacts`, the
+ * calling bot's folder, which is where what it makes is finished work the user
+ * opens (workspace.ts botArtifacts).
+ */
+type StudioContext = {
+  sandbox: Sandbox;
+  artifacts: string;
+  abortSignal?: AbortSignal;
+};
 
 /** One studio tool as `tool_search` describes it and `tool_call` runs it. The zod schema becomes JSON Schema for the model (connected.ts). */
 export type StudioTool = {
@@ -35,7 +45,7 @@ export type StudioTool = {
   inputSchema: z.ZodObject<z.ZodRawShape>;
   execute: (
     args: Record<string, unknown>,
-    ctx: { sandbox: Sandbox; abortSignal?: AbortSignal },
+    ctx: StudioContext,
   ) => Promise<string>;
 };
 
@@ -46,7 +56,7 @@ function define<Shape extends z.ZodRawShape>(spec: {
   inputSchema: z.ZodObject<Shape>;
   execute: (
     args: z.infer<z.ZodObject<Shape>>,
-    ctx: { sandbox: Sandbox; abortSignal?: AbortSignal },
+    ctx: StudioContext,
   ) => Promise<string>;
 }): StudioTool {
   return {
@@ -58,14 +68,6 @@ function define<Shape extends z.ZodRawShape>(spec: {
     },
   };
 }
-
-/** Under artifacts: what is made here is finished work the user opens. */
-const DIR = {
-  images: `${PATHS.artifacts}/images`,
-  audio: `${PATHS.artifacts}/audio`,
-  transcripts: `${PATHS.artifacts}/transcripts`,
-  videos: `${PATHS.artifacts}/videos`,
-};
 
 /** A filename someone can recognise a week later, out of what was asked for. */
 function fileName(stem: string, ext: string): string {
@@ -121,7 +123,10 @@ const imageTool = async (): Promise<StudioTool | null> => {
         .nullish()
         .describe("Aspect ratio. Null for square."),
     }),
-    execute: async ({ prompt, aspectRatio }, { sandbox, abortSignal }) => {
+    execute: async (
+      { prompt, aspectRatio },
+      { sandbox, artifacts, abortSignal },
+    ) => {
       const { image } = await generateImage({
         model,
         prompt,
@@ -130,7 +135,7 @@ const imageTool = async (): Promise<StudioTool | null> => {
       });
       const path = await save(
         sandbox,
-        DIR.images,
+        artifacts,
         fileName(prompt, extOf(image.mediaType, "png")),
         image.uint8Array,
       );
@@ -172,7 +177,7 @@ const speechTool = async (): Promise<StudioTool | null> => {
     }),
     execute: async (
       { text, voice, instructions },
-      { sandbox, abortSignal },
+      { sandbox, artifacts, abortSignal },
     ) => {
       const { audio } = await generateSpeech({
         model,
@@ -184,7 +189,7 @@ const speechTool = async (): Promise<StudioTool | null> => {
       });
       const path = await save(
         sandbox,
-        DIR.audio,
+        artifacts,
         fileName(text.slice(0, 60), audio.format || "mp3"),
         audio.uint8Array,
       );
@@ -216,7 +221,7 @@ const transcribeTool = async (): Promise<StudioTool | null> => {
           "The audio file: a path relative to the workspace, or an absolute one anywhere on this machine.",
         ),
     }),
-    execute: async ({ path }, { sandbox, abortSignal }) => {
+    execute: async ({ path }, { sandbox, artifacts, abortSignal }) => {
       const audio = await readFile(sandbox.resolve(path));
       const result = await transcribe({ model, audio, abortSignal });
 
@@ -231,7 +236,7 @@ const transcribeTool = async (): Promise<StudioTool | null> => {
       const stem = basename(path, extname(path));
       const out = await save(
         sandbox,
-        DIR.transcripts,
+        artifacts,
         fileName(stem, "md"),
         Buffer.from(`# ${stem}\n\n${result.text.trim()}${timeline}\n`),
       );
@@ -273,7 +278,7 @@ const videoTool = async (): Promise<StudioTool | null> => {
     }),
     execute: async (
       { prompt, aspectRatio, seconds },
-      { sandbox, abortSignal },
+      { sandbox, artifacts, abortSignal },
     ) => {
       const { video } = await generateVideo({
         model,
@@ -284,7 +289,7 @@ const videoTool = async (): Promise<StudioTool | null> => {
       });
       const path = await save(
         sandbox,
-        DIR.videos,
+        artifacts,
         fileName(prompt, extOf(video.mediaType, "mp4")),
         video.uint8Array,
       );

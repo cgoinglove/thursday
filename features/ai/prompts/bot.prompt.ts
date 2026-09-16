@@ -23,6 +23,7 @@ import {
   type SkillMetadata,
 } from "@/features/skills/skills.discover";
 import {
+  botArtifacts,
   type MachineTools,
   openWorkspace,
   readMachineTools,
@@ -48,8 +49,8 @@ export async function loadBotPrompt(
   self: string,
   persona?: string | null,
   seat?: Seat | null,
-  /** The two folders that are this run's rather than the user's (bot.run). */
-  folders?: { scratch: string | null; own: string },
+  /** This run's folders: the job's, the bot's own, and where its finished work goes (bot.run). */
+  folders?: { scratch: string | null; own: string; artifacts: string },
 ): Promise<LoadedPrompt> {
   const sandbox = await openWorkspace();
   const name = self.trim();
@@ -226,7 +227,7 @@ ${skillLines(skills)}`;
 const environment = (
   cwd: string,
   machine: MachineTools,
-  folders?: { scratch: string | null; own: string },
+  folders?: { scratch: string | null; own: string; artifacts: string },
 ) => `## Environment
 
 Current Cwd: ${cwd}
@@ -237,7 +238,7 @@ Read off this machine as the job opened: what is already here, not the limit of 
 
 Your workspace, where \`${TOOL_NAMES.bash}\` runs. Everything you write goes in one of these folders, kept apart because what is in them lives for different lengths of time:
 
-- \`${PATHS.artifacts}/\` — finished work the user opens, one entry per result. Theirs, and it stays.
+- \`${folders?.artifacts ?? PATHS.artifacts}/\` — finished work the user opens, one entry per result. Theirs, and it stays.
 - \`${PATHS.projects}/\` — code you build, one folder each; it outlives this job, and its dependencies install inside it, never at the workspace root.
 - \`${folders?.scratch ?? PATHS.scratch}/\` — this job's working material, shared by every bot on it; cleared ${Math.round(WORKSPACE_KEEP.forMs / 86_400_000)} days after the job ends.
 - \`${folders?.own ?? PATHS.bots}/\` — yours across every job you run here: what you keep for next time.
@@ -273,7 +274,7 @@ Ask Thursday with kind \`question\` only for a decision, permission or something
 
 ${ending}
 
-Write in the user's language. Put finished work under \`${PATHS.artifacts}/\` and name the paths. The app opens Markdown with its tables and mermaid blocks drawn, CSV as a table, HTML and PDF as pages, and images, audio and video; in Markdown, reference images by absolute route (\`/api/file/${PATHS.artifacts}/…\`).`;
+Write in the user's language. Put finished work in \`${botArtifacts(name)}/\` and name the paths. The app opens Markdown with its tables and mermaid blocks drawn, CSV as a table, HTML and PDF as pages, and images, audio and video; in Markdown, reference images by absolute route (\`/api/file/${PATHS.artifacts}/…\`).`;
 }
 
 /** A user message's content; every seat's first message is two text parts (buildThreadOpening). */

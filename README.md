@@ -101,7 +101,7 @@ Requires Node 22.18+. It opens on `localhost:3000`, or the next free port. The f
 ~/.thursday
 ├── local.db          calls, memory, bots, jobs, keys
 └── .ai-workspace
-    ├── artifacts/    finished work
+    ├── artifacts/    finished work, a folder per bot
     ├── projects/     code and longer-lived projects
     ├── bots/         each bot's memory and saved sessions
     └── .agents/      skills you installed

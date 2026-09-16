@@ -10,7 +10,8 @@ a mermaid block in the report.
 
 Run the engine as `node <skill dir>/scripts/archify/bin/archify.mjs` (`archify`
 below). Node is all it needs. Keep the spec in this job's scratch folder; the
-page goes to `artifacts/<name>.html`.
+page goes to `<name>.html` in your folder under `artifacts/`, which the shell
+holds as `$THURSDAY_ARTIFACTS`.
 
 ## Steps
 
@@ -53,7 +54,7 @@ page goes to `artifacts/<name>.html`.
 5. Deliver once:
 
    ```bash
-   archify deliver <type> <spec.json> artifacts/<name>.html --quality showcase --json
+   archify deliver <type> <spec.json> "$THURSDAY_ARTIFACTS/<name>.html" --quality showcase --json
    ```
 
    A non-zero exit means no new page was written, whatever else was printed.

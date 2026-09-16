@@ -1,6 +1,6 @@
 "use client";
 
-import { format } from "date-fns";
+import { format, isThisYear, isToday, isYesterday } from "date-fns";
 import {
   ArrowRight,
   ArrowUp,
@@ -12,16 +12,17 @@ import {
   CirclePause,
   CircleQuestionMark,
   Copy,
-  History,
   Loader2,
   Plus,
   RotateCw,
+  Search,
   X,
 } from "lucide-react";
 import {
   Fragment,
   memo,
   type ReactNode,
+  type RefObject,
   useCallback,
   useEffect,
   useMemo,
@@ -33,11 +34,14 @@ import { queryKey } from "@/app/api/query-key";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
 import { FoldedText } from "@/components/ui/folded-text";
+import { Input } from "@/components/ui/input";
 import { Markdown } from "@/components/ui/markdown";
-import { ShinyText, type ShinyTone } from "@/components/ui/shiny-text";
+import { ShinyText } from "@/components/ui/shiny-text";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
+import { ROOM_KEEP_READ_MS } from "@/config";
 import { startThreadAction } from "@/features/bot/bot.action";
 import {
   type Bot,
@@ -46,6 +50,8 @@ import {
   isAppStop,
   needsThreadReply,
   THREAD_CONTINUE,
+  THREAD_HISTORY_PAGE,
+  type Thread,
 } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { BotRoster } from "@/features/bot/components/bot-roster";
@@ -54,11 +60,14 @@ import {
   ThreadReply,
   useAnswerThread,
 } from "@/features/bot/components/thread-reply";
-import { openSettings } from "@/features/settings/settings.store";
 import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
 import { FileViewer } from "@/features/workspace/components/file-view";
-import { shortAgo, toDate } from "@/lib/date-like";
+import { type DateLike, shortAgo, toDate } from "@/lib/date-like";
 import { useServerAction } from "@/lib/protocol/use-server-action";
+import {
+  type ServerPages,
+  useServerPages,
+} from "@/lib/protocol/use-server-pages";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import {
   cn,
@@ -80,6 +89,7 @@ import {
   type ThreadItem,
   type ThreadView,
   type ThreadViewStatus,
+  threadFromRow,
   threadItems,
   useBotThreads,
   useSeenOnDetail,
@@ -110,10 +120,67 @@ export const BotRoom = memo(function BotRoom() {
   const [composing, setComposing] = useState(false);
   /** The bot each thread shows, by thread id; a thread not in here is on All. */
   const [sides, setSides] = useState<Record<string, string | null>>({});
+  /** The list on screen: what is current, or everything that has ended. */
+  const [tab, setTab] = useState<RoomTab>("now");
+  /** The History filter and scroll, kept while one of its threads is open. */
+  const [needle, setNeedle] = useState("");
+  const scroll = useRef(0);
 
   const newest = [...threads].reverse();
+  // An ending the user has opened moves to History once it has been over for
+  // ROOM_KEEP_READ_MS; until then it stays in reach on Now.
+  const moment = Date.now();
+  const leavesAt = (entry: ThreadView) =>
+    entry.status === "done" && entry.seen
+      ? toDate(entry.updatedAt).getTime() + ROOM_KEEP_READ_MS
+      : Number.POSITIVE_INFINITY;
+  const now = newest.filter((entry) => leavesAt(entry) > moment);
+  // Nothing else re-renders the room when that time passes.
+  const [, settle] = useState(0);
+  const nextLeave = Math.min(...now.map(leavesAt));
+  useEffect(() => {
+    if (!Number.isFinite(nextLeave)) return;
+    const timer = setTimeout(
+      () => settle((count) => count + 1),
+      nextLeave - Date.now(),
+    );
+    return () => clearTimeout(timer);
+  }, [nextLeave]);
+
+  // Read only while History is on screen, or one of its threads is.
+  const browsing = open && tab === "history";
+  const history = useServerPages<Thread>({
+    key: (index, previous) => {
+      if (!browsing) return null;
+      if (index === 0) return queryKey.threadHistory(null);
+      const tail = previous?.at(-1);
+      return tail
+        ? queryKey.threadHistory(toDate(tail.updatedAt).toISOString())
+        : null;
+    },
+    size: THREAD_HISTORY_PAGE,
+  });
+  // Loaded pages stay cached while the tab is away and nothing refreshes them
+  // then, so opening History reads them again — unless this is the first read.
+  const { refresh } = history;
+  const cached = useRef(false);
+  cached.current = history.items.length > 0;
+  useEffect(() => {
+    if (browsing && cached.current) void refresh();
+  }, [browsing, refresh]);
+  const past = useMemo(
+    () =>
+      history.items
+        .filter((row) => row.status === "done" || row.status === "failed")
+        .map((row) => threadFromRow(row, bots)),
+    [history.items, bots],
+  );
+
+  // The inbox copy first: it is the one the threads signal keeps live.
   const current = picked
-    ? (newest.find((entry) => entry.id === picked) ?? null)
+    ? (newest.find((entry) => entry.id === picked) ??
+      past.find((entry) => entry.id === picked) ??
+      null)
     : null;
 
   const [bubble, handoff] = useHandoff();
@@ -172,9 +239,20 @@ export const BotRoom = memo(function BotRoom() {
   const attention = newest.filter(needsYou);
   const pending = attention.length;
   const unread = newest.filter(isUnread);
-  const failed = unread.filter((entry) => entry.status === "failed").length;
 
   const closeCompose = useCallback(() => setComposing(false), []);
+
+  // The room opens on what is current again. A History thread left open would
+  // not be found once its pages stop being read.
+  const fold = () => {
+    setOpen(false);
+    if (tab === "history") {
+      setTab("now");
+      setNeedle("");
+      scroll.current = 0;
+      if (current && !newest.includes(current)) setPicked(null);
+    }
+  };
 
   return (
     // As wide as the resting pill may grow: 80% of the window. The open room
@@ -187,7 +265,7 @@ export const BotRoom = memo(function BotRoom() {
               <ThreadHeader
                 thread={current}
                 onBack={() => setPicked(null)}
-                onClose={() => setOpen(false)}
+                onClose={fold}
               />
               <Conversation
                 thread={current}
@@ -217,22 +295,34 @@ export const BotRoom = memo(function BotRoom() {
           ) : (
             <>
               <ListHeader
-                count={threads.length}
-                pending={pending}
+                tab={tab}
+                current={now.length}
                 composing={composing}
+                onTab={(next) => {
+                  setComposing(false);
+                  setTab(next);
+                }}
                 onCompose={() => setComposing(true)}
-                onClose={() =>
-                  composing ? setComposing(false) : setOpen(false)
-                }
+                onClose={() => (composing ? setComposing(false) : fold())}
               />
               {composing ? (
                 <Compose bots={bots} onDone={closeCompose} />
+              ) : tab === "history" ? (
+                <HistoryList
+                  pages={history}
+                  threads={past}
+                  needle={needle}
+                  onNeedle={setNeedle}
+                  scroll={scroll}
+                  onPick={setPicked}
+                />
+              ) : now.length ? (
+                <ThreadList threads={now} onPick={setPicked} />
               ) : newest.length ? (
-                <ThreadList threads={newest} onPick={setPicked} />
+                <Quiet />
               ) : (
                 <Empty bots={bots} />
               )}
-              {!composing && <Footer />}
             </>
           )}
         </div>
@@ -247,7 +337,6 @@ export const BotRoom = memo(function BotRoom() {
           busy={busy}
           pending={pending}
           unread={unread.length}
-          failed={failed}
           composing={composing}
           onCompose={() => setComposing(true)}
           onCloseCompose={closeCompose}
@@ -650,53 +739,29 @@ const isUnread = (thread: ThreadView) =>
 /**
  * What the room itself is doing, and nothing else — the right side of the pill.
  *
- * What is still moving shines, like every other running line: a wait in amber,
- * running jobs in muted ink beside the spinner. An ending does not — an answer
- * nobody has opened is something to read, not something happening.
+ * It says two things only, in muted ink: someone waits on the user, or work is
+ * running. Endings say nothing here — a result or a failure grows a row above
+ * the pill, and that row is the notice. With nothing going on and nothing
+ * grown, the pill offers a hand; with a row grown and nothing going on, it is
+ * quiet.
  */
 function restingState({
-  count,
   busy,
   pending,
-  unread,
-  failed,
+  grown,
 }: {
-  count: number;
   busy: number;
   pending: number;
-  /** Endings nobody has opened, failures included. */
-  unread: number;
-  failed: number;
-}): { text: string; tone: string; shine: ShinyTone | null } {
+  grown: boolean;
+}): { text: string; shine: boolean; spin?: boolean } | null {
   if (pending > 0)
     return {
       text: pending === 1 ? "waiting on you" : `${pending} waiting on you`,
-      tone: WAITING_INK,
-      shine: "waiting",
+      shine: true,
     };
-  // Unread outranks running: a job still going will say so again, and an answer
-  // left unopened will not.
-  if (failed > 0)
-    return {
-      text: failed === 1 ? "1 failed" : `${failed} failed`,
-      tone: "text-destructive",
-      shine: null,
-    };
-  if (unread > 0)
-    return {
-      text: unread === 1 ? "1 new result" : `${unread} new results`,
-      tone: WAITING_INK,
-      shine: null,
-    };
-  if (busy > 0)
-    return {
-      text: busy === 1 ? "working" : `${busy} running`,
-      tone: "text-muted-foreground",
-      shine: "muted",
-    };
-  if (count > 0)
-    return { text: "all done", tone: "text-muted-foreground", shine: null };
-  return { text: "no jobs yet", tone: "text-muted-foreground", shine: null };
+  if (busy > 0) return { text: "working", shine: true, spin: true };
+  if (!grown) return { text: "Need a hand?", shine: false };
+  return null;
 }
 
 /**
@@ -725,7 +790,6 @@ function Chip({
   busy,
   pending,
   unread,
-  failed,
   composing,
   onCompose,
   onCloseCompose,
@@ -743,15 +807,14 @@ function Chip({
   busy: number;
   pending: number;
   unread: number;
-  failed: number;
   composing: boolean;
   onCompose: () => void;
   onCloseCompose: () => void;
   onPick: (id: string) => void;
   onOpen: () => void;
 }) {
-  const state = restingState({ count, busy, pending, unread, failed });
   const grown = composing || rows.length > 0;
+  const state = restingState({ busy, pending, grown });
 
   return (
     <div
@@ -832,38 +895,28 @@ function Chip({
 
           {/* The room's own state and its glyph: one group, and the only thing on
               the right. `ml-auto` keeps it there when the crew says nothing. */}
-          <span className="ml-auto flex h-7 shrink-0 items-center gap-1.5">
-            {state.shine ? (
-              <ShinyText
-                text={state.text}
-                tone={state.shine}
-                speed={2.6}
-                className="block truncate text-[14px] leading-5 tracking-[-0.15px]"
-              />
-            ) : (
-              <span
-                key={state.text}
-                className={cn(
-                  "block animate-in truncate text-[14px] leading-5 tracking-[-0.15px] fade-in duration-300",
-                  state.tone,
-                )}
-              >
-                {state.text}
-              </span>
-            )}
-            {/* Always 16px, empty or not: a glyph that comes and goes moves the
-                sentence's right end even when the sentence has not changed. */}
-            <span className="grid size-4 shrink-0 place-items-center">
-              {pending === 0 && unread === 0 && busy > 0 && (
-                <Loader2 className="size-4 animate-spin text-muted-foreground/70" />
+          {state && (
+            <span className="ml-auto flex h-7 shrink-0 items-center gap-1.5">
+              {state.shine ? (
+                <ShinyText
+                  text={state.text}
+                  speed={2.6}
+                  className="block truncate text-[14px] leading-5 tracking-[-0.15px]"
+                />
+              ) : (
+                <span
+                  key={state.text}
+                  className="block animate-in truncate text-[14px] leading-5 tracking-[-0.15px] text-muted-foreground fade-in duration-300"
+                >
+                  {state.text}
+                </span>
               )}
-              {pending === 0 &&
-                failed === 0 &&
-                (unread > 0 || (busy === 0 && count > 0)) && (
-                  <Check className="size-4 text-muted-foreground/60" />
-                )}
+              {/* No empty slot: words without a spinner end at the pill's edge. */}
+              {state.spin && (
+                <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground/70" />
+              )}
             </span>
-          </span>
+          )}
         </button>
 
         {composing && (
@@ -1243,27 +1296,47 @@ function FoldButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+/** The room's two lists. */
+type RoomTab = "now" | "history";
+
+/** The two lists as pills, drawn like a thread's bot tabs; the compose "+" and the fold beside them. */
 function ListHeader({
-  count,
-  pending,
+  tab,
+  current,
   composing,
+  onTab,
   onCompose,
   onClose,
 }: {
-  count: number;
-  pending: number;
+  tab: RoomTab;
+  /** Rows on Now. */
+  current: number;
   composing: boolean;
+  onTab: (tab: RoomTab) => void;
   onCompose: () => void;
   onClose: () => void;
 }) {
   return (
-    <div className="flex items-center gap-2 px-3.5 pt-3 pb-1.5">
-      <span className="text-[13px] font-medium">Threads</span>
-      {count > 0 && !composing && (
-        <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
-          {pending > 0 ? `${pending} for you · ${count}` : count}
-        </span>
-      )}
+    <div className="flex items-center gap-2 pt-3 pr-3.5 pb-1.5 pl-2.5">
+      <Tabs
+        value={composing ? null : tab}
+        onValueChange={(value) => onTab(value as RoomTab)}
+        className="gap-0"
+      >
+        <TabsList className="gap-1 rounded-none bg-transparent p-0 group-data-horizontal/tabs:h-auto">
+          <TabsTrigger value="now" className={TAB}>
+            Now
+            {current > 0 && (
+              <span className="font-mono text-[10px] font-normal text-muted-foreground tabular-nums">
+                {current}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="history" className={TAB}>
+            History
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
       <span className="flex-1" />
       {/* Same rule as the chip: whichever list is on screen carries the "+". */}
       {!composing && <ComposeButton onClick={onCompose} />}
@@ -1417,18 +1490,148 @@ function Empty({ bots }: { bots?: Bot[] }) {
   );
 }
 
-/** Link to the full thread history in Settings; the inbox only holds recent threads. */
-function Footer() {
+/** Now with nothing on it, when the room has had threads: what ended is one tab over. */
+function Quiet() {
   return (
-    <div className="flex shrink-0 justify-end px-3 pb-2.5">
-      <button
-        type="button"
-        onClick={() => openSettings("threads")}
-        className="flex items-center gap-1 rounded-md px-1.5 py-1 font-mono text-[10px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+    <p className="px-6 pt-4 pb-5 text-center text-[12px] text-muted-foreground">
+      Nothing running or waiting.
+    </p>
+  );
+}
+
+/**
+ * Every thread that has ended, newest first, grouped by day. Pages arrive as the
+ * end of the list scrolls into view (listThreadHistory). The filter narrows what
+ * has loaded, and the pages keep coming while the end is in view, so a search
+ * reaches further back on its own.
+ */
+function HistoryList({
+  pages,
+  threads,
+  needle,
+  onNeedle,
+  scroll,
+  onPick,
+}: {
+  pages: ServerPages<Thread>;
+  /** The ended threads among the loaded pages. */
+  threads: ThreadView[];
+  needle: string;
+  onNeedle: (next: string) => void;
+  /** Where the list was left, restored when a thread opened from it closes. */
+  scroll: RefObject<number>;
+  onPick: (id: string) => void;
+}) {
+  const restore = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (node) node.scrollTop = scroll.current;
+    },
+    [scroll],
+  );
+
+  const word = needle.trim().toLowerCase();
+  const shown = word
+    ? threads.filter((thread) =>
+        [thread.label, thread.outcome, thread.bot.name]
+          .join(" ")
+          .toLowerCase()
+          .includes(word),
+      )
+    : threads;
+
+  const days: { day: string; rows: ThreadView[] }[] = [];
+  for (const thread of shown) {
+    const day = dayOf(thread.updatedAt);
+    const last = days.at(-1);
+    if (last?.day === day) last.rows.push(thread);
+    else days.push({ day, rows: [thread] });
+  }
+
+  return (
+    <>
+      <div className="relative mx-4 mt-0.5 mb-1 shrink-0">
+        <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          aria-label="Filter by label, bot or word"
+          placeholder="Filter by label, bot or word"
+          value={needle}
+          onChange={(event) => onNeedle(event.target.value)}
+          className="h-8 pl-8"
+        />
+      </div>
+      <div
+        ref={restore}
+        onScroll={(event) => {
+          scroll.current = event.currentTarget.scrollTop;
+        }}
+        className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pt-1 pb-2 scrollbar-none"
       >
-        <History className="size-3" />
-        History
-      </button>
+        {pages.error ? (
+          <p className="px-2.5 py-3 text-[12px] text-destructive">
+            {pages.error.message}
+          </p>
+        ) : pages.isLoading ? (
+          <>
+            <GhostRow />
+            <GhostRow />
+            <GhostRow />
+          </>
+        ) : (
+          <>
+            {days.map((group, at) => (
+              <Fragment key={group.day}>
+                <p
+                  className={cn(
+                    "px-2.5 pb-1 font-mono text-[10px] text-muted-foreground",
+                    at === 0 ? "pt-1" : "pt-3",
+                  )}
+                >
+                  {group.day} · {group.rows.length}
+                </p>
+                {group.rows.map((thread) => (
+                  <ThreadRow
+                    key={thread.id}
+                    thread={thread}
+                    onPick={() => onPick(thread.id)}
+                  />
+                ))}
+              </Fragment>
+            ))}
+            {pages.hasMore ? (
+              <div ref={pages.sentinelRef}>
+                <GhostRow />
+              </div>
+            ) : (
+              days.length === 0 && (
+                <p className="px-6 pt-3 pb-4 text-center text-[12px] text-muted-foreground">
+                  {word ? "Nothing matches." : "Nothing has ended yet."}
+                </p>
+              )
+            )}
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+/** "today", "yesterday", "sep 14" — lower case, like the room's other group labels. */
+function dayOf(value: DateLike): string {
+  const date = toDate(value);
+  if (isToday(date)) return "today";
+  if (isYesterday(date)) return "yesterday";
+  return format(date, isThisYear(date) ? "MMM d" : "MMM d, yyyy").toLowerCase();
+}
+
+/** A row's shape while its page is on the way: the face, the label, the line. */
+function GhostRow() {
+  return (
+    <div className="flex items-center gap-2.5 px-2 py-1.5">
+      <Skeleton className="size-8 shrink-0 rounded-[10px]" />
+      <span className="flex h-9 min-w-0 flex-1 flex-col justify-center gap-1.5">
+        <Skeleton className="h-3.5 w-2/5" />
+        <Skeleton className="h-2.5 w-3/5" />
+      </span>
     </div>
   );
 }
@@ -1588,9 +1791,10 @@ function ThreadRow({
               <ShinyText
                 text={line.text}
                 speed={2.2}
+                // The shine brings its own ink; only the placeholder's italic carries over.
                 className={cn(
                   "min-w-0 flex-1 truncate text-[12px] leading-4",
-                  line.tone,
+                  line.tone.includes("italic") && "italic",
                 )}
               />
             ) : (

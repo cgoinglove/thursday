@@ -95,20 +95,25 @@ export const queryKey = {
     url: "/api/workspace",
     query: { path: path || null, rows },
   }),
+  /** PathChips: which of the paths one message names have no file. Under `workspace`, so it refreshes with it. */
+  workspaceMissing: (paths: string[]) => ({
+    url: "/api/workspace/missing",
+    query: { paths: JSON.stringify(paths) },
+  }),
 
   /**
-   * ArtifactShelf: the top of `artifacts/`, one row per artifact.
-   * `artifactSet` opens one of those rows. The bare key is the menu, so
-   * invalidating it refreshes an open set too.
+   * ArtifactShelf: every bot's folder in `artifacts/` and what is loose there,
+   * one row per artifact. `artifactSet` opens one of those rows by its path.
+   * The bare key is the menu, so invalidating it refreshes an open set too.
    */
   artifacts: "/api/artifact",
   artifactShelf: (rows: number) => ({
     url: "/api/artifact",
     query: { rows },
   }),
-  artifactSet: (name: string, rows: number) => ({
+  artifactSet: (path: string, rows: number) => ({
     url: "/api/artifact",
-    query: { set: name, rows },
+    query: { set: path, rows },
   }),
 
   /** Raw workspace file, no Result envelope; for iframe, img and fetch, not SWR. */

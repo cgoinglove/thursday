@@ -2,6 +2,7 @@ import { jsonSchema, type ToolSet, tool } from "ai";
 import * as z from "zod";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { findPinnedTools } from "@/features/connectors/mcp.query";
+import { botArtifacts } from "@/features/workspace/workspace";
 import type { Sandbox } from "@/lib/sandbox";
 import {
   callConnectedTool,
@@ -89,6 +90,7 @@ export async function createMcpTools(
     findPinnedTools(botName),
   ]);
   const tools: ToolSet = {};
+  const artifacts = botArtifacts(botName);
 
   for (const entry of pinned) {
     const key = toolNameFor(entry.server, entry.name);
@@ -110,13 +112,14 @@ export async function createMcpTools(
           entry.server,
           entry.name,
           (args ?? undefined) as Record<string, unknown> | undefined,
-          abortSignal,
+          { artifacts, abortSignal },
         ),
     });
   }
 
   // The search pair only when something is left to find; otherwise `tool_search` could only refuse
-  if (all.length > pinned.length) Object.assign(tools, searchPair(sandbox));
+  if (all.length > pinned.length)
+    Object.assign(tools, searchPair(sandbox, artifacts));
   return tools;
 }
 
@@ -132,7 +135,7 @@ async function whatExists(server: string): Promise<string> {
     : "Nothing is connected.";
 }
 
-const searchPair = (sandbox: Sandbox): ToolSet => ({
+const searchPair = (sandbox: Sandbox, artifacts: string): ToolSet => ({
   [TOOL_NAMES.tool_search]: tool({
     description: mcpToolSpec[TOOL_NAMES.tool_search].description,
     inputSchema: mcpToolSpec[TOOL_NAMES.tool_search].parameters,
@@ -179,7 +182,7 @@ const searchPair = (sandbox: Sandbox): ToolSet => ({
         server.trim(),
         name.trim(),
         args ?? undefined,
-        abortSignal,
+        { artifacts, abortSignal },
       );
     },
   }),

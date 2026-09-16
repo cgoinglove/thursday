@@ -37,11 +37,13 @@ Voice uses the fixed `gpt-live-1` model. Settings › Thursday exposes a voice a
 additional voice instructions; for the backend, a model,
 optional reasoning effort, web search, and additional backend instructions. Both
 instruction fields add to the app's prompts and never replace them. The model list
-shows recent models; an older or custom ID can be typed and saved. The provider
-validates model availability and supported reasoning levels when the call opens, and
-its refusal reaches the user. Auto reasoning omits the parameter so models without it
-still run. Web search adds the `web_search` tool only when switched on. Changes apply
-from the next call.
+shows recent models; an older or custom ID can be typed and saved. Live accepts any
+reasoning effort when the call opens and fails the backend's first response when the
+model does not take it, so the server asks the token-count endpoint first, once per
+model and effort, and a refused effort is omitted rather than shown. A refused model
+or key still reaches the user when the call opens. Auto reasoning omits the parameter.
+Web search adds the `web_search` tool only when switched on. Changes apply from the
+next call.
 
 Settings stay in the browser under the existing `thursday.settings` key, beside wake
 word, shortcut, captions and call-back (`thursday.store`). `migrateLiveSettings`

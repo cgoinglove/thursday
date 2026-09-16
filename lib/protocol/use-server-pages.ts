@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import useSWRInfinite, { type SWRInfiniteConfiguration } from "swr/infinite";
 import { PAGE_SIZE } from "@/config";
 import { useOnVisible } from "@/hooks/use-on-visible";
@@ -66,7 +66,8 @@ export function useServerPages<T>(options: {
     );
 
   const pages = data ?? [];
-  const items = pages.flat();
+  // The same array until a page changes, so callers can derive from it in a memo
+  const items = useMemo(() => (data ?? []).flat(), [data]);
   const last = pages.at(-1);
   // A short page is the end; a count landing on a boundary costs one empty read
   const hasMore = last === undefined ? false : last.length >= size;
@@ -80,14 +81,17 @@ export function useServerPages<T>(options: {
   const state = useRef({ isValidating, setSize, pages: pages.length });
   state.current = { isValidating, setSize, pages: pages.length };
 
+  // Stable, so a caller can re-read from an effect
+  const refresh = useCallback(() => mutate(), [mutate]);
+
   // swr's filter mutate cannot reach an infinite key, so the reader registers
   // its first page's url and `revalidate` refreshes it by url
   const first = resolveKey(key(0, null));
   const url = typeof first === "string" ? first : first?.url;
   useEffect(() => {
     if (!url) return;
-    return registerPagedReader({ url, refresh: () => mutate() });
-  }, [url, mutate]);
+    return registerPagedReader({ url, refresh });
+  }, [url, refresh]);
 
   const sentinelRef = useOnVisible(
     () => {
@@ -107,6 +111,6 @@ export function useServerPages<T>(options: {
     error,
     hasMore,
     sentinelRef,
-    refresh: () => mutate(),
+    refresh,
   };
 }

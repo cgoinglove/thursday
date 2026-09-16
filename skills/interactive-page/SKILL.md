@@ -19,8 +19,8 @@ license: Complete terms in LICENSE.txt
   the script from — it finds the workspace itself. One project per page is
   fine: pnpm hard-links the store, so the 300 MB `node_modules` costs disk once.
 - `bundle-artifact.sh`, run inside the project, builds one self-contained file
-  and copies it to `artifacts/<name>.html` — that is the path it prints, and the
-  path you hand back. The user opens it from the thread row; the source stays in
+  and copies it to `<name>.html` in your folder under `artifacts/` — that is the
+  path it prints, and the path you hand back. The user opens it from the thread row; the source stays in
   `projects/` and is not named in the report.
 - To look at it yourself, the `browser` skill: it refuses `file:` URLs, so
   serve the folder first (`python3 -m http.server 48800 --bind 127.0.0.1 --directory <dir> &`),
@@ -30,7 +30,7 @@ To build a page, follow these steps:
 1. Initialize the project using `scripts/init-artifact.sh`
 2. Develop the page by editing the generated code
 3. Bundle all code into a single HTML file using `scripts/bundle-artifact.sh`
-4. Hand back the `artifacts/<name>.html` path the bundle script printed
+4. Hand back the path the bundle script printed
 5. (Optional) Test the page
 
 **Stack**: React 18 + TypeScript + Vite (+ vite-plugin-singlefile for bundling) + Tailwind CSS + shadcn/ui
@@ -106,15 +106,15 @@ To bundle the React app into a single HTML file:
 bash scripts/bundle-artifact.sh
 ```
 
-This creates `bundle.html` - a self-contained file with all JavaScript, CSS, and dependencies inlined - and copies it to `artifacts/<project-name>.html` in the workspace. It opens from disk with no network.
+This creates `bundle.html` - a self-contained file with all JavaScript, CSS, and dependencies inlined - and copies it to `<project-name>.html` in your folder under `artifacts/`. It opens from disk with no network.
 
 **Requirements**: Your project must have an `index.html` in the root directory.
 
-**What the script does**: `vite build` with vite-plugin-singlefile (already in the generated `vite.config.ts`), then copies `dist/index.html` to `bundle.html` and to the workspace's `artifacts/`. (Upstream used Parcel here; Parcel cannot resolve the `development` export condition in current @radix-ui packages, so the build failed on a fresh project.)
+**What the script does**: `vite build` with vite-plugin-singlefile (already in the generated `vite.config.ts`), then copies `dist/index.html` to `bundle.html` and to your folder under `artifacts/`. (Upstream used Parcel here; Parcel cannot resolve the `development` export condition in current @radix-ui packages, so the build failed on a fresh project.)
 
 ### Step 4: Hand back the path
 
-Report the `artifacts/<project-name>.html` path the script printed. The user opens it from the thread row.
+Report the path the script printed. The user opens it from the thread row.
 
 ### Step 5: Testing/Visualizing the Page (Optional)
 

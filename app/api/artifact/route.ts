@@ -3,7 +3,8 @@ import { serverRoute } from "@/lib/protocol/server-route";
 
 /**
  * Read only; the one write goes through artifact.action. `?set=` opens one
- * folder's sheet, absent is the menu. `?rows=` is how many to return.
+ * folder's sheet by its workspace path, absent is the menu. `?rows=` is how
+ * many to return.
  */
 export const GET = serverRoute(async (request) => {
   const query = new URL(request.url).searchParams;

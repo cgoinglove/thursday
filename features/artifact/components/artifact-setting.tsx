@@ -15,7 +15,7 @@ import {
   Trash2,
   Video,
 } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/notify";
@@ -28,6 +28,8 @@ import type {
   ArtifactSet,
   ArtifactShelf,
 } from "@/features/artifact/artifact.schema";
+import type { Bot } from "@/features/bot/bot.schema";
+import { BotMark } from "@/features/bot/components/bot-mark";
 import {
   SettingError,
   SettingFilter,
@@ -44,14 +46,14 @@ import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, formatBytes } from "@/lib/utils";
 
 /*
- * What the bots finished, listed the way they already file it: one entry at the
- * top of `artifacts/` is one artifact. A skill writes `artifacts/<name>.html`,
- * a job that makes a set writes `artifacts/<name>/`.
+ * What the bots finished, listed the way they file it: each bot writes into
+ * `artifacts/<bot>/`, and one entry there is one artifact. A skill writes
+ * `<name>.html`, a job that makes a set writes `<name>/`.
  *
  * So this is not Workspace pointed at one folder. There is no tree here: the
- * menu is flat and newest-first, and a folder does not open into another
- * listing — it opens as a sheet of what it holds, which is the thing a set of
- * pictures is for. Browsing a tree is Workspace's job.
+ * menu is newest-first under each bot's face, and a folder does not open into
+ * another listing — it opens as a sheet of what it holds, which is the thing a
+ * set of pictures is for. Browsing a tree is Workspace's job.
  */
 
 /** Every kind `viewKindOf` returns, plus the set. One icon table, as in Workspace. */
@@ -80,6 +82,7 @@ export function ArtifactSetting() {
     { keepPreviousData: true },
   );
 
+  const { data: bots } = useServerRoute<Bot[]>(queryKey.bot);
   const [reveal] = useServerAction(openFileAction);
 
   if (isLoading) return <SettingPanesSkeleton />;
@@ -89,7 +92,11 @@ export function ArtifactSetting() {
   const total = data?.total ?? 0;
   const needle = filter.trim().toLowerCase();
   const shown = needle
-    ? entries.filter((entry) => entry.name.toLowerCase().includes(needle))
+    ? entries.filter(
+        (entry) =>
+          entry.name.toLowerCase().includes(needle) ||
+          entry.bot?.toLowerCase().includes(needle),
+      )
     : entries;
 
   // A fresh row when the open one is still listed, so a rewrite shows through
@@ -130,13 +137,29 @@ export function ArtifactSetting() {
               {needle ? "Nothing matches" : "Nothing here yet"}
             </p>
           ) : (
-            shown.map((entry) => (
-              <MenuRow
-                key={entry.path}
-                entry={entry}
-                active={entry.path === picked?.path}
-                onPick={() => setReading({ row: entry, file: null })}
-              />
+            groupByBot(shown).map(({ bot, rows }) => (
+              <Fragment key={bot ?? ""}>
+                <span className="flex items-center gap-1.5 px-3 pt-3 pb-1 font-mono text-[10px] text-muted-foreground/60">
+                  {bot && (
+                    <BotMark
+                      size={12}
+                      seed={bot}
+                      {...markOf(bot, bots)}
+                      notify={false}
+                      className="shrink-0"
+                    />
+                  )}
+                  <span className="truncate">{bot ?? "Unsorted"}</span>
+                </span>
+                {rows.map((entry) => (
+                  <MenuRow
+                    key={entry.path}
+                    entry={entry}
+                    active={entry.path === picked?.path}
+                    onPick={() => setReading({ row: entry, file: null })}
+                  />
+                ))}
+              </Fragment>
             ))
           )}
 
@@ -168,6 +191,33 @@ export function ArtifactSetting() {
       }
     />
   );
+}
+
+/**
+ * Rows under the bot that made them, in the order the rows came: newest first,
+ * so the bot that handed something over last is on top. Loose rows are one group.
+ */
+function groupByBot(
+  entries: Artifact[],
+): { bot: string | null; rows: Artifact[] }[] {
+  const groups = new Map<string | null, Artifact[]>();
+  for (const entry of entries) {
+    const rows = groups.get(entry.bot) ?? [];
+    rows.push(entry);
+    groups.set(entry.bot, rows);
+  }
+  return [...groups].map(([bot, rows]) => ({ bot, rows }));
+}
+
+/** Icon from the bot list; the row only carries the name. A bot that is gone draws its seed alone. */
+function markOf(name: string, bots?: Bot[]) {
+  const icon = bots?.find((bot) => bot.name === name)?.icon;
+  return {
+    color: icon?.color,
+    shape: icon?.shape,
+    outline: icon?.outline,
+    paint: icon?.paint,
+  };
 }
 
 /** `4 artifacts · 34 files`, and what is not on screen. Counts rows, so it is free. */
@@ -247,7 +297,9 @@ function Reader({
   const confirmRemove = async (path: string) => {
     const confirmed = await notify.confirm({
       title: `Delete ${path.split("/").pop()}?`,
-      description: "It is deleted from disk for good.",
+      description: open
+        ? "It is deleted from disk for good."
+        : "The folder and everything in it are deleted from disk for good.",
       okText: "Delete",
       destructive: true,
     });
@@ -295,25 +347,23 @@ function Reader({
         >
           <FolderOpen />
         </Button>
-        {open && (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label="Delete"
-            loading={removing}
-            className="text-muted-foreground"
-            onClick={() => confirmRemove(open.path)}
-          >
-            <Trash2 />
-          </Button>
-        )}
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label="Delete"
+          loading={removing}
+          className="text-muted-foreground"
+          onClick={() => confirmRemove(open?.path ?? row.path)}
+        >
+          <Trash2 />
+        </Button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
         {open ? (
           <FilePreview path={open.path} bytes={open.bytes} />
         ) : (
-          <SetSheet name={row.name} onOpen={onOpen} />
+          <SetSheet path={row.path} onOpen={onOpen} />
         )}
       </div>
     </>
@@ -325,14 +375,14 @@ function Reader({
  * a set nobody opens costs one `readdir` for its count and nothing more.
  */
 function SetSheet({
-  name,
+  path,
   onOpen,
 }: {
-  name: string;
+  path: string;
   onOpen: (file: ArtifactFile) => void;
 }) {
   const { data, isLoading, error } = useServerRoute<ArtifactSet>(
-    queryKey.artifactSet(name, ARTIFACT_VIEW.setFiles),
+    queryKey.artifactSet(path, ARTIFACT_VIEW.setFiles),
   );
 
   if (isLoading) {
@@ -418,7 +468,7 @@ function Nothing({
       <p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
         {empty
           ? "Nothing finished yet. When a bot ends a job with something to hand over — a page, a report, a set of pictures — it lands here."
-          : "Pick something on the left. A folder a bot filled is one row, and opens as a sheet."}
+          : "Pick something on the left. Each bot's work is under its face; a folder it filled is one row, and opens as a sheet."}
       </p>
       <Button variant="outline" onClick={onReveal}>
         <FolderOpen />

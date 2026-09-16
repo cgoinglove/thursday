@@ -20,13 +20,15 @@ import { cn } from "@/lib/utils";
 
 /**
  * The call face. Two renderers with nothing in common inside (an SVG
- * silhouette and a glyph canvas); the shared contract is CallStatus, and each
- * adapter maps it. A third face is one FaceKind, one state table, one FACES entry.
+ * silhouette and a glyph canvas); the shared contract is CallStatus and `failed`,
+ * and each adapter maps them. A third face is one FaceKind, one state table, one FACES entry.
  */
 
 export type FaceProps = {
   /** What the call is doing; every face answers only this. */
   status: CallStatus;
+  /** A call just failed to open or dropped. The status is idle by then; this says why the face is not at rest. */
+  failed?: boolean;
   /** Box size in px, measured (see Face). */
   size: number;
   /** Audio bands, read once per animation frame, not through state. */
@@ -66,7 +68,14 @@ const MARK_VOICE: Partial<MarkOptions> = {
   stretch: 0,
 };
 
-function MarkFace({ status, size, getSpectrum, look, className }: FaceProps) {
+function MarkFace({
+  status,
+  failed,
+  size,
+  getSpectrum,
+  look,
+  className,
+}: FaceProps) {
   return (
     <BotMark
       size={size}
@@ -76,6 +85,7 @@ function MarkFace({ status, size, getSpectrum, look, className }: FaceProps) {
       outline={look.outline}
       paint={look.paint}
       state={MARK_STATE[status]}
+      failed={failed}
       getSpectrum={getSpectrum}
       options={MARK_VOICE}
       notify={false}
@@ -105,6 +115,7 @@ const ORB_LIGHT: [number, number, number] = [10, 10, 10];
 
 function OrbFace({
   status,
+  failed,
   size,
   getSpectrum,
   getMicSpectrum,
@@ -114,7 +125,7 @@ function OrbFace({
   const dark = useResolvedTheme() === "dark";
   return (
     <AsciiOrb
-      mode={ORB_MODE[status]}
+      mode={failed ? "error" : ORB_MODE[status]}
       size={size}
       color={dark ? ORB_DARK : ORB_LIGHT}
       getSpectrum={getSpectrum}

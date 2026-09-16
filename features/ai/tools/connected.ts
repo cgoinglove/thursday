@@ -88,7 +88,8 @@ export async function callConnectedTool(
   server: string,
   name: string,
   args: Record<string, unknown> | undefined,
-  abortSignal?: AbortSignal,
+  /** `artifacts`: the calling bot's folder, where the studio saves what it makes (workspace.ts botArtifacts). */
+  { artifacts, abortSignal }: { artifacts: string; abortSignal?: AbortSignal },
 ): Promise<McpCallOutcome> {
   const deadline = AbortSignal.timeout(CONNECTED_TOOL_TIMEOUT_MS);
   const signal = abortSignal
@@ -97,7 +98,7 @@ export async function callConnectedTool(
   try {
     const text =
       server === STUDIO_SERVER
-        ? await callStudioTool(sandbox, name, args, signal)
+        ? await callStudioTool(sandbox, name, args, artifacts, signal)
         : await callMcpTool(server, name, args, signal);
     if (typeof text !== "string") return text;
     return {
@@ -126,6 +127,7 @@ async function callStudioTool(
   sandbox: Sandbox,
   name: string,
   args: Record<string, unknown> | undefined,
+  artifacts: string,
   abortSignal?: AbortSignal,
 ): Promise<string> {
   const tool = (await loadStudio()).find((one) => one.name === name);
@@ -135,7 +137,7 @@ async function callStudioTool(
       `"${name}" is not in the ${STUDIO_SERVER} right now — the key that runs it is gone.`,
     );
   }
-  return tool.execute(args ?? {}, { sandbox, abortSignal });
+  return tool.execute(args ?? {}, { sandbox, artifacts, abortSignal });
 }
 
 /** Definitions come from what the last connect stored (mcp.query); a session is opened only for a tool that runs (mcp.manager). */

@@ -86,6 +86,12 @@ const FACE_TOOL_MS = 800;
  */
 const FACE_SETTLE_MS = 600;
 
+/**
+ * How long the face says a call failed to open or dropped before it rests: long
+ * enough for the orb to spell its ERROR out. The toast carries the reason.
+ */
+const FAILED_FACE_MS = 6000;
+
 /** Scrollback for the side-by-side layout; the call view shows at most three. */
 const KEEP_MESSAGES = 24;
 
@@ -141,6 +147,16 @@ export function useThursday() {
   const farewell = useRef<HTMLAudioElement | null>(null);
 
   const [status, setStatus] = useState<CallStatus>("idle");
+  /** A call just failed to open or dropped; the face says so for FAILED_FACE_MS. */
+  const [failed, setFailed] = useState(false);
+  const failedFor = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showFailed = useCallback((on: boolean) => {
+    if (failedFor.current) clearTimeout(failedFor.current);
+    failedFor.current = on
+      ? setTimeout(() => setFailed(false), FAILED_FACE_MS)
+      : null;
+    setFailed(on);
+  }, []);
   const [messages, setMessages] = useState<CallMessage[]>([]);
   const [tool, setTool] = useState<ToolRun | null>(null);
   /** When the line opened (ms). */
@@ -570,6 +586,7 @@ export function useThursday() {
       if (reading.current.giveUp) clearTimeout(reading.current.giveUp);
       if (thinkTail.current) clearTimeout(thinkTail.current);
       if (idle.current.grace) clearTimeout(idle.current.grace);
+      if (failedFor.current) clearTimeout(failedFor.current);
     };
   }, []);
 
@@ -639,6 +656,7 @@ export function useThursday() {
     if (calling.current || status !== "idle") return hangUp();
 
     setStatus("connecting");
+    showFailed(false);
     // from here on this is a call; the outbox holds updates until the session exists
     opening.current = true;
     calling.current = true;
@@ -759,6 +777,7 @@ export function useThursday() {
             toast.add({ type: "warning", title: "Call warning", description }),
           failed: (description) => {
             toast.add({ type: "error", title: "Call failed", description });
+            showFailed(true);
             void hangUp();
           },
         },
@@ -800,6 +819,7 @@ export function useThursday() {
           title: "Could not start the call",
           description: errorToString(cause),
         });
+        showFailed(true);
       }
       if (attempt.current !== mine) return;
       // a call that never opened still has a row; close it
@@ -825,6 +845,7 @@ export function useThursday() {
     readAloud,
     doneReading,
     holdThinking,
+    showFailed,
   ]);
 
   /**
@@ -895,6 +916,8 @@ export function useThursday() {
 
   return {
     status,
+    /** A call just failed to open or dropped; true for a few seconds after. */
+    failed,
     messages,
     tool,
     /** When the backend picked the turn up (ms); null when it is not working. */

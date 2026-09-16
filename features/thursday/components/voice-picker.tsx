@@ -1,10 +1,11 @@
 "use client";
 
 import { Check, ChevronDown, X } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, inputClassName } from "@/components/ui/input";
 import { ShinyText } from "@/components/ui/shiny-text";
+import { toast } from "@/components/ui/toast";
 import {
   LIVE_VOICE_NOTE,
   LIVE_VOICES,
@@ -13,13 +14,13 @@ import {
 import { Face } from "@/features/thursday/components/face";
 import type { ThursdayFace } from "@/features/thursday/thursday.schema";
 import { createClipTap, SPECTRUM_BANDS } from "@/lib/live/live.tap";
-import { cn } from "@/lib/utils";
+import { cn, errorToString } from "@/lib/utils";
 
 /**
  * Choosing a voice by ear. A name plays its recorded line and her own face
  * speaks it — the same component and the same bands a call moves her with, so
  * what you hear and see here is what the call will be. Only Save writes, so
- * hearing eleven voices no longer stores eleven of them.
+ * hearing eleven voices stores none of them.
  */
 
 const SILENT = new Array<number>(SPECTRUM_BANDS).fill(0);
@@ -40,12 +41,19 @@ export function VoicePicker({
   const [typed, setTyped] = useState("");
 
   const clip = useRef<HTMLAudioElement>(null);
-  const tap = useRef<ReturnType<typeof createClipTap> | null>(null);
+  // A tap belongs to the element it routes, which exists only while the picker is open.
+  const tap = useRef<{
+    element: HTMLAudioElement;
+    clip: ReturnType<typeof createClipTap>;
+  } | null>(null);
+  // Each play and each stop takes the next number; a failure reported for an
+  // earlier one changes nothing.
+  const plays = useRef(0);
   // The face reads the spectrum once per animation frame, so what it reads is a
   // ref, not state: a stable function, and silence when nothing is playing.
   const sounding = useRef(false);
   const spectrum = useCallback(
-    () => (tap.current && sounding.current ? tap.current.read() : SILENT),
+    () => (tap.current && sounding.current ? tap.current.clip.read() : SILENT),
     [],
   );
   const showPlaying = (on: boolean) => {
@@ -53,7 +61,31 @@ export function VoicePicker({
     setPlaying(on);
   };
 
+  // The element goes when the picker closes; its graph goes with it.
+  useEffect(() => {
+    if (!open) return;
+    return () => {
+      const held = tap.current;
+      tap.current = null;
+      if (!held) return;
+      held.element.pause();
+      void held.clip.close();
+    };
+  }, [open]);
+
+  const failed = (play: number, cause: unknown) => {
+    if (play !== plays.current) return;
+    plays.current++;
+    showPlaying(false);
+    toast.add({
+      type: "error",
+      title: "Voice sample did not play",
+      description: errorToString(cause),
+    });
+  };
+
   const stop = () => {
+    plays.current++;
     const audio = clip.current;
     if (audio) {
       audio.pause();
@@ -72,12 +104,20 @@ export function VoicePicker({
     setHeard(next);
     setTyped("");
     // The graph is built inside the gesture that plays: an AudioContext made
-    // before one is refused. An element is routed once, so this happens once.
-    tap.current ??= createClipTap(audio);
-    void tap.current.resume();
+    // before one is refused. An element is routed once, so it keeps its tap.
+    if (tap.current?.element !== audio) {
+      void tap.current?.clip.close();
+      tap.current = { element: audio, clip: createClipTap(audio) };
+    }
+    void tap.current.clip.resume();
+    const play = ++plays.current;
     audio.src = voiceSamplePath(next);
     showPlaying(true);
-    void audio.play().catch(() => showPlaying(false));
+    void audio.play().catch((cause: unknown) => {
+      // A later click or a stop cut this one short; that play owns the state.
+      if (cause instanceof DOMException && cause.name === "AbortError") return;
+      failed(play, cause);
+    });
   };
 
   const close = () => {
@@ -119,7 +159,18 @@ export function VoicePicker({
   return (
     <div className="@container space-y-2">
       {/* Nothing here plays through the page's own speakers but this element. */}
-      <audio ref={clip} onEnded={() => showPlaying(false)}>
+      <audio
+        ref={clip}
+        onEnded={() => showPlaying(false)}
+        // A clip that breaks after it starts fails here, not in play()
+        onError={(event) => {
+          if (!sounding.current) return;
+          failed(
+            plays.current,
+            event.currentTarget.error?.message || "The clip could not be read.",
+          );
+        }}
+      >
         <track kind="captions" />
       </audio>
 

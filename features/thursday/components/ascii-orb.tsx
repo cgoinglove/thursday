@@ -202,9 +202,9 @@ type Voice = {
 
 /**
  * Seconds each channel of the field takes to arrive, and to leave. Leaving is
- * slower everywhere: a behaviour that stops should wind down — crumbs already on
- * their way keep coming and fade out — rather than being switched off the frame
- * the mode changes (user, 09-16: "모으던 게 갑자기 없어져").
+ * slower everywhere: a behaviour that stops winds down — crumbs already on their
+ * way keep coming and fade out — rather than vanishing on the frame the mode
+ * changes.
  */
 const RISE = {
   scale: 0.45,
@@ -239,9 +239,8 @@ function toward(
 /**
  * The body every mode rests at. The max drawable radius is DESIGN/2, so this
  * sets the budget for SPEAK_MAX and the crumbs thrown past it: leave room, or a
- * loud voice fills the box and its swell has nowhere left to read (user, 09-16:
- * "스피커 터지는 기분"). The visible body is about half, since the idle wave
- * fades from 0.55 x IDLE_R.
+ * loud voice fills the box and its swell has nowhere left to read. The visible
+ * body is about half, since the idle wave fades from 0.55 x IDLE_R.
  */
 const IDLE_R = 170;
 
@@ -251,7 +250,8 @@ const IDLE_R = 170;
  * ring.
  */
 const GATHER_R = 320;
-const GATHER_RAYS = 9;
+/** Equal sectors around the circle; each is a few cells wide, so its crumb reads as a crumb and not an arc */
+const GATHER_RAYS = 56;
 /** One crumb's trip inward, in trips per second */
 const GATHER_RATE = 0.7;
 /**
@@ -275,8 +275,8 @@ const LISTEN_PACE_VOICE = 8;
  * the rest the syllable, so the words show without the body moving.
  */
 const LISTEN_LIFT = 0.24;
-/** How fast the retype rate eases toward the voice, per frame */
-const PACE_EASE = 0.12;
+/** Seconds the retype rate takes to follow the voice (toward) */
+const PACE_TIME = 0.14;
 
 /** Working: a comet orbiting just outside the resting body */
 const WORK_R = 210;
@@ -448,7 +448,12 @@ function targetFor(m: AsciiOrbMode, e: number, v: Voice): Field {
 function gatherValue(cell: Cell, t: number, scale: number) {
   const rim = IDLE_R * scale;
   if (cell.speck >= 0.55 || cell.dist < rim * 0.8) return 0;
-  const ray = hash(Math.floor((cell.angle + Math.PI) * GATHER_RAYS), 5.3);
+  // atan2 reaches +PI, which would open a ray past the last one
+  const sector = Math.min(
+    GATHER_RAYS - 1,
+    Math.floor(((cell.angle + Math.PI) / (2 * Math.PI)) * GATHER_RAYS),
+  );
+  const ray = hash(sector, 5.3);
   const p = (t * GATHER_RATE + ray) % 1;
   const d =
     cell.dist -
@@ -519,10 +524,14 @@ function speechValue(cell: Cell, t: number, v: Voice, amount: number) {
   return value;
 }
 
-/** ERROR, letter by letter: each lights up in turn and goes out the same way. */
-function errorValue(cell: Cell, t: number, e: number) {
+/**
+ * ERROR, letter by letter: each lights up in turn and goes out the same way.
+ * `age` is ERROR's own clock, not the mode's, so leaving the mode fades the
+ * letters where they stand instead of restarting their cycle.
+ */
+function errorValue(cell: Cell, t: number, age: number) {
   if (cell.letter < 0) return 0;
-  const pe = e % ERR_CYCLE;
+  const pe = age % ERR_CYCLE;
   const jitter = cell.seed * 0.12;
   const appear = smoothstep(
     0,
@@ -543,7 +552,7 @@ function errorValue(cell: Cell, t: number, e: number) {
  * hollows the body rather than replacing it, so there is nothing to dissolve
  * between when she starts or stops.
  */
-function fieldValue(cell: Cell, t: number, e: number, f: Field, v: Voice) {
+function fieldValue(cell: Cell, t: number, errAge: number, f: Field, v: Voice) {
   let value =
     f.scale > 0.02
       ? idleValue(cell, t, f.lift, f.scale) * (1 - 0.6 * f.speech)
@@ -551,7 +560,7 @@ function fieldValue(cell: Cell, t: number, e: number, f: Field, v: Voice) {
   if (f.gather > 0.01) value += gatherValue(cell, t, f.scale) * f.gather;
   if (f.comet > 0.01) value += cometValue(cell, t) * f.comet;
   if (f.speech > 0.01) value += speechValue(cell, t, v, f.speech) * f.speech;
-  if (f.err > 0.01) value += errorValue(cell, t, e) * f.err;
+  if (f.err > 0.01) value += errorValue(cell, t, errAge) * f.err;
   return value;
 }
 
@@ -772,6 +781,8 @@ export function AsciiOrb({
     /** Glyph clock: it runs at the retype pace, so changing the pace never jumps a glyph */
     let clock = 0;
     let pace = 1;
+    /** Seconds ERROR has been showing (errorValue) */
+    let errAge = 0;
 
     const draw = (nowMs: number) => {
       const t = nowMs * 0.001;
@@ -826,7 +837,7 @@ export function AsciiOrb({
         mic && modeRef.current.mode === "listening"
           ? LISTEN_PACE_QUIET + LISTEN_PACE_VOICE * micHeard.level
           : 1;
-      pace += (wantPace - pace) * PACE_EASE;
+      pace = toward(pace, wantPace, PACE_TIME, PACE_TIME, dt);
       clock += dt * pace;
 
       for (let i = 0; i < SPEAK_LOBES; i++) {
@@ -869,6 +880,12 @@ export function AsciiOrb({
       f.gather = toward(f.gather, want.gather, RISE.gather, FALL.gather, dt);
       f.comet = toward(f.comet, want.comet, RISE.comet, FALL.comet, dt);
       f.speech = toward(f.speech, want.speech, RISE.speech, FALL.speech, dt);
+      // ERROR's clock runs only in its mode and holds while the letters fade
+      // out; an error that finds them already gone starts from the first letter
+      if (cur.mode === "error") {
+        if (f.err <= 0.01) errAge = 0;
+        errAge += dt;
+      }
       f.err = toward(f.err, want.err, RISE.err, FALL.err, dt);
       const keepGlyphSolid = f.err > 0.5;
 
@@ -914,7 +931,7 @@ export function AsciiOrb({
       const all = cellsRef.current;
       for (let ci = 0; ci < all.length; ci++) {
         const cell = all[ci];
-        let v = fieldValue(cell, t, t - cur.start, f, voice);
+        let v = fieldValue(cell, t, errAge, f, voice);
 
         if (!(keepGlyphSolid && cell.letter >= 0)) {
           // per-cell brightness response breaks concentric rings; multiplicative, so empty (0) stays empty

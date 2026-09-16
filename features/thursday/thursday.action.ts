@@ -15,7 +15,7 @@ import {
   LiveCloseSchema,
   type ToolManifest,
 } from "@/lib/live/live.schema";
-import { createLiveCall } from "@/lib/live/live.server";
+import { acceptedEffort, createLiveCall } from "@/lib/live/live.server";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
 import {
@@ -75,7 +75,7 @@ export const openCallAction = serverAction(
     }
 
     // Assembled per call, never cached: both prompts read what earlier calls stored.
-    const [voice, backend, tools] = await Promise.all([
+    const [voice, backend, tools, reasoningEffort] = await Promise.all([
       loadLivePrompt({
         voicePrompt: thursday.voicePrompt,
         webSearch: thursday.webSearch,
@@ -83,6 +83,11 @@ export const openCallAction = serverAction(
       }),
       loadThursdayPrompt(thursday.backendPrompt),
       loadToolManifest(),
+      acceptedEffort({
+        apiKey,
+        model: thursday.backendModel,
+        effort: thursday.reasoningEffort,
+      }),
     ]);
 
     // Connect before insert: a refused key or model must not leave an open row nobody can close.
@@ -97,7 +102,7 @@ export const openCallAction = serverAction(
         model: thursday.backendModel,
         instructions: backend,
         tools,
-        reasoningEffort: thursday.reasoningEffort,
+        reasoningEffort,
         webSearch: thursday.webSearch,
       },
     });

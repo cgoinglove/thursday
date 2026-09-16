@@ -57,7 +57,7 @@ export const LIVE_VOICE_NOTE: Partial<
   cinder: "Southern U.S. · masculine",
 };
 
-/** A recorded line in this voice, written by `pnpm voice:samples`. Only the listed voices have one. */
+/** A recorded line in this voice. Only the listed voices have one. */
 export const voiceSamplePath = (voice: string) => `/voices/${voice}.ogg`;
 
 export const LIVE_BACKEND_MODELS = TEXT_MODEL_PROVIDERS.openai.suggestModels;

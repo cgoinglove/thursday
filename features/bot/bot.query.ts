@@ -8,6 +8,7 @@ import {
 } from "@/database/tables";
 import type { TextModelProviderId } from "@/features/ai/model.schema";
 import { readConfig, writeConfig } from "@/features/config/config.query";
+import { botFolderName } from "@/features/workspace/workspace";
 import {
   BOT_MEMORY_KEY,
   type BotForm,
@@ -155,9 +156,25 @@ export async function findBot(name: string) {
   return bot ?? null;
 }
 
-/** Returns null when the name is taken: two bots with one name would be a coin toss at delegate time. */
+/**
+ * Every name that has folders in the workspace: the rows, switched off or not,
+ * and DEFAULT_BOT, which works without one.
+ */
+export async function listBotNames(): Promise<string[]> {
+  const rows = await database.select({ name: botTable.name }).from(botTable);
+  return [...new Set([...rows.map((row) => row.name), DEFAULT_BOT.name])];
+}
+
+/**
+ * Returns null when the name is taken: two bots with one name would be a coin
+ * toss at delegate time, and two whose names give one folder would share their
+ * memory and artifacts (workspace.ts botFolderName).
+ */
 export async function createBot(form: BotForm) {
-  if (await findBot(form.name)) return null;
+  const folder = botFolderName(form.name).toLowerCase();
+  const rows = await database.select({ name: botTable.name }).from(botTable);
+  if (rows.some((row) => botFolderName(row.name).toLowerCase() === folder))
+    return null;
 
   const { toolIds, ...values } = pickedModel(form);
   const [bot] = await database.insert(botTable).values(values).returning();

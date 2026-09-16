@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import {
   mkdir,
   readdir,
@@ -62,14 +63,27 @@ const under = (root: string, path: string) =>
 /**
  * Why a file may not be written where the model asked, as one line it can act
  * on, or null when it may. Refused: the workspace root (files belong in one
- * of the three folders) and anything inside the app running the bot.
+ * of the folders), a new entry at the top of `artifacts/` other than the
+ * bot's own folder, and anything inside the app running the bot. What already
+ * sits in `artifacts/` — another bot's folder, an older result — stays editable.
  */
-export function writeRefusal(full: string): string | null {
+export function writeRefusal(full: string, bot?: string): string | null {
   if (under(WORKSPACE, full)) {
     const rel = relative(WORKSPACE, full);
-    const [top] = rel.split(sep);
-    if (top && WRITABLE.has(top)) return null;
-    return `Not written: ${rel || "the workspace root"} is outside the workspace's folders. Finished work goes under ${PATHS.artifacts}/, code under ${PATHS.projects}/, your own kit under ${PATHS.bots}/, and this job's working material under ${PATHS.scratch}/.`;
+    const [top, entry] = rel.split(sep);
+    if (!top || !WRITABLE.has(top)) {
+      return `Not written: ${rel || "the workspace root"} is outside the workspace's folders. Finished work goes under ${bot ? botArtifacts(bot) : PATHS.artifacts}/, code under ${PATHS.projects}/, your own kit under ${PATHS.bots}/, and this job's working material under ${PATHS.scratch}/.`;
+    }
+    if (
+      bot &&
+      top === PATHS.artifacts &&
+      entry &&
+      entry.toLowerCase() !== botFolderName(bot).toLowerCase() &&
+      !existsSync(join(ARTIFACTS, entry))
+    ) {
+      return `Not written: ${rel} would sit loose at the top of ${PATHS.artifacts}/. Your finished work goes in ${botArtifacts(bot)}/.`;
+    }
+    return null;
   }
   if (under(APP_ROOT, full)) {
     return `Not written: ${full} is inside the app that is running you, not the user's files. Work in ${WORKSPACE}; outside it, write only where the user pointed you.`;
@@ -107,8 +121,8 @@ export async function insideWorkspace(rel: string): Promise<string | null> {
  *
  * Named for the label so the folder is readable on the Workspace screen, with
  * the head of the id after it so two jobs called the same thing stay apart.
- * Finished work never lands here: that is `artifacts/`, which stays flat and
- * unattributed, and code is `projects/`, which outlives the job that started it.
+ * Finished work never lands here: that is the bot's own folder in `artifacts/`,
+ * and code is `projects/`, which outlives the job that started it.
  */
 export function jobScratch(threadId: string, label: string): string {
   const slug =
@@ -121,14 +135,37 @@ export function jobScratch(threadId: string, label: string): string {
   return `${PATHS.scratch}/${slug}-${threadId.slice(0, 6)}`;
 }
 
+/**
+ * A bot's name as one path segment, the same under `bots/` and `artifacts/`.
+ * Two names that give the same segment would share both folders, so creating
+ * a bot refuses one (bot.query createBot); compared lowercased, as macOS does.
+ */
+export const botFolderName = (bot: string): string =>
+  bot.replace(/[^\p{L}\p{N}_-]+/gu, "-");
+
 /** Where one bot keeps what it wants on its next job (config PATHS.bots). */
 export const botFolder = (bot: string): string =>
-  `${PATHS.bots}/${bot.replace(/[^\p{L}\p{N}_-]+/gu, "-")}`;
+  `${PATHS.bots}/${botFolderName(bot)}`;
 
-export async function openBotFolder(bot: string): Promise<string> {
-  const path = botFolder(bot);
-  await mkdir(join(WORKSPACE, path), { recursive: true });
-  return path;
+/**
+ * Where one bot's finished work goes. The Artifacts section draws each as that
+ * bot's group (features/artifact), so a result is filed by who made it.
+ */
+export const botArtifacts = (bot: string): string =>
+  `${PATHS.artifacts}/${botFolderName(bot)}`;
+
+/** Both of a bot's folders, created so its first write never has to. */
+export async function openBotFolders(
+  bot: string,
+): Promise<{ own: string; artifacts: string }> {
+  const own = botFolder(bot);
+  const artifacts = botArtifacts(bot);
+  await Promise.all(
+    [own, artifacts].map((path) =>
+      mkdir(join(WORKSPACE, path), { recursive: true }),
+    ),
+  );
+  return { own, artifacts };
 }
 
 /** Creates it, so a job never has to and never writes to the shared root by mistake. */
@@ -156,6 +193,14 @@ export const jobShellEnv = (
         PLAYWRIGHT_MCP_VIEWPORT_SIZE: BROWSER_VIEWPORT,
       }
     : {};
+
+/**
+ * A bot's artifacts folder in its shell, for a script that delivers a file
+ * rather than a model typing the path (skills/interactive-page bundle-artifact.sh).
+ */
+export const botShellEnv = (bot: string): Record<string, string> => ({
+  THURSDAY_ARTIFACTS: botArtifacts(bot),
+});
 
 /** A participant's browser belongs to the job and its canonical bot name, across every caller. */
 export const botBrowserSession = (threadId: string, bot: string) =>

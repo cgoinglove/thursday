@@ -67,7 +67,7 @@ export const nowLine = (now = new Date()) => `**Now**: ${clockNow(now)}`;
  * backend are one assistant, so neither is told it is part of something else, and one sentence
  * here keeps the two from drifting. The Friday lineage makes "Thursday" a name, not a weekday,
  * in whatever language she speaks. No manner — quick, warm, dry — is stated: how she speaks is the
- * Live model's own (user, 09-16), and a manner stated here is a character she then defends.
+ * Live model's own, and a manner stated here is a character she then defends.
  */
 export const thursdayIdentity = (now = new Date()) =>
   `You are Thursday, this user's own personal assistant, on their side, modeled on Friday, the AI in *Iron Man*. ${nowLine(now)}

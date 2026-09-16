@@ -24,19 +24,20 @@ FILE_SIZE=$(du -h bundle.html | cut -f1)
 echo ""
 echo "✅ Bundle complete!"
 
-# The finished file belongs in the workspace's artifacts/ — that is what the
-# report names and the screen opens; the project stays where it is. The
-# workspace is the nearest ancestor with a pnpm-workspace.yaml (the app plants
-# one there); with none in sight, bundle.html here is all there is.
+# The finished file belongs in the bot's folder in artifacts/ — that is what
+# the report names and the screen opens; the project stays where it is. The app
+# hands that folder to the shell as THURSDAY_ARTIFACTS, relative to the
+# workspace, which is the nearest ancestor with a pnpm-workspace.yaml (the app
+# plants one there); with none in sight, bundle.html here is all there is.
 WORKSPACE_ROOT="$PWD"
 while [ "$WORKSPACE_ROOT" != "/" ] && [ ! -f "$WORKSPACE_ROOT/pnpm-workspace.yaml" ]; do
   WORKSPACE_ROOT="$(dirname "$WORKSPACE_ROOT")"
 done
 if [ -f "$WORKSPACE_ROOT/pnpm-workspace.yaml" ]; then
-  mkdir -p "$WORKSPACE_ROOT/artifacts"
-  OUT="$WORKSPACE_ROOT/artifacts/$(basename "$PWD").html"
-  cp bundle.html "$OUT"
-  echo "📄 Output: artifacts/$(basename "$PWD").html ($FILE_SIZE) — hand back this path"
+  OUT="${THURSDAY_ARTIFACTS:-artifacts}/$(basename "$PWD").html"
+  mkdir -p "$(dirname "$WORKSPACE_ROOT/$OUT")"
+  cp bundle.html "$WORKSPACE_ROOT/$OUT"
+  echo "📄 Output: $OUT ($FILE_SIZE) — hand back this path"
 else
   echo "📄 Output: $(pwd)/bundle.html ($FILE_SIZE)"
 fi

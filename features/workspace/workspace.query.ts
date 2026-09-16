@@ -69,6 +69,23 @@ export async function readWorkspaceFolder(
   };
 }
 
+/**
+ * Which of these workspace-relative paths name no file: a message can mention a
+ * file that was never written or has since gone. A path that leaves the workspace
+ * is not judged and never listed.
+ */
+export async function findMissingFiles(paths: string[]): Promise<string[]> {
+  const missing = await Promise.all(
+    paths.map(async (path) => {
+      const full = await insideWorkspace(path);
+      if (!full) return null;
+      const info = await stat(full).catch(() => null);
+      return info?.isFile() ? null : path;
+    }),
+  );
+  return missing.filter((path) => path !== null);
+}
+
 /** Deletes one file. Folders are refused: a whole tree goes through `emptyScratch`. */
 export async function deleteWorkspaceFile(rel: string): Promise<void> {
   const full = await insideWorkspace(rel);

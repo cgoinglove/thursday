@@ -121,7 +121,7 @@ it. Kill the server when done.
 
 Snapshots land in `.playwright-cli/` and are cleared after a few days. A file you
 name — `--filename=`, a `pdf`, a download — goes under `scratch/`, or
-`artifacts/` when it is the result.
+your folder under `artifacts/` when it is the result.
 
 ## Install
 

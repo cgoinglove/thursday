@@ -2,12 +2,22 @@ import type { CSSProperties } from "react";
 import { cn, WAITING_INK } from "@/lib/utils";
 
 /**
- * The resting ink and the band that crosses it. On a light page the band moves
- * toward the ink: a lighter band on light ground reads as the words fading out.
+ * The resting ink, the ink under a passing band, and the band. On a light page
+ * the band moves toward the ink: a lighter band on light ground reads as the
+ * words fading out. A dark band over the full muted ink barely shows there, so
+ * the words under it rest lighter on a light page than they do still.
  */
 const TONES = {
-  muted: { rest: "text-muted-foreground", band: "via-foreground" },
-  waiting: { rest: WAITING_INK, band: "via-amber-950 dark:via-amber-100" },
+  muted: {
+    rest: "text-muted-foreground",
+    under: "text-muted-foreground/60 dark:text-muted-foreground",
+    band: "via-foreground",
+  },
+  waiting: {
+    rest: WAITING_INK,
+    under: "text-amber-700/60 dark:text-amber-400",
+    band: "via-amber-950 dark:via-amber-100",
+  },
 } as const;
 
 export type ShinyTone = keyof typeof TONES;
@@ -36,7 +46,7 @@ export function ShinyText({
   speed?: number;
   className?: string;
 }) {
-  const { rest, band } = TONES[tone];
+  const { rest, under, band } = TONES[tone];
   if (motion === "pulse") {
     return (
       <span
@@ -54,7 +64,7 @@ export function ShinyText({
   return (
     <span
       data-slot="shiny-text"
-      className={cn("relative inline-block max-w-full", rest, className)}
+      className={cn("relative inline-block max-w-full", under, className)}
     >
       {text}
       <span

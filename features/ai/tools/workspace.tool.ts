@@ -21,8 +21,12 @@ export const createWorkspaceTools = (
     guide?: boolean;
     /** How long one command may run; unset is the sandbox's own limit (config EXEC_TIMEOUT_MS). */
     timeoutMs?: number;
-    /** The bot whose own memory neither tool may take past its limits (bot.memory keepBotMemory). */
-    memoryOf?: string;
+    /**
+     * The bot this shell is for: neither tool takes its own memory past its
+     * limits (bot.memory keepBotMemory), and `write_file` starts nothing new at
+     * the top of `artifacts/` but its folder (workspace.ts writeRefusal).
+     */
+    bot?: string;
   },
 ): ToolSet => {
   /** Fold absolute sandbox paths against cwd; they still resolve when handed back. */
@@ -38,7 +42,7 @@ export const createWorkspaceTools = (
   const guarded = async <T>(
     step: () => Promise<T>,
   ): Promise<{ result: T; memory: string | null }> => {
-    const bot = options.memoryOf;
+    const bot = options.bot;
     if (!bot) return { result: await step(), memory: null };
     const held = await holdBotMemory(bot);
     const result = await step();
@@ -93,7 +97,7 @@ export const createWorkspaceTools = (
     }),
     execute: async ({ path, content }) => {
       const full = sandbox.resolve(path);
-      const refusal = writeRefusal(full);
+      const refusal = writeRefusal(full, options.bot);
       if (refusal) return refusal;
       const { memory } = await guarded(() => sandbox.writeFile(path, content));
       return (

@@ -64,6 +64,8 @@ export type { CaptionView };
 
 export type CallScreenProps = {
   status: CallStatus;
+  /** A call just failed to open or dropped; the face says so for a few seconds. */
+  failed?: boolean;
   /** Oldest first; the last one is the turn being spoken. */
   messages: CallMessage[];
   tool: ToolRun | null;
@@ -90,6 +92,7 @@ export type CallScreenProps = {
 
 export function CallScreen({
   status,
+  failed = false,
   messages,
   tool,
   thinkingSince = null,
@@ -153,6 +156,7 @@ export function CallScreen({
             <Face
               look={face}
               status={status}
+              failed={failed}
               getSpectrum={getSpectrum}
               getMicSpectrum={getMicSpectrum}
               className="w-full"
@@ -1153,6 +1157,7 @@ function SideCaptions({
 export function Thursday() {
   const {
     status,
+    failed,
     messages,
     tool,
     thinkingSince,
@@ -1183,6 +1188,7 @@ export function Thursday() {
       <TabState live={status !== "idle"} />
       <CallScreen
         status={status}
+        failed={failed}
         messages={messages}
         tool={tool}
         thinkingSince={thinkingSince}
