@@ -20,6 +20,7 @@ import { LIVE_INPUT, type LiveInput } from "@/lib/live/live.schema";
 import { estimateTokens } from "@/lib/tokens";
 import { listConnectedToolNames } from "../tools/connected";
 import {
+  callEnding,
   callStamp,
   carriedLines,
   expandedFacts,
@@ -66,6 +67,7 @@ export async function loadLivePrompt(options: {
 
   const text = [
     thursdayIdentity(),
+    callEnding(),
     speaking(),
     delegation({
       reach: reachNames(skills, connected),
@@ -122,7 +124,7 @@ Delegate to the backend when:
 - The user says something worth keeping — who they are, how they want things done and said, the people in their life, their plans. Hand it over as they say it, not at the end of the call.
 - The user asks about, answers, corrects or cancels background work.
 - The user asks about something they told you before that is not written out below.
-- The user wants to end the call. Hand it over at once and say goodbye while it goes: only the backend can end the line, and it lets your goodbye finish.
+- The user wants to end the call. Only the backend can end the line.
 
 Do not delegate to the backend when:
 - The user greets you, makes small talk, or asks you to repeat a result already given.

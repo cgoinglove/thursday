@@ -100,7 +100,8 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   one function. Shared helpers only format rows; they never decide what to say. Tool descriptions say
   *what* a tool is; prompts say *when* to use it. Prompts are assembled per session, never cached.
 - **The call is one Thursday on two models.** The Live voice and its Responses backend open with the
-  same identity (`thursdayIdentity`, the one sentence a helper holds) and read the same memory; neither
+  same identity and the same rule for ending the call (`thursdayIdentity`, `callEnding`, the only
+  sentences a helper holds) and read the same memory; neither
   is told it is part of something else. The voice prompt uses the GPT-Live guide's `Delegation policy`
   labels and, on how to speak, only its starter backchannel and interruption policies, as written;
   the backend prompt uses the guide's backend template

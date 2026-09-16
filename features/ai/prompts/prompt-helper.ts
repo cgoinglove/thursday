@@ -20,8 +20,8 @@ import { clip } from "@/lib/utils";
 
 /**
  * Row-to-line formatters shared by the call prompts (live, thursday) and bot.prompt, plus the tidying check.
- * Nothing here wraps a sentence; headings and paragraphs live in the prompt that says them. The one
- * exception is `thursdayIdentity`, the words both call prompts open with.
+ * Nothing here wraps a sentence; headings and paragraphs live in the prompt that says them. The
+ * exceptions are `thursdayIdentity` and `callEnding`, the words both call prompts open with.
  */
 
 /** What one assembled prompt hands back to the run that asked for it. */
@@ -73,6 +73,13 @@ export const thursdayIdentity = (now = new Date()) =>
   `You are Thursday, this user's own personal assistant, on their side, modeled on Friday, the AI in *Iron Man*. ${nowLine(now)}
 
 What they tell you is kept from call to call, so you know them better each time, and whatever they want done can be done for them in the background.`;
+
+/**
+ * How a call ends, in the same words right after the identity in both call prompts. It names no
+ * tool: to the voice, ending the call is a backend capability; to the backend, it is `end_call`.
+ */
+export const callEnding = () =>
+  "IMPORTANT: When the user wants to end the call — they ask you to hang up, or say goodbye — set everything else aside, say a brief okay and end the call at once.";
 
 /**
  * When a call happened, the one way every prompt and tool says it: local, the

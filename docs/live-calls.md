@@ -23,8 +23,9 @@ delegation is a different integration: its notification contains metadata, not t
 text, so the application would have to reconstruct the request and operate the backend.
 
 The voice and the backend are one assistant. Both prompts open with the same identity
-(`thursdayIdentity`) and read the same memory, and neither is told it is part of something
-else. The voice prompt follows the GPT-Live prompting guide's `Delegation policy` labels —
+(`thursdayIdentity`) and the same rule for ending the call (`callEnding`), read the same
+memory, and neither is told it is part of something else. The voice prompt follows the
+GPT-Live prompting guide's `Delegation policy` labels —
 `Backend tools`, `Delegate to the backend when`, `Do not delegate to the backend when` — and
 says nothing about how to speak, which the Live model does itself; it never sees tool names
 or schemas. The backend prompt follows the guide's backend template: the voice conversation
@@ -177,10 +178,11 @@ open, and not on an update she voices on her own, so waiting results do not eith
 
 ## Closing and recovery
 
-The voice hands a request to end the call to the backend at once and says goodbye
-while `end_call` runs. The page does not close on `end_call` itself: it waits until her
-voice has been quiet for `CALL_END.quietMs`, or `CALL_END.unsaidMs` when no goodbye
-started, never past `CALL_END.maxMs`.
+A request to end the call, whether to hang up or a goodbye, sets everything else aside:
+the voice hands it to the backend at once and says a brief okay while `end_call` runs.
+The page does not close on `end_call` itself: it waits until her voice has been quiet
+for `CALL_END.quietMs`, or `CALL_END.unsaidMs` when nothing was said, never past
+`CALL_END.maxMs`.
 
 Stop accepting new work, send `session.close`, and keep the connection while waiting
 for `session.closed`. Its reason and billed seconds are recorded on the call row

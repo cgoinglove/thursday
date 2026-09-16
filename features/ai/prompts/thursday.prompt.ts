@@ -28,6 +28,7 @@ import { openWorkspace } from "@/features/workspace/workspace";
 import { logger } from "@/lib/logger";
 import { listConnectedToolNames } from "../tools/connected";
 import {
+  callEnding,
   carriedLines,
   expandedFacts,
   logPromptSize,
@@ -73,6 +74,7 @@ export async function loadThursdayPrompt(
   // Order matters: earlier calls go last so the current call follows them in time order
   const text = [
     thursdayIdentity(),
+    callEnding(),
     conversation(),
     memory(index, carried, open.notes),
     // A skill is named once, on the side that can read it: this computer's chapter
