@@ -28,19 +28,11 @@ export type AsciiOrbMode =
   | "working"
   | "error";
 
-/** The list lives in face.const so the settings schema can build the enum without importing this component. */
-export type AsciiOrbCharset = AsciiCharset;
-
-/** Expressions the orb can wear while speaking. */
-export type AsciiOrbEmotion = "happy" | "sad" | "love";
-
 export type AsciiOrbProps = {
   className?: string;
   mode?: AsciiOrbMode;
   /** "emoji" sprinkles emoji in; "emojiOnly" is all emoji */
-  charset?: AsciiOrbCharset;
-  /** Expression while speaking; null for none */
-  emotion?: AsciiOrbEmotion | null;
+  charset?: AsciiCharset;
   /** Glyph size (px) */
   fontSize?: number;
   /** Cell density; above 1 packs tighter */
@@ -79,71 +71,11 @@ const ERROR_BITMAP = [
   "████ █  █ █  █  ██  █  █",
 ];
 
-/** Expression bitmaps, 21 x 13; the top 7 rows are eyes, the rest mouth. */
-const FACE_COLS = 21;
-const FACE_ROWS = 13;
-const EYE_ROWS = 7;
-const FACES: Record<AsciiOrbEmotion, string[]> = {
-  happy: [
-    ".....................",
-    ".....................",
-    "....███.......███....",
-    "...█████.....█████...",
-    "...█████.....█████...",
-    "....███.......███....",
-    ".....................",
-    ".....................",
-    "█...................█",
-    ".██...............██.",
-    "...███.........███...",
-    "......█████████......",
-    ".....................",
-  ],
-  sad: [
-    ".....................",
-    ".....................",
-    "....███.......███....",
-    "...█████.....█████...",
-    "...█████.....█████...",
-    "....███.......███....",
-    ".....................",
-    ".....................",
-    "......█████████......",
-    "...███.........███...",
-    ".██...............██.",
-    "█...................█",
-    ".....................",
-  ],
-  love: [
-    ".....................",
-    "...██.██.....██.██...",
-    "..███████...███████..",
-    "..███████...███████..",
-    "...█████.....█████...",
-    "....███.......███....",
-    ".....█.........█.....",
-    ".....................",
-    "█...................█",
-    ".██...............██.",
-    "...███.........███...",
-    "......█████████......",
-    ".....................",
-  ],
-};
-
-/** Expression fade out, blank, fade in (seconds) */
-const FACE_OUT = 0.36;
-const FACE_BLANK = 0.14;
-const FACE_IN = 0.95;
-/** Glyph swap rate for face cells (per second), slower than the background */
-const FACE_CHAR_RATE = 0.75;
-
 /** Reference size the tuning constants assume; coordinates are normalized to it. */
 const DESIGN = 680;
 /** Radius (reference units) within which cells exist. Must stay under DESIGN/2 or the canvas clips it. */
 const FIELD_R = 328;
 
-/** Speaking: reference-unit px the rim is pushed by each channel. */
 /** Where the rim sits while the voice is at the bottom of its range: the resting body's radius (IDLE_R), so speaking starts her own size */
 const SPEAK_BASE = 170;
 /** Swell across a phrase at the top of the voice's range */
@@ -311,10 +243,6 @@ type Cell = {
   grain: number;
   /** Below this brightness the cell is empty; random gaps */
   gap: number;
-  /** Order this cell lights up when an expression appears (0..1) */
-  birth: number;
-  /** Order this cell goes out when an expression leaves; differs from birth */
-  death: number;
   /** Emoji slot in emoji mode */
   emoji: boolean;
   /** Below SPECK_SHARE, a crumb a syllable throws outward */
@@ -341,22 +269,6 @@ function errorLetterAt(
   if (bx < 0 || bx >= line.length) return -1;
   if (line[bx] !== "█") return -1;
   return Math.floor(bx / 5);
-}
-
-/** Expression sample: 0 none, 1 eye, 2 mouth */
-function faceSample(
-  em: AsciiOrbEmotion,
-  dx: number,
-  dy: number,
-  cw: number,
-  ch: number,
-  s: number,
-) {
-  const bx = Math.floor(dx / (cw * s) + FACE_COLS / 2);
-  const by = Math.floor(dy / (ch * s) + FACE_ROWS / 2);
-  if (by < 0 || by >= FACE_ROWS || bx < 0 || bx >= FACE_COLS) return 0;
-  if (FACES[em][by][bx] !== "█") return 0;
-  return by < EYE_ROWS ? 1 : 2;
 }
 
 /**
@@ -568,7 +480,6 @@ export function AsciiOrb({
   className,
   mode = "idle",
   charset = ASCII_FACE.charset,
-  emotion = null,
   fontSize = ASCII_FACE.fontSize.default,
   density = ASCII_FACE.density.default,
   size = DESIGN,
@@ -593,20 +504,8 @@ export function AsciiOrb({
     cur: [...color] as [number, number, number],
     target: color,
   });
-  /** Cell pitch and bitmap scale; follow the size knob */
-  const metricsRef = useRef({
-    cw: 1,
-    ch: 1,
-    errScale: 3,
-    faceScale: 3,
-    size: 0,
-  });
-
-  const emoRef = useRef<{
-    cur: AsciiOrbEmotion | null;
-    prev: AsciiOrbEmotion | null;
-    start: number;
-  }>({ cur: emotion, prev: null, start: -Infinity });
+  /** Side (px) the grid was built for; the loop clears this much */
+  const boxRef = useRef(0);
 
   // the loop mounts once with no deps, so the latest getter comes through a ref
   const specRef = useRef(getSpectrum);
@@ -654,16 +553,12 @@ export function AsciiOrb({
     const norm = DESIGN / size;
     const cwN = cw * norm;
     const chN = ch * norm;
-    // scale ERROR and the faces so they stay inside the box at any glyph size
+    // scale ERROR so it stays inside the box at any glyph size
     const errScale = Math.max(
       1,
       Math.floor((DESIGN * 0.92) / (ERROR_BITMAP[0].length * cwN)),
     );
-    const faceScale = Math.max(
-      1,
-      Math.floor((DESIGN * 0.82) / (FACE_COLS * cwN)),
-    );
-    metricsRef.current = { cw: cwN, ch: chN, errScale, faceScale, size };
+    boxRef.current = size;
 
     const cells: Cell[] = [];
     const cols = Math.ceil(size / cw);
@@ -692,9 +587,6 @@ export function AsciiOrb({
           seed: hash(c, r),
           grain: hash(c * 5.7 + 19, r * 2.3 + 53),
           gap: 0.05 + hash(c * 7.3 + 11, r * 3.1 + 5) * 0.3,
-          // independent order per cell, so cells appear one at a time rather than in clumps
-          birth: hash(c * 3.1 + 7, r * 5.7 + 2),
-          death: hash(c * 9.4 + 3, r * 2.6 + 8),
           emoji: hash(c * 2.7 + 31, r * 5.9 + 17) < EMOJI_RATIO,
           speck: hash(c * 4.1 + 23, r * 6.3 + 41),
           letter,
@@ -742,17 +634,6 @@ export function AsciiOrb({
     };
   }, [fontSize, density, size]);
 
-  // expression change: old one leaves, brief blank, new one appears
-  useEffect(() => {
-    const e = emoRef.current;
-    if (e.cur === emotion) return;
-    emoRef.current = {
-      cur: emotion,
-      prev: e.cur,
-      start: performance.now() * 0.001,
-    };
-  }, [emotion]);
-
   // every frame redraws everything, so the charset only needs a ref update
   useEffect(() => {
     charsetRef.current = charset;
@@ -796,7 +677,7 @@ export function AsciiOrb({
         return;
       }
       const cs = charsetRef.current;
-      const { cw, ch, faceScale, size: box } = metricsRef.current;
+      const box = boxRef.current;
       bk.asciiN.fill(0);
       bk.emojiN.fill(0);
 
@@ -888,45 +769,7 @@ export function AsciiOrb({
       }
       f.err = toward(f.err, want.err, RISE.err, FALL.err, dt);
       const keepGlyphSolid = f.err > 0.5;
-
-      // expression state
-      const emo = emoRef.current;
-      const ep = t - emo.start;
-      // old one leaves cell by cell, blank, new one appears cell by cell
-      const rawOut = Math.min(1, Math.max(0, ep / FACE_OUT));
-      const rawIn = Math.min(
-        1,
-        Math.max(0, (ep - FACE_OUT - FACE_BLANK) / FACE_IN),
-      );
-      const faceBusy = emo.cur !== null || ep < FACE_OUT + FACE_BLANK + FACE_IN;
-      const faceKind = (em: AsciiOrbEmotion, cell: Cell) =>
-        faceSample(em, cell.dx, cell.dy, cw, ch, faceScale);
-      /** Brightness from an already sampled eye/mouth kind */
-      const faceValue = (s: number, cell: Cell) => {
-        if (s === 0) return 0;
-        // brighter in the middle, slightly darker outward
-        const shade = 0.74 + 0.26 * (1 - Math.min(1, cell.dist / 270));
-        // slowly drifting holes; darkened cells fall under the gap threshold so the face is not a solid slab
-        const holes =
-          0.42 +
-          hash(
-            Math.floor(cell.dx * 0.09 + t * 0.25),
-            Math.floor(cell.dy * 0.09 - t * 0.18),
-          ) *
-            0.85;
-        return (s === 1 ? 1 : 0.88) * shade * holes;
-      };
-
-      /** A few specks of dust around the face, like idle */
-      const faceDust = (cell: Cell) => {
-        if (cell.seed < 0.976) return 0;
-        // each speck floats at its own distance so they do not line up in a band
-        const r = 195 + hash(cell.seed * 311, 9) * 160;
-        const fall = Math.exp(-((cell.dist - r) ** 2) / 7000);
-        // own blink rate and phase
-        const sp = 0.5 + hash(cell.seed * 47, 21) * 1.5;
-        return fall * (0.5 + 0.5 * Math.sin(t * sp + cell.seed * 300)) * 0.36;
-      };
+      const rate = cs === "emojiOnly" ? EMOJI_CHAR_RATE : CHAR_RATE;
 
       const all = cellsRef.current;
       for (let ci = 0; ci < all.length; ci++) {
@@ -956,37 +799,11 @@ export function AsciiOrb({
           if (v < gate) v = 0;
         }
 
-        // With an expression set, the whole field switches to it once the
-        // previous content (blob or old face) is fully gone
-        let solid = false;
-        if (faceBusy) {
-          // per-cell order with a narrow window: cells snap on and off rather than fade
-          const gone = smoothstep(0, 1, (rawOut * 1.1 - cell.death) / 0.08);
-          const born = smoothstep(0, 1, (rawIn * 1.1 - cell.birth) / 0.08);
-
-          // sample the bitmap once per expression
-          const kCur = emo.cur ? faceKind(emo.cur, cell) : 0;
-          const kPrev = emo.prev ? faceKind(emo.prev, cell) : 0;
-
-          const dust = faceDust(cell);
-          const oldV = emo.prev ? faceValue(kPrev, cell) + dust : v;
-          const newV = emo.cur ? faceValue(kCur, cell) + dust : v;
-
-          v = oldV * (1 - gone) + newV * born;
-          solid = (kCur > 0 && born > 0.05) || (kPrev > 0 && gone < 0.95);
-        }
-
         v = v < 0 ? 0 : v > 1 ? 1 : v;
 
         const level = (v * (RAMP.length - 1)) | 0;
         if (level === 0) continue;
 
-        // face cells swap glyphs slowly, or the shape drowns in noise
-        const rate = solid
-          ? FACE_CHAR_RATE
-          : cs === "emojiOnly"
-            ? EMOJI_CHAR_RATE
-            : CHAR_RATE;
         const slot = (clock * rate + cell.seed * 7) | 0;
 
         const showEmoji =

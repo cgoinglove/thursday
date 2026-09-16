@@ -16,18 +16,18 @@ import {
 } from "../ascii.const";
 
 /**
- * Full-screen ascii field for the boot sequence. Shares glyphs and rules with
- * ascii-orb (ascii.const) but nothing else: no modes, no voice, one motion.
- * The coordinate system is warped before distances are measured, three waves
- * interfere, and per-cell randoms break the rings a pure radial function draws.
+ * Full-screen ascii field behind the boot curtain and the intro. Shares glyphs
+ * and rules with ascii-orb (ascii.const) but nothing else: no modes, no voice,
+ * one motion. The coordinate system is warped before distances are measured,
+ * three waves interfere, and per-cell randoms break the rings a pure radial
+ * function draws.
  */
 
 /**
  * One boot run, in seconds. The first frame is already the full field; it
- * shrinks from HOLD to SETTLE, and the overlay lifts at LIFT, before the
- * shrink ends, so the fade happens while still moving.
+ * shrinks until SETTLE, and the overlay lifts at LIFT, before the shrink ends,
+ * so the fade happens while still moving.
  */
-const HOLD = 0;
 const SETTLE = 0.9;
 const LIFT = 0.26;
 
@@ -39,6 +39,9 @@ const FONT = 13;
 const DENSITY = 1.15;
 /** Above this area (px^2) cells grow to keep the count bounded. */
 const CELL_BUDGET = 1_400_000;
+
+/** Share of cells that are emoji. Half the orb's: the same ratio reads as a wall at full-screen size. */
+const EMOJI_SHARE = EMOJI_RATIO / 2;
 
 /** White in dark theme, black otherwise; same two values as the orb (components/face). */
 const INK_DARK: [number, number, number] = [247, 247, 247];
@@ -58,7 +61,7 @@ type Cell = {
   gap: number;
   /** Shifts when the leading edge reaches this cell */
   birth: number;
-  /** Emoji roll; the threshold comes from props */
+  /** Emoji roll; below EMOJI_SHARE the cell may hold one */
   roll: number;
 };
 
@@ -73,10 +76,6 @@ export type AsciiFieldProps = {
   clearAt?: number | null;
   /** How much to thin that area (0..1). */
   clearBy?: number;
-  /** Share of cells that are emoji. Half the orb's: the same ratio reads as a wall at full-screen size. */
-  emojiRatio?: number;
-  /** Overall brightness. */
-  dim?: number;
   /** Called once the shrink is done; only with `boot`. */
   onSettled?: () => void;
   className?: string;
@@ -88,8 +87,6 @@ export function AsciiField({
   centerY = 0.34,
   clearAt = null,
   clearBy = 0.5,
-  emojiRatio = EMOJI_RATIO / 2,
-  dim = 1,
   onSettled,
   className,
 }: AsciiFieldProps) {
@@ -97,8 +94,8 @@ export function AsciiField({
   const dark = useResolvedTheme() === "dark";
 
   /** The loop mounts once; per-frame knobs come through refs so the grid is not rebuilt. */
-  const look = useRef({ rim, clearAt, clearBy, emojiRatio, dim, dark });
-  look.current = { rim, clearAt, clearBy, emojiRatio, dim, dark };
+  const look = useRef({ rim, clearAt, clearBy, dark });
+  look.current = { rim, clearAt, clearBy, dark };
   const done = useRef(onSettled);
   done.current = onSettled;
 
@@ -192,18 +189,12 @@ export function AsciiField({
     const observer = new ResizeObserver(build);
     observer.observe(host);
 
-    /** `reach` is how far the field extends (always full); `body` is the radius that shrinks, leaving dust behind. */
-    const shape = (t: number, rest: number) => {
-      if (!play) return { reach: REACH, body: rest, growing: false };
+    /** The body's radius, shrinking from REACH to `rest` while the boot plays and leaving dust behind; the field always extends to REACH. */
+    const bodyAt = (t: number, rest: number) => {
+      if (!play || t >= SETTLE) return rest;
       // ease-out: fastest from the first frame
       const ease = (x: number) => 1 - (1 - x) ** 3;
-      const body =
-        t < HOLD
-          ? REACH
-          : t < SETTLE
-            ? REACH - ease((t - HOLD) / (SETTLE - HOLD)) * (REACH - rest)
-            : rest;
-      return { reach: REACH, body, growing: false };
+      return REACH - ease(t / SETTLE) * (REACH - rest);
     };
 
     let raf = 0;
@@ -231,14 +222,7 @@ export function AsciiField({
         done.current?.();
       }
 
-      const {
-        rim: wantRim,
-        clearAt,
-        clearBy,
-        emojiRatio,
-        dim,
-        dark,
-      } = look.current;
+      const { rim: wantRim, clearAt, clearBy, dark } = look.current;
       easedRim =
         easedRim === null ? wantRim : easedRim + (wantRim - easedRim) * 0.06;
       const wantClear = clearAt === null ? -1 : clearAt;
@@ -247,7 +231,7 @@ export function AsciiField({
           ? wantClear
           : easedClear + (wantClear - easedClear) * 0.06;
       const clearFrom = clearAt === null ? null : h * easedClear;
-      const { reach, body, growing } = shape(t, easedRim);
+      const body = bodyAt(t, easedRim);
       const ink = dark ? INK_DARK : INK_LIGHT;
       const top = RAMP.length - 1;
 
@@ -275,7 +259,7 @@ export function AsciiField({
             0.03 * Math.sin(nd * 11 + t * 0.17 + cell.seed * 3));
 
         // leading edge, shifted per cell by over a third of the screen with a soft threshold, so no visible line passes
-        const lead = reach - (ndW / wob + (cell.birth - 0.5) * 0.55);
+        const lead = REACH - (ndW / wob + (cell.birth - 0.5) * 0.55);
         if (lead < -0.03) continue;
         const arrived = smoothstep(0, 0.62, lead);
 
@@ -291,7 +275,7 @@ export function AsciiField({
           (0.62 + wave * 0.22 + Math.sin(t * 0.35) * 0.07) *
           (1 - smoothstep(body * 0.5, body * 1.06, edge));
 
-        // dust: about one cell in ten floats at its own distance and blinks at its own rate (the orb's faceDust)
+        // dust: about one cell in ten floats at its own distance and blinks at its own rate
         if (cell.seed > 0.895) {
           const at =
             body * 1.02 +
@@ -306,10 +290,7 @@ export function AsciiField({
         // a very low floor; the gap threshold eats most of it, leaving dots
         v += 0.22 * Math.exp(-ndW * 0.8) * (0.6 + 0.4 * wave);
 
-        v =
-          v * arrived +
-          Math.exp(-((lead * lead) / 0.0024)) * (growing ? 0.5 : 0.12);
-        v *= dim;
+        v = v * arrived + Math.exp(-((lead * lead) / 0.0024)) * 0.12;
 
         // the text area is thinned, not covered; a ramp rather than a bell because text runs to the bottom edge
         if (clearFrom !== null) {
@@ -334,8 +315,7 @@ export function AsciiField({
         if (level <= 0) continue;
 
         if (
-          emojiRatio > 0 &&
-          cell.roll < emojiRatio &&
+          cell.roll < EMOJI_SHARE &&
           // one level above the orb's threshold; dim emoji do not fade, they float like stickers
           level >= EMOJI_MIN_LEVEL + 1
         ) {
@@ -376,7 +356,7 @@ export function AsciiField({
         const n = bins.en[level];
         if (n === 0) continue;
         // emoji keep their own color, so only alpha varies (same ladder as the orb)
-        ctx.globalAlpha = (0.35 + (level / top) * 0.65) * dim;
+        ctx.globalAlpha = 0.35 + (level / top) * 0.65;
         const list = bins.emoji[level];
         for (let k = 0; k < n; k++) {
           const cell = cells[list[k]];

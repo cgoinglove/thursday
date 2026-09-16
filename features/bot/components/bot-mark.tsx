@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef } from "react";
-import { createVoiceFollower } from "@/lib/live/live.tap";
+import { createVoiceFollower, SPECTRUM_BANDS } from "@/lib/live/live.tap";
 import {
-  MARK_BANDS,
   MARK_PAINTS,
   type MarkPaint,
   type MarkPaintLook,
@@ -289,23 +288,16 @@ export type MarkOptions = {
   stretch: number;
   idle: boolean;
   liveliness: number;
-  glance: number;
   float: number;
   breathe: number;
   speed: number;
   blink: boolean;
-
-  /** Border around the silhouette so it still reads on a same-colored background. 0 disables. */
-  rim: number;
-  /** Defaults to the theme text color, the one color guaranteed to differ from the background. */
-  rimColor: string;
 
   notify: boolean;
   notifyAngle: number;
   notifyDist: number;
   notifyR: number;
   notifyRing: number;
-  notifyColor: string;
 };
 
 const MARK_DEFAULTS: MarkOptions = {
@@ -343,48 +335,17 @@ const MARK_DEFAULTS: MarkOptions = {
   stretch: 15,
   idle: true,
   liveliness: 55,
-  glance: 22,
   float: 7,
   breathe: 3.7,
   speed: 1.7,
   blink: true,
-
-  rim: 0,
-  rimColor: "currentColor",
 
   notify: false,
   notifyAngle: 41,
   notifyDist: 109,
   notifyR: 25,
   notifyRing: 11,
-  notifyColor: "#FF3B30",
 };
-
-/* Per-instance variation: shape and color stay, only the values inside the shape roll
- * from a seed the caller picks (thread id for one face per thread, bot name for one per bot). */
-const VARY = {
-  /** Blob depth. The seed already changes the whole silhouette, so keep this slight. */
-  wobble: [0.8, 1.35],
-  /** Poly. Below 0.45 it rounds into a circle. */
-  corner: [0.45, 0.77],
-  rotation: [-180, 180],
-  /** Squircle. 4 is nearly square, 12 nearly round. */
-  squircle: [4, 12],
-} as const satisfies Record<string, readonly [number, number]>;
-
-/** Roll order defines what a seed means; reordering changes every bot's face. */
-function varyOptions(cfg: MarkOptions, seed: number): MarkOptions {
-  if (!seed) return cfg;
-  const rnd = mulberry32(seed);
-  const pick = ([lo, hi]: readonly [number, number]) => lo + rnd() * (hi - lo);
-  return {
-    ...cfg,
-    wobble: cfg.wobble * pick(VARY.wobble),
-    corner: pick(VARY.corner),
-    rotation: pick(VARY.rotation),
-    squircle: pick(VARY.squircle),
-  };
-}
 
 /** Silhouettes are scaled to the area of the circle of radius R so they read the same size,
  *  capped so sharp corners stay inside the view box. */
@@ -972,7 +933,7 @@ const STATE_SHAPE: Record<MarkState, StateShape> = {
 };
 
 /** What the follower reads while the mark is not speaking. */
-const SILENT: number[] = new Array<number>(MARK_BANDS).fill(0);
+const SILENT: number[] = new Array<number>(SPECTRUM_BANDS).fill(0);
 
 /**
  * Milliseconds to the next blink, irregular the way a person's are: mostly a
@@ -1011,11 +972,6 @@ export type BotMarkProps = {
   seed?: number | string;
   color?: string;
   shape?: MarkShape;
-  /**
-   * Nudges this instance's silhouette (VARY) while keeping shape and color. A value is
-   * the seed (thread id or bot name); `true` uses useId so server and client agree.
-   */
-  vary?: boolean | number | string;
   /** Stroke instead of fill; same as `options.fill: false`. */
   outline?: boolean;
   /** A paint (MARK_PAINTS) worn in place of `color`. */
@@ -1024,14 +980,11 @@ export type BotMarkProps = {
   /** The work this face stands for failed (a Stop ends that way too): the eyes are crossed out. */
   failed?: boolean;
   state?: MarkState;
-  /** Read once per animation frame. Use this for live audio instead of React state. */
-  getLevel?: () => number;
-  /** MARK_BANDS values in 0..1, low frequencies first, read once per frame. Where the energy sits sets the shape, how much sets the size. */
+  /** SPECTRUM_BANDS values in 0..1, low frequencies first, read once per frame. Where the energy sits sets the shape, how much sets the size. */
   getSpectrum?: () => ArrayLike<number>;
   /** Per-instance overrides; omitted keys fall back to MARK_DEFAULTS. Pass a stable object, a new literal each render re-derives the silhouette. */
   options?: Partial<MarkOptions>;
   className?: string;
-  svgRef?: React.RefObject<SVGSVGElement | null>;
 };
 
 /** Cheap string hash so a name or id can seed the mark. */
@@ -1049,36 +1002,24 @@ export function BotMark({
   seed,
   color,
   shape,
-  vary,
   outline,
   paint,
   notify,
   failed,
   state = "idle",
-  getLevel,
   getSpectrum,
   options,
   className,
-  svgRef,
 }: BotMarkProps) {
   const clipId = useId();
-  // 0 means no variation. `true` falls back to useId, the only per-instance value
-  // server and client agree on.
-  const varySeed = useMemo(() => {
-    if (vary === undefined || vary === false) return 0;
-    return hashSeed(vary === true ? clipId : vary) || 1;
-  }, [vary, clipId]);
   const cfg = useMemo(
     () =>
-      varyOptions(
-        {
-          ...MARK_DEFAULTS,
-          ...options,
-          ...(outline === undefined ? {} : { fill: !outline }),
-        } as MarkOptions,
-        varySeed,
-      ),
-    [options, outline, varySeed],
+      ({
+        ...MARK_DEFAULTS,
+        ...options,
+        ...(outline === undefined ? {} : { fill: !outline }),
+      }) as MarkOptions,
+    [options, outline],
   );
   const maskId = `${clipId}-mask`;
   const paintId = `${clipId}-paint`;
@@ -1090,21 +1031,14 @@ export function BotMark({
   const eyeLRef = useRef<SVGGElement>(null);
   const eyeRRef = useRef<SVGGElement>(null);
   const maskHeadRef = useRef<SVGPathElement>(null);
-  const rimRef = useRef<SVGPathElement>(null);
   const paintRef = useRef<SVGLinearGradientElement>(null);
   const curtainRefs = useRef<(SVGEllipseElement | null)[]>([]);
   const inkEyesRef = useRef<SVGGElement>(null);
   const inkEyeLRef = useRef<SVGGElement>(null);
   const inkEyeRRef = useRef<SVGGElement>(null);
-  const localSvg = useRef<SVGSVGElement>(null);
-  const svg = svgRef ?? localSvg;
+  const svgRef = useRef<SVGSVGElement>(null);
 
-  const theSeed = seed === undefined ? cfg.seed : hashSeed(seed);
-  // Blob silhouettes come from the seed, so variation goes through the seed too; the
-  // idle phase splits here so neighboring marks do not breathe in sync.
-  const shapeSeed = varySeed
-    ? ((theSeed ^ Math.imul(varySeed, 0x9e3779b1)) >>> 0) % 10000
-    : theSeed;
+  const shapeSeed = seed === undefined ? cfg.seed : hashSeed(seed);
   const theShape = shape ?? cfg.shape;
   const theFg = color ?? cfg.color;
   const notifying = notify ?? cfg.notify;
@@ -1162,7 +1096,6 @@ export function BotMark({
   const live = useRef({
     cfg,
     state,
-    getLevel,
     getSpectrum,
     radii,
     shapeSeed,
@@ -1173,7 +1106,6 @@ export function BotMark({
   live.current = {
     cfg,
     state,
-    getLevel,
     getSpectrum,
     radii,
     shapeSeed,
@@ -1198,20 +1130,18 @@ export function BotMark({
     // STATE_SHAPE values are targets, eased over about 0.6 s.
     const shape = { ...STATE_SHAPE.idle };
     const SHAPE_KEYS = Object.keys(shape) as (keyof StateShape)[];
-    // Three time scales: ~50 ms to catch a syllable, ~300 ms to know one just happened,
-    // ~1 s to know speech is ongoing.
+    // Two time scales: ~50 ms to catch a syllable, ~1 s to know speech is ongoing.
     let fastLvl = 0;
-    let midLvl = 0;
     let lvl = 0;
     let bright = 0.5;
     // Syllable-kicked spring; its own frequency caps how fast the mark can move.
     let bob = 0;
     let bobVel = 0;
     let lastOnset = 0;
-    const band = new Array<number>(MARK_BANDS).fill(0);
+    const band = new Array<number>(SPECTRUM_BANDS).fill(0);
     // Each harmonic rotates at its own speed, alternating direction, so the deformation
     // never settles into a standing wave.
-    const bandPhase = Array.from({ length: MARK_BANDS }, (_, k) => k * 1.7);
+    const bandPhase = Array.from({ length: SPECTRUM_BANDS }, (_, k) => k * 1.7);
     // Integrated, never `time * speed`: `churnSpeed` eases between states, and
     // phase = elapsed * speed would sweep the whole elapsed time on every speed change.
     let churnPhase = 0;
@@ -1245,7 +1175,7 @@ export function BotMark({
       // still; each band inside its own recent range moves with the words.
       const heard = voice.read(spec ?? SILENT, dt);
       let specSum = 0;
-      for (let k = 0; k < MARK_BANDS; k++) {
+      for (let k = 0; k < SPECTRUM_BANDS; k++) {
         const target = heard.bands[k];
         // Bands set the shape, so smooth hard; faster and small marks shimmer.
         band[k] += (target - band[k]) * c.bandEase;
@@ -1253,21 +1183,14 @@ export function BotMark({
         specSum += target;
       }
 
-      const given = live.current.getLevel?.();
-      const want = st === "speaking" ? clamp(given ?? heard.level, 0, 1) : 0;
+      const want = st === "speaking" ? clamp(heard.level, 0, 1) : 0;
 
       fastLvl += (want - fastLvl) * 0.3;
-      midLvl += (want - midLvl) * 0.055;
       lvl += (want - lvl) * 0.016;
 
-      // A syllable is a rise over the recent average: the follower's for a
-      // spectrum, this one's for a bare level. The gap must exceed the spring
+      // A syllable is the follower's onset. The gap must exceed the spring
       // period or kicks pile up into a tremble.
-      const syllable =
-        given === undefined
-          ? heard.onset > 0
-          : fastLvl > midLvl * 1.25 + 0.03 && fastLvl > 0.09;
-      if (syllable && now - lastOnset > 340) {
+      if (heard.onset > 0 && now - lastOnset > 340) {
         lastOnset = now;
         // Slower springs integrate each impulse longer, so scale the kick with stiffness.
         bobVel -= c.punch * Math.min(1, fastLvl * 1.6) * c.bobRate;
@@ -1281,8 +1204,8 @@ export function BotMark({
       // that changes per phoneme reads as flicker.
       if (specSum > 0.04) {
         let weighted = 0;
-        for (let k = 0; k < MARK_BANDS; k++) weighted += band[k] * k;
-        bright += (weighted / specSum / (MARK_BANDS - 1) - bright) * 0.04;
+        for (let k = 0; k < SPECTRUM_BANDS; k++) weighted += band[k] * k;
+        bright += (weighted / specSum / (SPECTRUM_BANDS - 1) - bright) * 0.04;
       } else {
         bright += (0.5 - bright) * 0.03;
       }
@@ -1403,15 +1326,14 @@ export function BotMark({
         const d = radiiToPath(next);
         headRef.current.setAttribute("d", d);
         clipRef.current?.setAttribute("d", d);
-        rimRef.current?.setAttribute("d", d);
         maskHeadRef.current?.setAttribute("d", d);
       }
 
       if (eyesRef.current) {
         let tgx = 0;
         let tgy = 0;
-        if (c.follow && pointer.live && svg.current) {
-          const r = svg.current.getBoundingClientRect();
+        if (c.follow && pointer.live && svgRef.current) {
+          const r = svgRef.current.getBoundingClientRect();
           if (r.width > 0) {
             tgx =
               clamp(
@@ -1486,7 +1408,7 @@ export function BotMark({
 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [svg]);
+  }, []);
 
   const nAngle = (cfg.notifyAngle * Math.PI) / 180;
   const ink = spec ? `url(#${paintId})` : "var(--fg)";
@@ -1508,7 +1430,7 @@ export function BotMark({
 
   return (
     <svg
-      ref={svg}
+      ref={svgRef}
       data-slot="bot-mark"
       aria-hidden="true"
       className={className}
@@ -1576,17 +1498,6 @@ export function BotMark({
         )}
       </defs>
       <g ref={lifeRef}>
-        {/* Under the fill, stroked at double width so only the outer half shows. */}
-        {cfg.rim > 0 && (
-          <path
-            ref={rimRef}
-            d={headPath}
-            fill="none"
-            stroke={cfg.rimColor}
-            strokeWidth={cfg.rim * 2}
-            strokeLinejoin="round"
-          />
-        )}
         {cfg.fill ? (
           // Everything the body wears shares its one mask, so a paint's layers keep the eyes cut.
           <g mask={`url(#${maskId})`}>
@@ -1652,11 +1563,12 @@ export function BotMark({
           </g>
         )}
         {notifying && (
+          // The dot waits on the user, so it wears amber in NavBadge's shades.
           <circle
             cx={f(CENTER + Math.cos(nAngle) * cfg.notifyDist)}
             cy={f(CENTER + Math.sin(nAngle) * cfg.notifyDist)}
             r={cfg.notifyR}
-            fill={cfg.notifyColor}
+            className="fill-amber-600 dark:fill-amber-400"
           />
         )}
       </g>

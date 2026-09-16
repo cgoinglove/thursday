@@ -1,12 +1,7 @@
-import { SPECTRUM_BANDS } from "@/lib/live/live.tap";
-
 /**
  * Vocabulary a mark is drawn from. Lives outside the renderer (a client
  * component) so the zod schema and the settings screen can read it on the server.
  */
-
-/** Spectrum band count comes from the tap that fills them. */
-export const MARK_BANDS = SPECTRUM_BANDS;
 
 /** Every silhouette a mark can draw. */
 export const MARK_SHAPES = ["blob", "poly", "squircle", "heart"] as const;
@@ -15,7 +10,8 @@ export type MarkShape = (typeof MARK_SHAPES)[number];
 
 /**
  * Follows the theme's text colour. Distinct from no colour at all: an unset
- * colour means nobody chose (a bot then gets one from its name hash).
+ * colour means nobody chose. BotMark draws both in currentColor; only the
+ * picker tells them apart.
  */
 export const MARK_SYSTEM = "currentColor";
 

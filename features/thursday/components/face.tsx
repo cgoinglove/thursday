@@ -161,9 +161,9 @@ export const FACES: Record<
 /**
  * The face at the size of its box, measured because the canvas face needs real
  * pixels. Fades in: the chosen face arrives after hydration, so the first
- * frame is always the default and must not be shown.
+ * frame is always the default and must not be shown. memo: the call screen
+ * re-renders per transcript fragment; the face's props are stable references.
  */
-/** memo: the call screen re-renders per transcript fragment; the face's props are stable references. */
 export const Face = memo(function Face({
   look,
   // a face without a call is between calls (previews)
