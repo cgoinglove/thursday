@@ -33,6 +33,7 @@ import {
 } from "@/lib/protocol/use-server-route";
 import { createOutbox, type Outbox } from "@/lib/queue";
 import { errorToString } from "@/lib/utils";
+import { FACE_WORD_MAX, undrawable } from "./ascii.const";
 import {
   endCallAction,
   openCallAction,
@@ -43,6 +44,7 @@ import type {
   CallBack,
   CallMessage,
   CallStatus,
+  FaceWord,
   LiveStatus,
 } from "./thursday.schema";
 import { thursdaySettings, useThursdayStore } from "./thursday.store";
@@ -51,7 +53,7 @@ import { toolBot, toolLine } from "./tool-line";
 /**
  * One live call, plus the thread inbox the app watches even with no call open.
  * The server opens the Live session (openCallAction) and runs the tools
- * (tool-call); the page itself only hangs up.
+ * (tool-call); the page itself only hangs up and puts a word on the face.
  */
 
 /** Plays when the line opens. */
@@ -129,6 +131,12 @@ export type Ringing = {
   more: number;
 };
 
+/**
+ * Why a call ended without the user hanging up: the line was quiet (CALL_IDLE),
+ * she hung up (`end_call`), Live closed the session, or the connection dropped.
+ */
+export type CallEnd = "quiet" | "hungUp" | "closed" | "dropped";
+
 export function useThursday() {
   const session = useRef<LiveSession | null>(null);
   // created on the first call: `new Audio()` cannot run during SSR
@@ -153,8 +161,14 @@ export function useThursday() {
   const [since, setSince] = useState<number | null>(null);
   /** Seconds until idle hang-up; set only inside CALL_IDLE.warnMs. */
   const [idleLeft, setIdleLeft] = useState<number | null>(null);
+  /** Why the last call ended, when the user did not end it; cleared by the next call. */
+  const [ended, setEnded] = useState<CallEnd | null>(null);
   /** When the backend picked this turn up (ms); the activity line counts from it. */
   const [thinkingSince, setThinkingSince] = useState<number | null>(null);
+  /** The title of the backend's latest reasoning summary in this stretch of work. */
+  const [thinkingTitle, setThinkingTitle] = useState<string | null>(null);
+  /** The word `emote` last put on the face. */
+  const [faceWord, setFaceWord] = useState<FaceWord | null>(null);
   /** The same value where callbacks can read it, and the timer that ends it. */
   const thinking = useRef<number | null>(null);
   const thinkTail = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -307,6 +321,8 @@ export function useThursday() {
   const setThinking = useCallback((at: number | null) => {
     thinking.current = at;
     setThinkingSince(at);
+    // a stretch of work that starts or ends has not said what it is about yet
+    setThinkingTitle(null);
   }, []);
 
   /**
@@ -519,59 +535,63 @@ export function useThursday() {
     [outbox],
   );
 
-  /** Closes the session and resets state. Turns were saved during the call. */
-  const hangUp = useCallback(async () => {
-    if (ending.current) return;
-    ending.current = true;
-    if (leaving.current) clearInterval(leaving.current);
-    leaving.current = null;
-    attempt.current += 1;
-    const live = session.current;
-    const call = callId.current;
+  /** Closes the session and resets state. Turns were saved during the call. `why` is null when the user hung up. */
+  const hangUp = useCallback(
+    async (why: CallEnd | null = null) => {
+      if (ending.current) return;
+      ending.current = true;
+      if (leaving.current) clearInterval(leaving.current);
+      leaving.current = null;
+      attempt.current += 1;
+      const live = session.current;
+      const call = callId.current;
 
-    session.current = null;
-    callId.current = null;
-    calling.current = false;
-    opening.current = false;
-    rang.current = false;
-    // What she did not voice goes in again next call; unsent context goes with the session
-    for (const key of unvoiced.current) told.current.delete(key);
-    unvoiced.current.clear();
-    outbox.close();
-    outbox.clear();
-    working.current?.abort();
-    working.current = null;
-    doneReading();
-    if (linger.current) clearTimeout(linger.current);
-    // a pending face timer must not fire after the call
-    restFace();
-    // What came up on this call was this call's to tell; the call-back rings only for what comes after
-    ringAfter.current = Date.now();
-    setIdleLeft(null);
-    setSince(null);
-    setStatus(live ? "ending" : "idle");
-    setMessages([]);
-    setTool(null);
-    setThinking(null);
-    if (thinkTail.current) clearTimeout(thinkTail.current);
-    thinkTail.current = null;
-    relayOpen.current = false;
-    // the room is not cleared: threads outlive the call
+      session.current = null;
+      callId.current = null;
+      calling.current = false;
+      opening.current = false;
+      rang.current = false;
+      // What she did not voice goes in again next call; unsent context goes with the session
+      for (const key of unvoiced.current) told.current.delete(key);
+      unvoiced.current.clear();
+      outbox.close();
+      outbox.clear();
+      working.current?.abort();
+      working.current = null;
+      doneReading();
+      if (linger.current) clearTimeout(linger.current);
+      // a pending face timer must not fire after the call
+      restFace();
+      // What came up on this call was this call's to tell; the call-back rings only for what comes after
+      ringAfter.current = Date.now();
+      setIdleLeft(null);
+      setSince(null);
+      setStatus(live ? "ending" : "idle");
+      setMessages([]);
+      setTool(null);
+      setThinking(null);
+      if (thinkTail.current) clearTimeout(thinkTail.current);
+      thinkTail.current = null;
+      relayOpen.current = false;
+      // the room is not cleared: threads outlive the call
 
-    // Waits (bounded) for session.closed, which saves the last turns and says
-    // what was billed; the row is ended with that, after the saves it queued
-    await live?.close();
-    const close = finalized.current;
-    finalized.current = null;
-    ending.current = false;
-    setStatus("idle");
-    if (call) void endCallAction(call, close);
-    // only when there was a line to close
-    if (live && farewell.current) {
-      farewell.current.currentTime = 0;
-      void farewell.current.play().catch(() => {});
-    }
-  }, [outbox, restFace, doneReading, setThinking]);
+      // Waits (bounded) for session.closed, which saves the last turns and says
+      // what was billed; the row is ended with that, after the saves it queued
+      await live?.close();
+      const close = finalized.current;
+      finalized.current = null;
+      ending.current = false;
+      setStatus("idle");
+      if (live) setEnded(why);
+      if (call) void endCallAction(call, close);
+      // only when there was a line to close
+      if (live && farewell.current) {
+        farewell.current.currentTime = 0;
+        void farewell.current.play().catch(() => {});
+      }
+    },
+    [outbox, restFace, doneReading, setThinking],
+  );
 
   // Unmount during a call must release the mic and stop tools
   useEffect(() => {
@@ -613,7 +633,7 @@ export function useThursday() {
       const over = said
         ? now - Math.max(voiced.current, asked) >= CALL_END.quietMs
         : now - asked >= CALL_END.unsaidMs;
-      if (over || now - asked >= CALL_END.maxMs) void hangUp();
+      if (over || now - asked >= CALL_END.maxMs) void hangUp("hungUp");
     }, 100);
   }, [hangUp]);
 
@@ -628,7 +648,7 @@ export function useThursday() {
       setIdleLeft(
         left <= CALL_IDLE.warnMs ? Math.max(0, Math.ceil(left / 1000)) : null,
       );
-      if (left <= 0) void hangUp();
+      if (left <= 0) void hangUp("quiet");
     }, 1000);
     return () => clearInterval(tick);
   }, [onCall, hangUp]);
@@ -651,6 +671,7 @@ export function useThursday() {
     setRingingFor([]);
 
     setStatus("connecting");
+    setEnded(null);
     showFailed(false);
     // from here on this is a call; the outbox holds updates until the session exists
     opening.current = true;
@@ -698,11 +719,17 @@ export function useThursday() {
         on: {
           // the backend calls tools; the page forwards them to the server
           runTool: async (call) => {
-            // end_call is the page's only tool. The line goes down once her
-            // goodbye is over (leave), so this reply reaches the model first
+            // end_call and emote are the page's own tools. The line goes down once
+            // her goodbye is over (leave), so this reply reaches the model first
             if (call.name === TOOL_NAMES.end_call) {
               leave();
               return "Ending the call.";
+            }
+            // the face draws the word; nothing runs anywhere else
+            if (call.name === TOOL_NAMES.emote) {
+              const { word, reply } = readFaceWord(call.arguments);
+              if (word) setFaceWord({ text: word, at: Date.now() });
+              return reply;
             }
             showTool(call);
             try {
@@ -711,7 +738,10 @@ export function useThursday() {
               hideTool(call.id);
             }
           },
-          reasoning: (part) =>
+          reasoning: (part) => {
+            // A summary part opens with its title in bold; the activity line says what the work is about
+            const title = /^\s*\*\*(.+?)\*\*/.exec(part.text)?.[1]?.trim();
+            if (title) setThinkingTitle(title);
             persist(
               thinkingSaves,
               () =>
@@ -720,7 +750,8 @@ export function useThursday() {
                   seq: Math.max(0, Math.round(part.seq)),
                 }),
               "The backend's thinking is not being saved",
-            ),
+            );
+          },
           turn: (turn) => {
             // New words, not a checkpoint of the same ones. A cough or a sigh is not words:
             // it neither holds the line open nor holds an update back
@@ -799,7 +830,8 @@ export function useThursday() {
           failed: (description) => {
             toast.add({ type: "error", title: "Call failed", description });
             showFailed(true);
-            void hangUp();
+            // Live says session.closed (finalized) when it closes the call itself
+            void hangUp(finalized.current ? "closed" : "dropped");
           },
         },
       });
@@ -976,8 +1008,14 @@ export function useThursday() {
     failed,
     messages,
     tool,
+    /** Why the last call ended, when the user did not end it; null during a call. */
+    ended,
     /** When the backend picked the turn up (ms); null when it is not working. */
     thinkingSince,
+    /** What the backend's latest reasoning summary says it is doing; null before one arrives. */
+    thinkingTitle,
+    /** The word `emote` last put on the face; null before one. */
+    faceWord,
     /** Seconds until idle hang-up; null outside the warning window. */
     idleLeft,
     /** When the line opened (ms); null without a call. */
@@ -997,6 +1035,36 @@ export function useThursday() {
 }
 
 const EMPTY_BANDS = new Array<number>(SPECTRUM_BANDS).fill(0);
+
+/** What `emote` asked the face to show, and the line the model reads back; `word` is null when nothing is shown. */
+function readFaceWord(args: string): { word: string | null; reply: string } {
+  let text = "";
+  try {
+    const parsed: unknown = JSON.parse(args);
+    if (parsed && typeof parsed === "object" && "text" in parsed) {
+      text = String(parsed.text ?? "").trim();
+    }
+  } catch {
+    text = "";
+  }
+  const length = Array.from(text).length;
+  if (!length)
+    return { word: null, reply: "Nothing was shown: text is empty." };
+  if (length > FACE_WORD_MAX) {
+    return {
+      word: null,
+      reply: `Too long: ${length} characters, ${FACE_WORD_MAX} at most. Nothing was shown.`,
+    };
+  }
+  const bad = undrawable(text);
+  if (bad) {
+    return {
+      word: null,
+      reply: `Cannot draw "${bad}"; use only the characters \`text\` lists. Nothing was shown.`,
+    };
+  }
+  return { word: text.toUpperCase(), reply: "Shown." };
+}
 
 /**
  * Calls opened without a gesture (wake word, call-back) get a suspended

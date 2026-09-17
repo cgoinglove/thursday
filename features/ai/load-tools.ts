@@ -4,7 +4,7 @@ import { CALL_EXEC_TIMEOUT_MS, IS_DEV } from "@/config";
 import type { TextModel } from "@/features/ai/model";
 import { clockNow } from "@/features/ai/prompts/prompt-helper";
 import { delegateSpec, threadSpec } from "@/features/ai/tools/bot.tool";
-import { CALL_TOOLS } from "@/features/ai/tools/call.tool";
+import { callTools } from "@/features/ai/tools/call.tool";
 import { createMcpTools } from "@/features/ai/tools/mcp.tool";
 import { createMemoryTools } from "@/features/ai/tools/memory.tool";
 import { createSearchTool } from "@/features/ai/tools/search.tool";
@@ -43,6 +43,8 @@ export type ToolRun =
       target: "thursday";
       /** The current call; written on the thread row `delegate` opens. */
       callId?: string | null;
+      /** The face can show a word (the ascii orb): the call is given `emote`. */
+      faceWords?: boolean;
     }
   | {
       target: "bot";
@@ -360,7 +362,7 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
       }),
       // Handing work over, following it, and hanging up belong to the voice session only
       ...createThreadTools(run.callId),
-      ...CALL_TOOLS,
+      ...callTools(run.faceWords ?? false),
     };
   }
 

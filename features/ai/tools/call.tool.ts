@@ -1,11 +1,15 @@
 import { tool } from "ai";
 import * as z from "zod";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
+import {
+  FACE_WORD_MARKS,
+  FACE_WORD_MAX,
+} from "@/features/thursday/ascii.const";
 
 /**
- * The call lives in the page, so this tool has no server-side execute; the
- * page supplies the behaviour (use-thursday). loadTools declares it too so
- * `/api/tool-call` refuses it by name rather than as an unknown tool.
+ * The call lives in the page, so these tools have no server-side execute; the
+ * page supplies the behaviour (use-thursday). loadTools declares them too so
+ * `/api/tool-call` refuses them by name rather than as unknown tools.
  */
 export const endCallSpec = {
   name: TOOL_NAMES.end_call,
@@ -21,4 +25,28 @@ export const endCallTool = tool({
   inputSchema: endCallSpec.parameters,
 });
 
-export const CALL_TOOLS = { [TOOL_NAMES.end_call]: endCallTool };
+export const emoteSpec = {
+  name: TOOL_NAMES.emote,
+  description: "Show a short word on your face for a few seconds.",
+  parameters: z.object({
+    text: z
+      .string()
+      .describe(
+        `Up to ${FACE_WORD_MAX} characters: A-Z, 0-9, space and ${FACE_WORD_MARKS.join(" ")}.`,
+      ),
+  }),
+};
+
+/** Deliberately has no `execute`. */
+export const emoteTool = tool({
+  description: emoteSpec.description,
+  inputSchema: emoteSpec.parameters,
+});
+
+/** The tools that act on the call itself. `emote` only when the face can draw a word (the ascii orb). */
+export function callTools(faceWords: boolean) {
+  return {
+    [TOOL_NAMES.end_call]: endCallTool,
+    ...(faceWords ? { [TOOL_NAMES.emote]: emoteTool } : {}),
+  };
+}

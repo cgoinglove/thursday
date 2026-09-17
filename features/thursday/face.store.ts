@@ -40,6 +40,11 @@ export function setThursdayFace(next: ThursdayFace) {
   announce();
 }
 
+/** The face as it is now, for code outside React. */
+export function thursdayFace(): ThursdayFace {
+  return face;
+}
+
 export function useThursdayFace(): ThursdayFace {
   return useSyncExternalStore(
     (listener) => {

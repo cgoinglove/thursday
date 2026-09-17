@@ -4,13 +4,12 @@ import {
   ChevronDown,
   ChevronUp,
   Flag,
-  Loader2,
   type LucideIcon,
   Mic,
   MicOff,
   Settings2,
 } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -22,6 +21,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { CALL_IDLE } from "@/config";
 import { LIVE_PROVIDER } from "@/features/ai/live.schema";
 import { type Bot, DEFAULT_BOT } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
@@ -43,11 +43,13 @@ import {
   type CallStatus,
   type CaptionView,
   FACE_DEFAULT,
+  type FaceWord,
   type ThursdayFace,
 } from "@/features/thursday/thursday.schema";
 import { useThursdayStore } from "@/features/thursday/thursday.store";
 import {
   type ActivityLine,
+  type CallEnd,
   type Ringing,
   useThursday,
 } from "@/features/thursday/use-thursday";
@@ -56,6 +58,7 @@ import { useHotkeyLabel } from "@/hooks/use-hotkey";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn } from "@/lib/utils";
 import { Face } from "./face";
+import { SideCaptions, turnsOf, useTurnFocus } from "./side-captions";
 import { TabState } from "./tab-state";
 
 /**
@@ -75,6 +78,12 @@ export type CallScreenProps = {
   tool: ActivityLine | null;
   /** When the backend picked the turn up (ms); null when it is not working. */
   thinkingSince?: number | null;
+  /** What the backend's latest reasoning summary says it is doing. */
+  thinkingTitle?: string | null;
+  /** Why the last call ended, when the user did not end it. */
+  ended?: CallEnd | null;
+  /** The word `emote` last put on the face. */
+  faceWord?: FaceWord | null;
   onTap: () => void;
   /** A call-back ringing; the tap answers it. */
   ringing?: Ringing | null;
@@ -104,6 +113,9 @@ export function CallScreen({
   messages,
   tool,
   thinkingSince = null,
+  thinkingTitle = null,
+  ended = null,
+  faceWord = null,
   onTap,
   ringing = null,
   onDecline,
@@ -127,7 +139,13 @@ export function CallScreen({
   const hers =
     messages.findLast((turn) => turn.role === "assistant")?.text ?? "";
   const sided = captionView === "sides" && status !== "idle";
-  const turns = useTurnPager(messages);
+  const talk = useMemo(() => turnsOf(messages), [messages]);
+  const turns = useTurnFocus(talk, sided);
+  const lastRole = talk.at(-1)?.role;
+  // the last turn is still being said: her voice is on, or yours came after hers and she has not answered
+  const saying =
+    (lastRole === "assistant" && status === "speaking") ||
+    (lastRole === "user" && status === "listening");
   return (
     <div className="relative flex h-full flex-col">
       <div className="absolute top-5 right-5 z-10">
@@ -173,6 +191,7 @@ export function CallScreen({
                 look={face}
                 status={status}
                 failed={failed}
+                word={faceWord}
                 getSpectrum={getSpectrum}
                 getMicSpectrum={getMicSpectrum}
                 className="w-full"
@@ -180,7 +199,9 @@ export function CallScreen({
             </span>
           </button>
 
-          {sided && <SideCaptions shown={turns.shown} give={turns.give} />}
+          {sided && (
+            <SideCaptions turns={talk} focus={turns.focus} live={saying} />
+          )}
         </div>
 
         {/* The column is wider than the text (40rem); the side margins hold the caption chevrons (Flow) */}
@@ -193,6 +214,7 @@ export function CallScreen({
           <ActivityRow
             tool={tool}
             thinkingSince={thinkingSince}
+            thinkingTitle={thinkingTitle}
             listening={status === "listening" && thinkingSince === null}
             ringing={ringing}
             getMicSpectrum={getMicSpectrum}
@@ -202,8 +224,6 @@ export function CallScreen({
               `text-balance`: rebalancing changes the line count under the pager. */}
           <Flow
             text={sided || status === "idle" ? "" : hers}
-            fixed
-            paged
             fadeIn
             className="w-full max-w-160 text-center text-base"
           />
@@ -230,6 +250,8 @@ export function CallScreen({
                 status={status}
                 idleLeft={idleLeft}
                 since={since}
+                ended={ended}
+                behind={sided && turns.back > 0}
                 ringing={ringing !== null}
                 onDecline={onDecline}
                 wakePhrase={wakePhrase}
@@ -340,46 +362,6 @@ function SettingsCorner() {
 const CAPTION_LINES = 3;
 
 /**
- * Lines a side caption keeps, by age. The newest turn is the one being said, so
- * it gets room for a whole spoken sentence; what came before is context and
- * decays with the type size beside it.
- */
-const CAPTION_TURN_LINES = [5, 3, 2];
-
-/**
- * Type size by age. The step is a real one — 18 / 15 / 13 — because it is what
- * tells two turns apart once neither carries an edge.
- */
-const CAPTION_SIZES = ["text-lg", "text-[15px]", "text-[13px]"];
-
-/** Inner padding by age: a smaller turn sits on a smaller plate. */
-const CAPTION_PADS = ["px-4 py-3", "px-3.5 py-2.5", "px-3 py-2"];
-
-/**
- * The plate a turn sits on: fill, no edge. The call screen's ground is the
- * page's own — the ascii field is boot and intro only — so an outline covers
- * nothing and ends up being the whole design.
- *
- * Yours is the surface `Bubble` already gives your words in a thread
- * (primary, light ink); hers is the page's grey. Age recedes in the fill, not
- * in the block's opacity, which would take the ink down with it.
- */
-const CAPTION_HERS = ["bg-muted", "bg-muted/70", "bg-muted/45"];
-const CAPTION_YOURS = ["bg-primary", "bg-primary/75", "bg-primary/60"];
-
-/** A step off a ramp above. The ramps run out at VISIBLE; the last step is the floor. */
-function atAge(ramp: readonly string[], age: number) {
-  return ramp[age] ?? ramp[ramp.length - 1];
-}
-
-/** Ink by age. Hers recedes with her plate; yours stays legible on every step of its own. */
-const CAPTION_HERS_INK = [
-  "text-foreground",
-  "text-muted-foreground",
-  "text-muted-foreground/60",
-];
-
-/**
  * Line height as a number, not a class: box height and page offset divide by
  * it, and a class could be overridden by a later `text-*` utility.
  */
@@ -391,21 +373,12 @@ const CAPTION_LEADING = 1.625;
  */
 function Flow({
   text,
-  lead,
   lines = CAPTION_LINES,
-  fixed = false,
-  paged = false,
   fadeIn = false,
   className,
 }: {
   text: string;
-  /** Sits inline before the text. */
-  lead?: ReactNode;
   lines?: number;
-  /** Reserve the full height even with no text. */
-  fixed?: boolean;
-  /** Page overflow with chevrons; needs side margin. */
-  paged?: boolean;
   /** Each new character fades in as it arrives; what is already drawn stays put. */
   fadeIn?: boolean;
   className?: string;
@@ -422,7 +395,7 @@ function Flow({
   // re-measure on width change and on every text change (streaming moves the last line)
   useEffect(() => {
     const node = box.current;
-    if (!node || !paged) return;
+    if (!node) return;
     const measure = () => {
       const line = Number.parseFloat(getComputedStyle(node).lineHeight);
       if (!line) return;
@@ -432,7 +405,7 @@ function Flow({
     const watch = new ResizeObserver(measure);
     watch.observe(node);
     return () => watch.disconnect();
-  }, [text, paged]);
+  }, [text]);
 
   const steps = Math.ceil(Math.max(0, rows - lines) / lines);
   const at = Math.max(0, rows - lines - Math.min(back, steps) * lines);
@@ -443,13 +416,10 @@ function Flow({
       ref={box}
       style={{
         lineHeight: CAPTION_LEADING,
-        ...(paged
-          ? { transform: `translateY(-${at * CAPTION_LEADING}em)` }
-          : {}),
+        transform: `translateY(-${at * CAPTION_LEADING}em)`,
       }}
-      className={cn("break-keep", paged && "transition-transform duration-200")}
+      className="break-keep transition-transform duration-200"
     >
-      {lead}
       {fadeIn
         ? // char + index: a character already drawn keeps its key and never fades twice
           Array.from(text).map((char, index) => (
@@ -463,21 +433,6 @@ function Flow({
         : text}
     </p>
   );
-
-  // No room for chevrons here (side captions): overflow is clipped and the fading last line is the only cue
-  if (!paged) {
-    return (
-      <div
-        style={fixed ? { height } : { maxHeight: height }}
-        className={cn(
-          "overflow-hidden mask-[linear-gradient(to_bottom,black_calc(100%-0.7rem),transparent_100%)]",
-          className,
-        )}
-      >
-        {body}
-      </div>
-    );
-  }
 
   return (
     <div className="relative flex w-full justify-center">
@@ -762,12 +717,14 @@ function Mark({
 function ActivityRow({
   tool,
   thinkingSince,
+  thinkingTitle,
   listening,
   ringing,
   getMicSpectrum,
 }: {
   tool: ActivityLine | null;
   thinkingSince: number | null;
+  thinkingTitle: string | null;
   listening: boolean;
   /** Only while idle, when nothing else takes the slot. */
   ringing: Ringing | null;
@@ -780,9 +737,12 @@ function ActivityRow({
   }, [tool]);
   // and past the thinking, for the same reason
   const [since, setSince] = useState(thinkingSince);
+  const [title, setTitle] = useState(thinkingTitle);
   useEffect(() => {
-    if (thinkingSince !== null) setSince(thinkingSince);
-  }, [thinkingSince]);
+    if (thinkingSince === null) return;
+    setSince(thinkingSince);
+    setTitle(thinkingTitle);
+  }, [thinkingSince, thinkingTitle]);
 
   const hearing = listening && !tool;
   return (
@@ -809,7 +769,11 @@ function ActivityRow({
           at="col-start-1 row-start-1"
           shown={thinkingSince !== null && !tool}
         >
-          <Thinking since={since} running={thinkingSince !== null && !tool} />
+          <Thinking
+            since={since}
+            title={title}
+            running={thinkingSince !== null && !tool}
+          />
         </Fade>
       )}
       <Fade at="col-start-1 row-start-1" shown={hearing}>
@@ -882,15 +846,26 @@ function Fade({
   );
 }
 
+/** Why a call ended, as the hint says it. */
+const ENDED: Record<CallEnd, string> = {
+  quiet: `${CALL_IDLE.hangUpMs / 1000}s of quiet`,
+  hungUp: "Thursday hung up",
+  closed: "Live closed the call",
+  dropped: "the connection dropped",
+};
+
 /**
  * The only hint line on screen. Says one thing at a time; outside a call it
- * shows one way in (wake phrase or hotkey), inside a call how to end and the
- * elapsed time. Keyed so changes fade.
+ * shows why the last one ended when the user did not end it, else one way in
+ * (wake phrase or hotkey); inside a call how to end and the elapsed time. Keyed
+ * so changes fade.
  */
 function Hint({
   status,
   idleLeft,
   since,
+  ended,
+  behind,
   ringing,
   onDecline,
   wakePhrase,
@@ -899,6 +874,9 @@ function Hint({
   status: CallStatus;
   idleLeft: number | null;
   since: number | null;
+  ended: CallEnd | null;
+  /** The side captions are on an earlier turn. */
+  behind: boolean;
   ringing: boolean;
   onDecline?: () => void;
   wakePhrase: string | null;
@@ -923,12 +901,21 @@ function Hint({
     key = "quiet";
     body = `Quiet — ending in ${idleLeft}s. Say anything to stay.`;
   } else if (live) {
-    key = "live";
+    key = behind ? "behind" : "live";
     body = (
       <>
         <span>Tap Thursday to end</span>
         <span className="text-muted-foreground/40">·</span>
-        <Elapsed since={since} />
+        {behind ? (
+          <>
+            <kbd className="rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-foreground/80 shadow-[0_1px_0_var(--border)]">
+              ↓
+            </kbd>
+            <span>back to now</span>
+          </>
+        ) : (
+          <Elapsed since={since} />
+        )}
       </>
     );
   } else if (ringing) {
@@ -948,6 +935,16 @@ function Hint({
             Esc
           </kbd>
         </button>
+      </>
+    );
+  } else if (ended) {
+    key = `ended:${ended}`;
+    // Where the quiet warning stood, until the next call
+    body = (
+      <>
+        <span>Ended — {ENDED[ended]}</span>
+        <span className="text-muted-foreground/40">·</span>
+        <span>Tap to call again</span>
       </>
     );
   } else if (wakePhrase) {
@@ -1052,11 +1049,19 @@ function NeedsKey({
 /**
  * The backend has the turn: the activity line says so and counts, so the
  * seconds before a tool and before her voice never read as a call that has
- * stopped. A spinner fits here as it did not on a tool: there is no glyph yet
- * for it to take off the screen. The seconds arrive after the first one, which
- * is most answers.
+ * stopped. Once a reasoning summary names what the work is, the line says that
+ * instead. It shines where the rest of this screen pulses (the user's pick). The
+ * seconds arrive after the first one, which is most answers.
  */
-function Thinking({ since, running }: { since: number; running: boolean }) {
+function Thinking({
+  since,
+  title,
+  running,
+}: {
+  since: number;
+  title: string | null;
+  running: boolean;
+}) {
   const [now, setNow] = useState(() => Date.now());
   // Stays mounted to fade out; the count stops with it rather than ticking unseen
   useEffect(() => {
@@ -1070,21 +1075,32 @@ function Thinking({ since, running }: { since: number; running: boolean }) {
     };
   }, [running]);
   const seconds = Math.max(0, Math.floor((now - since) / 1000));
+  const words = title ? `Thinking about ${midSentence(title)}` : "Thinking…";
   return (
     <span className="flex max-w-full items-center gap-1.5 text-[13px] leading-5">
-      {/* the 18px slot a tool's glyph takes over when one starts */}
-      <span className="grid size-[18px] shrink-0 place-items-center">
-        <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-      </span>
-      <ShinyText text="Thinking…" motion="pulse" />
+      {/* keyed so a new title fades in rather than replacing the words mid-sweep */}
+      <ShinyText
+        key={words}
+        text={words}
+        className="min-w-0 animate-in truncate fade-in duration-300"
+      />
       {seconds >= 1 && (
         <>
-          <span className="text-muted-foreground/40">·</span>
-          <span className="text-muted-foreground tabular-nums">{seconds}s</span>
+          <span className="shrink-0 text-muted-foreground/40">·</span>
+          <span className="shrink-0 text-muted-foreground tabular-nums">
+            {seconds}s
+          </span>
         </>
       )}
     </span>
   );
+}
+
+/** A title read mid-sentence: "Checking thread status" becomes "checking thread status"; "API limits" stays. */
+function midSentence(title: string) {
+  return /^\p{Lu}\p{Lu}/u.test(title)
+    ? title
+    : title.charAt(0).toLowerCase() + title.slice(1);
 }
 
 /** Time since the line opened, mm:ss; only this span re-renders each second. */
@@ -1106,151 +1122,6 @@ function Elapsed({ since }: { since: number | null }) {
   );
 }
 
-/** Turns shown at once. */
-const VISIBLE = 3;
-
-/**
- * Wheel delta per turn. Deliberately heavy — a turn is a paragraph, and a
- * trackpad flick that pages three of them reads as losing the conversation
- * rather than moving through it. The give is what says it is not stuck.
- */
-const STEP = 360;
-
-/** How far the plates lean while the wheel is short of a turn, px. */
-const GIVE = 10;
-
-/** How long the wheel keeps what it has gathered. Past this the lean springs back and the count starts over, so half a turn never waits around to be completed by the next flick. */
-const SETTLE_MS = 220;
-
-/**
- * Where the wheel has wound the turns back to. Lives on the screen rather than
- * in the plates: the three plates are small and sit off to the sides, so a
- * wheel over the face — where the cursor is — used to reach nothing at all.
- */
-function useTurnPager(messages: CallMessage[]) {
-  const [back, setBack] = useState(0);
-  const [give, setGive] = useState(0);
-  const drag = useRef(0);
-  const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const seen = useRef(messages.length);
-
-  const furthest = Math.max(0, messages.length - VISIBLE);
-
-  // stay on the turn being read when new turns arrive
-  useEffect(() => {
-    const grew = messages.length - seen.current;
-    seen.current = messages.length;
-    if (grew > 0) {
-      setBack((was) => (was > 0 ? Math.min(was + grew, furthest) : 0));
-    }
-  }, [messages.length, furthest]);
-
-  useEffect(
-    () => () => {
-      if (settle.current) clearTimeout(settle.current);
-    },
-    [],
-  );
-
-  const onWheel = (event: React.WheelEvent) => {
-    // nothing behind the three on screen: no travel, and no lean pretending there is
-    if (furthest === 0) return;
-    drag.current += event.deltaY;
-    const steps = Math.trunc(drag.current / STEP);
-    if (steps !== 0) {
-      drag.current -= steps * STEP;
-      setBack((was) => Math.min(furthest, Math.max(0, was - steps)));
-    }
-    setGive(drag.current / STEP);
-
-    // spring back so the give reads as resistance, not position
-    if (settle.current) clearTimeout(settle.current);
-    settle.current = setTimeout(() => {
-      drag.current = 0;
-      setGive(0);
-    }, SETTLE_MS);
-  };
-
-  const end = messages.length - back;
-  return {
-    shown: messages.slice(Math.max(0, end - VISIBLE), end),
-    give,
-    onWheel,
-  };
-}
-
-/**
- * Recent turns beside the face: yours on the right, hers on the left, each on
- * a fill with no edge. Anchored outside the face box (`right-full` /
- * `left-full`) so they never cover it. Older turns sit higher, smaller, and
- * their plate recedes.
- */
-function SideCaptions({
-  shown,
-  give,
-}: {
-  shown: CallMessage[];
-  /** How far into the next turn the wheel is, -1..1; the plates lean by it. */
-  give: number;
-}) {
-  return (
-    <>
-      {shown.map((message, index) => {
-        // the speaker fixes the side, so a turn never switches sides as older ones stack up
-        const mine = message.role === "user";
-        // 18..68 rather than 20..75: a five-line newest turn has to clear the activity line
-        const top = 18 + (index * 50) / Math.max(1, shown.length - 1);
-        const age = shown.length - 1 - index;
-        const size = atAge(CAPTION_SIZES, age);
-        const pad = atAge(CAPTION_PADS, age);
-        const fill = atAge(mine ? CAPTION_YOURS : CAPTION_HERS, age);
-        const ink = atAge(CAPTION_HERS_INK, age);
-
-        return (
-          <div
-            key={message.id}
-            style={{
-              top: `${top}%`,
-              transform: `translateY(calc(-50% + ${-give * GIVE}px))`,
-            }}
-            className={cn(
-              // fixed-width slot, natural-width plate: short lines stay short and hug the face
-              "pointer-events-auto absolute flex w-[min(23rem,24vw)] transition-transform duration-100",
-              // yours on the right, the side the settings corner already takes
-              mine ? "left-full ml-6" : "right-full mr-6 justify-end",
-            )}
-          >
-            {/* Not a `Bubble`: that sets its surface on the content from the
-                parent, at a specificity a caption cannot override. One shape,
-                two fills — and no edge on either, so the plate is the whole
-                surface. The squared corner is the one nearest the face. */}
-            <div
-              className={cn(
-                "w-fit max-w-full animate-in rounded-[18px] fade-in duration-500",
-                pad,
-                mine
-                  ? cn(
-                      "rounded-bl-md text-primary-foreground slide-in-from-left-2",
-                      fill,
-                    )
-                  : cn("rounded-br-md slide-in-from-right-2", fill, ink),
-              )}
-            >
-              {/* One truncation idiom on both sides: speech that runs past the
-                  frame fades out. An ellipsis mid-sentence reads as an error. */}
-              <Flow
-                text={message.text}
-                lines={CAPTION_TURN_LINES[age] ?? 2}
-                className={size}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </>
-  );
-}
-
 export function Thursday() {
   const {
     status,
@@ -1258,6 +1129,9 @@ export function Thursday() {
     messages,
     tool,
     thinkingSince,
+    thinkingTitle,
+    ended,
+    faceWord,
     idleLeft,
     since,
     call,
@@ -1291,6 +1165,9 @@ export function Thursday() {
         messages={messages}
         tool={tool}
         thinkingSince={thinkingSince}
+        thinkingTitle={thinkingTitle}
+        ended={ended}
+        faceWord={faceWord}
         onTap={call}
         // without a key the face asks for one, so nothing can answer
         ringing={callable ? ringing : null}

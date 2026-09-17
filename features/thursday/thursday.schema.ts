@@ -12,9 +12,14 @@ import { LiveFragmentSchema } from "@/lib/live/live.schema";
 export const ThursdaySettingsSchema = LiveSettingsSchema.extend({
   /** `navigator.language` (e.g. "ko-KR"). Only the first call's opening line uses it. */
   locale: z.string().max(35).nullish(),
+  /** The face can show a word (the ascii orb); only then is the call given `emote`. */
+  faceWords: z.boolean().optional(),
 });
 
 export type ThursdaySettings = z.infer<typeof ThursdaySettingsSchema>;
+
+/** A word `emote` put on the face; `at` tells a second showing of the same word from the first. */
+export type FaceWord = { text: string; at: number };
 
 /** The browser receives the SDP answer, the row to save turns to, and the opening. */
 export type CallHandshake = {
@@ -114,8 +119,8 @@ export const CALL_BACK_LABEL: Record<CallBack, string> = {
 
 /**
  * Where the call screen draws the conversation: `center` puts the last
- * assistant line under the face like a caption; `sides` puts recent turns
- * beside it (user left, assistant right).
+ * assistant line under the face like a caption; `sides` puts the turns
+ * beside it (assistant left, user right), one a side at the face's middle.
  */
 export const CAPTION_VIEWS = ["center", "sides"] as const;
 export const CaptionViewSchema = z.enum(CAPTION_VIEWS);

@@ -111,7 +111,8 @@ counts as finished, though calls it completed before the cut still have their re
 continued once. The backend is asked for `reasoning.summary: "auto"` unless the
 effort is `none`. Each finished summary part (nested `response.reasoning_summary_text.done`,
 only while the model reasons) is stored with its call in `call_thought` to look into
-later; nothing draws it or reads it back into a prompt. Tools are sent without `strict`, so each schema that allows it is
+later; while the backend has the turn, the activity line shows the bold title of the latest
+one, and nothing reads it back into a prompt. Tools are sent without `strict`, so each schema that allows it is
 decoded to the schema; `strict: false` would let a model write arguments that are not
 JSON, and `strict: true` is refused while any schema has optional fields. Live has no
 `response.cancel`.
@@ -189,7 +190,10 @@ without deliberating. The ending rule names `end_call` in the voice prompt too, 
 name it holds: without it, ending read as something to say rather than do.
 The page does not close on `end_call` itself: it waits until her voice has been quiet
 for `CALL_END.quietMs`, or `CALL_END.unsaidMs` when nothing was said, never past
-`CALL_END.maxMs`.
+`CALL_END.maxMs`. `end_call` and `emote` (a word of up to eight characters on her face,
+offered only while the face is the ascii orb) are answered by the page, not the tool-call
+route. A call the user did not end — quiet, `end_call`, Live closing the session, a dropped
+connection — leaves the reason in the idle hint until the next call.
 
 Stop accepting new work, send `session.close`, and keep the connection while waiting
 for `session.closed`. Its reason and billed seconds are recorded on the call row

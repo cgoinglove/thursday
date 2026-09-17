@@ -11,15 +11,17 @@ import {
   EMOJI_POOL,
   EMOJI_RATIO,
   hash,
+  LETTERS,
   RAMP,
   smoothstep,
 } from "../ascii.const";
 import type { AsciiCharset } from "../face.const";
+import type { FaceWord } from "../thursday.schema";
 
 export type AsciiOrbMode =
   | "idle"
   | "connecting"
-  /** The user's turn: the resting body, retyping with the microphone */
+  /** The user's turn: the resting body, thinned out, retyping with the microphone */
   | "listening"
   /** Hanging up: the body draws in and goes out, leaving the field empty */
   | "ending"
@@ -47,6 +49,11 @@ export type AsciiOrbProps = {
    * glyphs retype; without them listening is the resting body alone.
    */
   getMicSpectrum?: () => ArrayLike<number>;
+  /**
+   * A word to show (emote): the body steps aside, the letters light in one by
+   * one, hold, and go out, and the mode takes the face back. A new `at` shows it again.
+   */
+  word?: FaceWord | null;
   /** Side length (px). Everything scales with it; cell count scales with area. */
   size?: number;
   /**
@@ -62,14 +69,23 @@ const DEFAULT_COLOR: [number, number, number] = [235, 235, 235];
 /** Color easing per frame (0.05 is about 0.5s) */
 const COLOR_EASE = 0.05;
 
-/** ERROR: 4 cells per letter, 1 gap (24 x 5) */
-const ERROR_BITMAP = [
-  "████ ███  ███   ██  ███ ",
-  "█    █  █ █  █ █  █ █  █",
-  "███  ███  ███  █  █ ███ ",
-  "█    █ █  █ █  █  █ █ █ ",
-  "████ █  █ █  █  ██  █  █",
-];
+/** A word as five rows of letter indices, one empty column between letters; -1 is no ink. */
+function spell(text: string) {
+  const rows: number[][] = [[], [], [], [], []];
+  let letter = 0;
+  for (const char of Array.from(text.toUpperCase())) {
+    const glyph = LETTERS[char];
+    if (!glyph) continue;
+    if (rows[0].length) for (const row of rows) row.push(-1);
+    glyph.forEach((line, r) => {
+      for (const px of line) rows[r].push(px === "#" ? letter : -1);
+    });
+    if (char !== " ") letter++;
+  }
+  return rows;
+}
+
+const ERROR_ROWS = spell("ERROR");
 
 /** Reference size the tuning constants assume; coordinates are normalized to it. */
 const DESIGN = 680;
@@ -145,6 +161,8 @@ const RISE = {
   comet: 0.45,
   speech: 0.5,
   err: 0.5,
+  word: 0.35,
+  listen: 0.3,
 };
 const FALL = {
   scale: 0.7,
@@ -153,6 +171,8 @@ const FALL = {
   comet: 0.9,
   speech: 0.75,
   err: 0.6,
+  word: 0.5,
+  listen: 0.6,
 };
 /** Hanging up pulls the body in faster than anything else grows back. */
 const END_FALL = 0.4;
@@ -209,6 +229,14 @@ const LISTEN_PACE_VOICE = 8;
 const LISTEN_LIFT = 0.24;
 /** Seconds the retype rate takes to follow the voice (toward) */
 const PACE_TIME = 0.14;
+/**
+ * Listening also thins the body out, so the voice has gaps to show in: every
+ * cell's gate rises by THIN, and POP_RATE times a second each cell re-rolls up
+ * to POP of it, as far as the voice is loud — glyphs pop in and out with the words.
+ */
+const LISTEN_THIN = 0.16;
+const LISTEN_POP = 0.6;
+const LISTEN_POP_RATE = 9;
 
 /** Working: a comet orbiting just outside the resting body */
 const WORK_R = 210;
@@ -227,6 +255,15 @@ const ERR_HOLD_UNTIL = 5.6; // letters start going out
 const ERR_STEP_OUT = 0.5;
 const ERR_FADE_OUT = 0.7;
 const ERR_CYCLE = 9.2;
+
+/** A word (emote), once: letters light in one by one, hold, and go out the same way (s) */
+const WORD_STEP_IN = 0.11;
+const WORD_FADE_IN = 0.3;
+const WORD_HOLD = 3.4;
+const WORD_STEP_OUT = 0.08;
+const WORD_FADE_OUT = 0.35;
+/** The widest a word is drawn, as a share of the box: about her body */
+const WORD_WIDTH = 0.62;
 
 type Cell = {
   /** Draw position on the canvas */
@@ -249,26 +286,23 @@ type Cell = {
   speck: number;
   /** Index of the ERROR letter this cell belongs to, or -1 */
   letter: number;
+  /** Index of the shown word's letter this cell belongs to, or -1; laid again for each word */
+  word: number;
 };
 
-/** Index of the ERROR letter at (dx,dy), or -1 */
-function errorLetterAt(
+/** Index of the letter at (dx,dy) of a word centred on the box, each of its cells `s` grid cells wide; -1 when none */
+function letterAt(
+  rows: number[][],
   dx: number,
   dy: number,
   cw: number,
   ch: number,
   s: number,
 ) {
-  const rows = ERROR_BITMAP.length;
-  const cols = ERROR_BITMAP[0].length;
-  const bx = Math.floor(dx / (cw * s) + cols / 2);
-  const by = Math.floor(dy / (ch * s) + rows / 2);
-
-  if (by < 0 || by >= rows) return -1;
-  const line = ERROR_BITMAP[by];
-  if (bx < 0 || bx >= line.length) return -1;
-  if (line[bx] !== "█") return -1;
-  return Math.floor(bx / 5);
+  const bx = Math.floor(dx / (cw * s) + rows[0].length / 2);
+  const by = Math.floor(dy / (ch * s) + rows.length / 2);
+  if (by < 0 || by >= rows.length) return -1;
+  return rows[by][bx] ?? -1;
 }
 
 /**
@@ -308,6 +342,10 @@ type Field = {
   speech: number;
   /** The ERROR letters */
   err: number;
+  /** A word's letters (emote) */
+  word: number;
+  /** Listening's thinning out */
+  listen: number;
 };
 
 /** Where a mode wants the field. `e` is seconds since the mode was asked for. */
@@ -319,6 +357,8 @@ function targetFor(m: AsciiOrbMode, e: number, v: Voice): Field {
     comet: 0,
     speech: 0,
     err: 0,
+    word: 0,
+    listen: 0,
   };
   switch (m) {
     case "idle":
@@ -335,11 +375,12 @@ function targetFor(m: AsciiOrbMode, e: number, v: Voice): Field {
       };
     }
 
-    // the body holds still; the user's voice shows as ink and as the retype rate
+    // the body holds still; the user's voice shows as ink, in its gaps and as the retype rate
     case "listening":
       return {
         ...rest,
         lift: LISTEN_LIFT * (0.7 * v.micPhrase + 0.3 * v.micLevel),
+        listen: 1,
       };
 
     case "speaking":
@@ -459,12 +500,52 @@ function errorValue(cell: Cell, t: number, age: number) {
   return Math.max(0, appear - vanish) * flick;
 }
 
+/** Marks which cells ink each letter of `text`, fitted to about her body's width; returns the letter count. */
+function layWord(cells: Cell[], cw: number, ch: number, text: string) {
+  const rows = spell(text);
+  const s = Math.max(
+    1,
+    Math.min(3, Math.floor((DESIGN * WORD_WIDTH) / (rows[0].length * cw))),
+  );
+  let letters = 0;
+  for (const cell of cells) {
+    cell.word = letterAt(rows, cell.dx, cell.dy, cw, ch, s);
+    letters = Math.max(letters, cell.word + 1);
+  }
+  return letters;
+}
+
+/** A word's letters `age` seconds into its showing: each lights in turn, holds, and goes out in turn. */
+function wordValue(cell: Cell, t: number, age: number) {
+  if (cell.word < 0) return 0;
+  const jitter = cell.seed * 0.08;
+  const appear = smoothstep(
+    0,
+    1,
+    (age - cell.word * WORD_STEP_IN - jitter) / WORD_FADE_IN,
+  );
+  const vanish = smoothstep(
+    0,
+    1,
+    (age - WORD_HOLD - cell.word * WORD_STEP_OUT - jitter) / WORD_FADE_OUT,
+  );
+  const flick = 0.86 + Math.sin(t * 3.5 + cell.seed * 6) * 0.14;
+  return Math.max(0, appear - vanish) * flick;
+}
+
 /**
  * One cell's brightness: the body, plus whichever behaviours are up. Her voice
  * hollows the body rather than replacing it, so there is nothing to dissolve
  * between when she starts or stops.
  */
-function fieldValue(cell: Cell, t: number, errAge: number, f: Field, v: Voice) {
+function fieldValue(
+  cell: Cell,
+  t: number,
+  errAge: number,
+  wordAge: number,
+  f: Field,
+  v: Voice,
+) {
   let value =
     f.scale > 0.02
       ? idleValue(cell, t, f.lift, f.scale) * (1 - 0.6 * f.speech)
@@ -473,6 +554,7 @@ function fieldValue(cell: Cell, t: number, errAge: number, f: Field, v: Voice) {
   if (f.comet > 0.01) value += cometValue(cell, t) * f.comet;
   if (f.speech > 0.01) value += speechValue(cell, t, v, f.speech) * f.speech;
   if (f.err > 0.01) value += errorValue(cell, t, errAge) * f.err;
+  if (f.word > 0.01) value += wordValue(cell, t, wordAge) * f.word;
   return value;
 }
 
@@ -486,6 +568,7 @@ export function AsciiOrb({
   color = DEFAULT_COLOR,
   getSpectrum,
   getMicSpectrum,
+  word = null,
 }: AsciiOrbProps) {
   const hostRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -539,7 +622,18 @@ export function AsciiOrb({
     comet: 0,
     speech: 0,
     err: 0,
+    word: 0,
+    listen: 0,
   });
+
+  /** The word being shown, when it started, and how many letters it has; its cells carry the rest */
+  const wordRef = useRef<{
+    text: string;
+    start: number;
+    letters: number;
+  } | null>(null);
+  /** Grid pitch in reference units, for laying a word onto cells that already exist */
+  const pitchRef = useRef({ cw: 1, ch: 1 });
 
   // grid is rebuilt only when size or density changes
   useEffect(() => {
@@ -556,9 +650,10 @@ export function AsciiOrb({
     // scale ERROR so it stays inside the box at any glyph size
     const errScale = Math.max(
       1,
-      Math.floor((DESIGN * 0.92) / (ERROR_BITMAP[0].length * cwN)),
+      Math.floor((DESIGN * 0.92) / (ERROR_ROWS[0].length * cwN)),
     );
     boxRef.current = size;
+    pitchRef.current = { cw: cwN, ch: chN };
 
     const cells: Cell[] = [];
     const cols = Math.ceil(size / cw);
@@ -573,7 +668,7 @@ export function AsciiOrb({
         const dy = (y - size / 2) * norm;
         const dist = Math.hypot(dx, dy);
 
-        const letter = errorLetterAt(dx, dy, cwN, chN, errScale);
+        const letter = letterAt(ERROR_ROWS, dx, dy, cwN, chN, errScale);
         if (letter < 0 && dist > FIELD_R) continue;
 
         cells.push({
@@ -590,11 +685,14 @@ export function AsciiOrb({
           emoji: hash(c * 2.7 + 31, r * 5.9 + 17) < EMOJI_RATIO,
           speck: hash(c * 4.1 + 23, r * 6.3 + 41),
           letter,
+          word: -1,
         });
       }
     }
 
     cellsRef.current = cells;
+    // a word showing while the grid changes is laid onto the new cells
+    if (wordRef.current) layWord(cells, cwN, chN, wordRef.current.text);
 
     // bucketing by level keeps fillStyle changes to one per level
     bucketsRef.current = {
@@ -649,6 +747,17 @@ export function AsciiOrb({
     if (modeRef.current.mode === mode) return;
     modeRef.current = { mode, start: performance.now() * 0.001 };
   }, [mode]);
+
+  // a new word starts from its first letter, in place of one still showing
+  useEffect(() => {
+    if (!word) return;
+    const { cw, ch } = pitchRef.current;
+    wordRef.current = {
+      text: word.text,
+      start: performance.now() * 0.001,
+      letters: layWord(cellsRef.current, cw, ch, word.text),
+    };
+  }, [word]);
 
   // animation loop
   useEffect(() => {
@@ -748,7 +857,25 @@ export function AsciiOrb({
 
       // the field eases toward what this mode wants, each channel on its own clock
       const cur = modeRef.current;
-      const want = targetFor(cur.mode, t - cur.start, voice);
+      // a word takes the face from the mode until its last letter is out; an error keeps it
+      const shown = wordRef.current;
+      const wordAge = shown ? t - shown.start : 0;
+      const wording =
+        shown !== null &&
+        cur.mode !== "error" &&
+        wordAge < WORD_HOLD + shown.letters * WORD_STEP_OUT + WORD_FADE_OUT;
+      const want: Field = wording
+        ? {
+            scale: 0,
+            lift: 0,
+            gather: 0,
+            comet: 0,
+            speech: 0,
+            err: 0,
+            word: 1,
+            listen: 0,
+          }
+        : targetFor(cur.mode, t - cur.start, voice);
       const f = fieldRef.current;
       f.scale = toward(
         f.scale,
@@ -768,15 +895,20 @@ export function AsciiOrb({
         errAge += dt;
       }
       f.err = toward(f.err, want.err, RISE.err, FALL.err, dt);
-      const keepGlyphSolid = f.err > 0.5;
+      f.word = toward(f.word, want.word, RISE.word, FALL.word, dt);
+      f.listen = toward(f.listen, want.listen, RISE.listen, FALL.listen, dt);
+      const solidError = f.err > 0.5;
+      const solidWord = f.word > 0.5;
       const rate = cs === "emojiOnly" ? EMOJI_CHAR_RATE : CHAR_RATE;
 
       const all = cellsRef.current;
       for (let ci = 0; ci < all.length; ci++) {
         const cell = all[ci];
-        let v = fieldValue(cell, t, errAge, f, voice);
+        let v = fieldValue(cell, t, errAge, wordAge, f, voice);
 
-        if (!(keepGlyphSolid && cell.letter >= 0)) {
+        if (
+          !((solidError && cell.letter >= 0) || (solidWord && cell.word >= 0))
+        ) {
           // per-cell brightness response breaks concentric rings; multiplicative, so empty (0) stays empty
           v *= 0.66 + cell.grain * 0.72;
           // slowly drifting noise on top
@@ -795,7 +927,18 @@ export function AsciiOrb({
             v = Math.max(v, 0.9);
           }
 
-          const gate = cell.gap + Math.sin(t * 0.28 + cell.seed * 6.283) * 0.05;
+          const gate =
+            cell.gap +
+            Math.sin(t * 0.28 + cell.seed * 6.283) * 0.05 +
+            f.listen *
+              (LISTEN_THIN +
+                (hash(
+                  Math.floor(t * LISTEN_POP_RATE + cell.seed * 3),
+                  cell.seed * 97,
+                ) -
+                  0.5) *
+                  LISTEN_POP *
+                  voice.micLevel);
           if (v < gate) v = 0;
         }
 

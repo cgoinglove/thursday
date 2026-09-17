@@ -115,7 +115,7 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   never instructions, since the backend reads it too.
 - **Tools run on the server.** A call's tool invocation is forwarded by the page to the server, so
   tools call domain queries directly. The one exception is anything that touches the call itself
-  (hang up).
+  (hang up, a word on her face — offered only while the face is the ascii orb).
 - **Voice is GPT-Live, not Realtime.** The server exchanges the browser's SDP through
   `/v1/live/sessions`; the API key, both prompts and the tool manifest stay on the server. Live
   speech and Responses work have independent lifecycles. Collect function calls from nested
@@ -258,7 +258,8 @@ A 30-second poll remains as a safety net. No WebSockets.
 - Waiting is always a loader: buttons swap their icon for a Loader, lists use `Skeleton`. Never dots,
   and never a new element that shifts the row when it finishes.
 - Words for something still running shine (`ShinyText`), and pulse instead on the call screen
-  (`motion="pulse"`, the user's pick): one screen, one motion. It takes its colours from the theme —
+  (`motion="pulse"`, the user's pick) — except what the backend is thinking about, which shines
+  there too (also the user's pick). It takes its colours from the theme —
   `tone="waiting"` for amber, never a colour — and truncates in its own box, not a parent's.
 - Two status colors only: amber (waits on the user — a question, a stopped job, an answer not yet
   opened; `WAITING_INK` in `lib/utils`) and red (failed — `text-destructive`). Success, connected and

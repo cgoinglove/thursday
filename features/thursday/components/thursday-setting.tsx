@@ -795,8 +795,8 @@ const CAPTION_LABEL: Record<CaptionView, { label: string; hint: string }> = {
     hint: "One caption under the mark — only what she said.",
   },
   sides: {
-    label: "Last three turns",
-    hint: "Hers on the left, yours on the right, beside the mark.",
+    label: "Both sides",
+    hint: "Hers on the left, yours on the right. ↑ ↓ step back through the call.",
   },
 };
 

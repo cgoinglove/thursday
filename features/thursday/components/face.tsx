@@ -13,6 +13,7 @@ import {
 import type { FaceKind } from "@/features/thursday/face.const";
 import type {
   CallStatus,
+  FaceWord,
   ThursdayFace,
 } from "@/features/thursday/thursday.schema";
 import { useResolvedTheme } from "@/hooks/use-theme";
@@ -21,7 +22,7 @@ import { cn } from "@/lib/utils";
 /**
  * The call face. Two renderers with nothing in common inside (an SVG
  * silhouette and a glyph canvas); the shared contract is CallStatus and `failed`,
- * and each adapter maps them. A third face is one FaceKind, one state table, one FACES entry.
+ * and each adapter maps them. `word` is the orb's alone. A third face is one FaceKind, one state table, one FACES entry.
  */
 
 export type FaceProps = {
@@ -29,6 +30,8 @@ export type FaceProps = {
   status: CallStatus;
   /** A call just failed to open or dropped. The status is idle by then; this says why the face is not at rest. */
   failed?: boolean;
+  /** A word `emote` put on the face. Only the orb draws one; the call offers `emote` only with the orb. */
+  word?: FaceWord | null;
   /** Box size in px, measured (see Face). */
   size: number;
   /** Audio bands, read once per animation frame, not through state. */
@@ -116,6 +119,7 @@ const ORB_LIGHT: [number, number, number] = [10, 10, 10];
 function OrbFace({
   status,
   failed,
+  word,
   size,
   getSpectrum,
   getMicSpectrum,
@@ -126,6 +130,7 @@ function OrbFace({
   return (
     <AsciiOrb
       mode={failed ? "error" : ORB_MODE[status]}
+      word={word}
       size={size}
       color={dark ? ORB_DARK : ORB_LIGHT}
       getSpectrum={getSpectrum}

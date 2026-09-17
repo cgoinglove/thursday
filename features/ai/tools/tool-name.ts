@@ -24,6 +24,7 @@ export const TOOL_NAMES = {
   send_message: "send_message",
 
   end_call: "end_call",
+  emote: "emote",
 } as const;
 
 /**

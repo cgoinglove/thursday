@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { LIVE_DEFAULTS, migrateLiveSettings } from "@/features/ai/live.schema";
+import { thursdayFace } from "./face.store";
 import {
   CALL_BACK_DEFAULT,
   type CallBack,
@@ -78,5 +79,7 @@ export const thursdaySettings = (): ThursdaySettings => {
   return ThursdaySettingsSchema.parse({
     ...useThursdayStore.getState(),
     locale,
+    // the face in use when the call opens decides whether `emote` is offered at all
+    faceWords: thursdayFace().kind === "ascii",
   });
 };

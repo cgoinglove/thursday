@@ -10,7 +10,8 @@ const EDITABLE = /^(input|textarea|select)$/i;
 
 export const HOTKEY_CAPTURE = { "data-hotkey-capture": "" } as const;
 
-const busy = (target: EventTarget | null) => {
+/** A key pressed here is being typed or recorded, not meant for a shortcut. */
+export const capturesKeys = (target: EventTarget | null) => {
   const node = target as HTMLElement | null;
   if (!node) return false;
   return Boolean(
@@ -92,7 +93,7 @@ export function useHotkey({
     if (!enabled || !combo) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.repeat || busy(event.target)) return;
+      if (event.repeat || capturesKeys(event.target)) return;
       if (comboOf(event) !== combo) return;
 
       event.preventDefault();
