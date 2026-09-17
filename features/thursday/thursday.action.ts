@@ -85,7 +85,6 @@ export const openCallAction = serverAction(
     const [voice, backend, tools, reasoning] = await Promise.all([
       loadLivePrompt({
         voicePrompt: thursday.voicePrompt,
-        webSearch: thursday.webSearch,
         locale: thursday.locale,
         calledBack: z.boolean().default(false).parse(calledBack),
       }),
@@ -105,7 +104,6 @@ export const openCallAction = serverAction(
       sdp: offer,
       voice: thursday.voice,
       instructions: voice.text,
-      input: voice.input,
       backend: {
         model: thursday.backendModel,
         instructions: backend,

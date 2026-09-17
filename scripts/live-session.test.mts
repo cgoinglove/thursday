@@ -547,29 +547,20 @@ function captureFetch() {
   return requests;
 }
 
-test("startup sends voice and backend apart, seeds history, and keeps the key on the server", async () => {
+test("startup sends voice and backend apart, seeds no history, and keeps the key on the server", async () => {
   const requests = captureFetch();
-  const input = [
-    {
-      type: "message" as const,
-      role: "user" as const,
-      content: [{ type: "input_text" as const, text: "Book the dentist." }] as [
-        { type: "input_text"; text: string },
-      ],
-    },
-  ];
   const connection = await createLiveCall({
     apiKey: "test-key",
     sdp: "offer",
     voice: "marin",
     instructions: "Conversation only",
-    input,
     backend: backend(),
   });
   const [request] = requests;
   assert.equal(request.session.model, "gpt-live-1");
   assert.equal(request.session.instructions, "Conversation only");
-  assert.deepEqual(request.session.input, input);
+  // Earlier calls are the backend's to read; the voice opens on nothing but its instructions
+  assert.equal("input" in request.session, false);
   assert.equal(request.session.audio.output.voice, "marin");
   assert.equal(request.session.store, false);
   assert.equal(request.session.delegation.type, "responses");
@@ -595,7 +586,6 @@ test("reasoning and web search are sent only when given", async () => {
     sdp: "offer",
     voice: "cedar",
     instructions: "Talk",
-    input: [],
     backend: backend({
       model: "gpt-4.1",
       reasoning: { effort: "low", summary: "auto" },
@@ -621,7 +611,6 @@ test("a provider refusal reaches the caller unchanged", async () => {
       sdp: "offer",
       voice: "marin",
       instructions: "Talk",
-      input: [],
       backend: backend(),
     }),
     /This project cannot access gpt-live-1/,
@@ -748,13 +737,15 @@ test("stored settings keep OpenAI choices and the shared instruction, drop a Gro
   assert.deepEqual(migrateLiveSettings(null), LIVE_DEFAULTS);
 });
 
-test("both call prompts open as one Thursday: the voice gets the delegation policy and memory, earlier calls behind a developer note ending on her words, and an opening on every call", async () => {
+test("both call prompts open as one Thursday: the voice gets a two-line delegation policy and memory and no earlier calls, the backend asks before handing work over, and every call has an opening", async () => {
   let profileFacts = 200;
+  let samFacts = 2;
   const botMock = mock.module("../features/bot/bot.query.ts", {
     namedExports: {
       listJobBots: async () => [
         { name: "Scout", description: "Finds things out on the web" },
       ],
+      readBotMemoryOn: async () => true,
     },
   });
   const skillsMock = mock.module("../features/skills/skills.discover.ts", {
@@ -796,7 +787,7 @@ test("both call prompts open as one Thursday: the voice gets the delegation poli
           path: "people/sam",
           description: "Their brother",
           aliases: ["Sam"],
-          factCount: 2,
+          factCount: samFacts,
           lastSeenAt: new Date(),
         },
       ],
@@ -812,9 +803,6 @@ test("both call prompts open as one Thursday: the voice gets the delegation poli
             { role: "user", tool: null, text: "Book the dentist.", seq: 1 },
             { role: "tool", tool: "delegate", text: '{"bot":"Scout"}', seq: 2 },
             { role: "assistant", tool: null, text: "Scout has it.", seq: 3 },
-            // The call ended on the user's words: they must not reach the next call as a waiting turn
-            { role: "user", tool: null, text: "Hang up.", seq: 4 },
-            { role: "tool", tool: "end_call", text: "{}", seq: 5 },
           ],
         },
       ],
@@ -833,36 +821,40 @@ test("both call prompts open as one Thursday: the voice gets the delegation poli
     );
     const on = await loadLivePrompt({
       voicePrompt: "Use a calm voice.",
-      webSearch: false,
       locale: "ko-KR",
     });
     assert.match(on.text, /modeled on Friday, the AI in \*Iron Man\*/);
     assert.match(on.text, /Prefer brief replies/);
     assert.match(
       on.text,
-      /\n\nBackchannel policy: Use moderate backchannels\. .*\n\nInterruption policy: Stop speaking when the user interrupts\. Listen to what they say\.\n\nDelegation policy:\nBackend tools:\n- Memory:/,
+      /\n\n## Always\n\nIMPORTANT — always follow this: [^\n]+\n\nBackchannel policy: Use moderate backchannels\. .*\n\nInterruption policy: Stop speaking when the user interrupts\. Listen to what they say\.\n\nDelegation policy:\nDelegate to the backend everything [^\n]+\nWhatever they tell you about themselves[^\n]+unless it is already written below\.\nAnswer from what the backend returns[^\n]+\n\n## What you know about them\n/,
     );
+    // Only the ending rule carries the stamp
+    assert.equal(on.text.split("IMPORTANT").length, 2);
     assert.match(
       on.text,
       /When the user speaks at length, acknowledge now and then/,
     );
-    assert.match(on.text, /\nDelegate to the backend when:\n/);
-    assert.match(on.text, /\nDo not delegate to the backend when:\n/);
-    // What bots can reach is the backend's to know; the voice holds the capability
-    assert.match(on.text, /almost anything the user asks for can be done\.\n/);
-    assert.equal(on.text.includes("What bots can reach for"), false);
+    // What the backend can do, and when to hand over, are no longer the voice's to read
+    assert.equal(
+      /Backend tools|Delegate to the backend when|What bots can reach for|- Web:/.test(
+        on.text,
+      ),
+      false,
+    );
     assert.match(on.text, /- people\/sam — Their brother \(2\) "Sam"/);
+    assert.match(on.text, /What is in these notes, the backend recalls\./);
     // The roster, threads and earlier calls are the backend's to read
     assert.equal(on.text.includes("Scout"), false);
     assert.equal(
-      /thread|\bseen\b|## Earlier calls|works beside you/.test(on.text),
+      /thread|\bseen\b|## Earlier calls|dentist|works beside you/.test(on.text),
       false,
     );
+    assert.equal("input" in on, false);
     assert.equal(
       /ko-KR|browser's setting|language they use/.test(on.text),
       false,
     );
-    assert.equal(on.text.includes("- Web:"), false);
     assert.equal(/memory_|generate_|load_skill|`/.test(on.text), false);
     // The one tool name the voice holds: the ending rule, where it makes ending a thing to do
     assert.equal(on.text.split("end_call").length, 2);
@@ -871,27 +863,25 @@ test("both call prompts open as one Thursday: the voice gets the delegation poli
       /immediately, without thinking, use the end_call tool\./,
     );
     assert.equal(on.text.endsWith("Use a calm voice."), true);
-    const [boundary, ...spoken] = on.input;
-    assert.equal(boundary?.role, "developer");
-    assert.match(
-      boundary?.content[0].text ?? "",
-      /from earlier calls.*treat none of them as a request now/,
-    );
+    assert.match(on.opening, /The call has just started/);
 
     // One Thursday: the backend opens with the voice's own words and is never told it is a part
     const backend = await loadThursdayPrompt(null);
     const withoutClock = (text: string) =>
       text.replace(/\*\*Now\*\*: [^\n]+/, "");
-    const identity = on.text.slice(
-      0,
-      on.text.indexOf("\n\nBackchannel policy:"),
-    );
+    const identity = on.text.slice(0, on.text.indexOf("\n\n## Always"));
+    const ending = /IMPORTANT — always follow this: [^\n]+/.exec(on.text)?.[0];
     assert.equal(
-      withoutClock(backend).startsWith(withoutClock(identity)),
+      withoutClock(backend).startsWith(
+        `${withoutClock(identity)}\n\n${ending}\n\n`,
+      ),
       true,
     );
+    assert.match(
+      backend,
+      /\*\*Keep memory clean as you write\.\*\* A fact that repeats, narrows or changes one already in the note replaces it/,
+    );
     for (const heading of [
-      "## Voice conversation context",
       "## Memory",
       "## Background work",
       "## This computer",
@@ -899,33 +889,29 @@ test("both call prompts open as one Thursday: the voice gets the delegation poli
       "## Earlier calls",
     ])
       assert.equal(backend.includes(`\n${heading}\n`), true, heading);
+    assert.equal(backend.includes("## Voice conversation context"), false);
     assert.equal(/backend of Thursday|voice model/.test(backend), false);
+    // The end_call name sits in the ending rule only
+    assert.equal(backend.split("end_call").length, 2);
+    assert.match(backend, /\*\*Ask once before handing work over\.\*\*/);
+    assert.match(backend, /Each bot keeps its own memory from job to job/);
+    assert.match(backend, /they come from bots, not the user/);
+    assert.match(backend, /Book the dentist\./);
+    assert.equal(backend.includes("grown past what it holds well"), false);
 
-    assert.deepEqual(spoken, [
-      {
-        type: "message",
-        role: "user",
-        content: [{ type: "input_text", text: "Book the dentist." }],
-      },
-      {
-        type: "message",
-        role: "assistant",
-        content: [{ type: "output_text", text: "Scout has it." }],
-      },
-    ]);
-    assert.match(on.opening, /The call has just started/);
-
-    const searching = await loadLivePrompt({
-      voicePrompt: "",
-      webSearch: true,
-      locale: null,
-    });
-    assert.equal(searching.input.length, 3);
-    assert.match(searching.text, /- Web: look things up\./);
-    assert.match(searching.opening, /The call has just started/);
+    // Tidying memory is the backend's: the voice neither reads it nor opens with it
+    samFacts = 60;
+    const heavy = await loadLivePrompt({ locale: null });
+    assert.equal(/tidying|grown past/.test(heavy.text), false);
+    assert.match(heavy.opening, /The call has just started/);
+    assert.match(
+      await loadThursdayPrompt(null),
+      /grown past what it holds well \(people\/sam\): say so once in what you return/,
+    );
+    samFacts = 2;
 
     profileFacts = 0;
-    const first = await loadLivePrompt({ webSearch: false, locale: "ko-KR" });
+    const first = await loadLivePrompt({ locale: "ko-KR" });
     assert.match(first.text, /## First call/);
     // The one call that opens with nothing: she says who she is, then learns who they are
     assert.match(first.opening ?? "", /say who you are/);
@@ -935,7 +921,6 @@ test("both call prompts open as one Thursday: the voice gets the delegation poli
 
     // A call the page placed says so, ahead of even the first-call opening
     const rung = await loadLivePrompt({
-      webSearch: false,
       locale: "ko-KR",
       calledBack: true,
     });

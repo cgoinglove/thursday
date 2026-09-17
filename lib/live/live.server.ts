@@ -2,7 +2,7 @@ import { z } from "zod";
 import { LIVE_CALL } from "@/config";
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
-import { LIVE_MODEL, type LiveInput, type ToolManifest } from "./live.schema";
+import { LIVE_MODEL, type ToolManifest } from "./live.schema";
 
 const LiveConnectionSchema = z.object({
   session: z.object({ id: z.string().min(1) }),
@@ -79,7 +79,6 @@ export async function createLiveCall(options: {
   sdp: string;
   voice: string;
   instructions: string;
-  input: LiveInput[];
   backend: {
     model: string;
     instructions: string;
@@ -100,7 +99,6 @@ export async function createLiveCall(options: {
       session: {
         model: LIVE_MODEL,
         instructions: options.instructions,
-        input: options.input,
         audio: { output: { voice: options.voice } },
         store: false,
         delegation: {

@@ -103,14 +103,6 @@ const THREAD_POLL_FALLBACK_MS = 30_000;
 const SAVE_FAILURE_LIMIT = 3;
 
 /**
- * Put in as trusted behaviour just ahead of the first relay of a call. The relay
- * itself carries facts only, since the backend reads relays too and routes answers
- * by them.
- */
-const RELAY_NOTE =
-  "An update from background work follows. If you have already told the user what it says, it need not be said again.";
-
-/**
  * What the activity line draws: a tool the model is using, or a relay. `line` is
  * the human-readable sentence (tool-line), null when none exists; `name` is the
  * tool that actually ran.
@@ -211,8 +203,6 @@ export function useThursday() {
   const onLine = useRef<string[]>([]);
   /** When her voice was last heard, for letting a goodbye finish (CALL_END). */
   const voiced = useRef(0);
-  /** The relay note went in on this call (RELAY_NOTE). */
-  const relayNoted = useRef(false);
   /** The hang-up waiting on her goodbye once the backend called end_call. */
   const leaving = useRef<ReturnType<typeof setInterval> | null>(null);
   /** When either side's words were last transcribed: the quiet clock for relays. */
@@ -393,11 +383,6 @@ export function useThursday() {
     onLine.current = due.map((item) => item.key);
     // On the line before it goes out, so it runs there for the whole wait
     showRelay((due.at(-1) ?? first).show);
-    // Appends go out in order, so the note is in her context before the first update
-    if (!relayNoted.current) {
-      relayNoted.current = true;
-      void live.append("instructions", RELAY_NOTE);
-    }
     void live
       .append(
         "commentary",
@@ -548,7 +533,6 @@ export function useThursday() {
     callId.current = null;
     calling.current = false;
     opening.current = false;
-    relayNoted.current = false;
     rang.current = false;
     // What she did not voice goes in again next call; unsent context goes with the session
     for (const key of unvoiced.current) told.current.delete(key);
@@ -672,7 +656,6 @@ export function useThursday() {
     opening.current = true;
     calling.current = true;
     finalized.current = null;
-    relayNoted.current = false;
     outbox.clear();
     attempt.current += 1;
     const mine = attempt.current;

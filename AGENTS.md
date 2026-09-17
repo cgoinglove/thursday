@@ -38,13 +38,14 @@ features/ai/              Everything the model sees. Composes domain query/schem
   tools/<d>.tool.ts       The tools one domain answers (memory, bot, workspace, mcp, …): name, description,
                           args, execute. Execute calls the domain query.
   tools/tool-name.ts      Every name the model sees. Tools and prompts both import from here.
-  prompts/live.prompt.ts         What the Live voice hears: who Thursday is, the delegation policy (what the
-                                 backend can do, when to hand over), what she knows about the user; earlier
-                                 calls as `input`; on how to speak, only the guide's backchannel and
-                                 interruption policies. No procedures, and no tool names but `end_call`.
-  prompts/thursday.prompt.ts     What the call's Responses backend hears: who Thursday is, the voice
-                                 conversation it works from, memory with ids, roster, the machine, what to
-                                 return, earlier calls with their jobs.
+  prompts/live.prompt.ts         What the Live voice hears: who Thursday is; under `## Always` the ending
+                                 rule, the guide's backchannel and interruption policies and a short
+                                 delegation policy (everything but conversation goes to the backend,
+                                 what they say about themselves included); what she knows about the user.
+                                 No capabilities, procedures, earlier calls, or tool names but `end_call`.
+  prompts/thursday.prompt.ts     What the call's Responses backend hears: who Thursday is, memory with ids,
+                                 roster and threads, the machine, what to return, earlier calls with their
+                                 jobs.
   prompts/bot.prompt.ts          Everything a bot hears. Shares no text with the call prompt.
   prompts/memory-edit.prompt.ts  Everything an edit typed on the Memory screen hears.
   prompts/prompt-helper.ts       Row-to-line formatters, a few thresholds, and the identity both call
@@ -102,12 +103,15 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
 - **The call is one Thursday on two models.** The Live voice and its Responses backend open with the
   same identity and the same rule for ending the call (`thursdayIdentity`, `callEnding`, the only
   sentences a helper holds) and read the same memory; neither
-  is told it is part of something else. The voice prompt uses the GPT-Live guide's `Delegation policy`
-  labels and, on how to speak, only its starter backchannel and interruption policies, the backchannel line
-  asking for listening sounds through a long turn;
-  the backend prompt uses the guide's backend template
-  (voice conversation context, its chapters, return the result), and its chapter names are the
-  capabilities the voice lists. A relay carries facts — who, which thread, where an answer goes —
+  is told it is part of something else. The voice holds conversation and memory only. Right under
+  its identity, `## Always` groups the ending rule (the only line stamped `IMPORTANT`), the guide's
+  starter backchannel and interruption policies (the backchannel line asking for listening sounds
+  through a long turn), and under the guide's `Delegation policy` label three lines — hand everything
+  but greetings, small talk and a brief clarification to the backend, hand over whatever they say
+  about themselves as they say it, and answer from what the backend returns. What the backend can
+  do, how work is handed over, tidying memory and earlier calls are the backend's; it merges a fact
+  that repeats or changes one already kept, and before handing work to a bot it asks the user once
+  which bot and which thread, through what it returns. A relay carries facts — who, which thread, where an answer goes —
   never instructions, since the backend reads it too.
 - **Tools run on the server.** A call's tool invocation is forwarded by the page to the server, so
   tools call domain queries directly. The one exception is anything that touches the call itself

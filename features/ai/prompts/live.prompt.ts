@@ -1,4 +1,3 @@
-import { RECENT_CALL } from "@/config";
 import {
   listAlwaysLoaded,
   listNoteIndex,
@@ -11,14 +10,7 @@ import {
   type MemoryNoteView,
 } from "@/features/memory/memory.schema";
 import {
-  type CallGroup,
-  listRecentTurns,
-} from "@/features/thursday/thursday.query";
-import { LIVE_INPUT, type LiveInput } from "@/lib/live/live.schema";
-import { estimateTokens } from "@/lib/tokens";
-import {
   callEnding,
-  callStamp,
   carriedLines,
   expandedFacts,
   logPromptSize,
@@ -28,30 +20,26 @@ import {
 } from "./prompt-helper";
 
 /**
- * Everything the Live voice hears: who Thursday is (the words the backend opens with too), the
- * delegation policy under the labels the GPT-Live prompting guide keeps, and what she knows
- * about the user, the note listing included. Earlier calls go in as `input`. Of how to speak it
- * holds only the guide's starter backchannel and interruption policies; the rest is the Live
- * model's own. Tool names — but `end_call` in the ending rule — and procedures are the backend's
- * (thursday.prompt). Assembled on every
+ * Everything the Live voice hears: who Thursday is and how a call ends (the words the backend
+ * opens with too), the guide's starter backchannel and interruption policies, a two-line
+ * delegation policy, and what she knows about the user. What the backend can do, how work is
+ * handed over, earlier calls and tidying memory are the backend's (thursday.prompt): the voice
+ * hands everything but conversation over and answers from what comes back. Assembled on every
  * call, never cached.
  */
 export async function loadLivePrompt(options: {
   /** Settings › Thursday › Voice instructions; added to, never replacing, what is below. */
   voicePrompt?: string | null;
-  webSearch: boolean;
   locale?: string | null;
   /** The page placed this call because background work waits on the user (call-back). */
   calledBack?: boolean;
-}): Promise<{ text: string; input: LiveInput[]; opening: string }> {
-  const [carried, open, index, calls] = await Promise.all([
+}): Promise<{ text: string; opening: string }> {
+  const [carried, open, index] = await Promise.all([
     listAlwaysLoaded(),
     // Written out in the prompt, which is not the user asking for them: no read counted
     readNotes(MEMORY_ALWAYS_LISTED, { touch: false }),
     listNoteIndex(),
-    listRecentTurns(RECENT_CALL.rows),
   ]);
-  const input = pastInput(calls);
 
   const first = !open.notes.find((note) => note.path === "profile")?.facts
     .length;
@@ -63,32 +51,39 @@ export async function loadLivePrompt(options: {
 
   const text = [
     thursdayIdentity(),
-    callEnding(),
-    speaking(),
-    delegation(options.webSearch),
+    always(),
     known(open.notes, carried, index),
-    first ? firstCall() : tidyPolicy(index),
+    first ? firstCall() : "",
     additional(options.voicePrompt),
   ]
     .filter(Boolean)
     .join("\n\n");
   logPromptSize("live", text);
 
-  const { crowded, heavy } = tidying(index);
   return {
     text,
-    input,
     // A prompt line alone does not make Live speak first; only an opening does.
     // A call-back's opening holds no bot text: the update itself follows as commentary
     opening: options.calledBack
       ? "You placed this call because background work has something for the user; it comes in next. Speak first: greet them in one line and say that is why you called."
       : first
         ? `Open the call now, in ${language}: say who you are and what you are here to do for them, in a line or two, then ask what to call them. Then stop and listen.`
-        : crowded || heavy.length
-          ? "Open the call now: greet the user in one line and mention that saved memory needs tidying. Then stop and listen; anything they came with comes first."
-          : "The call has just started. Speak first: greet the user naturally, in one line.",
+        : "The call has just started. Speak first: greet the user naturally, in one line.",
   };
 }
+
+/**
+ * The rules for every turn, together right under the identity, where the model weighs most.
+ * One heading marks them; `IMPORTANT` stays on the ending rule alone, the one that failed
+ * without it (09-17), so stamping it on all four would thin it out.
+ */
+const always = () => `## Always
+
+${callEnding()}
+
+${speaking()}
+
+${delegation()}`;
 
 /**
  * The guide's starter lines on listening and interruptions, labels kept as it says. The
@@ -102,44 +97,24 @@ Interruption policy: Stop speaking when the user interrupts. Listen to what they
 }
 
 /**
- * The voice's whole side of the work, under the guide's labels: what the backend can do in plain
- * words, then when to hand a request over. Capabilities are facts — a missing one is filled by a
- * refusal — and their names are thursday.prompt's chapters. How a job is carried is the backend's.
+ * Under the guide's label, and no longer than this: Live decides for itself whether to hand a
+ * turn over, and with no rule it answered from its own knowledge or only said it would act.
+ * What the backend can do and how is the backend's to know. What they say about themselves is
+ * named on its own: nothing is kept that is not handed over, and it is rarely a request. The
+ * voice sees only profile and preferences whole, so "already written" is a rough filter; the
+ * backend merges the rest (thursday.prompt memory).
  */
-function delegation(webSearch: boolean): string {
-  const tools = [
-    "- Memory: recall, keep, correct and forget what the user tells you, across calls.",
-    "- This computer: run a quick command and look at files.",
-    webSearch ? "- Web: look things up." : "",
-    "- Background work: bots with this computer, a real browser, the web and far more time than a call take on anything longer, so almost anything the user asks for can be done.",
-    "- End the call.",
-  ].filter(Boolean);
-
+function delegation(): string {
   return `Delegation policy:
-Backend tools:
-${tools.join("\n")}
-
-Delegate to the backend when:
-- The user wants something done, found out, remembered, corrected or forgotten.
-- The user says something worth keeping — who they are, how they want things done and said, the people in their life, their plans. Hand it over as they say it, not at the end of the call.
-- The user asks about, answers, corrects or cancels background work.
-- The user asks about something they told you before that is not written out below.
-- The user wants to end the call.
-
-Do not delegate to the backend when:
-- The user greets you, makes small talk, or asks you to repeat a result already given.
-- You need a brief clarification to understand the request.
-
-Delegate before giving an answer that depends on backend work.
-Do not guess the result while waiting.
-
-When background work sends an update, tell the user the part that answers what they asked; the whole of it is on their screen.`;
+Delegate to the backend everything the user asks for, tells you or asks about, except greetings, small talk and a brief clarification.
+Whatever they tell you about themselves, the people in their life, their plans or how they want things done goes to the backend as they say it, however small — unless it is already written below.
+Answer from what the backend returns, and do not guess the result while waiting.`;
 }
 
 /**
  * Profile and preferences written out by the same rule as the backend's (expandedFacts), carried
  * facts from other notes, then every other note as a listing line: what Thursday knows is the
- * same on both sides. Ids stay the backend's.
+ * same on both sides. Ids and the contents of listed notes stay the backend's.
  */
 function known(
   open: MemoryNoteView[],
@@ -167,7 +142,7 @@ function known(
       : "",
     // Ages ride on the listing only when there is too much to hold: they are what to drop by
     others.length
-      ? `Everything else you have kept — path — what it is about (facts) "what they call it":\n\n${noteLines(others, tidying(index).crowded)}`
+      ? `Everything else you have kept — path — what it is about (facts) "what they call it":\n\n${noteLines(others, tidying(index).crowded)}\n\nWhat is in these notes, the backend recalls.`
       : "",
   ].filter(Boolean);
 
@@ -181,21 +156,7 @@ Preferences are how they want things done and said: follow them. A topic not lis
 function firstCall(): string {
   return `## First call
 
-Nothing is known about this user yet, and this is the only call that opens that way: what you do not learn here you carry on without. Find out what to call them, their name, what they do, how old they are, where they live, and whatever else they offer about themselves. Ask across the whole call, one thing at a time, in the room a conversation leaves — never as a list of questions. Hand each over the moment they say it: nothing from this call is kept unless it goes to the backend. If they came with something they want done, that comes first.`;
-}
-
-/** Past MEMORY_LIMITS, settling memory with the user comes before anything she would raise herself. */
-function tidyPolicy(index: MemoryIndexEntry[]): string {
-  const { crowded, heavy } = tidying(index);
-  if (!crowded && !heavy.length) return "";
-  const named = [...heavy]
-    .sort((a, b) => b.factCount - a.factCount)
-    .slice(0, 3)
-    .map((note) => note.path);
-
-  return `## Memory needs tidying
-
-Saved memory has grown past what it holds well${named.length ? ` (${named.join(", ")})` : ""}. Bring it up once, before anything of your own. Go through what looks out of date with the user, and forget only what they name.`;
+Nothing is known about this user yet. Across the call, one thing at a time and never as a list of questions, find out what to call them, their name, what they do, how old they are, where they live, and whatever else they offer. If they came with something they want done, that comes first.`;
 }
 
 const additional = (voicePrompt?: string | null) =>
@@ -206,51 +167,3 @@ Written by the user. Follow them together with everything above; for tone, langu
 
 ${voicePrompt.trim()}`
     : "";
-
-/**
- * Spoken turns of earlier calls behind one developer note that marks them as past, newest kept
- * first until RECENT_CALL.tokens or the provider's own maxima, then put back in order. Tool turns
- * stay out: voice holds no tools, so a line of tool arguments would read as something she said.
- */
-export function pastInput(calls: CallGroup[]): LiveInput[] {
-  const latest = calls.at(-1);
-  const boundary = `The messages after this one are from earlier calls${latest ? `, the latest from ${callStamp(latest.startedAt)}` : ""}. This call has just begun: pick them up when the user does, and treat none of them as a request now.`;
-  const budget = Math.min(RECENT_CALL.tokens, LIVE_INPUT.tokens);
-  const turns = calls.flatMap((call) => call.turns);
-  const kept: LiveInput[] = [];
-  let spent = estimateTokens(boundary) + 4;
-  for (let i = turns.length - 1; i >= 0; i--) {
-    // One message of the provider's maximum is the boundary's
-    if (kept.length >= LIVE_INPUT.messages - 1) break;
-    const { role, text } = turns[i];
-    if (role === "tool" || !text.trim()) continue;
-    const cost = estimateTokens(text) + 4;
-    if (spent + cost > budget) break;
-    spent += cost;
-    kept.push(
-      role === "user"
-        ? {
-            type: "message",
-            role: "user",
-            content: [{ type: "input_text", text }],
-          }
-        : {
-            type: "message",
-            role: "assistant",
-            content: [{ type: "output_text", text }],
-          },
-    );
-  }
-  // The history ends on her words: a call that ended on the user's turn leaves it
-  // unanswered, and Live answers a waiting turn the moment the next call opens
-  while (kept[0]?.role === "user") kept.shift();
-  if (!kept.length) return [];
-  return [
-    {
-      type: "message",
-      role: "developer",
-      content: [{ type: "input_text", text: boundary }],
-    },
-    ...kept.reverse(),
-  ];
-}

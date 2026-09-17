@@ -116,3 +116,12 @@ export function pathsIn(text: string): string[] {
   }
   return [...seen].slice(0, 6);
 }
+
+/**
+ * What a finished job puts on the user's screen by itself: a page to read among their finished
+ * work. Anything else a report names — a data file, a bot's own memory, a sign-in state — opens
+ * only from its chip.
+ */
+export const opensOnFinish = (path: string): boolean =>
+  path.startsWith(`${PATHS.artifacts}/`) &&
+  ["md", "markdown", "html", "htm"].includes(extensionOf(path));

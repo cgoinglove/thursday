@@ -366,9 +366,9 @@ export const PROMPT_BUDGET = 6_000;
 
 /**
  * What counts as too much memory to hold in one piece (features/memory), counted
- * in facts. Nothing is deleted on its own: past either of the first two a call opens by asking
- * her to sort it out with the user before anything she would raise herself
- * (live.prompt tidyPolicy and its opening), and the third is the only hard one. Facts rather
+ * in facts. Nothing is deleted on its own: past either of the first two the call's backend is
+ * told to say so once in what it returns and settle it with the user (thursday.prompt memory),
+ * and the third is the only hard one. Facts rather
  * than tokens because it is the number the user sees on their own screen and the
  * number a model is told after every write — a token estimate is nobody's unit and
  * cannot be acted on.

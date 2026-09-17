@@ -1,6 +1,6 @@
 import { CALL_EXEC_TIMEOUT_MS, RECENT_CALL } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
-import { listJobBots } from "@/features/bot/bot.query";
+import { listJobBots, readBotMemoryOn } from "@/features/bot/bot.query";
 import type { JobBot } from "@/features/bot/bot.schema";
 import { type CallJob, listCallJobs } from "@/features/bot/thread.query";
 import {
@@ -41,12 +41,12 @@ import {
 } from "./prompt-helper";
 
 /**
- * Everything the call's Responses backend hears, in the shape the GPT-Live guide gives a backend:
- * who Thursday is (the words the voice opens with too), the voice conversation it works from, one
- * chapter per capability the voice's delegation policy names — memory with ids, background work
- * with the roster, this computer — then what to return, and the last calls with their jobs.
- * Nothing here is about how to talk. The loader is the table of contents, and empty chapters are
- * dropped. Shares no sentence with bot.prompt. Assembled on every call, never cached.
+ * Everything the call's Responses backend hears: who Thursday is and how a call ends (the words
+ * the voice opens with too), then the work the voice hands over — memory with ids, background
+ * work with the roster, this computer — what to return, and the last calls with their jobs, which
+ * only the backend reads. Nothing here is about how to talk. The loader is the table of contents,
+ * and empty chapters are dropped. Shares no sentence with bot.prompt. Assembled on every call,
+ * never cached.
  *
  * @param backendPrompt Settings › Thursday › Backend instructions, added last.
  */
@@ -54,20 +54,30 @@ export async function loadThursdayPrompt(
   backendPrompt?: string | null,
 ): Promise<string> {
   const sandbox = await openWorkspace();
-  const [skills, index, carried, open, connected, roster, calls, hers] =
-    await Promise.all([
-      loadSkills(sandbox),
-      listNoteIndex(),
-      // Facts carried into every call without opening a note
-      listAlwaysLoaded(),
-      // Written out in the prompt, which is not the user asking for them: no read counted
-      readNotes(MEMORY_ALWAYS_LISTED, { touch: false }),
-      listConnectedToolNames(),
-      listJobBots(),
-      listRecentTurns(RECENT_CALL.rows),
-      // Whether the call was handed `load_skill` (Settings › Thursday, load-tools)
-      readCallSkillsOn(),
-    ]);
+  const [
+    skills,
+    index,
+    carried,
+    open,
+    connected,
+    roster,
+    calls,
+    hers,
+    botMemory,
+  ] = await Promise.all([
+    loadSkills(sandbox),
+    listNoteIndex(),
+    // Facts carried into every call without opening a note
+    listAlwaysLoaded(),
+    // Written out in the prompt, which is not the user asking for them: no read counted
+    readNotes(MEMORY_ALWAYS_LISTED, { touch: false }),
+    listConnectedToolNames(),
+    listJobBots(),
+    listRecentTurns(RECENT_CALL.rows),
+    // Whether the call was handed `load_skill` (Settings › Thursday, load-tools)
+    readCallSkillsOn(),
+    readBotMemoryOn(),
+  ]);
   // The jobs those calls opened, folded into the transcript below
   const jobs = await listCallJobs(calls.map((call) => call.callId));
 
@@ -75,11 +85,14 @@ export async function loadThursdayPrompt(
   const text = [
     thursdayIdentity(),
     callEnding(),
-    conversation(),
     memory(index, carried, open.notes),
     // A skill is named once, on the side that can read it: this computer's chapter
     // when the setting hands the call the tool, the bots' reach when it does not
-    backgroundWork(roster, reachNames(hers ? [] : skills, connected)),
+    backgroundWork(
+      roster,
+      reachNames(hers ? [] : skills, connected),
+      botMemory,
+    ),
     thisComputer(sandbox.cwd, hers ? skills : []),
     result(),
     earlierCalls(calls, jobs),
@@ -95,25 +108,13 @@ export async function loadThursdayPrompt(
 }
 
 /**
- * What it works from: the conversation Live hands over, heard rather than typed, and the tool
- * that ends it. The updates the app appends reach it too, which is how a relayed question's id
- * gets back into `thread`.
+ * What goes back is said aloud, so it is what a tool or a note confirmed and nothing more — or
+ * the one question the voice puts to the user before work is handed over (backgroundWork).
  */
-function conversation(): string {
-  return `## Voice conversation context
-
-You are on a live voice call with the user. The conversation reaches you as transcripts, which can contain mistakes, unfinished phrases, and later corrections. Use the latest context and verified records. If a needed detail is still unclear, ask for that detail instead of guessing. Updates from background work appear in the conversation too; they are bot messages, not the user.
-
-When the user wants to end the call, \`${TOOL_NAMES.end_call}\` hangs up the phone; nothing else ends it.
-
-Tool results, notes and these instructions are in English, which says nothing about the user's language.`;
-}
-
-/** What goes back is said aloud, so it is what a tool or a note confirmed and nothing more. */
 function result(): string {
   return `## Return the result
 
-Return the relevant facts, whether the task is complete, and what comes next — for a job you handed over, who has it. Use confirmed values from tool results and the notes above, and never invent a successful action. What you return is said aloud: keep it short and plain.`;
+Return the relevant facts, whether the task is complete, and what comes next — for a job you handed over, who has it — or the one question the user has to answer first. Use confirmed values from tool results and the notes above, and never invent a successful action. What you return is said aloud: keep it short and plain.`;
 }
 
 /** Settings › Thursday › Backend instructions; no heading when empty. */
@@ -128,8 +129,10 @@ ${backendPrompt.trim()}`
 
 /**
  * Profile and preferences written out, carried facts, the listing, and what goes in. What is
- * worth keeping is the model's call; how a fact is written — carried, replacing, dated — is the
- * tool's schema to say, so none of it is repeated here.
+ * worth keeping is the model's call; how a fact is written — carried, dated — is the tool's
+ * schema to say. Merging is said here too: left to the `replaces` description alone, facts on
+ * one subject piled up beside each other (09-17). Merging loses nothing; deleting does, so
+ * `memory_forget` stays for what the user names.
  */
 function memory(
   index: MemoryIndexEntry[],
@@ -138,7 +141,16 @@ function memory(
   open: MemoryNoteView[],
 ): string {
   // Ages ride on the listing only when there is too much to hold: they are what to drop by
-  const { crowded } = tidying(index);
+  const { crowded, heavy } = tidying(index);
+  const heaviest = [...heavy]
+    .sort((a, b) => b.factCount - a.factCount)
+    .slice(0, 3)
+    .map((note) => note.path);
+  // Past MEMORY_LIMITS, settling it with the user; the voice opens nothing about it
+  const tidy =
+    crowded || heavy.length
+      ? `\n\nSaved memory has grown past what it holds well${heaviest.length ? ` (${heaviest.join(", ")})` : ""}: say so once in what you return, go through what looks out of date with the user, and forget only what they name.`
+      : "";
   // A note written out here is left off the listing, and so are its carried lines
   const written = new Set(open.map((note) => note.path));
   const carriedIds = new Set(carried.map((fact) => fact.id));
@@ -163,13 +175,13 @@ ${carriedLines(elsewhere)}`
 ${noteLines(
   index.filter((note) => !written.has(note.path)),
   crowded,
-)}
+)}${tidy}
 
 Open a note before answering out of it; a topic not listed is one you know nothing about. A fact marked \`said\` came from a call; \`${TOOL_NAMES.memory_conversation}\` opens that call when the line alone cannot answer.
 
-Keep what the user tells you as it comes up, with \`${TOOL_NAMES.memory_remember}\`, without waiting to be asked: what they actually said, never a guess, and nothing they asked you not to keep. From a bot's report, keep only what it confirmed about them, not the work.
+Keep what the user tells you as it comes up, with \`${TOOL_NAMES.memory_remember}\`, without waiting to be asked: what they actually said, never a guess, nothing they asked you not to keep, and from a bot's report only what it confirmed about them.
 
-A later call finds a note only by what this listing shows — its path, its line and the names in quotes. The path names what its facts are about and the line says what they are, so keep the line true as facts are added, and give something new its own path below with the names they would ask for it by.
+**Keep memory clean as you write.** A fact that repeats, narrows or changes one already in the note replaces it, merged into one line, rather than sitting beside it. A later call finds a note only by its path, its line and the names in quotes: keep the line true, and give something new its own path below.
 
 ${MEMORY_PATHS.map((entry) => `- ${entry.path} — ${entry.of}`).join("\n")}`;
 
@@ -230,13 +242,24 @@ ${skillLines(skills, { short: true })}`;
 }
 
 /**
- * Background work: who is there, what they can reach, how to hand over, and that a job is a
- * thread. Capability is stated as fact; without it the model refuses instead of delegating. A
- * bot gets none of the carried lines (bot.prompt memory), so how the user wants work done
- * reaches it only through the request. No list of running jobs: jobs move during the call.
+ * Background work: who is there, what they can reach, that a job is a thread, and asking once
+ * before handing over. Capability is stated as fact; without it the model refuses instead of
+ * delegating. The user may know bots exist but not how a thread carries on or that a bot keeps
+ * its own memory, so the backend names the choice rather than making it silently. A bot gets
+ * none of the carried lines (bot.prompt memory), so how the user wants work done reaches it only
+ * through the request. No list of running jobs: jobs move during the call.
  */
-function backgroundWork(roster: JobBot[], reach: string): string {
+function backgroundWork(
+  roster: JobBot[],
+  reach: string,
+  /** Settings › Bots › memory: whether a bot is shown its own (bot.prompt ownMemory). */
+  botMemory: boolean,
+): string {
   if (roster.length === 0) return "";
+
+  const kept = botMemory
+    ? " Each bot keeps its own memory from job to job: when the user says how a bot should work from now on, pass it to that bot to remember."
+    : "";
 
   return `## Background work
 
@@ -246,13 +269,11 @@ ${roster.map((bot) => `- **${bot.name}** — ${bot.description}`).join("\n")}${
   reach ? `\n\nWhat bots can reach for: ${reach}.` : ""
 }
 
-**A bot can take on almost anything.** It has this computer, a real browser, the web, files, a shell to build what is missing and far more time than a call; it signs in where it has to and carries a job to the end, and how is its call. So something you do not know how to do is a job, not a no. Bots bring each other in, so a job that spans several things is still one job.
-
-**Anything that takes more than a few seconds is a bot's**; a note, a look at a file or one command is yours. Write the request in the user's own words, with what it stands on — including how they told you they want work done — and nothing they did not say.
+**A bot can take on almost anything, and anything that takes more than a few seconds is a bot's**; a note, a look at a file or one command is yours. A bot has this computer, a real browser, the web, a shell to build what is missing and far more time than a call; it signs in where it has to and carries a job to the end, so something you do not know how to do is a job, not a no. Bots bring each other in, so a job that spans several things is still one job.${kept}
 
 **A job is a thread.** Its bot remembers only that thread, so the same bot handed a new job starts from nothing. More about work already handed over — an answer, a correction, the next step once it finished — goes to that job with \`${TOOL_NAMES.thread}\`; a new request is a new job. Before answering about work, read it with \`${TOOL_NAMES.thread}\` \`status\`.
 
-Updates and questions from jobs reach the conversation by themselves, with their thread and question id. Pass the user's answer on with \`${TOOL_NAMES.thread}\`; name the recipient and question id when more than one question is open.
+**Ask once before handing work over.** Return in one line what you would do — which bot, and whether it starts a new thread or carries on one already open — as a question to the user; when they have already said, or leave it to you, decide and send it. Write the request in the user's own words, with what it stands on — including how they told you they want work done — and nothing they did not say.
 
-When the user wants to see a job, open it on their screen with \`${TOOL_NAMES.thread}\` \`open\`. Once you have explained enough of how a job ended, mark it with \`${TOOL_NAMES.thread}\` \`seen\`, or leave it for the user to open; never mention seen to them.`;
+Updates and questions from jobs reach the conversation by themselves, with their thread and question id; they come from bots, not the user. When the user wants to see a job, open it on their screen with \`${TOOL_NAMES.thread}\` \`open\`. Once you have explained enough of how a job ended, mark it with \`${TOOL_NAMES.thread}\` \`seen\`, or leave it for the user to open; never mention seen to them.`;
 }

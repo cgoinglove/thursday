@@ -12,8 +12,8 @@ code when changing session events, settings, prompts, or persistence.
 
 | Runtime | Context and instructions | Work |
 | --- | --- | --- |
-| Live voice | `live.prompt`: who Thursday is, the delegation policy (what the backend can do, when to hand over), profile and preferences with the note listing; earlier spoken turns as `input` behind a developer note | Listen, speak, backchannel, handle interruptions, decide when the backend is needed |
-| Responses backend | `thursday.prompt`: who Thursday is, the voice conversation it works from, memory with ids, bot roster and what bots can reach, this computer, what to return, earlier calls with their jobs; tool schemas | Recall and update memory, run short commands, route thread messages and cancellations, delegate long work |
+| Live voice | `live.prompt`: who Thursday is; under `## Always` the ending rule, backchannel, interruption and a short delegation policy; profile and preferences with the note listing | Listen, speak, backchannel, handle interruptions, hand everything but conversation to the backend |
+| Responses backend | `thursday.prompt`: who Thursday is, memory with ids, bot roster, threads and what bots can reach, this computer, what to return, earlier calls with their jobs; tool schemas | Recall, update and tidy memory, run short commands, ask before handing work over, route thread messages and cancellations, delegate long work |
 | Background bots | `bot.prompt` and the stored participant transcript | Shell, browser, MCP, skills, and work that outlives a call |
 | Application | Authoritative database and tool implementations | Validate actions, retain results, enforce thread limits, render progress, save call history |
 
@@ -24,13 +24,19 @@ text, so the application would have to reconstruct the request and operate the b
 
 The voice and the backend are one assistant. Both prompts open with the same identity
 (`thursdayIdentity`) and the same rule for ending the call (`callEnding`), read the same
-memory, and neither is told it is part of something else. The voice prompt follows the
-GPT-Live prompting guide's `Delegation policy` labels —
-`Backend tools`, `Delegate to the backend when`, `Do not delegate to the backend when` — and
-says nothing about how to speak, which the Live model does itself; it sees no tool schema and
-no tool name but `end_call`, in the ending rule. The backend prompt follows the guide's backend template: the voice conversation
-it works from (transcripts can be wrong and corrected later), one chapter per capability the
-voice lists, and what to return.
+memory, and neither is told it is part of something else. The voice holds conversation and
+memory only. Right under the identity, `## Always` groups what holds on every turn: the ending
+rule (the only line marked `IMPORTANT`), the guide's starter backchannel and interruption
+policies, and under the guide's `Delegation policy` label three lines — hand everything but
+greetings, small talk and a brief clarification to the backend; hand over whatever the user says
+about themselves, their people, their plans or how they want things done as they say it, unless
+it is already written in the prompt; answer from what the backend returns without guessing while
+waiting. Live decides by itself whether to delegate, so the rule stays even this short. It says
+nothing else about how to speak; it sees no tool schema and no tool name but `end_call`, in the
+ending rule. The backend prompt holds the work: memory (merging a fact that repeats or changes one
+already kept, and tidying with the user past the limits), background work and threads, this
+computer, what to return, and the earlier calls. Before handing work to a bot it returns one question — which bot, a new thread or
+one already open — unless the user already said or left it to Thursday.
 
 ## Settings and upgrades
 
@@ -66,14 +72,14 @@ storage.
 2. Send the SDP offer and the parsed settings to `openCallAction`. The browser sends
    settings only; the server reads the key.
 3. On the server, assemble both prompts and the current tool manifest. Create the
-   Live session with the fixed voice model, the chosen voice, voice instructions,
-   earlier spoken turns in `input`, and `delegation.responses` backend settings.
+   Live session with the fixed voice model, the chosen voice, voice instructions and
+   `delegation.responses` backend settings. No `input`: earlier calls are the backend's to read.
    Insert the call row only after the provider accepts, so a refusal leaves no open row.
 4. Apply the SDP answer and wait for `session.started`. Do not send Realtime startup
    configuration, audio commits, or a voice `response.create`.
 5. Send the opening as `session.instructions.append`, so she speaks first: a first call
-   (no profile facts) greets the user and asks what to call them, memory past
-   `MEMORY_LIMITS` raises tidying, and any other call opens with a short greeting.
+   (no profile facts) greets the user and asks what to call them, and any other call opens
+   with a short greeting.
    Updates that arrived while connecting follow once she has voiced the opening.
    For work that changed after the last call ended (a call tells what came up during it),
    the page rings instead of opening a line (call-back): the user answers it like any
@@ -82,13 +88,6 @@ storage.
    she placed it, ahead of every other opening, and the first open work goes in as soon
    as she has voiced that, without waiting for a quiet line: why she called is the first
    thing asked. The opening names no bot text; the work itself follows as commentary.
-
-`input` opens with a developer message saying the turns after it are from earlier calls
-and that none is a request now, then holds user and assistant turns, newest kept first
-within `RECENT_CALL` and the provider limits of 128 messages and 8,192 tokens. Tool turns
-stay out, since voice holds no tools. It always ends on an assistant turn: a call that
-ended on the user's words would leave a turn that Live answers the moment the next call
-opens.
 
 A hang-up during startup invalidates that attempt, so a connection that finishes
 later is closed rather than taking over the screen. Do not change machine trust,
@@ -152,9 +151,8 @@ One her voice carried stays out of later calls too while the page is open; one i
 refused it, she never spoke, the call ended first) goes in again on the next call, never in a
 loop on this one. The key carries the job's last change, so a job that resumes and asks or ends
 again is a new item, and a reload puts what is still open in once more. Nothing goes in while
-the call is ending or a goodbye has been asked for. The first relay of a call follows an
-`instructions` note that what she has already told the user need not be said again, so the
-relay itself stays facts only.
+the call is ending or a goodbye has been asked for. A relay is facts only, with no note
+ahead of it.
 
 A relay names the bot and the thread and, for a question, where its answer goes (thread,
 recipient, `replyTo`). The backend reads relays in its conversation and routes the user's

@@ -23,7 +23,6 @@ import {
   type SkillMetadata,
 } from "@/features/skills/skills.discover";
 import {
-  botArtifacts,
   type MachineTools,
   openWorkspace,
   readMachineTools,
@@ -172,7 +171,7 @@ function ownMemory(folder: string, kept: BotMemory): string {
 
   return `## Your memory
 
-What you learned on your own earlier jobs, in \`${folder}/\`: one topic per file, its first line saying what it holds, read by no other bot, up to ${BOT_MEMORY_LIMITS.files} files of ${BOT_MEMORY_LIMITS.chars.toLocaleString("en-US")} characters each. It is how you get better at this work. When a job teaches you something a later one would otherwise find out again — how a site signs in, the way through its screens, a command that turned out right — keep it with the date it was true, and fix or delete what proved wrong. No passwords, keys or codes.
+What you learned on your own earlier jobs, in \`${folder}/\`: one topic per file, its first line saying what it holds, read by no other bot, up to ${BOT_MEMORY_LIMITS.files} files of ${BOT_MEMORY_LIMITS.chars.toLocaleString("en-US")} characters each. It is how you get better at this work. When a job teaches you something a later one would otherwise find out again — how a site signs in, the way through its screens, a command that turned out right — or the user asks you to remember how to work, keep it with the date it was true, and fix or delete what proved wrong. No passwords, keys or codes.
 
 ${listing}${rest}`;
 }
@@ -254,12 +253,13 @@ These lines were written for the user: where one says "you", it means them. When
 
 /**
  * How participants reach each other. Nobody reads anyone else's transcript, so the one thing that
- * decides whether collaboration works is what a single message carries.
+ * decides whether collaboration works is what a single message carries. What the coordinator's
+ * result opens by itself is the runner's rule (file-kind opensOnFinish), said in the same terms.
  */
 function collaboration(name: string, seat?: Seat | null): string {
   const owner = (seat?.owner ?? name) === name;
   const ending = owner
-    ? "Bring what you received together into one result for Thursday: what was done, where it is, what you decided that the request did not say, and what is still open, at the detail the user asked for."
+    ? `Bring what you received together into one result for Thursday: what was done, where it is, what you decided that the request did not say, and what is still open, at the detail the user asked for. When the job ends, the first Markdown or HTML file under \`${PATHS.artifacts}/\` it names opens on the user's screen by itself; any other file opens only when they click it in the thread, so when one matters, say they can open it there.`
     : `Your final text goes back to ${seat?.caller ?? "whoever asked"}: give them everything they need to carry on.`;
 
   return `## Working together
@@ -270,7 +270,7 @@ Ask Thursday with kind \`question\` only for a decision, permission or something
 
 ${ending}
 
-Write in the user's language. Put finished work in \`${botArtifacts(name)}/\` and name the paths. The app opens Markdown with its tables and mermaid blocks drawn, CSV as a table, HTML and PDF as pages, and images, audio and video; in Markdown, reference images by absolute route (\`/api/file/${PATHS.artifacts}/…\`).`;
+Write in the user's language, and name the paths of finished work. The app opens Markdown with its tables and mermaid blocks drawn, CSV as a table, HTML and PDF as pages, and images, audio and video; in Markdown, reference images by absolute route (\`/api/file/${PATHS.artifacts}/…\`).`;
 }
 
 /** A user message's content; every seat's first message is two text parts (buildThreadOpening). */

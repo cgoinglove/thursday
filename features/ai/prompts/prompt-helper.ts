@@ -65,7 +65,7 @@ export const nowLine = (now = new Date()) => `**Now**: ${clockNow(now)}`;
 export const thursdayIdentity = (now = new Date()) =>
   `You are Thursday, this user's own personal assistant, on their side, modeled on Friday, the AI in *Iron Man*. ${nowLine(now)}
 
-What they tell you is kept from call to call, so you know them better each time, and whatever they want done can be done for them in the background.`;
+What they tell you is kept, so you know them better over time, and whatever they want done can be done for them in the background.`;
 
 /**
  * How a call ends, in the same words right after the identity in both call prompts. It names

@@ -1,11 +1,11 @@
 import { setTimeout as wait } from "node:timers/promises";
 import type { ModelMessage } from "ai";
 import { appEvents, presence } from "@/app/api/events/app-event.server";
-import { BOT_RUN, PATHS, WORKSPACE_KEEP } from "@/config";
+import { BOT_RUN, WORKSPACE_KEEP } from "@/config";
 import { isProviderRefusal, modelErrorToString } from "@/features/ai/model";
 import { buildThreadOpening } from "@/features/ai/prompts/bot.prompt";
 import { isAnyCallLive } from "@/features/thursday/thursday.query";
-import { pathsIn } from "@/features/workspace/file-kind";
+import { opensOnFinish, pathsIn } from "@/features/workspace/file-kind";
 import {
   botBrowserSession,
   closeHiddenBrowser,
@@ -228,9 +228,9 @@ async function drive(work: RoomWork, signal: AbortSignal) {
   if (thread?.status === "done") {
     if (!(await isAnyCallLive()))
       desktopNotify(thread.label, thread.outcome ?? "");
-    const paths = await filesOnDisk(pathsIn(thread.outcome ?? ""), null);
-    const path =
-      paths.find((path) => path.startsWith(`${PATHS.artifacts}/`)) ?? paths[0];
+    const path = (await filesOnDisk(pathsIn(thread.outcome ?? ""), null)).find(
+      opensOnFinish,
+    );
     if (path)
       appEvents.emit({
         type: "artifact",

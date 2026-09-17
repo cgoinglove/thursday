@@ -1,6 +1,19 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { decodePagePath, decodePath, queryKey } from "../app/api/query-key.ts";
+import { opensOnFinish, pathsIn } from "../features/workspace/file-kind.ts";
+
+test("a finished job opens only a page among the finished work, never a data file or a bot's own", () => {
+  const report =
+    "Signed in and saved to bots/Mail/.auth/gmail.json. Notes in bots/Mail/memory/inbox.md, raw rows in artifacts/Mail/rows.json, slides in artifacts/Insta/slide_1.png, and the summary is artifacts/Mail/summary.md.";
+  assert.equal(
+    pathsIn(report).find(opensOnFinish),
+    "artifacts/Mail/summary.md",
+  );
+  assert.equal(opensOnFinish("artifacts/Analyst/report.html"), true);
+  assert.equal(opensOnFinish("artifacts/Analyst/data.csv"), false);
+  assert.equal(opensOnFinish("scratch/job/draft.md"), false);
+});
 
 test("viewer URLs round-trip Unicode, spaces and reserved filename characters", () => {
   const paths = [
