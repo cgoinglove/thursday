@@ -910,8 +910,9 @@ function CallBackPicker({
       <SettingNote>{CALL_BACK_HINT[value]}</SettingNote>
       {value !== "off" && (
         <SettingNote>
-          Needs this tab open. A tab that has been silent since it loaded may
-          not be allowed to make a sound — the desktop notification covers that.
+          Needs this tab open. It rings on screen until you answer, decline or
+          let it go; the desktop notification covers a tab you are not looking
+          at.
         </SettingNote>
       )}
     </div>
@@ -922,7 +923,7 @@ function CallBackPicker({
 const CALL_BACK_HINT: Record<CallBack, string> = {
   off: "Nothing opens a call but you.",
   waiting: "A job that stopped to ask gets her to ring you.",
-  any: "Anything a bot finishes, she opens a line to tell you.",
+  any: "Anything a bot finishes, she rings you to tell you.",
 };
 
 /**

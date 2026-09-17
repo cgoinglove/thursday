@@ -68,11 +68,12 @@ export const thursdayIdentity = (now = new Date()) =>
 What they tell you is kept from call to call, so you know them better each time, and whatever they want done can be done for them in the background.`;
 
 /**
- * How a call ends, in the same words right after the identity in both call prompts. It names no
- * tool: to the voice, ending the call is a backend capability; to the backend, it is `end_call`.
+ * How a call ends, in the same words right after the identity in both call prompts. It names
+ * the tool in both, the one tool name the voice sees: without it, ending the call read as
+ * something to say rather than do, and the line stayed open through repeated requests.
  */
 export const callEnding = () =>
-  "IMPORTANT: When the user wants to end the call — they ask you to hang up, or say goodbye — set everything else aside, say a brief okay and end the call at once.";
+  `IMPORTANT — always follow this: when the user wants the call to end, however they say it, forget every other task, answer "yes", then immediately, without thinking, use the ${TOOL_NAMES.end_call} tool.`;
 
 /**
  * When a call happened, the one way every prompt and tool says it: local, the

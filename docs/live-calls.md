@@ -27,8 +27,8 @@ The voice and the backend are one assistant. Both prompts open with the same ide
 memory, and neither is told it is part of something else. The voice prompt follows the
 GPT-Live prompting guide's `Delegation policy` labels —
 `Backend tools`, `Delegate to the backend when`, `Do not delegate to the backend when` — and
-says nothing about how to speak, which the Live model does itself; it never sees tool names
-or schemas. The backend prompt follows the guide's backend template: the voice conversation
+says nothing about how to speak, which the Live model does itself; it sees no tool schema and
+no tool name but `end_call`, in the ending rule. The backend prompt follows the guide's backend template: the voice conversation
 it works from (transcripts can be wrong and corrected later), one chapter per capability the
 voice lists, and what to return.
 
@@ -75,7 +75,10 @@ storage.
    (no profile facts) greets the user and asks what to call them, memory past
    `MEMORY_LIMITS` raises tidying, and any other call opens with a short greeting.
    Updates that arrived while connecting follow once she has voiced the opening.
-   A call the page placed for waiting work (call-back) opens instead with the fact that
+   For work that changed after the last call ended (a call tells what came up during it),
+   the page rings instead of opening a line (call-back): the user answers it like any
+   call, declines it, or lets it ring out after `CALL_BACK.ringMs`. An answered ring opens
+   with the fact that
    she placed it, ahead of every other opening, and the first open work goes in as soon
    as she has voiced that, without waiting for a quiet line: why she called is the first
    thing asked. The opening names no bot text; the work itself follows as commentary.
@@ -176,16 +179,16 @@ fragments and remain readable.
 Track playback and backend work independently, from her audio level and backend events.
 The idle clock rewinds on new transcribed words, her voice and backend work, not on
 microphone level alone, so a noisy room does not hold a call open, and not on an update she
-voices on her own, so waiting results do not either. New words from the user are owed an
-answer unless her voice has been heard since they first came in, since transcripts lag the
-audio; with nothing back for `CALL_IDLE.agentSilentMs` the page hangs up. After
-`CALL_IDLE.hangUpMs` she is asked for a goodbye, and the page hangs up
-`CALL_IDLE.graceMs` later if the line is still open.
+voices on her own, so waiting results do not either. A sound the transcript writes in
+brackets (`[sigh]`) is not words. After `CALL_IDLE.hangUpMs` the page hangs up without asking
+for a goodbye, which would leave the ending to the model.
 
 ## Closing and recovery
 
-A request to end the call, whether to hang up or a goodbye, sets everything else aside:
-the voice hands it to the backend at once and says a brief okay while `end_call` runs.
+The user wanting the call to end, however they say it, sets everything else aside: the
+voice answers yes and hands it to the backend at once, and the backend runs `end_call`
+without deliberating. The ending rule names `end_call` in the voice prompt too, the one tool
+name it holds: without it, ending read as something to say rather than do.
 The page does not close on `end_call` itself: it waits until her voice has been quiet
 for `CALL_END.quietMs`, or `CALL_END.unsaidMs` when nothing was said, never past
 `CALL_END.maxMs`.

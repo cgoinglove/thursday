@@ -6,6 +6,8 @@ What each part does, so you can guess what will happen before you say it.
 
 A call runs on two models: **GPT-Live 1** holds the conversation, and a Responses model (**GPT-5.6 Luna** by default) thinks and uses tools behind it. The voice keeps listening while the backend works.
 
+![One mind goes silent while it works; two minds keep the call going while a bot does the work](images/two-minds.png)
+
 - **Quick things, she answers herself.** She reads and writes your memory and runs one shell command at a time: open a file, check a folder, play something.
 - **Everything else goes to a bot.** She hands it over and keeps talking. A speech model that ran a browser itself would go silent for minutes.
 - **When a job comes back,** she tells you in a sentence. A file it made opens on your screen, and a question it asks shows up as buttons.

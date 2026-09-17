@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { toast } from "@/components/ui/toast";
-import { CALL_END, CALL_IDLE, CALL_RELAY } from "@/config";
+import { CALL_BACK, CALL_END, CALL_IDLE, CALL_RELAY } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { acceptThreadRelaysAction } from "@/features/bot/bot.action";
 import { type Bot, isAppStop, type Thread } from "@/features/bot/bot.schema";
@@ -39,7 +39,12 @@ import {
   saveThoughtAction,
   saveTurnsAction,
 } from "./thursday.action";
-import type { CallMessage, CallStatus, LiveStatus } from "./thursday.schema";
+import type {
+  CallBack,
+  CallMessage,
+  CallStatus,
+  LiveStatus,
+} from "./thursday.schema";
 import { thursdaySettings, useThursdayStore } from "./thursday.store";
 import { toolBot, toolLine } from "./tool-line";
 
@@ -105,8 +110,6 @@ const SAVE_FAILURE_LIMIT = 3;
 const RELAY_NOTE =
   "An update from background work follows. If you have already told the user what it says, it need not be said again.";
 
-const IDLE_LINE = `The user has said nothing for ${Math.round(CALL_IDLE.hangUpMs / 1000)} seconds. Say a one-line goodbye and end the call.`;
-
 /**
  * What the activity line draws: a tool the model is using, or a relay. `line` is
  * the human-readable sentence (tool-line), null when none exists; `name` is the
@@ -122,6 +125,16 @@ export type ActivityLine = {
   kind?: "relay";
   /** The bot this names, when it names one: the row draws its face instead of a glyph. */
   bot?: string | null;
+};
+
+/** A call-back ringing, as the screen names it. */
+export type Ringing = {
+  /** The bot whose work rang: the one asking, else the thread's own. */
+  bot: string;
+  kind: "question" | "done" | "stopped";
+  label: string;
+  /** Other threads ringing with it. */
+  more: number;
 };
 
 export function useThursday() {
@@ -164,16 +177,8 @@ export function useThursday() {
   }>({ on: false, spoke: false, giveUp: null });
   /** What `session.closed` confirmed for the call being ended; recorded on its row. */
   const finalized = useRef<LiveClose | null>(null);
-  /**
-   * Last activity time, whether the goodbye was requested, and when an answer
-   * started being owed (null once she answers or works).
-   */
-  const idle = useRef<{
-    since: number;
-    asked: boolean;
-    owed: number | null;
-    grace: ReturnType<typeof setTimeout> | null;
-  }>({ since: 0, asked: false, owed: null, grace: null });
+  /** When the line last had new words from the user, her voice or backend work: the idle clock. */
+  const stirred = useRef(0);
   const linger = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Whether the line holds a relay, so only a relay is finished by her voice. */
   const relayOpen = useRef(false);
@@ -189,6 +194,14 @@ export function useThursday() {
    */
   const told = useRef(new Set<string>());
   /**
+   * The call-back rings only for threads that changed after this: the last call's
+   * end, the last ring, or the page opening.
+   */
+  const ringAfter = useRef(Date.now());
+  /** The threads a call-back is ringing for, until it is answered, declined or rings out. */
+  const [ringingFor, setRingingFor] = useState<string[]>([]);
+  const isRinging = ringingFor.length > 0;
+  /**
    * Keys put in this call that her voice has not carried yet: rejected, cut short
    * by a hang-up, or never spoken. Hanging up takes them out of `told`, so the
    * next call puts them in again; what she voiced stays out.
@@ -196,10 +209,7 @@ export function useThursday() {
   const unvoiced = useRef(new Set<string>());
   /** The keys of the update on the line now, carried once her voice starts and stops on it. */
   const onLine = useRef<string[]>([]);
-  /**
-   * When her voice was last heard: for letting a goodbye finish (CALL_END), and for
-   * telling words she already answered from words still owed an answer.
-   */
+  /** When her voice was last heard, for letting a goodbye finish (CALL_END). */
   const voiced = useRef(0);
   /** The relay note went in on this call (RELAY_NOTE). */
   const relayNoted = useRef(false);
@@ -357,7 +367,7 @@ export function useThursday() {
     const live = session.current;
     const threads = latest.current;
     if (!live || !threads || reading.current.on || acting.current) return;
-    if (leaving.current || idle.current.asked) return;
+    if (leaving.current) return;
     // On a call-back, why she called goes in once the opening is voiced: it is the
     // first thing they ask, and a quiet line would come too late
     const rung = rang.current;
@@ -551,8 +561,8 @@ export function useThursday() {
     if (linger.current) clearTimeout(linger.current);
     // a pending face timer must not fire after the call
     restFace();
-    if (idle.current.grace) clearTimeout(idle.current.grace);
-    idle.current = { since: 0, asked: false, owed: null, grace: null };
+    // What came up on this call was this call's to tell; the call-back rings only for what comes after
+    ringAfter.current = Date.now();
     setIdleLeft(null);
     setSince(null);
     setStatus(live ? "ending" : "idle");
@@ -599,7 +609,6 @@ export function useThursday() {
       if (faceIn.current) clearTimeout(faceIn.current);
       if (reading.current.giveUp) clearTimeout(reading.current.giveUp);
       if (thinkTail.current) clearTimeout(thinkTail.current);
-      if (idle.current.grace) clearTimeout(idle.current.grace);
       if (failedFor.current) clearTimeout(failedFor.current);
       if (leaving.current) clearInterval(leaving.current);
     };
@@ -624,58 +633,21 @@ export function useThursday() {
     }, 100);
   }, [hangUp]);
 
-  /**
-   * Rewinds the idle clock. `user` is new words transcribed from them, first seen at
-   * `said`: an answer is owed from then, and a requested goodbye is off. Transcripts
-   * lag the audio, so her voice heard since `said` already answered them. `agent` is
-   * her voice or backend work, which settles what is owed but cannot cancel its own
-   * goodbye.
-   */
-  const stir = useCallback((who: "user" | "agent", said = 0) => {
-    const now = Date.now();
-    idle.current.since = now;
-    if (who !== "user") {
-      idle.current.owed = null;
-      return;
-    }
-    if (voiced.current < said) idle.current.owed ??= now;
-    if (idle.current.grace) clearTimeout(idle.current.grace);
-    idle.current.grace = null;
-    idle.current.asked = false;
-  }, []);
-
-  // Idle clock: shows the countdown, then asks for a goodbye and grants a grace period
+  // Idle clock: shows the countdown, then hangs up. The page ends a quiet line itself;
+  // a goodbye would leave the ending to the model
   useEffect(() => {
     if (!onCall) return;
-    stir("agent");
+    stirred.current = Date.now();
     const tick = setInterval(() => {
-      const live = session.current;
-      if (!live) return;
-      const owed = idle.current.owed;
-      if (owed !== null && Date.now() - owed >= CALL_IDLE.agentSilentMs) {
-        // Nothing to say goodbye with; the model is what would have said it.
-        toast.add({
-          type: "error",
-          title: "Call ended",
-          description: "The model stopped answering.",
-        });
-        void hangUp();
-        return;
-      }
-      const left = CALL_IDLE.hangUpMs - (Date.now() - idle.current.since);
+      if (!session.current) return;
+      const left = CALL_IDLE.hangUpMs - (Date.now() - stirred.current);
       setIdleLeft(
-        left <= CALL_IDLE.warnMs && !idle.current.asked
-          ? Math.max(0, Math.ceil(left / 1000))
-          : null,
+        left <= CALL_IDLE.warnMs ? Math.max(0, Math.ceil(left / 1000)) : null,
       );
-      if (left > 0 || idle.current.asked) return;
-
-      idle.current.asked = true;
-      void live.append("instructions", IDLE_LINE);
-      idle.current.grace = setTimeout(() => void hangUp(), CALL_IDLE.graceMs);
+      if (left <= 0) void hangUp();
     }, 1000);
     return () => clearInterval(tick);
-  }, [onCall, stir, hangUp]);
+  }, [onCall, hangUp]);
 
   // The relay clock: open work goes in only while the line is quiet
   useEffect(() => {
@@ -684,278 +656,306 @@ export function useThursday() {
     return () => clearInterval(tick);
   }, [onCall, relayOpenWork]);
 
-  const call = useCallback(
-    async (placedBy?: "callBack") => {
-      // Compared exactly: a face tap hands its click event in here
-      const calledBack = placedBy === "callBack";
-      // Guard with a ref, not `status`: three entry points (face, wake word,
-      // hotkey) can fire in one frame and both see a stale "idle", opening two sessions
-      if (opening.current || ending.current) return;
-      // with a line open this press hangs up; `calling` covers the gap before re-render
-      if (calling.current || status !== "idle") return hangUp();
+  const call = useCallback(async () => {
+    // Every way in answers a ringing call-back: the face, the wake word, the hotkey
+    const calledBack = isRinging;
+    // Guard with a ref, not `status`: three entry points (face, wake word,
+    // hotkey) can fire in one frame and both see a stale "idle", opening two sessions
+    if (opening.current || ending.current) return;
+    // with a line open this press hangs up; `calling` covers the gap before re-render
+    if (calling.current || status !== "idle") return hangUp();
+    setRingingFor([]);
 
-      setStatus("connecting");
-      showFailed(false);
-      // from here on this is a call; the outbox holds updates until the session exists
-      opening.current = true;
-      calling.current = true;
-      finalized.current = null;
-      relayNoted.current = false;
-      outbox.clear();
-      attempt.current += 1;
-      const mine = attempt.current;
-      const current = () => calling.current && attempt.current === mine;
-      try {
-        // Inside the gesture, before anything awaits: an AudioContext created later
-        // starts suspended. Calls from the wake word or a call-back have no gesture;
-        // armAudioUnlock handles those
-        tap.current ??= createAudioTap();
-        armAudioUnlock(tap.current.open().context);
-        const chime = new Audio(CONNECTED_SOUND);
-        farewell.current ??= new Audio(HUNG_UP_SOUND);
+    setStatus("connecting");
+    showFailed(false);
+    // from here on this is a call; the outbox holds updates until the session exists
+    opening.current = true;
+    calling.current = true;
+    finalized.current = null;
+    relayNoted.current = false;
+    outbox.clear();
+    attempt.current += 1;
+    const mine = attempt.current;
+    const current = () => calling.current && attempt.current === mine;
+    try {
+      // Inside the gesture, before anything awaits: an AudioContext created later
+      // starts suspended. Calls from the wake word or a call-back have no gesture;
+      // armAudioUnlock handles those
+      tap.current ??= createAudioTap();
+      armAudioUnlock(tap.current.open().context);
+      const chime = new Audio(CONNECTED_SOUND);
+      farewell.current ??= new Audio(HUNG_UP_SOUND);
 
-        const settings = thursdaySettings();
-        const stop = new AbortController();
-        working.current = stop;
-        const saving = { failures: 0 };
-        const thinkingSaves = { failures: 0 };
-        /** Filled in by the handshake, read by callbacks that only run after it. */
-        const line = { callId: "", opening: null as string | null };
+      const settings = thursdaySettings();
+      const stop = new AbortController();
+      working.current = stop;
+      const saving = { failures: 0 };
+      const thinkingSaves = { failures: 0 };
+      /** Filled in by the handshake, read by callbacks that only run after it. */
+      const line = { callId: "", opening: null as string | null };
 
-        // one turn per id; the session reports display groups one at a time
-        const turns = new Map<string, CallMessage & { seq: number }>();
-        /** When the page first saw each of the user's display groups. */
-        const userSaid = new Map<string, number>();
+      // one turn per id; the session reports display groups one at a time
+      const turns = new Map<string, CallMessage & { seq: number }>();
 
-        const live = await openLiveSession({
-          initialize: async (sdp) => {
-            const handshake = unwrapResult(
-              await openCallAction(settings, sdp, calledBack),
-            );
-            if (!current()) {
-              void endCallAction(handshake.callId);
-              throw new Error("The call closed during startup.");
+      const live = await openLiveSession({
+        initialize: async (sdp) => {
+          const handshake = unwrapResult(
+            await openCallAction(settings, sdp, calledBack),
+          );
+          if (!current()) {
+            void endCallAction(handshake.callId);
+            throw new Error("The call closed during startup.");
+          }
+          callId.current = handshake.callId;
+          line.callId = handshake.callId;
+          line.opening = handshake.opening;
+          return handshake.sdp;
+        },
+        audio: tap.current,
+        on: {
+          // the backend calls tools; the page forwards them to the server
+          runTool: async (call) => {
+            // end_call is the page's only tool. The line goes down once her
+            // goodbye is over (leave), so this reply reaches the model first
+            if (call.name === TOOL_NAMES.end_call) {
+              leave();
+              return "Ending the call.";
             }
-            callId.current = handshake.callId;
-            line.callId = handshake.callId;
-            line.opening = handshake.opening;
-            return handshake.sdp;
+            showTool(call);
+            try {
+              return await runRemoteTool(line.callId, call, stop.signal);
+            } finally {
+              hideTool(call.id);
+            }
           },
-          audio: tap.current,
-          on: {
-            // the backend calls tools; the page forwards them to the server
-            runTool: async (call) => {
-              // end_call is the page's only tool. The line goes down once her
-              // goodbye is over (leave), so this reply reaches the model first
-              if (call.name === TOOL_NAMES.end_call) {
-                leave();
-                return "Ending the call.";
-              }
-              showTool(call);
-              try {
-                return await runRemoteTool(line.callId, call, stop.signal);
-              } finally {
-                hideTool(call.id);
-              }
-            },
-            reasoning: (part) =>
-              persist(
-                thinkingSaves,
-                () =>
-                  saveThoughtAction(line.callId, {
-                    ...part,
-                    seq: Math.max(0, Math.round(part.seq)),
-                  }),
-                "The backend's thinking is not being saved",
-              ),
-            turn: (turn) => {
-              // New words, not a checkpoint of the same ones: a blank fragment is not words
-              const fresh =
-                turn.role !== "tool" &&
-                Boolean(turn.text.trim()) &&
-                turn.text !== turns.get(turn.id)?.text;
-              // New words from either side restart the relay's quiet clock
-              if (fresh) heard.current = Date.now();
-              // Her voice and backend work rewind the idle clock from activity, where an
-              // update she reads out is told apart; transcripts lag the audio and cannot
-              if (fresh && turn.role === "user") {
-                const said = userSaid.get(turn.id) ?? Date.now();
-                userSaid.set(turn.id, said);
-                stir("user", said);
-              }
-              // Tool turns are saved but not shown. Hanging up clears the screen
-              // before `close()` checkpoints open groups, so only the live call draws.
-              if (turn.role !== "tool" && callId.current === line.callId) {
-                turns.set(turn.id, {
-                  seq: turn.seq,
-                  id: turn.id,
-                  role: turn.role,
-                  text: turn.text,
-                });
-                setMessages(
-                  [...turns.values()]
-                    .sort((a, b) => a.seq - b.seq)
-                    .slice(-KEEP_MESSAGES),
-                );
-              }
-              if (turn.done) {
-                persist(saving, () =>
-                  saveTurnsAction(line.callId, [
-                    {
-                      id: turn.id,
-                      role: turn.role,
-                      tool: turn.tool,
-                      text: turn.text,
-                      // Live orders by audio milliseconds; the row keeps a whole number
-                      seq: Math.max(0, Math.round(turn.seq)),
-                      fragments: turn.fragments ?? null,
-                    },
-                  ]),
-                );
-              }
-            },
-            // session facts drive the face through showFace; the tool line is drawn by the tool itself
-            activity: (activity) => {
-              showFace(statusOf(activity));
-              const busy = activity.working || activity.tools.length > 0;
-              acting.current = busy;
-              // From the moment the backend picks the turn up until her first word
-              holdThinking(busy, activity.speaking);
-              if (activity.speaking) voiced.current = Date.now();
-              // Sound on the mic alone does not rewind the clock: a noisy room would
-              // keep a call open forever. Her words and backend work do, except an
-              // update she voices on her own: waiting results must not hold a call open.
-              if (
-                (activity.speaking && !reading.current.on) ||
-                activity.working ||
-                activity.tools.length
-              )
-                stir("agent");
-              // An update counts as voiced once her voice has started and stopped
-              if (reading.current.on) {
-                if (activity.speaking) reading.current.spoke = true;
-                else if (reading.current.spoke) doneReading();
-              }
-            },
-            finalized: (close) => {
-              finalized.current = close;
-            },
-            warn: (description) =>
-              toast.add({
-                type: "warning",
-                title: "Call warning",
-                description,
-              }),
-            failed: (description) => {
-              toast.add({ type: "error", title: "Call failed", description });
-              showFailed(true);
-              void hangUp();
-            },
+          reasoning: (part) =>
+            persist(
+              thinkingSaves,
+              () =>
+                saveThoughtAction(line.callId, {
+                  ...part,
+                  seq: Math.max(0, Math.round(part.seq)),
+                }),
+              "The backend's thinking is not being saved",
+            ),
+          turn: (turn) => {
+            // New words, not a checkpoint of the same ones. A cough or a sigh is not words:
+            // it neither holds the line open nor holds an update back
+            const words = turn.role === "tool" ? "" : spokenWords(turn.text);
+            const fresh =
+              Boolean(words) &&
+              words !== spokenWords(turns.get(turn.id)?.text ?? "");
+            // New words from either side restart the relay's quiet clock
+            if (fresh) heard.current = Date.now();
+            // Her voice and backend work rewind the idle clock from activity, where an
+            // update she reads out is told apart; transcripts lag the audio and cannot
+            if (fresh && turn.role === "user") stirred.current = Date.now();
+            // Tool turns are saved but not shown. Hanging up clears the screen
+            // before `close()` checkpoints open groups, so only the live call draws.
+            if (turn.role !== "tool" && callId.current === line.callId) {
+              turns.set(turn.id, {
+                seq: turn.seq,
+                id: turn.id,
+                role: turn.role,
+                text: turn.text,
+              });
+              setMessages(
+                [...turns.values()]
+                  .sort((a, b) => a.seq - b.seq)
+                  .slice(-KEEP_MESSAGES),
+              );
+            }
+            if (turn.done) {
+              persist(saving, () =>
+                saveTurnsAction(line.callId, [
+                  {
+                    id: turn.id,
+                    role: turn.role,
+                    tool: turn.tool,
+                    text: turn.text,
+                    // Live orders by audio milliseconds; the row keeps a whole number
+                    seq: Math.max(0, Math.round(turn.seq)),
+                    fragments: turn.fragments ?? null,
+                  },
+                ]),
+              );
+            }
           },
-        });
+          // session facts drive the face through showFace; the tool line is drawn by the tool itself
+          activity: (activity) => {
+            showFace(statusOf(activity));
+            const busy = activity.working || activity.tools.length > 0;
+            acting.current = busy;
+            // From the moment the backend picks the turn up until her first word
+            holdThinking(busy, activity.speaking);
+            if (activity.speaking) voiced.current = Date.now();
+            // Sound on the mic alone does not rewind the clock: a noisy room would
+            // keep a call open forever. Her words and backend work do, except an
+            // update she voices on her own: waiting results must not hold a call open.
+            if (
+              (activity.speaking && !reading.current.on) ||
+              activity.working ||
+              activity.tools.length
+            )
+              stirred.current = Date.now();
+            // An update counts as voiced once her voice has started and stopped
+            if (reading.current.on) {
+              if (activity.speaking) reading.current.spoke = true;
+              else if (reading.current.spoke) doneReading();
+            }
+          },
+          finalized: (close) => {
+            finalized.current = close;
+          },
+          warn: (description) =>
+            toast.add({
+              type: "warning",
+              title: "Call warning",
+              description,
+            }),
+          failed: (description) => {
+            toast.add({ type: "error", title: "Call failed", description });
+            showFailed(true);
+            void hangUp();
+          },
+        },
+      });
 
-        if (!current()) {
-          // Hung up while the line was going up; hangUp already ended the row
-          await live.close();
-          return;
-        }
-
-        /** An opening that never landed leaves nothing to wait for. */
-        const unless = (delivered: boolean) => {
-          if (!delivered) doneReading();
-        };
-
-        session.current = live;
-        opening.current = false;
-        rang.current = calledBack;
-        // Context is not gated: held lines first, then each as it comes
-        outbox.open((text) => void live.append("thinking", text));
-        // The quiet clock starts with the line, so nothing is put to her the moment it opens
-        heard.current = Date.now();
-
-        if (line.opening) {
-          // The greeting goes first; open work waits until she has said it
-          readAloud();
-          void live.append("instructions", line.opening).then(unless);
-        }
-
-        wearFace("listening");
-        setSince(Date.now());
-        // a rejected chime is not worth a message
-        void chime.play().catch(() => {});
-      } catch (cause) {
-        // Hanging up while the line was going up is not a failure to report
-        if (current()) {
-          toast.add({
-            type: "error",
-            title: "Could not start the call",
-            description: errorToString(cause),
-          });
-          showFailed(true);
-        }
-        if (attempt.current !== mine) return;
-        // a call that never opened still has a row; close it
-        if (callId.current) void endCallAction(callId.current);
-        callId.current = null;
-        opening.current = false;
-        calling.current = false;
-        working.current = null;
-        outbox.clear();
-        setStatus("idle");
+      if (!current()) {
+        // Hung up while the line was going up; hangUp already ended the row
+        await live.close();
+        return;
       }
-    },
-    [
-      status,
-      hangUp,
-      showTool,
-      hideTool,
-      showFace,
-      wearFace,
-      stir,
-      outbox,
-      readAloud,
-      doneReading,
-      holdThinking,
-      showFailed,
-      leave,
-    ],
-  );
+
+      /** An opening that never landed leaves nothing to wait for. */
+      const unless = (delivered: boolean) => {
+        if (!delivered) doneReading();
+      };
+
+      session.current = live;
+      opening.current = false;
+      rang.current = calledBack;
+      // Context is not gated: held lines first, then each as it comes
+      outbox.open((text) => void live.append("thinking", text));
+      // The quiet clock starts with the line, so nothing is put to her the moment it opens
+      heard.current = Date.now();
+
+      if (line.opening) {
+        // The greeting goes first; open work waits until she has said it
+        readAloud();
+        void live.append("instructions", line.opening).then(unless);
+      }
+
+      wearFace("listening");
+      setSince(Date.now());
+      // a rejected chime is not worth a message
+      void chime.play().catch(() => {});
+    } catch (cause) {
+      // Hanging up while the line was going up is not a failure to report
+      if (current()) {
+        toast.add({
+          type: "error",
+          title: "Could not start the call",
+          description: errorToString(cause),
+        });
+        showFailed(true);
+      }
+      if (attempt.current !== mine) return;
+      // a call that never opened still has a row; close it
+      if (callId.current) void endCallAction(callId.current);
+      callId.current = null;
+      opening.current = false;
+      calling.current = false;
+      working.current = null;
+      outbox.clear();
+      setStatus("idle");
+    }
+  }, [
+    status,
+    hangUp,
+    showTool,
+    hideTool,
+    showFace,
+    wearFace,
+    outbox,
+    readAloud,
+    doneReading,
+    holdThinking,
+    showFailed,
+    leave,
+    isRinging,
+  ]);
 
   /**
-   * Call-back: opens a call when a thread is waiting on the user and no line is
-   * open. Tried once per thread (`woke`), or a failed open would redial forever;
-   * threads present at app start count as already tried.
+   * Call-back: rings when a thread is waiting on the user and no line is open,
+   * only for threads that changed after `ringAfter`. What came up during a call
+   * was that call's to tell, and the next call tells what it left unsaid. Ringing
+   * never opens the line; answering does (`call`). A thread handled meanwhile, on
+   * screen or by the setting going off, stops ringing for itself.
    */
   const callBack = useThursdayStore((state) => state.callBack);
-  const woke = useRef<Set<string> | null>(null);
   useEffect(() => {
     if (!threads) return;
-    const wants = threads.filter(
-      (thread) =>
-        !thread.seen &&
-        !thread.ask?.auto &&
-        (asksSomething(thread) ||
-          (callBack === "any" && thread.status !== "running")),
+    const wanted = new Set(
+      threads
+        .filter((thread) => ringsFor(thread, callBack))
+        .map((thread) => thread.id),
     );
-
-    if (!woke.current) {
-      woke.current = new Set(wants.map((thread) => thread.id));
-      return;
-    }
-
-    // forget threads that stopped waiting; a later stop counts as fresh
-    const open = new Set(wants.map((thread) => thread.id));
-    for (const id of woke.current) {
-      if (!open.has(id)) woke.current.delete(id);
-    }
-
-    if (callBack === "off" || status !== "idle") return;
-    const fresh = wants.filter((thread) => !woke.current?.has(thread.id));
+    setRingingFor((ids) =>
+      ids.every((id) => wanted.has(id))
+        ? ids
+        : ids.filter((id) => wanted.has(id)),
+    );
+    if (status !== "idle") return;
+    const after = ringAfter.current;
+    const fresh = threads.filter(
+      (thread) =>
+        wanted.has(thread.id) && toDate(thread.updatedAt).getTime() > after,
+    );
     if (!fresh.length) return;
 
-    for (const thread of wants) woke.current.add(thread.id);
-    void call("callBack");
-  }, [threads, callBack, status, call]);
+    ringAfter.current = Date.now();
+    setRingingFor((ids) => [
+      ...ids,
+      ...fresh.map((thread) => thread.id).filter((id) => !ids.includes(id)),
+    ]);
+  }, [threads, callBack, status]);
+
+  // While ringing: it stops by itself after CALL_BACK.ringMs, and Esc declines.
+  // A thread added to a ring already going does not restart the clock
+  useEffect(() => {
+    if (!isRinging) return;
+    const out = setTimeout(() => setRingingFor([]), CALL_BACK.ringMs);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) setRingingFor([]);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      clearTimeout(out);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isRinging]);
+
+  const decline = useCallback(() => setRingingFor([]), []);
+  /** What the ringing screen names: the first thread that rang, and how many rang with it. */
+  const ringing = useMemo((): Ringing | null => {
+    const rung = ringingFor.flatMap(
+      (id) => threads?.find((thread) => thread.id === id) ?? [],
+    );
+    const first = rung[0];
+    if (!first) return null;
+    const question = first.room.questions[0];
+    return {
+      bot: question?.bot ?? first.bot,
+      kind: question
+        ? "question"
+        : first.status === "done"
+          ? "done"
+          : "stopped",
+      label: first.label,
+      more: rung.length - 1,
+    };
+  }, [ringingFor, threads]);
 
   /** Read by the face once per animation frame, outside React state. */
   const getSpectrum = useCallback(() => tap.current?.read() ?? EMPTY_BANDS, []);
@@ -1000,6 +1000,10 @@ export function useThursday() {
     /** When the line opened (ms); null without a call. */
     since,
     call,
+    /** A call-back ringing; null when none is. Any way of placing a call answers it. */
+    ringing,
+    /** Stops the ringing without answering. */
+    decline,
     getSpectrum,
     getMicSpectrum,
     /** null when the tap is the only entry point. */
@@ -1052,6 +1056,15 @@ function statusOf(activity: LiveActivity): LiveStatus {
   return "listening";
 }
 
+/**
+ * The words in a transcript, without the sounds Live writes in brackets ("[clear throat]",
+ * "[sigh]"); a bracket may close in the next group ("] okay"). Empty when nothing was said.
+ */
+function spokenWords(text: string) {
+  const words = text.replace(/\[[^\]]*\]?|\]/g, "").trim();
+  return /[\p{L}\p{N}]/u.test(words) ? words : "";
+}
+
 /** Fire-and-forget save; after SAVE_FAILURE_LIMIT failures of this kind it stops and says so once. */
 function persist(
   saving: { failures: number },
@@ -1073,10 +1086,15 @@ function persist(
 }
 
 /**
- * Waiting on a real question. A job the app stopped waits in the inbox
- * instead of ringing.
+ * Whether a thread is one the call-back rings for: a real question, or with
+ * "any" every ending. A job the app stops and picks up by itself never rings.
  */
-const asksSomething = (thread: Thread) => thread.room.questions.length > 0;
+const ringsFor = (thread: Thread, callBack: CallBack) =>
+  callBack !== "off" &&
+  !thread.seen &&
+  !thread.ask?.auto &&
+  (thread.room.questions.length > 0 ||
+    (callBack === "any" && thread.status !== "running"));
 
 /** One piece of background work waiting on the user, as the relay clock puts it to her. */
 type OpenWork = {

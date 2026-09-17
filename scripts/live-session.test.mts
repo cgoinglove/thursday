@@ -848,7 +848,9 @@ test("both call prompts open as one Thursday: the voice gets the delegation poli
     );
     assert.match(on.text, /\nDelegate to the backend when:\n/);
     assert.match(on.text, /\nDo not delegate to the backend when:\n/);
-    assert.match(on.text, /What bots can reach for: browser, images, github\./);
+    // What bots can reach is the backend's to know; the voice holds the capability
+    assert.match(on.text, /almost anything the user asks for can be done\.\n/);
+    assert.equal(on.text.includes("What bots can reach for"), false);
     assert.match(on.text, /- people\/sam — Their brother \(2\) "Sam"/);
     // The roster, threads and earlier calls are the backend's to read
     assert.equal(on.text.includes("Scout"), false);
@@ -861,9 +863,12 @@ test("both call prompts open as one Thursday: the voice gets the delegation poli
       false,
     );
     assert.equal(on.text.includes("- Web:"), false);
-    assert.equal(
-      /memory_|end_call|generate_|load_skill|`/.test(on.text),
-      false,
+    assert.equal(/memory_|generate_|load_skill|`/.test(on.text), false);
+    // The one tool name the voice holds: the ending rule, where it makes ending a thing to do
+    assert.equal(on.text.split("end_call").length, 2);
+    assert.match(
+      on.text,
+      /immediately, without thinking, use the end_call tool\./,
     );
     assert.equal(on.text.endsWith("Use a calm voice."), true);
     const [boundary, ...spoken] = on.input;

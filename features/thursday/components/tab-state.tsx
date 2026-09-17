@@ -56,13 +56,21 @@ export function tabIconSvg(alert: SectionAlert): string {
  * Draws nothing. A component rather than a hook in the call screen, so a report
  * changing re-renders only this.
  */
-export function TabState({ live }: { live: boolean }) {
+export function TabState({
+  live,
+  ringing,
+}: {
+  live: boolean;
+  /** A call-back is ringing: the title says she is calling. */
+  ringing: boolean;
+}) {
   const { owed } = useThreadReport();
   const alerts = useSectionAlerts();
   const alert = worstAlert(Object.values(alerts).map((each) => each ?? null));
 
   useEffect(() => {
-    const head = owed > 0 ? `(${owed}) ${APP_NAME}` : APP_NAME;
+    const name = ringing ? `${APP_NAME} is calling` : APP_NAME;
+    const head = owed > 0 ? `(${owed}) ${name}` : name;
     if (!live) {
       document.title = head;
       return;
@@ -74,7 +82,7 @@ export function TabState({ live }: { live: boolean }) {
       document.title = `${head} ${SPIN[at]}`;
     }, SPIN_MS);
     return () => clearInterval(tick);
-  }, [live, owed]);
+  }, [live, owed, ringing]);
 
   useEffect(() => {
     // A link of its own after the layout's, changed in place: browsers redraw

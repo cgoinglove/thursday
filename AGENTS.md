@@ -41,7 +41,7 @@ features/ai/              Everything the model sees. Composes domain query/schem
   prompts/live.prompt.ts         What the Live voice hears: who Thursday is, the delegation policy (what the
                                  backend can do, when to hand over), what she knows about the user; earlier
                                  calls as `input`; on how to speak, only the guide's backchannel and
-                                 interruption policies. No tool names or procedures.
+                                 interruption policies. No procedures, and no tool names but `end_call`.
   prompts/thursday.prompt.ts     What the call's Responses backend hears: who Thursday is, the voice
                                  conversation it works from, memory with ids, roster, the machine, what to
                                  return, earlier calls with their jobs.

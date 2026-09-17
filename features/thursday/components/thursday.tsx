@@ -48,6 +48,7 @@ import {
 import { useThursdayStore } from "@/features/thursday/thursday.store";
 import {
   type ActivityLine,
+  type Ringing,
   useThursday,
 } from "@/features/thursday/use-thursday";
 import { ArtifactView } from "@/features/workspace/components/artifact-view";
@@ -75,6 +76,10 @@ export type CallScreenProps = {
   /** When the backend picked the turn up (ms); null when it is not working. */
   thinkingSince?: number | null;
   onTap: () => void;
+  /** A call-back ringing; the tap answers it. */
+  ringing?: Ringing | null;
+  /** Stops the ringing without answering. */
+  onDecline?: () => void;
   /** Wake phrase; null when the tap is the only entry point. */
   wakePhrase?: string | null;
   /** Hotkey in readable form (use-hotkey); null if none. */
@@ -100,6 +105,8 @@ export function CallScreen({
   tool,
   thinkingSince = null,
   onTap,
+  ringing = null,
+  onDecline,
   wakePhrase = null,
   hotkeyLabel = null,
   idleLeft = null,
@@ -147,7 +154,9 @@ export function CallScreen({
                 ? "Add a speech key"
                 : live
                   ? "End the call"
-                  : "Call Thursday"
+                  : ringing
+                    ? "Answer Thursday"
+                    : "Call Thursday"
             }
             // the face never moves under the cursor; only press gives a little
             className={cn(
@@ -156,14 +165,19 @@ export function CallScreen({
               asleep && "opacity-35",
             )}
           >
-            <Face
-              look={face}
-              status={status}
-              failed={failed}
-              getSpectrum={getSpectrum}
-              getMicSpectrum={getMicSpectrum}
-              className="w-full"
-            />
+            {/* Ringing, the face swells twice and rests, like a phone's ring */}
+            <span
+              className={cn("block", ringing && "motion-safe:animate-ringing")}
+            >
+              <Face
+                look={face}
+                status={status}
+                failed={failed}
+                getSpectrum={getSpectrum}
+                getMicSpectrum={getMicSpectrum}
+                className="w-full"
+              />
+            </span>
           </button>
 
           {sided && <SideCaptions shown={turns.shown} give={turns.give} />}
@@ -180,6 +194,7 @@ export function CallScreen({
             tool={tool}
             thinkingSince={thinkingSince}
             listening={status === "listening" && thinkingSince === null}
+            ringing={ringing}
             getMicSpectrum={getMicSpectrum}
           />
 
@@ -215,6 +230,8 @@ export function CallScreen({
                 status={status}
                 idleLeft={idleLeft}
                 since={since}
+                ringing={ringing !== null}
+                onDecline={onDecline}
                 wakePhrase={wakePhrase}
                 hotkeyLabel={hotkeyLabel}
               />
@@ -746,11 +763,14 @@ function ActivityRow({
   tool,
   thinkingSince,
   listening,
+  ringing,
   getMicSpectrum,
 }: {
   tool: ActivityLine | null;
   thinkingSince: number | null;
   listening: boolean;
+  /** Only while idle, when nothing else takes the slot. */
+  ringing: Ringing | null;
   getMicSpectrum?: () => ArrayLike<number>;
 }) {
   // held past the tool so the pill has something to fade out with
@@ -766,7 +786,19 @@ function ActivityRow({
 
   const hearing = listening && !tool;
   return (
-    <div className="grid h-7 max-w-full items-center justify-items-center">
+    // Ringing, who calls sits right under the face, over the hint. It leaves at
+    // once rather than fading, so the hint does not slide under a fading line
+    <div
+      className={cn(
+        "grid h-7 max-w-full items-center justify-items-center",
+        ringing && "order-first",
+      )}
+    >
+      {ringing && (
+        <span className="col-start-1 row-start-1 flex max-w-full animate-in fade-in duration-500">
+          <Ringer ringing={ringing} />
+        </span>
+      )}
       {shown && (
         <Fade at="col-start-1 row-start-1 max-w-full" shown={tool !== null}>
           <Activity tool={shown} />
@@ -784,6 +816,45 @@ function ActivityRow({
         <Ear live={hearing} getMicSpectrum={getMicSpectrum} />
       </Fade>
     </div>
+  );
+}
+
+/**
+ * Who a ringing call-back is for: the bot's face and what it has, then the job,
+ * and how many more rang with it. The words pulse while it rings.
+ */
+function Ringer({ ringing }: { ringing: Ringing }) {
+  const bots = useServerRoute<Bot[]>(queryKey.bot).data;
+  const bot = bots?.find((one) => one.name === ringing.bot) ?? null;
+  const says =
+    ringing.kind === "question"
+      ? `${ringing.bot} has a question`
+      : ringing.kind === "done"
+        ? `Answer from ${ringing.bot}`
+        : `${ringing.bot} stopped`;
+  return (
+    <span className="flex max-w-full items-center gap-1.5 text-[13px] leading-5 text-muted-foreground">
+      <span className="grid size-4.5 shrink-0 place-items-center">
+        <BotMark
+          size={16}
+          seed={ringing.bot}
+          color={bot?.icon?.color}
+          shape={bot?.icon?.shape}
+          outline={bot?.icon?.outline}
+          paint={bot?.icon?.paint}
+          // a question or a stop waits on the user; an answer only waits to be read
+          notify={ringing.kind !== "done"}
+        />
+      </span>
+      <ShinyText text={says} motion="pulse" className="shrink-0" />
+      <span className="text-muted-foreground/40">·</span>
+      <span className="min-w-0 truncate break-keep">{ringing.label}</span>
+      {ringing.more > 0 && (
+        <span className="shrink-0 rounded-full bg-muted px-1.5 font-mono text-[10px] leading-4.5 text-foreground/70">
+          +{ringing.more}
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -820,12 +891,16 @@ function Hint({
   status,
   idleLeft,
   since,
+  ringing,
+  onDecline,
   wakePhrase,
   hotkeyLabel,
 }: {
   status: CallStatus;
   idleLeft: number | null;
   since: number | null;
+  ringing: boolean;
+  onDecline?: () => void;
   wakePhrase: string | null;
   hotkeyLabel: string | null;
 }) {
@@ -854,6 +929,25 @@ function Hint({
         <span>Tap Thursday to end</span>
         <span className="text-muted-foreground/40">·</span>
         <Elapsed since={since} />
+      </>
+    );
+  } else if (ringing) {
+    key = "ringing";
+    // Every way in answers, so the tap stands for them all; declining is the one other act
+    body = (
+      <>
+        <span>Tap Thursday to answer</span>
+        <span className="text-muted-foreground/40">·</span>
+        <button
+          type="button"
+          onClick={onDecline}
+          className="flex items-center gap-1.5 rounded-full bg-muted py-0.5 pr-0.5 pl-2 text-foreground/80 transition-colors hover:bg-accent"
+        >
+          Not now
+          <kbd className="rounded-md border border-border bg-background px-1.5 font-mono text-[10px] text-foreground/70 shadow-[0_1px_0_var(--border)]">
+            Esc
+          </kbd>
+        </button>
       </>
     );
   } else if (wakePhrase) {
@@ -1167,6 +1261,8 @@ export function Thursday() {
     idleLeft,
     since,
     call,
+    ringing,
+    decline,
     getSpectrum,
     getMicSpectrum,
     wakePhrase,
@@ -1188,7 +1284,7 @@ export function Thursday() {
   return (
     <>
       {/* the tab shows the call and what is owed while the app is off-screen */}
-      <TabState live={status !== "idle"} />
+      <TabState live={status !== "idle"} ringing={ringing !== null} />
       <CallScreen
         status={status}
         failed={failed}
@@ -1196,6 +1292,9 @@ export function Thursday() {
         tool={tool}
         thinkingSince={thinkingSince}
         onTap={call}
+        // without a key the face asks for one, so nothing can answer
+        ringing={callable ? ringing : null}
+        onDecline={decline}
         wakePhrase={wakePhrase}
         hotkeyLabel={hotkeyLabel}
         idleLeft={idleLeft}

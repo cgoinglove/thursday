@@ -1,11 +1,11 @@
 <div align="center">
 
-<img src="docs/images/hero.png" alt="Thursday — an open-source voice agent with a face made of emoji" width="760">
+<img src="docs/images/hero.png" alt="Thursday — an open-source voice assistant with a face made of emoji" width="760">
 
 ### Everyone wanted Friday. This is Thursday.
 
-Talk to your computer. Thursday talks back while bots do the work.<br>
-An open-source agent like [OpenClaw](https://github.com/openclaw/openclaw) and [Hermes](https://github.com/NousResearch/hermes-agent), built around your voice and running on your own machine.
+**An open-source voice assistant that runs on your computer, with a team of AI bots behind it.**<br>
+You talk. Bots take the slow work to a real browser, a shell and your files. The conversation never stops.
 
 [![npm](https://img.shields.io/npm/v/thursday-agent?style=flat-square&color=111&label=npm)](https://www.npmjs.com/package/thursday-agent)
 [![CI](https://img.shields.io/github/actions/workflow/status/cgoinglove/thursday/ci.yml?style=flat-square&label=ci)](https://github.com/cgoinglove/thursday/actions/workflows/ci.yml)
@@ -22,22 +22,45 @@ An open-source agent like [OpenClaw](https://github.com/openclaw/openclaw) and [
 npx thursday-agent
 ```
 
-Paste an OpenAI API key, pick your starter bots, and say **“hey thursday.”**
+Paste an OpenAI API key, pick your starter bots, and say **“hey thursday.”** No account, no `.env`.
 
-![The call keeps going while a bot does the work](docs/images/two-minds.png)
+## Talk while it works
 
-## Features
+Most agents make you type and wait. Thursday is a real-time voice call you can interrupt. Anything that takes more than a few seconds goes to a bot in the background, so the call never goes quiet, and she tells you when it's back.
 
-- **Just talk.** A real-time voice call you can interrupt. Start one with “hey thursday” or a hotkey.
-- **Bots do the slow work.** Anything that takes more than a few seconds goes to a bot in the background, and the conversation keeps going.
-- **Your real computer.** Bots get a shell, your files, and a real browser — even the Chrome you are already signed into. It stops at a Pay button and leaves it to you.
-- **Results you can open.** Pages, docs, charts, images, audio, and video, saved as files and opened on your screen.
-- **Hang up, it keeps going.** Jobs run on your machine and Thursday tells you when they are done.
-- **A team you build.** Make a bot with a name and one sentence. Bots pass work to each other and ask you when a decision is yours.
-- **Memory you can read.** What Thursday knows about you is plain notes. Open, edit, or delete any line.
-- **Skills and MCP.** Add Agent Skills and connect MCP servers.
-- **Any model.** OpenAI, Anthropic, Google, xAI, Vercel AI Gateway, or your ChatGPT sign-in, with a different model per bot.
-- **Local-first.** No Thursday account. The app, your data, and your keys stay on your computer.
+![A voice call with Thursday while a bot looks for hotels in the background](docs/images/call.png)
+
+## One sentence, a whole team
+
+Bots hand parts of a job to each other, check what comes back, and ask you only when a decision is yours. Every handoff is saved: open the thread to see who did what, or step in.
+
+![A planner bot splits a trip request between two bots and one asks the user a question](docs/images/room.png)
+
+## Errands, in a real browser
+
+Orders, bookings, forms, the inbox. Bots use their own browser or the Chrome you're already signed into, and ask before using a login you gave them. A purchase stops at the Pay button, left open on your screen.
+
+![A checkout a bot filled in and left open, with the Pay button for the user to press](docs/images/errands.png)
+
+## Results you can keep
+
+Pages, charts, videos, slides, docs and scripts, saved as files on your machine and opened on your screen when they're ready.
+
+![Files made by six different bots: a rent chart, a short video, a carousel, a trip page, launch copy, and a script](docs/images/artifacts.png)
+
+## Your crew
+
+Pick starter bots on the first run, or make your own with a name and one sentence about what it's for. Give each its own model and tools.
+
+![A lineup of bots, each with its own face and job, plus a slot to make your own](docs/images/bots.png)
+
+## And also
+
+- **Hang up, it keeps going.** Jobs run on your machine, and Thursday tells you when they finish, or calls you if you turn that on.
+- **Memory you can read.** What she knows about you is plain notes. Open, edit, or delete any line.
+- **Skills and MCP.** Teach bots new methods with Agent Skills, and connect any MCP server.
+- **Any model.** OpenAI, Anthropic, Google, xAI, Vercel AI Gateway, or your ChatGPT sign-in, per bot.
+- **Local-first.** No Thursday account and no server of ours. The app, your data and your keys stay on your computer.
 
 ## Requirements
 
@@ -45,8 +68,26 @@ Paste an OpenAI API key, pick your starter bots, and say **“hey thursday.”**
 - An OpenAI API key for the voice
 - macOS. Linux should work; Windows is not tested yet.
 
-> [!NOTE]
-> Bots run real commands on your computer. Thursday is not a sandbox — read [SECURITY.md](SECURITY.md) before giving it access to anything sensitive.
+<details>
+<summary><b>What does it cost?</b></summary>
+
+Thursday is free and MIT-licensed. You bring the keys: the voice is billed by OpenAI per active minute of a call, and bots use whichever provider you pick for them.
+
+</details>
+
+<details>
+<summary><b>Where does my data go?</b></summary>
+
+What you say and what bots work on go only to the model providers you set up and the services you connect. The app listens only on `127.0.0.1`, and your calls, memory and files live in `~/.thursday` (or the checkout, when you run from source).
+
+</details>
+
+<details>
+<summary><b>Is it safe to let bots use my computer?</b></summary>
+
+Bots run real commands, so treat Thursday like any powerful local tool: it is not a sandbox. Read [SECURITY.md](SECURITY.md) before giving it access to anything sensitive.
+
+</details>
 
 <details>
 <summary><b>Run from source</b></summary>
@@ -68,6 +109,6 @@ Requires pnpm 10+.
 
 **[How it works](docs/how-it-works.md)** · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [MIT](LICENSE)
 
-If you want an assistant you can talk to while it works, [star Thursday](https://github.com/cgoinglove/thursday).
+If you'd rather say it than type it, [star Thursday](https://github.com/cgoinglove/thursday).
 
 </div>

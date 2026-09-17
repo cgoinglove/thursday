@@ -95,9 +95,9 @@ export const HOTKEY_DEFAULT: Hotkey = {
 };
 
 /**
- * Whether the app opens a call by itself when a job ends while no call is live.
- * A browser may block audio on a page that has not played sound yet; the
- * desktop notification covers that case.
+ * Whether the call screen rings when a job ends while no call is live. Ringing
+ * never opens the line; answering does. The desktop notification covers a tab
+ * nobody is looking at.
  */
 export const CALL_BACK_MODES = ["off", "waiting", "any"] as const;
 export const CallBackSchema = z.enum(CALL_BACK_MODES);

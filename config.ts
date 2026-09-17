@@ -46,19 +46,24 @@ export const CALL_RELAY = {
 
 /**
  * When a quiet call ends itself (useThursday).
- * - `hangUpMs`  how long the user has said nothing and she has neither answered nor worked
- *   before she is asked to say goodbye. Updates she voices on her own (CALL_RELAY) do not
- *   count, so waiting results cannot hold a call open. Noise transcribed as words does.
- * - `graceMs`  how long the page waits after that request before it hangs up itself.
+ * - `hangUpMs`  how long the user has said nothing and she has neither spoken nor worked
+ *   before the page hangs up, with no goodbye. Updates she voices on her own (CALL_RELAY) do
+ *   not count, so waiting results cannot hold a call open, and neither do sounds transcribed
+ *   in brackets ("[sigh]"). Noise transcribed as words does.
  * - `warnMs`  how much of `hangUpMs` counts down on screen.
- * - `agentSilentMs`  the user said something and nothing came back, no voice and no backend
- *   work, for this long: the page hangs up, since the model is not on the line to say goodbye.
  */
 export const CALL_IDLE = {
   hangUpMs: 30_000,
-  graceMs: 15_000,
   warnMs: 10_000,
-  agentSilentMs: 30_000,
+};
+
+/**
+ * A call-back rings on the call screen instead of opening the line (useThursday).
+ * - `ringMs`  how long it rings before it stops by itself. What rang stays in the room's
+ *   inbox, and only work that changes after the ring starts rings again.
+ */
+export const CALL_BACK = {
+  ringMs: 30_000,
 };
 
 /**

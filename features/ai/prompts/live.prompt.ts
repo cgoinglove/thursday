@@ -10,15 +10,12 @@ import {
   type MemoryIndexEntry,
   type MemoryNoteView,
 } from "@/features/memory/memory.schema";
-import { loadSkills } from "@/features/skills/skills.discover";
 import {
   type CallGroup,
   listRecentTurns,
 } from "@/features/thursday/thursday.query";
-import { openWorkspace } from "@/features/workspace/workspace";
 import { LIVE_INPUT, type LiveInput } from "@/lib/live/live.schema";
 import { estimateTokens } from "@/lib/tokens";
-import { listConnectedToolNames } from "../tools/connected";
 import {
   callEnding,
   callStamp,
@@ -26,7 +23,6 @@ import {
   expandedFacts,
   logPromptSize,
   noteLines,
-  reachNames,
   thursdayIdentity,
   tidying,
 } from "./prompt-helper";
@@ -36,7 +32,8 @@ import {
  * delegation policy under the labels the GPT-Live prompting guide keeps, and what she knows
  * about the user, the note listing included. Earlier calls go in as `input`. Of how to speak it
  * holds only the guide's starter backchannel and interruption policies; the rest is the Live
- * model's own. Tool names and procedures are the backend's (thursday.prompt). Assembled on every
+ * model's own. Tool names — but `end_call` in the ending rule — and procedures are the backend's
+ * (thursday.prompt). Assembled on every
  * call, never cached.
  */
 export async function loadLivePrompt(options: {
@@ -47,15 +44,12 @@ export async function loadLivePrompt(options: {
   /** The page placed this call because background work waits on the user (call-back). */
   calledBack?: boolean;
 }): Promise<{ text: string; input: LiveInput[]; opening: string }> {
-  const sandbox = await openWorkspace();
-  const [carried, open, index, calls, skills, connected] = await Promise.all([
+  const [carried, open, index, calls] = await Promise.all([
     listAlwaysLoaded(),
     // Written out in the prompt, which is not the user asking for them: no read counted
     readNotes(MEMORY_ALWAYS_LISTED, { touch: false }),
     listNoteIndex(),
     listRecentTurns(RECENT_CALL.rows),
-    loadSkills(sandbox),
-    listConnectedToolNames(),
   ]);
   const input = pastInput(calls);
 
@@ -71,10 +65,7 @@ export async function loadLivePrompt(options: {
     thursdayIdentity(),
     callEnding(),
     speaking(),
-    delegation({
-      reach: reachNames(skills, connected),
-      webSearch: options.webSearch,
-    }),
+    delegation(options.webSearch),
     known(open.notes, carried, index),
     first ? firstCall() : tidyPolicy(index),
     additional(options.voicePrompt),
@@ -115,12 +106,12 @@ Interruption policy: Stop speaking when the user interrupts. Listen to what they
  * words, then when to hand a request over. Capabilities are facts — a missing one is filled by a
  * refusal — and their names are thursday.prompt's chapters. How a job is carried is the backend's.
  */
-function delegation(input: { reach: string; webSearch: boolean }): string {
+function delegation(webSearch: boolean): string {
   const tools = [
     "- Memory: recall, keep, correct and forget what the user tells you, across calls.",
     "- This computer: run a quick command and look at files.",
-    input.webSearch ? "- Web: look things up." : "",
-    `- Background work: bots with this computer, a real browser, the web and far more time than a call take on anything longer, so almost anything the user asks for can be done.${input.reach ? ` What bots can reach for: ${input.reach}.` : ""} That work can be followed, answered, corrected or cancelled.`,
+    webSearch ? "- Web: look things up." : "",
+    "- Background work: bots with this computer, a real browser, the web and far more time than a call take on anything longer, so almost anything the user asks for can be done.",
     "- End the call.",
   ].filter(Boolean);
 
@@ -133,7 +124,7 @@ Delegate to the backend when:
 - The user says something worth keeping — who they are, how they want things done and said, the people in their life, their plans. Hand it over as they say it, not at the end of the call.
 - The user asks about, answers, corrects or cancels background work.
 - The user asks about something they told you before that is not written out below.
-- The user wants to end the call. Only the backend can end the line.
+- The user wants to end the call.
 
 Do not delegate to the backend when:
 - The user greets you, makes small talk, or asks you to repeat a result already given.
@@ -142,7 +133,7 @@ Do not delegate to the backend when:
 Delegate before giving an answer that depends on backend work.
 Do not guess the result while waiting.
 
-Background work you started is yours until it is done. Updates about it reach you once, when the line is quiet. Tell the user the part that answers what they asked; the whole of it is on their screen.`;
+When background work sends an update, tell the user the part that answers what they asked; the whole of it is on their screen.`;
 }
 
 /**
