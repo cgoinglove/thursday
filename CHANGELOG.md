@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.6.0...thursday-agent-v0.7.0) (2026-09-17)
+
+
+### Features
+
+* **call:** implement call-back feature and enhance documentation ([1aa6903](https://github.com/cgoinglove/thursday/commit/1aa6903a2ddcdd10a2ed42f1b1961afe00865f9f))
+* **face:** introduce emote feature for displaying words on the face ([db40358](https://github.com/cgoinglove/thursday/commit/db40358e53477b5943b8855758b48f20b26e7f5b))
+* **prompts:** refine live and backend prompts for clarity and functionality ([2ef3a0d](https://github.com/cgoinglove/thursday/commit/2ef3a0d50f25a23bc09b4a70e301343b1f9ba1bb))
+
+
+### Docs
+
+* **readme:** show the call with side captions ([a979fdd](https://github.com/cgoinglove/thursday/commit/a979fdde6b83602b5d5bb9c60cd60f0707156d63))
+
 ## [0.6.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.5.0...thursday-agent-v0.6.0) (2026-09-16)
 
 
