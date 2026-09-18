@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDistanceToNowStrict } from "date-fns";
 import {
   ChevronDown,
   ChevronUp,
@@ -7,7 +8,6 @@ import {
   type LucideIcon,
   Mic,
   MicOff,
-  Phone,
   PhoneMissed,
   Settings2,
 } from "lucide-react";
@@ -61,13 +61,14 @@ import {
   type ActivityLine,
   type CallEnd,
   type Ringing,
+  type Rung,
   useThursday,
 } from "@/features/thursday/use-thursday";
 import { ArtifactView } from "@/features/workspace/components/artifact-view";
 import { useHotkeyLabel } from "@/hooks/use-hotkey";
 import { RING_CYCLE_MS } from "@/lib/live/ring";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
-import { cn, plainText, WAITING_INK } from "@/lib/utils";
+import { cn, plainText } from "@/lib/utils";
 import { Face } from "./face";
 import { SideCaptions, turnsOf, useTurnFocus } from "./side-captions";
 import { TabState } from "./tab-state";
@@ -157,7 +158,7 @@ function CallScreen({
   const saying =
     (lastRole === "assistant" && status === "speaking") ||
     (lastRole === "user" && status === "listening");
-  const calling = ringing !== null && !ringing.missed;
+  const calling = ringing !== null && ringing.missedAt === null;
   const ringWord = useRingWord(calling && face?.kind === "ascii");
   return (
     <div className="relative flex h-full flex-col">
@@ -178,7 +179,7 @@ function CallScreen({
                 ? "Add a speech key"
                 : live
                   ? "End the call"
-                  : ringing && !ringing.missed
+                  : calling
                     ? "Answer Thursday"
                     : "Call Thursday"
             }
@@ -898,11 +899,20 @@ function useRingWord(on: boolean): FaceWord | null {
   return word;
 }
 
+/** How many waiting threads show by name: under a ringing call, and in the missed list. */
+const RING_OTHERS = 2;
+const MISSED_ROWS = 3;
+
+const KEY_CAP =
+  "rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-foreground/80 shadow-[0_1px_0_var(--border)]";
+
 /**
- * A call she places, under her face where her words would be: whose work it is about
- * and what it says, then the two ways to take it. Declining wears the key that does
- * it. Rung out, it stays in the same place as a missed call until it is answered or
- * dismissed; the room's pill leaves that thread's row to it (ringingThreads).
+ * A call she places, under her face where her words would be. One call for everything
+ * that waits: the first thread is shown whole — who, what it says, the answers the bot
+ * offered — and the rest by name; answering tells them one by one. One round button
+ * takes it (her face does too), and declining is the small key under it. Rung out, the
+ * same place holds a missed list until it is called back or cleared. No amber: the
+ * screen already means it waits on them.
  */
 function Incoming({
   ringing,
@@ -914,88 +924,142 @@ function Incoming({
   onDecline: () => void;
 }) {
   const bots = useServerRoute<Bot[]>(queryKey.bot).data;
-  const bot = bots?.find((one) => one.name === ringing.bot);
+  const mark = (rung: Rung, size: number) => {
+    const icon = bots?.find((one) => one.name === rung.bot)?.icon;
+    return (
+      <BotMark
+        size={size}
+        seed={rung.bot}
+        color={icon?.color}
+        shape={icon?.shape}
+        outline={icon?.outline}
+        paint={icon?.paint}
+        notify={false}
+        className="shrink-0"
+      />
+    );
+  };
+  const { first, others, missedAt } = ringing;
+
+  if (missedAt !== null) {
+    const all = [first, ...others];
+    return (
+      <div className="absolute inset-x-0 -top-20 z-10 flex animate-in flex-col items-center px-6 fade-in duration-300">
+        <div className="flex w-full max-w-140 flex-col text-left">
+          <p className="mb-1.5 flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
+            <PhoneMissed className="size-3" />
+            <span>
+              Missed ·{" "}
+              {formatDistanceToNowStrict(missedAt, { addSuffix: true })}
+            </span>
+            <button
+              type="button"
+              onClick={onDecline}
+              className="ml-auto flex items-center gap-1.5 rounded-md outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <kbd className={KEY_CAP}>Esc</kbd>
+              clear
+            </button>
+          </p>
+          {all.slice(0, MISSED_ROWS).map((rung) => (
+            <div key={rung.id} className="flex h-8.5 items-center gap-2.5">
+              {mark(rung, 20)}
+              <span className="w-32 shrink-0 truncate text-[13.5px]">
+                {rung.label}
+              </span>
+              <span className="w-14 shrink-0 font-mono text-[10.5px] text-muted-foreground">
+                {RUNG_KIND[rung.kind]}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
+                {plainText(rung.text)}
+              </span>
+            </div>
+          ))}
+          {all.length > MISSED_ROWS && (
+            <p className="mt-1 font-mono text-[10.5px] text-muted-foreground/70">
+              +{all.length - MISSED_ROWS} more in the room
+            </p>
+          )}
+        </div>
+        <Button
+          variant="brand"
+          onClick={onAnswer}
+          className="mt-5 h-12 px-8 text-[15px]"
+        >
+          Call back
+        </Button>
+      </div>
+    );
+  }
+
   return (
     // Pulled up into the empty ring of the face's box: at rest her body fills only its
     // middle, and words a hand's width below it read as belonging to something else
-    <div className="absolute inset-x-0 -top-20 z-10 flex animate-in flex-col items-center gap-2.5 px-6 fade-in duration-300">
+    <div className="absolute inset-x-0 -top-20 z-10 flex animate-in flex-col items-center gap-3 px-6 fade-in duration-300">
       <span className="flex max-w-full items-center gap-2 text-sm">
-        {/* Rung out: the same line says so, in the colour of what waits on them */}
-        {ringing.missed && (
-          <>
-            <span className={cn("flex items-center gap-1.5", WAITING_INK)}>
-              <PhoneMissed className="size-3.5" />
-              Missed call
-            </span>
-            <span className="text-muted-foreground/40">·</span>
-          </>
-        )}
-        <BotMark
-          size={18}
-          seed={ringing.bot}
-          color={bot?.icon?.color}
-          shape={bot?.icon?.shape}
-          outline={bot?.icon?.outline}
-          paint={bot?.icon?.paint}
-          notify={false}
-        />
-        <span>{ringing.bot}</span>
+        {mark(first, 18)}
+        <span>{first.bot}</span>
         <span className="text-muted-foreground/40">·</span>
-        <span className="truncate text-muted-foreground">
-          {ringing.label}
-          {ringing.more > 0 && ` · +${ringing.more}`}
-        </span>
+        <span className="truncate text-muted-foreground">{first.label}</span>
       </span>
-      <p className="line-clamp-2 max-w-160 text-base text-pretty break-keep">
-        {plainText(ringing.text)}
+      {/* five lines of it, where the window is tall enough to keep the button on screen */}
+      <p className="line-clamp-3 max-w-150 text-base/relaxed text-pretty break-keep [@media(min-height:860px)]:line-clamp-5">
+        {plainText(first.text)}
       </p>
-      <div className="mt-4 flex gap-14">
-        <RoundAct label="Not now" onClick={onDecline}>
-          <span className="font-mono text-xs font-medium">Esc</span>
-        </RoundAct>
-        <RoundAct
-          solid
-          label={ringing.missed ? "Call back" : "Answer"}
-          onClick={onAnswer}
-        >
-          <Phone className="size-5.5 fill-current" />
-        </RoundAct>
-      </div>
+      {first.options.length > 0 && (
+        // What they will be asked to choose between, to read before picking up
+        <span className="flex max-w-full flex-wrap justify-center gap-1.5">
+          {first.options.map((option) => (
+            <span
+              key={option}
+              className="flex h-7 max-w-60 items-center truncate rounded-full px-3 text-[12.5px] text-muted-foreground ring-1 ring-border"
+            >
+              {option}
+            </span>
+          ))}
+        </span>
+      )}
+      <Button
+        variant="brand"
+        onClick={onAnswer}
+        className="mt-3 h-12 px-8 text-[15px]"
+      >
+        Answer
+      </Button>
+      {others.length > 0 && (
+        <span className="flex max-w-full flex-wrap items-center justify-center gap-x-4.5 gap-y-1 text-[13px] text-muted-foreground">
+          {others.slice(0, RING_OTHERS).map((rung) => (
+            <span key={rung.id} className="flex min-w-0 items-center gap-1.5">
+              {mark(rung, 16)}
+              <span className="max-w-44 truncate text-foreground">
+                {rung.label}
+              </span>
+              {RUNG_KIND[rung.kind]}
+            </span>
+          ))}
+          {others.length > RING_OTHERS && (
+            <span>+{others.length - RING_OTHERS}</span>
+          )}
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={onDecline}
+        className="mt-1 flex items-center gap-2 rounded-md font-mono text-[11px] text-muted-foreground/70 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <kbd className={KEY_CAP}>Esc</kbd>
+        not now
+      </button>
     </div>
   );
 }
 
-/** A round button with its name under it, as a phone draws answering and declining. */
-function RoundAct({
-  label,
-  solid = false,
-  onClick,
-  children,
-}: {
-  label: string;
-  solid?: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <span className="flex flex-col items-center gap-2">
-      <button
-        type="button"
-        onClick={onClick}
-        aria-label={label}
-        className={cn(
-          "grid size-14 place-items-center rounded-full outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
-          solid
-            ? "bg-primary text-primary-foreground hover:bg-primary/90"
-            : "bg-muted text-foreground hover:bg-accent",
-        )}
-      >
-        {children}
-      </button>
-      <span className="text-xs text-muted-foreground">{label}</span>
-    </span>
-  );
-}
+/** What a waiting thread is doing, in one word. */
+const RUNG_KIND: Record<Rung["kind"], string> = {
+  question: "asks",
+  done: "finished",
+  stopped: "stopped",
+};
 
 /** One face of a stacked slot. Hidden means invisible, untouchable and unread. */
 function Fade({

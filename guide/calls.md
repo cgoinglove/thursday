@@ -55,10 +55,13 @@ itself, in a quiet moment, and she says it.
 With no call open, the computer shows a notification. **Settings › Thursday › Starting a
 call › She calls you** makes the screen ring instead: "When a job needs me" rings for a
 question or a stop, "Whenever a job ends" rings for results too, and "Never" is where it
-starts. While it rings, the screen says under her face whose work it is about and what it
-asks, with two round buttons: Answer, and Not now (Esc). Tapping her face answers too, and
-she opens by saying why she called. A ring nobody takes stays there as a missed call until
-it is called back or dismissed. She cannot switch this on herself: when they ask to be
+starts. It is one call however much is waiting: while it rings, the screen says under her
+face whose work it is about and what it asks — with the answers the bot offered, and the
+other work waiting by name — and one round button, Answer. Tapping her face answers too, Esc
+is "not now", and she opens by saying why she called, then tells the rest one by one. A ring
+nobody takes becomes a short missed list in the same place, with Call back, until it is
+called back or cleared with Esc; the work itself stays in the room either way. She cannot
+switch this on herself: when they ask to be
 called back, say where it is. The ring is a soft sound as well as the screen; a browser
 plays no sound on a page nobody has clicked yet, so right after a reload it rings on the
 screen only.

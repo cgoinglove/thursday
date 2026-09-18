@@ -136,9 +136,8 @@ export type ActivityLine = {
   sources?: LiveSource[];
 };
 
-/** A call-back ringing, as the screen names it. */
-export type Ringing = {
-  /** The thread that rang: what "Open thread" opens. */
+/** One thread a call-back is about, as the screen names it. */
+export type Rung = {
   id: string;
   /** The bot whose work rang: the one asking, else the thread's own. */
   bot: string;
@@ -146,10 +145,18 @@ export type Ringing = {
   label: string;
   /** What it is about: the question, else how the work ended or where it stopped. */
   text: string;
-  /** Other threads ringing with it. */
-  more: number;
-  /** It rang out unanswered: it waits under her face as a missed call instead of ringing. */
-  missed: boolean;
+  /** The answers the bot offered with its question. */
+  options: string[];
+};
+
+/** A call-back ringing: one call for everything that waits, told one by one once it is answered. */
+export type Ringing = {
+  /** The first thread that rang, shown whole. */
+  first: Rung;
+  /** The threads ringing with it, in the order they rang. */
+  others: Rung[];
+  /** When it rang out unanswered, from when it waits under her face as a missed list; null while it rings. */
+  missedAt: number | null;
 };
 
 /**
@@ -230,8 +237,8 @@ export function useThursday() {
   const ringAfter = useRef(Date.now());
   /** The threads a call-back is up for, until it is answered or dismissed. */
   const [ringingFor, setRingingFor] = useState<string[]>([]);
-  /** They rang out: it stays on screen as a missed call, but nothing rings any more. */
-  const [rangOut, setRangOut] = useState(false);
+  /** When they rang out: it stays on screen as a missed list from then, but nothing rings any more. */
+  const [rangOutAt, setRangOutAt] = useState<number | null>(null);
   const isRinging = ringingFor.length > 0;
   /**
    * Keys put in this call that her voice has not carried yet: rejected, cut short
@@ -725,7 +732,7 @@ export function useThursday() {
     // with a line open this press hangs up; `calling` covers the gap before re-render
     if (calling.current || status !== "idle") return hangUp();
     setRingingFor([]);
-    setRangOut(false);
+    setRangOutAt(null);
 
     setStatus("connecting");
     setEnded(null);
@@ -1122,7 +1129,7 @@ export function useThursday() {
     probe("ring", { threads: fresh.map((thread) => thread.id) });
     ringAfter.current = Date.now();
     // Work that is new to it rings again, even if it had rung out
-    setRangOut(false);
+    setRangOutAt(null);
     setRingingFor((ids) => [
       ...ids,
       ...fresh.map((thread) => thread.id).filter((id) => !ids.includes(id)),
@@ -1138,14 +1145,15 @@ export function useThursday() {
   const decline = useCallback(() => {
     probe("ring.declined");
     setRingingFor([]);
-    setRangOut(false);
+    setRangOutAt(null);
   }, []);
 
   useEffect(() => {
     if (!isRinging) return;
-    const out = rangOut
-      ? null
-      : setTimeout(() => setRangOut(true), CALL_BACK.ringMs);
+    const out =
+      rangOutAt === null
+        ? setTimeout(() => setRangOutAt(Date.now()), CALL_BACK.ringMs)
+        : null;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !event.defaultPrevented) decline();
     };
@@ -1154,38 +1162,42 @@ export function useThursday() {
       if (out) clearTimeout(out);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [isRinging, rangOut, decline]);
+  }, [isRinging, rangOutAt, decline]);
   // It rings out loud for as long as the screen rings: a call nobody hears is a notice
   useEffect(() => {
-    if (!isRinging || rangOut) return;
+    if (!isRinging || rangOutAt !== null) return;
     const ring = createRing();
     ring.start();
     return () => ring.stop();
-  }, [isRinging, rangOut]);
+  }, [isRinging, rangOutAt]);
 
-  /** What the ringing screen names: the first thread that rang, and how many rang with it. */
+  /** What the ringing screen names: every thread that rang, the first one whole. */
   const ringing = useMemo((): Ringing | null => {
-    const rung = ringingFor.flatMap(
-      (id) => threads?.find((thread) => thread.id === id) ?? [],
-    );
-    const first = rung[0];
-    if (!first) return null;
-    const question = first.room.questions[0];
-    return {
-      id: first.id,
-      bot: question?.bot ?? first.bot,
-      kind: question
-        ? "question"
-        : first.status === "done"
-          ? "done"
-          : "stopped",
-      label: first.label,
-      text:
-        question?.text ?? first.outcome ?? first.ask?.question ?? first.label,
-      more: rung.length - 1,
-      missed: rangOut,
-    };
-  }, [ringingFor, threads, rangOut]);
+    const [first, ...others] = ringingFor.flatMap((id): Rung[] => {
+      const thread = threads?.find((one) => one.id === id);
+      if (!thread) return [];
+      const question = thread.room.questions[0];
+      return [
+        {
+          id: thread.id,
+          bot: question?.bot ?? thread.bot,
+          kind: question
+            ? "question"
+            : thread.status === "done"
+              ? "done"
+              : "stopped",
+          label: thread.label,
+          text:
+            question?.text ??
+            thread.outcome ??
+            thread.ask?.question ??
+            thread.label,
+          options: question?.options ?? [],
+        },
+      ];
+    });
+    return first ? { first, others, missedAt: rangOutAt } : null;
+  }, [ringingFor, threads, rangOutAt]);
 
   // The screen under her face has these threads, so the room's pill leaves their rows to it
   useEffect(() => {
