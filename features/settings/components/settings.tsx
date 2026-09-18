@@ -35,7 +35,7 @@ import { McpMark } from "@/features/connectors/components/mcp-mark";
 import { MemoryMark } from "@/features/memory/components/memory-mark";
 import { RoutineMark } from "@/features/routine/components/routine-mark";
 import { SkillsMark } from "@/features/skills/components/skills-mark";
-import { ThursdayAsciiMark } from "@/features/thursday/components/thursday-ascii-mark";
+import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
 import { WorkspaceMark } from "@/features/workspace/components/workspace-mark";
 import { setTheme, useTheme } from "@/hooks/use-theme";
 import { THEMES, type Theme } from "@/lib/theme";
@@ -139,7 +139,7 @@ export const SECTIONS: readonly {
     label: "Thursday",
     group: "call",
     hint: "Her face, models, and how a call starts",
-    icon: ThursdayAsciiMark,
+    icon: ThursdayMark,
     Component: ThursdaySetting,
   },
   {

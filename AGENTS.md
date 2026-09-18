@@ -340,6 +340,10 @@ A 30-second poll remains as a safety net. No WebSockets.
   piece draws a file's face everywhere (`file-thumb`): under a message, in the corner, on the
   Artifacts shelf. Nothing a job finished opens by itself — it lands in
   the screen's left corner, which keeps nothing and is cleared by a reload.
+- Thursday is small in one way: `thursday-mark` draws the call's orb in miniature — glyphs keep one
+  size, so a bigger box holds more of them, and nothing fades — and every screen draws her through
+  it, so a new icon is a change to that file. Only the browser tab keeps the bot-style mark
+  (`THURSDAY_SEED`).
 - A bot draws with the face picked on its page wherever it appears; nothing varies its mark by
   thread or place, only its state: the amber notify dot while it waits on the user, crossed-out
   eyes on a thread the user stopped (`cancelled`). A job never ends as a failure: a model that
