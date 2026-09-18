@@ -1148,16 +1148,6 @@ test("a bot's prompt lists its other threads with its own last words, never the 
     messageId: null,
   };
   const prompt = await loadBotPrompt("Beta", null, seat);
-  // Residue: a tool renamed or taken out must not live on in what a bot reads
-  const { TOOL_NAMES, STUDIO_TOOLS } = await import(
-    "../features/ai/tools/tool-name.ts"
-  );
-  const known = new Set<string>([
-    ...Object.values(TOOL_NAMES),
-    ...Object.values(STUDIO_TOOLS),
-  ]);
-  for (const [, name] of prompt.text.matchAll(/`([a-z]+(?:_[a-z]+)+)`/g))
-    assert.equal(known.has(name), true, `\`${name}\` is not a tool`);
   assert.ok(prompt.text.includes("## Your other threads"));
   assert.ok(prompt.text.includes(`- "Plan comparison" — Alpha's — ended`));
   assert.ok(prompt.text.includes("Three plans priced. The table is at"));

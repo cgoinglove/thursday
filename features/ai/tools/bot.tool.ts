@@ -50,8 +50,7 @@ export const threadTellSpec = {
 
 export const threadAnswerSpec = {
   name: TOOL_NAMES.thread_answer,
-  description:
-    "Answer a question a bot asked the user. Only for a question that is waiting; anything else said to a thread is `thread_tell`.",
+  description: `Answer a question a bot asked the user. Only for a question that is waiting; anything else said to a thread is \`${TOOL_NAMES.thread_tell}\`.`,
   parameters: z.object({
     thread: THREAD_REF,
     bot: z.string().describe("The bot that asked."),
