@@ -831,7 +831,9 @@ function Incoming({
   const bots = useServerRoute<Bot[]>(queryKey.bot).data;
   const bot = bots?.find((one) => one.name === ringing.bot);
   return (
-    <div className="absolute inset-x-0 top-0 z-10 flex animate-in flex-col items-center gap-2.5 px-6 fade-in duration-300">
+    // Pulled up into the empty ring of the face's box: at rest her body fills only its
+    // middle, and words a hand's width below it read as belonging to something else
+    <div className="absolute inset-x-0 -top-20 z-10 flex animate-in flex-col items-center gap-2.5 px-6 fade-in duration-300">
       <span className="flex max-w-full items-center gap-2 text-sm">
         {/* Rung out: the same line says so, in the colour of what waits on them */}
         {ringing.missed && (
@@ -859,7 +861,7 @@ function Incoming({
           {ringing.more > 0 && ` · +${ringing.more}`}
         </span>
       </span>
-      <p className="line-clamp-2 max-w-160 text-base text-pretty">
+      <p className="line-clamp-2 max-w-160 text-base text-pretty break-keep">
         {plainText(ringing.text)}
       </p>
       <div className="mt-4 flex gap-14">
