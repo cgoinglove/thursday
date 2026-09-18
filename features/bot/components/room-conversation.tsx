@@ -44,7 +44,7 @@ import {
   type ThreadViewStatus,
   threadItems,
 } from "../thread.store";
-import { BotTool } from "./bot-tool";
+import { BotTool, StepTile } from "./bot-tool";
 
 /** One thread read as a conversation: its head, its tabs, and every turn in it. Split out of bot-room by subject; see it for the room as a whole. */
 
@@ -600,27 +600,100 @@ function OwnWork({
 }
 
 /**
- * A run of tool calls as one box of collapsed rows, so the length costs scroll,
- * not noise. A running call opens itself (bot-tool Frame).
+ * A run of tool calls. Folded, which is how it starts, the finished ones are a strip of
+ * tiles — a picture it took, the site it opened, else what it did — and only the step
+ * still running is a row, so a job of forty steps is two lines and the tiles are seen
+ * arriving. The head unfolds it into rows; a tile unfolds it with that step open.
  */
 function Steps({ lines, threadId }: { lines: Chatter[]; threadId: string }) {
+  const [open, setOpen] = useState(false);
+  /** The step a tile opened, shown whole once the run unfolds. */
+  const [picked, setPicked] = useState<string | null>(null);
+  const steps = lines.filter((line) => line.tool);
+  const running = steps.filter((line) => line.tool?.results === undefined);
+  const done = steps.filter((line) => line.tool?.results !== undefined);
+
+  // One step is its own row: a strip of one tile hides more than it saves
+  if (steps.length <= 1) {
+    return (
+      <div className="flex w-full flex-col gap-0.5 rounded-2xl bg-muted/40 p-1">
+        {steps.map(
+          (line) =>
+            line.tool && (
+              <BotTool
+                key={line.id}
+                tool={line.tool}
+                threadId={threadId}
+                collapsed
+              />
+            ),
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex w-full flex-col gap-0.5 rounded-2xl bg-muted/40 p-1">
-      {lines.length > 1 && (
-        <p className="px-2 py-1 font-mono text-[10px] text-muted-foreground">
-          {lines.length} steps
-        </p>
-      )}
-      {lines.map(
-        (line) =>
-          line.tool && (
-            <BotTool
-              key={line.id}
-              tool={line.tool}
-              threadId={threadId}
-              collapsed
-            />
-          ),
+      <button
+        type="button"
+        onClick={() => {
+          setOpen((was) => !was);
+          setPicked(null);
+        }}
+        aria-expanded={open}
+        className="flex items-center gap-1.5 rounded-xl px-2 py-1 text-left font-mono text-[10px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <span className="flex-1">{steps.length} steps</span>
+        <ChevronDown
+          className={cn(
+            "size-3 text-muted-foreground/50 transition-transform",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      {open ? (
+        steps.map(
+          (line) =>
+            line.tool && (
+              <BotTool
+                key={line.id}
+                tool={line.tool}
+                threadId={threadId}
+                collapsed={line.id !== picked}
+              />
+            ),
+        )
+      ) : (
+        <>
+          {done.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1 px-2 pt-0.5 pb-1.5">
+              {done.map(
+                (line) =>
+                  line.tool && (
+                    <StepTile
+                      key={line.id}
+                      tool={line.tool}
+                      onOpen={() => {
+                        setPicked(line.id);
+                        setOpen(true);
+                      }}
+                    />
+                  ),
+              )}
+            </div>
+          )}
+          {running.map(
+            (line) =>
+              line.tool && (
+                <BotTool
+                  key={line.id}
+                  tool={line.tool}
+                  threadId={threadId}
+                  collapsed
+                />
+              ),
+          )}
+        </>
       )}
     </div>
   );

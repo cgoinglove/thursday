@@ -1,10 +1,12 @@
 "use client";
 
 import {
+  Camera,
   Check,
   ChevronDown,
   ExternalLink,
   FilePen,
+  FileText,
   Globe,
   ListChecks,
   Loader2,
@@ -18,7 +20,9 @@ import {
 import { type ComponentType, type ReactNode, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { ShinyText } from "@/components/ui/shiny-text";
+import { hostOf, SiteIcon } from "@/components/ui/site-icon";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SourceChips, type SourcePage } from "@/components/ui/source-chips";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import type { ResultPart } from "@/features/bot/bot.schema";
 import { imagePathsIn } from "@/features/bot/components/attachments";
@@ -47,7 +51,7 @@ type ToolProps = {
 const TOOL_VIEWS: Partial<Record<string, ComponentType<ToolProps>>> = {
   [TOOL_NAMES.web_search]: WebSearchTool,
   [TOOL_NAMES.bash]: ShellTool,
-  [TOOL_NAMES.write_file]: (props) => <FileTool icon={FilePen} {...props} />,
+  [TOOL_NAMES.write_file]: FileTool,
 };
 
 /**
@@ -79,18 +83,170 @@ const TOOL_ICONS: Partial<Record<string, LucideIcon>> = {
 export const toolIcon = (name: string): LucideIcon =>
   TOOL_ICONS[name] ?? Wrench;
 
+/**
+ * What a step did, read off the call alone: the glyph that says it, and what stands
+ * beside it on its row — the site it opened, the pages a search read, the picture it
+ * took, the file or program by name. A row that says `bash` six times says nothing;
+ * this is only how a step is drawn, and a command it cannot place is a terminal line.
+ */
+type StepFace = {
+  icon: LucideIcon;
+  host?: string;
+  pages?: SourcePage[];
+  image?: string;
+  target?: string;
+};
+
+/** Commands that look at files rather than do something to them. */
+const READS = new Set([
+  "cat",
+  "sed",
+  "head",
+  "tail",
+  "grep",
+  "rg",
+  "ls",
+  "find",
+  "wc",
+  "awk",
+  "jq",
+]);
+
+const nameOf = (path: string) => path.split("/").pop() ?? path;
+
+/** A search's glance lines are `title — url`; the pages are read back out of them. */
+function pagesOf(tool: ToolUse): SourcePage[] {
+  return texts(tool.results).flatMap((line) => {
+    const url = /https?:\/\/\S+/.exec(line)?.[0];
+    if (!url) return [];
+    const title = line.slice(0, line.indexOf(url)).replace(/[\s—-]+$/, "");
+    return [{ url, ...(title ? { title } : {}) }];
+  });
+}
+
+export function stepFace(tool: ToolUse): StepFace {
+  const image = imagePathsIn(`${tool.path ?? ""} ${tool.input}`)[0];
+  if (tool.name === TOOL_NAMES.web_search)
+    return { icon: Globe, pages: pagesOf(tool) };
+  if (tool.name === TOOL_NAMES.write_file)
+    return { icon: FilePen, image, target: nameOf(tool.path ?? tool.input) };
+  if (tool.name !== TOOL_NAMES.bash)
+    return { icon: toolIcon(tool.name), image };
+
+  // `cd somewhere &&` says where, not what
+  const command = tool.input.replace(/^\s*cd\s+\S+\s*&&\s*/, "").trim();
+  const [first = "", second = ""] = command.split(/\s+/);
+  if (first === "playwright-cli") {
+    if (second === "screenshot") return { icon: Camera, image };
+    const url = /https?:\/\/[^\s'"]+/.exec(command)?.[0];
+    return { icon: Globe, host: (url && hostOf(url)) || undefined, image };
+  }
+  if (READS.has(first))
+    return {
+      icon: FileText,
+      image,
+      target: tool.path ? nameOf(tool.path) : undefined,
+    };
+  return { icon: Terminal, image, target: first || undefined };
+}
+
+/** A finished step as one tile of a folded run: its picture, its site, or its glyph. */
+export function StepTile({
+  tool,
+  onOpen,
+}: {
+  tool: ToolUse;
+  onOpen: () => void;
+}) {
+  const face = stepFace(tool);
+  const [gone, setGone] = useState(false);
+  const Icon = face.icon;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      title={tool.note ?? tool.input}
+      aria-label={tool.note ?? tool.input}
+      className="grid size-6 shrink-0 place-items-center overflow-hidden rounded-[7px] bg-background text-muted-foreground ring-1 ring-foreground/6 outline-none transition-transform ring-inset hover:scale-110 focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      {face.image && !gone ? (
+        // biome-ignore lint/performance/noImgElement: local raw route, nothing to optimize
+        <img
+          src={queryKey.file(face.image)}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          onError={() => setGone(true)}
+          className="size-full object-cover"
+        />
+      ) : face.host ? (
+        <SiteIcon
+          host={face.host}
+          className="size-3.5 rounded-[4px]"
+          fallback={<Icon className="size-3" />}
+        />
+      ) : (
+        <Icon className="size-3" />
+      )}
+    </button>
+  );
+}
+
+/** What stands beside a step's words: where it went, what it read, what it touched. */
+function StepTarget({ face }: { face: StepFace }) {
+  if (face.pages?.length) {
+    const hosts = [
+      ...new Set(face.pages.flatMap((page) => hostOf(page.url) ?? [])),
+    ].slice(0, 3);
+    return (
+      <span className="flex shrink-0 items-center">
+        {hosts.map((host, at) => (
+          <span
+            key={host}
+            className={cn(
+              "rounded-[5px] ring-[1.5px] ring-background",
+              at > 0 && "-ml-1",
+            )}
+          >
+            <SiteIcon host={host} />
+          </span>
+        ))}
+      </span>
+    );
+  }
+  if (face.host)
+    return (
+      <span className="flex h-5 shrink-0 items-center gap-1.5 rounded-full bg-muted pr-2 pl-1 text-[11px] text-foreground/80">
+        <SiteIcon host={face.host} />
+        {face.host}
+      </span>
+    );
+  if (face.target && !face.image)
+    return (
+      <span className="max-w-40 shrink truncate font-mono text-[10.5px] text-muted-foreground">
+        {face.target}
+      </span>
+    );
+  return null;
+}
+
 export function BotTool(props: ToolProps) {
   const View = TOOL_VIEWS[props.tool.name] ?? GenericTool;
   return <View {...props} />;
 }
 
 function WebSearchTool({ tool, threadId, collapsed }: ToolProps) {
-  const hits = texts(tool.results);
+  const pages = pagesOf(tool);
+  // Lines that name no page (a provider's own summary) still read as lines
+  const hits = pages.length ? [] : texts(tool.results);
   return (
-    <Frame tool={tool} threadId={threadId} icon={Globe} collapsed={collapsed}>
+    <Frame tool={tool} threadId={threadId} collapsed={collapsed}>
       <p className="px-3 pt-1 pb-1.5 text-[13px] leading-snug break-keep">
         “{tool.input}”
       </p>
+      {pages.length > 0 && (
+        <SourceChips sources={pages} className="px-3 pb-2" />
+      )}
       {hits.length > 0 && (
         <ol className="space-y-0.5 px-3 pb-2">
           {hits.map((hit, at) => (
@@ -111,12 +267,7 @@ function WebSearchTool({ tool, threadId, collapsed }: ToolProps) {
 function ShellTool({ tool, threadId, collapsed }: ToolProps) {
   const out = texts(tool.results);
   return (
-    <Frame
-      tool={tool}
-      threadId={threadId}
-      icon={Terminal}
-      collapsed={collapsed}
-    >
+    <Frame tool={tool} threadId={threadId} collapsed={collapsed}>
       <pre className="mx-3 overflow-x-auto rounded-lg bg-foreground/5 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed scrollbar-none dark:bg-black/25">
         <span className="text-muted-foreground/60">$ </span>
         {tool.input}
@@ -135,15 +286,10 @@ const OPEN_BUTTON =
  * A file the bot read or wrote, with an Open link. Opens `tool.path`: `input` is folded
  * to one line, and a truncated path is a 404 (thread.query LINE_MAX).
  */
-function FileTool({
-  icon,
-  tool,
-  threadId,
-  collapsed,
-}: ToolProps & { icon: LucideIcon }) {
+function FileTool({ tool, threadId, collapsed }: ToolProps) {
   const path = tool.path ?? tool.input;
   return (
-    <Frame tool={tool} threadId={threadId} icon={icon} collapsed={collapsed}>
+    <Frame tool={tool} threadId={threadId} collapsed={collapsed}>
       <div className="flex items-center gap-2 px-3 pt-1 pb-1.5">
         <span className="min-w-0 flex-1 truncate font-mono text-[11px]">
           {tool.input}
@@ -161,12 +307,7 @@ function FileTool({
 /** Anything without a view of its own, MCP tools included. */
 function GenericTool({ tool, threadId, collapsed }: ToolProps) {
   return (
-    <Frame
-      tool={tool}
-      threadId={threadId}
-      icon={toolIcon(tool.name)}
-      collapsed={collapsed}
-    >
+    <Frame tool={tool} threadId={threadId} collapsed={collapsed}>
       <p className="px-3 pt-1 pb-1.5 text-[12px] leading-snug break-keep">
         {tool.input}
       </p>
@@ -176,18 +317,19 @@ function GenericTool({ tool, threadId, collapsed }: ToolProps) {
 }
 
 /**
- * The shell every tool view sits in: a one-line step (icon, label, call, tool name,
+ * The shell every tool view sits in: a one-line step (what it did, its words, what it touched,
  * state) with the body below it. A running tool is always expanded; a finished one
  * that returned anything gets "Everything" at the bottom.
  */
 function Frame({
   tool,
   threadId,
-  icon: Icon,
   collapsed = false,
   children,
-}: ToolProps & { icon: LucideIcon; children: ReactNode }) {
+}: ToolProps & { children: ReactNode }) {
   const running = tool.results === undefined;
+  const face = stepFace(tool);
+  const Did = face.icon;
   const [open, setOpen] = useState(!collapsed);
   const shown = open || running;
   // The glance is text only and clipped, so any output can be opened whole
@@ -211,7 +353,7 @@ function Frame({
           {running ? (
             <Loader2 className="size-3 animate-spin" />
           ) : (
-            <Icon className="size-3" />
+            <Did className="size-3" />
           )}
         </span>
 
@@ -247,10 +389,7 @@ function Frame({
         )}
 
         <StepShots paths={imagePathsIn(`${tool.path ?? ""} ${tool.input}`)} />
-
-        <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
-          {tool.name}
-        </span>
+        <StepTarget face={face} />
         {!running && (
           <Check className="size-3 shrink-0 text-muted-foreground/50" />
         )}
@@ -295,7 +434,7 @@ function StepShots({ paths }: { paths: string[] }) {
           decoding="async"
           onError={() => setGone((was) => [...was, path])}
           className={cn(
-            "size-5 rounded-[5px] bg-muted object-cover ring-2 ring-background",
+            "size-6 rounded-md bg-muted object-cover ring-2 ring-background",
             at > 0 && "-ml-1.5",
           )}
         />
