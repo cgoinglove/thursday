@@ -57,7 +57,7 @@ export const CALL_RELAY = {
  * - `warnMs`  how much of `hangUpMs` counts down on screen.
  */
 export const CALL_IDLE = {
-  hangUpMs: 30_000,
+  hangUpMs: 20_000,
   warnMs: 10_000,
 };
 

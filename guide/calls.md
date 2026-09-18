@@ -22,7 +22,7 @@ hers to pick; she says who took it.
 
 Saying they want to hang up ends the call when she takes it that way, which she does not
 always. Tapping her face ends it for certain, and so does the shortcut. A call with nothing
-said for 30 seconds ends by itself, with a countdown in the last 10 seconds. The line is
+said for 20 seconds ends by itself, with a countdown in the last 10 seconds. The line is
 billed by the minute while it is open, silence included.
 
 ## Where an answer came from

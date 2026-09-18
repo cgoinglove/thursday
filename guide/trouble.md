@@ -12,7 +12,7 @@ the app has already said which: a provider's own words are shown as they came, n
   the sound until the page is touched. A tap anywhere lets it through.
 - **She does not hear them**: the browser asks for the microphone on the first call. If that
   was refused, it is allowed again from the site's settings in the address bar.
-- **The call ended by itself**: nothing was said for 30 seconds. Work already handed to a bot
+- **The call ended by itself**: nothing was said for 20 seconds. Work already handed to a bot
   is not affected.
 
 ## "Hey thursday" does nothing
