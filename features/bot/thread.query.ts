@@ -196,7 +196,8 @@ export async function listInboxThreads(): Promise<Thread[]> {
     database
       .select(threadView)
       .from(threadTable)
-      .where(inArray(threadTable.status, ["done", "cancelled"]))
+      // A cancel leaves the room's Now at once, so it takes none of these places
+      .where(eq(threadTable.status, "done"))
       .orderBy(desc(threadTable.updatedAt))
       .limit(INBOX_FINISHED),
     database

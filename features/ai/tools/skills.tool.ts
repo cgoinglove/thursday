@@ -15,9 +15,12 @@ import type { Sandbox } from "@/lib/sandbox";
 export const createSkillTools = ({
   skills,
   sandbox,
+  bot,
 }: {
   skills: SkillMetadata[];
   sandbox: Sandbox;
+  /** Whose own skills count too (skills.discover ownSkills); absent for the call. */
+  bot?: string;
 }) => {
   return {
     [TOOL_NAMES.load_skill]: tool({
@@ -34,7 +37,7 @@ export const createSkillTools = ({
         const named = (list: SkillMetadata[]) =>
           list.find((s) => s.name.toLowerCase() === name.toLowerCase());
         // The list is read when the run starts; a skill installed since is only on disk
-        const listed = named(skills) ? skills : await loadSkills(sandbox);
+        const listed = named(skills) ? skills : await loadSkills(sandbox, bot);
         const skill = named(listed);
         if (!skill) {
           return {

@@ -56,12 +56,10 @@ const lazySection = (
   Shape: ComponentType = SettingSkeleton,
 ) => dynamic(load, { loading: () => <Shape /> });
 
-const MemorySetting = lazySection(
-  () =>
-    import("@/features/memory/components/memory-setting").then((m) => ({
-      default: m.MemorySetting,
-    })),
-  SettingPanesSkeleton,
+const MemorySetting = lazySection(() =>
+  import("@/features/memory/components/memory-setting").then((m) => ({
+    default: m.MemorySetting,
+  })),
 );
 const BotSetting = lazySection(
   () =>

@@ -14,7 +14,13 @@ export type LiveTurn = {
   done: boolean;
   fragments?: LiveFragment[];
 };
-export type LiveToolCall = { id: string; name: string; arguments: string };
+export type LiveToolCall = {
+  id: string;
+  name: string;
+  arguments: string;
+  /** The output item the call arrived in: the id its tool turn is saved under. */
+  item?: string;
+};
 /**
  * One reasoning summary part of the backend, whole. A summary is the backend's
  * own account of its thinking, not its reasoning tokens, and comes only while a
@@ -32,6 +38,23 @@ export type LiveActivity = {
   speaking: boolean;
   tools: string[];
 };
+/** A page the backend's web search read, as the item or a citation names it. */
+export type LiveSource = { url: string; title?: string };
+/**
+ * A web search the backend ran with its hosted tool: reported as it starts and once
+ * it is done. Its answer's citations come separately (`cited`), under the same response.
+ */
+export type LiveSearch = {
+  /** The search item. */
+  id: string;
+  /** The backend response it belongs to. */
+  responseId: string;
+  query: string | null;
+  sources: LiveSource[];
+  done: boolean;
+  /** Where in the call, on the turns' clock. */
+  seq: number;
+};
 export type LiveAudio = {
   element: HTMLAudioElement;
   listen(stream: MediaStream): void;
@@ -45,6 +68,9 @@ type LiveOptions = {
   on: {
     runTool(call: LiveToolCall): Promise<string>;
     reasoning?(part: LiveReasoning): void;
+    search?(search: LiveSearch): void;
+    /** URL citations on a backend answer, by the response that wrote it. */
+    cited?(responseId: string, sources: LiveSource[]): void;
     turn(turn: LiveTurn): void;
     activity(activity: LiveActivity): void;
     finalized?(close: LiveClose): void;
@@ -141,9 +167,44 @@ type LiveEvent = {
       name: string;
       arguments: string;
       status?: string;
+      /** A `web_search_call` item: what it searched, and the pages when included. */
+      action?: {
+        query?: string;
+        /** The guide says a search action lists its `queries`; its example shows `query`. */
+        queries?: string[];
+        sources?: { url?: string }[];
+      };
+      /** A `message` item: the answer, with its citations. */
+      content?: {
+        type: string;
+        annotations?: { type: string; url?: string; title?: string }[];
+      }[];
     };
   };
 };
+
+/** Pages a search item names, each once. */
+function sourcesOf(sources: { url?: string }[] | undefined): LiveSource[] {
+  const urls = (sources ?? []).flatMap((source) =>
+    source.url ? [source.url] : [],
+  );
+  return [...new Set(urls)].map((url) => ({ url }));
+}
+
+/** URL citations across an answer's parts, each page once with its title. */
+function citationsOf(
+  content: NonNullable<NonNullable<LiveEvent["event"]>["item"]>["content"],
+): LiveSource[] {
+  const found = new Map<string, LiveSource>();
+  for (const part of content ?? [])
+    for (const note of part.annotations ?? [])
+      if (note.type === "url_citation" && note.url && !found.has(note.url))
+        found.set(note.url, {
+          url: note.url,
+          ...(note.title ? { title: note.title } : {}),
+        });
+  return [...found.values()];
+}
 
 type Transcript = {
   turn: LiveTurn;
@@ -400,6 +461,36 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
             seq: timeline,
           });
         }
+        // The hosted web search runs inside the backend: nothing to execute or answer,
+        // only what it looked for and read. Sources come on the item when the response
+        // carries them, and as citations on the answer that used them.
+        if (
+          (nested.type === "response.output_item.added" ||
+            nested.type === "response.output_item.done") &&
+          nested.item?.type === "web_search_call"
+        ) {
+          const item = nested.item;
+          const done = nested.type === "response.output_item.done";
+          if (done) logger.debug("Live web search", item);
+          on.search?.({
+            id: item.id,
+            responseId: id,
+            query:
+              (
+                item.action?.query ?? item.action?.queries?.join(" · ")
+              )?.trim() || null,
+            sources: sourcesOf(item.action?.sources),
+            done,
+            seq: timeline,
+          });
+        }
+        if (
+          nested.type === "response.output_item.done" &&
+          nested.item?.type === "message"
+        ) {
+          const cited = citationsOf(nested.item.content);
+          if (cited.length) on.cited?.(id, cited);
+        }
         if (
           nested.type === "response.output_item.done" &&
           nested.item?.type === "function_call"
@@ -440,6 +531,7 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
                 id: item.call_id,
                 name: item.name,
                 arguments: item.arguments,
+                item: item.id,
               }),
             )
             .catch((cause) => `Error: ${errorToString(cause)}`)

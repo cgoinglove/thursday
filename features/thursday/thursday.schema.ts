@@ -28,6 +28,11 @@ export type CallHandshake = {
   sdp: string;
   /** Trusted instructions sent after session.started, so she speaks first. */
   opening: string;
+  /**
+   * The jobs open as the call started (ai/prompts/call-standing), put in as a quiet
+   * fact right after the opening. Null when nothing has been handed over yet.
+   */
+  standing: string | null;
 };
 
 /**

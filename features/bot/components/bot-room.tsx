@@ -38,7 +38,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
-import { PAGE_SIZE, ROOM_KEEP_READ_MS } from "@/config";
+import { INBOX_FINISHED, PAGE_SIZE } from "@/config";
 import { startThreadAction } from "@/features/bot/bot.action";
 import {
   type Bot,
@@ -49,9 +49,12 @@ import {
   THREAD_CONTINUE,
   type Thread,
 } from "@/features/bot/bot.schema";
+import {
+  Attachments,
+  shortenPaths,
+} from "@/features/bot/components/attachments";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { BotRoster } from "@/features/bot/components/bot-roster";
-import { PathChips } from "@/features/bot/components/path-chips";
 import {
   ThreadReply,
   useAnswerThread,
@@ -81,6 +84,7 @@ import {
   heardBy,
   lastSaid,
   latestPerBot,
+  roomOpens,
   rosterOf,
   type ThreadItem,
   type ThreadView,
@@ -88,6 +92,7 @@ import {
   threadFromRow,
   threadItems,
   useBotThreads,
+  useRingingThreads,
   useSeenOnDetail,
 } from "../thread.store";
 import { BotTool } from "./bot-tool";
@@ -106,6 +111,8 @@ import { BotTool } from "./bot-tool";
  */
 export const BotRoom = memo(function BotRoom() {
   const threads = useBotThreads();
+  /** On the call-back card, so the pill does not ask for them a second time. */
+  const rung = useRingingThreads();
   const { data: bots } = useServerRoute<Bot[]>(queryKey.bot);
   const [open, setOpen] = useState(false);
   /** Open thread; null shows the list. */
@@ -120,27 +127,16 @@ export const BotRoom = memo(function BotRoom() {
   const scroll = useRef(0);
 
   const newest = [...threads].reverse();
-  // An ending the user has opened moves to History once it has been over for
-  // ROOM_KEEP_READ_MS; until then it stays in reach on Now. A cancel is the
-  // user's own stop, with nothing to read, so it goes at once.
-  const moment = Date.now();
-  const leavesAt = (entry: ThreadView) => {
-    if (entry.status === "cancelled") return 0;
-    if (entry.status !== "done" || !entry.seen) return Number.POSITIVE_INFINITY;
-    return toDate(entry.updatedAt).getTime() + ROOM_KEEP_READ_MS;
-  };
-  const now = newest.filter((entry) => leavesAt(entry) > moment);
-  // Nothing else re-renders the room when that time passes.
-  const [, settle] = useState(0);
-  const nextLeave = Math.min(...now.map(leavesAt));
-  useEffect(() => {
-    if (!Number.isFinite(nextLeave)) return;
-    const timer = setTimeout(
-      () => settle((count) => count + 1),
-      nextLeave - Date.now(),
-    );
-    return () => clearTimeout(timer);
-  }, [nextLeave]);
+  // Endings stay on Now by count, never by time or by being read: the newest
+  // INBOX_FINISHED, plus any the user has not had yet however many there are.
+  // A cancel is the user's own stop, with nothing to read, so it goes at once.
+  let endings = 0;
+  const now = newest.filter((entry) => {
+    if (entry.status === "cancelled") return false;
+    if (entry.status !== "done") return true;
+    endings += 1;
+    return endings <= INBOX_FINISHED || !entry.seen;
+  });
 
   // Read only while History is on screen, or one of its threads is.
   const browsing = open && tab === "history";
@@ -171,12 +167,21 @@ export const BotRoom = memo(function BotRoom() {
     [history.items, bots],
   );
 
-  // The inbox copy first: it is the one the threads signal keeps live.
-  const current = picked
+  // The inbox copy first: it is the one the threads signal keeps live. A job
+  // neither list holds (Thursday opening an older one) is read on its own.
+  const listed = picked
     ? (newest.find((entry) => entry.id === picked) ??
       past.find((entry) => entry.id === picked) ??
       null)
     : null;
+  const { data: lone } = useServerRoute<Thread | null>(
+    picked && !listed ? queryKey.thread(picked) : null,
+  );
+  const alone = useMemo(
+    () => (lone && lone.id === picked ? threadFromRow(lone, bots) : null),
+    [lone, picked, bots],
+  );
+  const current = listed ?? alone;
 
   const [bubble, handoff] = useHandoff();
   const { crew, more } = useMemo(() => crewOf(bots, threads), [bots, threads]);
@@ -229,6 +234,16 @@ export const BotRoom = memo(function BotRoom() {
       setOpen(true);
     },
   });
+
+  // "Open thread" on the call-back card: the same, asked for by the screen
+  useEffect(
+    () =>
+      roomOpens.subscribe((id) => {
+        setPicked(id);
+        setOpen(true);
+      }),
+    [],
+  );
 
   const busy = threads.filter((entry) => entry.status === "working").length;
   const pending = newest.filter(needsYou).length;
@@ -344,7 +359,11 @@ export const BotRoom = memo(function BotRoom() {
           more={more}
           bubble={bubble}
           bots={bots}
-          rows={newest.filter((thread) => needsYou(thread) || isUnread(thread))}
+          rows={newest.filter(
+            (thread) =>
+              !rung.includes(thread.id) &&
+              (needsYou(thread) || isUnread(thread)),
+          )}
           count={threads.length}
           busy={busy}
           pending={pending}
@@ -2510,33 +2529,34 @@ function Message({
   const question = Boolean(line.question);
   const ending = line.kind === "result";
   const bubble = surface !== "none";
-  const words = (
+  // The files are drawn under the words, so the words keep their file names only.
+  const text = shortenPaths(line.text);
+  const body = (
     <>
       {question && <QuestionWord />}
       {mention ? (
         <Mentioned bot={mention} bubble={bubble}>
-          {line.text}
+          {text}
         </Mentioned>
       ) : (
         <MessageText bubble={bubble} className={cn(!ending && "leading-snug")}>
-          {line.text}
+          {text}
         </MessageText>
       )}
+      <Attachments text={line.text} onBubble={bubble} className="mt-2" />
     </>
   );
 
   return (
     <>
       {bubble ? (
-        <Said dark={surface === "dark"}>{words}</Said>
+        <Said dark={surface === "dark"}>{body}</Said>
       ) : (
-        <div className="min-w-0 max-w-full px-1">{words}</div>
+        <div className="min-w-0 max-w-full px-1">{body}</div>
       )}
       {ending && (
-        // The files it names, and the copy: the end of the answer is where a
-        // reader is when they want either.
-        <div className="flex items-center gap-2 px-1">
-          <PathChips text={line.text} className="min-w-0" />
+        // The copy: the end of the answer is where a reader is when they want it.
+        <div className="flex px-1">
           <CopyReport text={line.text} />
         </div>
       )}

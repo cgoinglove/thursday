@@ -311,6 +311,50 @@ export const threadDrafts = {
   },
 };
 
+/**
+ * The threads the call screen holds on its call-back card. One ending is asked
+ * about in one place, so the room's pill leaves their rows to the card and keeps
+ * only its own mark on them.
+ */
+let rung: string[] = [];
+const rungListeners = new Set<() => void>();
+const NO_RUNG: string[] = [];
+
+export const ringingThreads = {
+  set(ids: string[]) {
+    if (ids.length === rung.length && ids.every((id, at) => rung[at] === id))
+      return;
+    rung = ids;
+    for (const listener of rungListeners) listener();
+  },
+};
+
+export function useRingingThreads(): string[] {
+  return useSyncExternalStore(
+    (listener) => {
+      rungListeners.add(listener);
+      return () => rungListeners.delete(listener);
+    },
+    () => rung,
+    () => NO_RUNG,
+  );
+}
+
+const opens = new Set<(id: string) => void>();
+
+/** Asks the room to open a thread: the card's other way to take a call-back. */
+export const roomOpens = {
+  open(id: string) {
+    for (const listener of opens) listener(id);
+  },
+  subscribe(listener: (id: string) => void) {
+    opens.add(listener);
+    return () => {
+      opens.delete(listener);
+    };
+  },
+};
+
 const acted = new Set<(act: ScreenAct) => void>();
 
 export const screenActs = {

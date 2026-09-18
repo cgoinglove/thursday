@@ -1,5 +1,7 @@
+import { cp } from "node:fs/promises";
 import { join } from "node:path";
 import { APP_DIR, DATA_DIR, PATHS } from "@/config";
+import { botFolder, WORKSPACE } from "@/features/workspace/workspace";
 import { logger } from "@/lib/logger";
 import type { Sandbox } from "@/lib/sandbox";
 import { errorToString } from "@/lib/utils";
@@ -8,14 +10,36 @@ import type { SkillFrontmatter } from "./skills.schema";
 
 /** Skills for the prompt, every skill at once, without failing the session over one bad file. */
 
-/** Shipped first: a skill the app ships wins over a custom one of the same name. */
-export const SKILL_DIRS = [
-  join(APP_DIR, PATHS.skills.default),
-  join(DATA_DIR, PATHS.skills.custom),
-];
+const shipped = join(APP_DIR, PATHS.skills.default);
+const custom = join(DATA_DIR, PATHS.skills.custom);
 
-export const loadSkills = (sandbox: Sandbox) =>
-  discoverSkills(sandbox, SKILL_DIRS);
+/** One bot's own skills, inside its folder: listed to that bot and no other runtime. */
+export const ownSkills = (bot: string) =>
+  join(WORKSPACE, botFolder(bot), PATHS.skills.own);
+
+/**
+ * Shipped first: a skill the app ships wins over any other of the same name. A bot's
+ * own come next, so its copy of a workspace skill is the one it opens.
+ */
+export const loadSkills = (sandbox: Sandbox, bot?: string) =>
+  discoverSkills(
+    sandbox,
+    bot ? [shipped, ownSkills(bot), custom] : [shipped, custom],
+  );
+
+/**
+ * Copies a seed's kit (config PATHS.skills.seeds) into the bot made from it. A seed
+ * without one has nothing to copy; a skill already in the bot's folder is kept.
+ */
+export async function giveSeedSkills(seed: string, bot: string) {
+  const kit = join(APP_DIR, PATHS.skills.seeds, seed.toLowerCase());
+  await cp(kit, ownSkills(bot), {
+    recursive: true,
+    force: false,
+  }).catch((cause: NodeJS.ErrnoException) => {
+    if (cause.code !== "ENOENT") throw cause;
+  });
+}
 
 export interface SkillMetadata {
   name: string;

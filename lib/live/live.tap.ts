@@ -71,9 +71,16 @@ export function createAudioTap(): LiveAudio & {
     );
   };
 
-  /** Call inside a user gesture; an AudioContext starts suspended. */
+  /**
+   * Call inside a user gesture; an AudioContext starts suspended. A context
+   * opened earlier with no gesture (the idle mic) may still be suspended, so
+   * a later open retries resume — the one call() makes is a real gesture.
+   */
   function open() {
-    if (context && analyser) return { context, analyser };
+    if (context && analyser) {
+      if (context.state === "suspended") void context.resume().catch(() => {});
+      return { context, analyser };
+    }
 
     const created = new AudioContext();
     const node = created.createAnalyser();

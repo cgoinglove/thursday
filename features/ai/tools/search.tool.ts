@@ -48,11 +48,14 @@ type ExaHit = {
   text?: string | null;
 };
 
+/** What a search found: the text a model reads, and the pages apart for a screen to show. */
+type Found = { text: string; sources: { url: string; title?: string }[] };
+
 async function exaSearch(
   apiKey: string,
   query: string,
   signal: AbortSignal,
-): Promise<string> {
+): Promise<Found> {
   const response = await fetch(EXA_URL, {
     method: "POST",
     signal,
@@ -71,14 +74,30 @@ async function exaSearch(
   });
   // Exa's own words: only it can say whether the key is wrong, spent or rate-limited
   if (!response.ok)
-    return `Exa answered ${response.status}: ${clip((await response.text()).trim(), 200)}`;
+    return {
+      text: `Exa answered ${response.status}: ${clip((await response.text()).trim(), 200)}`,
+      sources: [],
+    };
 
   const body = (await response.json()) as { results?: ExaHit[] };
   const hits = body.results ?? [];
   if (!hits.length)
-    return "Nothing came back for that. Try other words, or open a page in the browser.";
+    return {
+      text: "Nothing came back for that. Try other words, or open the page itself.",
+      sources: [],
+    };
 
-  return hits
+  const sources = hits.flatMap((hit) =>
+    hit.url?.trim()
+      ? [
+          {
+            url: hit.url.trim(),
+            ...(hit.title?.trim() ? { title: hit.title.trim() } : {}),
+          },
+        ]
+      : [],
+  );
+  const text = hits
     .map((hit) => {
       const head = [hit.title?.trim(), hit.url?.trim()]
         .filter(Boolean)
@@ -89,6 +108,7 @@ async function exaSearch(
         .join("\n");
     })
     .join("\n\n");
+  return { text, sources };
 }
 
 async function askSearcher(
@@ -131,7 +151,8 @@ export const createSearchTool = async (
     : null;
 
   const search = exaKey
-    ? (query: string, signal: AbortSignal) => exaSearch(exaKey, query, signal)
+    ? (query: string, signal: AbortSignal) =>
+        exaSearch(exaKey, query, signal).then((found) => found.text)
     : native
       ? (query: string, signal: AbortSignal) =>
           askSearcher(native, query, signal)
@@ -157,6 +178,53 @@ export const createSearchTool = async (
         });
 
         return sandbox.fold(answer, "web-search");
+      },
+    }),
+  };
+};
+
+/** The call's line: the same as a bot's, less the browser it does not hold. */
+const CALL_DESCRIPTION =
+  "Search the web and get back what the pages say, with their links. For a fact, a price, a date, what a page says.";
+
+/**
+ * The call's search while an Exa key is set: the same Exa search a bot runs, answering with
+ * the text and, apart, the pages it came from, so the call screen can show them. Without a
+ * key there is no tool here: the call searches with its backend's own hosted search instead
+ * (thursday.action), which is the native search of the one provider a call runs on.
+ */
+export const createCallSearchTool = async (
+  sandbox: Sandbox,
+): Promise<ToolSet> => {
+  const exaKey = await readConfig(EXA_API_KEY);
+  if (!exaKey) return {};
+
+  return {
+    [TOOL_NAMES.web_search]: tool({
+      description: CALL_DESCRIPTION,
+      inputSchema: z.object({ query: QUERY }),
+      execute: async ({ query }, { abortSignal }) => {
+        const deadline = AbortSignal.timeout(SEARCH.timeoutMs);
+        const signal = abortSignal
+          ? AbortSignal.any([abortSignal, deadline])
+          : deadline;
+
+        const found = await exaSearch(exaKey, query, signal).catch(
+          (cause: unknown): Found => {
+            // The call itself ended: that is not a result to hand back
+            if (abortSignal?.aborted) throw cause;
+            return {
+              text: deadline.aborted
+                ? `The search did not come back in ${SEARCH.timeoutMs / 1000}s. Ask something narrower, or hand it to a bot.`
+                : `Search failed: ${errorToString(cause)}. A bot can open the page instead.`,
+              sources: [],
+            };
+          },
+        );
+        return {
+          results: sandbox.fold(found.text, "web-search"),
+          sources: found.sources,
+        };
       },
     }),
   };

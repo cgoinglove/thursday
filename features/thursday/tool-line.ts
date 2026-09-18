@@ -60,6 +60,10 @@ function fromArgs(name: string, args: Record<string, unknown>): string | null {
     const bot = typeof args.bot === "string" ? args.bot.trim() : "";
     return bot ? `Handing this to ${bot}` : "Handing this over";
   }
+  if (name === TOOL_NAMES.web_search) {
+    const query = typeof args.query === "string" ? args.query.trim() : "";
+    return query ? `Searching · ${query}` : null;
+  }
   if (name === TOOL_NAMES.thread) {
     const label = typeof args.thread === "string" ? args.thread.trim() : "";
     if (args.action === "answer") return "Passing that back";
@@ -126,4 +130,55 @@ export function delegatedLabel(
   } catch {
     return null;
   }
+}
+
+/** A page a call's web search read (lib/live LiveSource), as its tool turn stores it. */
+export type SearchedSource = { url: string; title?: string };
+
+/**
+ * What a web search turn looked for and read, or null for any other turn. The call's
+ * search is the backend's own hosted tool: its turn is stored by the page as
+ * `{query, sources}`, and the call log and the next call's prompt read it back here.
+ */
+export function searchOf(
+  tool: string | null | undefined,
+  text: string,
+): { query: string | null; sources: SearchedSource[] } | null {
+  if (tool !== TOOL_NAMES.web_search) return null;
+  try {
+    const said = JSON.parse(text) as { query?: unknown; sources?: unknown };
+    const sources = Array.isArray(said.sources)
+      ? said.sources.flatMap((source) =>
+          source &&
+          typeof source === "object" &&
+          typeof (source as SearchedSource).url === "string"
+            ? [source as SearchedSource]
+            : [],
+        )
+      : [];
+    return {
+      query: typeof said.query === "string" ? said.query : null,
+      sources,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** What a `web_search` call asked for, from its arguments. */
+export function searchQueryOf(args: string): string | null {
+  const query = parseArgs(args)?.query;
+  return typeof query === "string" && query.trim() ? query.trim() : null;
+}
+
+/**
+ * The pages the call's Exa search came back with (ai/tools/search.tool createCallSearchTool
+ * answers `{results, sources}`), or none for an answer of any other shape — a failure line,
+ * a result cut short.
+ */
+export function searchSourcesOf(output: string): SearchedSource[] {
+  const said = parseArgs(output);
+  return said
+    ? (searchOf(TOOL_NAMES.web_search, JSON.stringify(said))?.sources ?? [])
+    : [];
 }

@@ -105,7 +105,7 @@ for (const entry of readdirSync(DIST)) {
     rmSync(join(DIST, entry), { recursive: true, force: true });
 }
 
-for (const file of ["bin", "README.md", "LICENSE"]) {
+for (const file of ["bin", "guide", "README.md", "LICENSE"]) {
   const from = join(ROOT, file);
   if (existsSync(from))
     cpSync(from, join(DIST, file), {
@@ -376,6 +376,10 @@ const REQUIRED = [
   ".next/static",
   "database/migrations",
   "skills/browser/references",
+  // Copied into a seed bot when it is made; without it the Marketer starts empty
+  "seed-skills/marketer/product-marketing/SKILL.md",
+  // Copied into the workspace at boot; without it the call has no guide to read
+  "guide/index.md",
 ];
 
 const missing = REQUIRED.filter((path) => !existsSync(join(DIST, path)));

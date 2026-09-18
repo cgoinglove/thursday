@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import {
   createContext,
   type ReactNode,
@@ -43,6 +44,13 @@ import { cn, errorToString, formatBytes } from "@/lib/utils";
 /** Kinds the browser renders on its own; they open as a page, never as text. */
 const OWN_PAGE = new Set<FileViewKind>(["frame", "image", "audio", "video"]);
 
+/**
+ * Kinds that open where the reader already is. An image is looked at, not read:
+ * a new tab for one thumbnail loses the thread it came from, and the images
+ * beside it. A page, a sound and a video still get the tab — they want the room.
+ */
+const IN_DIALOG = new Set<FileViewKind>(["image"]);
+
 export type FileTarget =
   | { how: "tab"; path: string; href: string }
   | { how: "dialog"; path: string }
@@ -52,13 +60,17 @@ export function fileTarget(raw: string): FileTarget {
   const path = workspaceRelative(raw);
   if (!path) return { how: "os" };
   const kind = viewKindOf(path);
+  if (IN_DIALOG.has(kind)) return { how: "dialog", path };
   if (OWN_PAGE.has(kind)) {
     return { how: "tab", path, href: queryKey.fileView(path) };
   }
   return kind === "none" ? { how: "os" } : { how: "dialog", path };
 }
 
-const OpenInDialog = createContext<((path: string) => void) | null>(null);
+/** Opening a file in the shared dialog; `group` are the files it can be stepped through (one message's images). */
+const OpenInDialog = createContext<
+  ((path: string, group?: string[]) => void) | null
+>(null);
 
 /**
  * Opens a file from code (artifact-view), same policy as `FileLink`. Returns
@@ -67,11 +79,11 @@ const OpenInDialog = createContext<((path: string) => void) | null>(null);
 export function useOpenFile() {
   const inDialog = useContext(OpenInDialog);
   return useCallback(
-    (raw: string): boolean => {
+    (raw: string, group: string[] = []): boolean => {
       const target = fileTarget(raw);
       if (target.how === "os") return false;
       if (target.how === "dialog" && inDialog) {
-        inDialog(target.path);
+        inDialog(target.path, group);
         return true;
       }
       const href =
@@ -84,14 +96,22 @@ export function useOpenFile() {
 
 /** One dialog shared by every link beneath it. */
 export function FileViewer({ children }: { children: ReactNode }) {
-  const [path, setPath] = useState<string | null>(null);
+  const [open, setOpen] = useState<{ path: string; group: string[] } | null>(
+    null,
+  );
+  const show = useCallback(
+    (path: string, group: string[] = []) => setOpen({ path, group }),
+    [],
+  );
   return (
-    <OpenInDialog value={setPath}>
+    <OpenInDialog value={show}>
       {children}
       <FileDialog
-        path={path}
-        kind={path ? viewKindOf(path) : "text"}
-        onClose={() => setPath(null)}
+        path={open?.path ?? null}
+        group={open?.group ?? []}
+        kind={open ? viewKindOf(open.path) : "text"}
+        onPath={(path) => setOpen((was) => was && { ...was, path })}
+        onClose={() => setOpen(null)}
       />
     </OpenInDialog>
   );
@@ -100,6 +120,7 @@ export function FileViewer({ children }: { children: ReactNode }) {
 /** A link to one file; `fileTarget` decides where. A new tab is a real `<a>` so middle-click works. */
 export function FileLink({
   path,
+  group,
   className,
   title,
   label,
@@ -107,6 +128,8 @@ export function FileLink({
 }: {
   /** The path as the bot gave it, relative or absolute. */
   path: string;
+  /** Files this one can be stepped through in the dialog (one message's images). */
+  group?: string[];
   className?: string;
   title?: string;
   /** Accessible name for icon-only links. */
@@ -142,7 +165,7 @@ export function FileLink({
       onClick={() => {
         // Outside a FileViewer there is no dialog, so open a tab
         if (target.how === "dialog") {
-          if (inDialog) inDialog(target.path);
+          if (inDialog) inDialog(target.path, group);
           else window.open(queryKey.fileView(target.path), "_blank");
           return;
         }
@@ -369,33 +392,96 @@ function TooBig({ path, bytes }: { path: string; bytes: number }) {
   );
 }
 
-/** A text file in a dialog, fetched from the raw route when opened. */
+/** A file in a dialog: an image as itself, anything readable fetched from the raw route when opened. */
 export function FileDialog({
   path,
+  group = [],
   kind,
+  onPath,
   onClose,
 }: {
   /** Workspace-relative path; null means closed. */
   path: string | null;
+  /** The files this one sits among, so an image can be stepped through them. */
+  group?: string[];
   kind: FileViewKind;
+  onPath?: (path: string) => void;
   onClose: () => void;
 }) {
-  const { content, failure, truncated } = useFileText(path);
+  const image = kind === "image";
+  const { content, failure, truncated } = useFileText(image ? null : path);
   const name = path?.split("/").pop() ?? "";
+  const at = path ? group.indexOf(path) : -1;
+  const step = (by: number) => {
+    if (at < 0 || !onPath) return;
+    onPath(group[(at + by + group.length) % group.length]);
+  };
 
   return (
     <Dialog open={path !== null} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="flex max-h-[calc(100vh-3rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
+      <DialogContent
+        onKeyDown={(event) => {
+          if (event.key === "ArrowLeft") step(-1);
+          if (event.key === "ArrowRight") step(1);
+        }}
+        className="flex max-h-[calc(100vh-3rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
+      >
         <DialogTitle className="sr-only">{name}</DialogTitle>
 
-        <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-4 py-2.5 pr-12">
+        <div className="flex shrink-0 items-center gap-1 border-b border-border/60 py-2 pr-12 pl-4">
           <span className="min-w-0 flex-1 truncate font-mono text-[12px]">
             {path}
           </span>
+          {at >= 0 && group.length > 1 && (
+            <>
+              <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
+                {at + 1} / {group.length}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Previous image"
+                onClick={() => step(-1)}
+              >
+                <ChevronLeft />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Next image"
+                onClick={() => step(1)}
+              >
+                <ChevronRight />
+              </Button>
+            </>
+          )}
+          {image && path && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Open in a new tab"
+              render={
+                <a
+                  href={queryKey.fileView(path)}
+                  target="_blank"
+                  rel="noreferrer"
+                />
+              }
+            >
+              <ExternalLink />
+            </Button>
+          )}
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
-          {failure ? (
+          {image && path ? (
+            // biome-ignore lint/performance/noImgElement: local raw route, nothing to optimize
+            <img
+              src={queryKey.file(path)}
+              alt={name}
+              className="mx-auto max-h-[calc(100vh-11rem)] object-contain p-4"
+            />
+          ) : failure ? (
             <p className="p-5 font-mono text-xs text-destructive">{failure}</p>
           ) : content === null ? (
             <div className="space-y-3 p-5">
@@ -407,6 +493,31 @@ export function FileDialog({
             <FileBody kind={kind} content={content} truncated={truncated} />
           )}
         </div>
+
+        {image && group.length > 1 && (
+          <div className="flex shrink-0 justify-center gap-1.5 border-t border-border/60 p-2.5">
+            {group.map((one) => (
+              <button
+                key={one}
+                type="button"
+                aria-label={one.split("/").pop()}
+                onClick={() => onPath?.(one)}
+                className={cn(
+                  "size-11 shrink-0 overflow-hidden rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                  one === path ? "ring-2 ring-foreground" : "opacity-55",
+                )}
+              >
+                {/* biome-ignore lint/performance/noImgElement: local raw route, nothing to optimize */}
+                <img
+                  src={queryKey.file(one)}
+                  alt=""
+                  loading="lazy"
+                  className="size-full bg-muted object-cover"
+                />
+              </button>
+            ))}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

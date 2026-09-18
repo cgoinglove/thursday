@@ -21,7 +21,8 @@ import { useServerPages } from "@/lib/protocol/use-server-pages";
 import { cn, plainText, WAITING_INK } from "@/lib/utils";
 import { deleteCallAction, deleteEndedCallsAction } from "../thursday.action";
 import { type CallRecord, type CallTurn } from "../thursday.schema";
-import { delegatedLabel, toolLine } from "../tool-line";
+import { delegatedLabel, searchOf, toolLine } from "../tool-line";
+import { SourceChips } from "./source-chips";
 import { ThursdayMark } from "./thursday-mark";
 
 /** The Settings › Thursday tile that opens the call history dialog. */
@@ -438,6 +439,8 @@ function ToolTurn({
   const name = turn.tool ?? "";
   const Icon = toolIcon(name);
   const said = toolLine(name, turn.text);
+  // What the call's web search read, under the line that ran it
+  const read = searchOf(turn.tool, turn.text)?.sources ?? [];
 
   return (
     <>
@@ -460,6 +463,9 @@ function ToolTurn({
           )}
         </span>
       </div>
+      {read.length > 0 && (
+        <SourceChips sources={read} className="mt-1 ml-[26px]" />
+      )}
       {/* Under the line that opened it, in her column (18px face + 8px gap): what
         became of the job, as it stands now. */}
       {job && (

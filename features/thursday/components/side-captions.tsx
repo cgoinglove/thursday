@@ -1,19 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ShinyText } from "@/components/ui/shiny-text";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type { CallMessage } from "@/features/thursday/thursday.schema";
 import { capturesKeys } from "@/hooks/use-hotkey";
 import { cn } from "@/lib/utils";
-import { ThursdayMark } from "./thursday-mark";
 
 /**
- * Side captions (Captions › sides): the conversation beside the face, one turn
- * a side at the face's middle line and the rest receding around it.
+ * Side captions (Captions › sides): the conversation beside the face, hers on
+ * the left and yours on the right. Each side holds one turn level with the face
+ * and the rest recede above and below it.
  */
 
 /** One speaker's words in a row, however many display groups Live cut them into. */
 export type Turn = { id: string; role: CallMessage["role"]; text: string };
+
+type Role = Turn["role"];
 
 export function turnsOf(messages: CallMessage[]) {
   const turns: Turn[] = [];
@@ -25,130 +32,132 @@ export function turnsOf(messages: CallMessage[]) {
   return turns;
 }
 
-/** Wheel delta per turn: a turn is a paragraph, so a trackpad flick moves one, not three. */
-const WHEEL_STEP = 120;
+/** Per side, the turn a click went back to; null follows that side's latest. */
+type Pinned = Record<Role, number | null>;
 
-/** How long the wheel keeps what it has gathered before starting over. */
-const WHEEL_SETTLE_MS = 220;
+const NOW: Pinned = { assistant: null, user: null };
 
 /**
- * Which turn the side captions are on: the latest, or as far back as the arrow
- * keys or the wheel took them. A new turn brings the focus back to now, as the
- * centre caption does with new text. The keys are the window's while the
- * captions are up, except in a field, a key capture or a dialog.
+ * Which turn each side holds level with the face. A click on a receded turn
+ * brings it level on its own side only; a side that went back keeps its turn
+ * while new ones arrive below it, and ↓ brings both back to now. The key is the
+ * window's while the captions are up, except in a field, a key capture or a
+ * dialog.
  */
 export function useTurnFocus(turns: Turn[], enabled: boolean) {
-  const [back, setBack] = useState(0);
-  const count = useRef(turns.length);
-  const drag = useRef(0);
-  const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const furthest = Math.max(0, turns.length - 1);
+  const [pinned, setPinned] = useState<Pinned>(NOW);
 
+  // a new call starts from now
   useEffect(() => {
-    if (turns.length === count.current) return;
-    count.current = turns.length;
-    setBack(0);
-  }, [turns.length]);
-
-  const step = useCallback(
-    (by: number) => setBack((was) => Math.min(furthest, Math.max(0, was + by))),
-    [furthest],
-  );
+    if (!enabled) setPinned(NOW);
+  }, [enabled]);
 
   useEffect(() => {
     if (!enabled) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+      if (event.key !== "ArrowDown") return;
       if (event.defaultPrevented || event.altKey || event.ctrlKey) return;
       if (event.metaKey || event.shiftKey || capturesKeys(event.target)) return;
       if ((event.target as HTMLElement | null)?.closest?.('[role="dialog"]'))
         return;
       event.preventDefault();
-      step(event.key === "ArrowUp" ? 1 : -1);
+      setPinned(NOW);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [enabled, step]);
+  }, [enabled]);
 
-  useEffect(
-    () => () => {
-      if (settle.current) clearTimeout(settle.current);
+  const pick = useCallback(
+    (role: Role, at: number) => {
+      const latest = turns.filter((turn) => turn.role === role).length - 1;
+      setPinned((was) => ({ ...was, [role]: at >= latest ? null : at }));
     },
-    [],
+    [turns],
   );
 
-  const onWheel = (event: React.WheelEvent) => {
-    drag.current += event.deltaY;
-    const steps = Math.trunc(drag.current / WHEEL_STEP);
-    if (steps !== 0) {
-      drag.current -= steps * WHEEL_STEP;
-      step(-steps);
-    }
-    if (settle.current) clearTimeout(settle.current);
-    settle.current = setTimeout(() => {
-      drag.current = 0;
-    }, WHEEL_SETTLE_MS);
+  return {
+    pinned,
+    pick,
+    back: pinned.assistant !== null || pinned.user !== null,
   };
-
-  return { focus: Math.max(0, turns.length - 1 - back), back, onWheel };
 }
 
 /**
- * How the turns around the focus recede (canvas "Thursday Call Polish" D3, user
- * 09-17): each turn away steps back `DEPTH` px under `PERSPECTIVE`, so it draws
- * smaller, softer and a little higher. These are the drawing, not settings.
+ * How the turns around the one level with the face recede: each turn away steps
+ * back `DEPTH` px under `PERSPECTIVE` and is drawn at `SMALL` of its size, so it
+ * reads smaller and a little toward the face. These are the drawing, not settings.
  */
-const SIDE_PERSPECTIVE = 1000;
-const SIDE_DEPTH = 700;
-/** Space between turns at the focus's size, and the extra that lifts earlier turns. */
-const SIDE_GAP = 22;
-const SIDE_RISE = 10;
-const SIDE_BLUR = 1.1;
-/** Ink by turns away on the focused side; the other side's turn level with the focus is `SIDE_PAIR`. */
-const SIDE_FADE = [1, 0.46, 0.28, 0.16];
-const SIDE_PAIR = 0.62;
-/** Turns farther than this are not drawn. */
-const SIDE_REACH = 3;
+const PERSPECTIVE = 1150;
+const DEPTH = 700;
+const SMALL = 0.78;
+/** Space between two turns, and how far each step away drifts toward the face. */
+const GAP = 49;
+const ARC = 14;
+/** Turns drawn before and after the level one. A receded turn keeps four lines. */
+const BEFORE = 2;
+const AFTER = 2;
+/** Ink of the first receded turn (each further one keeps 0.6 of it), and on hover. */
+const RECEDED_INK = 0.56;
+const HOVER_INK = 0.9;
+/** The words are 17px on 1.675; the level turn's first line sits here against the face's middle. */
+const LINE = 17 * 1.675;
+const LIFT = -40;
+/** Thursday's dot. Yours is the foreground. */
+const HER_DOT = "oklch(0.58 0.17 255)";
 
 /**
- * The conversation beside the face: her turns on the left, yours on the right,
- * no plates. Each side holds its turn level with the focus at the face's middle
- * — the focus itself, or that side's last turn before it — and the rest recede
- * above and below. Out of focus a turn keeps three lines; the turn being said
- * shines its name. Anchored outside the face box so nothing covers the face.
+ * The conversation beside the face, no plates and no names: a filled dot at
+ * the head of each side's level turn says whose it is, and pulses while that
+ * turn is still being said. Anchored outside the face box so nothing covers
+ * the face.
  */
 export function SideCaptions({
   turns,
-  focus,
+  pinned,
   live,
+  onPick,
 }: {
   turns: Turn[];
-  focus: number;
+  pinned: Pinned;
   /** The last turn is still being said. */
   live: boolean;
+  onPick: (role: Role, at: number) => void;
 }) {
+  const last = turns.at(-1);
   return (
     <>
-      <SideColumn turns={turns} focus={focus} live={live} role="assistant" />
-      <SideColumn turns={turns} focus={focus} live={live} role="user" />
+      {(["assistant", "user"] as const).map((role) => (
+        <SideColumn
+          key={role}
+          role={role}
+          turns={turns.filter((turn) => turn.role === role)}
+          pinned={pinned[role]}
+          saying={live ? last?.id : undefined}
+          onPick={(at) => onPick(role, at)}
+        />
+      ))}
     </>
   );
 }
 
 function SideColumn({
-  turns,
-  focus,
-  live,
   role,
+  turns,
+  pinned,
+  saying,
+  onPick,
 }: {
+  role: Role;
+  /** This side's turns only. */
   turns: Turn[];
-  focus: number;
-  live: boolean;
-  role: Turn["role"];
+  pinned: number | null;
+  /** The turn still being said, if any. */
+  saying: string | undefined;
+  onPick: (at: number) => void;
 }) {
   const mine = role === "user";
   // Heights as laid out, before any transform: text grows while it is said, and
-  // leaving focus clamps a turn to three lines
+  // receding clamps a turn to four lines
   const [heights, setHeights] = useState<Record<string, number>>({});
   const watch = useRef<ResizeObserver | null>(null);
   useEffect(() => () => watch.current?.disconnect(), []);
@@ -171,98 +180,82 @@ function SideColumn({
     return () => watch.current?.unobserve(node);
   }, []);
 
-  const own = turns.flatMap((turn, index) =>
-    turn.role === role ? [{ turn, index }] : [],
-  );
-  if (!own.length) return null;
-  const focused = turns[focus]?.role === role;
-  const level = focused
-    ? focus
-    : (own.findLast((one) => one.index <= focus) ?? own[0]).index;
-  const at = own.findIndex((one) => one.index === level);
-  const scale = (k: number) =>
-    SIDE_PERSPECTIVE / (SIDE_PERSPECTIVE + SIDE_DEPTH * Math.abs(k - at));
-  const tall = (k: number) => heights[own[k].turn.id] ?? 42;
-  // Stacked by their drawn size, then placed back by it: perspective pulls each toward the middle line
-  const drawn = own.map(() => 0);
-  for (let k = at - 1; k >= 0; k--) {
-    drawn[k] =
-      drawn[k + 1] -
-      ((tall(k) * scale(k)) / 2 +
-        SIDE_GAP * scale(k + 1) +
-        SIDE_RISE +
-        (tall(k + 1) * scale(k + 1)) / 2);
-  }
-  for (let k = at + 1; k < own.length; k++) {
-    drawn[k] =
-      drawn[k - 1] +
-      ((tall(k - 1) * scale(k - 1)) / 2 +
-        SIDE_GAP * scale(k - 1) +
-        (tall(k) * scale(k)) / 2);
-  }
+  if (!turns.length) return null;
+  const at = Math.min(pinned ?? turns.length - 1, turns.length - 1);
+  const near = (k: number) =>
+    PERSPECTIVE / (PERSPECTIVE + DEPTH * Math.abs(k - at));
+  const size = (k: number) => (k === at ? 1 : SMALL);
+  const tall = (k: number) =>
+    (heights[turns[k].id] ?? LINE) * near(k) * size(k);
+  // Every turn is placed by its top edge and scales from it. Centring the box
+  // instead jumps a turn half a line the moment its text wraps, then slides it
+  // back once the taller box is measured a frame later
+  const top = turns.map(() => 0);
+  top[at] = -LINE / 2;
+  for (let k = at - 1; k >= 0; k--) top[k] = top[k + 1] - GAP - tall(k);
+  for (let k = at + 1; k < turns.length; k++)
+    top[k] = top[k - 1] + tall(k - 1) + GAP;
 
   return (
     <div
       className={cn(
-        "pointer-events-none absolute top-1/2 h-0 w-[min(25rem,24vw)] [perspective:1000px]",
+        "pointer-events-none absolute h-0 w-[min(21.25rem,24vw)]",
         // the vanishing point is the face's edge on the middle line: what recedes goes toward her
         mine
-          ? "left-full ml-11 [perspective-origin:0_0]"
-          : "right-full mr-11 [perspective-origin:100%_0]",
+          ? "left-full ml-1.5 [perspective-origin:0_0]"
+          : "right-full mr-1.5 [perspective-origin:100%_0]",
       )}
+      style={{ top: `calc(50% + ${LIFT}px)`, perspective: PERSPECTIVE }}
     >
-      {own.map(({ turn, index }, k) => {
+      {turns.map((turn, k) => {
         const away = Math.abs(k - at);
-        const fade = SIDE_FADE[away] ?? 0;
-        const ink =
-          index === focus
-            ? 1
-            : focused
-              ? fade
-              : index === level
-                ? SIDE_PAIR
-                : fade * 0.8;
-        const name = mine ? "You" : "Thursday";
+        const shown = k < at ? at - k <= BEFORE : k - at <= AFTER;
+        const level = k === at;
+        const ink = !shown ? 0 : level ? 1 : RECEDED_INK * 0.6 ** (away - 1);
+        const pickable = shown && !level;
+        const x = (ARC * away * (mine ? -1 : 1)) / near(k);
+        const y = top[k] / near(k);
         return (
           <div
             key={turn.id}
             ref={measure}
             data-turn={turn.id}
-            aria-hidden={away > SIDE_REACH}
-            style={{
-              transform: `translateY(-50%) translateY(${drawn[k] / scale(k)}px) translateZ(${-SIDE_DEPTH * away}px)`,
-              opacity: away > SIDE_REACH ? 0 : ink,
-              filter: away ? `blur(${away * SIDE_BLUR}px)` : undefined,
-            }}
+            aria-hidden={!shown}
+            onClick={pickable ? () => onPick(k) : undefined}
+            style={
+              {
+                transform: `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translateZ(${-DEPTH * away}px) scale(${size(k)})`,
+                "--ink": ink,
+                "--lift": Math.max(ink, HOVER_INK),
+              } as CSSProperties
+            }
             className={cn(
-              "absolute top-0 w-max max-w-full text-base leading-[26px] text-foreground transition-[transform,opacity,filter] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-              away > SIDE_REACH ? "invisible" : "pointer-events-auto",
-              mine ? "left-0" : "right-0",
+              "group/turn absolute top-0 w-max max-w-full text-[17px] leading-[1.675] tracking-[0.3px] text-foreground transition-transform duration-[520ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+              mine ? "left-0 origin-top-left" : "right-0 origin-top-right",
+              !shown && "invisible",
+              pickable && "pointer-events-auto cursor-pointer",
+              level && "pointer-events-auto",
             )}
           >
-            <div
-              className={cn(
-                "mb-1.5 flex h-4 items-center gap-1.5 text-xs font-medium",
-                !mine && "justify-end",
-              )}
-            >
-              {mine ? (
-                <span className="size-2 rounded-full ring-[1.5px] ring-foreground ring-inset" />
-              ) : (
-                <ThursdayMark size={14} />
-              )}
-              {live && index === turns.length - 1 ? (
-                <ShinyText text={name} />
-              ) : (
-                <span>{name}</span>
-              )}
-            </div>
             <p
               className={cn(
-                "break-keep text-pretty",
-                index !== focus && "line-clamp-3",
+                "break-keep text-pretty opacity-(--ink) transition-opacity duration-[520ms] motion-reduce:transition-none",
+                !level && "line-clamp-4",
+                pickable && "group-hover/turn:opacity-(--lift)",
               )}
             >
+              {level && (
+                <span
+                  className={cn(
+                    "mr-4 inline-block size-2.5 rounded-full align-middle",
+                    turn.id === saying
+                      ? "animate-pulse motion-reduce:animate-none"
+                      : "opacity-55",
+                    mine && "bg-foreground",
+                  )}
+                  style={mine ? undefined : { background: HER_DOT }}
+                />
+              )}
               {turn.text}
             </p>
           </div>

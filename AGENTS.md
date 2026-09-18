@@ -48,6 +48,8 @@ features/ai/              Everything the model sees. Composes domain query/schem
                                  jobs.
   prompts/bot.prompt.ts          Everything a bot hears. Shares no text with the call prompt.
   prompts/memory-edit.prompt.ts  Everything an edit typed on the Memory screen hears.
+  prompts/call-standing.ts       The jobs open as a call starts, put into the conversation once rather
+                                 than into a prompt: what is true only at that moment, in facts.
   prompts/prompt-helper.ts       Row-to-line formatters, a few thresholds, and the identity both call
                                  prompts open with.
   load-tools.ts           Which runtime holds which tools (ToolRun: the call, a bot, a memory edit).
@@ -72,9 +74,16 @@ bin/                      What ships and runs outside Next: the `thursday` CLI, 
 scripts/dev.mts           `pnpm dev`: `next dev` on 127.0.0.1, on a port nothing holds on any address, handed over as `PORT`.
 scripts/reset.mts         Wipes local data (calls, jobs, memory) and optionally the build. `pnpm reset`.
 scripts/pack.mts          Builds `dist/`, the tree npm publishes. `pnpm release`.
+guide/                    How the app works for the person using it, written for Thursday to read when they
+                          ask about the app itself: `index.md` says which file answers what. Screens and
+                          settings as the user sees them, never code. Boot copies it into the workspace
+                          (`config.ts` `PATHS.guide`), so the call reads it with the shell it already has.
 skills/                   Skills shipped with the app (read-only). User skills live in the workspace.
                           interactive-page/scripts/archify is a trimmed copy of archify (MIT; its README says
                           what was cut). Lint skips it; update it by copying upstream, not by editing it here.
+seed-skills/<seed>/       A seed bot's own skills (read-only), copied into `bots/<name>/skills` when it is made.
+                          A bot's own skills are listed to it alone, so a kit costs no other bot a line.
+                          marketer/ is a trimmed copy of marketingskills (MIT; its README says what was cut).
 ```
 
 Domains today: `thursday` (the call), `bot` (bots and the jobs they run), `memory`, `workspace` (the
@@ -142,9 +151,12 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   sequentially. Messages are asynchronous: a waiting A can handle a question from B in its own
   context, but a bot waiting on the user's answer runs nothing until it arrives; its inbox holds. Only exchanged messages cross participant contexts. `room.query` owns durable inboxes,
   continuation claims and return routes; `bot.runner` owns live promises.
-- **No browser, nothing runs.** `presence` (app/api/events) says whether a browser is on the stream;
-  when the last one has been gone a while, jobs stop and wait and open calls close. When one comes
-  back, only jobs paused for browser absence pick themselves back up. A model call that breaks
+- **No browser, nothing runs — unless the user said otherwise.** `presence` (app/api/events) says
+  whether a browser is on the stream; when the last one has been gone a while, jobs stop and wait
+  and open calls close. When one comes back, only jobs paused for browser absence pick themselves
+  back up. One switch changes it (`KEEP_WORKING_KEY`, Settings › Bots, off by default): work then
+  runs on with nothing open and only the server stopping parks it, while the open calls still
+  close with their tab. Both readers — boot's `onGone` and the room pump — ask the same key. A model call that breaks
   is tried once more (`BOT_RUN.retryMs`); a second break, a provider's refusal, a server restart,
   a resource limit or a user stop waits for a person. Wired once at boot (`instrumentation`),
   not in each domain.
@@ -287,6 +299,10 @@ A 30-second poll remains as a safety net. No WebSockets.
   thread opens on its own bot's tab, which holds
   every participant; another bot's tab holds only its own lines and the messages that reached it,
   and the composer follows the open tab. Thursday is never invited and never drawn as a bot.
+- The files a message names are drawn under its words, whatever the message: images as thumbnails
+  that open in the viewer where the reader already is, everything else as a row with its kind and
+  size, a path with no file struck through. Nothing a job finished opens by itself — it lands in
+  the screen's left corner, which keeps nothing and is cleared by a reload.
 - A bot draws with the face picked on its page wherever it appears; nothing varies its mark by
   thread or place, only its state: the amber notify dot while it waits on the user, crossed-out
   eyes on a thread the user stopped (`cancelled`). A job never ends as a failure: a model that
@@ -313,6 +329,9 @@ A 30-second poll remains as a safety net. No WebSockets.
 - Comments are English, present tense and short. They explain what the code cannot: an invariant, an
   external constraint, the one-line why behind a surprising choice. No history, no narrative.
 - Model-facing text (prompts, tool descriptions, `.describe()`) is English and imperative.
+- A change the user would notice — a screen, a setting, what a call or a bot can do — updates
+  `guide/` in the same commit. It is what Thursday reads when they ask about the app itself, and
+  a guide that describes a screen the app no longer has is answered aloud with confidence.
 - A new file you created goes in the commit with the rest of your change — which is why anything
   private is named `*.local.*` before it is written, not after. Two are easy to get wrong: a
   generated migration (`database/migrations/…`) MUST be committed or a fresh clone boots against

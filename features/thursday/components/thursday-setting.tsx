@@ -796,7 +796,7 @@ const CAPTION_LABEL: Record<CaptionView, { label: string; hint: string }> = {
   },
   sides: {
     label: "Both sides",
-    hint: "Hers on the left, yours on the right. ↑ ↓ step back through the call.",
+    hint: "Hers on the left, yours on the right. Click a line to read it again.",
   },
 };
 

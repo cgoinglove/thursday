@@ -4,10 +4,12 @@ import { asSchema } from "ai";
 import z from "zod";
 import { LIVE_PROVIDER } from "@/features/ai/live.schema";
 import { loadTools } from "@/features/ai/load-tools";
+import { loadCallStanding } from "@/features/ai/prompts/call-standing";
 import { loadLivePrompt } from "@/features/ai/prompts/live.prompt";
 import { loadThursdayPrompt } from "@/features/ai/prompts/thursday.prompt";
 import { removeThread } from "@/features/bot/bot.runner";
 import { listAllThreadIds } from "@/features/bot/thread.query";
+import { EXA_API_KEY } from "@/features/config/config.const";
 import { readConfig } from "@/features/config/config.query";
 import { deleteAllNotes } from "@/features/memory/memory.query";
 import {
@@ -44,8 +46,11 @@ const SDP_MAX_LENGTH = 65_536;
  * The same tool set /api/thursday/tool-call executes. Tools without `execute`
  * (`end_call`, `emote`) are included: the model must see them and the page intercepts them.
  */
-async function loadToolManifest(faceWords: boolean): Promise<ToolManifest[]> {
-  const tools = await loadTools({ target: "thursday", faceWords });
+async function loadToolManifest(
+  faceWords: boolean,
+  webSearch: boolean,
+): Promise<ToolManifest[]> {
+  const tools = await loadTools({ target: "thursday", faceWords, webSearch });
 
   return Object.entries(tools).map(([name, definition]) => {
     const { $schema, ...parameters } = asSchema(definition.inputSchema)
@@ -82,20 +87,23 @@ export const openCallAction = serverAction(
     }
 
     // Assembled per call, never cached: both prompts read what earlier calls stored.
-    const [voice, backend, tools, reasoning] = await Promise.all([
-      loadLivePrompt({
-        voicePrompt: thursday.voicePrompt,
-        locale: thursday.locale,
-        calledBack: z.boolean().default(false).parse(calledBack),
-      }),
-      loadThursdayPrompt(thursday.backendPrompt),
-      loadToolManifest(thursday.faceWords ?? false),
-      acceptedReasoning({
-        apiKey,
-        model: thursday.backendModel,
-        effort: thursday.reasoningEffort,
-      }),
-    ]);
+    const [voice, backend, tools, reasoning, standing, exaKey] =
+      await Promise.all([
+        loadLivePrompt({
+          voicePrompt: thursday.voicePrompt,
+          locale: thursday.locale,
+          calledBack: z.boolean().default(false).parse(calledBack),
+        }),
+        loadThursdayPrompt(thursday.backendPrompt),
+        loadToolManifest(thursday.faceWords ?? false, thursday.webSearch),
+        acceptedReasoning({
+          apiKey,
+          model: thursday.backendModel,
+          effort: thursday.reasoningEffort,
+        }),
+        loadCallStanding(),
+        readConfig(EXA_API_KEY),
+      ]);
 
     // Connect before insert: a refused key or model must not leave an open row nobody can close.
     // Free-text model ids are not checked here; the provider refuses them and says why.
@@ -109,7 +117,9 @@ export const openCallAction = serverAction(
         instructions: backend,
         tools,
         reasoning,
-        webSearch: thursday.webSearch,
+        // One search, never two: Exa's is in the manifest while its key is set
+        // (load-tools), and the backend's own hosted search stands in without one
+        webSearch: thursday.webSearch && !exaKey,
       },
     });
     const callId = await insertCall({
@@ -122,6 +132,7 @@ export const openCallAction = serverAction(
       callId,
       sdp: connection.transport.sdp,
       opening: voice.opening,
+      standing,
     };
   },
 );

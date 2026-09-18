@@ -8,7 +8,7 @@ import type { LiveAudio } from "./live.session";
  */
 
 /** Browser-side cleanup of the user's own microphone before it reaches the wire. */
-const MICROPHONE_CONSTRAINTS: MediaTrackConstraints = {
+export const MICROPHONE_CONSTRAINTS: MediaTrackConstraints = {
   echoCancellation: true,
   noiseSuppression: true,
   autoGainControl: true,

@@ -4,11 +4,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { toast } from "@/components/ui/toast";
-import { CALL_BACK, CALL_END, CALL_IDLE, CALL_RELAY } from "@/config";
+import {
+  CALL_BACK,
+  CALL_END,
+  CALL_ENDED_MS,
+  CALL_IDLE,
+  CALL_RELAY,
+} from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { acceptThreadRelaysAction } from "@/features/bot/bot.action";
 import { type Bot, isAppStop, type Thread } from "@/features/bot/bot.schema";
-import { botThreads, screenActs } from "@/features/bot/thread.store";
+import {
+  botThreads,
+  ringingThreads,
+  screenActs,
+} from "@/features/bot/thread.store";
 import { runRemoteTool } from "@/features/thursday/tool-call";
 import { isCombo, useHotkey } from "@/hooks/use-hotkey";
 import { useWakeWord } from "@/hooks/use-wake-word";
@@ -17,6 +27,7 @@ import type { LiveClose } from "@/lib/live/live.schema";
 import {
   type LiveActivity,
   type LiveSession,
+  type LiveSource,
   type LiveToolCall,
   openLiveSession,
 } from "@/lib/live/live.session";
@@ -25,6 +36,7 @@ import {
   createAudioTap,
   SPECTRUM_BANDS,
 } from "@/lib/live/live.tap";
+import { MICROPHONE_CONSTRAINTS } from "@/lib/live/live.transport";
 import { type Result, unwrapResult } from "@/lib/protocol/result";
 import {
   revalidate,
@@ -48,7 +60,7 @@ import type {
   LiveStatus,
 } from "./thursday.schema";
 import { thursdaySettings, useThursdayStore } from "./thursday.store";
-import { toolBot, toolLine } from "./tool-line";
+import { searchQueryOf, searchSourcesOf, toolBot, toolLine } from "./tool-line";
 
 /**
  * One live call, plus the thread inbox the app watches even with no call open.
@@ -119,16 +131,22 @@ export type ActivityLine = {
   kind?: "relay";
   /** The bot this names, when it names one: the row draws its face instead of a glyph. */
   bot?: string | null;
+  /** A finished web search: the pages it read, drawn in place of the sentence. */
+  sources?: LiveSource[];
 };
 
 /** A call-back ringing, as the screen names it. */
 export type Ringing = {
+  /** The thread that rang: what "Open thread" opens. */
+  id: string;
   /** The bot whose work rang: the one asking, else the thread's own. */
   bot: string;
   kind: "question" | "done" | "stopped";
   label: string;
   /** Other threads ringing with it. */
   more: number;
+  /** It rang out unanswered: the card waits as a missed call instead of ringing. */
+  missed: boolean;
 };
 
 /**
@@ -161,7 +179,10 @@ export function useThursday() {
   const [since, setSince] = useState<number | null>(null);
   /** Seconds until idle hang-up; set only inside CALL_IDLE.warnMs. */
   const [idleLeft, setIdleLeft] = useState<number | null>(null);
-  /** Why the last call ended, when the user did not end it; cleared by the next call. */
+  /**
+   * Why the last call ended, when the user did not end it; cleared after
+   * `CALL_ENDED_MS` or by the next call, so the hint goes back to the way in.
+   */
   const [ended, setEnded] = useState<CallEnd | null>(null);
   /** When the backend picked this turn up (ms); the activity line counts from it. */
   const [thinkingSince, setThinkingSince] = useState<number | null>(null);
@@ -204,8 +225,10 @@ export function useThursday() {
    * end, the last ring, or the page opening.
    */
   const ringAfter = useRef(Date.now());
-  /** The threads a call-back is ringing for, until it is answered, declined or rings out. */
+  /** The threads a call-back is up for, until it is answered or dismissed. */
   const [ringingFor, setRingingFor] = useState<string[]>([]);
+  /** They rang out: the card stays as a missed call, but nothing rings any more. */
+  const [rangOut, setRangOut] = useState(false);
   const isRinging = ringingFor.length > 0;
   /**
    * Keys put in this call that her voice has not carried yet: rejected, cut short
@@ -669,6 +692,7 @@ export function useThursday() {
     // with a line open this press hangs up; `calling` covers the gap before re-render
     if (calling.current || status !== "idle") return hangUp();
     setRingingFor([]);
+    setRangOut(false);
 
     setStatus("connecting");
     setEnded(null);
@@ -696,10 +720,65 @@ export function useThursday() {
       const saving = { failures: 0 };
       const thinkingSaves = { failures: 0 };
       /** Filled in by the handshake, read by callbacks that only run after it. */
-      const line = { callId: "", opening: null as string | null };
+      const line = {
+        callId: "",
+        opening: null as string | null,
+        standing: null as string | null,
+      };
 
       // one turn per id; the session reports display groups one at a time
       const turns = new Map<string, CallMessage & { seq: number }>();
+
+      // The backend's own web searches, by the response that ran them: its answer's
+      // citations arrive after the search and fill in the pages and their titles.
+      type Search = {
+        /** What the activity line knows it by. */
+        id: string;
+        /** The tool turn it is saved under: the output item, whichever way it ran. */
+        row: string;
+        query: string | null;
+        sources: LiveSource[];
+        seq: number;
+      };
+      const searches = new Map<string, Search>();
+      // The search whose pages are on the line until the user speaks again
+      let held: string | null = null;
+      /**
+       * A search as it stands: into the call's record (an upsert, so pages arriving later
+       * rewrite the same turn), and its pages onto the line. True when the pages are on it;
+       * otherwise the line fades like any tool's, which is the caller's to start.
+       */
+      const keepSearch = (search: Search): boolean => {
+        const said = { query: search.query, sources: search.sources };
+        persist(saving, () =>
+          saveTurnsAction(line.callId, [
+            {
+              id: search.row,
+              role: "tool",
+              tool: TOOL_NAMES.web_search,
+              text: JSON.stringify(said),
+              seq: Math.max(0, Math.round(search.seq)),
+              fragments: null,
+            },
+          ]),
+        );
+        if (!search.sources.length || held !== search.id) return false;
+        // Kept, not lingering: the pages are what she is answering from
+        if (linger.current) clearTimeout(linger.current);
+        setTool((open) =>
+          !open || open.id === search.id
+            ? {
+                id: search.id,
+                name: TOOL_NAMES.web_search,
+                line: toolLine(TOOL_NAMES.web_search, JSON.stringify(said)),
+                done: true,
+                bot: null,
+                sources: search.sources,
+              }
+            : open,
+        );
+        return true;
+      };
 
       const live = await openLiveSession({
         initialize: async (sdp) => {
@@ -713,6 +792,7 @@ export function useThursday() {
           callId.current = handshake.callId;
           line.callId = handshake.callId;
           line.opening = handshake.opening;
+          line.standing = handshake.standing;
           return handshake.sdp;
         },
         audio: tap.current,
@@ -732,11 +812,66 @@ export function useThursday() {
               return reply;
             }
             showTool(call);
+            // Exa's search, while its key is set (load-tools): its pages come back with
+            // the answer and stay on the line the way the hosted search's do
+            const searching = call.name === TOOL_NAMES.web_search;
+            if (searching) held = call.id;
+            let kept = false;
             try {
-              return await runRemoteTool(line.callId, call, stop.signal);
+              const output = await runRemoteTool(
+                line.callId,
+                call,
+                stop.signal,
+              );
+              if (searching)
+                kept = keepSearch({
+                  id: call.id,
+                  row: call.item ?? call.id,
+                  query: searchQueryOf(call.arguments),
+                  sources: searchSourcesOf(output),
+                  // The turn is already saved from the call itself; an upsert keeps its place
+                  seq: 0,
+                });
+              return output;
             } finally {
-              hideTool(call.id);
+              if (!kept) hideTool(call.id);
             }
+          },
+          // The hosted web search: nothing runs here. The line says what it looks
+          // for, then keeps the pages it read until the user speaks again.
+          search: (found) => {
+            if (!found.done) {
+              held = found.id;
+              showTool({
+                id: found.id,
+                name: TOOL_NAMES.web_search,
+                arguments: JSON.stringify({ query: found.query }),
+              });
+              return;
+            }
+            const search: Search = {
+              id: found.id,
+              row: found.id,
+              query: found.query,
+              sources: found.sources,
+              seq: found.seq,
+            };
+            searches.set(found.responseId, search);
+            if (!keepSearch(search)) hideTool(search.id);
+          },
+          cited: (responseId, cited) => {
+            const search = searches.get(responseId);
+            if (!search) return;
+            // A citation carries the title the item lacks; the item's order first, then new pages
+            const known = new Set(search.sources.map((source) => source.url));
+            search.sources = [
+              ...search.sources.map(
+                (source) =>
+                  cited.find((one) => one.url === source.url) ?? source,
+              ),
+              ...cited.filter((one) => !known.has(one.url)),
+            ];
+            keepSearch(search);
           },
           reasoning: (part) => {
             // A summary part opens with its title in bold; the activity line says what the work is about
@@ -763,7 +898,15 @@ export function useThursday() {
             if (fresh) heard.current = Date.now();
             // Her voice and backend work rewind the idle clock from activity, where an
             // update she reads out is told apart; transcripts lag the audio and cannot
-            if (fresh && turn.role === "user") stirred.current = Date.now();
+            if (fresh && turn.role === "user") {
+              stirred.current = Date.now();
+              // Their next words take the line back from the pages a search left there
+              if (held) {
+                const was = held;
+                held = null;
+                setTool((open) => (open?.id === was ? null : open));
+              }
+            }
             // Tool turns are saved but not shown. Hanging up clears the screen
             // before `close()` checkpoints open groups, so only the live call draws.
             if (turn.role !== "tool" && callId.current === line.callId) {
@@ -860,6 +1003,10 @@ export function useThursday() {
         readAloud();
         void live.append("instructions", line.opening).then(unless);
       }
+      // What is already open, behind the greeting in the same queue: a quiet fact,
+      // so it is never spoken, and in before their first request rather than after
+      // it, which is when the answer needs it (ai/prompts/call-standing)
+      if (line.standing) void live.append("thinking", line.standing);
 
       wearFace("listening");
       setSince(Date.now());
@@ -908,6 +1055,13 @@ export function useThursday() {
    * never opens the line; answering does (`call`). A thread handled meanwhile, on
    * screen or by the setting going off, stops ringing for itself.
    */
+  // Why the last call ended is news for a moment, not the idle screen's one line
+  useEffect(() => {
+    if (!ended) return;
+    const out = setTimeout(() => setEnded(null), CALL_ENDED_MS);
+    return () => clearTimeout(out);
+  }, [ended]);
+
   const callBack = useThursdayStore((state) => state.callBack);
   useEffect(() => {
     if (!threads) return;
@@ -930,28 +1084,39 @@ export function useThursday() {
     if (!fresh.length) return;
 
     ringAfter.current = Date.now();
+    // Work that is new to the card rings again, even if the card had rung out
+    setRangOut(false);
     setRingingFor((ids) => [
       ...ids,
       ...fresh.map((thread) => thread.id).filter((id) => !ids.includes(id)),
     ]);
   }, [threads, callBack, status]);
 
-  // While ringing: it stops by itself after CALL_BACK.ringMs, and Esc declines.
-  // A thread added to a ring already going does not restart the clock
+  /**
+   * While it rings: it stops ringing by itself after CALL_BACK.ringMs and stays on
+   * the card as a missed call until the user answers or dismisses it, so stepping
+   * away does not lose it (canvas "Thursday 콜백 알림" B, user 09-17). Esc dismisses.
+   * A thread added to a ring already going does not restart the clock.
+   */
+  const decline = useCallback(() => {
+    setRingingFor([]);
+    setRangOut(false);
+  }, []);
+
   useEffect(() => {
     if (!isRinging) return;
-    const out = setTimeout(() => setRingingFor([]), CALL_BACK.ringMs);
+    const out = rangOut
+      ? null
+      : setTimeout(() => setRangOut(true), CALL_BACK.ringMs);
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented) setRingingFor([]);
+      if (event.key === "Escape" && !event.defaultPrevented) decline();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => {
-      clearTimeout(out);
+      if (out) clearTimeout(out);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [isRinging]);
-
-  const decline = useCallback(() => setRingingFor([]), []);
+  }, [isRinging, rangOut, decline]);
   /** What the ringing screen names: the first thread that rang, and how many rang with it. */
   const ringing = useMemo((): Ringing | null => {
     const rung = ringingFor.flatMap(
@@ -961,6 +1126,7 @@ export function useThursday() {
     if (!first) return null;
     const question = first.room.questions[0];
     return {
+      id: first.id,
       bot: question?.bot ?? first.bot,
       kind: question
         ? "question"
@@ -969,8 +1135,14 @@ export function useThursday() {
           : "stopped",
       label: first.label,
       more: rung.length - 1,
+      missed: rangOut,
     };
-  }, [ringingFor, threads]);
+  }, [ringingFor, threads, rangOut]);
+
+  // The card has these threads, so the room's pill leaves their rows to it
+  useEffect(() => {
+    ringingThreads.set(ringingFor);
+  }, [ringingFor]);
 
   /** Read by the face once per animation frame, outside React state. */
   const getSpectrum = useCallback(() => tap.current?.read() ?? EMPTY_BANDS, []);
@@ -979,7 +1151,7 @@ export function useThursday() {
     () => tap.current?.readMic() ?? EMPTY_BANDS,
     [],
   );
-  // Wake word while no line is open; the mic belongs to the call once it opens.
+  // Wake word while no line is open; the recognizer cannot share its raw audio.
   // The seam is `enabled` and `onWake` / `onError` only, so the recognizer can be swapped
   const wake = useThursdayStore((state) => state.wake);
   const [wakeBlocked, setWakeBlocked] = useState(false);
@@ -992,6 +1164,40 @@ export function useThursday() {
       toast.add({ type: "error", title: "Wake word off", description: reason });
     },
   });
+
+  /**
+   * Idle has its own microphone while wake word is on: the recognizer above
+   * already keeps it listening for the phrase, so the same permission opens a
+   * raw analyser too, and the face can react to it before a call exists. A
+   * real call's own stream (transport) takes the tap over once one starts.
+   */
+  const [micLive, setMicLive] = useState(false);
+  useEffect(() => {
+    if (!(status === "idle" && wake.enabled && !wakeBlocked)) {
+      setMicLive(false);
+      return;
+    }
+    let stream: MediaStream | null = null;
+    let cancelled = false;
+    void navigator.mediaDevices
+      .getUserMedia({ audio: MICROPHONE_CONSTRAINTS })
+      .then((got) => {
+        if (cancelled) {
+          for (const track of got.getTracks()) track.stop();
+          return;
+        }
+        stream = got;
+        tap.current ??= createAudioTap();
+        tap.current.hear?.(got);
+        setMicLive(true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      setMicLive(false);
+      for (const track of stream?.getTracks() ?? []) track.stop();
+    };
+  }, [status, wake.enabled, wakeBlocked]);
 
   // Hotkey presses `call` like the face tap, so it hangs up during a call; disabled while the line goes up or down
   const hotkey = useThursdayStore((state) => state.hotkey);
@@ -1027,6 +1233,8 @@ export function useThursday() {
     decline,
     getSpectrum,
     getMicSpectrum,
+    /** The idle mic tap is open (wake word on); the orb may show real reactivity at rest. */
+    micLive,
     /** null when the tap is the only entry point. */
     wakePhrase: wake.enabled && !wakeBlocked ? wake.phrase : null,
     /** Key combo that opens and closes the call; null if none (use-hotkey notation). */

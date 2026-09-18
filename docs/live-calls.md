@@ -13,7 +13,7 @@ code when changing session events, settings, prompts, or persistence.
 | Runtime | Context and instructions | Work |
 | --- | --- | --- |
 | Live voice | `live.prompt`: who Thursday is; under `## Always` the ending rule, backchannel, interruption and a short delegation policy; profile and preferences with the note listing | Listen, speak, backchannel, handle interruptions, hand everything but conversation to the backend |
-| Responses backend | `thursday.prompt`: who Thursday is, memory with ids, bot roster, threads and what bots can reach, this computer, what to return, earlier calls with their jobs; tool schemas | Recall, update and tidy memory, run short commands, ask before handing work over, route thread messages and cancellations, delegate long work |
+| Responses backend | `thursday.prompt`: who Thursday is, memory with ids, bot roster, threads and what bots can reach, this computer, what to return, earlier calls with their jobs; tool schemas | Recall, update and tidy memory, run short commands and web searches, carry work on in its thread or open a new one, route thread messages and cancellations, delegate long work |
 | Background bots | `bot.prompt` and the stored participant transcript | Shell, browser, MCP, skills, and work that outlives a call |
 | Application | Authoritative database and tool implementations | Validate actions, retain results, enforce thread limits, render progress, save call history |
 
@@ -35,8 +35,9 @@ waiting. Live decides by itself whether to delegate, so the rule stays even this
 nothing else about how to speak; it sees no tool schema and no tool name but `end_call`, in the
 ending rule. The backend prompt holds the work: memory (merging a fact that repeats or changes one
 already kept, and tidying with the user past the limits), background work and threads, this
-computer, what to return, and the earlier calls. Before handing work to a bot it returns one question — which bot, a new thread or
-one already open — unless the user already said or left it to Thursday.
+computer, what to return, and the earlier calls. A request that carries earlier work further goes to
+that thread; one that stands on its own opens a new one; it asks the user only when it could be
+either, and what it returns names who has the work and which of the two it was.
 
 ## Settings and upgrades
 
@@ -50,8 +51,8 @@ model does not take one, so the server asks the token-count endpoint first
 (`acceptedReasoning`), once per model and effort. A setting refused by name, the effort or
 the summary, is dropped and not shown; a refused model or key still reaches the user when the
 call opens. Auto reasoning sends no effort.
-Web search adds the `web_search` tool only when switched on. Changes apply from the
-next call.
+Web search adds the `web_search` tool while it is on, which it is by default. Changes
+apply from the next call.
 
 Settings stay in the browser under the existing `thursday.settings` key, beside wake
 word, shortcut, captions and call-back (`thursday.store`). `migrateLiveSettings`
@@ -88,12 +89,31 @@ storage.
    she placed it, ahead of every other opening, and the first open work goes in as soon
    as she has voiced that, without waiting for a quiet line: why she called is the first
    thing asked. The opening names no bot text; the work itself follows as commentary.
+6. Behind the opening in the same queue, send what work stands open as the call started —
+   label, id, bot, state — as `session.thinking.append`, so it is never spoken and is in
+   before the first request rather than after it. It is facts, with no tool named, because
+   the voice reads the same conversation. A prompt cannot carry it: a job moves, ends or is
+   started from the screen while they talk, and only the tool reads it as it is now.
 
 A hang-up during startup invalidates that attempt, so a connection that finishes
 later is closed rather than taking over the screen. Do not change machine trust,
 certificate, or proxy configuration to hide connection errors.
 
 ## Tools and background updates
+
+Web search is on unless Settings › Thursday switches it off, and it is one of two tools,
+never both. With an Exa key it is a function, `web_search`, run on the server like any other
+(the same Exa search a bot uses): its answer is `{results, sources}`, and the page keeps the
+sources for the screen and the call's record. Without one it is the backend's hosted
+`web_search`, the native search of the one provider a call runs on: it runs inside the
+backend, so nothing is executed, answered or continued for it.
+Its `web_search_call` item is read from `response.output_item.added` (the query, for the
+activity line) and `response.output_item.done` (the pages, when the item carries them),
+and the answer's `url_citation` annotations from the `message` item fill in the pages and
+their titles. The page stores it as a tool turn, `{query, sources}`, so the call log and
+the next call's Earlier calls both carry what was searched and read. No `include` is sent:
+Live's Responses configuration lists only models, functions, `web_search` and a few
+settings, and an unknown field would refuse the call.
 
 Live speech and backend work have independent lifecycles. Unwrap `response.event`
 and associate its delegation with the response ID from `response.created`. Collect

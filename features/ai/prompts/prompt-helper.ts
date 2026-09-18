@@ -12,7 +12,7 @@ import type {
   MemoryIndexEntry,
 } from "@/features/memory/memory.schema";
 import type { SkillMetadata } from "@/features/skills/skills.discover";
-import { delegatedLabel } from "@/features/thursday/tool-line";
+import { delegatedLabel, searchOf } from "@/features/thursday/tool-line";
 import { toDate } from "@/lib/date-like";
 import { logger } from "@/lib/logger";
 import { estimateTokens, sectionTokens } from "@/lib/tokens";
@@ -258,6 +258,24 @@ export type RecentCall = {
 function turnLine(turn: RecentCall["turns"][number], call: RecentCall): string {
   if (turn.role !== "tool")
     return `${turn.role === "user" ? "user" : "you"}: ${turn.text}`;
+
+  // A web search is stored as what it looked for and read: the query and the sites,
+  // never the JSON it is kept in, which the argument clip would cut to a brace
+  const searched = searchOf(turn.tool, turn.text);
+  if (searched) {
+    const sites = [
+      ...new Set(
+        searched.sources.flatMap((source) => {
+          try {
+            return [new URL(source.url).hostname.replace(/^www\./, "")];
+          } catch {
+            return [];
+          }
+        }),
+      ),
+    ];
+    return `you → ${turn.tool} "${clip(searched.query ?? "", PROMPT_LINE.toolArgs)}"${sites.length ? ` — ${sites.join(", ")}` : ""}`;
+  }
 
   const args = `you → ${turn.tool ?? "tool"} ${clip(turn.text, PROMPT_LINE.toolArgs)}`;
   if (turn.tool !== TOOL_NAMES.delegate) return args;

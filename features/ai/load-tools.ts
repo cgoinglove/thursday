@@ -7,7 +7,10 @@ import { delegateSpec, threadSpec } from "@/features/ai/tools/bot.tool";
 import { callTools } from "@/features/ai/tools/call.tool";
 import { createMcpTools } from "@/features/ai/tools/mcp.tool";
 import { createMemoryTools } from "@/features/ai/tools/memory.tool";
-import { createSearchTool } from "@/features/ai/tools/search.tool";
+import {
+  createCallSearchTool,
+  createSearchTool,
+} from "@/features/ai/tools/search.tool";
 import { createSkillTools } from "@/features/ai/tools/skills.tool";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { createWorkspaceTools } from "@/features/ai/tools/workspace.tool";
@@ -45,6 +48,12 @@ export type ToolRun =
       callId?: string | null;
       /** The face can show a word (the ascii orb): the call is given `emote`. */
       faceWords?: boolean;
+      /**
+       * Settings › Thursday › Search the web, when the call opens: false leaves out the
+       * Exa search. The tool-call route rebuilds without it and so keeps the tool whenever
+       * a key is set: the manifest the call opened with decides what the model can ask for.
+       */
+      webSearch?: boolean;
     }
   | {
       target: "bot";
@@ -213,10 +222,6 @@ function createThreadTools(callId: string | null | undefined): ToolSet {
         }
 
         if (action === "open") {
-          // The room on the call screen draws the inbox; an older job is only in the history
-          const room = unnamed ? inbox : await listInboxThreads();
-          if (!room.some((row) => row.id === one.id))
-            return `"${one.label}" is older than the call screen keeps; it is under Settings › Threads.`;
           const { appEvents } = await import(
             "@/app/api/events/app-event.server"
           );
@@ -360,6 +365,9 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
         write: false,
         timeoutMs: CALL_EXEC_TIMEOUT_MS,
       }),
+      // Exa when its key is set; without one the backend's own hosted search is sent
+      // in its place (thursday.action), so the call never holds both
+      ...(run.webSearch === false ? {} : await createCallSearchTool(sandbox)),
       // Handing work over, following it, and hanging up belong to the voice session only
       ...createThreadTools(run.callId),
       ...callTools(run.faceWords ?? false),
@@ -368,7 +376,7 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
 
   // A bot works inside a job it did not open: it can pull another bot in but cannot start a job.
   // The runner attaches messaging with the active continuation (bot.run).
-  const skills = await loadSkills(sandbox);
+  const skills = await loadSkills(sandbox, run.bot);
   return {
     // A bot only reads memory: every write is the call's, and there is no screen to show a note on
     [TOOL_NAMES.memory_recall]: memory[TOOL_NAMES.memory_recall],
@@ -392,6 +400,6 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     }),
     // Pinned tools come with schemas; the rest sit behind `tool_search`, absent when nothing is left to find (mcp.tool)
     ...(await createMcpTools(run.bot, sandbox)),
-    ...createSkillTools({ sandbox, skills }),
+    ...createSkillTools({ sandbox, skills, bot: run.bot }),
   };
 }

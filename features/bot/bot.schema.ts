@@ -182,6 +182,21 @@ export const BOT_MEMORY_KEY = "BOT_MEMORY";
 export const isBotMemoryOn = (value: string | undefined) =>
   value?.trim() !== "off";
 
+// What happens to running work once every tab is gone (app/api/events presence,
+// config BROWSER_GONE_MS). A server-side setting, not a browser's: it decides what
+// the server does when no browser is there to hold one.
+
+/** Config key (features/config config.query) the switch lives under. */
+export const KEEP_WORKING_KEY = "KEEP_WORKING";
+
+/**
+ * Off unless it was switched on, so closing the last tab still stops running jobs and
+ * opening one again picks them back up. On, they run until the server itself stops, and
+ * a job that ends or asks with nobody there sends a desktop notification and waits.
+ */
+export const isKeepWorkingOn = (value: string | undefined) =>
+  value?.trim() === "on";
+
 /** One file of a bot's own memory (bot.memory), as its prompt lists it and its page draws it. */
 export const BotMemoryFileSchema = z.object({
   file: z.string(),

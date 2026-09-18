@@ -29,7 +29,7 @@ const StoredSchema = ThursdaySettingsSchema.extend({
   wake: WakeSchema.catch(WAKE_DEFAULT),
   hotkey: HotkeySchema.catch(HOTKEY_DEFAULT),
   callBack: CallBackSchema.catch(CALL_BACK_DEFAULT),
-  captionView: CaptionViewSchema.catch("center"),
+  captionView: CaptionViewSchema.catch("sides"),
 });
 
 type Stored = ThursdaySettings & {
@@ -49,7 +49,7 @@ const EMPTY: Stored = {
   wake: WAKE_DEFAULT,
   hotkey: HOTKEY_DEFAULT,
   callBack: CALL_BACK_DEFAULT,
-  captionView: "center",
+  captionView: "sides",
 };
 
 export const useThursdayStore = create<ThursdayStore>()(

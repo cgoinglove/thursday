@@ -67,6 +67,14 @@ export const CALL_BACK = {
 };
 
 /**
+ * How long the idle hint says why the last call ended (thursday.tsx Hint) before the
+ * screen goes back to its usual line. Longer and a reason from hours ago is still the
+ * only thing on screen, in place of the way back in; shorter and someone who stepped
+ * away as the line dropped never learns why.
+ */
+export const CALL_ENDED_MS = 8_000;
+
+/**
  * How the page hangs up once the backend calls `end_call` (useThursday): her goodbye is let
  * finish, within bounds.
  * - `quietMs`  silence after her voice that counts as the goodbye being over, and the least
@@ -136,10 +144,23 @@ export const PATHS = {
   bots: "bots",
   /** Where tool output over TOOL_OUTPUT is written in full. */
   output: ".output",
+  /**
+   * The guide Thursday reads when the user asks about the app itself (`guide/`):
+   * `source` ships with the app, and boot copies it to `workspace` whole, so the
+   * copy always matches this build and a bot cannot leave it stale. It sits inside
+   * the workspace, and under a dot folder, because the shell the call holds is
+   * rooted there and nothing about the app's own folder is put in front of a model.
+   */
+  guide: { source: "guide", folder: ".guide" },
   skills: {
     default: "skills", // ships with the app, read-only
     // The user's own, inside the workspace; where `npx skills add` installs.
     custom: `${WORKSPACE}/.agents/skills`,
+    // One bot's own, inside its folder (`bots/<name>/skills`): listed to that bot alone.
+    own: "skills",
+    // Ships with the app: a seed's kit in `<seeds>/<seed name, lowercased>/`, copied
+    // into that bot's own folder when it is created (skills.discover giveSeedSkills).
+    seeds: "seed-skills",
   },
 };
 
@@ -147,21 +168,14 @@ export const PATHS = {
 export const PAGE_SIZE = 50;
 
 /**
- * Finished jobs the inbox carries beside everything still running or waiting.
- * The room in the call screen's corner and the Threads badge read that one list.
- * Unread endings, and endings a call has not relayed, remain regardless of this
- * limit. More keeps older endings in reach at the cost of a larger inbox read.
+ * Finished jobs the inbox carries beside everything still running or waiting,
+ * and so the endings the room's Now tab keeps whether or not they were read;
+ * older ones are under History only. The room in the call screen's corner and
+ * the Threads badge read that one list. Unread endings, and endings a call has
+ * not relayed, remain regardless of this limit. More keeps older endings in
+ * reach at the cost of a larger inbox read.
  */
-export const INBOX_FINISHED = 3;
-
-/**
- * How long a finished thread the user has already opened stays on
- * the room's Now tab, ms from when it ended; after that it is under History only.
- * Longer keeps recent work in reach, 0 moves it the moment it is read. A cancel
- * leaves at once whatever this is. Only endings the inbox still carries
- * (INBOX_FINISHED) can stay.
- */
-export const ROOM_KEEP_READ_MS = 10 * 60_000;
+export const INBOX_FINISHED = 5;
 
 /** Jobs returned to the call: prioritize open work, then fill with recent endings. */
 export const THREAD_STATUS_LIMIT = 10;
@@ -202,6 +216,15 @@ export const WORKSPACE_VIEW = {
  * open files with the same reader.
  */
 export const ARTIFACT_VIEW = { rows: 200, setFiles: 120 };
+
+/**
+ * The corner where finished work lands on the call screen
+ * (workspace/components/artifact-view). Nothing about it is kept: a reload
+ * clears it, and what the user has not opened still waits in the bot room.
+ * - `rows`  finished jobs it holds before the oldest drops off. More turns the
+ *   corner into a second inbox; the room already is one.
+ */
+export const FINISHED_NOTICE = { rows: 5 };
 
 /**
  * Cap on the text a single tool result returns to the model (chars). Beyond
@@ -398,6 +421,16 @@ export const MEMORY_LIMITS = {
  *            own timeout; a line saying so is worth more than the wait.
  */
 export const SEARCH = { sources: 6, excerptChars: 1_200, timeoutMs: 30_000 };
+
+/**
+ * The icon beside a page a call's web search read (lib/favicon): this server asks the
+ * site for it, so neither the browser nor a third party learns which pages came up.
+ * - `timeoutMs`  one site's wait; past it the chip draws the site's first letter.
+ * - `maxBytes`  larger is not an icon; it is refused and the letter drawn instead.
+ * - `kept`  sites remembered for the life of the server, found or not; the oldest go
+ *   first. More asks fewer sites twice at the cost of memory.
+ */
+export const FAVICON = { timeoutMs: 4_000, maxBytes: 100_000, kept: 500 };
 
 /**
  * At or under this many dollars left on the gateway key, its row in Settings › Keys

@@ -31,6 +31,15 @@ export type WorkspaceFile = {
 
 export type WorkspaceEntry = WorkspaceDir | WorkspaceFile;
 
+/**
+ * One of the paths a message names, as it is on disk. A path with no file comes
+ * back in no answer at all, which is how the screen knows to strike it through.
+ */
+export type FileOnDisk = {
+  path: string;
+  bytes: number;
+};
+
 /** One folder. Its own rows and nothing about the rest of the tree. */
 export type WorkspaceFolder = {
   /** Workspace-relative; "" is the root. */

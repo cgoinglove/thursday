@@ -82,7 +82,12 @@ export const LiveSettingsSchema = z.object({
    * Null omits the parameter, for a model that only runs on its own default.
    */
   reasoningEffort: z.enum(LIVE_REASONING).nullable().default("low"),
-  webSearch: z.boolean().default(false),
+  /**
+   * On, so a question about today — weather, a price, a score — is answered on the line
+   * instead of becoming a bot's job. A stored choice, so the default reaches only a
+   * browser that has none.
+   */
+  webSearch: z.boolean().default(true),
 });
 export type LiveSettings = z.infer<typeof LiveSettingsSchema>;
 export const LIVE_DEFAULTS = LiveSettingsSchema.parse({});

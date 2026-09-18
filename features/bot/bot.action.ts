@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { textModelProviderSchema } from "@/features/ai/model.schema";
+import { giveSeedSkills } from "@/features/skills/skills.discover";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
 import {
@@ -10,6 +11,7 @@ import {
   findJobBot,
   updateBot,
   writeBotMemoryOn,
+  writeKeepWorkingOn,
 } from "./bot.query";
 import {
   answerThread,
@@ -70,7 +72,9 @@ export const createSeedBotsAction = serverAction(async (picks: unknown) => {
       model: pick.model,
       toolIds: [],
     });
-    if (bot) created.push(bot.name);
+    if (!bot) continue;
+    await giveSeedSkills(seed.name, bot.name);
+    created.push(bot.name);
   }
   return { created };
 });
@@ -82,6 +86,14 @@ export const deleteBotAction = serverAction(async (name: string) => {
 /** Switched off, no bot is shown its own memory. What is already written stays on disk. */
 export const setBotMemoryOnAction = serverAction(async (on: unknown) => {
   await writeBotMemoryOn(on === true);
+});
+
+/**
+ * Switched on, closing the last tab no longer stops running jobs; they carry on until
+ * the server does (instrumentation, bot.runner pump).
+ */
+export const setKeepWorkingOnAction = serverAction(async (on: unknown) => {
+  await writeKeepWorkingOn(on === true);
 });
 
 // Threads are opened by the `delegate` tool during a call, or here when the user

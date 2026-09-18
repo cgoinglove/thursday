@@ -22,6 +22,11 @@ export async function boot() {
   const { ensureRootNotes } = await import("@/features/memory/memory.query");
   await ensureRootNotes();
 
+  // The guide the call reads when asked about the app itself, renewed from what
+  // this build ships (config PATHS.guide). Before a call can ask for it.
+  const { installGuide } = await import("@/features/workspace/workspace");
+  await installGuide().catch((cause) => logger.error("install guide", cause));
+
   // Threads left `running` by the previous process are not running now.
   const { sweepJobFiles, sweepThreads } = await import(
     "@/features/bot/bot.runner"
@@ -43,17 +48,25 @@ export async function boot() {
   const { sweepCalls } = await import("@/features/thursday/thursday.query");
   await sweepCalls();
 
-  // Browser absence pauses work automatically. Restart and failure require manual resume.
+  // Browser absence pauses work automatically unless the user asked for it to go on
+  // (bot.schema KEEP_WORKING_KEY). Restart and failure always require manual resume.
   const { presence } = await import("@/app/api/events/app-event.server");
   const { pauseThreads, resumeStoppedThreads } = await import(
     "@/features/bot/bot.runner"
   );
+  const { readKeepWorkingOn } = await import("@/features/bot/bot.query");
   presence.onGone(() => {
-    logger.info("browser gone — stopping what was running");
-    void pauseThreads("The browser closed while this was running.", true).catch(
-      (cause) => logger.error("pause threads", cause),
-    );
-    void sweepCalls().catch((cause) => logger.error("sweep calls", cause));
+    void (async () => {
+      // The user's call (Settings › Bots): work either waits for them or runs on
+      if (await readKeepWorkingOn()) {
+        logger.info("browser gone — work goes on");
+      } else {
+        logger.info("browser gone — stopping what was running");
+        await pauseThreads("The browser closed while this was running.", true);
+      }
+      // The line is gone with the tab either way
+      await sweepCalls();
+    })().catch((cause) => logger.error("browser gone", cause));
   });
   presence.onBack(() => {
     void resumeStoppedThreads().catch((cause) =>

@@ -5,12 +5,12 @@ import {
   ChevronDown,
   ExternalLink,
   FilePen,
+  Globe,
   ListChecks,
   Loader2,
   type LucideIcon,
   MessageSquare,
   PhoneOff,
-  Search,
   Send,
   Terminal,
   Wrench,
@@ -21,6 +21,7 @@ import { ShinyText } from "@/components/ui/shiny-text";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import type { ResultPart } from "@/features/bot/bot.schema";
+import { imagePathsIn } from "@/features/bot/components/attachments";
 import { McpMark } from "@/features/connectors/components/mcp-mark";
 import { MemoryMark } from "@/features/memory/components/memory-mark";
 import { SkillsMark } from "@/features/skills/components/skills-mark";
@@ -54,7 +55,7 @@ const TOOL_VIEWS: Partial<Record<string, ComponentType<ToolProps>>> = {
  * domain draws that domain's own mark, so the pill and the nav never disagree.
  */
 const TOOL_ICONS: Partial<Record<string, LucideIcon>> = {
-  [TOOL_NAMES.web_search]: Search,
+  [TOOL_NAMES.web_search]: Globe,
   [TOOL_NAMES.bash]: Terminal,
   [TOOL_NAMES.write_file]: FilePen,
   [TOOL_NAMES.memory_recall]: MemoryMark,
@@ -81,7 +82,7 @@ export function BotTool(props: ToolProps) {
 function WebSearchTool({ tool, threadId, collapsed }: ToolProps) {
   const hits = texts(tool.results);
   return (
-    <Frame tool={tool} threadId={threadId} icon={Search} collapsed={collapsed}>
+    <Frame tool={tool} threadId={threadId} icon={Globe} collapsed={collapsed}>
       <p className="px-3 pt-1 pb-1.5 text-[13px] leading-snug break-keep">
         “{tool.input}”
       </p>
@@ -240,6 +241,8 @@ function Frame({
           </span>
         )}
 
+        <StepShots paths={imagePathsIn(`${tool.path ?? ""} ${tool.input}`)} />
+
         <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
           {tool.name}
         </span>
@@ -264,6 +267,40 @@ function Frame({
     </div>
   );
 }
+
+/**
+ * Images the call itself names, tucked on its row: what a step drew or captured
+ * shows without opening it. The file may not be there — a path in a command is
+ * no promise — so one that does not load drops out rather than asking the server.
+ */
+function StepShots({ paths }: { paths: string[] }) {
+  const [gone, setGone] = useState<string[]>([]);
+  const shown = paths.filter((path) => !gone.includes(path)).slice(0, SHOTS);
+  if (!shown.length) return null;
+
+  return (
+    <span className="flex shrink-0 items-center">
+      {shown.map((path, at) => (
+        // biome-ignore lint/performance/noImgElement: local raw route, nothing to optimize
+        <img
+          key={path}
+          src={queryKey.file(path)}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          onError={() => setGone((was) => [...was, path])}
+          className={cn(
+            "size-5 rounded-[5px] bg-muted object-cover ring-2 ring-background",
+            at > 0 && "-ml-1.5",
+          )}
+        />
+      ))}
+    </span>
+  );
+}
+
+/** Thumbnails on one step row. Past three the row's own words lose their place. */
+const SHOTS = 3;
 
 /** The rest of a truncated result, fetched only when opened. */
 function Everything({

@@ -109,9 +109,10 @@ const mediaEntry = (kind: MediaKind): ConfigEntry => ({
 });
 
 /**
- * What a bot searches the web with. Set, every bot searches through Exa in one HTTP call;
- * unset, only a bot whose own model carries a native search has the tool at all — there is
- * no borrowed model to search on (ai/tools/search.tool).
+ * What the web is searched with. Set, every bot and the call search through Exa in one
+ * HTTP call; unset, a bot whose own model carries a native search uses that, the call uses
+ * its OpenAI backend's hosted search, and a bot with neither has no search tool — there is
+ * no borrowed model to search on (ai/tools/search.tool, thursday.action).
  */
 export const EXA_API_KEY = "EXA_API_KEY";
 
@@ -187,7 +188,7 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
   {
     id: "search",
     title: "search",
-    hint: "how bots look things up — one key, or their own model's",
+    hint: "how calls and bots look things up — one key, or their own model's",
     section: "keys",
     require: "none",
     entries: [

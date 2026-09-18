@@ -54,7 +54,8 @@ export async function loadBotPrompt(
   const name = self.trim();
   const [skills, index, mcpTools, pinned, allBots, kept, memoryOn, machine] =
     await Promise.all([
-      loadSkills(sandbox),
+      // Its own skills beside everyone's (skills.discover ownSkills)
+      loadSkills(sandbox, name),
       listNoteIndex(),
       // User-connected servers and the app's studio in one list (tools/connected)
       listConnectedToolNames(),
@@ -253,13 +254,13 @@ These lines were written for the user: where one says "you", it means them. When
 
 /**
  * How participants reach each other. Nobody reads anyone else's transcript, so the one thing that
- * decides whether collaboration works is what a single message carries. What the coordinator's
- * result opens by itself is the runner's rule (file-kind opensOnFinish), said in the same terms.
+ * decides whether collaboration works is what a single message carries. What becomes of the files
+ * a result names is the runner's rule (bot.runner, the `artifact` event), said in the same terms.
  */
 function collaboration(name: string, seat?: Seat | null): string {
   const owner = (seat?.owner ?? name) === name;
   const ending = owner
-    ? `Bring what you received together into one result for Thursday: what was done, where it is, what you decided that the request did not say, and what is still open, at the detail the user asked for. When the job ends, the first Markdown or HTML file under \`${PATHS.artifacts}/\` it names opens on the user's screen by itself; any other file opens only when they click it in the thread, so when one matters, say they can open it there.`
+    ? `Bring what you received together into one result for Thursday: what was done, where it is, what you decided that the request did not say, and what is still open, at the detail the user asked for. Every file you name in it is drawn under your words in the thread and waits in the screen's corner for the user to open, so name each one you want them to see — the page to read first, then the rest.`
     : `Your final text goes back to ${seat?.caller ?? "whoever asked"}: give them everything they need to carry on.`;
 
   return `## Working together

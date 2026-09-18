@@ -4,7 +4,11 @@ import { PATHS, WORKSPACE_VIEW } from "@/config";
 import { publicError } from "@/lib/public-error";
 import { isListedFolder, viewKindOf } from "./file-kind";
 import { insideWorkspace, WORKSPACE } from "./workspace";
-import type { WorkspaceEntry, WorkspaceFolder } from "./workspace.schema";
+import type {
+  FileOnDisk,
+  WorkspaceEntry,
+  WorkspaceFolder,
+} from "./workspace.schema";
 
 /**
  * Reading what the bots left behind. The section is for opening artifacts, so
@@ -74,16 +78,16 @@ export async function readWorkspaceFolder(
  * file that was never written or has since gone. A path that leaves the workspace
  * is not judged and never listed.
  */
-export async function findMissingFiles(paths: string[]): Promise<string[]> {
-  const missing = await Promise.all(
+export async function statFiles(paths: string[]): Promise<FileOnDisk[]> {
+  const found = await Promise.all(
     paths.map(async (path) => {
       const full = await insideWorkspace(path);
       if (!full) return null;
       const info = await stat(full).catch(() => null);
-      return info?.isFile() ? null : path;
+      return info?.isFile() ? { path, bytes: info.size } : null;
     }),
   );
-  return missing.filter((path) => path !== null);
+  return found.filter((file) => file !== null);
 }
 
 /** Deletes one file. Folders are refused: a whole tree goes through `emptyScratch`. */

@@ -22,7 +22,7 @@ import { logger } from "@/lib/logger";
 import { isPublicError, publicError } from "@/lib/public-error";
 import { createKeyedLock } from "@/lib/queue";
 import { PromiseChain } from "@/lib/utils";
-import { findJobBot } from "./bot.query";
+import { findJobBot, readKeepWorkingOn } from "./bot.query";
 import { resumeTranscript, runBot, type ThreadEvent } from "./bot.run";
 import {
   isAppStop,
@@ -147,7 +147,8 @@ export async function answerThread(
 /** Claiming is short and serialized; model execution never holds the room lock. */
 async function pump(id: string) {
   await threadLock(id, async () => {
-    if (!presence.watching) {
+    // With the setting on, no browser is not a reason to stop (bot.schema KEEP_WORKING_KEY)
+    if (!presence.watching && !(await readKeepWorkingOn())) {
       const thread = await findThread(id);
       if (
         thread?.status === "running" &&
@@ -228,15 +229,19 @@ async function drive(work: RoomWork, signal: AbortSignal) {
   if (thread?.status === "done") {
     if (!(await isAnyCallLive()))
       desktopNotify(thread.label, thread.outcome ?? "");
-    const path = (await filesOnDisk(pathsIn(thread.outcome ?? ""), null)).find(
-      opensOnFinish,
-    );
-    if (path)
+    const files = await filesOnDisk(pathsIn(thread.outcome ?? ""), null);
+    // A page to read leads the notice; the rest follow in the order they were written.
+    const lead = files.findIndex(opensOnFinish);
+    if (files.length)
       appEvents.emit({
         type: "artifact",
         threadId: thread.id,
         label: thread.label,
-        path,
+        bot: thread.bot,
+        paths:
+          lead > 0
+            ? [files[lead], ...files.filter((_, at) => at !== lead)]
+            : files,
       });
   }
 }

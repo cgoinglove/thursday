@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
+  cp,
   mkdir,
   readdir,
   realpath,
@@ -391,6 +392,21 @@ const FENCE: Record<string, string> = {
   "pnpm-workspace.yaml": "packages:\n  - '**'\n",
   ".npmrc": "recursive-install=false\n",
 };
+
+/**
+ * Puts this build's guide in the workspace (config PATHS.guide), replacing whatever
+ * is there: the copy is how the call reads it with the shell it already has, and
+ * replacing it means a bot that edited or deleted it changes nothing for long. Run
+ * at boot, before any call can ask for it. An install with no guide folder (a build
+ * that did not ship one) leaves nothing behind.
+ */
+export async function installGuide(): Promise<void> {
+  const from = join(APP_DIR, PATHS.guide.source);
+  if (!existsSync(from)) return;
+  const to = join(WORKSPACE, PATHS.guide.folder);
+  await rm(to, { recursive: true, force: true });
+  await cp(from, to, { recursive: true });
+}
 
 export async function openWorkspace(): Promise<Sandbox> {
   for (const folder of BOT_FOLDERS) {

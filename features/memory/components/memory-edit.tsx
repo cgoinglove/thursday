@@ -33,7 +33,8 @@ const LINGER_MS = 4000;
 const transport = new DefaultChatTransport({ api: queryKey.memoryEdit });
 
 /**
- * Editing memory in a line, floating over the panes above the rail. One send is
+ * Editing memory in a line, floating over the list above the rail while its rail
+ * button holds it open; closing it stops a run like leaving would. One send is
  * one streamed run (memory.edit): the model writes with memory's own tools as it
  * goes and each call is drawn as it arrives. Nothing about the exchange is kept —
  * the next send starts clean — and the model is picked here, never saved.
@@ -163,6 +164,7 @@ export function MemoryEdit({ notes }: { notes: MemoryNote[] }) {
           className="flex h-10 w-full items-center gap-1.5 rounded-xl bg-popover pr-1.5 pl-3.5 shadow-lg ring-1 ring-foreground/10"
         >
           <input
+            autoFocus
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             disabled={running}

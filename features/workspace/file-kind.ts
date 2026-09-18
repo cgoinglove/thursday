@@ -118,9 +118,9 @@ export function pathsIn(text: string): string[] {
 }
 
 /**
- * What a finished job puts on the user's screen by itself: a page to read among their finished
- * work. Anything else a report names — a data file, a bot's own memory, a sign-in state — opens
- * only from its chip.
+ * The file a finished job's notice leads with: a page to read among their finished work. Anything
+ * else a report names — a data file, a bot's own memory, a sign-in state — follows it. Nothing
+ * opens by itself; the corner waits for the user (workspace/components/artifact-view).
  */
 export const opensOnFinish = (path: string): boolean =>
   path.startsWith(`${PATHS.artifacts}/`) &&

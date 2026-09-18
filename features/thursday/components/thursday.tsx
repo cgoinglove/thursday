@@ -5,9 +5,12 @@ import {
   ChevronUp,
   Flag,
   type LucideIcon,
+  MessageSquare,
   Mic,
   MicOff,
+  Phone,
   Settings2,
+  X,
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
@@ -28,6 +31,7 @@ import { BotMark } from "@/features/bot/components/bot-mark";
 import { BotRoom } from "@/features/bot/components/bot-room";
 import { toolIcon } from "@/features/bot/components/bot-tool";
 import { installSeedBots } from "@/features/bot/seed-bots";
+import { roomOpens } from "@/features/bot/thread.store";
 import { VoiceKeys } from "@/features/config/components/voice-key";
 import { type ConfigStatus, isConfigSet } from "@/features/config/config.const";
 import { SECTIONS, Settings } from "@/features/settings/components/settings";
@@ -59,7 +63,9 @@ import { useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn } from "@/lib/utils";
 import { Face } from "./face";
 import { SideCaptions, turnsOf, useTurnFocus } from "./side-captions";
+import { SourceChips } from "./source-chips";
 import { TabState } from "./tab-state";
+import { ThursdayMark } from "./thursday-mark";
 
 /**
  * The call screen. The face is the only control; text stays beside it and is
@@ -100,6 +106,8 @@ export type CallScreenProps = {
   getSpectrum?: () => ArrayLike<number>;
   /** The user's own mic bands, for the listening meter. */
   getMicSpectrum?: () => ArrayLike<number>;
+  /** The idle mic tap is open (wake word on): the orb reacts to it at rest too. */
+  micLive?: boolean;
   captionView?: CaptionView;
   /** Chosen in Settings > Thursday, kept in the browser. */
   face?: ThursdayFace;
@@ -125,7 +133,8 @@ export function CallScreen({
   since = null,
   getSpectrum,
   getMicSpectrum,
-  captionView = "center",
+  micLive = false,
+  captionView = "sides",
   face = FACE_DEFAULT,
   callable = true,
 }: CallScreenProps) {
@@ -152,15 +161,17 @@ export function CallScreen({
         <SettingsCorner />
       </div>
 
+      {/* Opposite the room's pill: the call-back is the screen's, the pill is the room's */}
+      {ringing && (
+        <CallBackCard
+          ringing={ringing}
+          onAnswer={onTap}
+          onDismiss={() => onDecline?.()}
+        />
+      )}
+
       {/* Top padding in vh, like the face itself, so the face+text column sits below center */}
-      {/* The wheel winds the turns back. It is on this column rather than on the
-          screen: the corner holds the settings dialog and the room its own list,
-          and a portal's wheel bubbles up the tree it was written in, not the one
-          it is drawn in. */}
-      <div
-        onWheel={sided ? turns.onWheel : undefined}
-        className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5 pt-[7vh]"
-      >
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5 pt-[7vh]">
         {/* The face is the control. It reacts to the agent's own voice. */}
         <div className="relative w-[min(28rem,72vw,52vh)]">
           <button
@@ -172,7 +183,7 @@ export function CallScreen({
                 ? "Add a speech key"
                 : live
                   ? "End the call"
-                  : ringing
+                  : ringing && !ringing.missed
                     ? "Answer Thursday"
                     : "Call Thursday"
             }
@@ -185,7 +196,10 @@ export function CallScreen({
           >
             {/* Ringing, the face swells twice and rests, like a phone's ring */}
             <span
-              className={cn("block", ringing && "motion-safe:animate-ringing")}
+              className={cn(
+                "block",
+                ringing && !ringing.missed && "motion-safe:animate-ringing",
+              )}
             >
               <Face
                 look={face}
@@ -194,13 +208,19 @@ export function CallScreen({
                 word={faceWord}
                 getSpectrum={getSpectrum}
                 getMicSpectrum={getMicSpectrum}
+                micLive={micLive}
                 className="w-full"
               />
             </span>
           </button>
 
           {sided && (
-            <SideCaptions turns={talk} focus={turns.focus} live={saying} />
+            <SideCaptions
+              turns={talk}
+              pinned={turns.pinned}
+              live={saying}
+              onPick={turns.pick}
+            />
           )}
         </div>
 
@@ -216,7 +236,6 @@ export function CallScreen({
             thinkingSince={thinkingSince}
             thinkingTitle={thinkingTitle}
             listening={status === "listening" && thinkingSince === null}
-            ringing={ringing}
             getMicSpectrum={getMicSpectrum}
           />
 
@@ -251,8 +270,8 @@ export function CallScreen({
                 idleLeft={idleLeft}
                 since={since}
                 ended={ended}
-                behind={sided && turns.back > 0}
-                ringing={ringing !== null}
+                behind={sided && turns.back}
+                ringing={ringing !== null && !ringing.missed}
                 onDecline={onDecline}
                 wakePhrase={wakePhrase}
                 hotkeyLabel={hotkeyLabel}
@@ -654,7 +673,11 @@ function Activity({ tool }: { tool: ActivityLine }) {
       </span>
       {/* The sweep is what says this is still running, so it is on whatever the
           line turns out to be — the sentence, or the bare tool name. */}
-      {tool.done ? (
+      {/* A finished web search draws the pages it read, which stay until the
+          user speaks again (useThursday) — they are what she is answering from. */}
+      {tool.done && tool.sources?.length ? (
+        <SourceChips sources={tool.sources} limit={2} className="flex-nowrap" />
+      ) : tool.done ? (
         <span className={cn(look, "text-muted-foreground")}>{text}</span>
       ) : (
         <ShinyText text={text} motion="pulse" className={look} />
@@ -719,15 +742,12 @@ function ActivityRow({
   thinkingSince,
   thinkingTitle,
   listening,
-  ringing,
   getMicSpectrum,
 }: {
   tool: ActivityLine | null;
   thinkingSince: number | null;
   thinkingTitle: string | null;
   listening: boolean;
-  /** Only while idle, when nothing else takes the slot. */
-  ringing: Ringing | null;
   getMicSpectrum?: () => ArrayLike<number>;
 }) {
   // held past the tool so the pill has something to fade out with
@@ -746,19 +766,7 @@ function ActivityRow({
 
   const hearing = listening && !tool;
   return (
-    // Ringing, who calls sits right under the face, over the hint. It leaves at
-    // once rather than fading, so the hint does not slide under a fading line
-    <div
-      className={cn(
-        "grid h-7 max-w-full items-center justify-items-center",
-        ringing && "order-first",
-      )}
-    >
-      {ringing && (
-        <span className="col-start-1 row-start-1 flex max-w-full animate-in fade-in duration-500">
-          <Ringer ringing={ringing} />
-        </span>
-      )}
+    <div className="grid h-7 max-w-full items-center justify-items-center">
       {shown && (
         <Fade at="col-start-1 row-start-1 max-w-full" shown={tool !== null}>
           <Activity tool={shown} />
@@ -784,12 +792,21 @@ function ActivityRow({
 }
 
 /**
- * Who a ringing call-back is for: the bot's face and what it has, then the job,
- * and how many more rang with it. The words pulse while it rings.
+ * A call-back waiting in the corner opposite the room's pill: who is calling and
+ * what for, and the two ways to take it — by voice, or by reading the thread. It
+ * is the whole notice, so nothing but the face's ring says it elsewhere, and the
+ * pill leaves that thread's row to it (ringingThreads). Once it has rung out it
+ * stays as a missed call until it is answered or dismissed.
  */
-function Ringer({ ringing }: { ringing: Ringing }) {
-  const bots = useServerRoute<Bot[]>(queryKey.bot).data;
-  const bot = bots?.find((one) => one.name === ringing.bot) ?? null;
+function CallBackCard({
+  ringing,
+  onAnswer,
+  onDismiss,
+}: {
+  ringing: Ringing;
+  onAnswer: () => void;
+  onDismiss: () => void;
+}) {
   const says =
     ringing.kind === "question"
       ? `${ringing.bot} has a question`
@@ -797,28 +814,56 @@ function Ringer({ ringing }: { ringing: Ringing }) {
         ? `Answer from ${ringing.bot}`
         : `${ringing.bot} stopped`;
   return (
-    <span className="flex max-w-full items-center gap-1.5 text-[13px] leading-5 text-muted-foreground">
-      <span className="grid size-4.5 shrink-0 place-items-center">
-        <BotMark
-          size={16}
-          seed={ringing.bot}
-          color={bot?.icon?.color}
-          shape={bot?.icon?.shape}
-          outline={bot?.icon?.outline}
-          paint={bot?.icon?.paint}
-          // a question or a stop waits on the user; an answer only waits to be read
-          notify={ringing.kind !== "done"}
-        />
-      </span>
-      <ShinyText text={says} motion="pulse" className="shrink-0" />
-      <span className="text-muted-foreground/40">·</span>
-      <span className="min-w-0 truncate break-keep">{ringing.label}</span>
-      {ringing.more > 0 && (
-        <span className="shrink-0 rounded-full bg-muted px-1.5 font-mono text-[10px] leading-4.5 text-foreground/70">
-          +{ringing.more}
-        </span>
-      )}
-    </span>
+    <div className="absolute bottom-5 left-5 z-10 w-100 max-w-[calc(100vw-2.5rem)] animate-in rounded-3xl bg-background/95 p-3.5 shadow-lg ring-1 shadow-black/10 ring-border/60 backdrop-blur-md fade-in slide-in-from-bottom-2 duration-300">
+      <div className="flex items-center gap-3.5">
+        <ThursdayMark size={44} className="shrink-0" />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <ShinyText
+            text={
+              ringing.missed
+                ? "Thursday is calling"
+                : " Missed call from Thursday"
+            }
+            className="text-[15px] font-medium"
+          />
+          <span className="truncate text-xs text-muted-foreground">
+            {says} · {ringing.label}
+            {ringing.more > 0 && ` · +${ringing.more}`}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Not now"
+          className="grid size-8 shrink-0 self-start place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <X className="size-3.5" />
+        </button>
+      </div>
+      {/* Both ways out are named: the pill's row for this thread is gone while
+          this card is up, so reading it has to be offered here */}
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          onClick={onAnswer}
+          className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          <Phone className="size-4 fill-current" />
+          {ringing.missed ? "Call back" : "Answer"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            roomOpens.open(ringing.id);
+            onDismiss();
+          }}
+          className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-muted text-sm font-medium transition-colors hover:bg-accent"
+        >
+          <MessageSquare className="size-4 text-muted-foreground" />
+          Open thread
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -1139,6 +1184,7 @@ export function Thursday() {
     decline,
     getSpectrum,
     getMicSpectrum,
+    micLive,
     wakePhrase,
     hotkey,
   } = useThursday();
@@ -1178,6 +1224,7 @@ export function Thursday() {
         since={since}
         getSpectrum={getSpectrum}
         getMicSpectrum={getMicSpectrum}
+        micLive={micLive}
         face={face}
         captionView={captionView}
         callable={callable}

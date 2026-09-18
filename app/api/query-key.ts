@@ -60,6 +60,8 @@ export const queryKey = {
 
   /** boolean: whether bots keep their own memory (Settings > Bots) */
   botMemory: "/api/bot/memory",
+  /** boolean: whether running jobs carry on with no browser open (Settings > Bots) */
+  botKeepWorking: "/api/bot/keep-working",
   /** BotMemory: one bot's own memory files, newest first (Settings > Bots) */
   botMemoryFiles: (bot: string) => ({
     url: "/api/bot/memory/files",
@@ -80,6 +82,8 @@ export const queryKey = {
     url: "/api/bot/thread",
     query: { history: 1, before },
   }),
+  /** Thread | null: one job with its lines, for a job neither list holds (the room opening an older one). */
+  thread: (id: string) => ({ url: "/api/bot/thread", query: { id } }),
   /** ResultPart[]: the full result of one tool call; lists carry only a few lines. */
   toolResult: (threadId: string | null, callId: string | null) => ({
     url: "/api/bot/thread",
@@ -95,9 +99,9 @@ export const queryKey = {
     url: "/api/workspace",
     query: { path: path || null, rows },
   }),
-  /** PathChips: which of the paths one message names have no file. Under `workspace`, so it refreshes with it. */
-  workspaceMissing: (paths: string[]) => ({
-    url: "/api/workspace/missing",
+  /** Attachments: which of the paths one message names are on disk, and how big. Under `workspace`, so it refreshes with it. */
+  workspaceFiles: (paths: string[]) => ({
+    url: "/api/workspace/files",
     query: { paths: JSON.stringify(paths) },
   }),
 
@@ -118,6 +122,8 @@ export const queryKey = {
 
   /** Raw workspace file, no Result envelope; for iframe, img and fetch, not SWR. */
   file: (path: string) => `/api/file/${encodePath(path)}`,
+  /** A site's icon, fetched by the server (lib/favicon): an image, never a JSON read. */
+  favicon: (host: string) => `/api/favicon/${encodeURIComponent(host)}`,
   /** File viewer page (new tab): md rendered, html and pdf framed */
   fileView: (path: string) => `/artifact/${encodePath(path)}`,
 

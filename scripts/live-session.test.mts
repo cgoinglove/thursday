@@ -4,6 +4,8 @@ import { LIVE_CALL } from "../config.ts";
 import type {
   LiveActivity,
   LiveReasoning,
+  LiveSearch,
+  LiveSource,
   LiveToolCall,
   LiveTurn,
 } from "../lib/live/live.session.ts";
@@ -68,6 +70,8 @@ async function connect({
   const failures: string[] = [];
   const activities: LiveActivity[] = [];
   const reasonings: LiveReasoning[] = [];
+  const searches: LiveSearch[] = [];
+  const citations: [string, LiveSource[]][] = [];
   const closes: { reason: string; seconds: number | null }[] = [];
   const session = createLiveSession({
     initialize: async (sdp) => {
@@ -82,6 +86,8 @@ async function connect({
     on: {
       runTool,
       reasoning: (part) => reasonings.push(part),
+      search: (search) => searches.push(search),
+      cited: (responseId, sources) => citations.push([responseId, sources]),
       turn: (turn) => turns.push(turn),
       warn: (message) => warnings.push(message),
       failed: (message) => failures.push(message),
@@ -99,6 +105,8 @@ async function connect({
     failures,
     activities,
     reasonings,
+    searches,
+    citations,
     closes,
   };
 }
@@ -256,6 +264,91 @@ test("a finished reasoning summary part is reported once, whole, with its place 
     ],
   );
   assert.ok(reasonings.every((part) => part.seq >= 0));
+});
+
+test("the backend's own web search is reported as it starts and ends, with the pages it and the answer name", async () => {
+  const { searches, citations, turns } = await connect();
+  nested({ type: "response.created", response: { id: "r1" } });
+  nested({
+    type: "response.output_item.added",
+    item: {
+      type: "web_search_call",
+      id: "ws_1",
+      status: "in_progress",
+      action: { type: "search", query: " tokyo weather tomorrow " },
+    },
+  });
+  nested({
+    type: "response.output_item.done",
+    item: {
+      type: "web_search_call",
+      id: "ws_1",
+      status: "completed",
+      action: {
+        type: "search",
+        query: "tokyo weather tomorrow",
+        sources: [
+          { type: "url", url: "https://tenki.jp/a" },
+          { type: "url", url: "https://tenki.jp/a" },
+        ],
+      },
+    },
+  });
+  nested({
+    type: "response.output_item.done",
+    item: {
+      type: "message",
+      id: "msg_1",
+      content: [
+        {
+          type: "output_text",
+          text: "Rain from the afternoon.",
+          annotations: [
+            { type: "url_citation", url: "https://tenki.jp/a", title: "Tokyo" },
+            { type: "url_citation", url: "https://jma.go.jp/b", title: "JMA" },
+            { type: "url_citation", url: "https://jma.go.jp/b", title: "JMA" },
+          ],
+        },
+      ],
+    },
+  });
+  await tick();
+  assert.deepEqual(
+    searches.map((search) => [
+      search.id,
+      search.responseId,
+      search.query,
+      search.done,
+      search.sources.map((source) => source.url),
+    ]),
+    [
+      ["ws_1", "r1", "tokyo weather tomorrow", false, []],
+      ["ws_1", "r1", "tokyo weather tomorrow", true, ["https://tenki.jp/a"]],
+    ],
+  );
+  assert.deepEqual(citations, [
+    [
+      "r1",
+      [
+        { url: "https://tenki.jp/a", title: "Tokyo" },
+        { url: "https://jma.go.jp/b", title: "JMA" },
+      ],
+    ],
+  ]);
+  // A search action may list its queries instead of naming one
+  nested({
+    type: "response.output_item.added",
+    item: {
+      type: "web_search_call",
+      id: "ws_2",
+      action: { type: "search", queries: ["tokyo rain", "tokyo umbrella"] },
+    },
+  });
+  await tick();
+  assert.equal(searches.at(-1)?.query, "tokyo rain · tokyo umbrella");
+  // The search is the backend's own: nothing is run, sent back or saved by the seam
+  assert.equal(count("response.item.create"), 0);
+  assert.equal(turns.filter((turn) => turn.role === "tool").length, 0);
 });
 
 test("a function call cut off by the output cap is never run, and its response stops counting as work", async () => {
@@ -707,7 +800,9 @@ test("stored settings keep OpenAI choices and the shared instruction, drop a Gro
   assert.equal(openai.backendPrompt, "Call me Sam.");
   assert.equal(openai.captionView, "sides");
   assert.equal(openai.reasoningEffort, LIVE_DEFAULTS.reasoningEffort);
-  assert.equal(openai.webSearch, false);
+  // Nothing stored, so the default: on
+  assert.equal(openai.webSearch, LIVE_DEFAULTS.webSearch);
+  assert.equal(LIVE_DEFAULTS.webSearch, true);
   assert.equal("model" in openai, false);
   assert.equal("systemPrompt" in openai, false);
 
@@ -737,7 +832,7 @@ test("stored settings keep OpenAI choices and the shared instruction, drop a Gro
   assert.deepEqual(migrateLiveSettings(null), LIVE_DEFAULTS);
 });
 
-test("both call prompts open as one Thursday: the voice gets a two-line delegation policy and memory and no earlier calls, the backend asks before handing work over, and every call has an opening", async () => {
+test("both call prompts open as one Thursday: the voice gets a two-line delegation policy and memory and no earlier calls, the backend carries work on in threads, and every call has an opening", async () => {
   let profileFacts = 200;
   let samFacts = 2;
   const botMock = mock.module("../features/bot/bot.query.ts", {
@@ -893,7 +988,20 @@ test("both call prompts open as one Thursday: the voice gets a two-line delegati
     assert.equal(/backend of Thursday|voice model/.test(backend), false);
     // The end_call name sits in the ending rule only
     assert.equal(backend.split("end_call").length, 2);
-    assert.match(backend, /\*\*Ask once before handing work over\.\*\*/);
+    // A thread, not a bot, is what work carries on in; asking is for a real fork only
+    assert.match(
+      backend,
+      /\*\*A job is a thread, and a thread is what work carries on in\.\*\*/,
+    );
+    assert.match(
+      backend,
+      /Ask the user which it is only when the request could be either/,
+    );
+    // Where the app's own guide sits, for a question about Thursday itself
+    assert.match(
+      backend,
+      /is written under `\.guide\/` here, `index\.md` first/,
+    );
     assert.match(backend, /Each bot keeps its own memory from job to job/);
     assert.match(backend, /they come from bots, not the user/);
     assert.match(backend, /Book the dentist\./);
@@ -934,5 +1042,144 @@ test("both call prompts open as one Thursday: the voice gets a two-line delegati
     connectedMock.restore();
     workspaceMock.restore();
     threadMock.restore();
+  }
+});
+
+test("the jobs open as a call starts go in as facts, with no tool name", async () => {
+  const now = Date.now();
+  let open: Record<string, unknown>[] = [
+    {
+      id: "t1",
+      label: "Hotel in Tokyo",
+      bot: "Scout",
+      status: "running",
+      updatedAt: new Date(now - 60_000),
+      outcome: null,
+      ask: null,
+      room: { questions: [], participants: [], relays: [] },
+      lines: [],
+    },
+    {
+      id: "t2",
+      label: "Dentist",
+      bot: "Jarvis",
+      status: "waiting",
+      updatedAt: new Date(now - 300_000),
+      outcome: null,
+      ask: null,
+      room: {
+        questions: [
+          {
+            id: "q1",
+            bot: "Jarvis",
+            text: "Morning or afternoon?",
+            options: [],
+          },
+        ],
+        participants: [],
+        relays: [],
+      },
+      lines: [],
+    },
+    {
+      id: "t3",
+      label: "Rent chart",
+      bot: "Analyst",
+      status: "done",
+      updatedAt: new Date(now - 7_200_000),
+      outcome: "The chart is in artifacts.",
+      ask: null,
+      room: { questions: [], participants: [], relays: [] },
+      lines: [],
+    },
+  ];
+  const threadMock = mock.module("../features/bot/thread.query.ts", {
+    namedExports: { listThreadOverview: async () => open },
+  });
+  try {
+    const { loadCallStanding } = await import(
+      "../features/ai/prompts/call-standing.ts"
+    );
+    const text = (await loadCallStanding()) ?? "";
+    assert.match(text, /^\[The jobs as this call opened, open work first\./);
+    assert.match(
+      text,
+      /- "Hotel in Tokyo" \(t1\) — Scout — running, last moved/,
+    );
+    assert.match(
+      text,
+      /- "Dentist" \(t2\) — Jarvis — waiting on the user since .+ — Jarvis asked: Morning or afternoon\?/,
+    );
+    assert.match(text, /- "Rent chart" \(t3\) — Analyst — done/);
+    // The voice reads the same conversation and holds no tool that takes a thread
+    assert.equal(text.includes("`"), false);
+    assert.equal(/delegate|status/.test(text), false);
+
+    // Nothing handed over yet: nothing goes in
+    open = [];
+    assert.equal(await loadCallStanding(), null);
+  } finally {
+    threadMock.restore();
+  }
+});
+
+test("with an Exa key the call searches through Exa and hands the pages back apart", async () => {
+  const configMock = mock.module("../features/config/config.query.ts", {
+    namedExports: {
+      readConfig: async (key: string) =>
+        key === "EXA_API_KEY" ? "exa-key" : undefined,
+      writeConfig: async () => {},
+    },
+  });
+  mock.method(globalThis, "fetch", async (url: string, init: RequestInit) => {
+    assert.equal(url, "https://api.exa.ai/search");
+    assert.equal(
+      (init.headers as Record<string, string>)["x-api-key"],
+      "exa-key",
+    );
+    return Response.json({
+      results: [
+        {
+          title: "Tokyo weather",
+          url: "https://tenki.jp/a",
+          text: "Rain in the afternoon.",
+        },
+        { title: "", url: "https://jma.go.jp/b", text: "70%" },
+        { title: "No link", url: null, text: "Dropped from the pages" },
+      ],
+    });
+  });
+  try {
+    const { createCallSearchTool } = await import(
+      "../features/ai/tools/search.tool.ts"
+    );
+    const tools = await createCallSearchTool({
+      fold: (text: string) => text,
+    } as never);
+    const run = tools.web_search?.execute as unknown as (
+      input: { query: string },
+      options: { toolCallId: string; messages: never[] },
+    ) => Promise<{
+      results: string;
+      sources: { url: string; title?: string }[];
+    }>;
+    const found = await run(
+      { query: "tokyo weather" },
+      { toolCallId: "t1", messages: [] },
+    );
+    assert.deepEqual(found.sources, [
+      { url: "https://tenki.jp/a", title: "Tokyo weather" },
+      { url: "https://jma.go.jp/b" },
+    ]);
+    assert.match(found.results, /Tokyo weather — https:\/\/tenki\.jp\/a/);
+
+    // The call screen reads the pages back from the answer, and nothing from a failure line
+    const { searchSourcesOf } = await import(
+      "../features/thursday/tool-line.ts"
+    );
+    assert.deepEqual(searchSourcesOf(JSON.stringify(found)), found.sources);
+    assert.deepEqual(searchSourcesOf("Search failed: offline."), []);
+  } finally {
+    configMock.restore();
   }
 });

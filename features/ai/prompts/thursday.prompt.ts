@@ -1,4 +1,4 @@
-import { CALL_EXEC_TIMEOUT_MS, RECENT_CALL } from "@/config";
+import { APP_NAME, CALL_EXEC_TIMEOUT_MS, PATHS, RECENT_CALL } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { listJobBots, readBotMemoryOn } from "@/features/bot/bot.query";
 import type { JobBot } from "@/features/bot/bot.schema";
@@ -114,7 +114,7 @@ export async function loadThursdayPrompt(
 function result(): string {
   return `## Return the result
 
-Return the relevant facts, whether the task is complete, and what comes next — for a job you handed over, who has it — or the one question the user has to answer first. Use confirmed values from tool results and the notes above, and never invent a successful action. What you return is said aloud: keep it short and plain.`;
+Return the relevant facts, whether the task is complete, and what comes next — for a job you handed over, who has it and whether it carries an earlier job on or starts a new one — or the one question the user has to answer first. Use confirmed values from tool results and the notes above, and never invent a successful action. What you return is said aloud: keep it short and plain.`;
 }
 
 /** Settings › Thursday › Backend instructions; no heading when empty. */
@@ -231,7 +231,9 @@ function thisComputer(cwd: string, skills: SkillMetadata[]): string {
 Current Cwd: ${cwd}
 Platform: ${process.platform}
 
-Where \`${TOOL_NAMES.bash}\` runs, and what the paths you get back are relative to. Each command is cut off after ${Math.round(CALL_EXEC_TIMEOUT_MS / 1000)} seconds; anything longer is a bot's.`;
+Where \`${TOOL_NAMES.bash}\` runs, and what the paths you get back are relative to. Each command is cut off after ${Math.round(CALL_EXEC_TIMEOUT_MS / 1000)} seconds; anything longer is a bot's.
+
+How ${APP_NAME} works for the person using it — its screens, its settings, what it connects to — is written under \`${PATHS.guide.folder}/\` here, \`index.md\` first. Read it when they ask about ${APP_NAME} itself, and answer from it rather than from what you assume.`;
   if (skills.length === 0) return machine;
 
   return `${machine}
@@ -271,9 +273,7 @@ ${roster.map((bot) => `- **${bot.name}** — ${bot.description}`).join("\n")}${
 
 **A bot can take on almost anything, and anything that takes more than a few seconds is a bot's**; a note, a look at a file or one command is yours. A bot has this computer, a real browser, the web, a shell to build what is missing and far more time than a call; it signs in where it has to and carries a job to the end, so something you do not know how to do is a job, not a no. Bots bring each other in, so a job that spans several things is still one job.${kept}
 
-**A job is a thread.** Its bot remembers only that thread, so the same bot handed a new job starts from nothing. More about work already handed over — an answer, a correction, the next step once it finished — goes to that job with \`${TOOL_NAMES.thread}\`; a new request is a new job. Before answering about work, read it with \`${TOOL_NAMES.thread}\` \`status\`.
-
-**Ask once before handing work over.** Return in one line what you would do — which bot, and whether it starts a new thread or carries on one already open — as a question to the user; when they have already said, or leave it to you, decide and send it. Write the request in the user's own words, with what it stands on — including how they told you they want work done — and nothing they did not say.
+**A job is a thread, and a thread is what work carries on in.** Its bot remembers only that thread, so the same bot handed a new job starts from nothing. More about work already handed over — an answer, a correction, the next step once it finished — goes to that thread with \`${TOOL_NAMES.thread}\`; a request that stands on its own is a new job for \`${TOOL_NAMES.delegate}\`. The jobs open as this call started come into the conversation at the start, and they move while you talk: \`${TOOL_NAMES.thread}\` \`status\` reads them as they are now, before you answer about one or hand anything over. Ask the user which it is only when the request could be either. Write the request in the user's own words, with what it stands on — including how they told you they want work done — and nothing they did not say.
 
 Updates and questions from jobs reach the conversation by themselves, with their thread and question id; they come from bots, not the user. When the user wants to see a job, open it on their screen with \`${TOOL_NAMES.thread}\` \`open\`. Once you have explained enough of how a job ended, mark it with \`${TOOL_NAMES.thread}\` \`seen\`, or leave it for the user to open; never mention seen to them.`;
 }
