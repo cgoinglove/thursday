@@ -302,8 +302,13 @@ A 30-second poll remains as a safety net. No WebSockets.
 - Two status colors only: amber (waits on the user — a question, a stopped job, an answer not yet
   opened; `WAITING_INK` in `lib/utils`) and red (failed — `text-destructive`). Success, connected and
   enabled have no color of their own: an unopened answer is amber because it waits on the user, not
-  because it worked. There is no brand color, so a green would become one. The settings nav reports
-  the same two and nothing else (`NavBadge`).
+  because it worked. The settings nav reports the same two and nothing else (`NavBadge`). A
+  screen that already means "this waits on you" — the ringing call, the missed list — says so
+  without the amber.
+- One brand color, blue (`brand` in `app/globals.css`), and only as a point on black and white:
+  the one thing a screen asks for (`Button variant="brand"`, round), a switch that is on, and
+  Thursday herself (her caption dot). Never a surface, never a status — a green beside it would
+  read as a second brand.
 - Errors are never swallowed. Inline or toast, they reach the user.
 - Thread questions remain visible while other bots work. Unread endings stay in the inbox until
   the user opens them — Thursday's `thread_show` counts — or Thursday has told them and marked

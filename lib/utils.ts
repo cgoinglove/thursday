@@ -88,6 +88,7 @@ export const PromiseChain = () => {
 
 /**
  * "Waiting on me" ink. The other status colour is `text-destructive` (failed);
- * success, connected and enabled carry none, so a third would become a brand.
+ * success, connected and enabled carry none. Blue is no status: it is the brand
+ * (`bg-brand`), the one thing a screen asks for and Thursday herself.
  */
 export const WAITING_INK = "text-amber-700 dark:text-amber-400";

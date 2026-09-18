@@ -10,6 +10,9 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        // The one thing a screen asks for, and round: the brand colour is a point, never a surface
+        brand:
+          "rounded-full bg-brand text-brand-foreground hover:bg-brand/85 focus-visible:ring-brand/30",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:

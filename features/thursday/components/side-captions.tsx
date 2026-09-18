@@ -102,8 +102,6 @@ const HOVER_INK = 0.9;
 /** The words are 17px on 1.675; the level turn's first line sits here against the face's middle. */
 const LINE = 17 * 1.675;
 const LIFT = -40;
-/** Thursday's dot. Yours is the foreground. */
-const HER_DOT = "oklch(0.58 0.17 255)";
 
 /**
  * The conversation beside the face, no plates and no names: a filled dot at
@@ -251,9 +249,9 @@ function SideColumn({
                     turn.id === saying
                       ? "animate-pulse motion-reduce:animate-none"
                       : "opacity-55",
-                    mine && "bg-foreground",
+                    // hers is the brand colour, yours the foreground
+                    mine ? "bg-foreground" : "bg-brand",
                   )}
-                  style={mine ? undefined : { background: HER_DOT }}
                 />
               )}
               {turn.text}
