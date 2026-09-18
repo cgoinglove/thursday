@@ -61,7 +61,7 @@ import { useObjectState } from "@/hooks/use-object-state";
 import { schemaToType } from "@/lib/json-schema";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
-import { cn, faviconUrl } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 /** Connected servers as rows, then the presets as a grid you can scan. */
 export function McpSetting() {
@@ -258,9 +258,32 @@ function ServerRow({ server }: { server: MCPServerSummary }) {
 function ServerTile({ server }: { server: MCPServerSummary }) {
   const icon = presetIconFor(server);
   if (!icon) return <Server className="size-4" />;
+  return <SiteIcon host={icon} className="size-5" glyph="size-4" />;
+}
+
+/**
+ * A vendor's own icon, asked for by this server (lib/favicon) so no third party
+ * learns which services are looked at. A site that gives none draws the glyph.
+ */
+function SiteIcon({
+  host,
+  className,
+  glyph,
+}: {
+  host: string;
+  className: string;
+  glyph: string;
+}) {
+  const [missing, setMissing] = useState(false);
+  if (missing) return <Server className={glyph} />;
   return (
-    // biome-ignore lint/performance/noImgElement: small external favicon
-    <img src={faviconUrl(icon)} alt="" className="size-5" />
+    // biome-ignore lint/performance/noImgElement: a small icon from our own route
+    <img
+      src={queryKey.favicon(host)}
+      alt=""
+      className={className}
+      onError={() => setMissing(true)}
+    />
   );
 }
 
@@ -429,7 +452,7 @@ type Draft = {
 };
 
 /** Fields for one transport, or a pasted JSON block; switching modes carries the config over. */
-export function openMcpRegister(initial?: MCPServerForm) {
+function openMcpRegister(initial?: MCPServerForm) {
   return notify.component({
     className: "sm:max-w-lg",
     renderer: ({ close }) => <McpRegister initial={initial} onDone={close} />,
@@ -869,7 +892,7 @@ const OAUTH_POLL_MS = 700;
 const OAUTH_WATCH_MS = 5 * 60_000;
 
 /** Reports a connect outcome; shared by register and reconnect. */
-export function reportConnect(summary: ConnectSummary) {
+function reportConnect(summary: ConnectSummary) {
   if (summary.status === "auth_required" && summary.authorizationUrl) {
     // A popup: the callback page closes it when authorization finishes
     const popup = window.open(
@@ -914,7 +937,7 @@ export function reportConnect(summary: ConnectSummary) {
 }
 
 /** Refresh the list, then report. */
-export const CONNECT_OPTIONS = {
+const CONNECT_OPTIONS = {
   onOk: (summary: ConnectSummary) => {
     revalidate(queryKey.mcp);
     reportConnect(summary);
@@ -961,8 +984,11 @@ function PresetSection({
             <Plus className="absolute top-3 right-3 size-3.5 shrink-0 text-muted-foreground/50 group-hover:text-foreground" />
             <span className="grid size-6 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground">
               {preset.icon ? (
-                // biome-ignore lint/performance/noImgElement: small external favicon
-                <img src={faviconUrl(preset.icon)} alt="" className="size-4" />
+                <SiteIcon
+                  host={preset.icon}
+                  className="size-4"
+                  glyph="size-3.5"
+                />
               ) : (
                 <Server className="size-3.5" />
               )}

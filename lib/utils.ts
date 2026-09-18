@@ -5,10 +5,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** Vendor favicon via Google's favicon service. */
-export const faviconUrl = (domain: string) =>
-  `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
-
 /** Collapses whitespace to one line and cuts at `max` characters with an ellipsis. */
 export function clip(text: string, max: number): string {
   const flat = text.replace(/\s+/g, " ").trim();
