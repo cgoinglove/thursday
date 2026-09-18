@@ -6,13 +6,11 @@ import { Thursday } from "@/features/thursday/components/thursday";
 
 /**
  * The app's only screen. The call screen always renders (it shows its own
- * no-key state); the intro overlays it when there is no key or `?intro` is set,
- * and Boot plays over both once per load.
+ * no-key state); the intro overlays it when there is no key or `?intro` is set.
  */
 export default async function Home({ searchParams }: PageProps<"/">) {
   const { intro } = await searchParams;
   const ready = await isCallable();
-  const onIntro = intro !== undefined || !ready;
 
   return (
     <div className="h-full min-h-0 flex-1">
@@ -24,7 +22,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         forced={intro !== undefined}
         icons={rollSeedIcons()}
       />
-      <Boot over={onIntro ? "intro" : "call"} />
+      <Boot />
     </div>
   );
 }

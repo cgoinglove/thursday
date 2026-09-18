@@ -28,9 +28,7 @@ import {
   type VoiceKeysHandle,
 } from "@/features/config/components/voice-key";
 import { AsciiField } from "@/features/thursday/components/ascii-field";
-import { AsciiWave } from "@/features/thursday/components/ascii-wave";
-import { CALL_FACE, INTRO_FACE } from "@/features/thursday/components/boot";
-import { useThursdayFace } from "@/features/thursday/face.store";
+import { INTRO_FACE } from "@/features/thursday/components/boot";
 import { cn } from "@/lib/utils";
 
 /**
@@ -78,9 +76,6 @@ export function Intro({
   const [runsOn, setRunsOn] = useState<RunsOn>({ provider: null, model: "" });
   const keys = useRef<VoiceKeysHandle>(null);
   const [saving, setSaving] = useState(false);
-  const look = useThursdayFace();
-  /** The wave that carries the intro off has passed. */
-  const [waved, setWaved] = useState(false);
 
   /** Next step. On the key step, an unsaved key is offered a save first; a failed save does not advance. */
   const next = async () => {
@@ -111,18 +106,8 @@ export function Intro({
     return () => clearTimeout(end);
   }, [gone]);
 
-  // As the intro ends one wave leaves her face, where the call screen has it. It outlives
-  // the intro's own fade and the refresh that makes `ready` true, so it is decided first
-  const wave = gone && !waved && (
-    <div aria-hidden className="pointer-events-none fixed inset-0 z-50">
-      <AsciiWave
-        centerY={CALL_FACE.centerY}
-        charset={look.kind === "ascii" ? look.charset : "ascii"}
-        onDone={() => setWaved(true)}
-      />
-    </div>
-  );
-  if (lifted || (ready && !forced)) return wave || null;
+  if (lifted) return null;
+  if (ready && !forced) return null;
 
   const first = at === 0;
 
@@ -147,80 +132,77 @@ export function Intro({
     setPicked((all) => ({ ...all, [name]: !all[name] }));
 
   return (
-    <>
-      {wave}
-      <div
-        className={cn(
-          "fixed inset-0 z-40 bg-background transition-opacity duration-700",
-          gone && "pointer-events-none opacity-0",
-        )}
-      >
-        <AsciiField
-          rim={first ? INTRO_FACE.rim : ASIDE.rim}
-          centerY={INTRO_FACE.centerY}
-          clearAt={first ? FIRST_CLEAR : ASIDE.clearAt}
-          clearBy={first ? 0.7 : 0.55}
-          className="absolute inset-0"
-        />
+    <div
+      className={cn(
+        "fixed inset-0 z-40 bg-background transition-opacity duration-700",
+        gone && "pointer-events-none opacity-0",
+      )}
+    >
+      <AsciiField
+        rim={first ? INTRO_FACE.rim : ASIDE.rim}
+        centerY={INTRO_FACE.centerY}
+        clearAt={first ? FIRST_CLEAR : ASIDE.clearAt}
+        clearBy={first ? 0.7 : 0.55}
+        className="absolute inset-0"
+      />
 
-        <div className="absolute inset-x-12 top-22 bottom-44 flex flex-col items-center justify-center overflow-y-auto">
-          {at === 0 && <FirstLook face={face} />}
-          {at === 1 && <KeyStep ref={keys} onSaved={() => setKeyed(true)} />}
-          {at === 2 && (
-            <BotStep
-              picked={picked}
-              runsOn={runsOn}
-              face={face}
-              onToggle={toggle}
-              onRunsOn={setRunsOn}
-            />
+      <div className="absolute inset-x-12 top-22 bottom-44 flex flex-col items-center justify-center overflow-y-auto">
+        {at === 0 && <FirstLook face={face} />}
+        {at === 1 && <KeyStep ref={keys} onSaved={() => setKeyed(true)} />}
+        {at === 2 && (
+          <BotStep
+            picked={picked}
+            runsOn={runsOn}
+            face={face}
+            onToggle={toggle}
+            onRunsOn={setRunsOn}
+          />
+        )}
+      </div>
+
+      <div className="absolute inset-x-0 bottom-13 flex flex-col items-center gap-5.5">
+        <div className="flex flex-col items-center gap-2.5">
+          {at === STEPS - 1 ? (
+            <Button onClick={leave} className="h-12 px-6 pl-7 text-[15px]">
+              {keyed ? "Start talking" : "Look around"}
+              <ChevronRight />
+            </Button>
+          ) : (
+            <Button
+              onClick={next}
+              loading={saving}
+              className="h-12 px-6 pl-7 text-[15px]"
+            >
+              {at === 0 ? "Set up" : "Continue"}
+              <ChevronRight />
+            </Button>
+          )}
+          {at === 1 && !keyed && (
+            <Button
+              variant="ghost"
+              onClick={() => setAt(2)}
+              className="h-8 text-[13.5px] text-muted-foreground"
+            >
+              I will add it later
+            </Button>
           )}
         </div>
 
-        <div className="absolute inset-x-0 bottom-13 flex flex-col items-center gap-5.5">
-          <div className="flex flex-col items-center gap-2.5">
-            {at === STEPS - 1 ? (
-              <Button onClick={leave} className="h-12 px-6 pl-7 text-[15px]">
-                {keyed ? "Start talking" : "Look around"}
-                <ChevronRight />
-              </Button>
-            ) : (
-              <Button
-                onClick={next}
-                loading={saving}
-                className="h-12 px-6 pl-7 text-[15px]"
-              >
-                {at === 0 ? "Set up" : "Continue"}
-                <ChevronRight />
-              </Button>
-            )}
-            {at === 1 && !keyed && (
-              <Button
-                variant="ghost"
-                onClick={() => setAt(2)}
-                className="h-8 text-[13.5px] text-muted-foreground"
-              >
-                I will add it later
-              </Button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1.75">
-            {Array.from({ length: STEPS }, (_, step) => (
-              <span
-                key={step}
-                className={cn(
-                  "h-1.75 rounded-full transition-all duration-300",
-                  step === at ? "w-5.5 bg-foreground" : "w-1.75",
-                  step < at ? "bg-foreground/40" : "",
-                  step > at ? "bg-border" : "",
-                )}
-              />
-            ))}
-          </div>
+        <div className="flex items-center gap-1.75">
+          {Array.from({ length: STEPS }, (_, step) => (
+            <span
+              key={step}
+              className={cn(
+                "h-1.75 rounded-full transition-all duration-300",
+                step === at ? "w-5.5 bg-foreground" : "w-1.75",
+                step < at ? "bg-foreground/40" : "",
+                step > at ? "bg-border" : "",
+              )}
+            />
+          ))}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
