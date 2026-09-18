@@ -238,7 +238,7 @@ const LISTEN_THIN = 0.16;
 const LISTEN_POP = 0.6;
 const LISTEN_POP_RATE = 9;
 
-/** Working: a comet orbiting just outside the resting body */
+/** Working: a comet on the orbit just outside where the body rests; the body itself is gone */
 const WORK_R = 210;
 /** Orbit speed (rad/s); 3.0 is about one lap per 2s */
 const WORK_SPIN = 3;
@@ -336,7 +336,7 @@ type Field = {
   lift: number;
   /** Crumbs streaming in from the edge of the field (connecting) */
   gather: number;
-  /** A comet orbiting outside the body (working) */
+  /** A comet on its orbit, the body gone (working) */
   comet: number;
   /** Her voice: the rim it pushes and the crumbs a syllable throws (speaking) */
   speech: number;
@@ -386,8 +386,9 @@ function targetFor(m: AsciiOrbMode, e: number, v: Voice): Field {
     case "speaking":
       return { ...rest, speech: 1 };
 
+    // the body goes, and only the comet keeps its orbit
     case "working":
-      return { ...rest, comet: 1 };
+      return { ...rest, scale: 0, comet: 1 };
 
     case "ending":
       return { ...rest, scale: 0 };
