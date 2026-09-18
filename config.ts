@@ -148,8 +148,10 @@ export const PATHS = {
     default: "skills", // ships with the app, read-only
     // The user's own, inside the workspace; where `npx skills add` installs.
     custom: `${WORKSPACE}/.agents/skills`,
-    // One bot's own, inside its folder (`bots/<name>/skills`): listed to that bot alone.
-    own: "skills",
+    // One bot's own, inside its folder (`bots/<name>/.agents/skills`): listed to that bot
+    // alone. The same shape as `custom`, so `npx skills add` run from the bot's folder
+    // installs here and what that tool leaves beside it goes when the bot's folder does.
+    own: ".agents/skills",
     // Ships with the app: a seed's kit in `<seeds>/<seed name, lowercased>/`, copied
     // into that bot's own folder when it is created (skills.discover giveSeedSkills).
     seeds: "seed-skills",

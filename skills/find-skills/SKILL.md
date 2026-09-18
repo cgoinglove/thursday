@@ -13,13 +13,22 @@ description: "Find and install a skill from the open registry. Use when a job ne
 Everything the app has to say about installing skills is here; the prompts do
 not repeat it.
 
-**Install into the workspace, never globally.** Your shell already runs in the
-workspace, and the app reads skills from `.agents/skills/` under it. A plain
-`add` puts them there:
+**Where you run it decides who gets it.** `add` installs into `.agents/skills/`
+under the folder it is run from, and the app reads that folder in two places:
 
-```bash
-npx skills add <owner>/<repo>@<skill> -y
-```
+- **Your own folder** (the Environment names it) — the skill is yours alone. The
+  default: a method this job needs is rarely one every bot should carry.
+
+  ```bash
+  (cd <your own folder> && npx skills add <owner>/<repo>@<skill> -y)
+  ```
+
+- **The workspace root**, where your shell starts — every bot and the call get it.
+  Only when the user asked for that.
+
+  ```bash
+  npx skills add <owner>/<repo>@<skill> -y
+  ```
 
 Never `-g`. That installs to the machine's own user directory, where this app
 never looks — the command reports success and the skill is nowhere.

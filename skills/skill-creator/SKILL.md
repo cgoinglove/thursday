@@ -15,16 +15,23 @@ Everything below follows from that.
 
 ## Where a new skill goes
 
-`.agents/skills/<name>/` — relative to your working directory, the workspace.
-The user's own skills live there and only there (it is also where
-`npx skills add` downloads to).
+Where it sits decides who gets it, and the app reads two places:
+
+- `<your own folder>/.agents/skills/<name>/` (the Environment names your folder) —
+  yours alone. The default for a way of working that belongs to your subject.
+- `.agents/skills/<name>/` at the workspace root, your working directory — every bot
+  and the call get it. When the user wants it for everyone, or it is not about
+  your subject.
+
+Both are also where `npx skills add` downloads to, depending on the folder it is
+run from.
 
 `../skills/` ships with the app and is under git. Do not write there. When a
 name collides, the app's skill wins — a user skill with the same name is not
 listed at all. To change a shipped skill, make one under a different name, and
 copy the original folder as a starting point if that helps.
 
-`bash` runs in the workspace, so a new skill's path is simply
+`bash` runs in the workspace, so a shared skill's path is simply
 `.agents/skills/<name>/` and a shipped skill's is `../skills/<name>/`. If
 `load_skill` handed you an absolute path, use that.
 
@@ -109,12 +116,12 @@ tree bigger than that is a tree with files nobody will open.
 what is there. Leave the name and the folder name alone — they are what the
 user's earlier requests and other skills pointing here refer to. Do not edit
 skills that ship with the app (`../skills/`) — make a copy under a different
-name in `.agents/skills/` and edit that.
+name in one of the two places above and edit that.
 
 ## Before you report
 
 ```bash
-node ../skills/skill-creator/scripts/validate.mjs .agents/skills/<name>
+node ../skills/skill-creator/scripts/validate.mjs <the skill's folder>
 ```
 
 It checks the things that fail silently: frontmatter the app cannot parse, a

@@ -23,7 +23,9 @@ Settings › Thursday instead.
 A skill is a written-down way of doing something that a bot reads before it starts. Some ship
 with the app — the browser, this Mac, finding more skills, building a page or a chart, and
 writing a new skill. **Settings › Skills** lists them, switches one off, uploads one, or
-writes one. A bot can also install one from the open registry while it works.
+writes one. A bot can also install one from the open registry while it works: for itself
+alone unless they asked for every bot to have it. A bot's own skills sit in its own folder
+and are not on that screen, which lists the shared ones.
 
 ## Connected services
 

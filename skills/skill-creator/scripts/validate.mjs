@@ -19,11 +19,8 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
 
-const SKILLS_ROOT = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "../../..",
-);
-const DIRS = [join(SKILLS_ROOT, "custom"), join(SKILLS_ROOT, "default")];
+/** The skills that ship with the app: this script sits in one of them. */
+const SHIPPED = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 const errors = [];
 const warnings = [];
@@ -114,12 +111,11 @@ if (typeof description !== "string" || !description.trim()) {
   if (!errors.length) ok.push("description present");
 }
 
-// On a collision the earlier directory wins, so a name claimed under custom
-// shadows the same name under default. That is how overriding works, and it
-// is only a bug when it was not intended.
+// On a collision the app's own skill wins and the other is not listed at all, so
+// the shipped folder is read first, then the folder this skill sits in.
 if (typeof name === "string" && name) {
   const owners = [];
-  for (const root of DIRS) {
+  for (const root of new Set([SHIPPED, dirname(dir)])) {
     let entries = [];
     try {
       entries = await readdir(root, { withFileTypes: true });
@@ -157,9 +153,9 @@ if (bodyLines > 500) {
   );
 }
 
-if (!dir.startsWith(join(SKILLS_ROOT, "custom"))) {
+if (dirname(dir) === SHIPPED) {
   warnings.push(
-    `this is not under ${join(SKILLS_ROOT, "custom")} — new skills belong there. skills/default ships with the app`,
+    `this is among the skills that ship with the app (${SHIPPED}) — a new skill belongs in an .agents/skills folder of the workspace`,
   );
 }
 

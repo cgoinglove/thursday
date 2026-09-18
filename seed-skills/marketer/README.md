@@ -1,7 +1,7 @@
 # Marketer's kit
 
-Six skills the Marketer seed is born with, copied into its own `skills/` folder when it is
-created. They are listed to that bot alone.
+Six skills the Marketer seed is born with, copied into `.agents/skills/` in its own folder
+when it is created. They are listed to that bot alone.
 
 A trimmed copy of [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills)
 at `5b2c0007766c6a1cf1d53fd8fc73e979e0821022` (MIT, see [LICENSE](LICENSE)). Update it by copying
