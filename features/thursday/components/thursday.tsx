@@ -11,7 +11,14 @@ import {
   PhoneMissed,
   Settings2,
 } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -23,7 +30,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { CALL_IDLE } from "@/config";
+import { CALL_IDLE, CALL_LINE } from "@/config";
 import { LIVE_PROVIDER } from "@/features/ai/live.schema";
 import { type Bot, DEFAULT_BOT } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
@@ -241,6 +248,7 @@ function CallScreen({
               thinkingSince={thinkingSince}
               thinkingTitle={thinkingTitle}
               listening={status === "listening" && thinkingSince === null}
+              speaking={status === "speaking"}
               getMicSpectrum={getMicSpectrum}
             />
 
@@ -741,19 +749,104 @@ function Mark({
  * out, and the caption below never moves while they trade places. A tool wins
  * over thinking: it is the same stretch of work, said more exactly.
  */
+/**
+ * The line to draw, given the line the call reports. Each line is drawn for at least
+ * CALL_LINE.dwellMs and the ones that came meanwhile follow in turn, so three tools in a
+ * second read as three lines rather than a flicker. Her voice starting jumps to the
+ * newest: what still waited led to the answer she is now giving.
+ */
+function useDwell(
+  reported: ActivityLine | null,
+  speaking: boolean,
+): ActivityLine | null {
+  const [drawn, setDrawn] = useState(reported);
+  /** Lines in the order they came, the drawn one first. */
+  const queue = useRef<ActivityLine[]>(reported ? [reported] : []);
+  const since = useRef(Date.now());
+  /** The call cleared its line while older ones were still waiting their turn. */
+  const cleared = useRef(false);
+  const turn = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const schedule = useCallback(() => {
+    if (turn.current) clearTimeout(turn.current);
+    turn.current = null;
+    const waiting = queue.current.length > 1 || cleared.current;
+    if (!waiting || !queue.current.length) return;
+    const left = Math.max(0, since.current + CALL_LINE.dwellMs - Date.now());
+    turn.current = setTimeout(() => {
+      queue.current.shift();
+      since.current = Date.now();
+      setDrawn(queue.current[0] ?? null);
+      schedule();
+    }, left);
+  }, []);
+
+  useEffect(() => {
+    if (!reported) {
+      cleared.current = true;
+      // Nothing behind the drawn line: it goes as the call says, with its own fade
+      if (queue.current.length <= 1) {
+        queue.current = [];
+        setDrawn(null);
+      }
+      schedule();
+      return;
+    }
+    cleared.current = false;
+    const at = queue.current.findIndex((line) => line.id === reported.id);
+    if (at >= 0) {
+      queue.current[at] = reported;
+      if (at === 0) setDrawn(reported);
+    } else {
+      // A line another took over never hears that its tool ended: it has, by now
+      queue.current = [
+        ...queue.current.map((line, index) =>
+          index === 0 ? line : { ...line, done: true },
+        ),
+        reported,
+      ];
+      if (queue.current.length === 1) {
+        since.current = Date.now();
+        setDrawn(reported);
+      }
+    }
+    schedule();
+  }, [reported, schedule]);
+
+  useEffect(() => {
+    if (!speaking) return;
+    const newest = queue.current.at(-1);
+    queue.current = newest && !cleared.current ? [newest] : [];
+    since.current = Date.now();
+    setDrawn(queue.current[0] ?? null);
+    schedule();
+  }, [speaking, schedule]);
+
+  useEffect(
+    () => () => {
+      if (turn.current) clearTimeout(turn.current);
+    },
+    [],
+  );
+  return drawn;
+}
+
 function ActivityRow({
-  tool,
+  tool: reported,
   thinkingSince,
   thinkingTitle,
   listening,
+  speaking,
   getMicSpectrum,
 }: {
   tool: ActivityLine | null;
   thinkingSince: number | null;
   thinkingTitle: string | null;
   listening: boolean;
+  speaking: boolean;
   getMicSpectrum?: () => ArrayLike<number>;
 }) {
+  const tool = useDwell(reported, speaking);
   // held past the tool so the pill has something to fade out with
   const [shown, setShown] = useState(tool);
   useEffect(() => {

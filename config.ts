@@ -49,6 +49,15 @@ export const CALL_RELAY = {
 };
 
 /**
+ * The activity line under her face (thursday.tsx). A backend that uses three tools in a
+ * second reports three lines in a second, and none of them can be read.
+ * - `dwellMs`  the least time one line is drawn before the next takes its place; the ones
+ *   behind it wait their turn. Longer reads better and runs further behind the work; her
+ *   voice starting drops whatever still waits, since it is the answer those lines led to.
+ */
+export const CALL_LINE = { dwellMs: 2_000 };
+
+/**
  * When a quiet call ends itself (useThursday).
  * - `hangUpMs`  how long the user has said nothing and she has neither spoken nor worked
  *   before the page hangs up, with no goodbye. Updates she voices on her own (CALL_RELAY) do
