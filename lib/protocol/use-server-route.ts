@@ -12,7 +12,7 @@ import { isResult, unwrapResult } from "./result";
  *   { url: "/api/memory", pathVariable: [id] }        → /api/memory/3
  *   { url: "/api/files", query: { dir: "a b" } }      → /api/files?dir=a+b
  */
-export type RouteKey = {
+type RouteKey = {
   url: string;
   pathVariable?: Array<string | number | null | undefined>;
   query?: Record<string, string | number | boolean | null | undefined>;

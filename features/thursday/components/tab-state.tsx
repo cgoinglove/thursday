@@ -35,7 +35,7 @@ const ICON_STYLE =
   "@media (prefers-color-scheme:dark){.ink{fill:#fafafa}.amber{fill:#ffb900}.red{fill:#ff6467}}";
 
 /** Thursday's mark at rest, wearing the dot for `alert` when there is one. */
-export function tabIconSvg(alert: SectionAlert): string {
+function tabIconSvg(alert: SectionAlert): string {
   const { head, eyes } = markAtRest(THURSDAY_SEED);
   const cut = alert
     ? `<circle cx="${DOT.cx}" cy="${DOT.cy}" r="${DOT.r + DOT.ring}"/>`

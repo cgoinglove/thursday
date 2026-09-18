@@ -46,7 +46,7 @@ export const listConnectedServerNames = async (): Promise<string[]> => {
   ];
 };
 
-export type ConnectedToolSchema = {
+type ConnectedToolSchema = {
   name: string;
   description: string | null;
   inputSchema: Record<string, unknown> | null;
@@ -164,7 +164,7 @@ type ToolResultContent = {
  * MCP answers with content blocks; non-text blocks are named, not carried (one base64 screenshot
  * is a whole context window). The older bare `toolResult` shape some servers still send is read too.
  */
-export function flattenToolResult(result: unknown): McpCallOutcome {
+function flattenToolResult(result: unknown): McpCallOutcome {
   const payload = (result ?? {}) as {
     content?: unknown;
     isError?: boolean;

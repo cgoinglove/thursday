@@ -34,7 +34,7 @@ type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
  * regardless of the speaker's accent; callers with a non-English name pass
  * `lang` and `phrases` together.
  */
-export const WAKE_LANG = "en-US";
+const WAKE_LANG = "en-US";
 
 /**
  * Allowed edit distance per word as a fraction of its length ("hey" = 1 edit,

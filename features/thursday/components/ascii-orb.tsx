@@ -30,7 +30,7 @@ export type AsciiOrbMode =
   | "working"
   | "error";
 
-export type AsciiOrbProps = {
+type AsciiOrbProps = {
   className?: string;
   mode?: AsciiOrbMode;
   /** "emoji" sprinkles emoji in; "emojiOnly" is all emoji */

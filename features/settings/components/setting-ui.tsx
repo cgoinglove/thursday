@@ -143,7 +143,7 @@ export function SettingPanesSkeleton({ rows = 7 }: { rows?: number }) {
  * act on all of it. It also gives a short section a bottom, so the empty half of
  * a tall dialog reads as margin rather than a truncated page.
  */
-export function SettingRail({ children }: { children: ReactNode }) {
+function SettingRail({ children }: { children: ReactNode }) {
   return (
     <div className="shrink-0 border-t border-border/60 px-8">
       <SettingColumn className="flex h-14 items-center gap-3 text-xs text-muted-foreground">

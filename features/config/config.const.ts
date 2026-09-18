@@ -41,14 +41,8 @@ export type ConfigEntry = {
  * Every group id. A union, not a string, because `isCallable` looks the voice
  * group up by id and a typo there silently makes the app always callable.
  */
-export const CONFIG_GROUP_IDS = [
-  "voice",
-  "text",
-  "search",
-  "bots",
-  "studio",
-] as const;
-export type ConfigGroupId = (typeof CONFIG_GROUP_IDS)[number];
+const CONFIG_GROUP_IDS = ["voice", "text", "search", "bots", "studio"] as const;
+type ConfigGroupId = (typeof CONFIG_GROUP_IDS)[number];
 
 /** The group a call runs on: one of its keys must be set (config.query isCallable). */
 export const VOICE_GROUP_ID: ConfigGroupId = "voice";

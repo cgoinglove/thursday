@@ -1,11 +1,11 @@
 const TAG = "$ok" as const;
 
-export type ResultOk<T> = {
+type ResultOk<T> = {
   [TAG]: true;
   data: T;
 };
 
-export type ResultError = {
+type ResultError = {
   [TAG]: false;
   message?: string;
 };

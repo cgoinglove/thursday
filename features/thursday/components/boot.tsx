@@ -13,7 +13,7 @@ import { AsciiField } from "./ascii-field";
  * same values so the face does not jump when the curtain lifts.
  */
 export const INTRO_FACE = { centerY: 0.3, rim: 0.16 };
-export const CALL_FACE = { centerY: 0.42, rim: 0.2 };
+const CALL_FACE = { centerY: 0.42, rim: 0.2 };
 /** Fade duration in ms. Overlaps the collapse (AsciiField LIFT) on purpose. */
 const LIFT_MS = 560;
 

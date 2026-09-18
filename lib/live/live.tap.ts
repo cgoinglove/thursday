@@ -169,7 +169,7 @@ export function createClipTap(element: HTMLAudioElement) {
 }
 
 /** What a face moves with on one frame (createVoiceFollower). */
-export type VoiceFrame = {
+type VoiceFrame = {
   /** How far into its own range the voice is now, 0..1; 0 in silence. */
   level: number;
   /** `level` over about half a second: the phrase rather than the syllable. */

@@ -51,7 +51,7 @@ const OWN_PAGE = new Set<FileViewKind>(["frame", "image", "audio", "video"]);
  */
 const IN_DIALOG = new Set<FileViewKind>(["image"]);
 
-export type FileTarget =
+type FileTarget =
   | { how: "tab"; path: string; href: string }
   | { how: "dialog"; path: string }
   | { how: "os" };
@@ -186,7 +186,7 @@ const PAD: Record<FileViewPlace, { prose: string; block: string }> = {
 };
 
 /** Where the file is read: inside the dialog, on its own page, or opened in place under a row. */
-export type FileViewPlace = "dialog" | "page" | "inline";
+type FileViewPlace = "dialog" | "page" | "inline";
 
 export function FileBody({
   kind,
@@ -393,7 +393,7 @@ function TooBig({ path, bytes }: { path: string; bytes: number }) {
 }
 
 /** A file in a dialog: an image as itself, anything readable fetched from the raw route when opened. */
-export function FileDialog({
+function FileDialog({
   path,
   group = [],
   kind,

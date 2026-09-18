@@ -65,7 +65,7 @@ type Cell = {
   roll: number;
 };
 
-export type AsciiFieldProps = {
+type AsciiFieldProps = {
   /** Start from the full field and shrink to the face slot; otherwise start settled. */
   boot?: boolean;
   /** Settled radius as a fraction of half the screen diagonal. */

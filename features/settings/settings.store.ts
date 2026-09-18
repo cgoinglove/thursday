@@ -4,7 +4,7 @@ import { create } from "zustand";
 
 /** Settings dialog state, kept outside the component so other screens can open a section. */
 
-export const SETTING_SECTIONS = [
+const SETTING_SECTIONS = [
   "thursday",
   "memory",
   "bot",

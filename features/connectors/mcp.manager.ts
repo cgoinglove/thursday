@@ -34,13 +34,13 @@ import {
  * `auth_required`.
  */
 
-export interface StoredMcpServer {
+interface StoredMcpServer {
   name: string;
   config: MCPServerConfig;
   oauth?: MCPOAuthData | null;
 }
 
-export interface McpServerStore {
+interface McpServerStore {
   /** The whole row including the oauth blob. Null when the name is unknown. */
   load(name: string): Promise<StoredMcpServer | null>;
   /** Replace a server's oauth blob (null clears it). */
@@ -54,7 +54,7 @@ export interface McpServerStore {
   findByOAuthState(state: string): Promise<StoredMcpServer | null>;
 }
 
-export type ConnectOutcome =
+type ConnectOutcome =
   | { status: "connected"; tools: MCPToolInfo[] }
   /** The server wants the user in front of a browser. Send them to `authorizationUrl`. */
   | { status: "auth_required"; authorizationUrl: string };
@@ -70,7 +70,7 @@ export class McpAuthRequiredError extends Error {
   }
 }
 
-export interface McpManagerOptions {
+interface McpManagerOptions {
   /** The absolute URL the authorization server redirects back to. */
   callbackUrl: string;
   /** How long an unused session stays open. 30 minutes by default. */
@@ -192,7 +192,7 @@ interface Session {
   idleTimer: ReturnType<typeof setTimeout>;
 }
 
-export class McpManager {
+class McpManager {
   private readonly sessions = new Map<string, Session>();
   /** Collapses concurrent connects to the same server. */
   private readonly connecting = new Map<string, Promise<ConnectOutcome>>();
@@ -464,7 +464,7 @@ function describeConnectFailure(error: unknown, row: StoredMcpServer): string {
   return message;
 }
 
-export function createMcpManager(
+function createMcpManager(
   store: McpServerStore,
   options: McpManagerOptions,
 ): McpManager {

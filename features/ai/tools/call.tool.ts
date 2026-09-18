@@ -11,7 +11,7 @@ import {
  * page supplies the behaviour (use-thursday). loadTools declares them too so
  * `/api/tool-call` refuses them by name rather than as unknown tools.
  */
-export const endCallSpec = {
+const endCallSpec = {
   name: TOOL_NAMES.end_call,
   description: `End the call.
 
@@ -20,12 +20,12 @@ The line stays open until this runs, and drops once the goodbye being said is ov
 };
 
 /** Deliberately has no `execute`. */
-export const endCallTool = tool({
+const endCallTool = tool({
   description: endCallSpec.description,
   inputSchema: endCallSpec.parameters,
 });
 
-export const emoteSpec = {
+const emoteSpec = {
   name: TOOL_NAMES.emote,
   description: "Show a short word on your face for a few seconds.",
   parameters: z.object({
@@ -38,7 +38,7 @@ export const emoteSpec = {
 };
 
 /** Deliberately has no `execute`. */
-export const emoteTool = tool({
+const emoteTool = tool({
   description: emoteSpec.description,
   inputSchema: emoteSpec.parameters,
 });

@@ -159,7 +159,7 @@ export async function writeKeepWorkingOn(on: boolean): Promise<void> {
   await writeConfig(KEEP_WORKING_KEY, on ? "on" : "off");
 }
 
-export async function findBot(name: string) {
+async function findBot(name: string) {
   const [bot] = await database
     .select()
     .from(botTable)

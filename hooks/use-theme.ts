@@ -30,7 +30,7 @@ function announce() {
 }
 
 /** Actual brightness the setting resolves to. */
-export function resolveTheme(value: Theme): "light" | "dark" {
+function resolveTheme(value: Theme): "light" | "dark" {
   if (value !== "system") return value;
   return window.matchMedia("(prefers-color-scheme: dark)").matches
     ? "dark"
@@ -38,7 +38,7 @@ export function resolveTheme(value: Theme): "light" | "dark" {
 }
 
 /** Applies to `<html>`; touches exactly what the boot script touches. */
-export function applyTheme(value: Theme) {
+function applyTheme(value: Theme) {
   const dark = resolveTheme(value) === "dark";
   document.documentElement.classList.toggle("dark", dark);
   document.documentElement.style.colorScheme = dark ? "dark" : "light";

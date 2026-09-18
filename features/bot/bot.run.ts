@@ -42,7 +42,7 @@ import { findJobBot } from "./bot.query";
 import { findThread, listWrittenPaths, writtenPathsIn } from "./thread.query";
 
 /** Events from one participant turn; the runner persists them in that participant's transcript. */
-export type BotEvent =
+type BotEvent =
   /** A finished chunk of prose. */
   | { type: "text"; text: string }
   /** A tool call. `id` is where the result lands. */
@@ -96,7 +96,7 @@ export type BotEvent =
 /** The event as the thread sees it: which participant and continuation. */
 export type ThreadEvent = BotEvent & { bot: string; parent: string | null };
 
-export type RunOptions = {
+type RunOptions = {
   signal?: AbortSignal;
   parent?: string | null;
   threadId?: string | null;
@@ -117,7 +117,7 @@ export type RunOptions = {
 };
 
 const MAX_STEPS = BOT_RUN.steps;
-export type RunInput = { bot: string; messages: ModelMessage[] };
+type RunInput = { bot: string; messages: ModelMessage[] };
 
 export async function runBot(
   input: RunInput,

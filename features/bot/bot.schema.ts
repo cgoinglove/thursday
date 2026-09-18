@@ -23,7 +23,7 @@ export const botIconSchema = z.object({
   paint: z.enum(MARK_PAINT_IDS).optional(),
 });
 
-export const botSystemPromptSchema = z.string().max(COMMON_VALIDATE.prompt.max);
+const botSystemPromptSchema = z.string().max(COMMON_VALIDATE.prompt.max);
 
 /**
  * Faces for bots nobody drew, distinct from one another: the whole vocabulary is
@@ -44,7 +44,7 @@ export const randomBotIcon = (): BotIcon => randomBotIcons(1)[0];
 export const MAX_PINNED_TOOLS = 10;
 
 /** Pinned tool as the screen sees it. */
-export const PinnedToolSchema = z.object({
+const PinnedToolSchema = z.object({
   id: z.number(),
   name: z.string(),
   serverName: z.string(),
@@ -54,7 +54,7 @@ export const PinnedToolSchema = z.object({
  * The name is the identity; there is no id. Whitespace collapses to single
  * spaces because the name travels through speech and transcripts.
  */
-export const botNameSchema = z
+const botNameSchema = z
   .string()
   .trim()
   .transform((name) => name.replace(/\s+/g, " "))
@@ -68,7 +68,7 @@ export const botNameSchema = z
   );
 
 /** Tokens burned. Input and output stay apart because output costs about ten times more. */
-export const TokenUsageSchema = z.object({
+const TokenUsageSchema = z.object({
   input: z.number(),
   output: z.number(),
 });
@@ -78,7 +78,7 @@ export type TokenUsage = z.infer<typeof TokenUsageSchema>;
 /** A budget under this leaves no room for the opening message, so it is refused rather than stored. */
 export const COMPACT_AT_MIN = 8_000;
 
-export const BotSchema = z.object({
+const BotSchema = z.object({
   name: z.string(),
   description: z.string(),
   systemPrompt: z.string().nullish(),
@@ -198,7 +198,7 @@ export const isKeepWorkingOn = (value: string | undefined) =>
   value?.trim() === "on";
 
 /** One file of a bot's own memory (bot.memory), as its prompt lists it and its page draws it. */
-export const BotMemoryFileSchema = z.object({
+const BotMemoryFileSchema = z.object({
   file: z.string(),
   /** Workspace-relative, for reading or deleting it the way Workspace does. */
   path: z.string(),
@@ -257,12 +257,7 @@ export const workHandle = (id: string) => id.slice(0, 6);
  * breaks pauses the job as `waiting` rather than ending it, so nothing ends as a
  * failure. `done` and `cancelled` can be picked back up with a follow-up.
  */
-export const THREAD_STATUSES = [
-  "running",
-  "waiting",
-  "done",
-  "cancelled",
-] as const;
+const THREAD_STATUSES = ["running", "waiting", "done", "cancelled"] as const;
 
 export type ThreadStatus = (typeof THREAD_STATUSES)[number];
 
@@ -320,7 +315,7 @@ export const isAppStop = (
 };
 
 /** One piece of a tool result as the screen draws it. Full output stays in the stored messages. */
-export const ResultPartSchema = z.discriminatedUnion("type", [
+const ResultPartSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("text"), text: z.string() }),
   /** data: or http(s) url usable in an <img>. */
   z.object({ type: z.literal("image"), src: z.string() }),
@@ -339,7 +334,7 @@ const LineBase = z.object({
   at: DateLikeSchema,
 });
 
-export const ThreadLineSchema = z.discriminatedUnion("kind", [
+const ThreadLineSchema = z.discriminatedUnion("kind", [
   /** What the user said (via Thursday): request, answer. */
   LineBase.extend({ kind: z.literal("user"), text: z.string() }),
   /** Bot text; the last one is the answer. */
@@ -403,7 +398,7 @@ export function threadActivity(lines: ThreadLine[], max = 120): string | null {
  * `pending`. `auto` is a stop the app picks back up by itself (ThreadPending), so
  * nobody is told about it and nobody is rung for it.
  */
-export const ThreadAskSchema = z.object({
+const ThreadAskSchema = z.object({
   question: z.string(),
   messageId: z.string().optional(),
   bot: z.string().optional(),
@@ -414,7 +409,7 @@ export const ThreadAskSchema = z.object({
 export type ThreadAsk = z.infer<typeof ThreadAskSchema>;
 
 /** Thread as the screen and voice tools see it. */
-export const ThreadSchema = z.object({
+const ThreadSchema = z.object({
   id: z.string(),
   bot: z.string(),
   label: z.string(),

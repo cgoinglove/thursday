@@ -22,8 +22,8 @@ export type TextModelProviderId = z.infer<typeof textModelProviderSchema>;
 export type TextModelRef = z.infer<typeof textModelRefSchema>;
 
 /** Size of a suggested model, not quality. A label rather than a price because prices move. */
-export const MODEL_TIERS = ["small", "mid", "large"] as const;
-export type ModelTier = (typeof MODEL_TIERS)[number];
+const MODEL_TIERS = ["small", "mid", "large"] as const;
+type ModelTier = (typeof MODEL_TIERS)[number];
 
 /** One model worth offering, as the picker reads it. */
 export type SuggestModel = {
@@ -68,7 +68,7 @@ export const compactAtFor = (window: number | null | undefined): number =>
     : BOT_RUN.compactAt;
 
 /** Providers that make non-text media. Kept apart from the text providers: the key is the same, but a text provider does not necessarily draw (Anthropic). */
-export const mediaModelProviderSchema = z.enum([
+const mediaModelProviderSchema = z.enum([
   "openai",
   "google",
   "xai",
@@ -77,15 +77,10 @@ export const mediaModelProviderSchema = z.enum([
 export type MediaModelProviderId = z.infer<typeof mediaModelProviderSchema>;
 
 /** The four things the studio makes or reads (ai/tools/studio.tool). */
-export const MEDIA_KINDS = [
-  "image",
-  "video",
-  "speech",
-  "transcription",
-] as const;
+const MEDIA_KINDS = ["image", "video", "speech", "transcription"] as const;
 export type MediaKind = (typeof MEDIA_KINDS)[number];
 
-export const mediaModelRefSchema = z.object({
+const mediaModelRefSchema = z.object({
   provider: mediaModelProviderSchema,
   model: z.string().trim().min(1, "Model name is required").max(120),
 });

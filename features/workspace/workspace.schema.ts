@@ -9,7 +9,7 @@ import type { FileViewKind } from "./file-kind";
  */
 
 /** A folder row: a door, not a measurement. `isListedFolder` decides which ones open. */
-export type WorkspaceDir = {
+type WorkspaceDir = {
   kind: "dir";
   name: string;
   /** Workspace-relative. */

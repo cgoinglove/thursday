@@ -7,7 +7,7 @@ import { type DateLike, DateLikeSchema, toDate } from "@/lib/date-like";
  * mid-job — and they are not equally close to the user. A reader that cannot
  * tell them apart reads what a bot inferred as something the user said.
  */
-export const MemorySourceSchema = z.enum(["user", "call", "bot"]);
+const MemorySourceSchema = z.enum(["user", "call", "bot"]);
 
 export type MemorySource = z.infer<typeof MemorySourceSchema>;
 
@@ -27,7 +27,7 @@ export const memorySourceLabel = (source: MemorySource | null | undefined) =>
         : "";
 
 // Storage is fact-based: one row per fact, history via isLatest.
-export const MemoryFactSchema = z.object({
+const MemoryFactSchema = z.object({
   id: z.number(),
   text: z.string(),
   /** Loaded into every prompt without opening the note (config MEMORY_LIMITS.carried). */
@@ -37,7 +37,7 @@ export const MemoryFactSchema = z.object({
   createdAt: DateLikeSchema,
 });
 
-export const MemoryNoteSchema = z.object({
+const MemoryNoteSchema = z.object({
   id: z.number(),
   path: z.string(),
   description: z.string(),
@@ -73,12 +73,12 @@ export const MEMORY_PATHS = [
 ] as const;
 
 /** Notes without a section. */
-export const MEMORY_ROOT_NOTES = MEMORY_PATHS.filter(
+const MEMORY_ROOT_NOTES = MEMORY_PATHS.filter(
   (entry) => !entry.path.endsWith("/"),
 ).map((entry) => entry.path) as ("profile" | "preferences")[];
 
 /** Notes about a named thing live under one of these. */
-export const MEMORY_SECTIONS = MEMORY_PATHS.filter((entry) =>
+const MEMORY_SECTIONS = MEMORY_PATHS.filter((entry) =>
   entry.path.endsWith("/"),
 ).map((entry) => entry.path.slice(0, -1)) as (
   | "people"
@@ -125,7 +125,7 @@ export function sectionOf(path: string): MemorySection {
 
 // Model-facing shapes: narrower than the UI's on purpose.
 
-export type MemoryFactRef = {
+type MemoryFactRef = {
   /** What `memory_forget` and `replaces` take. */
   id: number;
   text: string;

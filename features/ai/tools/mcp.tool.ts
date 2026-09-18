@@ -20,7 +20,7 @@ import {
 /** Definitions returned per search; schemas are large. */
 const MAX_SCHEMAS = 8;
 
-export const mcpToolSpec = {
+const mcpToolSpec = {
   [TOOL_NAMES.tool_search]: {
     name: TOOL_NAMES.tool_search,
     // What it is, not when to reach for it: the Connected tools chapter says

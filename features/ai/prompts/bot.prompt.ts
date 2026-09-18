@@ -335,7 +335,7 @@ Write in the user's language, and name the paths of finished work. In Markdown, 
 }
 
 /** A user message's content; every seat's first message is two text parts (buildThreadOpening). */
-export type OpeningContent = Extract<ModelMessage, { role: "user" }>["content"];
+type OpeningContent = Extract<ModelMessage, { role: "user" }>["content"];
 
 /**
  * Who handed the job over, and the job — nothing from the call it came from. The request

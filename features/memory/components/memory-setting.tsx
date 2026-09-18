@@ -571,7 +571,7 @@ const NOTE_KINDS = [
 ] as const;
 
 /** Kind + name becomes the path; profile and preferences stay agent-managed. */
-export function openMemoryCreate() {
+function openMemoryCreate() {
   return notify.component({
     className: "sm:max-w-lg",
     renderer: ({ close }) => <MemoryCreate onDone={close} />,

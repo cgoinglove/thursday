@@ -9,7 +9,7 @@ import { createSeedBotsAction } from "./bot.action";
 import type { BotIcon } from "./bot.schema";
 import { BOT_SEEDS } from "./bot.seed";
 
-export type SeedPick = {
+type SeedPick = {
   name: string;
   provider?: string | null;
   model?: string | null;

@@ -9,7 +9,7 @@ export const RoomMessageSchema = z.object({
 });
 
 /** Server scheduling state, independent of whether a bot wrote a final sentence. */
-export const WorkStateSchema = z.enum([
+const WorkStateSchema = z.enum([
   "queued",
   "running",
   "waiting",
@@ -20,11 +20,11 @@ export const WorkStateSchema = z.enum([
 ]);
 export type WorkState = z.infer<typeof WorkStateSchema>;
 
-export const RoomParticipantSchema = z.object({
+const RoomParticipantSchema = z.object({
   bot: z.string(),
   state: WorkStateSchema,
 });
-export const RoomQuestionSchema = z.object({
+const RoomQuestionSchema = z.object({
   id: z.string(),
   bot: z.string(),
   text: z.string(),

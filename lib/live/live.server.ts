@@ -10,7 +10,7 @@ const LiveConnectionSchema = z.object({
 });
 
 /** The backend's `reasoning` settings as Responses takes them. */
-export type BackendReasoning = { effort?: string; summary?: "auto" };
+type BackendReasoning = { effort?: string; summary?: "auto" };
 
 /** What each model took, by model and chosen effort; only settled answers are kept. */
 const reasoningTaken = new Map<string, BackendReasoning | null>();

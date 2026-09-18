@@ -476,7 +476,7 @@ function FileView({
 }
 
 /** Add a skill: type one in, or drop a file. */
-export function openSkillCreate() {
+function openSkillCreate() {
   return notify.component({
     className: "sm:max-w-lg",
     renderer: ({ close }) => <SkillCreate onDone={close} />,

@@ -7,7 +7,7 @@ import type { DefaultEvent, EventBus } from "./events";
  * watcher count). One `data:` line per event; the JSON carries its own `type`.
  */
 
-export type EventStreamOptions<E extends DefaultEvent> = {
+type EventStreamOptions<E extends DefaultEvent> = {
   /** Events sharing a key within `ms` send only the last. A null key sends immediately. */
   coalesce?: { ms: number; keyOf: (event: E) => string | null };
   /** How often a comment line holds the line open when nothing happens. */

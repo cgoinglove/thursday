@@ -26,7 +26,7 @@ export const MCPConfigSchema = z.union([
   MCPStdioConfigSchema,
 ]);
 
-export const MCPToolInfoSchema = z.object({
+const MCPToolInfoSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
   // looseObject: a keyless z.object() strips every property and the schema comes back as {}
@@ -39,7 +39,7 @@ export const MCPToolInfoSchema = z.object({
  * shapes and round-trips them untouched. `codeVerifier`/`state` live only
  * between the redirect and the callback. Never send this to the browser.
  */
-export const MCPOAuthDataSchema = z.object({
+const MCPOAuthDataSchema = z.object({
   clientInformation: z.looseObject({}).optional(),
   tokens: z.looseObject({}).optional(),
   authorizationServer: z.looseObject({}).optional(),
@@ -47,7 +47,7 @@ export const MCPOAuthDataSchema = z.object({
   state: z.string().optional(),
 });
 
-export type MCPRemoteConfig = z.infer<typeof MCPRemoteConfigSchema>;
+type MCPRemoteConfig = z.infer<typeof MCPRemoteConfigSchema>;
 
 export type MCPServerConfig = z.infer<typeof MCPConfigSchema>;
 
@@ -76,7 +76,7 @@ export type McpCallOutcome =
   | { status: "auth_required"; server: string; authorizationUrl?: string };
 
 /** A server list row. Tools are counted, not sent; one server can carry a hundred JSON schemas. */
-export const MCPServerSummarySchema = z.object({
+const MCPServerSummarySchema = z.object({
   name: z.string().min(1).max(40),
   config: MCPConfigSchema,
   toolCount: z.number().int(),
@@ -84,13 +84,13 @@ export const MCPServerSummarySchema = z.object({
 });
 
 /** A stored tool: the protocol shape plus the row id that bot pins point at. */
-export const MCPToolSchema = MCPToolInfoSchema.extend({
+const MCPToolSchema = MCPToolInfoSchema.extend({
   id: z.number().int(),
   description: z.string().nullish(),
 });
 
 /** One opened server: the summary plus its tools. */
-export const MCPServerSchema = MCPServerSummarySchema.omit({
+const MCPServerSchema = MCPServerSummarySchema.omit({
   toolCount: true,
 }).extend({
   tools: MCPToolSchema.array().default([]),

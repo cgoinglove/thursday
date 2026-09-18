@@ -30,14 +30,7 @@ export type BotRef = { name: string; icon?: BotIcon | null };
  * summary (bot.run compact), drawn as a divider; `stop` is where the app stopped
  * the run (bot.runner), drawn muted in the bot's turn.
  */
-export type ChatterKind =
-  | "say"
-  | "ask"
-  | "tool"
-  | "user"
-  | "result"
-  | "note"
-  | "stop";
+type ChatterKind = "say" | "ask" | "tool" | "user" | "result" | "note" | "stop";
 
 /** One tool call. `name` picks the renderer (components/bot-tool); `results` arrive after the call. */
 export type ToolUse = {
@@ -280,7 +273,7 @@ export function lastSaid(thread: ThreadView): Chatter | null {
  * cannot tell a screen answer from a voice answer, and a cancel is never relayed
  * (bot.runner cancelThread marks it seen).
  */
-export type ScreenAct =
+type ScreenAct =
   /** Answered a waiting thread, interjected into a running one, or continued a finished one. */
   | {
       kind: "answered";
@@ -385,7 +378,7 @@ export function useBotThreads(): ThreadView[] {
   );
 }
 
-export const isOutcome = (line: Chatter) => line.kind === "result";
+const isOutcome = (line: Chatter) => line.kind === "result";
 
 /** Every bot in this thread, the thread's own first, in the order each speaks or is spoken to. */
 export function rosterOf(thread: ThreadView): BotRef[] {
@@ -438,7 +431,7 @@ function messagesIn(lines: Chatter[]): (line: Chatter) => boolean {
  * it sent or received. Open work has no message after it yet: what the bot is
  * on now, or where it stopped.
  */
-export type TurnEntry =
+type TurnEntry =
   | { kind: "message"; key: string; line: Chatter }
   | { kind: "work"; key: string; lines: Chatter[]; open: boolean };
 

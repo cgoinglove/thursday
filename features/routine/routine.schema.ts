@@ -56,7 +56,7 @@ const RoutineRunSchema = z.object({
 });
 export type RoutineRun = z.infer<typeof RoutineRunSchema>;
 
-export const RoutineSchema = RoutineInputSchema.extend({
+const RoutineSchema = RoutineInputSchema.extend({
   id: z.string(),
   enabled: z.boolean(),
   nextRunAt: DateLikeSchema,

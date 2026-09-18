@@ -60,7 +60,7 @@ export async function findServerDetail(name: string) {
 }
 
 /** A server's tools with ids; pins point at the id. */
-export async function findServerTools(name: string) {
+async function findServerTools(name: string) {
   return database
     .select({
       id: mcpToolTable.id,

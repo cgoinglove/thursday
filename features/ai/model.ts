@@ -144,7 +144,7 @@ export type TextModel = {
 };
 
 /** The one place a text provider is constructed. */
-export function buildTextModel(ref: TextModelRef, apiKey: string): TextModel {
+function buildTextModel(ref: TextModelRef, apiKey: string): TextModel {
   switch (ref.provider) {
     case "openai": {
       const openai = createOpenAI({ apiKey });

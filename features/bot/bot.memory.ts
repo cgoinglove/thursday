@@ -74,7 +74,7 @@ async function readMemoryFolder(
  * BOT_MEMORY_LIMITS can be put back. A file already past the limit is held without its
  * text: there is nothing within the limit to put back.
  */
-export type HeldBotMemory = Map<
+type HeldBotMemory = Map<
   string,
   {
     text: string | null;

@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
  * and each adapter maps them. `word` is the orb's alone. A third face is one FaceKind, one state table, one FACES entry.
  */
 
-export type FaceProps = {
+type FaceProps = {
   /** What the call is doing; every face answers only this. */
   status: CallStatus;
   /** A call just failed to open or dropped. The status is idle by then; this says why the face is not at rest. */

@@ -965,7 +965,7 @@ function bindPointer() {
   );
 }
 
-export type BotMarkProps = {
+type BotMarkProps = {
   /** Pixel size of the square the mark is drawn in. */
   size?: number;
   /** Fixes the silhouette and the idle-animation phase. Strings are hashed, so an id works. */
@@ -988,7 +988,7 @@ export type BotMarkProps = {
 };
 
 /** Cheap string hash so a name or id can seed the mark. */
-export function hashSeed(seed: number | string): number {
+function hashSeed(seed: number | string): number {
   if (typeof seed === "number") return seed;
   let h = 2166136261;
   for (let i = 0; i < seed.length; i++) {

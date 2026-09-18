@@ -39,7 +39,7 @@ type StudioContext = {
 };
 
 /** One studio tool as `tool_search` describes it and `tool_call` runs it. The zod schema becomes JSON Schema for the model (connected.ts). */
-export type StudioTool = {
+type StudioTool = {
   name: string;
   description: string;
   inputSchema: z.ZodObject<z.ZodRawShape>;

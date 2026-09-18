@@ -214,7 +214,7 @@ let browserReady: boolean | null = null;
  * job rather than cached, so a job that installs something is not told
  * otherwise on its next run.
  */
-export const PROBED = {
+const PROBED = {
   runtimes: ["node", "python3", "uv", "bun", "deno"],
   managers: ["pnpm", "npm", "yarn"],
 } as const;

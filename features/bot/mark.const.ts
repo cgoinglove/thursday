@@ -42,10 +42,10 @@ const MARK_COLORS = [
   value: string;
 }[];
 
-export type MarkColor = (typeof MARK_COLORS)[number];
+type MarkColor = (typeof MARK_COLORS)[number];
 
 /** Colour by name, so code that names one (the status inks below) stays inside the palette. */
-export const MARK_INK = Object.fromEntries(
+const MARK_INK = Object.fromEntries(
   MARK_COLORS.map((color) => [color.id, color.value]),
 ) as Record<MarkColor["id"], string>;
 
@@ -108,7 +108,7 @@ export const MARK_PAINT_IDS = Object.keys(MARK_PAINTS) as [
 ];
 
 /** What a body wears: one palette colour, or one of MARK_PAINTS in its place. */
-export type MarkFill = { color: string } | { paint: MarkPaint };
+type MarkFill = { color: string } | { paint: MarkPaint };
 
 /**
  * `count` distinct fills in random order. Colours and paints come out of one

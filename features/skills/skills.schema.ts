@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** `default` ships with the app and is read-only; `custom` lives in the workspace's `.agents/skills`. */
-export const SKILL_SOURCES = ["custom", "default"] as const;
+const SKILL_SOURCES = ["custom", "default"] as const;
 export const SkillSourceSchema = z.enum(SKILL_SOURCES);
 export type SkillSource = z.infer<typeof SkillSourceSchema>;
 

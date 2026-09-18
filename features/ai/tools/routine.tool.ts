@@ -21,7 +21,7 @@ import { toDate, whenOf } from "@/lib/date-like";
 import { isPublicError } from "@/lib/public-error";
 import { clip } from "@/lib/utils";
 
-export const routineSpec = {
+const routineSpec = {
   name: TOOL_NAMES.routine,
   description: `Routines: jobs that start by themselves, each one a bot, a job and a time. List them, make one, change one, or delete one. Every start opens a job like one handed over by hand; its result reaches the conversation the same way. At most ${ROUTINE.max} exist.`,
   parameters: z.object({

@@ -164,7 +164,7 @@ export function ModelPicker({
 }
 
 /** Without a key there is no model; the only useful thing to do here is fix that. */
-export function AskForKey({
+function AskForKey({
   provider,
   onSaved,
 }: {

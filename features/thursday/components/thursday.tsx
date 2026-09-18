@@ -75,7 +75,7 @@ import { ThursdayMark } from "./thursday-mark";
 
 export type { CaptionView };
 
-export type CallScreenProps = {
+type CallScreenProps = {
   status: CallStatus;
   /** A call just failed to open or dropped; the face says so for a few seconds. */
   failed?: boolean;
@@ -115,7 +115,7 @@ export type CallScreenProps = {
   callable?: boolean;
 };
 
-export function CallScreen({
+function CallScreen({
   status,
   failed = false,
   messages,
