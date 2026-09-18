@@ -47,7 +47,7 @@ test("a revised display group keeps its place and its newest fragments, and a ca
       seq: 999,
       fragments: revised,
     },
-    { id: "item-1", role: "tool", tool: "delegate", text: "{}", seq: 120 },
+    { id: "item-1", role: "tool", tool: "thread_start", text: "{}", seq: 120 },
   ]);
   assert.equal(
     await endCall(callId, { reason: "close_requested", seconds: 42 }),

@@ -204,7 +204,7 @@ test("a call completed before one the output cap cut off still has its result co
       type: "function_call",
       id: "item-cut",
       call_id: "cut",
-      name: "delegate",
+      name: "thread_start",
       arguments: '{"bot":"Ana',
       status: "incomplete",
     },
@@ -223,7 +223,7 @@ test("a call completed before one the output cap cut off still has its result co
       type: "function_call",
       id: "item-cut-again",
       call_id: "cut-again",
-      name: "delegate",
+      name: "thread_start",
       arguments: '{"bot":"Ana',
       status: "incomplete",
     },
@@ -368,7 +368,7 @@ test("a function call cut off by the output cap is never run, and its response s
       type: "function_call",
       id: "item-cut",
       call_id: "cut",
-      name: "delegate",
+      name: "thread_start",
       arguments: '{"bot":"Analyst',
       status: "incomplete",
     },
@@ -896,7 +896,12 @@ test("both call prompts open as one Thursday: the voice gets a two-line delegati
           startedAt: new Date("2026-09-13T10:00:00Z"),
           turns: [
             { role: "user", tool: null, text: "Book the dentist.", seq: 1 },
-            { role: "tool", tool: "delegate", text: '{"bot":"Scout"}', seq: 2 },
+            {
+              role: "tool",
+              tool: "thread_start",
+              text: '{"bot":"Scout"}',
+              seq: 2,
+            },
             { role: "assistant", tool: null, text: "Scout has it.", seq: 3 },
           ],
         },
@@ -991,7 +996,7 @@ test("both call prompts open as one Thursday: the voice gets a two-line delegati
     // A thread, not a bot, is what work carries on in; asking is for a real fork only
     assert.match(
       backend,
-      /\*\*A job is a thread, and a thread is what work carries on in\.\*\*/,
+      /\*\*Work lives in threads\.\*\* A thread's bot remembers that thread and nothing else/,
     );
     assert.match(
       backend,
@@ -1002,7 +1007,10 @@ test("both call prompts open as one Thursday: the voice gets a two-line delegati
       backend,
       /is written under `\.guide\/` here, `index\.md` first/,
     );
-    assert.match(backend, /Each bot keeps its own memory from job to job/);
+    assert.match(
+      backend,
+      /Each bot keeps its own memory from thread to thread/,
+    );
     assert.match(backend, /they come from bots, not the user/);
     assert.match(backend, /Book the dentist\./);
     assert.equal(backend.includes("grown past what it holds well"), false);
@@ -1035,7 +1043,7 @@ test("both call prompts open as one Thursday: the voice gets a two-line delegati
     for (const file of await readdir("guide")) {
       const page = await readFile(`guide/${file}`, "utf8");
       for (const name of known)
-        if (name.includes("_") || name === TOOL_NAMES.delegate)
+        if (name.includes("_"))
           assert.equal(page.includes(name), false, `guide/${file}: ${name}`);
     }
 
@@ -1133,7 +1141,7 @@ test("the jobs open as a call starts go in as facts, with no tool name", async (
       "../features/ai/prompts/call-standing.ts"
     );
     const text = (await loadCallStanding()) ?? "";
-    assert.match(text, /^\[The jobs as this call opened, open work first\./);
+    assert.match(text, /^\[The threads as this call opened, open work first\./);
     assert.match(
       text,
       /- "Hotel in Tokyo" \(t1\) — Scout — running, last moved/,

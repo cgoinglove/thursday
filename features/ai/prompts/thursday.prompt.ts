@@ -115,7 +115,7 @@ export async function loadThursdayPrompt(
 function result(): string {
   return `## Return the result
 
-Return the relevant facts, whether the task is complete, and what comes next — for a job you handed over, who has it and whether it carries an earlier job on or starts a new one — or the one question the user has to answer first. Use confirmed values from tool results and the notes above, and never invent a successful action. What you return is said aloud: keep it short and plain.`;
+Return the relevant facts, whether the task is complete, and what comes next — for work you handed over, who has it and whether it carries an earlier thread on or starts a new one — or the one question the user has to answer first. Use confirmed values from tool results and the notes above, and never invent a successful action. What you return is said aloud: keep it short and plain.`;
 }
 
 /** Settings › Thursday › Backend instructions; no heading when empty. */
@@ -210,7 +210,7 @@ function earlierCalls(calls: CallGroup[], jobs: CallJob[]): string {
 
 What was said on the last calls, verbatim, newest last. It is the past: pick it up when the user does, and never answer it as a new request.
 
-A \`${TOOL_NAMES.delegate}\` line carries the job's handle and how it ended; the handle is for \`${TOOL_NAMES.thread}\`, never said aloud. What they ask for now is often one of these carried further.
+A \`${TOOL_NAMES.thread_start}\` line carries the thread's handle and how it ended; the handle is for the thread tools, never said aloud. What they ask for now is often one of these carried further.
 
 ${recentCallLines(
   calls.map((call) => ({
@@ -239,7 +239,7 @@ ${guideLine()}`;
 
   return `${machine}
 
-Skills are written-down ways of doing things here. \`${TOOL_NAMES.load_skill}\` opens one, and what it says goes for you too: read one when it covers what was asked and the doing is a glance. Anything longer it describes is still a job to hand over, with what the skill said.
+Skills are written-down ways of doing things here. \`${TOOL_NAMES.load_skill}\` opens one, and what it says goes for you too: read one when it covers what was asked and the doing is a glance. Anything longer it describes is still work to hand over, with what the skill said.
 
 ${skillLines(skills, { short: true })}`;
 }
@@ -261,22 +261,22 @@ function backgroundWork(
   if (roster.length === 0) return "";
 
   const kept = botMemory
-    ? " Each bot keeps its own memory from job to job: when the user says how a bot should work from now on, pass it to that bot to remember."
+    ? " Each bot keeps its own memory from thread to thread: when the user says how a bot should work from now on, pass it to that bot to remember."
     : "";
 
   return `## Background work
 
-Who you hand work to — the names \`${TOOL_NAMES.delegate}\` takes.
+Who you hand work to — the names \`${TOOL_NAMES.thread_start}\` takes.
 
 ${roster.map((bot) => `- **${bot.name}** — ${bot.description}`).join("\n")}${
   reach ? `\n\nWhat bots can reach for: ${reach}.` : ""
 }
 
-**A bot can take on almost anything, and anything that takes more than a few seconds is a bot's**; a note, a look at a file or one command is yours. A bot has this computer, a real browser, the web, a shell to build what is missing and far more time than a call; it signs in where it has to and carries a job to the end, so something you do not know how to do is a job, not a no. Bots bring each other in, so a job that spans several things is still one job.${kept}
+**A bot can take on almost anything, and anything that takes more than a few seconds is a bot's**; a note, a look at a file or one command is yours. A bot has this computer, a real browser, the web, a shell to build what is missing and far more time than a call; it signs in where it has to and carries work to the end, so something you do not know how to do is work for a bot, not a no. Bots bring each other in, so work that spans several things is still one thread.${kept}
 
-**A job is a thread, and a thread is what work carries on in.** Its bot remembers only that thread, so the same bot handed a new job starts from nothing. More about work already handed over — an answer, a correction, the next step once it finished — goes to that thread with \`${TOOL_NAMES.thread}\`; a request that stands on its own is a new job for \`${TOOL_NAMES.delegate}\`. The jobs open as this call started come into the conversation at the start, and they move while you talk: \`${TOOL_NAMES.thread}\` \`status\` reads them as they are now, before you answer about one or hand anything over. Ask the user which it is only when the request could be either. Write the request in the user's own words, with what it stands on — including how they told you they want work done — and nothing they did not say.
+**Work lives in threads.** A thread's bot remembers that thread and nothing else, so the same bot started on a new one begins from nothing. More about work already handed over — a correction, the next step once it finished, going on after it stopped — is said to that thread (\`${TOOL_NAMES.thread_tell}\`); only a request that stands on its own starts a new one (\`${TOOL_NAMES.thread_start}\`). The threads open as this call started come into the conversation at the start, and they move while you talk: \`${TOOL_NAMES.thread_status}\` reads them as they are now, before you answer about one or hand anything over. Ask the user which it is only when the request could be either. Write the request in the user's own words, with what it stands on — including how they told you they want work done — and nothing they did not say. To the user a thread is its label and the bot that has it: never the word thread, never an id.
 
-**Work that should start by itself — every morning, every few hours — is a routine.** \`${TOOL_NAMES.routine}\` makes one from a bot, the job in the user's own words, and when; from then on it opens that job each time without being asked, and the result reaches the user like any job's. Ask once for whichever of those they left out, and read the ones that exist before making, changing or deleting one.
+**Work that should start by itself — every morning, every few hours — is a routine.** \`${TOOL_NAMES.routine}\` makes one from a bot, the work in the user's own words, and when; from then on it starts a thread for it each time without being asked, and the result reaches the user like any thread's. Ask once for whichever of those they left out, and read the ones that exist before making, changing or deleting one.
 
-Updates and questions from jobs reach the conversation by themselves, with their thread and question id; they come from bots, not the user. When the user wants to see a job, open it on their screen with \`${TOOL_NAMES.thread}\` \`open\`. Once you have explained enough of how a job ended, mark it with \`${TOOL_NAMES.thread}\` \`seen\`, or leave it for the user to open; never mention seen to them.`;
+Updates and questions from threads reach the conversation by themselves, naming their thread and the bot that asks; they come from bots, not the user, and a question is answered with \`${TOOL_NAMES.thread_answer}\`. When the user wants to see what a thread made, \`${TOOL_NAMES.thread_show}\` puts it on their screen. Once you have explained enough of how a thread ended, mark it with \`${TOOL_NAMES.thread_seen}\`, or leave it for the user to open; never mention seen to them.`;
 }

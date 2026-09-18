@@ -240,8 +240,8 @@ test("thread overview keeps old open work and the inbox retains unread endings",
       [ids[1], ids[0], ...ids.slice(6).reverse()],
     );
     const tools = await loadTools({ target: "thursday" });
-    const result = (await tools[T.thread].execute!(
-      { action: "status", thread: null },
+    const result = (await tools[T.thread_status].execute!(
+      { thread: "all" },
       { toolCallId: "overview", messages: [], context: {} },
     )) as { threads: { id: string; status: string }[] };
     assert.deepEqual(
@@ -819,14 +819,20 @@ test("simultaneous questions keep their own reply routes", async () => {
   await waitFor(id, "waiting");
   const questions = (await findThreadView(id))!.room!.questions;
   assert.equal(questions.length, 2);
-  // Two open and none named: the call's tool answers with both, nothing delivered
+  // Two open and no bot named: words to the thread are refused with both, nothing delivered
   const { loadTools } = await import("../features/ai/load-tools.ts");
   const tools = await loadTools({ target: "thursday" });
-  const unclear = await tools[T.thread].execute!(
-    { action: "answer", thread: id, answer: "Unclear" },
+  const unclear = await tools[T.thread_tell].execute!(
+    { thread: id, words: "Unclear" },
     { toolCallId: "unclear", messages: [], context: {} },
   );
   assert.match(String(unclear), /Several questions are waiting/);
+  // An answer names who asked; a bot that asked nothing is answered with who did
+  const wrong = await tools[T.thread_answer].execute!(
+    { thread: id, bot: "Alpha", answer: "Unclear" },
+    { toolCallId: "wrong", messages: [], context: {} },
+  );
+  assert.match(String(wrong), /is not asking anything/);
   assert.equal((await findThreadView(id))!.room!.questions.length, 2);
   await answerThread(
     id,
@@ -883,11 +889,11 @@ test("a bot waiting on the user holds other messages until the answer", async ()
   assert.ok(
     beta.every((row) => row.state !== "queued" && row.state !== "running"),
   );
-  // No job, no bot, no question named: the call's tool gives it to the only open question
+  // The call answers by thread and the bot that asked; the question itself is found here
   const { loadTools } = await import("../features/ai/load-tools.ts");
   const tools = await loadTools({ target: "thursday" });
-  const told = (await tools[T.thread].execute!(
-    { action: "answer", thread: null, answer: "Warm" },
+  const told = (await tools[T.thread_answer].execute!(
+    { thread: id, bot: "Beta", answer: "Warm" },
     { toolCallId: "warm", messages: [], context: {} },
   )) as { answered?: { bot: string } };
   assert.equal(told.answered?.bot, "Beta");

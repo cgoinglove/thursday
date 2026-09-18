@@ -37,5 +37,5 @@ export async function loadCallStanding(): Promise<string | null> {
     return `- "${thread.label}" (${thread.id}) — ${thread.bot} — ${state}`;
   });
 
-  return `[The jobs as this call opened, open work first. They move while you talk.]\n${lines.join("\n")}`;
+  return `[The threads as this call opened, open work first. They move while you talk.]\n${lines.join("\n")}`;
 }

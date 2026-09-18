@@ -1361,7 +1361,7 @@ function armAudioUnlock(context: AudioContext) {
 function statusOf(activity: LiveActivity): LiveStatus {
   if (activity.speaking) return "speaking";
   if (activity.working || activity.tools.length) {
-    return activity.tools.includes(TOOL_NAMES.delegate)
+    return activity.tools.includes(TOOL_NAMES.thread_start)
       ? "delegating"
       : "working";
   }
@@ -1462,8 +1462,8 @@ function openWork(threads: Thread[]): OpenWork[] {
   for (const thread of threads) {
     const { relays, questions } = thread.room;
     const changed = toDate(thread.updatedAt).getTime();
-    const bracket = (from: string, kind: string, tail = "") =>
-      `[${from} → Thursday, thread "${thread.label}" (${thread.id}), ${kind}.${tail}]`;
+    const bracket = (from: string, kind: string) =>
+      `[${from} → Thursday, thread "${thread.label}" (${thread.id}), ${kind}.]`;
     const show = (bot: string, line: string): ActivityLine => ({
       kind: "relay",
       name: thread.label,
@@ -1480,7 +1480,7 @@ function openWork(threads: Thread[]): OpenWork[] {
         rank: OPEN_RANK.question,
         key: `question:${question.id}`,
         kind: "question",
-        line: `${bracket(question.bot, "question", ` Its answer goes to thread ${thread.id}, recipient ${question.bot}, replyTo ${question.id}.`)}\n${spoken(question.text)}${options}`,
+        line: `${bracket(question.bot, "question")}\n${spoken(question.text)}${options}`,
         relayIds: relays
           .filter((relay) => relay.messageId === question.id)
           .map((relay) => relay.id),

@@ -15,7 +15,6 @@ import TextType from "@/components/ui/text-type";
 import { APP_NAME } from "@/config";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import { type TextModelProviderId } from "@/features/ai/model.schema";
-import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { type BotIcon, DEFAULT_BOT } from "@/features/bot/bot.schema";
 import {
   BOT_SEEDS,
@@ -232,9 +231,6 @@ function FirstLook({ face }: { face: Face }) {
         </span>
         <span className="text-[13px] text-muted-foreground">
           {crew.length === 1 ? "A bot is on it" : "Bots are on it"}
-        </span>
-        <span className="font-mono text-[10.5px] text-muted-foreground/70">
-          {TOOL_NAMES.delegate}
         </span>
       </span>
 

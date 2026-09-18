@@ -56,7 +56,7 @@ function fromArgs(name: string, args: Record<string, unknown>): string | null {
     const more = fact.more > 0 ? ` (+${fact.more})` : "";
     return `Noting under ${path}: ${snippet(fact.text)}${more}`;
   }
-  if (name === TOOL_NAMES.delegate) {
+  if (name === TOOL_NAMES.thread_start) {
     const bot = typeof args.bot === "string" ? args.bot.trim() : "";
     return bot ? `Handing this to ${bot}` : "Handing this over";
   }
@@ -64,14 +64,16 @@ function fromArgs(name: string, args: Record<string, unknown>): string | null {
     const query = typeof args.query === "string" ? args.query.trim() : "";
     return query ? `Searching · ${query}` : null;
   }
-  if (name === TOOL_NAMES.thread) {
-    const label = typeof args.thread === "string" ? args.thread.trim() : "";
-    if (args.action === "answer") return "Passing that back";
-    if (args.action === "cancel") return "Stopping that";
-    if (args.action === "open")
-      return label ? `Opening ${label}` : "Opening that";
-    return label ? `Checking on ${label}` : "Checking the jobs";
-  }
+  const label = typeof args.thread === "string" ? args.thread.trim() : "";
+  if (name === TOOL_NAMES.thread_tell || name === TOOL_NAMES.thread_answer)
+    return "Passing that on";
+  if (name === TOOL_NAMES.thread_cancel) return "Stopping that";
+  if (name === TOOL_NAMES.thread_show)
+    return label ? `Opening ${label}` : "Opening that";
+  if (name === TOOL_NAMES.thread_status)
+    return label && label.toLowerCase() !== "all"
+      ? `Checking on ${label}`
+      : "Checking on the work";
   return null;
 }
 
@@ -109,21 +111,21 @@ export function toolLine(name: string, args?: string): string | null {
  * face instead of a glyph: who it went to is a face everywhere else in the app.
  */
 export function toolBot(name: string, args?: string): string | null {
-  if (name !== TOOL_NAMES.delegate) return null;
+  if (name !== TOOL_NAMES.thread_start) return null;
   const bot = parseArgs(args)?.bot;
   return typeof bot === "string" && bot.trim() ? bot.trim() : null;
 }
 
 /**
- * The label a `delegate` call was made under, or null for any other turn. It is
+ * The label a thread was started under, or null for any other turn. It is
  * how a job is found again from the line that opened it — in her prompt and in
  * the call log alike.
  */
-export function delegatedLabel(
+export function startedLabel(
   tool: string | null | undefined,
   text: string,
 ): string | null {
-  if (tool !== TOOL_NAMES.delegate) return null;
+  if (tool !== TOOL_NAMES.thread_start) return null;
   try {
     const said = JSON.parse(text) as { label?: unknown };
     return typeof said.label === "string" ? said.label : null;

@@ -3,30 +3,88 @@ import * as z from "zod";
 import { BOT_WORK, THREAD_STATUS_LIMIT } from "@/config";
 import { botWorkHead } from "@/features/ai/prompts/prompt-helper";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
-import { THREAD_CONTINUE, workHandle } from "@/features/bot/bot.schema";
+import { workHandle } from "@/features/bot/bot.schema";
 import { RoomMessageSchema } from "@/features/bot/room.schema";
 import { listBotWork, readBotAsk } from "@/features/bot/thread.query";
 import { clip } from "@/lib/utils";
 
-/** Tools for starting a thread, sending messages, and following work from the call. */
-export const delegateSpec = {
-  name: TOOL_NAMES.delegate,
+/**
+ * The call's hands on threads: one small tool for each thing it does, every argument
+ * required. One tool with an action and optional fields was what the backend model got
+ * wrong — text left in the wrong field, a follow-up sent as new work — so the choice
+ * is which tool to call, and nothing about a call is left to fill in or leave out.
+ */
+const THREAD_REF = z.string().describe("The thread, by its label or its id.");
+
+export const threadStartSpec = {
+  name: TOOL_NAMES.thread_start,
   description:
-    "Hand a job to a bot. Returns a receipt at once; the job runs in the background and its updates reach the conversation on their own.",
+    "Start a new thread: hand work to a bot. Returns a receipt at once; the work runs in the background and its updates reach the conversation on their own.",
   parameters: z.object({
     bot: z.string().describe("A name from the bot list."),
     request: z
       .string()
       .describe(
-        "The whole job. The bot cannot hear the call, so everything it needs goes here — names, paths, what the user actually asked for — in their own language and their own words: it is the only language the bot has, and whatever it writes comes back to them. **Their request, never your reading of it**: a condition, a caution or a smaller goal they did not say is how a job comes back as the wrong thing. When their words leave a real choice open, ask them on the call and put the answer here.",
+        "The whole of the work. The bot cannot hear the call, so everything it needs goes here — names, paths, what the user actually asked for — in their own language and their own words: it is the only language the bot has, and whatever it writes comes back to them. **Their request, never your reading of it**: a condition, a caution or a smaller goal they did not say is how work comes back as the wrong thing. When their words leave a real choice open, ask them on the call and put the answer here.",
       ),
-    // Required: two jobs are often open at once and this prefixes every line of both on screen
+    // Required: two threads are often open at once and this prefixes every line of both on screen
     label: z
       .string()
       .describe(
-        "Two or three words naming the job, in the user's language. Used on screen and said out loud.",
+        "Two or three words naming the thread, in the user's language. Used on screen and said out loud.",
       ),
   }),
+};
+
+export const threadTellSpec = {
+  name: TOOL_NAMES.thread_tell,
+  description:
+    "Say something to a thread that exists: a correction while it runs, the next step once it has finished, or to go on after it stopped. Its bot reads it with everything the thread already holds.",
+  parameters: z.object({
+    thread: THREAD_REF,
+    words: z
+      .string()
+      .describe("What to tell its bot, in the user's language and words."),
+  }),
+};
+
+export const threadAnswerSpec = {
+  name: TOOL_NAMES.thread_answer,
+  description:
+    "Answer a question a bot asked the user. Only for a question that is waiting; anything else said to a thread is `thread_tell`.",
+  parameters: z.object({
+    thread: THREAD_REF,
+    bot: z.string().describe("The bot that asked."),
+    answer: z.string().describe("The user's answer, in their words."),
+  }),
+};
+
+export const threadStatusSpec = {
+  name: TOOL_NAMES.thread_status,
+  description: `Read threads as they are now. "all" lists up to ${THREAD_STATUS_LIMIT}, running and waiting work before recent endings; a label or an id reads that one whole, with its result and any question waiting.`,
+  parameters: z.object({
+    thread: z.string().describe('"all", or one thread by its label or its id.'),
+  }),
+};
+
+export const threadCancelSpec = {
+  name: TOOL_NAMES.thread_cancel,
+  description: "Stop a thread for good. It cannot be taken back.",
+  parameters: z.object({ thread: THREAD_REF }),
+};
+
+export const threadShowSpec = {
+  name: TOOL_NAMES.thread_show,
+  description:
+    "Put a thread in front of the user on their screen: the file it made, or the thread itself when it made none. Showing it also counts as them having seen its result.",
+  parameters: z.object({ thread: THREAD_REF }),
+};
+
+export const threadSeenSpec = {
+  name: TOOL_NAMES.thread_seen,
+  description:
+    "Mark a thread's result as seen by the user, once they have heard it and have nothing more to ask about it. It leaves the work waiting on them.",
+  parameters: z.object({ thread: THREAD_REF }),
 };
 
 export const sendMessageSpec = {
@@ -56,39 +114,6 @@ export const sendMessageSpec = {
       .nullish()
       .describe(
         "Use an incoming message ID to send an explicit reply; omit to start a new exchange. Your ordinary final text already replies to your current correspondent.",
-      ),
-  }),
-};
-
-/** The voice session's handle on a job already handed over. Run by the server, like `delegate` (load-tools). */
-export const threadSpec = {
-  name: TOOL_NAMES.thread,
-  description: `List up to ${THREAD_STATUS_LIMIT} jobs, prioritizing running and waiting work before recent endings; inspect one job, answer it, cancel it, open it on the user's screen — the file it made, or its thread when it made none — or mark it seen — the same as the user opening it, which takes it off the work waiting on them.`,
-  parameters: z.object({
-    action: z.enum(["status", "answer", "cancel", "open", "seen"]),
-    recipient: z
-      .string()
-      .nullish()
-      .describe(
-        "With answer, name the participant to receive it. Words to a participant waiting on its question answer that question; omit to reach the only open question, or the coordinator when none is open.",
-      ),
-    replyTo: z
-      .string()
-      .nullish()
-      .describe(
-        "With answer, use the message ID of the question being answered when several questions are open.",
-      ),
-    thread: z
-      .string()
-      .nullish()
-      .describe(
-        `Identify the job by label or ID. With status, omit or use null to list up to ${THREAD_STATUS_LIMIT} jobs, prioritizing open work and filling remaining places with recent endings; name one to read its full result and pending questions. With open, omit to show the job that moved last. With answer, omit only to answer the one question waiting.`,
-      ),
-    answer: z
-      .string()
-      .nullish()
-      .describe(
-        `With \`answer\`: what to tell the bot — the answer to its question, a course correction for a job still running, or what to do next on one that finished. \`${THREAD_CONTINUE}\` carries on a job that stopped before finishing, from where it was.`,
       ),
   }),
 };

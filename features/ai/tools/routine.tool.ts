@@ -23,7 +23,7 @@ import { clip } from "@/lib/utils";
 
 const routineSpec = {
   name: TOOL_NAMES.routine,
-  description: `Routines: jobs that start by themselves, each one a bot, a job and a time. List them, make one, change one, or delete one. Every start opens a job like one handed over by hand; its result reaches the conversation the same way. At most ${ROUTINE.max} exist.`,
+  description: `Routines: work that starts by itself, each one a bot, the work and a time. List them, make one, change one, or delete one. Every start opens a thread like one started by hand; its result reaches the conversation the same way. At most ${ROUTINE.max} exist.`,
   parameters: z.object({
     action: z.enum(["list", "create", "change", "delete"]),
     routine: z
@@ -40,13 +40,13 @@ const routineSpec = {
       .string()
       .nullish()
       .describe(
-        "With create: two or three words naming it, in the user's language. It names every job the routine opens, on screen and out loud.",
+        "With create: two or three words naming it, in the user's language. It names every thread the routine opens, on screen and out loud.",
       ),
     request: z
       .string()
       .nullish()
       .describe(
-        "With create: the whole job, handed to the bot as written every time it starts. Nobody is there then to fill in what is missing, so everything it needs goes here, in the user's own language and words. Their request, never your reading of it.",
+        "With create: the whole of the work, handed to the bot as written every time it starts. Nobody is there then to fill in what is missing, so everything it needs goes here, in the user's own language and words. Their request, never your reading of it.",
       ),
     time: z
       .string()
@@ -173,7 +173,7 @@ export function createRoutineTools() {
             : " As things are set, it starts only while the app is open in a tab: a time that passes with it closed starts once when it is opened again. Settings › Routines has the switch that lets work go on with the app closed.";
           return {
             ...told(made),
-            note: `${made.bot} starts "${made.label}" by itself, ${scheduleText(made.schedule)}, first ${whenOf(toDate(made.nextRunAt))}. Each start is a job of its own, and its result reaches the conversation like any job's.${held}`,
+            note: `${made.bot} starts "${made.label}" by itself, ${scheduleText(made.schedule)}, first ${whenOf(toDate(made.nextRunAt))}. Each start is a thread of its own, and its result reaches the conversation like any thread's.${held}`,
           };
         }
 
@@ -182,7 +182,7 @@ export function createRoutineTools() {
 
         if (args.action === "delete") {
           await deleteRoutine(one.id);
-          return `"${one.label}" is deleted and starts no more. The jobs it already opened stay.`;
+          return `"${one.label}" is deleted and starts no more. The threads it already opened stay.`;
         }
 
         const patch = {

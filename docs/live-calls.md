@@ -165,8 +165,9 @@ kind go in one commentary append, most pressing first, so an ending never shares
 a question. The activity line carries the update from the moment
 it goes out until her voice has finished it, and nothing else goes in until her voice has started
 and stopped (at most `CALL_RELAY.readMs`). An item is handled when it is answered, marked seen
-by the backend's `thread` `seen` once the user has been told enough, or opened on screen — the
-backend's `thread` `open` opens it in the call screen's room (a `showThread` event). Each item
+by the backend's `thread_seen` once the user has been told enough, or opened on screen — the
+backend's `thread_show` opens the file it made in the app's viewer (`showFile`), or the thread in
+the call screen's room when it made none (`showThread`). Each item
 goes in once a call (`told`, in memory), and it stays in the inbox and on screen until handled.
 One her voice carried stays out of later calls too while the page is open; one it did not (Live
 refused it, she never spoke, the call ended first) goes in again on the next call, never in a
@@ -175,9 +176,9 @@ again is a new item, and a reload puts what is still open in once more. Nothing 
 the call is ending or a goodbye has been asked for. A relay is facts only, with no note
 ahead of it.
 
-A relay names the bot and the thread and, for a question, where its answer goes (thread,
-recipient, `replyTo`). The backend reads relays in its conversation and routes the user's
-answer from those facts, so a relay carries no instructions. A bot's message is written
+A relay names the bot and the thread. The backend reads relays in its conversation and
+routes the user's answer from those facts (`thread_answer` takes the thread and the bot that
+asked; the question is found on the server), so a relay carries no instructions. A bot's message is written
 for the screen, so past `CALL_RELAY.chars` it goes in cut at a paragraph or a sentence, with
 the fact that the rest is in its thread. Nothing goes in while the backend holds the turn —
 from the moment it takes it until her first word, the gap after a `response.create`

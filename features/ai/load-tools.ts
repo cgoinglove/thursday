@@ -5,8 +5,13 @@ import type { TextModel } from "@/features/ai/model";
 import { clockNow } from "@/features/ai/prompts/prompt-helper";
 import {
   createThreadRecallTool,
-  delegateSpec,
-  threadSpec,
+  threadAnswerSpec,
+  threadCancelSpec,
+  threadSeenSpec,
+  threadShowSpec,
+  threadStartSpec,
+  threadStatusSpec,
+  threadTellSpec,
 } from "@/features/ai/tools/bot.tool";
 import { callTools } from "@/features/ai/tools/call.tool";
 import { createMcpTools } from "@/features/ai/tools/mcp.tool";
@@ -19,6 +24,8 @@ import {
 import { createSkillTools } from "@/features/ai/tools/skills.tool";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { createWorkspaceTools } from "@/features/ai/tools/workspace.tool";
+// Type only: the runner imports this file (see createThreadTools)
+import type { answerThread } from "@/features/bot/bot.runner";
 import { threadActivity } from "@/features/bot/bot.schema";
 import { loadSkills } from "@/features/skills/skills.discover";
 import { readCallSkillsOn } from "@/features/thursday/thursday.query";
@@ -75,15 +82,38 @@ type ToolRun =
   | { target: "memory-edit" };
 
 /**
- * Starting work and following it. bot.runner is imported dynamically to break a cycle
- * (runner -> bot.run -> this file). `delegate` records which call opened the job, so a
- * later call's prompt finds the job under the line that opened it (Earlier calls).
+ * Starting threads and following them, one tool for each (tools/bot.tool). bot.runner is
+ * imported dynamically to break a cycle (runner -> bot.run -> this file). `thread_start`
+ * records which call opened the thread, so a later call's prompt finds it under the line
+ * that opened it (Earlier calls). What a tool answers says what the next step is called:
+ * the model follows a receipt better than a rule it read once.
  */
 function createThreadTools(callId: string | null | undefined): ToolSet {
+  /** The thread a call names, or the line that lets the model name one that exists. */
+  const pick = async (ref: string) => {
+    const { resolveThread } = await import("@/features/bot/thread.query");
+    const one = ref.trim() ? await resolveThread(ref.trim()) : null;
+    return one ?? (await noSuchThread(ref));
+  };
+  const say = async (
+    id: string,
+    words: string,
+    bot?: string,
+  ): Promise<Awaited<ReturnType<typeof answerThread>> | string> => {
+    const runner = await import("@/features/bot/bot.runner");
+    try {
+      return await runner.answerThread(id, words, "thursday", bot);
+    } catch (cause) {
+      // Which bot, or that the question is gone, is the model's to fix: one line it can act on
+      if (isPublicError(cause)) return cause.message;
+      throw cause;
+    }
+  };
+
   return {
-    [TOOL_NAMES.delegate]: tool({
-      description: delegateSpec.description,
-      inputSchema: delegateSpec.parameters,
+    [TOOL_NAMES.thread_start]: tool({
+      description: threadStartSpec.description,
+      inputSchema: threadStartSpec.parameters,
       execute: async ({ bot, request, label }) => {
         // Checked here, not by the run: by then the model has already said someone has it.
         // Resolved the same way the run resolves it (findJobBot)
@@ -91,11 +121,11 @@ function createThreadTools(callId: string | null | undefined): ToolSet {
           "@/features/bot/bot.query"
         );
         const found = await findJobBot(bot);
-        // A switched-off bot resolves (a job it already has still resumes) but is
+        // A switched-off bot resolves (a thread it already has still resumes) but is
         // not one to pick, so it fails here rather than in listJobBots.
         if (!found || found.disabled) {
           const names = (await listJobBots()).map((one) => one.name);
-          return `There is no bot called "${bot}". The bots are: ${names.join(", ")}. Nothing was handed over — call again with one of those.`;
+          return `There is no bot called "${bot}". The bots are: ${names.join(", ")}. Nothing was started — call again with one of those.`;
         }
 
         // The row carries the bot's own spelling, not the transcript's
@@ -110,206 +140,195 @@ function createThreadTools(callId: string | null | undefined): ToolSet {
         return {
           threadId: id,
           // The label is the handle: without it in front of her, a follow-up
-          // becomes a second job instead of a word to the one running
-          note: `${found.name} has "${label}". Its updates reach the conversation on their own. Anything further about this work — an answer, a correction, the next step once it finishes — is \`${TOOL_NAMES.thread}\` with "${label}".`,
+          // becomes a second thread instead of a word to the one running
+          note: `${found.name} has "${label}". Its updates reach the conversation on their own. Anything further about this work — a correction, the next step once it finishes — is \`${TOOL_NAMES.thread_tell}\` with "${label}"; a question it asks is answered with \`${TOOL_NAMES.thread_answer}\`.`,
         };
       },
     }),
 
-    [TOOL_NAMES.thread]: tool({
-      description: threadSpec.description,
-      inputSchema: threadSpec.parameters,
-      execute: async ({ action, thread, answer, recipient, replyTo }) => {
-        const { listThreadOverview, resolveThread } = await import(
-          "@/features/bot/thread.query"
-        );
-        if (action === "status") {
-          // `status` only reads, and text left in `answer` reaches nobody — it
-          // has arrived carrying the instruction a job was waiting for. The read
-          // still answers; the note is what stops the loss being silent
-          const dropped = answer?.trim()
-            ? {
-                note: "The text in `answer` was not passed on — `status` only reads. Send it again as `answer` if the bot is meant to hear it.",
-              }
-            : {};
-          // The clock, because the one in the instructions is from when the call
-          // opened and a call can run for hours; `since` is measured against this.
-          const now = { now: clockNow() };
-          // A named job comes back whole; the list clips outcomes, and the model pads a clipped answer
-          if (thread) {
-            const one = await resolveThread(thread);
-            if (!one) return await noSuchJob(thread);
-            const { findThreadView } = await import(
-              "@/features/bot/thread.query"
-            );
-            const room = (await findThreadView(one.id))?.room;
-            return {
-              ...now,
-              ...dropped,
-              label: one.label,
-              id: one.id,
-              bot: one.bot,
-              participants: room?.participants ?? [],
-              questions: room?.questions ?? [],
-              status: one.status,
-              since: formatDistanceToNowStrict(toDate(one.updatedAt), {
-                addSuffix: true,
-              }),
-              outcome: one.outcome,
-              ...(one.status === "waiting" && one.pending?.options.length
-                ? { options: one.pending.options }
-                : {}),
-            };
-          }
-          const threads = await listThreadOverview();
-          // No messages — only as much as is worth reading out: what it is
-          // asking, the one line of what it is doing, or how it ended
-          return {
-            ...now,
-            ...dropped,
-            threads: threads.map((thread) => ({
-              id: thread.id,
-              label: thread.label,
-              bot: thread.bot,
-              status: thread.status,
-              participants: thread.room.participants,
-              questions: thread.room.questions.map((question) => ({
-                ...question,
-                text: clip(question.text, 200),
-              })),
-              since: formatDistanceToNowStrict(toDate(thread.updatedAt), {
-                addSuffix: true,
-              }),
-              ...(thread.ask
-                ? { asking: thread.ask.question, options: thread.ask.options }
-                : {}),
-              ...(thread.status === "running"
-                ? { now: threadActivity(thread.lines) }
-                : {}),
-              ...(thread.outcome && thread.status !== "waiting"
-                ? { outcome: clip(thread.outcome, 200) }
-                : {}),
-            })),
-          };
-        }
-        // A name is how a job is taken. Unnamed, `open` shows the job that just
-        // moved, and `answer` reaches the one open question; words with no question
-        // waiting belong to a job the user names, never to whichever moved last.
-        // Cancel always needs the name: it cannot be taken back.
-        const { listInboxThreads, markSeen } = await import(
-          "@/features/bot/thread.query"
-        );
-        const unnamed = !thread && (action === "answer" || action === "open");
-        const inbox = unnamed ? await listInboxThreads() : [];
-        const asking =
-          action === "answer"
-            ? inbox.filter((row) => row.room.questions.length)
-            : [];
-        if (asking.length > 1)
-          return `Questions are waiting in more than one job: ${asking
-            .map(
-              (row) =>
-                `"${row.label}" (${row.room.questions.map((question) => question.bot).join(", ")})`,
-            )
-            .join(", ")}. Name the job.`;
-        const one = thread
-          ? await resolveThread(thread)
-          : action === "answer"
-            ? (asking[0] ?? null)
-            : unnamed
-              ? (inbox[0] ?? null)
-              : null;
-        if (!one) {
-          if (thread) return await noSuchJob(thread);
-          if (action === "answer")
-            return `No question is waiting. Name the job this is for; \`${TOOL_NAMES.thread}\` \`status\` lists them.`;
-          return unnamed
-            ? "No job has moved yet — say which one, or check `status` first."
-            : "Say which job — by its label. Call `status` with no job named to see them.";
-        }
-
-        if (action === "open") {
-          const { appEvents } = await import(
-            "@/app/api/events/app-event.server"
-          );
-          // What it made is what they asked to see: the file itself, in the app's
-          // viewer. A job that left no file opens as its thread
-          const { filesOnDisk } = await import(
-            "@/features/workspace/workspace"
-          );
-          const { opensOnFinish, pathsIn } = await import(
-            "@/features/workspace/file-kind"
-          );
-          const files = await filesOnDisk(pathsIn(one.outcome ?? ""), null);
-          if (!files.length) {
-            appEvents.emit({ type: "showThread", threadId: one.id });
-            return { label: one.label, open: true, showing: "its thread" };
-          }
-          const lead = Math.max(0, files.findIndex(opensOnFinish));
-          appEvents.emit({
-            type: "showFile",
-            paths: [files[lead], ...files.filter((_, at) => at !== lead)],
-          });
-          return { label: one.label, open: true, showing: files[lead] };
-        }
-        if (action === "seen") {
-          // The same as opening it on screen: it leaves the work waiting on the user
-          await markSeen([one.id]);
-          return { label: one.label, seen: true };
-        }
-        const { answerThread, cancelThread } = await import(
-          "@/features/bot/bot.runner"
-        );
-        if (action === "cancel") {
-          await cancelThread(one.id);
-          return { label: one.label, status: "cancelled" };
-        }
-        if (!answer?.trim()) return "Say what to pass on.";
-        let told: Awaited<ReturnType<typeof answerThread>>;
-        try {
-          told = await answerThread(
-            one.id,
-            answer.trim(),
-            "thursday",
-            recipient ?? undefined,
-            replyTo ?? undefined,
-          );
-        } catch (cause) {
-          // Which question, or that it is gone, is the model's to fix: one line it can act on
-          if (isPublicError(cause)) return cause.message;
-          throw cause;
-        }
+    [TOOL_NAMES.thread_tell]: tool({
+      description: threadTellSpec.description,
+      inputSchema: threadTellSpec.parameters,
+      execute: async ({ thread, words }) => {
+        const one = await pick(thread);
+        if (typeof one === "string") return one;
+        if (!words.trim()) return "Say what to pass on.";
+        const told = await say(one.id, words.trim());
+        if (typeof told === "string") return told;
         if (told?.answered)
           return {
             label: one.label,
             answered: told.answered,
-            note: `${told.answered.bot} has the answer to its question and goes on from it.`,
+            note: `${told.answered.bot} was waiting on a question, and took this as its answer.`,
           };
         return {
-          // Named even when the model named it: with no job given this is the
-          // one that moved last, and saying which makes a wrong one obvious
           label: one.label,
           bot: told?.to ?? one.bot,
           status: "running",
           note:
             one.status === "running"
               ? "The bot reads it before its next step."
-              : "The bot picks the job back up from there.",
+              : "The bot picks the thread back up from there.",
         };
+      },
+    }),
+
+    [TOOL_NAMES.thread_answer]: tool({
+      description: threadAnswerSpec.description,
+      inputSchema: threadAnswerSpec.parameters,
+      execute: async ({ thread, bot, answer }) => {
+        const one = await pick(thread);
+        if (typeof one === "string") return one;
+        if (!answer.trim()) return "Say what the answer is.";
+        const { findThreadView } = await import("@/features/bot/thread.query");
+        const questions = (await findThreadView(one.id))?.room.questions ?? [];
+        const asked = questions.find(
+          (question) => question.bot.toLowerCase() === bot.trim().toLowerCase(),
+        );
+        if (!asked)
+          return questions.length
+            ? `${bot} is not asking anything in "${one.label}". Waiting there: ${questions.map((question) => question.bot).join(", ")}. Call again with that bot.`
+            : `No question is waiting in "${one.label}". To say something else to it, use \`${TOOL_NAMES.thread_tell}\`.`;
+        const told = await say(one.id, answer.trim(), asked.bot);
+        if (typeof told === "string") return told;
+        return {
+          label: one.label,
+          answered: told?.answered ?? { bot: asked.bot, question: asked.text },
+          note: `${asked.bot} has the answer to its question and goes on from it.`,
+        };
+      },
+    }),
+
+    [TOOL_NAMES.thread_status]: tool({
+      description: threadStatusSpec.description,
+      inputSchema: threadStatusSpec.parameters,
+      execute: async ({ thread }) => {
+        const { listThreadOverview, findThreadView } = await import(
+          "@/features/bot/thread.query"
+        );
+        // The clock, because the one in the instructions is from when the call
+        // opened and a call can run for hours; `since` is measured against this.
+        const now = { now: clockNow() };
+        const since = (at: Parameters<typeof toDate>[0]) =>
+          formatDistanceToNowStrict(toDate(at), { addSuffix: true });
+        const all = !thread.trim() || thread.trim().toLowerCase() === "all";
+        // A named thread comes back whole; the list clips outcomes, and the model pads a clipped answer
+        if (!all) {
+          const one = await pick(thread);
+          if (typeof one === "string") return one;
+          const room = (await findThreadView(one.id))?.room;
+          return {
+            ...now,
+            label: one.label,
+            id: one.id,
+            bot: one.bot,
+            participants: room?.participants ?? [],
+            questions: room?.questions ?? [],
+            status: one.status,
+            since: since(one.updatedAt),
+            outcome: one.outcome,
+            ...(one.status === "waiting" && one.pending?.options.length
+              ? { options: one.pending.options }
+              : {}),
+          };
+        }
+        const threads = await listThreadOverview();
+        if (!threads.length) return "No thread has been started yet.";
+        // No messages — only as much as is worth reading out: what it is
+        // asking, the one line of what it is doing, or how it ended
+        return {
+          ...now,
+          threads: threads.map((thread) => ({
+            id: thread.id,
+            label: thread.label,
+            bot: thread.bot,
+            status: thread.status,
+            participants: thread.room.participants,
+            questions: thread.room.questions.map((question) => ({
+              ...question,
+              text: clip(question.text, 200),
+            })),
+            since: since(thread.updatedAt),
+            ...(thread.ask
+              ? { asking: thread.ask.question, options: thread.ask.options }
+              : {}),
+            ...(thread.status === "running"
+              ? { now: threadActivity(thread.lines) }
+              : {}),
+            ...(thread.outcome && thread.status !== "waiting"
+              ? { outcome: clip(thread.outcome, 200) }
+              : {}),
+          })),
+        };
+      },
+    }),
+
+    [TOOL_NAMES.thread_cancel]: tool({
+      description: threadCancelSpec.description,
+      inputSchema: threadCancelSpec.parameters,
+      execute: async ({ thread }) => {
+        const one = await pick(thread);
+        if (typeof one === "string") return one;
+        const { cancelThread } = await import("@/features/bot/bot.runner");
+        await cancelThread(one.id);
+        return { label: one.label, status: "cancelled" };
+      },
+    }),
+
+    [TOOL_NAMES.thread_show]: tool({
+      description: threadShowSpec.description,
+      inputSchema: threadShowSpec.parameters,
+      execute: async ({ thread }) => {
+        const one = await pick(thread);
+        if (typeof one === "string") return one;
+        const { appEvents } = await import("@/app/api/events/app-event.server");
+        // What it made is what they asked to see: the file itself, in the app's
+        // viewer. A thread that left no file opens as itself
+        const { filesOnDisk } = await import("@/features/workspace/workspace");
+        const { opensOnFinish, pathsIn } = await import(
+          "@/features/workspace/file-kind"
+        );
+        const files = await filesOnDisk(pathsIn(one.outcome ?? ""), null);
+        if (!files.length) {
+          // Opened in the room, where reading it is what marks it seen
+          appEvents.emit({ type: "showThread", threadId: one.id });
+          return { label: one.label, showing: "the thread" };
+        }
+        const lead = Math.max(0, files.findIndex(opensOnFinish));
+        appEvents.emit({
+          type: "showFile",
+          paths: [files[lead], ...files.filter((_, at) => at !== lead)],
+        });
+        // The result is in front of them: the same as having opened it themselves
+        const { markSeen } = await import("@/features/bot/thread.query");
+        await markSeen([one.id]);
+        return { label: one.label, showing: files[lead] };
+      },
+    }),
+
+    [TOOL_NAMES.thread_seen]: tool({
+      description: threadSeenSpec.description,
+      inputSchema: threadSeenSpec.parameters,
+      execute: async ({ thread }) => {
+        const one = await pick(thread);
+        if (typeof one === "string") return one;
+        const { markSeen } = await import("@/features/bot/thread.query");
+        await markSeen([one.id]);
+        return { label: one.label, seen: true };
       },
     }),
   };
 }
 
-/** An unresolved reference answers with the recent jobs; a bare "no such job" is read as an error and relayed as one. */
-async function noSuchJob(ref: string): Promise<string> {
+/** An unresolved reference answers with the recent threads; a bare "no such thread" is read as an error and relayed as one. */
+async function noSuchThread(ref: string): Promise<string> {
   const { listThreadOverview } = await import("@/features/bot/thread.query");
   const recent = await listThreadOverview();
-  if (!recent.length) return "No jobs have been handed over yet.";
+  if (!recent.length) return "No thread has been started yet.";
   const names = recent
     .map((thread) => `"${thread.label}" (${thread.bot}, ${thread.status})`)
     .join(", ");
-  return `There is no job called "${ref}". The latest are: ${names}. Call again with one of those names.`;
+  return `There is no thread called "${ref}". The latest are: ${names}. Call again with one of those labels.`;
 }
 
 /**

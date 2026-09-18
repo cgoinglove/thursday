@@ -126,8 +126,8 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   but greetings, small talk and a brief clarification to the backend, hand over whatever they say
   about themselves as they say it, and answer from what the backend returns. What the backend can
   do, how work is handed over, tidying memory and earlier calls are the backend's; it merges a fact
-  that repeats or changes one already kept, and before handing work to a bot it asks the user once
-  which bot and which thread, through what it returns. A relay carries facts — who, which thread, where an answer goes —
+  that repeats or changes one already kept, and it asks the user whether work carries an earlier
+  thread on or starts a new one only when it could be either. A relay carries facts — who, which thread —
   never instructions, since the backend reads it too.
 - **Tools run on the server.** A call's tool invocation is forwarded by the page to the server, so
   tools call domain queries directly. The one exception is anything that touches the call itself
@@ -178,6 +178,12 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   (the same key the pump asks) or its bot is off, and skipped while its last run is still open;
   its next time moves on before the run opens, so two looks start one thread. Only the call holds
   the `routine` tool: what starts by itself is the user's to set up, never a bot's.
+- **A call tool does one thing and every argument is required.** The backend model is a cheap one: a
+  tool with an action and optional fields is where it put text in the wrong field or sent a
+  follow-up as new work. So the call's hands on threads are a family (`thread_start`, `thread_tell`,
+  `thread_answer`, `thread_status`, `thread_cancel`, `thread_show`, `thread_seen`), what the server
+  can find it finds (which question a bot's answer belongs to), and what a tool returns names the
+  next step. To a model it is a *thread* everywhere; to the user it is a label and a bot.
 - **What cannot be won by instruction is enforced by structure**: tool sets, per-turn and per-room
   limits, output truncation, shell env. Do not add prompt sentences for things the code can enforce.
 - **A turn ending is not a thread ending.** Bots finish with ordinary text or silence. The coordinator
@@ -302,8 +308,8 @@ A 30-second poll remains as a safety net. No WebSockets.
   the same two and nothing else (`NavBadge`).
 - Errors are never swallowed. Inline or toast, they reach the user.
 - Thread questions remain visible while other bots work. Unread endings stay in the inbox until
-  the user opens them — Thursday's `thread` `open` counts — or Thursday has told them and marked
-  them seen (`thread` `seen`); a relay acknowledgement alone never counts as reading. Use neutral surfaces for these
+  the user opens them — Thursday's `thread_show` counts — or Thursday has told them and marked
+  them seen (`thread_seen`); a relay acknowledgement alone never counts as reading. Use neutral surfaces for these
   notices and explicit labels for questions and new results.
 - Ask the user with an explicit question message; ordinary Thursday messages never block a thread,
   and a question pauses only the bot that asked it. Show one question at a time with optional choices and free text, on a borderless sheet where the

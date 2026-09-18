@@ -13,7 +13,7 @@ import type {
   MemoryIndexEntry,
 } from "@/features/memory/memory.schema";
 import type { SkillMetadata } from "@/features/skills/skills.discover";
-import { delegatedLabel, searchOf } from "@/features/thursday/tool-line";
+import { searchOf, startedLabel } from "@/features/thursday/tool-line";
 import { toDate } from "@/lib/date-like";
 import { logger } from "@/lib/logger";
 import { estimateTokens, sectionTokens } from "@/lib/tokens";
@@ -259,7 +259,7 @@ type RecentCall = {
     tool?: string | null;
     text: string;
   }[];
-  /** Jobs this call opened, folded into the `delegate` line that opened them. */
+  /** Threads this call started, folded into the line that started them. */
   jobs?: {
     id: string;
     label: string;
@@ -269,7 +269,7 @@ type RecentCall = {
 };
 
 /**
- * One turn as the transcript carries it. A `delegate` line takes what became of
+ * One turn as the transcript carries it. A line that started a thread takes what became of
  * the job: the handle to pick it back up, and how it ended — arguments alone say
  * a job was handed over and nothing about whether it is still worth continuing.
  */
@@ -296,9 +296,9 @@ function turnLine(turn: RecentCall["turns"][number], call: RecentCall): string {
   }
 
   const args = `you → ${turn.tool ?? "tool"} ${clip(turn.text, PROMPT_LINE.toolArgs)}`;
-  if (turn.tool !== TOOL_NAMES.delegate) return args;
+  if (turn.tool !== TOOL_NAMES.thread_start) return args;
 
-  const label = delegatedLabel(turn.tool, turn.text);
+  const label = startedLabel(turn.tool, turn.text);
   const job = label ? call.jobs?.find((one) => one.label === label) : undefined;
   if (!job) return args;
 

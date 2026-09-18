@@ -19,8 +19,13 @@ export const TOOL_NAMES = {
 
   web_search: "web_search",
 
-  delegate: "delegate",
-  thread: "thread",
+  thread_start: "thread_start",
+  thread_tell: "thread_tell",
+  thread_answer: "thread_answer",
+  thread_status: "thread_status",
+  thread_cancel: "thread_cancel",
+  thread_show: "thread_show",
+  thread_seen: "thread_seen",
   routine: "routine",
   send_message: "send_message",
   thread_recall: "thread_recall",

@@ -21,7 +21,7 @@ import { useServerPages } from "@/lib/protocol/use-server-pages";
 import { cn, plainText, WAITING_INK } from "@/lib/utils";
 import { deleteCallAction, deleteEndedCallsAction } from "../thursday.action";
 import { type CallRecord, type CallTurn } from "../thursday.schema";
-import { delegatedLabel, searchOf, toolLine } from "../tool-line";
+import { searchOf, startedLabel, toolLine } from "../tool-line";
 import { SourceChips } from "./source-chips";
 import { ThursdayMark } from "./thursday-mark";
 
@@ -322,7 +322,7 @@ function CallEntry({
 
 /** The job a `delegate` turn opened, found by label the way her prompt finds it. */
 function jobOf(call: CallRecord, turn: CallTurn): CallJob | undefined {
-  const label = delegatedLabel(turn.tool, turn.text);
+  const label = startedLabel(turn.tool, turn.text);
   return label ? call.jobs.find((job) => job.label === label) : undefined;
 }
 
