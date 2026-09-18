@@ -40,6 +40,10 @@ one call at a time, and deletes a single call or all of them.
 ## Her voice, her face, her models
 
 - **Face**: the field of characters, or the drawn mark. Both are in Settings › Thursday › Face.
+  The field of characters can spell a short word: a hello as the app opens, CALL while she
+  rings, OK as finished work comes in, BYE as a call ends, and whatever she chooses to show.
+  While she works it is a single tail circling; as the app opens one wave of characters
+  crosses the screen.
 - **Voice**: 22 voices in Settings › Thursday › Models. Clicking a name plays it.
 - **Models**: the voice runs on GPT-Live; the model that thinks and uses tools behind it is
   picked in the same card, with how hard it thinks and whether it can search the web. Web
