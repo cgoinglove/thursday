@@ -81,6 +81,9 @@ guide/                    How the app works for the person using it, written for
 skills/                   Skills shipped with the app (read-only). User skills live in the workspace.
                           interactive-page/scripts/archify is a trimmed copy of archify (MIT; its README says
                           what was cut). Lint skips it; update it by copying upstream, not by editing it here.
+                          interactive-page/kit is the one React kit every page builds on, versions pinned by its
+                          package-lock.json; scripts/page.mjs installs it into the workspace once and again
+                          when it changes. Typecheck and lint skip it and page/, the new-page template.
 seed-skills/<seed>/       A seed bot's own skills (read-only), copied into `bots/<name>/skills` when it is made.
                           A bot's own skills are listed to it alone, so a kit costs no other bot a line.
                           marketer/ is a trimmed copy of marketingskills (MIT; its README says what was cut).

@@ -11,29 +11,36 @@ license: Complete terms in LICENSE.txt
 - A diagram — how something is built, how a process flows, calls in order, where data goes, the states it moves through — is drawn by the archify engine in `scripts/archify`, not as a mermaid block: it checks the layout, so a crossing edge or a clipped label never reaches the user. Read `references/diagram.md` first. It is a page of its own; when a report needs one, name both files as you hand back.
 - A chart of numbers in a report is a `mermaid` block in the `.md`, which the app draws. Candlesticks, hover and zoom need a page.
 
-## In this app
+## A page
 
-- The scripts live in this skill's directory (the absolute path you were handed
-  when you loaded it), not in your cwd: `bash <skill dir>/scripts/init-artifact.sh <name>`.
-- The project is made at `projects/<name>` in your workspace, wherever you run
-  the script from — it finds the workspace itself. One project per page is
-  fine: pnpm hard-links the store, so the 300 MB `node_modules` costs disk once.
-- `bundle-artifact.sh`, run inside the project, builds one self-contained file
-  and copies it to `<name>.html` in your folder under `artifacts/` — that is the
-  path it prints, and the path you hand back. The user opens it from the thread row; the source stays in
-  `projects/` and is not named in the report.
-- To look at it yourself, the `browser` skill: it refuses `file:` URLs, so
-  serve the folder first (`python3 -m http.server 48800 --bind 127.0.0.1 --directory <dir> &`),
-  `goto http://127.0.0.1:48800/<name>.html`, and kill the server after.
+Every page is built on one kit: React 18, TypeScript, Tailwind CSS 3, shadcn/ui
+(its components are in the kit's `src/components/ui`), recharts for charts and
+react-markdown with remark-gfm for text. It is installed once in the workspace and
+shared by every page after it. The script is in this skill's directory (the path
+you were handed when you loaded it) and finds the workspace wherever you run it:
 
-To build a page, follow these steps:
-1. Initialize the project using `scripts/init-artifact.sh`
-2. Develop the page by editing the generated code
-3. Bundle all code into a single HTML file using `scripts/bundle-artifact.sh`
-4. Hand back the path the bundle script printed
-5. (Optional) Test the page
+1. `node <skill dir>/scripts/page.mjs new <name>` starts the page in
+   `projects/.page-kit/pages/<name>/`. The first page ever installs the kit, a
+   minute or two; after that it is instant.
+2. Write the page in its `src/App.tsx`, with more files beside it as it grows.
+   Shared parts import as `@/components/ui/…` and `@/lib/utils`.
+3. `node <skill dir>/scripts/page.mjs build <name>` makes one self-contained file,
+   copies it to `<name>.html` in your folder under `artifacts/` and prints that
+   path: the one you hand back. The user opens it from the thread row; the source
+   is not named in the report. It opens with no network, so nothing comes from a
+   CDN: fonts and images go in the page's folder and are imported.
+4. To change a page later, from any job: edit its folder and build again, and the
+   same file is replaced. `new` refuses a name already taken.
 
-**Stack**: React 18 + TypeScript + Vite (+ vite-plugin-singlefile for bundling) + Tailwind CSS + shadcn/ui
+A library the kit lacks: `node <skill dir>/scripts/page.mjs add <package>`, and
+every page can import it from then on. Keep what one page needs in its own
+folder rather than in the kit's `src/`: an app update replaces those shared files.
+
+To look at it yourself, the `browser` skill: it refuses `file:` URLs, so serve the
+folder first (`python3 -m http.server 48800 --bind 127.0.0.1 --directory <dir> &`),
+`goto http://127.0.0.1:48800/<name>.html`, and kill the server after. Do it only
+when asked or when something looks wrong: testing upfront adds latency between
+the request and the finished file.
 
 ## Design
 
@@ -75,50 +82,6 @@ an error says what happened and how to fix it, without apologizing.
 
 Build to the floor without announcing it: usable down to a phone, focus visible
 on the keyboard, contrast that holds.
-
-## Quick Start
-
-### Step 1: Initialize Project
-
-Run the initialization script to create a new React project:
-```bash
-bash <skill dir>/scripts/init-artifact.sh <project-name>
-cd projects/<project-name>
-```
-
-This creates a fully configured project with:
-- ✅ React + TypeScript (via Vite)
-- ✅ Tailwind CSS 3.4.1 with shadcn/ui theming system
-- ✅ Path aliases (`@/`) configured
-- ✅ 40+ shadcn/ui components pre-installed
-- ✅ All Radix UI dependencies included
-- ✅ vite-plugin-singlefile configured, so `vite build` emits one HTML file
-- ✅ Node 18+ compatibility (auto-detects and pins Vite version)
-
-### Step 2: Develop the Page
-
-Edit the generated files. See **Common Development Tasks** below for guidance.
-
-### Step 3: Bundle to Single HTML File
-
-To bundle the React app into a single HTML file:
-```bash
-bash scripts/bundle-artifact.sh
-```
-
-This creates `bundle.html` - a self-contained file with all JavaScript, CSS, and dependencies inlined - and copies it to `<project-name>.html` in your folder under `artifacts/`. It opens from disk with no network.
-
-**Requirements**: Your project must have an `index.html` in the root directory.
-
-**What the script does**: `vite build` with vite-plugin-singlefile (already in the generated `vite.config.ts`), then copies `dist/index.html` to `bundle.html` and to your folder under `artifacts/`. (Upstream used Parcel here; Parcel cannot resolve the `development` export condition in current @radix-ui packages, so the build failed on a fresh project.)
-
-### Step 4: Hand back the path
-
-Report the path the script printed. The user opens it from the thread row.
-
-### Step 5: Testing/Visualizing the Page (Optional)
-
-Only when asked or when something looks wrong — testing upfront adds latency between the request and the finished file. See "In this app" above for how to open it in the browser (serve over http; `file:` is blocked).
 
 ## Reference
 

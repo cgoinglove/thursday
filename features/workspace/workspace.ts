@@ -195,7 +195,7 @@ export const jobShellEnv = (
 
 /**
  * A bot's artifacts folder in its shell, for a script that delivers a file
- * rather than a model typing the path (skills/interactive-page bundle-artifact.sh).
+ * rather than a model typing the path (skills/interactive-page scripts/page.mjs).
  */
 export const botShellEnv = (bot: string): Record<string, string> => ({
   THURSDAY_ARTIFACTS: botArtifacts(bot),
