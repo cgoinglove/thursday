@@ -25,7 +25,10 @@ for (let at = 0; at < args.length; at++) {
   else rest.push(arg);
 }
 
-const port = String(await freePort(asked));
+// The data folder of a checkout is the checkout (config DATA_DIR)
+const port = String(
+  await freePort(asked, process.env.THURSDAY_HOME?.trim() || process.cwd()),
+);
 const next = createRequire(import.meta.url).resolve("next/dist/bin/next");
 // This machine only, as `thursday` does; `-H` still opens it on purpose
 const hostname = rest.some(

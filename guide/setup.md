@@ -34,6 +34,19 @@ details. Once connected, its tools are there for bots to search and call, and up
 them can be pinned to one bot so they are always in front of it. Signing in happens in a
 popup window; a server that needs it again turns red on that screen.
 
+## Its own window
+
+The app runs in a browser tab, and a tab is easy to lose: closed, it takes the wake phrase,
+the shortcut and her calls with it. Chrome and Edge can install it instead — the install
+icon at the right of the address bar, or the menu's "Install Thursday" — which gives it its
+own window and its own icon in the Dock or the taskbar, and it can be set to open when the
+computer starts. It is the same local app either way; nothing moves anywhere.
+
+The app comes back on the same address every time it starts. If that port is taken by
+something else one day, it says so where it was started and serves on the next one; the
+browser then opens it with default settings for that day, because a browser keeps settings
+per address.
+
 ## Where the files are
 
 Everything is on this computer, in one folder: `.thursday` in their home folder when the app

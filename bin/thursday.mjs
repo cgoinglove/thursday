@@ -52,8 +52,8 @@ if (has("-v", "--version")) {
 }
 
 const asked = flag("port") ?? process.env.PORT;
-const port = String(await freePort(asked));
 const home = resolve(flag("home") || process.env.THURSDAY_HOME || DEFAULT_HOME);
+const port = String(await freePort(asked, home));
 const url = `http://localhost:${port}`;
 /** Where config.ts DB_FILE_NAME puts the database under the home. */
 const database = join(home, "local.db");
