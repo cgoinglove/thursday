@@ -3,6 +3,7 @@
  * with, plus which folders are worth listing. Shared by server and client.
  */
 
+import { queryKey } from "@/app/api/query-key";
 import { PATHS } from "@/config";
 
 export type FileViewKind =
@@ -80,17 +81,31 @@ const VIEWABLE = Object.entries(TYPE_BY_EXTENSION)
 
 // The lookbehind class is the body's own, plus `/` and `:`: written as `\w` it
 // was ASCII-only, so a name whose first character is not ASCII matched from the
-// second one instead, and came back a letter short
+// second one instead, and came back a letter short. The optional leading `/`
+// takes an absolute path or a file-route link whole rather than none of it.
 const PATH_RE = new RegExp(
-  String.raw`(?<![\p{L}\p{N}_/:@%-])(?:[\p{L}\p{N}_.@%-]+/)*[\p{L}\p{N}_@%-]+(?:\.[\p{L}\p{N}_-]+)*\.(?:${VIEWABLE.join("|")})\b`,
+  String.raw`(?<![\p{L}\p{N}_/:@%-])\/?(?:[\p{L}\p{N}_.@%-]+/)*[\p{L}\p{N}_@%-]+(?:\.[\p{L}\p{N}_-]+)*\.(?:${VIEWABLE.join("|")})\b`,
   "giu",
 );
 
 const WORKSPACE_MARK = `${PATHS.workspace}/`;
 
+const FILE_ROUTE = queryKey.file("");
+
+/** A link to the file route names the workspace file it serves. */
+function fromFileRoute(path: string): string {
+  if (!path.startsWith(FILE_ROUTE)) return path;
+  const rest = path.slice(FILE_ROUTE.length);
+  try {
+    return decodeURIComponent(rest);
+  } catch {
+    return rest;
+  }
+}
+
 /** Folds a path inside the workspace to a relative one; null when it points outside. */
 export function workspaceRelative(raw: string): string | null {
-  const path = raw.trim();
+  const path = fromFileRoute(raw.trim());
   const at = path.indexOf(WORKSPACE_MARK);
   if (at >= 0) return path.slice(at + WORKSPACE_MARK.length) || null;
   if (path.startsWith("/") || /^[A-Za-z]:/.test(path)) return null;
@@ -110,11 +125,16 @@ export function pathsIn(text: string): string[] {
   // Strip urls first, or `example.com/price.html` becomes a chip
   const prose = text.replace(/\b[a-z][\w+.-]*:\/\/\S+/gi, " ");
   const seen = new Set<string>();
+  // A list names its folder once, then only the names in it: a bare name is
+  // read in the folder of the path before it
+  let folder = "";
   for (const match of prose.match(PATH_RE) ?? []) {
-    const rel = chipPath(match);
+    const bare = !match.includes("/");
+    const rel = chipPath(bare ? folder + match : match);
+    if (!bare) folder = rel?.slice(0, rel.lastIndexOf("/") + 1) ?? "";
     if (rel) seen.add(rel);
   }
-  return [...seen].slice(0, 6);
+  return [...seen].slice(0, 12);
 }
 
 /**

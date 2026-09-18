@@ -13,7 +13,7 @@ import {
   Plus,
   X,
 } from "lucide-react";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type SubmitEvent, useEffect, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { ShinyText } from "@/components/ui/shiny-text";
@@ -99,7 +99,7 @@ export function MemoryEdit({ notes }: { notes: MemoryNote[] }) {
     return () => clearTimeout(clear);
   }, [status, failed, messages.length, setMessages]);
 
-  const submit = (event: FormEvent) => {
+  const submit = (event: SubmitEvent) => {
     event.preventDefault();
     const said = draft.trim();
     if (!said || !ready || running) return;

@@ -119,7 +119,7 @@ async function askSearcher(
   const { text, sources } = await generateText({
     model: searcher.model,
     tools: searcher.tools,
-    system: SEARCHER,
+    instructions: SEARCHER,
     prompt: query,
     abortSignal: signal,
   });

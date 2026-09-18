@@ -1,7 +1,9 @@
 import {
   convertToModelMessages,
+  createUIMessageStreamResponse,
   stepCountIs,
   streamText,
+  toUIMessageStream,
   validateUIMessages,
 } from "ai";
 import { ZodError, z } from "zod";
@@ -42,7 +44,7 @@ export async function streamMemoryEdit(
 
   const result = streamText({
     model: run.model,
-    system: run.system,
+    instructions: run.system,
     messages: run.messages,
     tools: run.tools,
     // The first step has to write; after it the model stops once nothing is
@@ -54,7 +56,13 @@ export async function streamMemoryEdit(
     abortSignal: signal,
   });
   // A provider's refusal is the user's to act on, so it is never masked
-  return result.toUIMessageStreamResponse({ onError: modelErrorToString });
+  return createUIMessageStreamResponse({
+    stream: toUIMessageStream({
+      stream: result.stream,
+      tools: run.tools,
+      onError: modelErrorToString,
+    }),
+  });
 }
 
 async function prepare(body: unknown) {

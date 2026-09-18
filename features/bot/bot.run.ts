@@ -381,7 +381,7 @@ export async function runBot(
     { once: true },
   );
   try {
-    for await (const part of result.fullStream) {
+    for await (const part of result.stream) {
       // Anything at all is the model still there
       quiet.touch();
       switch (part.type) {
@@ -471,7 +471,7 @@ export async function runBot(
   }
 
   try {
-    await result.response;
+    await result.finalStep;
   } catch (cause) {
     // Stopped between steps: whoever stopped it writes the row
     if (options.signal?.aborted) return;
@@ -625,7 +625,7 @@ async function summarize(
 ): Promise<{ text: string; usage: TokenUsage }> {
   const { text, usage } = await generateText({
     model,
-    system: options.instructions,
+    instructions: options.instructions,
     tools,
     toolChoice: "none",
     messages: [
