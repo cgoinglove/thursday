@@ -1007,6 +1007,38 @@ test("both call prompts open as one Thursday: the voice gets a two-line delegati
     assert.match(backend, /Book the dentist\./);
     assert.equal(backend.includes("grown past what it holds well"), false);
 
+    // Residue: a tool that was renamed or taken out must not live on in what the model
+    // reads: every snake_case name in backticks is a tool that exists (tool-name is where
+    // one is deleted), and no sentence is said twice.
+    const { TOOL_NAMES, STUDIO_TOOLS } = await import(
+      "../features/ai/tools/tool-name.ts"
+    );
+    const known = new Set<string>([
+      ...Object.values(TOOL_NAMES),
+      ...Object.values(STUDIO_TOOLS),
+    ]);
+    const named = (text: string) =>
+      [...text.matchAll(/`([a-z]+(?:_[a-z]+)+)`/g)].map((match) => match[1]);
+    for (const name of [...named(backend), ...named(on.text)])
+      assert.equal(known.has(name), true, `\`${name}\` is not a tool`);
+    const sentences = backend
+      .split(/(?<=[.!?])\s+|\n+/)
+      .map((sentence) => sentence.trim())
+      .filter((sentence) => sentence.length >= 50);
+    assert.deepEqual(
+      sentences.filter((sentence, at) => sentences.indexOf(sentence) !== at),
+      [],
+    );
+
+    // The guide is for the person using the app: it names screens, never tools
+    const { readdir, readFile } = await import("node:fs/promises");
+    for (const file of await readdir("guide")) {
+      const page = await readFile(`guide/${file}`, "utf8");
+      for (const name of known)
+        if (name.includes("_") || name === TOOL_NAMES.delegate)
+          assert.equal(page.includes(name), false, `guide/${file}: ${name}`);
+    }
+
     // Tidying memory is the backend's: the voice neither reads it nor opens with it
     samFacts = 60;
     const heavy = await loadLivePrompt({ locale: null });
