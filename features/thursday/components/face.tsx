@@ -38,8 +38,6 @@ type FaceProps = {
   getSpectrum?: () => ArrayLike<number>;
   /** The microphone's bands, the same way: what a face answers while listening. */
   getMicSpectrum?: () => ArrayLike<number>;
-  /** The idle mic tap is open (wake word on): the orb reacts to it at rest too. */
-  micLive?: boolean;
   /** Appearance; each face reads only the fields that apply to it. */
   look: ThursdayFace;
   className?: string;
@@ -125,17 +123,13 @@ function OrbFace({
   size,
   getSpectrum,
   getMicSpectrum,
-  micLive,
   look,
   className,
 }: FaceProps) {
   const dark = useResolvedTheme() === "dark";
-  // Idle with the mic already live (wake word on) reads as listening at rest,
-  // the same body just answering real audio instead of resting on it.
-  const mode = status === "idle" && micLive ? "listening" : ORB_MODE[status];
   return (
     <AsciiOrb
-      mode={failed ? "error" : mode}
+      mode={failed ? "error" : ORB_MODE[status]}
       word={word}
       size={size}
       color={dark ? ORB_DARK : ORB_LIGHT}

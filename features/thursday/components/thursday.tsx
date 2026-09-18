@@ -111,8 +111,6 @@ type CallScreenProps = {
   getSpectrum?: () => ArrayLike<number>;
   /** The user's own mic bands, for the listening meter. */
   getMicSpectrum?: () => ArrayLike<number>;
-  /** The idle mic tap is open (wake word on): the orb reacts to it at rest too. */
-  micLive?: boolean;
   captionView?: CaptionView;
   /** Chosen in Settings > Thursday, kept in the browser. */
   face?: ThursdayFace;
@@ -138,7 +136,6 @@ function CallScreen({
   since = null,
   getSpectrum,
   getMicSpectrum,
-  micLive = false,
   captionView = "sides",
   face = FACE_DEFAULT,
   callable = true,
@@ -209,7 +206,6 @@ function CallScreen({
                 word={ringWord ?? faceWord}
                 getSpectrum={getSpectrum}
                 getMicSpectrum={getMicSpectrum}
-                micLive={micLive}
                 className="w-full"
               />
             </span>
@@ -1265,7 +1261,6 @@ export function Thursday() {
     decline,
     getSpectrum,
     getMicSpectrum,
-    micLive,
     wakePhrase,
     hotkey,
   } = useThursday();
@@ -1305,7 +1300,6 @@ export function Thursday() {
         since={since}
         getSpectrum={getSpectrum}
         getMicSpectrum={getMicSpectrum}
-        micLive={micLive}
         face={face}
         captionView={captionView}
         callable={callable}

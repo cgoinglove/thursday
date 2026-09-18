@@ -36,7 +36,6 @@ import {
   createAudioTap,
   SPECTRUM_BANDS,
 } from "@/lib/live/live.tap";
-import { MICROPHONE_CONSTRAINTS } from "@/lib/live/live.transport";
 import { createRing } from "@/lib/live/ring";
 import { createProbe } from "@/lib/probe";
 import { type Result, unwrapResult } from "@/lib/protocol/result";
@@ -1214,40 +1213,6 @@ export function useThursday() {
     },
   });
 
-  /**
-   * Idle has its own microphone while wake word is on: the recognizer above
-   * already keeps it listening for the phrase, so the same permission opens a
-   * raw analyser too, and the face can react to it before a call exists. A
-   * real call's own stream (transport) takes the tap over once one starts.
-   */
-  const [micLive, setMicLive] = useState(false);
-  useEffect(() => {
-    if (!(status === "idle" && wake.enabled && !wakeBlocked)) {
-      setMicLive(false);
-      return;
-    }
-    let stream: MediaStream | null = null;
-    let cancelled = false;
-    void navigator.mediaDevices
-      .getUserMedia({ audio: MICROPHONE_CONSTRAINTS })
-      .then((got) => {
-        if (cancelled) {
-          for (const track of got.getTracks()) track.stop();
-          return;
-        }
-        stream = got;
-        tap.current ??= createAudioTap();
-        tap.current.hear?.(got);
-        setMicLive(true);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-      setMicLive(false);
-      for (const track of stream?.getTracks() ?? []) track.stop();
-    };
-  }, [status, wake.enabled, wakeBlocked]);
-
   // Hotkey presses `call` like the face tap, so it hangs up during a call; disabled while the line goes up or down
   const hotkey = useThursdayStore((state) => state.hotkey);
   const busy = status === "connecting" || status === "ending";
@@ -1282,8 +1247,6 @@ export function useThursday() {
     decline,
     getSpectrum,
     getMicSpectrum,
-    /** The idle mic tap is open (wake word on); the orb may show real reactivity at rest. */
-    micLive,
     /** null when the tap is the only entry point. */
     wakePhrase: wake.enabled && !wakeBlocked ? wake.phrase : null,
     /** Key combo that opens and closes the call; null if none (use-hotkey notation). */
