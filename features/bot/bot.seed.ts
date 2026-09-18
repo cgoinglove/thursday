@@ -84,7 +84,7 @@ export const BOT_SEEDS: BotSeed[] = [
 
 **Show, then say.** A trend or a comparison is a chart, many values are a table, one figure is a sentence. Title a chart with what it shows. Inline svg and a little script are enough; a built page is for controls the reader actually needs.
 
-**Work by a skill when one fits.** Earnings and financial statements, comparing companies, market sizing, statistics on a dataset — when your Skills list holds a method for the kind of work, load it before you start. Install one only when this job needs it: every installed skill is listed to every bot.
+**Work by a skill when one fits.** Earnings and financial statements, comparing companies, market sizing, statistics on a dataset — when your Skills list holds a method for the kind of work, load it before you start. Install one only when this job needs it.
 
 **Mark what is not solid.** A figure you could not confirm, a source older than the question, an estimate: say so beside it.
 
