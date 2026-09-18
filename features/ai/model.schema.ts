@@ -10,6 +10,14 @@ export const textModelProviderSchema = z.enum([
   "google",
   "xai",
   "vercel-ai-gateway",
+  "mistral",
+  "deepseek",
+  "groq",
+  "cerebras",
+  "togetherai",
+  "fireworks",
+  "deepinfra",
+  "cohere",
 ]);
 
 /** Provider and model name — everything a call needs. */
@@ -540,6 +548,216 @@ export const TEXT_MODEL_PROVIDERS: Record<
         label: "GPT 6 Astra",
         tier: "large",
         context: 1_050_000,
+      },
+    ],
+  },
+  mistral: {
+    label: "Mistral",
+    apiKeyName: "MISTRAL_API_KEY",
+    suggestModels: [
+      { id: "ministral-8b-latest", label: "Ministral 8B", tier: "small" },
+      { id: "mistral-small-latest", label: "Small", tier: "mid" },
+      { id: "mistral-medium-latest", label: "Medium", tier: "large" },
+      { id: "mistral-large-latest", label: "Large", tier: "large" },
+    ],
+  },
+  deepseek: {
+    label: "DeepSeek",
+    apiKeyName: "DEEPSEEK_API_KEY",
+    suggestModels: [
+      {
+        id: "deepseek-flash",
+        label: "V4.1 Flash",
+        tier: "small",
+        context: 1_000_000,
+      },
+      {
+        id: "deepseek-v4-pro",
+        label: "V4 Pro",
+        tier: "large",
+        context: 1_000_000,
+      },
+    ],
+  },
+  /** Open-weight models served fast. Production ids only: a preview id is withdrawn without notice. */
+  groq: {
+    label: "Groq",
+    apiKeyName: "GROQ_API_KEY",
+    suggestModels: [
+      {
+        id: "openai/gpt-oss-20b",
+        label: "GPT OSS 20B",
+        tier: "small",
+        context: 131_072,
+      },
+      {
+        id: "openai/gpt-oss-120b",
+        label: "GPT OSS 120B",
+        tier: "mid",
+        context: 131_072,
+      },
+      {
+        id: "llama-3.3-70b-versatile",
+        label: "Llama 3.3 70B",
+        tier: "mid",
+        context: 131_072,
+      },
+    ],
+  },
+  /** Windows are the free tier's; a paid key takes twice as much, and a run compacts early rather than overflowing. */
+  cerebras: {
+    label: "Cerebras",
+    apiKeyName: "CEREBRAS_API_KEY",
+    suggestModels: [
+      {
+        id: "qwen-3.8-27b",
+        label: "Qwen 3.8 27B",
+        tier: "small",
+        context: 64_000,
+      },
+      {
+        id: "gpt-oss-120b",
+        label: "GPT OSS 120B",
+        tier: "mid",
+        context: 65_536,
+      },
+    ],
+  },
+  togetherai: {
+    label: "Together",
+    apiKeyName: "TOGETHER_AI_API_KEY",
+    suggestModels: [
+      {
+        id: "Qwen/Qwen3.5-9B",
+        label: "Qwen 3.5 9B",
+        tier: "small",
+        context: 262_144,
+      },
+      {
+        id: "zai-org/GLM-5.3-Flash",
+        label: "GLM 5.3 Flash",
+        tier: "small",
+        context: 1_048_575,
+      },
+      {
+        id: "openai/gpt-oss-120b",
+        label: "GPT OSS 120B",
+        tier: "mid",
+        context: 131_072,
+      },
+      {
+        id: "deepseek-ai/DeepSeek-V4.1-Flash",
+        label: "DeepSeek V4.1 Flash",
+        tier: "mid",
+        context: 1_000_000,
+      },
+      {
+        id: "zai-org/GLM-5.3",
+        label: "GLM 5.3",
+        tier: "large",
+        context: 1_048_575,
+      },
+      {
+        id: "moonshotai/Kimi-K3",
+        label: "Kimi K3",
+        tier: "large",
+        context: 1_048_576,
+      },
+    ],
+  },
+  fireworks: {
+    label: "Fireworks",
+    apiKeyName: "FIREWORKS_API_KEY",
+    suggestModels: [
+      {
+        id: "accounts/fireworks/models/glm-5p3-flash",
+        label: "GLM 5.3 Flash",
+        tier: "small",
+        context: 1_048_576,
+      },
+      {
+        id: "accounts/fireworks/models/deepseek-v4p1-flash",
+        label: "DeepSeek V4.1 Flash",
+        tier: "mid",
+        context: 1_048_576,
+      },
+      {
+        id: "accounts/fireworks/models/minimax-m3",
+        label: "MiniMax M3",
+        tier: "mid",
+        context: 512_000,
+      },
+      {
+        id: "accounts/fireworks/models/glm-5p3",
+        label: "GLM 5.3",
+        tier: "large",
+        context: 1_048_576,
+      },
+      {
+        id: "accounts/fireworks/models/kimi-k3",
+        label: "Kimi K3",
+        tier: "large",
+        context: 1_048_576,
+      },
+    ],
+  },
+  deepinfra: {
+    label: "DeepInfra",
+    apiKeyName: "DEEPINFRA_API_KEY",
+    suggestModels: [
+      {
+        id: "deepseek-ai/DeepSeek-V4-Flash-0731",
+        label: "DeepSeek V4 Flash",
+        tier: "small",
+        context: 1_048_576,
+      },
+      {
+        id: "deepseek-ai/DeepSeek-V4.1-Flash",
+        label: "DeepSeek V4.1 Flash",
+        tier: "mid",
+        context: 1_048_576,
+      },
+      {
+        id: "zai-org/GLM-5.2",
+        label: "GLM 5.2",
+        tier: "mid",
+        context: 1_048_576,
+      },
+      {
+        id: "zai-org/GLM-5.3",
+        label: "GLM 5.3",
+        tier: "large",
+        context: 1_048_576,
+      },
+      {
+        id: "moonshotai/Kimi-K3",
+        label: "Kimi K3",
+        tier: "large",
+        context: 1_048_576,
+      },
+    ],
+  },
+  cohere: {
+    label: "Cohere",
+    apiKeyName: "COHERE_API_KEY",
+    suggestModels: [
+      {
+        id: "command-r7b-12-2024",
+        label: "Command R7B",
+        tier: "small",
+        context: 128_000,
+      },
+      {
+        id: "command-a-03-2025",
+        label: "Command A",
+        tier: "mid",
+        context: 256_000,
+      },
+      {
+        id: "command-a-plus-05-2026",
+        label: "Command A+",
+        tier: "large",
+        context: 128_000,
       },
     ],
   },

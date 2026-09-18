@@ -1,6 +1,14 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
+import { createCerebras } from "@ai-sdk/cerebras";
+import { createCohere } from "@ai-sdk/cohere";
+import { createDeepInfra } from "@ai-sdk/deepinfra";
+import { createDeepSeek } from "@ai-sdk/deepseek";
+import { createFireworks } from "@ai-sdk/fireworks";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createGroq } from "@ai-sdk/groq";
+import { createMistral } from "@ai-sdk/mistral";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createTogetherAI } from "@ai-sdk/togetherai";
 import { createXai } from "@ai-sdk/xai";
 import {
   APICallError,
@@ -143,6 +151,13 @@ export type TextModel = {
   searchTools: ToolSet | null;
 };
 
+/** A model whose provider has no web search to bind. */
+const plain = (ref: TextModelRef, model: LanguageModel): TextModel => ({
+  ref,
+  model,
+  searchTools: null,
+});
+
 /** The one place a text provider is constructed. */
 function buildTextModel(ref: TextModelRef, apiKey: string): TextModel {
   switch (ref.provider) {
@@ -181,6 +196,23 @@ function buildTextModel(ref: TextModelRef, apiKey: string): TextModel {
         searchTools: { search: xai.tools.webSearch() },
       };
     }
+    // A key and a model id are all these take, and none carries a search of its own
+    case "mistral":
+      return plain(ref, createMistral({ apiKey })(ref.model));
+    case "deepseek":
+      return plain(ref, createDeepSeek({ apiKey })(ref.model));
+    case "groq":
+      return plain(ref, createGroq({ apiKey })(ref.model));
+    case "cerebras":
+      return plain(ref, createCerebras({ apiKey })(ref.model));
+    case "togetherai":
+      return plain(ref, createTogetherAI({ apiKey })(ref.model));
+    case "fireworks":
+      return plain(ref, createFireworks({ apiKey })(ref.model));
+    case "deepinfra":
+      return plain(ref, createDeepInfra({ apiKey })(ref.model));
+    case "cohere":
+      return plain(ref, createCohere({ apiKey })(ref.model));
     case "vercel-ai-gateway": {
       const gateway = createGateway({ apiKey });
       return { ref, model: gateway(ref.model), searchTools: null };

@@ -3,13 +3,14 @@
 ## Keys
 
 **Settings › Keys** holds them, and they stay on this machine. One OpenAI key is all a call
-needs — it pays for both the voice and the model behind it. Bots can run on that same key or
-on Anthropic, Google, xAI, the Vercel AI Gateway, or a ChatGPT sign-in.
+needs — it pays for both the voice and the model behind it. Bots can run on that same key, on
+a ChatGPT sign-in, on the Vercel AI Gateway (one key, every model), or on a key from Anthropic,
+Google, xAI, Mistral, DeepSeek, Groq, Cerebras, Together, Fireworks, DeepInfra or Cohere.
 
 A search key (Exa) is optional. With it, calls and bots both search through Exa, which is
 cheaper per search and comes with free credits every month. Without it, a call uses OpenAI's
-own search and a bot its model's own; a bot on the Vercel AI Gateway or a ChatGPT sign-in has
-no search of its own, so it opens pages in its browser instead.
+own search and a bot its model's own. Only OpenAI, Anthropic, Google and xAI models carry
+one; a bot on anything else has no search of its own, so it opens pages in its browser instead.
 
 ## Models
 

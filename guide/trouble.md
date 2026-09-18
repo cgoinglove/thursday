@@ -45,8 +45,9 @@ A job never fails for good; it pauses and waits.
   permissions are missing, Screen Recording and Accessibility, and only the user can grant
   them in System Settings.
 - **Sign in or pay**: by design. The bot opens the page and waits for them.
-- **Search the web**: a bot on the Vercel AI Gateway or a ChatGPT sign-in has no search of
-  its own and opens pages instead. A search key in Settings › Keys gives every bot search.
+- **Search the web**: only OpenAI, Anthropic, Google and xAI models search by themselves. A
+  bot on anything else opens pages instead. A search key in Settings › Keys gives every bot
+  search.
 - **Reach a connected service**: a server that needs signing in again turns red in
   **Settings › Connectors**.
 
