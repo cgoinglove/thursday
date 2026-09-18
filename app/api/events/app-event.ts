@@ -16,17 +16,22 @@ export type AppEvent =
   | { type: "mcp" }
   /** Signal: a sign-in was written away from the settings screen (ai/chatgpt's sign-in answer). */
   | { type: "config" }
-  /** Data: a finished job left files behind; `paths` are workspace-relative, the one worth reading first. */
+  /**
+   * Data: a job finished. `words` opens its answer as plain text; `paths` are the
+   * files it named, workspace-relative with the one worth reading first at the
+   * head, and empty when it answered in words alone.
+   */
   | {
-      type: "artifact";
+      type: "finished";
       threadId: string;
       label: string;
       bot: string;
+      words: string;
       paths: string[];
     }
   /** Data: Thursday puts a job in front of the user (`thread` `open` on a call). */
   | { type: "showThread"; threadId: string }
-  /** Data: Thursday puts what a job made in front of the user; `paths` as in `artifact`. */
+  /** Data: Thursday puts what a job made in front of the user; `paths` as in `finished`. */
   | { type: "showFile"; paths: string[] };
 
 /** Union members carrying nothing but `type`. */

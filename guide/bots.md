@@ -38,9 +38,12 @@ including the ended ones. A stopped thread leaves the corner at once.
 ## What comes back
 
 A job ends in the thing that was asked for and a short report. Anything longer than a few
-lines is a file. Nothing opens by itself: a finished job's files wait in the corner at the
-bottom left of the call screen until they are opened or dismissed, and show under the bot's
-words in the thread: pictures as thumbnails, a page or a written report as a small preview
+lines is a file. Nothing opens by itself: every finished job waits as a card in the corner at
+the bottom left of the call screen — the bot, the job's name, how its answer begins, and its
+files under that — until it is opened or dismissed. Opening a card, or a file on it, counts as
+reading the result: the thread stops showing as new, and she will not bring it up on a call.
+Dismissing a card does not; the result still waits in its thread. The files also show under
+the bot's words in the thread: pictures as thumbnails, a page or a written report as a small preview
 of itself. Asking her on a call to show a result opens that file on the screen. All of them
 stay under **Settings › Artifacts**, one shelf per bot. **Settings › Workspace** is the whole folder, for looking around rather
 than for the results.

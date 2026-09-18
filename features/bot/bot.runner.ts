@@ -1,7 +1,7 @@
 import { setTimeout as wait } from "node:timers/promises";
 import type { ModelMessage } from "ai";
 import { appEvents, presence } from "@/app/api/events/app-event.server";
-import { BOT_RUN, WORKSPACE_KEEP } from "@/config";
+import { BOT_RUN, FINISHED_NOTICE, WORKSPACE_KEEP } from "@/config";
 import { isProviderRefusal, modelErrorToString } from "@/features/ai/model";
 import { buildThreadOpening } from "@/features/ai/prompts/bot.prompt";
 import { isAnyCallLive } from "@/features/thursday/thursday.query";
@@ -21,7 +21,7 @@ import { desktopNotify } from "@/lib/desktop-notify";
 import { logger } from "@/lib/logger";
 import { isPublicError, publicError } from "@/lib/public-error";
 import { createKeyedLock } from "@/lib/queue";
-import { PromiseChain } from "@/lib/utils";
+import { PromiseChain, plainText } from "@/lib/utils";
 import { findJobBot, readKeepWorkingOn } from "./bot.query";
 import { resumeTranscript, runBot, type ThreadEvent } from "./bot.run";
 import {
@@ -240,17 +240,17 @@ async function drive(work: RoomWork, signal: AbortSignal) {
     const files = await filesOnDisk(pathsIn(thread.outcome ?? ""), null);
     // A page to read leads the notice; the rest follow in the order they were written.
     const lead = files.findIndex(opensOnFinish);
-    if (files.length)
-      appEvents.emit({
-        type: "artifact",
-        threadId: thread.id,
-        label: thread.label,
-        bot: thread.bot,
-        paths:
-          lead > 0
-            ? [files[lead], ...files.filter((_, at) => at !== lead)]
-            : files,
-      });
+    appEvents.emit({
+      type: "finished",
+      threadId: thread.id,
+      label: thread.label,
+      bot: thread.bot,
+      words: plainText(thread.outcome ?? "").slice(0, FINISHED_NOTICE.words),
+      paths:
+        lead > 0
+          ? [files[lead], ...files.filter((_, at) => at !== lead)]
+          : files,
+    });
   }
 }
 

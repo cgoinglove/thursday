@@ -311,7 +311,8 @@ A 30-second poll remains as a safety net. No WebSockets.
   read as a second brand.
 - Errors are never swallowed. Inline or toast, they reach the user.
 - Thread questions remain visible while other bots work. Unread endings stay in the inbox until
-  the user opens them — Thursday's `thread_show` counts — or Thursday has told them and marked
+  the user opens them — its card in the left corner and Thursday's `thread_show` count, closing the
+  card does not — or Thursday has told them and marked
   them seen (`thread_seen`); a relay acknowledgement alone never counts as reading. Use neutral surfaces for these
   notices and explicit labels for questions and new results.
 - Ask the user with an explicit question message; ordinary Thursday messages never block a thread,
@@ -339,7 +340,8 @@ A 30-second poll remains as a safety net. No WebSockets.
   text — everything else as a row with its kind and size, a path with no file struck through. One
   piece draws a file's face everywhere (`file-thumb`): under a message, in the corner, on the
   Artifacts shelf. Nothing a job finished opens by itself — it lands in
-  the screen's left corner, which keeps nothing and is cleared by a reload.
+  the screen's left corner as a card, the same card with files or without: the bot, the label, how
+  the answer opens, the files under the words. The corner keeps nothing and is cleared by a reload.
 - Thursday is small in one way: `thursday-mark` draws the call's orb in miniature — glyphs keep one
   size, so a bigger box holds more of them, and nothing fades — and every screen draws her through
   it, so a new icon is a change to that file. Only the browser tab keeps the bot-style mark

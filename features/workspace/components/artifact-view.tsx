@@ -1,25 +1,34 @@
 "use client";
 
-import { ChevronDown, X } from "lucide-react";
-import { useState } from "react";
+import { X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
 import { FINISHED_NOTICE } from "@/config";
+import { markSeenAction } from "@/features/bot/bot.action";
 import type { Bot } from "@/features/bot/bot.schema";
+import { shortenPaths } from "@/features/bot/components/attachments";
 import { BotMark } from "@/features/bot/components/bot-mark";
+import { roomOpens, useBotThreads } from "@/features/bot/thread.store";
 import { FileThumb } from "@/features/workspace/components/file-thumb";
 import { viewKindOf } from "@/features/workspace/file-kind";
-import { useServerRoute } from "@/lib/protocol/use-server-route";
-import { cn } from "@/lib/utils";
+import { unwrapResult } from "@/lib/protocol/result";
+import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
+import { errorToString } from "@/lib/utils";
 import { FileViewer, useOpenFile } from "./file-view";
 
 /**
- * What finished while the user was on the call, in the screen's left corner. A
- * job used to open its document by itself, over whatever was on screen; now the
- * corner says what is there and the user opens it. It keeps nothing: closing a
- * row or reloading clears it, and a result they have not read still waits in
- * the bot room.
+ * What finished, in the screen's left corner. A job used to open its document by
+ * itself, over whatever was on screen; now the corner says what is there and the
+ * user opens it. Every job stands as the same card, with files or without. It
+ * keeps nothing: closing a card or reloading clears it, and a result they have
+ * not read still waits in the bot room.
+ *
+ * Opening a card is reading it: the thread is marked seen, as opening it in the
+ * room does, so the room stops calling it new and Thursday stops owing it on a
+ * call. Closing a card is not. A thread read anywhere else takes its card away.
  */
 export function ArtifactView() {
   return (
@@ -34,14 +43,19 @@ type Finished = {
   threadId: string;
   label: string;
   bot: string;
-  /** Workspace-relative, the one worth reading first at the head (bot.runner). */
+  /** The opening of its answer, plain text. */
+  words: string;
+  /** Workspace-relative, the one worth reading first at the head (bot.runner); empty for an answer in words alone. */
   paths: string[];
 };
 
+/** File faces a card draws before the rest fold into a count. */
+const FACES_SHOWN = 4;
+
 function Notice() {
   const [rows, setRows] = useState<Finished[]>([]);
-  const [open, setOpen] = useState(false);
   const { data: bots } = useServerRoute<Bot[]>(queryKey.bot);
+  const threads = useBotThreads();
   const openFile = useOpenFile();
 
   useAppEvent({
@@ -52,86 +66,103 @@ function Notice() {
         event.paths[0],
         event.paths.filter((path) => viewKindOf(path) === "image"),
       ),
-    artifact: (event) =>
+    finished: (event) =>
       setRows((was) =>
         [
           {
             threadId: event.threadId,
             label: event.label,
             bot: event.bot,
+            words: event.words,
             paths: event.paths,
           },
-          // A job that finishes twice (picked back up, ended again) keeps one row
+          // A job that finishes twice (picked back up, ended again) keeps one card
           ...was.filter((row) => row.threadId !== event.threadId),
         ].slice(0, FINISHED_NOTICE.rows),
       ),
   });
 
-  if (!rows.length) return null;
   const drop = (threadId: string) =>
     setRows((was) => was.filter((row) => row.threadId !== threadId));
 
-  return (
-    <div className="absolute bottom-5 left-5 z-10 flex w-100 max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-3xl bg-background/80 shadow-black/5 ring-1 ring-border/50 backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-300">
-      {open && (
-        <>
-          <p className="flex items-center gap-2 px-3 pt-2 pb-1 font-mono text-[10px] tracking-wide text-muted-foreground">
-            <span className="flex-1">
-              {rows.length} new · made while you were away
-            </span>
-            <button
-              type="button"
-              onClick={() => setRows([])}
-              className="rounded-md px-1 font-sans text-[11px] outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              Clear all
-            </button>
-          </p>
-          <div className="flex flex-col gap-0.5 px-1.5 pb-1.5">
-            {rows.map((row) => (
-              <Row
-                key={row.threadId}
-                row={row}
-                bot={bots?.find((one) => one.name === row.bot)}
-                onOpen={() => {
-                  const images = row.paths.filter(
-                    (path) => viewKindOf(path) === "image",
-                  );
-                  openFile(row.paths[0], images);
-                  drop(row.threadId);
-                }}
-                onClose={() => drop(row.threadId)}
-              />
-            ))}
-          </div>
-        </>
-      )}
+  // Read somewhere else (the room, `thread_show`): the card goes. A card is armed
+  // only once its thread was seen unread, since the thread list may still hold
+  // the ending before this one when the event lands.
+  const unread = useRef(new Set<string>());
+  useEffect(() => {
+    const gone: string[] = [];
+    for (const row of rows) {
+      const thread = threads.find((one) => one.id === row.threadId);
+      if (!thread) continue;
+      if (!thread.seen) unread.current.add(row.threadId);
+      else if (unread.current.delete(row.threadId)) gone.push(row.threadId);
+    }
+    if (gone.length)
+      setRows((was) => was.filter((row) => !gone.includes(row.threadId)));
+  }, [rows, threads]);
 
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((was) => !was)}
-        className={cn(
-          "flex items-center gap-3 px-3 py-1.5 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-          open && "border-t border-border/50",
-        )}
-      >
-        <Pile paths={rows.map((row) => row.paths[0])} />
-        <span className="min-w-0 flex-1 truncate text-[14px] tracking-[-0.15px]">
-          {rows.length} new
-        </span>
-        <ChevronDown
-          className={cn(
-            "size-3.5 shrink-0 text-muted-foreground/60 transition-transform",
-            open && "rotate-180",
-          )}
+  if (!rows.length) return null;
+
+  const read = (threadId: string) => {
+    drop(threadId);
+    void markSeenAction([threadId])
+      .then(unwrapResult)
+      .then(() => revalidate(queryKey.threads))
+      .catch((cause) =>
+        toast.add({
+          type: "error",
+          title: "Could not mark the thread as read",
+          description: errorToString(cause),
+        }),
+      );
+  };
+
+  return (
+    // Newest at the foot, nearest the hand; reversed so a full corner scrolls from there.
+    // The padding is room for the cards' rings and shadows, which a scroll box would clip.
+    <div className="absolute bottom-3 left-3 z-10 flex max-h-[calc(100%-1.5rem)] w-82 max-w-[calc(100vw-1.5rem)] flex-col-reverse gap-2 overflow-y-auto p-2 scrollbar-none">
+      {rows.map((row) => (
+        <Card
+          key={row.threadId}
+          row={row}
+          bot={bots?.find((one) => one.name === row.bot)}
+          onOpen={(path) => {
+            if (path) {
+              openFile(
+                path,
+                row.paths.filter((one) => viewKindOf(one) === "image"),
+              );
+              read(row.threadId);
+            } else {
+              // the room marks a thread seen as it opens it
+              roomOpens.open(row.threadId);
+              drop(row.threadId);
+            }
+          }}
+          onClose={() => drop(row.threadId)}
         />
-      </button>
+      ))}
+      {rows.length > 1 && (
+        <p className="flex shrink-0 items-center px-1.5 font-mono text-[10px] text-muted-foreground">
+          <span className="flex-1">{rows.length} new</span>
+          <button
+            type="button"
+            onClick={() => setRows([])}
+            className="rounded-md px-1 font-sans text-[11px] outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            Clear all
+          </button>
+        </p>
+      )}
     </div>
   );
 }
 
-function Row({
+/**
+ * Who, what, and how the answer opens; the files it named stand under the words,
+ * as they do under a message in a thread. With files or without, it is one card.
+ */
+function Card({
   row,
   bot,
   onOpen,
@@ -139,81 +170,80 @@ function Row({
 }: {
   row: Finished;
   bot: Bot | undefined;
-  onOpen: () => void;
+  /** A file's face opens that file; the rest of the card opens the first one, or the thread when there is none. */
+  onOpen: (path: string | null) => void;
   onClose: () => void;
 }) {
-  const lead = row.paths[0];
-  const name = lead.split("/").pop() ?? lead;
-  const more = row.paths.length - 1;
+  const more = row.paths.length - FACES_SHOWN;
 
   return (
-    <div className="group/row relative flex items-center rounded-2xl transition-colors hover:bg-muted/70">
-      <button
-        type="button"
-        onClick={onOpen}
-        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl px-2 py-1.5 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
-        <span className="relative shrink-0">
-          <Thumb path={lead} size="row" />
-          <BotMark
-            size={14}
-            seed={row.bot}
-            color={bot?.icon?.color}
-            shape={bot?.icon?.shape}
-            outline={bot?.icon?.outline}
-            paint={bot?.icon?.paint}
-            notify={false}
-            className="-right-0.5 -bottom-0.5 absolute rounded-md bg-background p-px"
-          />
-        </span>
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-[14px] tracking-[-0.15px]">
-            {name}
-          </span>
-          <span className="truncate text-[12px] text-muted-foreground">
-            {row.bot} · {row.label}
-            {more > 0 && ` · +${more} file${more === 1 ? "" : "s"}`}
-          </span>
-        </span>
-      </button>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Dismiss"
-        onClick={onClose}
-        className="mr-1.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/row:opacity-100 focus-visible:opacity-100"
-      >
-        <X />
-      </Button>
+    <div className="flex shrink-0 animate-in gap-2.5 rounded-[20px] bg-background py-2.5 pr-2 pl-2.5 shadow-black/10 shadow-lg ring-1 ring-border fade-in slide-in-from-bottom-2 duration-300">
+      <BotMark
+        size={32}
+        seed={row.bot}
+        color={bot?.icon?.color}
+        shape={bot?.icon?.shape}
+        outline={bot?.icon?.outline}
+        paint={bot?.icon?.paint}
+        notify={false}
+        className="shrink-0"
+      />
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex items-start gap-1">
+          <button
+            type="button"
+            onClick={() => onOpen(row.paths[0] ?? null)}
+            className="flex min-w-0 flex-1 flex-col gap-1.5 rounded-lg text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <span className="flex min-h-8 flex-col justify-center">
+              <span className="truncate font-medium text-[14px] leading-5 tracking-[-0.15px]">
+                {row.label}
+              </span>
+              <span className="truncate font-mono text-[10px] leading-[13px] text-muted-foreground">
+                {row.bot}
+              </span>
+            </span>
+            {row.words && (
+              <span className="line-clamp-2 break-keep text-[12.5px] leading-normal text-muted-foreground">
+                {shortenPaths(row.words)}
+              </span>
+            )}
+          </button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Dismiss"
+            onClick={onClose}
+            className="shrink-0 text-muted-foreground"
+          >
+            <X />
+          </Button>
+        </div>
+        {row.paths.length > 0 && (
+          <div className="flex items-center gap-1.5 pt-0.5">
+            {row.paths.slice(0, FACES_SHOWN).map((path) => (
+              <button
+                key={path}
+                type="button"
+                title={path.split("/").pop()}
+                onClick={() => onOpen(path)}
+                className="rounded-[10px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <FileThumb
+                  path={path}
+                  glyph="size-4"
+                  className="h-15 w-12 rounded-[10px] ring-1 ring-border"
+                />
+              </button>
+            ))}
+            {more > 0 && (
+              <span className="px-1 font-mono text-[11px] text-muted-foreground">
+                +{more}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
     </div>
-  );
-}
-
-/** A file's own face at the corner's two sizes (file-thumb draws it). */
-function Thumb({ path, size }: { path: string; size: "row" | "pile" }) {
-  return (
-    <FileThumb
-      path={path}
-      glyph={size === "row" ? "size-4.5" : "size-3.5"}
-      className={cn(
-        "shrink-0",
-        size === "row"
-          ? "size-11 rounded-xl"
-          : "size-7 rounded-lg ring-2 ring-background",
-      )}
-    />
-  );
-}
-
-/** The folded pill's own glance: what the newest jobs left, shingled. */
-function Pile({ paths }: { paths: string[] }) {
-  return (
-    <span className="flex shrink-0 items-center">
-      {paths.slice(0, 3).map((path, at) => (
-        <span key={path} className={cn("block", at > 0 && "-ml-2")}>
-          <Thumb path={path} size="pile" />
-        </span>
-      ))}
-    </span>
   );
 }
