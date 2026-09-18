@@ -43,9 +43,9 @@ own window and its own icon in the Dock or the taskbar, and it can be set to ope
 computer starts. It is the same local app either way; nothing moves anywhere.
 
 The app comes back on the same address every time it starts. If that port is taken by
-something else one day, it says so where it was started and serves on the next one; the
-browser then opens it with default settings for that day, because a browser keeps settings
-per address.
+something else one day, it says so where it was started and serves on the next one for that
+day; the browser then shows other settings, because a browser keeps settings per address.
+Starting it once with `--port` and a number moves it to that address for good.
 
 ## Where the files are
 

@@ -74,12 +74,14 @@ const keepPort = (home, port) => {
 export async function freePort(asked, home) {
   const port = await pickPort(asked, home);
   const last = home ? lastPort(home) : null;
-  if (last && last !== port && !asked?.trim())
+  const chosen = Boolean(asked?.trim());
+  if (last && last !== port && !chosen)
     console.warn(
-      `\n  Port ${last}, where this app lives, is in use: serving on ${port}.\n  A browser keeps settings per address, so this one opens with defaults.\n`,
+      `\n  Port ${last}, where this app lives, is in use: serving on ${port} for now.\n  A browser keeps settings per address, so they are not the ones from ${last}.\n  To move here for good: --port ${port}\n`,
     );
-  // Written once: a day on another port is a detour, and the settings live at the first
-  if (home && !last) keepPort(home, port);
+  // The first run's port is home, and a day on another port is a detour that leaves home
+  // where it was. Only a port asked for by name moves it: that is the user deciding
+  if (home && (!last || chosen)) keepPort(home, port);
   return port;
 }
 
