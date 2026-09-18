@@ -5,12 +5,11 @@ import {
   ChevronUp,
   Flag,
   type LucideIcon,
-  MessageSquare,
   Mic,
   MicOff,
   Phone,
+  PhoneMissed,
   Settings2,
-  X,
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
@@ -31,7 +30,6 @@ import { BotMark } from "@/features/bot/components/bot-mark";
 import { BotRoom } from "@/features/bot/components/bot-room";
 import { toolIcon } from "@/features/bot/components/bot-tool";
 import { installSeedBots } from "@/features/bot/seed-bots";
-import { roomOpens } from "@/features/bot/thread.store";
 import { VoiceKeys } from "@/features/config/components/voice-key";
 import { type ConfigStatus, isConfigSet } from "@/features/config/config.const";
 import { SECTIONS, Settings } from "@/features/settings/components/settings";
@@ -59,13 +57,13 @@ import {
 } from "@/features/thursday/use-thursday";
 import { ArtifactView } from "@/features/workspace/components/artifact-view";
 import { useHotkeyLabel } from "@/hooks/use-hotkey";
+import { RING_CYCLE_MS } from "@/lib/live/ring";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
-import { cn } from "@/lib/utils";
+import { cn, plainText, WAITING_INK } from "@/lib/utils";
 import { Face } from "./face";
 import { SideCaptions, turnsOf, useTurnFocus } from "./side-captions";
 import { SourceChips } from "./source-chips";
 import { TabState } from "./tab-state";
-import { ThursdayMark } from "./thursday-mark";
 
 /**
  * The call screen. The face is the only control; text stays beside it and is
@@ -155,20 +153,13 @@ function CallScreen({
   const saying =
     (lastRole === "assistant" && status === "speaking") ||
     (lastRole === "user" && status === "listening");
+  const calling = ringing !== null && !ringing.missed;
+  const ringWord = useRingWord(calling && face?.kind === "ascii");
   return (
     <div className="relative flex h-full flex-col">
       <div className="absolute top-5 right-5 z-10">
         <SettingsCorner />
       </div>
-
-      {/* Opposite the room's pill: the call-back is the screen's, the pill is the room's */}
-      {ringing && (
-        <CallBackCard
-          ringing={ringing}
-          onAnswer={onTap}
-          onDismiss={() => onDecline?.()}
-        />
-      )}
 
       {/* Top padding in vh, like the face itself, so the face+text column sits below center */}
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5 pt-[7vh]">
@@ -194,18 +185,21 @@ function CallScreen({
               asleep && "opacity-35",
             )}
           >
-            {/* Ringing, the face swells twice and rests, like a phone's ring */}
+            {/* Ringing: the drawn mark swells twice and rests, like a phone's ring; the
+                orb says it in its own letters instead (useRingWord) */}
             <span
               className={cn(
                 "block",
-                ringing && !ringing.missed && "motion-safe:animate-ringing",
+                calling &&
+                  face?.kind !== "ascii" &&
+                  "motion-safe:animate-ringing",
               )}
             >
               <Face
                 look={face}
                 status={status}
                 failed={failed}
-                word={faceWord}
+                word={ringWord ?? faceWord}
                 getSpectrum={getSpectrum}
                 getMicSpectrum={getMicSpectrum}
                 micLive={micLive}
@@ -225,58 +219,68 @@ function CallScreen({
         </div>
 
         {/* The column is wider than the text (40rem); the side margins hold the caption chevrons (Flow) */}
-        <div className="flex w-full max-w-3xl flex-col items-center gap-2 px-6 text-center">
-          {/* Heights below are fixed, not fitted, so the face never moves as
+        <div className="relative flex w-full max-w-3xl flex-col items-center gap-2 px-6 text-center">
+          {/* A call she places is the screen's, not a corner's: who, what about, and
+              the two ways to take it, where her words would be. The slots below keep
+              their room (invisible), so the face does not move when it rings. */}
+          {ringing && (
+            <Incoming
+              ringing={ringing}
+              onAnswer={onTap}
+              onDecline={() => onDecline?.()}
+            />
+          )}
+          <div className={cn("contents", ringing && "*:invisible")}>
+            {/* Heights below are fixed, not fitted, so the face never moves as
               lines come and go. */}
-          {/* Activity line: what the line is doing, in human phrasing
+            {/* Activity line: what the line is doing, in human phrasing
               (tool-line). The fast channel; the face does not follow it
               (use-thursday). */}
-          <ActivityRow
-            tool={tool}
-            thinkingSince={thinkingSince}
-            thinkingTitle={thinkingTitle}
-            listening={status === "listening" && thinkingSince === null}
-            getMicSpectrum={getMicSpectrum}
-          />
+            <ActivityRow
+              tool={tool}
+              thinkingSince={thinkingSince}
+              thinkingTitle={thinkingTitle}
+              listening={status === "listening" && thinkingSince === null}
+              getMicSpectrum={getMicSpectrum}
+            />
 
-          {/* Reserved even outside a call so the face does not shift. No
+            {/* Reserved even outside a call so the face does not shift. No
               `text-balance`: rebalancing changes the line count under the pager. */}
-          <Flow
-            text={sided || status === "idle" ? "" : hers}
-            fadeIn
-            className="w-full max-w-160 text-center text-base"
-          />
+            <Flow
+              text={sided || status === "idle" ? "" : hers}
+              fadeIn
+              className="w-full max-w-160 text-center text-base"
+            />
 
-          {/* The only instruction on screen. One way in is named while idle,
+            {/* The only instruction on screen. One way in is named while idle,
               and the wake phrase wins over the hotkey. Keyed on the words so a
               change fades; the phrase arrives only after hydration.
               Outside a call this row moves above the two empty slots (order)
               so the gap under the face does not open up. */}
-          <div
-            className={cn(
-              "flex flex-col items-center",
-              status === "idle" && "order-first",
-            )}
-          >
-            {asleep ? (
-              <NeedsKey
-                open={asking}
-                onOpen={() => setAsking(true)}
-                onClose={() => setAsking(false)}
-              />
-            ) : (
-              <Hint
-                status={status}
-                idleLeft={idleLeft}
-                since={since}
-                ended={ended}
-                behind={sided && turns.back}
-                ringing={ringing !== null && !ringing.missed}
-                onDecline={onDecline}
-                wakePhrase={wakePhrase}
-                hotkeyLabel={hotkeyLabel}
-              />
-            )}
+            <div
+              className={cn(
+                "flex flex-col items-center",
+                status === "idle" && "order-first",
+              )}
+            >
+              {asleep ? (
+                <NeedsKey
+                  open={asking}
+                  onOpen={() => setAsking(true)}
+                  onClose={() => setAsking(false)}
+                />
+              ) : (
+                <Hint
+                  status={status}
+                  idleLeft={idleLeft}
+                  since={since}
+                  ended={ended}
+                  behind={sided && turns.back}
+                  wakePhrase={wakePhrase}
+                  hotkeyLabel={hotkeyLabel}
+                />
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -791,79 +795,118 @@ function ActivityRow({
   );
 }
 
+/** The word the orb shows while she rings, once a ring (lib/live/ring): lit, held, out, a breath of her own face. */
+const RING_WORD = { text: "CALL", hold: 1.5 };
+
+function useRingWord(on: boolean): FaceWord | null {
+  const [word, setWord] = useState<FaceWord | null>(null);
+  useEffect(() => {
+    if (!on) {
+      setWord(null);
+      return;
+    }
+    const show = () => setWord({ ...RING_WORD, at: Date.now() });
+    show();
+    const again = setInterval(show, RING_CYCLE_MS);
+    return () => clearInterval(again);
+  }, [on]);
+  return word;
+}
+
 /**
- * A call-back waiting in the corner opposite the room's pill: who is calling and
- * what for, and the two ways to take it — by voice, or by reading the thread. It
- * is the whole notice, so nothing but the face's ring says it elsewhere, and the
- * pill leaves that thread's row to it (ringingThreads). Once it has rung out it
- * stays as a missed call until it is answered or dismissed.
+ * A call she places, under her face where her words would be: whose work it is about
+ * and what it says, then the two ways to take it. Declining wears the key that does
+ * it. Rung out, it stays in the same place as a missed call until it is answered or
+ * dismissed; the room's pill leaves that thread's row to it (ringingThreads).
  */
-function CallBackCard({
+function Incoming({
   ringing,
   onAnswer,
-  onDismiss,
+  onDecline,
 }: {
   ringing: Ringing;
   onAnswer: () => void;
-  onDismiss: () => void;
+  onDecline: () => void;
 }) {
-  const says =
-    ringing.kind === "question"
-      ? `${ringing.bot} has a question`
-      : ringing.kind === "done"
-        ? `Answer from ${ringing.bot}`
-        : `${ringing.bot} stopped`;
+  const bots = useServerRoute<Bot[]>(queryKey.bot).data;
+  const bot = bots?.find((one) => one.name === ringing.bot);
   return (
-    <div className="absolute bottom-5 left-5 z-10 w-100 max-w-[calc(100vw-2.5rem)] animate-in rounded-3xl bg-background/95 p-3.5 shadow-lg ring-1 shadow-black/10 ring-border/60 backdrop-blur-md fade-in slide-in-from-bottom-2 duration-300">
-      <div className="flex items-center gap-3.5">
-        <ThursdayMark size={44} className="shrink-0" />
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <ShinyText
-            text={
-              ringing.missed
-                ? "Thursday is calling"
-                : " Missed call from Thursday"
-            }
-            className="text-[15px] font-medium"
-          />
-          <span className="truncate text-xs text-muted-foreground">
-            {says} · {ringing.label}
-            {ringing.more > 0 && ` · +${ringing.more}`}
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="Not now"
-          className="grid size-8 shrink-0 self-start place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        >
-          <X className="size-3.5" />
-        </button>
-      </div>
-      {/* Both ways out are named: the pill's row for this thread is gone while
-          this card is up, so reading it has to be offered here */}
-      <div className="mt-3 flex gap-2">
-        <button
-          type="button"
+    <div className="absolute inset-x-0 top-0 z-10 flex animate-in flex-col items-center gap-2.5 px-6 fade-in duration-300">
+      <span className="flex max-w-full items-center gap-2 text-sm">
+        {/* Rung out: the same line says so, in the colour of what waits on them */}
+        {ringing.missed && (
+          <>
+            <span className={cn("flex items-center gap-1.5", WAITING_INK)}>
+              <PhoneMissed className="size-3.5" />
+              Missed call
+            </span>
+            <span className="text-muted-foreground/40">·</span>
+          </>
+        )}
+        <BotMark
+          size={18}
+          seed={ringing.bot}
+          color={bot?.icon?.color}
+          shape={bot?.icon?.shape}
+          outline={bot?.icon?.outline}
+          paint={bot?.icon?.paint}
+          notify={false}
+        />
+        <span>{ringing.bot}</span>
+        <span className="text-muted-foreground/40">·</span>
+        <span className="truncate text-muted-foreground">
+          {ringing.label}
+          {ringing.more > 0 && ` · +${ringing.more}`}
+        </span>
+      </span>
+      <p className="line-clamp-2 max-w-160 text-base text-pretty">
+        {plainText(ringing.text)}
+      </p>
+      <div className="mt-4 flex gap-14">
+        <RoundAct label="Not now" onClick={onDecline}>
+          <span className="font-mono text-xs font-medium">Esc</span>
+        </RoundAct>
+        <RoundAct
+          solid
+          label={ringing.missed ? "Call back" : "Answer"}
           onClick={onAnswer}
-          className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
-          <Phone className="size-4 fill-current" />
-          {ringing.missed ? "Call back" : "Answer"}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            roomOpens.open(ringing.id);
-            onDismiss();
-          }}
-          className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-muted text-sm font-medium transition-colors hover:bg-accent"
-        >
-          <MessageSquare className="size-4 text-muted-foreground" />
-          Open thread
-        </button>
+          <Phone className="size-5.5 fill-current" />
+        </RoundAct>
       </div>
     </div>
+  );
+}
+
+/** A round button with its name under it, as a phone draws answering and declining. */
+function RoundAct({
+  label,
+  solid = false,
+  onClick,
+  children,
+}: {
+  label: string;
+  solid?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <span className="flex flex-col items-center gap-2">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        className={cn(
+          "grid size-14 place-items-center rounded-full outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+          solid
+            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+            : "bg-muted text-foreground hover:bg-accent",
+        )}
+      >
+        {children}
+      </button>
+      <span className="text-xs text-muted-foreground">{label}</span>
+    </span>
   );
 }
 
@@ -911,8 +954,6 @@ function Hint({
   since,
   ended,
   behind,
-  ringing,
-  onDecline,
   wakePhrase,
   hotkeyLabel,
 }: {
@@ -922,8 +963,6 @@ function Hint({
   ended: CallEnd | null;
   /** The side captions are on an earlier turn. */
   behind: boolean;
-  ringing: boolean;
-  onDecline?: () => void;
   wakePhrase: string | null;
   hotkeyLabel: string | null;
 }) {
@@ -961,25 +1000,6 @@ function Hint({
         ) : (
           <Elapsed since={since} />
         )}
-      </>
-    );
-  } else if (ringing) {
-    key = "ringing";
-    // Every way in answers, so the tap stands for them all; declining is the one other act
-    body = (
-      <>
-        <span>Tap Thursday to answer</span>
-        <span className="text-muted-foreground/40">·</span>
-        <button
-          type="button"
-          onClick={onDecline}
-          className="flex items-center gap-1.5 rounded-full bg-muted py-0.5 pr-0.5 pl-2 text-foreground/80 transition-colors hover:bg-accent"
-        >
-          Not now
-          <kbd className="rounded-md border border-border bg-background px-1.5 font-mono text-[10px] text-foreground/70 shadow-[0_1px_0_var(--border)]">
-            Esc
-          </kbd>
-        </button>
       </>
     );
   } else if (ended) {

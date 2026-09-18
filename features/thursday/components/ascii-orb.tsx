@@ -516,7 +516,7 @@ function layWord(cells: Cell[], cw: number, ch: number, text: string) {
 }
 
 /** A word's letters `age` seconds into its showing: each lights in turn, holds, and goes out in turn. */
-function wordValue(cell: Cell, t: number, age: number) {
+function wordValue(cell: Cell, t: number, age: number, hold: number) {
   if (cell.word < 0) return 0;
   const jitter = cell.seed * 0.08;
   const appear = smoothstep(
@@ -527,7 +527,7 @@ function wordValue(cell: Cell, t: number, age: number) {
   const vanish = smoothstep(
     0,
     1,
-    (age - WORD_HOLD - cell.word * WORD_STEP_OUT - jitter) / WORD_FADE_OUT,
+    (age - hold - cell.word * WORD_STEP_OUT - jitter) / WORD_FADE_OUT,
   );
   const flick = 0.86 + Math.sin(t * 3.5 + cell.seed * 6) * 0.14;
   return Math.max(0, appear - vanish) * flick;
@@ -543,6 +543,7 @@ function fieldValue(
   t: number,
   errAge: number,
   wordAge: number,
+  wordHold: number,
   f: Field,
   v: Voice,
 ) {
@@ -554,7 +555,7 @@ function fieldValue(
   if (f.comet > 0.01) value += cometValue(cell, t) * f.comet;
   if (f.speech > 0.01) value += speechValue(cell, t, v, f.speech) * f.speech;
   if (f.err > 0.01) value += errorValue(cell, t, errAge) * f.err;
-  if (f.word > 0.01) value += wordValue(cell, t, wordAge) * f.word;
+  if (f.word > 0.01) value += wordValue(cell, t, wordAge, wordHold) * f.word;
   return value;
 }
 
@@ -631,6 +632,7 @@ export function AsciiOrb({
     text: string;
     start: number;
     letters: number;
+    hold: number;
   } | null>(null);
   /** Grid pitch in reference units, for laying a word onto cells that already exist */
   const pitchRef = useRef({ cw: 1, ch: 1 });
@@ -756,6 +758,7 @@ export function AsciiOrb({
       text: word.text,
       start: performance.now() * 0.001,
       letters: layWord(cellsRef.current, cw, ch, word.text),
+      hold: word.hold ?? WORD_HOLD,
     };
   }, [word]);
 
@@ -863,7 +866,7 @@ export function AsciiOrb({
       const wording =
         shown !== null &&
         cur.mode !== "error" &&
-        wordAge < WORD_HOLD + shown.letters * WORD_STEP_OUT + WORD_FADE_OUT;
+        wordAge < shown.hold + shown.letters * WORD_STEP_OUT + WORD_FADE_OUT;
       const want: Field = wording
         ? {
             scale: 0,
@@ -904,7 +907,15 @@ export function AsciiOrb({
       const all = cellsRef.current;
       for (let ci = 0; ci < all.length; ci++) {
         const cell = all[ci];
-        let v = fieldValue(cell, t, errAge, wordAge, f, voice);
+        let v = fieldValue(
+          cell,
+          t,
+          errAge,
+          wordAge,
+          shown?.hold ?? WORD_HOLD,
+          f,
+          voice,
+        );
 
         if (
           !((solidError && cell.letter >= 0) || (solidWord && cell.word >= 0))

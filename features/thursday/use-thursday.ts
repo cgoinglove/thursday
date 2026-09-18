@@ -145,9 +145,11 @@ export type Ringing = {
   bot: string;
   kind: "question" | "done" | "stopped";
   label: string;
+  /** What it is about: the question, else how the work ended or where it stopped. */
+  text: string;
   /** Other threads ringing with it. */
   more: number;
-  /** It rang out unanswered: the card waits as a missed call instead of ringing. */
+  /** It rang out unanswered: it waits under her face as a missed call instead of ringing. */
   missed: boolean;
 };
 
@@ -229,7 +231,7 @@ export function useThursday() {
   const ringAfter = useRef(Date.now());
   /** The threads a call-back is up for, until it is answered or dismissed. */
   const [ringingFor, setRingingFor] = useState<string[]>([]);
-  /** They rang out: the card stays as a missed call, but nothing rings any more. */
+  /** They rang out: it stays on screen as a missed call, but nothing rings any more. */
   const [rangOut, setRangOut] = useState(false);
   const isRinging = ringingFor.length > 0;
   /**
@@ -1120,7 +1122,7 @@ export function useThursday() {
 
     probe("ring", { threads: fresh.map((thread) => thread.id) });
     ringAfter.current = Date.now();
-    // Work that is new to the card rings again, even if the card had rung out
+    // Work that is new to it rings again, even if it had rung out
     setRangOut(false);
     setRingingFor((ids) => [
       ...ids,
@@ -1130,7 +1132,7 @@ export function useThursday() {
 
   /**
    * While it rings: it stops ringing by itself after CALL_BACK.ringMs and stays on
-   * the card as a missed call until the user answers or dismisses it, so stepping
+   * the screen as a missed call until the user answers or dismisses it, so stepping
    * away does not lose it (canvas "Thursday 콜백 알림" B, user 09-17). Esc dismisses.
    * A thread added to a ring already going does not restart the clock.
    */
@@ -1154,7 +1156,7 @@ export function useThursday() {
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [isRinging, rangOut, decline]);
-  // It rings out loud for as long as the screen rings: a call nobody hears is a card
+  // It rings out loud for as long as the screen rings: a call nobody hears is a notice
   useEffect(() => {
     if (!isRinging || rangOut) return;
     const ring = createRing();
@@ -1179,12 +1181,14 @@ export function useThursday() {
           ? "done"
           : "stopped",
       label: first.label,
+      text:
+        question?.text ?? first.outcome ?? first.ask?.question ?? first.label,
       more: rung.length - 1,
       missed: rangOut,
     };
   }, [ringingFor, threads, rangOut]);
 
-  // The card has these threads, so the room's pill leaves their rows to it
+  // The screen under her face has these threads, so the room's pill leaves their rows to it
   useEffect(() => {
     ringingThreads.set(ringingFor);
   }, [ringingFor]);

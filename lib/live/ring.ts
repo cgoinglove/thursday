@@ -7,10 +7,11 @@
  * the ring is silent and the screen alone says she is calling.
  */
 const TONES = [620, 775];
-/** Seconds: a burst, the gap inside a pair, and one whole cycle. */
+/** Seconds: a burst, and the gap inside a pair. */
 const BURST = 0.34;
 const GAP = 0.16;
-const CYCLE = 2.6;
+/** One ring, start to start. The face's own ringing keeps this time (thursday.tsx). */
+export const RING_CYCLE_MS = 2_600;
 const LEVEL = 0.05;
 
 export function createRing() {
@@ -49,7 +50,7 @@ export function createRing() {
         .resume()
         .then(pair)
         .catch(() => {});
-      timer = setInterval(pair, CYCLE * 1000);
+      timer = setInterval(pair, RING_CYCLE_MS);
     },
     stop() {
       if (timer) clearInterval(timer);

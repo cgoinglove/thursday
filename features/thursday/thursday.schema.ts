@@ -18,8 +18,12 @@ export const ThursdaySettingsSchema = LiveSettingsSchema.extend({
 
 export type ThursdaySettings = z.infer<typeof ThursdaySettingsSchema>;
 
-/** A word `emote` put on the face; `at` tells a second showing of the same word from the first. */
-export type FaceWord = { text: string; at: number };
+/**
+ * A word on the face: one `emote` put there, or the screen's own while she rings. `at` tells a
+ * second showing of the same word from the first; `hold` is how long it stays lit, in seconds,
+ * when that is not the face's own (ascii-orb WORD_HOLD).
+ */
+export type FaceWord = { text: string; at: number; hold?: number };
 
 /** The browser receives the SDP answer, the row to save turns to, and the opening. */
 export type CallHandshake = {
