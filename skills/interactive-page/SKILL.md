@@ -1,15 +1,15 @@
 ---
 name: interactive-page
-description: "Charts, diagrams and pages people use: a mermaid block the app draws inside a .md report, a system map shown as its own page, or an interactive page — controls, tabs, a calculator — as one self-contained HTML file."
+description: "Diagrams, charts and pages people use: a diagram of how something is built or flows (architecture, workflow, sequence, data flow, states) drawn by the archify engine; a chart of numbers in a report; or an interactive page (controls, tabs, a calculator) as one self-contained HTML file."
 license: Complete terms in LICENSE.txt
 ---
 
 # Interactive Page
 
-## Charts and diagrams
+## Diagrams and charts
 
-- In a report, a `mermaid` block in the `.md` is drawn by the app. Candlesticks, hover and zoom need a page.
-- A system map shown as its own page: the archify engine in `scripts/archify`; read `references/diagram.md` first.
+- A diagram — how something is built, how a process flows, calls in order, where data goes, the states it moves through — is drawn by the archify engine in `scripts/archify`, not as a mermaid block: it checks the layout, so a crossing edge or a clipped label never reaches the user. Read `references/diagram.md` first. It is a page of its own; when a report needs one, name both files as you hand back.
+- A chart of numbers in a report is a `mermaid` block in the `.md`, which the app draws. Candlesticks, hover and zoom need a page.
 
 ## In this app
 

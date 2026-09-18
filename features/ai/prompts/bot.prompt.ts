@@ -271,7 +271,7 @@ Ask Thursday with kind \`question\` only for a decision, permission or something
 
 ${ending}
 
-Write in the user's language, and name the paths of finished work. The app opens Markdown with its tables and mermaid blocks drawn, CSV as a table, HTML and PDF as pages, and images, audio and video; in Markdown, reference images by absolute route (\`/api/file/${PATHS.artifacts}/…\`).`;
+Write in the user's language, and name the paths of finished work. In Markdown, reference images by absolute route (\`/api/file/${PATHS.artifacts}/…\`).`;
 }
 
 /** A user message's content; every seat's first message is two text parts (buildThreadOpening). */
