@@ -2,7 +2,8 @@ import type { FaceWord } from "./thursday.schema";
 
 /**
  * The words the app puts on her face by itself, apart from what she shows with `emote`:
- * a greeting as the app opens, a goodbye as a call ends, OK as finished work comes in.
+ * a greeting as the app opens, HI as she wakes on the intro, a goodbye as a call ends, OK as
+ * finished work comes in.
  * Only the ascii orb draws a word (face.tsx), so on the drawn mark these pass unseen.
  * Every word fits FACE_WORD_MAX. The hold is the drawing's own time, like the ring's.
  */
@@ -31,6 +32,9 @@ export function greeting(now = new Date()): FaceWord {
   const pool = GREETINGS.find(([from]) => hour >= from)?.[1] ?? ["HI"];
   return word(pick(pool), 1.6);
 }
+
+/** As a voice key is saved on the first-run intro and she wakes. */
+export const awake = (): FaceWord => word("HI", 1.6);
 
 /** As a call ends; late at night it may say so. */
 export function goodbye(now = new Date()): FaceWord {

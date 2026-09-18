@@ -89,7 +89,7 @@ export const WakeSchema = z.object({
 
 export type Wake = z.infer<typeof WakeSchema>;
 
-export const WAKE_DEFAULT: Wake = { enabled: true, phrase: "hey thursday" };
+export const WAKE_DEFAULT: Wake = { enabled: false, phrase: "hey thursday" };
 
 /**
  * Keyboard entry, independent of `wake.enabled`. `combo` uses the use-hotkey

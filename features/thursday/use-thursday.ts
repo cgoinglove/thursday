@@ -47,6 +47,7 @@ import {
 import { createOutbox, type Outbox } from "@/lib/queue";
 import { errorToString } from "@/lib/utils";
 import { FACE_WORD_MAX, undrawable } from "./ascii.const";
+import { callSignal, useCallHeld } from "./call-signal";
 import { finished, goodbye, greeting } from "./face-words";
 import {
   endCallAction,
@@ -1221,8 +1222,11 @@ export function useThursday() {
   // The seam is `enabled` and `onWake` / `onError` only, so the recognizer can be swapped
   const wake = useThursdayStore((state) => state.wake);
   const [wakeBlocked, setWakeBlocked] = useState(false);
+  // The first-run intro holds both ways in off while it is up, and places the first call itself
+  const held = useCallHeld();
+  useEffect(() => callSignal.onPlace(() => void call()), [call]);
   useWakeWord({
-    enabled: status === "idle" && wake.enabled && !wakeBlocked,
+    enabled: status === "idle" && wake.enabled && !wakeBlocked && !held,
     phrases: [wake.phrase],
     onWake: () => void call(),
     onError: (reason) => {
@@ -1235,7 +1239,7 @@ export function useThursday() {
   const hotkey = useThursdayStore((state) => state.hotkey);
   const busy = status === "connecting" || status === "ending";
   useHotkey({
-    enabled: hotkey.enabled && !busy,
+    enabled: hotkey.enabled && !busy && !held,
     combo: hotkey.enabled && isCombo(hotkey.combo) ? hotkey.combo : null,
     onPress: () => void call(),
   });

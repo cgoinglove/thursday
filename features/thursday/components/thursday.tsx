@@ -651,7 +651,7 @@ function MicMeter({
  * carries the motion, so the word itself stays still — a shine here would mean
  * the same thing it means on a running tool one state later.
  */
-function Ear({
+export function Ear({
   live,
   getMicSpectrum,
 }: {

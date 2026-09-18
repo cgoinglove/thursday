@@ -173,6 +173,50 @@ export function ModelsKeysSetting() {
   );
 }
 
+/**
+ * The accounts alone, stacked for a narrow column: the first-run intro's step on what
+ * bots think with. The same cards, marks and dialogs as the screen above, so a key set
+ * on the way in is the key Settings shows.
+ */
+export function AccountsSetup() {
+  const { data } = useServerRoute<ConfigStatus[]>(queryKey.config);
+  const isSet = (key: string) => isConfigSet(data, key);
+  const entries = (id: ConfigGroup["id"]) =>
+    CONFIG_GROUPS.find((group) => group.id === id)?.entries ?? [];
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        {entries("easy").map((entry) => (
+          <KeyRow
+            key={entry.key}
+            card
+            narrow
+            entry={entry}
+            set={isSet(entry.key)}
+            needed={false}
+          />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-y-2.5">
+        {[...entries("voice"), ...entries("text")].map((entry) => (
+          <KeyTile key={entry.key} entry={entry} set={isSet(entry.key)} />
+        ))}
+      </div>
+      {entries("search").map((entry) => (
+        <KeyRow
+          key={entry.key}
+          card
+          narrow
+          entry={entry}
+          set={isSet(entry.key)}
+          needed={false}
+        />
+      ))}
+    </div>
+  );
+}
+
 /** One provider's key as its mark: tap it, paste the key. A key that is set wears a check. */
 function KeyTile({ entry, set }: { entry: ConfigEntry; set: boolean }) {
   return (
@@ -236,11 +280,14 @@ function KeyRow({
   set,
   needed,
   card = false,
+  narrow = false,
 }: {
   entry: ConfigEntry;
   set: boolean;
   /** Drawn as a card of its own rather than a row in a list. */
   card?: boolean;
+  /** In a narrow column the state takes the second line, where the key's name is of no use. */
+  narrow?: boolean;
   /** Its group must have a key and has none, so this row is waiting on the user. */
   needed: boolean;
 }) {
@@ -250,6 +297,23 @@ function KeyRow({
   const state = usage.data
     ? usageState(usage.data)
     : keyState(set, needed, credits.data, entry.signIn);
+
+  const waiting = credits.isLoading || usage.isLoading;
+  const stateLine = (
+    <span
+      className={cn(
+        "flex shrink-0 items-center gap-1.5 font-mono text-xs",
+        state.ink,
+      )}
+    >
+      {state.warn ? (
+        <TriangleAlert className="size-3" />
+      ) : (
+        set && <Check className="size-3" />
+      )}
+      {state.text}
+    </span>
+  );
 
   return (
     <button
@@ -274,33 +338,29 @@ function KeyRow({
             </span>
           )}
         </span>
-        <span className="block truncate font-mono text-xs text-muted-foreground">
-          {/* A sign-in's config key is nothing to read; the plan it is on is */}
-          {entry.signIn
-            ? set
-              ? usageLine(usage.data, plan)
-              : "sign in with your account"
-            : entry.key}
-        </span>
+        {narrow ? (
+          waiting ? (
+            <Skeleton className="h-3 w-20" />
+          ) : (
+            stateLine
+          )
+        ) : (
+          <span className="block truncate font-mono text-xs text-muted-foreground">
+            {/* A sign-in's config key is nothing to read; the plan it is on is */}
+            {entry.signIn
+              ? set
+                ? usageLine(usage.data, plan)
+                : "sign in with your account"
+              : entry.key}
+          </span>
+        )}
       </span>
 
-      {credits.isLoading || usage.isLoading ? (
+      {narrow ? null : waiting ? (
         // Only this end waits, so the row keeps its shape while the gateway or the plan answers
         <Skeleton className="h-3 w-20 shrink-0" />
       ) : (
-        <span
-          className={cn(
-            "flex shrink-0 items-center gap-1.5 font-mono text-xs",
-            state.ink,
-          )}
-        >
-          {state.warn ? (
-            <TriangleAlert className="size-3" />
-          ) : (
-            set && <Check className="size-3" />
-          )}
-          {state.text}
-        </span>
+        stateLine
       )}
 
       <ChevronRight className="size-4 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-foreground" />

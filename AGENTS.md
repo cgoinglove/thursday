@@ -362,6 +362,12 @@ A 30-second poll remains as a safety net. No WebSockets.
   The open list keeps the pill's row at its foot, faces without step words, and a moment shows
   there instead of in a bubble; only an open thread hides it.
 
+- The first run is drawn as the call screen, over it (`intro`): her face where it will be, her
+  words down its left as captions are, and on its right the caller's turn — a key, the
+  microphone, the bots, what they think with. It opens on the app's one loop played silently in
+  place and ends on a button that places the first call (`call-signal`, which also holds the
+  call's wake word and hotkey off while the intro is up). No step blocks or raises a red error:
+  each can be passed and done later where it lives. It shows until a call has been placed.
 - What is typed or handed over rather than said goes through one write line at the foot of the
   call screen (`write-line`): absent until asked for (the pill's "+", `/`, a file dragged onto the
   window), it holds who it is for, the words and the files. Files are kept in the workspace

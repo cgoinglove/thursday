@@ -1,135 +1,154 @@
 "use client";
 
-import { Check, ChevronDown, ChevronRight } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, FileText, Mic } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type Ref, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { notify } from "@/components/ui/notify";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { ShinyText } from "@/components/ui/shiny-text";
-import TextType from "@/components/ui/text-type";
-import { APP_NAME } from "@/config";
+import { Switch } from "@/components/ui/switch";
 import { ModelPicker } from "@/features/ai/components/model-picker";
-import { type TextModelProviderId } from "@/features/ai/model.schema";
-import { type BotIcon, DEFAULT_BOT } from "@/features/bot/bot.schema";
-import {
-  BOT_SEEDS,
-  type BotSeed,
-  RECOMMENDED_SEEDS,
-} from "@/features/bot/bot.seed";
+import type { TextModelProviderId } from "@/features/ai/model.schema";
+import type { BotIcon } from "@/features/bot/bot.schema";
+import { BOT_SEEDS, type BotSeed } from "@/features/bot/bot.seed";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { installSeedBots } from "@/features/bot/seed-bots";
+import { AccountsSetup } from "@/features/config/components/config-setting";
+import { VoiceKeys } from "@/features/config/components/voice-key";
+import { callSignal } from "@/features/thursday/call-signal";
+import { Face } from "@/features/thursday/components/face";
 import {
-  VoiceKeys,
-  type VoiceKeysHandle,
-} from "@/features/config/components/voice-key";
-import { AsciiField } from "@/features/thursday/components/ascii-field";
-import { INTRO_FACE } from "@/features/thursday/components/boot";
+  SideCaptions,
+  type Turn,
+  useTurnFocus,
+} from "@/features/thursday/components/side-captions";
+import { Ear } from "@/features/thursday/components/thursday";
+import { useThursdayFace } from "@/features/thursday/face.store";
+import { awake } from "@/features/thursday/face-words";
+import type { CallStatus, FaceWord } from "@/features/thursday/thursday.schema";
+import { useThursdayStore } from "@/features/thursday/thursday.store";
+import { useWakeWord } from "@/hooks/use-wake-word";
+import { type AudioTap, createAudioTap } from "@/lib/live/live.tap";
 import { cn } from "@/lib/utils";
 
 /**
- * The first-run screen: three steps, laid over the call screen (app/page).
- * Nothing about it is remembered in the browser; a missing key is a server
- * fact and the intro shows again until one is saved.
+ * The first run, laid over the call screen (app/page) and drawn as the call screen:
+ * her face in the same place, her words down its left as captions are, and on its
+ * right — where the caller's words go — the caller's turn: a key, the microphone, who
+ * works for them, what those think with. It opens on the app's one loop played silently
+ * in place, and its last button is the first call. No step holds anyone: every one can
+ * be passed at once and done later from the screen it belongs to. It shows until a call
+ * has been placed here (app/page `firstRun`), or whenever `?intro` asks.
  */
 
-/** The face shrinks aside on the two asking steps; the first step uses `INTRO_FACE`. */
-const ASIDE = { rim: 0.03, clearAt: 0.24 };
-const FIRST_CLEAR = 0.52;
+const STEPS = ["key", "mic", "bots", "models", "call"] as const;
+type Step = "hello" | (typeof STEPS)[number];
 
-const STEPS = 3;
+/** Her words, long enough to sit well beside her face: two or three lines. */
+const SAYS = {
+  key: "I am Thursday. My voice comes from OpenAI, so the first thing I need is a key: paste one and I wake up. No key yet? Go on without it, and I will ask again when you call.",
+  awake:
+    "There, I am awake, and that key is everything a call needs. From here on it is quick: your microphone, who works for you, and what they think with.",
+  mic: "Now let me hear you. Your browser asks before it opens the microphone: say yes, then say anything at all and watch me move. It is only open on a call, unless you ask for more.",
+  heard:
+    "I hear you: that is me moving to your voice. If you would rather wake me by saying my name than by tapping me, switch it on here and try it once.",
+  bots: "Long work goes to bots, so we can keep talking while they are at it. They work on this computer, with a shell, a browser and your files, and signing in or paying always stays with you.",
+  models:
+    "Bots think with a model you choose. Start small: a small model is quick and costs little, and any bot can move up later. An OpenAI key already covers it; a GPT subscription or one Vercel key opens far more.",
+  call: "That is everything I need. Call me, tell me what to call you, and ask for one thing, anything you would ask a person at the next desk. I will show you the rest as we go.",
+  asleep:
+    "I still have no voice of my own, so there is no call yet, but everything else works. Look around; tap me whenever you have a key and I will take it from there.",
+} as const;
 
 /** Must match the `duration-700` below. */
 const FADE_MS = 700;
 
+/** The one model every picked bot starts on. An empty model means "app default" at run time. */
+type RunsOn = { provider: TextModelProviderId | null; model: string };
+
 export function Intro({
   /** A voice key already exists (as the server saw it). */
   ready,
+  /** No call has been placed here yet. */
+  firstRun,
   /** Opened deliberately via `?intro`. */
   forced,
   /** One face per BOT_SEEDS entry (bot.seed rollSeedIcons), rolled on the server so hydration keeps the same faces. */
   icons,
 }: {
   ready: boolean;
+  firstRun: boolean;
   forced: boolean;
   icons: BotIcon[];
 }) {
-  const face = (seed: BotSeed) => icons[BOT_SEEDS.indexOf(seed)];
-
+  const shown = firstRun || forced;
   const router = useRouter();
-  const [at, setAt] = useState(0);
+  const look = useThursdayFace();
+  const [step, setStep] = useState<Step>("hello");
   const [gone, setGone] = useState(false);
   /** After the fade; then the element is removed entirely. */
   const [lifted, setLifted] = useState(false);
   const [keyed, setKeyed] = useState(ready);
+  const [word, setWord] = useState<FaceWord | null>(null);
   const [picked, setPicked] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
       BOT_SEEDS.map((seed) => [seed.name, Boolean(seed.recommended)]),
     ),
   );
-  // One model for every pick: a picker per bot is what made the step scroll.
-  // Each bot's own is on its page in Settings › Bots
+  // One model for every pick; each bot's own is on its page in Settings › Bots
   const [runsOn, setRunsOn] = useState<RunsOn>({ provider: null, model: "" });
-  const keys = useRef<VoiceKeysHandle>(null);
-  const [saving, setSaving] = useState(false);
+  const mic = useMic(step === "mic" && !gone);
+  const demo = useDemo(step === "hello" && shown && !gone);
 
-  /** Next step. On the key step, an unsaved key is offered a save first; a failed save does not advance. */
-  const next = async () => {
-    if (at === 1 && keys.current?.pending()) {
-      const save = await notify.confirm({
-        title: "Save this key first?",
-        description:
-          "There is a key in the field that has not been saved. Leaving now drops it.",
-        okText: "Save and continue",
-        cancelText: "Discard it",
-      });
-      if (save) {
-        setSaving(true);
-        const done = await keys.current.flush();
-        setSaving(false);
-        if (!done) return;
-      }
-    }
-    setAt((step) => step + 1);
-  };
+  // The call under the intro keeps its wake word and hotkey off until it is gone
+  const up = shown && !gone;
+  useEffect(() => {
+    callSignal.hold(up);
+    return () => callSignal.hold(false);
+  }, [up]);
 
-  // Unmount after the fade: left transparent, the AsciiField rAF loop would
-  // keep running behind the call screen. `ready` is a server prop and does
-  // not change when a key is saved in this session
+  // Unmount after the fade, or her face keeps drawing behind the call screen
   useEffect(() => {
     if (!gone) return;
     const end = setTimeout(() => setLifted(true), FADE_MS);
     return () => clearTimeout(end);
   }, [gone]);
 
-  if (lifted) return null;
-  if (ready && !forced) return null;
+  const at = STEPS.indexOf(step as (typeof STEPS)[number]);
+  const said = useMemo(
+    () => herTurns(step, keyed, mic.on),
+    [step, keyed, mic.on],
+  );
+  const turns = step === "hello" ? demo.turns : said;
+  const focus = useTurnFocus(turns, true);
 
-  const first = at === 0;
+  if (lifted || !shown) return null;
 
-  /** With a key, install the picked bots (they need a model, so not without one) and re-render; without, just lift. */
-  const leave = () => {
+  const face = (seed: BotSeed) => icons[BOT_SEEDS.indexOf(seed)];
+
+  /** With a key, install the picked bots (they need a model, so not without one); `calling` places the first call from inside this click. */
+  const leave = (calling: boolean) => {
     setGone(true);
-    if (!keyed) return;
-    installSeedBots(
-      BOT_SEEDS.filter((seed) => picked[seed.name]).map((seed) => ({
-        name: seed.name,
-        // A half pick is not a model; the action falls back to the default
-        provider: runsOn.provider,
-        model: runsOn.model || null,
-        icon: face(seed),
-      })),
-    );
+    if (keyed)
+      installSeedBots(
+        BOT_SEEDS.filter((seed) => picked[seed.name]).map((seed) => ({
+          name: seed.name,
+          // A half pick is not a model; the action falls back to the default
+          provider: runsOn.provider,
+          model: runsOn.model || null,
+          icon: face(seed),
+        })),
+      );
+    if (calling) callSignal.place();
     router.replace("/");
     router.refresh();
   };
 
-  const toggle = (name: string) =>
-    setPicked((all) => ({ ...all, [name]: !all[name] }));
+  const status: CallStatus =
+    step === "hello"
+      ? demo.status
+      : step === "mic" && mic.on
+        ? "listening"
+        : "idle";
+  const last = step === "call";
 
   return (
     <div
@@ -138,335 +157,607 @@ export function Intro({
         gone && "pointer-events-none opacity-0",
       )}
     >
-      <AsciiField
-        rim={first ? INTRO_FACE.rim : ASIDE.rim}
-        centerY={INTRO_FACE.centerY}
-        clearAt={first ? FIRST_CLEAR : ASIDE.clearAt}
-        clearBy={first ? 0.7 : 0.55}
-        className="absolute inset-0"
-      />
-
-      <div className="absolute inset-x-12 top-22 bottom-44 flex flex-col items-center justify-center overflow-y-auto">
-        {at === 0 && <FirstLook face={face} />}
-        {at === 1 && <KeyStep ref={keys} onSaved={() => setKeyed(true)} />}
-        {at === 2 && (
-          <BotStep
-            picked={picked}
-            runsOn={runsOn}
-            face={face}
-            onToggle={toggle}
-            onRunsOn={setRunsOn}
-          />
-        )}
-      </div>
-
-      <div className="absolute inset-x-0 bottom-13 flex flex-col items-center gap-5.5">
-        <div className="flex flex-col items-center gap-2.5">
-          {at === STEPS - 1 ? (
-            <Button onClick={leave} className="h-12 px-6 pl-7 text-[15px]">
-              {keyed ? "Start talking" : "Look around"}
-              <ChevronRight />
-            </Button>
-          ) : (
-            <Button
-              onClick={next}
-              loading={saving}
-              className="h-12 px-6 pl-7 text-[15px]"
-            >
-              {at === 0 ? "Set up" : "Continue"}
-              <ChevronRight />
-            </Button>
-          )}
-          {at === 1 && !keyed && (
-            <Button
-              variant="ghost"
-              onClick={() => setAt(2)}
-              className="h-8 text-[13.5px] text-muted-foreground"
-            >
-              I will add it later
-            </Button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1.75">
-          {Array.from({ length: STEPS }, (_, step) => (
-            <span
-              key={step}
-              className={cn(
-                "h-1.75 rounded-full transition-all duration-300",
-                step === at ? "w-5.5 bg-foreground" : "w-1.75",
-                step < at ? "bg-foreground/40" : "",
-                step > at ? "bg-border" : "",
-              )}
+      {/* The call screen's own column, so nothing moves when the intro lifts */}
+      <div className="flex h-full flex-col items-center justify-center gap-5 pt-[7vh]">
+        <div className="relative w-[min(28rem,72vw,52vh)]">
+          <button
+            type="button"
+            disabled={!last || !keyed}
+            onClick={() => leave(true)}
+            aria-label={last && keyed ? "Call Thursday" : undefined}
+            // asleep, not broken: the same face, dimmed, until she has a voice
+            className={cn(
+              "block w-full rounded-full outline-none transition-all duration-700 ease-out focus-visible:ring-3 focus-visible:ring-ring/50",
+              step !== "hello" && !keyed && "opacity-35",
+            )}
+          >
+            <Face
+              look={look}
+              status={status}
+              failed={false}
+              word={word}
+              getSpectrum={step === "hello" ? demo.voice : undefined}
+              getMicSpectrum={mic.on ? mic.spectrum : undefined}
+              className="w-full"
             />
-          ))}
+          </button>
+
+          <SideCaptions
+            turns={turns}
+            pinned={focus.pinned}
+            live={step === "hello" && demo.saying}
+            onPick={focus.pick}
+          />
+
+          {step !== "hello" && (
+            // Where the caller's words go on a call: the caller's turn
+            <div
+              key={step}
+              className="absolute top-1/2 left-full ml-1.5 flex w-[min(22rem,26vw)] -translate-y-1/2 animate-in flex-col gap-4 text-left fade-in slide-in-from-bottom-1 duration-300"
+            >
+              {step === "key" && (
+                <KeyTurn
+                  keyed={keyed}
+                  onSaved={() => {
+                    setKeyed(true);
+                    setWord(awake());
+                  }}
+                />
+              )}
+              {step === "mic" && <MicTurn mic={mic} />}
+              {step === "bots" && (
+                <BotsTurn
+                  picked={picked}
+                  face={face}
+                  onToggle={(name) =>
+                    setPicked((all) => ({ ...all, [name]: !all[name] }))
+                  }
+                />
+              )}
+              {step === "models" && (
+                <ModelsTurn runsOn={runsOn} onRunsOn={setRunsOn} />
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex w-full max-w-3xl flex-col items-center gap-4 px-6 text-center">
+          <div className="flex h-6 items-center gap-2 text-[13px] text-muted-foreground">
+            {step === "mic" && mic.on ? (
+              <Ear live getMicSpectrum={mic.spectrum} />
+            ) : step !== "hello" && !keyed ? (
+              "Asleep"
+            ) : last ? (
+              <Ready
+                mic={mic.allowed}
+                bots={BOT_SEEDS.filter((seed) => picked[seed.name]).length}
+              />
+            ) : null}
+          </div>
+
+          {step === "hello" && (
+            <p className="max-w-140 text-[19px] leading-[1.55] text-balance">
+              Call her like a person. She hands the long work to bots on this
+              computer, and tells you when it is back.
+            </p>
+          )}
+
+          <Button
+            variant="brand"
+            onClick={() => {
+              if (step === "hello") setStep("key");
+              else if (last) leave(keyed);
+              else setStep(STEPS[at + 1]);
+            }}
+            className={cn(
+              "h-12 px-7 pl-8 text-[15px]",
+              step === "hello" && "mt-3",
+            )}
+          >
+            {step === "hello"
+              ? "Set her up"
+              : last
+                ? keyed
+                  ? "Call her"
+                  : "Look around"
+                : "Continue"}
+            <ChevronRight />
+          </Button>
+
+          <p className="h-4 font-mono text-[11px] text-muted-foreground/70">
+            {step === "hello"
+              ? "two minutes · every step can wait"
+              : step === "key" && !keyed
+                ? "no key is fine — it can go in from the call screen"
+                : step === "mic" && !mic.on
+                  ? "or allow it when the first call asks"
+                  : last && keyed
+                    ? "or tap her"
+                    : ""}
+          </p>
+          {last && keyed && (
+            <button
+              type="button"
+              onClick={() => leave(false)}
+              className="-mt-1 rounded-md text-[13.5px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              Look around first
+            </button>
+          )}
         </div>
       </div>
+
+      {step === "hello" ? (
+        <DemoCorners stage={demo.stage} icons={icons} />
+      ) : (
+        <div className="absolute inset-x-0 bottom-10 flex items-center justify-center gap-4.5 font-mono text-[11px] text-muted-foreground/70">
+          <button
+            type="button"
+            onClick={() => setStep(at > 0 ? STEPS[at - 1] : "hello")}
+            className="flex items-center gap-1 rounded-md outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <ChevronLeft className="size-3" />
+            Back
+          </button>
+          <span className="flex items-center gap-1.75">
+            {STEPS.map((name, index) => (
+              <span
+                key={name}
+                className={cn(
+                  "h-1.75 rounded-full transition-all duration-300",
+                  index === at ? "w-5.5 bg-brand" : "w-1.75",
+                  index < at && "bg-foreground/40",
+                  index > at && "bg-border",
+                )}
+              />
+            ))}
+          </span>
+          <span>
+            {at + 1} of {STEPS.length}
+          </span>
+          <button
+            type="button"
+            onClick={() => leave(false)}
+            className="rounded-md outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            Skip all
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
-/** Step one: the three lines the call screen actually draws, no chat bubbles. */
-function FirstLook({ face }: { face: Face }) {
-  const crew = RECOMMENDED_SEEDS;
+/** Her lines so far on the way through the steps, so the earlier ones recede as captions do. */
+function herTurns(step: Step, keyed: boolean, heard: boolean): Turn[] {
+  const line = (id: string, text: string): Turn => ({
+    id,
+    role: "assistant",
+    text,
+  });
+  const lines: Turn[] = [];
+  if (step === "hello") return lines;
+  lines.push(line("key", SAYS.key));
+  if (keyed) lines.push(line("awake", SAYS.awake));
+  if (step === "key") return lines;
+  lines.push(line("mic", SAYS.mic));
+  if (heard) lines.push(line("heard", SAYS.heard));
+  if (step === "mic") return lines;
+  lines.push(line("bots", SAYS.bots));
+  if (step === "bots") return lines;
+  lines.push(line("models", SAYS.models));
+  if (step === "models") return lines;
+  lines.push(line("call", keyed ? SAYS.call : SAYS.asleep));
+  return lines;
+}
 
+/** The caller's line at the head of their turn, as their words are drawn on a call. */
+function Mine({ children }: { children: string }) {
   return (
-    <div className="flex w-full flex-col items-center">
-      {/* Room for the face; the field draws over it */}
-      <div className="h-[19rem] shrink-0" />
+    <p className="text-[17px] leading-[1.675] tracking-[0.3px]">
+      <span className="mr-4 inline-block size-2.5 rounded-full bg-foreground align-middle opacity-55" />
+      {children}
+    </p>
+  );
+}
 
-      <span className="flex animate-in items-center gap-2.5 rounded-full bg-muted/50 py-1.5 pr-3.5 pl-1.5 ring-1 ring-border/60 fade-in slide-in-from-bottom-1 duration-700 [animation-delay:1.9s] [animation-fill-mode:backwards]">
+const Fine = ({ children }: { children: React.ReactNode }) => (
+  <p className="font-mono text-[11px] leading-relaxed text-pretty text-muted-foreground/70">
+    {children}
+  </p>
+);
+
+function Done({ children, tail }: { children: string; tail?: string }) {
+  return (
+    <p className="flex items-center gap-2.5 text-sm">
+      <span className="grid size-5 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
+        <Check className="size-3" />
+      </span>
+      {children}
+      {tail && (
+        <span className="truncate font-mono text-[11px] text-muted-foreground/70">
+          {tail}
+        </span>
+      )}
+    </p>
+  );
+}
+
+function KeyTurn({ keyed, onSaved }: { keyed: boolean; onSaved: () => void }) {
+  if (keyed)
+    return (
+      <>
+        <Done>OpenAI key saved</Done>
+        <Fine>Change it any time in Settings › Models &amp; keys.</Fine>
+      </>
+    );
+  return (
+    <>
+      <Mine>Paste your OpenAI API key</Mine>
+      <VoiceKeys dense autoFocus onSaved={onSaved} />
+      <a
+        href="https://platform.openai.com/api-keys"
+        target="_blank"
+        rel="noreferrer"
+        className="flex items-center gap-2.5 text-[13px] font-medium text-foreground no-underline"
+      >
+        <span className="flex h-7.5 items-center gap-1.5 rounded-full bg-muted px-3.5 transition-colors hover:bg-accent">
+          Get a key
+          <ChevronRight className="size-3.5 -rotate-45" />
+        </span>
+        <span className="truncate font-mono text-[11px] font-normal text-muted-foreground/70">
+          platform.openai.com/api-keys
+        </span>
+      </a>
+      <ol className="flex flex-col gap-1.75 text-[13px] text-muted-foreground">
+        {[
+          "Sign in, or make an account",
+          "Create new secret key, and copy it",
+          "Paste it here",
+        ].map((text, index) => (
+          <li key={text} className="flex items-center gap-2.5">
+            <span className="grid size-4.5 shrink-0 place-items-center rounded-full font-mono text-[10px] text-foreground ring-1 ring-border">
+              {index + 1}
+            </span>
+            {text}
+          </li>
+        ))}
+      </ol>
+      <Fine>
+        OpenAI bills it by the minute of call, separately from ChatGPT.
+      </Fine>
+    </>
+  );
+}
+
+type MicState = ReturnType<typeof useMic>;
+
+/**
+ * The microphone on the intro: opened by its button and nothing else, heard through the
+ * call's own tap so her face moves as it does on a call, and released as the step is left.
+ */
+function useMic(active: boolean) {
+  const [state, setState] = useState<"off" | "on" | "blocked">("off");
+  /** It opened once: the browser will not ask again, whatever the step. */
+  const [allowed, setAllowed] = useState(false);
+  const [label, setLabel] = useState("");
+  const tap = useRef<AudioTap | null>(null);
+  const stream = useRef<MediaStream | null>(null);
+
+  const release = useCallback(() => {
+    for (const track of stream.current?.getTracks() ?? []) track.stop();
+    stream.current = null;
+  }, []);
+  useEffect(() => {
+    if (active) return;
+    release();
+    setState((was) => (was === "on" ? "off" : was));
+  }, [active, release]);
+  useEffect(() => release, [release]);
+
+  const turnOn = useCallback(async () => {
+    try {
+      const heard = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.current = heard;
+      tap.current ??= createAudioTap();
+      tap.current.open();
+      tap.current.hear?.(heard);
+      setLabel(heard.getAudioTracks()[0]?.label ?? "");
+      setState("on");
+      setAllowed(true);
+    } catch {
+      setState("blocked");
+    }
+  }, []);
+
+  const spectrum = useCallback(() => tap.current?.readMic() ?? [], []);
+  return {
+    on: state === "on",
+    blocked: state === "blocked",
+    allowed,
+    label,
+    turnOn,
+    spectrum,
+  };
+}
+
+function MicTurn({ mic }: { mic: MicState }) {
+  const wake = useThursdayStore((state) => state.wake);
+  const patch = useThursdayStore((state) => state.patch);
+  const [heard, setHeard] = useState(false);
+  const [unheard, setUnheard] = useState<string | null>(null);
+  // Tried out right here: the call screen's own listener is held off while the intro is up
+  useWakeWord({
+    enabled: mic.on && wake.enabled && !unheard,
+    phrases: [wake.phrase],
+    onWake: () => setHeard(true),
+    onError: setUnheard,
+  });
+
+  if (!mic.on)
+    return (
+      <>
+        <Mine>Turn on the microphone</Mine>
+        <Button
+          onClick={() => void mic.turnOn()}
+          className="h-11 self-start rounded-full px-5 pl-4 text-sm"
+        >
+          <Mic className="fill-current" />
+          Turn it on
+        </Button>
+        {mic.blocked ? (
+          <>
+            <p className="text-[13px] leading-normal text-amber-700 dark:text-amber-400">
+              This page is not allowed the microphone yet.
+            </p>
+            <Fine>
+              The icon at the left of the address bar opens the site's settings:
+              set Microphone to Allow and come back. Or just go on.
+            </Fine>
+          </>
+        ) : (
+          <Fine>
+            Used on a call, and nowhere else unless you switch on waking her by
+            voice.
+          </Fine>
+        )}
+      </>
+    );
+  return (
+    <>
+      <Done tail={mic.label}>Microphone is on</Done>
+      <label className="mt-1.5 flex cursor-pointer items-start gap-3">
+        <span className="flex flex-1 flex-col gap-0.75">
+          <span className="text-sm">Wake her by voice</span>
+          <Fine>
+            Say <span className="text-foreground">"{wake.phrase}"</span> and she
+            picks up. The microphone stays open for as long as this tab is.
+          </Fine>
+          {heard && (
+            <span className="mt-0.75 flex items-center gap-1.5 font-mono text-[11px]">
+              <Check className="size-3" />
+              heard you: that is how you call her
+            </span>
+          )}
+          {unheard && <Fine>{unheard}</Fine>}
+        </span>
+        <Switch
+          checked={wake.enabled}
+          onCheckedChange={(enabled) => patch({ wake: { ...wake, enabled } })}
+        />
+      </label>
+    </>
+  );
+}
+
+function BotsTurn({
+  picked,
+  face,
+  onToggle,
+}: {
+  picked: Record<string, boolean>;
+  face: (seed: BotSeed) => BotIcon | undefined;
+  onToggle: (name: string) => void;
+}) {
+  return (
+    <>
+      <Mine>Pick who comes along</Mine>
+      <div className="flex flex-col">
+        {BOT_SEEDS.map((seed) => {
+          const on = Boolean(picked[seed.name]);
+          return (
+            <label
+              key={seed.name}
+              className="flex h-9.5 cursor-pointer items-center gap-2.75"
+            >
+              <BotMark
+                size={24}
+                seed={seed.name}
+                {...face(seed)}
+                notify={false}
+                className={cn(
+                  "shrink-0 transition-opacity",
+                  !on && "opacity-40",
+                )}
+              />
+              <span
+                className={cn(
+                  "w-17.5 shrink-0 text-[13.5px] font-medium",
+                  !on && "text-muted-foreground",
+                )}
+              >
+                {seed.name}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                {seed.hint}
+              </span>
+              <Switch
+                checked={on}
+                onCheckedChange={() => onToggle(seed.name)}
+              />
+            </label>
+          );
+        })}
+      </div>
+      <Fine>
+        Three to start is plenty. The rest wait in Settings › Bots, and you can
+        make your own.
+      </Fine>
+    </>
+  );
+}
+
+function ModelsTurn({
+  runsOn,
+  onRunsOn,
+}: {
+  runsOn: RunsOn;
+  onRunsOn: (next: RunsOn) => void;
+}) {
+  return (
+    <>
+      <Mine>Pick what they think with</Mine>
+      <AccountsSetup />
+      <div className="flex items-center gap-2.5">
+        <span className="shrink-0 text-[13px] text-muted-foreground">
+          Bots think with
+        </span>
+        <div className="min-w-0 flex-1">
+          <ModelPicker
+            provider={runsOn.provider}
+            model={runsOn.model}
+            onChange={onRunsOn}
+          />
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** What is set, said once before the first call. */
+function Ready({ mic, bots }: { mic: boolean; bots: number }) {
+  const items = [
+    "voice",
+    mic ? "microphone" : null,
+    bots > 0 ? `${bots} ${bots === 1 ? "bot" : "bots"}` : null,
+  ].filter((item): item is string => item !== null);
+  return (
+    <span className="flex items-center gap-2 text-xs">
+      {items.map((item, index) => (
+        <span key={item} className="flex items-center gap-2">
+          {index > 0 && <span className="text-muted-foreground/40">·</span>}
+          <span className="flex items-center gap-1.5">
+            <Check className="size-3.25" />
+            {item}
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/* ── the opening: the app's one loop, played silently where it really happens ── */
+
+const DEMO_MS = 16_000;
+const DEMO = {
+  ask: "Find me flights to Osaka in October.",
+  onIt: "On it. Analyst is looking. Keep talking, I will say when it is back.",
+  back: "Analyst is back. From ₩296,000, out of Incheon. The page is on your screen.",
+} as const;
+
+type DemoStage = "rest" | "asked" | "working" | "landed";
+
+/** Where the loop stands: the words so far, what her face does, what the corners show. */
+function useDemo(playing: boolean) {
+  const [ms, setMs] = useState(0);
+  useEffect(() => {
+    if (!playing) return;
+    const from = performance.now();
+    const tick = setInterval(
+      () => setMs((performance.now() - from) % DEMO_MS),
+      120,
+    );
+    return () => clearInterval(tick);
+  }, [playing]);
+
+  const said = (id: string, role: Turn["role"], text: string): Turn => ({
+    id,
+    role,
+    text,
+  });
+  const turns: Turn[] = [];
+  if (ms > 900) turns.push(said("ask", "user", DEMO.ask));
+  if (ms > 4700) turns.push(said("onIt", "assistant", DEMO.onIt));
+  if (ms > 11_500) turns.push(said("back", "assistant", DEMO.back));
+  const speaking = (ms > 4700 && ms < 8300) || (ms > 11_500 && ms < 14_500);
+  const status: CallStatus = speaking
+    ? "speaking"
+    : ms > 900 && ms < 4700
+      ? "listening"
+      : "idle";
+  const stage: DemoStage =
+    ms > 9600 ? "landed" : ms > 5400 ? "working" : ms > 900 ? "asked" : "rest";
+
+  // No sound plays here: her rim moves to a voice made of slow sines
+  const voice = useCallback(() => {
+    const t = performance.now() / 1000;
+    return Array.from(
+      { length: 8 },
+      (_, band) =>
+        0.18 + 0.16 * Math.sin(t * (5 + band * 0.9) + band * 1.7) ** 2,
+    );
+  }, []);
+
+  return { turns, status, stage, saying: speaking, voice };
+}
+
+/** The pill and the corner where finished work lands, as they stand during the loop. */
+function DemoCorners({ stage, icons }: { stage: DemoStage; icons: BotIcon[] }) {
+  const crew = BOT_SEEDS.filter((seed) => seed.recommended);
+  return (
+    <>
+      <div
+        className={cn(
+          "absolute bottom-5 left-5 flex w-90 items-center gap-3 rounded-3xl bg-background p-2.5 pr-3 ring-1 ring-border transition-all duration-500",
+          stage === "landed" ? "opacity-100" : "translate-y-3 opacity-0",
+        )}
+      >
+        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground">
+          <FileText className="size-4.5" />
+        </span>
+        <span className="flex min-w-0 flex-col text-left">
+          <span className="truncate text-[13.5px]">Osaka flights, October</span>
+          <span className="truncate font-mono text-[10.5px] text-muted-foreground">
+            Analyst · osaka-flights.html
+          </span>
+        </span>
+      </div>
+      <div className="absolute right-5 bottom-5 flex h-10 items-center gap-2.5 rounded-full bg-background pr-3.5 pl-2.5 ring-1 ring-border">
         <span className="flex">
           {crew.map((seed, index) => (
             <BotMark
               key={seed.name}
               size={22}
               seed={seed.name}
-              {...face(seed)}
-              state="thinking"
+              {...icons[BOT_SEEDS.indexOf(seed)]}
+              state={
+                stage === "working" && seed.name === "Analyst"
+                  ? "thinking"
+                  : "idle"
+              }
               notify={false}
               className={cn("shrink-0", index > 0 && "-ml-1.5")}
             />
           ))}
         </span>
-        <span className="text-[13px] text-muted-foreground">
-          {crew.length === 1 ? "A bot is on it" : "Bots are on it"}
+        <span className="w-40 truncate text-left text-[13px] text-muted-foreground">
+          {stage === "working"
+            ? "Analyst · reading fares"
+            : stage === "landed"
+              ? "Analyst finished"
+              : "Need a hand?"}
         </span>
-      </span>
-
-      <p className="mt-6 max-w-xl animate-in text-center text-[21px] leading-relaxed text-balance break-keep fade-in duration-1000 [animation-delay:2.5s] [animation-fill-mode:backwards]">
-        On it — {crew.length === 1 ? "a bot" : "the bots"} went to look. Keep
-        talking, I&rsquo;ll say when it is back.
-      </p>
-
-      <span className="mt-10 flex h-6 items-center gap-2 font-mono text-sm text-muted-foreground">
-        <TextType
-          as="span"
-          text={`Say "Hey ${APP_NAME}" to start talking`}
-          loop={false}
-          typingSpeed={52}
-          initialDelay={500}
-          cursorCharacter="▌"
-          cursorClassName="ml-0.5 text-muted-foreground/50"
-          className="tracking-normal"
-        />
-      </span>
-    </div>
-  );
-}
-
-/** Step two: the voice key. */
-function KeyStep({
-  ref,
-  onSaved,
-}: {
-  /** Lets the footer's "Continue" ask about unsaved fields (VoiceKeysHandle). */
-  ref?: Ref<VoiceKeysHandle>;
-  onSaved: (provider: TextModelProviderId) => void;
-}) {
-  return (
-    <div className="flex w-full max-w-lg flex-col items-center">
-      <h1 className="text-center text-[34px] font-medium tracking-tight text-balance break-keep">
-        One key opens the call.
-      </h1>
-      <p className="mt-3.5 max-w-md text-center text-base leading-relaxed text-pretty text-muted-foreground break-keep">
-        Calls run on a speech model — the only thing this app cannot do without.
-        Bots, memory and settings do not need it.
-      </p>
-      <VoiceKeys ref={ref} className="mt-9" autoFocus onSaved={onSaved} />
-    </div>
-  );
-}
-
-/** The heading spells how many come along, up to every seed there is. */
-const COUNT_WORD: Record<number, string> = {
-  0: "No",
-  1: "One",
-  2: "Two",
-  3: "Three",
-  4: "Four",
-  5: "Five",
-  6: "Six",
-  7: "Seven",
-  8: "Eight",
-};
-
-/** This intro's face for a seed (bot.seed rollSeedIcons). */
-type Face = (seed: BotSeed) => BotIcon | undefined;
-
-/** The one model every picked bot starts on. An empty model means "app default" at run time. */
-type RunsOn = { provider: TextModelProviderId | null; model: string };
-
-/** Step three: which seed bots to install, and what they run on. */
-function BotStep({
-  picked,
-  runsOn,
-  face,
-  onToggle,
-  onRunsOn,
-}: {
-  picked: Record<string, boolean>;
-  runsOn: RunsOn;
-  face: Face;
-  onToggle: (name: string) => void;
-  onRunsOn: (next: RunsOn) => void;
-}) {
-  const on = BOT_SEEDS.filter((seed) => picked[seed.name]);
-  const names = on.map((seed) => seed.name).join(", ");
-  const more = BOT_SEEDS.length - on.length;
-
-  return (
-    <div className="flex w-full max-w-2xl flex-col items-center">
-      <h1 className="text-center text-[30px] font-medium tracking-tight text-balance break-keep">
-        {on.length === 1
-          ? "One bot comes with her."
-          : `${COUNT_WORD[on.length] ?? on.length} bots come with her.`}
-      </h1>
-      <p className="mt-3 max-w-lg text-center text-[15px] leading-relaxed text-pretty text-muted-foreground break-keep">
-        {on.length === 1
-          ? "It takes the work that would leave the call silent, and reports back."
-          : "They take the work that would leave the call silent, and report back."}
-      </p>
-
-      {/* The pill the bots will stand in (bot-room Folded), with the whole crew in
-          it: who comes along is the line below */}
-      <span className="mt-5 flex h-9 items-center gap-2 rounded-full bg-muted/50 py-1.5 pr-3.5 pl-1.5 ring-1 ring-border/60">
-        {on.length > 0 ? (
-          <>
-            <span className="flex">
-              {BOT_SEEDS.map((seed, index) => (
-                <BotMark
-                  key={seed.name}
-                  size={22}
-                  seed={seed.name}
-                  {...face(seed)}
-                  notify={false}
-                  className={cn("shrink-0", index > 0 && "-ml-1.5")}
-                />
-              ))}
-            </span>
-            <ShinyText
-              text="handed-over work shows up here"
-              speed={2.2}
-              className="font-mono text-[10.5px] leading-4"
-            />
-          </>
-        ) : (
-          <span className="px-2 font-mono text-[10.5px] text-muted-foreground">
-            nobody on the roster — {DEFAULT_BOT.name} takes it
-          </span>
-        )}
-      </span>
-
-      {/* Every seed, behind one line: listed in place with a model row each, they
-          scrolled the step (canvas "Intro Bot Picker" C) */}
-      <Popover>
-        <PopoverTrigger
-          render={
-            <button
-              type="button"
-              className="group/seeds mt-4 flex h-12 w-full max-w-lg items-center gap-2 rounded-lg border border-border bg-background pr-3 pl-3.5 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 data-popup-open:bg-muted"
-            />
-          }
-        >
-          <span className="min-w-0 flex-1 truncate text-[14px] leading-5">
-            <span className="font-medium">
-              {names || "Pick who comes along"}
-            </span>
-            {names && more > 0 && (
-              <span className="text-muted-foreground">
-                {" "}
-                · {more} more to pick
-              </span>
-            )}
-          </span>
-          <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-data-popup-open/seeds:rotate-180" />
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          sideOffset={6}
-          className="w-(--anchor-width) gap-0 p-1"
-        >
-          <p className="px-1.5 py-1 text-xs font-medium text-muted-foreground">
-            Bots
-          </p>
-          {BOT_SEEDS.map((seed) => (
-            <SeedOption
-              key={seed.name}
-              seed={seed}
-              on={Boolean(picked[seed.name])}
-              icon={face(seed)}
-              onToggle={() => onToggle(seed.name)}
-            />
-          ))}
-          <div className="-mx-1 my-1 h-px bg-border" />
-          <div className="flex items-center gap-2 px-1.5 pt-1 pb-0.5">
-            <span className="shrink-0 pr-0.5 text-[13px] text-muted-foreground">
-              Runs on
-            </span>
-            <div className="min-w-0 flex-1">
-              <ModelPicker
-                provider={runsOn.provider}
-                model={runsOn.model}
-                onChange={onRunsOn}
-              />
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
-    </div>
-  );
-}
-
-/**
- * One seed in the list: face, name and its hint on one line, and whether it
- * comes along. The hint is the bot form's one line (bot.seed), so it truncates
- * rather than wraps.
- */
-function SeedOption({
-  seed,
-  on,
-  icon,
-  onToggle,
-}: {
-  seed: BotSeed;
-  on: boolean;
-  icon?: BotIcon;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-pressed={on}
-      className="flex w-full items-center gap-2.5 rounded-md p-1.5 text-left outline-none hover:bg-muted focus-visible:bg-muted"
-    >
-      <BotMark
-        size={20}
-        seed={seed.name}
-        {...icon}
-        state={on ? "thinking" : "idle"}
-        notify={false}
-        className={cn("shrink-0 transition-opacity", !on && "opacity-35")}
-      />
-      <span className="flex min-w-0 flex-1 items-baseline gap-2">
-        <span className="shrink-0 text-[14px] leading-5 font-medium">
-          {seed.name}
-        </span>
-        <span className="truncate text-[12px] leading-5 text-muted-foreground">
-          {seed.hint}
-        </span>
-      </span>
-      <span
-        className={cn(
-          "grid size-4 shrink-0 place-items-center rounded-full transition-colors",
-          on
-            ? "bg-foreground text-background"
-            : "ring-1 ring-border ring-inset",
-        )}
-      >
-        {on && <Check className="size-2.5" />}
-      </span>
-    </button>
+      </div>
+    </>
   );
 }

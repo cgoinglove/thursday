@@ -5,11 +5,13 @@
 Three ways in, and any of them also answers a call she placed:
 
 - Tap her face.
-- Say the wake phrase, "hey thursday" unless they changed it.
+- Say the wake phrase, "hey thursday" unless they changed it — once it is switched on: it is
+  off to begin with, because it keeps the microphone open for as long as the tab is.
 - Press the shortcut, `alt+shift+T` unless they changed it.
 
 The wake phrase and the shortcut are in **Settings › Thursday › Starting a call**, where
-either can be switched off or rewritten.
+either can be switched on or off, or rewritten. The first-run setup offers the wake phrase
+too, with a try.
 
 ## What she does on the line, and what goes to a bot
 

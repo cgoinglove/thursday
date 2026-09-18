@@ -202,6 +202,15 @@ export async function readCallConversation(
   };
 }
 
+/** Whether a call was ever placed here: until one is, the first-run intro shows (app/page). */
+export async function hasAnyCall() {
+  const one = await database
+    .select({ id: callTable.id })
+    .from(callTable)
+    .limit(1);
+  return one.length > 0;
+}
+
 /**
  * Whether any call is open, not whether a given job's call is. A tab that
  * vanished leaves its row open, so boot runs `sweepCalls` first.
