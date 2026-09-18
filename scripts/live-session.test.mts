@@ -1183,3 +1183,30 @@ test("with an Exa key the call searches through Exa and hands the pages back apa
     configMock.restore();
   }
 });
+
+test("hang-up words end a call only as the last words of what was said", async () => {
+  const { endsOnPhrase } = await import("../features/thursday/end-phrase.ts");
+  const ko = "끊어, 끊자";
+  // what users actually said on calls the voice never ended
+  for (const said of [
+    "어...오케이 끊어",
+    ". [tongue click]... 일단 끊어",
+    ".끊어",
+    "잠깐 끊어봐",
+    "그래 이제 끊어줘.",
+  ])
+    assert.ok(endsOnPhrase(said, ko), said);
+  // the words elsewhere in a sentence, or not there at all
+  for (const said of [
+    "끊어 읽지 말고 이어서 말해",
+    "전화 끊지 마",
+    "왜 안끊어",
+    "[clear throat]",
+    "",
+  ])
+    assert.ok(!endsOnPhrase(said, ko), said);
+  assert.ok(endsOnPhrase("Okay, goodbye!", "goodbye, hang up"));
+  assert.ok(endsOnPhrase("you can hang up", "goodbye, hang up"));
+  assert.ok(!endsOnPhrase("don't hang up yet", "goodbye, hang up"));
+  assert.ok(!endsOnPhrase("goodbye", " , "));
+});

@@ -90,6 +90,12 @@ type Append = { kind: AppendKind; chunks: string[]; settle(ok: boolean): void };
  * so a byte bound holds for any script; words stay whole unless one alone is too long.
  */
 const APPEND_BYTES = 480;
+/**
+ * How long a `response.create` with no `response.created` behind it still counts as
+ * backend work. The wire's own round trip, bounded so a lost event never reads as
+ * work for the rest of the call.
+ */
+const CONTINUE_GAP_MS = 5_000;
 const encoder = new TextEncoder();
 
 export function appendChunks(text: string): string[] {
@@ -275,6 +281,8 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
     if (started && !closing) on.failed(message);
     else if (closing) on.warn(message);
   };
+  /** When the backend was last told to go on; cleared once its next response starts. */
+  let continuedAt = Number.NEGATIVE_INFINITY;
   const activity = () => {
     if (closed || closing) return;
     const now = performance.now();
@@ -285,7 +293,9 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
       speaking: now - lastOutput < 300,
       working:
         [...responses.values()].some((response) => !response.terminal) ||
-        tools.size > 0,
+        tools.size > 0 ||
+        // Asked to go on, not yet started: still the same stretch of backend work
+        now - continuedAt < CONTINUE_GAP_MS,
       tools: [...tools.values()],
     };
     const key = JSON.stringify(value);
@@ -383,11 +393,13 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
     response.continued = true;
     await Promise.all(response.calls.values());
     probe("out", { type: "response.create", closing, closed });
-    if (!closing && !closed)
+    if (!closing && !closed) {
+      continuedAt = performance.now();
       transport.send({
         type: "response.create",
         event_id: crypto.randomUUID(),
       });
+    }
     activity();
   };
   const handle = (event: LiveEvent) => {
@@ -448,6 +460,8 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
       case "response.event": {
         const nested = event.event;
         if (!nested || closing) break;
+        if (nested.type === "response.created")
+          continuedAt = Number.NEGATIVE_INFINITY;
         if (
           nested.type === "response.created" &&
           nested.response &&

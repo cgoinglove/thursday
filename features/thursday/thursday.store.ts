@@ -10,6 +10,9 @@ import {
   CallBackSchema,
   type CaptionView,
   CaptionViewSchema,
+  type EndPhrase,
+  EndPhraseSchema,
+  endPhraseDefault,
   HOTKEY_DEFAULT,
   type Hotkey,
   HotkeySchema,
@@ -27,6 +30,7 @@ import {
 const StoredSchema = ThursdaySettingsSchema.extend({
   // `.catch` so settings stored before a field existed keep the other fields.
   wake: WakeSchema.catch(WAKE_DEFAULT),
+  endPhrase: EndPhraseSchema.catch(() => END_PHRASE_DEFAULT),
   hotkey: HotkeySchema.catch(HOTKEY_DEFAULT),
   callBack: CallBackSchema.catch(CALL_BACK_DEFAULT),
   captionView: CaptionViewSchema.catch("sides"),
@@ -34,6 +38,7 @@ const StoredSchema = ThursdaySettingsSchema.extend({
 
 type Stored = ThursdaySettings & {
   wake: Wake;
+  endPhrase: EndPhrase;
   hotkey: Hotkey;
   callBack: CallBack;
   captionView: CaptionView;
@@ -44,9 +49,15 @@ type ThursdayStore = Stored & {
   patch: (change: Partial<Stored>) => void;
 };
 
+/** This browser's language picks the words; read once, since a stored choice replaces it. */
+const END_PHRASE_DEFAULT = endPhraseDefault(
+  typeof navigator === "undefined" ? null : (navigator.language ?? null),
+);
+
 const EMPTY: Stored = {
   ...LIVE_DEFAULTS,
   wake: WAKE_DEFAULT,
+  endPhrase: END_PHRASE_DEFAULT,
   hotkey: HOTKEY_DEFAULT,
   callBack: CALL_BACK_DEFAULT,
   captionView: "sides",
@@ -60,6 +71,14 @@ export const useThursdayStore = create<ThursdayStore>()(
     }),
     {
       name: "thursday.settings",
+      // 1: web search became the default. A browser from before holds the old
+      // default as if it were a choice, and with no search on the line a question
+      // about today is answered by driving a browser, in tens of seconds.
+      version: 1,
+      migrate: (persisted, version) =>
+        version < 1 && persisted && typeof persisted === "object"
+          ? { ...persisted, webSearch: true }
+          : persisted,
       // Parsed on the way in so a hand-edited value cannot reach a call. Live
       // fields recover one by one (migrateLiveSettings), the rest by `.catch` above.
       merge: (persisted, current) => {

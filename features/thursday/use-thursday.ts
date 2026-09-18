@@ -47,6 +47,7 @@ import {
 import { createOutbox, type Outbox } from "@/lib/queue";
 import { errorToString } from "@/lib/utils";
 import { FACE_WORD_MAX, undrawable } from "./ascii.const";
+import { endsOnPhrase } from "./end-phrase";
 import {
   endCallAction,
   openCallAction,
@@ -239,8 +240,12 @@ export function useThursday() {
   const unvoiced = useRef(new Set<string>());
   /** The keys of the update on the line now, carried once her voice starts and stops on it. */
   const onLine = useRef<string[]>([]);
+  /** That update's relay rows, accepted once she has voiced it. */
+  const onLineRows = useRef<number[]>([]);
   /** When her voice was last heard, for letting a goodbye finish (CALL_END). */
   const voiced = useRef(0);
+  /** Their hang-up words were heard; the call ends unless more words follow (CALL_END.heardMs). */
+  const endWait = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** The hang-up waiting on her goodbye once the backend called end_call. */
   const leaving = useRef<ReturnType<typeof setInterval> | null>(null);
   /** When either side's words were last transcribed: the quiet clock for relays. */
@@ -316,10 +321,23 @@ export function useThursday() {
   const doneReading = useCallback(() => {
     if (reading.current.giveUp) clearTimeout(reading.current.giveUp);
     probe("read.done", { spoke: reading.current.spoke, keys: onLine.current });
-    // Her voice started and stopped on it: carried
+    // Her voice started and stopped on it: carried, and only now are its rows accepted.
+    // Live's acknowledgement says the text arrived, not that anyone heard it
     if (reading.current.spoke) {
       for (const key of onLine.current) unvoiced.current.delete(key);
+      const ids = onLineRows.current;
+      if (ids.length)
+        void acceptThreadRelaysAction(ids)
+          .then(unwrapResult)
+          .catch((cause) =>
+            toast.add({
+              type: "error",
+              title: "Could not record relay delivery",
+              description: errorToString(cause),
+            }),
+          );
     }
+    onLineRows.current = [];
     onLine.current = [];
     reading.current = { on: false, spoke: false, giveUp: null };
     if (!relayOpen.current) return;
@@ -399,6 +417,9 @@ export function useThursday() {
     const live = session.current;
     const threads = latest.current;
     if (!live || !threads || reading.current.on || acting.current) return;
+    // The backend's answer is still on its way to her voice: an update put in now
+    // comes out in the same breath as that answer
+    if (thinking.current !== null) return;
     if (leaving.current) return;
     // On a call-back, why she called goes in once the opening is voiced: it is the
     // first thing they ask, and a quiet line would come too late
@@ -430,6 +451,7 @@ export function useThursday() {
     });
     readAloud();
     onLine.current = due.map((item) => item.key);
+    onLineRows.current = due.flatMap((item) => item.relayIds);
     // On the line before it goes out, so it runs there for the whole wait
     showRelay((due.at(-1) ?? first).show);
     void live
@@ -441,20 +463,12 @@ export function useThursday() {
       )
       .then((delivered) => {
         probe("relay.acked", { delivered });
+        // Refused: nothing to wait for her voice on
         if (!delivered) {
+          onLineRows.current = [];
           doneReading();
-          return;
         }
-        const ids = due.flatMap((item) => item.relayIds);
-        if (ids.length) return acceptThreadRelaysAction(ids).then(unwrapResult);
-      })
-      .catch((cause) =>
-        toast.add({
-          type: "error",
-          title: "Could not record relay delivery",
-          description: errorToString(cause),
-        }),
-      );
+      });
   }, [readAloud, doneReading, showRelay]);
 
   /**
@@ -583,6 +597,8 @@ export function useThursday() {
       });
       if (leaving.current) clearInterval(leaving.current);
       leaving.current = null;
+      if (endWait.current) clearTimeout(endWait.current);
+      endWait.current = null;
       attempt.current += 1;
       const live = session.current;
       const call = callId.current;
@@ -923,6 +939,18 @@ export function useThursday() {
             // update she reads out is told apart; transcripts lag the audio and cannot
             if (fresh && turn.role === "user") {
               stirred.current = Date.now();
+              // Their hang-up words, taken as meant once nothing follows them: the
+              // page ends the call itself, whatever the voice made of it (end-phrase)
+              if (endWait.current) clearTimeout(endWait.current);
+              endWait.current = null;
+              const { endPhrase } = useThursdayStore.getState();
+              if (endPhrase.enabled && endsOnPhrase(words, endPhrase.phrase)) {
+                endWait.current = setTimeout(() => {
+                  endWait.current = null;
+                  probe("end.phrase", { words });
+                  leave();
+                }, CALL_END.heardMs);
+              }
               // Their next words take the line back from the pages a search left there
               if (held) {
                 const was = held;
@@ -1407,6 +1435,28 @@ const OPEN_RANK = {
  * facts only — who, which thread, where an answer goes — because the backend
  * reads relays too and routes answers by them.
  */
+/**
+ * What of a bot's message goes into the call. A message is written for the screen
+ * — captions, sources, file lists — and she reads an update aloud: past
+ * CALL_RELAY.chars it is cut at a paragraph or a sentence, and the cut says where
+ * the rest is, as a fact.
+ */
+function spoken(text: string): string {
+  const whole = text.trim();
+  if (whole.length <= CALL_RELAY.chars) return whole;
+  const head = whole.slice(0, CALL_RELAY.chars);
+  const at = Math.max(
+    head.lastIndexOf("\n\n"),
+    head.lastIndexOf(". "),
+    head.lastIndexOf(".\n"),
+    head.lastIndexOf("。"),
+  );
+  const kept = (
+    at > CALL_RELAY.chars / 3 ? head.slice(0, at + 1) : head
+  ).trim();
+  return `${kept}\n[The message goes on; the rest is in its thread on screen.]`;
+}
+
 function openWork(threads: Thread[]): OpenWork[] {
   const items: (OpenWork & { rank: number })[] = [];
   for (const thread of threads) {
@@ -1430,7 +1480,7 @@ function openWork(threads: Thread[]): OpenWork[] {
         rank: OPEN_RANK.question,
         key: `question:${question.id}`,
         kind: "question",
-        line: `${bracket(question.bot, "question", ` Its answer goes to thread ${thread.id}, recipient ${question.bot}, replyTo ${question.id}.`)}\n${question.text}${options}`,
+        line: `${bracket(question.bot, "question", ` Its answer goes to thread ${thread.id}, recipient ${question.bot}, replyTo ${question.id}.`)}\n${spoken(question.text)}${options}`,
         relayIds: relays
           .filter((relay) => relay.messageId === question.id)
           .map((relay) => relay.id),
@@ -1453,8 +1503,8 @@ function openWork(threads: Thread[]): OpenWork[] {
       const kind = stopped ? "stopped" : "done";
       const said =
         kind === "stopped"
-          ? `It stopped before finishing. Where it got to: ${thread.ask?.question ?? thread.outcome ?? ""}`
-          : `Done. Its answer: ${thread.outcome ?? ""}`;
+          ? `It stopped before finishing. Where it got to: ${spoken(thread.ask?.question ?? thread.outcome ?? "")}`
+          : `Done. Its answer: ${spoken(thread.outcome ?? "")}`;
       items.push({
         rank: OPEN_RANK[kind],
         key: `${kind}:${thread.id}@${changed}`,
@@ -1477,7 +1527,7 @@ function openWork(threads: Thread[]): OpenWork[] {
         rank: OPEN_RANK.progress,
         key: `progress:${relay.id}`,
         kind: "progress",
-        line: `${bracket(relay.bot, relay.kind)}\n${relay.text}`,
+        line: `${bracket(relay.bot, relay.kind)}\n${spoken(relay.text)}`,
         relayIds: [relay.id],
         show: show(relay.bot, `${relay.bot}: ${relay.kind}`),
       });

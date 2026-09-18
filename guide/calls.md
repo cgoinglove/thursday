@@ -8,7 +8,7 @@ Three ways in, and any of them also answers a call she placed:
 - Say the wake phrase, "hey thursday" unless they changed it.
 - Press the shortcut, `alt+shift+T` unless they changed it.
 
-The wake phrase and the shortcut are in **Settings › Thursday › Starting a call**, where
+The wake phrase and the shortcut are in **Settings › Thursday › Starting and ending a call**, where
 either can be switched off or rewritten.
 
 ## What she does on the line, and what goes to a bot
@@ -20,7 +20,11 @@ hers to pick; she says who took it.
 
 ## Ending it
 
-Saying they want to hang up ends the call. Tapping her face ends it too, and so does the
+Saying the hang-up words ends the call: they are heard by the app itself, as the last words
+of a sentence, so it works every time. They start as this browser's language has them ("끊어",
+"goodbye", "hang up") and are rewritten, several with commas between, or switched off in
+**Settings › Thursday › Starting and ending a call**. Asking her in any other words usually
+works too, but it is hers to take that way. Tapping her face ends it, and so does the
 shortcut. A call with nothing said for 30 seconds ends by itself, with a countdown in the
 last 10 seconds. The line is billed by the minute while it is open, silence included.
 

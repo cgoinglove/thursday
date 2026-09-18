@@ -91,7 +91,7 @@ What they tell you is kept, so you know them better over time, and whatever they
  * something to say rather than do, and the line stayed open through repeated requests.
  */
 export const callEnding = () =>
-  `IMPORTANT — always follow this: when the user wants the call to end, however they say it, forget every other task, answer "yes", then immediately, without thinking, use the ${TOOL_NAMES.end_call} tool.`;
+  `IMPORTANT — always follow this: when the user wants the call to end, however they say it, forget every other task, answer yes in one word of their language, then immediately, without thinking, use the ${TOOL_NAMES.end_call} tool.`;
 
 /**
  * When a call happened, the one way every prompt and tool says it: local, the
@@ -252,7 +252,7 @@ export function reachNames(
   ].join(", ");
 }
 
-export type RecentCall = {
+type RecentCall = {
   startedAt: Date;
   turns: {
     role: "user" | "assistant" | "tool";

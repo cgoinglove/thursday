@@ -177,9 +177,13 @@ ahead of it.
 
 A relay names the bot and the thread and, for a question, where its answer goes (thread,
 recipient, `replyTo`). The backend reads relays in its conversation and routes the user's
-answer from those facts, so a relay carries no instructions. Relay rows are accepted
-(`acceptThreadRelaysAction`) once Live acknowledges the append; an ending also covers its
-job's progress rows. Being put to her does not mark a result seen.
+answer from those facts, so a relay carries no instructions. A bot's message is written
+for the screen, so past `CALL_RELAY.chars` it goes in cut at a paragraph or a sentence, with
+the fact that the rest is in its thread. Nothing goes in while the backend holds the turn —
+from the moment it takes it until her first word, the gap after a `response.create`
+included — or the update comes out in the same breath as the answer. Relay rows are accepted
+(`acceptThreadRelaysAction`) once her voice has started and stopped on the update, not on
+Live's acknowledgement; an ending also covers its job's progress rows. Being put to her does not mark a result seen.
 
 ## Transcript and screen
 
@@ -208,6 +212,11 @@ The user wanting the call to end, however they say it, sets everything else asid
 voice answers yes and hands it to the backend at once, and the backend runs `end_call`
 without deliberating. The ending rule names `end_call` in the voice prompt too, the one tool
 name it holds: without it, ending read as something to say rather than do.
+Whether that turn reaches the backend at all is the voice's own decision, and it often
+answers and hands nothing over (measured 09-18: eight calls, none ended by asking). So the
+page also listens itself: the user's hang-up words (`endPhrase`, this browser's language at
+first, theirs to rewrite), as the last words of what they said and with nothing following for
+`CALL_END.heardMs`, end the call the way `end_call` does.
 The page does not close on `end_call` itself: it waits until her voice has been quiet
 for `CALL_END.quietMs`, or `CALL_END.unsaidMs` when nothing was said, never past
 `CALL_END.maxMs`. `end_call` and `emote` (a word of up to eight characters on her face,
