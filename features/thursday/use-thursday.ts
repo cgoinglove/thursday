@@ -47,6 +47,7 @@ import {
 import { createOutbox, type Outbox } from "@/lib/queue";
 import { errorToString } from "@/lib/utils";
 import { FACE_WORD_MAX, undrawable } from "./ascii.const";
+import { finished, goodbye, greeting } from "./face-words";
 import {
   endCallAction,
   openCallAction,
@@ -200,6 +201,8 @@ export function useThursday() {
   const [thinkingTitle, setThinkingTitle] = useState<string | null>(null);
   /** The word `emote` last put on the face. */
   const [faceWord, setFaceWord] = useState<FaceWord | null>(null);
+  // She says hello as the app opens (an effect: the word depends on the clock)
+  useEffect(() => setFaceWord(greeting()), []);
   /** The same value where callbacks can read it, and the timer that ends it. */
   const thinking = useRef<number | null>(null);
   const thinkTail = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -448,6 +451,8 @@ export function useThursday() {
       told.current.add(item.key);
       unvoiced.current.add(item.key);
     }
+    // Finished work is good news before she says it (an item's key opens with what it is)
+    if (first.key.startsWith("done:")) setFaceWord(finished());
     probe("relay.out", {
       kind: first.kind,
       keys: due.map((item) => item.key),
@@ -628,6 +633,7 @@ export function useThursday() {
       setIdleLeft(null);
       setSince(null);
       setStatus(live ? "ending" : "idle");
+      if (live) setFaceWord(goodbye());
       setMessages([]);
       setTool(null);
       setThinking(null);
