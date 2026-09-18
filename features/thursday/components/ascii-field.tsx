@@ -16,20 +16,12 @@ import {
 } from "../ascii.const";
 
 /**
- * Full-screen ascii field behind the boot curtain and the intro. Shares glyphs
+ * Full-screen ascii field behind the intro. Shares glyphs
  * and rules with ascii-orb (ascii.const) but nothing else: no modes, no voice,
  * one motion. The coordinate system is warped before distances are measured,
  * three waves interfere, and per-cell randoms break the rings a pure radial
  * function draws.
  */
-
-/**
- * One boot run, in seconds. The first frame is already the full field; it
- * shrinks until SETTLE, and the overlay lifts at LIFT, before the shrink ends,
- * so the fade happens while still moving.
- */
-const SETTLE = 0.9;
-const LIFT = 0.26;
 
 /** Where the leading edge ends up: half the screen diagonal is 1.0 and the wobble stretches it up to 30%. */
 const REACH = 1.56;
@@ -66,8 +58,6 @@ type Cell = {
 };
 
 type AsciiFieldProps = {
-  /** Start from the full field and shrink to the face slot; otherwise start settled. */
-  boot?: boolean;
   /** Settled radius as a fraction of half the screen diagonal. */
   rim?: number;
   /** Vertical center (0..1). */
@@ -76,18 +66,14 @@ type AsciiFieldProps = {
   clearAt?: number | null;
   /** How much to thin that area (0..1). */
   clearBy?: number;
-  /** Called once the shrink is done; only with `boot`. */
-  onSettled?: () => void;
   className?: string;
 };
 
 export function AsciiField({
-  boot = false,
   rim = 0.28,
   centerY = 0.34,
   clearAt = null,
   clearBy = 0.5,
-  onSettled,
   className,
 }: AsciiFieldProps) {
   const hostRef = useRef<HTMLCanvasElement>(null);
@@ -96,20 +82,12 @@ export function AsciiField({
   /** The loop mounts once; per-frame knobs come through refs so the grid is not rebuilt. */
   const look = useRef({ rim, clearAt, clearBy, dark });
   look.current = { rim, clearAt, clearBy, dark };
-  const done = useRef(onSettled);
-  done.current = onSettled;
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
     const ctx = host.getContext("2d");
     if (!ctx) return;
-
-    // prefers-reduced-motion: start settled, no animation
-    const still =
-      typeof matchMedia === "function" &&
-      matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const play = boot && !still;
 
     let cells: Cell[] = [];
     let bins: {
@@ -189,17 +167,8 @@ export function AsciiField({
     const observer = new ResizeObserver(build);
     observer.observe(host);
 
-    /** The body's radius, shrinking from REACH to `rest` while the boot plays and leaving dust behind; the field always extends to REACH. */
-    const bodyAt = (t: number, rest: number) => {
-      if (!play || t >= SETTLE) return rest;
-      // ease-out: fastest from the first frame
-      const ease = (x: number) => 1 - (1 - x) ** 3;
-      return REACH - ease(t / SETTLE) * (REACH - rest);
-    };
-
     let raf = 0;
     let last = 0;
-    let told = false;
     const t0 = performance.now();
     /** Knob changes ease in over frames instead of snapping. */
     let easedRim: number | null = null;
@@ -207,21 +176,12 @@ export function AsciiField({
 
     const draw = (now: number) => {
       raf = requestAnimationFrame(draw);
-      /**
-       * Slow frame rate at rest (glyphs swap 2.2 times per second); full rate
-       * only while the shrink runs, or it steps.
-       */
-      const moving = play && (now - t0) / 1000 < SETTLE + 0.2;
-      if (now - last < (moving ? 16 : 48)) return;
+      // a slow frame rate is enough: glyphs swap 2.2 times per second
+      if (now - last < 48) return;
       last = now;
       if (!bins || !cells.length) return;
 
       const t = (now - t0) / 1000;
-      if (play && !told && t >= LIFT) {
-        told = true;
-        done.current?.();
-      }
-
       const { rim: wantRim, clearAt, clearBy, dark } = look.current;
       easedRim =
         easedRim === null ? wantRim : easedRim + (wantRim - easedRim) * 0.06;
@@ -231,7 +191,7 @@ export function AsciiField({
           ? wantClear
           : easedClear + (wantClear - easedClear) * 0.06;
       const clearFrom = clearAt === null ? null : h * easedClear;
-      const body = bodyAt(t, easedRim);
+      const body = easedRim;
       const ink = dark ? INK_DARK : INK_LIGHT;
       const top = RAMP.length - 1;
 
@@ -366,17 +326,16 @@ export function AsciiField({
       ctx.globalAlpha = 1;
     };
 
-    // draw immediately so the boot does not start with an empty beat
+    // draw immediately so the screen does not start with an empty beat
     draw(performance.now());
-    if (!play) done.current?.();
 
     return () => {
       cancelAnimationFrame(raf);
       observer.disconnect();
       ctx.clearRect(0, 0, w, h);
     };
-    // the grid depends on these two only; other knobs come through refs
-  }, [boot, centerY]);
+    // the grid depends on this one only; other knobs come through refs
+  }, [centerY]);
 
   return (
     <canvas
