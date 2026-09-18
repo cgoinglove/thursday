@@ -853,11 +853,11 @@ function ActivityRow({
     if (tool) setShown(tool);
   }, [tool]);
   // and past the thinking, for the same reason
-  const [since, setSince] = useState(thinkingSince);
+  const [thought, setThought] = useState(thinkingSince !== null);
   const [title, setTitle] = useState(thinkingTitle);
   useEffect(() => {
     if (thinkingSince === null) return;
-    setSince(thinkingSince);
+    setThought(true);
     setTitle(thinkingTitle);
   }, [thinkingSince, thinkingTitle]);
 
@@ -869,16 +869,12 @@ function ActivityRow({
           <Activity tool={shown} />
         </Fade>
       )}
-      {since !== null && (
+      {thought && (
         <Fade
           at="col-start-1 row-start-1"
           shown={thinkingSince !== null && !tool}
         >
-          <Thinking
-            since={since}
-            title={title}
-            running={thinkingSince !== null && !tool}
-          />
+          <Thinking title={title} />
         </Fade>
       )}
       <Fade at="col-start-1 row-start-1" shown={hearing}>
@@ -1207,51 +1203,21 @@ function NeedsKey({
 }
 
 /**
- * The backend has the turn: the activity line says so and counts, so the
- * seconds before a tool and before her voice never read as a call that has
- * stopped. Once a reasoning summary names what the work is, the line says that
- * instead. It shines where the rest of this screen pulses (the user's pick). The
- * seconds arrive after the first one, which is most answers.
+ * The backend has the turn: the activity line says so, so the seconds before a
+ * tool and before her voice never read as a call that has stopped. Once a
+ * reasoning summary names what the work is, the line says that instead. It
+ * shines where the rest of this screen pulses (the user's pick).
  */
-function Thinking({
-  since,
-  title,
-  running,
-}: {
-  since: number;
-  title: string | null;
-  running: boolean;
-}) {
-  const [now, setNow] = useState(() => Date.now());
-  // Stays mounted to fade out; the count stops with it rather than ticking unseen
-  useEffect(() => {
-    if (!running) return;
-    // back from a tool, the first reading is now rather than where it paused
-    const first = setTimeout(() => setNow(Date.now()), 0);
-    const tick = setInterval(() => setNow(Date.now()), 1000);
-    return () => {
-      clearTimeout(first);
-      clearInterval(tick);
-    };
-  }, [running]);
-  const seconds = Math.max(0, Math.floor((now - since) / 1000));
+function Thinking({ title }: { title: string | null }) {
   const words = title ? `Thinking about ${midSentence(title)}` : "Thinking…";
   return (
-    <span className="flex max-w-full items-center gap-1.5 text-[13px] leading-5">
+    <span className="flex max-w-full items-center text-[13px] leading-5">
       {/* keyed so a new title fades in rather than replacing the words mid-sweep */}
       <ShinyText
         key={words}
         text={words}
         className="min-w-0 animate-in truncate fade-in duration-300"
       />
-      {seconds >= 1 && (
-        <>
-          <span className="shrink-0 text-muted-foreground/40">·</span>
-          <span className="shrink-0 text-muted-foreground tabular-nums">
-            {seconds}s
-          </span>
-        </>
-      )}
     </span>
   );
 }
