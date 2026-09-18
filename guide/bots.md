@@ -10,7 +10,8 @@ the rest of them can be added later from the same screen.
 
 Every bot has the same kit: a shell on this computer, a real browser of its own or the one
 the user is already signed into, their files, the web, whatever skills and connected services
-are installed, and the other bots.
+are installed, and the other bots. A ready-made bot may also arrive with written methods of
+its own for its subject, which no other bot sees.
 
 ## A job is a thread
 
@@ -35,9 +36,11 @@ including the ended ones. A stopped thread leaves the corner at once.
 ## What comes back
 
 A job ends in the thing that was asked for and a short report. Anything longer than a few
-lines is a file. Finished files are under **Settings › Artifacts**, one shelf per bot, and a
-page or a report opens on the screen by itself when it is ready. **Settings › Workspace** is
-the whole folder, for looking around rather than for the results.
+lines is a file. Nothing opens by itself: a finished job's files wait in the corner at the
+bottom left of the call screen until they are opened or dismissed, and show under the bot's
+words in the thread, images as thumbnails. All of them stay under **Settings › Artifacts**,
+one shelf per bot. **Settings › Workspace** is the whole folder, for looking around rather
+than for the results.
 
 A bot keeps its own memory — what a job taught it, how the user asked it to work — in its own
 folder, listed on its page in Settings › Bots.

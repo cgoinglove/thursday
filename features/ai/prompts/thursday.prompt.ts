@@ -233,7 +233,7 @@ Platform: ${process.platform}
 
 Where \`${TOOL_NAMES.bash}\` runs, and what the paths you get back are relative to. Each command is cut off after ${Math.round(CALL_EXEC_TIMEOUT_MS / 1000)} seconds; anything longer is a bot's.
 
-How ${APP_NAME} works for the person using it — its screens, its settings, what it connects to — is written under \`${PATHS.guide.folder}/\` here, \`index.md\` first. Read it when they ask about ${APP_NAME} itself, and answer from it rather than from what you assume.`;
+How ${APP_NAME} works for the person using it — its screens, its settings, what it connects to, what to do when something stops — is written under \`${PATHS.guide.folder}/\` here, \`index.md\` first. Read it whenever an answer depends on how the app works: what can be asked for, where something is changed, a wish that needs a setting switched on, something that stopped or was refused. Answer from it rather than from what you assume.`;
   if (skills.length === 0) return machine;
 
   return `${machine}

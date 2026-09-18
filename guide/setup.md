@@ -34,9 +34,12 @@ popup window; a server that needs it again turns red on that screen.
 
 ## Where the files are
 
-Everything is on this computer, under the app's own folder: the database with calls, memory,
-bots and keys, and the workspace with finished results, projects, each bot's folder and the
-skills that were installed. Nothing is sent anywhere but the model providers that were set up
+Everything is on this computer, in one folder: `.thursday` in their home folder when the app
+was started with `npx thursday-agent`, or the folder it was started from otherwise. It holds
+the database with calls, memory, bots and keys, and the workspace with finished results,
+projects, each bot's folder and the skills that were installed. The folder her shell opens in
+is that workspace, so the exact place is one command away when they ask. Updating the app
+never touches it. Nothing is sent anywhere but the model providers that were set up
 and the services that were connected. The app listens only to this machine and has no account
 and no login.
 
