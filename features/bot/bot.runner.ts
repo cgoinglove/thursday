@@ -27,6 +27,7 @@ import { resumeTranscript, runBot, type ThreadEvent } from "./bot.run";
 import {
   isAppStop,
   THREAD_CONTINUE,
+  type ThreadRoutine,
   type ThreadSpeaker,
   type ThreadStatus,
 } from "./bot.schema";
@@ -82,16 +83,23 @@ export async function startThread(input: {
   label: string;
   callId?: string | null;
   from: ThreadSpeaker;
+  /** Set when a routine opens it rather than a person (features/routine routine.clock). */
+  routine?: ThreadRoutine | null;
 }) {
   const found = await findJobBot(input.bot);
   if (!found || found.disabled) publicError("Choose an enabled bot.");
-  const { from, ...row } = { ...input, bot: found.name };
+  const { from, routine, ...row } = { ...input, bot: found.name };
   const opening = buildThreadOpening({
     bot: row.bot,
     request: row.request,
     from,
+    routine,
   });
-  const thread = await insertThread({ ...row, opening });
+  const thread = await insertThread({
+    ...row,
+    routineId: routine?.id ?? null,
+    opening,
+  });
   await pump(thread.id);
   return thread.id;
 }

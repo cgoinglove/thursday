@@ -21,7 +21,9 @@ export const TOOL_NAMES = {
 
   delegate: "delegate",
   thread: "thread",
+  routine: "routine",
   send_message: "send_message",
+  thread_recall: "thread_recall",
 
   end_call: "end_call",
   emote: "emote",

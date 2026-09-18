@@ -68,6 +68,9 @@ export const queryKey = {
     query: { bot },
   }),
 
+  /** Routine[] in the order they were made, each with its latest runs (Settings > Routines) */
+  routines: "/api/routine",
+
   /**
    * Inbox: Thread[] newest first with their lines, everything running or asking plus
    * the most recent finished few. Read by use-thursday only; the `threads` signal

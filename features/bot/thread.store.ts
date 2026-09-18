@@ -92,6 +92,8 @@ export type ThreadView = {
   ask: Thread["ask"];
   /** Whether the user has had the ending (Thread `seen`). */
   seen: boolean;
+  /** The routine that opened it, if one did (Thread `routineId`). */
+  routineId: string | null;
   /** Burned so far. */
   tokens: TokenUsage;
   /** Context read on the last step and the compaction threshold; the header meter is their ratio. Both 0 means no step ran yet. */
@@ -255,6 +257,7 @@ export function threadFromRow(row: Thread, bots?: Bot[]): ThreadView {
     outcome: row.outcome,
     ask: row.ask,
     seen: row.seen,
+    routineId: row.routineId,
     tokens: row.tokens,
     contextTokens: row.contextTokens,
     contextBudget: row.contextBudget,

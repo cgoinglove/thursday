@@ -1,8 +1,12 @@
+import { type ToolSet, tool } from "ai";
 import * as z from "zod";
-import { THREAD_STATUS_LIMIT } from "@/config";
+import { BOT_WORK, THREAD_STATUS_LIMIT } from "@/config";
+import { botWorkHead } from "@/features/ai/prompts/prompt-helper";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
-import { THREAD_CONTINUE } from "@/features/bot/bot.schema";
+import { THREAD_CONTINUE, workHandle } from "@/features/bot/bot.schema";
 import { RoomMessageSchema } from "@/features/bot/room.schema";
+import { listBotWork, readBotAsk } from "@/features/bot/thread.query";
+import { clip } from "@/lib/utils";
 
 /** Tools for starting a thread, sending messages, and following work from the call. */
 export const delegateSpec = {
@@ -88,3 +92,73 @@ export const threadSpec = {
       ),
   }),
 };
+
+export const threadRecallSpec = {
+  name: TOOL_NAMES.thread_recall,
+  description:
+    "Open one of your other threads whole: what you were asked there and your last words in full.",
+  parameters: z.object({
+    id: z
+      .string()
+      .describe("The id in brackets on its line under Your other threads."),
+  }),
+};
+
+/**
+ * A bot's hand on its own other threads (thread.query listBotWork), and everything about it
+ * is here. Held only while the list in its prompt cut a line short: with nothing more to
+ * read there is no tool to reach for. What is left is bounded rather than asked for: a
+ * thread opens once a turn, `BOT_WORK.reads` of them at most, and only the ones on the list.
+ */
+export async function createThreadRecallTool(
+  bot: string,
+  except: string | null,
+): Promise<ToolSet> {
+  const work = await listBotWork(bot, except);
+  const lines = [...work.open, ...work.recent];
+  if (!lines.some((line) => line.cut)) return {};
+
+  const opened = new Set<string>();
+  return {
+    [TOOL_NAMES.thread_recall]: tool({
+      description: threadRecallSpec.description,
+      inputSchema: threadRecallSpec.parameters,
+      execute: async ({ id }) => {
+        // The id as the line shows it, the whole one, or the label a model gives instead
+        const ref = id
+          .trim()
+          .replace(/^\[|\]$/g, "")
+          .toLowerCase();
+        const line = lines.find(
+          (one) =>
+            ref.length >= 4 &&
+            (one.id.startsWith(ref) || one.label.toLowerCase() === ref),
+        );
+        if (!line)
+          return `No thread "${id}" on your list. The ids there: ${lines
+            .filter((one) => one.cut)
+            .map((one) => workHandle(one.id))
+            .join(", ")}.`;
+        if (!line.cut) return "Its line already shows all of it.";
+        if (opened.has(line.id)) return "Already opened above, this turn.";
+        if (opened.size >= BOT_WORK.reads)
+          return `${BOT_WORK.reads} threads are open already this turn. Carry on with what you have.`;
+        opened.add(line.id);
+
+        const asked = await readBotAsk(bot, line);
+        const said = line.said ?? "";
+        return [
+          botWorkHead(line, bot),
+          asked ? `You were asked: ${clip(asked, BOT_WORK.asked)}` : "",
+          `Your last words there:\n${
+            said.length > BOT_WORK.readChars
+              ? `${said.slice(0, BOT_WORK.readChars)}\n[Cut here; the files it names hold the rest.]`
+              : said
+          }`,
+        ]
+          .filter(Boolean)
+          .join("\n\n");
+      },
+    }),
+  };
+}

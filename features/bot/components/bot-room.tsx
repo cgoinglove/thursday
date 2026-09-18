@@ -59,9 +59,11 @@ import {
   ThreadReply,
   useAnswerThread,
 } from "@/features/bot/components/thread-reply";
+import { RoutineMark } from "@/features/routine/components/routine-mark";
 import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
 import { FileViewer } from "@/features/workspace/components/file-view";
 import { type DateLike, shortAgo, toDate } from "@/lib/date-like";
+import { createProbe } from "@/lib/probe";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import {
   type ServerPages,
@@ -226,6 +228,11 @@ export const BotRoom = memo(function BotRoom() {
 
   // Reading a thread is reading its ending; that is what clears its dot.
   useSeenOnDetail(open ? current : null);
+  // TEMPORARY test instrumentation (lib/probe)
+  const openThread = open ? (current?.id ?? null) : null;
+  useEffect(() => {
+    createProbe("room")("open", { thread: openThread });
+  }, [openThread]);
 
   // Thursday put a job in front of the user (`thread` `open`): the room opens on it
   useAppEvent({
@@ -1831,6 +1838,11 @@ function ThreadRow({
             >
               {thread.label}
             </span>
+            {thread.routineId && (
+              <span title="Started by a routine" className="shrink-0">
+                <RoutineMark className="size-3 text-muted-foreground/80" />
+              </span>
+            )}
             <BotRoster bots={rosterOf(thread)} />
             <span className="flex-1" />
             <span className="shrink-0 font-mono text-[11px] leading-4 text-muted-foreground/70 tabular-nums">

@@ -18,6 +18,7 @@ import {
   type ToolManifest,
 } from "@/lib/live/live.schema";
 import { acceptedReasoning, createLiveCall } from "@/lib/live/live.server";
+import { createServerProbe } from "@/lib/probe.server";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
 import {
@@ -128,6 +129,16 @@ export const openCallAction = serverAction(
       backendModel: thursday.backendModel,
     });
 
+    createServerProbe("server")("call.open", {
+      callId,
+      calledBack,
+      opening: voice.opening,
+      standing,
+      voiceChars: voice.text.length,
+      backendChars: backend.length,
+      webSearch: thursday.webSearch,
+      exa: Boolean(exaKey),
+    });
     return {
       callId,
       sdp: connection.transport.sdp,

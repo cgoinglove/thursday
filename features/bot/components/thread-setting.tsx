@@ -50,6 +50,7 @@ import {
   threadFromRow,
   useSeenOnDetail,
 } from "@/features/bot/thread.store";
+import { RoutineMark } from "@/features/routine/components/routine-mark";
 import {
   SettingError,
   SettingFilter,
@@ -293,6 +294,11 @@ function Row({
               <span className="truncate text-sm font-medium">
                 {thread.label}
               </span>
+              {thread.routineId && (
+                <span title="Started by a routine" className="shrink-0">
+                  <RoutineMark className="size-3 text-muted-foreground/80" />
+                </span>
+              )}
               <BotRoster bots={rosterOf(view)} />
               {running && (
                 <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground" />

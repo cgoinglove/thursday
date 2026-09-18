@@ -293,6 +293,43 @@ export const BOT_RUN = {
  */
 export const BOT_MEMORY_LIMITS = { files: 20, chars: 10_000 };
 
+/**
+ * How many of its other threads a bot's prompt lists (thread.query `listBotWork`): the ones
+ * it coordinates and the ones it was called into, each as one line with its own last words
+ * there. It is what a new thread knows of the bot's earlier work without anything being kept
+ * for it. Paid on every turn that bot runs; more reaches further back at that cost.
+ * - `open`    threads still running or waiting, newest first.
+ * - `recent`  threads that ended, newest first.
+ * - `said`    characters of those last words a line carries. A line cut here carries an id,
+ *             and only then is the bot handed the tool that opens one whole: nothing cut,
+ *             no tool. Longer lines cost every turn; shorter ones send the bot to the tool.
+ * - `files`   paths one line names from those last words.
+ * - `reads`   threads that tool opens in one turn, so a model that opens them out of habit
+ *             spends this many steps on it and no more.
+ * - `asked`, `readChars`  characters of what it was asked there, and of its last words, that
+ *             one opening returns.
+ */
+export const BOT_WORK = {
+  open: 5,
+  recent: 5,
+  said: 80,
+  files: 2,
+  reads: 2,
+  asked: 400,
+  readChars: 4_000,
+};
+
+/**
+ * Routines: jobs that start by themselves (features/routine). Every start is a model run
+ * nobody asked for that minute, so what bounds them is here rather than in a prompt.
+ * - `tickMs`    how often the clock looks for a routine that is due. A start is late by at
+ *               most this; shorter buys nothing a person would notice.
+ * - `max`       routines that can exist. Past it, making one is refused with the number.
+ * - `minHours`  the shortest `every` interval. Lower starts more runs nobody watches.
+ * - `runsShown` a routine's latest runs listed on its sheet; the rest are in Threads.
+ */
+export const ROUTINE = { tickMs: 30_000, max: 12, minHours: 1, runsShown: 5 };
+
 /** Name of the shipped browser skill (PATHS.skills.default); a seed bot claims it by name. */
 export const BROWSER_SKILL = "browser";
 

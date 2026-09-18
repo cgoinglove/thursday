@@ -1,8 +1,11 @@
 import { LIVE_CALL } from "@/config";
 import { logger } from "@/lib/logger";
+import { briefLiveEvent, createProbe } from "@/lib/probe";
 import { errorToString } from "@/lib/utils";
 import type { LiveClose, LiveFragment } from "./live.schema";
 import { createWebRtcTransport } from "./live.transport";
+
+const probe = createProbe("live");
 
 /** A revisable display group, independent of audio playback and backend responses. */
 export type LiveTurn = {
@@ -296,6 +299,12 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
       return;
     const [next] = appends;
     pendingAppend = crypto.randomUUID();
+    probe("out", {
+      type: `session.${next.kind}.append`,
+      client: pendingAppend,
+      head: next.chunks[0].slice(0, 80),
+      chunksLeft: next.chunks.length,
+    });
     transport.send({
       type: `session.${next.kind}.append`,
       event_id: pendingAppend,
@@ -373,6 +382,7 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
       return;
     response.continued = true;
     await Promise.all(response.calls.values());
+    probe("out", { type: "response.create", closing, closed });
     if (!closing && !closed)
       transport.send({
         type: "response.create",
@@ -387,6 +397,8 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
       events.add(event.event_id);
     }
     timeline = Math.max(timeline, event.offset_ms ?? 0, event.end_ms ?? 0);
+    if (!event.type.endsWith(".delta") && !event.event?.type.endsWith(".delta"))
+      probe("in", briefLiveEvent(event));
     switch (event.type) {
       case "session.started":
         started = true;
@@ -537,6 +549,12 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
             .catch((cause) => `Error: ${errorToString(cause)}`)
             .then((output) => {
               tools.delete(item.call_id);
+              probe("out", {
+                type: "function_call_output",
+                name: item.name,
+                call: item.call_id,
+                size: output.length,
+              });
               if (!closed && !closing)
                 transport.send({
                   type: "response.item.create",
@@ -645,6 +663,7 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
         cleanup();
       }, LIVE_CALL.closeMs);
       audio.element.muted = true;
+      probe("out", { type: "session.close" });
       transport.send({ type: "session.close", event_id: crypto.randomUUID() });
       return closePromise;
     },

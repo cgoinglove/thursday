@@ -12,7 +12,7 @@ When a wish needs a setting, say which one and where, rather than agreeing to it
 | File | What is in it |
 |---|---|
 | `calls.md` | Calling her, what she does herself, how a call ends, the call's own settings |
-| `bots.md` | Bots, the work they take, threads, questions, what they made |
+| `bots.md` | Bots, the work they take, threads, questions, what they made, routines |
 | `memory.md` | What she keeps about the user, and how they change it |
 | `setup.md` | Keys, models, skills, connected services, where the files live, what it costs |
 | `trouble.md` | A call that will not open, a job that stopped, a bot that cannot do something |
@@ -39,6 +39,8 @@ three of these that fit them rather than a list:
 - Something to make: a report with charts, a page, slides, a short video, a post with images.
 - Something on this computer: what is in a folder, a file converted, a script that runs again
   tomorrow.
+- Something that should happen by itself: "every weekday at nine, go through my mail and
+  draft the replies" (`bots.md`, Routines).
 - Something to remember: a birthday, a preference, how they like things done.
 - A service they connected in Settings › Connectors: notes, calendars, tickets.
 

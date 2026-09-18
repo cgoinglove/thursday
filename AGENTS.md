@@ -92,7 +92,8 @@ seed-skills/<seed>/       A seed bot's own skills (read-only), copied into `bots
                           marketer/ is a trimmed copy of marketingskills (MIT; its README says what was cut).
 ```
 
-Domains today: `thursday` (the call), `bot` (bots and the jobs they run), `memory`, `workspace` (the
+Domains today: `thursday` (the call), `bot` (bots and the jobs they run), `routine` (jobs that start
+by themselves), `memory`, `workspace` (the
 files bots work in) and `artifact` (the finished ones), `skills`, `connectors` (MCP servers), `config`
 (keys and models), `intro` (first run), and `settings` (the settings shell only).
 
@@ -166,6 +167,13 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   is tried once more (`BOT_RUN.retryMs`); a second break, a provider's refusal, a server restart,
   a resource limit or a user stop waits for a person. Wired once at boot (`instrumentation`),
   not in each domain.
+- **A routine only opens threads.** `routine.clock` looks for what is due and calls `startThread`;
+  everything after that — questions, stops, the relay into a call — is the thread's, and nothing in
+  the room engine knows a routine exists. A run carries `thread.routine_id`, and how a routine is
+  doing is read off its latest run, never stored. A due routine is held while no browser is there
+  (the same key the pump asks) or its bot is off, and skipped while its last run is still open;
+  its next time moves on before the run opens, so two looks start one thread. Only the call holds
+  the `routine` tool: what starts by itself is the user's to set up, never a bot's.
 - **What cannot be won by instruction is enforced by structure**: tool sets, per-turn and per-room
   limits, output truncation, shell env. Do not add prompt sentences for things the code can enforce.
 - **A turn ending is not a thread ending.** Bots finish with ordinary text or silence. The coordinator

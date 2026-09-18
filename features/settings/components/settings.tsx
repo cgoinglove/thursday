@@ -33,6 +33,7 @@ import { ModelsBadge } from "@/features/config/components/models-badge";
 import { McpBadge } from "@/features/connectors/components/mcp-badge";
 import { McpMark } from "@/features/connectors/components/mcp-mark";
 import { MemoryMark } from "@/features/memory/components/memory-mark";
+import { RoutineMark } from "@/features/routine/components/routine-mark";
 import { SkillsMark } from "@/features/skills/components/skills-mark";
 import { ThursdayAsciiMark } from "@/features/thursday/components/thursday-ascii-mark";
 import { WorkspaceMark } from "@/features/workspace/components/workspace-mark";
@@ -71,6 +72,11 @@ const BotSetting = lazySection(
 const ThreadSetting = lazySection(() =>
   import("@/features/bot/components/thread-setting").then((m) => ({
     default: m.ThreadSetting,
+  })),
+);
+const RoutineSetting = lazySection(() =>
+  import("@/features/routine/components/routine-setting").then((m) => ({
+    default: m.RoutineSetting,
   })),
 );
 const ConfigSetting = lazySection(() =>
@@ -161,6 +167,14 @@ export const SECTIONS: readonly {
     icon: ListChecks,
     Component: ThreadSetting,
     Badge: ThreadBadge,
+  },
+  {
+    id: "routines",
+    label: "Routines",
+    group: "work",
+    hint: "Jobs that start by themselves",
+    icon: RoutineMark,
+    Component: RoutineSetting,
   },
   {
     id: "artifact",

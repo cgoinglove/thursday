@@ -22,6 +22,7 @@ import {
   MCPToolInfo,
 } from "@/features/connectors/mcp.schema";
 import type { MemorySource } from "@/features/memory/memory.schema";
+import type { RoutineSchedule } from "@/features/routine/routine.schema";
 
 /** Workers that background jobs are delegated to. */
 export const botTable = sqliteTable("bot", {
@@ -126,61 +127,73 @@ export const botMcpToolTable = sqliteTable(
  * A job handed to a bot. Outlives the call that opened it. Two independent
  * axes: `status` is where the job is, `seen` is whether the user has had the ending.
  */
-export const threadTable = sqliteTable("thread", {
-  /** uuid; the spoken and shown identifier is `label`. */
-  id: text("id").primaryKey(),
-  /** Bot name, deliberately not a foreign key: the default bot has no row, and a deleted bot's jobs stay. */
-  bot: text("bot").notNull(),
-  /** Two or three words, for the screen and for speech. */
-  label: text("label").notNull(),
-  /** The full briefing; first user message of the thread, reused on resume. */
-  request: text("request").notNull(),
-  /**
-   * running | waiting (question, idle or paused) | done | cancelled.
-   * A done job goes back to running when it gets a follow-up answer.
-   */
-  status: text("status").notNull().$type<ThreadStatus>(),
-  /** A user message or resume opens a new reporting epoch. */
-  generation: int("generation").notNull().default(0),
-  /** Automatic turns consumed since the last user message or resume. */
-  turns: int("turns").notNull().default(0),
-  /** Whether the current activity has already received one owner wrap-up. */
-  wrapped: int("wrapped", { mode: "boolean" }).notNull().default(false),
-  /** Last message, or the pending question. */
-  outcome: text("outcome"),
-  /**
-   * While `waiting`: what it waits on (bot.schema ThreadPending) — a bot's question,
-   * named by `messageId`, or a stop the app made; null once it runs again.
-   */
-  pending: text("pending", { mode: "json" }).$type<ThreadPending>(),
-  /**
-   * Whether the user has had the ending: opened on screen, or marked by Thursday once
-   * told (`thread` `seen`). Highlight and badge only; the inbox selects by status.
-   */
-  seen: int("seen", { mode: "boolean" }).notNull().default(false),
-  /** The call that opened the job; null when started from the screen. A later call's prompt finds the job under it. */
-  callId: text("call_id"),
-  /** Running totals across every participant; added per step. */
-  inputTokens: int("input_tokens").notNull().default(0),
-  outputTokens: int("output_tokens").notNull().default(0),
-  /** Context size of the last step, not a total; overwritten every step. */
-  contextTokens: int("context_tokens").notNull().default(0),
-  /**
-   * Where the coordinator compacts, written at every step so the screen can draw the
-   * meter without config. Display only: a context refused as too long lowers the
-   * participant's own number (thread_work `context_budget`).
-   */
-  contextBudget: int("context_budget").notNull().default(0),
-  createdAt: int("created_at", { mode: "timestamp" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  /** Every list sorts by this, descending. */
-  updatedAt: int("updated_at", { mode: "timestamp" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  /** Set on done/cancelled; reset to null on waiting. */
-  endedAt: int("ended_at", { mode: "timestamp" }),
-});
+export const threadTable = sqliteTable(
+  "thread",
+  {
+    /** uuid; the spoken and shown identifier is `label`. */
+    id: text("id").primaryKey(),
+    /** Bot name, deliberately not a foreign key: the default bot has no row, and a deleted bot's jobs stay. */
+    bot: text("bot").notNull(),
+    /** Two or three words, for the screen and for speech. */
+    label: text("label").notNull(),
+    /** The full briefing; first user message of the thread, reused on resume. */
+    request: text("request").notNull(),
+    /**
+     * running | waiting (question, idle or paused) | done | cancelled.
+     * A done job goes back to running when it gets a follow-up answer.
+     */
+    status: text("status").notNull().$type<ThreadStatus>(),
+    /** A user message or resume opens a new reporting epoch. */
+    generation: int("generation").notNull().default(0),
+    /** Automatic turns consumed since the last user message or resume. */
+    turns: int("turns").notNull().default(0),
+    /** Whether the current activity has already received one owner wrap-up. */
+    wrapped: int("wrapped", { mode: "boolean" }).notNull().default(false),
+    /** Last message, or the pending question. */
+    outcome: text("outcome"),
+    /**
+     * While `waiting`: what it waits on (bot.schema ThreadPending) — a bot's question,
+     * named by `messageId`, or a stop the app made; null once it runs again.
+     */
+    pending: text("pending", { mode: "json" }).$type<ThreadPending>(),
+    /**
+     * Whether the user has had the ending: opened on screen, or marked by Thursday once
+     * told (`thread` `seen`). Highlight and badge only; the inbox selects by status.
+     */
+    seen: int("seen", { mode: "boolean" }).notNull().default(false),
+    /** The call that opened the job; null when started from the screen. A later call's prompt finds the job under it. */
+    callId: text("call_id"),
+    /**
+     * The routine that opened the job; null for one a person or a bot started. Not a foreign
+     * key: a run outlives the routine it came from, the way a job outlives its bot.
+     */
+    routineId: text("routine_id"),
+    /** Running totals across every participant; added per step. */
+    inputTokens: int("input_tokens").notNull().default(0),
+    outputTokens: int("output_tokens").notNull().default(0),
+    /** Context size of the last step, not a total; overwritten every step. */
+    contextTokens: int("context_tokens").notNull().default(0),
+    /**
+     * Where the coordinator compacts, written at every step so the screen can draw the
+     * meter without config. Display only: a context refused as too long lowers the
+     * participant's own number (thread_work `context_budget`).
+     */
+    contextBudget: int("context_budget").notNull().default(0),
+    createdAt: int("created_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    /** Every list sorts by this, descending. */
+    updatedAt: int("updated_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    /** Set on done/cancelled; reset to null on waiting. */
+    endedAt: int("ended_at", { mode: "timestamp" }),
+  },
+  (t) => [
+    // A routine's runs, newest first (routine.query)
+    index("idx_thread_routine").on(t.routineId, t.createdAt),
+  ],
+);
 
 /**
  * A thread's messages, one ModelMessage per row. Read back as the model's own
@@ -458,6 +471,30 @@ export const memoryFactTable = sqliteTable(
     index("idx_memory_fact_always").on(t.alwaysLoad, t.isLatest),
     index("idx_memory_fact_call").on(t.callId),
   ],
+);
+
+/** Jobs that start by themselves; each start is a thread carrying `routine_id` (features/routine). */
+export const routineTable = sqliteTable(
+  "routine",
+  {
+    id: text("id").primaryKey(),
+    /** Bot name, not a foreign key, as on `thread`: a deleted bot leaves the routine waiting for a new one. */
+    bot: text("bot").notNull(),
+    /** Names every thread it opens. */
+    label: text("label").notNull(),
+    /** The job, handed over each time as written. */
+    request: text("request").notNull(),
+    schedule: text("schedule", { mode: "json" })
+      .notNull()
+      .$type<RoutineSchedule>(),
+    enabled: int("enabled", { mode: "boolean" }).notNull().default(true),
+    /** The start it is waiting for; moved on before a run opens, so one tick starts it once. */
+    nextRunAt: int("next_run_at", { mode: "timestamp" }).notNull(),
+    createdAt: int("created_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (t) => [index("idx_routine_due").on(t.enabled, t.nextRunAt)],
 );
 
 /** Settings written from the UI, mostly API keys. Env vars still win on read. */

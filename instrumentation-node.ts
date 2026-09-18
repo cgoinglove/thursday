@@ -73,6 +73,12 @@ export async function boot() {
     );
   });
 
+  // Routines start themselves from here on; a start is a thread, so everything above holds for it
+  const { startRoutineClock } = await import(
+    "@/features/routine/routine.clock"
+  );
+  startRoutineClock();
+
   // The launcher forwards shutdown signals so pending work records its manual resume boundary.
   if (process.env.NEXT_MANUAL_SIG_HANDLE) {
     let stopping = false;

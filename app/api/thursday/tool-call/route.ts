@@ -2,8 +2,11 @@ import { asSchema } from "ai";
 import z from "zod";
 import { loadTools } from "@/features/ai/load-tools";
 import { modelErrorToString } from "@/features/ai/model";
+import { createServerProbe } from "@/lib/probe.server";
 import { serverRoute } from "@/lib/protocol/server-route";
 import { publicError } from "@/lib/public-error";
+
+const probe = createServerProbe("server");
 
 /**
  * Executes a tool call from the voice session. The page forwards what the model
@@ -52,6 +55,7 @@ export const POST = serverRoute(async (request) => {
     );
   }
 
+  const began = Date.now();
   try {
     const output = await tool.execute(parsed?.value ?? input ?? {}, {
       toolCallId,
@@ -59,8 +63,18 @@ export const POST = serverRoute(async (request) => {
       context: undefined,
       abortSignal: request.signal,
     });
-    return { output: await drain(output) };
+    const drained = await drain(output);
+    probe("tool", {
+      callId,
+      name,
+      input,
+      ms: Date.now() - began,
+      // The rows keep a tool's arguments only; what it answered is kept here
+      output: JSON.stringify(drained)?.slice(0, 3000),
+    });
+    return { output: drained };
   } catch (cause) {
+    probe("tool.failed", { callId, name, input, error: String(cause) });
     // A tool failure is a line the model reads and recovers from, not a masked server error.
     publicError(`"${name}" failed: ${modelErrorToString(cause)}`);
   }

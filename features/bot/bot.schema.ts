@@ -219,6 +219,39 @@ export type BotMemory = {
 };
 
 /**
+ * What a thread opened by a routine is told about it (features/routine): which one, when
+ * it starts, and how its last run ended, so "since last time" means something.
+ */
+export type ThreadRoutine = {
+  id: string;
+  /** "Daily 09:00 · Mon–Fri" (routine.schema scheduleText). */
+  when: string;
+  last: { at: Date; said: string } | null;
+};
+
+/** One of a bot's other threads, as its own prompt lists it (thread.query listBotWork). */
+export type BotWorkLine = {
+  /** The thread. Its first characters are the handle a cut line shows (`workHandle`). */
+  id: string;
+  /** The exchange `said` ended; what the bot was asked there hangs off it (thread.query readBotAsk). */
+  workId: string | null;
+  label: string;
+  /** Who coordinates that thread: the bot itself, or the one it was called in by. */
+  owner: string;
+  status: ThreadStatus;
+  /** Waiting on the user's answer rather than on Continue. */
+  asking: boolean;
+  updatedAt: Date;
+  /** The bot's own last ending there; null when it has ended no turn in words. */
+  said: string | null;
+  /** `said` runs past what a line carries (config BOT_WORK.said), so there is more to open. */
+  cut: boolean;
+};
+
+/** How a thread is named on a line and to the tool that opens it: enough of its id to tell ten apart. */
+export const workHandle = (id: string) => id.slice(0, 6);
+
+/**
  * `waiting`: a bot asked the user something, or the app stopped the work; the
  * answer resumes the same thread. `cancelled`: the user stopped it. A model that
  * breaks pauses the job as `waiting` rather than ending it, so nothing ends as a
@@ -396,6 +429,8 @@ export const ThreadSchema = z.object({
    * cancelled. A highlight and a count, never a filter.
    */
   seen: z.boolean(),
+  /** The routine that opened it (features/routine); null for a job a person or a bot started. */
+  routineId: z.string().nullable(),
   /** Burned so far, across every participant. */
   tokens: TokenUsageSchema,
   /** Context size the model read on the last step (not a sum) and the compaction threshold (BOT_RUN.compactAt). 0 means no step ran yet. */

@@ -1070,6 +1070,7 @@ test("the assembled participant prompt names its return route and exposes asynch
   );
   const { sendMessageSpec } = await import("../features/ai/tools/bot.tool.ts");
   const prompt = await loadBotPrompt("Beta", "Use precise findings.", {
+    thread: null,
     owner: "Alpha",
     caller: "Gamma",
     messageId: "incoming-message",
@@ -1081,6 +1082,354 @@ test("the assembled participant prompt names its return route and exposes asynch
   );
   if (process.env.THURSDAY_TEST_SHOW_PROMPT)
     console.log(prompt.text, "\nTool:", sendMessageSpec.description);
+});
+
+test("a bot's prompt lists its other threads with its own last words, never the thread it is in", async () => {
+  // Rows written in one second tie on `updatedAt`; a list long enough holds them all
+  const { BOT_WORK } = await import("../config.ts");
+  const { reads, recent } = BOT_WORK;
+  BOT_WORK.reads = 1;
+  BOT_WORK.recent = 50;
+  const { insertThread, deleteThread, updateThread } = await import(
+    "../features/bot/thread.query.ts"
+  );
+  const { claimRoomWork, finishRoomWork } = await import(
+    "../features/bot/room.query.ts"
+  );
+  const { loadBotPrompt } = await import(
+    "../features/ai/prompts/bot.prompt.ts"
+  );
+  const earlier = await insertThread({
+    bot: "Alpha",
+    request: "Compare the plans",
+    label: "Plan comparison",
+    opening: "Opening",
+  });
+  const root = (await claimRoomWork(earlier.id))!;
+  await sendRoomMessage(root, {
+    id: "other-threads-call",
+    to: "Beta",
+    text: "Price the three plans",
+  });
+  const beta = (await claimRoomWork(earlier.id))!;
+  await finishRoomWork(
+    beta,
+    "Three plans priced.\n\nThe table is at artifacts/Beta/plans.md.",
+  );
+  await updateThread(earlier.id, { status: "done" });
+  const current = await insertThread({
+    bot: "Beta",
+    request: "Something new",
+    label: "Current job",
+    opening: "Opening",
+  });
+
+  // A long ending of its own: the line keeps its start and the file it names, and carries an id
+  const long = await insertThread({
+    bot: "Beta",
+    request: "Write the long report on the three plans.",
+    label: "Long report",
+    opening: "Opening",
+  });
+  const words = `${"The report covers pricing, limits and support for all three plans in turn. ".repeat(3)}It is at artifacts/Beta/report.md.`;
+  await finishRoomWork((await claimRoomWork(long.id))!, words);
+  await updateThread(long.id, { status: "done" });
+
+  const seat = {
+    thread: current.id,
+    owner: "Beta",
+    caller: "Thursday",
+    messageId: null,
+  };
+  const prompt = await loadBotPrompt("Beta", null, seat);
+  assert.ok(prompt.text.includes("## Your other threads"));
+  assert.ok(prompt.text.includes(`- "Plan comparison" — Alpha's — ended`));
+  assert.ok(prompt.text.includes("Three plans priced. The table is at"));
+  assert.ok(prompt.text.includes("`artifacts/Beta/plans.md`"));
+  assert.ok(!prompt.text.includes('"Current job"'));
+  const handle = long.id.slice(0, 6);
+  assert.ok(
+    prompt.text.includes(`- [${handle}] "Long report" — yours — ended`),
+  );
+  assert.ok(!prompt.text.includes(words), "the line is cut");
+  assert.ok(prompt.text.includes("`artifacts/Beta/report.md`"));
+  assert.ok(
+    prompt.text.includes(`\`${T.thread_recall}\` opens that one whole`),
+  );
+  if (process.env.THURSDAY_TEST_SHOW_PROMPT)
+    console.log(
+      prompt.text.slice(
+        prompt.text.indexOf("## Your other threads"),
+        prompt.text.indexOf("## Bots"),
+      ),
+    );
+
+  // The tool opens a cut line whole, once a turn, and only so many of them
+  const { createThreadRecallTool } = await import(
+    "../features/ai/tools/bot.tool.ts"
+  );
+  const held = await createThreadRecallTool("Beta", current.id);
+  // A ToolSet erases its input type; what is under test is the call itself
+  type Recall = (
+    input: { id: string },
+    options: { toolCallId: string; messages: [] },
+  ) => Promise<unknown>;
+  const run = (tools: import("ai").ToolSet) => (id: string) =>
+    (tools[T.thread_recall].execute as unknown as Recall)(
+      { id },
+      { toolCallId: id, messages: [] },
+    );
+  const open = run(held);
+  assert.match(
+    String(await open("nothing")),
+    /No thread "nothing" on your list/,
+  );
+  assert.equal(
+    await open("Plan comparison"),
+    "Its line already shows all of it.",
+  );
+  const whole = String(await open(`[${handle}]`));
+  assert.ok(whole.includes("You were asked: Write the long report"));
+  assert.ok(whole.includes(words));
+  assert.equal(await open(handle), "Already opened above, this turn.");
+  const second = await insertThread({
+    bot: "Beta",
+    request: "Another long one.",
+    label: "Second report",
+    opening: "Opening",
+  });
+  await finishRoomWork((await claimRoomWork(second.id))!, words);
+  await updateThread(second.id, { status: "done" });
+  const again = await createThreadRecallTool("Beta", current.id);
+  const reopen = run(again);
+  await reopen(handle);
+  assert.match(
+    String(await reopen(second.id.slice(0, 6))),
+    /1 threads are open already this turn/,
+  );
+  BOT_WORK.reads = reads;
+  BOT_WORK.recent = recent;
+
+  // Nothing cut, nothing to open: a bot whose lines all fit is handed no tool
+  await deleteThread(long.id);
+  await deleteThread(second.id);
+  const { listBotWork } = await import("../features/bot/thread.query.ts");
+  const left = await listBotWork("Beta", current.id);
+  const anyCut = [...left.open, ...left.recent].some((line) => line.cut);
+  assert.equal(
+    T.thread_recall in (await createThreadRecallTool("Beta", current.id)),
+    anyCut,
+  );
+
+  await deleteThread(earlier.id);
+  await deleteThread(current.id);
+});
+
+test("a routine's next start is the next listed day at its time, and an interval counts from now", async () => {
+  const { nextRun, scheduleText } = await import(
+    "../features/routine/routine.schema.ts"
+  );
+  // 2026-09-18 is a Friday
+  const friday = new Date(2026, 8, 18, 10, 0, 0);
+  const weekdays = {
+    kind: "daily" as const,
+    time: "09:00",
+    days: [1, 2, 3, 4, 5],
+  };
+  assert.deepEqual(nextRun(weekdays, friday), new Date(2026, 8, 21, 9, 0, 0));
+  assert.deepEqual(
+    nextRun({ ...weekdays, time: "18:30" }, friday),
+    new Date(2026, 8, 18, 18, 30, 0),
+  );
+  assert.deepEqual(
+    nextRun({ kind: "daily", time: "10:00", days: [5] }, friday),
+    new Date(2026, 8, 25, 10, 0, 0),
+    "the same minute is not after it",
+  );
+  assert.deepEqual(
+    nextRun({ kind: "every", hours: 6 }, friday),
+    new Date(2026, 8, 18, 16, 0, 0),
+  );
+  assert.equal(scheduleText(weekdays), "Daily 09:00 · Mon–Fri");
+  assert.equal(
+    scheduleText({ kind: "daily", time: "09:00", days: [1, 2, 3, 4, 5, 6, 7] }),
+    "Daily 09:00",
+  );
+  assert.equal(
+    scheduleText({ kind: "daily", time: "10:00", days: [1] }),
+    "Mon 10:00",
+  );
+  assert.equal(
+    scheduleText({ kind: "daily", time: "08:00", days: [1, 3, 5] }),
+    "Daily 08:00 · Mon Wed Fri",
+  );
+  assert.equal(scheduleText({ kind: "every", hours: 1 }), "Every hour");
+});
+
+test("the call makes, reads and removes a routine, and is told when its time can pass unkept", async () => {
+  const { createRoutineTools } = await import(
+    "../features/ai/tools/routine.tool.ts"
+  );
+  const { writeKeepWorkingOn } = await import("../features/bot/bot.query.ts");
+  type Run = (
+    input: Record<string, unknown>,
+    options: { toolCallId: string; messages: [] },
+  ) => Promise<unknown>;
+  const routine = (input: Record<string, unknown>) =>
+    (createRoutineTools()[T.routine].execute as unknown as Run)(input, {
+      toolCallId: "routine",
+      messages: [],
+    });
+  const job = { bot: "alpha", label: "Note check", request: "Do the check." };
+
+  assert.match(
+    String(await routine({ action: "create", ...job })),
+    /Say when it starts/,
+  );
+  assert.match(
+    String(
+      await routine({ action: "create", ...job, time: "09:00", everyHours: 6 }),
+    ),
+    /not both/,
+  );
+  assert.match(
+    String(
+      await routine({ action: "create", ...job, bot: "Nobody", time: "09:00" }),
+    ),
+    /There is no bot called "Nobody"/,
+  );
+
+  // Off, as it ships: the promise of a time is qualified in the same breath
+  const held = (await routine({
+    action: "create",
+    ...job,
+    time: "09:00",
+    days: [1, 2, 3, 4, 5],
+  })) as { id: string; when: string; bot: string; note: string };
+  assert.equal(held.bot, "Alpha");
+  assert.equal(held.when, "Daily 09:00 · Mon–Fri");
+  assert.ok(held.note.includes("only while the app is open in a tab"));
+
+  const listed = (await routine({ action: "list" })) as {
+    routines: { id: string; enabled: boolean }[];
+  };
+  assert.ok(listed.routines.some((one) => one.id === held.id && one.enabled));
+  const off = (await routine({
+    action: "change",
+    routine: "note check",
+    enabled: false,
+    everyHours: 6,
+  })) as { enabled: boolean; when: string };
+  assert.deepEqual([off.enabled, off.when], [false, "Every 6 hours"]);
+  assert.match(
+    String(await routine({ action: "delete", routine: held.id })),
+    /starts no more/,
+  );
+
+  // On: nothing to qualify
+  await writeKeepWorkingOn(true);
+  const kept = (await routine({
+    action: "create",
+    ...job,
+    everyHours: 6,
+  })) as { id: string; note: string };
+  assert.ok(!kept.note.includes("only while the app is open"));
+  await routine({ action: "delete", routine: kept.id });
+  await writeKeepWorkingOn(false);
+});
+
+test("a routine opens one thread when it is due, skips while its last run is open, and waits for its bot", async () => {
+  const { routineTable } = await import("../database/tables.ts");
+  const { createRoutine, deleteRoutine, findRoutine } = await import(
+    "../features/routine/routine.query.ts"
+  );
+  const { startDueRoutines, runRoutineNow } = await import(
+    "../features/routine/routine.clock.ts"
+  );
+  const { deleteThread } = await import("../features/bot/thread.query.ts");
+  const routine = await createRoutine({
+    bot: "alpha",
+    label: "Morning check",
+    request: "Check what came in since the last run.",
+    schedule: { kind: "every", hours: 1 },
+  });
+  assert.equal(routine.bot, "Alpha", "the bot's own spelling is kept");
+  const due = () =>
+    database
+      .update(routineTable)
+      .set({ nextRunAt: new Date(Date.now() - 60_000) })
+      .where(eq(routineTable.id, routine.id));
+  const runs = async () => (await findRoutine(routine.id))!.runs;
+
+  // Not due yet: nothing opens
+  await startDueRoutines();
+  assert.equal((await runs()).length, 0);
+
+  // Due, and two looks at once open one thread between them
+  await due();
+  plans.set("Alpha", [
+    (prompt) => {
+      assert.ok(prompt.includes("A routine the user set up hands you"));
+      assert.ok(prompt.includes("Every hour"));
+      assert.ok(prompt.includes("This is its first run."));
+      return text("Nothing new since yesterday.");
+    },
+  ]);
+  await Promise.all([startDueRoutines(), startDueRoutines()]);
+  assert.equal((await runs()).length, 1);
+  const first = (await runs())[0];
+  await waitFor(first.id, "done");
+  assert.equal((await findThreadView(first.id))?.routineId, routine.id);
+  assert.ok(
+    (await findRoutine(routine.id))!.nextRunAt > new Date(),
+    "moved on to its next time",
+  );
+
+  // The next run is told how the last one ended, and stands in for its unread ending
+  await due();
+  plans.set("Alpha", [
+    (prompt) => {
+      assert.ok(prompt.includes("Its last run ended"));
+      assert.ok(prompt.includes("Nothing new since yesterday."));
+      return ask("Thursday", "Which folder do the drafts go in?");
+    },
+  ]);
+  await startDueRoutines();
+  const second = (await runs())[0];
+  assert.notEqual(second.id, first.id);
+  await waitFor(second.id, "waiting");
+  assert.equal((await findThread(first.id))?.seen, true);
+
+  // A run still open is never stacked on: the time is skipped, by the clock and by hand
+  await due();
+  await startDueRoutines();
+  assert.equal((await runs()).length, 2);
+  assert.ok((await findRoutine(routine.id))!.nextRunAt > new Date());
+  await assert.rejects(runRoutineNow(routine.id), /still open/);
+
+  // A bot that cannot take a job holds the routine where it is, and it starts once the bot is back
+  await cancelThread(second.id);
+  await database
+    .update(botTable)
+    .set({ disabled: true })
+    .where(eq(botTable.name, "Alpha"));
+  await due();
+  await startDueRoutines();
+  assert.equal((await runs()).length, 2);
+  assert.ok((await findRoutine(routine.id))!.nextRunAt < new Date(), "held");
+  await database
+    .update(botTable)
+    .set({ disabled: false })
+    .where(eq(botTable.name, "Alpha"));
+  plans.set("Alpha", [() => text("Two new messages.")]);
+  await startDueRoutines();
+  const third = (await runs())[0];
+  assert.equal((await runs()).length, 3);
+  await waitFor(third.id, "done");
+
+  await deleteRoutine(routine.id);
+  assert.equal((await findThread(third.id))?.routineId, routine.id);
+  for (const run of [first, second, third]) await deleteThread(run.id);
 });
 
 test("a committed message recovers its real receipt after the tool result is lost", async () => {

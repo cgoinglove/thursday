@@ -47,7 +47,6 @@ import {
   createSeedBotsAction,
   deleteBotAction,
   setBotMemoryOnAction,
-  setKeepWorkingOnAction,
   updateBotAction,
 } from "@/features/bot/bot.action";
 import {
@@ -66,6 +65,7 @@ import {
   rollSeedIcons,
 } from "@/features/bot/bot.seed";
 import { BotMark } from "@/features/bot/components/bot-mark";
+import { KeepWorkingSwitch } from "@/features/bot/components/keep-working-switch";
 import { MarkPalette } from "@/features/bot/components/mark-palette";
 import {
   type ConfigStatus,
@@ -1125,13 +1125,6 @@ function BotRail({ bot }: { bot: Bot | null }) {
   const [setMemoryOn] = useServerAction(setBotMemoryOnAction, {
     onOk: () => revalidate(queryKey.botMemory),
   });
-  const { data: keepWorking, mutate: mutateWorking } = useServerRoute<boolean>(
-    queryKey.botKeepWorking,
-  );
-  const [setKeepWorking] = useServerAction(setKeepWorkingOnAction, {
-    onOk: () => revalidate(queryKey.botKeepWorking),
-  });
-
   const tokens = bot ? bot.tokens.input + bot.tokens.output : 0;
   return (
     <>
@@ -1157,21 +1150,7 @@ function BotRail({ bot }: { bot: Bot | null }) {
           "Becomes a bot once it has a name and a model"
         )}
       </SettingRailNote>
-      <span
-        className="shrink-0 text-xs text-muted-foreground"
-        title="Off, closing the last tab stops running jobs and opening one again picks them back up. On, they run until the server stops."
-      >
-        Work while the app is closed
-      </span>
-      <Switch
-        checked={keepWorking ?? false}
-        disabled={keepWorking === undefined}
-        onCheckedChange={(on) => {
-          void mutateWorking(on, false);
-          setKeepWorking(on);
-        }}
-        aria-label="Work while the app is closed"
-      />
+      <KeepWorkingSwitch />
       <span className="h-4 w-px shrink-0 bg-border" />
       <span className="shrink-0 text-xs text-muted-foreground">
         Bots keep their own memory

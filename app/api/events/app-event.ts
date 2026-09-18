@@ -8,6 +8,8 @@ export type AppEvent =
   | { type: "hello"; boot: string }
   /** Signal: a thread changed (every write in thread.query and room.query). */
   | { type: "threads" }
+  /** Signal: a routine was made, changed, removed, or moved on to its next time. */
+  | { type: "routines" }
   /** Signal: a note or fact changed. */
   | { type: "memory" }
   /** Signal: a server was registered, removed, synced, or finished OAuth. */
@@ -38,6 +40,7 @@ type Signal<E = AppEvent> = E extends AppEvent
  */
 export const SIGNALS: Record<Signal, true> = {
   threads: true,
+  routines: true,
   memory: true,
   mcp: true,
   config: true,

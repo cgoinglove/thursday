@@ -3,10 +3,15 @@ import { formatDistanceToNowStrict } from "date-fns";
 import { CALL_EXEC_TIMEOUT_MS, IS_DEV } from "@/config";
 import type { TextModel } from "@/features/ai/model";
 import { clockNow } from "@/features/ai/prompts/prompt-helper";
-import { delegateSpec, threadSpec } from "@/features/ai/tools/bot.tool";
+import {
+  createThreadRecallTool,
+  delegateSpec,
+  threadSpec,
+} from "@/features/ai/tools/bot.tool";
 import { callTools } from "@/features/ai/tools/call.tool";
 import { createMcpTools } from "@/features/ai/tools/mcp.tool";
 import { createMemoryTools } from "@/features/ai/tools/memory.tool";
+import { createRoutineTools } from "@/features/ai/tools/routine.tool";
 import {
   createCallSearchTool,
   createSearchTool,
@@ -59,6 +64,8 @@ export type ToolRun =
       target: "bot";
       /** This run's bot name, the key of the bot table. */
       bot: string;
+      /** The thread this run is in; every other one the bot has a desk in is what `thread_recall` can open. */
+      thread?: string | null;
       /** The browser session this run's shell drives (workspace.ts jobShellEnv): this participant's own in the job. */
       session?: string | null;
       /** The model this run already resolved (bot.run resolveModel); its own native search is what `web_search` uses when no Exa key is set (tools/search.tool). */
@@ -370,6 +377,8 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
       ...(run.webSearch === false ? {} : await createCallSearchTool(sandbox)),
       // Handing work over, following it, and hanging up belong to the voice session only
       ...createThreadTools(run.callId),
+      // What starts by itself is the user's to set up, so only the call holds it
+      ...createRoutineTools(),
       ...callTools(run.faceWords ?? false),
     };
   }
@@ -401,5 +410,7 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     // Pinned tools come with schemas; the rest sit behind `tool_search`, absent when nothing is left to find (mcp.tool)
     ...(await createMcpTools(run.bot, sandbox)),
     ...createSkillTools({ sandbox, skills, bot: run.bot }),
+    // Absent unless the list in its prompt cut a line short (tools/bot.tool)
+    ...(await createThreadRecallTool(run.bot, run.thread ?? null)),
   };
 }

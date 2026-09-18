@@ -1,7 +1,22 @@
 import type { AssistantContent, ModelMessage, ToolContent } from "ai";
-import { and, desc, eq, inArray, lt, max, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  lt,
+  max,
+  ne,
+  sql,
+} from "drizzle-orm";
 import { appEvents } from "@/app/api/events/app-event.server";
-import { INBOX_FINISHED, PAGE_SIZE, THREAD_STATUS_LIMIT } from "@/config";
+import {
+  BOT_WORK,
+  INBOX_FINISHED,
+  PAGE_SIZE,
+  THREAD_STATUS_LIMIT,
+} from "@/config";
 import { database } from "@/database/db";
 import {
   threadDeliveryTable,
@@ -13,6 +28,7 @@ import {
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { clip } from "@/lib/utils";
 import {
+  type BotWorkLine,
   type ResultPart,
   type Thread,
   type ThreadLine,
@@ -38,6 +54,7 @@ const threadView = {
   outcome: threadTable.outcome,
   pending: threadTable.pending,
   seen: threadTable.seen,
+  routineId: threadTable.routineId,
   inputTokens: threadTable.inputTokens,
   outputTokens: threadTable.outputTokens,
   contextTokens: threadTable.contextTokens,
@@ -55,6 +72,7 @@ type ThreadRow = {
   outcome: string | null;
   pending: ThreadPending | null;
   seen: boolean;
+  routineId: string | null;
   inputTokens: number;
   outputTokens: number;
   contextTokens: number;
@@ -74,6 +92,8 @@ export async function insertThread(input: {
   label: string;
   request: string;
   callId?: string | null;
+  /** The routine that opened it (features/routine); a run carries its mark on every row. */
+  routineId?: string | null;
   opening: Extract<ModelMessage, { role: "user" }>["content"];
 }) {
   const { opening, ...row } = input;
@@ -283,6 +303,109 @@ export async function listCallJobs(callIds: string[]) {
 }
 
 export type CallJob = Awaited<ReturnType<typeof listCallJobs>>[number];
+
+/**
+ * The other threads one bot has a desk in — the ones it coordinates and the ones it was
+ * called into — for its own prompt (ai/prompts/bot.prompt). Read off thread and thread_work;
+ * nothing is kept for it. `said` is the bot's own last ending there (thread_work `result`),
+ * not `outcome`: that is the coordinator's, or the words of a stop.
+ */
+export async function listBotWork(
+  bot: string,
+  except: string | null,
+): Promise<{ open: BotWorkLine[]; recent: BotWorkLine[] }> {
+  const pick = (statuses: ThreadStatus[], limit: number) =>
+    database
+      .select({
+        id: threadTable.id,
+        owner: threadTable.bot,
+        label: threadTable.label,
+        status: threadTable.status,
+        pending: threadTable.pending,
+        updatedAt: threadTable.updatedAt,
+      })
+      .from(threadTable)
+      .where(
+        and(
+          inArray(threadTable.status, statuses),
+          except ? ne(threadTable.id, except) : undefined,
+          inArray(
+            threadTable.id,
+            database
+              .select({ id: threadWorkTable.threadId })
+              .from(threadWorkTable)
+              .where(eq(threadWorkTable.bot, bot)),
+          ),
+        ),
+      )
+      .orderBy(desc(threadTable.updatedAt))
+      .limit(limit);
+  const [open, recent] = await Promise.all([
+    pick(["running", "waiting"], BOT_WORK.open),
+    pick(["done", "cancelled"], BOT_WORK.recent),
+  ]);
+  const ids = [...open, ...recent].map((row) => row.id);
+  if (!ids.length) return { open: [], recent: [] };
+
+  const endings = await database
+    .select({
+      id: threadWorkTable.id,
+      threadId: threadWorkTable.threadId,
+      result: threadWorkTable.result,
+    })
+    .from(threadWorkTable)
+    .where(
+      and(
+        eq(threadWorkTable.bot, bot),
+        inArray(threadWorkTable.threadId, ids),
+        isNotNull(threadWorkTable.result),
+      ),
+    )
+    .orderBy(desc(threadWorkTable.createdAt));
+  const said = new Map<string, { workId: string; words: string }>();
+  for (const { id, threadId, result } of endings)
+    if (result?.trim() && !said.has(threadId))
+      said.set(threadId, { workId: id, words: result });
+
+  const line = ({ pending, ...row }: (typeof open)[number]) => {
+    const last = said.get(row.id);
+    return {
+      ...row,
+      workId: last?.workId ?? null,
+      asking: row.status === "waiting" && Boolean(pending?.messageId),
+      said: last?.words ?? null,
+      // Measured the way `clip` flattens it, so a line is cut exactly when this says so
+      cut: last
+        ? last.words.replace(/\s+/g, " ").trim().length > BOT_WORK.said
+        : false,
+    };
+  };
+  return { open: open.map(line), recent: recent.map(line) };
+}
+
+/**
+ * What the bot was asked in one of those threads: the job itself where it coordinates,
+ * else the messages that called it into the exchange its last words ended.
+ */
+export async function readBotAsk(
+  bot: string,
+  line: BotWorkLine,
+): Promise<string> {
+  if (line.owner === bot) {
+    const [row] = await database
+      .select({ request: threadTable.request })
+      .from(threadTable)
+      .where(eq(threadTable.id, line.id));
+    return row?.request ?? "";
+  }
+  if (!line.workId) return "";
+  const asked = await database
+    .select({ text: threadDeliveryTable.text })
+    .from(threadDeliveryTable)
+    .where(eq(threadDeliveryTable.workId, line.workId))
+    .orderBy(threadDeliveryTable.id);
+  return asked.map((row) => row.text).join("\n\n");
+}
 
 /** Its messages go with it (cascade). The runner stops a live one first. */
 export async function deleteThread(id: string) {

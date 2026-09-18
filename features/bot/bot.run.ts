@@ -153,12 +153,18 @@ export async function runBot(
     loadBotPrompt(
       name,
       bot.systemPrompt,
-      { owner: options.owner, caller: options.caller, messageId: parent },
+      {
+        thread: options.threadId ?? null,
+        owner: options.owner,
+        caller: options.caller,
+        messageId: parent,
+      },
       { scratch, own, artifacts },
     ),
     loadTools({
       target: "bot",
       bot: name,
+      thread: options.threadId ?? null,
       session:
         options.session ??
         (options.threadId ? botBrowserSession(options.threadId, name) : null),

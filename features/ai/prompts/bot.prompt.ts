@@ -2,6 +2,7 @@ import type { ModelMessage } from "ai";
 import { format } from "date-fns";
 import {
   BOT_MEMORY_LIMITS,
+  BOT_WORK,
   PATHS,
   PROMPT_LINE,
   WORKSPACE_KEEP,
@@ -9,11 +10,15 @@ import {
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { botMemoryFolder, listBotMemory } from "@/features/bot/bot.memory";
 import { listJobBots, readBotMemoryOn } from "@/features/bot/bot.query";
-import type {
-  BotMemory,
-  JobBot,
-  ThreadSpeaker,
+import {
+  type BotMemory,
+  type BotWorkLine,
+  type JobBot,
+  type ThreadRoutine,
+  type ThreadSpeaker,
+  workHandle,
 } from "@/features/bot/bot.schema";
+import { listBotWork } from "@/features/bot/thread.query";
 import { findPinnedTools } from "@/features/connectors/mcp.query";
 import type { McpToolRef } from "@/features/connectors/mcp.schema";
 import { listNoteIndex } from "@/features/memory/memory.query";
@@ -22,6 +27,7 @@ import {
   loadSkills,
   type SkillMetadata,
 } from "@/features/skills/skills.discover";
+import { pathsIn } from "@/features/workspace/file-kind";
 import {
   type MachineTools,
   openWorkspace,
@@ -32,6 +38,7 @@ import { logger } from "@/lib/logger";
 import { clip } from "@/lib/utils";
 import { listConnectedToolNames } from "../tools/connected";
 import {
+  botWorkHead,
   logPromptSize,
   mcpToolLines,
   noteLines,
@@ -39,8 +46,13 @@ import {
   skillLines,
 } from "./prompt-helper";
 
-/** Where this turn sits: who coordinates the thread, who is asking, and the exchange it answers. */
-type Seat = { owner: string; caller: string; messageId: string | null };
+/** Where this turn sits: the thread, who coordinates it, who is asking, and the exchange it answers. */
+type Seat = {
+  thread: string | null;
+  owner: string;
+  caller: string;
+  messageId: string | null;
+};
 
 /** Assemble this participant's instructions and current return route on every turn. */
 export async function loadBotPrompt(
@@ -52,22 +64,33 @@ export async function loadBotPrompt(
 ): Promise<{ text: string }> {
   const sandbox = await openWorkspace();
   const name = self.trim();
-  const [skills, index, mcpTools, pinned, allBots, kept, memoryOn, machine] =
-    await Promise.all([
-      // Its own skills beside everyone's (skills.discover ownSkills)
-      loadSkills(sandbox, name),
-      listNoteIndex(),
-      // User-connected servers and the app's studio in one list (tools/connected)
-      listConnectedToolNames(),
-      // MCP tools this bot already holds; dropped from the listing below
-      findPinnedTools(name),
-      listJobBots(),
-      // What this bot kept on earlier jobs, read off its own folder (bot.memory)
-      listBotMemory(name),
-      readBotMemoryOn(),
-      // One `command -v` sweep; what is here decides the first command (environment)
-      readMachineTools(sandbox),
-    ]);
+  const [
+    skills,
+    index,
+    mcpTools,
+    pinned,
+    allBots,
+    kept,
+    memoryOn,
+    machine,
+    work,
+  ] = await Promise.all([
+    // Its own skills beside everyone's (skills.discover ownSkills)
+    loadSkills(sandbox, name),
+    listNoteIndex(),
+    // User-connected servers and the app's studio in one list (tools/connected)
+    listConnectedToolNames(),
+    // MCP tools this bot already holds; dropped from the listing below
+    findPinnedTools(name),
+    listJobBots(),
+    // What this bot kept on earlier jobs, read off its own folder (bot.memory)
+    listBotMemory(name),
+    readBotMemoryOn(),
+    // One `command -v` sweep; what is here decides the first command (environment)
+    readMachineTools(sandbox),
+    // Its desks in every other thread, as they stand this turn (thread.query)
+    listBotWork(name, seat?.thread ?? null),
+  ]);
 
   const peers = allBots.filter((bot) => bot.name !== name);
 
@@ -79,6 +102,7 @@ export async function loadBotPrompt(
     environment(sandbox.cwd, machine, folders),
     // After Environment: its folder is named against the Cwd said there
     memoryOn ? ownMemory(botMemoryFolder(name), kept) : "",
+    otherThreads(name, work),
     roster(peers),
     collaboration(name, seat),
     // Last, so it is the closest thing to the work and outranks the rest
@@ -175,6 +199,42 @@ function ownMemory(folder: string, kept: BotMemory): string {
 What you learned on your own earlier jobs, in \`${folder}/\`: one topic per file, its first line saying what it holds, read by no other bot, up to ${BOT_MEMORY_LIMITS.files} files of ${BOT_MEMORY_LIMITS.chars.toLocaleString("en-US")} characters each. It is how you get better at this work. When a job teaches you something a later one would otherwise find out again — how a site signs in, the way through its screens, a command that turned out right — or the user asks you to remember how to work, keep it with the date it was true, and fix or delete what proved wrong. No passwords, keys or codes.
 
 ${listing}${rest}`;
+}
+
+/**
+ * The bot's other threads (thread.query listBotWork), so a new thread does not start from
+ * nothing: what it is on now and what it ended lately, each with its own last words there
+ * and the files those name. Facts only; what to make of them is the bot's. Read again every
+ * turn like the memory listing, so an open thread reads as it stands, and not drawn at all
+ * for a bot on its first thread.
+ */
+function otherThreads(
+  name: string,
+  work: { open: BotWorkLine[]; recent: BotWorkLine[] },
+): string {
+  if (!work.open.length && !work.recent.length) return "";
+
+  const line = (row: BotWorkLine) => {
+    const said = row.said ? ` — ${clip(row.said, BOT_WORK.said)}` : "";
+    // Read off all of its words, not the part the line keeps: where the result is outlasts the cut
+    const files = row.said ? pathsIn(row.said).slice(0, BOT_WORK.files) : [];
+    const named = files.length
+      ? ` · ${files.map((path) => `\`${path}\``).join(", ")}`
+      : "";
+    return `- ${row.cut ? `[${workHandle(row.id)}] ` : ""}${botWorkHead(row, name)}${said}${named}`;
+  };
+  const group = (title: string, rows: BotWorkLine[]) =>
+    rows.length ? `${title}\n${rows.map(line).join("\n")}` : "";
+  // Said only while the tool is held, which is only while a line was cut (tools/bot.tool)
+  const opens = [...work.open, ...work.recent].some((row) => row.cut)
+    ? ` A line with an id in brackets was cut short: \`${TOOL_NAMES.thread_recall}\` opens that one whole, for when this job builds on it.`
+    : "";
+
+  return `## Your other threads
+
+Your threads besides this one. You remember none of them here: each line is where it stands, your own last words there, and the files those words name.${opens}
+
+${[group("Open", work.open), group("Ended", work.recent)].filter(Boolean).join("\n")}`;
 }
 
 /**
@@ -281,14 +341,33 @@ export type OpeningContent = Extract<ModelMessage, { role: "user" }>["content"];
  * Who handed the job over, and the job — nothing from the call it came from. The request
  * carries what the bot needs (delegate's schema says so), and the opening outlives every
  * compaction: a call pasted here would still be read long after, by a user talking to the
- * bot on screen.
+ * bot on screen. A routine's run says so, and how its last run ended: a past fact, true for
+ * as long as the thread lives.
  */
 export function buildThreadOpening(input: {
   bot: string;
   request: string;
   /** Who handed the job over: Thursday during a call, or the user on screen. */
   from: ThreadSpeaker;
+  /** Set when a routine the user made opens it; nobody is there as it starts. */
+  routine?: ThreadRoutine | null;
 }): OpeningContent {
+  if (input.routine) {
+    const { when, last } = input.routine;
+    const before = last
+      ? ` Its last run ended ${format(last.at, "yyyy-MM-dd HH:mm")}: ${clip(last.said, PROMPT_LINE.jobOutcome)}`
+      : " This is its first run.";
+    return [
+      {
+        type: "text",
+        text: `You are ${input.bot}. A routine the user set up hands you this thread: it starts by itself, ${when}, and nobody is watching as it does.${before}`,
+      },
+      {
+        type: "text",
+        text: `## The routine → ${input.bot}: the job\n\n${input.request.trim()}`,
+      },
+    ];
+  }
   const by = input.from === "user" ? "The user" : "Thursday";
   return [
     {

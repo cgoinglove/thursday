@@ -6,6 +6,7 @@ import {
   STUDIO_SERVER,
 } from "@/config";
 import { STUDIO_TOOLS, TOOL_NAMES } from "@/features/ai/tools/tool-name";
+import type { BotWorkLine } from "@/features/bot/bot.schema";
 import type { McpToolRef } from "@/features/connectors/mcp.schema";
 import type {
   MemoryAlwaysLoaded,
@@ -53,6 +54,23 @@ export const clockNow = (now = new Date()) =>
   }`;
 
 /** `**Now**: 2026-09-02 (Wed) 15:41 Europe/Lisbon` */
+/**
+ * One of a bot's other threads, up to its words: whose it is and where it stands. The
+ * listing in its prompt and the tool that opens one whole say it the same way.
+ */
+export function botWorkHead(row: BotWorkLine, self: string): string {
+  const since = formatDistanceToNowStrict(row.updatedAt, { addSuffix: true });
+  const state =
+    row.status === "running"
+      ? `running, last moved ${since}`
+      : row.asking
+        ? `waiting on the user's answer since ${since}`
+        : row.status === "waiting"
+          ? `stopped ${since}, not finished`
+          : `${row.status === "done" ? "ended" : "stopped by the user"} ${format(row.updatedAt, "yyyy-MM-dd")}`;
+  return `"${row.label}" — ${row.owner === self ? "yours" : `${row.owner}'s`} — ${state}`;
+}
+
 export const nowLine = (now = new Date()) => `**Now**: ${clockNow(now)}`;
 
 /**
