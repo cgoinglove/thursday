@@ -12,6 +12,7 @@ import { useServerPages } from "@/lib/protocol/use-server-pages";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
 import {
   botThreads,
+  roomOpen,
   roomOpens,
   rosterOf,
   type ThreadViewStatus,
@@ -63,6 +64,11 @@ export const BotRoom = memo(function BotRoom() {
   const rung = useRingingThreads();
   const { data: bots } = useServerRoute<Bot[]>(queryKey.bot);
   const [open, setOpen] = useState(false);
+  // the call screen steps aside while the room stands open
+  useEffect(() => {
+    roomOpen.set(open);
+    return () => roomOpen.set(false);
+  }, [open]);
   /** Open thread; null shows the list. */
   const [picked, setPicked] = useState<string | null>(null);
   /** Writing a new job, folded or in the room. */
@@ -222,10 +228,11 @@ export const BotRoom = memo(function BotRoom() {
 
   return (
     // As wide as the resting pill may grow: 80% of the window. The open room
-    // keeps its own 33rem inside it.
+    // keeps its own 40rem inside it, and nearly the window's height: a thread is
+    // read here, files and all, and the call screen steps aside for it (roomOpen).
     <div className="pointer-events-none absolute right-5 bottom-5 z-10 flex w-[min(80vw,calc(100vw-2.5rem))] flex-col items-end gap-2">
       {open ? (
-        <div className="pointer-events-auto flex max-h-[min(44rem,78vh)] w-132 max-w-full animate-in flex-col overflow-hidden rounded-3xl bg-background/75 shadow-2xl shadow-black/6 ring-1 ring-border/50 backdrop-blur-xl fade-in slide-in-from-bottom-1 duration-200">
+        <div className="pointer-events-auto flex max-h-[calc(100dvh-5.5rem)] w-160 max-w-full animate-in flex-col overflow-hidden rounded-3xl bg-background/75 shadow-2xl shadow-black/6 ring-1 ring-border/50 backdrop-blur-xl fade-in slide-in-from-bottom-1 duration-200">
           {!current && picked && fetching ? (
             <ThreadLoading onBack={() => setPicked(null)} onClose={fold} />
           ) : current ? (

@@ -336,6 +336,32 @@ export function useRingingThreads(): string[] {
   );
 }
 
+/**
+ * Whether the room stands open in its corner. The call screen reads it to step aside:
+ * the room is wide enough to cover half of her face otherwise.
+ */
+let roomIsOpen = false;
+const roomListeners = new Set<() => void>();
+
+export const roomOpen = {
+  set(open: boolean) {
+    if (open === roomIsOpen) return;
+    roomIsOpen = open;
+    for (const listener of roomListeners) listener();
+  },
+};
+
+export function useRoomOpen(): boolean {
+  return useSyncExternalStore(
+    (listener) => {
+      roomListeners.add(listener);
+      return () => roomListeners.delete(listener);
+    },
+    () => roomIsOpen,
+    () => false,
+  );
+}
+
 const opens = new Set<(id: string) => void>();
 
 /** Asks the room to open a thread from elsewhere on the screen. */

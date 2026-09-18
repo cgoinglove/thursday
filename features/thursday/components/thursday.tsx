@@ -38,6 +38,7 @@ import { BotMark } from "@/features/bot/components/bot-mark";
 import { BotRoom } from "@/features/bot/components/bot-room";
 import { toolIcon } from "@/features/bot/components/bot-tool";
 import { installSeedBots } from "@/features/bot/seed-bots";
+import { useRoomOpen } from "@/features/bot/thread.store";
 import { VoiceKeys } from "@/features/config/components/voice-key";
 import { type ConfigStatus, isConfigSet } from "@/features/config/config.const";
 import { SECTIONS, Settings } from "@/features/settings/components/settings";
@@ -150,7 +151,12 @@ function CallScreen({
   // said stays put while she listens or works.
   const hers =
     messages.findLast((turn) => turn.role === "assistant")?.text ?? "";
-  const sided = captionView === "sides" && status !== "idle";
+  // The open room takes the right of the screen: the call steps to the middle of what is
+  // left, and captions beside her face go under it unless the window holds all three
+  const aside = useRoomOpen();
+  const roomy = useWide(ROOMY);
+  const sided =
+    captionView === "sides" && status !== "idle" && (!aside || roomy);
   const talk = useMemo(() => turnsOf(messages), [messages]);
   const turns = useTurnFocus(talk, sided);
   const lastRole = talk.at(-1)?.role;
@@ -167,7 +173,13 @@ function CallScreen({
       </div>
 
       {/* Top padding in vh, like the face itself, so the face+text column sits below center */}
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5 pt-[7vh]">
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col items-center justify-center gap-5 pt-[7vh] transition-[padding] duration-500 ease-out",
+          // the room's 40rem and its margin; narrower windows let it cover her instead
+          aside && "min-[1180px]:pr-[41.25rem]",
+        )}
+      >
         {/* The face is the control. It reacts to the agent's own voice. */}
         <div className="relative w-[min(28rem,72vw,52vh)]">
           <button
@@ -296,6 +308,22 @@ function CallScreen({
       <BotRoom />
     </div>
   );
+}
+
+/** The window width (px) that holds the open room and captions on both sides of her face. */
+const ROOMY = 1840;
+
+/** Whether the window is at least `px` wide, kept current. */
+function useWide(px: number) {
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia(`(min-width: ${px}px)`);
+    const read = () => setWide(query.matches);
+    read();
+    query.addEventListener("change", read);
+    return () => query.removeEventListener("change", read);
+  }, [px]);
+  return wide;
 }
 
 /**
