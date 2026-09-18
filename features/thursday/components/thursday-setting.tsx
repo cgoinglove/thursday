@@ -61,8 +61,6 @@ import {
   type CallBack,
   CallBackSchema,
   type CaptionView,
-  END_PHRASE,
-  type EndPhrase,
   type Hotkey,
   type ThursdayFace,
   WAKE_PHRASE,
@@ -131,19 +129,12 @@ export function ThursdaySetting() {
       />
 
       {/* Every way a call starts other than pressing her face, read at once */}
-      <SettingGroup label="Starting and ending a call">
+      <SettingGroup label="Starting a call">
         <Tiles columns={3}>
-          {/* What is said to start a call, and what is said to end one */}
-          <div className="min-w-0 divide-y divide-border/60">
-            <WakeWord
-              value={thursday.wake}
-              onChange={(wake) => patch({ wake })}
-            />
-            <HangUpWords
-              value={thursday.endPhrase}
-              onChange={(endPhrase) => patch({ endPhrase })}
-            />
-          </div>
+          <WakeWord
+            value={thursday.wake}
+            onChange={(wake) => patch({ wake })}
+          />
           <Shortcut
             value={thursday.hotkey}
             onChange={(hotkey) => patch({ hotkey })}
@@ -982,52 +973,6 @@ function WakeWord({
           : terse
             ? "One word will wake her by accident — say hello first."
             : "Heard loosely, in English. Near misses count."}
-      </SettingNote>
-    </div>
-  );
-}
-
-/**
- * The words that end a call. The page hears them itself in the call's transcript,
- * so hanging up never waits on a model deciding to (end-phrase).
- */
-function HangUpWords({
-  value,
-  onChange,
-}: {
-  value: EndPhrase;
-  onChange: (endPhrase: EndPhrase) => void;
-}) {
-  const draft = useDraft(
-    value.phrase,
-    (phrase) => onChange({ ...value, phrase }),
-    { min: END_PHRASE.min },
-  );
-
-  return (
-    <div className="min-w-0 space-y-3 p-4">
-      <TileHead label="Hang-up words">
-        <Switch
-          aria-label="Hang up when they are said"
-          checked={value.enabled}
-          onCheckedChange={(enabled) => onChange({ ...value, enabled })}
-        />
-      </TileHead>
-      <Input
-        value={draft.value}
-        maxLength={END_PHRASE.max}
-        spellCheck={false}
-        disabled={!value.enabled}
-        onChange={(event) => draft.set(event.target.value)}
-        onBlur={draft.commit}
-        onKeyDown={draft.onKeyDown}
-        aria-label="Hang-up words"
-        className="font-mono text-sm"
-      />
-      <SettingNote>
-        {value.enabled
-          ? "Said last in a sentence, they end the call. Commas between several."
-          : "Off: she ends the call when she takes it that way, or tap her face."}
       </SettingNote>
     </div>
   );

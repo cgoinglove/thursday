@@ -10,9 +10,6 @@ import {
   CallBackSchema,
   type CaptionView,
   CaptionViewSchema,
-  type EndPhrase,
-  EndPhraseSchema,
-  endPhraseDefault,
   HOTKEY_DEFAULT,
   type Hotkey,
   HotkeySchema,
@@ -30,7 +27,6 @@ import {
 const StoredSchema = ThursdaySettingsSchema.extend({
   // `.catch` so settings stored before a field existed keep the other fields.
   wake: WakeSchema.catch(WAKE_DEFAULT),
-  endPhrase: EndPhraseSchema.catch(() => END_PHRASE_DEFAULT),
   hotkey: HotkeySchema.catch(HOTKEY_DEFAULT),
   callBack: CallBackSchema.catch(CALL_BACK_DEFAULT),
   captionView: CaptionViewSchema.catch("sides"),
@@ -38,7 +34,6 @@ const StoredSchema = ThursdaySettingsSchema.extend({
 
 type Stored = ThursdaySettings & {
   wake: Wake;
-  endPhrase: EndPhrase;
   hotkey: Hotkey;
   callBack: CallBack;
   captionView: CaptionView;
@@ -49,15 +44,9 @@ type ThursdayStore = Stored & {
   patch: (change: Partial<Stored>) => void;
 };
 
-/** This browser's language picks the words; read once, since a stored choice replaces it. */
-const END_PHRASE_DEFAULT = endPhraseDefault(
-  typeof navigator === "undefined" ? null : (navigator.language ?? null),
-);
-
 const EMPTY: Stored = {
   ...LIVE_DEFAULTS,
   wake: WAKE_DEFAULT,
-  endPhrase: END_PHRASE_DEFAULT,
   hotkey: HOTKEY_DEFAULT,
   callBack: CALL_BACK_DEFAULT,
   captionView: "sides",

@@ -149,9 +149,7 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   acknowledgement says the text arrived, not that anyone heard it. Transcript fragments have timestamps, not final
   turns: caption groups remain revisable and are saved with their fragments. Close with
   `session.close` and wait for `session.closed` before releasing transport resources, with a
-  bounded timeout. Whether a turn reaches the backend is the voice's own decision, so what must
-  happen never depends on it alone: the user's hang-up words are heard by the page itself
-  (`end-phrase`), beside `end_call`. The full contract is `docs/live-calls.md`.
+  bounded timeout. The full contract is `docs/live-calls.md`.
 - **Long-running work is the server's, not the request's.** A job's run is a promise the server holds
   (`bot.runner` `launch`), never `after()`: messages and returning browsers also start runs
   outside a request. Everything that happens is written as rows, so what the screen draws and

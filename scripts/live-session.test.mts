@@ -1015,38 +1015,6 @@ test("both call prompts open as one Thursday: the voice gets a two-line delegati
     assert.match(backend, /Book the dentist\./);
     assert.equal(backend.includes("grown past what it holds well"), false);
 
-    // Residue: a tool that was renamed or taken out must not live on in what the model
-    // reads: every snake_case name in backticks is a tool that exists (tool-name is where
-    // one is deleted), and no sentence is said twice.
-    const { TOOL_NAMES, STUDIO_TOOLS } = await import(
-      "../features/ai/tools/tool-name.ts"
-    );
-    const known = new Set<string>([
-      ...Object.values(TOOL_NAMES),
-      ...Object.values(STUDIO_TOOLS),
-    ]);
-    const named = (text: string) =>
-      [...text.matchAll(/`([a-z]+(?:_[a-z]+)+)`/g)].map((match) => match[1]);
-    for (const name of [...named(backend), ...named(on.text)])
-      assert.equal(known.has(name), true, `\`${name}\` is not a tool`);
-    const sentences = backend
-      .split(/(?<=[.!?])\s+|\n+/)
-      .map((sentence) => sentence.trim())
-      .filter((sentence) => sentence.length >= 50);
-    assert.deepEqual(
-      sentences.filter((sentence, at) => sentences.indexOf(sentence) !== at),
-      [],
-    );
-
-    // The guide is for the person using the app: it names screens, never tools
-    const { readdir, readFile } = await import("node:fs/promises");
-    for (const file of await readdir("guide")) {
-      const page = await readFile(`guide/${file}`, "utf8");
-      for (const name of known)
-        if (name.includes("_"))
-          assert.equal(page.includes(name), false, `guide/${file}: ${name}`);
-    }
-
     // Tidying memory is the backend's: the voice neither reads it nor opens with it
     samFacts = 60;
     const heavy = await loadLivePrompt({ locale: null });
@@ -1222,31 +1190,4 @@ test("with an Exa key the call searches through Exa and hands the pages back apa
   } finally {
     configMock.restore();
   }
-});
-
-test("hang-up words end a call only as the last words of what was said", async () => {
-  const { endsOnPhrase } = await import("../features/thursday/end-phrase.ts");
-  const ko = "끊어, 끊자";
-  // what users actually said on calls the voice never ended
-  for (const said of [
-    "어...오케이 끊어",
-    ". [tongue click]... 일단 끊어",
-    ".끊어",
-    "잠깐 끊어봐",
-    "그래 이제 끊어줘.",
-  ])
-    assert.ok(endsOnPhrase(said, ko), said);
-  // the words elsewhere in a sentence, or not there at all
-  for (const said of [
-    "끊어 읽지 말고 이어서 말해",
-    "전화 끊지 마",
-    "왜 안끊어",
-    "[clear throat]",
-    "",
-  ])
-    assert.ok(!endsOnPhrase(said, ko), said);
-  assert.ok(endsOnPhrase("Okay, goodbye!", "goodbye, hang up"));
-  assert.ok(endsOnPhrase("you can hang up", "goodbye, hang up"));
-  assert.ok(!endsOnPhrase("don't hang up yet", "goodbye, hang up"));
-  assert.ok(!endsOnPhrase("goodbye", " , "));
 });

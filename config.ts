@@ -79,23 +79,19 @@ export const CALL_BACK = {
 export const CALL_ENDED_MS = 8_000;
 
 /**
- * How the page hangs up once the backend calls `end_call` or the user says their hang-up
- * words (useThursday): her goodbye is let finish, within bounds.
+ * How the page hangs up once the backend calls `end_call` (useThursday): her goodbye is let
+ * finish, within bounds.
  * - `quietMs`  silence after her voice that counts as the goodbye being over, and the least
  *   time the tool's own result gets to go out. Shorter clips a goodbye at a pause; longer
  *   leaves dead air before the line drops.
  * - `unsaidMs`  how long to wait for a goodbye that has not started; voice heard this
  *   long before `end_call` counts as the goodbye already said.
  * - `maxMs`  the longest the line stays open after `end_call`, however long she talks.
- * - `heardMs`  how long the user says nothing more after their hang-up words before the
- *   page takes them as meant. Shorter cuts a sentence that only began with them;
- *   longer leaves the line open after they asked.
  */
 export const CALL_END = {
   quietMs: 600,
   unsaidMs: 2_000,
   maxMs: 8_000,
-  heardMs: 1_200,
 };
 
 /**

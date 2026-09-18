@@ -48,7 +48,6 @@ import {
 import { createOutbox, type Outbox } from "@/lib/queue";
 import { errorToString } from "@/lib/utils";
 import { FACE_WORD_MAX, undrawable } from "./ascii.const";
-import { endsOnPhrase } from "./end-phrase";
 import {
   endCallAction,
   openCallAction,
@@ -245,8 +244,6 @@ export function useThursday() {
   const onLineRows = useRef<number[]>([]);
   /** When her voice was last heard, for letting a goodbye finish (CALL_END). */
   const voiced = useRef(0);
-  /** Their hang-up words were heard; the call ends unless more words follow (CALL_END.heardMs). */
-  const endWait = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** The hang-up waiting on her goodbye once the backend called end_call. */
   const leaving = useRef<ReturnType<typeof setInterval> | null>(null);
   /** When either side's words were last transcribed: the quiet clock for relays. */
@@ -598,8 +595,6 @@ export function useThursday() {
       });
       if (leaving.current) clearInterval(leaving.current);
       leaving.current = null;
-      if (endWait.current) clearTimeout(endWait.current);
-      endWait.current = null;
       attempt.current += 1;
       const live = session.current;
       const call = callId.current;
@@ -940,18 +935,6 @@ export function useThursday() {
             // update she reads out is told apart; transcripts lag the audio and cannot
             if (fresh && turn.role === "user") {
               stirred.current = Date.now();
-              // Their hang-up words, taken as meant once nothing follows them: the
-              // page ends the call itself, whatever the voice made of it (end-phrase)
-              if (endWait.current) clearTimeout(endWait.current);
-              endWait.current = null;
-              const { endPhrase } = useThursdayStore.getState();
-              if (endPhrase.enabled && endsOnPhrase(words, endPhrase.phrase)) {
-                endWait.current = setTimeout(() => {
-                  endWait.current = null;
-                  probe("end.phrase", { words });
-                  leave();
-                }, CALL_END.heardMs);
-              }
               // Their next words take the line back from the pages a search left there
               if (held) {
                 const was = held;

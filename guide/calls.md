@@ -8,7 +8,7 @@ Three ways in, and any of them also answers a call she placed:
 - Say the wake phrase, "hey thursday" unless they changed it.
 - Press the shortcut, `alt+shift+T` unless they changed it.
 
-The wake phrase and the shortcut are in **Settings › Thursday › Starting and ending a call**, where
+The wake phrase and the shortcut are in **Settings › Thursday › Starting a call**, where
 either can be switched off or rewritten.
 
 ## What she does on the line, and what goes to a bot
@@ -20,13 +20,10 @@ hers to pick; she says who took it.
 
 ## Ending it
 
-Saying the hang-up words ends the call: they are heard by the app itself, as the last words
-of a sentence, so it works every time. They start as this browser's language has them ("끊어",
-"goodbye", "hang up") and are rewritten, several with commas between, or switched off in
-**Settings › Thursday › Starting and ending a call**. Asking her in any other words usually
-works too, but it is hers to take that way. Tapping her face ends it, and so does the
-shortcut. A call with nothing said for 30 seconds ends by itself, with a countdown in the
-last 10 seconds. The line is billed by the minute while it is open, silence included.
+Saying they want to hang up ends the call when she takes it that way, which she does not
+always. Tapping her face ends it for certain, and so does the shortcut. A call with nothing
+said for 30 seconds ends by itself, with a countdown in the last 10 seconds. The line is
+billed by the minute while it is open, silence included.
 
 ## Where an answer came from
 
@@ -55,8 +52,8 @@ one call at a time, and deletes a single call or all of them.
 While a call is open, a question or a result from a bot comes into the conversation by
 itself, in a quiet moment, and she says it.
 
-With no call open, the computer shows a notification. **Settings › Thursday › Starting
-and ending a call › She calls you** makes the screen ring instead: "When a job needs me" rings for a
+With no call open, the computer shows a notification. **Settings › Thursday › Starting a
+call › She calls you** makes the screen ring instead: "When a job needs me" rings for a
 question or a stop, "Whenever a job ends" rings for results too, and "Never" is where it
 starts. Tapping her face answers, and she opens by saying why she called. Esc, or "Not now",
 declines it. She cannot switch this on herself: when they ask to be called back, say where

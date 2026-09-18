@@ -215,10 +215,8 @@ voice answers yes and hands it to the backend at once, and the backend runs `end
 without deliberating. The ending rule names `end_call` in the voice prompt too, the one tool
 name it holds: without it, ending read as something to say rather than do.
 Whether that turn reaches the backend at all is the voice's own decision, and it often
-answers and hands nothing over (measured 09-18: eight calls, none ended by asking). So the
-page also listens itself: the user's hang-up words (`endPhrase`, this browser's language at
-first, theirs to rewrite), as the last words of what they said and with nothing following for
-`CALL_END.heardMs`, end the call the way `end_call` does.
+answers and hands nothing over (measured 09-18: eight calls, none ended by asking). The
+quiet hang-up below is what ends such a call.
 The page does not close on `end_call` itself: it waits until her voice has been quiet
 for `CALL_END.quietMs`, or `CALL_END.unsaidMs` when nothing was said, never past
 `CALL_END.maxMs`. `end_call` and `emote` (a word of up to eight characters on her face,

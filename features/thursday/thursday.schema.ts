@@ -87,36 +87,6 @@ export type Wake = z.infer<typeof WakeSchema>;
 
 export const WAKE_DEFAULT: Wake = { enabled: true, phrase: "hey thursday" };
 
-export const END_PHRASE = { min: 2, max: 64 };
-
-/**
- * The words that hang up, heard by the page in the call's own transcript
- * (end-phrase). Several are written with commas between them.
- */
-export const EndPhraseSchema = z.object({
-  enabled: z.boolean(),
-  phrase: z.string().trim().min(END_PHRASE.min).max(END_PHRASE.max),
-});
-
-export type EndPhrase = z.infer<typeof EndPhraseSchema>;
-
-/** A language's own words where they are known; anyone can write theirs. */
-const END_PHRASES: Record<string, string> = {
-  ko: "끊어, 끊자",
-  ja: "切って, またね",
-  zh: "挂了, 再见",
-  es: "adiós, cuelga",
-  fr: "au revoir, raccroche",
-  de: "tschüss, leg auf",
-};
-
-/** On from the start: a call that cannot be ended by saying so is billed by the minute. */
-export const endPhraseDefault = (locale: string | null): EndPhrase => ({
-  enabled: true,
-  phrase:
-    END_PHRASES[(locale ?? "").slice(0, 2).toLowerCase()] ?? "goodbye, hang up",
-});
-
 /**
  * Keyboard entry, independent of `wake.enabled`. `combo` uses the use-hotkey
  * notation (modifiers + KeyboardEvent.code); only its length is checked here.
