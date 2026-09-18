@@ -363,6 +363,34 @@ export async function claimRoomWork(threadId: string) {
   return claimed;
 }
 
+/**
+ * Takes back words the user stepped in with, while the bot has not read them.
+ * Only from a running turn's inbox: a turn queued for those words alone would
+ * wake to nothing. False when they were already read.
+ */
+export async function withdrawDelivery(threadId: string, key: string) {
+  const gone = await database.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ id: delivery.id })
+      .from(delivery)
+      .innerJoin(work, eq(work.id, delivery.workId))
+      .where(
+        and(
+          eq(delivery.key, key),
+          eq(delivery.threadId, threadId),
+          eq(delivery.visible, true),
+          eq(delivery.consumed, false),
+          eq(work.state, "running"),
+        ),
+      );
+    if (!row) return false;
+    await tx.delete(delivery).where(eq(delivery.id, row.id));
+    return true;
+  });
+  if (gone) changed();
+  return gone;
+}
+
 /** Inbox insertion and acknowledgement are one transaction, even when the model stops immediately afterward. */
 export async function consumeRoomInbox(run: RoomWork): Promise<string[]> {
   const texts = await database.transaction(async (tx) => {

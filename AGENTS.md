@@ -315,6 +315,11 @@ A 30-second poll remains as a safety net. No WebSockets.
   card does not — or Thursday has told them and marked
   them seen (`thread_seen`); a relay acknowledgement alone never counts as reading. Use neutral surfaces for these
   notices and explicit labels for questions and new results.
+- Words stepped in with wait where the composer sits, registered, until the bot's next step reads
+  them: a loader and a shining line, never amber, since they wait on the bot and not on the user,
+  and they can be taken back until then. Outside the thread only the pill says so, as a shining
+  line held by that bot's face. Read, they join the conversation marked `stepped in` — derived (a
+  user line straight after that bot's own tool step), never stored.
 - Ask the user with an explicit question message; ordinary Thursday messages never block a thread,
   and a question pauses only the bot that asked it. Show one question at a time with optional choices and free text, on a borderless sheet where the
   composer sits; it joins the thread as a record once answered. Its ID selects the recipient and

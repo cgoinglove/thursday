@@ -87,7 +87,33 @@ type Handoff = {
   to: BotRef[];
   text: string;
   sign?: keyof typeof SIGNS;
+  /** Still moving: the words shine, as every line that is does. */
+  shine?: boolean;
 };
+
+/**
+ * Words the user stepped in with that a bot has not read yet, as the line the
+ * pill holds by that bot's face until it does. It waits on the bot, not on the
+ * user, so it takes no sign and no amber; it shines.
+ */
+export function waitingStepIn(
+  threads: ThreadView[],
+  faceOf: (name: string) => BotRef,
+): Handoff | null {
+  for (const thread of threads) {
+    if (thread.status !== "working") continue;
+    const note = thread.room.deliveries.find((one) => !one.delivered);
+    if (note)
+      return {
+        at: note.bot,
+        from: faceOf(note.bot),
+        to: [],
+        text: "Step-in · waits for its next step",
+        shine: true,
+      };
+  }
+  return null;
+}
 
 /** A hand-off, and how much it matters against others from the same sync. */
 export type Happening = Handoff & { rank: number };
@@ -157,13 +183,24 @@ export function happenedIn(
   const rounds = new Map<string, Chatter[]>();
   for (const line of fresh) {
     if (line.kind === "user") {
-      out.push({
-        rank: 1,
-        at: line.bot.name,
-        from: THURSDAY,
-        to: [line.bot],
-        text: clipWord(line.text),
-      });
+      out.push(
+        line.steppedIn
+          ? // the words were up while they waited (waitingStepIn); read, the bot says so
+            {
+              rank: 1,
+              at: line.bot.name,
+              from: line.bot,
+              to: [],
+              text: "Step-in · read",
+            }
+          : {
+              rank: 1,
+              at: line.bot.name,
+              from: THURSDAY,
+              to: [line.bot],
+              text: clipWord(line.text),
+            },
+      );
     } else if (line.kind === "stop") {
       out.push({
         rank: 3,
@@ -776,7 +813,15 @@ function HandoffWords({ handoff }: { handoff: Handoff }) {
           )}
         />
       )}
-      <span className="min-w-0 truncate">{handoff.text}</span>
+      {handoff.shine ? (
+        <ShinyText
+          text={handoff.text}
+          speed={2.2}
+          className="min-w-0 truncate"
+        />
+      ) : (
+        <span className="min-w-0 truncate">{handoff.text}</span>
+      )}
     </span>
   );
 }

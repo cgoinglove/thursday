@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   CircleQuestionMark,
   Copy,
+  CornerDownLeft,
   Loader2,
   RotateCw,
   X,
@@ -916,6 +917,13 @@ export function Message({
         <Said dark={surface === "dark"}>{body}</Said>
       ) : (
         <div className="min-w-0 max-w-full px-1">{body}</div>
+      )}
+      {line.steppedIn && (
+        // A record that these words interrupted a running turn: what follows turned on them.
+        <p className="flex items-center gap-1 px-1 font-mono text-[10px] text-muted-foreground">
+          <CornerDownLeft className="size-2.5" />
+          stepped in
+        </p>
       )}
       {ending && (
         // The copy: the end of the answer is where a reader is when they want it.

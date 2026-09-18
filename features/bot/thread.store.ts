@@ -58,6 +58,8 @@ export type Chatter = {
   text: string;
   kind: ChatterKind;
   question?: boolean;
+  /** Only for kind `user`: the words landed between the bot's steps, so the user stepped in on a running turn. */
+  steppedIn?: boolean;
   /** Only for kind `tool`. */
   tool?: ToolUse;
   /** When it was written; only for kind `stop`, whose repeats fold into one line. */
@@ -230,6 +232,17 @@ export function threadFromRow(row: Thread, bots?: Bot[]): ThreadView {
       }
     }
   }
+
+  // Derived, not stored: words the bot read straight after a step of its own can
+  // only have been stepped in with. After a question they are its answer, after an
+  // ending they carry the thread on.
+  lines.forEach((line, at) => {
+    if (line.kind !== "user") return;
+    const before = lines
+      .slice(0, at)
+      .findLast((one) => one.kind !== "user" && one.bot.name === line.bot.name);
+    if (before?.kind === "tool") lines[at] = { ...line, steppedIn: true };
+  });
 
   // The answer is the last text said, and the row's outcome says which
   if (row.status === "done") {

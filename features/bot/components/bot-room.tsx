@@ -44,6 +44,7 @@ import {
   participantStates,
   RoomState,
   useHandoff,
+  waitingStepIn,
 } from "./room-pill";
 
 /**
@@ -137,7 +138,17 @@ export const BotRoom = memo(function BotRoom() {
   );
   const current = listed ?? alone;
 
-  const [bubble, handoff] = useHandoff();
+  const [moment, handoff] = useHandoff();
+  // A moment passes; words that wait on a bot stay up under it until they are read
+  const bubble = useMemo(
+    () =>
+      moment ??
+      waitingStepIn(threads, (name) => ({
+        name,
+        icon: bots?.find((bot) => bot.name === name)?.icon ?? null,
+      })),
+    [moment, threads, bots],
+  );
   const { crew, more } = useMemo(() => crewOf(bots, threads), [bots, threads]);
 
   // What each thread and participant was, and which lines had landed, at the

@@ -110,6 +110,18 @@ function labelFor(request: string): string {
   return (words.length > LABEL_WORDS ? `${head}…` : head).slice(0, 60);
 }
 
+/** Takes back words the user stepped in with, before the bot reads them (room.query withdrawDelivery). */
+export const withdrawStepInAction = serverAction(
+  async (threadId: unknown, key: unknown) => {
+    const { withdrawDelivery } = await import("./room.query");
+    const gone = await withdrawDelivery(
+      z.string().min(1).parse(threadId),
+      z.string().min(1).parse(key),
+    );
+    if (!gone) publicError("It has already read that.");
+  },
+);
+
 /**
  * Hands a bot a job from the screen, with no call in the room. The typed message
  * is the whole request — there is no conversation to draw the rest from, which is

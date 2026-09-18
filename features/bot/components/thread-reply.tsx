@@ -28,6 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   answerThreadAction,
   cancelThreadAction,
+  withdrawStepInAction,
 } from "@/features/bot/bot.action";
 import {
   isAppStop,
@@ -121,8 +122,13 @@ export function ThreadReply({
     },
   });
   const busy = answering || stopping;
-  const queued = thread.room.deliveries
-    .filter((delivery) => !delivery.delivered)
+  const waiting = thread.room.deliveries.filter(
+    (delivery) => !delivery.delivered,
+  );
+  const [withdraw, withdrawing] = useServerAction(withdrawStepInAction, {
+    onOk: () => revalidate(queryKey.threads),
+  });
+  const queued = waiting
     .map((delivery) => `${delivery.bot}: ${delivery.text}`)
     .join(" · ");
   const active =
@@ -273,39 +279,66 @@ export function ThreadReply({
     return (
       <div
         className={cn(
-          "flex min-w-0 items-center gap-2 rounded-2xl bg-muted/40 py-1.5 pr-1.5 pl-3.5 ring-1 ring-border/50",
+          "flex min-w-0 flex-col rounded-2xl bg-muted/40 ring-1 ring-border/50",
           className,
         )}
       >
-        {queued ? (
-          <p className="flex min-w-0 flex-1 items-center gap-2 text-[12.5px] leading-5 text-muted-foreground">
-            <Loader2 className="size-3 shrink-0 animate-spin" />
-            <span className="shrink-0">Before its next step:</span>
-            {/* Still in the air until the bot picks it up, so it shines like every
-                other line that is still moving. */}
-            <ShinyText text={queued} speed={2.2} className="min-w-0 truncate" />
-          </p>
-        ) : (
-          // The job is moving while this line is up, so the line moves too.
+        {/* Words stepped in with sit here, registered, until the bot's next step
+            takes them; only then do they join the conversation. They wait on the
+            bot, not on the user, so they take no amber: a loader, and a line that
+            shines like everything still moving. */}
+        {waiting.map((note) => (
+          <div
+            key={note.id}
+            className="flex items-start gap-2 border-border/60 border-b py-2.5 pr-1.5 pl-3.5"
+          >
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <p className="flex min-w-0 items-center gap-1.5 font-mono text-[10px] leading-4">
+                <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground" />
+                <ShinyText
+                  text={`Step-in · waits for ${note.bot}'s next step`}
+                  speed={2.2}
+                  className="min-w-0 truncate"
+                />
+              </p>
+              <p className="whitespace-pre-wrap break-keep text-[13px] leading-snug">
+                {note.text}
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              disabled={withdrawing}
+              onClick={() => withdraw(thread.id, note.id)}
+              aria-label="Take it back"
+              className="shrink-0 text-muted-foreground/60 hover:text-foreground"
+            >
+              <X />
+            </Button>
+          </div>
+        ))}
+        <div className="flex min-w-0 items-center gap-2 py-1.5 pr-1.5 pl-3.5">
+          {/* The job is moving while this line is up, so the line moves too. */}
           <ShinyText
             text={`${active} · Working`}
             speed={2.4}
             className="min-w-0 flex-1 truncate text-[12.5px] leading-5 break-keep"
           />
-        )}
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          disabled={busy}
-          onClick={() => setStepping(true)}
-          className="h-7 shrink-0 gap-1.5 rounded-full px-2.5 text-[12px]"
-        >
-          <CornerDownLeft className="size-3.5" />
-          Step in
-        </Button>
-        <span className="h-4 w-px shrink-0 bg-border" />
-        {stopButton}
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => setStepping(true)}
+            className="h-7 shrink-0 gap-1.5 rounded-full px-2.5 text-[12px]"
+          >
+            <CornerDownLeft className="size-3.5" />
+            Step in
+          </Button>
+          <span className="h-4 w-px shrink-0 bg-border" />
+          {stopButton}
+        </div>
       </div>
     );
   }

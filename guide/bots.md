@@ -26,6 +26,14 @@ what is running, what waits on the user and the five most recent endings (every 
 opened stays there too, however many), and **Settings › Threads**, which keeps all of them,
 including the ended ones. A stopped thread leaves the corner at once.
 
+## Telling a running bot something
+
+**Step in** on a running thread puts words in front of the bot before its next step — a
+correction, a narrower ask. Until the bot reads them they wait where the message box is, marked
+*Step-in*, and can be taken back with the ✕; the corner at the bottom right says a step-in is
+waiting by that bot's face. Once read, they join the conversation marked *stepped in*, so it is
+clear later why the bot changed course. Saying the same to her on a call does the same thing.
+
 ## When a bot needs the user
 
 - **A question** pauses that bot until it is answered. It shows where the message box is,
