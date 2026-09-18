@@ -25,7 +25,9 @@ export type AppEvent =
       paths: string[];
     }
   /** Data: Thursday puts a job in front of the user (`thread` `open` on a call). */
-  | { type: "showThread"; threadId: string };
+  | { type: "showThread"; threadId: string }
+  /** Data: Thursday puts what a job made in front of the user; `paths` as in `artifact`. */
+  | { type: "showFile"; paths: string[] };
 
 /** Union members carrying nothing but `type`. */
 type Signal<E = AppEvent> = E extends AppEvent

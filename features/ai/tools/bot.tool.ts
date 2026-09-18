@@ -63,7 +63,7 @@ export const sendMessageSpec = {
 /** The voice session's handle on a job already handed over. Run by the server, like `delegate` (load-tools). */
 export const threadSpec = {
   name: TOOL_NAMES.thread,
-  description: `List up to ${THREAD_STATUS_LIMIT} jobs, prioritizing running and waiting work before recent endings; inspect one job, answer it, cancel it, open it on the user's screen, or mark it seen — the same as the user opening it, which takes it off the work waiting on them.`,
+  description: `List up to ${THREAD_STATUS_LIMIT} jobs, prioritizing running and waiting work before recent endings; inspect one job, answer it, cancel it, open it on the user's screen — the file it made, or its thread when it made none — or mark it seen — the same as the user opening it, which takes it off the work waiting on them.`,
   parameters: z.object({
     action: z.enum(["status", "answer", "cancel", "open", "seen"]),
     recipient: z
@@ -93,7 +93,7 @@ export const threadSpec = {
   }),
 };
 
-export const threadRecallSpec = {
+const threadRecallSpec = {
   name: TOOL_NAMES.thread_recall,
   description:
     "Open one of your other threads whole: what you were asked there and your last words in full.",

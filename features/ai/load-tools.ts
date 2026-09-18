@@ -43,10 +43,10 @@ import { clip } from "@/lib/utils";
  * when Settings › Thursday says so (thursday.query readCallSkillsOn).
  */
 
-export type ToolTarget = "thursday" | "bot" | "memory-edit";
+type ToolTarget = "thursday" | "bot" | "memory-edit";
 
 /** Which runtime is running, and what that run knows about itself. */
-export type ToolRun =
+type ToolRun =
   | {
       target: "thursday";
       /** The current call; written on the thread row `delegate` opens. */
@@ -232,8 +232,25 @@ function createThreadTools(callId: string | null | undefined): ToolSet {
           const { appEvents } = await import(
             "@/app/api/events/app-event.server"
           );
-          appEvents.emit({ type: "showThread", threadId: one.id });
-          return { label: one.label, open: true };
+          // What it made is what they asked to see: the file itself, in the app's
+          // viewer. A job that left no file opens as its thread
+          const { filesOnDisk } = await import(
+            "@/features/workspace/workspace"
+          );
+          const { opensOnFinish, pathsIn } = await import(
+            "@/features/workspace/file-kind"
+          );
+          const files = await filesOnDisk(pathsIn(one.outcome ?? ""), null);
+          if (!files.length) {
+            appEvents.emit({ type: "showThread", threadId: one.id });
+            return { label: one.label, open: true, showing: "its thread" };
+          }
+          const lead = Math.max(0, files.findIndex(opensOnFinish));
+          appEvents.emit({
+            type: "showFile",
+            paths: [files[lead], ...files.filter((_, at) => at !== lead)],
+          });
+          return { label: one.label, open: true, showing: files[lead] };
         }
         if (action === "seen") {
           // The same as opening it on screen: it leaves the work waiting on the user

@@ -44,6 +44,13 @@ function Notice() {
   const openFile = useOpenFile();
 
   useAppEvent({
+    // Asked for on a call (`thread` `open`): the file opens, where a finished job
+    // only says it is there
+    showFile: (event) =>
+      openFile(
+        event.paths[0],
+        event.paths.filter((path) => viewKindOf(path) === "image"),
+      ),
     artifact: (event) =>
       setRows((was) =>
         [
