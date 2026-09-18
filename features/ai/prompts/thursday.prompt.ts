@@ -1,4 +1,5 @@
-import { APP_NAME, CALL_EXEC_TIMEOUT_MS, PATHS, RECENT_CALL } from "@/config";
+import { CALL_EXEC_TIMEOUT_MS, RECENT_CALL } from "@/config";
+import { guideLine } from "@/features/ai/guide";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { listJobBots, readBotMemoryOn } from "@/features/bot/bot.query";
 import type { JobBot } from "@/features/bot/bot.schema";
@@ -233,7 +234,7 @@ Platform: ${process.platform}
 
 Where \`${TOOL_NAMES.bash}\` runs, and what the paths you get back are relative to. Each command is cut off after ${Math.round(CALL_EXEC_TIMEOUT_MS / 1000)} seconds; anything longer is a bot's.
 
-How ${APP_NAME} works for the person using it — its screens, its settings, what it connects to, what to do when something stops — is written under \`${PATHS.guide.folder}/\` here, \`index.md\` first. Read it whenever an answer depends on how the app works: what can be asked for, where something is changed, a wish that needs a setting switched on, something that stopped or was refused. Answer from it rather than from what you assume.`;
+${guideLine()}`;
   if (skills.length === 0) return machine;
 
   return `${machine}

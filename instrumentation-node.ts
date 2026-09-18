@@ -22,9 +22,8 @@ export async function boot() {
   const { ensureRootNotes } = await import("@/features/memory/memory.query");
   await ensureRootNotes();
 
-  // The guide the call reads when asked about the app itself, renewed from what
-  // this build ships (config PATHS.guide). Before a call can ask for it.
-  const { installGuide } = await import("@/features/workspace/workspace");
+  // Before a call can ask for it (features/ai/guide).
+  const { installGuide } = await import("@/features/ai/guide");
   await installGuide().catch((cause) => logger.error("install guide", cause));
 
   // Threads left `running` by the previous process are not running now.

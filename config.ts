@@ -144,14 +144,6 @@ export const PATHS = {
   bots: "bots",
   /** Where tool output over TOOL_OUTPUT is written in full. */
   output: ".output",
-  /**
-   * The guide Thursday reads when the user asks about the app itself (`guide/`):
-   * `source` ships with the app, and boot copies it to `workspace` whole, so the
-   * copy always matches this build and a bot cannot leave it stale. It sits inside
-   * the workspace, and under a dot folder, because the shell the call holds is
-   * rooted there and nothing about the app's own folder is put in front of a model.
-   */
-  guide: { source: "guide", folder: ".guide" },
   skills: {
     default: "skills", // ships with the app, read-only
     // The user's own, inside the workspace; where `npx skills add` installs.

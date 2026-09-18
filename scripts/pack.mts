@@ -380,7 +380,7 @@ const REQUIRED = [
   "skills/interactive-page/kit/package-lock.json",
   // Copied into a seed bot when it is made; without it the Marketer starts empty
   "seed-skills/marketer/product-marketing/SKILL.md",
-  // Copied into the workspace at boot; without it the call has no guide to read
+  // Copied into the workspace at boot (features/ai/guide); without it the call has none to read
   "guide/index.md",
 ];
 

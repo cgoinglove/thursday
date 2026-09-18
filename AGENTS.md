@@ -74,10 +74,11 @@ bin/                      What ships and runs outside Next: the `thursday` CLI, 
 scripts/dev.mts           `pnpm dev`: `next dev` on 127.0.0.1, on a port nothing holds on any address, handed over as `PORT`.
 scripts/reset.mts         Wipes local data (calls, jobs, memory) and optionally the build. `pnpm reset`.
 scripts/pack.mts          Builds `dist/`, the tree npm publishes. `pnpm release`.
-guide/                    How the app works for the person using it, written for Thursday to read when they
-                          ask about the app itself: `index.md` says which file answers what. Screens and
-                          settings as the user sees them, never code. Boot copies it into the workspace
-                          (`config.ts` `PATHS.guide`), so the call reads it with the shell it already has.
+guide/                    How the app works for the person using it, written for Thursday to read when an
+                          answer depends on it: `index.md` says which file answers what. Screens and
+                          settings as the user sees them, never code. `features/ai/guide.ts` is all the
+                          code knows about it: boot copies it into the workspace and the call's backend
+                          prompt carries one line. Nothing else names it, so it comes out whole.
 skills/                   Skills shipped with the app (read-only). User skills live in the workspace.
                           interactive-page/scripts/archify is a trimmed copy of archify (MIT; its README says
                           what was cut). Lint skips it; update it by copying upstream, not by editing it here.
@@ -187,6 +188,10 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
 - **Don't split files by size; split by subject.** A long file that does one thing stays one
   file. A file that draws several subjects is several files, however short each one would be.
 - **An interface with one implementation is two files, not an interface.** Don't add ports.
+- **A feature that may come out again lives in one file.** Its names, paths, boot step and prompt
+  text sit together, and the app reaches it from as few lines as it takes (`features/ai/guide.ts`
+  is the shape: two callers and a build list). No entry in `config.ts`, no helper in a shared file,
+  no import kept for it elsewhere: what is spread across files is what gets left behind.
 
 # Data flow
 
@@ -333,7 +338,7 @@ A 30-second poll remains as a safety net. No WebSockets.
   external constraint, the one-line why behind a surprising choice. No history, no narrative.
 - Model-facing text (prompts, tool descriptions, `.describe()`) is English and imperative.
 - A change the user would notice — a screen, a setting, what a call or a bot can do — updates
-  `guide/` in the same commit. It is what Thursday reads when they ask about the app itself, and
+  `guide/` in the same commit. It is what Thursday reads when an answer depends on the app, and
   a guide that describes a screen the app no longer has is answered aloud with confidence.
 - A new file you created goes in the commit with the rest of your change — which is why anything
   private is named `*.local.*` before it is written, not after. Two are easy to get wrong: a
