@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, FileText, X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { useState } from "react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { FINISHED_NOTICE } from "@/config";
 import type { Bot } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
+import { FileThumb } from "@/features/workspace/components/file-thumb";
 import { viewKindOf } from "@/features/workspace/file-kind";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn } from "@/lib/utils";
@@ -188,35 +189,18 @@ function Row({
   );
 }
 
-/** A file's own face: the image itself where there is one, its glyph where there is not. */
+/** A file's own face at the corner's two sizes (file-thumb draws it). */
 function Thumb({ path, size }: { path: string; size: "row" | "pile" }) {
-  const [broken, setBroken] = useState(false);
-  const box =
-    size === "row"
-      ? "size-11 rounded-xl"
-      : "size-7 rounded-lg ring-2 ring-background";
-
-  if (viewKindOf(path) !== "image" || broken) {
-    return (
-      <span
-        className={cn(
-          "grid shrink-0 place-items-center bg-muted text-muted-foreground",
-          box,
-        )}
-      >
-        <FileText className={size === "row" ? "size-4.5" : "size-3.5"} />
-      </span>
-    );
-  }
   return (
-    // biome-ignore lint/performance/noImgElement: local raw route, nothing to optimize
-    <img
-      src={queryKey.file(path)}
-      alt=""
-      loading="lazy"
-      decoding="async"
-      onError={() => setBroken(true)}
-      className={cn("shrink-0 bg-muted object-cover", box)}
+    <FileThumb
+      path={path}
+      glyph={size === "row" ? "size-4.5" : "size-3.5"}
+      className={cn(
+        "shrink-0",
+        size === "row"
+          ? "size-11 rounded-xl"
+          : "size-7 rounded-lg ring-2 ring-background",
+      )}
     />
   );
 }

@@ -40,9 +40,9 @@ including the ended ones. A stopped thread leaves the corner at once.
 A job ends in the thing that was asked for and a short report. Anything longer than a few
 lines is a file. Nothing opens by itself: a finished job's files wait in the corner at the
 bottom left of the call screen until they are opened or dismissed, and show under the bot's
-words in the thread, images as thumbnails. Asking her on a call to show a result opens that
-file on the screen. All of them stay under **Settings › Artifacts**,
-one shelf per bot. **Settings › Workspace** is the whole folder, for looking around rather
+words in the thread: pictures as thumbnails, a page or a written report as a small preview
+of itself. Asking her on a call to show a result opens that file on the screen. All of them
+stay under **Settings › Artifacts**, one shelf per bot. **Settings › Workspace** is the whole folder, for looking around rather
 than for the results.
 
 A bot keeps its own memory — what a job taught it, how the user asked it to work — in its own

@@ -215,6 +215,24 @@ export const WORKSPACE_VIEW = {
 };
 
 /**
+ * A file's face before it is opened (workspace file-thumb): a page in miniature, the
+ * head of a text.
+ * - `pageWidth`  the width an html page is laid out at before it is scaled into its
+ *   tile. Narrower draws the page's phone layout; wider makes its words smaller.
+ * - `textWidth`  the same for markdown and text. Narrower reads larger and shows less.
+ * - `textBytes`  how much of a text file is fetched for its face. The tile shows a
+ *   screenful; more is downloaded and never seen.
+ * - `pages`  how many live pages one message draws. Each is a real page load, scripts
+ *   and all; the ones past this show their glyph and open as before.
+ */
+export const FILE_THUMB = {
+  pageWidth: 1024,
+  textWidth: 512,
+  textBytes: 4096,
+  pages: 2,
+};
+
+/**
  * The Artifacts section (features/artifact), which lists every bot's folder in
  * `artifacts/` and what is loose there — one entry is one artifact.
  * - `rows`  entries the menu returns; the rest load on demand.

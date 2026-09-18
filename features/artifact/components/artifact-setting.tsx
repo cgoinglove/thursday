@@ -20,7 +20,7 @@ import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/notify";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ARTIFACT_VIEW, WORKSPACE_VIEW } from "@/config";
+import { ARTIFACT_VIEW } from "@/config";
 import { deleteArtifactAction } from "@/features/artifact/artifact.action";
 import type {
   Artifact,
@@ -37,6 +37,7 @@ import {
   SettingPanesSkeleton,
   SettingRailNote,
 } from "@/features/settings/components/setting-ui";
+import { FileThumb } from "@/features/workspace/components/file-thumb";
 import { FilePreview } from "@/features/workspace/components/file-view";
 import type { FileViewKind } from "@/features/workspace/file-kind";
 import { openFileAction } from "@/features/workspace/workspace.action";
@@ -432,26 +433,15 @@ function SetSheet({
   );
 }
 
-/** A picture shows itself; anything else shows its kind, so the grid stays one shape. */
+/** A file shows itself where it can — a picture, a page, the head of a text — and its kind otherwise, so the grid stays one shape. */
 function Thumb({ file }: { file: ArtifactFile }) {
-  // Past the cap it shows its kind instead: an `<img>` decodes whole, and a set is a grid of them
-  if (file.view === "image" && file.bytes <= WORKSPACE_VIEW.elementMax) {
-    return (
-      // biome-ignore lint/performance/noImgElement: local raw route, nothing to optimize
-      <img
-        src={queryKey.file(file.path)}
-        alt={file.name}
-        loading="lazy"
-        decoding="async"
-        className="aspect-4/3 w-full rounded-xl object-cover"
-      />
-    );
-  }
-  const Icon = KIND_ICONS[file.view];
   return (
-    <span className="grid aspect-4/3 w-full place-items-center rounded-xl bg-muted/40 text-muted-foreground">
-      <Icon className="size-5" />
-    </span>
+    <FileThumb
+      path={file.path}
+      bytes={file.bytes}
+      glyph="size-5"
+      className="aspect-4/3 w-full rounded-xl"
+    />
   );
 }
 

@@ -325,9 +325,12 @@ A 30-second poll remains as a safety net. No WebSockets.
   thread opens on its own bot's tab, which holds
   every participant; another bot's tab holds only its own lines and the messages that reached it,
   and the composer follows the open tab. Thursday is never invited and never drawn as a bot.
-- The files a message names are drawn under its words, whatever the message: images as thumbnails
-  that open in the viewer where the reader already is, everything else as a row with its kind and
-  size, a path with no file struck through. Nothing a job finished opens by itself — it lands in
+- The files a message names are drawn under its words, whatever the message: what has a face of
+  its own as a tile that opens in the viewer where the reader already is — an image, an html page in
+  miniature (the live page, sandboxed, the first `FILE_THUMB.pages` of a message), the head of a
+  text — everything else as a row with its kind and size, a path with no file struck through. One
+  piece draws a file's face everywhere (`file-thumb`): under a message, in the corner, on the
+  Artifacts shelf. Nothing a job finished opens by itself — it lands in
   the screen's left corner, which keeps nothing and is cleared by a reload.
 - A bot draws with the face picked on its page wherever it appears; nothing varies its mark by
   thread or place, only its state: the amber notify dot while it waits on the user, crossed-out
