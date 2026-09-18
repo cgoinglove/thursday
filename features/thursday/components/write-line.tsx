@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  ArrowDownToLine,
-  ArrowUp,
-  ChevronDown,
-  Paperclip,
-  X,
-} from "lucide-react";
+import { ArrowDownToLine, ArrowUp, ChevronDown, Paperclip } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import {
@@ -15,8 +9,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "@/components/ui/toast";
-import { GIVEN_FILES } from "@/config";
 import { startThreadAction } from "@/features/bot/bot.action";
 import { type Bot, DEFAULT_BOT } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
@@ -26,8 +18,11 @@ import {
   useRoomOpen,
   writeLine,
 } from "@/features/bot/thread.store";
-import { FileThumb } from "@/features/workspace/components/file-thumb";
-import { giveFilesAction } from "@/features/workspace/workspace.action";
+import {
+  GivenFiles,
+  roomDrop,
+  useGivenFiles,
+} from "@/features/workspace/components/given-files";
 import { capturesKeys } from "@/hooks/use-hotkey";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
@@ -37,21 +32,13 @@ import { cn } from "@/lib/utils";
  * The write line: one bar at the foot of the screen for whatever is typed or handed
  * over rather than said. It is not there until asked for — the pill's "+", the `/` key,
  * or a file dragged onto the window — and it holds who it is for, the words, and the
- * files. Files are kept in the workspace the moment they arrive (GIVEN_FILES), so they
+ * files. Files are kept in the workspace the moment they arrive (given-files), so they
  * wait here by path until words go with them. Sent to a bot, the room opens on the
  * thread it started.
  */
 
 /** Where the last pick is remembered, so the line opens on whoever was written to last. */
 const LAST_TO = "thursday.write.to";
-
-type Given = {
-  key: string;
-  name: string;
-  bytes: number;
-  /** Workspace-relative once it is kept; null while it is on its way. */
-  path: string | null;
-};
 
 const mentionOf = (draft: string) => /^@(\S*)$/.exec(draft.split(/\s/, 1)[0]);
 
@@ -73,7 +60,7 @@ export function WriteLine() {
   const [dragging, setDragging] = useState(false);
   const [toName, setToName] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
-  const [files, setFiles] = useState<Given[]>([]);
+  const given = useGivenFiles();
   const field = useRef<HTMLTextAreaElement>(null);
   const picker = useRef<HTMLInputElement>(null);
   const aside = useRoomOpen();
@@ -92,43 +79,13 @@ export function WriteLine() {
     requestAnimationFrame(() => field.current?.focus());
   }, []);
 
-  const [give] = useServerAction(giveFilesAction);
+  const { take: keep } = given;
   const take = useCallback(
-    async (list: File[]) => {
-      const room = GIVEN_FILES.perMessage - files.length;
-      if (list.length > room)
-        toast.add({
-          type: "error",
-          title: `At most ${GIVEN_FILES.perMessage} files at a time.`,
-        });
-      const taken = list.slice(0, Math.max(0, room));
-      if (!taken.length) return;
+    (list: File[]) => {
       show();
-      const batch = taken.map((file) => ({
-        key: crypto.randomUUID(),
-        name: file.name,
-        bytes: file.size,
-        path: null,
-      }));
-      setFiles((all) => [...all, ...batch]);
-      const form = new FormData();
-      for (const file of taken) form.append("file", file);
-      try {
-        const paths = await give(form);
-        setFiles((all) =>
-          all.map((one) => {
-            const at = batch.findIndex((mine) => mine.key === one.key);
-            return at < 0 ? one : { ...one, path: paths[at] ?? null };
-          }),
-        );
-      } catch {
-        // the hook has already said why; what did not arrive does not wait here
-        setFiles((all) =>
-          all.filter((one) => !batch.some((mine) => mine.key === one.key)),
-        );
-      }
+      void keep(list);
     },
-    [files.length, give, show],
+    [keep, show],
   );
 
   // The three ways in. `/` is the window's unless something is being typed into
@@ -162,7 +119,9 @@ export function WriteLine() {
       if (!carriesFiles(event)) return;
       event.preventDefault();
       setDragging(false);
-      void take([...(event.dataTransfer?.files ?? [])]);
+      const dropped = [...(event.dataTransfer?.files ?? [])];
+      // a thread open in the room takes what lands on the room
+      if (!roomDrop.offer(event.target, dropped)) take(dropped);
     };
     window.addEventListener("dragover", over);
     window.addEventListener("dragleave", leave);
@@ -178,7 +137,7 @@ export function WriteLine() {
     onOk: ({ id }) => {
       revalidate(queryKey.threads);
       setDraft("");
-      setFiles([]);
+      given.clear();
       setOpen(false);
       roomOpens.open(id);
     },
@@ -203,14 +162,13 @@ export function WriteLine() {
         bot.name.toLowerCase().startsWith(mention[1].toLowerCase()),
       )
     : roster;
-  const arriving = files.some((file) => file.path === null);
-  const ready = Boolean(draft.trim()) && !mention && !arriving && !starting;
+  const ready =
+    Boolean(draft.trim()) && !mention && !given.arriving && !starting;
 
   const send = () => {
     if (!ready) return;
-    const paths = files.flatMap((file) => file.path ?? []);
     // A path in the words is how a file is handed to a bot, and how the room draws it
-    void start(to.name, [draft.trim(), ...paths].join("\n"));
+    void start(to.name, given.withPaths(draft));
   };
 
   if (!open && !dragging) return null;
@@ -234,53 +192,19 @@ export function WriteLine() {
       >
         <div className="pointer-events-auto flex w-160 max-w-full animate-in flex-col gap-2 fade-in slide-in-from-bottom-2 duration-200">
           <div className="flex flex-col gap-2 rounded-[26px] bg-background p-2 shadow-[0_22px_44px_-20px_rgb(0_0_0/0.22)] ring-1 ring-border">
-            {(files.length > 0 || dragging) && (
-              <div className="flex flex-wrap gap-1.5 px-0.5 pt-0.5">
-                {files.map((file) => (
-                  <span
-                    key={file.key}
-                    className="flex h-13 max-w-64 items-center gap-2.5 rounded-[14px] bg-muted/70 py-1.5 pr-2 pl-1.5"
-                  >
-                    {file.path ? (
-                      <FileThumb
-                        path={file.path}
-                        bytes={file.bytes}
-                        className="size-10 shrink-0 overflow-hidden rounded-[9px] ring-1 ring-foreground/6"
-                      />
-                    ) : (
-                      <span className="grid size-10 shrink-0 place-items-center rounded-[9px] bg-background ring-1 ring-foreground/6">
-                        <span className="size-3.5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
-                      </span>
-                    )}
-                    <span className="flex min-w-0 flex-col">
-                      <span className="truncate text-[12.5px] leading-4.5">
-                        {file.name}
-                      </span>
-                      <span className="font-mono text-[10px] leading-3.5 text-muted-foreground">
-                        {sizeOf(file.bytes)}
-                      </span>
-                    </span>
-                    <button
-                      type="button"
-                      aria-label={`Take ${file.name} out`}
-                      onClick={() =>
-                        setFiles((all) =>
-                          all.filter((one) => one.key !== file.key),
-                        )
-                      }
-                      className="grid size-5 shrink-0 place-items-center rounded-full text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </span>
-                ))}
+            {(given.files.length > 0 || dragging) && (
+              <GivenFiles
+                files={given.files}
+                onRemove={given.remove}
+                className="px-0.5 pt-0.5"
+              >
                 {dragging && (
                   <span className="flex h-13 items-center gap-2 rounded-[14px] border-[1.5px] border-dashed border-brand px-4 text-[13px] text-brand">
                     <ArrowDownToLine className="size-4" />
                     Let go — it waits here
                   </span>
                 )}
-              </div>
+              </GivenFiles>
             )}
 
             <form
@@ -357,7 +281,7 @@ export function WriteLine() {
                   const pasted = [...event.clipboardData.files];
                   if (!pasted.length) return;
                   event.preventDefault();
-                  void take(pasted);
+                  take(pasted);
                 }}
                 // During IME composition Enter confirms the character, not the message
                 // (keyCode 229 for browsers without isComposing).
@@ -378,7 +302,7 @@ export function WriteLine() {
                   send();
                 }}
                 placeholder={
-                  files.length
+                  given.files.length
                     ? "Say what to do with them"
                     : `Say the whole job — ${to.name} cannot hear the call`
                 }
@@ -392,7 +316,7 @@ export function WriteLine() {
                 multiple
                 hidden
                 onChange={(event) => {
-                  void take([...(event.target.files ?? [])]);
+                  take([...(event.target.files ?? [])]);
                   event.target.value = "";
                 }}
               />
@@ -459,8 +383,3 @@ function Key({ children }: { children: string }) {
     </kbd>
   );
 }
-
-const sizeOf = (bytes: number) =>
-  bytes < 1024 * 1024
-    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
-    : `${(bytes / 1024 / 1024).toFixed(1)} MB`;

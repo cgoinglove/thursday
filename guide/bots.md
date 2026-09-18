@@ -35,6 +35,9 @@ kept in the workspace under `inbox/` as they arrive and wait in the line until w
 them. The bot cannot hear the call, so the message has to say the whole job. Enter sends it,
 and the room opens on the thread it started.
 
+The message box of an open thread takes files the same way: the paperclip, a paste, or a drop
+anywhere on the room.
+
 ## Telling a running bot something
 
 **Step in** on a running thread puts words in front of the bot before its next step — a

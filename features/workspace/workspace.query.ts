@@ -1,9 +1,9 @@
-import { mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { GIVEN_FILES, PATHS, WORKSPACE_VIEW } from "@/config";
 import { publicError } from "@/lib/public-error";
 import { isListedFolder, viewKindOf } from "./file-kind";
-import { insideWorkspace, WORKSPACE } from "./workspace";
+import { insideWorkspace, openWorkspace, WORKSPACE } from "./workspace";
 import type {
   FileOnDisk,
   WorkspaceEntry,
@@ -97,9 +97,11 @@ export async function statFiles(paths: string[]): Promise<FileOnDisk[]> {
  * gets a number, since two hand-overs of `report.pdf` are two files.
  */
 export async function keepGivenFiles(files: File[]): Promise<string[]> {
-  const folder = join(WORKSPACE, GIVEN_FILES.dir);
-  await mkdir(folder, { recursive: true });
-  const taken = new Set(await readdir(folder).catch(() => []));
+  // Through the workspace's own sandbox, as every other write into it goes
+  const workspace = await openWorkspace();
+  const taken = new Set(
+    await readdir(join(WORKSPACE, GIVEN_FILES.dir)).catch(() => []),
+  );
   const kept: string[] = [];
   for (const file of files) {
     const clean =
@@ -113,8 +115,9 @@ export async function keepGivenFiles(files: File[]): Promise<string[]> {
     let name = clean;
     for (let n = 2; taken.has(name); n++) name = `${stem}-${n}${ext}`;
     taken.add(name);
-    await writeFile(join(folder, name), Buffer.from(await file.arrayBuffer()));
-    kept.push(`${GIVEN_FILES.dir}/${name}`);
+    const rel = `${GIVEN_FILES.dir}/${name}`;
+    await workspace.writeFile(rel, Buffer.from(await file.arrayBuffer()));
+    kept.push(rel);
   }
   return kept;
 }

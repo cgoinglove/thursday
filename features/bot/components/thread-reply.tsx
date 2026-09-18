@@ -8,10 +8,11 @@ import {
   ChevronsRight,
   CornerDownLeft,
   Loader2,
+  Paperclip,
   Square,
   X,
 } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,6 +43,11 @@ import {
   screenActs,
   threadDrafts,
 } from "@/features/bot/thread.store";
+import {
+  GivenFiles,
+  roomDrop,
+  useGivenFiles,
+} from "@/features/workspace/components/given-files";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
@@ -523,11 +529,20 @@ function DraftComposer({
     setDraft(text);
     threadDrafts.set(threadId, recipient, text, draftKey);
   };
+  // Files go with the words as paths (given-files); what is dropped on the room is this thread's
+  const given = useGivenFiles();
+  const picker = useRef<HTMLInputElement>(null);
+  const { take } = given;
+  useEffect(() => roomDrop.claim((files) => void take(files)), [take]);
+  const ready = Boolean(draft.trim()) && !busy && !given.arriving;
   const submit = async () => {
-    if (!draft.trim() || busy) return;
+    if (!ready) return;
     setSending(true);
     // On failure the draft stays; the hook already toasted.
-    if (await send(draft)) write("");
+    if (await send(given.withPaths(draft))) {
+      write("");
+      given.clear();
+    }
     setSending(false);
   };
   return (
@@ -536,8 +551,16 @@ function DraftComposer({
         event.preventDefault();
         void submit();
       }}
-      className={cn("flex min-w-0 items-end gap-1", className)}
+      className={cn("flex min-w-0 flex-wrap items-end gap-1", className)}
     >
+      {given.files.length > 0 && (
+        <GivenFiles
+          dense
+          files={given.files}
+          onRemove={given.remove}
+          className="w-full pb-1"
+        />
+      )}
       {leading}
       <Textarea
         value={draft}
@@ -545,6 +568,12 @@ function DraftComposer({
         disabled={busy}
         autoFocus={autoFocus}
         onChange={(event) => write(event.target.value)}
+        onPaste={(event) => {
+          const pasted = [...event.clipboardData.files];
+          if (!pasted.length) return;
+          event.preventDefault();
+          void take(pasted);
+        }}
         onKeyDown={(event) => {
           if (event.key === "Escape" && onEscape) {
             onEscape();
@@ -561,12 +590,33 @@ function DraftComposer({
         aria-label={label}
         className="max-h-32 min-h-0 min-w-0 flex-1 resize-none border-0 bg-transparent px-0 py-1 text-[13px] leading-5 shadow-none focus-visible:ring-0 dark:bg-transparent"
       />
+      <input
+        ref={picker}
+        type="file"
+        multiple
+        hidden
+        onChange={(event) => {
+          void take([...(event.target.files ?? [])]);
+          event.target.value = "";
+        }}
+      />
+      <Button
+        type="button"
+        size="icon-sm"
+        variant="ghost"
+        disabled={busy}
+        aria-label="Add files"
+        onClick={() => picker.current?.click()}
+        className="rounded-full text-muted-foreground"
+      >
+        <Paperclip />
+      </Button>
       {trailing}
       <Button
         type="submit"
         size="icon-sm"
-        variant={draft.trim() ? "default" : "ghost"}
-        disabled={!draft.trim() || busy}
+        variant={ready ? "default" : "ghost"}
+        disabled={!ready}
         aria-label="Send"
         className="rounded-full"
       >

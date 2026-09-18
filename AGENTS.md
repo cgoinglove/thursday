@@ -366,7 +366,9 @@ A 30-second poll remains as a safety net. No WebSockets.
   call screen (`write-line`): absent until asked for (the pill's "+", `/`, a file dragged onto the
   window), it holds who it is for, the words and the files. Files are kept in the workspace
   under `GIVEN_FILES.dir` the moment they arrive and travel as paths in the words — which is
-  also how the room draws them under the message. The open room is wide enough to cover her
+  also how the room draws them under the message. A thread's reply takes files the same way
+  (`given-files` is the one hook and the one row of chips), and a drop that lands on the room
+  is the open thread's rather than the line's. The open room is wide enough to cover her
   face, so the call and the line step aside for it (`roomOpen`).
 
 # Rules
