@@ -174,7 +174,7 @@ export const BotRoom = memo(function BotRoom() {
       past.find((entry) => entry.id === picked) ??
       null)
     : null;
-  const { data: lone } = useServerRoute<Thread | null>(
+  const { data: lone, isLoading: fetching } = useServerRoute<Thread | null>(
     picked && !listed ? queryKey.thread(picked) : null,
   );
   const alone = useMemo(
@@ -273,7 +273,9 @@ export const BotRoom = memo(function BotRoom() {
     <div className="pointer-events-none absolute right-5 bottom-5 z-10 flex w-[min(80vw,calc(100vw-2.5rem))] flex-col items-end gap-2">
       {open ? (
         <div className="pointer-events-auto flex max-h-[min(44rem,78vh)] w-132 max-w-full animate-in flex-col overflow-hidden rounded-3xl bg-background/75 shadow-2xl shadow-black/6 ring-1 ring-border/50 backdrop-blur-xl fade-in slide-in-from-bottom-1 duration-200">
-          {current ? (
+          {!current && picked && fetching ? (
+            <ThreadLoading onBack={() => setPicked(null)} onClose={fold} />
+          ) : current ? (
             <>
               <ThreadHeader
                 thread={current}
@@ -1643,6 +1645,40 @@ function dayOf(value: DateLike): string {
   if (isToday(date)) return "today";
   if (isYesterday(date)) return "yesterday";
   return format(date, isThisYear(date) ? "MMM d" : "MMM d, yyyy").toLowerCase();
+}
+
+/** An open thread's shape while a job no list holds is read: the header, then a few lines. */
+function ThreadLoading({
+  onBack,
+  onClose,
+}: {
+  onBack: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <div className="flex items-center gap-2 px-3 pt-3 pb-1">
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Back to the list"
+          className="shrink-0 rounded-md p-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <ChevronLeft className="size-4" />
+        </button>
+        <Skeleton className="size-5.5 shrink-0 rounded-md" />
+        <span className="flex min-w-0 flex-1">
+          <Skeleton className="h-3.5 w-2/5" />
+        </span>
+        <FoldButton onClick={onClose} />
+      </div>
+      <div className="flex flex-col gap-2 px-4 py-4">
+        <Skeleton className="h-3 w-4/5" />
+        <Skeleton className="h-3 w-3/5" />
+        <Skeleton className="h-3 w-2/3" />
+      </div>
+    </>
+  );
 }
 
 /** A row's shape while its page is on the way: the face, the label, the line. */
