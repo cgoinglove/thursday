@@ -375,6 +375,21 @@ export function useRoomOpen(): boolean {
   );
 }
 
+const writes = new Set<() => void>();
+
+/** Asks the screen for its write line: the pill's "+" does, from either place the pill stands. */
+export const writeLine = {
+  open() {
+    for (const listener of writes) listener();
+  },
+  subscribe(listener: () => void) {
+    writes.add(listener);
+    return () => {
+      writes.delete(listener);
+    };
+  },
+};
+
 const opens = new Set<(id: string) => void>();
 
 /** Asks the room to open a thread from elsewhere on the screen. */

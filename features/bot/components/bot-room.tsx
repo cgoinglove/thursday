@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { INBOX_FINISHED, PAGE_SIZE } from "@/config";
@@ -20,8 +20,8 @@ import {
   useBotThreads,
   useRingingThreads,
   useSeenOnDetail,
+  writeLine,
 } from "../thread.store";
-import { Compose } from "./room-compose";
 import { Conversation, ThreadHeader } from "./room-conversation";
 import {
   Empty,
@@ -72,8 +72,6 @@ export const BotRoom = memo(function BotRoom() {
   }, [open]);
   /** Open thread; null shows the list. */
   const [picked, setPicked] = useState<string | null>(null);
-  /** Writing a new job, folded or in the room. */
-  const [composing, setComposing] = useState(false);
   /** The bot each thread shows, by thread id; a thread not in here is on All. */
   const [sides, setSides] = useState<Record<string, string | null>>({});
   /** The list on screen: what is current, or everything that has ended. */
@@ -225,13 +223,10 @@ export const BotRoom = memo(function BotRoom() {
     [crew],
   );
 
-  const closeCompose = useCallback(() => setComposing(false), []);
-
   // The room always opens on Now. A thread left open would greet the next click
   // on the pill, and a History one would not be found once its pages stop being read.
   const fold = () => {
     setOpen(false);
-    setComposing(false);
     setPicked(null);
     setTab("now");
     scroll.current = 0;
@@ -282,17 +277,10 @@ export const BotRoom = memo(function BotRoom() {
               <ListHeader
                 tab={tab}
                 current={now.length}
-                composing={composing}
-                onTab={(next) => {
-                  setComposing(false);
-                  setTab(next);
-                }}
-                onCompose={() => setComposing(true)}
-                onClose={() => (composing ? setComposing(false) : fold())}
+                onTab={setTab}
+                onClose={fold}
               />
-              {composing ? (
-                <Compose bots={bots} onDone={closeCompose} />
-              ) : tab === "history" ? (
+              {tab === "history" ? (
                 <HistoryList
                   pages={history}
                   threads={past}
@@ -314,6 +302,7 @@ export const BotRoom = memo(function BotRoom() {
                 bubble={null}
                 label="Fold the room away"
                 onClick={fold}
+                onWrite={writeLine.open}
                 side={
                   bubble ? (
                     <Moment handoff={bubble} />
@@ -331,7 +320,6 @@ export const BotRoom = memo(function BotRoom() {
           crew={crew}
           more={more}
           bubble={bubble}
-          bots={bots}
           rows={newest.filter(
             (thread) =>
               !rung.includes(thread.id) &&
@@ -341,9 +329,6 @@ export const BotRoom = memo(function BotRoom() {
           busy={busy}
           pending={pending}
           unread={unread.length}
-          composing={composing}
-          onCompose={() => setComposing(true)}
-          onCloseCompose={closeCompose}
           onPick={(id) => {
             setPicked(id);
             setOpen(true);

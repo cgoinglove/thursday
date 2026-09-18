@@ -4,6 +4,7 @@ import {
   CirclePause,
   CircleQuestionMark,
   Loader2,
+  Plus,
   RotateCw,
   X,
 } from "lucide-react";
@@ -28,9 +29,9 @@ import {
   rosterOf,
   type ThreadView,
   type ThreadViewStatus,
+  writeLine,
 } from "../thread.store";
 
-import { Compose, ComposeButton, RoundButton } from "./room-compose";
 import { leadOf, stepOf, THURSDAY } from "./room-conversation";
 import { ThreadRow } from "./room-list";
 
@@ -459,15 +460,11 @@ export function Chip({
   crew,
   more,
   bubble,
-  bots,
   rows,
   count,
   busy,
   pending,
   unread,
-  composing,
-  onCompose,
-  onCloseCompose,
   onPick,
   onOpen,
 }: {
@@ -475,20 +472,16 @@ export function Chip({
   more: number;
   /** The hand-off up, if any (useHandoff). */
   bubble: Handoff | null;
-  bots?: Bot[];
   /** Open questions and unread endings, newest first. */
   rows: ThreadView[];
   count: number;
   busy: number;
   pending: number;
   unread: number;
-  composing: boolean;
-  onCompose: () => void;
-  onCloseCompose: () => void;
   onPick: (id: string) => void;
   onOpen: () => void;
 }) {
-  const grown = composing || rows.length > 0;
+  const grown = rows.length > 0;
 
   return (
     <div
@@ -513,39 +506,32 @@ export function Chip({
         {/* Collapsed, this is still in the tree so the height can animate — inert
             keeps it out of the tab order and out of the way of a click. */}
         <div className="min-h-0 overflow-hidden" inert={!grown}>
-          {composing ? (
-            <Compose bots={bots} onDone={onCloseCompose} />
-          ) : (
-            <>
-              <p className="flex items-center gap-2 px-3 py-2 font-mono text-[10px] tracking-wide text-muted-foreground">
-                <span className="flex-1">
-                  {[
-                    pending > 0
-                      ? `${pending} ${pending === 1 ? "needs" : "need"} a reply`
-                      : "",
-                    unread > 0
-                      ? `${unread} new ${unread === 1 ? "result" : "results"}`
-                      : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </span>
-                <ComposeButton onClick={onCompose} />
-              </p>
-              {/* px-1: a row keeps its own 8px, so its mark lands on the rail while
-                  the shape it lights up on hover stays inside the card's corners */}
-              <div className="max-h-[45vh] overflow-y-auto px-1.5 pb-2">
-                {rows.map((thread) => (
-                  <ThreadRow
-                    key={thread.id}
-                    thread={thread}
-                    onPick={() => onPick(thread.id)}
-                  />
-                ))}
-              </div>
-              <span className="block h-1.5" />
-            </>
-          )}
+          <p className="flex items-center gap-2 px-3 py-2 font-mono text-[10px] tracking-wide text-muted-foreground">
+            <span className="flex-1">
+              {[
+                pending > 0
+                  ? `${pending} ${pending === 1 ? "needs" : "need"} a reply`
+                  : "",
+                unread > 0
+                  ? `${unread} new ${unread === 1 ? "result" : "results"}`
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          </p>
+          {/* px-1: a row keeps its own 8px, so its mark lands on the rail while
+              the shape it lights up on hover stays inside the card's corners */}
+          <div className="max-h-[45vh] overflow-y-auto px-1.5 pb-2">
+            {rows.map((thread) => (
+              <ThreadRow
+                key={thread.id}
+                thread={thread}
+                onPick={() => onPick(thread.id)}
+              />
+            ))}
+          </div>
+          <span className="block h-1.5" />
         </div>
       </div>
 
@@ -558,13 +544,8 @@ export function Chip({
         label={count ? `Threads (${count})` : "Bots"}
         onClick={onOpen}
         side={<RoomState busy={busy} pending={pending} grown={grown} />}
-      >
-        {composing && (
-          <RoundButton onClick={onCloseCompose} label="Cancel the message">
-            <X className="size-3.5" />
-          </RoundButton>
-        )}
-      </CrewRow>
+        onWrite={writeLine.open}
+      />
     </div>
   );
 }
@@ -585,7 +566,7 @@ export function CrewRow({
   side,
   label,
   onClick,
-  children,
+  onWrite,
 }: {
   crew: CrewFace[];
   more: number;
@@ -594,11 +575,19 @@ export function CrewRow({
   side: ReactNode;
   label: string;
   onClick: () => void;
-  /** Beside the row's button rather than inside it. */
-  children?: ReactNode;
+  /** Opens the write line: the pill's own "+", at its left end rather than loose beside it. */
+  onWrite: () => void;
 }) {
   return (
-    <div className="flex shrink-0 items-center gap-2 px-3 py-1.5">
+    <div className="flex shrink-0 items-center gap-2 py-1.5 pr-3 pl-1.5">
+      <button
+        type="button"
+        onClick={onWrite}
+        aria-label="Write to a bot"
+        className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-foreground outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <Plus className="size-3.5" />
+      </button>
       <button
         type="button"
         onClick={onClick}
@@ -608,7 +597,6 @@ export function CrewRow({
         <Crew crew={crew} more={more} bubble={bubble} />
         {side}
       </button>
-      {children}
     </div>
   );
 }

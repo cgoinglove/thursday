@@ -243,6 +243,21 @@ export const FILE_THUMB = {
 export const ARTIFACT_VIEW = { rows: 200, setFiles: 120 };
 
 /**
+ * Files the user hands over from the screen (the write line). They are kept in the
+ * workspace under `dir`, so a bot or the call reads one by its path and nothing else
+ * stores it; a bot cannot write there.
+ * - `maxBytes`    the largest one file taken. `next.config.ts` sets the server action
+ *   body limit from the same two numbers, so raise them together.
+ * - `perMessage`  how many one message carries; more reads as a folder, which is better
+ *   named in words.
+ */
+export const GIVEN_FILES = {
+  dir: "inbox",
+  maxBytes: 25 * 1024 * 1024,
+  perMessage: 8,
+};
+
+/**
  * The corner where finished work lands on the call screen
  * (workspace/components/artifact-view). Nothing about it is kept: a reload
  * clears it, and what the user has not opened still waits in the bot room.

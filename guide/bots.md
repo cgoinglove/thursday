@@ -26,6 +26,15 @@ what is running, what waits on the user and the five most recent endings (every 
 opened stays there too, however many), and **Settings › Threads**, which keeps all of them,
 including the ended ones. A stopped thread leaves the corner at once.
 
+## Handing a bot work without a call
+
+The **+** at the left end of that corner's pill — or the `/` key — opens a line at the foot of
+the screen: who it is for (the chip at its left, or `@` and a name), the words, and files.
+Files come from the paperclip, a paste, or by dropping them anywhere on the window; they are
+kept in the workspace under `inbox/` as they arrive and wait in the line until words go with
+them. The bot cannot hear the call, so the message has to say the whole job. Enter sends it,
+and the room opens on the thread it started.
+
 ## Telling a running bot something
 
 **Step in** on a running thread puts words in front of the bot before its next step — a

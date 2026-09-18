@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   // traces what the app actually imports into `.next/standalone`, so `npx`
   // installs ~90 MB instead of every dependency (scripts/pack.mts, bin/thursday).
   output: "standalone",
+  // Files handed over from the write line travel as one server action: config.ts
+  // GIVEN_FILES (8 files of 25 MB) plus room for the multipart framing
+  experimental: { serverActions: { bodySizeLimit: "201mb" } },
   redirects: async () => [
     {
       source: "/artifacts/:path+",

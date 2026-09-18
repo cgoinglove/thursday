@@ -357,9 +357,17 @@ A 30-second poll remains as a safety net. No WebSockets.
   breaks pauses it as waiting.
 - The pill's bubble shows one thing that just happened, over the face of whoever spoke: that face
   with the bots it reached tucked behind it, then the words — no glyph between faces. Questions
-  and stops take amber. Clicking the pill opens the room's list, never a thread.
+  and stops take amber. Clicking the pill opens the room's list, never a thread; the "+" at its
+  left end asks for the write line instead.
   The open list keeps the pill's row at its foot, faces without step words, and a moment shows
   there instead of in a bubble; only an open thread hides it.
+
+- What is typed or handed over rather than said goes through one write line at the foot of the
+  call screen (`write-line`): absent until asked for (the pill's "+", `/`, a file dragged onto the
+  window), it holds who it is for, the words and the files. Files are kept in the workspace
+  under `GIVEN_FILES.dir` the moment they arrive and travel as paths in the words — which is
+  also how the room draws them under the message. The open room is wide enough to cover her
+  face, so the call and the line step aside for it (`roomOpen`).
 
 # Rules
 

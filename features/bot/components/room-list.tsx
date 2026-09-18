@@ -29,7 +29,6 @@ import { type DateLike, shortAgo, toDate } from "@/lib/date-like";
 import { type ServerPages } from "@/lib/protocol/use-server-pages";
 import { cn, plainText, WAITING_INK } from "@/lib/utils";
 import { lastSaid, rosterOf, type ThreadView } from "../thread.store";
-import { ComposeButton } from "./room-compose";
 import { FoldButton, TAB } from "./room-conversation";
 
 /** The room open on its lists: what is happening now, and the history behind it. Split out of bot-room by subject; see it for the room as a whole. */
@@ -43,27 +42,23 @@ export const isUnread = (thread: ThreadView) =>
 /** The room's two lists. */
 export type RoomTab = "now" | "history";
 
-/** The two lists as pills, drawn like a thread's bot tabs; the compose "+" and the fold beside them. */
+/** The two lists as pills, drawn like a thread's bot tabs, and the fold beside them. */
 export function ListHeader({
   tab,
   current,
-  composing,
   onTab,
-  onCompose,
   onClose,
 }: {
   tab: RoomTab;
   /** Rows on Now. */
   current: number;
-  composing: boolean;
   onTab: (tab: RoomTab) => void;
-  onCompose: () => void;
   onClose: () => void;
 }) {
   return (
     <div className="flex items-center gap-2 pt-3 pr-3.5 pb-1.5 pl-2.5">
       <Tabs
-        value={composing ? null : tab}
+        value={tab}
         onValueChange={(value) => onTab(value as RoomTab)}
         className="gap-0"
       >
@@ -82,8 +77,6 @@ export function ListHeader({
         </TabsList>
       </Tabs>
       <span className="flex-1" />
-      {/* Same rule as the chip: whichever list is on screen carries the "+". */}
-      {!composing && <ComposeButton onClick={onCompose} />}
       <FoldButton onClick={onClose} />
     </div>
   );

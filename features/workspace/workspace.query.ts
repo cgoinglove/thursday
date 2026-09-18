@@ -1,6 +1,6 @@
-import { readdir, rm, stat } from "node:fs/promises";
+import { mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { PATHS, WORKSPACE_VIEW } from "@/config";
+import { GIVEN_FILES, PATHS, WORKSPACE_VIEW } from "@/config";
 import { publicError } from "@/lib/public-error";
 import { isListedFolder, viewKindOf } from "./file-kind";
 import { insideWorkspace, WORKSPACE } from "./workspace";
@@ -88,6 +88,35 @@ export async function statFiles(paths: string[]): Promise<FileOnDisk[]> {
     }),
   );
   return found.filter((file) => file !== null);
+}
+
+/**
+ * Keeps files the user handed over under GIVEN_FILES.dir and says where, workspace-relative
+ * and in order. A name is kept as close to its own as a path in a sentence allows — no
+ * spaces, nothing a shell or the path pattern would trip on — and a name already taken
+ * gets a number, since two hand-overs of `report.pdf` are two files.
+ */
+export async function keepGivenFiles(files: File[]): Promise<string[]> {
+  const folder = join(WORKSPACE, GIVEN_FILES.dir);
+  await mkdir(folder, { recursive: true });
+  const taken = new Set(await readdir(folder).catch(() => []));
+  const kept: string[] = [];
+  for (const file of files) {
+    const clean =
+      file.name
+        .normalize("NFC")
+        .replace(/[^\p{L}\p{N}._-]+/gu, "-")
+        .replace(/^[-.]+|-+$/g, "") || "file";
+    const dot = clean.lastIndexOf(".");
+    const stem = dot > 0 ? clean.slice(0, dot) : clean;
+    const ext = dot > 0 ? clean.slice(dot) : "";
+    let name = clean;
+    for (let n = 2; taken.has(name); n++) name = `${stem}-${n}${ext}`;
+    taken.add(name);
+    await writeFile(join(folder, name), Buffer.from(await file.arrayBuffer()));
+    kept.push(`${GIVEN_FILES.dir}/${name}`);
+  }
+  return kept;
 }
 
 /** Deletes one file. Folders are refused: a whole tree goes through `emptyScratch`. */

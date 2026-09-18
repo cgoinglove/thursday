@@ -73,6 +73,7 @@ import { cn, plainText } from "@/lib/utils";
 import { Face } from "./face";
 import { SideCaptions, turnsOf, useTurnFocus } from "./side-captions";
 import { TabState } from "./tab-state";
+import { WriteLine } from "./write-line";
 
 /**
  * The call screen. The face is the only control; text stays beside it and is
@@ -306,6 +307,9 @@ function CallScreen({
       <ArtifactView />
 
       <BotRoom />
+
+      {/* Whatever is typed or handed over instead of said */}
+      <WriteLine />
     </div>
   );
 }
