@@ -37,6 +37,7 @@ import {
   SPECTRUM_BANDS,
 } from "@/lib/live/live.tap";
 import { MICROPHONE_CONSTRAINTS } from "@/lib/live/live.transport";
+import { createRing } from "@/lib/live/ring";
 import { createProbe } from "@/lib/probe";
 import { type Result, unwrapResult } from "@/lib/protocol/result";
 import {
@@ -1170,6 +1171,14 @@ export function useThursday() {
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [isRinging, rangOut, decline]);
+  // It rings out loud for as long as the screen rings: a call nobody hears is a card
+  useEffect(() => {
+    if (!isRinging || rangOut) return;
+    const ring = createRing();
+    ring.start();
+    return () => ring.stop();
+  }, [isRinging, rangOut]);
+
   /** What the ringing screen names: the first thread that rang, and how many rang with it. */
   const ringing = useMemo((): Ringing | null => {
     const rung = ringingFor.flatMap(

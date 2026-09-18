@@ -84,7 +84,8 @@ storage.
    Updates that arrived while connecting follow once she has voiced the opening.
    For work that changed after the last call ended (a call tells what came up during it),
    the page rings instead of opening a line (call-back): the user answers it like any
-   call, declines it, or lets it ring out after `CALL_BACK.ringMs`. An answered ring opens
+   call, declines it, or lets it ring out after `CALL_BACK.ringMs`. The ring's sound is
+   synthesized (`lib/live/ring`), so no recording ships. An answered ring opens
    with the fact that
    she placed it, ahead of every other opening, and the first open work goes in as soon
    as she has voiced that, without waiting for a quiet line: why she called is the first

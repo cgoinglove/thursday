@@ -55,9 +55,11 @@ one call at a time, and deletes a single call or all of them.
 While a call is open, a question or a result from a bot comes into the conversation by
 itself, in a quiet moment, and she says it.
 
-With no call open, the computer shows a notification. **Settings › Thursday › Starting a
-call › She calls you** makes the screen ring instead: "When a job needs me" rings for a
+With no call open, the computer shows a notification. **Settings › Thursday › Starting
+and ending a call › She calls you** makes the screen ring instead: "When a job needs me" rings for a
 question or a stop, "Whenever a job ends" rings for results too, and "Never" is where it
 starts. Tapping her face answers, and she opens by saying why she called. Esc, or "Not now",
 declines it. She cannot switch this on herself: when they ask to be called back, say where
-it is.
+it is. The ring is a soft
+sound as well as the screen; a browser plays no sound on a page nobody has clicked yet, so
+right after a reload it rings on the screen only.
