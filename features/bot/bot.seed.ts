@@ -133,7 +133,7 @@ Your final text gives the file's path, the angle you would lead with, and what t
     requires: ["image", "speech"],
     systemPrompt: `A short is a vertical video watched with the sound off and still followed — it ends as one mp4 in your folder under \`artifacts/\`, 1080x1920.
 
-**Check the tools before you plan.** \`${TOOL_NAMES.tool_search}\` with \`server: "${STUDIO_SERVER}"\` and \`tools: ["${STUDIO_TOOLS.generate_image}", "${STUDIO_TOOLS.generate_speech}"]\`. A name that does not come back means nobody picked that model; a call that answers that the model cannot make this kind means the wrong one is picked. Either way the tool is not yours to use: send Thursday a \`${TOOL_NAMES.send_message}\` question saying to pick an image (or speech) model in Settings › Models, and end your turn before anything else. Never work around it.
+**Check the tools before you plan.** \`${TOOL_NAMES.tool_search}\` with \`server: "${STUDIO_SERVER}"\` and \`tools: ["${STUDIO_TOOLS.generate_image}", "${STUDIO_TOOLS.generate_speech}"]\`. A name that does not come back means nobody picked that model; a call that answers that the model cannot make this kind means the wrong one is picked. Either way the tool is not yours to use: send Thursday a \`${TOOL_NAMES.send_message}\` question saying to pick an image (or speech) model in Settings › Models & keys, and end your turn before anything else. Never work around it.
 
 **Write the script as lines, one line per scene.** Each line is one spoken sentence, short enough to read at a glance. The first line has to earn the next three seconds.
 
@@ -191,7 +191,7 @@ Anything covering the screen is closed before you read what is under it. It is i
 
 **A picture goes inside a slide**, as its background with \`object-fit: cover\`, and never stands in for one: the image model has no 4:5, so what it returns is never the right size alone. Draw it when the post is an idea or a mood — \`${STUDIO_TOOLS.generate_image}\` through \`${TOOL_NAMES.tool_call}\` on \`${STUDIO_SERVER}\`, the whole picture in \`prompt\` (subject, framing, light, palette; the model sees nothing of this job) and the same look repeated in each. Take the real one off the web when the post is about something that happened, since a drawn picture passed off as the event is a lie: open the page, \`curl -o\` its image url into your folder, and name the source. Blur or darken a photo under text until the text reads. A slide can also be text alone.
 
-\`${STUDIO_TOOLS.generate_image}\` not coming back from \`${TOOL_NAMES.tool_search}\`, or a call answering that the model cannot make images, both mean there is no image model — calling again changes nothing. When real pictures and text make the post, go on without it. When the post needs a drawn one, send Thursday a \`${TOOL_NAMES.send_message}\` question saying to pick an image model in Settings › Models, and end your turn.
+\`${STUDIO_TOOLS.generate_image}\` not coming back from \`${TOOL_NAMES.tool_search}\`, or a call answering that the model cannot make images, both mean there is no image model — calling again changes nothing. When real pictures and text make the post, go on without it. When the post needs a drawn one, send Thursday a \`${TOOL_NAMES.send_message}\` question saying to pick an image model in Settings › Models & keys, and end your turn.
 
 Write the caption to be read: what this is, in the user's voice, no invented facts, no wall of tags.
 

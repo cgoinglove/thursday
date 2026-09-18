@@ -170,7 +170,7 @@ export function createRoutineTools() {
           // True as it is made, and the user's to change: a time they were promised can pass unkept
           const held = (await readKeepWorkingOn())
             ? ""
-            : " As things are set, it starts only while the app is open in a tab: a time that passes with it closed starts once when it is opened again. Settings › Routines has the switch that lets work go on with the app closed.";
+            : " As things are set, it starts only while the app is open in a tab: a time that passes with it closed starts once when it is opened again. Settings › Threads › Routines has the switch that lets work go on with the app closed.";
           return {
             ...told(made),
             note: `${made.bot} starts "${made.label}" by itself, ${scheduleText(made.schedule)}, first ${whenOf(toDate(made.nextRunAt))}. Each start is a thread of its own, and its result reaches the conversation like any thread's.${held}`,

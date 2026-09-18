@@ -35,13 +35,22 @@ export type ConfigEntry = {
   choices?: ConfigChoice[];
   /** A studio kind. The value is `provider/model`, picked with the model picker, so ids outside `choices` are accepted. */
   kind?: MediaKind;
+  /** The one the app points a newcomer at. */
+  recommended?: true;
 };
 
 /**
  * Every group id. A union, not a string, because `isCallable` looks the voice
  * group up by id and a typo there silently makes the app always callable.
  */
-const CONFIG_GROUP_IDS = ["voice", "text", "search", "bots", "studio"] as const;
+const CONFIG_GROUP_IDS = [
+  "voice",
+  "easy",
+  "text",
+  "search",
+  "bots",
+  "studio",
+] as const;
 type ConfigGroupId = (typeof CONFIG_GROUP_IDS)[number];
 
 /** The group a call runs on: one of its keys must be set (config.query isCallable). */
@@ -150,6 +159,10 @@ export function acceptsChoice(entry: ConfigEntry, value: string): boolean {
 const isVoiceKey = (provider: { apiKeyName: string }) =>
   voiceKeys.includes(provider.apiKeyName);
 
+/** Reached without collecting a key per provider: a sign-in, or the gateway's one key. */
+const isEasy = (provider: { id: string; signIn?: true }) =>
+  Boolean(provider.signIn) || provider.id === "vercel-ai-gateway";
+
 const keyEntry = (
   provider: (typeof TEXT_MODEL_PROVIDER_LIST)[number],
 ): ConfigEntry => ({
@@ -170,13 +183,27 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
     entries: TEXT_MODEL_PROVIDER_LIST.filter(isVoiceKey).map(keyEntry),
   },
   {
+    id: "easy",
+    title: "the easy ways",
+    hint: "one sign-in or one key opens every bot",
+    section: "keys",
+    require: "none",
+    entries: TEXT_MODEL_PROVIDER_LIST.filter(isEasy).map((provider) => ({
+      ...keyEntry(provider),
+      // one key for every model, and one bill
+      ...(provider.id === "vercel-ai-gateway" && {
+        recommended: true as const,
+      }),
+    })),
+  },
+  {
     id: "text",
-    title: "models",
+    title: "or a provider's own key",
     hint: "what bots think with — add any, or none",
     section: "keys",
     require: "none",
     entries: TEXT_MODEL_PROVIDER_LIST.filter(
-      (provider) => !isVoiceKey(provider),
+      (provider) => !isVoiceKey(provider) && !isEasy(provider),
     ).map(keyEntry),
   },
   {
@@ -196,7 +223,7 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
   {
     id: "bots",
     title: "Bots",
-    hint: "what a bot runs on when it has not picked its own",
+    hint: "what a bot runs on when it has not picked its own — start small: a small model is quick and costs little",
     section: "models",
     require: "none",
     entries: [defaultModelEntry],

@@ -1,6 +1,7 @@
 "use client";
 
 import { queryKey } from "@/app/api/query-key";
+import { useConfigAlert } from "@/features/config/components/config-badge";
 import {
   CONFIG_GROUPS,
   type ConfigStatus,
@@ -36,7 +37,9 @@ export function useModelsAlert(): SectionAlert {
   return MODEL_KEYS.every((key) => !isConfigSet(data, key)) ? "amber" : null;
 }
 
-/** A dot, not a count: the number would only ever be "all of them". */
+/** The section's dot: a call has no key to run on, or the studio is empty. A dot, not a count. */
 export function ModelsBadge() {
-  return useModelsAlert() ? <NavBadge tone="amber" /> : null;
+  const keys = useConfigAlert();
+  const studio = useModelsAlert();
+  return keys || studio ? <NavBadge tone="amber" /> : null;
 }

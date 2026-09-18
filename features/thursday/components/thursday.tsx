@@ -394,22 +394,16 @@ function SettingsCorner() {
           })}
         </ButtonGroup>
         <ButtonGroup>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  size="icon"
-                  variant="outline"
-                  aria-label="Everything else"
-                  onClick={() => openSettings()}
-                />
-              }
-            >
-              <Settings2 className="text-muted-foreground" />
-              <CornerDot alert={behindGear} />
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Everything else</TooltipContent>
-          </Tooltip>
+          {/* The door wears its name: four grey glyphs in a row do not say which one is settings */}
+          <Button
+            variant="outline"
+            onClick={() => openSettings()}
+            className="gap-1.5 px-2.5 text-[12.5px] font-normal"
+          >
+            <Settings2 className="text-muted-foreground" />
+            Settings
+            <CornerDot alert={behindGear} />
+          </Button>
         </ButtonGroup>
       </ButtonGroup>
       {/* the dialog reads its open state from the store; four buttons open it */}

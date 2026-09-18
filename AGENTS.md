@@ -344,7 +344,7 @@ A 30-second poll remains as a safety net. No WebSockets.
   miniature (the live page, sandboxed, the first `FILE_THUMB.pages` of a message), the head of a
   text — everything else as a row with its kind and size, a path with no file struck through. One
   piece draws a file's face everywhere (`file-thumb`): under a message, in the corner, on the
-  Artifacts shelf. Nothing a job finished opens by itself — it lands in
+  shelf in Settings › Files. Nothing a job finished opens by itself — it lands in
   the screen's left corner as a card, the same card with files or without: the bot, the label, how
   the answer opens, the files under the words. The corner keeps nothing and is cleared by a reload.
 - Thursday is small in one way: `thursday-mark` draws the call's orb in miniature — glyphs keep one

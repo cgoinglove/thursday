@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Aperture,
-  KeyRound,
-  ListChecks,
-  Monitor,
-  Moon,
-  Sun,
-} from "lucide-react";
+import { Aperture, ListChecks, Monitor, Moon, Sun } from "lucide-react";
 import dynamic from "next/dynamic";
 import {
   type ComponentType,
@@ -15,7 +8,9 @@ import {
   type ReactElement,
   useEffect,
   useRef,
+  useState,
 } from "react";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,16 +19,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Segmented } from "@/components/ui/segmented";
-import { ArtifactMark } from "@/features/artifact/components/artifact-mark";
 import { BotBadge } from "@/features/bot/components/bot-badge";
 import { BotsMark } from "@/features/bot/components/bot-mark";
 import { ThreadBadge } from "@/features/bot/components/thread-badge";
-import { ConfigBadge } from "@/features/config/components/config-badge";
 import { ModelsBadge } from "@/features/config/components/models-badge";
 import { McpBadge } from "@/features/connectors/components/mcp-badge";
 import { McpMark } from "@/features/connectors/components/mcp-mark";
 import { MemoryMark } from "@/features/memory/components/memory-mark";
-import { RoutineMark } from "@/features/routine/components/routine-mark";
 import { SkillsMark } from "@/features/skills/components/skills-mark";
 import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
 import { WorkspaceMark } from "@/features/workspace/components/workspace-mark";
@@ -79,14 +71,9 @@ const RoutineSetting = lazySection(() =>
     default: m.RoutineSetting,
   })),
 );
-const ConfigSetting = lazySection(() =>
+const ModelsKeysSetting = lazySection(() =>
   import("@/features/config/components/config-setting").then((m) => ({
-    default: m.ConfigSetting,
-  })),
-);
-const ModelsSetting = lazySection(() =>
-  import("@/features/config/components/models-setting").then((m) => ({
-    default: m.ModelsSetting,
+    default: m.ModelsKeysSetting,
   })),
 );
 const ThursdaySetting = lazySection(() =>
@@ -118,6 +105,53 @@ const McpSetting = lazySection(() =>
     default: m.McpSetting,
   })),
 );
+
+/**
+ * A section that is two screens of one subject, each whole as it was — its own scroll
+ * area and rail — under a pair of tabs. It opens on the first.
+ */
+function Tabbed({
+  tabs,
+}: {
+  tabs: readonly { label: string; Component: ComponentType }[];
+}) {
+  const [at, setAt] = useState(0);
+  const Current = tabs[at].Component;
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 px-8 pt-5">
+        <SettingColumn>
+          <Segmented
+            aria-label="Screens of this section"
+            options={tabs.map((tab, index) => ({
+              value: String(index),
+              label: tab.label,
+            }))}
+            value={String(at)}
+            onChange={(value) => setAt(Number(value))}
+          />
+        </SettingColumn>
+      </div>
+      <div className="min-h-0 flex-1">
+        <Current />
+      </div>
+    </div>
+  );
+}
+
+/** A routine only opens threads, and its runs are read among them. */
+const THREAD_TABS = [
+  { label: "Threads", Component: ThreadSetting },
+  { label: "Routines", Component: RoutineSetting },
+] as const;
+const ThreadsSection = () => <Tabbed tabs={THREAD_TABS} />;
+
+/** What the bots finished is part of everything they wrote: one folder, seen two ways. */
+const FILE_TABS = [
+  { label: "Finished", Component: ArtifactSetting },
+  { label: "All files", Component: WorkspaceSetting },
+] as const;
+const FilesSection = () => <Tabbed tabs={FILE_TABS} />;
 
 /** Adding a section is one entry here plus an id in settings.store. */
 const GROUPS = ["call", "work", "app"] as const;
@@ -163,34 +197,18 @@ export const SECTIONS: readonly {
     id: "threads",
     label: "Threads",
     group: "work",
-    hint: "Jobs the bots were handed, and what came of them",
+    hint: "Work the bots were handed, and what starts by itself",
     icon: ListChecks,
-    Component: ThreadSetting,
+    Component: ThreadsSection,
     Badge: ThreadBadge,
   },
   {
-    id: "routines",
-    label: "Routines",
+    id: "files",
+    label: "Files",
     group: "work",
-    hint: "Jobs that start by themselves",
-    icon: RoutineMark,
-    Component: RoutineSetting,
-  },
-  {
-    id: "artifact",
-    label: "Artifacts",
-    group: "work",
-    hint: "What the bots finished and handed over",
-    icon: ArtifactMark,
-    Component: ArtifactSetting,
-  },
-  {
-    id: "workspace",
-    label: "Workspace",
-    group: "work",
-    hint: "What the bots wrote, and the room it takes",
+    hint: "What the bots finished, and everything else they wrote",
     icon: WorkspaceMark,
-    Component: WorkspaceSetting,
+    Component: FilesSection,
   },
   {
     id: "skills",
@@ -211,21 +229,12 @@ export const SECTIONS: readonly {
   },
   {
     id: "models",
-    label: "Models",
+    label: "Models & keys",
     group: "app",
-    hint: "What bots draw, film, speak and transcribe with",
+    hint: "What the app runs on, and what each part thinks with",
     icon: Aperture,
-    Component: ModelsSetting,
+    Component: ModelsKeysSetting,
     Badge: ModelsBadge,
-  },
-  {
-    id: "config",
-    label: "Keys",
-    group: "app",
-    hint: "API keys the app runs on",
-    icon: KeyRound,
-    Component: ConfigSetting,
-    Badge: ConfigBadge,
   },
 ];
 

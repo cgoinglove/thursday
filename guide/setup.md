@@ -2,10 +2,12 @@
 
 ## Keys
 
-**Settings › Keys** holds them, and they stay on this machine. One OpenAI key is all a call
-needs — it pays for both the voice and the model behind it. Bots can run on that same key, on
-a ChatGPT sign-in, on the Vercel AI Gateway (one key, every model), or on a key from Anthropic,
-Google, xAI, Mistral, DeepSeek, Groq, Cerebras, Together, Fireworks, DeepInfra or Cohere.
+**Settings › Models & keys** holds them, and they stay on this machine. One OpenAI key is all
+a call needs — it pays for both the voice and the model behind it. Bots can run on that same
+key. The screen puts the two easy ways next: a GPT Subscription sign-in (bots run on the
+ChatGPT plan, no key), and the Vercel AI Gateway, one key for every model and the one the app
+recommends. Under them every other provider is a mark to tap and paste a key into: Anthropic,
+Google, xAI, Mistral, DeepSeek, Groq, Cerebras, Together, Fireworks, DeepInfra, Cohere.
 
 A search key (Exa) is optional. With it, calls and bots both search through Exa, which is
 cheaper per search and comes with free credits every month. Without it, a call uses OpenAI's
@@ -14,8 +16,9 @@ one; a bot on anything else has no search of its own, so it opens pages in its b
 
 ## Models
 
-**Settings › Models** picks the model bots use when their own page says nothing, and the
-models for images, video, speech and transcription. A kind with no model picked simply is not
+The same screen picks the model bots use when their own page says nothing — a small one is
+quick and costs little, and is the place to start — and the models for images, video, speech
+and transcription. A kind with no model picked simply is not
 there — a bot that needs it says so rather than guessing. The call's own two models are in
 Settings › Thursday instead.
 

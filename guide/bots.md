@@ -65,8 +65,8 @@ reading the result: the thread stops showing as new, and she will not bring it u
 Dismissing a card does not; the result still waits in its thread. The files also show under
 the bot's words in the thread: pictures as thumbnails, a page or a written report as a small preview
 of itself. Asking her on a call to show a result opens that file on the screen. All of them
-stay under **Settings › Artifacts**, one shelf per bot. **Settings › Workspace** is the whole folder, for looking around rather
-than for the results.
+stay under **Settings › Files**, one shelf per bot. Its second tab, **All files**, is the
+whole folder, for looking around rather than for the results.
 
 A bot keeps its own memory — what a job taught it, how the user asked it to work — in its own
 folder, listed on its page in Settings › Bots.
@@ -74,9 +74,9 @@ folder, listed on its page in Settings › Bots.
 ## Routines: jobs that start by themselves
 
 A routine is a bot, a job and a time: every weekday at nine, every six hours. It is made by
-telling Thursday — "every morning at nine, go through my mail" — or in **Settings › Routines**,
-which lists them all, each with one switch. There are two kinds of time, a time of day on
-chosen days, or every so many hours, and at most twelve routines.
+telling Thursday — "every morning at nine, go through my mail" — or in **Settings › Threads ›
+Routines**, which lists them all, each with one switch. There are two kinds of time, a time of
+day on chosen days, or every so many hours, and at most twelve routines.
 
 Each time it is due, a routine opens an ordinary thread, marked with a repeat sign, and that
 thread behaves like any other: it shows in the corner of the call screen, a question pauses
@@ -93,7 +93,7 @@ now** starts one without waiting.
 
 Routines start only while Thursday is running on this computer, and, like any job, only with
 the app open in a tab unless **Work while the app is closed** is on — the same switch that is
-under Settings › Bots, shown at the foot of Settings › Routines too. A time that passed
+under Settings › Bots, shown at the foot of Settings › Threads › Routines too. A time that passed
 meanwhile starts once when it is back, not once for every time missed.
 
 ## While the app is closed

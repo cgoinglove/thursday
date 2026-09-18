@@ -520,7 +520,7 @@ export const FAVICON = {
 };
 
 /**
- * At or under this many dollars left on the gateway key, its row in Settings › Keys
+ * At or under this many dollars left on the gateway key, its row in Settings › Models & keys
  * turns amber (ai/model readGatewayCredits): a video clip or a long job can spend
  * that before it finishes. Raising it warns sooner; 0 warns only once nothing is left.
  */
@@ -540,7 +540,7 @@ export const CHATGPT_SIGN_IN = {
 };
 
 /**
- * At or past this share of a GPT Subscription window used, its row in Settings › Keys turns
+ * At or past this share of a GPT Subscription window used, its row in Settings › Models & keys turns
  * amber (ai/chatgpt readChatGptUsage): a long job can spend the rest before it finishes and
  * then waits for the window to reset. Lower warns sooner; 100 warns only once it is spent.
  */

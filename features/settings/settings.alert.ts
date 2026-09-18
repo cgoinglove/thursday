@@ -33,6 +33,7 @@ export function useSectionAlerts(): Partial<
   const threads = useThreadAlert();
   const mcp = useMcpAlert();
   const config = useConfigAlert();
-  const models = useModelsAlert();
-  return { bot, threads, mcp, config, models };
+  const studio = useModelsAlert();
+  // keys and models are one section: a missing voice key and an empty studio both report there
+  return { bot, threads, mcp, models: worstAlert([config, studio]) };
 }

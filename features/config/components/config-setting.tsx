@@ -61,11 +61,6 @@ import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
 
-/** The "keys" half of the config catalogue; reads set/unset only, never a value. */
-export function ConfigSetting() {
-  return <ConfigGroups section="keys" />;
-}
-
 /** A key that is not a provider's still wears a mark, or its row is a hole in the column. */
 const KEY_MARKS: Record<string, LucideIcon> = { [EXA_API_KEY]: Search };
 
@@ -77,7 +72,22 @@ const KIND_MARKS: Record<MediaKind, LucideIcon> = {
   transcription: Captions,
 };
 
-export function ConfigGroups({ section }: { section: ConfigGroup["section"] }) {
+/** The order the one screen reads in: what a call needs, how bots get a model, what runs on it, how things are looked up. */
+const ORDER: ConfigGroup["id"][] = [
+  "voice",
+  "easy",
+  "text",
+  "bots",
+  "studio",
+  "search",
+];
+
+/**
+ * Keys and models on one screen, since a model cannot be picked without its key: the
+ * accounts first — the voice key, the two easy ways as cards, every other provider as a
+ * mark to tap — then what runs on them. Reads set/unset only, never a value.
+ */
+export function ModelsKeysSetting() {
   const { data, isLoading, error } = useServerRoute<ConfigStatus[]>(
     queryKey.config,
   );
@@ -90,27 +100,21 @@ export function ConfigGroups({ section }: { section: ConfigGroup["section"] }) {
   const valueOf = (key: string) =>
     data?.find((entry) => entry.key === key)?.value;
 
-  const groups = CONFIG_GROUPS.filter((group) => group.section === section);
-  const entries = groups.flatMap((group) => group.entries);
+  const groups = ORDER.flatMap(
+    (id) => CONFIG_GROUPS.find((group) => group.id === id) ?? [],
+  );
+  const keys = groups
+    .filter((group) => group.section === "keys")
+    .flatMap((group) => group.entries);
 
   return (
     <SettingScreen
       footer={
         <SettingRailNote>
-          {section === "keys" ? (
-            <>
-              {entries.filter((entry) => isSet(entry.key)).length} of{" "}
-              {entries.length} set
-              {groups.some((group) => !groupSatisfied(group, isSet))
-                ? " · a call needs one voice key"
-                : " · your keys stay on this machine"}
-            </>
-          ) : (
-            <>
-              {entries.length} of {entries.length} resolved ·{" "}
-              {entries.filter((entry) => valueOf(entry.key)).length} pinned
-            </>
-          )}
+          {keys.filter((entry) => isSet(entry.key)).length} of {keys.length} set
+          {groups.some((group) => !groupSatisfied(group, isSet))
+            ? " · a call needs one voice key"
+            : " · your keys stay on this machine"}
         </SettingRailNote>
       }
     >
@@ -121,31 +125,80 @@ export function ConfigGroups({ section }: { section: ConfigGroup["section"] }) {
           hint={group.hint}
           right={<RequirementBadge group={group} isSet={isSet} />}
         >
-          <SettingItems>
-            {group.entries.map((entry) =>
-              entry.choices ? (
-                <ChoiceRow
-                  key={entry.key}
-                  entry={entry}
-                  choices={entry.choices}
-                  value={valueOf(entry.key)}
-                  isSet={isSet}
-                />
-              ) : (
+          {group.id === "easy" ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {group.entries.map((entry) => (
                 <KeyRow
                   key={entry.key}
+                  card
                   entry={entry}
                   set={isSet(entry.key)}
-                  // Amber only where something is actually missing: an
-                  // unsatisfied required group is waiting on the user
-                  needed={!groupSatisfied(group, isSet)}
+                  needed={false}
                 />
-              ),
-            )}
-          </SettingItems>
+              ))}
+            </div>
+          ) : group.id === "text" ? (
+            <div className="flex flex-wrap gap-x-1.5 gap-y-3.5">
+              {group.entries.map((entry) => (
+                <KeyTile key={entry.key} entry={entry} set={isSet(entry.key)} />
+              ))}
+            </div>
+          ) : (
+            <SettingItems>
+              {group.entries.map((entry) =>
+                entry.choices ? (
+                  <ChoiceRow
+                    key={entry.key}
+                    entry={entry}
+                    choices={entry.choices}
+                    value={valueOf(entry.key)}
+                    isSet={isSet}
+                  />
+                ) : (
+                  <KeyRow
+                    key={entry.key}
+                    entry={entry}
+                    set={isSet(entry.key)}
+                    // Amber only where something is actually missing: an
+                    // unsatisfied required group is waiting on the user
+                    needed={!groupSatisfied(group, isSet)}
+                  />
+                ),
+              )}
+            </SettingItems>
+          )}
         </SettingGroup>
       ))}
     </SettingScreen>
+  );
+}
+
+/** One provider's key as its mark: tap it, paste the key. A key that is set wears a check. */
+function KeyTile({ entry, set }: { entry: ConfigEntry; set: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={() => openConfigDialog(entry, set)}
+      aria-label={`${entry.label}: ${set ? "set" : "not set"}`}
+      className="group flex w-17 flex-col items-center gap-1.5 rounded-xl py-1 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      <span className="relative grid size-10.5 place-items-center rounded-[13px] bg-muted/60 transition-colors group-hover:bg-muted">
+        <KeyMark entry={entry} />
+        {set && (
+          <span className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full bg-primary text-primary-foreground ring-2 ring-background">
+            <Check className="size-2.5" />
+          </span>
+        )}
+      </span>
+      <span
+        className={cn(
+          "max-w-full truncate text-[11px]",
+          set ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        {entry.label}
+      </span>
+    </button>
   );
 }
 
@@ -182,9 +235,12 @@ function KeyRow({
   entry,
   set,
   needed,
+  card = false,
 }: {
   entry: ConfigEntry;
   set: boolean;
+  /** Drawn as a card of its own rather than a row in a list. */
+  card?: boolean;
   /** Its group must have a key and has none, so this row is waiting on the user. */
   needed: boolean;
 }) {
@@ -201,14 +257,22 @@ function KeyRow({
       onClick={() =>
         entry.signIn ? openSignInDialog(entry) : openConfigDialog(entry, set)
       }
-      className="group flex w-full items-center gap-3 p-4 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
+      className={cn(
+        "group flex w-full items-center gap-3 p-4 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
+        card && "rounded-xl border border-border/60",
+      )}
     >
       <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted/60">
         <KeyMark entry={entry} />
       </span>
       <span className="min-w-0 flex-1 space-y-0.5">
-        <span className="block truncate text-sm font-medium">
+        <span className="flex items-center gap-2 truncate text-sm font-medium">
           {entry.label}
+          {entry.recommended && (
+            <span className="rounded-full px-1.5 font-mono text-[9.5px] leading-4 font-normal text-brand ring-1 ring-brand">
+              recommended
+            </span>
+          )}
         </span>
         <span className="block truncate font-mono text-xs text-muted-foreground">
           {/* A sign-in's config key is nothing to read; the plan it is on is */}

@@ -6,8 +6,8 @@ the app has already said which: a provider's own words are shown as they came, n
 ## A call will not open, or drops
 
 - **"Call failed"** shows the provider's reason. A refused key, no credit left, or a model the
-  key cannot use are all fixed in **Settings › Keys**, where a refused key is marked red and
-  one running low is marked amber.
+  key cannot use are all fixed in **Settings › Models & keys**, where a refused key is marked
+  red and one running low is marked amber.
 - **She cannot be heard** on a call that opened by itself (she called back): the browser holds
   the sound until the page is touched. A tap anywhere lets it through.
 - **She does not hear them**: the browser asks for the microphone on the first call. If that
@@ -30,7 +30,7 @@ A job never fails for good; it pauses and waits.
 - **The model broke or the provider refused**: the thread says why. Fix the key or pick
   another model on the bot's page, then **Continue**.
 - **A ChatGPT sign-in ran out of its plan's usage**: the job stops and says when the plan
-  resets; Settings › Keys shows how much is left.
+  resets; Settings › Models & keys shows how much is left.
 - **Every tab was closed**: jobs pause within seconds and pick up when the app is opened
   again. **Settings › Bots › Work while the app is closed** keeps them running instead.
 - **It reached its step limit**: long jobs stop to check in. **Continue** gives it another run.
@@ -38,7 +38,7 @@ A job never fails for good; it pauses and waits.
 ## A bot says it cannot do something
 
 - **Make an image, a video, a voice, or transcribe**: no model is picked for that kind.
-  **Settings › Models** has one slot for each.
+  **Settings › Models & keys** has one slot for each.
 - **Open a web page**: the bots' browser is downloaded in the background the first time the
   app starts, a few hundred megabytes. Until that finishes, a bot cannot browse.
 - **Use this Mac's apps and windows**: macOS has to allow it. The bot says which two
@@ -46,7 +46,7 @@ A job never fails for good; it pauses and waits.
   them in System Settings.
 - **Sign in or pay**: by design. The bot opens the page and waits for them.
 - **Search the web**: only OpenAI, Anthropic, Google and xAI models search by themselves. A
-  bot on anything else opens pages instead. A search key in Settings › Keys gives every bot
+  bot on anything else opens pages instead. A search key in Settings › Models & keys gives every bot
   search.
 - **Reach a connected service**: a server that needs signing in again turns red in
   **Settings › Connectors**.
