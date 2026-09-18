@@ -41,9 +41,12 @@ import {
   type ThreadLine,
 } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
-import { Conversation, ThreadFacts } from "@/features/bot/components/bot-room";
 import { BotRoster } from "@/features/bot/components/bot-roster";
 import { toolIcon } from "@/features/bot/components/bot-tool";
+import {
+  Conversation,
+  ThreadFacts,
+} from "@/features/bot/components/room-conversation";
 import {
   rosterOf,
   screenActs,
