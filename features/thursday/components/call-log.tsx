@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/notify";
 import { ShinyText } from "@/components/ui/shiny-text";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SourceChips } from "@/components/ui/source-chips";
 import { CALL_HISTORY_PAGE } from "@/config";
 import type { ThreadStatus } from "@/features/bot/bot.schema";
 import { toolIcon } from "@/features/bot/components/bot-tool";
@@ -22,7 +23,6 @@ import { cn, plainText, WAITING_INK } from "@/lib/utils";
 import { deleteCallAction, deleteEndedCallsAction } from "../thursday.action";
 import { type CallRecord, type CallTurn } from "../thursday.schema";
 import { searchOf, startedLabel, toolLine } from "../tool-line";
-import { SourceChips } from "./source-chips";
 import { ThursdayMark } from "./thursday-mark";
 
 /** The Settings › Thursday tile that opens the call history dialog. */

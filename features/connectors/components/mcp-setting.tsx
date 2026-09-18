@@ -18,6 +18,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import JsonView from "@/components/ui/json-view";
 import { notify } from "@/components/ui/notify";
+import { SiteIcon } from "@/components/ui/site-icon";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -258,31 +259,11 @@ function ServerRow({ server }: { server: MCPServerSummary }) {
 function ServerTile({ server }: { server: MCPServerSummary }) {
   const icon = presetIconFor(server);
   if (!icon) return <Server className="size-4" />;
-  return <SiteIcon host={icon} className="size-5" glyph="size-4" />;
-}
-
-/**
- * A vendor's own icon, asked for by this server (lib/favicon) so no third party
- * learns which services are looked at. A site that gives none draws the glyph.
- */
-function SiteIcon({
-  host,
-  className,
-  glyph,
-}: {
-  host: string;
-  className: string;
-  glyph: string;
-}) {
-  const [missing, setMissing] = useState(false);
-  if (missing) return <Server className={glyph} />;
   return (
-    // biome-ignore lint/performance/noImgElement: a small icon from our own route
-    <img
-      src={queryKey.favicon(host)}
-      alt=""
-      className={className}
-      onError={() => setMissing(true)}
+    <SiteIcon
+      host={icon}
+      className="size-5"
+      fallback={<Server className="size-4" />}
     />
   );
 }
@@ -987,7 +968,7 @@ function PresetSection({
                 <SiteIcon
                   host={preset.icon}
                   className="size-4"
-                  glyph="size-3.5"
+                  fallback={<Server className="size-3.5" />}
                 />
               ) : (
                 <Server className="size-3.5" />

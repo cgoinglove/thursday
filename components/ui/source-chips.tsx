@@ -1,18 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { queryKey } from "@/app/api/query-key";
+import { hostOf, SiteIcon } from "@/components/ui/site-icon";
 import { cn } from "@/lib/utils";
-import type { SearchedSource } from "../tool-line";
 
-/** `https://www.tenki.jp/…` → `tenki.jp`; null for a URL that does not parse. */
-function hostOf(url: string): string | null {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return null;
-  }
-}
+/** A page a search read: where it is, and what it is called when that is known. */
+export type SourcePage = { url: string; title?: string };
 
 /**
  * The pages a web search read, as chips that open them in a new tab: the site's icon
@@ -25,7 +17,7 @@ export function SourceChips({
   limit,
   className,
 }: {
-  sources: SearchedSource[];
+  sources: SourcePage[];
   limit?: number;
   className?: string;
 }) {
@@ -58,30 +50,5 @@ export function SourceChips({
         </span>
       )}
     </span>
-  );
-}
-
-/** The site's icon, or its first letter when the server found none. */
-function SiteIcon({ host }: { host: string }) {
-  const [missing, setMissing] = useState(false);
-  if (missing)
-    return (
-      <span
-        aria-hidden
-        className="grid size-3.5 shrink-0 place-items-center rounded-[4px] bg-foreground/10 text-[8.5px] font-medium text-foreground/70 uppercase"
-      >
-        {host[0]}
-      </span>
-    );
-  return (
-    // biome-ignore lint/performance/noImgElement: a 14px icon from this server's own route
-    <img
-      src={queryKey.favicon(host)}
-      alt=""
-      width={14}
-      height={14}
-      onError={() => setMissing(true)}
-      className="size-3.5 shrink-0 rounded-[4px]"
-    />
   );
 }

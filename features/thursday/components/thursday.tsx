@@ -23,6 +23,7 @@ import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { ShinyText } from "@/components/ui/shiny-text";
+import { SourceChips } from "@/components/ui/source-chips";
 import TextType from "@/components/ui/text-type";
 import {
   Tooltip,
@@ -69,7 +70,6 @@ import { useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, plainText, WAITING_INK } from "@/lib/utils";
 import { Face } from "./face";
 import { SideCaptions, turnsOf, useTurnFocus } from "./side-captions";
-import { SourceChips } from "./source-chips";
 import { TabState } from "./tab-state";
 
 /**
