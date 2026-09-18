@@ -25,7 +25,8 @@ cannot grant them and neither can `peekaboo`. So start with:
 peekaboo permissions status --json
 ```
 
-If anything is missing, say which one in one line (`ask_thursday`) and stop.
+If anything is missing, say which one in one line (a `question` to Thursday) and
+stop.
 Do not retry, do not work around it: without the grant every capture is a
 black rectangle and every click is refused, and you will spend your steps
 proving it.
@@ -53,8 +54,8 @@ genuinely needs the real pointer, and say why in your `description`. Never
 quit or close the user's apps unless they asked — minimize instead.
 
 **Sign-ins are the user's.** Never type a password, an id, or a one-time code
-into any app. When a window wants one, tell the user in one line
-(`ask_thursday`) and stop.
+into any app. When a window wants one, tell the user in one line (a `question`
+to Thursday) and stop.
 
 **Files.** Captures go under `scratch/` while you work
 (`--path scratch/<name>.png`); a picture that is the result of the job goes to

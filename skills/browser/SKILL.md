@@ -64,15 +64,16 @@ yours to read off the job:
 - **The browser they are already in.** `attach --cdp=chrome` carries their own
   profile and whatever it is signed into.
 - **They sign in themselves.** `open <the login url> --headed --persistent` —
-  the login page, not the front door — then `ask_thursday` in one line saying
-  what to sign into and that the window is open, options `Signed in` / `Not
-  now`, and stop. The window stays open while the job waits; continue from a
+  the login page, not the front door — then a `question` to Thursday in one line
+  saying what to sign into and that the window is open, options `Signed in` /
+  `Not now`, and stop. The window stays open while the job waits; continue from a
   fresh `snapshot` when the answer comes. A captcha is the same move. Not
   `show` — it blocks waiting for annotations nobody will send.
-- **You have the credentials.** Ask before you use them: `ask_thursday` in one
-  line naming the account, options `Sign in with it` / `I'll do it`, and on the
-  second take the fork above. An answer to your own sign-in question is the
-  exception — credentials given there are already the yes, so type them.
+- **You have the credentials.** Ask before you use them: a `question` to
+  Thursday in one line naming the account, options `Sign in with it` / `I'll do
+  it`, and on the second take the fork above. An answer to your own sign-in
+  question is the exception — credentials given there are already the yes, so
+  type them.
 
 The line is where the secret comes from, not what kind it is: never guess,
 invent, or go looking for one somewhere they did not point you at. An email or
