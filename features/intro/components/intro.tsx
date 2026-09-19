@@ -11,6 +11,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ShinyText } from "@/components/ui/shiny-text";
 import { Switch } from "@/components/ui/switch";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import type { TextModelProviderId } from "@/features/ai/model.schema";
@@ -569,12 +570,25 @@ function MicTurn({ mic }: { mic: MicState }) {
             Say <span className="text-foreground">"{wake.phrase}"</span> and she
             picks up. The microphone stays open for as long as this tab is.
           </Fine>
-          {heard && (
-            <span className="mt-0.75 flex items-center gap-1.5 font-mono text-[11px]">
-              <Check className="size-3" />
-              heard you: that is how you call her
-            </span>
-          )}
+          {/* The one thing this step asks them to try, so it is the one thing that moves */}
+          {wake.enabled &&
+            !unheard &&
+            (heard ? (
+              <span className="mt-1.5 flex items-center gap-2 text-[13px]">
+                <span className="grid size-5 shrink-0 animate-in place-items-center rounded-full bg-foreground text-background duration-300 zoom-in-50">
+                  <Check className="size-3" />
+                </span>
+                Heard you. That is how you call her.
+              </span>
+            ) : (
+              <span className="mt-1.5 flex items-center gap-2 text-[13px]">
+                <Mic className="size-4 shrink-0 animate-pulse text-brand" />
+                <ShinyText
+                  text={`Try it now: say "${wake.phrase}"`}
+                  speed={2.2}
+                />
+              </span>
+            ))}
           {unheard && <Fine>{unheard}</Fine>}
         </span>
         <Switch
