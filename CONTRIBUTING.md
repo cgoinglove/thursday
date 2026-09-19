@@ -16,7 +16,7 @@ Useful:
 
 | | |
 |---|---|
-| `pnpm dev` | the app, with hot reload — on 3000, or the next free port |
+| `pnpm dev` | the app, with hot reload — on 4747, or the next free port; afterwards on the port its first run took |
 | `pnpm typecheck` / `pnpm lint` | types and lint |
 | `pnpm test:live` / `pnpm test:bot` / `pnpm test:artifact` | the call, bots, file viewer URLs — offline, providers mocked |
 | `pnpm reset` | wipe local data (calls, jobs, memory) and optionally the build |

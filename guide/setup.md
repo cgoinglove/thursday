@@ -83,7 +83,8 @@ of the Settings list for as long as it is not installed. Safari on a Mac does it
 its File menu, **Add to Dock**; Firefox cannot. It is the same local app either way; nothing
 moves anywhere.
 
-The app comes back on the same address every time it starts. If that port is taken by
+The app comes back on the same address every time it starts: the first start takes port 4747,
+which other apps rarely use, and keeps it. If that port is taken by
 something else one day, it says so where it was started and serves on the next one for that
 day; the browser then shows other settings, because a browser keeps settings per address.
 Starting it once with `--port` and a number moves it to that address for good.

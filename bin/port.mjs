@@ -6,8 +6,13 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { join } from "node:path";
 
-/** The port when none is asked for. */
-const DEFAULT_PORT = 3000;
+/**
+ * The port when none is asked for, and so the address a first run makes home. Not 3000,
+ * the most occupied port on a developer's machine: the browser keeps the installed app,
+ * her settings and the microphone permission per address, so home is best a port nothing
+ * else comes to want later.
+ */
+const DEFAULT_PORT = 4747;
 /** How far past it to look before giving up. */
 const SEARCH = 20;
 
@@ -15,7 +20,7 @@ const SEARCH = 20;
  * Every address a holder of the port may have bound. No single probe sees them
  * all: on macOS a socket on 127.0.0.1 does not block `::`, and one on `::` does
  * not block 127.0.0.1 — yet `localhost` reaches whichever answers first, so two
- * servers "on 3000" each serve some of the page. Probed one at a time, since
+ * servers "on one port" each serve some of the page. Probed one at a time, since
  * `0.0.0.0` and `::` block each other.
  */
 const ADDRESSES = ["127.0.0.1", "::1", "0.0.0.0", "::"];
@@ -66,10 +71,9 @@ const keepPort = (home, port) => {
 };
 
 /**
- * 3000 is the most occupied port on a developer's machine. A port nobody asked
- * for is ours to move; a port that was asked for (`--port`, `PORT`) is not, and
- * saying so is more use than moving it quietly. Exits with the reason when no
- * port will do.
+ * A port nobody asked for is ours to move; a port that was asked for (`--port`,
+ * `PORT`) is not, and saying so is more use than moving it quietly. Exits with
+ * the reason when no port will do.
  */
 export async function freePort(asked, home) {
   const port = await pickPort(asked, home);

@@ -35,7 +35,7 @@ if (has("-h", "--help")) {
     $ thursday [options]
 
   Options
-    --port <n>     Port to serve on (default 3000, or the next free one)
+    --port <n>     Port to serve on (default 4747, or the next free one)
     --home <dir>   Where your data lives (default ~/.thursday)
     --no-open      Do not open a browser
     -v, --version  Print the version
