@@ -16,10 +16,12 @@ import {
 import type { AsciiCharset } from "../face.const";
 import type { CallStatus } from "../thursday.schema";
 
-/** Glyph cell, px: her face's own size. */
+/** Grid step, px: her face's own. */
 const CELL = 11;
+/** Glyph size, px: under the step, so the wave reads as specks with air between them. */
+const GLYPH = 9;
 /** Share of cells that carry a glyph at all: fewer, not larger, keeps the wave light to draw. */
-const KEEP = 0.6;
+const KEEP = 0.4;
 /** How far the front travels per second, as a share of the way to the farthest corner. */
 const SPEED = 0.95;
 /** Width of the lit band behind the front, in the same units. */
@@ -43,10 +45,10 @@ type Cell = {
   roll: number;
 };
 
-const FONT = `700 ${CELL}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+const FONT = `700 ${GLYPH}px ui-monospace, SFMono-Regular, Menlo, monospace`;
 
 /** An emoji's square on the sheet: emoji reach past their font size. */
-const SLOT = Math.ceil(CELL * 1.5);
+const SLOT = Math.ceil(GLYPH * 1.5);
 
 /** The emoji drawn once side by side, so a frame copies squares rather than drawing emoji. */
 function sheet(glyphs: readonly string[]) {
