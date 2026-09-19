@@ -390,8 +390,9 @@ A 30-second poll remains as a safety net. No WebSockets.
   under `GIVEN_FILES.dir` the moment they arrive and travel as paths in the words — which is
   also how the room draws them under the message. A thread's reply takes files the same way
   (`given-files` is the one hook and the one row of chips), and a drop that lands on the room
-  is the open thread's rather than the line's. The open room is wide enough to cover her
-  face, so the call and the line step aside for it (`roomOpen`).
+  is the open thread's rather than the line's. An open thread is wide enough to cover her
+  face, so the call and the line step aside for it (`roomOpen`); the room's list is a short
+  card in the corner and moves nothing.
 - The line opens on Thursday, and what is sent to her is a call in writing (`thursday.text`,
   `use-text-call`): the call's backend alone — its prompt but for the ending rule and the last
   chapter, its memory, its tools less the page's own (`end_call`, `emote`: there is no line to

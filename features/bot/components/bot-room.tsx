@@ -65,13 +65,15 @@ export const BotRoom = memo(function BotRoom() {
   const rung = useRingingThreads();
   const { data: bots } = useServerRoute<Bot[]>(queryKey.bot);
   const [open, setOpen] = useState(false);
-  // the call screen steps aside while the room stands open
-  useEffect(() => {
-    roomOpen.set(open);
-    return () => roomOpen.set(false);
-  }, [open]);
   /** Open thread; null shows the list. */
   const [picked, setPicked] = useState<string | null>(null);
+  // The call screen steps aside for a thread, which is read at nearly the window's height.
+  // The list is a short card in the corner: nothing moves for it
+  const reading = open && picked !== null;
+  useEffect(() => {
+    roomOpen.set(reading);
+    return () => roomOpen.set(false);
+  }, [reading]);
   /** The bot each thread shows, by thread id; a thread not in here is on All. */
   const [sides, setSides] = useState<Record<string, string | null>>({});
   /** The list on screen: what is current, or everything that has ended. */
