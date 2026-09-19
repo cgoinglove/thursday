@@ -35,6 +35,8 @@ A bot is a text model from any provider you added, with:
 - a **studio** for images, video, speech, and transcription
 - **each other**, to hand off part of a job
 
+![A thread open over the call: a planner hands work to another bot, its steps fold into tiles, and a question waits for you](images/room.png)
+
 The first run lets you pick a few starter bots; more are ready in Settings › Bots, or make your own with a name and one sentence about what it is for. That sentence is how Thursday decides who gets a job. Switch a bot off without deleting it.
 
 A job ends in the thing you asked for and a short report. Anything longer than a few lines is a file in `artifacts/`. When only you can do something — sign in, choose between two real options — the bot sets it up, asks, and waits. It is told never to press Pay: a purchase stops on the last screen, left open for you. That is an instruction the model follows, not a lock ([SECURITY.md](../SECURITY.md)).

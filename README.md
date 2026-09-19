@@ -24,6 +24,8 @@ npx thursday-agent
 
 Needs Node.js 22.18+ and one OpenAI API key, pasted into the first screen. Pick your starter bots and **tap her face**. No account, no `.env`. The voice costs about $0.05 a minute on that key.
 
+![The first run: a key, the starter bots, and one button that places the first call](docs/images/first-run.png)
+
 ## Try saying
 
 - “Find me a coat under two hundred dollars and put the options on one page.”
@@ -35,36 +37,41 @@ Needs Node.js 22.18+ and one OpenAI API key, pasted into the first screen. Pick 
 
 A speech model that opens a browser goes silent for a minute, and a silent call is a dead call. So Thursday splits the call in two: GPT-Live 1 holds the conversation, and anything slower than a few seconds goes to a bot in the background. Interrupt her, change the subject, or ask how the job is going.
 
-![A voice call with Thursday while a bot looks for hotels in the background](docs/images/call.png)
+![Asked how a job is going, she answers with the step the bot is on, while the call goes on](docs/images/call.png)
 
 ## One sentence, a whole team
 
 Bots hand parts of a job to each other, check what comes back, and ask you only when a decision is yours. Every handoff is saved: open the thread to see who did what, or step in.
 
-![A planner bot splits a trip request between two bots and one asks the user a question](docs/images/room.png)
+![Bots split a request, trade findings, ask the user one question, and each message becomes part of the finished page](docs/images/team.png)
 
 ## Errands, in a real browser
 
-Orders, bookings, forms, the inbox. Bots use their own browser or the Chrome you're already signed into, and ask before using a login you gave them. A purchase stops at the Pay button, left open on your screen.
+Orders, bookings, forms, the inbox. Bots use their own browser or the Chrome you're already signed into. When a site needs you, the bot opens a window, you sign in yourself, and the app keeps that sign-in for the bots you allow. A purchase stops at the Pay button, left open on your screen.
 
-![A checkout a bot filled in and left open, with the Pay button for the user to press](docs/images/errands.png)
+![A checkout a bot filled in and left open, with the Pay button left for the user to press](docs/images/errands.png)
 
 ## Results you can keep
 
 Pages, charts, videos, slides, docs and scripts, saved as files on your machine. A finished one shows up in the corner of your screen, and “show me” opens it.
 
-![Files made by six different bots: a rent chart, a short video, a carousel, a trip page, launch copy, and a script](docs/images/artifacts.png)
+![A finished page waiting in the corner of the screen while she says the job is back](docs/images/results.png)
 
 ## Your crew
 
 Pick starter bots on the first run, or make your own with a name and one sentence about what it's for. Give each its own model and tools.
 
-![A lineup of bots, each with its own face and job, plus a slot to make your own](docs/images/bots.png)
+![Picking the starter bots on the first run, each with its own face and job](docs/images/bots.png)
+
+## From your phone
+
+Write to her from Telegram, Discord or Slack while the app runs at home. A bot's question arrives as buttons, and the files she names come with her answer. Nothing on your computer is opened to the internet.
+
+![A chat with Thursday on a phone: a page sent back, and a bot's question as two buttons](docs/images/phone.png)
 
 ## And also
 
 - **Hang up, it keeps going.** Jobs run on your machine, and Thursday tells you when they finish, or rings your screen if you turn that on.
-- **From your phone.** Write to her from Telegram, Discord or Slack while the app runs at home. Nothing on your computer is opened to the internet.
 - **Type instead.** Press `/` and write to her: the same memory and bots, no microphone, nothing billed by the minute.
 - **Routines.** “Every weekday at nine, go through my mail”: a bot, a job and a time, set up by saying it.
 - **Memory you can read.** What she knows about you is plain notes. Open, edit, or delete any line.
