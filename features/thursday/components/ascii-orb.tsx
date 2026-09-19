@@ -226,6 +226,16 @@ const WORD_FADE_IN = 0.3;
 const WORD_HOLD = 3.4;
 const WORD_STEP_OUT = 0.08;
 const WORD_FADE_OUT = 0.35;
+/**
+ * A word arrives and leaves rough rather than as clean strokes: each cell of a letter keeps
+ * its own time within SCATTER (s), a cell still coming in or going out crackles on and off
+ * STATIC_RATE times a second, and what goes out drops to RESIDUE and lingers as an
+ * afterimage for LINGER (s) before it is gone.
+ */
+const WORD_SCATTER = 0.45;
+const WORD_STATIC_RATE = 14;
+const WORD_RESIDUE = 0.2;
+const WORD_LINGER = 0.9;
 /** A word given this soon after she mounts came with her (ms). */
 const BORN_WITH_MS = 600;
 /**
@@ -517,22 +527,33 @@ function onTwoLines(text: string): number[][] | null {
   ];
 }
 
-/** A word's letters `age` seconds into its showing: each lights in turn, holds, and goes out in turn. */
+/**
+ * A word's letters `age` seconds into its showing: each lights in turn, holds, and goes out in
+ * turn — every cell on its own beat, crackling while it changes, and leaving an afterimage.
+ */
 function wordValue(cell: Cell, t: number, age: number, hold: number) {
   if (cell.word < 0) return 0;
-  const jitter = cell.seed * 0.08;
+  const jitter = cell.seed * WORD_SCATTER;
   const appear = smoothstep(
     0,
     1,
     (age - cell.word * WORD_STEP_IN - jitter) / WORD_FADE_IN,
   );
-  const vanish = smoothstep(
-    0,
-    1,
-    (age - hold - cell.word * WORD_STEP_OUT - jitter) / WORD_FADE_OUT,
-  );
+  const out = age - hold - cell.word * WORD_STEP_OUT - jitter;
+  const vanish = smoothstep(0, 1, out / WORD_FADE_OUT);
+  // what the letter drops to, then the afterimage fading out of that
+  const residue =
+    WORD_RESIDUE * (1 - smoothstep(0, 1, (out - WORD_FADE_OUT) / WORD_LINGER));
+  const lit = Math.max(appear - vanish, appear > 0.5 ? residue * vanish : 0);
+  const changing = (appear > 0 && appear < 1) || (vanish > 0 && residue > 0);
+  const crackle =
+    changing &&
+    hash(Math.floor(t * WORD_STATIC_RATE) + cell.seed * 97, cell.grain * 31) <
+      0.35
+      ? 0.25
+      : 1;
   const flick = 0.86 + Math.sin(t * 3.5 + cell.seed * 6) * 0.14;
-  return Math.max(0, appear - vanish) * flick;
+  return lit * crackle * flick;
 }
 
 /**
@@ -757,7 +778,7 @@ export function AsciiOrb({
     const now = performance.now();
     const lit =
       now - bornAt.current < BORN_WITH_MS
-        ? word.text.length * WORD_STEP_IN + WORD_FADE_IN + 0.08
+        ? word.text.length * WORD_STEP_IN + WORD_FADE_IN + WORD_SCATTER
         : 0;
     wordRef.current = {
       text: word.text,
@@ -857,7 +878,12 @@ export function AsciiOrb({
       const wording =
         shown !== null &&
         cur.mode !== "error" &&
-        wordAge < shown.hold + shown.letters * WORD_STEP_OUT + WORD_FADE_OUT;
+        wordAge <
+          shown.hold +
+            shown.letters * WORD_STEP_OUT +
+            WORD_SCATTER +
+            WORD_FADE_OUT +
+            WORD_LINGER;
       const want: Field = wording
         ? {
             scale: 0,
