@@ -242,7 +242,14 @@ export function WriteLine({
       .finally(() => setReaching(false));
   };
 
-  if (!open && !dragging && !calling) return null;
+  // The pill's card would grow where the line stands, so the pill is told (room-pill)
+  const up = open || dragging || calling;
+  useEffect(() => {
+    writeLine.shown(up);
+    return () => writeLine.shown(false);
+  }, [up]);
+
+  if (!up) return null;
 
   return (
     <>
@@ -256,7 +263,8 @@ export function WriteLine({
       )}
       <div
         className={cn(
-          "pointer-events-none fixed inset-x-0 bottom-7 z-30 flex justify-center px-5 transition-[padding] duration-500 ease-out max-[1100px]:bottom-18",
+          // under this width the pill's own row reaches the line: the line stands above it
+          "pointer-events-none fixed inset-x-0 bottom-7 z-30 flex justify-center px-5 transition-[padding] duration-500 ease-out max-[1180px]:bottom-18",
           // the same step aside the call takes for the open room
           aside && "min-[1180px]:pr-[41.25rem]",
         )}

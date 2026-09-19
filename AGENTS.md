@@ -364,7 +364,8 @@ A 30-second poll remains as a safety net. No WebSockets.
 - The pill's bubble shows one thing that just happened, over the face of whoever spoke: that face
   with the bots it reached tucked behind it, then the words — no glyph between faces. Questions
   and stops take amber. Clicking the pill opens the room's list, never a thread; the "+" at its
-  left end asks for the write line instead.
+  left end asks for the write line instead. While that line is up the card does not grow —
+  the line stands there — and the pill's own words carry the count.
   The open list keeps the pill's row at its foot, faces without step words, and a moment shows
   there instead of in a bubble; only an open thread hides it.
 
@@ -398,9 +399,13 @@ A 30-second poll remains as a safety net. No WebSockets.
   the server saves every turn as it happens. It runs on the GPT Subscription when one is signed
   in, else the OpenAI key (`textCallRunsOn`, one rule for the server and the screen) — a rule
   about what is set, never a second try after a refusal — and the line says which before
-  anything is sent. Esc or a spoken call ends it; a spoken call has the line to itself, so what
-  is typed then goes to a bot, and a file put down then reaches the call as a fact the way a
-  screen answer does (`screenActs`), never as an instruction.
+  anything is sent. Open work reaches it as it reaches a spoken call — the same list
+  (`open-work`), between turns once nothing has been written for `CALL_RELAY.quietMs`, as a
+  turn of its own that is neither drawn nor kept as the user's words, its relay rows accepted
+  once she has answered — and nothing rings meanwhile. Esc or a spoken call ends it; a spoken
+  call has the line to itself, so what is typed then goes to a bot, and a file put down then
+  reaches the call as a fact the way a screen answer does (`screenActs`), never as an
+  instruction.
 
 # Rules
 

@@ -29,6 +29,7 @@ import {
   rosterOf,
   type ThreadView,
   type ThreadViewStatus,
+  useWriteLineUp,
   writeLine,
 } from "../thread.store";
 
@@ -419,16 +420,20 @@ export function crewOf(
  * running. Endings say nothing here — a result or a failure grows a row above
  * the pill, and that row is the notice. With nothing going on and nothing
  * grown, the pill offers a hand; with a row grown and nothing going on, it is
- * quiet.
+ * quiet. The one time an ending is said here is while the write line keeps the
+ * row from growing (`folded`): the notice has nowhere else to stand.
  */
 function restingState({
   busy,
   pending,
   grown,
+  folded = 0,
 }: {
   busy: number;
   pending: number;
   grown: boolean;
+  /** Unread endings whose rows the write line is holding back. */
+  folded?: number;
 }): { text: string; shine: boolean; spin?: boolean } | null {
   if (pending > 0)
     return {
@@ -436,6 +441,11 @@ function restingState({
       shine: true,
     };
   if (busy > 0) return { text: "working", shine: true, spin: true };
+  if (folded > 0)
+    return {
+      text: folded === 1 ? "1 new result" : `${folded} new results`,
+      shine: false,
+    };
   if (!grown) return { text: "Need a hand?", shine: false };
   return null;
 }
@@ -481,7 +491,10 @@ export function Chip({
   onPick: (id: string) => void;
   onOpen: () => void;
 }) {
-  const grown = rows.length > 0;
+  // The write line stands where the card would grow: while it is up the pill stays a pill,
+  // and its own words say what the rows would have
+  const lineUp = useWriteLineUp();
+  const grown = rows.length > 0 && !lineUp;
 
   return (
     <div
@@ -543,7 +556,14 @@ export function Chip({
         bubble={grown ? null : bubble}
         label={count ? `Threads (${count})` : "Bots"}
         onClick={onOpen}
-        side={<RoomState busy={busy} pending={pending} grown={grown} />}
+        side={
+          <RoomState
+            busy={busy}
+            pending={pending}
+            grown={grown}
+            folded={lineUp ? unread : 0}
+          />
+        }
         onWrite={writeLine.open}
       />
     </div>
@@ -609,6 +629,7 @@ export function RoomState(props: {
   busy: number;
   pending: number;
   grown: boolean;
+  folded?: number;
 }) {
   const state = restingState(props);
   if (!state) return null;

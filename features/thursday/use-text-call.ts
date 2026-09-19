@@ -9,11 +9,15 @@ import {
 } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
+import { CALL_RELAY } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
+import { acceptThreadRelaysAction } from "@/features/bot/bot.action";
+import type { Thread } from "@/features/bot/bot.schema";
 import { unwrapResult } from "@/lib/protocol/result";
 import { useServerAction } from "@/lib/protocol/use-server-action";
-import { revalidate } from "@/lib/protocol/use-server-route";
+import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { plainText } from "@/lib/utils";
+import { openWork } from "./open-work";
 import { endCallAction, openTextCallAction } from "./thursday.action";
 import type {
   CallMessage,
@@ -30,7 +34,18 @@ import type { ActivityLine } from "./use-thursday";
  * holds that conversation and sends it whole with every turn; the row it is kept under
  * opens with the first words and closes when the call ends — Esc in the line, or a spoken
  * call taking the screen. She holds no tool that ends it: there is no line to drop.
+ *
+ * Background work that waits on the user is put to her here as it is on a spoken call
+ * (open-work): between turns, once nothing has been written for CALL_RELAY.quietMs, one
+ * kind at a time, each item once a call. It goes in as a turn of its own that is neither
+ * drawn nor kept as the user's words — a bot's message, under the bracket that says so —
+ * and its relay rows are accepted once she has answered it.
  */
+
+/** A turn the page put in for a bot, not words the user wrote (thursday.text reads the same mark). */
+export const RELAY_TURN = { relay: true } as const;
+const isRelayTurn = (message: UIMessage) =>
+  (message.metadata as { relay?: unknown } | undefined)?.relay === true;
 
 const transport = new DefaultChatTransport({ api: queryKey.textCall });
 
@@ -118,6 +133,87 @@ export function useTextCall(): TextCall {
     [open, sendMessage, clearError],
   );
 
+  // The inbox, the same read the spoken call makes (one request between them)
+  const { data: threads } = useServerRoute<Thread[]>(queryKey.threads);
+  const inbox = useRef<Thread[] | undefined>(threads);
+  inbox.current = threads;
+  const told = useRef(new Set<string>());
+  /** When something was last written, by either side: the quiet the relay waits for. */
+  const stirred = useRef(Date.now());
+  /** The update she is answering: its relay rows, and whether her answer has begun. */
+  const relaying = useRef<{ rows: number[]; began: boolean } | null>(null);
+  const [relayLine, setRelayLine] = useState<ActivityLine | null>(null);
+  const busy = useRef(running);
+  busy.current = running;
+
+  // Her answer to an update is over: its rows are accepted, as once her voice has carried one
+  useEffect(() => {
+    stirred.current = Date.now();
+    const update = relaying.current;
+    if (running) {
+      if (update) update.began = true;
+      return;
+    }
+    // sent, and her answer not begun yet: nothing is over
+    if (update && !update.began) return;
+    relaying.current = null;
+    if (update?.rows.length && !error)
+      void acceptThreadRelaysAction(update.rows)
+        .then(unwrapResult)
+        .catch(() => {});
+    if (!relayLine) return;
+    const out = setTimeout(() => setRelayLine(null), TOOL_LINGER_MS);
+    return () => clearTimeout(out);
+  }, [running, error, relayLine]);
+
+  const on = line !== null;
+  useEffect(() => {
+    if (!on) {
+      told.current.clear();
+      return;
+    }
+    const tick = setInterval(() => {
+      const to = held.current;
+      if (!to || busy.current || relaying.current || !inbox.current) return;
+      if (Date.now() - stirred.current < CALL_RELAY.quietMs) return;
+      const open = openWork(inbox.current).filter(
+        (item) => !told.current.has(item.key),
+      );
+      const first = open[0];
+      if (!first) return;
+      const due = open
+        .filter((item) => item.kind === first.kind)
+        .slice(0, CALL_RELAY.perTurn);
+      for (const item of due) told.current.add(item.key);
+      relaying.current = {
+        rows: due.flatMap((item) => item.relayIds),
+        began: false,
+      };
+      setRelayLine((due.at(-1) ?? first).show);
+      stirred.current = Date.now();
+      // an earlier turn's failure is not this one's
+      clearError();
+      const lines = due.map((item) => item.line);
+      void sendMessage(
+        {
+          text:
+            lines.length === 1
+              ? lines[0]
+              : `[${lines.length} updates.]\n\n${lines.join("\n\n")}`,
+          metadata: RELAY_TURN,
+        },
+        {
+          body: {
+            callId: to.callId,
+            settings: thursdaySettings(),
+            standing: to.standing,
+          },
+        },
+      );
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [on, sendMessage, clearError]);
+
   const reply = messages.at(-1)?.role === "assistant" ? messages.at(-1) : null;
   const parts = reply?.parts ?? [];
   const last = parts.at(-1);
@@ -127,7 +223,7 @@ export function useTextCall(): TextCall {
   const turns = useMemo(
     (): CallMessage[] =>
       messages.flatMap((message) => {
-        if (message.role === "system") return [];
+        if (message.role === "system" || isRelayTurn(message)) return [];
         const said = wordsOf(message);
         const text = message.role === "assistant" ? plainText(said) : said;
         return text ? [{ id: message.id, role: message.role, text }] : [];
@@ -173,7 +269,8 @@ export function useTextCall(): TextCall {
     const out = setTimeout(() => setLingered(usedId), TOOL_LINGER_MS);
     return () => clearTimeout(out);
   }, [usedId]);
-  const tool = used && used.id !== lingered ? used : null;
+  // Her own tool first; else the update she is answering, as a relay holds the spoken line
+  const tool = used && used.id !== lingered ? used : relayLine;
 
   // Thinking is every stretch she is at work with no tool and no words on the way
   const thinking =

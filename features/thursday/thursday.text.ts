@@ -154,12 +154,17 @@ async function prepare(body: unknown) {
     nextTurnSeq(callId),
   ]);
 
-  // The words just sent are a turn the moment they arrive, answered or not
+  // The words just sent are a turn the moment they arrive, answered or not. An update the
+  // page put in for a bot (use-text-call RELAY_TURN) is not the user's words, and like a
+  // relay on a spoken call it is no turn of its own: her answer to it is what is kept
   const said = ui.at(-1);
   if (said?.role !== "user") publicError("The last message is not yours.");
-  await saveTurns(callId, [
-    { id: said.id, role: "user", text: wordsOf(said), seq },
-  ]);
+  const relayed =
+    (said.metadata as { relay?: unknown } | undefined)?.relay === true;
+  if (!relayed)
+    await saveTurns(callId, [
+      { id: said.id, role: "user", text: wordsOf(said), seq },
+    ]);
 
   // One search, never two, as on a spoken call (thursday.action): Exa's is among the
   // tools while its key is set, else the model's own where its provider has one
@@ -189,7 +194,7 @@ async function prepare(body: unknown) {
     : [];
   return {
     callId,
-    seq: seq + 1,
+    seq: relayed ? seq : seq + 1,
     model: model.model,
     system,
     tools,

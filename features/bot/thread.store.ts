@@ -379,8 +379,13 @@ export function useRoomOpen(): boolean {
 }
 
 const writes = new Set<() => void>();
+let writeLineUp = false;
+const writeLineListeners = new Set<() => void>();
 
-/** Asks the screen for its write line: the pill's "+" does, from either place the pill stands. */
+/**
+ * Asks the screen for its write line: the pill's "+" does, from either place the pill stands.
+ * The line says when it is up (`shown`), since it stands where the pill's card would grow.
+ */
 export const writeLine = {
   open() {
     for (const listener of writes) listener();
@@ -391,7 +396,24 @@ export const writeLine = {
       writes.delete(listener);
     };
   },
+  shown(up: boolean) {
+    if (up === writeLineUp) return;
+    writeLineUp = up;
+    for (const listener of writeLineListeners) listener();
+  },
 };
+
+/** Whether the write line is up at the foot of the screen. */
+export function useWriteLineUp(): boolean {
+  return useSyncExternalStore(
+    (listener) => {
+      writeLineListeners.add(listener);
+      return () => writeLineListeners.delete(listener);
+    },
+    () => writeLineUp,
+    () => false,
+  );
+}
 
 const opens = new Set<(id: string) => void>();
 

@@ -1350,6 +1350,8 @@ function Elapsed({ since }: { since: number | null }) {
 }
 
 export function Thursday() {
+  // First, because the spoken call has to know one is on: it rings for nothing meanwhile
+  const text = useTextCall();
   const {
     status,
     failed,
@@ -1368,7 +1370,7 @@ export function Thursday() {
     getMicSpectrum,
     wakePhrase,
     hotkey,
-  } = useThursday();
+  } = useThursday(text.on);
   // one entry point per line: the wake phrase if any, else the hotkey
   const hotkeyLabel = useHotkeyLabel(hotkey);
   // a preference, not a fact about the model (thursday.store)
@@ -1384,7 +1386,6 @@ export function Thursday() {
 
   // A call in writing takes the same screen while no line is open; a spoken call ends it,
   // which is what tapping her face in the middle of one does
-  const text = useTextCall();
   const spoken = status !== "idle";
   const endWritten = text.end;
   useEffect(() => {

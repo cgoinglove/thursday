@@ -20,7 +20,9 @@ line at the foot of the screen, and it opens on her. What is sent there starts a
 writing: her answers come up beside her face as they do on a spoken call, what she is doing
 shows under it, and the line stays as the way to write back. She has the same memory, the same
 tools and the same bots as on a spoken call; there is no voice and no microphone, and nothing
-is billed by the minute. Files go with the words the way they do to a bot (`bots.md`).
+is billed by the minute. Files go with the words the way they do to a bot (`bots.md`). Work
+she handed over comes back in writing too: once nothing has been written for a few seconds
+she says what a bot finished or asks, and nothing rings while the written call is on.
 
 It runs on the GPT Subscription when one is signed in, else on the OpenAI key, and the line
 says which before anything is sent. With neither it says so and sends nothing — both are in
