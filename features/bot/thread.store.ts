@@ -354,8 +354,8 @@ export function useRingingThreads(): string[] {
 }
 
 /**
- * Whether the room stands open in its corner. The call screen reads it to step aside:
- * the room is wide enough to cover half of her face otherwise.
+ * Whether a thread stands open in the room. The write line reads it to step aside — two
+ * composers cannot share the foot of the screen. The call itself never moves for the room.
  */
 let roomIsOpen = false;
 const roomListeners = new Set<() => void>();

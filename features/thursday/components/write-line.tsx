@@ -323,7 +323,8 @@ export function WriteLine({
         className={cn(
           // under this width the pill's own row reaches the line: the line stands above it
           "pointer-events-none fixed inset-x-0 bottom-7 z-30 flex justify-center px-5 transition-[padding] duration-500 ease-out max-[1180px]:bottom-18",
-          // the same step aside the call takes for the open room
+          // an open thread has a composer of its own at the foot of the room (40rem and its
+          // margin): the line steps aside for it, the one thing on the screen that does
           aside && "min-[1180px]:pr-[41.25rem]",
         )}
       >

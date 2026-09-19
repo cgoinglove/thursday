@@ -67,8 +67,8 @@ export const BotRoom = memo(function BotRoom() {
   const [open, setOpen] = useState(false);
   /** Open thread; null shows the list. */
   const [picked, setPicked] = useState<string | null>(null);
-  // The call screen steps aside for a thread, which is read at nearly the window's height.
-  // The list is a short card in the corner: nothing moves for it
+  // A thread is read at nearly the window's height and lies over the call; only the write
+  // line steps aside for it. The list is a short card in the corner
   const reading = open && picked !== null;
   useEffect(() => {
     roomOpen.set(reading);
@@ -237,7 +237,7 @@ export const BotRoom = memo(function BotRoom() {
   return (
     // As wide as the resting pill may grow: 80% of the window. The open room
     // keeps its own 40rem inside it, and nearly the window's height: a thread is
-    // read here, files and all, and the call screen steps aside for it (roomOpen).
+    // read here, files and all, over the right of the call (which does not move for it).
     <div className="pointer-events-none absolute right-5 bottom-5 z-10 flex w-[min(80vw,calc(100vw-2.5rem))] flex-col items-end gap-2">
       {open ? (
         <div

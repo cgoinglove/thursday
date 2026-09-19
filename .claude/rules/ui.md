@@ -111,7 +111,8 @@ paths:
   under `GIVEN_FILES.dir` the moment they arrive and travel as paths in the words — which is
   also how the room draws them under the message. A thread's reply takes files the same way
   (`given-files` is the one hook and the one row of chips), and a drop that lands on the room
-  is the open thread's rather than the line's. An open thread is wide enough to cover her
-  face, so the call and the line step aside for it (`roomOpen`); the room's list is a short
-  card in the corner and moves nothing. What the line sends to Thursday is a call in writing
-  (`.claude/rules/call.md`).
+  is the open thread's rather than the line's. An open thread lies over the right of the call
+  and moves none of it — her face and the captions are where they were when it closes (the
+  user's pick); only the line steps aside (`roomOpen`), since two composers cannot share the
+  foot of the screen. The room's list is a short card in the corner. What the line sends to
+  Thursday is a call in writing (`.claude/rules/call.md`).
