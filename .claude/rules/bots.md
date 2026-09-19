@@ -24,6 +24,9 @@ paths:
   identity. Browser sessions use the thread and canonical bot name, and the workspace is marked
   as the browser CLI's own (`.playwright`), so what those sessions keep on disk is this app's
   alone: a cancel closes the windows, a removed or aged-out thread takes its profiles with it.
+  The browser is the build boot downloads (`ensureBrowser`), named in every shell
+  (`jobShellEnv`); left to itself the CLI launches the user's own Chrome, which many machines
+  lack and whose window on macOS takes the links the user opens.
   Requests to the same bot run sequentially. Messages are asynchronous: a waiting A can handle a question from B in its own
   context, but a bot waiting on the user's answer runs nothing until it arrives; its inbox holds. Only exchanged messages cross participant contexts. `room.query` owns durable inboxes,
   continuation claims and return routes; `bot.runner` owns live promises.

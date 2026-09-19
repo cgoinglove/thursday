@@ -51,7 +51,8 @@ popup window; a server that needs it again turns red on that screen.
 ## Sites they signed in to
 
 When a bot needs them signed in to a website — to post, to read mail, to order — it opens a
-browser window on their screen and asks; they sign in there themselves, and the app keeps that
+window of the bots' own browser (Google Chrome for Testing, not their Chrome) on their screen
+and asks; they sign in there themselves, and the app keeps that
 sign-in so later work does not ask again. **Settings › Sign-ins** lists each one:
 the site, the account, and the bots that may use it. What is kept is the site's session, never
 a password, on this machine and outside the folder the bots work in.

@@ -193,14 +193,18 @@ export async function openJobScratch(
  */
 export const jobShellEnv = (
   threadId: string | null | undefined,
-): Record<string, string> =>
-  threadId
+): Record<string, string> => ({
+  // The build ensureBrowser downloads. Unset, playwright-cli launches the user's own
+  // Chrome: absent on many machines, and on macOS its window takes the links they open
+  PLAYWRIGHT_MCP_BROWSER: "chromium",
+  ...(threadId
     ? {
         PLAYWRIGHT_CLI_SESSION: `thread-${threadId}`,
         // Read by playwright-cli; the window it opens is on the user's screen
         PLAYWRIGHT_MCP_VIEWPORT_SIZE: BROWSER_VIEWPORT,
       }
-    : {};
+    : {}),
+});
 
 /**
  * A bot's artifacts folder in its shell, for a script that delivers a file

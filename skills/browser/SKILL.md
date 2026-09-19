@@ -119,8 +119,9 @@ your folder under `artifacts/` when it is the result.
 
 ## Install
 
-The app fetches the browser itself when it starts, so this is only for a machine
-where that never finished. `open` failing with a missing executable is the tell:
+The app fetches the browser itself when it starts — Google Chrome for Testing, set
+in your shell, never the user's own Chrome — so this is only for a machine where
+that never finished. `open` failing with a missing executable is the tell:
 
 ```bash
 playwright-cli install-browser chromium
