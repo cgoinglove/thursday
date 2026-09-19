@@ -774,6 +774,9 @@ export function AsciiOrb({
   // lighting in a moment after an empty face read as a late start
   useEffect(() => {
     if (!word) return;
+    // A word is said as it comes. One handed back later — the goodbye still held when a
+    // ring's CALL steps aside — would already be over, so it is not said again
+    if (Date.now() - word.at > (word.hold ?? WORD_HOLD) * 1000) return;
     const { cw, ch } = pitchRef.current;
     const now = performance.now();
     const lit =
