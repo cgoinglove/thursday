@@ -107,8 +107,9 @@ call › She calls you** makes the screen ring instead: "When a job needs me" ri
 question or a stop — where it starts — "Whenever a job ends" rings for results too, and
 "Never" leaves it to the notification. It is one call however much is waiting: while it rings, the screen says under her
 face whose work it is about and what it asks — with the answers the bot offered, and the
-other work waiting by name — and one round button, Answer. Tapping her face answers too, Esc
-is "not now", and she opens by saying why she called, then tells the rest one by one. A ring
+other work waiting by name — and one round button, Answer. Tapping her face answers too, and
+so does the wake phrase when it is on (the screen says so beside "not now"); Esc is "not now".
+She opens by saying why she called, then tells the rest one by one. A ring
 nobody takes becomes a short missed list in the same place, with Call back, until it is
 called back or cleared with Esc; the work itself stays in the room either way. She cannot
 switch this on herself: when they ask to be

@@ -272,6 +272,7 @@ function CallScreen({
           {ringing && (
             <Incoming
               ringing={ringing}
+              wakePhrase={wakePhrase}
               onAnswer={onTap}
               onDecline={() => onDecline?.()}
             />
@@ -1078,10 +1079,13 @@ const KEY_CAP =
  */
 function Incoming({
   ringing,
+  wakePhrase,
   onAnswer,
   onDecline,
 }: {
   ringing: Ringing;
+  /** Saying it answers as the button does (use-thursday `call`); null while it is off. */
+  wakePhrase: string | null;
   onAnswer: () => void;
   onDecline: () => void;
 }) {
@@ -1150,6 +1154,11 @@ function Incoming({
         >
           Call back
         </Button>
+        {wakePhrase && (
+          <span className="mt-3 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground/70">
+            or say <SaidPhrase phrase={wakePhrase} />
+          </span>
+        )}
       </div>
     );
   }
@@ -1204,15 +1213,32 @@ function Incoming({
           )}
         </span>
       )}
-      <button
-        type="button"
-        onClick={onDecline}
-        className="mt-1 flex items-center gap-2 rounded-md font-mono text-[11px] text-muted-foreground/70 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
-        <kbd className={KEY_CAP}>Esc</kbd>
-        not now
-      </button>
+      <span className="mt-1 flex items-center gap-3 font-mono text-[11px] text-muted-foreground/70">
+        {wakePhrase && (
+          <span className="flex items-center gap-1.5">
+            say <SaidPhrase phrase={wakePhrase} /> to answer
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={onDecline}
+          className="flex items-center gap-2 rounded-md outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <kbd className={KEY_CAP}>Esc</kbd>
+          not now
+        </button>
+      </span>
     </div>
+  );
+}
+
+/** The wake phrase as the screen shows it wherever saying it does something. */
+function SaidPhrase({ phrase }: { phrase: string }) {
+  return (
+    <span className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-foreground/80">
+      <Mic className="size-3" />
+      {phrase}
+    </span>
   );
 }
 
@@ -1329,10 +1355,7 @@ function Hint({
     body = (
       <>
         <span>Tap Thursday, or say</span>
-        <span className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-foreground/80">
-          <Mic className="size-3" />
-          {wakePhrase}
-        </span>
+        <SaidPhrase phrase={wakePhrase} />
       </>
     );
   } else if (hotkeyLabel) {
