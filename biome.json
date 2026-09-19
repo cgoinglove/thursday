@@ -40,6 +40,7 @@
       "correctness": {
         "noUnusedVariables": "error",
         "noUnusedImports": "error",
+        "noUnusedFunctionParameters": "error",
         "useExhaustiveDependencies": "off"
       },
       "style": {

@@ -53,6 +53,7 @@ next-env.d.ts
 # Tool skills are installed per machine and symlink into /.agents, so a
 # committed one is a dangling link on every clone.
 /.claude/skills/*
+/.claude/worktrees/
 /.agents
 .playwright-cli
 .playwright
