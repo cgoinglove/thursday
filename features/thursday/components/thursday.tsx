@@ -1470,7 +1470,12 @@ function Elapsed({ since }: { since: number | null }) {
   );
 }
 
-export function Thursday() {
+export function Thursday({
+  /** A voice key exists, as the server saw it while rendering the page. */
+  ready,
+}: {
+  ready: boolean;
+}) {
   // First, because the spoken call has to know one is on: it rings for nothing meanwhile
   const text = useTextCall();
   const {
@@ -1500,10 +1505,14 @@ export function Thursday() {
 
   /**
    * Same question as the server's `isCallable`, asked here because the answer
-   * can change during a call (NeedsKey). Unknown counts as not callable.
+   * can change during a call (NeedsKey). Until it has been answered here the page's own
+   * answer stands: counting unknown as no key drew her asleep for the first moment of
+   * every load, then woke her.
    */
   const { data: config } = useServerRoute<ConfigStatus[]>(queryKey.config);
-  const callable = isConfigSet(config, LIVE_PROVIDER.apiKeyName);
+  const callable = config
+    ? isConfigSet(config, LIVE_PROVIDER.apiKeyName)
+    : ready;
 
   // A call in writing takes the same screen while no line is open; a spoken call ends it,
   // which is what tapping her face in the middle of one does

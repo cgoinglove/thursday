@@ -262,6 +262,8 @@ const WORD_FADE_IN = 0.3;
 const WORD_HOLD = 3.4;
 const WORD_STEP_OUT = 0.08;
 const WORD_FADE_OUT = 0.35;
+/** A word given this soon after she mounts came with her (ms). */
+const BORN_WITH_MS = 600;
 /**
  * The widest and tallest a word is drawn, as shares of the box. Wider than her body, as ERROR
  * is: fitted to the body alone, a seven-letter word came out at the smallest size and was
@@ -659,6 +661,8 @@ export function AsciiOrb({
 
   /** The mode being asked for, and when it was asked for. */
   const modeRef = useRef({ mode, start: 0 });
+  /** When she mounted (ms), to tell a word that came with her from one given later. */
+  const bornAt = useRef(performance.now());
   /**
    * The field on screen. It only ever eases toward the mode's targets, so it
    * starts drawn in and opens on the first frames like any other arrival.
@@ -797,13 +801,20 @@ export function AsciiOrb({
     modeRef.current = { mode, start: performance.now() * 0.001 };
   }, [mode]);
 
-  // a new word starts from its first letter, in place of one still showing
+  // a new word starts from its first letter, in place of one still showing — but the one
+  // that comes with her (the hello as the app opens) is there from her first frame: letters
+  // lighting in a moment after an empty face read as a late start
   useEffect(() => {
     if (!word) return;
     const { cw, ch } = pitchRef.current;
+    const now = performance.now();
+    const lit =
+      now - bornAt.current < BORN_WITH_MS
+        ? word.text.length * WORD_STEP_IN + WORD_FADE_IN + 0.08
+        : 0;
     wordRef.current = {
       text: word.text,
-      start: performance.now() * 0.001,
+      start: now * 0.001 - lit,
       letters: layWord(cellsRef.current, cw, ch, word.text),
       hold: word.hold ?? WORD_HOLD,
     };
