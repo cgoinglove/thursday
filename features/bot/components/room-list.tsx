@@ -147,9 +147,12 @@ export function HistoryList({
           {pages.error.message}
         </p>
       ) : pages.isLoading ? (
+        // The shape of the shortest answer — a day and one row — so a short history
+        // arrives without the card growing and then shrinking back
         <>
-          <GhostRow />
-          <GhostRow />
+          <span className="flex h-6 items-center px-2.5 pt-1">
+            <Skeleton className="h-2.5 w-16" />
+          </span>
           <GhostRow />
         </>
       ) : (
