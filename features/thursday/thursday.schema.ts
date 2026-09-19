@@ -2,8 +2,8 @@ import z from "zod";
 import { ASCII_FACE } from "@/config";
 import { LiveSettingsSchema } from "@/features/ai/live.schema";
 import { TEXT_MODEL_PROVIDERS } from "@/features/ai/model.schema";
-import { botIconSchema, type ThreadStatus } from "@/features/bot/bot.schema";
-import { ASCII_CHARSETS, FACE_KINDS } from "@/features/thursday/face.const";
+import type { ThreadStatus } from "@/features/bot/bot.schema";
+import { ASCII_CHARSETS } from "@/features/thursday/face.const";
 import type { DateLike } from "@/lib/date-like";
 import { LiveFragmentSchema } from "@/lib/live/live.schema";
 
@@ -13,8 +13,6 @@ import { LiveFragmentSchema } from "@/lib/live/live.schema";
 export const ThursdaySettingsSchema = LiveSettingsSchema.extend({
   /** `navigator.language` (e.g. "ko-KR"). Only the first call's opening line uses it. */
   locale: z.string().max(35).nullish(),
-  /** The face can show a word (the ascii orb); only then is the call given `emote`. */
-  faceWords: z.boolean().optional(),
 });
 
 export type ThursdaySettings = z.infer<typeof ThursdaySettingsSchema>;
@@ -70,12 +68,8 @@ export type TextCallHandshake = {
   standing: string | null;
 };
 
-/**
- * How Thursday is drawn. `kind` selects one of two unrelated renderers; the
- * fields after it apply to the ascii one only. Browser-only (face.store).
- */
-export const ThursdayFaceSchema = botIconSchema.extend({
-  kind: z.enum(FACE_KINDS).default("ascii"),
+/** How Thursday's orb is drawn. Browser-only (face.store). */
+export const ThursdayFaceSchema = z.object({
   charset: z.enum(ASCII_CHARSETS).default(ASCII_FACE.charset),
   /** Glyph size in px. */
   fontSize: z

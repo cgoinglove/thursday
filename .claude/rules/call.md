@@ -28,7 +28,7 @@ paths:
   never instructions, since the backend reads it too.
 - **Tools run on the server.** A call's tool invocation is forwarded by the page to the server, so
   tools call domain queries directly. The one exception is anything that touches the call itself
-  (hang up, a word on her face — offered only while the face is the ascii orb).
+  (hang up, a word on her face).
 - **Voice is GPT-Live, not Realtime.** The server exchanges the browser's SDP through
   `/v1/live/sessions`; the API key, both prompts and the tool manifest stay on the server. Live
   speech and Responses work have independent lifecycles. Collect function calls from nested

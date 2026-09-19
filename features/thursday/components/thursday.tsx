@@ -183,7 +183,7 @@ function CallScreen({
     (lastRole === "assistant" && status === "speaking") ||
     (lastRole === "user" && status === "listening");
   const calling = ringing !== null && ringing.missedAt === null;
-  const ringWord = useRingWord(calling && face?.kind === "ascii");
+  const ringWord = useRingWord(calling);
   return (
     <div className="relative flex h-full flex-col">
       <div className="absolute top-5 right-5 z-10 flex flex-col items-end gap-3">
@@ -224,16 +224,8 @@ function CallScreen({
               asleep && "opacity-35",
             )}
           >
-            {/* Ringing: the drawn mark swells twice and rests, like a phone's ring; the
-                orb says it in its own letters instead (useRingWord) */}
-            <span
-              className={cn(
-                "block",
-                calling &&
-                  face?.kind !== "ascii" &&
-                  "motion-safe:animate-ringing",
-              )}
-            >
+            {/* Ringing: she says it in her own letters (useRingWord) */}
+            <span className="block">
               <Face
                 look={face}
                 status={status}

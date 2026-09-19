@@ -1,16 +1,10 @@
 "use client";
 
-import { type ComponentType, memo, useEffect, useRef, useState } from "react";
-import {
-  BotMark,
-  type MarkOptions,
-  type MarkState,
-} from "@/features/bot/components/bot-mark";
+import { memo, useEffect, useRef, useState } from "react";
 import {
   AsciiOrb,
   type AsciiOrbMode,
 } from "@/features/thursday/components/ascii-orb";
-import type { FaceKind } from "@/features/thursday/face.const";
 import type {
   CallStatus,
   FaceWord,
@@ -20,9 +14,8 @@ import { useResolvedTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
 
 /**
- * The call face. Two renderers with nothing in common inside (an SVG
- * silhouette and a glyph canvas); the shared contract is CallStatus and `failed`,
- * and each adapter maps them. `word` is the orb's alone. A third face is one FaceKind, one state table, one FACES entry.
+ * The call face: the ascii orb, told what the call is doing (CallStatus and `failed`) and
+ * mapped here onto the orb's own modes.
  */
 
 type FaceProps = {
@@ -30,81 +23,25 @@ type FaceProps = {
   status: CallStatus;
   /** A call just failed to open or dropped. The status is idle by then; this says why the face is not at rest. */
   failed?: boolean;
-  /** A word `emote` put on the face. Only the orb draws one; the call offers `emote` only with the orb. */
+  /** A word `emote` put on the face. */
   word?: FaceWord | null;
   /** Box size in px, measured (see Face). */
   size: number;
   /** Audio bands, read once per animation frame, not through state. */
   getSpectrum?: () => ArrayLike<number>;
-  /** Appearance; each face reads only the fields that apply to it. */
+  /** Appearance: the glyphs, their size, how tightly they pack. */
   look: ThursdayFace;
   className?: string;
 };
 
-const MARK_STATE: Record<CallStatus, MarkState> = {
-  idle: "idle",
-  connecting: "connecting",
-  ending: "connecting",
-  listening: "listening",
-  speaking: "speaking",
-  working: "thinking",
-  delegating: "delegating",
-};
-
 /**
- * The mark's defaults are tuned for 32px rows; at 448px the same amplitude
- * reads as nothing, so the channels are roughly doubled. Module-level because
- * BotMark re-derives the silhouette when this object's identity changes.
- */
-const MARK_VOICE: Partial<MarkOptions> = {
-  /**
-   * The outline carries the voice. `pulse` and `stretch` move the whole mark,
-   * which at face size reads as a wobbling object rather than speech; `punch`
-   * with no pulse only squashes it a touch on each syllable.
-   */
-  ripple: 18,
-  bandEase: 0.03,
-  pulse: 0,
-  punch: 0.05,
-  stretch: 0,
-};
-
-function MarkFace({
-  status,
-  failed,
-  size,
-  getSpectrum,
-  look,
-  className,
-}: FaceProps) {
-  return (
-    <BotMark
-      size={size}
-      seed="thursday"
-      color={look.color}
-      shape={look.shape}
-      outline={look.outline}
-      paint={look.paint}
-      state={MARK_STATE[status]}
-      crossed={failed}
-      getSpectrum={getSpectrum}
-      options={MARK_VOICE}
-      notify={false}
-      className={className}
-    />
-  );
-}
-
-/**
- * listening has its own mode: the resting body, retyping with the microphone.
- * ending draws the body in and leaves the field empty; delegating borrows the
- * working comet.
+ * Listening is her resting face (the meter under it shows the voice); ending draws the body
+ * in and leaves the field empty; delegating borrows the working comet.
  */
 const ORB_MODE: Record<CallStatus, AsciiOrbMode> = {
   ending: "ending",
   idle: "idle",
   connecting: "connecting",
-  // the user's voice already shows in the meter under her face; she rests while they talk
   listening: "idle",
   speaking: "speaking",
   working: "working",
@@ -139,26 +76,6 @@ function OrbFace({
     />
   );
 }
-
-export const FACES: Record<
-  FaceKind,
-  /**
-   * `render` is a component; render it as an element, never call it, or its
-   * hooks fold into the caller's hook list and switching faces crashes.
-   */
-  { label: string; hint: string; render: ComponentType<FaceProps> }
-> = {
-  mark: {
-    label: "Mark",
-    hint: "A silhouette with eyes. Blinks, glances, leans into a voice.",
-    render: MarkFace,
-  },
-  ascii: {
-    label: "Ascii",
-    hint: "A field of characters. No eyes — the whole orb is the expression.",
-    render: OrbFace,
-  },
-};
 
 /**
  * The face at the size of its box, measured because the canvas face needs real
@@ -198,10 +115,6 @@ export const Face = memo(function Face({
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  // An element, not a call: each face owns its hooks, and a kind change swaps
-  // the element type so one unmounts cleanly
-  const Render = FACES[look.kind].render;
-
   return (
     <div
       ref={box}
@@ -212,7 +125,7 @@ export const Face = memo(function Face({
         className,
       )}
     >
-      <Render {...rest} look={look} status={status} size={px} />
+      <OrbFace {...rest} look={look} status={status} size={px} />
     </div>
   );
 });

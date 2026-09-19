@@ -82,8 +82,8 @@ one call at a time, and deletes a single call or all of them.
 
 ## Her voice, her face, her models
 
-- **Face**: the field of characters, or the drawn mark. Both are in Settings › Thursday › Face.
-  The field of characters can spell a short word: a hello as the app opens, CALL while she
+- **Face**: a field of characters — plain characters, some emoji or all emoji, and how big and
+  how dense, in Settings › Thursday › Face. It can spell a short word: a hello as the app opens, CALL while she
   rings, OK as finished work comes in, BYE as a call ends, and whatever she chooses to show.
   While she works it is a single tail circling.
 - **Voice**: 22 voices in Settings › Thursday › Models. Clicking a name plays it.

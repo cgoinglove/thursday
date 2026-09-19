@@ -51,11 +51,8 @@ const SDP_MAX_LENGTH = 65_536;
  * The same tool set /api/thursday/tool-call executes. Tools without `execute`
  * (`end_call`, `emote`) are included: the model must see them and the page intercepts them.
  */
-async function loadToolManifest(
-  faceWords: boolean,
-  webSearch: boolean,
-): Promise<ToolManifest[]> {
-  const tools = await loadTools({ target: "thursday", faceWords, webSearch });
+async function loadToolManifest(webSearch: boolean): Promise<ToolManifest[]> {
+  const tools = await loadTools({ target: "thursday", webSearch });
 
   return Object.entries(tools).map(([name, definition]) => {
     const { $schema, ...parameters } = asSchema(definition.inputSchema)
@@ -105,7 +102,7 @@ export const openCallAction = serverAction(
           remembers: last !== null,
         }),
         loadThursdayPrompt(thursday.backendPrompt),
-        loadToolManifest(thursday.faceWords ?? false, thursday.webSearch),
+        loadToolManifest(thursday.webSearch),
         acceptedReasoning({
           apiKey,
           model: thursday.backendModel,

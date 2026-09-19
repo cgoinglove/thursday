@@ -170,25 +170,6 @@
   }
 }
 
-/* A call-back ringing (thursday.tsx CallScreen): the face swells twice, then
-   rests, the cadence of a phone ringing. */
-@theme {
-  --animate-ringing: ringing 2.4s ease-out infinite;
-
-  @keyframes ringing {
-    0%,
-    14%,
-    30%,
-    100% {
-      transform: scale(1);
-    }
-    6%,
-    22% {
-      transform: scale(1.035);
-    }
-  }
-}
-
 /* ShinyText's sweep: the band crosses the words from left to right and starts
    over. The component sets the duration from its `speed`. */
 @theme {

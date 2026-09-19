@@ -24,8 +24,6 @@ import {
   type LiveSettings,
 } from "@/features/ai/live.schema";
 import type { AiProvider } from "@/features/ai/model.schema";
-import { MarkPalette } from "@/features/bot/components/mark-palette";
-import { MARK_SHAPES } from "@/features/bot/mark.const";
 import { KEY_MIN, KeyInput } from "@/features/config/components/voice-key";
 import { setConfigAction } from "@/features/config/config.action";
 import {
@@ -38,13 +36,12 @@ import {
 } from "@/features/settings/components/setting-ui";
 import type { SkillSummary } from "@/features/skills/skills.schema";
 import { CallHistoryRow } from "@/features/thursday/components/call-log";
-import { FACES, Face } from "@/features/thursday/components/face";
+import { Face } from "@/features/thursday/components/face";
 import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
 import { VoicePicker } from "@/features/thursday/components/voice-picker";
 import {
   ASCII_CHARSETS,
   type AsciiCharset,
-  FACE_KINDS,
 } from "@/features/thursday/face.const";
 import {
   setThursdayFace,
@@ -638,104 +635,41 @@ function FacePicker({
         {/* Same layout as the call screen: face above, one line below */}
         <div className="flex flex-col items-center gap-4 pt-2">
           <Face look={value} size={176} className="w-44" />
-
-          <Segmented
-            aria-label="Face"
-            options={FACE_KINDS.map((kind) => ({
-              value: kind,
-              label: FACES[kind].label,
-            }))}
-            value={value.kind}
-            onChange={(kind) => patch({ kind })}
-          />
-
-          <p className="max-w-sm text-center text-xs text-muted-foreground">
-            {FACES[value.kind].hint}
-          </p>
         </div>
 
-        {/* Only the mark takes a color; the orb follows the theme (OrbFace ignores it).
-            A paint covers the colour without clearing it; picking a colour takes it off. */}
-        {value.kind === "mark" && (
-          <MarkPalette
-            color={value.paint ? undefined : value.color}
-            themePicked={!value.paint && !value.color}
-            onTheme={() => patch({ color: undefined, paint: undefined })}
-            onPick={(color) => patch({ color, paint: undefined })}
-            paint={value.paint}
-            onPaint={(paint) =>
-              patch({ paint: value.paint === paint ? undefined : paint })
-            }
+        <Row label="Glyphs">
+          <Segmented
+            aria-label="Glyphs"
+            options={ASCII_CHARSETS.map((charset) => ({
+              value: charset,
+              label: CHARSET_LABEL[charset],
+            }))}
+            value={value.charset}
+            onChange={(charset) => patch({ charset })}
           />
-        )}
+        </Row>
 
-        {value.kind === "mark" && (
-          <Row label="Shape">
-            <Segmented
-              aria-label="Shape"
-              options={MARK_SHAPES.map((shape) => ({
-                value: shape,
-                label: <span className="capitalize">{shape}</span>,
-              }))}
-              value={value.shape ?? "blob"}
-              onChange={(shape) => patch({ shape })}
-            />
-          </Row>
-        )}
+        <Row label="Size">
+          <Slider
+            min={ASCII_FACE.fontSize.min}
+            max={ASCII_FACE.fontSize.max}
+            step={1}
+            value={value.fontSize}
+            format={(n) => `${n}px`}
+            onChange={(fontSize) => patch({ fontSize })}
+          />
+        </Row>
 
-        {value.kind === "mark" && (
-          <Row label="Style">
-            <Segmented
-              aria-label="Style"
-              options={[
-                { value: "solid", label: "Solid" },
-                { value: "outline", label: "Outline" },
-              ]}
-              value={value.outline ? "outline" : "solid"}
-              onChange={(style) =>
-                patch({ outline: style === "outline" ? true : undefined })
-              }
-            />
-          </Row>
-        )}
-
-        {value.kind === "ascii" && (
-          <>
-            <Row label="Glyphs">
-              <Segmented
-                aria-label="Glyphs"
-                options={ASCII_CHARSETS.map((charset) => ({
-                  value: charset,
-                  label: CHARSET_LABEL[charset],
-                }))}
-                value={value.charset}
-                onChange={(charset) => patch({ charset })}
-              />
-            </Row>
-
-            <Row label="Size">
-              <Slider
-                min={ASCII_FACE.fontSize.min}
-                max={ASCII_FACE.fontSize.max}
-                step={1}
-                value={value.fontSize}
-                format={(n) => `${n}px`}
-                onChange={(fontSize) => patch({ fontSize })}
-              />
-            </Row>
-
-            <Row label="Density">
-              <Slider
-                min={ASCII_FACE.density.min}
-                max={ASCII_FACE.density.max}
-                step={0.1}
-                value={value.density}
-                format={(n) => `${n.toFixed(1)}x`}
-                onChange={(density) => patch({ density })}
-              />
-            </Row>
-          </>
-        )}
+        <Row label="Density">
+          <Slider
+            min={ASCII_FACE.density.min}
+            max={ASCII_FACE.density.max}
+            step={0.1}
+            value={value.density}
+            format={(n) => `${n.toFixed(1)}x`}
+            onChange={(density) => patch({ density })}
+          />
+        </Row>
       </div>
     </SettingGroup>
   );

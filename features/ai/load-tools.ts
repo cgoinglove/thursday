@@ -60,8 +60,6 @@ type ToolRun =
       target: "thursday";
       /** The current call; written on the thread row `delegate` opens. */
       callId?: string | null;
-      /** The face can show a word (the ascii orb): the call is given `emote`. */
-      faceWords?: boolean;
       /**
        * Settings › Thursday › Search the web, when the call opens: false leaves out the
        * Exa search. The page sends it with every tool call, so the route that runs a tool
@@ -425,7 +423,7 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
       // A picture handed over in writing is one she can see: a call in writing runs on
       // providers that carry an image in a tool result, where a spoken one answers the
       // backend through the page, in text alone
-      ...(run.written ? createLookTool() : callTools(run.faceWords ?? false)),
+      ...(run.written ? createLookTool() : callTools()),
     };
   }
 

@@ -41,10 +41,10 @@ const emoteTool = tool({
   inputSchema: emoteSpec.parameters,
 });
 
-/** The tools that act on the call itself. `emote` only when the face can draw a word (the ascii orb). */
-export function callTools(faceWords: boolean) {
+/** The tools that act on the call itself. */
+export function callTools() {
   return {
     [TOOL_NAMES.end_call]: endCallTool,
-    ...(faceWords ? { [TOOL_NAMES.emote]: emoteTool } : {}),
+    [TOOL_NAMES.emote]: emoteTool,
   };
 }
