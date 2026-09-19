@@ -949,13 +949,12 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     );
     const on = await loadLivePrompt({
       voicePrompt: "Use a calm voice.",
-      locale: "ko-KR",
     });
     assert.match(on.text, /modeled on Friday, the AI in \*Iron Man\*/);
     assert.match(on.text, /Prefer brief replies/);
     assert.match(
       on.text,
-      /\n\n## Always\n\nIMPORTANT — always follow this: [^\n]+\n\nBackchannel policy: Use moderate backchannels\. .*\n\nInterruption policy: Stop speaking when the user interrupts\. Listen to what they say\.\n\nDelegation policy:\nBackend tools:\n- Ending the call: [^\n]+\n(- [^\n]+\n){4}\nDelegate to the backend when:\n- The user wants the call to end\.\n(- [^\n]+\n)+\nDo not delegate to the backend when:\n(- [^\n]+\n)+\nDelegate before giving an answer that depends on backend work\. Do not guess the result while waiting\.\n\n## What you know about them\n/,
+      /\n\n## Always\n\nIMPORTANT — always follow this: [^\n]+\n\nBackchannel policy: Use moderate backchannels\. .*\n\nInterruption policy: Stop speaking when the user interrupts\. Listen to what they say\.\n\nSpeak the language the user is speaking, [^\n]+\n\nDelegation policy:\nBackend tools:\n- Ending the call: [^\n]+\n(- [^\n]+\n){4}\nDelegate to the backend when:\n- The user wants the call to end\.\n(- [^\n]+\n)+\nDo not delegate to the backend when:\n(- [^\n]+\n)+\nDelegate before giving an answer that depends on backend work\. Do not guess the result while waiting\.\n\n## What you know about them\n/,
     );
     // Only the ending rule carries the stamp
     assert.equal(on.text.split("IMPORTANT").length, 2);
@@ -976,10 +975,6 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
       false,
     );
     assert.equal("input" in on, false);
-    assert.equal(
-      /ko-KR|browser's setting|language they use/.test(on.text),
-      false,
-    );
     assert.equal(/memory_|generate_|load_skill|`/.test(on.text), false);
     // The one tool name the voice holds: the ending rule, where it makes ending a thing to do
     assert.equal(on.text.split("end_call").length, 2);
@@ -1042,7 +1037,7 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
 
     // Tidying memory is the backend's: the voice neither reads it nor opens with it
     samFacts = 60;
-    const heavy = await loadLivePrompt({ locale: null });
+    const heavy = await loadLivePrompt({});
     assert.equal(/tidying|grown past/.test(heavy.text), false);
     assert.match(heavy.opening, /The call has just started/);
     assert.match(
@@ -1052,19 +1047,15 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     samFacts = 2;
 
     profileFacts = 0;
-    const first = await loadLivePrompt({ locale: "ko-KR" });
+    const first = await loadLivePrompt({});
     assert.match(first.text, /## First call/);
     // The one call that opens with nothing: she says who she is, then learns who they are
     assert.match(first.opening ?? "", /say who you are/);
     assert.match(first.opening ?? "", /ask what to call them/);
-    assert.match(first.opening ?? "", /ko-KR/);
     assert.match(first.text, /what they do, how old they are, where they live/);
 
     // A call the page placed says so, ahead of even the first-call opening
-    const rung = await loadLivePrompt({
-      locale: "ko-KR",
-      calledBack: true,
-    });
+    const rung = await loadLivePrompt({ calledBack: true });
     assert.match(rung.opening, /You placed this call/);
     assert.match(rung.opening, /say that is why you called/);
   } finally {

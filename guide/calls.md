@@ -11,7 +11,8 @@ Three ways in, and any of them also answers a call she placed:
 
 She speaks first. From the second call on she is told, as the call opens, when the last one
 was and how it ended, so she can greet as someone who remembers it; a call she places herself
-opens on why she called instead.
+opens on why she called instead. She speaks the language the user speaks and switches when they
+do; the browser's language plays no part, so the very first greeting is in whatever she picks.
 
 The wake phrase and the shortcut are in **Settings › Thursday › Starting a call**, where
 either can be switched on or off, or rewritten. The first-run setup offers the wake phrase

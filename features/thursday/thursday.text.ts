@@ -13,7 +13,11 @@ import {
 } from "ai";
 import { ZodError, z } from "zod";
 import { TEXT_CALL } from "@/config";
-import { LIVE_PROVIDER } from "@/features/ai/live.schema";
+import {
+  LIVE_PROVIDER,
+  type LiveSettings,
+  LiveSettingsSchema,
+} from "@/features/ai/live.schema";
 import { loadTools } from "@/features/ai/load-tools";
 import { getTextModel, modelErrorToString } from "@/features/ai/model";
 import {
@@ -38,8 +42,6 @@ import {
   TEXT_CALL_PROVIDERS,
   type TextCallHandshake,
   type TextCallProvider,
-  type ThursdaySettings,
-  ThursdaySettingsSchema,
   textCallRunsOn,
 } from "./thursday.schema";
 import { toolLine } from "./tool-line";
@@ -70,7 +72,7 @@ export async function readTextCallProvider(): Promise<TextCallProvider | null> {
  * in, else the OpenAI key, on the call's own backend model.
  */
 async function runsOnOf(
-  settings: ThursdaySettings,
+  settings: LiveSettings,
   picked: TextModelRef | null | undefined,
 ): Promise<TextModelRef> {
   if (picked) return picked;
@@ -81,7 +83,7 @@ async function runsOnOf(
 
 /** The row a call in writing is kept under, and what stood open as it began. */
 export async function openTextCall(
-  settings: ThursdaySettings,
+  settings: LiveSettings,
   picked?: TextModelRef | null,
 ): Promise<TextCallHandshake> {
   const ref = await runsOnOf(settings, picked);
@@ -98,7 +100,7 @@ export async function openTextCall(
 
 const BodySchema = z.object({
   callId: z.string().min(1),
-  settings: ThursdaySettingsSchema,
+  settings: LiveSettingsSchema,
   /** What stood open as the call opened (ai/prompts/call-standing), as the page was handed it. */
   standing: z.string().nullish(),
   /** The model picked on the write line; absent, the rule decides (runsOnOf). */
@@ -149,7 +151,7 @@ export async function streamTextCall(
  */
 export async function answerInWriting(input: {
   callId: string;
-  settings: ThursdaySettings;
+  settings: LiveSettings;
   standing: string | null;
   messages: ModelMessage[];
   said: string | null;
@@ -246,7 +248,7 @@ const standingHead = (standing: string | null | undefined): ModelMessage[] =>
 /** What a turn runs on, whoever holds the conversation: the model, her prompt, her tools. */
 async function loadRun(
   callId: string,
-  settings: ThursdaySettings,
+  settings: LiveSettings,
   picked?: TextModelRef | null,
 ) {
   const ref = await runsOnOf(settings, picked);

@@ -1,6 +1,5 @@
 import z from "zod";
 import { ASCII_FACE } from "@/config";
-import { LiveSettingsSchema } from "@/features/ai/live.schema";
 import { TEXT_MODEL_PROVIDERS } from "@/features/ai/model.schema";
 import type { ThreadStatus } from "@/features/bot/bot.schema";
 import { ASCII_CHARSETS } from "@/features/thursday/face.const";
@@ -8,14 +7,6 @@ import type { DateLike } from "@/lib/date-like";
 import { LiveFragmentSchema } from "@/lib/live/live.schema";
 
 // Shared by server and browser: nothing here may touch the DB.
-
-/** The payload openCallAction parses. Browser-only settings live in thursday.store. */
-export const ThursdaySettingsSchema = LiveSettingsSchema.extend({
-  /** `navigator.language` (e.g. "ko-KR"). Only the first call's opening line uses it. */
-  locale: z.string().max(35).nullish(),
-});
-
-export type ThursdaySettings = z.infer<typeof ThursdaySettingsSchema>;
 
 /**
  * A word on the face: one `emote` put there, or the screen's own while she rings. `at` tells a

@@ -93,9 +93,10 @@ a call, a shipped `SKILL.md`.
 - **Thursday hides nothing.** No line tells her to keep something from the user or to avoid a
   word: she is candid, an assistant who does what she is asked. Point out a line like that rather
   than adding another.
-- **The voice already knows how to talk.** Which language, how long a turn, what to say when she
-  did not catch something: GPT-Live does these on its own. The only exceptions are the guide's
-  lines under `## Always` and the browser's locale for the first call's greeting.
+- **The voice already knows how to talk.** How long a turn, what to say when she did not catch
+  something: GPT-Live does these on its own. The only exceptions are the guide's lines under
+  `## Always`, one of them on language: the one the user is speaking, never the browser's (a first
+  call opened in the browser's language kept an English speaker in Korean).
 - **A taste the model keeps refusing is the user's line to write.** How to address them and the
   like go in Settings › Thursday › Voice instructions; the prompt is not pushed harder.
 

@@ -2,6 +2,7 @@ import { readFile, stat } from "node:fs/promises";
 import type { ModelMessage } from "ai";
 import { appEvents } from "@/app/api/events/app-event.server";
 import { REACH } from "@/config";
+import { LiveSettingsSchema } from "@/features/ai/live.schema";
 import { modelErrorToString } from "@/features/ai/model";
 import { answerThread } from "@/features/bot/bot.runner";
 import type { Thread } from "@/features/bot/bot.schema";
@@ -14,7 +15,6 @@ import {
 } from "@/features/config/config.query";
 import { openWork } from "@/features/thursday/open-work";
 import { endCall, isCallOpen } from "@/features/thursday/thursday.query";
-import { ThursdaySettingsSchema } from "@/features/thursday/thursday.schema";
 import {
   answerInWriting,
   openTextCall,
@@ -353,7 +353,7 @@ async function answer(
     4_000,
   );
   try {
-    const settings = ThursdaySettingsSchema.parse({});
+    const settings = LiveSettingsSchema.parse({});
     // Quiet for long enough, or closed under it (the tab went, the server restarted): the
     // next words open a new call, which reads the last one back under Earlier calls
     const kept = live.line;

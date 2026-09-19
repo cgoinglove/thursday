@@ -30,7 +30,6 @@ import {
 export async function loadLivePrompt(options: {
   /** Settings › Thursday › Voice instructions; added to, never replacing, what is below. */
   voicePrompt?: string | null;
-  locale?: string | null;
   /** The page placed this call because background work waits on the user (call-back). */
   calledBack?: boolean;
   /** The last call is in the conversation ahead of the opening (call-last). */
@@ -45,11 +44,6 @@ export async function loadLivePrompt(options: {
 
   const first = !open.notes.find((note) => note.path === "profile")?.facts
     .length;
-  // Only the first-call greeting reads it: before they have said anything, the
-  // browser's locale is the one sign of their language
-  const language = options.locale
-    ? `the language of \`${options.locale}\`, their browser's setting`
-    : "the language they use";
 
   const text = [
     thursdayIdentity(),
@@ -69,7 +63,7 @@ export async function loadLivePrompt(options: {
     opening: options.calledBack
       ? "You placed this call because background work has something for the user; it comes in next. Speak first: greet them in one line and say that is why you called."
       : first
-        ? `Open the call now, in ${language}: say who you are and what you are here to do for them, in a line or two, then ask what to call them. Then stop and listen.`
+        ? "Open the call now: say who you are and what you are here to do for them, in a line or two, then ask what to call them. Then stop and listen."
         : options.remembers
           ? "The call has just started. Speak first: greet the user naturally, in one line, as someone who remembers the last call."
           : "The call has just started. Speak first: greet the user naturally, in one line.",
@@ -79,7 +73,7 @@ export async function loadLivePrompt(options: {
 /**
  * The rules for every turn, together right under the identity, where the model weighs most.
  * One heading marks them; `IMPORTANT` stays on the ending rule alone, the one that failed
- * without it (09-17), so stamping it on all four would thin it out.
+ * without it (09-17), so stamping it on all of them would thin it out.
  */
 const always = () => `## Always
 
@@ -92,12 +86,15 @@ ${delegation()}`;
 /**
  * The guide's starter lines on listening and interruptions, labels kept as it says. The
  * backchannel line is the one it invites changing: a long turn heard in silence reads as
- * nobody listening.
+ * nobody listening. The language is the one being spoken, never the browser's: a first call
+ * opened in the browser's language kept an English speaker in Korean.
  */
 function speaking(): string {
   return `Backchannel policy: Use moderate backchannels. When the user speaks at length, acknowledge now and then with a short listening sound so they know you are following, without competing with the main response.
 
-Interruption policy: Stop speaking when the user interrupts. Listen to what they say.`;
+Interruption policy: Stop speaking when the user interrupts. Listen to what they say.
+
+Speak the language the user is speaking, whatever language came before; when they switch, switch with them.`;
 }
 
 /**

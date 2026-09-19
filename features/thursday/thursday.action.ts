@@ -2,7 +2,7 @@
 
 import { asSchema } from "ai";
 import z from "zod";
-import { LIVE_PROVIDER } from "@/features/ai/live.schema";
+import { LIVE_PROVIDER, LiveSettingsSchema } from "@/features/ai/live.schema";
 import { loadTools } from "@/features/ai/load-tools";
 import { textModelRefSchema } from "@/features/ai/model.schema";
 import { loadLastCall } from "@/features/ai/prompts/call-last";
@@ -37,7 +37,6 @@ import {
   CallThoughtSchema,
   CallTurnSchema,
   type TextCallHandshake,
-  ThursdaySettingsSchema,
 } from "./thursday.schema";
 import { openTextCall } from "./thursday.text";
 
@@ -81,7 +80,7 @@ export const openCallAction = serverAction(
     sdp: unknown,
     calledBack?: unknown,
   ): Promise<CallHandshake> => {
-    const thursday = ThursdaySettingsSchema.parse(settings);
+    const thursday = LiveSettingsSchema.parse(settings);
     const offer = z.string().min(1).max(SDP_MAX_LENGTH).parse(sdp);
     const apiKey = await readConfig(LIVE_PROVIDER.apiKeyName);
     if (!apiKey) {
@@ -97,7 +96,6 @@ export const openCallAction = serverAction(
       await Promise.all([
         loadLivePrompt({
           voicePrompt: thursday.voicePrompt,
-          locale: thursday.locale,
           calledBack: rang,
           remembers: last !== null,
         }),
@@ -163,7 +161,7 @@ export const openCallAction = serverAction(
 export const openTextCallAction = serverAction(
   async (settings: unknown, runsOn?: unknown): Promise<TextCallHandshake> => {
     const opened = await openTextCall(
-      ThursdaySettingsSchema.parse(settings),
+      LiveSettingsSchema.parse(settings),
       textModelRefSchema.nullish().parse(runsOn),
     );
     createServerProbe("server")("call.open.text", { callId: opened.callId });

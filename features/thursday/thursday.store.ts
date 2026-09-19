@@ -2,7 +2,12 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { LIVE_DEFAULTS, migrateLiveSettings } from "@/features/ai/live.schema";
+import {
+  LIVE_DEFAULTS,
+  type LiveSettings,
+  LiveSettingsSchema,
+  migrateLiveSettings,
+} from "@/features/ai/live.schema";
 import {
   type TextModelRef,
   textModelRefSchema,
@@ -16,18 +21,16 @@ import {
   HOTKEY_DEFAULT,
   type Hotkey,
   HotkeySchema,
-  type ThursdaySettings,
-  ThursdaySettingsSchema,
   WAKE_DEFAULT,
   type Wake,
   WakeSchema,
 } from "./thursday.schema";
 
-// Call settings persisted per browser. Only `ThursdaySettings` is sent to the
+// Call settings persisted per browser. Only `LiveSettings` is sent to the
 // server (openCallAction); the rest never leaves the page.
 
 /** Everything this browser stores, sent or not. */
-const StoredSchema = ThursdaySettingsSchema.extend({
+const StoredSchema = LiveSettingsSchema.extend({
   // `.catch` so settings stored before a field existed keep the other fields.
   wake: WakeSchema.catch(WAKE_DEFAULT),
   hotkey: HotkeySchema.catch(HOTKEY_DEFAULT),
@@ -36,7 +39,7 @@ const StoredSchema = ThursdaySettingsSchema.extend({
   textModel: textModelRefSchema.nullable().catch(null),
 });
 
-type Stored = ThursdaySettings & {
+type Stored = LiveSettings & {
   wake: Wake;
   hotkey: Hotkey;
   callBack: CallBack;
@@ -91,12 +94,5 @@ export const useThursdayStore = create<ThursdayStore>()(
 );
 
 /** What openCallAction needs and nothing else. */
-export const thursdaySettings = (): ThursdaySettings => {
-  // Not stored: a fact of this browser, read when the call opens.
-  const locale =
-    typeof navigator === "undefined" ? null : (navigator.language ?? null);
-  return ThursdaySettingsSchema.parse({
-    ...useThursdayStore.getState(),
-    locale,
-  });
-};
+export const thursdaySettings = (): LiveSettings =>
+  LiveSettingsSchema.parse(useThursdayStore.getState());
