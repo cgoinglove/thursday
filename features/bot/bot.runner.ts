@@ -14,6 +14,7 @@ import {
   jobScratch,
   listScratchFolders,
   pruneJobFiles,
+  removeJobBrowsers,
   removeJobScratch,
   removeUnchangedFolders,
 } from "@/features/workspace/workspace";
@@ -481,7 +482,7 @@ async function removeLockedThread(id: string) {
   const thread = await findThread(id);
   await cancelRoom(id);
   await stopRuns(id);
-  await closeJobShell(id);
+  await removeJobBrowsers(id);
   const removed = await deleteThread(id);
   if (removed && thread) await removeJobScratch(id, thread.label);
   return removed;

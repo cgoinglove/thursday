@@ -158,8 +158,10 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   what the model re-reads are the same rows.
 - **One participant per bot per thread.** A bot resumes its own stored transcript across requests,
   including requests from different callers. `parent` names the current exchange, not the bot's
-  identity. Browser sessions use the thread and canonical bot name. Requests to the same bot run
-  sequentially. Messages are asynchronous: a waiting A can handle a question from B in its own
+  identity. Browser sessions use the thread and canonical bot name, and the workspace is marked
+  as the browser CLI's own (`.playwright`), so what those sessions keep on disk is this app's
+  alone: a cancel closes the windows, a removed or aged-out thread takes its profiles with it.
+  Requests to the same bot run sequentially. Messages are asynchronous: a waiting A can handle a question from B in its own
   context, but a bot waiting on the user's answer runs nothing until it arrives; its inbox holds. Only exchanged messages cross participant contexts. `room.query` owns durable inboxes,
   continuation claims and return routes; `bot.runner` owns live promises.
 - **No browser, nothing runs — unless the user said otherwise.** `presence` (app/api/events) says

@@ -9,6 +9,7 @@ import {
   unlink,
   writeFile,
 } from "node:fs/promises";
+import { homedir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import {
   APP_DIR,
@@ -56,6 +57,15 @@ const WRITABLE = new Set([...BOT_FOLDERS, ".agents"]);
 
 /** Where playwright-cli drops a snapshot after every command. Its name, not ours. */
 const BROWSER_DIR = ".playwright-cli";
+
+/**
+ * playwright-cli looks upward for the nearest folder of this name and keeps its sessions
+ * and browser profiles under a folder named after where it found it; with none, under one
+ * named after its own install, which every other tool on the machine that runs the same
+ * install shares. Made in the workspace (openWorkspace) so the profiles bots leave are this
+ * app's alone, which is what lets a thread take its own with it (forgetBrowserData).
+ */
+const BROWSER_MARK = ".playwright";
 
 const under = (root: string, path: string) =>
   path === root || path.startsWith(root + sep);
@@ -291,18 +301,77 @@ type ListedBrowser = { name: string; headed?: boolean; attached?: boolean };
  * — leaves the browser as it is.
  */
 export async function closeHiddenBrowser(threadId: string): Promise<void> {
-  await closeBrowsers(threadId, false);
+  // The job's files have aged out, and so have its profiles, but for a window still up
+  await forgetBrowserData(threadId, await closeBrowsers(threadId, false));
 }
 
-/** Cancel and delete close every participant's window, but never an attached personal browser. */
+/** A cancel closes every participant's window, but never an attached personal browser. The thread can still be picked back up, so its profiles stay. */
 export async function closeJobShell(threadId: string): Promise<void> {
   await closeBrowsers(threadId, true);
 }
 
+/** A removed thread takes its browsers and what they kept with it. */
+export async function removeJobBrowsers(threadId: string): Promise<void> {
+  await forgetBrowserData(threadId, await closeBrowsers(threadId, true));
+}
+
+/**
+ * Removes what a thread's browsers kept on disk — profiles with their cookies and caches,
+ * tens of megabytes a session. Nothing of the CLI's does it once a browser has closed
+ * (`delete-data` needs the open session's entry), so the entries are removed here: every
+ * one in the CLI's folder for this workspace that carries the thread's session name, which
+ * holds the thread's id and so is nobody else's. The folder is found the way the CLI names
+ * it (the first 16 of sha1 over the marked workspace, under the platform's cache); a CLI
+ * that names it otherwise leaves nothing found and nothing removed. `open` are the sessions
+ * still running, left as they are.
+ */
+async function forgetBrowserData(
+  threadId: string,
+  open: string[],
+): Promise<void> {
+  const cache =
+    process.platform === "darwin"
+      ? join(homedir(), "Library", "Caches")
+      : process.platform === "win32"
+        ? process.env.LOCALAPPDATA || join(homedir(), "AppData", "Local")
+        : process.env.XDG_CACHE_HOME || join(homedir(), ".cache");
+  const marked = await realpath(WORKSPACE).catch(() => WORKSPACE);
+  const folder = join(
+    cache,
+    "ms-playwright",
+    "daemon",
+    createHash("sha1").update(marked).digest("hex").slice(0, 16),
+  );
+  const session = jobShellEnv(threadId).PLAYWRIGHT_CLI_SESSION;
+  const entries = await readdir(folder).catch(() => []);
+  for (const entry of entries) {
+    const name = entry.startsWith("ud-") ? entry.slice(3) : entry;
+    if (
+      name !== session &&
+      !name.startsWith(`${session}-`) &&
+      !name.startsWith(`${session}.`)
+    )
+      continue;
+    if (
+      open.some(
+        (one) =>
+          name === one ||
+          name.startsWith(`${one}-`) ||
+          name.startsWith(`${one}.`),
+      )
+    )
+      continue;
+    await rm(join(folder, entry), { recursive: true, force: true }).catch(
+      (cause) => logger.warn(`browser data ${entry}: ${String(cause)}`),
+    );
+  }
+}
+
+/** Closes the thread's browsers and answers with the sessions it left running. */
 async function closeBrowsers(
   threadId: string,
   visible: boolean,
-): Promise<void> {
+): Promise<string[]> {
   const sandbox = await openWorkspace();
   const env = jobShellEnv(threadId);
   const listed = await sandbox
@@ -320,8 +389,12 @@ async function closeBrowsers(
           b.name.startsWith(`${env.PLAYWRIGHT_CLI_SESSION}-`),
       ) ?? [];
   } catch {}
+  const left: string[] = [];
   for (const session of sessions) {
-    if (session.attached || (!visible && session.headed !== false)) continue;
+    if (session.attached || (!visible && session.headed !== false)) {
+      left.push(session.name);
+      continue;
+    }
     await sandbox
       .exec("playwright-cli close", {
         env: { ...env, PLAYWRIGHT_CLI_SESSION: session.name },
@@ -330,6 +403,7 @@ async function closeBrowsers(
       .catch(() => {});
   }
   await pruneJobFiles();
+  return left;
 }
 
 const pruneOutputFiles = () => pruneOldFiles(PATHS.output);
@@ -393,7 +467,7 @@ const FENCE: Record<string, string> = {
 };
 
 export async function openWorkspace(): Promise<Sandbox> {
-  for (const folder of BOT_FOLDERS) {
+  for (const folder of [...BOT_FOLDERS, BROWSER_MARK]) {
     await mkdir(join(WORKSPACE, folder), { recursive: true });
   }
   for (const [name, content] of Object.entries(FENCE)) {
