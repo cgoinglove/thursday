@@ -125,19 +125,24 @@ export function InstallNudge({ hidden }: { hidden: boolean }) {
   );
 }
 
-/** At the foot of the settings nav, for as long as the browser offers it. */
+/**
+ * At the foot of the settings nav, for as long as the browser offers it: drawn as one of the
+ * nav's own rows, since it sits among them, with what it opens said where the badge would be.
+ */
 export function InstallButton() {
   const can = useOffer() !== null;
   if (!can) return null;
   return (
     <Button
-      variant="outline"
-      size="sm"
-      className="w-full justify-start gap-2 rounded-lg font-normal"
+      variant="ghost"
+      className="w-full justify-start text-muted-foreground"
       onClick={() => void install()}
     >
-      <AppWindowMac />
-      Install as an app
+      <AppWindowMac className="mr-1" />
+      <span className="truncate text-sm">Install app</span>
+      <span className="ml-auto font-mono text-[10px] text-muted-foreground/60">
+        own window
+      </span>
     </Button>
   );
 }

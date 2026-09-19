@@ -71,8 +71,8 @@ The app runs in a browser tab, and a tab is easy to lose: closed, it takes the w
 the shortcut and her calls with it. Chrome and Edge can install it instead, which gives it
 its own window and its own icon in the Dock or the taskbar, and it can be set to open when
 the computer starts. The call screen offers it once, under the buttons at its top right —
-**Install**, or **Not now** and it does not ask again — and **Install as an app** stays at the
-foot of the Settings list for as long as it is not installed. Safari on a Mac does it from
+**Install**, or **Not now** and it does not ask again — and **Install app** stays at the foot
+of the Settings list for as long as it is not installed. Safari on a Mac does it from
 its File menu, **Add to Dock**; Firefox cannot. It is the same local app either way; nothing
 moves anywhere.
 

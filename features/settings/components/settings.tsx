@@ -423,9 +423,11 @@ export function Settings({ children }: { children?: ReactElement }) {
               </Fragment>
             ))}
 
-            <div className="mt-auto space-y-2 px-1 pt-3">
+            <div className="mt-auto flex flex-col gap-2 pt-3">
               <InstallButton />
-              <ThemePicker />
+              <div className="px-1">
+                <ThemePicker />
+              </div>
             </div>
           </nav>
 
