@@ -16,12 +16,14 @@ import {
 import type { AsciiCharset } from "../face.const";
 import type { CallStatus } from "../thursday.schema";
 
-/** Glyph cell, px. Emoji are dearer to draw than letters, so an all-emoji wave has fewer, larger ones. */
-const CELL = { ascii: 11, emoji: 11, emojiOnly: 15 } as const;
+/** Glyph cell, px: her face's own size. */
+const CELL = 11;
+/** Share of cells that carry a glyph at all: fewer, not larger, keeps the wave light to draw. */
+const KEEP = 0.6;
 /** How far the front travels per second, as a share of the way to the farthest corner. */
 const SPEED = 0.95;
 /** Width of the lit band behind the front, in the same units. */
-const CREST = 0.3;
+const CREST = 0.2;
 /** Share of cells that keep a crumb for a moment after the band has passed. */
 const CRUMBS = 0.06;
 /** Seconds the longest crumb outlives the band. */
@@ -41,25 +43,23 @@ type Cell = {
   roll: number;
 };
 
-const font = (cell: number) =>
-  `700 ${cell}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+const FONT = `700 ${CELL}px ui-monospace, SFMono-Regular, Menlo, monospace`;
 
 /** An emoji's square on the sheet: emoji reach past their font size. */
-const slotOf = (cell: number) => Math.ceil(cell * 1.5);
+const SLOT = Math.ceil(CELL * 1.5);
 
 /** The emoji drawn once side by side, so a frame copies squares rather than drawing emoji. */
-function sheet(glyphs: readonly string[], cell: number) {
-  const slot = slotOf(cell);
+function sheet(glyphs: readonly string[]) {
   const canvas = document.createElement("canvas");
-  canvas.width = slot * glyphs.length;
-  canvas.height = slot;
+  canvas.width = SLOT * glyphs.length;
+  canvas.height = SLOT;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = font(cell);
+  ctx.font = FONT;
   glyphs.forEach((glyph, at) => {
-    ctx.fillText(glyph, at * slot + slot / 2, slot / 2);
+    ctx.fillText(glyph, at * SLOT + SLOT / 2, SLOT / 2);
   });
   return canvas;
 }
@@ -81,13 +81,12 @@ export function ConnectWave({
   const canvas = useRef<HTMLCanvasElement>(null);
   const was = useRef(status);
   const [playing, setPlaying] = useState(false);
-  const cell = CELL[charset];
   // Emoji are drawn as the screen loads: the first emoji a page draws is slow, and the
   // moment a call picks up is the wrong moment for it
   const emoji = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
-    emoji.current = charset === "ascii" ? null : sheet(EMOJI_POOL, cell);
-  }, [charset, cell]);
+    emoji.current = charset === "ascii" ? null : sheet(EMOJI_POOL);
+  }, [charset]);
 
   useEffect(() => {
     const from = was.current;
@@ -113,14 +112,14 @@ export function ConnectWave({
     const cx = box.left + box.width / 2;
     const cy = box.top + box.height / 2;
     const far = Math.hypot(Math.max(cx, w - cx), Math.max(cy, h - cy));
-    const cols = Math.ceil(w / cell);
-    const rows = Math.ceil(h / cell);
+    const cols = Math.ceil(w / CELL);
+    const rows = Math.ceil(h / CELL);
     const cells: Cell[] = [];
     for (let r = 0; r < rows; r++)
       for (let c = 0; c < cols; c++) {
-        if (hash(c + 53, r + 5) > 0.9) continue;
-        const x = c * cell + cell / 2;
-        const y = r * cell + cell / 2;
+        if (hash(c + 53, r + 5) > KEEP) continue;
+        const x = c * CELL + CELL / 2;
+        const y = r * CELL + CELL / 2;
         const angle = Math.atan2(y - cy, x - cx);
         const grain = hash(c + 31, r + 17);
         // a few slow lobes and some grain, so the front is round but never a clean circle
@@ -159,11 +158,11 @@ export function ConnectWave({
     element.width = w;
     element.height = h;
     const ctx = element.getContext("2d");
-    const emojis = emoji.current ?? sheet(EMOJI_POOL, cell);
+    const emojis = emoji.current ?? sheet(EMOJI_POOL);
     if (!ctx || !emojis) return;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = font(cell);
+    ctx.font = FONT;
     // her ink is the page's foreground: black on light, white on dark
     ctx.fillStyle = getComputedStyle(element).color;
     const top = RAMP.length - 1;
@@ -172,8 +171,7 @@ export function ConnectWave({
       charset === "emojiOnly" ||
       (charset === "emoji" && c.roll < EMOJI_RATIO && level >= EMOJI_MIN_LEVEL);
     const rate = charset === "emojiOnly" ? EMOJI_CHAR_RATE : CHAR_RATE;
-    const slot = slotOf(cell);
-    const half = slot / 2;
+    const half = SLOT / 2;
 
     const t0 = performance.now();
     let frame = 0;
@@ -210,14 +208,14 @@ export function ConnectWave({
           const at = Math.floor(hash(c.seed * 97, turn) * EMOJI_POOL.length);
           ctx.drawImage(
             emojis,
-            at * slot,
+            at * SLOT,
             0,
-            slot,
-            slot,
+            SLOT,
+            SLOT,
             c.x - half,
             c.y - half,
-            slot,
-            slot,
+            SLOT,
+            SLOT,
           );
           continue;
         }
@@ -233,7 +231,7 @@ export function ConnectWave({
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, charset, cell]);
+  }, [playing, charset]);
 
   return (
     <>
