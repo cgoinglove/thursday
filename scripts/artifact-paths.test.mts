@@ -36,3 +36,21 @@ test("page decoding preserves percent-encoded text in the actual filename", () =
   );
   assert.equal(decodePath(["artifacts", "100%.md"]), "artifacts/100%.md");
 });
+
+test("a numbered run said as its two ends is every file in it", () => {
+  assert.deepEqual(
+    pathsIn(
+      "Slides: `artifacts/Insta/post/slide_1.png` ~ `slide_4.png` (all 1080×1350)",
+    ),
+    [1, 2, 3, 4].map((n) => `artifacts/Insta/post/slide_${n}.png`),
+  );
+  assert.deepEqual(
+    pathsIn("artifacts/a/shot-08.png to artifacts/a/shot-10.png"),
+    ["08", "09", "10"].map((n) => `artifacts/a/shot-${n}.png`),
+  );
+  // Two names that are not a run stay two names
+  assert.deepEqual(pathsIn("artifacts/a/v1.png and artifacts/a/v9.png"), [
+    "artifacts/a/v1.png",
+    "artifacts/a/v9.png",
+  ]);
+});
