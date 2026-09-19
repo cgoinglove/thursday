@@ -62,9 +62,9 @@ const SAYS = {
   key: "I am Thursday. My voice comes from OpenAI, so the first thing I need is a key: paste one and I wake up. No key yet? Go on without it, and I will ask again when you call.",
   awake:
     "There, I am awake, and that key is everything a call needs. From here on it is quick: your microphone, who works for you, and what they think with.",
-  mic: "Now let me hear you. Your browser asks before it opens the microphone: say yes, then say anything at all and watch me move. It is only open on a call, unless you ask for more.",
+  mic: "Now let me hear you. Your browser asks before it opens the microphone: say yes, then say anything at all and watch the line under me move. It is only open on a call, unless you ask for more.",
   heard:
-    "I hear you: that is me moving to your voice. If you would rather wake me by saying my name than by tapping me, switch it on here and try it once.",
+    "I hear you: that line is your voice. If you would rather wake me by saying my name than by tapping me, switch it on here and try it once.",
   bots: "Long work goes to bots, so we can keep talking while they are at it. They work on this computer, with a shell, a browser and your files, and signing in or paying always stays with you.",
   models:
     "Bots think with a model you choose. Start small: a small model is quick and costs little, and any bot can move up later. An OpenAI key already covers it; a GPT subscription or one Vercel key opens far more.",
@@ -213,7 +213,6 @@ export function Intro({
               failed={false}
               word={word}
               getSpectrum={step === "hello" ? demo.voice : voice.spectrum}
-              getMicSpectrum={mic.on ? mic.spectrum : undefined}
               className="w-full"
             />
           </button>

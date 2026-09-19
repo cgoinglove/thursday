@@ -36,8 +36,6 @@ type FaceProps = {
   size: number;
   /** Audio bands, read once per animation frame, not through state. */
   getSpectrum?: () => ArrayLike<number>;
-  /** The microphone's bands, the same way: what a face answers while listening. */
-  getMicSpectrum?: () => ArrayLike<number>;
   /** Appearance; each face reads only the fields that apply to it. */
   look: ThursdayFace;
   className?: string;
@@ -106,7 +104,8 @@ const ORB_MODE: Record<CallStatus, AsciiOrbMode> = {
   ending: "ending",
   idle: "idle",
   connecting: "connecting",
-  listening: "listening",
+  // the user's voice already shows in the meter under her face; she rests while they talk
+  listening: "idle",
   speaking: "speaking",
   working: "working",
   delegating: "working",
@@ -122,7 +121,6 @@ function OrbFace({
   word,
   size,
   getSpectrum,
-  getMicSpectrum,
   look,
   className,
 }: FaceProps) {
@@ -134,7 +132,6 @@ function OrbFace({
       size={size}
       color={dark ? ORB_DARK : ORB_LIGHT}
       getSpectrum={getSpectrum}
-      getMicSpectrum={getMicSpectrum}
       charset={look.charset}
       fontSize={look.fontSize}
       density={look.density}

@@ -28,9 +28,9 @@ export const INTRO_SPOKEN = {
   key: "My real voice comes from OpenAI, and it needs a key — think of it as a password. Paste one in, and I wake up. Don't have one yet? No problem, skip ahead. I'll ask again later.",
   awake:
     "There we go — I'm awake. That key is all a call needs. The rest is quick: your microphone, who does the work for you, and what they think with.",
-  mic: "Now let me hear you. Your browser will ask before it turns the microphone on. Say yes, then say anything — and watch me move. It's only on during a call, unless you ask for more.",
+  mic: "Now let me hear you. Your browser will ask before it turns the microphone on. Say yes, then say anything — and watch the line under me move. It's only on during a call, unless you ask for more.",
   heard:
-    "I hear you — that's me, moving to your voice. If you'd rather wake me by saying my name instead of tapping, switch that on here and give it a try.",
+    "I hear you — that line is your voice. If you'd rather wake me by saying my name instead of tapping, switch that on here and give it a try.",
   bots: "Big jobs go to my helper bots, so you and I can keep talking while they work. They work right here on your computer, with a browser and your files. Signing in and paying always stay with you.",
   models:
     "Every bot runs on an A.I. model that you pick. Start small: a small one is fast and cheap, and you can move any bot up later. Your OpenAI key already covers it. A GPT subscription, or a Vercel key, opens up a lot more.",

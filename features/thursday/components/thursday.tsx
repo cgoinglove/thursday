@@ -236,7 +236,6 @@ function CallScreen({
                 failed={failed}
                 word={ringWord ?? faceWord}
                 getSpectrum={getSpectrum}
-                getMicSpectrum={getMicSpectrum}
                 className="w-full"
               />
             </span>

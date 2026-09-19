@@ -22,7 +22,6 @@ export type AsciiOrbMode =
   | "idle"
   | "connecting"
   /** The user's turn: the resting body, thinned out, retyping with the microphone */
-  | "listening"
   /** Hanging up: the body draws in and goes out, leaving the field empty */
   | "ending"
   | "speaking"
@@ -44,11 +43,6 @@ type AsciiOrbProps = {
    * speaking; without it a synthetic waveform keeps the orb alive (previews).
    */
   getSpectrum?: () => ArrayLike<number>;
-  /**
-   * Microphone bands, read the same way. While listening they set how fast the
-   * glyphs retype; without them listening is the resting body alone.
-   */
-  getMicSpectrum?: () => ArrayLike<number>;
   /**
    * A word to show (emote): the body steps aside, the letters light in one by
    * one, hold, and go out, and the mode takes the face back. A new `at` shows it again.
@@ -132,10 +126,6 @@ const MAX_RINGS = 5;
 type Voice = {
   /** The voice inside its own range over about half a second (live.tap createVoiceFollower) */
   phrase: number;
-  /** The user's voice, the same measure, from the microphone (listening) */
-  micPhrase: number;
-  /** The same voice syllable by syllable, so a word shows and not only a sentence */
-  micLevel: number;
   /** Spring kicked by each syllable */
   bob: number;
   bobVel: number;
@@ -162,7 +152,6 @@ const RISE = {
   speech: 0.5,
   err: 0.5,
   word: 0.35,
-  listen: 0.3,
 };
 const FALL = {
   scale: 0.7,
@@ -172,7 +161,6 @@ const FALL = {
   speech: 0.75,
   err: 0.6,
   word: 0.5,
-  listen: 0.6,
 };
 /** Hanging up pulls the body in faster than anything else grows back. */
 const END_FALL = 0.4;
@@ -213,30 +201,6 @@ const GATHER_RATE = 0.7;
  */
 const GATHER_DIP = 0.45;
 const GATHER_GROW = 1.3;
-
-/**
- * Listening: the resting body, its glyphs retyping as fast as the user speaks.
- * Quiet is slower than idle, and a loud voice is PACE_VOICE times that; the
- * shape never moves, which is the point.
- */
-const LISTEN_PACE_QUIET = 0.5;
-const LISTEN_PACE_VOICE = 8;
-/**
- * Brightness the voice adds: the field fills in as the user talks and thins out
- * when they stop. Most of it follows the phrase so it holds through a sentence,
- * the rest the syllable, so the words show without the body moving.
- */
-const LISTEN_LIFT = 0.24;
-/** Seconds the retype rate takes to follow the voice (toward) */
-const PACE_TIME = 0.14;
-/**
- * Listening also thins the body out, so the voice has gaps to show in: every
- * cell's gate rises by THIN, and POP_RATE times a second each cell re-rolls up
- * to POP of it, as far as the voice is loud — glyphs pop in and out with the words.
- */
-const LISTEN_THIN = 0.16;
-const LISTEN_POP = 0.6;
-const LISTEN_POP_RATE = 9;
 
 /** Working: a comet on the orbit just outside where the body rests; the body itself is gone */
 const WORK_R = 210;
@@ -351,12 +315,10 @@ type Field = {
   err: number;
   /** A word's letters (emote) */
   word: number;
-  /** Listening's thinning out */
-  listen: number;
 };
 
 /** Where a mode wants the field. `e` is seconds since the mode was asked for. */
-function targetFor(m: AsciiOrbMode, e: number, v: Voice): Field {
+function targetFor(m: AsciiOrbMode, e: number): Field {
   const rest: Field = {
     scale: 1,
     lift: 0,
@@ -365,7 +327,6 @@ function targetFor(m: AsciiOrbMode, e: number, v: Voice): Field {
     speech: 0,
     err: 0,
     word: 0,
-    listen: 0,
   };
   switch (m) {
     case "idle":
@@ -381,14 +342,6 @@ function targetFor(m: AsciiOrbMode, e: number, v: Voice): Field {
         gather: 1,
       };
     }
-
-    // the body holds still; the user's voice shows as ink, in its gaps and as the retype rate
-    case "listening":
-      return {
-        ...rest,
-        lift: LISTEN_LIFT * (0.7 * v.micPhrase + 0.3 * v.micLevel),
-        listen: 1,
-      };
 
     case "speaking":
       return { ...rest, speech: 1 };
@@ -617,7 +570,6 @@ export function AsciiOrb({
   size = DESIGN,
   color = DEFAULT_COLOR,
   getSpectrum,
-  getMicSpectrum,
   word = null,
 }: AsciiOrbProps) {
   const hostRef = useRef<HTMLCanvasElement>(null);
@@ -643,13 +595,9 @@ export function AsciiOrb({
   // the loop mounts once with no deps, so the latest getter comes through a ref
   const specRef = useRef(getSpectrum);
   specRef.current = getSpectrum;
-  const micRef = useRef(getMicSpectrum);
-  micRef.current = getMicSpectrum;
 
   const voiceRef = useRef<Voice>({
     phrase: 0,
-    micPhrase: 0,
-    micLevel: 0,
     bob: 0,
     bobVel: 0,
     amp: new Array<number>(SPEAK_LOBES).fill(0),
@@ -675,7 +623,6 @@ export function AsciiOrb({
     speech: 0,
     err: 0,
     word: 0,
-    listen: 0,
   });
 
   /** The word being shown, when it started, and how many letters it has; its cells carry the rest */
@@ -824,14 +771,11 @@ export function AsciiOrb({
   useEffect(() => {
     let raf = 0;
     const follower = createVoiceFollower();
-    const micFollower = createVoiceFollower();
     const murmur = new Array<number>(SPECTRUM_BANDS).fill(0);
-    const silence = new Array<number>(SPECTRUM_BANDS).fill(0);
 
     let lastT = performance.now() * 0.001;
-    /** Glyph clock: it runs at the retype pace, so changing the pace never jumps a glyph */
+    /** Glyph clock: seconds the loop has run, so a backgrounded tab resumes where it left off */
     let clock = 0;
-    let pace = 1;
     /** Seconds ERROR has been showing (errorValue) */
     let errAge = 0;
 
@@ -878,18 +822,7 @@ export function AsciiOrb({
       voice.bobVel += -voice.bob * 0.012 - voice.bobVel * 0.09;
       voice.bob += voice.bobVel;
 
-      // the microphone is read every frame but answers only while listening: it
-      // sets how fast the glyphs retype, and lifts the body across a phrase
-      const mic = micRef.current?.();
-      const micHeard = micFollower.read(mic ?? silence, dt);
-      voice.micPhrase = mic ? micHeard.phrase : 0;
-      voice.micLevel = mic ? micHeard.level : 0;
-      const wantPace =
-        mic && modeRef.current.mode === "listening"
-          ? LISTEN_PACE_QUIET + LISTEN_PACE_VOICE * micHeard.level
-          : 1;
-      pace = toward(pace, wantPace, PACE_TIME, PACE_TIME, dt);
-      clock += dt * pace;
+      clock += dt;
 
       for (let i = 0; i < SPEAK_LOBES; i++) {
         // neighbouring bands per lobe, low lobes from low bands
@@ -934,9 +867,8 @@ export function AsciiOrb({
             speech: 0,
             err: 0,
             word: 1,
-            listen: 0,
           }
-        : targetFor(cur.mode, t - cur.start, voice);
+        : targetFor(cur.mode, t - cur.start);
       const f = fieldRef.current;
       f.scale = toward(
         f.scale,
@@ -957,7 +889,6 @@ export function AsciiOrb({
       }
       f.err = toward(f.err, want.err, RISE.err, FALL.err, dt);
       f.word = toward(f.word, want.word, RISE.word, FALL.word, dt);
-      f.listen = toward(f.listen, want.listen, RISE.listen, FALL.listen, dt);
       const solidError = f.err > 0.5;
       const solidWord = f.word > 0.5;
       const rate = cs === "emojiOnly" ? EMOJI_CHAR_RATE : CHAR_RATE;
@@ -996,18 +927,7 @@ export function AsciiOrb({
             v = Math.max(v, 0.9);
           }
 
-          const gate =
-            cell.gap +
-            Math.sin(t * 0.28 + cell.seed * 6.283) * 0.05 +
-            f.listen *
-              (LISTEN_THIN +
-                (hash(
-                  Math.floor(t * LISTEN_POP_RATE + cell.seed * 3),
-                  cell.seed * 97,
-                ) -
-                  0.5) *
-                  LISTEN_POP *
-                  voice.micLevel);
+          const gate = cell.gap + Math.sin(t * 0.28 + cell.seed * 6.283) * 0.05;
           if (v < gate) v = 0;
         }
 
