@@ -88,7 +88,7 @@ export type { CaptionView };
 
 type CallScreenProps = {
   status: CallStatus;
-  /** A call just failed to open or dropped; the face says so for a few seconds. */
+  /** A call just failed to open or dropped, and the face says so for a few seconds; or a turn of a call in writing broke, and it says so while the line does. */
   failed?: boolean;
   /** Oldest first; the last one is the turn being spoken. */
   messages: CallMessage[];
@@ -1409,7 +1409,8 @@ export function Thursday() {
       <TabState live={status !== "idle"} ringing={ringing !== null} />
       <CallScreen
         status={writing ? text.status : status}
-        failed={failed}
+        // a turn in writing that broke is said by her face too, for as long as its line says why
+        failed={writing ? text.error !== null : failed}
         messages={writing ? text.messages : messages}
         tool={writing ? text.tool : tool}
         thinkingSince={writing ? text.thinkingSince : thinkingSince}

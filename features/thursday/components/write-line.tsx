@@ -251,8 +251,40 @@ export function WriteLine({
       .finally(() => setReaching(false));
   };
 
+  /**
+   * Esc. A bot picked during her call: it gives the line back to her. Hers, it ends the
+   * call in writing, and the line goes with it.
+   */
+  const leave = () => {
+    if (calling && !toHer) return setBesides(null);
+    if (calling) written?.end();
+    setOpen(false);
+  };
+  const leaveRef = useRef(leave);
+  leaveRef.current = leave;
+
   // The pill's card would grow where the line stands, so the pill is told (room-pill)
   const up = open || dragging || calling;
+  // Esc is the line's while it is up, not the field's: the field is disabled while words are
+  // on their way and the browser drops its focus then, which is also when a call that broke
+  // has to be left. A dialog over the screen keeps its own Esc
+  useEffect(() => {
+    if (!up) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if ((event.target as HTMLElement | null)?.closest?.('[role="dialog"]'))
+        return;
+      event.preventDefault();
+      leaveRef.current();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [up]);
+  // and the focus comes back once they have gone, or failed to
+  const sending = starting || reaching;
+  useEffect(() => {
+    if (up && !sending) field.current?.focus();
+  }, [up, sending]);
   useEffect(() => {
     writeLine.shown(up);
     return () => writeLine.shown(false);
@@ -376,12 +408,7 @@ export function WriteLine({
                 onKeyDown={(event) => {
                   if (event.key === "Escape") {
                     event.preventDefault();
-                    // A bot picked during her call: Esc gives the line back to her.
-                    // Hers, it ends the call in writing, and the line goes with it
-                    if (calling && !toHer) return setBesides(null);
-                    if (calling) written?.end();
-                    setOpen(false);
-                    return;
+                    return leave();
                   }
                   if (event.key !== "Enter" || event.shiftKey) return;
                   if (event.nativeEvent.isComposing || event.keyCode === 229)

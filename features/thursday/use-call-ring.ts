@@ -122,7 +122,10 @@ export function useCallRing({
         ? setTimeout(() => setRangOutAt(Date.now()), CALL_BACK.ringMs)
         : null;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented) decline();
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      // One Esc does one thing: the write line, when it is up too, takes the next
+      event.preventDefault();
+      decline();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => {
