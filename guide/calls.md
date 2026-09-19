@@ -100,8 +100,8 @@ itself, in a quiet moment, and she says it.
 
 With no call open, the computer shows a notification. **Settings › Thursday › Starting a
 call › She calls you** makes the screen ring instead: "When a job needs me" rings for a
-question or a stop, "Whenever a job ends" rings for results too, and "Never" is where it
-starts. It is one call however much is waiting: while it rings, the screen says under her
+question or a stop — where it starts — "Whenever a job ends" rings for results too, and
+"Never" leaves it to the notification. It is one call however much is waiting: while it rings, the screen says under her
 face whose work it is about and what it asks — with the answers the bot offered, and the
 other work waiting by name — and one round button, Answer. Tapping her face answers too, Esc
 is "not now", and she opens by saying why she called, then tells the rest one by one. A ring

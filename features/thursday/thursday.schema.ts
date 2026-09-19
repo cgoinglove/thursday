@@ -148,8 +148,8 @@ export const CALL_BACK_MODES = ["off", "waiting", "any"] as const;
 export const CallBackSchema = z.enum(CALL_BACK_MODES);
 export type CallBack = z.infer<typeof CallBackSchema>;
 
-/** Off until chosen: a first call is one the user placed, not one that rang them. */
-export const CALL_BACK_DEFAULT: CallBack = "off";
+/** A job that waits on the user rings; one that only finished waits for the next call. */
+export const CALL_BACK_DEFAULT: CallBack = "waiting";
 
 export const CALL_BACK_LABEL: Record<CallBack, string> = {
   off: "Never",
