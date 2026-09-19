@@ -48,6 +48,22 @@ details. Once connected, its tools are there for bots to search and call, and up
 them can be pinned to one bot so they are always in front of it. Signing in happens in a
 popup window; a server that needs it again turns red on that screen.
 
+## Sites they signed in to
+
+When a bot needs them signed in to a website — to post, to read mail, to order — it opens a
+browser window on their screen and asks; they sign in there themselves, and the app keeps that
+sign-in so later work does not ask again. **Settings › Connectors › Sign-ins** lists each one:
+the site, the account, and the bots that may use it. What is kept is the site's session, never
+a password, on this machine and outside the folder the bots work in.
+
+- The bot that asked for the sign-in may use it. Another bot that needs the same one asks
+  first, and its question carries a button that lets it in; the **×** on a bot's name in the
+  list takes that back.
+- **Sign out** removes what is kept; the next job that needs the site asks them to sign in
+  again. The site may go on listing the session until it ends it, so a lost or shared
+  computer is also a reason to sign out on the site itself.
+- A site that ends the session by itself just makes the bot ask again.
+
 ## Its own window
 
 The app runs in a browser tab, and a tab is easy to lose: closed, it takes the wake phrase,

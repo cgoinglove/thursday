@@ -100,8 +100,8 @@ seed-skills/<seed>/       A seed bot's own skills (read-only), copied into `bots
 Domains today: `thursday` (the call), `bot` (bots and the jobs they run), `routine` (jobs that start
 by themselves), `memory`, `workspace` (the
 files bots work in) and `artifact` (the finished ones), `skills`, `connectors` (MCP servers), `config`
-(keys and models), `reach` (writing to her from a phone), `intro` (first run), and `settings` (the
-settings shell only).
+(keys and models), `signins` (the sites the user signed in to, kept for bots to borrow), `reach`
+(writing to her from a phone), `intro` (first run), and `settings` (the settings shell only).
 
 Two roots (`config.ts` `APP_DIR` / `DATA_DIR`): the app's files (build, migrations, bundled skills) and
 the user's files (DB, workspace, installed skills). Both default to `process.cwd()` and can be moved
@@ -170,6 +170,15 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   Requests to the same bot run sequentially. Messages are asynchronous: a waiting A can handle a question from B in its own
   context, but a bot waiting on the user's answer runs nothing until it arrives; its inbox holds. Only exchanged messages cross participant contexts. `room.query` owns durable inboxes,
   continuation claims and return routes; `bot.runner` owns live promises.
+- **A sign-in is the app's to keep and the user's to lend.** A bot borrows one with
+  `sign_in_use` and hands over the one the user just made with `sign_in_keep`
+  (`tools/signin.tool`); the session lives under `DATA_DIR/sign-ins`, one file a site, outside
+  the workspace, and crosses it only as a file that exists for one browser-CLI command. That is
+  a place, not a lock — a bot's shell is not confined — and what it buys is that no bot comes
+  across another's session among its files. Which bots may borrow is settled on screen only
+  (Settings › Connectors › Sign-ins, or the button a waiting bot's question carries,
+  `signin-ask`): a refused borrow is noted as `asking`, and nothing a tool is told lets a bot
+  in. Boot takes in what bots used to keep under `bots/<name>/.auth`.
 - **A phone reaches her through a chat the server asks, never a port.** `reach` long-polls the
   user's own Telegram bot (`telegram.ts` is all that knows the service) and answers with
   `thursday.text` `answerInWriting`: the run a page's call in writing streams, answered whole,

@@ -8,6 +8,7 @@ import {
   FilePen,
   FileText,
   Globe,
+  KeyRound,
   ListChecks,
   Loader2,
   type LucideIcon,
@@ -77,6 +78,8 @@ const TOOL_ICONS: Partial<Record<string, LucideIcon>> = {
   [TOOL_NAMES.thread_show]: ListChecks,
   [TOOL_NAMES.thread_seen]: ListChecks,
   [TOOL_NAMES.send_message]: MessageSquare,
+  [TOOL_NAMES.sign_in_use]: KeyRound,
+  [TOOL_NAMES.sign_in_keep]: KeyRound,
   [TOOL_NAMES.end_call]: PhoneOff,
 };
 

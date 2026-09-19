@@ -105,6 +105,11 @@ const McpSetting = lazySection(() =>
     default: m.McpSetting,
   })),
 );
+const SignInsSetting = lazySection(() =>
+  import("@/features/signins/components/signins-setting").then((m) => ({
+    default: m.SignInsSetting,
+  })),
+);
 
 /**
  * A section that is two screens of one subject, each whole as it was — its own scroll
@@ -152,6 +157,13 @@ const FILE_TABS = [
   { label: "All files", Component: WorkspaceSetting },
 ] as const;
 const FilesSection = () => <Tabbed tabs={FILE_TABS} />;
+
+/** Both are accounts outside this computer: servers the bots call, sites the user signed in to. */
+const CONNECTOR_TABS = [
+  { label: "Connectors", Component: McpSetting },
+  { label: "Sign-ins", Component: SignInsSetting },
+] as const;
+const ConnectorsSection = () => <Tabbed tabs={CONNECTOR_TABS} />;
 
 /** Adding a section is one entry here plus an id in settings.store. */
 const GROUPS = ["call", "work", "app"] as const;
@@ -222,9 +234,9 @@ export const SECTIONS: readonly {
     id: "mcp",
     label: "Connectors",
     group: "work",
-    hint: "Tools from MCP servers",
+    hint: "Tools from MCP servers, and the sites you signed in to",
     icon: McpMark,
-    Component: McpSetting,
+    Component: ConnectorsSection,
     Badge: McpBadge,
   },
   {

@@ -43,6 +43,7 @@ import {
   screenActs,
   threadDrafts,
 } from "@/features/bot/thread.store";
+import { SignInAsk } from "@/features/signins/components/signin-ask";
 import {
   GivenFiles,
   roomDrop,
@@ -232,6 +233,7 @@ export function ThreadReply({
             onChoose={choose}
           />
         )}
+        <SignInAsk bot={recipientName} onAllowed={send} />
         <DraftComposer
           key={JSON.stringify([thread.id, recipientName, question.id])}
           threadId={thread.id}

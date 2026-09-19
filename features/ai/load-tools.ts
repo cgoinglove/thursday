@@ -21,6 +21,7 @@ import {
   createCallSearchTool,
   createSearchTool,
 } from "@/features/ai/tools/search.tool";
+import { createSignInTools } from "@/features/ai/tools/signin.tool";
 import { createSkillTools } from "@/features/ai/tools/skills.tool";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { createWorkspaceTools } from "@/features/ai/tools/workspace.tool";
@@ -451,6 +452,9 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     // Pinned tools come with schemas; the rest sit behind `tool_search`, absent when nothing is left to find (mcp.tool)
     ...(await createMcpTools(run.bot, sandbox)),
     ...createSkillTools({ sandbox, skills, bot: run.bot }),
+    // Sign-ins are the app's to keep and the user's to lend (tools/signin.tool); the state
+    // goes into this participant's own browser, the one its shell drives
+    ...createSignInTools(sandbox, run.bot, jobShellEnv(run.session)),
     // Absent unless the list in its prompt cut a line short (tools/bot.tool)
     ...(await createThreadRecallTool(run.bot, run.thread ?? null)),
   };

@@ -44,7 +44,8 @@ A job never fails for good; it pauses and waits.
 - **Use this Mac's apps and windows**: macOS has to allow it. The bot says which two
   permissions are missing, Screen Recording and Accessibility, and only the user can grant
   them in System Settings.
-- **Sign in or pay**: by design. The bot opens the page and waits for them.
+- **Sign in or pay**: by design. The bot opens the page and waits for them. A sign-in is
+  kept for next time (`setup.md`, Sites they signed in to); paying is always theirs to press.
 - **Search the web**: only OpenAI, Anthropic, Google and xAI models search by themselves. A
   bot on anything else opens pages instead. A search key in Settings › Models & keys gives every bot
   search.

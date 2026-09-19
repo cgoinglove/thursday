@@ -18,6 +18,8 @@ export type AppEvent =
   | { type: "config" }
   /** Signal: who may write from a phone changed, or someone is asking to (features/reach). */
   | { type: "reach" }
+  /** Signal: a sign-in was kept, lent, asked for or removed (features/signins). */
+  | { type: "signins" }
   /**
    * Data: a job finished. `words` opens its answer as plain text; `paths` are the
    * files it named, workspace-relative with the one worth reading first at the
@@ -54,6 +56,7 @@ export const SIGNALS: Record<Signal, true> = {
   mcp: true,
   config: true,
   reach: true,
+  signins: true,
 };
 
 export const isSignal = (

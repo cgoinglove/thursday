@@ -1,0 +1,182 @@
+"use client";
+
+import { KeyRound, LogOut, X } from "lucide-react";
+import { useAppEvent } from "@/app/api/events/app-event.client";
+import { queryKey } from "@/app/api/query-key";
+import { Button } from "@/components/ui/button";
+import { notify } from "@/components/ui/notify";
+import { SiteIcon } from "@/components/ui/site-icon";
+import type { Bot } from "@/features/bot/bot.schema";
+import { BotMark } from "@/features/bot/components/bot-mark";
+import {
+  SettingError,
+  SettingItems,
+  SettingRailNote,
+  SettingScreen,
+  SettingSkeleton,
+} from "@/features/settings/components/setting-ui";
+import { whenOf } from "@/lib/date-like";
+import { useServerAction } from "@/lib/protocol/use-server-action";
+import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
+import { cn, WAITING_INK } from "@/lib/utils";
+import { removeSignInAction, setSignInBotAction } from "../signins.action";
+import type { SignIn } from "../signins.schema";
+
+/**
+ * The sign-ins the app keeps: the site, who it signs in as, the bots that may borrow it,
+ * and the way to sign out. Nothing is added here — a sign-in comes to be when a bot needs
+ * one and the user makes it in the window that bot opened.
+ */
+export function SignInsSetting() {
+  const { data, isLoading, error } = useServerRoute<SignIn[]>(queryKey.signIns);
+  const { data: bots } = useServerRoute<Bot[]>(queryKey.bot);
+  useAppEvent({ signins: () => void revalidate(queryKey.signIns) });
+
+  if (isLoading) return <SettingSkeleton rows={3} />;
+  if (error) return <SettingError message={error.message} />;
+  const all = data ?? [];
+
+  return (
+    <SettingScreen
+      footer={
+        <SettingRailNote>
+          A site's session as the browser held it — never a password. Kept on
+          this machine, outside the folder the bots work in.
+        </SettingRailNote>
+      }
+    >
+      <SettingItems>
+        {all.length === 0 ? (
+          <p className="p-4 text-sm leading-relaxed text-muted-foreground">
+            Nothing is kept yet. When a bot needs you signed in somewhere, it
+            opens a window for you to sign in — and that sign-in is kept here
+            for its later work.
+          </p>
+        ) : (
+          all.map((signIn) => (
+            <Row key={signIn.site} signIn={signIn} bots={bots} />
+          ))
+        )}
+      </SettingItems>
+    </SettingScreen>
+  );
+}
+
+function Row({ signIn, bots }: { signIn: SignIn; bots?: Bot[] }) {
+  const done = () => revalidate(queryKey.signIns);
+  const [setBot, setting] = useServerAction(setSignInBotAction, {
+    onOk: done,
+  });
+  const [remove, removing] = useServerAction(removeSignInAction, {
+    onOk: done,
+  });
+
+  const signOut = async () => {
+    const ok = await notify.confirm({
+      title: `Sign out of ${signIn.site}?`,
+      description:
+        "What is kept here is removed, and the bots that used it ask you to sign in again. The site itself may still list the session until it ends it.",
+      okText: "Sign out",
+      destructive: true,
+    });
+    if (ok) void remove(signIn.site).catch(() => {});
+  };
+
+  return (
+    <div className="flex flex-col gap-2.5 p-4">
+      <div className="flex items-center gap-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted/60">
+          <SiteIcon
+            host={signIn.site}
+            className="size-5 rounded-[5px]"
+            fallback={<KeyRound className="size-4 text-muted-foreground" />}
+          />
+        </span>
+        <span className="min-w-0 flex-1 space-y-0.5">
+          <span className="block truncate text-sm font-medium">
+            {signIn.site}
+          </span>
+          <span className="block truncate text-[13px] text-muted-foreground">
+            {signIn.account}
+          </span>
+        </span>
+        <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
+          {signIn.usedAt
+            ? `used ${whenOf(signIn.usedAt)}`
+            : `kept ${whenOf(signIn.keptAt)}`}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          loading={removing}
+          onClick={() => void signOut()}
+        >
+          <LogOut />
+          Sign out
+        </Button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5 pl-13">
+        {signIn.bots.map((name) => (
+          <span
+            key={name}
+            className="flex h-7 items-center gap-1.5 rounded-full bg-muted/60 pr-1 pl-1.5 text-[13px]"
+          >
+            <BotMark size={18} seed={name} {...markOf(name, bots)} />
+            {name}
+            <button
+              type="button"
+              disabled={setting}
+              aria-label={`${name} may no longer use it`}
+              onClick={() =>
+                void setBot(signIn.site, name, false).catch(() => {})
+              }
+              className="grid size-5 place-items-center rounded-full text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <X className="size-3" />
+            </button>
+          </span>
+        ))}
+        {signIn.bots.length === 0 && signIn.asking.length === 0 && (
+          <span className="text-[13px] text-muted-foreground">
+            No bot may use it. One that needs it will ask.
+          </span>
+        )}
+        {signIn.asking.map((name) => (
+          <span
+            key={name}
+            className={cn(
+              "flex h-7 items-center gap-1.5 rounded-full pr-1 pl-1.5 text-[13px] ring-1 ring-border ring-inset",
+              WAITING_INK,
+            )}
+          >
+            <BotMark size={18} seed={name} {...markOf(name, bots)} />
+            {name} asks
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-5 rounded-full px-2 text-[11px]"
+              disabled={setting}
+              onClick={() =>
+                void setBot(signIn.site, name, true).catch(() => {})
+              }
+            >
+              Allow
+            </Button>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const markOf = (name: string, bots?: Bot[]) => {
+  const icon = bots?.find((bot) => bot.name === name)?.icon;
+  return {
+    color: icon?.color,
+    shape: icon?.shape,
+    outline: icon?.outline,
+    paint: icon?.paint,
+    notify: false,
+  };
+};

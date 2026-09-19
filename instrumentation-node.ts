@@ -79,6 +79,14 @@ export async function boot() {
   );
   startRoutineClock();
 
+  // Sessions bots kept among their own files move to where the app keeps them
+  const { adoptKeptSessions } = await import(
+    "@/features/signins/signins.query"
+  );
+  await adoptKeptSessions().catch((cause) =>
+    logger.error("adopt kept sessions", cause),
+  );
+
   // Someone writing from a phone is answered from here on, when a bot token is set
   const { startReach } = await import("@/features/reach/reach");
   void startReach().catch((cause) => logger.error("start reach", cause));

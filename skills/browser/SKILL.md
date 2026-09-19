@@ -54,37 +54,28 @@ most of it, and is worth trying before you conclude anything about the site.
 Still refused after that, the wall is real: say so in your report, with the url
 and whatever you did bring back.
 
-**A sign-in is a fork, not a wall.** Four ways through, and which one fits is
+**A sign-in is a fork, not a wall.** Three ways through, and which one fits is
 yours to read off the job:
 
-- **A session you already kept.** `ls <your folder>/.auth/`, then `state-load`
-  that file and `goto` the site — cookies without a reload leave the signed-out
+- **A sign-in the app already keeps.** Call the `sign_in_use` tool with the
+  site, then `goto` the site — cookies without a reload leave the signed-out
   page that was already drawn, which reads as an expired session when it is not.
-  Cheapest when it works, so look before anything else.
+  Cheapest when it works, so try it before anything else.
 - **The browser they are already in.** `attach --cdp=chrome` carries their own
   profile and whatever it is signed into.
 - **They sign in themselves.** `open <the login url> --headed --persistent` —
   the login page, not the front door — then a `question` to Thursday in one line
   saying what to sign into and that the window is open, options `Signed in` /
   `Not now`, and stop. The window stays open while the job waits; continue from a
-  fresh `snapshot` when the answer comes. A captcha is the same move. Not
-  `show` — it blocks waiting for annotations nobody will send.
-- **You have the credentials.** Ask before you use them: a `question` to
-  Thursday in one line naming the account, options `Sign in with it` / `I'll do
-  it`, and on the second take the fork above. An answer to your own sign-in
-  question is the exception — credentials given there are already the yes, so
-  type them.
+  fresh `snapshot` when the answer comes. A captcha or a code sent to their phone
+  is the same move. Not `show` — it blocks waiting for annotations nobody will
+  send. Once they are in, call the `sign_in_keep` tool: the app keeps the sign-in
+  for your later work, and they can sign out of it in Settings.
 
-The line is where the secret comes from, not what kind it is: never guess,
-invent, or go looking for one somewhere they did not point you at. An email or
-username they gave you is not a secret — fill it and press next. `memory_recall`
-the note for that site when you are missing the address they use.
-
-**Keep a sign-in for the next job.** `mkdir -p <your folder>/.auth` and
-`state-save` into it after one succeeds — your own folder, the one your
-instructions name, because a session is yours across jobs and the workspace root
-is nobody's. Say that you kept it: it signs every later job in as them, which is
-theirs to want or not. These files never go in a report.
+Never guess or invent a secret, or go looking for one somewhere they did not
+point you at. An email or username they gave you is not a secret — fill it and
+press next. `memory_recall` the note for that site when you are missing the
+address they use.
 
 **Reading a page.** Every command writes a snapshot file and prints its path.
 `find "Create Key"` returns only the matching nodes with a few lines around
@@ -174,7 +165,6 @@ playwright-cli --raw eval "…"             # only the value, nothing else print
 
 playwright-cli screenshot [e5] [--filename=x.png]
 playwright-cli pdf --filename=page.pdf
-playwright-cli state-save .auth/site.json | state-load .auth/site.json
 playwright-cli close
 ```
 

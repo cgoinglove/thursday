@@ -30,6 +30,9 @@ export const TOOL_NAMES = {
   send_message: "send_message",
   thread_recall: "thread_recall",
 
+  sign_in_use: "sign_in_use",
+  sign_in_keep: "sign_in_keep",
+
   end_call: "end_call",
   emote: "emote",
 } as const;
