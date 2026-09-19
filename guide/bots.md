@@ -5,8 +5,8 @@
 A bot is a text model with a name, one sentence about what it is for, and a face. That
 sentence is how a job finds its bot. The roster is **Settings › Bots**: a bot is made there
 with a name and that sentence, switched off without being deleted, given its own model, its
-own tools and its own written instructions. The first run offers a few ready-made ones, and
-the rest of them can be added later from the same screen.
+own tools and its own written instructions. The first run offers the ready-made ones, all
+switched on; any of them can be switched off there, and added later from the same screen.
 
 Every bot has the same kit: a shell on this computer, a real browser of its own or the one
 the user is already signed into, their files, the web, whatever skills and connected services

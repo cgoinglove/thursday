@@ -4,7 +4,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  FileText,
   Mic,
   Volume2,
   VolumeX,
@@ -35,6 +34,10 @@ import { awake } from "@/features/thursday/face-words";
 import { silentVoice } from "@/features/thursday/silent-voice";
 import type { CallStatus, FaceWord } from "@/features/thursday/thursday.schema";
 import { useThursdayStore } from "@/features/thursday/thursday.store";
+import {
+  type Finished,
+  FinishedCard,
+} from "@/features/workspace/components/artifact-view";
 import { useWakeWord } from "@/hooks/use-wake-word";
 import { type AudioTap, createAudioTap } from "@/lib/live/live.tap";
 import { cn } from "@/lib/utils";
@@ -99,9 +102,8 @@ export function Intro({
   const [keyed, setKeyed] = useState(ready);
   const [word, setWord] = useState<FaceWord | null>(null);
   const [picked, setPicked] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(
-      BOT_SEEDS.map((seed) => [seed.name, Boolean(seed.recommended)]),
-    ),
+    // every bot comes along unless it is switched off here
+    Object.fromEntries(BOT_SEEDS.map((seed) => [seed.name, true])),
   );
   // One model for every pick; each bot's own is on its page in Settings › Bots
   const [runsOn, setRunsOn] = useState<RunsOn>({ provider: null, model: "" });
@@ -254,10 +256,17 @@ export function Intro({
         </div>
 
         <div className="flex w-full max-w-3xl flex-col items-center gap-4 px-6 text-center">
-          <div className="flex h-6 items-center gap-2 text-[13px] text-muted-foreground">
-            {step === "mic" && mic.on ? (
+          {/* One slot of one height for her first words or the step's state, and the rows
+              under the button keep theirs: her face and the button stand still from step to step */}
+          <div className="flex h-16 items-center gap-2 text-[13px] text-muted-foreground">
+            {step === "hello" ? (
+              <p className="max-w-130 text-[20px] leading-[1.5] text-balance text-foreground">
+                Just talk to her. She gets it done on this computer, and tells
+                you when it is ready.
+              </p>
+            ) : step === "mic" && mic.on ? (
               <Ear live getMicSpectrum={mic.spectrum} />
-            ) : step !== "hello" && !keyed ? (
+            ) : !keyed ? (
               "Asleep"
             ) : last ? (
               <Ready
@@ -266,13 +275,6 @@ export function Intro({
               />
             ) : null}
           </div>
-
-          {step === "hello" && (
-            <p className="max-w-140 text-[19px] leading-[1.55] text-balance">
-              Call her like a person. She hands the long work to bots on this
-              computer, and tells you when it is back.
-            </p>
-          )}
 
           <Button
             variant="brand"
@@ -284,13 +286,10 @@ export function Intro({
               } else if (last) leave(keyed);
               else setStep(STEPS[at + 1]);
             }}
-            className={cn(
-              "h-12 px-7 pl-8 text-[15px]",
-              step === "hello" && "mt-3",
-            )}
+            className="h-12 px-7 pl-8 text-[15px]"
           >
             {step === "hello"
-              ? "Set her up"
+              ? "Start"
               : last
                 ? keyed
                   ? "Call her"
@@ -310,15 +309,17 @@ export function Intro({
                     ? "or tap her"
                     : ""}
           </p>
-          {last && keyed && (
-            <button
-              type="button"
-              onClick={() => leave(false)}
-              className="-mt-1 rounded-md text-[13.5px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              Look around first
-            </button>
-          )}
+          <div className="-mt-1 flex h-5 items-center">
+            {last && keyed && (
+              <button
+                type="button"
+                onClick={() => leave(false)}
+                className="rounded-md text-[13.5px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                Look around first
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -700,6 +701,16 @@ const DEMO = {
   back: "Analyst is back. From ₩296,000, out of Incheon. The page is on your screen.",
 } as const;
 
+/** What lands in the corner at the end of the loop: words alone, so nothing is read off disk. */
+const DEMO_LANDED: Finished = {
+  threadId: "demo",
+  label: "Osaka flights, October",
+  bot: "Analyst",
+  words:
+    "Three fares from ₩296,000 out of Incheon. The Tuesday morning one is the pick: direct, and the cheapest by a little.",
+  paths: [],
+};
+
 type DemoStage = "rest" | "asked" | "working" | "landed";
 
 /** Where the loop stands: the words so far, what her face does, what the corners show. */
@@ -742,22 +753,21 @@ function DemoCorners({ stage, icons }: { stage: DemoStage; icons: BotIcon[] }) {
   const crew = BOT_SEEDS.filter((seed) => seed.recommended);
   return (
     <>
-      <div
-        className={cn(
-          "absolute bottom-5 left-5 flex w-90 items-center gap-3 rounded-3xl bg-background p-2.5 pr-3 ring-1 ring-border transition-all duration-500",
-          stage === "landed" ? "opacity-100" : "translate-y-3 opacity-0",
-        )}
-      >
-        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground">
-          <FileText className="size-4.5" />
-        </span>
-        <span className="flex min-w-0 flex-col text-left">
-          <span className="truncate text-[13.5px]">Osaka flights, October</span>
-          <span className="truncate font-mono text-[10.5px] text-muted-foreground">
-            Analyst · osaka-flights.html
-          </span>
-        </span>
-      </div>
+      {/* The card finished work really lands as, drawn here with nothing behind it */}
+      {stage === "landed" && (
+        <div className="pointer-events-none absolute bottom-5 left-5 w-90 text-left">
+          <FinishedCard
+            row={DEMO_LANDED}
+            bot={{
+              icon: icons[
+                BOT_SEEDS.findIndex((seed) => seed.name === DEMO_LANDED.bot)
+              ],
+            }}
+            onOpen={() => {}}
+            onClose={() => {}}
+          />
+        </div>
+      )}
       <div className="absolute right-5 bottom-5 flex h-10 items-center gap-2.5 rounded-full bg-background pr-3.5 pl-2.5 ring-1 ring-border">
         <span className="flex">
           {crew.map((seed, index) => (

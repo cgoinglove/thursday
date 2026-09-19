@@ -39,7 +39,7 @@ export function ArtifactView() {
 }
 
 /** One finished job, as the corner holds it. */
-type Finished = {
+export type Finished = {
   threadId: string;
   label: string;
   bot: string;
@@ -122,7 +122,7 @@ function Notice() {
     // The padding is room for the cards' rings and shadows, which a scroll box would clip.
     <div className="absolute bottom-3 left-3 z-10 flex max-h-[calc(100%-1.5rem)] w-82 max-w-[calc(100vw-1.5rem)] flex-col-reverse gap-2 overflow-y-auto p-2 scrollbar-none">
       {rows.map((row) => (
-        <Card
+        <FinishedCard
           key={row.threadId}
           row={row}
           bot={bots?.find((one) => one.name === row.bot)}
@@ -162,14 +162,15 @@ function Notice() {
  * Who, what, and how the answer opens; the files it named stand under the words,
  * as they do under a message in a thread. With files or without, it is one card.
  */
-function Card({
+export function FinishedCard({
   row,
   bot,
   onOpen,
   onClose,
 }: {
   row: Finished;
-  bot: Bot | undefined;
+  /** Whose face it wears; only its icon is read. */
+  bot: Pick<Bot, "icon"> | undefined;
   /** A file's face opens that file; the rest of the card opens the first one, or the thread when there is none. */
   onOpen: (path: string | null) => void;
   onClose: () => void;
