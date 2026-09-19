@@ -62,7 +62,7 @@ export type Chatter = {
   steppedIn?: boolean;
   /** Only for kind `tool`. */
   tool?: ToolUse;
-  /** When it was written; only for kind `stop`, whose repeats fold into one line. */
+  /** When it was written: a `stop`, whose repeats fold into one line, and a `tool`, so a folded run can say how long it took. */
   at?: DateLike;
 };
 
@@ -179,6 +179,7 @@ export function threadFromRow(row: Thread, bots?: Bot[]): ThreadView {
           to,
           text: line.note ?? line.input,
           kind: "tool",
+          at: line.at,
           tool: {
             name: line.name,
             input: line.input,

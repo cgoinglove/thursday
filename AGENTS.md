@@ -378,7 +378,8 @@ A 30-second poll remains as a safety net. No WebSockets.
   a bot's reply, the ending — never as the tool call that sent it. The open tab's bot's own work
   draws in full: its words as words, and each run of tool calls folded to a strip of tiles — a
   picture it took, the site it opened, else a glyph for what it did — with only the running step as
-  a row. The run's head unfolds it into rows, where a step shows what it touched (the site, the
+  a row. The run's head says what it did last in the bot's own words, how many steps and how
+  long (the same head another bot's folded work wears), and unfolds it into rows, where a step shows what it touched (the site, the
   file, the pages a search read), never the tool's name. Another bot's work between the messages it sends or receives (steps, stops, the
   words beside a call) folds into one row before its next message, and the row opens in place. A
   thread opens on its own bot's tab, which holds

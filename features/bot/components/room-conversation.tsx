@@ -517,18 +517,12 @@ function WorkRow({
             className="min-w-0 truncate text-[12px] leading-4"
           />
         ) : (
-          <span className="min-w-0 truncate font-mono text-[10px] leading-4 text-muted-foreground">
-            {counts}
-          </span>
-        )}
-        {lines.length > 0 && (
-          <ChevronDown
-            className={cn(
-              "size-3 shrink-0 text-muted-foreground/50 transition-transform",
-              shown && "rotate-180",
-            )}
+          <FoldedWords
+            words={last ? stepOf(last) : ""}
+            facts={[counts, tookOf(lines)].filter(Boolean).join(" · ")}
           />
         )}
+        {lines.length > 0 && <FoldArrow open={shown} />}
       </button>
       {shown && (
         <div className="flex min-w-0 flex-col gap-0.5 pt-0.5">
@@ -646,15 +640,17 @@ function Steps({ lines, threadId }: { lines: Chatter[]; threadId: string }) {
           setPicked(null);
         }}
         aria-expanded={open}
-        className="flex items-center gap-1.5 rounded-xl px-2 py-1 text-left font-mono text-[10px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="flex min-h-8.5 min-w-0 items-center gap-2 rounded-xl px-2.5 py-1 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        <span className="flex-1">{steps.length} steps</span>
-        <ChevronDown
-          className={cn(
-            "size-3 text-muted-foreground/50 transition-transform",
-            open && "rotate-180",
-          )}
+        <FoldedWords
+          // What it did last, in its own words; while the first step still runs, nothing yet
+          words={done.length ? stepOf(done[done.length - 1]) : ""}
+          facts={[`${steps.length} steps`, tookOf(steps)]
+            .filter(Boolean)
+            .join(" · ")}
+          grow
         />
+        <FoldArrow open={open} />
       </button>
       {open ? (
         steps.map(
@@ -702,6 +698,62 @@ function Steps({ lines, threadId }: { lines: Chatter[]; threadId: string }) {
       )}
     </div>
   );
+}
+
+/**
+ * The head of folded work, the same wherever work folds: what was done last in the bot's
+ * own words, then how much and how long. A row tall enough to press, with an arrow that reads
+ * as one.
+ */
+function FoldedWords({
+  words,
+  facts,
+  grow = false,
+}: {
+  words: string;
+  facts: string;
+  /** Takes the row's width, so the facts sit at its far end. */
+  grow?: boolean;
+}) {
+  return (
+    <>
+      <span
+        className={cn(
+          "min-w-0 truncate text-[12.5px] leading-5 text-foreground/80",
+          grow && "flex-1",
+        )}
+      >
+        {words}
+      </span>
+      <span className="shrink-0 font-mono text-[10.5px] leading-4 text-muted-foreground">
+        {facts}
+      </span>
+    </>
+  );
+}
+
+function FoldArrow({ open }: { open: boolean }) {
+  return (
+    <span className="grid size-5.5 shrink-0 place-items-center rounded-md bg-background text-muted-foreground ring-1 ring-border/60">
+      <ChevronDown
+        className={cn("size-3.5 transition-transform", open && "rotate-180")}
+      />
+    </span>
+  );
+}
+
+/** How long a run of lines took, first to last: "40s", "3 min", "1h 5m". Empty when the rows carry no times. */
+function tookOf(lines: Chatter[]): string {
+  const times = lines.flatMap((line) =>
+    line.at ? [toDate(line.at).getTime()] : [],
+  );
+  if (times.length < 2) return "";
+  const seconds = Math.round((Math.max(...times) - Math.min(...times)) / 1000);
+  if (seconds < 1) return "";
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
 /** "3 steps · 1 note", leaving out what did not happen; notes are the words beside a call. */
