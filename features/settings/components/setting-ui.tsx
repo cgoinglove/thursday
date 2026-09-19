@@ -457,7 +457,7 @@ export function SettingChoiceRows<T extends string>({
                 </span>
               )}
             </span>
-            {picked && <Check className="size-4 shrink-0" />}
+            {picked && <Check className="size-4 shrink-0 text-brand" />}
           </button>
         );
       })}

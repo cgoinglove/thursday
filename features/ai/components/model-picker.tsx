@@ -214,7 +214,7 @@ export function ModelPicker({
                         {entry.id}
                       </span>
                     </span>
-                    {on && <Check className="size-3.5 shrink-0" />}
+                    {on && <Check className="size-3.5 shrink-0 text-brand" />}
                   </button>
                 );
               })}

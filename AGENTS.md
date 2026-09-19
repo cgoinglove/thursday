@@ -358,9 +358,17 @@ A 30-second poll remains as a safety net. No WebSockets.
   screen that already means "this waits on you" — the ringing call, the missed list — says so
   without the amber.
 - One brand color, blue (`brand` in `app/globals.css`), and only as a point on black and white:
-  the one thing a screen asks for (`Button variant="brand"`, round), a switch that is on, and
-  Thursday herself (her caption dot). Never a surface, never a status — a green beside it would
-  read as a second brand.
+  the one thing a screen asks for (`Button variant="brand"`, round), a control that is on — a
+  switch, a radio, the tick beside what is picked — and Thursday herself (her caption dot). A
+  tick that reports a fact (a key saved, a step done) is no control and stays black, as does a
+  chip or a tab that fills when picked: never a surface, never a status — a green beside it
+  would read as a second brand.
+- What she is doing on a call is one line under her face, each drawn for at least
+  `CALL_LINE.dwellMs` (`useDwell`). With captions down the sides the same lines stand on her
+  side instead, under her latest words (`WorkStack`): the last three, older ones fainter, what
+  the backend is thinking about under them, no rule and no plate. Work that follows the
+  caller's words before any of hers takes her level line as her turn in the making, and her
+  earlier words step back for it as they would for a new turn.
 - Errors are never swallowed. Inline or toast, they reach the user.
 - Thread questions remain visible while other bots work. Unread endings stay in the inbox until
   the user opens them — its card in the left corner and Thursday's `thread_show` count, closing the
