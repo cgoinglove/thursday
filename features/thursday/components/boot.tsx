@@ -2,9 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-/** Her face's vertical place on the intro, which its field draws around. */
-export const INTRO_FACE = { centerY: 0.3, rim: 0.16 };
-
 /**
  * What a load that never starts says. Only the client takes this away, so on a page
  * whose scripts did not run it stays, and CSS alone reveals it (globals.css `stalled`)

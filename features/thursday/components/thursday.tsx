@@ -84,8 +84,6 @@ import { WriteLine, type WrittenCall } from "./write-line";
  * markup.
  */
 
-export type { CaptionView };
-
 type CallScreenProps = {
   status: CallStatus;
   /** A call just failed to open or dropped, and the face says so for a few seconds; or a turn of a call in writing broke, and it says so while the line does. */

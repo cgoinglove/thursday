@@ -27,6 +27,9 @@ jobs:
 
       - run: pnpm typecheck
       - run: pnpm lint
+      # Files, exports and dependencies nothing uses any more. Never with --cache:
+      # a warm cache reports every Next page as unused.
+      - run: pnpm knip
 
       # Every provider is mocked; none of these reaches the network.
       - run: pnpm test:live

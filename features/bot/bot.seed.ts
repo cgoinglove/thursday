@@ -206,9 +206,6 @@ Once it is up, open the post and check its image is the size you built; a cut on
 export const findBotSeed = (name: string) =>
   BOT_SEEDS.find((one) => one.name === name) ?? null;
 
-/** What the intro ticks by default, and the crew its first step shows. */
-export const RECOMMENDED_SEEDS = BOT_SEEDS.filter((seed) => seed.recommended);
-
 /**
  * One face per seed, in `BOT_SEEDS` order. Rolled by the caller and carried from
  * there — the intro shows the face it is about to create, and the roll happens on
