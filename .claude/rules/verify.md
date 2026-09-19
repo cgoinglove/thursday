@@ -34,3 +34,8 @@ paths:
 - **A dev server hot-reloads code only.** A migration or an `instrumentation` change needs a restart;
   say so after adding a table.
 - **A call needs a browser and a microphone**, so placing one is the person's.
+- **A stored row shows today's behaviour only if it is recent.** A local database is reset often:
+  compare `createdAt` with recent commits before judging the code by a row. How often something
+  was used says nothing about whether it is worth keeping.
+- **Read a thread by its timeline first** — each part's type, tool and length — then cut out only
+  the `seq` you need. A password or key someone typed into a chat is never printed again.

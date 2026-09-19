@@ -51,8 +51,12 @@ next-env.d.ts
 /.sign-ins
 # editor agent tooling, not the app's
 # Tool skills are installed per machine and symlink into /.agents, so a
-# committed one is a dangling link on every clone.
+# committed one is a dangling link on every clone. The three written for this
+# repo are the exception.
 /.claude/skills/*
+!/.claude/skills/verify/
+!/.claude/skills/cleanup/
+!/.claude/skills/checkup/
 /.claude/worktrees/
 /.agents
 .playwright-cli

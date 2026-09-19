@@ -18,10 +18,11 @@ machines. Two things follow, and they are not style preferences:
   machine paths, keys, or half-finished thoughts in a comment.
 - **Anything private is named `*.local.*`** — a scratch note, a to-do list, a plan, a local
   override. `.gitignore` covers that shape, so a file named this way can never be committed by
-  accident: how you like to work with an agent — when to ask, how to commit — goes in a
-  `*.local.md` file next to this one, loaded by whichever agent tool reads it. This file holds
-  only what the code requires. Never `git add -f` one, and never rename one into the tree to
-  "keep it for later"; if it is worth keeping, it is worth writing properly.
+  accident: your own preferences — the language you want answers in, when to be asked first —
+  go in a `*.local.md` file next to this one, loaded by whichever agent tool reads it. How
+  everyone works in this tree is below, under Working here. Never `git add -f` one, and never
+  rename one into the tree to "keep it for later"; if it is worth keeping, it is worth writing
+  properly.
 
 **Where the rules live.** This file holds what is true everywhere. What is true for one area is in
 `.claude/rules/`, next to the others and in the same voice; Claude Code loads each one when a file
@@ -38,6 +39,17 @@ it covers is read, and any other agent should read the one for the area it chang
 | `.claude/rules/verify.md` | Running the app to check it without touching anyone's data |
 | `.claude/rules/release.md` | What to check before a release, past what `pack.mts` gates |
 | `.claude/rules/docs.md` | The README, its Korean twin and `docs/how-it-works.md` |
+
+**The rest of the harness is shared too.** `.claude/settings.json` runs two hooks (they need
+`python3`): before a turn ends, typecheck, lint and knip on the files that session changed, and a
+word when `database/tables.ts` moved without a migration or a screen changed without `guide/`;
+and at the start of a session, a line when the weekly cleanup or the monthly checkup is due.
+`.claude/skills/` holds three skills written for this repo: `verify` (run the app and look, on a
+data folder of its own), `cleanup` (find what nothing uses, prove it dead, delete it) and
+`checkup` (what the setup loads, costs and has drifted from). Three outside skills fit beside them
+and are installed per machine: `npx skills add mattpocock/skills --skill grilling` (agree on the
+scope before a large change), `npx skills add vercel/next.js --skill next-dev-loop` and
+`npx skills add vercel-labs/agent-browser --skill agent-browser`.
 
 # Layout
 
@@ -139,6 +151,33 @@ one SSE stream, never by polling. Screens use shadcn first, a loader for every w
 waits on the user, red for what failed, and one brand blue only as a point. A job's run is held by the
 server, not the request, and everything it does is written as rows.
 
+# Working here
+
+Several agents may work in one checkout at once, and someone's own data sits beside the code
+(`DATA_DIR` defaults to the repository).
+
+- **Commit only what you wrote.** Stage your paths by name, never `git add -A` or `.`; when a file
+  also holds someone else's change, stage only your hunks (`git add -p`, or `git hash-object -w`
+  with `git update-index --cacheinfo` — `git commit <path>` takes the whole file), and check
+  `git show --stat HEAD` after. Never `git clean`, `git checkout .`, `git stash` or `git reset`:
+  each takes another session's work with it. Changes you did not make are left alone, even when
+  asked to tidy up.
+- **Some files are someone's data, not clutter**: the database, `DATA_DIR/.sign-ins` (live
+  sign-in sessions), the workspace bots work in (`.ai-workspace/`). Never delete them to tidy up,
+  and never start a server on them (`.claude/rules/verify.md`).
+- **The simplest thing that works first.** No code for a rare case: name the case in one line and
+  let the maintainer choose.
+- **Derive before storing.** A feature does not start with a table or a logging hook: check
+  whether what is on disk or an existing rule already answers it, and ask before adding storage.
+- **No heuristic does the model's job.** No phrase matching, per-language word lists or timers
+  that guess intent in place of what a model did not do. Stop it with a plain mechanism that
+  already exists, or report it with numbers and leave the prompt to the maintainer.
+- **Nothing is guarded twice.** A test that pattern-matches source to re-check what a constant or
+  the compiler already keeps is noise.
+- **No new options.** Something that runs by itself is one switch and a model, and its numbers are
+  `config.ts` constants. An expensive feature is not deleted but put behind one switch, and off
+  turns off everything that reads it.
+
 # Rules
 
 - Shared logic goes to `lib/utils.ts` or the matching lib file before it is written twice. Don't
@@ -163,7 +202,8 @@ server, not the request, and everything it does is written as rows.
 - **Keep these files true** — this one and `.claude/rules/*.md`. When a change makes a line wrong,
   fix it in the same commit, in the one file that owns it; when it settles something new and
   non-obvious, add it there. Delete what the code no longer does — a stale rule is followed as
-  confidently as a live one.
+  confidently as a live one — and when you add a line, look for one the code now answers. A rule
+  never records state (uncommitted, unverified, in progress): a day later it lies.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
