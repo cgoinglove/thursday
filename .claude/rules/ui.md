@@ -16,9 +16,8 @@ paths:
   visible.
 - Waiting is always a loader: buttons swap their icon for a Loader, lists use `Skeleton`. Never dots,
   and never a new element that shifts the row when it finishes.
-- Words for something still running shine (`ShinyText`), and pulse instead on the call screen
-  (`motion="pulse"`, the user's pick) — except what the backend is thinking about, which shines
-  there too (also the user's pick). It takes its colours from the theme —
+- Words for something still running shine (`ShinyText`), everywhere, the call screen included.
+  Only what is not words — a dot, an icon, a bar, a `Skeleton` — pulses. It takes its colours from the theme —
   `tone="waiting"` for amber, never a colour — and truncates in its own box, not a parent's.
 - Two status colors only: amber (waits on the user — a question, a stopped job, an answer not yet
   opened; `WAITING_INK` in `lib/utils`) and red (failed — `text-destructive`). Success, connected and

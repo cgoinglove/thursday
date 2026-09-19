@@ -722,7 +722,7 @@ function Activity({ tool }: { tool: ActivityLine }) {
       ) : tool.done ? (
         <span className={cn(look, "text-muted-foreground")}>{text}</span>
       ) : (
-        <ShinyText text={text} motion="pulse" className={look} />
+        <ShinyText text={text} className={look} />
       )}
     </span>
   );
@@ -1287,7 +1287,6 @@ function Hint({
     body = (
       <ShinyText
         text={status === "connecting" ? "Connecting…" : "Ending…"}
-        motion="pulse"
         className="text-muted-foreground/70"
       />
     );
