@@ -1,0 +1,406 @@
+/* The brief's whole look: a morning paper on a phone first, two columns on a wide screen,
+   light and dark, and print. Nothing from the network: system fonts, pictures inlined. */
+:root {
+  color-scheme: light dark;
+  --paper: #f7f4ee;
+  --card: #fffdf9;
+  --ink: #1b1a17;
+  --soft: #57534b;
+  --faint: #8b857a;
+  --rule: #e3ddd1;
+  --accent: #c2410c;
+  --up: #15803d;
+  --down: #b91c1c;
+  --tile: #ece6da;
+  --serif:
+    "Iowan Old Style", "Charter", "Palatino Linotype", Georgia, "Noto Serif",
+    serif;
+  --sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo",
+    "Noto Sans KR", "Noto Sans JP", "Noto Sans SC", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #131210;
+    --card: #1c1b18;
+    --ink: #f1ede4;
+    --soft: #bdb7ab;
+    --faint: #8f897d;
+    --rule: #2e2c27;
+    --accent: #fb923c;
+    --up: #4ade80;
+    --down: #f87171;
+    --tile: #26241f;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+  background: var(--paper);
+}
+body {
+  margin: 0 auto;
+  max-width: 64rem;
+  padding: 1.75rem 1rem 4rem;
+  background: var(--paper);
+  color: var(--ink);
+  font: 16px / 1.55 var(--sans);
+  text-wrap: pretty;
+}
+a {
+  color: inherit;
+}
+img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Scripts that set headlines better in their own sans than in a Latin serif */
+:lang(ko),
+:lang(ja),
+:lang(zh) {
+  --serif: var(--sans);
+}
+
+/* The masthead: the day, the name, one line on what today is about */
+.mast {
+  padding-bottom: 1.1rem;
+  border-bottom: 2px solid var(--ink);
+}
+.mast .day {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+.mast h1 {
+  margin: 0.15rem 0 0.5rem;
+  font: 700 2.4rem / 1.05 var(--serif);
+  letter-spacing: -0.02em;
+}
+.mast .lede {
+  margin: 0;
+  max-width: 40rem;
+  font-size: 1.08rem;
+  color: var(--soft);
+}
+
+/* The glance: weather and markets in one row that scrolls sideways on a phone */
+.glance {
+  display: flex;
+  gap: 0.6rem;
+  margin: 1rem -1rem 0;
+  padding: 0 1rem 0.2rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.glance::-webkit-scrollbar {
+  display: none;
+}
+.chip {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 7.2rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--rule);
+  border-radius: 0.8rem;
+  background: var(--card);
+  font-variant-numeric: tabular-nums;
+}
+.chip .k {
+  font-size: 0.75rem;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.chip .v {
+  font-size: 1.02rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.chip .d {
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.chip .d.up {
+  color: var(--up);
+}
+.chip .d.down {
+  color: var(--down);
+}
+.chip.sky {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.65rem;
+}
+.chip.sky svg {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  color: var(--accent);
+}
+.chip.sky .v {
+  font-size: 1.35rem;
+  line-height: 1.1;
+}
+
+/* Listen, and the words it reads */
+.listen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  margin-top: 1rem;
+}
+.listen audio {
+  width: min(100%, 22rem);
+  height: 2.4rem;
+}
+.listen details {
+  flex: 1 1 16rem;
+}
+.listen summary {
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--soft);
+}
+.listen details p {
+  margin: 0.6rem 0 0;
+  padding: 0.8rem 1rem;
+  border-radius: 0.7rem;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  white-space: pre-line;
+}
+
+/* One story: picture, topic, headline, two lines, why it matters, where it came from */
+.story {
+  position: relative;
+}
+.pic {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: var(--tile);
+}
+.pic .credit {
+  position: absolute;
+  right: 0.45rem;
+  bottom: 0.45rem;
+  max-width: 80%;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.35rem;
+  background: rgb(0 0 0 / 0.55);
+  color: #fff;
+  font-size: 0.66rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pic .none {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 1rem;
+  font: 700 1.2rem / 1.2 var(--serif);
+  color: var(--faint);
+  text-align: center;
+}
+.story h2,
+.story h3 {
+  margin: 0;
+  font-family: var(--serif);
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.story h2 a,
+.story h3 a {
+  text-decoration: none;
+}
+.story h2 a:hover,
+.story h3 a:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.story .sum {
+  margin: 0.45rem 0 0;
+  color: var(--soft);
+}
+.story .why {
+  margin: 0.55rem 0 0;
+  font-size: 0.92rem;
+}
+.story .why b {
+  color: var(--accent);
+  font-weight: 650;
+}
+.story .src {
+  margin: 0.55rem 0 0;
+  font-size: 0.78rem;
+  color: var(--faint);
+}
+.story .src a {
+  font-weight: 600;
+  color: var(--soft);
+}
+
+/* The lead: the picture wide, the headline large */
+.lead {
+  margin-top: 1.5rem;
+  padding-bottom: 1.6rem;
+  border-bottom: 1px solid var(--rule);
+}
+.lead .pic {
+  aspect-ratio: 16 / 9;
+  margin: 0 -1rem 1rem;
+  border-radius: 0;
+}
+.lead .kicker {
+  margin: 0 0 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--accent);
+}
+.lead h2 {
+  font-size: 1.75rem;
+  line-height: 1.15;
+}
+.lead .sum {
+  font-size: 1.05rem;
+}
+
+/* A topic: its name on a rule, its stories under it */
+.topic {
+  margin-top: 1.9rem;
+}
+.topic > h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0 0.3rem;
+  font: 700 1.3rem / 1.2 var(--serif);
+}
+.topic > h2::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+}
+.list {
+  display: grid;
+}
+.item {
+  display: grid;
+  grid-template-columns: 1fr 5.6rem;
+  grid-template-areas: "head pic" "body body";
+  column-gap: 0.9rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+.item:last-child {
+  border-bottom: 0;
+}
+.item .pic {
+  grid-area: pic;
+  aspect-ratio: 1;
+  border-radius: 0.6rem;
+}
+.item .pic .credit {
+  display: none;
+}
+.item .head {
+  grid-area: head;
+  align-self: center;
+}
+.item .body {
+  grid-area: body;
+}
+.item h3 {
+  font-size: 1.13rem;
+  line-height: 1.25;
+}
+
+.foot {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 2px solid var(--ink);
+  font-size: 0.8rem;
+  color: var(--faint);
+}
+.foot p {
+  margin: 0 0 0.4rem;
+}
+
+@media (min-width: 46rem) {
+  body {
+    padding: 2.75rem 2rem 5rem;
+  }
+  .mast h1 {
+    font-size: 3.4rem;
+  }
+  .glance {
+    margin: 1.2rem 0 0;
+    padding: 0;
+    flex-wrap: wrap;
+  }
+  .lead {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 1.75rem;
+    align-items: center;
+  }
+  .lead .pic {
+    margin: 0;
+    border-radius: 0.9rem;
+    aspect-ratio: 4 / 3;
+  }
+  .lead h2 {
+    font-size: 2.2rem;
+  }
+  .list {
+    grid-template-columns: repeat(2, 1fr);
+    column-gap: 2rem;
+  }
+  .item {
+    grid-template-columns: 1fr;
+    grid-template-areas: "pic" "head" "body";
+    row-gap: 0.7rem;
+    border-bottom: 0;
+  }
+  .item .head {
+    align-self: start;
+  }
+  .item .pic {
+    aspect-ratio: 3 / 2;
+    border-radius: 0.75rem;
+  }
+  .item .pic .credit {
+    display: block;
+  }
+  .item h3 {
+    font-size: 1.3rem;
+  }
+}
+@media print {
+  body {
+    max-width: none;
+    padding: 0;
+  }
+  .glance {
+    flex-wrap: wrap;
+  }
+  .listen audio {
+    display: none;
+  }
+  .story {
+    break-inside: avoid;
+  }
+}

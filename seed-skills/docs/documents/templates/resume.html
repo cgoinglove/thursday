@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{title}}</title>
+<style>
+/* print.css */
+</style>
+<style>
+@page { margin: 14mm 15mm 14mm; }
+body { font-size: 9.5pt; line-height: 1.45; }
+.top { margin-bottom: 12pt; }
+.top h1 { font-size: 21pt; }
+.top .role { font-size: 11pt; color: var(--accent); font-weight: 550; margin-top: 2pt; }
+.top .contact { margin-top: 6pt; font-size: 8.5pt; color: var(--soft); }
+.top .contact span + span::before { content: "·"; margin: 0 6pt; color: var(--faint); }
+h2 { font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.09em; color: var(--accent); border-bottom: 0.75pt solid var(--rule); padding-bottom: 3pt; margin: 13pt 0 7pt; }
+.job { margin-bottom: 9pt; break-inside: avoid; }
+.job .what { display: flex; justify-content: space-between; gap: 12pt; align-items: baseline; }
+.job .title { font-weight: 650; }
+.job .when { font-size: 8.5pt; color: var(--soft); white-space: nowrap; }
+.job .where { color: var(--soft); margin-bottom: 3pt; }
+.job ul { margin: 2pt 0 0; }
+.job li { margin-bottom: 1.5pt; }
+.skills { display: grid; grid-template-columns: 26mm 1fr; gap: 3pt 10pt; }
+.skills dt { font-weight: 600; }
+.skills dd { margin: 0; color: var(--ink); }
+</style>
+</head>
+<body>
+<!-- A one-page resume. Replace every line. Each .job is one role or degree: .title, .when, .where,
+     then three or four bullets that start with a verb and end with a number where there is one.
+     It must stay one page: `pdf` says when it runs over. -->
+<header class="top">
+  <h1>Full Name</h1>
+  <div class="role">The role they want</div>
+  <div class="contact"><span>City, Country</span><span>email@example.com</span><span>+00 000 000</span><span>linkedin.com/in/name</span></div>
+</header>
+
+<p>Two or three lines: who they are, what they are best at, and the proof.</p>
+
+<h2>Experience</h2>
+<div class="job">
+  <div class="what"><span class="title">Job title — Company</span><span class="when">2023 – now</span></div>
+  <div class="where">City · what the company does, in a few words</div>
+  <ul>
+    <li>Did what, for whom, with what result (a number).</li>
+  </ul>
+</div>
+
+<h2>Education</h2>
+<div class="job">
+  <div class="what"><span class="title">Degree — School</span><span class="when">2015 – 2019</span></div>
+</div>
+
+<h2>Skills</h2>
+<dl class="skills">
+  <dt>Area</dt><dd>Skill, skill, skill</dd>
+</dl>
+</body>
+</html>

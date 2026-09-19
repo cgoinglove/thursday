@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{title}}</title>
+<style>
+/* print.css */
+</style>
+<style>
+.cover { margin-bottom: 20pt; padding-bottom: 14pt; border-bottom: 0.75pt solid var(--rule); }
+.cover .kicker { color: var(--accent); font-weight: 650; font-size: 8.5pt; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8pt; }
+.cover h1 { font-size: 24pt; max-width: 15cm; }
+.cover .lede { font-size: 12pt; color: var(--soft); margin-top: 8pt; max-width: 15cm; line-height: 1.45; }
+.cover .meta { margin-top: 12pt; font-size: 8.5pt; color: var(--faint); }
+.facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10pt; margin: 12pt 0 4pt; }
+.fact { background: var(--tint); padding: 9pt 11pt; break-inside: avoid; }
+.fact b { display: block; font-size: 17pt; font-weight: 650; color: var(--accent); letter-spacing: -0.02em; line-height: 1.15; }
+.fact span { font-size: 8.5pt; color: var(--soft); }
+</style>
+</head>
+<body>
+<!-- A report, memo or brief. Replace every line; keep the order: the answer first, then what supports it.
+     Pieces: .facts of .fact (<b>number</b><span>what it is</span>) · .note · <table> with td.num ·
+     <figure><img><figcaption> · .cols (two columns) · .keep (never split across pages) · .break (new page). -->
+<header class="cover">
+  <div class="kicker">Report</div>
+  <h1>The title says the finding, not the topic</h1>
+  <p class="lede">One or two sentences: what the reader should take away.</p>
+  <div class="meta">Author · 20 September 2026</div>
+</header>
+
+<div class="facts">
+  <div class="fact"><b>42%</b><span>What the number is</span></div>
+  <div class="fact"><b>$1.2M</b><span>What the number is</span></div>
+  <div class="fact"><b>3 of 5</b><span>What the number is</span></div>
+</div>
+
+<h2>First section</h2>
+<p>Text.</p>
+
+<h2>Second section</h2>
+<table>
+  <thead><tr><th>Item</th><th class="num">Value</th></tr></thead>
+  <tbody><tr><td>Row</td><td class="num">1,000</td></tr></tbody>
+</table>
+</body>
+</html>

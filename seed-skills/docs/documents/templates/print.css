@@ -1,0 +1,219 @@
+/* A printed page. Change the paper in @page (A4 or letter), the colour in --accent. */
+@page {
+  size: A4;
+  margin: 18mm 18mm 20mm;
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    font:
+      8pt "Inter Variable",
+      -apple-system,
+      "Segoe UI",
+      sans-serif;
+    color: #8a8f98;
+  }
+}
+@page :first {
+  @bottom-right {
+    content: none;
+  }
+}
+
+:root {
+  --accent: #1f4e79;
+  --ink: #16181d;
+  --soft: #5b616e;
+  --faint: #8a8f98;
+  --rule: #dfe2e7;
+  --tint: #f4f6f9;
+  --sans:
+    "Inter Variable", -apple-system, "Segoe UI", "Noto Sans", "Apple SD Gothic Neo",
+    "Malgun Gothic", "Noto Sans CJK KR", "Hiragino Sans", "Yu Gothic", "PingFang SC",
+    "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --serif: Georgia, "Times New Roman", "Noto Serif", "Noto Serif CJK KR", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+html {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+body {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 10pt;
+  line-height: 1.5;
+  color: var(--ink);
+  overflow-wrap: break-word;
+}
+/* Korean breaks between words, never inside one */
+:lang(ko) {
+  word-break: keep-all;
+}
+/* On a screen, the page as paper */
+@media screen {
+  html {
+    background: #e9ebef;
+  }
+  body {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 24px auto;
+    padding: 18mm;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  }
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  line-height: 1.2;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  break-after: avoid;
+}
+h1 {
+  font-size: 22pt;
+  letter-spacing: -0.02em;
+}
+h2 {
+  font-size: 13pt;
+  margin: 18pt 0 6pt;
+  color: var(--accent);
+}
+h3 {
+  font-size: 10.5pt;
+  margin: 12pt 0 4pt;
+}
+p {
+  margin: 0 0 7pt;
+}
+ul,
+ol {
+  margin: 0 0 7pt;
+  padding-left: 14pt;
+}
+li {
+  margin: 0 0 2.5pt;
+}
+li::marker {
+  color: var(--faint);
+}
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+strong {
+  font-weight: 650;
+}
+small,
+.muted {
+  color: var(--soft);
+}
+hr {
+  border: 0;
+  border-top: 0.75pt solid var(--rule);
+  margin: 12pt 0;
+}
+img {
+  max-width: 100%;
+}
+figure {
+  margin: 10pt 0;
+  break-inside: avoid;
+}
+figcaption {
+  font-size: 8.5pt;
+  color: var(--soft);
+  margin-top: 4pt;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 6pt 0 10pt;
+  font-size: 9.5pt;
+}
+th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 8pt;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--soft);
+  border-bottom: 1pt solid var(--ink);
+  padding: 0 6pt 4pt;
+}
+td {
+  padding: 5pt 6pt;
+  border-bottom: 0.5pt solid var(--rule);
+  vertical-align: top;
+}
+th:first-child,
+td:first-child {
+  padding-left: 0;
+}
+th:last-child,
+td:last-child {
+  padding-right: 0;
+}
+.num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+tr {
+  break-inside: avoid;
+}
+thead {
+  display: table-header-group;
+}
+
+/* Layout pieces */
+.row {
+  display: flex;
+  gap: 16pt;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.row > * {
+  min-width: 0;
+}
+.cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16pt;
+}
+.label {
+  font-size: 7.5pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+  margin-bottom: 2pt;
+}
+.note {
+  background: var(--tint);
+  border-left: 2.5pt solid var(--accent);
+  padding: 7pt 10pt;
+  margin: 8pt 0;
+  break-inside: avoid;
+}
+.keep {
+  break-inside: avoid;
+}
+.break {
+  break-before: page;
+}
+.tag {
+  display: inline-block;
+  padding: 1pt 6pt;
+  border-radius: 8pt;
+  background: var(--tint);
+  font-size: 8.5pt;
+  margin: 0 3pt 3pt 0;
+}

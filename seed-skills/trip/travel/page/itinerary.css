@@ -1,0 +1,488 @@
+/* The itinerary's whole look: one file that opens offline, light and dark, phone to print.
+   The day-by-day plan is what the page is for; everything above it stays quiet. */
+:root {
+  color-scheme: light dark;
+  --bg: #faf8f4;
+  --card: #ffffff;
+  --fg: #1c1917;
+  --muted: #736b63;
+  --line: #e9e4dc;
+  --soft: #f2eee7;
+  --accent: #0f6e66;
+  --accent-soft: #e2f1ef;
+  --sun: #b45309;
+  --shade: 0 1px 2px rgb(28 25 23 / 0.05), 0 4px 16px rgb(28 25 23 / 0.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111312;
+    --card: #191c1b;
+    --fg: #f1efeb;
+    --muted: #a39d95;
+    --line: #2a2e2c;
+    --soft: #1f2322;
+    --accent: #5fd0c3;
+    --accent-soft: #173330;
+    --sun: #f2b35b;
+    --shade: none;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font:
+    16px / 1.6 ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    "Apple SD Gothic Neo",
+    "Noto Sans KR",
+    "Hiragino Sans",
+    sans-serif;
+  text-wrap: pretty;
+}
+main {
+  max-width: 54rem;
+  margin: 0 auto;
+  padding: 0 1rem 5rem;
+}
+a {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+img {
+  display: block;
+  max-width: 100%;
+}
+.num {
+  font-variant-numeric: tabular-nums;
+}
+.muted,
+small {
+  color: var(--muted);
+}
+
+/* Cover: the place itself, with the title set on it */
+.cover {
+  position: relative;
+  margin: 1rem 0 0;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  min-height: 15rem;
+  background: var(--soft);
+}
+.cover img {
+  width: 100%;
+  height: clamp(15rem, 42vw, 24rem);
+  object-fit: cover;
+}
+.cover .over {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 3.5rem 1.5rem 1.3rem;
+  color: #fff;
+  background: linear-gradient(to top, rgb(0 0 0 / 0.62), rgb(0 0 0 / 0));
+}
+.cover.plain .over {
+  position: static;
+  color: var(--fg);
+  background: none;
+  padding: 2.5rem 1.5rem 1.5rem;
+}
+h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+}
+.lede {
+  margin: 0.35rem 0 0;
+  font-size: 1.05rem;
+  opacity: 0.92;
+}
+.credit {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.8rem;
+  font-size: 0.7rem;
+  color: rgb(255 255 255 / 0.85);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
+}
+.credit a {
+  color: inherit;
+}
+
+/* The trip at a glance */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 0.6rem;
+  margin: 1rem 0 0;
+}
+.fact {
+  padding: 0.8rem 1rem;
+  border-radius: 0.9rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+.fact b {
+  display: block;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+}
+.fact span {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.fact.total b {
+  color: var(--accent);
+  font-size: 1.4rem;
+}
+
+h2 {
+  margin: 2.8rem 0 0.9rem;
+  font-size: 1.3rem;
+  letter-spacing: -0.015em;
+}
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--card);
+  box-shadow: var(--shade);
+}
+
+/* Flights: a leg reads like a boarding pass line */
+.leg {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr auto;
+  gap: 0.2rem 1rem;
+  align-items: center;
+  padding: 1rem 1.2rem;
+}
+.leg + .leg {
+  border-top: 1px dashed var(--line);
+}
+.leg .when {
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+.leg .when b {
+  display: block;
+  color: var(--fg);
+  font-size: 0.95rem;
+}
+.hop {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+}
+.hop .end b {
+  display: block;
+  font-size: 1.35rem;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.hop .end span {
+  font-size: 0.8rem;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.hop .line {
+  flex: 1;
+  min-width: 2.5rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.leg .who {
+  text-align: right;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.panel-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  padding: 0.75rem 1.2rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+
+/* The stay */
+.stay {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) 1fr;
+  overflow: hidden;
+}
+.stay.bare {
+  grid-template-columns: 1fr;
+}
+.stay figure {
+  margin: 0;
+  background: var(--soft);
+}
+.stay figure img {
+  width: 100%;
+  height: 100%;
+  min-height: 11rem;
+  object-fit: cover;
+}
+.stay .body {
+  padding: 1.1rem 1.3rem;
+}
+.stay h3 {
+  margin: 0 0 0.2rem;
+  font-size: 1.15rem;
+}
+.stay p {
+  margin: 0.4rem 0 0;
+}
+.price {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Weather, one chip a day */
+.weather {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+}
+.weather div {
+  flex: 1 0 7.5rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.8rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  font-size: 0.88rem;
+}
+.weather b {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* Day by day: the page's reason to exist */
+.day {
+  margin: 0 0 1.4rem;
+  overflow: hidden;
+}
+.day > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.9rem;
+  padding: 1rem 1.2rem 0.8rem;
+  border-bottom: 1px solid var(--line);
+}
+.day .n {
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 99px;
+  padding: 0.1rem 0.6rem;
+}
+.day h3 {
+  margin: 0;
+  font-size: 1.12rem;
+  flex: 1 1 12rem;
+}
+.day .meta {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.day .meta .sky {
+  color: var(--sun);
+}
+.stops {
+  list-style: none;
+  margin: 0;
+  padding: 0.4rem 0;
+}
+.stop {
+  display: grid;
+  grid-template-columns: 3.6rem 1fr 9.5rem;
+  gap: 0.9rem;
+  padding: 0.75rem 1.2rem;
+  position: relative;
+}
+.stop + .stop {
+  border-top: 1px solid var(--soft);
+}
+.stop time {
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding-top: 0.1rem;
+}
+.stop h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+.stop p {
+  margin: 0.15rem 0 0;
+  font-size: 0.93rem;
+}
+.stop .links {
+  margin-top: 0.3rem;
+  font-size: 0.83rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.9rem;
+}
+.stop .tip {
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.stop figure {
+  margin: 0;
+}
+.stop figure img {
+  width: 9.5rem;
+  height: 6.6rem;
+  object-fit: cover;
+  border-radius: 0.6rem;
+  background: var(--soft);
+}
+.stop figcaption {
+  margin-top: 0.2rem;
+  font-size: 0.66rem;
+  line-height: 1.3;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.stop figcaption a {
+  color: inherit;
+}
+.stop.bare {
+  grid-template-columns: 3.6rem 1fr;
+}
+.stop .cost {
+  font-size: 0.83rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.day > footer {
+  padding: 0.7rem 1.2rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.88rem;
+}
+
+/* Costs */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+th,
+td {
+  padding: 0.6rem 1.2rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+td.num {
+  text-align: right;
+  white-space: nowrap;
+}
+td small {
+  display: block;
+}
+tr.total td {
+  border-bottom: 0;
+  font-weight: 650;
+  font-size: 1.05rem;
+}
+tr.total td.num {
+  color: var(--accent);
+}
+.fx {
+  padding: 0.7rem 1.2rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.notes {
+  margin: 0;
+  padding: 1rem 1.2rem 1rem 2.4rem;
+}
+.notes li + li {
+  margin-top: 0.35rem;
+}
+.sources {
+  margin-top: 3rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.sources a {
+  color: inherit;
+}
+
+@media (max-width: 40rem) {
+  .leg {
+    grid-template-columns: 1fr auto;
+  }
+  .leg .when {
+    grid-column: 1 / -1;
+  }
+  .leg .when b {
+    display: inline;
+    margin-right: 0.4rem;
+  }
+  .stay {
+    grid-template-columns: 1fr;
+  }
+  .stay figure img {
+    height: 12rem;
+  }
+  .stop {
+    grid-template-columns: 3.1rem 1fr;
+  }
+  .stop figure {
+    grid-column: 2;
+  }
+  .stop figure img {
+    width: 100%;
+    height: 9rem;
+  }
+  th,
+  td {
+    padding: 0.55rem 0.9rem;
+  }
+}
+@media print {
+  body {
+    background: #fff;
+  }
+  .panel {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+  .day {
+    break-inside: auto;
+  }
+  .stop {
+    break-inside: avoid;
+  }
+}

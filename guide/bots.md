@@ -14,7 +14,17 @@ are installed, and the other bots. A ready-made bot may also arrive with written
 scripts of its own for its subject, which no other bot sees: Insta studies accounts that do well
 in a niche, builds posts the same way and reads messages without opening them (an opened thread
 shows as seen); Analyst fetches published series and draws them; Marketer keeps one brief per
-product in its memory and works from it.
+product in its memory and works from it. Trip searches flights and places to stay, and lays a
+trip out day by day with photos, map links and what it costs; it takes a booking as far as the
+payment screen and stops there. Brief makes a news page on the topics the user chose, with each
+publisher's own photo and a version to hear, and learns from "less of this". Digest reads a
+video's transcript, a podcast, an article or a PDF and answers with key points that link to the
+moment they are said. Docs makes PDFs, invoices, slide decks, Word and Excel files, and fills,
+signs, merges or translates the ones it is given; a deck or a Word file comes with a PDF copy,
+which is what the app shows.
+
+Something that should happen every day — a morning brief, a price to watch — is set up by
+asking her for a routine; a bot suggests the words, but only the call can start one.
 
 ## A job is a thread
 
