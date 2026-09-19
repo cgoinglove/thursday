@@ -16,6 +16,7 @@ import { acceptThreadRelaysAction } from "@/features/bot/bot.action";
 import type { Bot, Thread } from "@/features/bot/bot.schema";
 import { botThreads, screenActs } from "@/features/bot/thread.store";
 import { runRemoteTool } from "@/features/thursday/tool-call";
+import { askToNotify } from "@/features/workspace/components/artifact-view";
 import { isCombo, useHotkey } from "@/hooks/use-hotkey";
 import { useWakeWord } from "@/hooks/use-wake-word";
 import type { LiveClose } from "@/lib/live/live.schema";
@@ -708,6 +709,7 @@ export function useThursday(
     // with a line open this press hangs up; `calling` covers the gap before re-render
     if (calling.current || status !== "idle") return hangUp();
     answered();
+    askToNotify();
 
     setStatus("connecting");
     setEnded(null);

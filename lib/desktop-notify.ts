@@ -2,8 +2,9 @@ import { execFile } from "node:child_process";
 import { APP_NAME } from "@/config";
 
 /**
- * Native desktop notification for work that finished while nobody is on the
- * line. Best effort: the inbox is the durable signal, so failures are swallowed.
+ * Native desktop notification for work that finished while no page is open (with one open,
+ * the page shows its own). Best effort: the inbox is the durable signal, so failures are
+ * swallowed. On macOS it is AppleScript's, so pressing it opens Script Editor, not the app.
  */
 
 /** The OS truncates longer text anyway. */

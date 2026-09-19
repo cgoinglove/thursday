@@ -252,7 +252,9 @@ async function drive(work: RoomWork, signal: AbortSignal) {
   await finishRoomWork(work, final.text);
   const thread = await findThread(work.threadId);
   if (thread?.status === "done") {
-    if (!(await isAnyCallLive()))
+    // With a page open the page tells it (artifact-view): a notification it shows brings
+    // Thursday forward when pressed, where the OS one opens the script runner behind it
+    if (!presence.watching && !(await isAnyCallLive()))
       desktopNotify(thread.label, thread.outcome ?? "");
     const files = await filesOnDisk(pathsIn(thread.outcome ?? ""), null);
     // A page to read leads the notice; the rest follow in the order they were written.

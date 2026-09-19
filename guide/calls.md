@@ -98,7 +98,11 @@ one call at a time, and deletes a single call or all of them.
 While a call is open, a question or a result from a bot comes into the conversation by
 itself, in a quiet moment, and she says it.
 
-With no call open, the computer shows a notification. **Settings › Thursday › Starting a
+With no call open, a finished job lands as a card in the bottom left corner, and if Thursday
+is not the window in front, as a notification that brings her forward when pressed (the
+browser asks once, the first time a call is placed). With no Thursday window open at all,
+the computer's own notification says it instead; on a Mac pressing that one opens Script
+Editor rather than the app. **Settings › Thursday › Starting a
 call › She calls you** makes the screen ring instead: "When a job needs me" rings for a
 question or a stop — where it starts — "Whenever a job ends" rings for results too, and
 "Never" leaves it to the notification. It is one call however much is waiting: while it rings, the screen says under her

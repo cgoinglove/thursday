@@ -91,6 +91,42 @@ function rememberDismissed(ids: string[]) {
   }
 }
 
+/**
+ * A job finished while this page is not the one in front: the browser's own notification,
+ * which brings Thursday forward when pressed — the card is waiting there. Nothing when the
+ * page is in front (the card says it) or notifications were never allowed (see
+ * `askToNotify`).
+ */
+function tellFinished(threadId: string, label: string, words: string) {
+  if (typeof Notification === "undefined") return;
+  if (Notification.permission !== "granted") return;
+  if (document.visibilityState === "visible" && document.hasFocus()) return;
+  try {
+    const shown = new Notification(label, {
+      body: words,
+      tag: threadId,
+      icon: "/icon.svg",
+    });
+    shown.onclick = () => {
+      window.focus();
+      shown.close();
+    };
+  } catch {
+    // a browser that shows none from a page; the card and the room still have it
+  }
+}
+
+/**
+ * Asks once, in the browser's quiet way, whether this page may show a notification when a
+ * job finishes out of sight. Called as a call is placed: the moment someone starts handing
+ * out work, and never on load.
+ */
+export function askToNotify() {
+  if (typeof Notification === "undefined") return;
+  if (Notification.permission !== "default") return;
+  void Notification.requestPermission().catch(() => undefined);
+}
+
 /** A finished job as a card, read off its row when no event brought it: after a reload. */
 function cardOf(thread: ThreadView): Finished {
   const files = pathsIn(thread.outcome ?? "");
@@ -119,7 +155,8 @@ function Notice() {
         event.paths[0],
         event.paths.filter((path) => viewKindOf(path) === "image"),
       ),
-    finished: (event) =>
+    finished: (event) => {
+      tellFinished(event.threadId, event.label, event.words);
       setRows((was) =>
         [
           {
@@ -132,7 +169,8 @@ function Notice() {
           // A job that finishes twice (picked back up, ended again) keeps one card
           ...was.filter((row) => row.threadId !== event.threadId),
         ].slice(0, FINISHED_NOTICE.rows),
-      ),
+      );
+    },
   });
 
   // What finished while the page was away, or before a reload, and is still unread: the
