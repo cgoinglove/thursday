@@ -556,14 +556,15 @@ export const LOOK = { maxBytes: 4 * 1024 * 1024 };
 
 /**
  * One web search (features/ai/tools/search.tool), Exa or a model's own.
- * - `sources`  hits worth carrying back; past this it is noise.
+ * - `sources`  hits carried back. Each is a page's worth of tokens in the run from then on,
+ *            and the first few answer most questions; a bot that needs more searches again.
  * - `excerptChars`  how much of one page rides back with it; a bot that wants
  *            the whole page fetches it.
  * - `timeoutMs`  one deadline for both ways in. Nobody is watching a search, so
  *            a request that never answers would hold the step until the job's
  *            own timeout; a line saying so is worth more than the wait.
  */
-export const SEARCH = { sources: 6, excerptChars: 1_200, timeoutMs: 30_000 };
+export const SEARCH = { sources: 3, excerptChars: 1_200, timeoutMs: 30_000 };
 
 /**
  * A site's icon — beside a page a web search read, beside a connector — (lib/favicon): this server asks the
