@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowUpRight,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -259,7 +260,7 @@ export function Intro({
         <div className="flex w-full max-w-3xl flex-col items-center gap-4 px-6 text-center">
           {/* One slot of one height for her first words or the step's state, and the rows
               under the button keep theirs: her face and the button stand still from step to step */}
-          <div className="flex h-16 items-center gap-2 text-[13px] text-muted-foreground">
+          <div className="flex h-14 items-center gap-2 text-[13px] text-muted-foreground">
             {step === "hello" ? (
               <p className="max-w-130 text-[20px] leading-[1.5] text-balance text-foreground">
                 Just talk to her. She gets it done on this computer, and tells
@@ -310,55 +311,57 @@ export function Intro({
                     ? "or tap her"
                     : ""}
           </p>
-          <div className="-mt-1 flex h-5 items-center">
-            {last && keyed && (
-              <button
-                type="button"
-                onClick={() => leave(false)}
-                className="rounded-md text-[13.5px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-              >
-                Look around first
-              </button>
-            )}
-          </div>
         </div>
       </div>
 
       {step === "hello" ? (
         <DemoCorners stage={demo.stage} icons={icons} />
       ) : (
-        <div className="absolute inset-x-0 bottom-10 flex items-center justify-center gap-4.5 font-mono text-[11px] text-muted-foreground/70">
+        // Three columns, so the dots stand still whatever the words either side of them say;
+        // a short window brings the row down rather than letting the column reach it
+        <div className="absolute inset-x-0 bottom-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4.5 font-mono text-[11px] text-muted-foreground/70 [@media(max-height:720px)]:bottom-3">
           <button
             type="button"
             onClick={() => setStep(at > 0 ? STEPS[at - 1] : "hello")}
-            className="flex items-center gap-1 rounded-md outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="flex items-center gap-1 justify-self-end rounded-md outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             <ChevronLeft className="size-3" />
             Back
           </button>
-          <span className="flex items-center gap-1.75">
-            {STEPS.map((name, index) => (
-              <span
-                key={name}
-                className={cn(
-                  "h-1.75 rounded-full transition-all duration-300",
-                  index === at ? "w-5.5 bg-brand" : "w-1.75",
-                  index < at && "bg-foreground/40",
-                  index > at && "bg-border",
-                )}
-              />
-            ))}
+          <span className="flex items-center gap-4.5">
+            <span className="flex items-center gap-1.75">
+              {STEPS.map((name, index) => (
+                <span
+                  key={name}
+                  className={cn(
+                    "h-1.75 rounded-full transition-all duration-300",
+                    index === at ? "w-5.5 bg-brand" : "w-1.75",
+                    index < at && "bg-foreground/40",
+                    index > at && "bg-border",
+                  )}
+                />
+              ))}
+            </span>
+            <span>
+              {at + 1} of {STEPS.length}
+            </span>
           </span>
-          <span>
-            {at + 1} of {STEPS.length}
-          </span>
-          <button
-            type="button"
-            onClick={() => leave(false)}
-            className="rounded-md outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            Skip all
-          </button>
+          {/* The way out without a call. On the last step nothing is left to skip, and with
+              no key the main button already says it */}
+          {last && !keyed ? (
+            <span />
+          ) : (
+            <button
+              type="button"
+              onClick={() => leave(false)}
+              className={cn(
+                "justify-self-start rounded-md outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
+                last && "text-muted-foreground",
+              )}
+            >
+              {last ? "Look around first" : "Skip all"}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -440,7 +443,7 @@ function KeyTurn({ keyed, onSaved }: { keyed: boolean; onSaved: () => void }) {
       >
         <span className="flex h-7.5 items-center gap-1.5 rounded-full bg-muted px-3.5 transition-colors hover:bg-accent">
           Get a key
-          <ChevronRight className="size-3.5 -rotate-45" />
+          <ArrowUpRight className="size-3.5" />
         </span>
         <span className="truncate font-mono text-[11px] font-normal text-muted-foreground/70">
           platform.openai.com/api-keys
@@ -453,7 +456,7 @@ function KeyTurn({ keyed, onSaved }: { keyed: boolean; onSaved: () => void }) {
           "Paste it here",
         ].map((text, index) => (
           <li key={text} className="flex items-center gap-2.5">
-            <span className="grid size-4.5 shrink-0 place-items-center rounded-full font-mono text-[10px] text-foreground ring-1 ring-border">
+            <span className="grid size-4.5 shrink-0 place-items-center  rounded font-mono text-[10px] text-foreground bg-secondary">
               {index + 1}
             </span>
             {text}
@@ -539,7 +542,7 @@ function MicTurn({ mic }: { mic: MicState }) {
           onClick={() => void mic.turnOn()}
           className="h-11 self-start rounded-full px-5 pl-4 text-sm"
         >
-          <Mic className="fill-current" />
+          <Mic className="" />
           Turn it on
         </Button>
         {mic.blocked ? (
@@ -562,7 +565,7 @@ function MicTurn({ mic }: { mic: MicState }) {
     );
   return (
     <>
-      <Done tail={mic.label}>Microphone is on</Done>
+      <Done>Microphone is on</Done>
       <label className="mt-1.5 flex cursor-pointer items-start gap-3">
         <span className="flex flex-1 flex-col gap-0.75">
           <span className="text-sm">Wake her by voice</span>
