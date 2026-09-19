@@ -115,23 +115,27 @@ export function ThreadHeader({
 export function ThreadFacts({ thread }: { thread: ThreadView }) {
   return (
     <>
-      <Tokens usage={thread.tokens} />
+      <Tokens thread={thread} />
       <Context thread={thread} />
       <State thread={thread} />
     </>
   );
 }
 
-/** Tokens this thread has used: the total shown, the split in the title. */
-function Tokens({ usage }: { usage: ThreadView["tokens"] }) {
-  const total = usage.input + usage.output;
-  if (!total) return null;
+/**
+ * What the model read and wrote on its last step — the number the bar beside it measures
+ * against the budget, and so the one that says how far compaction is. The running total is
+ * in the title only: with a provider's prompt cache it is not what was paid for.
+ */
+function Tokens({ thread }: { thread: ThreadView }) {
+  const { contextTokens: last, tokens: burned } = thread;
+  if (!last) return null;
   return (
     <span
-      title={`in ${formatCount(usage.input)} · out ${formatCount(usage.output)}`}
+      title={`Last step ${formatCount(last)} tokens · in total in ${formatCount(burned.input)} · out ${formatCount(burned.output)}`}
       className="shrink-0 font-mono text-[10px] text-muted-foreground/70 tabular-nums"
     >
-      {formatCount(total)}
+      {formatCount(last)}
     </span>
   );
 }
