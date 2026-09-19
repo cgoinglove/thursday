@@ -20,7 +20,6 @@ import {
   type ToolManifest,
 } from "@/lib/live/live.schema";
 import { acceptedReasoning, createLiveCall } from "@/lib/live/live.server";
-import { createServerProbe } from "@/lib/probe.server";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
 import {
@@ -132,17 +131,6 @@ export const openCallAction = serverAction(
       model: LIVE_MODEL,
       backendModel: thursday.backendModel,
     });
-
-    createServerProbe("server")("call.open", {
-      callId,
-      calledBack,
-      opening: voice.opening,
-      standing,
-      voiceChars: voice.text.length,
-      backendChars: backend.length,
-      webSearch: thursday.webSearch,
-      exa: Boolean(exaKey),
-    });
     return {
       callId,
       sdp: connection.transport.sdp,
@@ -160,12 +148,10 @@ export const openCallAction = serverAction(
  */
 export const openTextCallAction = serverAction(
   async (settings: unknown, runsOn?: unknown): Promise<TextCallHandshake> => {
-    const opened = await openTextCall(
+    return openTextCall(
       LiveSettingsSchema.parse(settings),
       textModelRefSchema.nullish().parse(runsOn),
     );
-    createServerProbe("server")("call.open.text", { callId: opened.callId });
-    return opened;
   },
 );
 

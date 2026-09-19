@@ -1,6 +1,5 @@
 import { LIVE_CALL } from "@/config";
 import { logger } from "@/lib/logger";
-import { briefLiveEvent, createProbe } from "@/lib/probe";
 import { errorToString } from "@/lib/utils";
 import {
   LIVE_HOSTED_TOOLS,
@@ -8,8 +7,6 @@ import {
   type LiveFragment,
 } from "./live.schema";
 import { createWebRtcTransport } from "./live.transport";
-
-const probe = createProbe("live");
 
 /** A revisable display group, independent of audio playback and backend responses. */
 export type LiveTurn = {
@@ -246,8 +243,6 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
   let timeline = 0;
   let ordinal = 0;
   let activityKey = "";
-  /** Probe only: whether her voice was heard at the last check. */
-  let heard = false;
   const transcripts: Transcript[] = [];
   const dirty = new Set<Transcript>();
   const events = new Set<string>();
@@ -304,11 +299,6 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
         now - continuedAt < CONTINUE_GAP_MS,
       tools: [...tools.values()],
     };
-    // When her voice is heard to start and stop, beside the transcript's own clock
-    if (value.speaking !== heard) {
-      heard = value.speaking;
-      probe("voice", { speaking: heard, timeline });
-    }
     const key = JSON.stringify(value);
     if (key !== activityKey || value.speaking || value.working) {
       activityKey = key;
@@ -320,12 +310,6 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
       return;
     const [next] = appends;
     pendingAppend = crypto.randomUUID();
-    probe("out", {
-      type: `session.${next.kind}.append`,
-      client: pendingAppend,
-      head: next.chunks[0].slice(0, 80),
-      chunksLeft: next.chunks.length,
-    });
     transport.send({
       type: `session.${next.kind}.append`,
       event_id: pendingAppend,
@@ -412,7 +396,6 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
       return;
     response.continued = true;
     await Promise.all(response.calls.values());
-    probe("out", { type: "response.create", closing, closed });
     if (!closing && !closed) {
       continuedAt = performance.now();
       transport.send({
@@ -429,8 +412,6 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
       events.add(event.event_id);
     }
     timeline = Math.max(timeline, event.offset_ms ?? 0, event.end_ms ?? 0);
-    if (!event.type.endsWith(".delta") && !event.event?.type.endsWith(".delta"))
-      probe("in", briefLiveEvent(event));
     switch (event.type) {
       case "session.started":
         started = true;
@@ -583,12 +564,6 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
             .catch((cause) => `Error: ${errorToString(cause)}`)
             .then((output) => {
               tools.delete(item.call_id);
-              probe("out", {
-                type: "function_call_output",
-                name: item.name,
-                call: item.call_id,
-                size: output.length,
-              });
               if (!closed && !closing)
                 transport.send({
                   type: "response.item.create",
@@ -697,7 +672,6 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
         cleanup();
       }, LIVE_CALL.closeMs);
       audio.element.muted = true;
-      probe("out", { type: "session.close" });
       transport.send({ type: "session.close", event_id: crypto.randomUUID() });
       return closePromise;
     },

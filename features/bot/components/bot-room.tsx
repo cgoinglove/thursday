@@ -7,7 +7,6 @@ import { INBOX_FINISHED, PAGE_SIZE } from "@/config";
 import { type Bot, type Thread } from "@/features/bot/bot.schema";
 import { ThreadReply } from "@/features/bot/components/thread-reply";
 import { toDate } from "@/lib/date-like";
-import { createProbe } from "@/lib/probe";
 import { useServerPages } from "@/lib/protocol/use-server-pages";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
 import {
@@ -191,11 +190,6 @@ export const BotRoom = memo(function BotRoom() {
 
   // Reading a thread is reading its ending; that is what clears its dot.
   useSeenOnDetail(open ? current : null);
-  // TEMPORARY test instrumentation (lib/probe)
-  const openThread = open ? (current?.id ?? null) : null;
-  useEffect(() => {
-    createProbe("room")("open", { thread: openThread });
-  }, [openThread]);
 
   // Thursday put a job in front of the user (`thread` `open`): the room opens on it
   useAppEvent({

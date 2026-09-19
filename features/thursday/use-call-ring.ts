@@ -6,7 +6,6 @@ import type { Thread } from "@/features/bot/bot.schema";
 import { ringingThreads } from "@/features/bot/thread.store";
 import { toDate } from "@/lib/date-like";
 import { createRing } from "@/lib/live/ring";
-import { createProbe } from "@/lib/probe";
 import type { CallBack } from "./thursday.schema";
 import { useThursdayStore } from "./thursday.store";
 
@@ -51,7 +50,6 @@ export function useCallRing({
   /** A call in writing holds the screen (use-text-call): nothing rings meanwhile. */
   writing: boolean;
 }) {
-  const probe = useRef(createProbe("page")).current;
   /**
    * The call-back rings only for threads that changed after this: the last call's
    * end, the last ring, or the page opening.
@@ -84,7 +82,6 @@ export function useCallRing({
     );
     if (!fresh.length) return;
 
-    probe("ring", { threads: fresh.map((thread) => thread.id) });
     ringAfter.current = Date.now();
     // Work that is new to it rings again, even if it had rung out
     setRangOutAt(null);
@@ -92,7 +89,7 @@ export function useCallRing({
       ...ids,
       ...fresh.map((thread) => thread.id).filter((id) => !ids.includes(id)),
     ]);
-  }, [threads, callBack, resting, writing, probe]);
+  }, [threads, callBack, resting, writing]);
 
   // Writing to her answers a ring as calling her does, and what came up while they wrote
   // was that call's to tell: nothing from before its end rings afterwards
@@ -110,7 +107,6 @@ export function useCallRing({
    * A thread added to a ring already going does not restart the clock.
    */
   const decline = useCallback(() => {
-    probe("ring.declined");
     setRingingFor([]);
     setRangOutAt(null);
   }, []);

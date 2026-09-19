@@ -26,7 +26,6 @@ import {
   createAudioTap,
   SPECTRUM_BANDS,
 } from "@/lib/live/live.tap";
-import { createProbe } from "@/lib/probe";
 import { type Result, unwrapResult } from "@/lib/protocol/result";
 import {
   revalidate,
@@ -275,7 +274,6 @@ export function useThursday(
    * and while she voices it. Her voice finishing it is what stops the motion
    * (doneReading); after that it stays long enough to read.
    */
-  const probe = useRef(createProbe("page")).current;
   const showRelay = useCallback((run: ActivityLine) => {
     if (linger.current) clearTimeout(linger.current);
     relayOpen.current = true;
@@ -298,7 +296,6 @@ export function useThursday(
   /** The relayed update was voiced, or waited on long enough: the next can go in. */
   const doneReading = useCallback(() => {
     if (reading.current.giveUp) clearTimeout(reading.current.giveUp);
-    probe("read.done", { spoke: reading.current.spoke, keys: onLine.current });
     // Her voice started and stopped on it: carried, and only now are its rows accepted.
     // Live's acknowledgement says the text arrived, not that anyone heard it
     if (reading.current.spoke) {
@@ -422,13 +419,6 @@ export function useThursday(
     }
     // Finished work is good news before she says it (an item's key opens with what it is)
     if (first.key.startsWith("done:")) setFaceWord(finished());
-    probe("relay.out", {
-      kind: first.kind,
-      keys: due.map((item) => item.key),
-      waiting: open.length - due.length,
-      quietMs: Date.now() - heard.current,
-      rung,
-    });
     readAloud();
     onLine.current = due.map((item) => item.key);
     onLineRows.current = due.flatMap((item) => item.relayIds);
@@ -442,7 +432,6 @@ export function useThursday(
           : `[${lines.length} updates.]\n\n${lines.join("\n\n")}`,
       )
       .then((delivered) => {
-        probe("relay.acked", { delivered });
         // Refused: nothing to wait for her voice on
         if (!delivered) {
           onLineRows.current = [];
@@ -575,12 +564,6 @@ export function useThursday(
     async (why: CallEnd | null = null) => {
       if (ending.current) return;
       ending.current = true;
-      probe("hangup", {
-        why,
-        call: callId.current,
-        unvoiced: [...unvoiced.current],
-        reading: reading.current.on,
-      });
       if (leaving.current) clearInterval(leaving.current);
       leaving.current = null;
       attempt.current += 1;
@@ -668,7 +651,6 @@ export function useThursday(
   const leave = useCallback(() => {
     if (leaving.current) return;
     const asked = Date.now();
-    probe("end_call", { sinceVoiceMs: asked - voiced.current });
     leaving.current = setInterval(() => {
       const now = Date.now();
       // A goodbye heard just before the backend ended the call counts as said
@@ -706,7 +688,6 @@ export function useThursday(
   const call = useCallback(async () => {
     // Every way in answers a ringing call-back: the face, the wake word, the hotkey
     const calledBack = ring.isRinging;
-    probe("call", { calledBack, ringingFor: ring.ringingFor });
     // Guard with a ref, not `status`: three entry points (face, wake word,
     // hotkey) can fire in one frame and both see a stale "idle", opening two sessions
     if (opening.current || ending.current) return;
@@ -834,8 +815,6 @@ export function useThursday(
               if (word) setFaceWord({ text: word, at: Date.now() });
               return reply;
             }
-            const began = Date.now();
-            probe("tool.run", { name: call.name, id: call.id });
             showTool(call);
             // Exa's search, while its key is set (load-tools): its pages come back with
             // the answer and stay on the line the way the hosted search's do
@@ -861,7 +840,6 @@ export function useThursday(
                 });
               return output;
             } finally {
-              probe("tool.done", { id: call.id, ms: Date.now() - began });
               if (!kept) hideTool(call.id);
             }
           },
