@@ -183,9 +183,13 @@ const FOLLOW = {
   floorRise: 3,
   /** A band whose range is narrower than this (0..1) carries no shape. */
   minSpan: 0.12,
-  /** Mean band level (0..1) across which silence turns into voice. */
-  quietBelow: 0.03,
-  voicedAbove: 0.12,
+  /**
+   * Mean band level (0..1) across which silence turns into voice. Set where a voice's soft
+   * tails and breaths stay under it: each band is read inside its own range, so anything
+   * let through moves the face as much as a loud word does.
+   */
+  quietBelow: 0.06,
+  voicedAbove: 0.2,
   fast: 0.05,
   mid: 0.22,
   phrase: 0.45,

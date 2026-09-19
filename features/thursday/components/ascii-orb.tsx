@@ -262,8 +262,13 @@ const WORD_FADE_IN = 0.3;
 const WORD_HOLD = 3.4;
 const WORD_STEP_OUT = 0.08;
 const WORD_FADE_OUT = 0.35;
-/** The widest a word is drawn, as a share of the box: about her body */
-const WORD_WIDTH = 0.62;
+/**
+ * The widest and tallest a word is drawn, as shares of the box. Wider than her body, as ERROR
+ * is: fitted to the body alone, a seven-letter word came out at the smallest size and was
+ * hard to read.
+ */
+const WORD_WIDTH = 0.92;
+const WORD_HEIGHT = 0.62;
 
 type Cell = {
   /** Draw position on the canvas */
@@ -503,17 +508,58 @@ function errorValue(cell: Cell, t: number, age: number) {
 
 /** Marks which cells ink each letter of `text`, fitted to about her body's width; returns the letter count. */
 function layWord(cells: Cell[], cw: number, ch: number, text: string) {
-  const rows = spell(text);
-  const s = Math.max(
-    1,
-    Math.min(3, Math.floor((DESIGN * WORD_WIDTH) / (rows[0].length * cw))),
-  );
+  const fit = (rows: number[][]) =>
+    Math.max(
+      1,
+      Math.min(
+        3,
+        Math.floor((DESIGN * WORD_WIDTH) / (rows[0].length * cw)),
+        Math.floor((DESIGN * WORD_HEIGHT) / (rows.length * ch)),
+      ),
+    );
+  // Two words that only fit small on one line are drawn larger on two
+  const one = spell(text);
+  const two = fit(one) < 3 ? onTwoLines(text) : null;
+  const rows = two && fit(two) > fit(one) ? two : one;
+  const s = fit(rows);
   let letters = 0;
   for (const cell of cells) {
     cell.word = letterAt(rows, cell.dx, cell.dy, cw, ch, s);
     letters = Math.max(letters, cell.word + 1);
   }
   return letters;
+}
+
+/** `text` broken at the space nearest its middle, each line centred, the letters numbered on through; null when it has no space to break at. */
+function onTwoLines(text: string): number[][] | null {
+  const chars = Array.from(text.trim());
+  const spaces = chars.flatMap((char, at) => (char === " " ? [at] : []));
+  if (!spaces.length) return null;
+  const middle = chars.length / 2;
+  const at = spaces.reduce((best, one) =>
+    Math.abs(one - middle) < Math.abs(best - middle) ? one : best,
+  );
+  const head = spell(chars.slice(0, at).join(""));
+  const tail = spell(chars.slice(at + 1).join(""));
+  if (!head[0].length || !tail[0].length) return null;
+
+  const first = Math.max(-1, ...head.flat()) + 1;
+  const width = Math.max(head[0].length, tail[0].length);
+  const centred = (row: number[], shift: number) => {
+    const left = Math.floor((width - row.length) / 2);
+    return [
+      ...new Array<number>(left).fill(-1),
+      ...row.map((letter) => (letter < 0 ? letter : letter + shift)),
+      ...new Array<number>(width - row.length - left).fill(-1),
+    ];
+  };
+  const blank = () => new Array<number>(width).fill(-1);
+  return [
+    ...head.map((row) => centred(row, 0)),
+    blank(),
+    blank(),
+    ...tail.map((row) => centred(row, first)),
+  ];
 }
 
 /** A word's letters `age` seconds into its showing: each lights in turn, holds, and goes out in turn. */
