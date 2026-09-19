@@ -224,7 +224,10 @@ function quickPage(name) {
     out,
     readFileSync(join(quick, "quick.html"), "utf8")
       .replaceAll("{{title}}", name)
-      .replace("{{css}}", readFileSync(join(quick, "quick.css"), "utf8").trim()),
+      .replace(
+        "{{css}}",
+        readFileSync(join(quick, "quick.css"), "utf8").trim(),
+      ),
   );
   console.log(
     `${shown(out)} is ready: one file that opens offline, styled already. Write its body in plain HTML (the comment inside lists the few classes), and hand back this path.`,
