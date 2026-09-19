@@ -300,6 +300,7 @@ function ThemePicker() {
   return (
     <Segmented
       aria-label="Theme"
+      quiet
       className="w-full gap-0.5 *:flex-1 *:py-1.5"
       options={THEMES.map((option) => {
         const { label, icon: Icon } = THEME_LABEL[option];
