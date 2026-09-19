@@ -30,6 +30,7 @@ import type { ResultPart } from "@/features/bot/bot.schema";
 import { imagePathsIn } from "@/features/bot/components/attachments";
 import { McpMark } from "@/features/connectors/components/mcp-mark";
 import { MemoryMark } from "@/features/memory/components/memory-mark";
+import { RoutineMark } from "@/features/routine/components/routine-mark";
 import { SkillsMark } from "@/features/skills/components/skills-mark";
 import { FileLink } from "@/features/workspace/components/file-view";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
@@ -83,6 +84,7 @@ const TOOL_ICONS: Partial<Record<string, LucideIcon>> = {
   [TOOL_NAMES.sign_in_use]: KeyRound,
   [TOOL_NAMES.sign_in_keep]: KeyRound,
   [TOOL_NAMES.end_call]: PhoneOff,
+  [TOOL_NAMES.routine]: RoutineMark,
 };
 
 export const toolIcon = (name: string): LucideIcon =>

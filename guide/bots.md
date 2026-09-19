@@ -80,10 +80,22 @@ folder, listed on its page in Settings › Bots.
 
 ## Routines: jobs that start by themselves
 
-A routine is a bot, a job and a time: every weekday at nine, every six hours. It is made by
-telling Thursday — "every morning at nine, go through my mail" — or in **Settings ›
-Routines**, which lists them all, each with one switch. There are two kinds of time, a time of
-day on chosen days, or every so many hours, and at most twelve routines.
+A routine is a bot, a job and a time: tomorrow at eight, every weekday at nine, every six
+hours. It is made by telling Thursday — "every morning at nine, go through my mail", "in an
+hour, check the fares again" — or in **Settings › Routines**, which lists them all, each with
+one switch. **When** has three kinds of time, and at most twelve routines exist:
+
+- **Once**: a day (today, tomorrow, the two days after, or any day from the calendar) and a
+  time, or **In an hour**. It starts that once and then switches itself off; it stays in the
+  list with its run, and picking a new day and time sets it again. A time already gone is
+  refused.
+- **On set days**: a time of day on the days picked. Every day, Weekdays and Weekends fill the
+  days in one press.
+- **Every few hours**: 1, 2, 3, 6, 12 or 24 hours after each start; any other number can be
+  asked of Thursday.
+
+What is picked is filled black, and the line under the field says it back in words, with when
+it first starts.
 
 Each time it is due, a routine opens an ordinary thread, marked with a repeat sign, and that
 thread behaves like any other: it shows in the corner of the call screen, a question pauses

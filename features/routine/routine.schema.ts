@@ -15,11 +15,39 @@ const TimeSchema = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "A time is HH:MM, 00:00 to 23:59");
 
+/** "YYYY-MM-DD HH:MM" in this machine's own time, read as a date. */
+export function momentOf(at: string): Date {
+  const [day, time] = at.split(" ");
+  const [year, month, date] = day.split("-").map(Number);
+  const [hours, minutes] = time.split(":").map(Number);
+  return new Date(year, month - 1, date, hours, minutes);
+}
+
+const MOMENT = /^\d{4}-\d\d-\d\d ([01]\d|2[0-3]):[0-5]\d$/;
+
+const MomentSchema = z
+  .string()
+  .regex(MOMENT, 'A moment is "YYYY-MM-DD HH:MM"')
+  // a month or a day the calendar does not have rolls over into another when read
+  .refine((at) => {
+    if (!MOMENT.test(at)) return true;
+    const read = momentOf(at);
+    return (
+      read.getMonth() === Number(at.slice(5, 7)) - 1 &&
+      read.getDate() === Number(at.slice(8, 10))
+    );
+  }, "There is no such day");
+
 /**
- * When it starts, in this machine's own time. Two kinds and no cron string: a model fills
- * either without a syntax to get wrong, and the screen draws either without parsing.
+ * When it starts, in this machine's own time. Three kinds and no cron string: a model fills
+ * any of them without a syntax to get wrong, and the screen draws each without parsing.
+ * One that starts `once` switches itself off as it starts (routine.query claimRoutine).
  */
 export const RoutineScheduleSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("once"),
+    at: MomentSchema,
+  }),
   z.object({
     kind: z.literal("daily"),
     time: TimeSchema,
@@ -66,9 +94,31 @@ const RoutineSchema = RoutineInputSchema.extend({
 export type Routine = z.infer<typeof RoutineSchema>;
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MONTH_NAMES = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
-/** "Daily 09:00 · Mon–Fri", "Mon 10:00", "Every 6 hours": the one spelling, on screen and to a model. */
+/**
+ * "Once · Sep 21 20:00", "Daily 09:00 · Mon–Fri", "Mon 10:00", "Every 6 hours": the one
+ * spelling, on screen and to a model.
+ */
 export function scheduleText(schedule: RoutineSchedule): string {
+  if (schedule.kind === "once") {
+    const [day, time] = schedule.at.split(" ");
+    const [, month, date] = day.split("-").map(Number);
+    return `Once · ${MONTH_NAMES[month - 1]} ${date} ${time}`;
+  }
   if (schedule.kind === "every")
     return schedule.hours === 1
       ? "Every hour"
@@ -86,9 +136,10 @@ export function scheduleText(schedule: RoutineSchedule): string {
 /**
  * The first start after `from`. A daily one is the next listed day at its time; an `every`
  * one counts from `from` itself, so a machine that slept through several starts owes one,
- * not all of them.
+ * not all of them. A `once` one has its moment, passed or not.
  */
 export function nextRun(schedule: RoutineSchedule, from: Date): Date {
+  if (schedule.kind === "once") return momentOf(schedule.at);
   if (schedule.kind === "every")
     return new Date(from.getTime() + schedule.hours * 3_600_000);
   const [hours, minutes] = schedule.time.split(":").map(Number);

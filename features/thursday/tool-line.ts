@@ -11,7 +11,29 @@ const LINES: Record<string, string> = {
   [TOOL_NAMES.load_skill]: "Reading how to do this",
   [TOOL_NAMES.look_at]: "Looking at the picture",
   [TOOL_NAMES.end_call]: "Ending the call",
+  [TOOL_NAMES.routine]: "Checking your routines",
 };
+
+/** When a routine being made starts, as the call's arguments say it: "once at 19:10", "every 6 hours". */
+function routineWhen(args: Record<string, unknown>): string | null {
+  if (typeof args.at === "string" && args.at.length >= 16) {
+    const [day, time] = args.at.split(" ");
+    const [year, month, date] = day.split("-").map(Number);
+    const on = new Date(year, month - 1, date);
+    if (on.toDateString() === new Date().toDateString())
+      return `once at ${time}`;
+    const named = on.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    return `once, ${named} ${time}`;
+  }
+  if (typeof args.time === "string" && args.time)
+    return `daily at ${args.time}`;
+  if (typeof args.everyHours === "number")
+    return `every ${args.everyHours} hours`;
+  return null;
+}
 
 /**
  * How much of a fact the line carries. What is being written is the one thing
@@ -64,6 +86,17 @@ function fromArgs(name: string, args: Record<string, unknown>): string | null {
   if (name === TOOL_NAMES.web_search) {
     const query = typeof args.query === "string" ? args.query.trim() : "";
     return query ? `Searching · ${query}` : null;
+  }
+  if (name === TOOL_NAMES.routine) {
+    if (args.action === "create") {
+      const bot = typeof args.bot === "string" ? args.bot.trim() : "";
+      const when = routineWhen(args);
+      const what = [bot, when].filter(Boolean).join(", ");
+      return what ? `Setting a routine · ${what}` : "Setting a routine";
+    }
+    if (args.action === "change") return "Changing a routine";
+    if (args.action === "delete") return "Deleting a routine";
+    return null;
   }
   const label = typeof args.thread === "string" ? args.thread.trim() : "";
   if (name === TOOL_NAMES.thread_tell || name === TOOL_NAMES.thread_answer)

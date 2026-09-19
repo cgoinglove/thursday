@@ -6,10 +6,12 @@ import { routineTable, threadTable } from "@/database/tables";
 import { findJobBot } from "@/features/bot/bot.query";
 import { publicError } from "@/lib/public-error";
 import {
+  momentOf,
   nextRun,
   type Routine,
   type RoutineInput,
   type RoutineRun,
+  type RoutineSchedule,
 } from "./routine.schema";
 
 // Routines and the threads they opened. A run is an ordinary thread carrying `routine_id`;
@@ -75,6 +77,16 @@ async function botNamed(name: string): Promise<string> {
   return bot.name;
 }
 
+/** A routine that starts once, switched on, has to have its moment ahead of it. */
+function refuseSpentMoment(schedule: RoutineSchedule, enabled: boolean) {
+  if (
+    enabled &&
+    schedule.kind === "once" &&
+    momentOf(schedule.at) <= new Date()
+  )
+    publicError("That time has passed. Pick a later one.");
+}
+
 export async function createRoutine(input: RoutineInput): Promise<Routine> {
   const [{ total }] = await database
     .select({ total: count() })
@@ -83,6 +95,7 @@ export async function createRoutine(input: RoutineInput): Promise<Routine> {
     publicError(
       `There are already ${ROUTINE.max} routines. Delete one to make another.`,
     );
+  refuseSpentMoment(input.schedule, true);
   const [row] = await database
     .insert(routineTable)
     .values({
@@ -111,6 +124,8 @@ export async function updateRoutine(
   if (!was) return null;
   const schedule = patch.schedule ?? was.schedule;
   const restarts = Boolean(patch.schedule) || (patch.enabled && !was.enabled);
+  // only a moment being given or switched on is asked about: one waiting to start is due, not spent
+  if (restarts) refuseSpentMoment(schedule, patch.enabled ?? was.enabled);
   const [row] = await database
     .update(routineTable)
     .set({
@@ -147,16 +162,22 @@ export async function listDueRoutines(now: Date): Promise<Row[]> {
 
 /**
  * Moves a due routine on to its next time, and says whether this caller was the one to do
- * it. The start it was waiting for is part of the condition, so two ticks that read the
- * same due row open one thread between them.
+ * it; one that starts once has no next time and is switched off instead. The start it was
+ * waiting for is part of the condition, so two ticks that read the same due row open one
+ * thread between them.
  */
 export async function claimRoutine(row: Row, now: Date): Promise<boolean> {
   const claimed = await database
     .update(routineTable)
-    .set({ nextRunAt: nextRun(row.schedule, now) })
+    .set(
+      row.schedule.kind === "once"
+        ? { enabled: false }
+        : { nextRunAt: nextRun(row.schedule, now) },
+    )
     .where(
       and(
         eq(routineTable.id, row.id),
+        eq(routineTable.enabled, true),
         eq(routineTable.nextRunAt, row.nextRunAt),
       ),
     )

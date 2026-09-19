@@ -53,7 +53,9 @@ paths:
   the room engine knows a routine exists. A run carries `thread.routine_id`, and how a routine is
   doing is read off its latest run, never stored. A due routine is held while no browser is there
   (the same key the pump asks) or its bot is off, and skipped while its last run is still open;
-  its next time moves on before the run opens, so two looks start one thread. Only the call holds
+  its next time moves on before the run opens, so two looks start one thread — one that starts
+  once has no next time and is switched off instead, and a moment already gone is refused as
+  it is set (`routine.query`). Only the call holds
   the `routine` tool: what starts by itself is the user's to set up, never a bot's.
 - **A desk summarizes itself at its budget, or once when asked.** `bot.run` compacts when a
   step's context passes the desk's budget. The user asking for it (the bar in a thread's

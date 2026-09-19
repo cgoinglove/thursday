@@ -22,7 +22,7 @@ import { isPublicError } from "@/lib/public-error";
 import { clip } from "@/lib/utils";
 
 const routineSpec = {
-  description: `Routines: work that starts by itself, each one a bot, the work and a time. List them, make one, change one, or delete one. Every start opens a thread like one started by hand; its result reaches the conversation the same way. At most ${ROUTINE.max} exist.`,
+  description: `Routines: work that starts by itself, each one a bot, the work and a time — once at a moment, a time of day on chosen days, or every few hours. List them, make one, change one, or delete one. Every start opens a thread like one started by hand; its result reaches the conversation the same way. At most ${ROUTINE.max} exist.`,
   parameters: z.object({
     action: z.enum(["list", "create", "change", "delete"]),
     routine: z
@@ -47,11 +47,17 @@ const routineSpec = {
       .describe(
         "With create: the whole of the work, handed to the bot as written every time it starts. Nobody is there then to fill in what is missing, so everything it needs goes here, in the user's own language and words. Their request, never your reading of it.",
       ),
+    at: z
+      .string()
+      .nullish()
+      .describe(
+        'Starts once, at this moment, "YYYY-MM-DD HH:MM" in the user\'s own time, then switches itself off. Count "in an hour" or "tomorrow at eight" from **Now**. Give one of `at`, `time` or `everyHours`.',
+      ),
     time: z
       .string()
       .nullish()
       .describe(
-        'Starts at this time of day, 24-hour "HH:MM" in the user\'s own time, on `days`. Give this or `everyHours`, never both.',
+        'Starts at this time of day, 24-hour "HH:MM" in the user\'s own time, on `days`. Give one of `at`, `time` or `everyHours`.',
       ),
     days: z
       .array(z.number().int().min(1).max(7))
@@ -64,7 +70,7 @@ const routineSpec = {
       .int()
       .nullish()
       .describe(
-        `Starts again this many hours after it last started, ${ROUTINE.minHours} at least. Give this or \`time\`, never both.`,
+        `Starts again this many hours after it last started, ${ROUTINE.minHours} at least. Give one of \`at\`, \`time\` or \`everyHours\`.`,
       ),
     enabled: z
       .boolean()
@@ -79,17 +85,19 @@ type Args = z.infer<typeof routineSpec.parameters>;
 
 /** The schedule the arguments spell, none when they say nothing about time, or the line that says what is wrong. */
 function scheduleOf(args: Args): RoutineSchedule | string | null {
-  if (args.time && args.everyHours)
-    return "Give `time` or `everyHours`, not both.";
-  const spelled = args.time
-    ? {
-        kind: "daily",
-        time: args.time,
-        days: args.days?.length ? args.days : [1, 2, 3, 4, 5, 6, 7],
-      }
-    : args.everyHours
-      ? { kind: "every", hours: args.everyHours }
-      : null;
+  if ([args.at, args.time, args.everyHours].filter(Boolean).length > 1)
+    return "Give one of `at`, `time` or `everyHours`, not two.";
+  const spelled = args.at
+    ? { kind: "once", at: args.at }
+    : args.time
+      ? {
+          kind: "daily",
+          time: args.time,
+          days: args.days?.length ? args.days : [1, 2, 3, 4, 5, 6, 7],
+        }
+      : args.everyHours
+        ? { kind: "every", hours: args.everyHours }
+        : null;
   if (!spelled) return null;
   const parsed = RoutineScheduleSchema.safeParse(spelled);
   return parsed.success ? parsed.data : parsed.error.issues[0].message;
@@ -148,7 +156,7 @@ export function createRoutineTools() {
 
         if (args.action === "create") {
           if (!schedule)
-            return "Say when it starts: `time` (with `days`), or `everyHours`.";
+            return "Say when it starts: `at`, `time` (with `days`), or `everyHours`.";
           const input = RoutineInputSchema.safeParse({
             bot: args.bot ?? "",
             label: args.label ?? "",
@@ -170,9 +178,13 @@ export function createRoutineTools() {
           const held = (await readKeepWorkingOn())
             ? ""
             : " As things are set, it starts only while the app is open in a tab: a time that passes with it closed starts once when it is opened again. Settings › Routines has the switch that lets work go on with the app closed.";
+          const first = whenOf(toDate(made.nextRunAt));
           return {
             ...told(made),
-            note: `${made.bot} starts "${made.label}" by itself, ${scheduleText(made.schedule)}, first ${whenOf(toDate(made.nextRunAt))}. Each start is a thread of its own, and its result reaches the conversation like any thread's.${held}`,
+            note:
+              made.schedule.kind === "once"
+                ? `${made.bot} starts "${made.label}" once, ${first}, and the routine then switches itself off. The start is a thread of its own, and its result reaches the conversation like any thread's.${held}`
+                : `${made.bot} starts "${made.label}" by itself, ${scheduleText(made.schedule)}, first ${first}. Each start is a thread of its own, and its result reaches the conversation like any thread's.${held}`,
           };
         }
 

@@ -1,6 +1,8 @@
 "use client";
 
+import { format, formatDistanceToNowStrict } from "date-fns";
 import {
+  CalendarDays,
   ChevronDown,
   ChevronRight,
   Loader2,
@@ -9,7 +11,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,6 +58,7 @@ import {
   updateRoutineAction,
 } from "../routine.action";
 import {
+  momentOf,
   nextRun,
   type Routine,
   type RoutineInput,
@@ -283,10 +286,22 @@ type Draft = {
   bot: string;
   request: string;
   kind: RoutineSchedule["kind"];
+  /** The time of day, for one that starts once and one on set days alike. */
   time: string;
   days: number[];
-  hours: string;
+  hours: number;
+  /** The day one that starts once starts, "YYYY-MM-DD". */
+  date: string;
 };
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** A day in this machine's own time as "YYYY-MM-DD", `ahead` days after `from`. */
+function dayOf(ahead: number, from = new Date()): string {
+  const at = new Date(from);
+  at.setDate(at.getDate() + ahead);
+  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+}
 
 const draftOf = (routine: Routine | null, bots: Bot[]): Draft => {
   const schedule = routine?.schedule;
@@ -295,22 +310,44 @@ const draftOf = (routine: Routine | null, bots: Bot[]): Draft => {
     bot: routine?.bot ?? bots.find((bot) => !bot.disabled)?.name ?? "",
     request: routine?.request ?? "",
     kind: schedule?.kind ?? "daily",
-    time: schedule?.kind === "daily" ? schedule.time : "09:00",
+    time:
+      schedule?.kind === "daily"
+        ? schedule.time
+        : schedule?.kind === "once"
+          ? schedule.at.slice(11)
+          : "09:00",
     days: schedule?.kind === "daily" ? schedule.days : [...WEEKDAYS],
-    hours: schedule?.kind === "every" ? String(schedule.hours) : "6",
+    hours: schedule?.kind === "every" ? schedule.hours : 6,
+    date: schedule?.kind === "once" ? schedule.at.slice(0, 10) : dayOf(1),
   };
 };
 
-/** The schedule a draft spells; null while it spells none (no day picked, hours not a number). */
+/** The schedule a draft spells; null while it spells none (no day picked, no time). */
 function scheduleOf(draft: Draft): RoutineSchedule | null {
+  const timed = /^\d\d:\d\d$/.test(draft.time);
+  if (draft.kind === "once")
+    return timed && draft.date
+      ? { kind: "once", at: `${draft.date} ${draft.time}` }
+      : null;
   if (draft.kind === "daily")
-    return draft.days.length && /^\d\d:\d\d$/.test(draft.time)
+    return draft.days.length && timed
       ? { kind: "daily", time: draft.time, days: draft.days }
       : null;
-  const hours = Number(draft.hours);
-  return Number.isInteger(hours) && hours >= ROUTINE.minHours
-    ? { kind: "every", hours }
-    : null;
+  return { kind: "every", hours: draft.hours };
+}
+
+/** One that starts once, at a moment already gone: the server refuses it too (routine.query). */
+const isSpent = (schedule: RoutineSchedule | null) =>
+  schedule?.kind === "once" && momentOf(schedule.at) <= new Date();
+
+/** An hour from now, on the next five minutes: what "In an hour" sets. */
+function inAnHour(): Pick<Draft, "date" | "time"> {
+  const at = new Date(Date.now() + 3_600_000);
+  at.setMinutes(Math.ceil(at.getMinutes() / 5) * 5, 0, 0);
+  return {
+    date: dayOf(0, at),
+    time: `${pad(at.getHours())}:${pad(at.getMinutes())}`,
+  };
 }
 
 const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -329,6 +366,10 @@ const DAY_WORDS = [
   "Saturday",
   "Sunday",
 ];
+/** The gaps between starts most routines want; another one, set by a call, shows beside them. */
+const HOUR_STEPS = [1, 2, 3, 6, 12, 24].filter(
+  (hours) => hours >= ROUTINE.minHours,
+);
 
 /**
  * A routine on a sheet down the settings window's right edge, where a thread opens
@@ -378,7 +419,11 @@ function RoutineSheet({
 
   const schedule = scheduleOf(draft);
   const input: RoutineInput | null =
-    schedule && draft.label.trim() && draft.bot && draft.request.trim()
+    schedule &&
+    !isSpent(schedule) &&
+    draft.label.trim() &&
+    draft.bot &&
+    draft.request.trim()
       ? {
           label: draft.label.trim(),
           bot: draft.bot,
@@ -388,13 +433,18 @@ function RoutineSheet({
       : null;
 
   /** One field of a routine that exists, written when it differs from what is kept. */
-  const commit = (next: Partial<RoutineInput>) => {
+  const commit = (next: Partial<RoutineInput> & { enabled?: boolean }) => {
     if (saved) void update(saved.id, next).catch(() => {});
   };
   const commitSchedule = (next: Partial<Draft>) => {
     patch(next);
     const spelled = scheduleOf({ ...draft, ...next });
-    if (spelled) commit({ schedule: spelled });
+    if (!spelled || isSpent(spelled)) return;
+    // Picking the moment of one that starts once sets it, whether or not it already ran
+    commit({
+      schedule: spelled,
+      ...(spelled.kind === "once" ? { enabled: true } : {}),
+    });
   };
 
   const confirmDelete = async () => {
@@ -593,137 +643,118 @@ function RoutineSheet({
                   </Field>
 
                   <Field label="When">
-                    <Segmented
-                      aria-label="How it repeats"
-                      value={draft.kind}
-                      onChange={(kind) => commitSchedule({ kind })}
-                      options={[
-                        { value: "daily", label: "At a set time" },
-                        { value: "every", label: "Every few hours" },
-                      ]}
-                    />
-                    {draft.kind === "daily" ? (
-                      <>
-                        <div className="flex flex-wrap items-center gap-2 pt-1">
-                          <span className="text-sm text-muted-foreground">
-                            At
-                          </span>
-                          <Input
-                            type="time"
-                            aria-label="Time of day"
-                            value={draft.time}
-                            onChange={(event) =>
-                              patch({ time: event.target.value })
-                            }
-                            onBlur={() => commitSchedule({})}
-                            className="w-36 font-mono text-[13px]"
-                          />
-                          <span className="text-sm text-muted-foreground">
-                            on
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {WEEKDAYS.map((day) => {
-                            const on = draft.days.includes(day);
-                            return (
-                              <button
-                                key={day}
-                                type="button"
-                                aria-pressed={on}
-                                aria-label={DAY_WORDS[day - 1]}
-                                onClick={() =>
-                                  commitSchedule({
-                                    days: on
-                                      ? draft.days.filter((one) => one !== day)
-                                      : [...draft.days, day].sort(),
-                                  })
-                                }
-                                className={cn(
-                                  "flex h-7 items-center justify-center rounded-full px-2.5 text-[12px] outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
-                                  on
-                                    ? "bg-primary text-primary-foreground"
-                                    : "text-muted-foreground ring-1 ring-border ring-inset hover:text-foreground",
-                                )}
+                    <div className="space-y-3.5">
+                      <Segmented
+                        aria-label="How it starts"
+                        value={draft.kind}
+                        onChange={(kind) => commitSchedule({ kind })}
+                        options={[
+                          { value: "once", label: "Once" },
+                          { value: "daily", label: "On set days" },
+                          { value: "every", label: "Every few hours" },
+                        ]}
+                      />
+                      <div className="space-y-2.5">
+                        {draft.kind === "once" ? (
+                          <>
+                            <WhenRow word="On">
+                              <OnceDays
+                                value={draft.date}
+                                onPick={(date) => commitSchedule({ date })}
+                              />
+                            </WhenRow>
+                            <WhenRow word="At">
+                              <TimeField
+                                value={draft.time}
+                                onChange={(time) => patch({ time })}
+                                onDone={() => commitSchedule({})}
+                              />
+                              <span className="text-[13px] text-muted-foreground">
+                                or
+                              </span>
+                              <Pill
+                                picked={false}
+                                onClick={() => commitSchedule(inAnHour())}
                               >
-                                {DAY_SHORT[day - 1]}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <div className="flex gap-3">
-                          {DAY_SETS.map((set) => {
-                            const on =
-                              set.days.length === draft.days.length &&
-                              set.days.every((day) => draft.days.includes(day));
-                            return (
-                              <button
-                                key={set.label}
-                                type="button"
-                                onClick={() =>
-                                  commitSchedule({ days: [...set.days] })
-                                }
-                                className={cn(
-                                  "rounded-sm text-xs outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
-                                  on
-                                    ? "text-foreground underline underline-offset-4"
-                                    : "text-muted-foreground",
-                                )}
+                                In an hour
+                              </Pill>
+                            </WhenRow>
+                          </>
+                        ) : draft.kind === "daily" ? (
+                          <>
+                            <WhenRow word="On">
+                              {WEEKDAYS.map((day) => {
+                                const on = draft.days.includes(day);
+                                return (
+                                  <Pill
+                                    key={day}
+                                    picked={on}
+                                    aria-label={DAY_WORDS[day - 1]}
+                                    onClick={() =>
+                                      commitSchedule({
+                                        days: on
+                                          ? draft.days.filter(
+                                              (one) => one !== day,
+                                            )
+                                          : [...draft.days, day].sort(
+                                              (a, b) => a - b,
+                                            ),
+                                      })
+                                    }
+                                  >
+                                    {DAY_SHORT[day - 1]}
+                                  </Pill>
+                                );
+                              })}
+                            </WhenRow>
+                            {/* Shortcuts that fill the days: what is on is what the days show */}
+                            <WhenRow>
+                              {DAY_SETS.map((set) => (
+                                <button
+                                  key={set.label}
+                                  type="button"
+                                  onClick={() =>
+                                    commitSchedule({ days: [...set.days] })
+                                  }
+                                  className="h-6.5 rounded-full bg-muted px-2.5 text-xs text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                                >
+                                  {set.label}
+                                </button>
+                              ))}
+                            </WhenRow>
+                            <WhenRow word="At">
+                              <TimeField
+                                value={draft.time}
+                                onChange={(time) => patch({ time })}
+                                onDone={() => commitSchedule({})}
+                              />
+                            </WhenRow>
+                          </>
+                        ) : (
+                          <WhenRow word="Every">
+                            {(HOUR_STEPS.includes(draft.hours)
+                              ? HOUR_STEPS
+                              : [...HOUR_STEPS, draft.hours].sort(
+                                  (a, b) => a - b,
+                                )
+                            ).map((hours) => (
+                              <Pill
+                                key={hours}
+                                picked={hours === draft.hours}
+                                onClick={() => commitSchedule({ hours })}
+                                className="min-w-10 px-3"
                               >
-                                {set.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-2 pt-1">
-                          <span className="text-sm text-muted-foreground">
-                            Every
-                          </span>
-                          <Input
-                            inputMode="numeric"
-                            aria-label="Hours between starts"
-                            value={draft.hours}
-                            onChange={(event) =>
-                              patch({ hours: event.target.value })
-                            }
-                            onBlur={() => commitSchedule({})}
-                            className="w-16 font-mono text-[13px]"
-                          />
-                          <span className="text-sm text-muted-foreground">
-                            hours
-                          </span>
-                        </div>
-                        <Hint>
-                          No more often than every{" "}
-                          {ROUTINE.minHours === 1
-                            ? "hour"
-                            : `${ROUTINE.minHours} hours`}
-                          , counted from its last start.
-                        </Hint>
-                      </>
-                    )}
-                    {schedule ? (
-                      // What was picked, said back in words: the check that the form was read right
-                      <p className="flex items-center gap-1.5 pt-1 text-[13px]">
-                        <RoutineMark className="size-3.5 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 truncate">
-                          {scheduleText(schedule)}
-                          <span className="text-muted-foreground">
-                            {" "}
-                            · first start{" "}
-                            {whenOf(nextRun(schedule, new Date()))}
-                          </span>
-                        </span>
-                      </p>
-                    ) : (
-                      <p className="text-xs text-destructive">
-                        {draft.kind === "daily"
-                          ? "Pick a time and at least one day."
-                          : `A whole number of hours, ${ROUTINE.minHours} or more.`}
-                      </p>
-                    )}
+                                {hours}
+                              </Pill>
+                            ))}
+                            <span className="text-[13px] text-muted-foreground">
+                              hours
+                            </span>
+                          </WhenRow>
+                        )}
+                      </div>
+                      <WhenSaid schedule={schedule} kind={draft.kind} />
+                    </div>
                   </Field>
 
                   <Field label="Job" htmlFor="routine-request">
@@ -842,7 +873,7 @@ function missingOf(draft: Draft, schedule: RoutineSchedule | null): string {
   const lacks = [
     draft.label.trim() ? null : "a name",
     draft.bot ? null : "a bot",
-    schedule ? null : "a time",
+    !schedule ? "a time" : isSpent(schedule) ? "a time still ahead" : null,
     draft.request.trim() ? null : "a job",
   ].filter((one): one is string => one !== null);
   return lacks.length > 1
@@ -853,6 +884,164 @@ function missingOf(draft: Draft, schedule: RoutineSchedule | null): string {
 const Hint = ({ children }: { children: React.ReactNode }) => (
   <p className="text-xs text-muted-foreground">{children}</p>
 );
+
+/**
+ * One choice of the When field. What is picked is filled black and what is not is a
+ * hairline, as everywhere that something is picked, so no pill is left to read twice.
+ */
+function Pill({
+  picked,
+  className,
+  ...button
+}: React.ComponentProps<"button"> & { picked: boolean }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={picked}
+      className={cn(
+        "inline-flex h-8 items-center justify-center gap-1.5 rounded-full px-3.5 text-[13px] whitespace-nowrap outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+        picked
+          ? "bg-primary font-medium text-primary-foreground"
+          : "text-foreground ring-1 ring-border ring-inset hover:bg-muted",
+        className,
+      )}
+      {...button}
+    />
+  );
+}
+
+/** One question of the When field: its word in a column of its own, then the choices. */
+function WhenRow({
+  word,
+  children,
+}: {
+  word?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <span className="flex h-8 w-9 shrink-0 items-center text-[13px] text-muted-foreground">
+        {word}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** "Sun 21" for a day this week, "Fri, Oct 3" further out. */
+function dayName(day: string): string {
+  const at = momentOf(`${day} 00:00`);
+  const days = (at.getTime() - momentOf(`${dayOf(0)} 00:00`).getTime()) / 864e5;
+  return format(at, days < 7 ? "EEE d" : "EEE, MMM d");
+}
+
+/** Today, tomorrow and the two days after as pills; any other day from the calendar. */
+function OnceDays({
+  value,
+  onPick,
+}: {
+  value: string;
+  onPick: (day: string) => void;
+}) {
+  const picker = useRef<HTMLInputElement>(null);
+  const near = [0, 1, 2, 3].map((ahead) => dayOf(ahead));
+  const open = () => picker.current?.showPicker();
+  return (
+    <>
+      {near.map((day, ahead) => (
+        <Pill key={day} picked={day === value} onClick={() => onPick(day)}>
+          {ahead === 0 ? "Today" : ahead === 1 ? "Tomorrow" : dayName(day)}
+        </Pill>
+      ))}
+      {!near.includes(value) && (
+        <Pill picked onClick={open}>
+          {dayName(value)}
+        </Pill>
+      )}
+      {/* The browser's own calendar, opened from the pill it sits under */}
+      <span className="relative">
+        <Pill
+          picked={false}
+          aria-label="Another day"
+          onClick={open}
+          className="w-8 px-0"
+        >
+          <CalendarDays className="size-3.5" />
+        </Pill>
+        <input
+          ref={picker}
+          type="date"
+          tabIndex={-1}
+          aria-hidden
+          min={near[0]}
+          value={value}
+          onChange={(event) => event.target.value && onPick(event.target.value)}
+          className="pointer-events-none absolute inset-0 opacity-0"
+        />
+      </span>
+    </>
+  );
+}
+
+/** A time of day, large, without the browser's clock glyph; a click opens its picker all the same. */
+function TimeField({
+  value,
+  onChange,
+  onDone,
+}: {
+  value: string;
+  onChange: (time: string) => void;
+  onDone: () => void;
+}) {
+  return (
+    <Input
+      type="time"
+      aria-label="Time of day"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      onBlur={onDone}
+      onClick={(event) => event.currentTarget.showPicker?.()}
+      className="h-8.5 w-28 px-3 text-[15px] tabular-nums md:text-[15px] [&::-webkit-calendar-picker-indicator]:hidden"
+    />
+  );
+}
+
+/** What was picked, said back in words: the check that the form was read right. */
+function WhenSaid({
+  schedule,
+  kind,
+}: {
+  schedule: RoutineSchedule | null;
+  kind: RoutineSchedule["kind"];
+}) {
+  if (!schedule || isSpent(schedule))
+    return (
+      <p className="text-xs text-destructive">
+        {schedule
+          ? "That time has passed. Pick a later one."
+          : kind === "daily"
+            ? "Pick a time and at least one day."
+            : "Pick a time."}
+      </p>
+    );
+  const first = nextRun(schedule, new Date());
+  return (
+    <p className="flex items-start gap-2 text-[13px] leading-5">
+      <RoutineMark className="mt-0.75 size-3.5 shrink-0 text-muted-foreground" />
+      <span className="min-w-0">
+        {scheduleText(schedule)}
+        <span className="text-muted-foreground">
+          {" · "}
+          {schedule.kind === "once"
+            ? `${formatDistanceToNowStrict(first, { addSuffix: true })}, then it switches itself off`
+            : `first start ${whenOf(first)}`}
+        </span>
+      </span>
+    </p>
+  );
+}
 
 /** A form row, labelled the way a bot's page labels its own. */
 function Field({
