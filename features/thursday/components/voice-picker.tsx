@@ -226,7 +226,7 @@ export function VoicePicker({
                 </span>
                 <Check
                   className={cn(
-                    "size-3.5 shrink-0 text-brand",
+                    "size-3.5 shrink-0",
                     name === voice ? "opacity-100" : "opacity-0",
                   )}
                 />

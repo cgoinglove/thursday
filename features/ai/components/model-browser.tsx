@@ -293,7 +293,7 @@ function ModelRow({
           <span className={cn("truncate text-[13px]", picked && "font-medium")}>
             {model.label}
           </span>
-          {picked && <Check className="size-3.5 shrink-0 text-brand" />}
+          {picked && <Check className="size-3.5 shrink-0" />}
           {model.retiring && (
             <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
               retiring

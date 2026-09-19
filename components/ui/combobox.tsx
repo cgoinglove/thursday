@@ -165,7 +165,7 @@ export function Combobox({
                   )}
                   <Check
                     className={cn(
-                      "size-3.5 shrink-0 text-brand",
+                      "size-3.5 shrink-0",
                       option.value === value.trim()
                         ? "opacity-100"
                         : "opacity-0",

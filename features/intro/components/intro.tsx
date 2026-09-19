@@ -344,7 +344,7 @@ export function Intro({
                   key={name}
                   className={cn(
                     "h-1.75 rounded-full transition-all duration-300",
-                    index === at ? "w-5.5 bg-brand" : "w-1.75",
+                    index === at ? "w-5.5 bg-foreground" : "w-1.75",
                     index < at && "bg-foreground/40",
                     index > at && "bg-border",
                   )}
@@ -594,7 +594,7 @@ function MicTurn({ mic }: { mic: MicState }) {
               </span>
             ) : (
               <span className="mt-1.5 flex items-center gap-2 text-[13px]">
-                <Mic className="size-4 shrink-0 animate-pulse text-brand" />
+                <Mic className="size-4 shrink-0 animate-pulse" />
                 <ShinyText
                   text={`Try it now: say "${wake.phrase}"`}
                   speed={2.2}

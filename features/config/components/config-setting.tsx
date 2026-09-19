@@ -395,7 +395,7 @@ function KeyRow({
         <span className="flex items-center gap-2 truncate text-sm font-medium">
           {entry.label}
           {entry.recommended && (
-            <span className="rounded-full px-1.5 font-mono text-[9.5px] leading-4 font-normal text-brand ring-1 ring-brand">
+            <span className="rounded-full px-1.5 font-mono text-[9.5px] leading-4 font-normal text-muted-foreground ring-1 ring-border ring-inset">
               recommended
             </span>
           )}

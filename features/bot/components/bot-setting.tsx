@@ -472,7 +472,7 @@ function SeedRows({
                 className={cn(
                   "grid size-5 shrink-0 place-items-center rounded-full transition-colors",
                   on
-                    ? "bg-brand text-brand-foreground"
+                    ? "bg-foreground text-background"
                     : "ring-1 ring-border/60 ring-inset",
                 )}
               >
@@ -1487,9 +1487,7 @@ function ToolPicker({
                         <span className="min-w-0 flex-1 truncate font-mono text-xs">
                           {tool.name}
                         </span>
-                        {isPicked && (
-                          <Check className="size-3.5 shrink-0 text-brand" />
-                        )}
+                        {isPicked && <Check className="size-3.5 shrink-0" />}
                       </CommandItem>
                     );
                   })}

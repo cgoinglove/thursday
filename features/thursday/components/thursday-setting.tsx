@@ -413,7 +413,7 @@ function BackendModelPicker({
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">
                   {model.label}
                 </span>
-                {picked && <Check className="size-3.5 shrink-0 text-brand" />}
+                {picked && <Check className="size-3.5 shrink-0" />}
               </span>
               <span className="block truncate font-mono text-[11px] text-muted-foreground">
                 {model.id} · {model.tier}
@@ -776,7 +776,7 @@ function Captions({
                       {CAPTION_LABEL[view].hint}
                     </span>
                   </span>
-                  {picked && <Check className="size-4 shrink-0 text-brand" />}
+                  {picked && <Check className="size-4 shrink-0" />}
                 </span>
               </button>
             );

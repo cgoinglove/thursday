@@ -316,7 +316,7 @@ export function WriteLine({
           aria-hidden
           className="pointer-events-none fixed inset-0 z-20 bg-background/60"
         >
-          <div className="absolute inset-3 rounded-3xl border-[1.5px] border-dashed border-brand/55" />
+          <div className="absolute inset-3 rounded-3xl border-[1.5px] border-dashed border-foreground/30" />
         </div>
       )}
       <div
@@ -337,7 +337,7 @@ export function WriteLine({
                 className="px-0.5 pt-0.5"
               >
                 {dragging && (
-                  <span className="flex h-13 items-center gap-2 rounded-[14px] border-[1.5px] border-dashed border-brand px-4 text-[13px] text-brand">
+                  <span className="flex h-13 items-center gap-2 rounded-[14px] border-[1.5px] border-dashed border-foreground/60 px-4 text-[13px]">
                     <ArrowDownToLine className="size-4" />
                     Let go — it waits here
                   </span>

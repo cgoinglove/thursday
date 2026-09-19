@@ -27,11 +27,11 @@ paths:
   screen that already means "this waits on you" — the ringing call, the missed list — says so
   without the amber.
 - One brand color, blue (`brand` in `app/globals.css`), and only as a point on black and white:
-  the one thing a screen asks for (`Button variant="brand"`, round), a control that is on — a
-  switch, a radio, the tick beside what is picked — and Thursday herself (her caption dot). A
-  tick that reports a fact (a key saved, a step done) is no control and stays black, as does a
-  chip or a tab that fills when picked: never a surface, never a status — a green beside it
-  would read as a second brand.
+  the one thing a screen asks for (`Button variant="brand"`, round; the write line's send) and
+  Thursday herself (her caption dot). What is on or picked — a switch, a radio, a tick, a card's
+  border, a chip that fills — is black (`primary`, `foreground`), and a label beside it is muted:
+  a settings screen holds a dozen of them, and blue on each is no point at all. Never a surface,
+  never a status — a green beside it would read as a second brand.
 - What she is doing on a call is one line under her face, each drawn for at least
   `CALL_LINE.dwellMs` (`useDwell`). With captions down the sides the same lines stand on her
   side instead, under her latest words (`WorkStack`): the last three, older ones fainter, what
