@@ -77,7 +77,8 @@ paths:
   piece draws a file's face everywhere (`file-thumb`): under a message, in the corner, on the
   shelf in Settings › Files. Nothing a job finished opens by itself — it lands in
   the screen's left corner as a card, the same card with files or without: the bot, the label, how
-  the answer opens, the files under the words. The corner keeps nothing and is cleared by a reload.
+  the answer opens, the files under the words. A reload brings back the cards still unread, less those this browser
+  closed; the pill makes no bubble of a job's ending, since the card says it.
 - Thursday is small in one way: `thursday-mark` draws the call's orb in miniature — glyphs keep one
   size, so a bigger box holds more of them, and nothing fades — and every screen draws her through
   it, so a new icon is a change to that file. Only the browser tab keeps the bot-style mark

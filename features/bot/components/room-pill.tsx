@@ -300,14 +300,8 @@ export function happenedIn(
       text: `stopped · ${label}`,
     });
   } else if (thread.status === "done") {
-    out.push({
-      rank: 3,
-      at: own.name,
-      from: own,
-      to: [],
-      sign: "done",
-      text: `done · ${label}`,
-    });
+    // A job's own ending is the card in the screen's left corner (artifact-view); the pill
+    // keeps its bubbles for what is still going on
   } else if (thread.status === "working") {
     // Words from the user already have their bubble.
     if (!fresh.some((line) => line.kind === "user")) {

@@ -11,12 +11,21 @@ import { markSeenAction } from "@/features/bot/bot.action";
 import type { Bot } from "@/features/bot/bot.schema";
 import { shortenPaths } from "@/features/bot/components/attachments";
 import { BotMark } from "@/features/bot/components/bot-mark";
-import { roomOpens, useBotThreads } from "@/features/bot/thread.store";
+import {
+  roomOpens,
+  type ThreadView,
+  useBotThreads,
+} from "@/features/bot/thread.store";
 import { FileThumb } from "@/features/workspace/components/file-thumb";
-import { viewKindOf } from "@/features/workspace/file-kind";
+import {
+  opensOnFinish,
+  pathsIn,
+  viewKindOf,
+} from "@/features/workspace/file-kind";
+import { toDate } from "@/lib/date-like";
 import { unwrapResult } from "@/lib/protocol/result";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
-import { errorToString } from "@/lib/utils";
+import { errorToString, plainText } from "@/lib/utils";
 import { FileViewer, useOpenFile } from "./file-view";
 
 /**
@@ -52,6 +61,50 @@ export type Finished = {
 /** File faces a card draws before the rest fold into a count. */
 const FACES_SHOWN = 4;
 
+/**
+ * Cards waved off in this browser, newest first, so a reload does not bring them back. Short:
+ * a card also goes once its thread is read, which the server keeps.
+ */
+const DISMISSED_KEY = "thursday.corner-dismissed";
+const DISMISSED_KEEP = 50;
+
+function readDismissed(): string[] {
+  try {
+    const stored = JSON.parse(
+      window.localStorage.getItem(DISMISSED_KEY) ?? "[]",
+    );
+    return Array.isArray(stored) ? stored : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberDismissed(ids: string[]) {
+  try {
+    const kept = [
+      ...ids,
+      ...readDismissed().filter((id) => !ids.includes(id)),
+    ].slice(0, DISMISSED_KEEP);
+    window.localStorage.setItem(DISMISSED_KEY, JSON.stringify(kept));
+  } catch {
+    // blocked storage: the card comes back after a reload, which is only a card
+  }
+}
+
+/** A finished job as a card, read off its row when no event brought it: after a reload. */
+function cardOf(thread: ThreadView): Finished {
+  const files = pathsIn(thread.outcome ?? "");
+  const lead = files.findIndex(opensOnFinish);
+  return {
+    threadId: thread.id,
+    label: thread.label,
+    bot: thread.bot.name,
+    words: plainText(thread.outcome ?? "").slice(0, FINISHED_NOTICE.words),
+    paths:
+      lead > 0 ? [files[lead], ...files.filter((_, at) => at !== lead)] : files,
+  };
+}
+
 function Notice() {
   const [rows, setRows] = useState<Finished[]>([]);
   const { data: bots } = useServerRoute<Bot[]>(queryKey.bot);
@@ -82,8 +135,36 @@ function Notice() {
       ),
   });
 
-  const drop = (threadId: string) =>
+  // What finished while the page was away, or before a reload, and is still unread: the
+  // corner holds it until it is opened or waved off, as an event would have put it there
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current || !threads.length) return;
+    seeded.current = true;
+    const dismissed = new Set(readDismissed());
+    const waiting = threads
+      .filter(
+        (thread) =>
+          thread.status === "done" && !thread.seen && !dismissed.has(thread.id),
+      )
+      .sort(
+        (a, b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime(),
+      );
+    if (!waiting.length) return;
+    setRows((was) =>
+      [
+        ...was,
+        ...waiting
+          .filter((thread) => !was.some((row) => row.threadId === thread.id))
+          .map(cardOf),
+      ].slice(0, FINISHED_NOTICE.rows),
+    );
+  }, [threads]);
+
+  const drop = (threadId: string) => {
+    rememberDismissed([threadId]);
     setRows((was) => was.filter((row) => row.threadId !== threadId));
+  };
 
   // Read somewhere else (the room, `thread_show`): the card goes. A card is armed
   // only once its thread was seen unread, since the thread list may still hold
@@ -147,7 +228,10 @@ function Notice() {
           <span className="flex-1">{rows.length} new</span>
           <button
             type="button"
-            onClick={() => setRows([])}
+            onClick={() => {
+              rememberDismissed(rows.map((row) => row.threadId));
+              setRows([]);
+            }}
             className="rounded-md px-1 font-sans text-[11px] outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             Clear all

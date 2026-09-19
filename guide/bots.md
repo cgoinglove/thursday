@@ -67,7 +67,7 @@ clear later why the bot changed course. Saying the same to her on a call does th
 A job ends in the thing that was asked for and a short report. Anything longer than a few
 lines is a file. Nothing opens by itself: every finished job waits as a card in the corner at
 the bottom left of the call screen — the bot, the job's name, how its answer begins, and its
-files under that — until it is opened or dismissed. Opening a card, or a file on it, counts as
+files under that — until it is opened or dismissed, a reload of the page included. Opening a card, or a file on it, counts as
 reading the result: the thread stops showing as new, and she will not bring it up on a call.
 Dismissing a card does not; the result still waits in its thread. The files also show under
 the bot's words in the thread: pictures as thumbnails, a page or a written report as a small preview
