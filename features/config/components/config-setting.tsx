@@ -7,6 +7,7 @@ import {
   Check,
   ChevronRight,
   Clapperboard,
+  Ellipsis,
   Image as ImageIcon,
   KeyRound,
   type LucideIcon,
@@ -75,6 +76,9 @@ const KEY_MARKS: Record<string, LucideIcon> = {
       .map((key) => [key, Smartphone]),
   ),
 };
+
+/** How many provider marks the first-run step shows before "More": one row of the narrow column. */
+const ACCOUNTS_FIRST = 4;
 
 /** One mark per studio kind, drawn as the output (transcription is captions, not a mic). */
 const KIND_MARKS: Record<MediaKind, LucideIcon> = {
@@ -202,6 +206,13 @@ export function AccountsSetup() {
   const isSet = (key: string) => isConfigSet(data, key);
   const entries = (id: ConfigGroup["id"]) =>
     CONFIG_GROUPS.find((group) => group.id === id)?.entries ?? [];
+  // A newcomer reads one row: the providers most people have a key for, and any that is
+  // already set. The rest are one press away
+  const [more, setMore] = useState(false);
+  const marks = [...entries("voice"), ...entries("text")];
+  const first = marks.filter(
+    (entry, at) => at < ACCOUNTS_FIRST || isSet(entry.key),
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -218,9 +229,22 @@ export function AccountsSetup() {
         ))}
       </div>
       <div className="flex flex-wrap gap-y-2.5">
-        {[...entries("voice"), ...entries("text")].map((entry) => (
+        {(more ? marks : first).map((entry) => (
           <KeyTile key={entry.key} entry={entry} set={isSet(entry.key)} />
         ))}
+        {!more && first.length < marks.length && (
+          <button
+            type="button"
+            onClick={() => setMore(true)}
+            aria-label={`${marks.length - first.length} more providers`}
+            className="group flex w-17 flex-col items-center gap-1.5 rounded-xl py-1 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <span className="grid size-10.5 place-items-center rounded-[13px] bg-muted/60 text-muted-foreground transition-colors group-hover:bg-muted">
+              <Ellipsis className="size-4" />
+            </span>
+            <span className="text-[11px] text-muted-foreground">More</span>
+          </button>
+        )}
       </div>
       {entries("search").map((entry) => (
         <KeyRow
