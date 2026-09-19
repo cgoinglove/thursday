@@ -90,8 +90,9 @@ scripts/intro-voice.mts   Records her first-run lines as clips under `public/voi
 guide/                    How the app works for the person using it, written for Thursday to read when an
                           answer depends on it: `index.md` says which file answers what. Screens and
                           settings as the user sees them, never code. `features/ai/guide.ts` is all the
-                          code knows about it: boot copies it into the workspace and the call's backend
-                          prompt carries one line. Nothing else names it, so it comes out whole.
+                          code knows about it: boot copies it into the workspace, and the call's backend
+                          prompt and a bot's each carry one line. Nothing else names it, so it comes out
+                          whole.
 skills/                   Skills shipped with the app (read-only). User skills live in the workspace.
                           interactive-page/scripts/archify is a trimmed copy of archify (MIT; its README says
                           what was cut). Lint skips it; update it by copying upstream, not by editing it here.
@@ -144,7 +145,7 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
 - **An interface with one implementation is two files, not an interface.** Don't add ports.
 - **A feature that may come out again lives in one file.** Its names, paths, boot step and prompt
   text sit together, and the app reaches it from as few lines as it takes (`features/ai/guide.ts`
-  is the shape: two callers and a build list). No entry in `config.ts`, no helper in a shared file,
+  is the shape: three callers and a build list). No entry in `config.ts`, no helper in a shared file,
   no import kept for it elsewhere: what is spread across files is what gets left behind.
 
 In short, for the areas in `.claude/rules/`: reads go through `queryKey` and `useServerRoute`, writes

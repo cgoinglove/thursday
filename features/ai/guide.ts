@@ -6,11 +6,12 @@ import { APP_DIR, APP_NAME, DATA_DIR, PATHS } from "@/config";
 /**
  * The app's guide for the person using it (`guide/`), which Thursday reads when an
  * answer depends on how the app works. Everything the code knows about it is in this
- * file. Four places reach it and nothing else may: boot installs it
+ * file. Five places reach it and nothing else may: boot installs it
  * (instrumentation-node), the call's backend prompt carries `guideLine`
- * (prompts/thursday.prompt), scripts/pack ships the folder, and one assertion in
- * scripts/live-session.test checks the line. Removing the feature is this file, those
- * four, the folder, and its lines in AGENTS.md.
+ * (prompts/thursday.prompt), a bot's carries `botGuideLine` (prompts/bot.prompt),
+ * scripts/pack ships the folder, and one assertion in scripts/live-session.test checks
+ * the line. Removing the feature is this file, those five, the folder, and its lines in
+ * AGENTS.md.
  */
 
 /** Ships with the app. */
@@ -37,3 +38,7 @@ export async function installGuide(): Promise<void> {
 /** What the call's backend is told about it, under its This computer chapter. */
 export const guideLine = (): string =>
   `How ${APP_NAME} works for the person using it — its screens, its settings, what it connects to, what to do when something stops — is written under \`${FOLDER}/\` here, \`index.md\` first. Read it whenever an answer depends on how the app works: what can be asked for, where something is changed, a wish that needs a setting switched on, something that stopped or was refused. Answer from it rather than from what you assume.`;
+
+/** What a bot is told about it: that it is there, for the rare job that is about the app. */
+export const botGuideLine = (): string =>
+  `How ${APP_NAME} itself works for the user — its screens and settings — is written under \`${FOLDER}/\` here, \`index.md\` first; read it only when the job is about the app.`;

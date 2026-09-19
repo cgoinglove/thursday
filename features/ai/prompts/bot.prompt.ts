@@ -7,6 +7,7 @@ import {
   PROMPT_LINE,
   WORKSPACE_KEEP,
 } from "@/config";
+import { botGuideLine } from "@/features/ai/guide";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { botMemoryFolder, listBotMemory } from "@/features/bot/bot.memory";
 import { listJobBots, readBotMemoryOn } from "@/features/bot/bot.query";
@@ -297,7 +298,9 @@ Your workspace, where \`${TOOL_NAMES.bash}\` runs. Everything you write goes in 
 - \`${folders?.scratch ?? PATHS.scratch}/\` — this job's working material, shared by every bot on it; cleared ${Math.round(WORKSPACE_KEEP.forMs / 86_400_000)} days after the job ends.
 - \`${folders?.own ?? PATHS.bots}/\` — yours across every job you run here: what you keep for next time.
 
-Inside the workspace, set up whatever the job needs yourself; installing anything machine-wide waits for the user's yes. Never the directory above the workspace — it is the app's, not the user's; outside the workspace, only where the user pointed you.`;
+Inside the workspace, set up whatever the job needs yourself; installing anything machine-wide waits for the user's yes. Never the directory above the workspace — it is the app's, not the user's; outside the workspace, only where the user pointed you.
+
+${botGuideLine()}`;
 
 /** The other bots, used the other way from the call's roster: which part of a held job is someone else's. */
 function roster(peers: JobBot[]): string {
