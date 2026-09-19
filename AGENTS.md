@@ -90,6 +90,9 @@ skills/                   Skills shipped with the app (read-only). User skills l
                           interactive-page/kit is the one React kit every page builds on, versions pinned by its
                           package-lock.json; scripts/page.mjs installs it into the workspace once and again
                           when it changes. Typecheck and lint skip it and page/, the new-page template.
+                          interactive-page/quick is the other path: a stylesheet and a template that
+                          `page.mjs quick` inlines into one hand-written HTML file — no kit, no build.
+                          eli5 is a copy of DreambigOu/ELI5 (MIT; its README says what was changed).
 seed-skills/<seed>/       A seed bot's own skills (read-only), copied into `bots/<name>/.agents/skills` when
                           it is made. A bot's own skills are listed to it alone, so a kit costs no other bot
                           a line; the folder has the workspace's own `.agents/skills` shape, so a bot that
