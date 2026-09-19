@@ -872,6 +872,11 @@ function BotPage({
                 });
               }
             }}
+            onUnset={() => {
+              patch({ provider: null, model: "" });
+              setCompactEdited(false);
+              commit({ provider: null, model: null, compactAt: null });
+            }}
           />
         </Row>
 

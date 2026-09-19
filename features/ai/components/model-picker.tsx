@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronsUpDown, KeyRound } from "lucide-react";
+import { Check, ChevronsUpDown, CircleDashed, KeyRound } from "lucide-react";
 import { useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,7 @@ export function ModelPicker({
   kind,
   unset,
   onChange,
+  onUnset,
   compact = false,
 }: {
   provider: TextModelProviderId | null;
@@ -47,6 +48,11 @@ export function ModelPicker({
   /** What the model makes. Absent means a text model (bots, calls); set, only providers and suggestions for that kind remain. */
   kind?: MediaKind;
   onChange: (next: { provider: TextModelProviderId; model: string }) => void;
+  /**
+   * Given, the list opens with the unset choice (`unset`, else App default) and this takes the
+   * pick back to it; without it a pick, once made, can only be changed for another.
+   */
+  onUnset?: () => void;
   /** A small pill for a line of fine print (the write line) rather than a form's field. */
   compact?: boolean;
 }) {
@@ -148,6 +154,25 @@ export function ModelPicker({
         className="flex w-[min(34rem,calc(100vw-2rem))] flex-row gap-0 overflow-hidden rounded-2xl p-0"
       >
         <div className="flex max-h-80 w-48 shrink-0 flex-col gap-px overflow-y-auto border-r border-border/60 bg-muted/40 p-1.5">
+          {onUnset && (
+            <button
+              type="button"
+              onClick={() => {
+                onUnset();
+                setOpen(false);
+              }}
+              className={cn(
+                "mb-1 flex h-8.5 shrink-0 items-center gap-2 rounded-lg px-2 text-left text-[13px] outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+                picked ? "hover:bg-muted/60" : "bg-muted font-medium",
+              )}
+            >
+              <CircleDashed className="size-4 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">
+                {unset ?? (kind ? "Not picked" : "App default")}
+              </span>
+              {!picked && <Check className="size-3.5 shrink-0" />}
+            </button>
+          )}
           {providers.map((entry) => (
             <button
               key={entry.id}

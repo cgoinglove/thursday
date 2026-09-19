@@ -27,7 +27,8 @@ one; a bot on anything else has no search of its own, so it opens pages in its b
 ## Models
 
 The same screen picks the model bots use when their own page says nothing — a small one is
-quick and costs little, and is the place to start — and the models for images, video, speech
+quick and costs little, and is the place to start; the first run's model step sets this same
+one, and **App default** at the top of a bot's model list puts that bot back on it — and the models for images, video, speech
 and transcription. A kind with no model picked simply is not
 there — a bot that needs it says so rather than guessing. The call's own two models are in
 Settings › Thursday instead.

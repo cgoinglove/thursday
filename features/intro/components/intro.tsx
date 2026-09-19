@@ -11,17 +11,29 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { ShinyText } from "@/components/ui/shiny-text";
 import { Switch } from "@/components/ui/switch";
 import { ModelPicker } from "@/features/ai/components/model-picker";
-import type { TextModelProviderId } from "@/features/ai/model.schema";
+import {
+  parseTextModel,
+  type TextModelProviderId,
+} from "@/features/ai/model.schema";
 import type { BotIcon } from "@/features/bot/bot.schema";
 import { BOT_SEEDS, type BotSeed } from "@/features/bot/bot.seed";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { installSeedBots } from "@/features/bot/seed-bots";
 import { AccountsSetup } from "@/features/config/components/config-setting";
 import { VoiceKeys } from "@/features/config/components/voice-key";
+import {
+  removeConfigAction,
+  setConfigAction,
+} from "@/features/config/config.action";
+import {
+  type ConfigStatus,
+  DEFAULT_MODEL_KEY,
+} from "@/features/config/config.const";
 import { type IntroLine, useIntroVoice } from "@/features/intro/intro-voice";
 import { callSignal } from "@/features/thursday/call-signal";
 import { Face } from "@/features/thursday/components/face";
@@ -42,6 +54,8 @@ import {
 } from "@/features/workspace/components/artifact-view";
 import { useWakeWord } from "@/hooks/use-wake-word";
 import { type AudioTap, createAudioTap } from "@/lib/live/live.tap";
+import { useServerAction } from "@/lib/protocol/use-server-action";
+import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn } from "@/lib/utils";
 
 /**
@@ -76,9 +90,6 @@ const SAYS = {
 /** Must match the `duration-700` below. */
 const FADE_MS = 700;
 
-/** The one model every picked bot starts on. An empty model means "app default" at run time. */
-type RunsOn = { provider: TextModelProviderId | null; model: string };
-
 export function Intro({
   /** A voice key already exists (as the server saw it). */
   ready,
@@ -107,8 +118,6 @@ export function Intro({
     // every bot comes along unless it is switched off here
     Object.fromEntries(BOT_SEEDS.map((seed) => [seed.name, true])),
   );
-  // One model for every pick; each bot's own is on its page in Settings › Bots
-  const [runsOn, setRunsOn] = useState<RunsOn>({ provider: null, model: "" });
   const mic = useMic(step === "mic" && !gone);
   const demo = useDemo(step === "hello" && shown && !gone);
 
@@ -142,7 +151,10 @@ export function Intro({
 
   const face = (seed: BotSeed) => icons[BOT_SEEDS.indexOf(seed)];
 
-  /** With a key, install the picked bots (they need a model, so not without one); `calling` places the first call from inside this click. */
+  /**
+   * With a key, install the picked bots (they need a model, so not without one), each on the
+   * app's default model the model step set; `calling` places the first call from inside this click.
+   */
   const leave = (calling: boolean) => {
     voice.hush();
     setGone(true);
@@ -150,9 +162,6 @@ export function Intro({
       installSeedBots(
         BOT_SEEDS.filter((seed) => picked[seed.name]).map((seed) => ({
           name: seed.name,
-          // A half pick is not a model; the action falls back to the default
-          provider: runsOn.provider,
-          model: runsOn.model || null,
           icon: face(seed),
         })),
       );
@@ -249,9 +258,7 @@ export function Intro({
                   }
                 />
               )}
-              {step === "models" && (
-                <ModelsTurn runsOn={runsOn} onRunsOn={setRunsOn} />
-              )}
+              {step === "models" && <ModelsTurn />}
             </div>
           )}
         </div>
@@ -659,13 +666,23 @@ function BotsTurn({
   );
 }
 
-function ModelsTurn({
-  runsOn,
-  onRunsOn,
-}: {
-  runsOn: RunsOn;
-  onRunsOn: (next: RunsOn) => void;
-}) {
+/**
+ * The app's default model — the one Settings › Models keeps, which every bot runs on until
+ * its own page picks one — set as it is picked, so leaving the intro any way keeps it.
+ */
+function ModelsTurn() {
+  const { data } = useServerRoute<ConfigStatus[]>(queryKey.config);
+  const stored = parseTextModel(
+    data?.find((status) => status.key === DEFAULT_MODEL_KEY)?.value,
+  );
+  // A provider looked at without a model yet is not stored, but must still render
+  const [half, setHalf] = useState<TextModelProviderId | null>(null);
+  const [save] = useServerAction(setConfigAction, {
+    onOk: () => revalidate(queryKey.config),
+  });
+  const [clear] = useServerAction(removeConfigAction, {
+    onOk: () => revalidate(queryKey.config),
+  });
   return (
     <>
       <Mine>Pick what they think with</Mine>
@@ -676,9 +693,21 @@ function ModelsTurn({
         </span>
         <div className="min-w-0 flex-1">
           <ModelPicker
-            provider={runsOn.provider}
-            model={runsOn.model}
-            onChange={onRunsOn}
+            provider={half ?? stored?.provider ?? null}
+            model={half ? "" : (stored?.model ?? "")}
+            unset="Automatic"
+            onChange={(next) => {
+              if (!next.model.trim()) return setHalf(next.provider);
+              setHalf(null);
+              void save(
+                DEFAULT_MODEL_KEY,
+                `${next.provider}/${next.model.trim()}`,
+              );
+            }}
+            onUnset={() => {
+              setHalf(null);
+              if (stored) void clear(DEFAULT_MODEL_KEY);
+            }}
           />
         </div>
       </div>
