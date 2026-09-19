@@ -173,6 +173,16 @@ function CallScreen({
   const talk = useMemo(() => turnsOf(messages), [messages]);
   const turns = useTurnFocus(talk, sided);
   const lastRole = talk.at(-1)?.role;
+  // One line at a time under her face; beside it, the same lines stand on her side
+  const drawn = useDwell(tool, status === "speaking");
+  const work = useWork(drawn, thinkingSince !== null);
+  // Work that follows their words with none of hers yet is her turn in the making, and
+  // stays that until she speaks: her earlier words do not come back down in between
+  const [making, setMaking] = useState(false);
+  useEffect(() => {
+    if (lastRole !== "user") setMaking(false);
+    else if (work.on) setMaking(true);
+  }, [lastRole, work.on]);
   // the last turn is still being said: her voice is on, or yours came after hers and she has not answered
   const saying =
     (lastRole === "assistant" && status === "speaking") ||
@@ -250,6 +260,17 @@ function CallScreen({
               pinned={turns.pinned}
               live={saying}
               onPick={turns.pick}
+              under={
+                work.held ? (
+                  <WorkStack
+                    lines={work.lines}
+                    shown={work.on}
+                    thinkingSince={thinkingSince}
+                    thinkingTitle={thinkingTitle}
+                  />
+                ) : null
+              }
+              ahead={making}
             />
           )}
         </div>
@@ -273,14 +294,14 @@ function CallScreen({
               (tool-line). The fast channel; the face does not follow it
               (use-thursday). */}
             <ActivityRow
-              tool={tool}
-              thinkingSince={thinkingSince}
+              // beside her face the work is on her side (WorkStack); this slot keeps the meter
+              tool={sided ? null : drawn}
+              thinkingSince={sided ? null : thinkingSince}
               thinkingTitle={thinkingTitle}
               // nobody is listened to on a call in writing: there is no microphone
               listening={
                 status === "listening" && thinkingSince === null && !writing
               }
-              speaking={status === "speaking"}
               getMicSpectrum={getMicSpectrum}
             />
 
@@ -869,28 +890,11 @@ function useDwell(
   return drawn;
 }
 
-function ActivityRow({
-  tool: reported,
-  thinkingSince,
-  thinkingTitle,
-  listening,
-  speaking,
-  getMicSpectrum,
-}: {
-  tool: ActivityLine | null;
-  thinkingSince: number | null;
-  thinkingTitle: string | null;
-  listening: boolean;
-  speaking: boolean;
-  getMicSpectrum?: () => ArrayLike<number>;
-}) {
-  const tool = useDwell(reported, speaking);
-  // held past the tool so the pill has something to fade out with
-  const [shown, setShown] = useState(tool);
-  useEffect(() => {
-    if (tool) setShown(tool);
-  }, [tool]);
-  // and past the thinking, for the same reason
+/** The thinking line held past its end, title and all, so it has something to fade out with. */
+function useHeldThought(
+  thinkingSince: number | null,
+  thinkingTitle: string | null,
+) {
   const [thought, setThought] = useState(thinkingSince !== null);
   const [title, setTitle] = useState(thinkingTitle);
   useEffect(() => {
@@ -898,6 +902,29 @@ function ActivityRow({
     setThought(true);
     setTitle(thinkingTitle);
   }, [thinkingSince, thinkingTitle]);
+  return { thought, title };
+}
+
+function ActivityRow({
+  tool,
+  thinkingSince,
+  thinkingTitle,
+  listening,
+  getMicSpectrum,
+}: {
+  /** The line to draw now (useDwell). */
+  tool: ActivityLine | null;
+  thinkingSince: number | null;
+  thinkingTitle: string | null;
+  listening: boolean;
+  getMicSpectrum?: () => ArrayLike<number>;
+}) {
+  // held past the tool so the pill has something to fade out with
+  const [shown, setShown] = useState(tool);
+  useEffect(() => {
+    if (tool) setShown(tool);
+  }, [tool]);
+  const { thought, title } = useHeldThought(thinkingSince, thinkingTitle);
 
   const hearing = listening && !tool;
   return (
@@ -918,6 +945,126 @@ function ActivityRow({
       <Fade at="col-start-1 row-start-1" shown={hearing}>
         <Ear live={hearing} getMicSpectrum={getMicSpectrum} />
       </Fade>
+    </div>
+  );
+}
+
+/** Her work lines beside her face at once; the one before them is on its way out. */
+const WORK_LINES = 3;
+/** Must match the `duration-300` the stack fades with. */
+const WORK_FADE_MS = 300;
+/** One line of the stack, px; ink by age, newest first. */
+const WORK_ROW = 26;
+const WORK_INK = [1, 0.7, 0.45];
+
+const lineKey = (line: ActivityLine) =>
+  line.id ?? `${line.kind ?? "tool"}:${line.name}`;
+
+/**
+ * The work behind her words, for the captions beside her face: the lines the slot under
+ * her face draws one at a time (useDwell), kept in the order they came. It lasts as long
+ * as the stretch of work does — a line drawn, or the backend thinking — and `held` a
+ * moment past it, so it leaves fading instead of cut. The next stretch starts empty.
+ */
+function useWork(drawn: ActivityLine | null, thinking: boolean) {
+  const on = drawn !== null || thinking;
+  const [lines, setLines] = useState<ActivityLine[]>([]);
+  const [held, setHeld] = useState(on);
+
+  useEffect(() => {
+    setLines((was) => {
+      // A line that left the slot has ended, whether or not its tool said so
+      const ended = was.some((line) => !line.done)
+        ? was.map((line) => (line.done ? line : { ...line, done: true }))
+        : was;
+      if (!drawn) return ended;
+      const at = was.findIndex((line) => lineKey(line) === lineKey(drawn));
+      if (at >= 0) return was.map((line, k) => (k === at ? drawn : line));
+      return [...ended, drawn].slice(-(WORK_LINES + 1));
+    });
+  }, [drawn]);
+
+  useEffect(() => {
+    if (on) {
+      setHeld(true);
+      return;
+    }
+    const out = setTimeout(() => {
+      setHeld(false);
+      setLines([]);
+    }, WORK_FADE_MS);
+    return () => clearTimeout(out);
+  }, [on]);
+
+  return { lines, on, held };
+}
+
+/**
+ * What she is doing, on her side of the captions and under her words: the last few lines
+ * of work, older ones fainter, and what the backend is thinking about under them. No rule
+ * and no plate — the glyphs at the head of the lines are what set them apart from her words.
+ */
+function WorkStack({
+  lines,
+  shown,
+  thinkingSince,
+  thinkingTitle,
+}: {
+  lines: ActivityLine[];
+  /** The stretch of work is still open; false is the fade on its way out. */
+  shown: boolean;
+  thinkingSince: number | null;
+  thinkingTitle: string | null;
+}) {
+  const { thought, title } = useHeldThought(thinkingSince, thinkingTitle);
+  const leaving = Math.max(0, lines.length - WORK_LINES);
+  const rows = lines.length - leaving;
+  const newest = lines.at(-1);
+  return (
+    <div
+      aria-hidden={!shown}
+      className={cn(
+        "pointer-events-auto relative w-[min(100%,16.5rem)] transition-opacity duration-300 ease-out",
+        !shown && "pointer-events-none opacity-0",
+      )}
+      style={{ height: (rows + 1) * WORK_ROW }}
+    >
+      {lines.map((line, k) => {
+        const row = k - leaving;
+        return (
+          // Placed by transform so a line that came moves the others up rather than jumping them
+          <div
+            key={lineKey(line)}
+            style={{
+              transform: `translateY(${row * WORK_ROW}px)`,
+              opacity: row < 0 ? 0 : WORK_INK[lines.length - 1 - k],
+              height: WORK_ROW,
+            }}
+            className="absolute inset-x-0 top-0 flex items-center transition-[transform,opacity] duration-300 ease-out motion-reduce:transition-none"
+          >
+            <div className="flex min-w-0 animate-in duration-300 fade-in slide-in-from-bottom-1 motion-reduce:animate-none">
+              <Activity tool={line} />
+            </div>
+          </div>
+        );
+      })}
+      {thought && (
+        <div
+          style={{
+            transform: `translateY(${rows * WORK_ROW}px)`,
+            height: WORK_ROW,
+          }}
+          className="absolute inset-x-0 top-0 flex items-center transition-transform duration-300 ease-out motion-reduce:transition-none"
+        >
+          {/* A tool wins over thinking: it is the same stretch of work, said more exactly */}
+          <Fade
+            at={cn("min-w-0", rows > 0 && "pl-6")}
+            shown={thinkingSince !== null && (!newest || newest.done)}
+          >
+            <Thinking title={title} />
+          </Fade>
+        </div>
+      )}
     </div>
   );
 }

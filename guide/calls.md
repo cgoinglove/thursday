@@ -22,7 +22,7 @@ too, with a try.
 The **+** at the left end of the pill in the bottom right corner — or the `/` key — opens a
 line at the foot of the screen, and it opens on her. What is sent there starts a call in
 writing: her answers come up beside her face as they do on a spoken call, what she is doing
-shows under it, and the line stays as the way to write back. She has the same memory, the same
+shows with them, and the line stays as the way to write back. She has the same memory, the same
 tools and the same bots as on a spoken call; there is no voice and no microphone, and nothing
 is billed by the minute. Files go with the words the way they do to a bot (`bots.md`). Work
 she handed over comes back in writing too: once nothing has been written for a few seconds
@@ -74,7 +74,10 @@ keeps them under the search.
 ## Hearing the words
 
 **Settings › Thursday › Captions** picks where the words show: under her face, or down the
-two sides of the screen. Every call is kept; **Settings › Thursday › History** opens them,
+two sides of the screen. What she is doing — a search, work handed to a bot, what she is
+thinking about — shows as one line under her face; with the words down the sides it stands on
+her side instead, under what she last said, the last three steps at a time with the older
+ones fainter. Every call is kept; **Settings › Thursday › History** opens them,
 one call at a time, and deletes a single call or all of them.
 
 ## Her voice, her face, her models

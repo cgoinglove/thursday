@@ -2,6 +2,7 @@
 
 import {
   type CSSProperties,
+  type ReactNode,
   useCallback,
   useEffect,
   useRef,
@@ -102,6 +103,8 @@ const HOVER_INK = 0.9;
 /** The words are 17px on 1.675; the level turn's first line sits here against the face's middle. */
 const LINE = 17 * 1.675;
 const LIFT = -40;
+/** Between her latest words and what stands under them. */
+const UNDER_GAP = 8;
 
 /**
  * The conversation beside the face, no plates and no names: a filled dot at
@@ -114,12 +117,22 @@ export function SideCaptions({
   pinned,
   live,
   onPick,
+  under = null,
+  ahead = false,
 }: {
   turns: Turn[];
   pinned: Pinned;
   /** The last turn is still being said. */
   live: boolean;
   onPick: (role: Role, at: number) => void;
+  /** What stands under her latest words, on her side: the work behind them. */
+  under?: ReactNode;
+  /**
+   * That work is her turn in the making — theirs came last and she has not spoken yet — so
+   * it takes her level line, and the words she said before it step back as they would for a
+   * new turn.
+   */
+  ahead?: boolean;
 }) {
   const last = turns.at(-1);
   return (
@@ -132,6 +145,8 @@ export function SideCaptions({
           pinned={pinned[role]}
           saying={live ? last?.id : undefined}
           onPick={(at) => onPick(role, at)}
+          under={role === "assistant" ? under : null}
+          ahead={role === "assistant" && ahead}
         />
       ))}
     </>
@@ -144,6 +159,8 @@ function SideColumn({
   pinned,
   saying,
   onPick,
+  under,
+  ahead,
 }: {
   role: Role;
   /** This side's turns only. */
@@ -152,6 +169,8 @@ function SideColumn({
   /** The turn still being said, if any. */
   saying: string | undefined;
   onPick: (at: number) => void;
+  under: ReactNode;
+  ahead: boolean;
 }) {
   const mine = role === "user";
   // Heights as laid out, before any transform: text grows while it is said, and
@@ -178,8 +197,13 @@ function SideColumn({
     return () => watch.current?.unobserve(node);
   }, []);
 
-  if (!turns.length) return null;
-  const at = Math.min(pinned ?? turns.length - 1, turns.length - 1);
+  if (!turns.length && !under) return null;
+  const latest = turns.length - 1;
+  // One past the latest is a level line with no words on it yet: what stands under takes it
+  const at =
+    pinned === null && (ahead || !turns.length)
+      ? turns.length
+      : Math.min(pinned ?? latest, latest);
   const near = (k: number) =>
     PERSPECTIVE / (PERSPECTIVE + DEPTH * Math.abs(k - at));
   const size = (k: number) => (k === at ? 1 : SMALL);
@@ -188,11 +212,18 @@ function SideColumn({
   // Every turn is placed by its top edge and scales from it. Centring the box
   // instead jumps a turn half a line the moment its text wraps, then slides it
   // back once the taller box is measured a frame later
-  const top = turns.map(() => 0);
+  const top: number[] = Array(turns.length + 1).fill(0);
   top[at] = -LINE / 2;
   for (let k = at - 1; k >= 0; k--) top[k] = top[k + 1] - GAP - tall(k);
   for (let k = at + 1; k < turns.length; k++)
     top[k] = top[k - 1] + tall(k - 1) + GAP;
+  // Under the latest words while they are level; a side that went back shows none of it
+  const underTop =
+    at === turns.length
+      ? top[at]
+      : at === latest
+        ? top[at] + (heights[turns[at].id] ?? LINE) + UNDER_GAP
+        : null;
 
   return (
     <div
@@ -259,6 +290,19 @@ function SideColumn({
           </div>
         );
       })}
+      {under && (
+        <div
+          aria-hidden={underTop === null}
+          style={{ transform: `translateY(${(underTop ?? 0).toFixed(1)}px)` }}
+          className={cn(
+            "absolute top-0 flex w-full transition-transform duration-[520ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            mine ? "left-0 justify-start" : "right-0 justify-end",
+            underTop === null && "invisible",
+          )}
+        >
+          {under}
+        </div>
+      )}
     </div>
   );
 }
