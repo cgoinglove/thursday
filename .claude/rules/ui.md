@@ -27,8 +27,9 @@ paths:
   without the amber.
 - One brand color, blue (`brand` in `app/globals.css`), on black and white, for what matters on a
   screen (the user's pick): what it asks for (`Button variant="brand"`, round; the write line's
-  send), Thursday herself (her caption dot), and whatever else there most needs the eye. It stays
-  rare so it keeps meaning that. What is on or picked — a switch, a radio, a tick, a card's
+  send), Thursday herself (her caption dot), and whatever else there most needs the eye — in the
+  pill, a new result's label and count, and an answer button outlined in it. It stays rare so it
+  keeps meaning that. What is on or picked — a switch, a radio, a tick, a card's
   border, a chip or a segment that fills — is black (`primary`, `foreground`), and what is not is
   a hairline or muted words, so nothing picked has to be read twice; a label beside it is muted:
   a settings screen holds a dozen of them, and blue on each is no point at all. Never a surface,
