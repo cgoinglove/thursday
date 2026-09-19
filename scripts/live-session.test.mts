@@ -976,26 +976,31 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     );
     assert.equal("input" in on, false);
     assert.equal(/memory_|generate_|load_skill|`/.test(on.text), false);
-    // The one tool name the voice holds: the ending rule, where it makes ending a thing to do
+    // The one tool name the voice holds: the ending rule, where it makes ending a thing to do.
+    // It holds no tools, so the rule is to hand the turn over, not to use the tool
     assert.equal(on.text.split("end_call").length, 2);
     assert.match(
       on.text,
-      /immediately, without thinking, use the end_call tool\./,
+      /answer yes in one word of their language and hand it to the backend at once\. Only the backend can end the line, with the end_call tool/,
     );
     assert.equal(on.text.endsWith("Use a calm voice."), true);
     assert.match(on.opening, /The call has just started/);
 
-    // One Thursday: the backend opens with the voice's own words and is never told it is a part
+    // One Thursday: the backend opens with the voice's own identity and is never told it is a
+    // part; its ending rule is its own, since only it can end the line
     const backend = await loadThursdayPrompt(null);
     const withoutClock = (text: string) =>
       text.replace(/\*\*Now\*\*: [^\n]+/, "");
     const identity = on.text.slice(0, on.text.indexOf("\n\n## Always"));
-    const ending = /IMPORTANT — always follow this: [^\n]+/.exec(on.text)?.[0];
     assert.equal(
       withoutClock(backend).startsWith(
-        `${withoutClock(identity)}\n\n${ending}\n\n`,
+        `${withoutClock(identity)}\n\nIMPORTANT — always follow this: `,
       ),
       true,
+    );
+    assert.match(
+      backend,
+      /forget every other task, answer yes in one word of their language, then immediately, without thinking, use the end_call tool\./,
     );
     assert.match(
       backend,

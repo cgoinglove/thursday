@@ -14,8 +14,9 @@ paths:
 # The call
 
 - **The call is one Thursday on two models.** The Live voice and its Responses backend open with the
-  same identity and the same rule for ending the call (`thursdayIdentity`, `callEnding`, the only
-  sentences a helper holds) and read the same memory; neither
+  same identity (`thursdayIdentity`, the only sentence a helper holds), each followed by its own
+  rule for ending the call — the voice says yes and hands the turn over at once, the backend runs
+  `end_call` without deliberating, since only it can end the line — and read the same memory; neither
   is told it is part of something else. The voice holds conversation and memory only. Right under
   its identity, `## Always` groups the ending rule (the only line stamped `IMPORTANT`), the guide's
   starter backchannel and interruption policies (the backchannel line asking for listening sounds
