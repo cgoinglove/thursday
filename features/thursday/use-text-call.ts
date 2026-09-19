@@ -17,7 +17,7 @@ import { unwrapResult } from "@/lib/protocol/result";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { plainText } from "@/lib/utils";
-import { openWork } from "./open-work";
+import { openWork, toldWork } from "./open-work";
 import { endCallAction, openTextCallAction } from "./thursday.action";
 import type {
   CallMessage,
@@ -137,11 +137,14 @@ export function useTextCall(): TextCall {
   const { data: threads } = useServerRoute<Thread[]>(queryKey.threads);
   const inbox = useRef<Thread[] | undefined>(threads);
   inbox.current = threads;
-  const told = useRef(new Set<string>());
   /** When something was last written, by either side: the quiet the relay waits for. */
   const stirred = useRef(Date.now());
-  /** The update she is answering: its relay rows, and whether her answer has begun. */
-  const relaying = useRef<{ rows: number[]; began: boolean } | null>(null);
+  /** The update she is answering: its items, their relay rows, and whether her answer has begun. */
+  const relaying = useRef<{
+    keys: string[];
+    rows: number[];
+    began: boolean;
+  } | null>(null);
   const [relayLine, setRelayLine] = useState<ActivityLine | null>(null);
   const busy = useRef(running);
   busy.current = running;
@@ -157,6 +160,8 @@ export function useTextCall(): TextCall {
     // sent, and her answer not begun yet: nothing is over
     if (update && !update.began) return;
     relaying.current = null;
+    // Her answer never came: the update was not told, and a later call puts it in again
+    if (update && error) for (const key of update.keys) toldWork.delete(key);
     if (update?.rows.length && !error)
       void acceptThreadRelaysAction(update.rows)
         .then(unwrapResult)
@@ -168,24 +173,22 @@ export function useTextCall(): TextCall {
 
   const on = line !== null;
   useEffect(() => {
-    if (!on) {
-      told.current.clear();
-      return;
-    }
+    if (!on) return;
     const tick = setInterval(() => {
       const to = held.current;
       if (!to || busy.current || relaying.current || !inbox.current) return;
       if (Date.now() - stirred.current < CALL_RELAY.quietMs) return;
       const open = openWork(inbox.current).filter(
-        (item) => !told.current.has(item.key),
+        (item) => !toldWork.has(item.key),
       );
       const first = open[0];
       if (!first) return;
       const due = open
         .filter((item) => item.kind === first.kind)
         .slice(0, CALL_RELAY.perTurn);
-      for (const item of due) told.current.add(item.key);
+      for (const item of due) toldWork.add(item.key);
       relaying.current = {
+        keys: due.map((item) => item.key),
         rows: due.flatMap((item) => item.relayIds),
         began: false,
       };

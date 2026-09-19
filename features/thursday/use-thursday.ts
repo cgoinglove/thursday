@@ -49,7 +49,7 @@ import { errorToString } from "@/lib/utils";
 import { FACE_WORD_MAX, undrawable } from "./ascii.const";
 import { callSignal, useCallHeld } from "./call-signal";
 import { finished, goodbye, greeting } from "./face-words";
-import { openWork } from "./open-work";
+import { openWork, toldWork } from "./open-work";
 import {
   endCallAction,
   openCallAction,
@@ -232,12 +232,8 @@ export function useThursday(
   const working = useRef<AbortController | null>(null);
   /** Row the turns are saved to; a ref so long-lived callbacks see it. */
   const callId = useRef<string | null>(null);
-  /**
-   * Open work put to her while this page has been open, by item key (openWork):
-   * each goes in once a call. A key carries its job's last change, so a job that
-   * asks or ends again is new work.
-   */
-  const told = useRef(new Set<string>());
+  /** Open work already put to her while this page has been open: one set for both kinds of call (open-work). */
+  const told = useRef(toldWork);
   /**
    * The call-back rings only for threads that changed after this: the last call's
    * end, the last ring, or the page opening.

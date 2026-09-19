@@ -44,7 +44,8 @@ import { ThursdayMark } from "./thursday-mark";
  * wait here by path until words go with them. Sent to a bot, the room opens on the
  * thread it started. Sent to Thursday — who it opens on until someone else is picked —
  * it becomes a call in writing (use-text-call): the line stays up as that call's way
- * in, says what the call runs on, and Esc ends the call rather than closing the line.
+ * in, says what the call runs on, and Esc ends the call rather than closing the line. A
+ * bot can still be picked during it, for one message; then the line is hers again.
  */
 
 /** What the line needs of a call in writing, and what such a call would run on. */
@@ -117,9 +118,14 @@ export function WriteLine({
     }
   }, []);
   const calling = Boolean(written?.on);
-  // While a call in writing is on, the line is that call's
+  // While a call in writing is on the line is hers, until a bot is picked for one message:
+  // that pick lasts for the message and is not what the line opens on next time
+  const [besides, setBesides] = useState<string | null>(null);
+  useEffect(() => {
+    if (!calling) setBesides(null);
+  }, [calling]);
   const to = calling
-    ? HER
+    ? (roster.find((bot) => bot.name === besides) ?? HER)
     : (roster.find((bot) => bot.name === toName) ?? roster[0]);
   const toHer = to === HER;
 
@@ -192,21 +198,24 @@ export function WriteLine({
       setDraft("");
       given.clear();
       setOpen(false);
+      // one message to a bot, then the line is hers again
+      setBesides(null);
       roomOpens.open(id);
     },
   });
 
   const pick = (bot: BotRef) => {
-    setToName(bot.name);
     setPicking(false);
     // typed as a mention, the pick replaces it
     setDraft((text) => (mentionOf(text) ? text.replace(/^@\S*\s?/, "") : text));
+    field.current?.focus();
+    if (calling) return setBesides(bot.name === HER.name ? null : bot.name);
+    setToName(bot.name);
     try {
       window.localStorage.setItem(LAST_TO, bot.name);
     } catch {
       // remembered for this visit only
     }
-    field.current?.focus();
   };
 
   const mention = mentionOf(draft);
@@ -294,29 +303,21 @@ export function WriteLine({
               className="flex items-end gap-2"
             >
               <Popover
-                open={!calling && (picking || Boolean(mention))}
+                open={picking || Boolean(mention)}
                 onOpenChange={setPicking}
               >
                 <PopoverTrigger
-                  // the call in writing is hers until it ends
-                  disabled={calling}
                   render={
                     <button
                       type="button"
-                      aria-label={
-                        calling
-                          ? `To ${to.name}`
-                          : `To ${to.name}. Choose someone else`
-                      }
-                      className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-muted pr-2.5 pl-1.5 text-[13px] font-medium outline-none transition-colors enabled:hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
+                      aria-label={`To ${to.name}. Choose someone else`}
+                      className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-muted pr-2.5 pl-1.5 text-[13px] font-medium outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
                     />
                   }
                 >
                   <Mark bot={to} size={22} />
                   {to.name}
-                  {!calling && (
-                    <ChevronDown className="size-3 text-muted-foreground" />
-                  )}
+                  <ChevronDown className="size-3 text-muted-foreground" />
                 </PopoverTrigger>
                 <PopoverContent
                   side="top"
@@ -375,7 +376,9 @@ export function WriteLine({
                 onKeyDown={(event) => {
                   if (event.key === "Escape") {
                     event.preventDefault();
-                    // Esc ends the call in writing, and the line goes with it
+                    // A bot picked during her call: Esc gives the line back to her.
+                    // Hers, it ends the call in writing, and the line goes with it
+                    if (calling && !toHer) return setBesides(null);
                     if (calling) written?.end();
                     setOpen(false);
                     return;
@@ -384,7 +387,7 @@ export function WriteLine({
                   if (event.nativeEvent.isComposing || event.keyCode === 229)
                     return;
                   event.preventDefault();
-                  if (mention && !calling) {
+                  if (mention) {
                     if (matches[0]) pick(matches[0]);
                     return;
                   }
@@ -393,7 +396,7 @@ export function WriteLine({
                 placeholder={
                   given.files.length
                     ? "Say what to do with them"
-                    : calling
+                    : calling && toHer
                       ? "Write back"
                       : toHer
                         ? "Write to her instead of calling"
@@ -457,7 +460,8 @@ export function WriteLine({
               </>
             )}
             <Dot />
-            <Key>Esc</Key> {calling ? "to end" : "close"}
+            <Key>Esc</Key>{" "}
+            {calling ? (toHer ? "to end" : "back to her") : "close"}
           </p>
         </div>
       </div>

@@ -402,7 +402,9 @@ A 30-second poll remains as a safety net. No WebSockets.
   anything is sent. Open work reaches it as it reaches a spoken call — the same list
   (`open-work`), between turns once nothing has been written for `CALL_RELAY.quietMs`, as a
   turn of its own that is neither drawn nor kept as the user's words, its relay rows accepted
-  once she has answered — and nothing rings meanwhile. Esc or a spoken call ends it; a spoken
+  once she has answered — and nothing rings meanwhile; what either kind of call has told is
+  one set for the page (`toldWork`), so neither repeats the other. A bot can still be picked
+  in the line during it, for one message. Esc or a spoken call ends it; a spoken
   call has the line to itself, so what is typed then goes to a bot, and a file put down then
   reaches the call as a fact the way a screen answer does (`screenActs`), never as an
   instruction.
