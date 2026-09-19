@@ -139,13 +139,10 @@ export function InstallButton() {
       onClick={() => void install()}
       className="group/install flex w-full items-start gap-2.5 rounded-xl px-3 py-2.5 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
     >
-      <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg bg-background ring-1 ring-border">
-        <AppWindowMac className="size-3.5" />
-      </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1 text-sm font-medium">
           Install app
-          <ArrowUpRight className="size-3.5 text-muted-foreground transition-transform group-hover/install:translate-x-px group-hover/install:-translate-y-px" />
+          <ArrowUpRight className="ml-auto size-3.5 text-muted-foreground transition-transform group-hover/install:translate-x-px group-hover/install:-translate-y-px" />
         </span>
         <span className="block text-xs leading-snug text-muted-foreground">
           Its own window, apart from your tabs
