@@ -12,9 +12,14 @@ A call runs on two models: **GPT-Live 1** holds the conversation, and a Response
 - **Everything else goes to a bot.** She hands it over and keeps talking. A speech model that ran a browser itself would go silent for minutes.
 - **When a job comes back,** she tells you in a sentence. A file it made shows up in the corner of your screen, and a question it asks shows up as buttons.
 
-Settings › Thursday picks the voice, the backend model and its reasoning, web search, the wake word and hotkey, and whether she calls you when a job ends.
+Settings › Thursday picks the voice, the backend model and its reasoning, web search, the wake word (off until you switch it on) and hotkey, and whether she rings your screen when a job ends.
 
 The voice is billed per active minute, silence included; the backend is billed per token. Both use your OpenAI API key, not a ChatGPT subscription.
+
+## Without your voice
+
+- **Writing.** Press `/`, or the + on the pill, and type: a call in writing, with the same memory, tools and bots, no microphone, and nothing billed by the minute. It runs on a ChatGPT sign-in when you have one, else on your OpenAI key, and you can pick another model for it.
+- **From your phone.** Connect Telegram, Discord or Slack in Settings › Phone and write to her there while the app runs on your computer. The app connects out to the chat service; nothing on your computer is opened to the internet. One person is let in per service, and you allow them on the computer's screen.
 
 ## Bots
 
@@ -32,7 +37,7 @@ A bot is a text model from any provider you added, with:
 
 The first run lets you pick a few starter bots; more are ready in Settings › Bots, or make your own with a name and one sentence about what it is for. That sentence is how Thursday decides who gets a job. Switch a bot off without deleting it.
 
-A job ends in the thing you asked for and a short report. Anything longer than a few lines is a file in `artifacts/`. When only you can do something — sign in, choose between two real options — the bot sets it up, asks, and waits. It never presses Pay: a purchase stops on the last screen, left open for you.
+A job ends in the thing you asked for and a short report. Anything longer than a few lines is a file in `artifacts/`. When only you can do something — sign in, choose between two real options — the bot sets it up, asks, and waits. It is told never to press Pay: a purchase stops on the last screen, left open for you. That is an instruction the model follows, not a lock ([SECURITY.md](../SECURITY.md)).
 
 Each bot keeps its own memory as files you can open from its page.
 
@@ -56,10 +61,11 @@ Open any note in Settings › Memory to see exactly what she knows. To change it
 ```text
 ~/.thursday
 ├── local.db          calls, memory, bots, jobs, keys
+├── .sign-ins/        the sites you signed in to, one file a site
 └── .ai-workspace
     ├── artifacts/    finished work, a folder per bot
     ├── projects/     code and longer-lived projects
-    ├── bots/         each bot's memory and saved sessions
+    ├── bots/         each bot's memory and its own kit
     └── .agents/      skills you installed
 ```
 
