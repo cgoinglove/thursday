@@ -44,7 +44,7 @@ Orders, bookings, forms, the inbox. Bots use their own browser or the Chrome you
 
 ## Results you can keep
 
-Pages, charts, videos, slides, docs and scripts, saved as files on your machine and opened on your screen when they're ready.
+Pages, charts, videos, slides, docs and scripts, saved as files on your machine. A finished one shows up in the corner of your screen, and “show me” opens it.
 
 ![Files made by six different bots: a rent chart, a short video, a carousel, a trip page, launch copy, and a script](docs/images/artifacts.png)
 
@@ -71,21 +71,21 @@ Pick starter bots on the first run, or make your own with a name and one sentenc
 <details>
 <summary><b>What does it cost?</b></summary>
 
-Thursday is free and MIT-licensed. You bring the keys: the voice is billed by OpenAI per active minute of a call, and bots use whichever provider you pick for them.
+Thursday is free and MIT-licensed. You bring the keys: OpenAI bills the voice at about $0.05 a minute while a call is open, silence included ([pricing](https://developers.openai.com/api/docs/pricing)), and a call with nothing said for 20 seconds hangs up by itself. Bots use whichever provider you pick for them.
 
 </details>
 
 <details>
 <summary><b>Where does my data go?</b></summary>
 
-What you say and what bots work on go only to the model providers you set up and the services you connect. The app listens only on `127.0.0.1`, and your calls, memory and files live in `~/.thursday` (or the checkout, when you run from source).
+What you say on a call and what bots work on go to the model providers you set up and the services you connect. “Hey thursday” uses your browser's speech recognition, which in Chrome sends microphone audio to Google while the app is open and no call is; switch it off in Settings › Thursday and start calls with a tap or `alt+shift+T`. The app listens only on `127.0.0.1`, and your calls, memory and files live in `~/.thursday` (or the checkout, when you run from source).
 
 </details>
 
 <details>
 <summary><b>Is it safe to let bots use my computer?</b></summary>
 
-Bots run real commands, so treat Thursday like any powerful local tool: it is not a sandbox. Read [SECURITY.md](SECURITY.md) before giving it access to anything sensitive.
+Bots run real commands, so treat Thursday like any powerful local tool: it is not a sandbox. Asking before a login and stopping at Pay are instructions a model follows, not locks. Read [SECURITY.md](SECURITY.md) before giving it access to anything sensitive.
 
 </details>
 

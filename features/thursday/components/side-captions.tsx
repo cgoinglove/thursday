@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { Letters } from "@/components/ui/letters";
 import type { CallMessage } from "@/features/thursday/thursday.schema";
 import { capturesKeys } from "@/hooks/use-hotkey";
 import { cn } from "@/lib/utils";
@@ -285,7 +286,12 @@ function SideColumn({
                   )}
                 />
               )}
-              {turn.text}
+              {/* Each side's latest turn keeps its letters wherever it sits, so going back and returning never draws it again */}
+              {k === turns.length - 1 ? (
+                <Letters text={turn.text} />
+              ) : (
+                turn.text
+              )}
             </p>
           </div>
         );

@@ -204,6 +204,20 @@
   }
 }
 
+/* A caption's letter arriving (letters.tsx): out of a blur, into
+   place. `backwards` keeps it unseen while it waits its turn and lets go once
+   it has arrived, so no letter holds a filter after that. */
+@theme {
+  --animate-letter: letter 0.4s ease-out backwards;
+
+  @keyframes letter {
+    from {
+      opacity: 0;
+      filter: blur(6px);
+    }
+  }
+}
+
 /* The boot curtain (boot.tsx) is opaque and only the client lifts it, so a load
    whose script never runs — a chunk that did not arrive, a dev server restarted
    mid-load — is a blank screen with nothing on it to read. This line is drawn on

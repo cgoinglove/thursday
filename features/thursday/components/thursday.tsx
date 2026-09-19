@@ -412,7 +412,7 @@ function SettingsCorner() {
 
   return (
     // no labels, so names appear on hover; the delay is shared across the group
-    <TooltipProvider delay={400}>
+    <TooltipProvider>
       <ButtonGroup className="bg-background/75 backdrop-blur-md">
         <ButtonGroup>
           {CORNER.map((id) => {

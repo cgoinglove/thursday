@@ -10,7 +10,7 @@ A call runs on two models: **GPT-Live 1** holds the conversation, and a Response
 
 - **Quick things, she answers herself.** She reads and writes your memory and runs one shell command at a time: open a file, check a folder, play something.
 - **Everything else goes to a bot.** She hands it over and keeps talking. A speech model that ran a browser itself would go silent for minutes.
-- **When a job comes back,** she tells you in a sentence. A file it made opens on your screen, and a question it asks shows up as buttons.
+- **When a job comes back,** she tells you in a sentence. A file it made shows up in the corner of your screen, and a question it asks shows up as buttons.
 
 Settings › Thursday picks the voice, the backend model and its reasoning, web search, the wake word and hotkey, and whether she calls you when a job ends.
 
