@@ -128,7 +128,7 @@ export const CALL_BACK = {
  * only thing on screen, in place of the way back in; shorter and someone who stepped
  * away as the line dropped never learns why.
  */
-export const CALL_ENDED_MS = 8_000;
+export const CALL_ENDED_MS = 12_000;
 
 /**
  * How the page hangs up once the backend calls `end_call` (useThursday): her goodbye is let
