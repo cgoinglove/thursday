@@ -62,8 +62,8 @@ type ToolRun =
       faceWords?: boolean;
       /**
        * Settings › Thursday › Search the web, when the call opens: false leaves out the
-       * Exa search. The tool-call route rebuilds without it and so keeps the tool whenever
-       * a key is set: the manifest the call opened with decides what the model can ask for.
+       * Exa search. The page sends it with every tool call, so the route that runs a tool
+       * builds the set the manifest listed.
        */
       webSearch?: boolean;
       /**

@@ -878,6 +878,7 @@ export function useThursday(
               const output = await runRemoteTool(
                 line.callId,
                 call,
+                settings.webSearch,
                 stop.signal,
               );
               if (searching)

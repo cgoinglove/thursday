@@ -12,6 +12,8 @@ import { errorToString } from "@/lib/utils";
 export async function runRemoteTool(
   callId: string,
   call: LiveToolCall,
+  /** Settings › Thursday › Search the web as the call opened: the route builds the set the call was given. */
+  webSearch: boolean,
   /** Aborted when the call ends, so a running tool stops with it (route). */
   signal?: AbortSignal,
 ): Promise<string> {
@@ -22,6 +24,7 @@ export async function runRemoteTool(
       body: JSON.stringify({
         toolCallId: call.id,
         callId,
+        webSearch,
         name: call.name,
         // Validation happens where the tool runs.
         input: call.arguments ? JSON.parse(call.arguments) : {},

@@ -20,6 +20,8 @@ const ToolCallSchema = z.object({
   toolCallId: z.string().min(1),
   /** The call this came from; `delegate` attaches the job to it. */
   callId: z.string().nullish(),
+  /** The call's search setting as it opened, so this set is the one its manifest listed. */
+  webSearch: z.boolean().default(true),
   name: z.string().min(1),
   input: z.unknown().optional(),
 });
@@ -36,12 +38,13 @@ async function drain(output: unknown): Promise<unknown> {
 }
 
 export const POST = serverRoute(async (request) => {
-  const { toolCallId, callId, name, input } = ToolCallSchema.parse(
+  const { toolCallId, callId, webSearch, name, input } = ToolCallSchema.parse(
     await request.json(),
   );
 
-  // The set the voice runtime may run, not whatever the body names.
-  const tools = await loadTools({ target: "thursday", callId });
+  // The set the call opened with, not whatever the body names: a search that is
+  // switched off is not there to run either
+  const tools = await loadTools({ target: "thursday", callId, webSearch });
   const tool = tools[name];
   if (!tool) publicError(`There is no tool called "${name}".`);
 
