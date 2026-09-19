@@ -14,7 +14,7 @@ You talk. Bots take the slow work to a real browser, a shell and your files, and
 
 [English](README.md) · [한국어](README.ko.md)
 
-![A live call: she answers a weather question herself while a bot's finished page lands in the corner](docs/images/demo.gif)
+![A live call: asked "Jarvis, how's it going?", she checks on the bot's job and says the GitHub Trending page is done](docs/images/demo.gif)
 
 [▶ Watch the 90-second demo, with sound](https://youtu.be/V7fBDY3cYRU)
 

@@ -14,7 +14,7 @@
 
 [English](README.md) · [한국어](README.ko.md)
 
-![통화 중: 봇이 만든 페이지가 구석에 도착하는 동안 Thursday가 날씨 질문에 직접 답하는 장면](docs/images/demo.gif)
+![통화 중: "Jarvis, how's it going?"이라고 묻자 Thursday가 봇의 작업을 확인하고 GitHub 트렌딩 페이지가 완성됐다고 답하는 장면](docs/images/demo.gif)
 
 [▶ 1분 30초 데모 영상 보기 (소리 있음)](https://youtu.be/V7fBDY3cYRU)
 
