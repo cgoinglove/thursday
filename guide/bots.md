@@ -94,7 +94,7 @@ one switch. **When** has three kinds of time, and at most twelve routines exist:
 - **Every few hours**: 1, 2, 3, 6, 12 or 24 hours after each start; any other number can be
   asked of Thursday.
 
-What is picked is filled black, and the line under the field says it back in words, with when
+What is picked is filled blue, and the line under the field says it back in words, with when
 it first starts.
 
 Each time it is due, a routine opens an ordinary thread, marked with a repeat sign, and that
