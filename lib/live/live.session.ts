@@ -246,6 +246,8 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
   let timeline = 0;
   let ordinal = 0;
   let activityKey = "";
+  /** Probe only: whether her voice was heard at the last check. */
+  let heard = false;
   const transcripts: Transcript[] = [];
   const dirty = new Set<Transcript>();
   const events = new Set<string>();
@@ -302,6 +304,11 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
         now - continuedAt < CONTINUE_GAP_MS,
       tools: [...tools.values()],
     };
+    // When her voice is heard to start and stop, beside the transcript's own clock
+    if (value.speaking !== heard) {
+      heard = value.speaking;
+      probe("voice", { speaking: heard, timeline });
+    }
     const key = JSON.stringify(value);
     if (key !== activityKey || value.speaking || value.working) {
       activityKey = key;
