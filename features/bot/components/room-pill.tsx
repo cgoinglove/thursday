@@ -503,10 +503,12 @@ export function Chip({
           : "rounded-full shadow-sm shadow-black/3",
       )}
     >
-      {/* One box, two heights: the rows grow out of nothing rather than appearing. */}
+      {/* One box, two heights: the rows grow out of nothing rather than appearing.
+          Folded they are still laid out, so their width is contained: the pill is as
+          wide as its own row, not as the card it folded from. */}
       <div
         className={cn(
-          "grid overflow-hidden transition-[grid-template-rows] duration-300 ease-out",
+          "grid overflow-hidden contain-inline-size transition-[grid-template-rows] duration-300 ease-out",
           grown ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
         )}
       >
