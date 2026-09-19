@@ -32,10 +32,41 @@ export type MCPPreset = MCPServerForm & {
 /**
  * First-party servers only, each one reachable at the URL below. Most sign in
  * with OAuth and ask nothing up front; a few want a token pasted into the
- * header (GitHub, whose server skips OAuth discovery), and the docs servers
- * need no account at all. Two stdio entries at the end drive a browser.
+ * header (GitHub, whose server skips OAuth discovery; Home Assistant, whose
+ * URL is also the user's own), and flight search and the docs servers need
+ * no account at all. Everyday services come first, developer tools after;
+ * two stdio entries at the end drive a browser.
  */
 export const MCP_PRESETS: MCPPreset[] = [
+  {
+    name: "todoist",
+    icon: "todoist.com",
+    description: "Tasks, projects, and due dates",
+    config: { url: "https://ai.todoist.net/mcp" },
+  },
+  {
+    name: "home-assistant",
+    icon: "home-assistant.io",
+    description:
+      "Lights, switches, and the rest of the house — your address and a long-lived token",
+    config: {
+      url: "http://homeassistant.local:8123/api/mcp",
+      headers: { Authorization: "Bearer <your-home-assistant-token>" },
+    },
+  },
+  {
+    name: "kiwi",
+    icon: "kiwi.com",
+    description: "Flight search — no account",
+    config: { url: "https://mcp.kiwi.com" },
+  },
+  {
+    name: "zapier",
+    icon: "zapier.com",
+    description:
+      "Gmail, Google Calendar, and thousands of apps you connect there",
+    config: { url: "https://mcp.zapier.com/api/v1/connect" },
+  },
   {
     name: "notion",
     icon: "notion.so",
@@ -43,19 +74,10 @@ export const MCP_PRESETS: MCPPreset[] = [
     config: { url: "https://mcp.notion.com/mcp" },
   },
   {
-    name: "github",
-    icon: "github.com",
-    description: "Repos, issues, PRs — paste a personal access token",
-    config: {
-      url: "https://api.githubcopilot.com/mcp/",
-      headers: { Authorization: "Bearer <your-github-pat>" },
-    },
-  },
-  {
-    name: "linear",
-    icon: "linear.app",
-    description: "Issues, projects, and cycles",
-    config: { url: "https://mcp.linear.app/mcp" },
+    name: "canva",
+    icon: "canva.com",
+    description: "Create and manage designs",
+    config: { url: "https://mcp.canva.com/mcp" },
   },
   {
     name: "slack",
@@ -64,10 +86,28 @@ export const MCP_PRESETS: MCPPreset[] = [
     config: { url: "https://mcp.slack.com/mcp" },
   },
   {
-    name: "atlassian",
-    icon: "atlassian.com",
-    description: "Jira and Confluence",
-    config: { url: "https://mcp.atlassian.com/v1/mcp" },
+    name: "box",
+    icon: "box.com",
+    description: "Files, folders, and content search",
+    config: { url: "https://mcp.box.com/mcp" },
+  },
+  {
+    name: "airtable",
+    icon: "airtable.com",
+    description: "Bases, tables, and records",
+    config: { url: "https://mcp.airtable.com/mcp" },
+  },
+  {
+    name: "fireflies",
+    icon: "fireflies.ai",
+    description: "Meeting transcripts and summaries",
+    config: { url: "https://mcp.fireflies.ai/mcp" },
+  },
+  {
+    name: "figma",
+    icon: "figma.com",
+    description: "Design files and components",
+    config: { url: "https://mcp.figma.com/mcp" },
   },
   {
     name: "asana",
@@ -88,46 +128,16 @@ export const MCP_PRESETS: MCPPreset[] = [
     config: { url: "https://mcp.clickup.com/mcp" },
   },
   {
-    name: "airtable",
-    icon: "airtable.com",
-    description: "Bases, tables, and records",
-    config: { url: "https://mcp.airtable.com/mcp" },
+    name: "linear",
+    icon: "linear.app",
+    description: "Issues, projects, and cycles",
+    config: { url: "https://mcp.linear.app/mcp" },
   },
   {
-    name: "box",
-    icon: "box.com",
-    description: "Files, folders, and content search",
-    config: { url: "https://mcp.box.com/mcp" },
-  },
-  {
-    name: "figma",
-    icon: "figma.com",
-    description: "Design files and components",
-    config: { url: "https://mcp.figma.com/mcp" },
-  },
-  {
-    name: "canva",
-    icon: "canva.com",
-    description: "Create and manage designs",
-    config: { url: "https://mcp.canva.com/mcp" },
-  },
-  {
-    name: "sanity",
-    icon: "sanity.io",
-    description: "Structured content and datasets",
-    config: { url: "https://mcp.sanity.io/mcp" },
-  },
-  {
-    name: "webflow",
-    icon: "webflow.com",
-    description: "Sites, pages, and CMS collections",
-    config: { url: "https://mcp.webflow.com/mcp" },
-  },
-  {
-    name: "wix",
-    icon: "wix.com",
-    description: "Sites, stores, and bookings",
-    config: { url: "https://mcp.wix.com/mcp" },
+    name: "atlassian",
+    icon: "atlassian.com",
+    description: "Jira and Confluence",
+    config: { url: "https://mcp.atlassian.com/v1/mcp" },
   },
   {
     name: "hubspot",
@@ -148,10 +158,22 @@ export const MCP_PRESETS: MCPPreset[] = [
     config: { url: "https://mcp.intercom.com/mcp" },
   },
   {
-    name: "fireflies",
-    icon: "fireflies.ai",
-    description: "Meeting transcripts and summaries",
-    config: { url: "https://mcp.fireflies.ai/mcp" },
+    name: "wix",
+    icon: "wix.com",
+    description: "Sites, stores, and bookings",
+    config: { url: "https://mcp.wix.com/mcp" },
+  },
+  {
+    name: "webflow",
+    icon: "webflow.com",
+    description: "Sites, pages, and CMS collections",
+    config: { url: "https://mcp.webflow.com/mcp" },
+  },
+  {
+    name: "sanity",
+    icon: "sanity.io",
+    description: "Structured content and datasets",
+    config: { url: "https://mcp.sanity.io/mcp" },
   },
   {
     name: "stripe",
@@ -176,6 +198,15 @@ export const MCP_PRESETS: MCPPreset[] = [
     icon: "ramp.com",
     description: "Spend, cards, and transactions",
     config: { url: "https://mcp.ramp.com/mcp" },
+  },
+  {
+    name: "github",
+    icon: "github.com",
+    description: "Repos, issues, PRs — paste a personal access token",
+    config: {
+      url: "https://api.githubcopilot.com/mcp/",
+      headers: { Authorization: "Bearer <your-github-pat>" },
+    },
   },
   {
     name: "vercel",

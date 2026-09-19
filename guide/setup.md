@@ -49,6 +49,12 @@ details. Once connected, its tools are there for bots to search and call, and up
 them can be pinned to one bot so they are always in front of it. Signing in happens in a
 popup window; a server that needs it again turns red on that screen.
 
+The list starts with everyday services — to-dos, the house, flights, and Zapier for Gmail,
+Google Calendar and the other apps connected there — and the tools for developers come after.
+Home Assistant is the one that asks for two things first: the address of their own Home
+Assistant, and a long-lived access token made on their profile page there. Its Model Context
+Protocol Server integration has to be added in Home Assistant too.
+
 ## Sites they signed in to
 
 When a bot needs them signed in to a website — to post, to read mail, to order — it opens a
