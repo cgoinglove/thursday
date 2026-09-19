@@ -1326,7 +1326,7 @@ test("the call makes, reads and removes a routine, and is told when its time can
     String(
       await routine({ action: "create", ...job, time: "09:00", everyHours: 6 }),
     ),
-    /not both/,
+    /Give one of `at`, `time` or `everyHours`/,
   );
   assert.match(
     String(
