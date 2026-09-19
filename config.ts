@@ -52,6 +52,18 @@ export const CALL_RELAY = {
 };
 
 /**
+ * An experiment, off: the voice decides by itself whether to hand a turn to the backend, and
+ * when it does not, what the user asked for is said and never done (a fact not kept, work not
+ * started). With `on`, the page starts the backend turn itself once the user's words have
+ * settled and `waitMs` has passed with no backend work behind them (use-thursday).
+ * - `on`      false until real calls have shown what it costs: a backend turn on every
+ *   turn the voice kept to itself, small talk included, and an answer that may be said twice.
+ * - `waitMs`  how long the voice is given to hand the turn over by itself. Shorter starts
+ *   turns the voice was about to start; longer leaves the user waiting on work nobody began.
+ */
+export const CALL_NUDGE = { on: false, waitMs: 1_500 };
+
+/**
  * The activity line under her face (thursday.tsx). A backend that uses three tools in a
  * second reports three lines in a second, and none of them can be read.
  * - `dwellMs`  the least time one line is drawn before the next takes its place; the ones

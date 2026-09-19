@@ -695,5 +695,25 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
         appendNext();
       });
     },
+    /**
+     * Starts a backend turn the voice did not hand over: the same `response.create` that
+     * continues delegated work, sent with nothing pending. Does nothing while the backend
+     * already holds the turn, or once the call is closing. False when it was not sent.
+     */
+    nudge(): boolean {
+      const busy =
+        [...responses.values()].some((response) => !response.terminal) ||
+        tools.size > 0 ||
+        performance.now() - continuedAt < CONTINUE_GAP_MS;
+      if (closed || closing || busy) return false;
+      probe("out", { type: "response.create", nudge: true });
+      continuedAt = performance.now();
+      transport.send({
+        type: "response.create",
+        event_id: crypto.randomUUID(),
+      });
+      activity();
+      return true;
+    },
   };
 };
