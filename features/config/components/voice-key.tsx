@@ -33,6 +33,8 @@ export function VoiceKeys({
   autoFocus,
   /** Compact layout for the call screen. */
   dense = false,
+  /** The field alone, the provider's mark inside it: for a spot whose heading already names the key. */
+  plain = false,
   onCancel,
   onSaved,
   className,
@@ -40,6 +42,7 @@ export function VoiceKeys({
   ref?: Ref<VoiceKeysHandle>;
   autoFocus?: boolean;
   dense?: boolean;
+  plain?: boolean;
   onCancel?: () => void;
   onSaved?: (provider: "openai") => void;
   className?: string;
@@ -90,7 +93,7 @@ export function VoiceKeys({
 
   return (
     <div className={cn("w-full", dense ? "space-y-2" : "space-y-4", className)}>
-      {dense && (
+      {dense && !plain && (
         <div className="flex h-6 items-center justify-between gap-2">
           <span className="px-0.5 font-mono text-[11px] text-muted-foreground">
             Voice key
@@ -115,6 +118,7 @@ export function VoiceKeys({
         saved={isConfigSet(config, LIVE_PROVIDER.apiKeyName)}
         autoFocus={autoFocus}
         dense={dense}
+        plain={plain}
         value={drafts[LIVE_PROVIDER.apiKeyName] ?? ""}
         ready={ready(LIVE_PROVIDER.apiKeyName)}
         saving={saving === LIVE_PROVIDER.apiKeyName}
@@ -137,16 +141,18 @@ export function VoiceKeys({
         </p>
       )}
 
-      <p
-        className={cn(
-          "px-0.5 font-mono text-muted-foreground",
-          dense ? "text-[11px]" : "pt-1 text-center text-[12.5px]",
-        )}
-      >
-        {dense
-          ? "Live voice and reasoning share this OpenAI API key."
-          : "Live uses an OpenAI API key, billed separately from ChatGPT. Stored on this machine, in this app's database."}
-      </p>
+      {!plain && (
+        <p
+          className={cn(
+            "px-0.5 font-mono text-muted-foreground",
+            dense ? "text-[11px]" : "pt-1 text-center text-[12.5px]",
+          )}
+        >
+          {dense
+            ? "Live voice and reasoning share this OpenAI API key."
+            : "Live uses an OpenAI API key, billed separately from ChatGPT. Stored on this machine, in this app's database."}
+        </p>
+      )}
     </div>
   );
 }
@@ -156,6 +162,7 @@ function KeyField({
   saved,
   autoFocus,
   dense,
+  plain,
   value,
   ready,
   saving,
@@ -166,6 +173,7 @@ function KeyField({
   saved: boolean;
   autoFocus?: boolean;
   dense?: boolean;
+  plain?: boolean;
   value: string;
   ready: boolean;
   saving: boolean;
@@ -174,20 +182,23 @@ function KeyField({
 }) {
   return (
     <div className="space-y-2">
-      <span className="flex items-center gap-2 px-0.5 text-muted-foreground">
-        <ProviderIcon provider={provider.id} className="size-4 shrink-0" />
-        <span
-          className={cn("font-mono", dense ? "text-[11px]" : "text-[12.5px]")}
-        >
-          {provider.label}
+      {!plain && (
+        <span className="flex items-center gap-2 px-0.5 text-muted-foreground">
+          <ProviderIcon provider={provider.id} className="size-4 shrink-0" />
+          <span
+            className={cn("font-mono", dense ? "text-[11px]" : "text-[12.5px]")}
+          >
+            {provider.label}
+          </span>
         </span>
-      </span>
+      )}
 
       <KeyInput
         provider={provider}
         saved={saved}
         autoFocus={autoFocus}
         dense={dense}
+        mark={plain}
         value={value}
         ready={ready}
         saving={saving}
@@ -204,6 +215,7 @@ export function KeyInput({
   saved,
   autoFocus,
   dense,
+  mark,
   value,
   ready,
   saving,
@@ -214,6 +226,8 @@ export function KeyInput({
   saved: boolean;
   autoFocus?: boolean;
   dense?: boolean;
+  /** The provider's mark at the start of the field. */
+  mark?: boolean;
   value: string;
   ready: boolean;
   saving: boolean;
@@ -236,6 +250,12 @@ export function KeyInput({
         saved || ready ? "border-foreground bg-transparent" : "border-border",
       )}
     >
+      {mark && (
+        <ProviderIcon
+          provider={provider.id}
+          className="size-4 shrink-0 text-muted-foreground"
+        />
+      )}
       <Input
         autoFocus={autoFocus}
         type="password"

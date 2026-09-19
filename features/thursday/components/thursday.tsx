@@ -74,6 +74,7 @@ import { useHotkeyLabel } from "@/hooks/use-hotkey";
 import { RING_CYCLE_MS } from "@/lib/live/ring";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, plainText } from "@/lib/utils";
+import { ConnectWave } from "./connect-wave";
 import { Face } from "./face";
 import { SideCaptions, turnsOf, useTurnFocus } from "./side-captions";
 import { TabState } from "./tab-state";
@@ -239,6 +240,7 @@ function CallScreen({
               />
             </span>
           </button>
+          <ConnectWave status={status} charset={face.charset} />
 
           {sided && (
             <SideCaptions

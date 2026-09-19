@@ -15,6 +15,12 @@ import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { ShinyText } from "@/components/ui/shiny-text";
 import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import {
   parseTextModel,
@@ -188,19 +194,27 @@ export function Intro({
       )}
     >
       {/* Her recorded voice, and the way to switch it off */}
-      <button
-        type="button"
-        onClick={voice.toggle}
-        aria-label={voice.muted ? "Let her speak" : "Mute her"}
-        aria-pressed={voice.muted}
-        className="absolute top-5 right-5 z-10 grid h-7.5 w-8 place-items-center rounded-[10px] text-muted-foreground ring-1 ring-border outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
-        {voice.muted ? (
-          <VolumeX className="size-[15px]" />
-        ) : (
-          <Volume2 className="size-[15px]" />
-        )}
-      </button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={voice.toggle}
+                aria-label={voice.muted ? "Let her speak" : "Mute her"}
+                aria-pressed={voice.muted}
+                className="absolute top-5 right-5 z-10 text-muted-foreground hover:text-foreground"
+              />
+            }
+          >
+            {voice.muted ? <VolumeX /> : <Volume2 />}
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            {voice.muted ? "Let her speak" : "Mute her voice"}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
       {/* The call screen's own column, so nothing moves when the intro lifts */}
       <div className="flex h-full flex-col items-center justify-center gap-5 pt-[7vh]">
@@ -271,7 +285,7 @@ export function Intro({
               under the button keep theirs: her face and the button stand still from step to step */}
           <div className="flex h-14 items-center gap-2 text-[13px] text-muted-foreground">
             {step === "hello" ? (
-              <p className="max-w-130 text-[20px] leading-[1.5] text-balance text-foreground">
+              <p className="max-w-130 animate-in text-[20px] leading-[1.5] text-balance text-foreground duration-700 fill-mode-backwards fade-in slide-in-from-bottom-2">
                 Just talk to her. She gets it done on this computer, and tells
                 you when it is ready.
               </p>
@@ -297,7 +311,12 @@ export function Intro({
               } else if (last) leave(keyed);
               else setStep(STEPS[at + 1]);
             }}
-            className="h-12 px-7 pl-8 text-[15px]"
+            // on the first screen it follows her line up, once
+            className={cn(
+              "h-12 px-7 pl-8 text-[15px]",
+              step === "hello" &&
+                "animate-in delay-300 duration-700 fill-mode-backwards fade-in slide-in-from-bottom-2",
+            )}
           >
             {step === "hello"
               ? "Start"
@@ -419,10 +438,12 @@ const Fine = ({ children }: { children: React.ReactNode }) => (
 function Done({ children, tail }: { children: string; tail?: string }) {
   return (
     <p className="flex items-center gap-2.5 text-sm">
-      <span className="grid size-5 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
+      <span className="grid size-5 shrink-0 animate-in place-items-center rounded-full bg-primary text-primary-foreground duration-300 zoom-in-50">
         <Check className="size-3" />
       </span>
-      {children}
+      <span className="animate-in delay-150 duration-300 fill-mode-backwards fade-in slide-in-from-left-1">
+        {children}
+      </span>
       {tail && (
         <span className="truncate font-mono text-[11px] text-muted-foreground/70">
           {tail}
@@ -443,14 +464,14 @@ function KeyTurn({ keyed, onSaved }: { keyed: boolean; onSaved: () => void }) {
   return (
     <>
       <Mine>Paste your OpenAI API key</Mine>
-      <VoiceKeys dense autoFocus onSaved={onSaved} />
+      <VoiceKeys dense plain autoFocus onSaved={onSaved} />
       <a
         href="https://platform.openai.com/api-keys"
         target="_blank"
         rel="noreferrer"
         className="flex items-center gap-2.5 text-[13px] font-medium text-foreground no-underline"
       >
-        <span className="flex h-7.5 items-center gap-1.5 rounded-full bg-muted px-3.5 transition-colors hover:bg-accent">
+        <span className="flex h-7.5 shrink-0 items-center gap-1.5 rounded-full bg-muted px-3.5 whitespace-nowrap transition-colors hover:bg-accent">
           Get a key
           <ArrowUpRight className="size-3.5" />
         </span>
@@ -594,7 +615,7 @@ function MicTurn({ mic }: { mic: MicState }) {
               </span>
             ) : (
               <span className="mt-1.5 flex items-center gap-2 text-[13px]">
-                <Mic className="size-4 shrink-0 animate-pulse" />
+                <Mic className="size-4 shrink-0" />
                 <ShinyText
                   text={`Try it now: say "${wake.phrase}"`}
                   speed={2.2}
@@ -662,8 +683,8 @@ function BotsTurn({
         })}
       </div>
       <Fine>
-        Three to start is plenty. The rest wait in Settings › Bots, and you can
-        make your own.
+        Every one comes along. Switch off any you will not use: Settings › Bots
+        has them all, and you can make your own.
       </Fine>
     </>
   );
@@ -689,7 +710,7 @@ function ModelsTurn() {
   return (
     <>
       <Mine>Pick what they think with</Mine>
-      <AccountsSetup />
+      <AccountsSetup withoutVoice />
       <div className="flex items-center gap-2.5">
         <span className="shrink-0 text-[13px] text-muted-foreground">
           Bots think with

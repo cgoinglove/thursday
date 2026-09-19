@@ -208,7 +208,12 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
  * bots think with. The same cards, marks and dialogs as the screen above, so a key set
  * on the way in is the key Settings shows.
  */
-export function AccountsSetup() {
+export function AccountsSetup({
+  /** Leave the voice key out: the screen asked for it already. */
+  withoutVoice = false,
+}: {
+  withoutVoice?: boolean;
+}) {
   const { data } = useServerRoute<ConfigStatus[]>(queryKey.config);
   const isSet = (key: string) => isConfigSet(data, key);
   const entries = (id: ConfigGroup["id"]) =>
@@ -217,11 +222,18 @@ export function AccountsSetup() {
   // already set. The rest are one press away, over the row rather than below it, so the
   // screen around it does not move
   const [more, setMore] = useState(false);
-  const marks = [...entries("voice"), ...entries("text")];
+  const voice = entries("voice");
+  const marks = [...voice, ...entries("text")];
+  // Without the voice key the row is one shorter, not refilled from the rest
   const first = marks.filter(
-    (entry, at) => at < ACCOUNTS_FIRST || isSet(entry.key),
+    (entry, at) =>
+      (at < ACCOUNTS_FIRST || isSet(entry.key)) &&
+      !(withoutVoice && voice.includes(entry)),
   );
-  const rest = marks.filter((entry) => !first.includes(entry));
+  const rest = marks.filter(
+    (entry) =>
+      !first.includes(entry) && !(withoutVoice && voice.includes(entry)),
+  );
 
   return (
     <div className="flex flex-col gap-4">
