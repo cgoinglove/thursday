@@ -45,6 +45,10 @@ export type ConfigEntry = {
   recommended?: true;
   /** The service's own site, for a key that is no model provider's: its icon is the row's mark. */
   site?: string;
+  /** Where the key is made: the link its dialog offers. */
+  keysAt?: string;
+  /** How the key begins, shown in its empty field in place of the setting's name. */
+  keyLooks?: string;
 };
 
 /**
@@ -179,6 +183,8 @@ const keyEntry = (
   label: provider.label,
   provider: provider.id,
   signIn: provider.signIn,
+  keysAt: provider.keysAt,
+  keyLooks: provider.keyLooks,
 });
 
 export const CONFIG_GROUPS: ConfigGroup[] = [
@@ -227,6 +233,7 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
         label: "Exa",
         hint: "web search in one call — dashboard.exa.ai",
         site: "exa.ai",
+        keysAt: "https://dashboard.exa.ai/api-keys",
       },
     ],
   },

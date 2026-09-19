@@ -378,12 +378,18 @@ export const TEXT_MODEL_PROVIDERS: Record<
     apiKeyName: string;
     /** Reached by signing in to an account rather than a pasted key; `apiKeyName` is where the sign-in is kept. */
     signIn?: true;
+    /** Where a key is made: the link beside its field. */
+    keysAt?: string;
+    /** How a key begins, shown in its empty field in place of the setting's name. */
+    keyLooks?: string;
     suggestModels: SuggestModel[];
   }
 > = {
   openai: {
     label: "Open AI",
     apiKeyName: "OPENAI_API_KEY",
+    keysAt: "https://platform.openai.com/api-keys",
+    keyLooks: "sk-…",
     suggestModels: [
       {
         id: "gpt-5.6-luna",
@@ -450,6 +456,8 @@ export const TEXT_MODEL_PROVIDERS: Record<
   anthropic: {
     label: "Claude",
     apiKeyName: "ANTHROPIC_API_KEY",
+    keysAt: "https://platform.claude.com/settings/keys",
+    keyLooks: "sk-ant-…",
     suggestModels: [
       { id: "claude-haiku-4-5", label: "Haiku 4.5", tier: "small" },
       {
@@ -470,6 +478,8 @@ export const TEXT_MODEL_PROVIDERS: Record<
   google: {
     label: "Gemini",
     apiKeyName: "GOOGLE_GENERATIVE_AI_API_KEY",
+    keysAt: "https://aistudio.google.com/apikey",
+    keyLooks: "AIza…",
     suggestModels: [
       {
         id: "gemini-3.5-flash-lite",
@@ -488,6 +498,8 @@ export const TEXT_MODEL_PROVIDERS: Record<
   xai: {
     label: "xAI",
     apiKeyName: "XAI_API_KEY",
+    keysAt: "https://console.x.ai",
+    keyLooks: "xai-…",
     suggestModels: [
       { id: "grok-4.6", label: "Grok 4.6", tier: "large", context: 500_000 },
     ],
@@ -499,6 +511,8 @@ export const TEXT_MODEL_PROVIDERS: Record<
   "vercel-ai-gateway": {
     label: "Vercel AI GateWay",
     apiKeyName: "AI_GATEWAY_API_KEY",
+    keysAt:
+      "https://vercel.com/docs/ai-gateway/authentication-and-byok/authentication",
     suggestModels: [
       { id: "zai/glm-5.3-flash", label: "GLM 5.3 Flash", tier: "small" },
       {
@@ -554,6 +568,7 @@ export const TEXT_MODEL_PROVIDERS: Record<
   mistral: {
     label: "Mistral",
     apiKeyName: "MISTRAL_API_KEY",
+    keysAt: "https://console.mistral.ai/api-keys",
     suggestModels: [
       { id: "ministral-8b-latest", label: "Ministral 8B", tier: "small" },
       { id: "mistral-small-latest", label: "Small", tier: "mid" },
@@ -564,6 +579,8 @@ export const TEXT_MODEL_PROVIDERS: Record<
   deepseek: {
     label: "DeepSeek",
     apiKeyName: "DEEPSEEK_API_KEY",
+    keysAt: "https://platform.deepseek.com/api_keys",
+    keyLooks: "sk-…",
     suggestModels: [
       {
         id: "deepseek-flash",
@@ -583,6 +600,8 @@ export const TEXT_MODEL_PROVIDERS: Record<
   groq: {
     label: "Groq",
     apiKeyName: "GROQ_API_KEY",
+    keysAt: "https://console.groq.com/keys",
+    keyLooks: "gsk_…",
     suggestModels: [
       {
         id: "openai/gpt-oss-20b",
@@ -608,6 +627,8 @@ export const TEXT_MODEL_PROVIDERS: Record<
   cerebras: {
     label: "Cerebras",
     apiKeyName: "CEREBRAS_API_KEY",
+    keysAt: "https://cloud.cerebras.ai",
+    keyLooks: "csk-…",
     suggestModels: [
       {
         id: "qwen-3.8-27b",
@@ -626,6 +647,7 @@ export const TEXT_MODEL_PROVIDERS: Record<
   togetherai: {
     label: "Together",
     apiKeyName: "TOGETHER_AI_API_KEY",
+    keysAt: "https://api.together.ai/settings/api-keys",
     suggestModels: [
       {
         id: "Qwen/Qwen3.5-9B",
@@ -668,6 +690,8 @@ export const TEXT_MODEL_PROVIDERS: Record<
   fireworks: {
     label: "Fireworks",
     apiKeyName: "FIREWORKS_API_KEY",
+    keysAt: "https://app.fireworks.ai/account/api-keys",
+    keyLooks: "fw_…",
     suggestModels: [
       {
         id: "accounts/fireworks/models/glm-5p3-flash",
@@ -704,6 +728,7 @@ export const TEXT_MODEL_PROVIDERS: Record<
   deepinfra: {
     label: "DeepInfra",
     apiKeyName: "DEEPINFRA_API_KEY",
+    keysAt: "https://deepinfra.com/dash/api_keys",
     suggestModels: [
       {
         id: "deepseek-ai/DeepSeek-V4-Flash-0731",
@@ -740,6 +765,7 @@ export const TEXT_MODEL_PROVIDERS: Record<
   cohere: {
     label: "Cohere",
     apiKeyName: "COHERE_API_KEY",
+    keysAt: "https://dashboard.cohere.com/api-keys",
     suggestModels: [
       {
         id: "command-r7b-12-2024",

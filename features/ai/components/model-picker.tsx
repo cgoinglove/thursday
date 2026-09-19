@@ -20,7 +20,11 @@ import type {
   MediaKind,
   TextModelProviderId,
 } from "../model.schema";
-import { canMakeKind, MEDIA_MODEL_PROVIDERS } from "../model.schema";
+import {
+  canMakeKind,
+  MEDIA_MODEL_PROVIDERS,
+  TEXT_MODEL_PROVIDERS,
+} from "../model.schema";
 import { ChatGptSignIn } from "./chatgpt-sign-in";
 import { ModelBrowser } from "./model-browser";
 import { ProviderIcon } from "./provider-icon";
@@ -312,7 +316,9 @@ function AskForKey({
       <Input
         value={value}
         onChange={(event) => setValue(event.target.value)}
-        placeholder={provider.apiKeyName}
+        placeholder={
+          TEXT_MODEL_PROVIDERS[provider.id].keyLooks ?? "Paste the key"
+        }
         spellCheck={false}
         type="password"
       />

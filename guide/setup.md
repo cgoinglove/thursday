@@ -17,7 +17,10 @@ said about it (a mistyped key, one that was deleted). Bots can run on that same
 key. The screen puts the two easy ways next: a GPT Subscription sign-in (bots run on the
 ChatGPT plan, no key), and the Vercel AI Gateway, one key for every model and the one the app
 recommends. Under them every other provider is a mark to tap and paste a key into: Anthropic,
-Google, xAI, Mistral, DeepSeek, Groq, Cerebras, Together, Fireworks, DeepInfra, Cohere.
+Google, xAI, Mistral, DeepSeek, Groq, Cerebras, Together, Fireworks, DeepInfra, Cohere. The box
+a key goes in shows how that provider's keys begin (`sk-ant-…` for Anthropic) where it is known,
+with a link to the page that makes one; **Remove**, on a key already set, is the red word at the
+far left.
 
 A search key (Exa) is optional. With it, calls and bots both search through Exa, which is
 cheaper per search and comes with free credits every month. Without it, a call uses OpenAI's

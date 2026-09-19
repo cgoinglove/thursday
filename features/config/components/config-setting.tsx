@@ -2,6 +2,7 @@
 
 import { formatDistanceToNowStrict } from "date-fns";
 import {
+  ArrowUpRight,
   AudioLines,
   Captions,
   Check,
@@ -923,11 +924,13 @@ function ConfigDialog({
       }
       footer={
         <>
+          {/* set apart from what saves, at the far end and in red */}
           {set && (
             <Button
               variant="ghost"
               loading={removing}
               onClick={() => remove(entry.key)}
+              className="mr-auto text-destructive hover:text-destructive"
             >
               Remove
             </Button>
@@ -953,11 +956,27 @@ function ConfigDialog({
             if (event.key === "Enter" && value.trim().length >= 8)
               save(entry.key, value);
           }}
-          placeholder={set ? "New value — replaces the current key" : entry.key}
+          // what a key looks like says more than the setting's name, which is above
+          placeholder={
+            set
+              ? "New value — replaces the current key"
+              : (entry.keyLooks ?? "Paste the key")
+          }
           spellCheck={false}
           type="password"
           autoFocus
         />
+        {!set && entry.keysAt && (
+          <a
+            href={entry.keysAt}
+            target="_blank"
+            rel="noreferrer"
+            className="flex w-fit items-center gap-1 px-0.5 text-[13px] text-foreground underline underline-offset-3 hover:text-foreground/80"
+          >
+            Get a key at {new URL(entry.keysAt).host}
+            <ArrowUpRight className="size-3.5" />
+          </a>
+        )}
         {credits && "refused" in credits && (
           <SettingNote className="wrap-break-word text-destructive">
             {credits.refused}

@@ -10,6 +10,7 @@ import {
   MicOff,
   PhoneMissed,
   Settings2,
+  X,
 } from "lucide-react";
 import {
   type ReactNode,
@@ -41,7 +42,7 @@ import { BotMark } from "@/features/bot/components/bot-mark";
 import { BotRoom } from "@/features/bot/components/bot-room";
 import { toolIcon } from "@/features/bot/components/bot-tool";
 import { installSeedBots } from "@/features/bot/seed-bots";
-import { VoiceKeys } from "@/features/config/components/voice-key";
+import { GetKeyLink, VoiceKeys } from "@/features/config/components/voice-key";
 import { type ConfigStatus, isConfigSet } from "@/features/config/config.const";
 import { InstallNudge } from "@/features/settings/components/install-app";
 import { SECTIONS, Settings } from "@/features/settings/components/settings";
@@ -1531,14 +1532,25 @@ function NeedsKey({
 }) {
   if (open) {
     return (
-      <div className="w-[min(26rem,84vw)] animate-in rounded-2xl bg-background/80 p-3 ring-1 ring-border/60 backdrop-blur-md fade-in duration-300">
-        {/* same form as the intro; the first key also installs the seed bots */}
-        <VoiceKeys
-          dense
-          autoFocus
-          onCancel={onClose}
-          onSaved={() => installSeedBots()}
-        />
+      <div className="w-[min(26rem,84vw)] animate-in space-y-2.5 rounded-2xl bg-background/80 p-3 ring-1 ring-border/60 backdrop-blur-md fade-in duration-300">
+        <div className="flex h-6 items-center justify-between gap-2 pl-0.5">
+          <span className="text-[13px] font-medium">
+            Paste your OpenAI API key
+          </span>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            aria-label="Not now"
+            onClick={onClose}
+            className="-my-1 size-6"
+          >
+            <X className="size-3.5" />
+          </Button>
+        </div>
+        {/* the intro's key step, in place; the first key also installs the seed bots */}
+        <VoiceKeys dense plain autoFocus onSaved={() => installSeedBots()} />
+        <GetKeyLink />
       </div>
     );
   }
@@ -1560,7 +1572,8 @@ function NeedsKey({
       <span className="text-[13px] text-muted-foreground break-keep">
         Calls need one speech key. Everything else here already works.
       </span>
-      <Button size="sm" onClick={onOpen} className="h-7 rounded-full px-3.5">
+      {/* the one thing this screen asks for */}
+      <Button size="sm" variant="brand" onClick={onOpen} className="h-7 px-3.5">
         Add key
       </Button>
     </span>

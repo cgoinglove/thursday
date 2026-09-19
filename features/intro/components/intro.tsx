@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowUpRight,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -31,7 +30,7 @@ import { BOT_SEEDS, type BotSeed } from "@/features/bot/bot.seed";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { installSeedBots } from "@/features/bot/seed-bots";
 import { AccountsSetup } from "@/features/config/components/config-setting";
-import { VoiceKeys } from "@/features/config/components/voice-key";
+import { GetKeyLink, VoiceKeys } from "@/features/config/components/voice-key";
 import {
   removeConfigAction,
   setConfigAction,
@@ -464,20 +463,7 @@ function KeyTurn({ keyed, onSaved }: { keyed: boolean; onSaved: () => void }) {
     <>
       <Mine>Paste your OpenAI API key</Mine>
       <VoiceKeys dense plain autoFocus onSaved={onSaved} />
-      <a
-        href="https://platform.openai.com/api-keys"
-        target="_blank"
-        rel="noreferrer"
-        className="flex items-center gap-2.5 text-[13px] font-medium text-foreground no-underline"
-      >
-        <span className="flex h-7.5 shrink-0 items-center gap-1.5 rounded-full bg-muted px-3.5 whitespace-nowrap transition-colors hover:bg-accent">
-          Get a key
-          <ArrowUpRight className="size-3.5" />
-        </span>
-        <span className="truncate font-mono text-[11px] font-normal text-muted-foreground/70">
-          platform.openai.com/api-keys
-        </span>
-      </a>
+      <GetKeyLink />
       <ol className="flex flex-col gap-1.75 text-[13px] text-muted-foreground">
         {[
           "Sign in, or make an account",

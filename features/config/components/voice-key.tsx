@@ -1,12 +1,13 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { ArrowUpRight, Check, X } from "lucide-react";
 import { type Ref, useImperativeHandle, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProviderIcon } from "@/features/ai/components/provider-icon";
 import { LIVE_PROVIDER } from "@/features/ai/live.schema";
+import { TEXT_MODEL_PROVIDERS } from "@/features/ai/model.schema";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
@@ -26,6 +27,28 @@ export type VoiceKeysHandle = {
 
 /** Shorter than this is not a key: no save button, no prompt on leaving. */
 export const KEY_MIN = 8;
+
+/** Where the voice key is made, beside its field: a pill that opens the page, and the page's address. */
+export function GetKeyLink() {
+  const at = TEXT_MODEL_PROVIDERS[LIVE_PROVIDER.id].keysAt;
+  if (!at) return null;
+  return (
+    <a
+      href={at}
+      target="_blank"
+      rel="noreferrer"
+      className="flex items-center gap-2.5 text-[13px] font-medium text-foreground no-underline"
+    >
+      <span className="flex h-7.5 shrink-0 items-center gap-1.5 rounded-full bg-muted px-3.5 whitespace-nowrap transition-colors hover:bg-accent">
+        Get a key
+        <ArrowUpRight className="size-3.5" />
+      </span>
+      <span className="truncate font-mono text-[11px] font-normal text-muted-foreground/70">
+        {at.replace(/^https:\/\//, "")}
+      </span>
+    </a>
+  );
+}
 
 /** The OpenAI key for Live voice and Responses delegation. Used by the intro and by the call screen while no key is set. */
 export function VoiceKeys({
