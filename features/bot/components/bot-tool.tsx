@@ -135,9 +135,14 @@ export function stepFace(tool: ToolUse): StepFace {
 
   // `cd somewhere &&` says where, not what
   const command = tool.input.replace(/^\s*cd\s+\S+\s*&&\s*/, "").trim();
-  const [first = "", second = ""] = command.split(/\s+/);
-  if (first === "playwright-cli") {
-    if (second === "screenshot") return { icon: Camera, image };
+  const [first = ""] = command.split(/\s+/);
+  // The browser wherever it stands in the line — behind `npx`, an env assignment, a
+  // chain — and its verb past any flags: a step that browsed reads as browsing
+  const browsed = /(?:^|[\s;&|(])playwright-cli((?:\s+-\S+)*)\s+([a-z-]+)/.exec(
+    command,
+  );
+  if (browsed) {
+    if (browsed[2] === "screenshot") return { icon: Camera, image };
     const url = /https?:\/\/[^\s'"]+/.exec(command)?.[0];
     return { icon: Globe, host: (url && hostOf(url)) || undefined, image };
   }
