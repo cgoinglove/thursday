@@ -123,7 +123,8 @@ test("someone who is not let in is asked about on screen, and nothing is answere
   inbox.push(message(7, "hello"));
   await until(() => saidTo(7).length === 1, "they are told where to be let in");
   assert.match(saidTo(7)[0], /press Allow/);
-  const status = await reach.readReachStatus();
+  const [status] = (await reach.readReachStatus()).channels;
+  assert.equal(status.name, "telegram");
   assert.equal(status.bot, "@test_bot");
   assert.deepEqual(status.asking, { chat: "7", name: "Sam" });
   assert.equal(status.allowed, null);
@@ -131,8 +132,8 @@ test("someone who is not let in is asked about on screen, and nothing is answere
 });
 
 test("once allowed, what they write is a turn of one conversation", async () => {
-  await reach.allowReach("7");
-  assert.deepEqual((await reach.readReachStatus()).allowed, {
+  await reach.allowReach("telegram", "7");
+  assert.deepEqual((await reach.readReachStatus()).channels[0].allowed, {
     chat: "7",
     name: "Sam",
   });
@@ -158,7 +159,7 @@ test("nobody else is answered once one person is in", async () => {
   inbox.push(message(9, "let me in", "Mallory"));
   await until(() => saidTo(9).length === 1, "they are turned away");
   assert.match(saidTo(9)[0], /already answers someone else/);
-  assert.equal((await reach.readReachStatus()).asking, null);
+  assert.equal((await reach.readReachStatus()).channels[0].asking, null);
   assert.equal(turns.length, 2);
 });
 

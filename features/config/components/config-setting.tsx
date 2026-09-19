@@ -49,7 +49,7 @@ import {
   isConfigSet,
 } from "@/features/config/config.const";
 import { ReachState } from "@/features/reach/components/reach-state";
-import { TELEGRAM_TOKEN_KEY } from "@/features/reach/reach.schema";
+import { REACH_KEYS } from "@/features/reach/reach.schema";
 import {
   SettingChoiceRows,
   SettingDialogContent,
@@ -68,7 +68,12 @@ import { cn, WAITING_INK } from "@/lib/utils";
 /** A key that is not a provider's still wears a mark, or its row is a hole in the column. */
 const KEY_MARKS: Record<string, LucideIcon> = {
   [EXA_API_KEY]: Search,
-  [TELEGRAM_TOKEN_KEY]: Smartphone,
+  // A chat service whose own icon did not load
+  ...Object.fromEntries(
+    Object.values(REACH_KEYS)
+      .flat()
+      .map((key) => [key, Smartphone]),
+  ),
 };
 
 /** One mark per studio kind, drawn as the output (transcription is captions, not a mic). */

@@ -187,16 +187,20 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   (Settings › Sign-ins, or the button a waiting bot's question carries,
   `signin-ask`): a refused borrow is noted as `asking`, and nothing a tool is told lets a bot
   in. Boot takes in what bots used to keep under `bots/<name>/.auth`.
-- **A phone reaches her through a chat the server asks, never a port.** `reach` long-polls the
-  user's own Telegram bot (`telegram.ts` is all that knows the service) and answers with
+- **A phone reaches her through a chat the server connects out to, never a port.** `reach`
+  listens to the user's own bot on Telegram (a long poll), Discord or Slack (a socket the app
+  opens, `socket.ts`) — each service is one file returning `channel.ts`'s `Channel`, and
+  `reach.ts` never learns which it talks through — and answers with
   `thursday.text` `answerInWriting`: the run a page's call in writing streams, answered whole,
   with the conversation held by the server instead of a page and kept as the same call row. One
-  person may write, and only the computer's screen lets them in (`reach-ask`): whoever writes to
-  her can start work here. Open work goes to the phone once the computer has had
+  person may write through each service, and only the computer's screen lets them in
+  (`reach-ask`): whoever writes to her can start work here. Open work goes to the service they
+  last wrote from, once the computer has had
   `REACH.notifyAfterMs` to tell it — as a turn of that conversation that is not the user's, its
   relay rows accepted once she has answered, a question's options as buttons that answer the bot
   directly — and progress never does. Her settings live in the browser, so a phone runs on the
-  defaults. `scripts/reach.test.mts` runs it against a stubbed service.
+  defaults. `pnpm test:reach` runs the core against a stubbed service and the two socket
+  channels against a stubbed socket.
 - **No browser, nothing runs — unless the user said otherwise.** `presence` (app/api/events) says
   whether a browser is on the stream; when the last one has been gone a while, jobs stop and wait
   and open calls close. When one comes back, only jobs paused for browser absence pick themselves

@@ -37,7 +37,7 @@
     "knip": "knip",
     "test:live": "node --experimental-test-module-mocks --import tsx --test scripts/live-session.test.mts scripts/live-history.test.mts",
     "test:bot": "node --experimental-test-module-mocks --import tsx --test scripts/bot-context.test.mts",
-    "test:reach": "node --experimental-test-module-mocks --import tsx --test scripts/reach.test.mts",
+    "test:reach": "node --experimental-test-module-mocks --import tsx --test scripts/reach.test.mts scripts/reach-channels.test.mts",
     "test:artifact": "node --import tsx --test scripts/artifact-paths.test.mts",
     "format": "biome format --write",
     "reset": "node scripts/reset.mts",

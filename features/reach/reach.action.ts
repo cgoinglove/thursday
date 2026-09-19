@@ -3,17 +3,22 @@
 import { z } from "zod";
 import { serverAction } from "@/lib/protocol/server-action";
 import { allowReach, declineReach, forgetReach } from "./reach";
+import { REACH_CHANNELS } from "./reach.schema";
 
-/** The user let in whoever is asking to write from a phone. */
-export const allowReachAction = serverAction(async (chat: unknown) => {
-  await allowReach(z.string().min(1).parse(chat));
+const Name = z.enum(REACH_CHANNELS);
+
+/** The user let in whoever is asking to write through that service. */
+export const allowReachAction = serverAction(
+  async (name: unknown, chat: unknown) => {
+    await allowReach(Name.parse(name), z.string().min(1).parse(chat));
+  },
+);
+
+export const declineReachAction = serverAction(async (name: unknown) => {
+  declineReach(Name.parse(name));
 });
 
-export const declineReachAction = serverAction(async () => {
-  declineReach();
-});
-
-/** Nobody may write from the phone any more. */
-export const forgetReachAction = serverAction(async () => {
-  await forgetReach();
+/** Nobody may write through that service any more. */
+export const forgetReachAction = serverAction(async (name: unknown) => {
+  await forgetReach(Name.parse(name));
 });

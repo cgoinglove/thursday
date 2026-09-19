@@ -8,7 +8,12 @@ import {
   TEXT_MODEL_PROVIDER_LIST,
   type TextModelProviderId,
 } from "@/features/ai/model.schema";
-import { TELEGRAM_TOKEN_KEY } from "@/features/reach/reach.schema";
+import {
+  DISCORD_TOKEN_KEY,
+  SLACK_APP_TOKEN_KEY,
+  SLACK_BOT_TOKEN_KEY,
+  TELEGRAM_TOKEN_KEY,
+} from "@/features/reach/reach.schema";
 
 /**
  * Every config key the app reads, derived from the provider records. Values
@@ -237,6 +242,24 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
         label: "Telegram",
         site: "telegram.org",
         hint: "a bot token from @BotFather — then write to your bot, and allow it here",
+      },
+      {
+        key: DISCORD_TOKEN_KEY,
+        label: "Discord",
+        site: "discord.com",
+        hint: "a bot token from discord.com/developers — add the bot to a server of yours, then write to it directly",
+      },
+      {
+        key: SLACK_APP_TOKEN_KEY,
+        label: "Slack · app token",
+        site: "slack.com",
+        hint: "starts with xapp- — opens the connection. Slack takes this and the bot token",
+      },
+      {
+        key: SLACK_BOT_TOKEN_KEY,
+        label: "Slack · bot token",
+        site: "slack.com",
+        hint: "starts with xoxb- — speaks as the app",
       },
     ],
   },

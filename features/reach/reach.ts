@@ -26,39 +26,64 @@ import { logger } from "@/lib/logger";
 import { isPublicError } from "@/lib/public-error";
 import { plainText } from "@/lib/utils";
 import {
-  REACH_PERSON_KEY,
+  type Button,
+  type Channel,
+  ChannelRefusal,
+  type Incoming,
+} from "./channel";
+import { createDiscord } from "./discord";
+import {
+  REACH_CHANNELS,
+  REACH_KEYS,
+  type ReachChannelName,
   type ReachPerson,
   type ReachStatus,
-  TELEGRAM_TOKEN_KEY,
+  reachPersonKey,
 } from "./reach.schema";
-import {
-  createTelegram,
-  type Telegram,
-  type TelegramMessage,
-  TelegramRefusal,
-  type TelegramUpdate,
-} from "./telegram";
+import { createSlack } from "./slack";
+import { createTelegram } from "./telegram";
 
 /**
- * Thursday from a phone. The server asks a chat service for what was written to the user's
- * own bot — nothing is opened to the outside — and answers with the backend a call in
- * writing runs (thursday.text): same prompt, memory, tools and rows, so it is a call like
- * any other, held here instead of by a page. One person may write, and the screen is where
- * they are let in: someone who can write to her can, through her, run things on this
- * computer. Open work that the computer has not told goes to the phone as a turn of the
- * same conversation, so an answer written back lands where she can route it, and a
- * question's options go as buttons that answer the bot directly.
+ * Thursday from a phone. The server connects outward to a chat service the user set up —
+ * their own bot on Telegram, Discord or Slack, nothing opened to the outside — and answers
+ * with the backend a call in writing runs (thursday.text): same prompt, memory, tools and
+ * rows, so it is a call like any other, held here instead of by a page. One person may
+ * write through each service, and the screen is where they are let in: someone who can
+ * write to her can, through her, run things on this computer. Open work that the computer
+ * has not told goes to the service they last wrote from, as a turn of that conversation, so
+ * an answer written back lands where she can route it, and a question's options go as
+ * buttons that answer the bot directly.
  *
  * Her settings are the browser's (thursday.store), which the server cannot read: a
- * conversation from the phone runs on the defaults.
+ * conversation from a phone runs on the defaults.
  */
 
-/** The conversation with the phone, for as long as it is kept going (REACH.idleMs). */
+/** How each service is made from its keys, in `REACH_KEYS` order. The one place that knows there are three. */
+const MAKE: Record<ReachChannelName, (...keys: string[]) => Channel> = {
+  telegram: (token) => createTelegram(token),
+  discord: (token) => createDiscord(token),
+  slack: (app, bot) => createSlack(app, bot),
+};
+
+/** The conversation with one person, for as long as it is kept going (REACH.idleMs). */
 type Line = {
   callId: string;
   standing: string | null;
   messages: ModelMessage[];
   lastAt: number;
+};
+
+/** One service being listened to. */
+type Live = {
+  name: ReachChannelName;
+  channel: Channel;
+  stop: AbortController;
+  bot: string | null;
+  problem: string | null;
+  asking: ReachPerson | null;
+  line: Line | null;
+  /** One turn at a time: a second message waits for the first to be answered. */
+  turn: Promise<void>;
 };
 
 /** A button under a question: which bot's question it answers, and with what. */
@@ -70,15 +95,10 @@ type Choice = {
 };
 
 type State = {
-  stop: AbortController | null;
-  telegram: Telegram | null;
-  bot: string | null;
-  problem: string | null;
-  asking: ReachPerson | null;
-  line: Line | null;
-  /** One turn at a time: a second message waits for the first to be answered. */
-  turn: Promise<void>;
-  /** Open work already put to the phone, by item key (open-work). */
+  live: Map<ReachChannelName, Live>;
+  /** Where they last wrote from: open work goes there, once, rather than to every service. */
+  last: ReachChannelName | null;
+  /** Open work already put to a phone, by item key (open-work). */
   told: Set<string>;
   /** Open work waiting out REACH.notifyAfterMs, by item key. */
   due: Map<string, ReturnType<typeof setTimeout>>;
@@ -89,16 +109,11 @@ type State = {
 };
 
 // Pinned, as the event bus is: a dev reload evaluates this module again, and a second
-// poll on one token is refused by the service
+// listener on one token is refused by the service
 const pinned = globalThis as { __reach?: State };
 const state: State = (pinned.__reach ??= {
-  stop: null,
-  telegram: null,
-  bot: null,
-  problem: null,
-  asking: null,
-  line: null,
-  turn: Promise.resolve(),
+  live: new Map(),
+  last: null,
   told: new Set(),
   due: new Map(),
   choices: new Map(),
@@ -108,8 +123,8 @@ const state: State = (pinned.__reach ??= {
 
 const changed = () => appEvents.emit({ type: "reach" });
 
-async function readPerson(): Promise<ReachPerson | null> {
-  const kept = await readConfig(REACH_PERSON_KEY);
+async function readPerson(name: ReachChannelName): Promise<ReachPerson | null> {
+  const kept = await readConfig(reachPersonKey(name));
   if (!kept) return null;
   try {
     const person = JSON.parse(kept) as Partial<ReachPerson>;
@@ -123,189 +138,184 @@ async function readPerson(): Promise<ReachPerson | null> {
 
 export async function readReachStatus(): Promise<ReachStatus> {
   return {
-    bot: state.bot,
-    allowed: await readPerson(),
-    asking: state.asking,
-    problem: state.problem,
+    channels: await Promise.all(
+      [...state.live.values()].map(async (live) => ({
+        name: live.name,
+        bot: live.bot,
+        allowed: await readPerson(live.name),
+        asking: live.asking,
+        problem: live.problem,
+      })),
+    ),
   };
 }
 
+/** The service a config key belongs to, for whoever writes keys (config.action). */
+export const reachChannelOf = (key: string): ReachChannelName | null =>
+  REACH_CHANNELS.find((name) => REACH_KEYS[name].includes(key)) ?? null;
+
 /**
- * Starts listening with the token that is set, or stops when none is. Called at boot and
- * whenever the token changes (config.action): a new token is a new bot, so whoever was let
- * in to the old one is not carried over.
+ * Listens to every service whose keys are set. Called at boot for all of them, and with a
+ * service's name whenever one of its keys changes (config.action): a new token is a new
+ * bot, so whoever was let in to the old one is not carried over.
  */
-export async function startReach(fresh = false): Promise<void> {
-  state.stop?.abort();
-  state.stop = null;
-  state.telegram = null;
-  state.bot = null;
-  state.problem = null;
-  state.asking = null;
-  if (fresh) {
-    await removeConfig(REACH_PERSON_KEY);
-    await hangUp();
+export async function startReach(fresh?: ReachChannelName): Promise<void> {
+  for (const name of fresh ? [fresh] : REACH_CHANNELS) {
+    const was = state.live.get(name);
+    was?.stop.abort();
+    state.live.delete(name);
+    if (fresh) {
+      await removeConfig(reachPersonKey(name));
+      if (was?.line) await endCall(was.line.callId).catch(() => {});
+    }
+
+    const keys = await Promise.all(REACH_KEYS[name].map(readConfig));
+    if (!keys.every((key): key is string => Boolean(key))) continue;
+    const live: Live = {
+      name,
+      channel: MAKE[name](...keys),
+      stop: new AbortController(),
+      bot: null,
+      problem: null,
+      asking: null,
+      line: null,
+      turn: Promise.resolve(),
+    };
+    state.live.set(name, live);
+    void listen(live);
   }
 
-  const token = await readConfig(TELEGRAM_TOKEN_KEY);
-  if (!token) return changed();
-
-  const stop = new AbortController();
-  state.stop = stop;
-  state.telegram = createTelegram(token);
-  state.listening ??= appEvents.subscribe((event) => {
-    if (event.type !== "threads" || state.looking) return;
-    state.looking = setTimeout(() => {
-      state.looking = null;
-      void lookForOpenWork().catch((cause) =>
-        logger.error("reach: open work", cause),
-      );
-    }, 2_000);
-  });
-  void listen(state.telegram, stop.signal);
+  if (state.live.size)
+    state.listening ??= appEvents.subscribe((event) => {
+      if (event.type !== "threads" || state.looking) return;
+      state.looking = setTimeout(() => {
+        state.looking = null;
+        void lookForOpenWork().catch((cause) =>
+          logger.error("reach: open work", cause),
+        );
+      }, 2_000);
+    });
+  changed();
 }
 
-async function listen(telegram: Telegram, signal: AbortSignal) {
-  try {
-    const me = await telegram.me(signal);
-    state.bot = me.username ? `@${me.username}` : (me.first_name ?? "the bot");
+async function listen(live: Live) {
+  const { signal } = live.stop;
+  const trouble = (why: string | null) => {
+    if (live.problem === why) return;
+    live.problem = why;
     changed();
-  } catch (cause) {
-    if (signal.aborted) return;
-    // A token the service turns away is the user's to fix; asking again would not change it
-    state.problem = cause instanceof Error ? cause.message : String(cause);
-    logger.warn(`reach: ${state.problem}`);
-    return changed();
-  }
-
-  let offset = 0;
+  };
   while (!signal.aborted) {
     try {
-      for (const update of await telegram.updates(offset, signal)) {
-        offset = update.update_id + 1;
-        void take(telegram, update).catch((cause) =>
-          logger.error("reach: an update", cause),
-        );
-      }
-      if (state.problem) {
-        state.problem = null;
-        changed();
-      }
+      await live.channel.listen(
+        {
+          ready: (bot) => {
+            live.bot = bot;
+            live.problem = null;
+            changed();
+          },
+          incoming: (incoming) =>
+            void take(live, incoming).catch((cause) =>
+              logger.error(`reach ${live.name}: what arrived`, cause),
+            ),
+        },
+        signal,
+      );
     } catch (cause) {
       if (signal.aborted) return;
-      if (cause instanceof TelegramRefusal && cause.status === 401) {
-        state.problem = cause.message;
-        return changed();
+      const why = cause instanceof Error ? cause.message : String(cause);
+      // A token the service turns away is the user's to fix; asking again would not change it
+      if (cause instanceof ChannelRefusal) {
+        logger.warn(`reach ${live.name}: ${why}`);
+        return trouble(why);
       }
       // No network, the service down, a second listener on the token: said, and tried again
-      const why = cause instanceof Error ? cause.message : String(cause);
-      if (state.problem !== why) {
-        state.problem = why;
-        changed();
-      }
-      await new Promise((resolve) => setTimeout(resolve, REACH.retryMs));
+      trouble(why);
     }
+    await new Promise((resolve) => setTimeout(resolve, REACH.retryMs));
   }
 }
 
-async function take(telegram: Telegram, update: TelegramUpdate) {
-  const pressed = update.callback_query;
-  if (pressed) {
-    await telegram.pressed(pressed.id);
-    const person = await readPerson();
-    if (!person || String(pressed.from.id) !== person.chat) return;
-    return choose(telegram, person, pressed.data ?? "", pressed.message);
+async function take(live: Live, incoming: Incoming) {
+  const { channel } = live;
+  const person = await readPerson(live.name);
+
+  if (incoming.kind === "press") {
+    if (person?.chat !== incoming.chat) return;
+    return choose(live, person, incoming.data, incoming.under);
   }
 
-  const message = update.message;
-  // Her answers are one person's; a group is many, and whoever is in it could write
-  if (!message?.from || message.chat.type !== "private") return;
-  const chat = String(message.chat.id);
-  const person = await readPerson();
-
-  if (person?.chat !== chat) {
+  if (person?.chat !== incoming.chat) {
     if (person) {
-      await telegram.say(chat, "This Thursday already answers someone else.");
+      await channel.say(
+        incoming.chat,
+        "This Thursday already answers someone else.",
+      );
       return;
     }
-    state.asking = { chat, name: telegram.nameOf(message.from) };
+    live.asking = { chat: incoming.chat, name: incoming.name };
     changed();
-    await telegram.say(
-      chat,
+    await channel.say(
+      incoming.chat,
       "Almost there. Open Thursday on your computer and press Allow, then write again.",
     );
     return;
   }
 
-  const words = await wordsOf(telegram, message);
-  if (words === null) {
-    await telegram.say(
-      chat,
-      "I can read words, pictures and files here — not voice or video yet. Write it instead.",
-    );
+  state.last = live.name;
+  // What it brought is kept in the workspace and named by path, as the write line names it
+  const kept = incoming.files.length
+    ? await keepGivenFiles(
+        await Promise.all(incoming.files.map((file) => file.fetch())),
+      )
+    : [];
+  const words = [incoming.words, ...kept].filter(Boolean).join("\n");
+  if (!words) {
+    if (incoming.unreadable)
+      await channel.say(
+        incoming.chat,
+        "I can read words, pictures and files here — not voice or video yet. Write it instead.",
+      );
     return;
   }
-  if (words) write(telegram, person, words, words);
+  void write(live, person, words, words);
 }
 
-/** What a message says, with the files it brought kept in the workspace and named by path, as the write line names them. */
-async function wordsOf(
-  telegram: Telegram,
-  message: TelegramMessage,
-): Promise<string | null> {
-  const said = (message.text ?? message.caption ?? "").trim();
-  const photo = message.photo?.at(-1);
-  const sent = message.document
-    ? {
-        id: message.document.file_id,
-        name: message.document.file_name ?? "file",
-        type: message.document.mime_type,
-      }
-    : photo
-      ? { id: photo.file_id, name: `photo-${message.message_id}`, type: "" }
-      : null;
-  if (!sent)
-    return (
-      said || (message.voice || message.audio || message.video ? null : "")
-    );
-
-  const file = await telegram.fetchFile(sent.id, sent.name, sent.type);
-  const [path] = await keepGivenFiles([file]);
-  return [said, path].filter(Boolean).join("\n");
-}
-
-/** Lets in whoever is asking. The screen's Allow (reach.action). */
-export async function allowReach(chat: string): Promise<void> {
-  const asking = state.asking;
-  if (!asking || asking.chat !== chat) return;
-  await writeConfig(REACH_PERSON_KEY, JSON.stringify(asking));
-  state.asking = null;
+/** Lets in whoever is asking through that service. The screen's Allow (reach.action). */
+export async function allowReach(
+  name: ReachChannelName,
+  chat: string,
+): Promise<void> {
+  const live = state.live.get(name);
+  const asking = live?.asking;
+  if (!live || !asking || asking.chat !== chat) return;
+  await writeConfig(reachPersonKey(name), JSON.stringify(asking));
+  live.asking = null;
   changed();
-  await state.telegram
-    ?.say(chat, "You are in. Write here and Thursday answers.")
-    .catch((cause) => logger.warn("reach: could not say so", cause));
+  await live.channel
+    .say(chat, "You are in. Write here and Thursday answers.")
+    .catch((cause) => logger.warn(`reach ${name}: could not say so`, cause));
 }
 
 /** Turns away whoever is asking; they may ask again. */
-export function declineReach(): void {
-  state.asking = null;
+export function declineReach(name: ReachChannelName): void {
+  const live = state.live.get(name);
+  if (live) live.asking = null;
   changed();
 }
 
-/** Nobody may write from the phone any more; the bot stays, so the next to write asks to be let in. */
-export async function forgetReach(): Promise<void> {
-  await removeConfig(REACH_PERSON_KEY);
-  await hangUp();
+/** Nobody may write through that service any more; the bot stays, so the next to write asks to be let in. */
+export async function forgetReach(name: ReachChannelName): Promise<void> {
+  await removeConfig(reachPersonKey(name));
+  const live = state.live.get(name);
+  if (live) await hangUp(live);
   changed();
 }
 
 /** Ends the conversation as a call. */
-async function hangUp() {
-  const line = state.line;
-  state.line = null;
-  for (const timer of state.due.values()) clearTimeout(timer);
-  state.due.clear();
-  state.choices.clear();
+async function hangUp(live: Live) {
+  const line = live.line;
+  live.line = null;
   if (line) await endCall(line.callId).catch(() => {});
 }
 
@@ -314,16 +324,14 @@ async function hangUp() {
  * turn; null when `words` is open work put in for a bot, which is no turn of theirs.
  */
 function write(
-  telegram: Telegram,
+  live: Live,
   person: ReachPerson,
   words: string,
   said: string | null,
-  buttons?: { text: string; data: string }[],
+  buttons?: Button[],
 ): Promise<boolean> {
-  const done = state.turn.then(() =>
-    answer(telegram, person, words, said, buttons),
-  );
-  state.turn = done.then(
+  const done = live.turn.then(() => answer(live, person, words, said, buttons));
+  live.turn = done.then(
     () => {},
     () => {},
   );
@@ -331,33 +339,37 @@ function write(
 }
 
 async function answer(
-  telegram: Telegram,
+  live: Live,
   person: ReachPerson,
   words: string,
   said: string | null,
-  buttons?: { text: string; data: string }[],
+  buttons?: Button[],
 ): Promise<boolean> {
+  const { channel } = live;
   // "typing…" lasts a few seconds on the service's side, so it is said again while she works
-  void telegram.typing(person.chat);
-  const typing = setInterval(() => void telegram.typing(person.chat), 4_000);
+  void channel.typing(person.chat).catch(() => {});
+  const typing = setInterval(
+    () => void channel.typing(person.chat).catch(() => {}),
+    4_000,
+  );
   try {
     const settings = ThursdaySettingsSchema.parse({});
     // Quiet for long enough, or closed under it (the tab went, the server restarted): the
     // next words open a new call, which reads the last one back under Earlier calls
-    const kept = state.line;
+    const kept = live.line;
     const stale =
       !kept ||
       Date.now() - kept.lastAt > REACH.idleMs ||
       !(await isCallOpen(kept.callId));
     if (stale) {
-      await hangUp();
-      state.line = {
+      await hangUp(live);
+      live.line = {
         ...(await openTextCall(settings)),
         messages: [],
         lastAt: 0,
       };
     }
-    const line = state.line as Line;
+    const line = live.line as Line;
     const result = await answerInWriting({
       callId: line.callId,
       settings,
@@ -372,20 +384,20 @@ async function answer(
     const text = plainText(result.text) || result.did.join("\n");
     const parts = inParts(text || "…");
     for (const [at, part] of parts.entries())
-      await telegram.say(
+      await channel.say(
         person.chat,
         part,
         at === parts.length - 1 ? buttons : undefined,
       );
-    await sendFiles(telegram, person, result.text);
+    await sendFiles(live, person, result.text);
     return true;
   } catch (cause) {
     // What a provider refused is the user's to act on, so it reaches them as it was said
     const why = isPublicError(cause)
       ? cause.message
       : modelErrorToString(cause);
-    logger.warn(`reach: ${why}`);
-    await telegram.say(person.chat, why).catch(() => {});
+    logger.warn(`reach ${live.name}: ${why}`);
+    await channel.say(person.chat, why).catch(() => {});
     return false;
   } finally {
     clearInterval(typing);
@@ -408,25 +420,37 @@ function inParts(text: string): string[] {
 }
 
 /** The files her answer names go with it: a phone cannot open a path on this computer. */
-async function sendFiles(
-  telegram: Telegram,
-  person: ReachPerson,
-  text: string,
-) {
+async function sendFiles(live: Live, person: ReachPerson, text: string) {
   const paths = (await filesOnDisk(pathsIn(text), null)).slice(-REACH.files);
   for (const path of paths) {
     const full = await insideWorkspace(path);
     const info = full ? await stat(full).catch(() => null) : null;
     if (!full || !info || info.size > REACH.fileBytes) continue;
-    await telegram
+    await live.channel
       .sendFile(
         person.chat,
         await readFile(full),
         path.split("/").pop() ?? "file",
         viewKindOf(path) === "image",
       )
-      .catch((cause) => logger.warn(`reach: could not send ${path}`, cause));
+      .catch((cause) =>
+        logger.warn(`reach ${live.name}: could not send ${path}`, cause),
+      );
   }
+}
+
+/** The service open work goes to: where they last wrote from, else the first that has someone let in. */
+async function whereTo(): Promise<{ live: Live; person: ReachPerson } | null> {
+  const names = [
+    ...(state.last ? [state.last] : []),
+    ...REACH_CHANNELS.filter((name) => name !== state.last),
+  ];
+  for (const name of names) {
+    const live = state.live.get(name);
+    const person = live ? await readPerson(name) : null;
+    if (live && person) return { live, person };
+  }
+  return null;
 }
 
 /**
@@ -435,7 +459,7 @@ async function sendFiles(
  * every step is one that gets muted.
  */
 async function lookForOpenWork() {
-  if (!state.telegram || !(await readPerson())) return;
+  if (!(await whereTo())) return;
   const open = waiting(await listInboxThreads());
   const keys = new Set(open.map((item) => item.key));
   // What stopped waiting — answered, seen, told on the computer — never goes
@@ -458,9 +482,8 @@ const waiting = (threads: Thread[]) =>
 
 async function tell(key: string) {
   state.due.delete(key);
-  const telegram = state.telegram;
-  const person = await readPerson();
-  if (!telegram || !person || state.told.has(key)) return;
+  const to = await whereTo();
+  if (!to || state.told.has(key)) return;
 
   const threads = await listInboxThreads();
   const item = waiting(threads).find((one) => one.key === key);
@@ -485,21 +508,21 @@ async function tell(key: string) {
   });
 
   state.told.add(key);
-  const told = await write(telegram, person, item.line, null, buttons);
+  const told = await write(to.live, to.person, item.line, null, buttons);
   // Hers to tell again if it never got there; accepted as on a page once it did
   if (told) await acceptRoomRelays(item.relayIds);
   else state.told.delete(key);
 }
 
 async function choose(
-  telegram: Telegram,
+  live: Live,
   person: ReachPerson,
   data: string,
-  under?: TelegramMessage,
+  under: { id: string; text: string } | null,
 ) {
   const choice = state.choices.get(data);
   if (!choice) {
-    await telegram.say(
+    await live.channel.say(
       person.chat,
       "That question is no longer open here. Write your answer instead.",
     );
@@ -509,19 +532,19 @@ async function choose(
     if (one.question === choice.question) state.choices.delete(key);
   try {
     await answerThread(choice.threadId, choice.answer, "user", choice.bot);
-    if (under?.text)
-      await telegram.settle(
+    if (under)
+      await live.channel.settle(
         person.chat,
-        under.message_id,
+        under.id,
         `${under.text}\n\n→ ${choice.answer}`,
       );
     // She is told, as she is when a question is answered on screen: a fact, not a turn
-    state.line?.messages.push({
+    live.line?.messages.push({
       role: "user",
       content: `[The user answered ${choice.bot}'s question from their phone: ${choice.answer}. It has reached ${choice.bot}.]`,
     });
   } catch (cause) {
-    await telegram.say(
+    await live.channel.say(
       person.chat,
       isPublicError(cause) ? cause.message : "That answer did not get through.",
     );

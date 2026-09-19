@@ -1,7 +1,8 @@
 import { REACH } from "@/config";
+import { type Channel, ChannelRefusal, type Incoming } from "./channel";
 
 /**
- * Telegram's Bot API, as far as reach uses it: asked for what was written (a long poll, so
+ * Telegram's Bot API as a reach channel: asked for what was written (a long poll, so
  * nothing calls in), told what to send back. Plain `fetch`; no library earns its place for
  * eight methods.
  */
@@ -17,7 +18,7 @@ type TelegramUser = {
 
 type TelegramFile = { file_id: string; file_size?: number };
 
-export type TelegramMessage = {
+type TelegramMessage = {
   message_id: number;
   from?: TelegramUser;
   chat: { id: number; type: string };
@@ -31,7 +32,7 @@ export type TelegramMessage = {
   video?: TelegramFile;
 };
 
-export type TelegramUpdate = {
+type TelegramUpdate = {
   update_id: number;
   message?: TelegramMessage;
   /** A button under one of our messages was pressed. */
@@ -43,19 +44,7 @@ export type TelegramUpdate = {
   };
 };
 
-/** The service answered, and refused: its words are the user's to act on (a wrong token, a blocked bot). */
-export class TelegramRefusal extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-
-export type Telegram = ReturnType<typeof createTelegram>;
-
-export function createTelegram(token: string) {
+export function createTelegram(token: string): Channel {
   async function call<T>(
     method: string,
     body?: Record<string, unknown> | FormData,
@@ -77,52 +66,119 @@ export function createTelegram(token: string) {
       result?: T;
       description?: string;
     } | null;
-    if (!said?.ok)
-      throw new TelegramRefusal(
-        response.status,
-        said?.description ?? `Telegram answered ${response.status}`,
-      );
-    return said.result as T;
+    if (said?.ok) return said.result as T;
+    const why = said?.description ?? `Telegram answered ${response.status}`;
+    // 401 is the token itself; everything else may pass
+    throw response.status === 401 ? new ChannelRefusal(why) : new Error(why);
   }
 
   const nameOf = (user?: TelegramUser) =>
     [user?.first_name, user?.last_name].filter(Boolean).join(" ") ||
     (user?.username ? `@${user.username}` : "Someone");
 
-  return {
-    nameOf,
+  /** A file someone sent, as the bytes and the name it came with. */
+  async function fetchFile(
+    fileId: string,
+    name: string,
+    type?: string,
+  ): Promise<File> {
+    const { file_path: path } = await call<{ file_path?: string }>("getFile", {
+      file_id: fileId,
+    });
+    if (!path) throw new Error("Telegram did not say where the file is");
+    const response = await fetch(`${API}/file/bot${token}/${path}`);
+    if (!response.ok)
+      throw new Error(`Telegram answered ${response.status} for the file`);
+    const ext = path.includes(".") ? path.slice(path.lastIndexOf(".")) : "";
+    return new File(
+      [await response.arrayBuffer()],
+      name.includes(".") ? name : `${name}${ext}`,
+      type ? { type } : undefined,
+    );
+  }
 
-    /** The bot's own name, which is also how a token is found to be good. */
-    me: (signal?: AbortSignal) =>
-      call<{ username?: string; first_name?: string }>(
+  function read(update: TelegramUpdate): Incoming | null {
+    const pressed = update.callback_query;
+    if (pressed) {
+      // Ends the spinner on the button, whatever comes of the press
+      void call("answerCallbackQuery", { callback_query_id: pressed.id }).catch(
+        () => {},
+      );
+      return {
+        kind: "press",
+        chat: String(pressed.from.id),
+        data: pressed.data ?? "",
+        under: pressed.message?.text
+          ? {
+              id: String(pressed.message.message_id),
+              text: pressed.message.text,
+            }
+          : null,
+      };
+    }
+    const message = update.message;
+    if (!message?.from || message.chat.type !== "private") return null;
+    const photo = message.photo?.at(-1);
+    const sent = message.document
+      ? {
+          id: message.document.file_id,
+          name: message.document.file_name ?? "file",
+          type: message.document.mime_type,
+        }
+      : photo
+        ? { id: photo.file_id, name: `photo-${message.message_id}`, type: "" }
+        : null;
+    return {
+      kind: "message",
+      chat: String(message.chat.id),
+      name: nameOf(message.from),
+      words: (message.text ?? message.caption ?? "").trim(),
+      files: sent
+        ? [
+            {
+              name: sent.name,
+              fetch: () => fetchFile(sent.id, sent.name, sent.type),
+            },
+          ]
+        : [],
+      unreadable: Boolean(message.voice || message.audio || message.video),
+    };
+  }
+
+  return {
+    async listen(on, signal) {
+      const me = await call<{ username?: string; first_name?: string }>(
         "getMe",
         undefined,
         signal,
-      ),
+      );
+      on.ready(me.username ? `@${me.username}` : (me.first_name ?? "the bot"));
 
-    /** What was written since `offset`, waiting up to `REACH.pollSeconds` for something. */
-    updates: (offset: number, signal: AbortSignal) =>
-      call<TelegramUpdate[]>(
-        "getUpdates",
-        {
-          offset,
-          timeout: REACH.pollSeconds,
-          allowed_updates: ["message", "callback_query"],
-        },
-        // Past the wait itself, the connection is taken for dead
-        AbortSignal.any([
-          signal,
-          AbortSignal.timeout((REACH.pollSeconds + 15) * 1000),
-        ]),
-      ),
+      let offset = 0;
+      while (!signal.aborted) {
+        const updates = await call<TelegramUpdate[]>(
+          "getUpdates",
+          {
+            offset,
+            timeout: REACH.pollSeconds,
+            allowed_updates: ["message", "callback_query"],
+          },
+          // Past the wait itself, the connection is taken for dead
+          AbortSignal.any([
+            signal,
+            AbortSignal.timeout((REACH.pollSeconds + 15) * 1000),
+          ]),
+        );
+        for (const update of updates) {
+          offset = update.update_id + 1;
+          const incoming = read(update);
+          if (incoming) on.incoming(incoming);
+        }
+      }
+    },
 
-    /** One message; `buttons` go under it, one to a row, each carrying its own `data`. */
-    say: (
-      chat: string,
-      text: string,
-      buttons?: { text: string; data: string }[],
-    ) =>
-      call<TelegramMessage>("sendMessage", {
+    async say(chat, text, buttons) {
+      await call("sendMessage", {
         chat_id: chat,
         text,
         link_preview_options: { is_disabled: true },
@@ -135,51 +191,25 @@ export function createTelegram(token: string) {
               },
             }
           : {}),
-      }),
+      });
+    },
 
-    /** "typing…" under the bot's name, for a few seconds. */
-    typing: (chat: string) =>
-      call("sendChatAction", { chat_id: chat, action: "typing" }).catch(
+    async typing(chat) {
+      await call("sendChatAction", { chat_id: chat, action: "typing" }).catch(
         () => {},
-      ),
-
-    /** Ends the spinner on a pressed button. */
-    pressed: (id: string) =>
-      call("answerCallbackQuery", { callback_query_id: id }).catch(() => {}),
-
-    /** Takes the buttons off a message once one was pressed, and says which. */
-    settle: (chat: string, messageId: number, text: string) =>
-      call("editMessageText", {
-        chat_id: chat,
-        message_id: messageId,
-        text,
-        link_preview_options: { is_disabled: true },
-      }).catch(() => {}),
-
-    /** A file someone sent, as the bytes and the name it came with. */
-    async fetchFile(
-      fileId: string,
-      name: string,
-      type?: string,
-    ): Promise<File> {
-      const { file_path: path } = await call<{ file_path?: string }>(
-        "getFile",
-        { file_id: fileId },
-      );
-      if (!path) throw new Error("Telegram did not say where the file is");
-      const response = await fetch(`${API}/file/bot${token}/${path}`);
-      if (!response.ok)
-        throw new Error(`Telegram answered ${response.status} for the file`);
-      const ext = path.includes(".") ? path.slice(path.lastIndexOf(".")) : "";
-      return new File(
-        [await response.arrayBuffer()],
-        name.includes(".") ? name : `${name}${ext}`,
-        type ? { type } : undefined,
       );
     },
 
-    /** A file of ours, as a picture when it is one and as a document otherwise. */
-    sendFile(chat: string, bytes: Uint8Array, name: string, picture: boolean) {
+    async settle(chat, messageId, text) {
+      await call("editMessageText", {
+        chat_id: chat,
+        message_id: Number(messageId),
+        text,
+        link_preview_options: { is_disabled: true },
+      }).catch(() => {});
+    },
+
+    async sendFile(chat, bytes, name, picture) {
       const form = new FormData();
       form.set("chat_id", chat);
       form.set(
@@ -187,7 +217,7 @@ export function createTelegram(token: string) {
         new Blob([bytes as BlobPart]),
         name,
       );
-      return call(picture ? "sendPhoto" : "sendDocument", form);
+      await call(picture ? "sendPhoto" : "sendDocument", form);
     },
   };
 }

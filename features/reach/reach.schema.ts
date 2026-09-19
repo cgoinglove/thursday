@@ -1,23 +1,48 @@
 /**
- * Reaching Thursday from a phone: one chat, held by the server, answered by the same backend
- * a call in writing runs (thursday.text). The vocabulary both sides share.
+ * Reaching Thursday from a phone: a chat app the user already has, held by the server,
+ * answered by the same backend a call in writing runs (thursday.text). The vocabulary both
+ * sides share.
  */
 
-/** The Telegram bot's token, from @BotFather. Set, the server asks Telegram for what is written to it. */
+export const REACH_CHANNELS = ["telegram", "discord", "slack"] as const;
+export type ReachChannelName = (typeof REACH_CHANNELS)[number];
+
+/** The Telegram bot's token, from @BotFather. */
 export const TELEGRAM_TOKEN_KEY = "TELEGRAM_BOT_TOKEN";
+/** The Discord application's bot token, from its Bot page. */
+export const DISCORD_TOKEN_KEY = "DISCORD_BOT_TOKEN";
+/** Slack takes two: the app-level token that opens the socket, and the bot token that speaks. */
+export const SLACK_APP_TOKEN_KEY = "SLACK_APP_TOKEN";
+export const SLACK_BOT_TOKEN_KEY = "SLACK_BOT_TOKEN";
+
+/** What each service needs set before it is listened to, in the order its maker takes them. */
+export const REACH_KEYS: Record<ReachChannelName, readonly string[]> = {
+  telegram: [TELEGRAM_TOKEN_KEY],
+  discord: [DISCORD_TOKEN_KEY],
+  slack: [SLACK_APP_TOKEN_KEY, SLACK_BOT_TOKEN_KEY],
+};
+
+export const REACH_LABEL: Record<ReachChannelName, string> = {
+  telegram: "Telegram",
+  discord: "Discord",
+  slack: "Slack",
+};
 
 /**
- * The one person allowed to write, as the screen let them in (`ReachPerson`, JSON). Kept
- * beside the token rather than in it: a new token is a new bot, and nobody is let in to it yet.
+ * The one person allowed to write through a service, as the screen let them in
+ * (`ReachPerson`, JSON). Kept beside the token rather than in it: a new token is a new bot,
+ * and nobody is let in to it yet.
  */
-export const REACH_PERSON_KEY = "REACH_PERSON";
+export const reachPersonKey = (name: ReachChannelName) =>
+  `REACH_PERSON_${name.toUpperCase()}`;
 
-/** Someone writing from a chat app: the chat the service names, and what it calls them. */
+/** Someone writing from a chat app: the conversation the service names, and what it calls them. */
 export type ReachPerson = { chat: string; name: string };
 
-/** What the screen is told: which bot is listening, who may write, and who is asking to. */
-export type ReachStatus = {
-  /** The bot's own name on the service, once the token has been taken; null before. */
+/** One service as the screen is told of it; only those with their keys set are listed. */
+export type ReachChannelStatus = {
+  name: ReachChannelName;
+  /** The bot's own name on the service, once it has connected; null before. */
   bot: string | null;
   allowed: ReachPerson | null;
   /** Someone wrote who is not let in yet: the screen asks the user whether they are. */
@@ -25,3 +50,5 @@ export type ReachStatus = {
   /** Why nothing is being listened for, in the service's own words; null while it is. */
   problem: string | null;
 };
+
+export type ReachStatus = { channels: ReachChannelStatus[] };

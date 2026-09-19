@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { startChatGptSignIn } from "@/features/ai/chatgpt";
 import { LIVE_PROVIDER } from "@/features/ai/live.schema";
-import { TELEGRAM_TOKEN_KEY } from "@/features/reach/reach.schema";
+import { REACH_KEYS } from "@/features/reach/reach.schema";
 import { keyRefusal } from "@/lib/live/live.server";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
@@ -49,11 +49,12 @@ export const removeConfigAction = serverAction(async (key: unknown) => {
   await tokenChanged(parsed);
 });
 
-/** A new bot token is a new bot to listen to, and none is nothing to listen for (features/reach). */
+/** A chat service's new token is a new bot to listen to, and none is nothing to listen for (features/reach). */
 async function tokenChanged(key: string) {
-  if (key !== TELEGRAM_TOKEN_KEY) return;
-  const { startReach } = await import("@/features/reach/reach");
-  await startReach(true);
+  if (!Object.values(REACH_KEYS).some((keys) => keys.includes(key))) return;
+  const { reachChannelOf, startReach } = await import("@/features/reach/reach");
+  const channel = reachChannelOf(key);
+  if (channel) await startReach(channel);
 }
 
 /**
