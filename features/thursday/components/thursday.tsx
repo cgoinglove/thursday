@@ -200,10 +200,11 @@ function CallScreen({
       {/* Top padding in vh, like the face itself, so the face+text column sits below center */}
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5 pt-[7vh]">
         {/* The face is the control. It reacts to the agent's own voice. */}
-        {/* The layout box is the part of her face she fills while talking; the canvas draws past
-            it for the room her words, the tail she works with and the gathering need, so what
-            sits under and beside her is not pushed away by empty field */}
-        <div className="relative w-[min(20rem,52vw,37.5vh)]">
+        {/* The layout box is the part of her face she fills while talking; the canvas draws
+            `--face-bleed` past it on every side for the room her words, the tail she works
+            with and the gathering need, so what sits under her is not pushed away by empty
+            field. What stands beside her stands past the canvas (SideCaptions). */}
+        <div className="relative w-[min(20rem,52vw,37.5vh)] [--face-bleed:19.5%]">
           <button
             type="button"
             disabled={busy}
@@ -239,7 +240,7 @@ function CallScreen({
                 failed={failed}
                 word={ringWord ?? faceWord}
                 getSpectrum={getSpectrum}
-                className="-mx-[19.5%] -my-[19.5%] w-[139%] max-w-none"
+                className="-m-(--face-bleed) w-[calc(100%+2*var(--face-bleed))] max-w-none"
               />
             </span>
           </button>

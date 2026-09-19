@@ -110,8 +110,8 @@ const UNDER_GAP = 8;
 /**
  * The conversation beside the face, no plates and no names: a filled dot at
  * the head of each side's level turn says whose it is, and pulses while that
- * turn is still being said. Anchored outside the face box so nothing covers
- * the face.
+ * turn is still being said. Anchored past her canvas (the face box's
+ * `--face-bleed` beyond its edge) so nothing covers the face.
  */
 export function SideCaptions({
   turns,
@@ -232,8 +232,8 @@ function SideColumn({
         "pointer-events-none absolute h-0 w-[min(21.25rem,24vw)]",
         // the vanishing point is the face's edge on the middle line: what recedes goes toward her
         mine
-          ? "left-full ml-1.5 [perspective-origin:0_0]"
-          : "right-full mr-1.5 [perspective-origin:100%_0]",
+          ? "left-full ml-[calc(var(--face-bleed,0px)+0.375rem)] [perspective-origin:0_0]"
+          : "right-full mr-[calc(var(--face-bleed,0px)+0.375rem)] [perspective-origin:100%_0]",
       )}
       style={{ top: `calc(50% + ${LIFT}px)`, perspective: PERSPECTIVE }}
     >

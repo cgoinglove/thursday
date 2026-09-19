@@ -218,10 +218,9 @@ export function Intro({
 
       {/* The call screen's own column, so nothing moves when the intro lifts */}
       <div className="flex h-full flex-col items-center justify-center gap-5 pt-[7vh]">
-        {/* The layout box is the part of her face she fills while talking; the canvas draws past
-            it for the room her words, the tail she works with and the gathering need, so what
-            sits under and beside her is not pushed away by empty field */}
-        <div className="relative w-[min(20rem,52vw,37.5vh)]">
+        {/* The call screen's face box and `--face-bleed`: the canvas draws past the box, and
+            what stands beside her stands past the canvas */}
+        <div className="relative w-[min(20rem,52vw,37.5vh)] [--face-bleed:19.5%]">
           <button
             type="button"
             disabled={!last || !keyed}
@@ -239,7 +238,7 @@ export function Intro({
               failed={false}
               word={word}
               getSpectrum={step === "hello" ? demo.voice : voice.spectrum}
-              className="-mx-[19.5%] -my-[19.5%] w-[139%] max-w-none"
+              className="-m-(--face-bleed) w-[calc(100%+2*var(--face-bleed))] max-w-none"
             />
           </button>
 
@@ -254,7 +253,7 @@ export function Intro({
             // Where the caller's words go on a call: the caller's turn
             <div
               key={step}
-              className="absolute top-1/2 left-full ml-1.5 flex w-[min(22rem,26vw)] -translate-y-1/2 animate-in flex-col gap-4 text-left fade-in slide-in-from-bottom-1 duration-300"
+              className="absolute top-1/2 left-full ml-[calc(var(--face-bleed)+0.375rem)] flex w-[min(22rem,26vw)] -translate-y-1/2 animate-in flex-col gap-4 text-left fade-in slide-in-from-bottom-1 duration-300"
             >
               {step === "key" && (
                 <KeyTurn
