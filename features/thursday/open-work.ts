@@ -32,6 +32,14 @@ export type OpenWork = {
   show: ActivityLine;
 };
 
+/** What a bot's message to the call does, as its line on the call screen says it after the bot's name. */
+const RELAY_SAYS: Record<Thread["room"]["relays"][number]["kind"], string> = {
+  message: "says",
+  question: "asks",
+  report: "reports",
+  interrupted: "was cut off",
+};
+
 const OPEN_RANK = {
   question: 0,
   stopped: 1,
@@ -95,7 +103,7 @@ export function openWork(threads: Thread[]): OpenWork[] {
         relayIds: relays
           .filter((relay) => relay.messageId === question.id)
           .map((relay) => relay.id),
-        show: show(question.bot, `${question.bot}: question`),
+        show: show(question.bot, `${question.bot} asks`),
       });
     }
 
@@ -127,7 +135,7 @@ export function openWork(threads: Thread[]): OpenWork[] {
           thread.bot,
           kind === "stopped"
             ? `${thread.bot} stopped`
-            : `Answer from ${thread.bot}`,
+            : `${thread.bot} finished`,
         ),
       });
       continue;
@@ -140,7 +148,7 @@ export function openWork(threads: Thread[]): OpenWork[] {
         kind: "progress",
         line: `${bracket(relay.bot, relay.kind)}\n${spoken(relay.text)}`,
         relayIds: [relay.id],
-        show: show(relay.bot, `${relay.bot}: ${relay.kind}`),
+        show: show(relay.bot, `${relay.bot} ${RELAY_SAYS[relay.kind]}`),
       });
     }
   }

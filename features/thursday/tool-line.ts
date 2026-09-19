@@ -1,4 +1,5 @@
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
+import type { Thread } from "@/features/bot/bot.schema";
 
 // Human-readable activity lines for tool calls on the call screen. The model
 // never reads these. Unknown names resolve to null and the screen shows the name.
@@ -6,6 +7,7 @@ const LINES: Record<string, string> = {
   [TOOL_NAMES.memory_recall]: "Checking your notes",
   [TOOL_NAMES.memory_remember]: "Noting that down",
   [TOOL_NAMES.memory_forget]: "Forgetting that",
+  [TOOL_NAMES.memory_conversation]: "Reading back an earlier call",
   [TOOL_NAMES.bash]: "Doing it on this computer",
   [TOOL_NAMES.web_search]: "Searching the web",
   [TOOL_NAMES.load_skill]: "Reading how to do this",
@@ -70,7 +72,11 @@ function firstFact(
 }
 
 /** Lines that need the arguments; arguments may still be streaming in. */
-function fromArgs(name: string, args: Record<string, unknown>): string | null {
+function fromArgs(
+  name: string,
+  args: Record<string, unknown>,
+  bot: string | null,
+): string | null {
   if (name === TOOL_NAMES.memory_remember) {
     const path = typeof args.path === "string" ? args.path.trim() : "";
     const fact = firstFact(args);
@@ -99,9 +105,14 @@ function fromArgs(name: string, args: Record<string, unknown>): string | null {
     return null;
   }
   const label = typeof args.thread === "string" ? args.thread.trim() : "";
-  if (name === TOOL_NAMES.thread_tell || name === TOOL_NAMES.thread_answer)
-    return "Passing that on";
-  if (name === TOOL_NAMES.thread_cancel) return "Stopping that";
+  if (name === TOOL_NAMES.thread_tell)
+    return bot ? `Telling ${bot}` : "Passing that on";
+  if (name === TOOL_NAMES.thread_answer)
+    return bot ? `Answering ${bot}` : "Answering that";
+  if (name === TOOL_NAMES.thread_cancel)
+    return label ? `Stopping ${label}` : "Stopping that";
+  if (name === TOOL_NAMES.thread_seen)
+    return label ? `Marking ${label} as read` : "Marking that as read";
   if (name === TOOL_NAMES.thread_show)
     return label ? `Opening ${label}` : "Opening that";
   if (name === TOOL_NAMES.thread_status)
@@ -132,22 +143,19 @@ function parseArgs(args?: string): Record<string, unknown> | null {
   return null;
 }
 
-export function toolLine(name: string, args?: string): string | null {
+/** The line for a tool call; `bot` is who it reaches (`toolBot`), for the lines that name them. */
+export function toolLine(
+  name: string,
+  args?: string,
+  bot: string | null = null,
+): string | null {
   if (name === TOOL_NAMES.tool_search || name === TOOL_NAMES.tool_call) {
     return "Reaching a connected service";
   }
   const parsed = parseArgs(args);
-  return (parsed && fromArgs(name, parsed)) ?? LINES[name] ?? fromServer(name);
-}
-
-/**
- * The bot a call hands work to, when it names one. The row draws that bot's own
- * face instead of a glyph: who it went to is a face everywhere else in the app.
- */
-export function toolBot(name: string, args?: string): string | null {
-  if (name !== TOOL_NAMES.thread_start) return null;
-  const bot = parseArgs(args)?.bot;
-  return typeof bot === "string" && bot.trim() ? bot.trim() : null;
+  return (
+    (parsed && fromArgs(name, parsed, bot)) ?? LINES[name] ?? fromServer(name)
+  );
 }
 
 /** The call's tools that act on one thread the model names by its label or id. */
@@ -158,18 +166,37 @@ const ON_A_THREAD = new Set<string>([
   TOOL_NAMES.thread_show,
   TOOL_NAMES.thread_cancel,
   TOOL_NAMES.thread_seen,
-  TOOL_NAMES.thread_recall,
 ]);
 
 /**
- * The thread a call's tool names, as the model wrote it (label or id); null for any
- * other tool, and for "all". The page finds its bot, so the row wears that bot's face.
+ * The bot a call's tool reaches, so its row wears that bot's face rather than a glyph —
+ * who work went to is a face everywhere else in the app. The one work is handed to, else
+ * the bot of the thread the tool names, found as the server finds a thread (thread.query
+ * resolveThread): its id, else its label. An answer goes to the bot that asked; "all", and
+ * a thread the page does not hold, reach nobody in particular.
  */
-export function toolThread(name: string, args?: string): string | null {
-  if (!ON_A_THREAD.has(name)) return null;
-  const thread = parseArgs(args)?.thread;
-  if (typeof thread !== "string" || !thread.trim()) return null;
-  return thread.trim().toLowerCase() === "all" ? null : thread.trim();
+export function toolBot(
+  name: string,
+  args?: string,
+  threads?: Thread[],
+): string | null {
+  const parsed = parseArgs(args);
+  if (!parsed) return null;
+  if (name === TOOL_NAMES.thread_start)
+    return typeof parsed.bot === "string" && parsed.bot.trim()
+      ? parsed.bot.trim()
+      : null;
+  if (!ON_A_THREAD.has(name) || !threads) return null;
+  const ref = typeof parsed.thread === "string" ? parsed.thread.trim() : "";
+  if (!ref || ref.toLowerCase() === "all") return null;
+  const lower = ref.toLowerCase();
+  const thread =
+    threads.find((one) => one.id === ref) ??
+    threads.find((one) => one.label.toLowerCase() === lower);
+  if (!thread) return null;
+  return name === TOOL_NAMES.thread_answer
+    ? (thread.room.questions[0]?.bot ?? thread.bot)
+    : thread.bot;
 }
 
 /**

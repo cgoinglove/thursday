@@ -285,11 +285,12 @@ export function useTextCall(): TextCall {
         ? searchSourcesOf(JSON.stringify(lastTool.output ?? null))
         : [];
     if (last?.type === "text" && !sources.length) return null;
+    const bot = toolBot(name, args, inbox.current);
     return {
       id: lastTool.toolCallId,
       name,
-      line: toolLine(name, args),
-      bot: toolBot(name, args),
+      line: toolLine(name, args, bot),
+      bot,
       done,
       ...(sources.length ? { sources } : {}),
     };

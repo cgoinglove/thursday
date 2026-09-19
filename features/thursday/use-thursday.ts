@@ -58,13 +58,7 @@ import type {
   LiveStatus,
 } from "./thursday.schema";
 import { thursdaySettings, useThursdayStore } from "./thursday.store";
-import {
-  searchQueryOf,
-  searchSourcesOf,
-  toolBot,
-  toolLine,
-  toolThread,
-} from "./tool-line";
+import { searchQueryOf, searchSourcesOf, toolBot, toolLine } from "./tool-line";
 import { useCallRing } from "./use-call-ring";
 
 /**
@@ -263,17 +257,12 @@ export function useThursday(
   const showTool = useCallback((call: LiveToolCall) => {
     if (linger.current) clearTimeout(linger.current);
     relayOpen.current = false;
+    const bot = toolBot(call.name, call.arguments, latest.current);
     setTool({
       id: call.id,
       name: call.name,
-      line: toolLine(call.name, call.arguments),
-      bot:
-        toolBot(call.name, call.arguments) ??
-        threadBot(
-          latest.current,
-          call.name,
-          toolThread(call.name, call.arguments),
-        ),
+      line: toolLine(call.name, call.arguments, bot),
+      bot,
       done: false,
     });
   }, []);
@@ -1174,26 +1163,6 @@ export function useThursday(
 }
 
 const EMPTY_BANDS = new Array<number>(SPECTRUM_BANDS).fill(0);
-
-/**
- * The bot a thread tool reaches, found as the server finds its thread (bot.query
- * resolveThread): the id, else the label. An answer goes to the bot that asked.
- */
-function threadBot(
-  threads: Thread[] | undefined,
-  tool: string,
-  ref: string | null,
-): string | null {
-  if (!threads || !ref) return null;
-  const lower = ref.toLowerCase();
-  const thread =
-    threads.find((one) => one.id === ref) ??
-    threads.find((one) => one.label.toLowerCase() === lower);
-  if (!thread) return null;
-  return tool === TOOL_NAMES.thread_answer
-    ? (thread.room.questions[0]?.bot ?? thread.bot)
-    : thread.bot;
-}
 
 /** What `emote` asked the face to show, and the line the model reads back; `word` is null when nothing is shown. */
 function readFaceWord(args: string): { word: string | null; reply: string } {
