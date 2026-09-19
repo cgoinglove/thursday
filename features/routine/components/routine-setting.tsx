@@ -56,6 +56,7 @@ import {
   updateRoutineAction,
 } from "../routine.action";
 import {
+  nextRun,
   type Routine,
   type RoutineInput,
   type RoutineSchedule,
@@ -312,7 +313,13 @@ function scheduleOf(draft: Draft): RoutineSchedule | null {
     : null;
 }
 
-const DAY_LETTERS = ["M", "T", "W", "T", "F", "S", "S"];
+const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+/** The sets of days most routines want, one press each. */
+const DAY_SETS = [
+  { label: "Every day", days: [1, 2, 3, 4, 5, 6, 7] },
+  { label: "Weekdays", days: [1, 2, 3, 4, 5] },
+  { label: "Weekends", days: [6, 7] },
+];
 const DAY_WORDS = [
   "Monday",
   "Tuesday",
@@ -522,9 +529,13 @@ function RoutineSheet({
                       maxLength={80}
                       autoFocus={!saved}
                     />
+                    <Hint>
+                      What it is called in this list, and what she calls it on a
+                      call.
+                    </Hint>
                   </Field>
 
-                  <Field label="Who">
+                  <Field label="Bot">
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         render={
@@ -578,32 +589,98 @@ function RoutineSheet({
                         </DropdownMenuGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    <Hint>Who does the job each time it starts.</Hint>
                   </Field>
 
                   <Field label="When">
-                    <div className="flex flex-wrap items-center gap-2.5">
-                      <Segmented
-                        aria-label="How it repeats"
-                        value={draft.kind}
-                        onChange={(kind) => commitSchedule({ kind })}
-                        options={[
-                          { value: "daily", label: "Daily" },
-                          { value: "every", label: "Every" },
-                        ]}
-                      />
-                      {draft.kind === "daily" ? (
-                        <Input
-                          type="time"
-                          aria-label="Time of day"
-                          value={draft.time}
-                          onChange={(event) =>
-                            patch({ time: event.target.value })
-                          }
-                          onBlur={() => commitSchedule({})}
-                          className="w-36 font-mono text-[13px]"
-                        />
-                      ) : (
-                        <>
+                    <Segmented
+                      aria-label="How it repeats"
+                      value={draft.kind}
+                      onChange={(kind) => commitSchedule({ kind })}
+                      options={[
+                        { value: "daily", label: "At a set time" },
+                        { value: "every", label: "Every few hours" },
+                      ]}
+                    />
+                    {draft.kind === "daily" ? (
+                      <>
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <span className="text-sm text-muted-foreground">
+                            At
+                          </span>
+                          <Input
+                            type="time"
+                            aria-label="Time of day"
+                            value={draft.time}
+                            onChange={(event) =>
+                              patch({ time: event.target.value })
+                            }
+                            onBlur={() => commitSchedule({})}
+                            className="w-36 font-mono text-[13px]"
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            on
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {WEEKDAYS.map((day) => {
+                            const on = draft.days.includes(day);
+                            return (
+                              <button
+                                key={day}
+                                type="button"
+                                aria-pressed={on}
+                                aria-label={DAY_WORDS[day - 1]}
+                                onClick={() =>
+                                  commitSchedule({
+                                    days: on
+                                      ? draft.days.filter((one) => one !== day)
+                                      : [...draft.days, day].sort(),
+                                  })
+                                }
+                                className={cn(
+                                  "flex h-7 items-center justify-center rounded-full px-2.5 text-[12px] outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+                                  on
+                                    ? "bg-primary text-primary-foreground"
+                                    : "text-muted-foreground ring-1 ring-border ring-inset hover:text-foreground",
+                                )}
+                              >
+                                {DAY_SHORT[day - 1]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="flex gap-3">
+                          {DAY_SETS.map((set) => {
+                            const on =
+                              set.days.length === draft.days.length &&
+                              set.days.every((day) => draft.days.includes(day));
+                            return (
+                              <button
+                                key={set.label}
+                                type="button"
+                                onClick={() =>
+                                  commitSchedule({ days: [...set.days] })
+                                }
+                                className={cn(
+                                  "rounded-sm text-xs outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
+                                  on
+                                    ? "text-foreground underline underline-offset-4"
+                                    : "text-muted-foreground",
+                                )}
+                              >
+                                {set.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2 pt-1">
+                          <span className="text-sm text-muted-foreground">
+                            Every
+                          </span>
                           <Input
                             inputMode="numeric"
                             aria-label="Hours between starts"
@@ -617,48 +694,30 @@ function RoutineSheet({
                           <span className="text-sm text-muted-foreground">
                             hours
                           </span>
-                        </>
-                      )}
-                    </div>
-                    {draft.kind === "daily" ? (
-                      <div className="flex gap-1">
-                        {WEEKDAYS.map((day) => {
-                          const on = draft.days.includes(day);
-                          return (
-                            <button
-                              key={day}
-                              type="button"
-                              aria-pressed={on}
-                              aria-label={DAY_WORDS[day - 1]}
-                              onClick={() =>
-                                commitSchedule({
-                                  days: on
-                                    ? draft.days.filter((one) => one !== day)
-                                    : [...draft.days, day].sort(),
-                                })
-                              }
-                              className={cn(
-                                "flex size-7 items-center justify-center rounded-full font-mono text-[11px] outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
-                                on
-                                  ? "bg-primary text-primary-foreground"
-                                  : "text-muted-foreground ring-1 ring-border ring-inset hover:text-foreground",
-                              )}
-                            >
-                              {DAY_LETTERS[day - 1]}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        No more often than every{" "}
-                        {ROUTINE.minHours === 1
-                          ? "hour"
-                          : `${ROUTINE.minHours} hours`}
-                        , counted from its last start.
-                      </p>
+                        </div>
+                        <Hint>
+                          No more often than every{" "}
+                          {ROUTINE.minHours === 1
+                            ? "hour"
+                            : `${ROUTINE.minHours} hours`}
+                          , counted from its last start.
+                        </Hint>
+                      </>
                     )}
-                    {!schedule && (
+                    {schedule ? (
+                      // What was picked, said back in words: the check that the form was read right
+                      <p className="flex items-center gap-1.5 pt-1 text-[13px]">
+                        <RoutineMark className="size-3.5 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 truncate">
+                          {scheduleText(schedule)}
+                          <span className="text-muted-foreground">
+                            {" "}
+                            · first start{" "}
+                            {whenOf(nextRun(schedule, new Date()))}
+                          </span>
+                        </span>
+                      </p>
+                    ) : (
                       <p className="text-xs text-destructive">
                         {draft.kind === "daily"
                           ? "Pick a time and at least one day."
@@ -667,7 +726,7 @@ function RoutineSheet({
                     )}
                   </Field>
 
-                  <Field label="What" htmlFor="routine-request">
+                  <Field label="Job" htmlFor="routine-request">
                     <Textarea
                       id="routine-request"
                       value={draft.request}
@@ -682,11 +741,11 @@ function RoutineSheet({
                       placeholder="Go through the mail that came since the last run and draft replies to what needs one. Send nothing."
                       className="min-h-28"
                     />
-                    <p className="text-xs text-muted-foreground">
+                    <Hint>
                       Handed to the bot as a new thread each time, with a line
                       on how the last run ended. Nobody is there to ask, so say
                       everything it needs.
-                    </p>
+                    </Hint>
                   </Field>
 
                   {saved && (
@@ -737,7 +796,9 @@ function RoutineSheet({
 
                 <div className="flex shrink-0 items-center gap-3 border-t border-border/60 px-5 py-3">
                   <p className="min-w-0 flex-1 text-xs leading-4 text-muted-foreground">
-                    {STARTS_NOTE}
+                    {saved || input
+                      ? STARTS_NOTE
+                      : `Still needs ${missingOf(draft, schedule)}.`}
                   </p>
                   {saved ? (
                     <Button
@@ -755,6 +816,7 @@ function RoutineSheet({
                     </Button>
                   ) : (
                     <Button
+                      variant="brand"
                       size="sm"
                       loading={creating}
                       disabled={!input}
@@ -774,6 +836,23 @@ function RoutineSheet({
     </>
   );
 }
+
+/** What a routine being made still lacks, in words: "a name, a bot and a job". */
+function missingOf(draft: Draft, schedule: RoutineSchedule | null): string {
+  const lacks = [
+    draft.label.trim() ? null : "a name",
+    draft.bot ? null : "a bot",
+    schedule ? null : "a time",
+    draft.request.trim() ? null : "a job",
+  ].filter((one): one is string => one !== null);
+  return lacks.length > 1
+    ? `${lacks.slice(0, -1).join(", ")} and ${lacks.at(-1)}`
+    : (lacks[0] ?? "nothing");
+}
+
+const Hint = ({ children }: { children: React.ReactNode }) => (
+  <p className="text-xs text-muted-foreground">{children}</p>
+);
 
 /** A form row, labelled the way a bot's page labels its own. */
 function Field({
