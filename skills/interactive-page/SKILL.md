@@ -25,9 +25,9 @@ quick page: one HTML file, no kit, no build, ready in the time it takes to write
    toggle or a sort. Nothing comes from the network: pictures sit beside the file.
 3. Hand back that path.
 
-When the page reports research, show what was found as well as saying it: the screenshots
-you took on the way and the pictures the sources carry, saved beside the file, each with a
-link to the page it came from.
+When the page recommends or compares things people choose partly by how they look — places,
+stays, food, things to buy — give each one a photo or two of what it looks like, with a short
+caption, from the first version: download them from the pages you read into the page's folder.
 
 Take the kit below instead when the page is a tool — controls that keep state, a calculator,
 charts that respond — and markdown when it is only a few paragraphs.
