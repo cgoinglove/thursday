@@ -37,9 +37,7 @@ Settings › Thursday instead.
 
 A skill is a written-down way of doing something that a bot reads before it starts. Some ship
 with the app — the browser, this Mac, finding more skills, building a page or a chart, and
-writing a new skill. On a Mac there is also one for its Calendar, Reminders, Notes and
-Contacts, so a bot can say what is on a day or add a reminder; the first time, macOS asks
-them to allow it. The two made for a Mac are not listed on other computers.
+writing a new skill. The one for this Mac is not listed on other computers.
 **Settings › Skills** lists them, switches one off, uploads one, or
 writes one. A bot can also install one from the open registry while it works: for itself
 alone unless they asked for every bot to have it. A bot's own skills sit in its own folder
