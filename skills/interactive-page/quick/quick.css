@@ -1,0 +1,69 @@
+/* The quick page's whole look: plain HTML reads well with no class at all, and a few
+   classes lay out what a report needs. No network, no build, light and dark. */
+:root {
+  color-scheme: light dark;
+  --bg: #fff; --fg: #18181b; --muted: #71717a; --line: #e4e4e7; --soft: #f4f4f5;
+  --accent: #2563eb; --good: #15803d; --bad: #b91c1c; --warn: #b45309;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #111113; --fg: #f4f4f5; --muted: #a1a1aa; --line: #2a2a2e; --soft: #1c1c1f; --accent: #60a5fa; --good: #4ade80; --bad: #f87171; --warn: #fbbf24; }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0 auto; max-width: 56rem; padding: 3rem 1.5rem 5rem;
+  background: var(--bg); color: var(--fg);
+  font: 16px/1.65 ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  text-wrap: pretty;
+}
+h1 { margin: 0 0 .4rem; font-size: 2rem; line-height: 1.2; letter-spacing: -.02em; }
+h2 { margin: 2.6rem 0 .7rem; font-size: 1.3rem; line-height: 1.3; letter-spacing: -.01em; }
+h3 { margin: 1.8rem 0 .4rem; font-size: 1.05rem; }
+p, ul, ol, table, figure, blockquote, pre { margin: 0 0 1rem; }
+ul, ol { padding-left: 1.3rem; } li + li { margin-top: .25rem; }
+a { color: var(--accent); text-underline-offset: 3px; }
+small, .muted { color: var(--muted); } small { font-size: .85rem; }
+hr { margin: 2.4rem 0; border: 0; border-top: 1px solid var(--line); }
+img, svg, video { max-width: 100%; height: auto; border-radius: .6rem; }
+figcaption { margin-top: .4rem; font-size: .85rem; color: var(--muted); }
+blockquote { padding: .1rem 0 .1rem 1rem; border-left: 3px solid var(--line); color: var(--muted); }
+code, pre, .num { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+code { padding: .1em .35em; border-radius: .3rem; background: var(--soft); font-size: .88em; }
+pre { overflow-x: auto; padding: 1rem; border-radius: .6rem; background: var(--soft); font-size: .85rem; line-height: 1.55; }
+pre code { padding: 0; background: none; }
+
+/* A table scrolls inside its wrapper on a phone: <div class="scroll"><table>…</table></div> */
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .93rem; }
+th, td { padding: .55rem .7rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+th { font-size: .78rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.best td { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+
+/* The line under the title: who made it, when, from what */
+.lede { margin-bottom: 2rem; font-size: 1.1rem; color: var(--muted); }
+
+/* Side by side, stacking on a phone: <div class="grid">…</div>; .grid.three for three */
+.grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); margin-bottom: 1rem; }
+.grid.three { grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
+.card { padding: 1.1rem 1.2rem; border: 1px solid var(--line); border-radius: .8rem; }
+.card > :last-child { margin-bottom: 0; }
+
+/* One number that matters, with what it is under it */
+.stat { font-size: 2rem; font-weight: 650; line-height: 1.15; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.stat + small { display: block; margin-top: .2rem; }
+
+/* A note set apart; .good .bad .warn tint it */
+.note { padding: .9rem 1.1rem; border-radius: .7rem; background: var(--soft); }
+.note > :last-child { margin-bottom: 0; }
+.good { color: var(--good); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+.note.good, .note.bad, .note.warn { color: inherit; border-left: 3px solid currentColor; }
+.note.good { border-color: var(--good); } .note.bad { border-color: var(--bad); } .note.warn { border-color: var(--warn); }
+.tag { display: inline-block; padding: .05rem .5rem; border-radius: 99px; border: 1px solid var(--line); font-size: .78rem; color: var(--muted); white-space: nowrap; }
+
+/* A bar for one value out of a whole: <div class="bar" style="--at: 62%"></div> */
+.bar { margin-bottom: 1rem; height: .5rem; border-radius: 99px; background: linear-gradient(to right, var(--accent) var(--at, 0%), var(--soft) var(--at, 0%)); }
+
+details { margin-bottom: 1rem; border: 1px solid var(--line); border-radius: .7rem; padding: .7rem 1rem; }
+summary { cursor: pointer; font-weight: 600; } details[open] > summary { margin-bottom: .6rem; }
+@media print { body { max-width: none; padding: 0; } a { color: inherit; } }

@@ -1,6 +1,6 @@
 ---
 name: interactive-page
-description: "Diagrams, charts and pages people use: a diagram of how something is built or flows (architecture, workflow, sequence, data flow, states) drawn by the archify engine; a chart of numbers in a report; or an interactive page (controls, tabs, a calculator) as one self-contained HTML file."
+description: "Diagrams, charts and pages people use: a quick page (a comparison, a short report laid out as one HTML file, written in seconds); a diagram of how something is built or flows (architecture, workflow, sequence, data flow, states) drawn by the archify engine; a chart of numbers in a report; or an interactive page (controls, tabs, a calculator) as one self-contained HTML file."
 license: Complete terms in LICENSE.txt
 ---
 
@@ -10,6 +10,23 @@ license: Complete terms in LICENSE.txt
 
 - A diagram — how something is built, how a process flows, calls in order, where data goes, the states it moves through — is drawn by the archify engine in `scripts/archify`, not as a mermaid block: it checks the layout, so a crossing edge or a clipped label never reaches the user. Read `references/diagram.md` first. It is a page of its own; when a report needs one, name both files as you hand back.
 - A chart of numbers in a report is a `mermaid` block in the `.md`, which the app draws. Candlesticks, hover and zoom need a page.
+
+## A quick page
+
+An answer that reads better laid out than as a run of markdown — options side by side, a
+table with the numbers that matter pulled out, a short report with a picture or two — is a
+quick page: one HTML file, no kit, no build, ready in the time it takes to write it.
+
+1. `node <skill dir>/scripts/page.mjs quick <name>` writes `<name>.html` in your folder under
+   `artifacts/`, already styled (light and dark, phone-width, print), and prints its path.
+2. Write its body in plain HTML. Headings, paragraphs, lists, tables and figures need no
+   classes; the comment inside the file lists the few that lay out the rest — a grid of
+   cards, one big number, a note, a tag, a bar. A little inline `<script>` is fine for a
+   toggle or a sort. Nothing comes from the network: pictures sit beside the file.
+3. Hand back that path.
+
+Take the kit below instead when the page is a tool — controls that keep state, a calculator,
+charts that respond — and markdown when it is only a few paragraphs.
 
 ## A page
 

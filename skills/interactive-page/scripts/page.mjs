@@ -202,6 +202,35 @@ function buildPage(name) {
   );
 }
 
+/**
+ * A page with nothing to build: one HTML file in the bot's artifacts folder, the quick
+ * stylesheet inlined, written by hand from there. No kit is installed for it.
+ */
+function quickPage(name) {
+  if (!name || !NAME.test(name))
+    throw new Stop(
+      `${name ? `"${name}" is not` : "Give"} a page name: letters, numbers, - and _ only.`,
+    );
+  const out = join(
+    WORKSPACE,
+    process.env.THURSDAY_ARTIFACTS || "artifacts",
+    `${name}.html`,
+  );
+  if (existsSync(out))
+    throw new Stop(`${shown(out)} already exists. Edit it there.`);
+  const quick = join(SKILL, "quick");
+  mkdirSync(dirname(out), { recursive: true });
+  writeFileSync(
+    out,
+    readFileSync(join(quick, "quick.html"), "utf8")
+      .replaceAll("{{title}}", name)
+      .replace("{{css}}", readFileSync(join(quick, "quick.css"), "utf8").trim()),
+  );
+  console.log(
+    `${shown(out)} is ready: one file that opens offline, styled already. Write its body in plain HTML (the comment inside lists the few classes), and hand back this path.`,
+  );
+}
+
 function addPackages(names) {
   if (!names.length) throw new Stop("Name the package to add.");
   ensureKit();
@@ -216,9 +245,10 @@ try {
   if (command === "new") newPage(rest[0]);
   else if (command === "build") buildPage(rest[0]);
   else if (command === "add") addPackages(rest);
+  else if (command === "quick") quickPage(rest[0]);
   else
     throw new Stop(
-      "Usage: page.mjs new <name> | build <name> | add <package>...",
+      "Usage: page.mjs quick <name> | new <name> | build <name> | add <package>...",
     );
 } catch (error) {
   if (!(error instanceof Stop)) throw error;
