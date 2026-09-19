@@ -366,7 +366,13 @@ export function ThreadRow({
 
         <span className="min-w-0 flex-1">
           {(attention || isUnread(thread)) && (
-            <span className="block text-[10px] font-medium text-foreground">
+            <span
+              className={cn(
+                "block font-mono text-[10px] tracking-wide",
+                // a result is what arrived; a question keeps the muted label, its words carry the amber
+                attention ? "text-muted-foreground" : "text-brand",
+              )}
+            >
               {thread.room.questions.length
                 ? `${thread.room.questions.length === 1 ? "Question" : `${thread.room.questions.length} questions`} · ${[...new Set(thread.room.questions.map((question) => question.bot))].join(", ")}`
                 : thread.status === "waiting"
@@ -381,6 +387,8 @@ export function ThreadRow({
               className={cn(
                 "min-w-0 truncate text-[14px] leading-5 tracking-[-0.15px]",
                 attention ? "text-foreground" : "text-foreground/80",
+                // the rows that need you or are new stand out by weight, not by a heavier label
+                (attention || isUnread(thread)) && "font-medium",
               )}
             >
               {thread.label}

@@ -519,24 +519,33 @@ export function Chip({
                 pending > 0
                   ? `${pending} ${pending === 1 ? "needs" : "need"} a reply`
                   : "",
-                unread > 0
-                  ? `${unread} new ${unread === 1 ? "result" : "results"}`
-                  : "",
               ]
                 .filter(Boolean)
                 .join(" · ")}
+              {unread > 0 && (
+                // What just arrived is what the card most needs you to see
+                <span className="text-brand">
+                  {pending > 0 && " · "}
+                  {unread} new {unread === 1 ? "result" : "results"}
+                </span>
+              )}
             </span>
           </p>
           {/* px-1: a row keeps its own 8px, so its mark lands on the rail while
               the shape it lights up on hover stays inside the card's corners */}
           <div className="max-h-[45vh] overflow-y-auto px-1.5 pb-2">
-            {rows.map((thread) => (
-              <ThreadRow
-                key={thread.id}
-                thread={thread}
-                onPick={() => onPick(thread.id)}
-              />
-            ))}
+            {/* Keyed on growing, so the rows rise in after the card each time it opens */}
+            <div key={String(grown)}>
+              {rows.map((thread, index) => (
+                <div
+                  key={thread.id}
+                  style={{ animationDelay: `${120 + index * 60}ms` }}
+                  className="animate-in duration-300 fill-mode-backwards fade-in slide-in-from-bottom-1"
+                >
+                  <ThreadRow thread={thread} onPick={() => onPick(thread.id)} />
+                </div>
+              ))}
+            </div>
           </div>
           <span className="block h-1.5" />
         </div>
@@ -691,6 +700,9 @@ function Crew({
   /** The hand-off up, drawn over the face it points at. */
   bubble: Handoff | null;
 }) {
+  // While anyone is moving or waiting, the rest step back so it reads at a glance who is
+  const lit = (face: CrewFace) => face.awake || face.waiting || face.word;
+  const astir = crew.some(lit);
   return (
     <span className="flex min-w-0 shrink items-center">
       {crew.map((face, index) => {
@@ -701,7 +713,8 @@ function Crew({
               // these are not circles. Earlier faces sit on top, so the dot on a
               // waiting face is never covered by its neighbour.
               className={cn(
-                "relative shrink-0 transition-[margin] duration-500 ease-out",
+                "relative shrink-0 transition-[margin,opacity] duration-500 ease-out",
+                astir && !lit(face) && "opacity-40",
                 // A word to the left has already broken the shingle.
                 index > 0 && !crew[index - 1].word && "-ml-2",
                 face.standIn && "opacity-35",

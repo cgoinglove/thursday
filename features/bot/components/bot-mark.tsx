@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef } from "react";
 import { createVoiceFollower, SPECTRUM_BANDS } from "@/lib/live/live.tap";
+import { cn } from "@/lib/utils";
 import {
   MARK_PAINTS,
   type MarkPaint,
@@ -17,6 +18,9 @@ const BOX = 240;
 const CENTER = BOX / 2;
 const R = 112;
 const PAD = 18; // headroom so squash/stretch and the notify ring can bleed out
+/** The waiting dot pops in rather than blinking on, the ring it cuts growing with it. */
+const NOTIFY_POP =
+  "origin-center animate-in duration-300 zoom-in-0 [transform-box:fill-box]";
 const VIEW_BOX = `${-PAD} ${-PAD} ${BOX + PAD * 2} ${BOX + PAD * 2}`;
 /** Every silhouette is resampled to this many polar points, so blending two is a plain lerp. */
 const MARK_RESOLUTION = 128;
@@ -1464,6 +1468,7 @@ export function BotMark({
                 cy={f(CENTER + Math.sin(nAngle) * cfg.notifyDist)}
                 r={cfg.notifyR + cfg.notifyRing}
                 fill="#000"
+                className={NOTIFY_POP}
               />
             )}
           </mask>
@@ -1568,7 +1573,7 @@ export function BotMark({
             cx={f(CENTER + Math.cos(nAngle) * cfg.notifyDist)}
             cy={f(CENTER + Math.sin(nAngle) * cfg.notifyDist)}
             r={cfg.notifyR}
-            className="fill-amber-600 dark:fill-amber-400"
+            className={cn("fill-amber-600 dark:fill-amber-400", NOTIFY_POP)}
           />
         )}
       </g>
