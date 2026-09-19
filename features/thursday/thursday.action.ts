@@ -129,7 +129,7 @@ export const openCallAction = serverAction(
         reasoning,
         // One search, never two: Exa's is in the manifest while its key is set
         // (load-tools), and the backend's own hosted search stands in without one
-        webSearch: thursday.webSearch && !exaKey,
+        hosted: thursday.webSearch && !exaKey ? ["webSearch"] : [],
       },
     });
     const callId = await insertCall({

@@ -2,7 +2,12 @@ import { z } from "zod";
 import { LIVE_CALL } from "@/config";
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
-import { LIVE_MODEL, type ToolManifest } from "./live.schema";
+import {
+  LIVE_HOSTED_TOOLS,
+  LIVE_MODEL,
+  type LiveHostedTool,
+  type ToolManifest,
+} from "./live.schema";
 
 const LiveConnectionSchema = z.object({
   session: z.object({ id: z.string().min(1) }),
@@ -104,7 +109,8 @@ export async function createLiveCall(options: {
     tools: ToolManifest[];
     /** What `acceptedReasoning` found the model takes; omitted when null. */
     reasoning: BackendReasoning | null;
-    webSearch: boolean;
+    /** The provider's own tools this call holds beside its functions. */
+    hosted: LiveHostedTool[];
   };
 }) {
   const response = await fetch("https://api.openai.com/v1/live/sessions", {
@@ -133,7 +139,9 @@ export async function createLiveCall(options: {
                 type: "function",
                 ...tool,
               })),
-              ...(options.backend.webSearch ? [{ type: "web_search" }] : []),
+              ...options.backend.hosted.map(
+                (name) => LIVE_HOSTED_TOOLS[name].declare,
+              ),
             ],
             tool_choice: "auto",
             parallel_tool_calls: true,

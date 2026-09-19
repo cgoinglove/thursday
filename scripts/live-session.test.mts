@@ -620,7 +620,7 @@ const backend = (overrides: Record<string, unknown> = {}) => ({
     },
   ],
   reasoning: null,
-  webSearch: false,
+  hosted: [],
   ...overrides,
 });
 
@@ -682,7 +682,7 @@ test("reasoning and web search are sent only when given", async () => {
     backend: backend({
       model: "gpt-4.1",
       reasoning: { effort: "low", summary: "auto" },
-      webSearch: true,
+      hosted: ["webSearch"],
     }),
   });
   const responses = requests[0].session.delegation.responses;

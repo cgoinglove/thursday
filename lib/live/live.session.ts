@@ -2,7 +2,11 @@ import { LIVE_CALL } from "@/config";
 import { logger } from "@/lib/logger";
 import { briefLiveEvent, createProbe } from "@/lib/probe";
 import { errorToString } from "@/lib/utils";
-import type { LiveClose, LiveFragment } from "./live.schema";
+import {
+  LIVE_HOSTED_TOOLS,
+  type LiveClose,
+  type LiveFragment,
+} from "./live.schema";
 import { createWebRtcTransport } from "./live.transport";
 
 const probe = createProbe("live");
@@ -493,7 +497,7 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
         if (
           (nested.type === "response.output_item.added" ||
             nested.type === "response.output_item.done") &&
-          nested.item?.type === "web_search_call"
+          nested.item?.type === LIVE_HOSTED_TOOLS.webSearch.item
         ) {
           const item = nested.item;
           const done = nested.type === "response.output_item.done";
