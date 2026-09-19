@@ -10,8 +10,12 @@
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { fail, inPage, orFail, parseArgs } from "./lib.mjs";
+import { shipped } from "./lib.mjs";
 import { SEL } from "./selectors.mjs";
+
+const { fail, inPage, orFail, parseArgs } = await shipped(
+  "browser/scripts/session.mjs",
+);
 
 const opts = parseArgs();
 

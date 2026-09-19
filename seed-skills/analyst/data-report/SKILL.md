@@ -44,16 +44,17 @@ When the form calls for a page, start it as a quick page from your Skills list (
 in your folder under `artifacts/`) and write its words by hand. It arrives styled: replace the title
 and the lede line and write below them, and leave its `<head>` as it is. Never write chart SVG or a
 data table by hand: leave an empty `<figure id="…"></figure>` where each chart goes, then fill every
-one in one bash call.
+one in one bash call. The chart script ships with the app:
 
 ```bash
-node $S/chart.mjs "$THURSDAY_ARTIFACTS/<page>.html" rates <scratch>/rates.csv \
+C="$THURSDAY_SKILLS/interactive-page/scripts/chart.mjs"
+node $C "$THURSDAY_ARTIFACTS/<page>.html" rates <scratch>/rates.csv \
   --title "Mortgage rates followed the 10-year down" --unit "%" --mark "2024-09=First Fed cut" --locale ko
-node $S/chart.mjs "$THURSDAY_ARTIFACTS/<page>.html" px <scratch>/px.csv --index --title "…"
+node $C "$THURSDAY_ARTIFACTS/<page>.html" px <scratch>/px.csv --index --title "…"
 ```
 
 Each figure carries its source link, the fetch date and the rows behind it with a CSV download, so
 the page needs no separate data section. A line for dates, bars for categories (largest first,
 `--highlight` the one that matters); `--index` when series in different units are compared;
 `--mark` for each dated event the text explains. Run it again to replace a figure.
-`node $S/chart.mjs` with no arguments lists every option.
+`node $C` with no arguments lists every option.

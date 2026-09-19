@@ -17,8 +17,16 @@ it hands out has a way through when nobody on the roster is for it. This adds wh
 - **A seed names no skill.** A bundled skill can be switched off too, and calling one that is not
   there answers `No skill named`. The seed says to call a method from the Skills list when one
   fits, and otherwise to find and install one with `find-skills` — naming no pack. The exceptions
-  are the tool of the bot's trade (the browser skill) and a structural dependency such as
-  `requires`.
+  are the tool of the bot's trade (the browser skill), a structural dependency such as
+  `requires`, and a skill from the seed's own kit (`seed-skills/<seed>/`), which is copied into
+  the bot's folder when it is made and so is there unless the user removed it.
+- **What a job repeats is a kit script, not a paragraph.** Reading a web app through snapshots
+  costs tens of thousands of characters a look; a script that extracts the same rows costs a few
+  hundred (Insta's DM reader, Analyst's series fetch). A kit script keeps its selectors in one
+  file and fails loudly when they stop matching, never with an empty result. It drives the
+  browser only through `$THURSDAY_SKILLS/browser/scripts/session.mjs` and takes `render`, `sheet`,
+  `webimage` and `chart` from the shipped skills rather than keeping a copy; `render` serves on
+  port 0, so concurrent jobs never share one.
 - **A bot's folder is "your own folder".** A `bots/<name>/…` path breaks when the bot is renamed.
 - **No outside conventions in a seed.** An external pack's file paths (`.agents/product-marketing.md`
   and the like) or a new place to store things stay out; a skill that needs such a file handles it.

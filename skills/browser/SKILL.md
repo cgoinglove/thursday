@@ -108,10 +108,19 @@ when the job is about another.
 **Pictures for a document** come off the page, never from memory:
 `--raw eval "JSON.stringify([...document.images].filter(i => i.naturalWidth > 200).map(i => i.currentSrc))"`.
 
-**Local HTML.** `file:` URLs are refused. Serve the folder, then open it:
-`python3 -m http.server 48800 --bind 127.0.0.1 --directory <dir> &`,
-`goto http://127.0.0.1:48800/<file>.html`; `pdf --filename=out.pdf` prints
-it. Kill the server when done.
+**Local HTML.** `file:` URLs are refused, and a fixed port lets two jobs
+capture each other's pages. For a picture of it,
+`node <skill dir>/scripts/render.mjs <file.html> --size 1280x800 --out <dir>`
+serves its folder on a free port for the run and saves each `[data-slide]`
+(else the viewport) as a PNG of exactly that size. To open or print it:
+`python3 -u -m http.server 0 --bind 127.0.0.1 --directory <dir> > <scratch>/serve.log 2>&1 &`,
+read the port from that log, `goto http://127.0.0.1:<port>/<file>.html`;
+`pdf --filename=out.pdf` prints it. Kill the server when done.
+
+**Scripts in `<skill dir>/scripts`**: `sheet.mjs` puts many pictures on one
+image for a single `look_at`, `webimage.mjs` saves a page's own picture with
+its credit line, and `session.mjs` lets a script of yours drive this session —
+`references/scripts.md`.
 
 Snapshots land in `.playwright-cli/` and are cleared after a few days. A file you
 name — `--filename=`, a `pdf`, a download — goes under `scratch/`, or

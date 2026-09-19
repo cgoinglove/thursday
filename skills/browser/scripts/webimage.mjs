@@ -10,7 +10,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { imageSize } from "./image-size.mjs";
-import { fail, inPage, orFail, parseArgs } from "./lib.mjs";
+import { fail, inPage, orFail, parseArgs } from "./session.mjs";
 
 const opts = parseArgs();
 const url = opts._[0];

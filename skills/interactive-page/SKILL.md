@@ -1,6 +1,6 @@
 ---
 name: interactive-page
-description: "Diagrams, charts and pages people use: a quick page (a comparison, a short report laid out as one HTML file, written in seconds); a diagram of how something is built or flows (architecture, workflow, sequence, data flow, states) drawn by the archify engine; a chart of numbers in a report; or an interactive page (controls, tabs, a calculator) as one self-contained HTML file."
+description: "Diagrams, charts and pages people use: a quick page (a comparison, a short report laid out as one HTML file, written in seconds); a diagram of how something is built or flows (architecture, workflow, sequence, data flow, states) drawn by the archify engine; a chart of numbers in a report; a picture book that explains anything simply, as a page, a PDF or a video that reads itself aloud; or an interactive page (controls, tabs, a calculator) as one self-contained HTML file."
 license: Complete terms in LICENSE.txt
 ---
 
@@ -9,7 +9,7 @@ license: Complete terms in LICENSE.txt
 ## Diagrams and charts
 
 - A diagram — how something is built, how a process flows, calls in order, where data goes, the states it moves through — is drawn by the archify engine in `scripts/archify`, not as a mermaid block: it checks the layout, so a crossing edge or a clipped label never reaches the user. Read `references/diagram.md` first. It is a page of its own; when a report needs one, name both files as you hand back.
-- A chart of numbers in a report is a `mermaid` block in the `.md`, which the app draws. Candlesticks, hover and zoom need a page.
+- A chart of numbers is drawn from a CSV into a quick page by `node <skill dir>/scripts/chart.mjs <page.html> <figure id> <data.csv>` — a cited inline SVG with its rows; with no arguments it lists its options. Never hand-write chart SVG. A report that stays a `.md` takes a `mermaid` block, which the app draws; candlesticks and zoom need the kit.
 
 ## A quick page
 
@@ -31,6 +31,13 @@ caption, from the first version: download them from the pages you read into the 
 
 Take the kit below instead when the page is a tool — controls that keep state, a calculator,
 charts that respond — and markdown when it is only a few paragraphs.
+
+## A picture book
+
+Explaining something to someone who knows nothing about it, or asked for a picture book or an
+explainer video: `node <skill dir>/scripts/page.mjs book <name>` — one picture and at most two
+short lines a page, one HTML file that is also its PDF and, read aloud, its mp4. Read
+`references/picture-book.md` first.
 
 ## A page
 
@@ -58,8 +65,9 @@ every page can import it from then on. Keep what one page needs in its own
 folder rather than in the kit's `src/`: an app update replaces those shared files.
 
 To look at it yourself, the `browser` skill: it refuses `file:` URLs, so serve the
-folder first (`python3 -m http.server 48800 --bind 127.0.0.1 --directory <dir> &`),
-`goto http://127.0.0.1:48800/<name>.html`, and kill the server after. Do it only
+folder on a port nobody else holds (`python3 -u -m http.server 0 --bind 127.0.0.1
+--directory <dir> > <scratch>/serve.log &`, the port is in the log), `goto` it, and kill the
+server after. Do it only
 when asked or when something looks wrong: testing upfront adds latency between
 the request and the finished file.
 

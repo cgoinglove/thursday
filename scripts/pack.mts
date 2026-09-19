@@ -376,6 +376,8 @@ const REQUIRED = [
   ".next/static",
   "database/migrations",
   "skills/browser/references",
+  // Every kit script that drives a browser imports it (THURSDAY_SKILLS)
+  "skills/browser/scripts/session.mjs",
   // Without its lockfile the page kit installs whatever versions are current that day
   "skills/interactive-page/kit/package-lock.json",
   // What `page.mjs quick` inlines; without it a quick page is an error

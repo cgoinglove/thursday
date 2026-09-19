@@ -7,9 +7,13 @@
  *   node profile.mjs <handle | profile url> [--posts 12] [--out posts.json] [--sheet covers.png]
  */
 import { writeFileSync } from "node:fs";
-import { fail, inPage, orFail, parseArgs } from "./lib.mjs";
+import { shipped } from "./lib.mjs";
 import { media, patterns, postLine, short } from "./media.mjs";
-import { makeSheet } from "./sheet.mjs";
+
+const { fail, inPage, orFail, parseArgs } = await shipped(
+  "browser/scripts/session.mjs",
+);
+const { makeSheet } = await shipped("browser/scripts/sheet.mjs");
 
 const opts = parseArgs();
 const handle = String(opts._[0] ?? "")

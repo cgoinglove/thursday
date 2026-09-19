@@ -10,8 +10,11 @@ switched on; any of them can be switched off there, and added later from the sam
 
 Every bot has the same kit: a shell on this computer, a real browser of its own or the one
 the user is already signed into, their files, the web, whatever skills and connected services
-are installed, and the other bots. A ready-made bot may also arrive with written methods of
-its own for its subject, which no other bot sees.
+are installed, and the other bots. A ready-made bot may also arrive with written methods and
+scripts of its own for its subject, which no other bot sees: Insta studies accounts that do well
+in a niche, builds posts the same way and reads messages without opening them (an opened thread
+shows as seen); Analyst fetches published series and draws them; Marketer keeps one brief per
+product in its memory and works from it.
 
 ## A job is a thread
 
@@ -74,6 +77,12 @@ the bot's words in the thread: pictures as thumbnails, a page or a written repor
 of itself. Asking her on a call to show a result opens that file on the screen. All of them
 stay under **Settings › Files**, one shelf per bot. Its second tab, **All files**, is the
 whole folder, for looking around rather than for the results.
+
+Asked to explain something simply, like a picture book, a bot makes one: a picture and a line
+or two a page, turned by swiping, the arrow keys, or tapping the right or left of the page. On
+request the same book comes as a PDF, or as a video that reads itself aloud (landscape, or
+portrait when asked). The video needs a speech model in **Settings › Models**, and a drawn
+picture an image model; without one the bot asks for it and stops.
 
 A bot keeps its own memory — what a job taught it, how the user asked it to work — in its own
 folder, listed on its page in Settings › Bots.

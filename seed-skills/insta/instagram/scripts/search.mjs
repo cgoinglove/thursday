@@ -7,9 +7,13 @@
  *   node search.mjs "<topic>" [--type reel|carousel|image] [--max 24] [--out found.json] [--sheet covers.png]
  */
 import { writeFileSync } from "node:fs";
-import { fail, inPage, orFail, parseArgs } from "./lib.mjs";
+import { shipped } from "./lib.mjs";
 import { media, postLine, short } from "./media.mjs";
-import { makeSheet } from "./sheet.mjs";
+
+const { fail, inPage, orFail, parseArgs } = await shipped(
+  "browser/scripts/session.mjs",
+);
+const { makeSheet } = await shipped("browser/scripts/sheet.mjs");
 
 const opts = parseArgs();
 const topic = opts._[0];

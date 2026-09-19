@@ -34,7 +34,7 @@ accounts and the date, and read it next time instead of studying again.
 
 ## 3. Pictures
 
-- **Something that happened**: the real picture. `webimage.mjs <article url> --out <post dir>`
+- **Something that happened**: the real picture. `node $THURSDAY_SKILLS/browser/scripts/webimage.mjs <article url> --out <post dir>`
   saves the page's own picture and prints the credit line; `--all` adds the large pictures
   in the article. A person in the story: their photo from the article or an official page.
   Put the credit on the slide.
@@ -51,7 +51,7 @@ from the pattern. Feed is 1080x1350 (4:5) or 1080x1080 (1:1); every slide of a c
 the same size.
 
 ```bash
-node <skill>/scripts/render.mjs <post dir>/carousel.html --size 1080x1350 --out <post dir>/png \
+node $THURSDAY_SKILLS/browser/scripts/render.mjs <post dir>/carousel.html --size 1080x1350 --out <post dir>/png \
   && node <skill>/scripts/sheet.mjs --out <post dir>/check.png <post dir>/png/*.png
 ```
 

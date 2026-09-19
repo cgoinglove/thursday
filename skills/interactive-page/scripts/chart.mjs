@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Draws a CSV into a page as one figure: an inline SVG chart, its source, and the rows
-// behind it with a CSV download. The page is a quick page (interactive-page `page.mjs
-// quick`) or any HTML file; the figure takes the place of the element with the given id,
+// behind it with a CSV download. The page is a quick page (`page.mjs quick` beside this
+// script) or any HTML file; the figure takes the place of the element with the given id,
 // or goes before </body> when there is none. Run it again and the same figure is replaced.
 //
 //   node chart.mjs <page.html> <id> <data.csv> [options]
@@ -497,7 +497,7 @@ function main() {
     throw new Stop(`"${id}" is not an id: letters, numbers, - and _ only.`);
   if (!existsSync(pagePath))
     throw new Stop(
-      `No page at ${pagePath}. Start one first: the interactive-page skill's quick page, or any HTML file.`,
+      `No page at ${pagePath}. Start one first: \`page.mjs quick\` beside this script, or any HTML file.`,
     );
   const locale = typeof flags.locale === "string" ? flags.locale : "en";
   const fmt = formatter(locale, flags);

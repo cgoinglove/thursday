@@ -10,8 +10,12 @@
  * the top of the thread, or two rounds that brought nothing new.
  */
 import { writeFileSync } from "node:fs";
-import { fail, inPage, oneLine, orFail, parseArgs, stamp } from "./lib.mjs";
+import { oneLine, shipped, stamp } from "./lib.mjs";
 import { SEL } from "./selectors.mjs";
+
+const { fail, inPage, orFail, parseArgs } = await shipped(
+  "browser/scripts/session.mjs",
+);
 
 const opts = parseArgs();
 const target = opts._[0];

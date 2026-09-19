@@ -22,6 +22,8 @@ paths:
   another port over an empty `THURSDAY_HOME`; with none, `THURSDAY_HOME=<scratch>
   THURSDAY_SKIP_BROWSER=1 pnpm exec next dev -p <port>`, and check that the log says
   `data <scratch>`.
+- **A job on a scratch home with no browser on the stream waits** (`presence`): set the
+  `KEEP_WORKING` config row to on in that copy to drive a bot from a script.
 - **A scratch copy's config holds the keys in plain text.** Stop its server and delete the copy
   when done.
 - **Screens are checked read-only.** Attach Playwright and do not open threads: opening one marks

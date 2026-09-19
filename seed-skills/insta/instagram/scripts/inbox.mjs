@@ -5,8 +5,12 @@
  *
  *   node inbox.mjs [--folder primary|general|requests] [--max 30] [--unread] [--json]
  */
-import { fail, inPage, oneLine, orFail, parseArgs, stamp } from "./lib.mjs";
+import { oneLine, shipped, stamp } from "./lib.mjs";
 import { SEL } from "./selectors.mjs";
+
+const { fail, inPage, orFail, parseArgs } = await shipped(
+  "browser/scripts/session.mjs",
+);
 
 const opts = parseArgs();
 const folder = opts.folder ?? "primary";

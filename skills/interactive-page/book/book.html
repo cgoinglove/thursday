@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{title}}</title>
+    <style>
+      /* book.css */
+    </style>
+  </head>
+  <body>
+    <!-- One <section class="page"> per page, in reading order: one picture and at most two short
+         lines. data-say is the sentence read aloud over that page when the book becomes a video.
+         The picture is an <img src="name.jpg"> beside this file (a real one names its source in a
+         <figcaption>) or an inline <svg viewBox="…"> filled with var(--ink) var(--paper) var(--blue)
+         var(--sky) var(--yellow) var(--green) var(--red) var(--purple), which follow light and dark.
+         <mark> a new word on the page that shows it. Set lang above to the book's language. -->
+
+    <section class="page cover" data-say="{{title}}">
+      <figure></figure>
+      <h1>{{title}}</h1>
+    </section>
+
+    <section class="page" data-say="">
+      <figure></figure>
+      <p></p>
+    </section>
+
+    <script>
+      // book.js
+    </script>
+  </body>
+</html>

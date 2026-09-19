@@ -1,7 +1,7 @@
 /**
  * One post as these scripts report it, from the media record Instagram's own
  * pages fetch (a profile's timeline, a search). `media` is sent into the browser
- * session as source (lib inPage helpers), so it uses nothing from outside itself.
+ * session as source (an inPage helper), so it uses nothing from outside itself.
  */
 export function media(o) {
   const slides = o.carousel_media ?? [];

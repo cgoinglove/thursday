@@ -207,11 +207,13 @@ export const jobShellEnv = (
 });
 
 /**
- * A bot's artifacts folder in its shell, for a script that delivers a file
- * rather than a model typing the path (skills/interactive-page scripts/page.mjs).
+ * What a bot's scripts find in its shell rather than a model typing the path.
  */
 export const botShellEnv = (bot: string): Record<string, string> => ({
+  // Where a script delivers a file (skills/interactive-page scripts/page.mjs)
   THURSDAY_ARTIFACTS: botArtifacts(bot),
+  // The shipped skills: a kit script in a bot's folder imports the shared ones from here
+  THURSDAY_SKILLS: join(APP_DIR, PATHS.skills.default),
 });
 
 /** A participant's browser belongs to the job and its canonical bot name, across every caller. */

@@ -5,6 +5,10 @@
 //   node page.mjs new <name>        start a page in the kit
 //   node page.mjs build <name>      bundle it into one offline HTML file in the artifacts folder
 //   node page.mjs add <package>...  add a library the kit lacks; every page can use it after
+//   node page.mjs quick <name>      one hand-written HTML file, styled, no kit
+//   node page.mjs book <name>       a picture book: one HTML file, a picture and two lines a page
+//   node page.mjs video <name> <audio>... [--size 1080x1920]
+//                                   that book read aloud as an mp4, one audio file per page
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -20,6 +24,7 @@ import {
 } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { bookVideo } from "./book-video.mjs";
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const TEMPLATE = join(SKILL, "kit");
@@ -202,20 +207,25 @@ function buildPage(name) {
   );
 }
 
+/** Where a hand-written page lives: `<name>.html` in the bot's artifacts folder. */
+function artifactHtml(name) {
+  if (!name || !NAME.test(name))
+    throw new Stop(
+      `${name ? `"${name}" is not` : "Give"} a page name: letters, numbers, - and _ only.`,
+    );
+  return join(
+    WORKSPACE,
+    process.env.THURSDAY_ARTIFACTS || "artifacts",
+    `${name}.html`,
+  );
+}
+
 /**
  * A page with nothing to build: one HTML file in the bot's artifacts folder, the quick
  * stylesheet inlined, written by hand from there. No kit is installed for it.
  */
 function quickPage(name) {
-  if (!name || !NAME.test(name))
-    throw new Stop(
-      `${name ? `"${name}" is not` : "Give"} a page name: letters, numbers, - and _ only.`,
-    );
-  const out = join(
-    WORKSPACE,
-    process.env.THURSDAY_ARTIFACTS || "artifacts",
-    `${name}.html`,
-  );
+  const out = artifactHtml(name);
   if (existsSync(out))
     throw new Stop(`${shown(out)} already exists. Edit it there.`);
   const quick = join(SKILL, "quick");
@@ -234,6 +244,50 @@ function quickPage(name) {
   );
 }
 
+/**
+ * A picture book, the quick page's way: one HTML file with its stylesheet and page
+ * turning inlined, which the web, print and the video all read.
+ */
+function bookPage(name) {
+  const out = artifactHtml(name);
+  if (existsSync(out))
+    throw new Stop(`${shown(out)} already exists. Edit it there.`);
+  const book = join(SKILL, "book");
+  const part = (file) => readFileSync(join(book, file), "utf8").trim();
+  mkdirSync(dirname(out), { recursive: true });
+  writeFileSync(
+    out,
+    part("book.html")
+      .replaceAll("{{title}}", name)
+      .replace("/* book.css */", () => part("book.css"))
+      .replace("// book.js", () => part("book.js")),
+  );
+  console.log(
+    `${shown(out)} is ready: one file that opens offline, styled already. Write one <section class="page"> per page (the comment inside says how), and hand back this path.`,
+  );
+}
+
+function videoBook(name, args) {
+  const book = artifactHtml(name);
+  if (!existsSync(book))
+    throw new Stop(
+      `No book ${shown(book)}. Start it with: node ${SCRIPT} book ${name}`,
+    );
+  const at = args.indexOf("--size");
+  const size = at === -1 ? "1920x1080" : (args[at + 1] ?? "");
+  const voices = args.filter((_, i) => at === -1 || (i !== at && i !== at + 1));
+  bookVideo(
+    {
+      book,
+      voices: voices.map((file) => resolve(WORKSPACE, file)),
+      size,
+      workspace: WORKSPACE,
+      shown,
+    },
+    Stop,
+  );
+}
+
 function addPackages(names) {
   if (!names.length) throw new Stop("Name the package to add.");
   ensureKit();
@@ -249,9 +303,11 @@ try {
   else if (command === "build") buildPage(rest[0]);
   else if (command === "add") addPackages(rest);
   else if (command === "quick") quickPage(rest[0]);
+  else if (command === "book") bookPage(rest[0]);
+  else if (command === "video") videoBook(rest[0], rest.slice(1));
   else
     throw new Stop(
-      "Usage: page.mjs quick <name> | new <name> | build <name> | add <package>...",
+      "Usage: page.mjs quick <name> | book <name> | video <name> <audio>... [--size WxH] | new <name> | build <name> | add <package>...",
     );
 } catch (error) {
   if (!(error instanceof Stop)) throw error;

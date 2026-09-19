@@ -1,0 +1,181 @@
+/* A picture book: one page per screen, one per printed sheet, one per video frame.
+   Every page is a picture with at most two short lines under it. Light and dark. */
+:root {
+  color-scheme: light dark;
+  --bg: #fdfcf9;
+  --fg: #1c1b19;
+  --muted: #76726a;
+  --line: #e7e3da;
+  --soft: #f3f0e8;
+  /* Colors for drawings: fill an inline SVG with these and it follows the theme */
+  --ink: #1c1b19;
+  --paper: #fdfcf9;
+  --blue: #3b82f6;
+  --sky: #bfdbfe;
+  --yellow: #f5b82e;
+  --green: #22a06b;
+  --red: #e5534b;
+  --purple: #8b5cf6;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131312;
+    --fg: #f2f0ea;
+    --muted: #a19d94;
+    --line: #2d2b27;
+    --soft: #1e1d1a;
+    --ink: #f2f0ea;
+    --paper: #131312;
+    --blue: #60a5fa;
+    --sky: #1e3a5f;
+    --yellow: #f7c948;
+    --green: #3ecf8e;
+    --red: #f47067;
+    --purple: #a78bfa;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-snap-type: y mandatory;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family:
+    ui-rounded, "SF Pro Rounded", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  counter-reset: page;
+}
+
+/* One page: the picture takes what the words leave */
+.page {
+  counter-increment: page;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3.5vmin;
+  height: 100vh;
+  height: 100svh;
+  padding: 6vmin 7vmin 7vmin;
+  overflow: hidden;
+  scroll-snap-align: start;
+  text-align: center;
+}
+.page::after {
+  content: counter(page);
+  position: absolute;
+  right: 4vmin;
+  bottom: 3vmin;
+  font-size: max(0.8rem, 1.8vmin);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.page > figure {
+  flex: 0 1 auto;
+  min-height: 0;
+  width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.page > figure > img,
+.page > figure > svg {
+  display: block;
+  flex: 0 1 auto;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.page > figure > img {
+  width: auto;
+  height: auto;
+  border-radius: 2.4vmin;
+}
+.page > figure > svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+/* Where a real picture came from, small under it */
+.page > figure > figcaption {
+  flex: none;
+  margin-top: 1.2vmin;
+  font-size: max(0.72rem, 1.5vmin);
+  color: var(--muted);
+}
+.page > figure > figcaption a {
+  color: inherit;
+}
+
+/* The words: at most two short lines */
+.page > p {
+  flex: none;
+  max-width: 34ch;
+  margin: 0;
+  font-size: max(1.35rem, 4.4vmin);
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.page > p + p {
+  margin-top: -2vmin;
+  font-weight: 450;
+}
+/* A word the page has just shown, named */
+.page mark {
+  padding: 0 0.15em;
+  border-radius: 0.2em;
+  background: color-mix(in srgb, var(--yellow) 38%, transparent);
+  color: inherit;
+}
+
+/* The cover: the title over its picture */
+.page.cover > h1 {
+  flex: none;
+  max-width: 22ch;
+  margin: 0;
+  font-size: max(2rem, 7.5vmin);
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+.page.cover::after {
+  content: none;
+}
+
+/* A tall frame (a phone, a vertical video): keep the words above the player's buttons */
+@media (max-aspect-ratio: 9 / 16) {
+  .page {
+    padding-bottom: 16svh;
+  }
+}
+
+@media print {
+  @page {
+    margin: 0;
+  }
+  html {
+    scroll-snap-type: none;
+  }
+  .page {
+    height: 100vh;
+    break-after: page;
+    break-inside: avoid;
+  }
+  .page:last-child {
+    break-after: auto;
+  }
+  .page mark {
+    print-color-adjust: exact;
+  }
+}

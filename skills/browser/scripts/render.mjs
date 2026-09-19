@@ -11,7 +11,7 @@ import { createReadStream, existsSync, mkdirSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { basename, dirname, extname, resolve, sep } from "node:path";
 import { imageSize } from "./image-size.mjs";
-import { fail, inPage, orFail, parseArgs } from "./lib.mjs";
+import { fail, inPage, orFail, parseArgs } from "./session.mjs";
 
 const opts = parseArgs();
 const file = opts._[0] && resolve(opts._[0]);

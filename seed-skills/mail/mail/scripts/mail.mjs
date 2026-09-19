@@ -10,39 +10,28 @@
 //   node mail.mjs <site> reply <id> (--body <text> | --body-file <f>) [--all]
 //
 // <site> names a file in ../recipes (gmail). Nothing here sends, archives, deletes or labels.
-import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
+// The shipped browser skill drives the session; a bot's shell names its folder
+if (!process.env.THURSDAY_SKILLS) {
+  console.error(
+    "THURSDAY_SKILLS is not set: run this from a bot's shell in the app.",
+  );
+  process.exit(1);
+}
+const { fail, parseArgs, runCode } = await import(
+  pathToFileURL(
+    join(process.env.THURSDAY_SKILLS, "browser/scripts/session.mjs"),
+  ).href
+);
 
 const RECIPES = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "..",
   "recipes",
 );
-
-function fail(message) {
-  console.error(message);
-  process.exit(1);
-}
-
-function parse(argv) {
-  const positional = [];
-  const flags = {};
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
-    if (!arg.startsWith("--")) {
-      positional.push(arg);
-      continue;
-    }
-    const [key, inline] = arg.slice(2).split(/=(.*)/s);
-    if (inline !== undefined) flags[key] = inline;
-    else if (argv[i + 1] !== undefined && !argv[i + 1].startsWith("--"))
-      flags[key] = argv[++i];
-    else flags[key] = true;
-  }
-  return { positional, flags };
-}
 
 /**
  * Runs `step` from the recipe inside the browser. Every function in `recipe.steps` is
@@ -60,30 +49,11 @@ function inBrowser(recipe, step, args) {
     )
     .join(",\n");
   const data = JSON.stringify({ ...recipe, steps: undefined });
-  const code = `async page => {
+  return runCode(`async page => {
     const r = ${data};
     r.steps = {${steps}};
     return r.steps[${JSON.stringify(step)}](page, ${JSON.stringify(args)}, r);
-  }`;
-  const ran = spawnSync("playwright-cli", ["--raw", "run-code", code], {
-    encoding: "utf8",
-    maxBuffer: 256 * 1024 * 1024,
-  });
-  if (ran.error) fail(`playwright-cli did not run: ${ran.error.message}`);
-  const out = `${ran.stdout ?? ""}${ran.stderr ?? ""}`.trim();
-  if (ran.status !== 0) {
-    if (/is not open/.test(out))
-      fail(
-        "No browser is open in this session. Run `playwright-cli open`, load the sign-in, and run this again.",
-      );
-    fail(out.replace(/^### Error\s*/, "").replace(/^Error:\s*/, ""));
-  }
-  if (!out) return null;
-  try {
-    return JSON.parse(out);
-  } catch {
-    fail(`Unexpected answer from the browser:\n${out.slice(0, 800)}`);
-  }
+  }`);
 }
 
 const oneLine = (s, n) => {
@@ -126,13 +96,13 @@ if (!existsSync(recipeFile))
     `No recipe for ${site} in ${RECIPES}. references/recipes.md says how to write one.`,
   );
 const recipe = (await import(pathToFileURL(recipeFile).href)).default;
-const { positional, flags } = parse(rest);
+const { _: positional, ...flags } = parseArgs(rest);
 
 switch (command) {
   case "list": {
     const max = Number(flags.max ?? 20);
     const query = positional.join(" ") || recipe.defaultQuery;
-    const found = inBrowser(recipe, "list", { query, max });
+    const found = await inBrowser(recipe, "list", { query, max });
     if (!flags.json)
       console.log(
         `${found.rows.length} shown of ${found.total ?? "?"} for: ${query}   (* unread)`,
@@ -141,7 +111,9 @@ switch (command) {
     break;
   }
   case "unread": {
-    const found = inBrowser(recipe, "unread", { label: positional[0] ?? "" });
+    const found = await inBrowser(recipe, "unread", {
+      label: positional[0] ?? "",
+    });
     if (!flags.json)
       console.log(
         `${found.total} unread${positional[0] ? ` in ${positional[0]}` : ""}; the newest ${found.rows.length} below`,
@@ -153,7 +125,7 @@ switch (command) {
     const [id, file] = positional;
     if (!id || !file)
       fail("Usage: mail.mjs <site> read <id> <file> [--head N]");
-    const thread = inBrowser(recipe, "read", { id });
+    const thread = await inBrowser(recipe, "read", { id });
     const lines = [`Subject: ${thread.subject}`, ""];
     for (const m of thread.messages) {
       lines.push(`From: ${m.from}`, `Date: ${m.date}`);
@@ -176,7 +148,7 @@ switch (command) {
   case "draft": {
     if (typeof flags.to !== "string")
       fail("draft needs --to <address>[,<address>]");
-    const saved = inBrowser(recipe, "draft", {
+    const saved = await inBrowser(recipe, "draft", {
       to: flags.to,
       cc: typeof flags.cc === "string" ? flags.cc : "",
       subject: typeof flags.subject === "string" ? flags.subject : "",
@@ -189,7 +161,7 @@ switch (command) {
     const [id] = positional;
     if (!id)
       fail("Usage: mail.mjs <site> reply <id> --body-file <file> [--all]");
-    const saved = inBrowser(recipe, "reply", {
+    const saved = await inBrowser(recipe, "reply", {
       id,
       all: flags.all === true,
       body: bodyOf(flags),
