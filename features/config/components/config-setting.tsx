@@ -20,6 +20,11 @@ import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { notify } from "@/components/ui/notify";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { SiteIcon } from "@/components/ui/site-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChatGptSignIn } from "@/features/ai/components/chatgpt-sign-in";
@@ -209,12 +214,14 @@ export function AccountsSetup() {
   const entries = (id: ConfigGroup["id"]) =>
     CONFIG_GROUPS.find((group) => group.id === id)?.entries ?? [];
   // A newcomer reads one row: the providers most people have a key for, and any that is
-  // already set. The rest are one press away
+  // already set. The rest are one press away, over the row rather than below it, so the
+  // screen around it does not move
   const [more, setMore] = useState(false);
   const marks = [...entries("voice"), ...entries("text")];
   const first = marks.filter(
     (entry, at) => at < ACCOUNTS_FIRST || isSet(entry.key),
   );
+  const rest = marks.filter((entry) => !first.includes(entry));
 
   return (
     <div className="flex flex-col gap-4">
@@ -231,21 +238,31 @@ export function AccountsSetup() {
         ))}
       </div>
       <div className="flex flex-wrap gap-y-2.5">
-        {(more ? marks : first).map((entry) => (
+        {first.map((entry) => (
           <KeyTile key={entry.key} entry={entry} set={isSet(entry.key)} />
         ))}
-        {!more && first.length < marks.length && (
-          <button
-            type="button"
-            onClick={() => setMore(true)}
-            aria-label={`${marks.length - first.length} more providers`}
-            className="group flex w-17 flex-col items-center gap-1.5 rounded-xl py-1 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            <span className="grid size-10.5 place-items-center rounded-[13px] bg-muted/60 text-muted-foreground transition-colors group-hover:bg-muted">
-              <Ellipsis className="size-4" />
-            </span>
-            <span className="text-[11px] text-muted-foreground">More</span>
-          </button>
+        {rest.length > 0 && (
+          <Popover open={more} onOpenChange={setMore}>
+            <PopoverTrigger
+              aria-label={`${rest.length} more providers`}
+              className="group flex w-17 flex-col items-center gap-1.5 rounded-xl py-1 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <span className="grid size-10.5 place-items-center rounded-[13px] bg-muted/60 text-muted-foreground transition-colors group-hover:bg-muted">
+                <Ellipsis className="size-4" />
+              </span>
+              <span className="text-[11px] text-muted-foreground">More</span>
+            </PopoverTrigger>
+            {/* A tile opens its key's dialog; the list goes first so the dialog is not under it */}
+            <PopoverContent
+              align="end"
+              className="w-78 flex-row flex-wrap gap-0 gap-y-2.5 rounded-2xl p-2.5"
+              onClick={() => setMore(false)}
+            >
+              {rest.map((entry) => (
+                <KeyTile key={entry.key} entry={entry} set={isSet(entry.key)} />
+              ))}
+            </PopoverContent>
+          </Popover>
         )}
       </div>
       {entries("search").map((entry) => (
