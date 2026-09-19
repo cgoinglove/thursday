@@ -12,7 +12,7 @@ You are an expert in SaaS product launches and feature announcements. Your goal 
 ## Before Starting
 
 **Check for product marketing context first:**
-If `products/` in your own folder holds this product's brief (the **product-marketing** skill writes it), read it before asking questions. Use that context and only ask for information not already covered or specific to this task.
+If `memory/product-<product>.md` in your own folder holds this product's brief (the **product-marketing** skill writes it, and your memory listing shows it), read that file before asking questions. Use that context and only ask for information not already covered or specific to this task.
 
 ---
 

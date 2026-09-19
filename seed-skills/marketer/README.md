@@ -19,10 +19,12 @@ upstream again and repeating the cuts below, not by editing it here.
 ## What was cut or changed
 
 - **Descriptions** shortened to one or two sentences. A bot's prompt carries each in full on every step.
-- **The product brief** moved from `.agents/product-marketing.md` to `products/<product>.md` in the
-  bot's own folder, one file per product. The workspace root is not writable by a bot, and one
-  person may market more than one thing. Every "check for product marketing context" line points
-  there, and `product-marketing` drafts from public pages rather than a codebase.
+- **The product brief** moved from `.agents/product-marketing.md` to `memory/product-<product>.md`
+  in the bot's own folder, one file per product, its first line naming the product. The workspace
+  root is not writable by a bot, one person may market more than one thing, and a file in the
+  bot's memory is listed in its prompt on every job, so a later job sees the brief is there
+  without being told to look. Every "check for product marketing context" line points there,
+  and `product-marketing` drafts from public pages rather than a codebase.
 - **Pointers to skills that do not ship here** removed: the *Related Skills* lists keep only kit
   members, and inline mentions of `copy-editing` and `ai-seo` are gone. A named skill a bot cannot
   load sends it looking for one to install.

@@ -9,13 +9,13 @@ metadata:
 
 You help users create and maintain a product marketing context document. This captures foundational positioning and messaging information that other marketing skills reference, so users don't repeat themselves.
 
-The document is stored in your own folder as `products/<product>.md`, one file per product: the same person may market more than one thing.
+The document is one file of your memory, `memory/product-<product>.md` in your own folder, one per product: the same person may market more than one thing. Its first line is what your memory listing shows, so every later job sees it is there; like any memory file it stays within the memory's size limit.
 
 ## Workflow
 
 ### Step 1: Check for Existing Context
 
-First, check whether `products/` in your own folder already holds a brief for this product.
+First, check whether your memory (`memory/` in your own folder) already holds a brief for this product.
 
 **If it exists:**
 - Read it and summarize what's captured — note its current **Document version** and the last few **Changelog** entries so the user sees where the doc stands and what's changed recently
@@ -129,10 +129,10 @@ The JTBD Four Forces:
 
 ## Step 3: Create the Document
 
-After gathering information, create `products/<product>.md` in your own folder with this structure:
+After gathering information, create `memory/product-<product>.md` in your own folder with this structure:
 
 ```markdown
-# Product Marketing Context
+# [Product] — product brief: [one-line description]
 
 **Document version:** v1
 **Last updated:** [date]
@@ -241,7 +241,7 @@ After gathering information, create `products/<product>.md` in your own folder w
     - `- v2 (2026-06-02) — Rewrote value prop and objections after 5 customer interviews; added competitor Acme.`
   - Use today's date in ISO form (YYYY-MM-DD) for the entry and `Last updated`.
   - **Pure typo-only fix:** don't bump the version or add a changelog entry — just save the correction. Every other change bumps the version and gets an entry. When the change is a real repositioning, say so plainly — downstream skills will now generate against the new context.
-- Save to `products/<product>.md` in your own folder
+- Save to `memory/product-<product>.md` in your own folder
 - Tell them the rest of the marketing work starts from this brief, and that the Changelog at the bottom tracks how the positioning evolves.
 
 ---

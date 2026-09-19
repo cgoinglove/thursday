@@ -1,0 +1,62 @@
+<!doctype html>
+<!--
+  A carousel: every <section data-slide> is one PNG (scripts/render.mjs).
+  Set --w and --h to the size you render at. Pictures sit beside this file.
+  Backgrounds: .bg is the picture filling the slide; add .blur, .dark or a
+  .shade gradient over it until the text reads. .fit shows a whole picture
+  over a blurred copy of itself. .credit names the source of a real picture.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=block">
+<style>
+  :root { --w: 1080px; --h: 1350px; --ink: #fff; --accent: #ffd400; --paper: #111; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #000; font-family: "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif; }
+  section[data-slide] {
+    position: relative; width: var(--w); height: var(--h); overflow: hidden;
+    background: var(--paper); color: var(--ink);
+  }
+  .bg, .fit img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .bg.blur { filter: blur(24px) brightness(.7); transform: scale(1.1); }
+  .bg.dark { filter: brightness(.55); }
+  .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,.85) 100%); }
+  .fit .back { filter: blur(40px) brightness(.6); transform: scale(1.15); }
+  .fit .front { object-fit: contain; inset: 12% 6% 30%; width: 88%; height: 58%; }
+  .text { position: absolute; left: 72px; right: 72px; bottom: 120px; }
+  .kicker { font-size: 34px; font-weight: 700; color: var(--accent); margin-bottom: 20px; }
+  h1 { font-size: 92px; line-height: 1.12; font-weight: 900; letter-spacing: -0.02em; word-break: keep-all; }
+  p { font-size: 44px; line-height: 1.45; word-break: keep-all; }
+  .credit { position: absolute; left: 72px; bottom: 44px; font-size: 24px; opacity: .75; }
+  .page { position: absolute; right: 60px; top: 56px; font-size: 28px; opacity: .7; }
+</style>
+</head>
+<body>
+
+<section data-slide>
+  <img class="bg" src="photo.jpg" alt="">
+  <div class="shade"></div>
+  <div class="text">
+    <div class="kicker">NEWS</div>
+    <h1>The hook: one line that earns the swipe</h1>
+  </div>
+  <div class="credit">Photo: Source name</div>
+</section>
+
+<section data-slide>
+  <div class="fit"><img class="back" src="photo.jpg" alt=""><img class="front" src="photo.jpg" alt=""></div>
+  <div class="text"><p>A whole picture over a blurred copy of itself, with a line under it.</p></div>
+  <div class="page">2</div>
+</section>
+
+<section data-slide style="--paper: #f4f1ea; --ink: #111">
+  <div class="text" style="top: 160px; bottom: auto">
+    <h1 style="font-size: 72px">Text alone</h1>
+    <p style="margin-top: 40px">One idea a slide, large enough to read on a phone at arm's length.</p>
+  </div>
+  <div class="page">3</div>
+</section>
+
+</body>
+</html>
