@@ -26,7 +26,6 @@ import {
   readCallSkillsOn,
 } from "@/features/thursday/thursday.query";
 import { openWorkspace } from "@/features/workspace/workspace";
-import { logger } from "@/lib/logger";
 import { listConnectedToolNames } from "../tools/connected";
 import {
   callEnding,
@@ -108,7 +107,6 @@ export async function loadThursdayPrompt(
     .join("\n\n");
 
   logPromptSize("thursday", text);
-  logger.debug(`thursday prompt\n${text}`);
   return text;
 }
 

@@ -34,7 +34,6 @@ import {
   readMachineTools,
 } from "@/features/workspace/workspace";
 import { toDate } from "@/lib/date-like";
-import { logger } from "@/lib/logger";
 import { clip } from "@/lib/utils";
 import { listConnectedToolNames } from "../tools/connected";
 import {
@@ -112,7 +111,6 @@ export async function loadBotPrompt(
     .join("\n\n");
 
   logPromptSize("bot", text);
-  logger.debug(`bot prompt\n${text}`);
 
   return { text };
 }
