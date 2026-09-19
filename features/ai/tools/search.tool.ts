@@ -115,7 +115,7 @@ async function askSearcher(
   searcher: { model: TextModel["model"]; tools: ToolSet },
   query: string,
   signal: AbortSignal,
-): Promise<string> {
+): Promise<Found> {
   const { text, sources } = await generateText({
     model: searcher.model,
     tools: searcher.tools,
@@ -134,9 +134,41 @@ async function askSearcher(
     ),
   ].slice(0, SEARCH.sources);
 
-  return [text.trim(), urls.length ? `Sources:\n${urls.join("\n")}` : ""]
-    .filter(Boolean)
-    .join("\n\n");
+  // Its pages stay in the text: only a bot searches this way, and no screen draws them apart
+  return {
+    text: [text.trim(), urls.length ? `Sources:\n${urls.join("\n")}` : ""]
+      .filter(Boolean)
+      .join("\n\n"),
+    sources: [],
+  };
+}
+
+/** Where a runtime goes when the search cannot answer: the one thing its failure lines differ by. */
+type Elsewhere = { slow: string; failed: string };
+
+/**
+ * One search under the deadline, for either runtime. A search that breaks or runs out of
+ * time answers with a line the model can act on; only the run being cancelled throws.
+ */
+async function searchWithin(
+  search: (signal: AbortSignal) => Promise<Found>,
+  abortSignal: AbortSignal | undefined,
+  elsewhere: Elsewhere,
+): Promise<Found> {
+  const deadline = AbortSignal.timeout(SEARCH.timeoutMs);
+  const signal = abortSignal
+    ? AbortSignal.any([abortSignal, deadline])
+    : deadline;
+  return search(signal).catch((cause: unknown): Found => {
+    // The job or the call itself ended: that is not a result to hand back
+    if (abortSignal?.aborted) throw cause;
+    return {
+      text: deadline.aborted
+        ? `The search did not come back in ${SEARCH.timeoutMs / 1000}s. ${elsewhere.slow}`
+        : `Search failed: ${errorToString(cause)}. ${elsewhere.failed}`,
+      sources: [],
+    };
+  });
 }
 
 /** Absent when there is neither an Exa key nor a run model that searches; the bot goes to the browser instead. */
@@ -151,8 +183,7 @@ export const createSearchTool = async (
     : null;
 
   const search = exaKey
-    ? (query: string, signal: AbortSignal) =>
-        exaSearch(exaKey, query, signal).then((found) => found.text)
+    ? (query: string, signal: AbortSignal) => exaSearch(exaKey, query, signal)
     : native
       ? (query: string, signal: AbortSignal) =>
           askSearcher(native, query, signal)
@@ -164,20 +195,15 @@ export const createSearchTool = async (
       description: DESCRIPTION,
       inputSchema: z.object({ query: QUERY }),
       execute: async ({ query }, { abortSignal }) => {
-        const deadline = AbortSignal.timeout(SEARCH.timeoutMs);
-        const signal = abortSignal
-          ? AbortSignal.any([abortSignal, deadline])
-          : deadline;
-
-        const answer = await search(query, signal).catch((cause: unknown) => {
-          // The job itself was cancelled: that is not a result to hand back
-          if (abortSignal?.aborted) throw cause;
-          if (deadline.aborted)
-            return `The search did not come back in ${SEARCH.timeoutMs / 1000}s. Ask something narrower, or open the page in the browser.`;
-          return `Search failed: ${errorToString(cause)}. The browser is the other way in.`;
-        });
-
-        return sandbox.fold(answer, "web-search");
+        const found = await searchWithin(
+          (signal) => search(query, signal),
+          abortSignal,
+          {
+            slow: "Ask something narrower, or open the page in the browser.",
+            failed: "The browser is the other way in.",
+          },
+        );
+        return sandbox.fold(found.text, "web-search");
       },
     }),
   };
@@ -204,21 +230,12 @@ export const createCallSearchTool = async (
       description: CALL_DESCRIPTION,
       inputSchema: z.object({ query: QUERY }),
       execute: async ({ query }, { abortSignal }) => {
-        const deadline = AbortSignal.timeout(SEARCH.timeoutMs);
-        const signal = abortSignal
-          ? AbortSignal.any([abortSignal, deadline])
-          : deadline;
-
-        const found = await exaSearch(exaKey, query, signal).catch(
-          (cause: unknown): Found => {
-            // The call itself ended: that is not a result to hand back
-            if (abortSignal?.aborted) throw cause;
-            return {
-              text: deadline.aborted
-                ? `The search did not come back in ${SEARCH.timeoutMs / 1000}s. Ask something narrower, or hand it to a bot.`
-                : `Search failed: ${errorToString(cause)}. A bot can open the page instead.`,
-              sources: [],
-            };
+        const found = await searchWithin(
+          (signal) => exaSearch(exaKey, query, signal),
+          abortSignal,
+          {
+            slow: "Ask something narrower, or hand it to a bot.",
+            failed: "A bot can open the page instead.",
           },
         );
         return {
