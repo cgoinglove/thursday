@@ -40,16 +40,18 @@ it covers is read, and any other agent should read the one for the area it chang
 | `.claude/rules/release.md` | What to check before a release, past what `pack.mts` gates |
 | `.claude/rules/docs.md` | The README, its Korean twin and `docs/how-it-works.md` |
 
-**The rest of the harness is shared too.** `.claude/settings.json` runs two hooks (they need
-`python3`): before a turn ends, typecheck, lint and knip on the files that session changed, and a
-word when `database/tables.ts` moved without a migration or a screen changed without `guide/`;
-and at the start of a session, a line when the weekly cleanup or the monthly checkup is due.
-`.claude/skills/` holds three skills written for this repo: `verify` (run the app and look, on a
-data folder of its own), `cleanup` (find what nothing uses, prove it dead, delete it) and
-`checkup` (what the setup loads, costs and has drifted from). Three outside skills fit beside them
-and are installed per machine: `npx skills add mattpocock/skills --skill grilling` (agree on the
-scope before a large change), `npx skills add vercel/next.js --skill next-dev-loop` and
-`npx skills add vercel-labs/agent-browser --skill agent-browser`.
+**Skills and hooks.** Skills live in `.agents/skills/`, where any agent that reads Agent Skills
+finds them; Claude Code sees them through links in `.claude/skills/`. Three are written for this
+repo: `verify` (run the app and look, on a data folder of its own), `cleanup` (find what nothing
+uses, prove it dead, delete it) and `checkup` (what the agent setup loads, costs and has drifted
+from). The outside ones are listed in `skills-lock.json` and installed per machine with
+`npx skills experimental_install`: `grilling` (agree on the scope before a large change),
+`next-dev-loop` (ask the running Next server for its errors), `agent-browser`, `ai-sdk` and
+`shadcn`. Claude Code also runs two hooks from `.claude/settings.json` (they need `python3`):
+before a turn ends, typecheck, lint and knip on the files that session changed, with a word when
+`database/tables.ts` moved without a migration or a screen changed without `guide/`; and at the
+start of a session, a line when the weekly cleanup or the monthly checkup is due. CI runs the same
+checks for everyone.
 
 # Layout
 
@@ -159,9 +161,10 @@ Several agents may work in one checkout at once, and someone's own data sits bes
 - **Commit only what you wrote.** Stage your paths by name, never `git add -A` or `.`; when a file
   also holds someone else's change, stage only your hunks (`git add -p`, or `git hash-object -w`
   with `git update-index --cacheinfo` — `git commit <path>` takes the whole file), and check
-  `git show --stat HEAD` after. Never `git clean`, `git checkout .`, `git stash` or `git reset`:
-  each takes another session's work with it. Changes you did not make are left alone, even when
-  asked to tidy up.
+  `git show --stat HEAD` after. Stage in the same command that commits — a `git mv` or an `add`
+  left in the index goes out with the next session's plain `git commit`. Never `git clean`,
+  `git checkout .`, `git stash` or `git reset`: each takes another session's work with it.
+  Changes you did not make are left alone, even when asked to tidy up.
 - **Some files are someone's data, not clutter**: the database, `DATA_DIR/.sign-ins` (live
   sign-in sessions), the workspace bots work in (`.ai-workspace/`). Never delete them to tidy up,
   and never start a server on them (`.claude/rules/verify.md`).

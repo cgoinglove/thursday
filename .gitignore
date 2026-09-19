@@ -50,20 +50,31 @@ next-env.d.ts
 # the sites the user signed in to (local; sessions that sign in as them)
 /.sign-ins
 # editor agent tooling, not the app's
-# Tool skills are installed per machine and symlink into /.agents, so a
-# committed one is a dangling link on every clone. The three written for this
-# repo are the exception.
+# Skills live in /.agents/skills, where any agent that reads Agent Skills finds
+# them. Outside skills are installed per machine from skills-lock.json
+# (`npx skills experimental_install`), so only the three written for this repo
+# are committed there. Claude Code reads /.claude/skills instead: a link for each
+# shared skill is committed, and resolves once the install has run.
+/.agents/*
+!/.agents/skills/
+/.agents/skills/*
+!/.agents/skills/verify/
+!/.agents/skills/cleanup/
+!/.agents/skills/checkup/
 /.claude/skills/*
-!/.claude/skills/verify/
-!/.claude/skills/cleanup/
-!/.claude/skills/checkup/
+!/.claude/skills/verify
+!/.claude/skills/cleanup
+!/.claude/skills/checkup
+!/.claude/skills/grilling
+!/.claude/skills/next-dev-loop
+!/.claude/skills/agent-browser
+!/.claude/skills/ai-sdk
+!/.claude/skills/shadcn
 /.claude/worktrees/
-/.agents
 .playwright-cli
 .playwright
 .parcel-cache
 .design
-skills-lock.json
 # Anything a contributor keeps to themselves. This is the one naming rule the
 # repo has: a scratch note, a to-do list, a local override — name it *.local.*
 # and it can never be committed by accident (CLAUDE.md says the same).

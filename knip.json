@@ -1,7 +1,11 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["scripts/intro-voice.mts", ".claude/skills/*/*.cjs"],
-  "ignore": ["skills/**", "components/ui/**"],
+  "entry": ["scripts/intro-voice.mts", ".agents/skills/*/*.cjs"],
+  "ignore": [
+    "skills/**",
+    "components/ui/**",
+    ".agents/skills/!(verify|cleanup|checkup)/**"
+  ],
   "ignoreBinaries": ["du"],
   "ignoreExportsUsedInFile": true
 }
