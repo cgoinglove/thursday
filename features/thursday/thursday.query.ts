@@ -287,6 +287,16 @@ export async function isAnyCallLive() {
   return open.length > 0;
 }
 
+/** Whether this call is still on: a row the sweep closed under its holder is not (reach). */
+export async function isCallOpen(id: string): Promise<boolean> {
+  const open = await database
+    .select({ id: callTable.id })
+    .from(callTable)
+    .where(and(eq(callTable.id, id), isNull(callTable.endedAt)))
+    .limit(1);
+  return open.length > 0;
+}
+
 /**
  * Deletes an ended call and its turns (call_message cascades). A live call is
  * refused: its tab keeps writing turns against the row. Threads keep a dangling

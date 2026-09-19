@@ -2,7 +2,6 @@
 
 import { asSchema } from "ai";
 import z from "zod";
-import { TEXT_CALL } from "@/config";
 import { LIVE_PROVIDER } from "@/features/ai/live.schema";
 import { loadTools } from "@/features/ai/load-tools";
 import { loadLastCall } from "@/features/ai/prompts/call-last";
@@ -39,7 +38,7 @@ import {
   type TextCallHandshake,
   ThursdaySettingsSchema,
 } from "./thursday.schema";
-import { NOTHING_TO_RUN_ON, readTextCallProvider } from "./thursday.text";
+import { openTextCall } from "./thursday.text";
 
 // Server actions run one at a time per client, so the recording actions stay
 // small: a tool call mid-sentence may be queued behind them.
@@ -165,19 +164,9 @@ export const openCallAction = serverAction(
  */
 export const openTextCallAction = serverAction(
   async (settings: unknown): Promise<TextCallHandshake> => {
-    const thursday = ThursdaySettingsSchema.parse(settings);
-    const provider = await readTextCallProvider();
-    if (!provider) publicError(NOTHING_TO_RUN_ON);
-    const [callId, standing] = await Promise.all([
-      insertCall({
-        provider,
-        model: TEXT_CALL.model,
-        backendModel: thursday.backendModel,
-      }),
-      loadCallStanding(),
-    ]);
-    createServerProbe("server")("call.open.text", { callId, provider });
-    return { callId, standing };
+    const opened = await openTextCall(ThursdaySettingsSchema.parse(settings));
+    createServerProbe("server")("call.open.text", { callId: opened.callId });
+    return opened;
   },
 );
 
