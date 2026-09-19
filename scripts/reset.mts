@@ -165,6 +165,11 @@ const GROUPS: Group[] = [
     // Under DATA_DIR (config).
     [PATHS.workspace, PATHS.skills.custom].map((p) => join(DATA_DIR, p)),
   ),
+  files(
+    "Sign-ins",
+    "the sites you signed in to for bots — they ask you to sign in again",
+    [join(DATA_DIR, PATHS.signIns)],
+  ),
 ];
 
 const present = GROUPS.filter((group) => group.live());
