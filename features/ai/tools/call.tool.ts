@@ -12,7 +12,6 @@ import {
  * `/api/tool-call` refuses them by name rather than as unknown tools.
  */
 const endCallSpec = {
-  name: TOOL_NAMES.end_call,
   description: `End the call.
 
 The line stays open until this runs, and drops once the goodbye being said is over.`,
@@ -26,7 +25,6 @@ const endCallTool = tool({
 });
 
 const emoteSpec = {
-  name: TOOL_NAMES.emote,
   description: "Show a short word on your face for a few seconds.",
   parameters: z.object({
     text: z

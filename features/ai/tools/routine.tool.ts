@@ -22,7 +22,6 @@ import { isPublicError } from "@/lib/public-error";
 import { clip } from "@/lib/utils";
 
 const routineSpec = {
-  name: TOOL_NAMES.routine,
   description: `Routines: work that starts by itself, each one a bot, the work and a time. List them, make one, change one, or delete one. Every start opens a thread like one started by hand; its result reaches the conversation the same way. At most ${ROUTINE.max} exist.`,
   parameters: z.object({
     action: z.enum(["list", "create", "change", "delete"]),

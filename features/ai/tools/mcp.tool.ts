@@ -22,7 +22,6 @@ const MAX_SCHEMAS = 8;
 
 const mcpToolSpec = {
   [TOOL_NAMES.tool_search]: {
-    name: TOOL_NAMES.tool_search,
     // What it is, not when to reach for it: the Connected tools chapter says
     // that the listing carries names alone and that this is how a schema is got
     description: `Return the description and exact inputSchema of tools on a connected server, so they can be called with \`${TOOL_NAMES.tool_call}\`.`,
@@ -42,7 +41,6 @@ const mcpToolSpec = {
   },
 
   [TOOL_NAMES.tool_call]: {
-    name: TOOL_NAMES.tool_call,
     description: `Run one tool whose definition came back from \`${TOOL_NAMES.tool_search}\`.`,
     parameters: z.object({
       server: z.string().describe("The server the tool lives on."),

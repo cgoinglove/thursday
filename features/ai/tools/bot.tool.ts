@@ -17,7 +17,6 @@ import { clip } from "@/lib/utils";
 const THREAD_REF = z.string().describe("The thread, by its label or its id.");
 
 export const threadStartSpec = {
-  name: TOOL_NAMES.thread_start,
   description:
     "Start a new thread: hand work to a bot. Returns a receipt at once; the work runs in the background and its updates reach the conversation on their own.",
   parameters: z.object({
@@ -37,7 +36,6 @@ export const threadStartSpec = {
 };
 
 export const threadTellSpec = {
-  name: TOOL_NAMES.thread_tell,
   description:
     "Say something to a thread that exists: a correction while it runs, the next step once it has finished, or to go on after it stopped. Its bot reads it with everything the thread already holds.",
   parameters: z.object({
@@ -49,7 +47,6 @@ export const threadTellSpec = {
 };
 
 export const threadAnswerSpec = {
-  name: TOOL_NAMES.thread_answer,
   description: `Answer a question a bot asked the user. Only for a question that is waiting; anything else said to a thread is \`${TOOL_NAMES.thread_tell}\`.`,
   parameters: z.object({
     thread: THREAD_REF,
@@ -59,7 +56,6 @@ export const threadAnswerSpec = {
 };
 
 export const threadStatusSpec = {
-  name: TOOL_NAMES.thread_status,
   description: `Read threads as they are now. "all" lists up to ${THREAD_STATUS_LIMIT}, running and waiting work before recent endings; a label or an id reads that one whole, with its result and any question waiting.`,
   parameters: z.object({
     thread: z.string().describe('"all", or one thread by its label or its id.'),
@@ -67,20 +63,17 @@ export const threadStatusSpec = {
 };
 
 export const threadCancelSpec = {
-  name: TOOL_NAMES.thread_cancel,
   description: "Stop a thread for good. It cannot be taken back.",
   parameters: z.object({ thread: THREAD_REF }),
 };
 
 export const threadShowSpec = {
-  name: TOOL_NAMES.thread_show,
   description:
     "Put a thread in front of the user on their screen: the file it made, or the thread itself when it made none. Showing it also counts as them having seen its result.",
   parameters: z.object({ thread: THREAD_REF }),
 };
 
 export const threadSeenSpec = {
-  name: TOOL_NAMES.thread_seen,
   description:
     "Mark a thread's result as seen by the user, once they have heard it and have nothing more to ask about it. It leaves the work waiting on them.",
   parameters: z.object({ thread: THREAD_REF }),
@@ -118,7 +111,6 @@ export const sendMessageSpec = {
 };
 
 const threadRecallSpec = {
-  name: TOOL_NAMES.thread_recall,
   description:
     "Open one of your other threads whole: what you were asked there and your last words in full.",
   parameters: z.object({
