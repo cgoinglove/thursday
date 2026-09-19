@@ -1,6 +1,7 @@
 ---
 name: computer
 description: "This Mac itself — its apps, its windows, what is on screen. Read a window as text, click, type, open or focus an app, walk a menu, read the clipboard."
+platforms: [darwin]
 ---
 
 # The Mac

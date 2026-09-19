@@ -22,6 +22,8 @@ export const SkillFrontmatterSchema = z.object({
   description: z.string().trim().min(1, "Description is required"),
   /** true hides the skill from the list and the prompt; absent means enabled. */
   disabled: z.boolean().optional(),
+  /** `process.platform` values it runs on (`darwin`); elsewhere it is not listed at all. Absent means everywhere. */
+  platforms: z.array(z.string()).optional(),
 });
 export type SkillFrontmatter = z.infer<typeof SkillFrontmatterSchema>;
 

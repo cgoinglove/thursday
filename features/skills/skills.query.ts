@@ -69,6 +69,10 @@ export function splitFrontmatter(content: string): {
   return { head: match[1] ?? null, body: rest.trim(), rest, fence: match[0] };
 }
 
+/** Whether a skill runs on this machine's OS; the list and the prompt both leave out one that does not. */
+export const runsHere = ({ platforms }: SkillFrontmatter) =>
+  !platforms || platforms.includes(process.platform);
+
 export function parseFrontmatter(content: string): SkillFrontmatter {
   const { head } = splitFrontmatter(content);
   if (!head) {
@@ -172,7 +176,7 @@ export async function findAllSkills(): Promise<SkillSummary[]> {
     }
     for (const dir of names) {
       const summary = await readSummary(source, dir);
-      if (summary) out.push(summary);
+      if (summary && runsHere(summary)) out.push(summary);
     }
   }
   return out;

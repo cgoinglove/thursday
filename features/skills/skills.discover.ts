@@ -5,7 +5,7 @@ import { botFolder, WORKSPACE } from "@/features/workspace/workspace";
 import { logger } from "@/lib/logger";
 import type { Sandbox } from "@/lib/sandbox";
 import { errorToString } from "@/lib/utils";
-import { parseFrontmatter } from "./skills.query";
+import { parseFrontmatter, runsHere } from "./skills.query";
 import type { SkillFrontmatter } from "./skills.schema";
 
 /** Skills for the prompt, every skill at once, without failing the session over one bad file. */
@@ -89,6 +89,7 @@ export async function discoverSkills(
         continue;
       }
 
+      if (!runsHere(frontmatter)) continue;
       if (seenNames.has(frontmatter.name)) continue;
       seenNames.add(frontmatter.name);
 
