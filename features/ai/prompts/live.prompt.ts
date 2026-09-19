@@ -1,3 +1,4 @@
+import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import {
   listAlwaysLoaded,
   listNoteIndex,
@@ -10,7 +11,6 @@ import {
   type MemoryNoteView,
 } from "@/features/memory/memory.schema";
 import {
-  callEnding,
   carriedLines,
   expandedFacts,
   logPromptSize,
@@ -77,11 +77,21 @@ export async function loadLivePrompt(options: {
  */
 const always = () => `## Always
 
-${callEnding()}
+${ending()}
 
 ${speaking()}
 
 ${delegation()}`;
+
+/**
+ * How a call ends, as the voice can end it: it holds no tools, so it says yes and hands the turn
+ * over, and the backend runs the tool. The rule both prompts shared until 09-20 ("forget every
+ * other task, answer yes, then use the tool") left the voice saying yes and going quiet with the
+ * line still open, four times in five. The tool is still named, the one name the voice sees, so
+ * ending reads as something done rather than said.
+ */
+const ending = () =>
+  `IMPORTANT — always follow this: when the user wants the call to end, however they say it, answer yes in one word of their language and hand it to the backend at once. Only the backend can end the line, with the ${TOOL_NAMES.end_call} tool; saying yes alone leaves it open.`;
 
 /**
  * The guide's starter lines on listening and interruptions, labels kept as it says. The

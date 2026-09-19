@@ -23,7 +23,7 @@ delegation is a different integration: its notification contains metadata, not t
 text, so the application would have to reconstruct the request and operate the backend.
 
 The voice and the backend are one assistant. Both prompts open with the same identity
-(`thursdayIdentity`) and the same rule for ending the call (`callEnding`), read the same
+(`thursdayIdentity`), each followed by its own rule for ending the call, read the same
 memory, and neither is told it is part of something else. The voice holds conversation and
 memory only. Right under the identity, `## Always` groups what holds on every turn: the ending
 rule (the only line marked `IMPORTANT`), the guide's starter backchannel and interruption
@@ -215,8 +215,11 @@ for a goodbye, which would leave the ending to the model.
 
 The user wanting the call to end, however they say it, sets everything else aside: the
 voice answers yes and hands it to the backend at once, and the backend runs `end_call`
-without deliberating. The ending rule names `end_call` in the voice prompt too, the one tool
-name it holds: without it, ending read as something to say rather than do.
+without deliberating. The voice's rule names `end_call` too, the one tool name it holds:
+without it, ending read as something to say rather than do. The two rules say what each
+side can do: while they were one sentence ("forget every other task, answer yes, then use
+the tool"), the voice said yes and went quiet with the line open, four times in five
+(09-20), so its rule says to hand the turn over, and that a yes alone leaves the line open.
 Whether that turn reaches the backend at all is the voice's own decision, and it often
 answers and hands nothing over. Ending the call leads the `Backend tools` list for that
 reason: with the list, five calls in seven ended by asking (09-16); without it, one in 21,

@@ -28,7 +28,6 @@ import {
 import { openWorkspace } from "@/features/workspace/workspace";
 import { listConnectedToolNames } from "../tools/connected";
 import {
-  callEnding,
   carriedLines,
   expandedFacts,
   logPromptSize,
@@ -88,7 +87,7 @@ export async function loadThursdayPrompt(
   // Order matters: earlier calls go last so the current call follows them in time order
   const text = [
     thursdayIdentity(),
-    written ? "" : callEnding(),
+    written ? "" : ending(),
     memory(index, carried, open.notes),
     // A skill is named once, on the side that can read it: this computer's chapter
     // when the setting hands the call the tool, the bots' reach when it does not
@@ -109,6 +108,13 @@ export async function loadThursdayPrompt(
   logPromptSize("thursday", text);
   return text;
 }
+
+/**
+ * How a call ends, right after the identity. Only the backend can end the line, so its rule is
+ * to do it at once, with the tool named; the voice's own rule (live.prompt) is to hand it over.
+ */
+const ending = () =>
+  `IMPORTANT — always follow this: when the user wants the call to end, however they say it, forget every other task, answer yes in one word of their language, then immediately, without thinking, use the ${TOOL_NAMES.end_call} tool.`;
 
 /**
  * What goes back is said aloud, so it is what a tool or a note confirmed and nothing more — or
