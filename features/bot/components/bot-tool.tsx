@@ -177,7 +177,7 @@ export function StepTile({
       onClick={onOpen}
       title={tool.note ?? tool.input}
       aria-label={tool.note ?? tool.input}
-      className="grid size-6 shrink-0 place-items-center overflow-hidden rounded-[7px] bg-background text-muted-foreground ring-1 ring-foreground/6 outline-none transition-transform ring-inset hover:scale-110 focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="grid size-6 shrink-0 place-items-center overflow-hidden rounded-full bg-background text-muted-foreground outline-none transition-transform hover:scale-110 focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       {face.image && !gone ? (
         // biome-ignore lint/performance/noImgElement: local raw route, nothing to optimize
@@ -192,7 +192,7 @@ export function StepTile({
       ) : face.host ? (
         <SiteIcon
           host={face.host}
-          className="size-3.5 rounded-[4px]"
+          className="size-3.5 rounded-full"
           fallback={<Icon className="size-3" />}
         />
       ) : (
@@ -209,17 +209,9 @@ function StepTarget({ face }: { face: StepFace }) {
       ...new Set(face.pages.flatMap((page) => hostOf(page.url) ?? [])),
     ].slice(0, 3);
     return (
-      <span className="flex shrink-0 items-center">
-        {hosts.map((host, at) => (
-          <span
-            key={host}
-            className={cn(
-              "rounded-[5px] ring-[1.5px] ring-background",
-              at > 0 && "-ml-1",
-            )}
-          >
-            <SiteIcon host={host} />
-          </span>
+      <span className="flex shrink-0 items-center gap-1">
+        {hosts.map((host) => (
+          <SiteIcon key={host} host={host} />
         ))}
       </span>
     );

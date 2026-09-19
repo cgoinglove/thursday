@@ -60,12 +60,13 @@ paths:
   with a mention at its head.
 - Every message draws as words — the user's, questions, answers and reports between participants,
   a bot's reply, the ending — never as the tool call that sent it. The open tab's bot's own work
-  draws in full: its words as words, and each run of tool calls folded to a strip of tiles — a
-  picture it took, the site it opened, else a glyph for what it did — with only the running step as
-  a row. The run's head says what it did last in the bot's own words, how many steps and how
-  long (the same head another bot's folded work wears), and unfolds it into rows, where a step shows what it touched (the site, the
-  file, the pages a search read), never the tool's name. Another bot's work between the messages it sends or receives (steps, stops, the
-  words beside a call) folds into one row before its next message, and the row opens in place. A
+  draws in full and none of it folds (the user's pick): its words as words and every tool call
+  a row, where a step shows what it touched (the site, the file, the pages a search read),
+  never the tool's name. Another bot's work between the messages it sends or receives (steps,
+  stops, the words beside a call) folds into one row before its next message: a head that
+  says what it did last in the bot's own words, how many steps and how long, over a strip of
+  tiles — a picture it took, the site it opened, else a glyph for what it did — and the row
+  opens in place. A site's icon is round and wears no border, wherever it is drawn. A
   thread opens on its own bot's tab, which holds
   every participant; another bot's tab holds only its own lines and the messages that reached it,
   and the composer follows the open tab. Thursday is never invited and never drawn as a bot.
@@ -116,3 +117,28 @@ paths:
   user's pick); only the line steps aside (`roomOpen`), since two composers cannot share the
   foot of the screen. The room's list is a short card in the corner. What the line sends to
   Thursday is a call in writing (`.claude/rules/call.md`).
+
+# Taste
+
+- **A new shape starts from this app.** A face, a chat screen, a notice is drawn from the app's own
+  code and screens and judged by whether it belongs here, not by whether it is good on its own. A
+  first pass from generic UI — a dark theme, letter avatars, red badges — does not.
+- No dividers: groups are split by space.
+- Her lines run long, two or three lines beside her face; short ones wrap awkwardly and look empty.
+- An icon on a filled button is filled, not outlined. Buttons are fully round.
+- A trigger sits inside what it belongs to: the write button is inside the pill, not a circle
+  floating beside it, and it is not blue.
+- The button that calls her carries no phone glyph: one round blue button, and her face is a
+  button too. Cancel is small and set apart (the Esc hint), never a twin of the main button.
+- The app opens plainly. Ascii is her face alone — no full-screen wave, no boot curtain.
+- What a first-time user reads or hears is plain, everyday English with no jargon (a key is
+  "think of it as a password").
+- Signing in with ChatGPT is called "GPT Subscription" everywhere. The key step leads with it and
+  Vercel AI Gateway; the other providers wait behind "more" as a row of provider marks.
+- On the call screen the backend's thinking is one activity line ("Thinking about <title>",
+  shining) and no more: a summary body, a list of thoughts and a rail were each built and taken out.
+- A stopped job's error text stays as it came, in red; it is not softened into amber or a friendly
+  sentence.
+- Typing in a free field is a draft, not a value. It saves when an item is picked or Save is
+  pressed, never per keystroke or on blur, or a half-typed value lands in the database
+  (`components/ui/combobox.tsx` has this shape).

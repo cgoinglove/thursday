@@ -29,11 +29,15 @@ it covers is read, and any other agent should read the one for the area it chang
 
 | File | Covers |
 |---|---|
-| `.claude/rules/ui.md` | Every screen: colors, loaders, the thread, the pill, files under a message, the intro, the write line |
+| `.claude/rules/ui.md` | Every screen: colors, loaders, the thread, the pill, files under a message, the intro, the write line, taste |
 | `.claude/rules/call.md` | The call: one Thursday on two models, GPT-Live, relay into a call, a call in writing, `reach` |
-| `.claude/rules/model.md` | What a model sees: the prompt files, tool names, tool shape, `look_at` |
+| `.claude/rules/model.md` | What a model sees: the prompt files, tool names, tool shape, `look_at`, how to write for a model, providers |
 | `.claude/rules/bots.md` | Jobs and threads: runs, participants, sign-ins, presence, routines, compaction |
 | `.claude/rules/data.md` | Reads, writes, `queryKey`, errors, server → browser events, dates and paths on the wire |
+| `.claude/rules/seeds.md` | Seed bots' prompts, how a seed is tried before it is written, which skills come in |
+| `.claude/rules/verify.md` | Running the app to check it without touching anyone's data |
+| `.claude/rules/release.md` | What to check before a release, past what `pack.mts` gates |
+| `.claude/rules/docs.md` | The README, its Korean twin and `docs/how-it-works.md` |
 
 # Layout
 

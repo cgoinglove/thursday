@@ -487,9 +487,11 @@ function SpeakerTurn({
 }
 
 /**
- * A bot's work between its messages as one row: what it did, counted, once it
- * has moved on, and the step it is on while it is still at it. It opens in
- * place to the steps, stops and words beside them.
+ * Another bot's work between its messages, folded: a head that says what it did last, how
+ * much and how long (the step it is on while it is still at it), over a strip of tiles for
+ * the steps that finished — a picture it took, the site it opened, else what it did. The
+ * head opens it in place to the steps, stops and words beside them; a tile opens it on
+ * that step.
  */
 function WorkRow({
   lines,
@@ -504,8 +506,11 @@ function WorkRow({
   thread: ThreadView;
 }) {
   const [open, setOpen] = useState(false);
+  /** The step a tile opened, shown whole once the row unfolds. */
+  const [picked, setPicked] = useState<string | null>(null);
   const standing = trailing ? standingOf(thread, bot.name) : null;
   const counts = countsOf(lines);
+  const done = lines.filter((line) => line.tool?.results !== undefined);
   if (!standing && !counts) return null;
   const last = lines.findLast(
     (line) => line.kind === "tool" || line.kind === "say",
@@ -523,7 +528,10 @@ function WorkRow({
         type="button"
         disabled={!lines.length}
         aria-expanded={shown}
-        onClick={() => setOpen((was) => !was)}
+        onClick={() => {
+          setOpen((was) => !was);
+          setPicked(null);
+        }}
         className="flex min-w-0 items-center gap-2 rounded-xl px-2.5 py-1.5 text-left outline-none transition-colors enabled:hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         {standing === "running" && (
@@ -550,6 +558,23 @@ function WorkRow({
         )}
         {lines.length > 0 && <FoldArrow open={shown} />}
       </button>
+      {!shown && done.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1 px-2 pt-0.5 pb-1.5">
+          {done.map(
+            (line) =>
+              line.tool && (
+                <StepTile
+                  key={line.id}
+                  tool={line.tool}
+                  onOpen={() => {
+                    setPicked(line.id);
+                    setOpen(true);
+                  }}
+                />
+              ),
+          )}
+        </div>
+      )}
       {shown && (
         <div className="flex min-w-0 flex-col gap-0.5 pt-0.5">
           {runs(lines).map((run) =>
@@ -557,12 +582,13 @@ function WorkRow({
               run.lines.map(
                 (line) =>
                   line.tool && (
-                    // All start collapsed; a running call expands itself (bot-tool Frame).
+                    // All start collapsed but the one a tile opened; a running call
+                    // expands itself (bot-tool Frame)
                     <BotTool
                       key={line.id}
                       tool={line.tool}
                       threadId={thread.id}
-                      collapsed
+                      collapsed={line.id !== picked}
                     />
                   ),
               )
@@ -625,102 +651,23 @@ function OwnWork({
 }
 
 /**
- * A run of tool calls. Folded, which is how it starts, the finished ones are a strip of
- * tiles — a picture it took, the site it opened, else what it did — and only the step
- * still running is a row, so a job of forty steps is two lines and the tiles are seen
- * arriving. The head unfolds it into rows; a tile unfolds it with that step open.
+ * A run of the open tab's bot's own tool calls, every step a row and none of it folded:
+ * nobody opens anything to read what the bot on screen did (the user's pick). A row opens
+ * to what the step was given and what came back.
  */
 function Steps({ lines, threadId }: { lines: Chatter[]; threadId: string }) {
-  const [open, setOpen] = useState(false);
-  /** The step a tile opened, shown whole once the run unfolds. */
-  const [picked, setPicked] = useState<string | null>(null);
-  const steps = lines.filter((line) => line.tool);
-  const running = steps.filter((line) => line.tool?.results === undefined);
-  const done = steps.filter((line) => line.tool?.results !== undefined);
-
-  // One step is its own row: a strip of one tile hides more than it saves
-  if (steps.length <= 1) {
-    return (
-      <div className="flex w-full flex-col gap-0.5 rounded-2xl bg-muted/40 p-1">
-        {steps.map(
-          (line) =>
-            line.tool && (
-              <BotTool
-                key={line.id}
-                tool={line.tool}
-                threadId={threadId}
-                collapsed
-              />
-            ),
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className="flex w-full flex-col gap-0.5 rounded-2xl bg-muted/40 p-1">
-      <button
-        type="button"
-        onClick={() => {
-          setOpen((was) => !was);
-          setPicked(null);
-        }}
-        aria-expanded={open}
-        className="flex min-h-8.5 min-w-0 items-center gap-2 rounded-xl px-2.5 py-1 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
-        <FoldedWords
-          // What it did last, in its own words; while the first step still runs, nothing yet
-          words={done.length ? stepOf(done[done.length - 1]) : ""}
-          facts={[`${steps.length} steps`, tookOf(steps)]
-            .filter(Boolean)
-            .join(" · ")}
-          grow
-        />
-        <FoldArrow open={open} />
-      </button>
-      {open ? (
-        steps.map(
-          (line) =>
-            line.tool && (
-              <BotTool
-                key={line.id}
-                tool={line.tool}
-                threadId={threadId}
-                collapsed={line.id !== picked}
-              />
-            ),
-        )
-      ) : (
-        <>
-          {done.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1 px-2 pt-0.5 pb-1.5">
-              {done.map(
-                (line) =>
-                  line.tool && (
-                    <StepTile
-                      key={line.id}
-                      tool={line.tool}
-                      onOpen={() => {
-                        setPicked(line.id);
-                        setOpen(true);
-                      }}
-                    />
-                  ),
-              )}
-            </div>
-          )}
-          {running.map(
-            (line) =>
-              line.tool && (
-                <BotTool
-                  key={line.id}
-                  tool={line.tool}
-                  threadId={threadId}
-                  collapsed
-                />
-              ),
-          )}
-        </>
+      {lines.map(
+        (line) =>
+          line.tool && (
+            <BotTool
+              key={line.id}
+              tool={line.tool}
+              threadId={threadId}
+              collapsed
+            />
+          ),
       )}
     </div>
   );

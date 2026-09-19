@@ -946,16 +946,26 @@ function linesOf(message: StoredMessage, addressee: string): ThreadLine[] {
  * the output holds more. Asks for one line past the glance to know. Called for tool
  * rows and, for provider-run tools, assistant rows.
  */
+/** How a search names a page it read (search.tool): `title — url`, its date after it at most. */
+const PAGE_HEAD = /https?:\/\/\S+(?: · \d{4}-\d{2}-\d{2})?\s*$/;
+
 function resultLine(
   base: Omit<ThreadLine, "id" | "kind">,
   id: string,
   part: { toolCallId: string; toolName: string; output: unknown },
 ): ThreadLine {
-  const peek = resultParts(part.output, RESULT_LINES + 1);
+  // A search is glanced at by the pages it read, not by how the first of them begins:
+  // the row draws those pages (bot-tool `pagesOf`)
+  const search = part.toolName === TOOL_NAMES.web_search;
+  const peek = resultParts(
+    part.output,
+    search ? FULL_RESULT_LINES : RESULT_LINES + 1,
+  );
   const lines = peek.flatMap((result) =>
     result.type === "text" ? [result.text] : [],
   );
-  const glance = lines.slice(0, RESULT_LINES);
+  const pages = search ? lines.filter((line) => PAGE_HEAD.test(line)) : [];
+  const glance = (pages.length ? pages : lines).slice(0, RESULT_LINES);
   return {
     ...base,
     id,

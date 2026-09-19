@@ -1,7 +1,10 @@
 ---
 paths:
   - "features/ai/**"
-  - "features/memory/memory.edit.ts"
+  - "features/memory/**"
+  - "features/config/**"
+  - "features/thursday/open-work.ts"
+  - "skills/*/SKILL.md"
 ---
 
 # What the model sees
@@ -57,3 +60,65 @@ features/ai/              Everything the model sees. Composes domain query/schem
   result (`model.ts` `seesToolImages`); a call in writing holds it too, a spoken one cannot —
   its backend is answered through the page, in text. Past `LOOK.maxBytes` it says how to make
   a smaller copy instead of sending one.
+
+# Writing for a model
+
+This covers everything a model reads: prompts, tool descriptions, `.describe()`, the lines put into
+a call, a shipped `SKILL.md`.
+
+- **Short, and left to the model.** A prompt forces nothing but the app's own rules (where files go,
+  asking through a question message). A long explanation, or one that opens a single path, makes a
+  weak model simpler and a strong one lazier. One or two lines that matter beat a list; what loses
+  to the model three times becomes structure instead — a tool set, a cap, a `config.ts` knob.
+- **Each thing is said once, where it is acted on.** What a tool's schema already says comes out of
+  the prompt. A role prompt (Thursday, a bot) holds the role; how to sign in or pay lives in the
+  skill read while doing it (`skills/browser/SKILL.md`). When a new rule would contradict a role
+  prompt, the role prompt's sentence comes out rather than a rule going in.
+- **No order of tools.** A prompt that said to search the web before opening a browser left a bot
+  that only searched.
+- **Nothing the user can switch off is a path.** A system prompt never routes through a named
+  skill, a connector or a tool that hangs on a setting.
+- **A prohibition makes no capability.** Before deleting a sentence, look at what it did: remove one
+  that stated a capability and the model's habit of refusing takes its place (a bot turned down a
+  payment four times). State capabilities as facts and leave the judgement to the bot.
+- **The end is the thing asked for.** Asked to act, a run ends with the act done, not with a
+  report about it.
+- **The style is Claude Code's own**: short imperative English and a full `.describe()` on every
+  field. `IMPORTANT` marks one line, the call's ending rule; marking many weakens them all.
+- **Optional fields are `.nullish()`.** `.nullable()` fails hard when the key is left out, and a
+  cheap model pays for it in retries (four failed tool calls in ten).
+- **One mistake in one conversation is no reason.** No sentence, example or structure aims at it:
+  this ships to everyone, and every call pays for it. A local database is evidence only when it
+  shows a general principle is wrong.
+- **Thursday hides nothing.** No line tells her to keep something from the user or to avoid a
+  word: she is candid, an assistant who does what she is asked. Point out a line like that rather
+  than adding another.
+- **The voice already knows how to talk.** Which language, how long a turn, what to say when she
+  did not catch something: GPT-Live does these on its own. The only exceptions are the guide's
+  lines under `## Always` and the browser's locale for the first call's greeting.
+- **A taste the model keeps refusing is the user's line to write.** How to address them and the
+  like go in Settings › Thursday › Voice instructions; the prompt is not pushed harder.
+
+## Memory
+
+- **What the call is told about writing memory is one paragraph.** A list of rules makes the voice
+  careful, and a careful voice saves nothing.
+- **No memory pass when a call ends.** That is the moment a browser most often leaves, and
+  `presence` stops the run halfway through.
+- **The model that just worked never rewrites the whole state.** Asked to, it rebuilt the note
+  around this turn's subject and dropped the old lines, every time. It says what to change; a
+  separate call whose only job is the rewrite does it, and one queue keeps them in order.
+
+# Providers
+
+- **An expensive feature has no fallback provider.** Images, video, voice, a pass that re-reads a
+  separate context, search on the user's behalf: with no model picked for it, the feature is not
+  there — absent beats slow or costly. The one exception is the bots' default model, without which
+  no bot runs.
+- **A model's habits do not move with prompt text.** One that never writes a note on its own does
+  not start because a sentence asks it to; the lever is which model runs. Before blaming a model
+  for never filling a tool field, check that the test gave it the case the field is for.
+- **No borrowed subscription but ChatGPT's.** Claude's terms forbid a third party keeping its tokens,
+  and running on a Claude subscription at all means handing the loop to a harness or the Claude
+  Code provider. Gemini's consumer sign-in from a third-party app puts the account at risk. These
+  terms change often: read them again before building near them.

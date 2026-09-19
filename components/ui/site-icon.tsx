@@ -20,7 +20,7 @@ export function hostOf(url: string): string | null {
  */
 export function SiteIcon({
   host,
-  className = "size-3.5 rounded-[4px]",
+  className = "size-3.5 rounded-full",
   fallback,
 }: {
   host: string;
