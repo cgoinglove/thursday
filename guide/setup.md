@@ -68,10 +68,13 @@ a password, on this machine and outside the folder the bots work in.
 ## Its own window
 
 The app runs in a browser tab, and a tab is easy to lose: closed, it takes the wake phrase,
-the shortcut and her calls with it. Chrome and Edge can install it instead — the install
-icon at the right of the address bar, or the menu's "Install Thursday" — which gives it its
-own window and its own icon in the Dock or the taskbar, and it can be set to open when the
-computer starts. It is the same local app either way; nothing moves anywhere.
+the shortcut and her calls with it. Chrome and Edge can install it instead, which gives it
+its own window and its own icon in the Dock or the taskbar, and it can be set to open when
+the computer starts. The call screen offers it once, under the buttons at its top right —
+**Install**, or **Not now** and it does not ask again — and **Install as an app** stays at the
+foot of the Settings list for as long as it is not installed. Safari on a Mac does it from
+its File menu, **Add to Dock**; Firefox cannot. It is the same local app either way; nothing
+moves anywhere.
 
 The app comes back on the same address every time it starts. If that port is taken by
 something else one day, it says so where it was started and serves on the next one for that

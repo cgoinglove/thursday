@@ -43,6 +43,7 @@ import { setTheme, useTheme } from "@/hooks/use-theme";
 import { THEMES, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { type SettingSectionId, useSettingsStore } from "../settings.store";
+import { InstallButton } from "./install-app";
 import {
   SettingColumn,
   SettingPanesSkeleton,
@@ -422,7 +423,8 @@ export function Settings({ children }: { children?: ReactElement }) {
               </Fragment>
             ))}
 
-            <div className="mt-auto px-1 pt-3">
+            <div className="mt-auto space-y-2 px-1 pt-3">
+              <InstallButton />
               <ThemePicker />
             </div>
           </nav>

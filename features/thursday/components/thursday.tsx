@@ -42,6 +42,7 @@ import { toolIcon } from "@/features/bot/components/bot-tool";
 import { installSeedBots } from "@/features/bot/seed-bots";
 import { VoiceKeys } from "@/features/config/components/voice-key";
 import { type ConfigStatus, isConfigSet } from "@/features/config/config.const";
+import { InstallNudge } from "@/features/settings/components/install-app";
 import { SECTIONS, Settings } from "@/features/settings/components/settings";
 import {
   type SectionAlert,
@@ -185,8 +186,11 @@ function CallScreen({
   const ringWord = useRingWord(calling && face?.kind === "ascii");
   return (
     <div className="relative flex h-full flex-col">
-      <div className="absolute top-5 right-5 z-10">
+      <div className="absolute top-5 right-5 z-10 flex flex-col items-end gap-3">
         <SettingsCorner />
+        <InstallNudge
+          hidden={status !== "idle" || ringing !== null || writing}
+        />
       </div>
 
       {/* Top padding in vh, like the face itself, so the face+text column sits below center */}
