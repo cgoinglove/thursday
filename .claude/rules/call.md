@@ -46,9 +46,8 @@ paths:
   acknowledgement says the text arrived, not that anyone heard it. Transcript fragments have timestamps, not final
   turns: caption groups remain revisable and are saved with their fragments. Close with
   `session.close` and wait for `session.closed` before releasing transport resources, with a
-  bounded timeout. The full contract is `docs/live-calls.md`. One experiment sits behind a
-  constant that is off (`CALL_NUDGE`): the page starting a backend turn the voice did not hand
-  over, with the same `response.create` that continues delegated work.
+  bounded timeout. The full contract is `docs/live-calls.md`. Whether a turn goes to the
+  backend is the voice's own decision; the page never starts one the voice kept.
 - **A call in writing.** The write line opens on Thursday, and what is sent to her is a call in
   writing (`thursday.text`, `use-text-call`): the call's backend alone — its prompt but for the
   ending rule and the last chapter, its memory, its tools less the page's own (`end_call`, `emote`:

@@ -4,13 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { toast } from "@/components/ui/toast";
-import {
-  CALL_END,
-  CALL_ENDED_MS,
-  CALL_IDLE,
-  CALL_NUDGE,
-  CALL_RELAY,
-} from "@/config";
+import { CALL_END, CALL_ENDED_MS, CALL_IDLE, CALL_RELAY } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { acceptThreadRelaysAction } from "@/features/bot/bot.action";
 import type { Bot, Thread } from "@/features/bot/bot.schema";
@@ -216,8 +210,6 @@ export function useThursday(
   const onLine = useRef<string[]>([]);
   /** That update's relay rows, accepted once she has voiced it. */
   const onLineRows = useRef<number[]>([]);
-  /** The experiment's timer (config CALL_NUDGE): a backend turn the page starts itself. */
-  const nudge = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** When her voice was last heard, for letting a goodbye finish (CALL_END). */
   const voiced = useRef(0);
   /** The hang-up waiting on her goodbye once the backend called end_call. */
@@ -957,19 +949,6 @@ export function useThursday(
                   .sort((a, b) => a.seq - b.seq)
                   .slice(-KEEP_MESSAGES),
               );
-            }
-            // The experiment (config CALL_NUDGE): their words have settled, and if the voice
-            // hands nothing over in a moment the page starts the backend turn itself
-            if (CALL_NUDGE.on && turn.done && turn.role === "user" && words) {
-              if (nudge.current) clearTimeout(nudge.current);
-              const spoke = stirred.current;
-              nudge.current = setTimeout(() => {
-                nudge.current = null;
-                // they went on talking, or the backend has the turn already
-                if (stirred.current !== spoke || thinking.current !== null)
-                  return;
-                probe("nudge", { sent: session.current?.nudge() ?? false });
-              }, CALL_NUDGE.waitMs);
             }
             if (turn.done) {
               persist(saving, () =>
