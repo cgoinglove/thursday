@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import {
   ALPHA_TOP,
   CHAR_RATE,
+  EMOJI_CHAR_RATE,
   EMOJI_MIN_LEVEL,
   EMOJI_POOL,
   EMOJI_RATIO,
@@ -118,7 +119,11 @@ export function ConnectWave({
     // her ink is the page's foreground: black on light, white on dark
     ctx.fillStyle = getComputedStyle(element).color;
     const top = RAMP.length - 1;
-    const sprinkle = charset !== "ascii";
+    // the same glyphs as her face: all emoji, emoji over the bright ascii, or ascii alone
+    const emojiAt = (c: (typeof cells)[number], level: number) =>
+      charset === "emojiOnly" ||
+      (charset === "emoji" && c.roll < EMOJI_RATIO && level >= EMOJI_MIN_LEVEL);
+    const rate = charset === "emojiOnly" ? EMOJI_CHAR_RATE : CHAR_RATE;
 
     const t0 = performance.now();
     let frame = 0;
@@ -147,18 +152,19 @@ export function ConnectWave({
         }
         const level = Math.round(v * top);
         if (level < 1) continue;
-        ctx.globalAlpha = ALPHA_TOP * (level / top);
-        if (sprinkle && level >= EMOJI_MIN_LEVEL && c.roll < EMOJI_RATIO / 2) {
-          ctx.globalAlpha = Math.min(1, (1.2 * level) / top);
+        const turn = Math.floor(t * rate + c.seed * 10);
+        if (emojiAt(c, level)) {
+          // emoji keep their own colour, so only alpha varies, as on her face
+          ctx.globalAlpha = 0.35 + (level / top) * 0.65;
           ctx.fillText(
-            EMOJI_POOL[Math.floor(hash(c.seed * 97, 3) * EMOJI_POOL.length)],
+            EMOJI_POOL[Math.floor(hash(c.seed * 97, turn) * EMOJI_POOL.length)],
             c.x,
             c.y,
           );
           continue;
         }
+        ctx.globalAlpha = ALPHA_TOP * (level / top);
         const set = RAMP[level];
-        const turn = Math.floor(t * CHAR_RATE + c.seed * 10);
         ctx.fillText(
           set[Math.floor(hash(c.seed * 131, turn) * set.length)],
           c.x,
