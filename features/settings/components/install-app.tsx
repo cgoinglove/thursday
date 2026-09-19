@@ -1,6 +1,6 @@
 "use client";
 
-import { AppWindowMac } from "lucide-react";
+import { AppWindowMac, ArrowUpRight } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -126,8 +126,9 @@ export function InstallNudge({ hidden }: { hidden: boolean }) {
 }
 
 /**
- * At the foot of the settings nav, for as long as the browser offers it: drawn as one of the
- * nav's own rows, since it sits among them, with what it opens said where the badge would be.
+ * At the foot of the settings nav, for as long as the browser offers it: a row like the nav's
+ * own, in the brand colour with an arrow, because it is an action that leaves the page rather
+ * than a section to open (the user's pick).
  */
 export function InstallButton() {
   const can = useOffer() !== null;
@@ -135,14 +136,12 @@ export function InstallButton() {
   return (
     <Button
       variant="ghost"
-      className="w-full justify-start text-muted-foreground"
+      className="group/install w-full justify-start text-brand hover:text-brand"
       onClick={() => void install()}
     >
       <AppWindowMac className="mr-1" />
       <span className="truncate text-sm">Install app</span>
-      <span className="ml-auto font-mono text-[10px] text-muted-foreground/60">
-        own window
-      </span>
+      <ArrowUpRight className="ml-auto transition-transform group-hover/install:translate-x-px group-hover/install:-translate-y-px" />
     </Button>
   );
 }
