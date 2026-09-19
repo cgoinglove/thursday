@@ -1,6 +1,6 @@
 ---
 name: interactive-page
-description: "Diagrams, charts and pages people use: a quick page (a comparison, a short report laid out as one HTML file, written in seconds); a diagram of how something is built or flows (architecture, workflow, sequence, data flow, states) drawn by the archify engine; a chart of numbers in a report; a picture book that explains anything simply, as a page, a PDF or a video that reads itself aloud; or an interactive page (controls, tabs, a calculator) as one self-contained HTML file."
+description: "Diagrams, charts and pages people use: a quick page (a comparison, a short report laid out as one HTML file, written in seconds); a diagram of how something is built or flows (architecture, workflow, sequence, data flow, states) drawn by the archify engine; a chart of numbers in a report; or an interactive page (controls, tabs, a calculator) as one self-contained HTML file."
 license: Complete terms in LICENSE.txt
 ---
 
@@ -31,13 +31,6 @@ caption, from the first version: download them from the pages you read into the 
 
 Take the kit below instead when the page is a tool — controls that keep state, a calculator,
 charts that respond — and markdown when it is only a few paragraphs.
-
-## A picture book
-
-Explaining something to someone who knows nothing about it, or asked for a picture book or an
-explainer video: `node <skill dir>/scripts/page.mjs book <name>` — one picture and at most two
-short lines a page, one HTML file that is also its PDF and, read aloud, its mp4. Read
-`references/picture-book.md` first.
 
 ## A page
 

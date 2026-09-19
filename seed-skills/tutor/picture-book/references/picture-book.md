@@ -19,13 +19,9 @@ Write for someone who knows nothing about the topic: short words, one clause a
 line, no jargon to explain jargon. Most topics fit in six to ten pages; the
 first is the cover, asking the question the book answers.
 
-**Ask which one, once.** When the request does not say a page, a PDF or a video, send
-Thursday one `send_message` question before writing anything, with the options `A page`,
-`A PDF` and `A video that reads itself`. A video spends a speech model on every page.
-
 ## Steps
 
-1. `node <skill dir>/scripts/page.mjs book <name>` writes `<name>.html` in your
+1. `node <skill dir>/scripts/book.mjs new <name>` writes `<name>.html` in your
    folder under `artifacts/` with the style and page turning inlined (light and
    dark, phone, print), and prints its path.
 2. Write the whole story before any picture: one row per page, its picture, its
@@ -90,7 +86,7 @@ sheet, the words under the picture.
    (`playwright-cli open` when none is):
 
    ```bash
-   node <skill dir>/scripts/page.mjs video <name> <audio 1> <audio 2> … <audio N>
+   node <skill dir>/scripts/book.mjs video <name> <audio 1> <audio 2> … <audio N>
    ```
 
    It screenshots every page at 1920x1080 (`--size 1080x1920` for a vertical

@@ -9,11 +9,15 @@ import {
   rmSync,
   statSync,
 } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { basename, dirname, join } from "node:path";
 
-const SKILLS = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const RENDER = join(SKILLS, "browser", "scripts", "render.mjs");
+// The shipped browser skill's renderer, reached the way every kit script reaches it
+const RENDER = join(
+  process.env.THURSDAY_SKILLS ?? "",
+  "browser",
+  "scripts",
+  "render.mjs",
+);
 // Silence after each page's voice before the next page turns
 const PAUSE_S = 0.6;
 const FPS = 30;
@@ -68,6 +72,10 @@ function duration(ffmpeg, file, Stop) {
  * `voices`, one audio file per page in page order, into `<book>.mp4`.
  */
 export function bookVideo({ book, voices, size, workspace, shown }, Stop) {
+  if (!process.env.THURSDAY_SKILLS)
+    throw new Stop(
+      "THURSDAY_SKILLS is not set: run this from a bot's shell, where it names the shipped skills.",
+    );
   if (!/^\d+x\d+$/.test(size))
     throw new Stop(`--size is width x height, like 1920x1080; not "${size}".`);
   const missing = voices.filter((file) => !existsSync(file));

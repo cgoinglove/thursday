@@ -78,11 +78,12 @@ of itself. Asking her on a call to show a result opens that file on the screen. 
 stay under **Settings › Files**, one shelf per bot. Its second tab, **All files**, is the
 whole folder, for looking around rather than for the results.
 
-Asked to explain something simply, like a picture book, a bot makes one: a picture and a line
+Asked to explain something simply, **Tutor** makes a picture book: a picture and a line
 or two a page, turned by swiping, the arrow keys, or tapping the right or left of the page. The
 same book can be a PDF, or a video that reads itself aloud (landscape, or portrait when asked);
-when the request does not say which, the bot asks first. The video needs a speech model in **Settings › Models**, and a drawn
-picture an image model; without one the bot asks for it and stops.
+when the request does not say which, it asks first. It remembers what the user already
+knows and how they liked being taught. The video needs a speech model in **Settings › Models**, and a drawn
+picture an image model; without one it asks for it and stops.
 
 A bot keeps its own memory — what a job taught it, how the user asked it to work — in its own
 folder, listed on its page in Settings › Bots.
