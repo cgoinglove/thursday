@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { startChatGptSignIn } from "@/features/ai/chatgpt";
 import { LIVE_PROVIDER } from "@/features/ai/live.schema";
+import { TELEGRAM_TOKEN_KEY } from "@/features/reach/reach.schema";
 import { keyRefusal } from "@/lib/live/live.server";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
@@ -38,12 +39,22 @@ export const setConfigAction = serverAction(
         publicError(`${LIVE_PROVIDER.label} did not take it — ${refused}`);
     }
     await writeConfig(parsed.key, parsed.value);
+    await tokenChanged(parsed.key);
   },
 );
 
 export const removeConfigAction = serverAction(async (key: unknown) => {
-  await removeConfig(KeySchema.parse(key));
+  const parsed = KeySchema.parse(key);
+  await removeConfig(parsed);
+  await tokenChanged(parsed);
 });
+
+/** A new bot token is a new bot to listen to, and none is nothing to listen for (features/reach). */
+async function tokenChanged(key: string) {
+  if (key !== TELEGRAM_TOKEN_KEY) return;
+  const { startReach } = await import("@/features/reach/reach");
+  await startReach(true);
+}
 
 /**
  * Starts signing in to ChatGPT and returns the page to open (ai/chatgpt). The answer lands on

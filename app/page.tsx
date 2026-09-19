@@ -1,6 +1,7 @@
 import { rollSeedIcons } from "@/features/bot/bot.seed";
 import { isCallable } from "@/features/config/config.query";
 import { Intro } from "@/features/intro/components/intro";
+import { ReachAsk } from "@/features/reach/components/reach-ask";
 import { Boot } from "@/features/thursday/components/boot";
 import { Thursday } from "@/features/thursday/components/thursday";
 import { hasAnyCall } from "@/features/thursday/thursday.query";
@@ -25,6 +26,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         forced={intro !== undefined}
         icons={rollSeedIcons()}
       />
+      <ReachAsk />
       <Boot />
     </div>
   );

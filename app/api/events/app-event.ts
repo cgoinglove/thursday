@@ -16,6 +16,8 @@ export type AppEvent =
   | { type: "mcp" }
   /** Signal: a sign-in was written away from the settings screen (ai/chatgpt's sign-in answer). */
   | { type: "config" }
+  /** Signal: who may write from a phone changed, or someone is asking to (features/reach). */
+  | { type: "reach" }
   /**
    * Data: a job finished. `words` opens its answer as plain text; `paths` are the
    * files it named, workspace-relative with the one worth reading first at the
@@ -51,6 +53,7 @@ export const SIGNALS: Record<Signal, true> = {
   memory: true,
   mcp: true,
   config: true,
+  reach: true,
 };
 
 export const isSignal = (

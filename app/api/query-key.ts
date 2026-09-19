@@ -157,6 +157,8 @@ export const queryKey = {
    * {toolCallId, callId, name, input}; one JSON Result per call, abortable.
    */
   toolCall: "/api/thursday/tool-call",
+  /** Who may write from a phone, and who is asking to (features/reach). */
+  reach: "/api/reach",
   /** POST, one turn of a call in writing, streamed as she answers (thursday.text). */
   textCall: "/api/thursday/text",
   /** POST, an edit from the memory screen, streamed as it runs (memory.edit). */

@@ -100,7 +100,8 @@ seed-skills/<seed>/       A seed bot's own skills (read-only), copied into `bots
 Domains today: `thursday` (the call), `bot` (bots and the jobs they run), `routine` (jobs that start
 by themselves), `memory`, `workspace` (the
 files bots work in) and `artifact` (the finished ones), `skills`, `connectors` (MCP servers), `config`
-(keys and models), `intro` (first run), and `settings` (the settings shell only).
+(keys and models), `reach` (writing to her from a phone), `intro` (first run), and `settings` (the
+settings shell only).
 
 Two roots (`config.ts` `APP_DIR` / `DATA_DIR`): the app's files (build, migrations, bundled skills) and
 the user's files (DB, workspace, installed skills). Both default to `process.cwd()` and can be moved
@@ -169,6 +170,16 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   Requests to the same bot run sequentially. Messages are asynchronous: a waiting A can handle a question from B in its own
   context, but a bot waiting on the user's answer runs nothing until it arrives; its inbox holds. Only exchanged messages cross participant contexts. `room.query` owns durable inboxes,
   continuation claims and return routes; `bot.runner` owns live promises.
+- **A phone reaches her through a chat the server asks, never a port.** `reach` long-polls the
+  user's own Telegram bot (`telegram.ts` is all that knows the service) and answers with
+  `thursday.text` `answerInWriting`: the run a page's call in writing streams, answered whole,
+  with the conversation held by the server instead of a page and kept as the same call row. One
+  person may write, and only the computer's screen lets them in (`reach-ask`): whoever writes to
+  her can start work here. Open work goes to the phone once the computer has had
+  `REACH.notifyAfterMs` to tell it — as a turn of that conversation that is not the user's, its
+  relay rows accepted once she has answered, a question's options as buttons that answer the bot
+  directly — and progress never does. Her settings live in the browser, so a phone runs on the
+  defaults. `scripts/reach.test.mts` runs it against a stubbed service.
 - **No browser, nothing runs — unless the user said otherwise.** `presence` (app/api/events) says
   whether a browser is on the stream; when the last one has been gone a while, jobs stop and wait
   and open calls close. When one comes back, only jobs paused for browser absence pick themselves

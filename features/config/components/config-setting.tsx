@@ -11,6 +11,7 @@ import {
   KeyRound,
   type LucideIcon,
   Search,
+  Smartphone,
   TriangleAlert,
 } from "lucide-react";
 import { useState } from "react";
@@ -46,6 +47,8 @@ import {
   groupSatisfied,
   isConfigSet,
 } from "@/features/config/config.const";
+import { ReachState } from "@/features/reach/components/reach-state";
+import { TELEGRAM_TOKEN_KEY } from "@/features/reach/reach.schema";
 import {
   SettingChoiceRows,
   SettingDialogContent,
@@ -62,7 +65,10 @@ import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
 
 /** A key that is not a provider's still wears a mark, or its row is a hole in the column. */
-const KEY_MARKS: Record<string, LucideIcon> = { [EXA_API_KEY]: Search };
+const KEY_MARKS: Record<string, LucideIcon> = {
+  [EXA_API_KEY]: Search,
+  [TELEGRAM_TOKEN_KEY]: Smartphone,
+};
 
 /** One mark per studio kind, drawn as the output (transcription is captions, not a mic). */
 const KIND_MARKS: Record<MediaKind, LucideIcon> = {
@@ -72,7 +78,7 @@ const KIND_MARKS: Record<MediaKind, LucideIcon> = {
   transcription: Captions,
 };
 
-/** The order the one screen reads in: what a call needs, how bots get a model, what runs on it, how things are looked up. */
+/** The order the one screen reads in: what a call needs, how bots get a model, what runs on it, how things are looked up, how she is reached from away. */
 const ORDER: ConfigGroup["id"][] = [
   "voice",
   "easy",
@@ -80,6 +86,7 @@ const ORDER: ConfigGroup["id"][] = [
   "bots",
   "studio",
   "search",
+  "phone",
 ];
 
 /**
@@ -167,6 +174,7 @@ export function ModelsKeysSetting() {
               )}
             </SettingItems>
           )}
+          {group.id === "phone" && <ReachState />}
         </SettingGroup>
       ))}
     </SettingScreen>

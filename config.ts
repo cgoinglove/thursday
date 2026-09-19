@@ -86,6 +86,34 @@ export const CALL_IDLE = {
 };
 
 /**
+ * Reaching Thursday from a phone (features/reach): a chat app the server asks for what was
+ * written, so no port is opened and nothing outside can call in.
+ * - `pollSeconds`  how long one ask waits for a message before it is asked again. The chat
+ *   service holds the request open, so longer is fewer requests, not slower answers.
+ * - `retryMs`  the wait after an ask that failed (no network, the service down).
+ * - `idleMs`  how long nothing is written before the conversation is closed as a call. What
+ *   is written next opens a new one, which reads this one back under Earlier calls. Shorter
+ *   and an evening is many calls; longer and her context carries hours of turns, and a
+ *   finished thread raises no desktop notice meanwhile (an open call is taken to be listening).
+ * - `notifyAfterMs`  how long open work — a bot's question, an ending nobody has seen —
+ *   waits for the computer before it goes to the phone. A call on the page tells it, or the
+ *   user opens it, and then it never goes; shorter and the phone buzzes for what is already
+ *   on screen in front of them.
+ * - `chars`  how much goes in one chat message; a longer answer goes as several.
+ * - `files`  how many of the files her answer names are sent along with it.
+ * - `fileBytes`  the largest file sent; the service refuses more.
+ */
+export const REACH = {
+  pollSeconds: 50,
+  retryMs: 5_000,
+  idleMs: 10 * 60_000,
+  notifyAfterMs: 60_000,
+  chars: 3_500,
+  files: 3,
+  fileBytes: 45 * 1024 * 1024,
+};
+
+/**
  * A call-back rings on the call screen instead of opening the line (use-call-ring).
  * - `ringMs`  how long it rings before it stops by itself. What rang stays in the room's
  *   inbox, and only work that changes after the ring starts rings again.

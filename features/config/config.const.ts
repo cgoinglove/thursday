@@ -8,6 +8,7 @@ import {
   TEXT_MODEL_PROVIDER_LIST,
   type TextModelProviderId,
 } from "@/features/ai/model.schema";
+import { TELEGRAM_TOKEN_KEY } from "@/features/reach/reach.schema";
 
 /**
  * Every config key the app reads, derived from the provider records. Values
@@ -48,6 +49,7 @@ const CONFIG_GROUP_IDS = [
   "easy",
   "text",
   "search",
+  "phone",
   "bots",
   "studio",
 ] as const;
@@ -217,6 +219,20 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
         key: EXA_API_KEY,
         label: "Exa",
         hint: "web search in one call — dashboard.exa.ai",
+      },
+    ],
+  },
+  {
+    id: "phone",
+    title: "phone",
+    hint: "write to Thursday from a chat app — nothing is opened to the outside",
+    section: "keys",
+    require: "none",
+    entries: [
+      {
+        key: TELEGRAM_TOKEN_KEY,
+        label: "Telegram",
+        hint: "a bot token from @BotFather — then write to your bot, and allow it here",
       },
     ],
   },

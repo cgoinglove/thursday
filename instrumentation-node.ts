@@ -79,6 +79,10 @@ export async function boot() {
   );
   startRoutineClock();
 
+  // Someone writing from a phone is answered from here on, when a bot token is set
+  const { startReach } = await import("@/features/reach/reach");
+  void startReach().catch((cause) => logger.error("start reach", cause));
+
   // The launcher forwards shutdown signals so pending work records its manual resume boundary.
   if (process.env.NEXT_MANUAL_SIG_HANDLE) {
     let stopping = false;
