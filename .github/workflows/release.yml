@@ -43,7 +43,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # Signs the package with a link back to this commit; npm shows the badge.
+      # npm trusts this run itself (trusted publishing, set on the package's
+      # npm settings for this repository and this file), so no token is stored;
+      # the same identity signs the package with a link back to this commit.
       id-token: write
     steps:
       - uses: actions/checkout@v7
@@ -76,6 +78,7 @@ jobs:
         env:
           RELEASED: ${{ needs.prepare.outputs.version }}
 
+      # Trusted publishing needs npm 11.5.1 or later, whatever the Node release ships.
+      - run: npm install -g npm@11
+
       - run: npm publish ./dist --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
