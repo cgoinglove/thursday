@@ -43,7 +43,7 @@ export function Segmented<T extends string>({
             className={cn(
               "flex h-7 items-center justify-center gap-1.5 rounded-full px-3 text-[12.5px] whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
               picked
-                ? "bg-primary font-medium text-primary-foreground"
+                ? "bg-brand font-medium text-brand-foreground"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >

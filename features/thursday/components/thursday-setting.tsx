@@ -405,7 +405,7 @@ function BackendModelPicker({
               className={cn(
                 "min-w-0 space-y-0.5 rounded-lg border px-3 py-2.5 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
                 picked
-                  ? "border-foreground bg-muted/40"
+                  ? "border-brand bg-brand/4"
                   : "border-border/60 hover:bg-muted/50",
               )}
             >
@@ -413,7 +413,7 @@ function BackendModelPicker({
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">
                   {model.label}
                 </span>
-                {picked && <Check className="size-3.5 shrink-0" />}
+                {picked && <Check className="size-3.5 shrink-0 text-brand" />}
               </span>
               <span className="block truncate font-mono text-[11px] text-muted-foreground">
                 {model.id} · {model.tier}
@@ -714,7 +714,7 @@ function Slider({
         {...range}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="min-w-0 flex-1 accent-foreground"
+        className="min-w-0 flex-1 accent-brand"
       />
       <span className="w-10 shrink-0 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
         {format(value)}
@@ -762,7 +762,7 @@ function Captions({
                 className={cn(
                   "min-w-0 space-y-3 rounded-xl border p-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
                   picked
-                    ? "border-foreground"
+                    ? "border-brand bg-brand/4"
                     : "border-border/60 hover:bg-muted/50",
                 )}
               >
@@ -776,7 +776,7 @@ function Captions({
                       {CAPTION_LABEL[view].hint}
                     </span>
                   </span>
-                  {picked && <Check className="size-4 shrink-0" />}
+                  {picked && <Check className="size-4 shrink-0 text-brand" />}
                 </span>
               </button>
             );

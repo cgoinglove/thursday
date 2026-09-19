@@ -29,11 +29,12 @@ paths:
   screen (the user's pick): what it asks for (`Button variant="brand"`, round; the write line's
   send), Thursday herself (her caption dot), and whatever else there most needs the eye — in the
   pill, a new result's label and count, and an answer button outlined in it. It stays rare so it
-  keeps meaning that. What is on or picked — a switch, a radio, a tick, a card's
-  border, a chip or a segment that fills — is black (`primary`, `foreground`), and what is not is
-  a hairline or muted words, so nothing picked has to be read twice; a label beside it is muted:
-  a settings screen holds a dozen of them, and blue on each is no point at all. Never a surface,
-  never a status — a green beside it would read as a second brand.
+  keeps meaning that. What is on or picked is blue too (the user's pick) — a switch, a radio, a
+  slider, a segment or a chip that fills, a picked card's border and its tick — and what is not
+  is a hairline or muted words, so nothing picked has to be read twice; a label beside it is
+  muted. Buttons stay black (`primary`): blue says what is set, black what to press. A tick
+  that reports (saved, done, a key set) is not a pick and stays black. Never a surface, never a
+  status — a green beside it would read as a second brand.
 - What she is doing on a call is one line under her face, each drawn for at least
   `CALL_LINE.dwellMs` (`useDwell`). With captions down the sides the tool lines stand on her
   side instead, under her words (`WorkStack`): the last three, older ones fainter, no rule and

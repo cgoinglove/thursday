@@ -424,7 +424,7 @@ function SeedRows({
               owned
                 ? "opacity-45 ring-border/60"
                 : on
-                  ? "ring-foreground"
+                  ? "ring-brand"
                   : "ring-border/60",
             )}
           >
@@ -472,7 +472,7 @@ function SeedRows({
                 className={cn(
                   "grid size-5 shrink-0 place-items-center rounded-full transition-colors",
                   on
-                    ? "bg-foreground text-background"
+                    ? "bg-brand text-brand-foreground"
                     : "ring-1 ring-border/60 ring-inset",
                 )}
               >
@@ -1334,7 +1334,7 @@ function MarkPicker({
             className={cn(
               "rounded-md px-2 py-1 font-mono text-[11px] capitalize transition-colors",
               icon.shape === shape
-                ? "bg-foreground text-background"
+                ? "bg-brand text-brand-foreground"
                 : "bg-muted text-muted-foreground hover:text-foreground",
             )}
           >
@@ -1350,7 +1350,7 @@ function MarkPicker({
           className={cn(
             "rounded-md px-2 py-1 font-mono text-[11px] transition-colors",
             icon.outline
-              ? "bg-foreground text-background"
+              ? "bg-brand text-brand-foreground"
               : "bg-muted text-muted-foreground hover:text-foreground",
           )}
         >

@@ -901,7 +901,7 @@ function Pill({
       className={cn(
         "inline-flex h-8 items-center justify-center gap-1.5 rounded-full px-3.5 text-[13px] whitespace-nowrap outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
         picked
-          ? "bg-primary font-medium text-primary-foreground"
+          ? "bg-brand font-medium text-brand-foreground"
           : "text-foreground ring-1 ring-border ring-inset hover:bg-muted",
         className,
       )}
