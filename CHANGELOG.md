@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.11.0...thursday-agent-v0.12.0) (2026-09-19)
+
+
+### Features
+
+* **keys:** a key's box says how it begins and where to get one ([0f056ac](https://github.com/cgoinglove/thursday/commit/0f056ac5fcd61f00543a57d985a4df567e90a032))
+
 ## [0.11.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.10.0...thursday-agent-v0.11.0) (2026-09-19)
 
 
