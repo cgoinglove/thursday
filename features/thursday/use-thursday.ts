@@ -582,7 +582,8 @@ export function useThursday() {
     latest.current = threads;
   }, [threads]);
 
-  // The user acted on a thread on screen; she may have just read that question and must not ask again
+  // The user acted on screen: she may have just read that question and must not ask again,
+  // and a file put down is one she can be asked about. Facts, never what to do with them
   useEffect(
     () =>
       screenActs.subscribe((act) => {
@@ -590,7 +591,9 @@ export function useThursday() {
         outbox.send(
           act.kind === "answered"
             ? `The user sent a message on screen to ${act.recipient ?? "the coordinator"} in thread "${act.label}" (${act.id})${act.replyTo ? `, replying to ${act.replyTo}` : ""}: ${act.answer}. It has reached that participant.`
-            : `The user stopped thread "${act.label}" on screen. It is no longer running.`,
+            : act.kind === "stopped"
+              ? `The user stopped thread "${act.label}" on screen. It is no longer running.`
+              : `The user put ${act.paths.length === 1 ? "a file" : `${act.paths.length} files`} down on screen, kept on this computer at ${act.paths.join(", ")}.`,
         );
       }),
     [outbox],

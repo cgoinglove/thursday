@@ -282,9 +282,10 @@ export function lastSaid(thread: ThreadView): Chatter | null {
 }
 
 /**
- * What the screen did to a thread. Announced so the call can hear it: a poll
- * cannot tell a screen answer from a voice answer, and a cancel is never relayed
- * (bot.runner cancelThread marks it seen).
+ * What the user did on screen that an open call cannot see for itself. Announced so the
+ * call can hear it: a poll cannot tell a screen answer from a voice answer, a cancel is
+ * never relayed (bot.runner cancelThread marks it seen), and a file put down is nowhere
+ * in the conversation until somebody says so.
  */
 type ScreenAct =
   /** Answered a waiting thread, interjected into a running one, or continued a finished one. */
@@ -297,7 +298,9 @@ type ScreenAct =
       replyTo?: string;
     }
   /** Stopped the thread. */
-  | { kind: "stopped"; id: string; label: string };
+  | { kind: "stopped"; id: string; label: string }
+  /** Handed files over through the write line; they are kept at these workspace paths. */
+  | { kind: "gave"; paths: string[] };
 
 /** Drafts and selected recipients survive switching threads, independently for each participant. */
 const drafts = new Map<string, Map<string, string>>();

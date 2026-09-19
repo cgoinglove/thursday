@@ -386,7 +386,8 @@ A 30-second poll remains as a safety net. No WebSockets.
   in, else the OpenAI key (`textCallRunsOn`, one rule for the server and the screen) — a rule
   about what is set, never a second try after a refusal — and the line says which before
   anything is sent. Esc or a spoken call ends it; a spoken call has the line to itself, so what
-  is typed then goes to a bot.
+  is typed then goes to a bot, and a file put down then reaches the call as a fact the way a
+  screen answer does (`screenActs`), never as an instruction.
 
 # Rules
 

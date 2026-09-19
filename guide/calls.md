@@ -28,7 +28,9 @@ says which before anything is sent. With neither it says so and sends nothing �
 line for her to drop — and so does starting a spoken call: tapping her face in the middle of
 one ends the written call and places a spoken one. It is kept with
 the other calls, marked *in writing*, and she reads it back on the next call like any other.
-During a spoken call the line writes to bots only.
+During a spoken call the line writes to bots only — but a file put down then (dropped on the
+window, pasted, or picked with the paperclip) is one she is told about as it lands: its chip
+says *she knows it is here*, and what to do with it can simply be said.
 
 ## What she does on the line, and what goes to a bot
 

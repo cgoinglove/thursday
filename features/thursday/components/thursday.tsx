@@ -334,7 +334,7 @@ function CallScreen({
       <BotRoom />
 
       {/* Whatever is typed or handed over instead of said */}
-      <WriteLine written={written} />
+      <WriteLine written={written} onCall={live} />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, X } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "@/components/ui/toast";
 import { GIVEN_FILES } from "@/config";
 import { FileThumb } from "@/features/workspace/components/file-thumb";
@@ -22,9 +22,16 @@ export type GivenFile = {
   bytes: number;
   /** Workspace-relative once it is kept; null while it is on its way. */
   path: string | null;
+  /** A few words beside its size, from whoever took it (the write line on a call). */
+  note?: string;
 };
 
-export function useGivenFiles() {
+export function useGivenFiles(options?: {
+  /** The files just kept, by path. What it answers is drawn beside each one's size. */
+  onKept?: (paths: string[]) => string | undefined;
+}) {
+  const onKept = useRef(options?.onKept);
+  onKept.current = options?.onKept;
   const [files, setFiles] = useState<GivenFile[]>([]);
   const [give] = useServerAction(giveFilesAction);
 
@@ -49,10 +56,11 @@ export function useGivenFiles() {
       for (const file of taken) form.append("file", file);
       try {
         const paths = await give(form);
+        const note = onKept.current?.(paths);
         setFiles((all) =>
           all.map((one) => {
             const at = batch.findIndex((mine) => mine.key === one.key);
-            return at < 0 ? one : { ...one, path: paths[at] ?? null };
+            return at < 0 ? one : { ...one, path: paths[at] ?? null, note };
           }),
         );
       } catch {
@@ -140,6 +148,7 @@ export function GivenFiles({
             </span>
             <span className="font-mono text-[10px] leading-3.5 text-muted-foreground">
               {sizeOf(file.bytes)}
+              {file.note && ` · ${file.note}`}
             </span>
           </span>
           <button

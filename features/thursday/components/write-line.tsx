@@ -17,6 +17,7 @@ import { ROOM_THURSDAY } from "@/features/bot/room.schema";
 import {
   type BotRef,
   roomOpens,
+  screenActs,
   useRoomOpen,
   writeLine,
 } from "@/features/bot/thread.store";
@@ -67,7 +68,14 @@ const LAST_TO = "thursday.write.to";
 
 const mentionOf = (draft: string) => /^@(\S*)$/.exec(draft.split(/\s/, 1)[0]);
 
-export function WriteLine({ written }: { written: WrittenCall | null }) {
+export function WriteLine({
+  written,
+  onCall = false,
+}: {
+  written: WrittenCall | null;
+  /** A spoken call is on: she is told of a file the moment it is put down (screenActs). */
+  onCall?: boolean;
+}) {
   const { data: bots } = useServerRoute<Bot[]>(queryKey.bot);
   // A fresh install has no rows and still has a worker (bot.schema DEFAULT_BOT)
   const roster = useMemo(
@@ -87,7 +95,16 @@ export function WriteLine({ written }: { written: WrittenCall | null }) {
   const [dragging, setDragging] = useState(false);
   const [toName, setToName] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
-  const given = useGivenFiles();
+  const spoken = useRef(onCall);
+  spoken.current = onCall;
+  const given = useGivenFiles({
+    // On a call the file is a fact she is given as it lands; what it is for is said aloud
+    onKept: (paths) => {
+      if (!spoken.current) return undefined;
+      screenActs.announce({ kind: "gave", paths });
+      return "she knows it is here";
+    },
+  });
   const field = useRef<HTMLTextAreaElement>(null);
   const picker = useRef<HTMLInputElement>(null);
   const aside = useRoomOpen();
