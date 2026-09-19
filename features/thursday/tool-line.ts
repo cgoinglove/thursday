@@ -150,6 +150,28 @@ export function toolBot(name: string, args?: string): string | null {
   return typeof bot === "string" && bot.trim() ? bot.trim() : null;
 }
 
+/** The call's tools that act on one thread the model names by its label or id. */
+const ON_A_THREAD = new Set<string>([
+  TOOL_NAMES.thread_tell,
+  TOOL_NAMES.thread_answer,
+  TOOL_NAMES.thread_status,
+  TOOL_NAMES.thread_show,
+  TOOL_NAMES.thread_cancel,
+  TOOL_NAMES.thread_seen,
+  TOOL_NAMES.thread_recall,
+]);
+
+/**
+ * The thread a call's tool names, as the model wrote it (label or id); null for any
+ * other tool, and for "all". The page finds its bot, so the row wears that bot's face.
+ */
+export function toolThread(name: string, args?: string): string | null {
+  if (!ON_A_THREAD.has(name)) return null;
+  const thread = parseArgs(args)?.thread;
+  if (typeof thread !== "string" || !thread.trim()) return null;
+  return thread.trim().toLowerCase() === "all" ? null : thread.trim();
+}
+
 /**
  * The label a thread was started under, or null for any other turn. It is
  * how a job is found again from the line that opened it — in her prompt and in
