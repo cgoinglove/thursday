@@ -1,5 +1,58 @@
 # Changelog
 
+## [0.9.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.8.0...thursday-agent-v0.9.0) (2026-09-19)
+
+
+### Features
+
+* **bots:** a bot is told the app's guide is there ([88d8608](https://github.com/cgoinglove/thursday/commit/88d8608d50f919a2526b5a3b3084fa3bd8a659ac))
+* **call:** a line about a thread wears that thread's bot's face ([c70d23d](https://github.com/cgoinglove/thursday/commit/c70d23d3c68dfca805495b1ebdbd69ebce2ef53e))
+* **call:** the ringing screen says the wake phrase answers it ([bd89ba2](https://github.com/cgoinglove/thursday/commit/bd89ba2dfbce7153abb0cae7a2c51b15cc945c7a))
+* **call:** the tools behind an answer stay with it ([e5cab42](https://github.com/cgoinglove/thursday/commit/e5cab422825fbe1b34a09959513850a509f5e4ac))
+* **call:** the wave also plays once as the call screen loads ([1bc1089](https://github.com/cgoinglove/thursday/commit/1bc10892bd4995cfe2d7e439ba8484cd0d95a078))
+* **call:** what she is thinking about stands under her face, and a narrow window draws her last line ([d9c5e52](https://github.com/cgoinglove/thursday/commit/d9c5e52318d782774c78534615adab447bc41641))
+* **connectors:** everyday presets first — Todoist, Home Assistant, Kiwi, Zapier ([9dea445](https://github.com/cgoinglove/thursday/commit/9dea445f8e4c80eb54d1c65c2cb15436ee672a98))
+* **face:** a word on her face arrives and leaves rough, with an afterimage ([b7b7d31](https://github.com/cgoinglove/thursday/commit/b7b7d31b4a4cc9b7c5d33c51c77f4695ab05a0c2))
+* **intro:** a lighter first run, and a wave when a call picks up ([4879612](https://github.com/cgoinglove/thursday/commit/4879612949e339105d3dd58d202e196a3d7d7037))
+* **notify:** with Thursday open, a finished job's notification brings her forward ([f800244](https://github.com/cgoinglove/thursday/commit/f800244934cfaa2fa279c2311f8861c410b37471))
+* **room:** finished work stays in the corner across a reload, and leaves the pill alone ([1040158](https://github.com/cgoinglove/thursday/commit/104015808756e5399250daab5249b12cfdc766cb))
+* **routine:** a routine can start once, and When asks one thing a row ([f049599](https://github.com/cgoinglove/thursday/commit/f049599f5dfe6353f27ae0431c843af264d213ca))
+* **skills:** a page that reports research shows the pictures it found ([09be863](https://github.com/cgoinglove/thursday/commit/09be8639b5698c35e476273da5acf8a84cd92cc3))
+* **skills:** mac-apps for Calendar, Reminders, Notes and Contacts; a skill can name its platforms ([05bce89](https://github.com/cgoinglove/thursday/commit/05bce891f2be8cb3ebd4e32688b27044dbba6fd0))
+
+
+### Fixes
+
+* **app:** a first run makes its home on 4747, not 3000 ([e1c0d83](https://github.com/cgoinglove/thursday/commit/e1c0d837e08502e7aadb4b3367557b665791e852))
+* **bot:** an answer that moves a stopped job on is outlined in brand blue ([6c1eb0a](https://github.com/cgoinglove/thursday/commit/6c1eb0a083b5c1f0683c2beadd1e08ac545d16ac))
+* **bot:** the pill says who is moving and what arrived at a glance ([fa1c626](https://github.com/cgoinglove/thursday/commit/fa1c626e06626a7f4cf8aed6ecc863d97b2d1d21))
+* **call:** every tool line is a sentence, and a thread's names its bot ([8c9ad59](https://github.com/cgoinglove/thursday/commit/8c9ad59fddd0c9bd1040f957295cf305693f3101))
+* **call:** her face's layout box is what she fills, not the field around her ([6042a35](https://github.com/cgoinglove/thursday/commit/6042a3581bfaa3673b40d430f8932e6f025346ca))
+* **call:** the captions beside her stand past her canvas again ([2f6da47](https://github.com/cgoinglove/thursday/commit/2f6da4715e67210db438d6e780fb1f891994e712))
+* **call:** the connect wave draws with her face's glyphs ([887e76c](https://github.com/cgoinglove/thursday/commit/887e76cb685ba3754e99604c6edba03b1852553f))
+* **call:** the connect wave is fewer glyphs at her size, not larger ones ([3d9540b](https://github.com/cgoinglove/thursday/commit/3d9540beca3f448f6a38e706fed5c6c5686ccfa6))
+* **call:** the connect wave is sparser specks ([fae059a](https://github.com/cgoinglove/thursday/commit/fae059adfa4fa51b89c16b4234ec5e7626eadbd0))
+* **call:** why the last call ended stays up for twelve seconds ([3e212b4](https://github.com/cgoinglove/thursday/commit/3e212b485fffa2c28dfd8cbd37e72ffee4dc8fa9))
+* **face:** a word is not said again when it is handed back later ([5b25130](https://github.com/cgoinglove/thursday/commit/5b25130760cdb1296a5a61340f77a85ab59a846a))
+* **settings:** the install row is its words and the arrow, without an icon tile ([44f5110](https://github.com/cgoinglove/thursday/commit/44f5110bd888d96f7ed8280783d55c2cb8abe1b2))
+* **skills:** what a page recommends comes with photos of it, not screenshots and sources ([0c3cae2](https://github.com/cgoinglove/thursday/commit/0c3cae2e9607b3364a5e0887db19a8ff0182985b))
+* **ui:** a picked segment is filled black ([0bd7868](https://github.com/cgoinglove/thursday/commit/0bd786844d2a831dee49f89b1abc7a7254050e59))
+* **ui:** what is on or picked is black, and blue is the one ask ([456b9e3](https://github.com/cgoinglove/thursday/commit/456b9e368705721a77c65056343877be55c161b2))
+* **ui:** words still running shine on the call screen too ([7ed540e](https://github.com/cgoinglove/thursday/commit/7ed540e31d01d01af8aa895f902435cb9cd1238b))
+
+
+### Performance
+
+* **call:** the connect wave puts a quarter of the pixels on screen ([6455fde](https://github.com/cgoinglove/thursday/commit/6455fde7358834b4c1fedafd771e25add859b566))
+
+
+### Docs
+
+* **how-it-works:** writing, the phone, and where sign-ins live ([9a0ac73](https://github.com/cgoinglove/thursday/commit/9a0ac7355032b1515f460c6479d8663d1e1bbb22))
+* **readme:** images redrawn from today's screens, on white ([d889754](https://github.com/cgoinglove/thursday/commit/d889754e9ecb7cd4c48bac5abfbbb9b7ae131355))
+* **readme:** lead with GPT-Live, the price and the first tap ([3f928ae](https://github.com/cgoinglove/thursday/commit/3f928ae0ccf7d47073911f2b1eae5c9e523c7a0c))
+* **rules:** brand blue goes where it matters, not only on the one ask ([e3b20f0](https://github.com/cgoinglove/thursday/commit/e3b20f0ca5555765a06ee8176c38036a43ce42ce))
+
 ## [0.8.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.7.0...thursday-agent-v0.8.0) (2026-09-19)
 
 
