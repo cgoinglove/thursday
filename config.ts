@@ -15,6 +15,8 @@ export const APP_NAME = "Thursday";
  * backendOutputTokens bounds each delegated answer, including reasoning tokens.
  * reasoningCheckMs bounds asking whether the backend model takes the chosen reasoning
  * settings, once per model and effort; past it the call opens with them as chosen.
+ * keyCheckMs bounds asking OpenAI about a key as it is saved; past it the key is kept
+ * unasked, so a slow network never stands between a user and saving one.
  */
 export const LIVE_CALL = {
   startupMs: 30_000,
@@ -24,6 +26,7 @@ export const LIVE_CALL = {
   appendMs: 15_000,
   backendOutputTokens: 4_096,
   reasoningCheckMs: 5_000,
+  keyCheckMs: 5_000,
 };
 
 /**

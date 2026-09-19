@@ -2,6 +2,8 @@
 
 import { z } from "zod";
 import { startChatGptSignIn } from "@/features/ai/chatgpt";
+import { LIVE_PROVIDER } from "@/features/ai/live.schema";
+import { keyRefusal } from "@/lib/live/live.server";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
 import { acceptsChoice, CONFIG_ENTRIES, CONFIG_KEYS } from "./config.const";
@@ -27,6 +29,13 @@ export const setConfigAction = serverAction(
       }
     } else if (parsed.value.length < 8) {
       publicError("That does not look like a key");
+    }
+    // The key a call cannot open without is asked about before it is kept: a wrong one
+    // would otherwise be found out at the first call, as a call that will not open
+    if (parsed.key === LIVE_PROVIDER.apiKeyName) {
+      const refused = await keyRefusal(parsed.value);
+      if (refused)
+        publicError(`${LIVE_PROVIDER.label} did not take it — ${refused}`);
     }
     await writeConfig(parsed.key, parsed.value);
   },

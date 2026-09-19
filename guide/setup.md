@@ -11,7 +11,9 @@ the address brings it back.
 ## Keys
 
 **Settings › Models & keys** holds them, and they stay on this machine. One OpenAI key is all
-a call needs — it pays for both the voice and the model behind it. Bots can run on that same
+a call needs — it pays for both the voice and the model behind it. That key is checked with
+OpenAI as it is saved: one OpenAI turns away is not kept, and the screen says what OpenAI
+said about it (a mistyped key, one that was deleted). Bots can run on that same
 key. The screen puts the two easy ways next: a GPT Subscription sign-in (bots run on the
 ChatGPT plan, no key), and the Vercel AI Gateway, one key for every model and the one the app
 recommends. Under them every other provider is a mark to tap and paste a key into: Anthropic,

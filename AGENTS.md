@@ -277,7 +277,11 @@ are not masked: return one line the model can read and recover from.
 key, the credit, the model id — and only the provider can say which, so the seam that made the call
 raises it public rather than letting the boundary swallow it: `createLiveCall` (lib/live) for
 the call's connection, `modelErrorToString` (features/ai/model) for anything the ai sdk wrapped, which also
-carries out the body when the sdk's message is the status word alone. The one exception is a
+carries out the body when the sdk's message is the status word alone. The call's own key is
+asked about as it is saved (`keyRefusal`): one the provider turns away is not kept and its
+words are shown — under the field in amber on the first run and the call screen, where
+nothing is broken and the key waits on the user — while no answer at all keeps the key
+unasked. The one exception is a
 reasoning setting the backend model refuses before a call (`acceptedReasoning`): the call runs
 without it, because the user asked for the call, not for that setting.
 

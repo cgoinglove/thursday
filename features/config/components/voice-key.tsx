@@ -9,7 +9,7 @@ import { ProviderIcon } from "@/features/ai/components/provider-icon";
 import { LIVE_PROVIDER } from "@/features/ai/live.schema";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
-import { cn } from "@/lib/utils";
+import { cn, WAITING_INK } from "@/lib/utils";
 import { setConfigAction } from "../config.action";
 import { type ConfigStatus, isConfigSet } from "../config.const";
 
@@ -47,8 +47,14 @@ export function VoiceKeys({
   const { data: config } = useServerRoute<ConfigStatus[]>(queryKey.config);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
+  /** Why the last key was not kept, in the provider's words. */
+  const [refused, setRefused] = useState<string | null>(null);
 
+  // Said under the field rather than as an error toast: this is setup, where a key that
+  // was turned away waits on the user and nothing is broken
   const [save] = useServerAction(setConfigAction, {
+    errorMessage: false,
+    onError: (message) => setRefused(message ?? "That key was not saved."),
     onOk: () => {
       revalidate(queryKey.config);
       revalidate(queryKey.llmModel);
@@ -57,10 +63,11 @@ export function VoiceKeys({
 
   const ready = (name: string) => (drafts[name]?.trim().length ?? 0) >= KEY_MIN;
 
-  /** Saves one field. Failure is already toasted by the hook. */
+  /** Saves one field. Why it failed shows under it. */
   const commit = async (provider: typeof LIVE_PROVIDER) => {
     const name = provider.apiKeyName;
     if (!ready(name) || saving) return false;
+    setRefused(null);
     setSaving(name);
     try {
       await save(name, drafts[name]);
@@ -111,11 +118,24 @@ export function VoiceKeys({
         value={drafts[LIVE_PROVIDER.apiKeyName] ?? ""}
         ready={ready(LIVE_PROVIDER.apiKeyName)}
         saving={saving === LIVE_PROVIDER.apiKeyName}
-        onValue={(next) =>
-          setDrafts((all) => ({ ...all, [LIVE_PROVIDER.apiKeyName]: next }))
-        }
+        onValue={(next) => {
+          setRefused(null);
+          setDrafts((all) => ({ ...all, [LIVE_PROVIDER.apiKeyName]: next }));
+        }}
         onSubmit={() => void commit(LIVE_PROVIDER)}
       />
+
+      {refused && (
+        <p
+          className={cn(
+            "px-0.5 leading-5 break-words",
+            dense ? "text-xs" : "text-center text-[13px]",
+            WAITING_INK,
+          )}
+        >
+          {refused}
+        </p>
+      )}
 
       <p
         className={cn(

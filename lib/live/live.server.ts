@@ -73,6 +73,25 @@ export async function acceptedReasoning(options: {
   }
 }
 
+/**
+ * What OpenAI says about a key it will not take, asked as the key is saved; null when it
+ * takes it, and null when nothing could be learned (no network, an outage, any answer but
+ * a refusal of the key itself) — a key is only ever turned away on the provider's own word.
+ * Listing models costs nothing and needs no model to exist.
+ */
+export async function keyRefusal(apiKey: string): Promise<string | null> {
+  const response = await fetch("https://api.openai.com/v1/models", {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    signal: AbortSignal.timeout(LIVE_CALL.keyCheckMs),
+  }).catch(() => null);
+  if (!response || (response.status !== 401 && response.status !== 403))
+    return null;
+  const payload = (await response.json().catch(() => null)) as {
+    error?: { message?: string };
+  } | null;
+  return payload?.error?.message?.trim() || `It answered ${response.status}.`;
+}
+
 /** Exchanges an offer on the trusted server. The account key never reaches the browser. */
 export async function createLiveCall(options: {
   apiKey: string;
