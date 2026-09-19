@@ -79,9 +79,9 @@ stay under **Settings › Files**, one shelf per bot. Its second tab, **All file
 whole folder, for looking around rather than for the results.
 
 Asked to explain something simply, like a picture book, a bot makes one: a picture and a line
-or two a page, turned by swiping, the arrow keys, or tapping the right or left of the page. On
-request the same book comes as a PDF, or as a video that reads itself aloud (landscape, or
-portrait when asked). The video needs a speech model in **Settings › Models**, and a drawn
+or two a page, turned by swiping, the arrow keys, or tapping the right or left of the page. The
+same book can be a PDF, or a video that reads itself aloud (landscape, or portrait when asked);
+when the request does not say which, the bot asks first. The video needs a speech model in **Settings › Models**, and a drawn
 picture an image model; without one the bot asks for it and stops.
 
 A bot keeps its own memory — what a job taught it, how the user asked it to work — in its own

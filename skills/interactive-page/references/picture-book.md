@@ -19,6 +19,10 @@ Write for someone who knows nothing about the topic: short words, one clause a
 line, no jargon to explain jargon. Most topics fit in six to ten pages; the
 first is the cover, asking the question the book answers.
 
+**Ask which one, once.** When the request does not say a page, a PDF or a video, send
+Thursday one `send_message` question before writing anything, with the options `A page`,
+`A PDF` and `A video that reads itself`. A video spends a speech model on every page.
+
 ## Steps
 
 1. `node <skill dir>/scripts/page.mjs book <name>` writes `<name>.html` in your
