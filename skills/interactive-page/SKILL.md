@@ -25,6 +25,10 @@ quick page: one HTML file, no kit, no build, ready in the time it takes to write
    toggle or a sort. Nothing comes from the network: pictures sit beside the file.
 3. Hand back that path.
 
+When the page reports research, show what was found as well as saying it: the screenshots
+you took on the way and the pictures the sources carry, saved beside the file, each with a
+link to the page it came from.
+
 Take the kit below instead when the page is a tool — controls that keep state, a calculator,
 charts that respond — and markdown when it is only a few paragraphs.
 
