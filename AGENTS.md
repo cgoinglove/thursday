@@ -151,7 +151,7 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
 In short, for the areas in `.claude/rules/`: reads go through `queryKey` and `useServerRoute`, writes
 are server actions only, user-facing failures are `publicError`, and the server tells the browser over
 one SSE stream, never by polling. Screens use shadcn first, a loader for every wait, amber for what
-waits on the user, red for what failed, and one brand blue only as a point. A job's run is held by the
+waits on the user, red for what failed, and one brand blue for what matters. A job's run is held by the
 server, not the request, and everything it does is written as rows.
 
 # Working here
