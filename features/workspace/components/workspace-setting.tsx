@@ -226,10 +226,7 @@ export function WorkspaceSetting() {
           // Keyed so one file's scroll and fetch never carry into the next
           <FilePage key={open.path} file={open} onGone={() => setFile(null)} />
         ) : (
-          <Nothing
-            empty={!dir && entries.length === 0}
-            onReveal={() => reveal(".")}
-          />
+          <Nothing empty={!dir && entries.length === 0} />
         )
       }
     />
@@ -315,14 +312,12 @@ function EntryRow({
   );
 }
 
-/** The right pane before anything is picked: what this section lists, and why not more. */
+/** The right pane before anything is picked: what this section lists, and why not more. Reveal folder is the footer's. */
 function Nothing({
   empty,
-  onReveal,
 }: {
   /** Nothing anywhere in the workspace can be opened yet. */
   empty: boolean;
-  onReveal: () => void;
 }) {
   return (
     <div className="space-y-4 p-8">
@@ -343,14 +338,10 @@ function Nothing({
             Only what the app can open is listed — a page, a table, a picture, a
             note. Installed packages and tool leftovers are left out, and no
             folder is measured, so a folder opens as fast as it lists. Reveal
-            folder for everything else.
+            folder, at the foot, opens everything else.
           </p>
         </>
       )}
-      <Button variant="outline" onClick={onReveal}>
-        <FolderOpen />
-        Reveal folder
-      </Button>
     </div>
   );
 }

@@ -104,8 +104,8 @@ one switch. **When** has three kinds of time, and at most twelve routines exist:
 - **Every few hours**: 1, 2, 3, 6, 12 or 24 hours after each start; any other number can be
   asked of Thursday.
 
-What is picked is filled blue, and the line under the field says it back in words, with when
-it first starts.
+What is picked is filled blue — the days, several of which can be picked, are tinted blue with
+a tick — and the line under the field says it back in words, with when it first starts.
 
 Each time it is due, a routine opens an ordinary thread, marked with a repeat sign, and that
 thread behaves like any other: it shows in the corner of the call screen, a question pauses

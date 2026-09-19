@@ -240,7 +240,8 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
   {
     id: "phone",
     title: "phone",
-    hint: "write to Thursday from a chat app — nothing is opened to the outside",
+    // what the footer says once: nothing is opened to the internet
+    hint: "tokens",
     section: "keys",
     require: "none",
     entries: [

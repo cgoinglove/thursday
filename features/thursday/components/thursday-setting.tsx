@@ -387,11 +387,12 @@ function BackendModelPicker({
   );
 
   return (
-    <div className="space-y-2">
+    // Its own width, not the card's: beside the section's name the column is narrower
+    <div className="@container space-y-2">
       <div
         role="radiogroup"
         aria-label="Backend model"
-        className="grid grid-cols-2 gap-2 @3xl:grid-cols-4"
+        className="grid grid-cols-2 gap-2 @2xl:grid-cols-4"
       >
         {LIVE_BACKEND_MODELS.map((model) => {
           const picked = model.id === value;
@@ -772,7 +773,7 @@ function Captions({
                     <span className="block truncate text-sm font-medium">
                       {CAPTION_LABEL[view].label}
                     </span>
-                    <span className="block truncate text-xs text-muted-foreground">
+                    <span className="block text-xs text-pretty text-muted-foreground">
                       {CAPTION_LABEL[view].hint}
                     </span>
                   </span>
@@ -844,9 +845,7 @@ function CallBackPicker({
       <SettingNote>{CALL_BACK_HINT[value]}</SettingNote>
       {value !== "off" && (
         <SettingNote>
-          Needs this tab open. It rings on screen until you answer, decline or
-          let it go; the desktop notification covers a tab you are not looking
-          at.
+          Needs this tab open. It rings until you answer, decline or let it go.
         </SettingNote>
       )}
     </div>

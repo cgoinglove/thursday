@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronRight, Phone, Trash2 } from "lucide-react";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { type ReactNode, useLayoutEffect, useMemo, useRef } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/notify";
@@ -33,14 +33,7 @@ export function CallHistoryRow() {
       onClick={() =>
         notify.component({
           className: "sm:max-w-3xl",
-          renderer: () => (
-            <SettingDialogContent
-              title="Call history"
-              description="Everything said on the line, oldest at the top. Scroll up for older calls."
-            >
-              <CallLog />
-            </SettingDialogContent>
-          ),
+          renderer: () => <CallLog />,
         })
       }
       className="flex w-full min-w-0 items-center gap-3 p-4 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
@@ -144,15 +137,27 @@ function CallLog() {
     held.current = box.scrollHeight - box.scrollTop;
   }, [calls]);
 
+  // The dialog is the log's, so it tells to scroll up only when there are calls to scroll
+  const dialog = (body: ReactNode) => (
+    <SettingDialogContent
+      title="Call history"
+      description={`Everything said on the line, oldest at the top.${
+        calls.length > 0 ? " Scroll up for older calls." : ""
+      }`}
+    >
+      {body}
+    </SettingDialogContent>
+  );
+
   if (isLoading)
-    return (
+    return dialog(
       <div className={cn(LOG_BOX, "overflow-hidden")}>
         <CallGhost />
-      </div>
+      </div>,
     );
-  if (error) return <SettingError message={error.message} />;
+  if (error) return dialog(<SettingError message={error.message} />);
 
-  return (
+  return dialog(
     <>
       {calls.length === 0 ? (
         <p className="px-1 text-sm leading-relaxed text-muted-foreground">
@@ -198,7 +203,7 @@ function CallLog() {
           </div>
         </>
       )}
-    </>
+    </>,
   );
 }
 

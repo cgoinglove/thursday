@@ -462,7 +462,7 @@ function FileView({
       </div>
       {data.content === null ? (
         <p className="px-5 py-4 text-sm text-muted-foreground/60">
-          Not a text file — the agent can still read it from disk.
+          Not a text file — a bot can still read it from disk.
         </p>
       ) : name.toLowerCase().endsWith(".md") ? (
         <SkillMarkdown content={data.content} />
@@ -540,7 +540,7 @@ function SkillCreate({ onDone }: { onDone: () => void }) {
   return (
     <SettingDialogContent
       title="New skill"
-      description="Instructions the agent loads by name when a task calls for them."
+      description="Instructions a bot reads when a job calls for them."
       footer={
         <>
           <Button variant="ghost" onClick={onDone}>
@@ -584,7 +584,7 @@ function SkillCreate({ onDone }: { onDone: () => void }) {
                 id="skill-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="When to use it — this is how the agent decides to load it"
+                placeholder="When to use it — this is how a bot decides to read it"
               />
             </FieldContent>
           </Field>

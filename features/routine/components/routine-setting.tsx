@@ -3,6 +3,7 @@
 import { format, formatDistanceToNowStrict } from "date-fns";
 import {
   CalendarDays,
+  Check,
   ChevronDown,
   ChevronRight,
   Loader2,
@@ -689,6 +690,7 @@ function RoutineSheet({
                                   <Pill
                                     key={day}
                                     picked={on}
+                                    several
                                     aria-label={DAY_WORDS[day - 1]}
                                     onClick={() =>
                                       commitSchedule({
@@ -847,7 +849,6 @@ function RoutineSheet({
                     </Button>
                   ) : (
                     <Button
-                      variant="brand"
                       size="sm"
                       loading={creating}
                       disabled={!input}
@@ -886,27 +887,37 @@ const Hint = ({ children }: { children: React.ReactNode }) => (
 );
 
 /**
- * One choice of the When field. What is picked is filled black and what is not is a
+ * One choice of the When field. What is picked is filled blue and what is not is a
  * hairline, as everywhere that something is picked, so no pill is left to read twice.
+ * One of several that may all be picked (the days) is tinted with a tick instead, so a
+ * week of them stays light (the user's pick).
  */
 function Pill({
   picked,
+  several = false,
   className,
+  children,
   ...button
-}: React.ComponentProps<"button"> & { picked: boolean }) {
+}: React.ComponentProps<"button"> & { picked: boolean; several?: boolean }) {
   return (
     <button
       type="button"
       aria-pressed={picked}
       className={cn(
         "inline-flex h-8 items-center justify-center gap-1.5 rounded-full px-3.5 text-[13px] whitespace-nowrap outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
-        picked
-          ? "bg-brand font-medium text-brand-foreground"
-          : "text-foreground ring-1 ring-border ring-inset hover:bg-muted",
+        !picked &&
+          "text-foreground ring-1 ring-border ring-inset hover:bg-muted",
+        picked &&
+          (several
+            ? "bg-brand/10 pl-2.5 font-medium text-brand ring-1 ring-brand/30 ring-inset"
+            : "bg-brand font-medium text-brand-foreground"),
         className,
       )}
       {...button}
-    />
+    >
+      {picked && several && <Check className="size-3.5" />}
+      {children}
+    </button>
   );
 }
 

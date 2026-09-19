@@ -11,7 +11,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +34,11 @@ import { ShinyText } from "@/components/ui/shiny-text";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { APP_NAME, BOT_RUN, PROMPT_CROWDED } from "@/config";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import {
@@ -99,9 +104,18 @@ import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, formatCount, WAITING_INK } from "@/lib/utils";
 import { MARK_SHAPES, MARK_SYSTEM } from "../mark.const";
 
+/** A new bot's Create, raised from its page to the rail at the foot of the screen. */
+type DraftCreate = {
+  /** What the form still lacks, in words ("a name"); empty when it can be created. */
+  missing: string[];
+  creating: boolean;
+  submit: () => void;
+};
+
 /**
  * The bots Thursday hands background work to. Roster on the left, the picked bot's
- * page on the right. Fields save on blur or on pick; only a new bot has a Create button.
+ * page on the right. Fields save on blur or on pick; only a new bot has a Create button,
+ * in the rail at the foot where every other form keeps its own.
  */
 export function BotSetting() {
   const { data, isLoading, error } = useServerRoute<Bot[]>(queryKey.bot);
@@ -121,6 +135,7 @@ export function BotSetting() {
    * no two rosters look alike; a seed itself carries none).
    */
   const [faces] = useState(rollSeedIcons);
+  const [draft, setDraft] = useState<DraftCreate | null>(null);
 
   if (isLoading) return <SettingPanesSkeleton />;
   if (error) return <SettingError message={error.message} />;
@@ -135,7 +150,11 @@ export function BotSetting() {
 
   return (
     <SettingPanes
-      footer={bots.length === 0 ? null : <BotRail bot={current} />}
+      footer={
+        bots.length === 0 && !drafting ? null : (
+          <BotRail bot={current} draft={drafting ? draft : null} />
+        )
+      }
       left={
         <div className="flex flex-col py-2">
           {/* The two ways to get a bot, on one line and apart from the roster
@@ -190,7 +209,7 @@ export function BotSetting() {
             key="new"
             jobs={[]}
             onDone={(name) => setPicked(name)}
-            onCancel={() => setPicked(null)}
+            onDraft={setDraft}
           />
         ) : current ? (
           // Keyed by name so field state does not carry over to the next bot.
@@ -213,7 +232,7 @@ export function BotSetting() {
         ) : (
           <div className="space-y-4 p-8">
             <p className="text-sm leading-relaxed text-muted-foreground">
-              The agent talks; bots do the rest — search the web, draft a reply,
+              Thursday talks; bots do the rest — search the web, draft a reply,
               check a schedule. Give one a job and a model, and work gets handed
               over mid-call while the conversation keeps going.
             </p>
@@ -669,15 +688,15 @@ function BotPage({
   bot,
   jobs,
   onDone,
-  onCancel,
+  onDraft,
 }: {
   bot?: Bot;
   /** Recent jobs for this bot (RECENT); empty for a new bot. */
   jobs: Thread[];
   /** Created or deleted; where the roster should look next. */
   onDone: (name: string | null) => void;
-  /** New bot only: folds the form. */
-  onCancel?: () => void;
+  /** New bot only: where its Create goes, the rail at the foot (BotRail). */
+  onDraft?: (draft: DraftCreate | null) => void;
 }) {
   // Lazy init so a new bot's icon is not re-rolled per render; the page is keyed per bot.
   const [fields, patch] = useObjectState(() => ({
@@ -743,6 +762,11 @@ function BotPage({
 
   const ready =
     name.trim() && description.trim() && provider && model.trim() && !creating;
+  const missing = [
+    !name.trim() && "a name",
+    !description.trim() && "a description",
+    !(provider && model.trim()) && "a model",
+  ].filter((one): one is string => Boolean(one));
 
   const submit = () => {
     if (!ready || !provider) return;
@@ -760,11 +784,24 @@ function BotPage({
     });
   };
 
+  // The rail draws the Create: told when what it needs changes, never every render
+  const submitNow = useRef(submit);
+  submitNow.current = submit;
+  const lacking = missing.join(",");
+  useEffect(() => {
+    onDraft?.({
+      missing: lacking ? lacking.split(",") : [],
+      creating,
+      submit: () => submitNow.current(),
+    });
+  }, [onDraft, lacking, creating]);
+  useEffect(() => () => onDraft?.(null), [onDraft]);
+
   const confirmRemove = async () => {
     if (!bot) return;
     const confirmed = await notify.confirm({
       title: `Delete ${bot.name}?`,
-      description: "The agent can no longer hand work to it.",
+      description: "Thursday can no longer hand work to it.",
       okText: "Delete",
       destructive: true,
     });
@@ -785,13 +822,19 @@ function BotPage({
                 off
               </span>
             )}
-            <Switch
-              checked={!bot.disabled}
-              onCheckedChange={(on) => commit({ disabled: !on })}
-              aria-label={`${bot.name} on or off`}
-              /* mr-1 keeps it off Delete: one is a setting, the other is not. */
-              className="mr-1 shrink-0"
-            />
+            {/* what on means, said where it is switched: the word "on" alone does not */}
+            <Tooltip>
+              <TooltipTrigger render={<span className="mr-1 flex shrink-0" />}>
+                <Switch
+                  checked={!bot.disabled}
+                  onCheckedChange={(on) => commit({ disabled: !on })}
+                  aria-label={`${bot.name} on or off`}
+                />
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                Thursday can hand it work
+              </TooltipContent>
+            </Tooltip>
             <Button
               size="icon-sm"
               variant="ghost"
@@ -950,17 +993,6 @@ function BotPage({
         {bot && <Memory bot={bot.name} />}
 
         {bot && <Recent jobs={jobs} />}
-
-        {!bot && (
-          <div className="flex items-center justify-end gap-2 pt-1">
-            <Button variant="ghost" onClick={onCancel}>
-              Cancel
-            </Button>
-            <Button loading={creating} disabled={!ready} onClick={submit}>
-              Create
-            </Button>
-          </div>
-        )}
 
         {createError && (
           <p className="font-mono text-xs text-destructive">{createError}</p>
@@ -1123,7 +1155,14 @@ const underItsRow = (content: string) =>
  * any bot's: whether bots keep their own memory, and whether their work goes on once
  * every tab is closed.
  */
-function BotRail({ bot }: { bot: Bot | null }) {
+function BotRail({
+  bot,
+  draft = null,
+}: {
+  bot: Bot | null;
+  /** A new bot on the page: its Create stands at the end of the rail. */
+  draft?: DraftCreate | null;
+}) {
   const { data: memoryOn, mutate } = useServerRoute<boolean>(
     queryKey.botMemory,
   );
@@ -1151,9 +1190,13 @@ function BotRail({ bot }: { bot: Bot | null }) {
             <span className="px-1.5 opacity-50">·</span>
             since {whenOf(bot.createdAt)}
           </span>
-        ) : (
-          "Becomes a bot once it has a name and a model"
-        )}
+        ) : draft?.missing.length ? (
+          `Needs ${
+            draft.missing.length > 1
+              ? `${draft.missing.slice(0, -1).join(", ")} and ${draft.missing.at(-1)}`
+              : draft.missing[0]
+          }`
+        ) : null}
       </SettingRailNote>
       <KeepWorkingSwitch />
       <span className="h-4 w-px shrink-0 bg-border" />
@@ -1169,6 +1212,16 @@ function BotRail({ bot }: { bot: Bot | null }) {
         }}
         aria-label="Bots keep their own memory"
       />
+      {draft && (
+        <Button
+          size="sm"
+          loading={draft.creating}
+          disabled={draft.missing.length > 0}
+          onClick={draft.submit}
+        >
+          Create bot
+        </Button>
+      )}
     </>
   );
 }

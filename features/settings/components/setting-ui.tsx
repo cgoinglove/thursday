@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -418,59 +418,6 @@ export function SettingNote({
     >
       {children}
     </p>
-  );
-}
-
-/** Pick one row. Disabled options stay listed with the reason in the hint slot. */
-export function SettingChoiceRows<T extends string>({
-  options,
-  value,
-  onChange,
-  disabled,
-}: {
-  options: readonly {
-    value: T;
-    label: ReactNode;
-    hint?: ReactNode;
-    /** A string is the reason this option cannot be picked, shown in place of the hint. */
-    disabled?: string | false;
-  }[];
-  value: T | undefined;
-  onChange: (value: T) => void;
-  /** Pauses the whole list (while saving) without dimming it. */
-  disabled?: boolean;
-}) {
-  return (
-    <SettingItems>
-      {options.map((option) => {
-        const picked = option.value === value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            disabled={disabled || Boolean(option.disabled)}
-            onClick={() => onChange(option.value)}
-            className={cn(
-              "flex w-full items-center gap-3 p-4 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
-              picked ? "bg-muted/40" : "hover:bg-muted/50",
-              option.disabled && "opacity-50",
-            )}
-          >
-            <span className="min-w-0 flex-1 space-y-0.5">
-              <span className="block truncate text-sm font-medium">
-                {option.label}
-              </span>
-              {(option.disabled || option.hint) && (
-                <span className="block truncate text-xs text-muted-foreground">
-                  {option.disabled || option.hint}
-                </span>
-              )}
-            </span>
-            {picked && <Check className="size-4 shrink-0" />}
-          </button>
-        );
-      })}
-    </SettingItems>
   );
 }
 

@@ -571,7 +571,7 @@ function McpRegister({
   return (
     <SettingDialogContent
       title="Add MCP server"
-      description="Its tools become available to Thursday and every sub-agent."
+      description="Its tools become available to Thursday and every bot."
       footer={
         <>
           <Button variant="ghost" onClick={onDone}>
@@ -650,8 +650,12 @@ function McpRegister({
                 keyPlaceholder="Authorization"
                 valuePlaceholder="Bearer sk-..."
               />
-              <Field>
-                <FieldLabel>OAuth client</FieldLabel>
+              {/* A few servers need it (Figma); folded, it is one line the rest can pass */}
+              <details className="group space-y-3">
+                <summary className="flex w-fit cursor-pointer list-none items-center gap-1 rounded-sm text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+                  Advanced: OAuth client
+                  <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" />
+                </summary>
                 <div className="flex gap-2">
                   <Input
                     value={clientId}
@@ -673,7 +677,7 @@ function McpRegister({
                   Only for servers that refuse to register clients on their own,
                   like Figma. Leave empty and one is created during sign-in.
                 </p>
-              </Field>
+              </details>
             </TabsContent>
 
             <TabsContent value="stdio" className="space-y-6">

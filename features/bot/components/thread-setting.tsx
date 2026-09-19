@@ -185,9 +185,16 @@ export function ThreadSetting() {
               {threads.length} loaded
               {waiting > 0 && ` · ${waiting} waiting on you`}
             </SettingRailNote>
-            <Button variant="outline" size="sm" onClick={confirmClear}>
-              Clear finished
-            </Button>
+            {/* only with something to clear: a page not read yet may hold some */}
+            {(hasMore ||
+              threads.some(
+                (thread) =>
+                  thread.status === "done" || thread.status === "cancelled",
+              )) && (
+              <Button variant="outline" size="sm" onClick={confirmClear}>
+                Clear finished
+              </Button>
+            )}
           </>
         }
       >

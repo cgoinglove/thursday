@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 /**
  * Color dot; `null` means "follow the theme" and renders as foreground.
  * `background` paints it with any CSS background instead, named by `label`.
+ * 20px at most, and narrower with its row when the row has less room, so a
+ * palette stays one line.
  */
 export function Swatch({
   color,
@@ -32,7 +34,7 @@ export function Swatch({
             : undefined
       }
       className={cn(
-        "size-5 rounded-full outline-none transition-transform hover:scale-110 focus-visible:ring-3 focus-visible:ring-ring/50",
+        "aspect-square w-5 min-w-0 shrink rounded-full outline-none transition-transform hover:scale-110 focus-visible:ring-3 focus-visible:ring-ring/50",
         !color && !background && "bg-foreground",
         picked &&
           "ring-2 ring-foreground/40 ring-offset-2 ring-offset-background",

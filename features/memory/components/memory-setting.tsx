@@ -203,10 +203,14 @@ export function MemorySetting() {
   );
 }
 
-/** ChatGPT runs on OpenAI's mark, so it would draw the same circle twice. */
-const MARKED_PROVIDERS = textModelProviderSchema.options.filter(
-  (provider) => provider !== "chatgpt",
-);
+/**
+ * The first three providers stand for them all: a row of thirteen read as a list
+ * to check rather than a sign. ChatGPT runs on OpenAI's mark, so it would draw the
+ * same circle twice.
+ */
+const MARKED_PROVIDERS = textModelProviderSchema.options
+  .filter((provider) => provider !== "chatgpt")
+  .slice(0, 3);
 
 /** Who a memory edit can run on, as overlapping circles. */
 function ProviderMarks() {
@@ -377,7 +381,7 @@ function NoteLine({ note, onDone }: { note: MemoryNote; onDone: () => void }) {
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={editKeys(commit, onDone)}
         aria-label="The note's line"
-        placeholder="One line the agent sees in its note list"
+        placeholder="One line Thursday sees in her list"
         className="h-8 min-w-0 flex-1 text-[13px]"
       />
       <Button
@@ -612,7 +616,7 @@ function MemoryCreate({ onDone }: { onDone: () => void }) {
   return (
     <SettingDialogContent
       title="New note"
-      description="Where the agent files what it learns about this subject."
+      description="Where Thursday keeps what she learns about this."
       footer={
         <>
           <Button variant="ghost" onClick={onDone}>
@@ -667,7 +671,7 @@ function MemoryCreate({ onDone }: { onDone: () => void }) {
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               onKeyDown={(event) => event.key === "Enter" && submit()}
-              placeholder="One line the agent sees in its note list"
+              placeholder="One line Thursday sees in her list"
               required
             />
           </FieldContent>

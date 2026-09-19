@@ -90,7 +90,7 @@ export function ArtifactSetting() {
         <>
           <SettingRailNote>
             <span className="font-mono">
-              <span className="font-medium text-foreground">artifacts</span>
+              <span className="font-medium text-foreground">finished</span>
               {` · ${countLine(entries, total, data?.files ?? 0)}`}
             </span>
           </SettingRailNote>
@@ -109,7 +109,7 @@ export function ArtifactSetting() {
           <SettingFilter
             value={filter}
             onChange={setFilter}
-            placeholder="Filter artifacts"
+            placeholder="Filter files"
             className="mx-2 mb-1.5 w-auto"
           />
 
@@ -177,7 +177,7 @@ export function ArtifactSetting() {
             onPick={(row) => setReading({ row, file: null })}
           />
         ) : (
-          <Nothing empty={total === 0} onReveal={() => reveal("artifacts")} />
+          <Nothing empty={total === 0} />
         )
       }
     />
@@ -506,25 +506,15 @@ function Shelf({
   );
 }
 
-/** The right pane with nothing to show: what lands here, and where it comes from. */
-function Nothing({
-  empty,
-  onReveal,
-}: {
-  empty: boolean;
-  onReveal: () => void;
-}) {
+/** The right pane with nothing to show: what lands here, and where it comes from. Reveal folder is the footer's. */
+function Nothing({ empty }: { empty: boolean }) {
   return (
-    <div className="space-y-4 p-8">
+    <div className="p-8">
       <p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
         {empty
           ? "Nothing finished yet. When a bot ends a job with something to hand over — a page, a report, a set of pictures — it lands here."
           : "Pick something on the left. Each bot's work is under its face; a folder it filled is one row, and opens as a sheet."}
       </p>
-      <Button variant="outline" onClick={onReveal}>
-        <FolderOpen />
-        Reveal folder
-      </Button>
     </div>
   );
 }

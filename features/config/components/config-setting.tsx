@@ -38,7 +38,6 @@ import {
   parseMediaModel,
   parseTextModel,
   type SubscriptionUsage,
-  type TextModelProviderId,
 } from "@/features/ai/model.schema";
 import { BotsMark } from "@/features/bot/components/bot-mark";
 import {
@@ -59,7 +58,6 @@ import { ReachGuide } from "@/features/reach/components/reach-guide";
 import { ReachState } from "@/features/reach/components/reach-state";
 import { REACH_KEYS } from "@/features/reach/reach.schema";
 import {
-  SettingChoiceRows,
   SettingDialogContent,
   SettingError,
   SettingGroup,
@@ -556,9 +554,12 @@ function KeyMark({ entry }: { entry: ConfigEntry }) {
 }
 
 /**
- * A choice, not a secret. Unset is normal, so the row says what runs
- * automatically. The value sits under the label rather than across the row:
- * at this width the two ends of a row are not read in one glance.
+ * A choice, not a secret: a studio kind, or the bots' default, picked where it stands with
+ * the picker bots use — its list opens over the row, not a dialog around one field. Unset is
+ * normal, so the field says what runs then. The value sits under the label rather than
+ * across the row: at this width the two ends of a row are not read in one glance. Clearing
+ * means different things: the bots' default falls back to whatever has a key, a studio kind
+ * stops being offered at all (ai/model resolveMediaRef).
  */
 function ChoiceRow({
   entry,
@@ -571,32 +572,30 @@ function ChoiceRow({
   value?: string;
   isSet: (key: string) => boolean;
 }) {
-  const picked = choices.find((choice) => choice.value === value);
+  const ref = entry.text ? parseTextModel(value) : parseMediaModel(value);
   const usable = choices.filter((choice) => isSet(choice.needs));
-  // A value typed outside the list (gateway) has no label
-  const typed = value && !picked ? value : null;
   // A text model is what a bot thinks with, so it wears the bots mark; Cpu here was the memory glyph (memory-mark).
   const Mark = entry.kind ? KIND_MARKS[entry.kind] : BotsMark;
+  const [save] = useServerAction(setConfigAction, {
+    okMessage: `${entry.label} saved`,
+    onOk: () => revalidate(queryKey.config),
+  });
+  const [clear] = useServerAction(removeConfigAction, {
+    okMessage: entry.kind
+      ? `${entry.label} switched off`
+      : `${entry.label} back to automatic`,
+    onOk: () => revalidate(queryKey.config),
+  });
 
   return (
-    <button
-      type="button"
-      onClick={() =>
-        entry.kind || entry.text
-          ? openModelDialog(entry)
-          : openChoiceDialog(entry, choices)
-      }
-      className="group flex w-full items-center gap-3 p-4 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
-    >
+    <div className="flex w-full items-start gap-3 p-4">
       <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted/60">
         <Mark className="size-4 text-muted-foreground" />
       </span>
-      <span className="min-w-0 flex-1 space-y-1">
-        <span className="block truncate text-sm font-medium">
-          {entry.label}
-        </span>
-        <span className="flex min-w-0 items-center gap-1.5">
-          {!picked && !typed && (
+      <div className="min-w-0 flex-1 space-y-2">
+        <span className="flex min-w-0 items-center gap-1.5 pt-1.5">
+          <span className="truncate text-sm font-medium">{entry.label}</span>
+          {!value && (
             <span
               className={cn(
                 "shrink-0 rounded-[5px] border border-border/60 px-1 font-mono text-[10px]",
@@ -608,173 +607,23 @@ function ChoiceRow({
               {entry.kind ? "off" : "auto"}
             </span>
           )}
-          <span className="truncate font-mono text-xs text-muted-foreground">
-            {picked?.label ??
-              typed ??
-              (entry.kind
-                ? "Not offered to bots until you pick one"
-                : (usable[0]?.label ?? "No key for any of these yet"))}
-          </span>
         </span>
-      </span>
-      <ChevronRight className="size-4 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-foreground" />
-    </button>
-  );
-}
-
-function openModelDialog(entry: ConfigEntry) {
-  return notify.component({
-    className: "sm:max-w-lg",
-    renderer: ({ close }) => <ModelDialog entry={entry} onDone={close} />,
-  });
-}
-
-/**
- * Picks one model entry — a studio kind, or the bots' default — with the picker bots use.
- * Clearing means different things: the bots' default falls back to whatever has a key, a studio
- * kind stops being offered at all (ai/model resolveMediaRef).
- */
-function ModelDialog({
-  entry,
-  onDone,
-}: {
-  entry: ConfigEntry;
-  onDone: () => void;
-}) {
-  const { data } = useServerRoute<ConfigStatus[]>(queryKey.config);
-  const stored = data?.find((status) => status.key === entry.key)?.value;
-  // Local state: a provider picked without a model yet is not stored, but must still render
-  const [pick, setPick] = useState<{
-    provider: TextModelProviderId | null;
-    model: string;
-  }>(() => {
-    const ref = entry.text ? parseTextModel(stored) : parseMediaModel(stored);
-    return { provider: ref?.provider ?? null, model: ref?.model ?? "" };
-  });
-
-  const done = () => {
-    revalidate(queryKey.config);
-    onDone();
-  };
-  const [save] = useServerAction(setConfigAction, {
-    okMessage: `${entry.label} saved`,
-    onOk: done,
-  });
-  const [clear, clearing] = useServerAction(removeConfigAction, {
-    okMessage: entry.kind
-      ? `${entry.label} switched off`
-      : `${entry.label} back to automatic`,
-    onOk: done,
-  });
-
-  return (
-    <SettingDialogContent
-      title={entry.label}
-      description={entry.hint}
-      footer={
-        <>
-          {stored && (
-            <Button
-              variant="ghost"
-              loading={clearing}
-              onClick={() => clear(entry.key)}
-            >
-              {entry.kind ? "Turn off" : "Automatic"}
-            </Button>
-          )}
-          <Button variant="ghost" onClick={onDone}>
-            Close
-          </Button>
-        </>
-      }
-    >
-      <ModelPicker
-        kind={entry.kind}
-        provider={pick.provider}
-        model={pick.model}
-        onChange={(next) => {
-          setPick(next);
-          // Provider alone is not a model; save once the name is filled
-          if (next.model.trim()) {
-            save(entry.key, `${next.provider}/${next.model.trim()}`);
+        <ModelPicker
+          kind={entry.kind}
+          provider={ref?.provider ?? null}
+          model={ref?.model ?? ""}
+          unset={
+            entry.kind
+              ? "Not offered to bots until you pick one"
+              : (usable[0]?.label ?? "No key for any of these yet")
           }
-        }}
-      />
-    </SettingDialogContent>
-  );
-}
-
-function openChoiceDialog(entry: ConfigEntry, choices: ConfigChoice[]) {
-  return notify.component({
-    className: "sm:max-w-md",
-    renderer: ({ close }) => (
-      <ChoiceDialog entry={entry} choices={choices} onDone={close} />
-    ),
-  });
-}
-
-/**
- * Choices without a key stay listed, disabled with the reason. Set/unset is
- * read live here: a key added while this dialog is open must unlock its row.
- */
-function ChoiceDialog({
-  entry,
-  choices,
-  onDone,
-}: {
-  entry: ConfigEntry;
-  choices: ConfigChoice[];
-  onDone: () => void;
-}) {
-  const { data } = useServerRoute<ConfigStatus[]>(queryKey.config);
-  const value = data?.find((status) => status.key === entry.key)?.value;
-  const done = () => {
-    revalidate(queryKey.config);
-    onDone();
-  };
-  const [save, saving] = useServerAction(setConfigAction, {
-    okMessage: `${entry.label} saved`,
-    onOk: done,
-  });
-  const [clear, clearing] = useServerAction(removeConfigAction, {
-    okMessage: entry.kind
-      ? `${entry.label} switched off`
-      : `${entry.label} back to automatic`,
-    onOk: done,
-  });
-
-  return (
-    <SettingDialogContent
-      title={entry.label}
-      description={entry.hint}
-      footer={
-        <>
-          {value && (
-            <Button
-              variant="ghost"
-              loading={clearing}
-              onClick={() => clear(entry.key)}
-            >
-              {entry.kind ? "Turn off" : "Automatic"}
-            </Button>
-          )}
-          <Button variant="ghost" onClick={onDone}>
-            Close
-          </Button>
-        </>
-      }
-    >
-      <SettingChoiceRows
-        options={choices.map((choice) => ({
-          value: choice.value,
-          label: choice.label,
-          disabled: !isConfigSet(data, choice.needs) && `needs ${choice.needs}`,
-        }))}
-        value={value}
-        onChange={(picked) => save(entry.key, picked)}
-        disabled={saving}
-      />
-    </SettingDialogContent>
+          onChange={(next) =>
+            save(entry.key, `${next.provider}/${next.model.trim()}`)
+          }
+          onUnset={value ? () => clear(entry.key) : undefined}
+        />
+      </div>
+    </div>
   );
 }
 

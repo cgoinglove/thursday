@@ -149,6 +149,7 @@ function Tabbed({
       <div className="shrink-0 px-8 pt-5">
         <SettingColumn>
           <Segmented
+            view
             aria-label="Screens of this section"
             options={tabs.map((tab, index) => ({
               value: String(index),
@@ -200,7 +201,7 @@ export const SECTIONS: readonly {
     id: "memory",
     label: "Memory",
     group: "call",
-    hint: "What the agent knows",
+    hint: "What Thursday remembers about you",
     icon: MemoryMark,
     Component: MemorySetting,
   },
@@ -208,7 +209,7 @@ export const SECTIONS: readonly {
     id: "bot",
     label: "Bots",
     group: "work",
-    hint: "Workers the agent delegates to",
+    hint: "Who Thursday hands work to",
     icon: BotsMark,
     Component: BotSetting,
     Badge: BotBadge,
@@ -250,7 +251,7 @@ export const SECTIONS: readonly {
     id: "mcp",
     label: "Connectors",
     group: "work",
-    hint: "Tools from MCP servers",
+    hint: "Apps the bots can use, from MCP servers",
     icon: McpMark,
     Component: McpSetting,
     Badge: McpBadge,

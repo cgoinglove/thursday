@@ -11,8 +11,7 @@ import {
 
 /**
  * A mark's colours in one line under the face they paint: the theme dot, the
- * colours, then the paints. Thursday's face and a bot's page both pick from it;
- * they differ only in what the dot means.
+ * colours, then the paints. On a narrow bot page the dots shrink rather than wrap.
  */
 export function MarkPalette({
   color,
@@ -31,7 +30,8 @@ export function MarkPalette({
   onPaint?: (paint: MarkPaint) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2 px-2">
+    // As wide as the page, not as its dots: they shrink to it rather than push past it
+    <div className="flex w-full items-center justify-center gap-1.5 px-2">
       <Swatch color={null} picked={themePicked} onPick={onTheme} />
       {MARK_PALETTE.map((each) => (
         <Swatch
