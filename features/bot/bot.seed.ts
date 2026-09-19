@@ -19,9 +19,9 @@ import { type BotIcon, randomBotIcons } from "./bot.schema";
  * Every field stays within the bot form's limits (lib/limits COMMON_VALIDATE), or an
  * edit to it cannot be saved.
  *
- * The list is flat and grows. `recommended` is the only split: the seeds a key saved
- * outside the intro installs, where nobody picks (seed-bots), and the faces the intro's
- * opening loop shows. The intro and Settings › Bots offer every seed, all ticked.
+ * The list is flat and grows, and every seed is offered alike: a key saved outside the
+ * intro installs them all (seed-bots), the intro's opening loop shows every face, and the
+ * intro and Settings › Bots offer every seed, all ticked.
  */
 export type BotSeed = {
   name: string;
@@ -30,8 +30,6 @@ export type BotSeed = {
   /** What the screen shows under the name: one line, never wrapped. */
   hint: string;
   systemPrompt: string;
-  /** Ticked by default in the intro, which offers every seed. */
-  recommended?: boolean;
   /**
    * Studio models this bot cannot work without (config MEDIA_MODEL_KEYS). Unset
    * ones are named on its row, because an unset media model is not a fallback —
@@ -48,7 +46,6 @@ export const BOT_SEEDS: BotSeed[] = [
     description:
       "Anything nobody else is for — orders, bookings, forms, the web, this computer",
     hint: "Takes whatever nobody else is for",
-    recommended: true,
     systemPrompt: "",
   },
   {
@@ -77,7 +74,6 @@ export const BOT_SEEDS: BotSeed[] = [
     description:
       "Answers with numbers — costs, markets, trends, companies, which to pick — cited and charted",
     hint: "Finds the numbers and draws them",
-    recommended: true,
     systemPrompt: `Questions answered with numbers are yours — what something costs, how big a market is, how a figure moved and why, how a company is doing, which option to pick, whether to buy now or wait.
 
 **Answer first.** Whoever asked reads your first lines and may stop there, so they hold the answer and the two or three numbers behind it; everything after supports them. A title says the finding ("Rent rose faster than pay"), not the topic.

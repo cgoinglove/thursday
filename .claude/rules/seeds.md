@@ -34,8 +34,9 @@ it hands out has a way through when nobody on the roster is for it. This adds wh
   rows already installed.
 - Jarvis's empty role (`systemPrompt: ""`) is deliberate and stays empty.
 - Planner owns the result without making it, as a CEO does. Its coordination is not weakened, and
-  skill names, other bots' names and making skills do not go back in. Adding it to the
-  `recommended` set puts one more face in the intro, which is a visible change.
+  skill names, other bots' names and making skills do not go back in.
+- **Every seed installs by default and shows in the intro's opening loop**, so a new seed is one
+  more face there, which is a visible change.
 
 ## A seed's script is run before it is written
 

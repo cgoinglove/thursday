@@ -823,7 +823,6 @@ function useDemo(playing: boolean) {
 
 /** The pill and the corner where finished work lands, as they stand during the loop. */
 function DemoCorners({ stage, icons }: { stage: DemoStage; icons: BotIcon[] }) {
-  const crew = BOT_SEEDS.filter((seed) => seed.recommended);
   return (
     <>
       {/* The card finished work really lands as, drawn here with nothing behind it */}
@@ -843,12 +842,12 @@ function DemoCorners({ stage, icons }: { stage: DemoStage; icons: BotIcon[] }) {
       )}
       <div className="absolute right-5 bottom-5 flex h-10 items-center gap-2.5 rounded-full bg-background pr-3.5 pl-2.5 ring-1 ring-border">
         <span className="flex">
-          {crew.map((seed, index) => (
+          {BOT_SEEDS.map((seed, index) => (
             <BotMark
               key={seed.name}
               size={22}
               seed={seed.name}
-              {...icons[BOT_SEEDS.indexOf(seed)]}
+              {...icons[index]}
               state={
                 stage === "working" && seed.name === "Analyst"
                   ? "thinking"
