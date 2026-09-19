@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDistanceToNowStrict } from "date-fns";
+import { formatDistanceStrict } from "date-fns";
 import {
   ChevronDown,
   ChevronUp,
@@ -187,14 +187,14 @@ function CallScreen({
     if (lastRole !== "user") setMaking(false);
     else if (work.on) setMaking(true);
   }, [lastRole, work.on]);
-  // The work behind each of her turns stays with it for the call: what ran while she was on
-  // it, or before she answered, is kept under her words and shows again when she is gone
-  // back to. A later stretch of work on the same turn adds to it
-  const kept = useKeptWork(talk, work.lines);
-  // the last turn is still being said: her voice is on, or yours came after hers and she has not answered
+  // The work behind each of her turns stays with it for the call, under her words and again
+  // when she is gone back to; work she has said nothing after yet is her turn in the making
+  const kept = useKeptWork(talk, work.lines, work.on);
+  // the last turn is still being said: her voice is on, or yours came after hers and she has
+  // not answered — never yours in writing, which was sent whole
   const saying =
     (lastRole === "assistant" && status === "speaking") ||
-    (lastRole === "user" && status === "listening");
+    (lastRole === "user" && status === "listening" && !writing);
   const calling = ringing !== null && ringing.missedAt === null;
   const ringWord = useRingWord(calling);
   return (
@@ -262,18 +262,24 @@ function CallScreen({
               live={saying}
               onPick={turns.pick}
               under={
-                work.held && work.lines.length > 0 ? (
-                  <WorkStack lines={work.lines} shown={work.on} />
+                work.held && kept.pending.length > 0 ? (
+                  <WorkStack lines={kept.pending} shown={work.on} />
                 ) : null
               }
               // with the work gone and her answer not yet begun, her last words come back level;
               // thinking alone takes nothing from them, since it stands under her face
-              ahead={making && work.held && work.lines.length > 0}
-              workOf={(turn) =>
-                kept[turn]?.length ? (
-                  <WorkStack lines={kept[turn]} shown />
-                ) : null
-              }
+              ahead={making && work.held && kept.pending.length > 0}
+              typed={writing}
+              workOf={(turn) => {
+                // with her words last, work she has said nothing after stands under them
+                const lines = [
+                  ...(kept.turns[turn] ?? []),
+                  ...(turn === kept.latest && lastRole === "assistant"
+                    ? kept.pending
+                    : []),
+                ];
+                return lines.length ? <WorkStack lines={lines} shown /> : null;
+              }}
             />
           )}
         </div>
@@ -1011,34 +1017,72 @@ function useWork(drawn: ActivityLine | null, thinking: boolean) {
   return { lines, on, held };
 }
 
+type Kept = {
+  /** Her turns by id, each with the lines behind it in the order they became its. */
+  turns: Record<string, ActivityLine[]>;
+  /** Whose each line is, once it is anyone's. */
+  owner: Record<string, string>;
+  /** Her words as they stood when each line was first drawn (`said`). */
+  seen: Record<string, string | null>;
+};
+
+const KEPT_NONE: Kept = { turns: {}, owner: {}, seen: {} };
+
 /**
- * The lines of work behind each of her turns, by turn: whatever ran while her latest turn
- * was hers — before she answered, while she spoke — is that turn's. A turn is theirs until
- * she speaks, so work before her answer waits for it. Lines are merged by the call they
- * came from, so a second stretch on one turn adds to the first. A new call starts empty.
+ * The lines of work behind each of her turns, by turn. A line is the turn of the first words
+ * she says after it is drawn — a turn she starts or one she goes on with — and stays that
+ * turn's for the call, however long it lingers: the pages a search left on the line belong
+ * to the answer they led to, never to the next one. Work that stops with her words last and
+ * nothing said since is her last turn's. Until then a line is `pending`: her turn in the
+ * making, or, with her words last, drawn under them. Their words arriving late (a transcript
+ * lags the audio) moves nothing, since only hers decide. A new call starts empty.
  */
-function useKeptWork(talk: Turn[], lines: ActivityLine[]) {
-  const [kept, setKept] = useState<Record<string, ActivityLine[]>>({});
-  const last = talk.at(-1);
-  const owner = last?.role === "assistant" ? last.id : null;
+function useKeptWork(talk: Turn[], lines: ActivityLine[], on: boolean) {
+  const [kept, setKept] = useState<Kept>(KEPT_NONE);
+  const hers = talk.findLast((turn) => turn.role === "assistant");
+  const latest = hers?.id ?? null;
+  const said = hers ? `${hers.id}:${hers.text.length}` : null;
+  const closing = !on && talk.at(-1)?.role === "assistant";
   useEffect(() => {
-    if (!owner || !lines.length) return;
     setKept((was) => {
-      const now = new Set(lines.map(lineKey));
-      const merged = [
-        ...(was[owner] ?? []).filter((line) => !now.has(lineKey(line))),
-        ...lines,
-      ];
-      const same =
-        was[owner]?.length === merged.length &&
-        merged.every((line, k) => line === was[owner]?.[k]);
-      return same ? was : { ...was, [owner]: merged };
+      let next = was;
+      for (const line of lines) {
+        const key = lineKey(line);
+        let turn = next.owner[key];
+        if (turn === undefined) {
+          const seen = key in next.seen ? next.seen[key] : said;
+          if (!(key in next.seen))
+            next = { ...next, seen: { ...next.seen, [key]: said } };
+          if (!latest || (seen === said && !closing)) continue;
+          turn = latest;
+          next = { ...next, owner: { ...next.owner, [key]: turn } };
+        }
+        // the line as it is drawn now: finished, or with the pages its search read
+        const list = next.turns[turn] ?? [];
+        const at = list.findIndex((one) => lineKey(one) === key);
+        if (at >= 0 && list[at] === line) continue;
+        next = {
+          ...next,
+          turns: {
+            ...next.turns,
+            [turn]:
+              at >= 0
+                ? list.map((one, k) => (k === at ? line : one))
+                : [...list, line],
+          },
+        };
+      }
+      return next;
     });
-  }, [owner, lines]);
+  }, [lines, said, latest, closing]);
   useEffect(() => {
-    if (!talk.length) setKept({});
+    if (!talk.length) setKept(KEPT_NONE);
   }, [talk.length]);
-  return kept;
+  const pending = useMemo(
+    () => lines.filter((line) => kept.owner[lineKey(line)] === undefined),
+    [lines, kept.owner],
+  );
+  return { turns: kept.turns, pending, latest };
 }
 
 /**
@@ -1060,7 +1104,7 @@ function WorkStack({
     <div
       aria-hidden={!shown}
       className={cn(
-        "pointer-events-auto relative w-[min(100%,16.5rem)] transition-opacity duration-300 ease-out",
+        "pointer-events-auto relative w-full transition-opacity duration-300 ease-out",
         !shown && "pointer-events-none opacity-0",
       )}
       style={{ height: rows * WORK_ROW }}
@@ -1159,8 +1203,7 @@ function Incoming({
           <p className="mb-1.5 flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
             <PhoneMissed className="size-3" />
             <span>
-              Missed ·{" "}
-              {formatDistanceToNowStrict(missedAt, { addSuffix: true })}
+              Missed · <MissedWhen at={missedAt} />
             </span>
             <button
               type="button"
@@ -1274,6 +1317,21 @@ function Incoming({
       </span>
     </div>
   );
+}
+
+/** Said again every half minute: a missed call left on the screen is read hours later too. */
+const MISSED_TICK_MS = 30_000;
+
+/** How long ago it rang out: "just now" for the first minute, then minutes and hours. */
+function MissedWhen({ at }: { at: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), MISSED_TICK_MS);
+    return () => clearInterval(tick);
+  }, []);
+  return now - at < 60_000
+    ? "just now"
+    : formatDistanceStrict(at, now, { addSuffix: true });
 }
 
 /** The wake phrase as the screen shows it wherever saying it does something. */

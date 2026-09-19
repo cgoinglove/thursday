@@ -123,6 +123,7 @@ export function SideCaptions({
   under = null,
   ahead = false,
   workOf,
+  typed = false,
 }: {
   turns: Turn[];
   pinned: Pinned;
@@ -139,6 +140,8 @@ export function SideCaptions({
   ahead?: boolean;
   /** The work behind one of her turns, drawn under it while it is level; null for none. */
   workOf?: (turn: string) => ReactNode;
+  /** A call in writing: their words were typed whole, so they arrive whole. */
+  typed?: boolean;
 }) {
   const last = turns.at(-1);
   return (
@@ -154,6 +157,7 @@ export function SideCaptions({
           under={role === "assistant" ? under : null}
           ahead={role === "assistant" && ahead}
           workOf={role === "assistant" ? workOf : undefined}
+          whole={typed && role === "user"}
         />
       ))}
     </>
@@ -169,6 +173,7 @@ function SideColumn({
   under,
   ahead,
   workOf,
+  whole,
 }: {
   role: Role;
   /** This side's turns only. */
@@ -180,28 +185,38 @@ function SideColumn({
   under: ReactNode;
   ahead: boolean;
   workOf: ((turn: string) => ReactNode) | undefined;
+  /** The latest turn is drawn at once rather than letter by letter. */
+  whole: boolean;
 }) {
   const mine = role === "user";
   // Heights as laid out, before any transform: text grows while it is said, and
   // receding clamps a turn to four lines
   const [heights, setHeights] = useState<Record<string, number>>({});
+  // Widths too: what stands under her level words is as wide as they are
+  const [widths, setWidths] = useState<Record<string, number>>({});
   const watch = useRef<ResizeObserver | null>(null);
   useEffect(() => () => watch.current?.disconnect(), []);
   const measure = useCallback((node: HTMLDivElement | null) => {
     if (!node) return;
-    watch.current ??= new ResizeObserver((entries) =>
-      setHeights((was) => {
+    const sizes =
+      (read: (box: HTMLElement) => number) =>
+      (was: Record<string, number>, entries: ResizeObserverEntry[]) => {
         let next = was;
         for (const entry of entries) {
           const box = entry.target as HTMLElement;
           const id = box.dataset.turn;
-          if (!id || was[id] === box.offsetHeight) continue;
+          if (!id || was[id] === read(box)) continue;
           if (next === was) next = { ...was };
-          next[id] = box.offsetHeight;
+          next[id] = read(box);
         }
         return next;
-      }),
-    );
+      };
+    const tall = sizes((box) => box.offsetHeight);
+    const wide = sizes((box) => box.offsetWidth);
+    watch.current ??= new ResizeObserver((entries) => {
+      setHeights((was) => tall(was, entries));
+      setWidths((was) => wide(was, entries));
+    });
     watch.current.observe(node);
     return () => watch.current?.unobserve(node);
   }, []);
@@ -273,6 +288,9 @@ function SideColumn({
             }
             className={cn(
               "group/turn absolute top-0 w-max max-w-full text-[17px] leading-[1.675] tracking-[0.3px] text-foreground transition-transform duration-[520ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+              whole &&
+                k === turns.length - 1 &&
+                "animate-in fade-in duration-200 motion-reduce:animate-none",
               mine ? "left-0 origin-top-left" : "right-0 origin-top-right",
               !shown && "invisible",
               pickable && "pointer-events-auto cursor-pointer",
@@ -299,7 +317,7 @@ function SideColumn({
                 />
               )}
               {/* Each side's latest turn keeps its letters wherever it sits, so going back and returning never draws it again */}
-              {k === turns.length - 1 ? (
+              {k === turns.length - 1 && !whole ? (
                 <Letters text={turn.text} />
               ) : (
                 turn.text
@@ -312,7 +330,12 @@ function SideColumn({
         <div
           ref={measure}
           data-turn={UNDER}
-          style={{ transform: `translateY(${(underTop ?? 0).toFixed(1)}px)` }}
+          style={{
+            transform: `translateY(${(underTop ?? 0).toFixed(1)}px)`,
+            // under her words it takes their width, so its lines start where they do;
+            // before she has said any, the side's
+            width: at < turns.length ? widths[turns[at].id] : undefined,
+          }}
           className={cn(
             "absolute top-0 flex w-full transition-transform duration-[520ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
             mine ? "left-0 justify-start" : "right-0 justify-end",

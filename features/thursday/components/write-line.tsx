@@ -494,24 +494,31 @@ export function WriteLine({
               {written.error}
             </p>
           )}
-          {/* Never by itself: what a turn costs changes with what it runs on, so they press it */}
-          {toHer && written?.error && written.fallback && (
-            <div className="flex justify-center">
+          {/* The way on from a turn that broke: the same words again, and where keys are set.
+              Never by itself: what a turn costs changes with what it runs on, so they press it */}
+          {toHer && written?.error && (
+            <div className="flex items-center justify-center gap-3">
               <Button
                 type="button"
                 size="sm"
                 variant="brand"
                 disabled={written.busy}
                 onClick={() => {
-                  useThursdayStore
-                    .getState()
-                    .patch({ textModel: written.fallback });
+                  if (written.fallback)
+                    useThursdayStore
+                      .getState()
+                      .patch({ textModel: written.fallback });
                   written.again();
                 }}
               >
                 <RotateCw />
-                Send it again on your OpenAI key
+                {written.fallback
+                  ? "Send it again on your OpenAI key"
+                  : "Send it again"}
               </Button>
+              <span className="font-mono text-[10.5px] text-muted-foreground/70">
+                <KeysLink>API keys</KeysLink>
+              </span>
             </div>
           )}
           <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-mono text-[10.5px] text-muted-foreground/70">
@@ -549,15 +556,6 @@ function RunsOn({ runsOn }: { runsOn: TextModelRef | null }) {
       onChange={(textModel) => useThursdayStore.getState().patch({ textModel })}
     />
   );
-  const toKeys = (words: string) => (
-    <button
-      type="button"
-      onClick={() => openSettings("keys")}
-      className="rounded-sm text-foreground/80 underline underline-offset-3 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-    >
-      {words}
-    </button>
-  );
   if (runsOn)
     return (
       <>
@@ -572,12 +570,25 @@ function RunsOn({ runsOn }: { runsOn: TextModelRef | null }) {
       <span>Writing to her needs a {plan}, an OpenAI key, or</span>
       {pick}
       <Dot />
-      {toKeys("API keys")}
+      <KeysLink>API keys</KeysLink>
     </>
   );
 }
 
 const Dot = () => <span className="text-muted-foreground/40">·</span>;
+
+/** The way to Settings › API keys, as words in the line's small print. */
+function KeysLink({ children }: { children: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => openSettings("keys")}
+      className="rounded-sm text-foreground/80 underline underline-offset-3 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      {children}
+    </button>
+  );
+}
 
 function Mark({ bot, size }: { bot: BotRef; size: number }) {
   if (bot === HER) return <ThursdayMark size={size} className="shrink-0" />;

@@ -43,10 +43,11 @@ in **Settings › Thursday**. With nothing to run on it says so and sends nothin
 **Settings › API keys**. **Esc** ends it — saying goodbye does not, since there is no
 line for her to drop — and so does starting a spoken call: tapping her face in the middle of
 one ends the written call and places a spoken one. When a turn breaks — a plan's limit, a
-refused key — her face says ERROR and the provider's own words show in red under the line;
-writing again tries again, and Esc still ends it. When an OpenAI key is set and was not what
-broke, a blue button sends the same words again on that key; it never switches by itself,
-since what a turn costs changes with what it runs on. It is kept with
+refused key — her face says ERROR and the provider's own words show in red under the line,
+over a blue **Send it again** and the way to **API keys**; writing again tries again too, and
+Esc still ends it. When an OpenAI key is set and was not what broke, the button sends the same
+words again on that key instead; it never switches by itself, since what a turn costs changes
+with what it runs on. It is kept with
 the other calls, marked *in writing*, and she reads it back on the next call like any other.
 During a spoken call the line writes to bots only — but a file put down then (dropped on the
 window, pasted, or picked with the paperclip) is one she is told about as it lands: its chip
