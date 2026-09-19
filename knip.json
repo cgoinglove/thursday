@@ -3,6 +3,7 @@
   "entry": ["scripts/intro-voice.mts", ".agents/skills/*/*.cjs"],
   "ignore": [
     "skills/**",
+    "seed-skills/**",
     "components/ui/**",
     ".agents/skills/!(verify|cleanup|checkup)/**"
   ],
