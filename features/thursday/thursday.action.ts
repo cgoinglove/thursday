@@ -4,6 +4,7 @@ import { asSchema } from "ai";
 import z from "zod";
 import { LIVE_PROVIDER } from "@/features/ai/live.schema";
 import { loadTools } from "@/features/ai/load-tools";
+import { textModelRefSchema } from "@/features/ai/model.schema";
 import { loadLastCall } from "@/features/ai/prompts/call-last";
 import { loadCallStanding } from "@/features/ai/prompts/call-standing";
 import { loadLivePrompt } from "@/features/ai/prompts/live.prompt";
@@ -163,8 +164,11 @@ export const openCallAction = serverAction(
  * that turns out refused leaves a row with those words in it, which is what happened.
  */
 export const openTextCallAction = serverAction(
-  async (settings: unknown): Promise<TextCallHandshake> => {
-    const opened = await openTextCall(ThursdaySettingsSchema.parse(settings));
+  async (settings: unknown, runsOn?: unknown): Promise<TextCallHandshake> => {
+    const opened = await openTextCall(
+      ThursdaySettingsSchema.parse(settings),
+      textModelRefSchema.nullish().parse(runsOn),
+    );
     createServerProbe("server")("call.open.text", { callId: opened.callId });
     return opened;
   },

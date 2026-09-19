@@ -3,6 +3,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { LIVE_DEFAULTS, migrateLiveSettings } from "@/features/ai/live.schema";
+import {
+  type TextModelRef,
+  textModelRefSchema,
+} from "@/features/ai/model.schema";
 import { thursdayFace } from "./face.store";
 import {
   CALL_BACK_DEFAULT,
@@ -30,6 +34,7 @@ const StoredSchema = ThursdaySettingsSchema.extend({
   hotkey: HotkeySchema.catch(HOTKEY_DEFAULT),
   callBack: CallBackSchema.catch(CALL_BACK_DEFAULT),
   captionView: CaptionViewSchema.catch("sides"),
+  textModel: textModelRefSchema.nullable().catch(null),
 });
 
 type Stored = ThursdaySettings & {
@@ -37,6 +42,12 @@ type Stored = ThursdaySettings & {
   hotkey: Hotkey;
   callBack: CallBack;
   captionView: CaptionView;
+  /**
+   * The model last picked on the write line for a call in writing; null until one is, and
+   * then the rule decides (thursday.text runsOnOf). Picked there and nowhere else, so it is
+   * never taken for the spoken call's backend model in Settings.
+   */
+  textModel: TextModelRef | null;
 };
 
 type ThursdayStore = Stored & {
@@ -50,6 +61,7 @@ const EMPTY: Stored = {
   hotkey: HOTKEY_DEFAULT,
   callBack: CALL_BACK_DEFAULT,
   captionView: "sides",
+  textModel: null,
 };
 
 export const useThursdayStore = create<ThursdayStore>()(

@@ -24,7 +24,7 @@ import type {
   CallStatus,
   TextCallHandshake,
 } from "./thursday.schema";
-import { thursdaySettings } from "./thursday.store";
+import { thursdaySettings, useThursdayStore } from "./thursday.store";
 import { searchSourcesOf, toolBot, toolLine } from "./tool-line";
 import type { ActivityLine } from "./use-thursday";
 
@@ -68,8 +68,13 @@ export type TextCall = {
   error: string | null;
   /** Sends words to her, opening the call with the first. Resolves once they are on their way. */
   say: (words: string) => Promise<void>;
+  /** Asks again for the answer that did not come, on whatever is picked now. */
+  again: () => void;
   end: () => void;
 };
+
+/** The model picked on the write line, read as each turn goes: a pick made mid-call holds from the next turn. */
+const runsOn = () => useThursdayStore.getState().textModel;
 
 const wordsOf = (message: UIMessage) =>
   message.parts
@@ -87,6 +92,7 @@ export function useTextCall(): TextCall {
   const {
     messages,
     sendMessage,
+    regenerate,
     setMessages,
     status,
     stop,
@@ -120,18 +126,40 @@ export function useTextCall(): TextCall {
       let to = held.current;
       if (!to) {
         // the hook has already said why when this throws
-        to = { ...(await open(settings)), at: Date.now() };
+        to = { ...(await open(settings, runsOn())), at: Date.now() };
         held.current = to;
         setLine(to);
       }
       clearError();
       void sendMessage(
         { text: words },
-        { body: { callId: to.callId, settings, standing: to.standing } },
+        {
+          body: {
+            callId: to.callId,
+            settings,
+            standing: to.standing,
+            runsOn: runsOn(),
+          },
+        },
       );
     },
     [open, sendMessage, clearError],
   );
+
+  const again = useCallback(() => {
+    const to = held.current;
+    if (!to) return;
+    clearError();
+    // The same words: the turn is kept under their id, so nothing is saved twice
+    void regenerate({
+      body: {
+        callId: to.callId,
+        settings: thursdaySettings(),
+        standing: to.standing,
+        runsOn: runsOn(),
+      },
+    });
+  }, [regenerate, clearError]);
 
   // The inbox, the same read the spoken call makes (one request between them)
   const { data: threads } = useServerRoute<Thread[]>(queryKey.threads);
@@ -210,6 +238,7 @@ export function useTextCall(): TextCall {
             callId: to.callId,
             settings: thursdaySettings(),
             standing: to.standing,
+            runsOn: runsOn(),
           },
         },
       );
@@ -313,6 +342,7 @@ export function useTextCall(): TextCall {
     since: line?.at ?? null,
     error: error ? error.message : null,
     say,
+    again,
     end,
   };
 }

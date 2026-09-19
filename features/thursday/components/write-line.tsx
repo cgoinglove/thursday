@@ -1,15 +1,26 @@
 "use client";
 
-import { ArrowDownToLine, ArrowUp, ChevronDown, Paperclip } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowUp,
+  ChevronDown,
+  Paperclip,
+  RotateCw,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
+import { Button } from "@/components/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
-import { TEXT_MODEL_PROVIDERS } from "@/features/ai/model.schema";
+import { ModelPicker } from "@/features/ai/components/model-picker";
+import {
+  TEXT_MODEL_PROVIDERS,
+  type TextModelRef,
+} from "@/features/ai/model.schema";
 import { startThreadAction } from "@/features/bot/bot.action";
 import { type Bot, DEFAULT_BOT } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
@@ -23,7 +34,7 @@ import {
 } from "@/features/bot/thread.store";
 import { openSettings } from "@/features/settings/settings.store";
 import { useCallHeld } from "@/features/thursday/call-signal";
-import type { TextCallProvider } from "@/features/thursday/thursday.schema";
+import { useThursdayStore } from "@/features/thursday/thursday.store";
 import type { TextCall } from "@/features/thursday/use-text-call";
 import {
   GivenFiles,
@@ -51,10 +62,16 @@ import { ThursdayMark } from "./thursday-mark";
 /** What the line needs of a call in writing, and what such a call would run on. */
 export type WrittenCall = Pick<
   TextCall,
-  "on" | "busy" | "error" | "say" | "end"
+  "on" | "busy" | "error" | "say" | "again" | "end"
 > & {
-  /** Null when neither sign-in is set: the line says what to set instead of sending. */
-  runsOn: TextCallProvider | null;
+  /**
+   * What it would run on: the model picked here, else the rule's (the plan, else the
+   * OpenAI key, on the call's backend model). Null when nothing is picked and neither is
+   * set: the line says what to set instead of sending.
+   */
+  runsOn: TextModelRef | null;
+  /** Where a turn that broke can be sent again: the OpenAI key, when it is set and is not what broke. */
+  fallback: TextModelRef | null;
 };
 
 /** Who the line writes to: a bot by its name, or her. No bot can take her name (bot.schema). */
@@ -476,6 +493,26 @@ export function WriteLine({
               {written.error}
             </p>
           )}
+          {/* Never by itself: what a turn costs changes with what it runs on, so they press it */}
+          {toHer && written?.error && written.fallback && (
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                size="sm"
+                variant="brand"
+                disabled={written.busy}
+                onClick={() => {
+                  useThursdayStore
+                    .getState()
+                    .patch({ textModel: written.fallback });
+                  written.again();
+                }}
+              >
+                <RotateCw />
+                Send it again on your OpenAI key
+              </Button>
+            </div>
+          )}
           <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-mono text-[10.5px] text-muted-foreground/70">
             {toHer ? (
               <RunsOn runsOn={written?.runsOn ?? null} />
@@ -500,8 +537,17 @@ export function WriteLine({
  * What a call in writing runs on, said before the first word is sent: the plan when a GPT
  * subscription is signed in, else the OpenAI key with the way to the plan, else what to set.
  */
-function RunsOn({ runsOn }: { runsOn: TextCallProvider | null }) {
+function RunsOn({ runsOn }: { runsOn: TextModelRef | null }) {
   const plan = TEXT_MODEL_PROVIDERS.chatgpt.label;
+  const pick = (
+    <ModelPicker
+      compact
+      provider={runsOn?.provider ?? null}
+      model={runsOn?.model ?? ""}
+      unset="pick a model"
+      onChange={(textModel) => useThursdayStore.getState().patch({ textModel })}
+    />
+  );
   const toKeys = (words: string) => (
     <button
       type="button"
@@ -511,29 +557,19 @@ function RunsOn({ runsOn }: { runsOn: TextCallProvider | null }) {
       {words}
     </button>
   );
-  if (runsOn === "chatgpt")
+  if (runsOn)
     return (
       <>
         <span>text</span>
         <Dot />
-        <span>no voice, no microphone</span>
-        <Dot />
-        <span>runs on your {plan}</span>
-      </>
-    );
-  if (runsOn === "openai")
-    return (
-      <>
-        <span>text</span>
-        <Dot />
-        <span>runs on your OpenAI key</span>
-        <Dot />
-        {toKeys(`Sign in to a ${plan} to use it instead`)}
+        <span>runs on</span>
+        {pick}
       </>
     );
   return (
     <>
-      <span>Writing to her needs a {plan} or an OpenAI key</span>
+      <span>Writing to her needs a {plan}, an OpenAI key, or</span>
+      {pick}
       <Dot />
       {toKeys("API keys")}
     </>

@@ -436,10 +436,12 @@ A 30-second poll remains as a safety net. No WebSockets.
   drop), no Live session — drawn by the same call screen and kept as a call
   row (`TEXT_CALL.model` where a spoken one names Live), so Earlier calls and the call log carry
   it with no table of their own. The page holds the conversation and sends it whole each turn;
-  the server saves every turn as it happens. It runs on the GPT Subscription when one is signed
-  in, else the OpenAI key (`textCallRunsOn`, one rule for the server and the screen) — a rule
-  about what is set, never a second try after a refusal — and the line says which before
-  anything is sent. Open work reaches it as it reaches a spoken call — the same list
+  the server saves every turn as it happens. It runs on the model picked on the line itself
+  (the `runs on` button, any provider with a key, remembered by the browser and sent with each
+  turn — never a setting, so it is not taken for the spoken call's backend model), else on the
+  GPT Subscription when one is signed in, else the OpenAI key (`textCallRunsOn`, one rule for
+  the server and the screen) — a rule about what is set, never a second try after a refusal:
+  a turn that broke is sent again on the OpenAI key only by the button that offers it. Open work reaches it as it reaches a spoken call — the same list
   (`open-work`), between turns once nothing has been written for `CALL_RELAY.quietMs`, as a
   turn of its own that is neither drawn nor kept as the user's words, its relay rows accepted
   once she has answered — and nothing rings meanwhile; what either kind of call has told is

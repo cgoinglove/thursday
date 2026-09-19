@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/tooltip";
 import { CALL_IDLE, CALL_LINE } from "@/config";
 import { LIVE_PROVIDER } from "@/features/ai/live.schema";
+import { TEXT_MODEL_PROVIDERS } from "@/features/ai/model.schema";
 import { type Bot, DEFAULT_BOT } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { BotRoom } from "@/features/bot/components/bot-room";
@@ -1391,17 +1392,44 @@ export function Thursday() {
     if (spoken && text.on) endWritten();
   }, [spoken, text.on, endWritten]);
   const writing = text.on && !spoken;
-  const written = useMemo(
-    (): WrittenCall => ({
+  // What a call in writing runs on: the model picked on the line while its key is still
+  // set, else the rule (the plan, else the OpenAI key) on the call's backend model
+  const textModel = useThursdayStore((state) => state.textModel);
+  const backendModel = useThursdayStore((state) => state.backendModel);
+  const written = useMemo((): WrittenCall => {
+    const has = (key: string) => isConfigSet(config, key);
+    const ruled = textCallRunsOn(has);
+    const runsOn =
+      textModel && has(TEXT_MODEL_PROVIDERS[textModel.provider].apiKeyName)
+        ? textModel
+        : ruled
+          ? { provider: ruled, model: backendModel }
+          : null;
+    return {
       on: writing,
       busy: text.busy,
       error: text.error,
       say: text.say,
+      again: text.again,
       end: text.end,
-      runsOn: textCallRunsOn((key) => isConfigSet(config, key)),
-    }),
-    [writing, text.busy, text.error, text.say, text.end, config],
-  );
+      runsOn,
+      fallback:
+        runsOn?.provider !== "openai" &&
+        has(TEXT_MODEL_PROVIDERS.openai.apiKeyName)
+          ? { provider: "openai", model: backendModel }
+          : null,
+    };
+  }, [
+    writing,
+    text.busy,
+    text.error,
+    text.say,
+    text.again,
+    text.end,
+    config,
+    textModel,
+    backendModel,
+  ]);
 
   return (
     <>

@@ -16,6 +16,10 @@ import { TEXT_CALL } from "@/config";
 import { LIVE_PROVIDER } from "@/features/ai/live.schema";
 import { loadTools } from "@/features/ai/load-tools";
 import { getTextModel, modelErrorToString } from "@/features/ai/model";
+import {
+  type TextModelRef,
+  textModelRefSchema,
+} from "@/features/ai/model.schema";
 import { loadCallStanding } from "@/features/ai/prompts/call-standing";
 import { loadThursdayPrompt } from "@/features/ai/prompts/thursday.prompt";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
@@ -60,17 +64,32 @@ export async function readTextCallProvider(): Promise<TextCallProvider | null> {
   return textCallRunsOn((key) => set.includes(key));
 }
 
+/**
+ * What a call in writing runs on: the model picked for it where it is written (the write
+ * line; any provider with a key), else the rule — the GPT subscription when one is signed
+ * in, else the OpenAI key, on the call's own backend model.
+ */
+async function runsOnOf(
+  settings: ThursdaySettings,
+  picked: TextModelRef | null | undefined,
+): Promise<TextModelRef> {
+  if (picked) return picked;
+  const provider = await readTextCallProvider();
+  if (!provider) publicError(NOTHING_TO_RUN_ON);
+  return { provider, model: settings.backendModel };
+}
+
 /** The row a call in writing is kept under, and what stood open as it began. */
 export async function openTextCall(
   settings: ThursdaySettings,
+  picked?: TextModelRef | null,
 ): Promise<TextCallHandshake> {
-  const provider = await readTextCallProvider();
-  if (!provider) publicError(NOTHING_TO_RUN_ON);
+  const ref = await runsOnOf(settings, picked);
   const [callId, standing] = await Promise.all([
     insertCall({
-      provider,
+      provider: ref.provider,
       model: TEXT_CALL.model,
-      backendModel: settings.backendModel,
+      backendModel: ref.model,
     }),
     loadCallStanding(),
   ]);
@@ -82,6 +101,8 @@ const BodySchema = z.object({
   settings: ThursdaySettingsSchema,
   /** What stood open as the call opened (ai/prompts/call-standing), as the page was handed it. */
   standing: z.string().nullish(),
+  /** The model picked on the write line; absent, the rule decides (runsOnOf). */
+  runsOn: textModelRefSchema.nullish(),
   messages: z.array(z.unknown()).min(1),
 });
 
@@ -223,12 +244,17 @@ const standingHead = (standing: string | null | undefined): ModelMessage[] =>
   standing ? [{ role: "system", content: standing }] : [];
 
 /** What a turn runs on, whoever holds the conversation: the model, her prompt, her tools. */
-async function loadRun(callId: string, settings: ThursdaySettings) {
-  const provider = await readTextCallProvider();
-  if (!provider) publicError(NOTHING_TO_RUN_ON);
+async function loadRun(
+  callId: string,
+  settings: ThursdaySettings,
+  picked?: TextModelRef | null,
+) {
+  const ref = await runsOnOf(settings, picked);
+  // Reasoning effort is OpenAI's word: asked of its models only, sent to them only
+  const openai = ref.provider === "openai" || ref.provider === "chatgpt";
 
   const [model, system, held, exaKey, openaiKey] = await Promise.all([
-    getTextModel({ provider, model: settings.backendModel }),
+    getTextModel(ref),
     loadThursdayPrompt(settings.backendPrompt, true),
     loadTools({
       target: "thursday",
@@ -253,15 +279,17 @@ async function loadRun(callId: string, settings: ThursdaySettings) {
 
   // The reasoning the call asks for. Whether the model takes it can only be asked with an
   // API key (acceptedReasoning); without one it goes as chosen, and a refusal is shown
-  const reasoning = openaiKey
-    ? await acceptedReasoning({
-        apiKey: openaiKey,
-        model: settings.backendModel,
-        effort: settings.reasoningEffort,
-      })
-    : settings.reasoningEffort === "none"
-      ? { effort: "none" }
-      : { effort: settings.reasoningEffort ?? undefined, summary: "auto" };
+  const reasoning = !openai
+    ? null
+    : openaiKey
+      ? await acceptedReasoning({
+          apiKey: openaiKey,
+          model: ref.model,
+          effort: settings.reasoningEffort,
+        })
+      : settings.reasoningEffort === "none"
+        ? { effort: "none" }
+        : { effort: settings.reasoningEffort ?? undefined, summary: "auto" };
 
   return {
     model: model.model,
@@ -279,9 +307,10 @@ async function loadRun(callId: string, settings: ThursdaySettings) {
 }
 
 async function prepare(body: unknown) {
-  const { callId, settings, standing, messages } = BodySchema.parse(body);
+  const { callId, settings, standing, runsOn, messages } =
+    BodySchema.parse(body);
   const [run, ui, seq] = await Promise.all([
-    loadRun(callId, settings),
+    loadRun(callId, settings, runsOn),
     validateUIMessages({ messages }),
     nextTurnSeq(callId),
   ]);

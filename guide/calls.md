@@ -35,12 +35,17 @@ chart — so "what does this say?" is answered on the spot; on a spoken call she
 the file was put, and hands it to a bot.
 
 It runs on the GPT Subscription when one is signed in, else on the OpenAI key, and the line
-says which before anything is sent. With neither it says so and sends nothing — both are in
+says which before anything is sent: the small **runs on** button under it. Pressing that
+picks another model for writing to her — any provider that has a key — and the pick is
+remembered by this browser. It is only for calls in writing; the spoken call's model stays
+in **Settings › Thursday**. With nothing to run on it says so and sends nothing — keys are in
 **Settings › API keys**. **Esc** ends it — saying goodbye does not, since there is no
 line for her to drop — and so does starting a spoken call: tapping her face in the middle of
 one ends the written call and places a spoken one. When a turn breaks — a plan's limit, a
 refused key — her face says ERROR and the provider's own words show in red under the line;
-writing again tries again, and Esc still ends it. It is kept with
+writing again tries again, and Esc still ends it. When an OpenAI key is set and was not what
+broke, a blue button sends the same words again on that key; it never switches by itself,
+since what a turn costs changes with what it runs on. It is kept with
 the other calls, marked *in writing*, and she reads it back on the next call like any other.
 During a spoken call the line writes to bots only — but a file put down then (dropped on the
 window, pasted, or picked with the paperclip) is one she is told about as it lands: its chip
