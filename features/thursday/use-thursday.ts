@@ -267,6 +267,17 @@ export function useThursday(
     });
   }, []);
 
+  /** The tool's answer is back: a thread the page does not hold is named by it (toolBot). */
+  const nameTool = useCallback((call: LiveToolCall, output: string) => {
+    const bot = toolBot(call.name, call.arguments, latest.current, output);
+    if (!bot) return;
+    setTool((open) =>
+      open?.id === call.id && open.bot !== bot
+        ? { ...open, bot, line: toolLine(call.name, call.arguments, bot) }
+        : open,
+    );
+  }, []);
+
   /**
    * A relay takes the tool line and runs there like a tool does: while it goes in,
    * and while she voices it. Her voice finishing it is what stops the motion
@@ -846,6 +857,7 @@ export function useThursday(
                 settings.webSearch,
                 stop.signal,
               );
+              nameTool(call, output);
               if (searching)
                 kept = keepSearch({
                   id: call.id,
@@ -1076,6 +1088,7 @@ export function useThursday(
     status,
     hangUp,
     showTool,
+    nameTool,
     hideTool,
     showFace,
     wearFace,

@@ -267,34 +267,50 @@ export function useTextCall(): TextCall {
   // pages a search read stay through her answer, until the next words are sent, as on a
   // spoken call
   const lastTool = [...parts].reverse().find(isToolUIPart);
-  const used = useMemo((): ActivityLine | null => {
-    if (!lastTool) return null;
-    const name = getToolName(lastTool);
-    // A provider's own search names what it looked for in its answer, not in what it was asked
-    const asked = (lastTool.output as { action?: { query?: unknown } } | null)
-      ?.action?.query;
-    const args = JSON.stringify({
-      ...(typeof asked === "string" ? { query: asked } : {}),
-      ...(lastTool.input ?? {}),
-    });
-    const done =
-      lastTool.state === "output-available" ||
-      lastTool.state === "output-error";
-    const sources =
+  // The part is copied with every piece of the stream, and its arguments arrive a few
+  // characters a piece: the line is a new object only when what it draws changes, or
+  // every piece redraws the call screen several times over
+  const id = lastTool?.toolCallId ?? null;
+  const name = lastTool ? getToolName(lastTool) : null;
+  const done =
+    lastTool?.state === "output-available" ||
+    lastTool?.state === "output-error";
+  const output = lastTool?.output;
+  const sources = useMemo(
+    () =>
       done && name === TOOL_NAMES.web_search
-        ? searchSourcesOf(JSON.stringify(lastTool.output ?? null))
-        : [];
-    if (last?.type === "text" && !sources.length) return null;
-    const bot = toolBot(name, args, inbox.current);
+        ? searchSourcesOf(JSON.stringify(output ?? null))
+        : [],
+    [done, name, output],
+  );
+  // A provider's own search names what it looked for in its answer, not in what it was asked
+  const asked = (output as { action?: { query?: unknown } } | null | undefined)
+    ?.action?.query;
+  const args = JSON.stringify({
+    ...(typeof asked === "string" ? { query: asked } : {}),
+    ...(lastTool?.input ?? {}),
+  });
+  const bot = name
+    ? toolBot(
+        name,
+        args,
+        inbox.current,
+        output === undefined ? undefined : JSON.stringify(output),
+      )
+    : null;
+  const drawn = name ? toolLine(name, args, bot) : null;
+  const answered = last?.type === "text";
+  const used = useMemo((): ActivityLine | null => {
+    if (!id || !name || (answered && !sources.length)) return null;
     return {
-      id: lastTool.toolCallId,
+      id,
       name,
-      line: toolLine(name, args, bot),
+      line: drawn,
       bot,
       done,
       ...(sources.length ? { sources } : {}),
     };
-  }, [lastTool, last?.type]);
+  }, [id, name, drawn, bot, done, sources, answered]);
   const [lingered, setLingered] = useState<string | null>(null);
   const usedId = used?.done && !used.sources ? used.id : null;
   useEffect(() => {

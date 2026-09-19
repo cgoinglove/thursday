@@ -172,13 +172,15 @@ const ON_A_THREAD = new Set<string>([
  * The bot a call's tool reaches, so its row wears that bot's face rather than a glyph —
  * who work went to is a face everywhere else in the app. The one work is handed to, else
  * the bot of the thread the tool names, found as the server finds a thread (thread.query
- * resolveThread): its id, else its label. An answer goes to the bot that asked; "all", and
- * a thread the page does not hold, reach nobody in particular.
+ * resolveThread): its id, else its label. An answer goes to the bot that asked; "all"
+ * reaches nobody in particular. A thread the page does not hold — stopped and read, or
+ * finished longer ago than the inbox keeps — is named by the tool's answer once it is back.
  */
 export function toolBot(
   name: string,
   args?: string,
   threads?: Thread[],
+  output?: string,
 ): string | null {
   const parsed = parseArgs(args);
   if (!parsed) return null;
@@ -186,17 +188,26 @@ export function toolBot(
     return typeof parsed.bot === "string" && parsed.bot.trim()
       ? parsed.bot.trim()
       : null;
-  if (!ON_A_THREAD.has(name) || !threads) return null;
+  if (!ON_A_THREAD.has(name)) return null;
   const ref = typeof parsed.thread === "string" ? parsed.thread.trim() : "";
   if (!ref || ref.toLowerCase() === "all") return null;
   const lower = ref.toLowerCase();
   const thread =
-    threads.find((one) => one.id === ref) ??
-    threads.find((one) => one.label.toLowerCase() === lower);
-  if (!thread) return null;
+    threads?.find((one) => one.id === ref) ??
+    threads?.find((one) => one.label.toLowerCase() === lower);
+  if (!thread) return answeredBy(output);
   return name === TOOL_NAMES.thread_answer
     ? (thread.room.questions[0]?.bot ?? thread.bot)
     : thread.bot;
+}
+
+/** Whom a thread tool's answer says it reached (load-tools): `bot`, or the bot that took it as its answer. */
+function answeredBy(output?: string): string | null {
+  const said = parseArgs(output);
+  if (!said) return null;
+  if (typeof said.bot === "string" && said.bot.trim()) return said.bot.trim();
+  const answered = said.answered as { bot?: unknown } | null | undefined;
+  return typeof answered?.bot === "string" ? answered.bot : null;
 }
 
 /**
