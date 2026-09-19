@@ -2,9 +2,11 @@
 
 The first time the app opens it walks through the first three of these on the call screen
 itself — a voice key, the microphone, which bots come along, what they think with — and its
-last button places the first call. Every step can be passed and done later from the screens
-below, and it stops showing once a call has been placed. Adding `?intro` to the address
-brings it back.
+last button places the first call. She talks through it in a recorded voice, in English, and
+says so first: her real voice starts with the first call. The speaker button at the top right
+mutes the recording, and stays muted the next time. Every step can be passed and done later
+from the screens below, and it stops showing once a call has been placed. Adding `?intro` to
+the address brings it back.
 
 ## Keys
 

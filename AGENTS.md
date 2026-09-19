@@ -74,6 +74,8 @@ bin/                      What ships and runs outside Next: the `thursday` CLI, 
 scripts/dev.mts           `pnpm dev`: `next dev` on 127.0.0.1, on a port nothing holds on any address, handed over as `PORT`.
 scripts/reset.mts         Wipes local data (calls, jobs, memory) and optionally the build. `pnpm reset`.
 scripts/pack.mts          Builds `dist/`, the tree npm publishes. `pnpm release`.
+scripts/intro-voice.mts   Records her first-run lines as clips under `public/voices/intro` (features/intro/intro-voice).
+                          Run by hand with an OpenAI key after her spoken lines change; the clips are committed.
 guide/                    How the app works for the person using it, written for Thursday to read when an
                           answer depends on it: `index.md` says which file answers what. Screens and
                           settings as the user sees them, never code. `features/ai/guide.ts` is all the
@@ -368,6 +370,13 @@ A 30-second poll remains as a safety net. No WebSockets.
   place and ends on a button that places the first call (`call-signal`, which also holds the
   call's wake word and hotkey off while the intro is up). No step blocks or raises a red error:
   each can be passed and done later where it lives. It shows until a call has been placed.
+  Her lines there are also heard, as clips recorded ahead (`intro-voice`, the one file that
+  holds what she says aloud, where a clip lives and the hook that plays it): no key is
+  needed to hear them, the first starts inside the first click, and her face moves to them
+  through the same clip tap a voice sample uses. What she says aloud is its own text — she
+  opens by saying it is a recording — so a caption can be rewritten without recording
+  anything. A clip is named by a hash of its words: a spoken line that changed is silent
+  until `scripts/intro-voice.mts` records it again, and a missing clip is never an error.
 - What is typed or handed over rather than said goes through one write line at the foot of the
   call screen (`write-line`): absent until asked for (the pill's "+", `/`, a file dragged onto the
   window), it holds who it is for, the words and the files. Files are kept in the workspace

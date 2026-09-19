@@ -1,6 +1,14 @@
 "use client";
 
-import { Check, ChevronLeft, ChevronRight, FileText, Mic } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Mic,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +21,7 @@ import { BotMark } from "@/features/bot/components/bot-mark";
 import { installSeedBots } from "@/features/bot/seed-bots";
 import { AccountsSetup } from "@/features/config/components/config-setting";
 import { VoiceKeys } from "@/features/config/components/voice-key";
+import { type IntroLine, useIntroVoice } from "@/features/intro/intro-voice";
 import { callSignal } from "@/features/thursday/call-signal";
 import { Face } from "@/features/thursday/components/face";
 import {
@@ -120,6 +129,10 @@ export function Intro({
   );
   const turns = step === "hello" ? demo.turns : said;
   const focus = useTurnFocus(turns, true);
+  // Her latest line is also a clip (intro-voice); every id `herTurns` gives is one
+  const voice = useIntroVoice(
+    gone ? null : ((said.at(-1)?.id as IntroLine | undefined) ?? null),
+  );
 
   if (lifted || !shown) return null;
 
@@ -127,6 +140,7 @@ export function Intro({
 
   /** With a key, install the picked bots (they need a model, so not without one); `calling` places the first call from inside this click. */
   const leave = (calling: boolean) => {
+    voice.hush();
     setGone(true);
     if (keyed)
       installSeedBots(
@@ -146,9 +160,11 @@ export function Intro({
   const status: CallStatus =
     step === "hello"
       ? demo.status
-      : step === "mic" && mic.on
-        ? "listening"
-        : "idle";
+      : voice.speaking
+        ? "speaking"
+        : step === "mic" && mic.on
+          ? "listening"
+          : "idle";
   const last = step === "call";
 
   return (
@@ -158,6 +174,21 @@ export function Intro({
         gone && "pointer-events-none opacity-0",
       )}
     >
+      {/* Her recorded voice, and the way to switch it off */}
+      <button
+        type="button"
+        onClick={voice.toggle}
+        aria-label={voice.muted ? "Let her speak" : "Mute her"}
+        aria-pressed={voice.muted}
+        className="absolute top-5 right-5 z-10 grid h-7.5 w-8 place-items-center rounded-[10px] text-muted-foreground ring-1 ring-border outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        {voice.muted ? (
+          <VolumeX className="size-[15px]" />
+        ) : (
+          <Volume2 className="size-[15px]" />
+        )}
+      </button>
+
       {/* The call screen's own column, so nothing moves when the intro lifts */}
       <div className="flex h-full flex-col items-center justify-center gap-5 pt-[7vh]">
         <div className="relative w-[min(28rem,72vw,52vh)]">
@@ -177,7 +208,7 @@ export function Intro({
               status={status}
               failed={false}
               word={word}
-              getSpectrum={step === "hello" ? demo.voice : undefined}
+              getSpectrum={step === "hello" ? demo.voice : voice.spectrum}
               getMicSpectrum={mic.on ? mic.spectrum : undefined}
               className="w-full"
             />
@@ -186,7 +217,7 @@ export function Intro({
           <SideCaptions
             turns={turns}
             pinned={focus.pinned}
-            live={step === "hello" && demo.saying}
+            live={step === "hello" ? demo.saying : voice.speaking}
             onPick={focus.pick}
           />
 
@@ -246,8 +277,11 @@ export function Intro({
           <Button
             variant="brand"
             onClick={() => {
-              if (step === "hello") setStep("key");
-              else if (last) leave(keyed);
+              if (step === "hello") {
+                // Inside this click, so the browser lets her be heard from here on
+                voice.say("hello", keyed ? "awake" : "key");
+                setStep("key");
+              } else if (last) leave(keyed);
               else setStep(STEPS[at + 1]);
             }}
             className={cn(
@@ -348,7 +382,7 @@ function herTurns(step: Step, keyed: boolean, heard: boolean): Turn[] {
   if (step === "bots") return lines;
   lines.push(line("models", SAYS.models));
   if (step === "models") return lines;
-  lines.push(line("call", keyed ? SAYS.call : SAYS.asleep));
+  lines.push(keyed ? line("call", SAYS.call) : line("asleep", SAYS.asleep));
   return lines;
 }
 
