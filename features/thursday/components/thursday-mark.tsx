@@ -25,11 +25,19 @@ const GLYPH = 4;
 /** The air a bot mark leaves in its own box (BotMark draws 240 of 276); without it she reads a size larger beside one. */
 const INSET = 240 / 276;
 /** How long a cell keeps a glyph. */
-const FLIP_MS = 800;
+const FLIP_MS = 620;
 /** Steps through EMOJI_POOL per flip. The pool runs in colour bands, so a stride past one changes the colour. */
 const HUE_STRIDE = 9;
-/** Below this many cells a side, every cell is drawn: a hole or a ragged rim in a handful reads as broken. */
+/** From this many cells a side the rim is ragged; in fewer, a cell out of line reads as broken. */
 const ROUGH_FROM = 5;
+/** From this many a side some cells are missing; in fewer, a hole reads as an empty mark rather than a crumbly one. */
+const HOLES_FROM = 8;
+/**
+ * Three a side is a plus sign with its corners dropped and a square with them kept. The
+ * corners are kept and pulled in to the radius of their neighbours, overlapping them a
+ * little, so the eight stand in a ring around the middle one.
+ */
+const CORNER_PULL = 0.72;
 
 type Cell = {
   /** Stable per grid and slot: the key, and what the cell's randoms are drawn from. */
@@ -54,15 +62,17 @@ function layoutOf(size: number) {
   const cells: Cell[] = [];
   for (let row = 0; row < side; row++) {
     for (let col = 0; col < side; col++) {
-      const cx = pitch * (col + 0.5);
-      const cy = pitch * (row + 0.5);
+      const corner = side === 3 && row !== 1 && col !== 1;
+      const pull = corner ? CORNER_PULL : 1;
+      const cx = inner / 2 + pitch * (col + 0.5 - side / 2) * pull;
+      const cy = inner / 2 + pitch * (row + 0.5 - side / 2) * pull;
       const r = Math.hypot(cx - inner / 2, cy - inner / 2) / (inner / 2);
       const seed = side * 977 + row * side + col;
       const rough = side >= ROUGH_FROM;
-      // a rim cell sits a little in or out of the circle; three a side drops its corners to stay round
+      // a rim cell sits a little in or out of the circle
       const crumble = rough ? (hash(seed, 1) - 0.5) * 0.24 : 0;
-      if (r + crumble > (side === 3 ? 0.9 : 0.98)) continue;
-      if (rough && hash(seed, 2) < 0.02 + 0.24 * r ** 3) continue;
+      if (r + crumble > 0.98) continue;
+      if (side >= HOLES_FROM && hash(seed, 2) < 0.02 + 0.24 * r ** 3) continue;
       // the baseline sits below the cell's center by about a third of the glyph
       cells.push({ seed, x: pad + cx, y: pad + cy + font * 0.36, r });
     }
