@@ -36,7 +36,7 @@ import { FoldButton, TAB } from "./room-conversation";
 export const needsYou = needsThreadReply;
 
 /** An ending nobody has opened. It needs the user too, to read rather than to answer. */
-export const isUnread = (thread: ThreadView) =>
+const isUnread = (thread: ThreadView) =>
   thread.status === "done" && !thread.seen;
 
 /** The room's two lists. */

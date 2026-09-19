@@ -51,7 +51,8 @@ with what it runs on. It is kept with
 the other calls, marked *in writing*, and she reads it back on the next call like any other.
 During a spoken call the line writes to bots only — but a file put down then (dropped on the
 window, pasted, or picked with the paperclip) is one she is told about as it lands: its chip
-says *she knows it is here*, and what to do with it can simply be said.
+says *she knows it is here*, and what to do with it can simply be said. A line left open with
+nothing in it closes when a spoken call picks up; one holding words or files stays.
 
 ## What she does on the line, and what goes to a bot
 

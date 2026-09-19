@@ -17,6 +17,11 @@ import {
   useState,
 } from "react";
 import { ShinyText } from "@/components/ui/shiny-text";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { type Bot, type BotIcon, isAppStop } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
@@ -411,23 +416,18 @@ export function crewOf(
  * What the room itself is doing, and nothing else — the right side of the pill.
  *
  * It says two things only, in muted ink: someone waits on the user, or work is
- * running. Endings say nothing here — a result or a failure grows a row above
- * the pill, and that row is the notice. With nothing going on and nothing
- * grown, the pill offers a hand; with a row grown and nothing going on, it is
- * quiet. The one time an ending is said here is while the write line keeps the
- * row from growing (`folded`): the notice has nowhere else to stand.
+ * running. Endings say nothing here: a finished job's result is the left
+ * corner's card. With nothing going on and nothing grown, the pill offers a
+ * hand; with a row grown and nothing going on, it is quiet.
  */
 function restingState({
   busy,
   pending,
   grown,
-  folded = 0,
 }: {
   busy: number;
   pending: number;
   grown: boolean;
-  /** Unread endings whose rows the write line is holding back. */
-  folded?: number;
 }): { text: string; shine: boolean; spin?: boolean } | null {
   if (pending > 0)
     return {
@@ -435,11 +435,6 @@ function restingState({
       shine: true,
     };
   if (busy > 0) return { text: "working", shine: true, spin: true };
-  if (folded > 0)
-    return {
-      text: folded === 1 ? "1 new result" : `${folded} new results`,
-      shine: false,
-    };
   if (!grown) return { text: "Need a hand?", shine: false };
   return null;
 }
@@ -454,8 +449,9 @@ function restingState({
  * takes the glyph away. Anything that passes between two parties is neither, so
  * it rides above a face in a bubble.
  *
- * Questions and unread results grow above the row until answered or opened.
- * The pill's own click opens the room to read the full history.
+ * Questions and stops grow above the row until answered; a finished job's
+ * result is the left corner's card, never a row here. The pill's own click
+ * opens the room to read the full history.
  *
  * The corner radius does not animate with the height: interpolating a pill radius
  * down to a card radius while the box is also resizing warps the corners in flight.
@@ -468,7 +464,6 @@ export function Chip({
   count,
   busy,
   pending,
-  unread,
   onPick,
   onOpen,
 }: {
@@ -476,17 +471,16 @@ export function Chip({
   more: number;
   /** The hand-off up, if any (useHandoff). */
   bubble: Handoff | null;
-  /** Open questions and unread endings, newest first. */
+  /** Open questions and stops, newest first. */
   rows: ThreadView[];
   count: number;
   busy: number;
   pending: number;
-  unread: number;
   onPick: (id: string) => void;
   onOpen: () => void;
 }) {
   // The write line stands where the card would grow: while it is up the pill stays a pill,
-  // and its own words say what the rows would have
+  // and its own words say what waits
   const lineUp = useWriteLineUp();
   const grown = rows.length > 0 && !lineUp;
 
@@ -515,23 +509,8 @@ export function Chip({
         {/* Collapsed, this is still in the tree so the height can animate — inert
             keeps it out of the tab order and out of the way of a click. */}
         <div className="min-h-0 overflow-hidden" inert={!grown}>
-          <p className="flex items-center gap-2 px-3 py-2 font-mono text-[10px] tracking-wide text-muted-foreground">
-            <span className="flex-1">
-              {[
-                pending > 0
-                  ? `${pending} ${pending === 1 ? "needs" : "need"} a reply`
-                  : "",
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-              {unread > 0 && (
-                // What just arrived is what the card most needs you to see
-                <span className="text-brand">
-                  {pending > 0 && " · "}
-                  {unread} new {unread === 1 ? "result" : "results"}
-                </span>
-              )}
-            </span>
+          <p className="px-3 py-2 font-mono text-[10px] tracking-wide text-muted-foreground">
+            {pending} {pending === 1 ? "needs" : "need"} a reply
           </p>
           {/* px-1: a row keeps its own 8px, so its mark lands on the rail while
               the shape it lights up on hover stays inside the card's corners */}
@@ -561,14 +540,7 @@ export function Chip({
         bubble={grown ? null : bubble}
         label={count ? `Threads (${count})` : "Bots"}
         onClick={onOpen}
-        side={
-          <RoomState
-            busy={busy}
-            pending={pending}
-            grown={grown}
-            folded={lineUp ? unread : 0}
-          />
-        }
+        side={<RoomState busy={busy} pending={pending} grown={grown} />}
         onWrite={writeLine.open}
       />
     </div>
@@ -605,14 +577,30 @@ export function CrewRow({
 }) {
   return (
     <div className="flex shrink-0 items-center gap-2 py-1.5 pr-3 pl-1.5">
-      <button
-        type="button"
-        onClick={onWrite}
-        aria-label="Write to a bot"
-        className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-foreground outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
-        <Plus className="size-3.5" />
-      </button>
+      {/* The tip names the key too: `/` is the way in that nothing else on screen shows */}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              type="button"
+              onClick={onWrite}
+              aria-label="Write to Thursday or a bot"
+              className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-foreground outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
+          }
+        >
+          <Plus className="size-3.5" />
+        </TooltipTrigger>
+        <TooltipContent>
+          Write to Thursday or a bot
+          <kbd
+            data-slot="kbd"
+            className="bg-background/20 px-1.5 font-mono text-[10px]"
+          >
+            /
+          </kbd>
+        </TooltipContent>
+      </Tooltip>
       <button
         type="button"
         onClick={onClick}
@@ -634,7 +622,6 @@ export function RoomState(props: {
   busy: number;
   pending: number;
   grown: boolean;
-  folded?: number;
 }) {
   const state = restingState(props);
   if (!state) return null;

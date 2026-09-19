@@ -280,6 +280,15 @@ export function WriteLine({
   const leaveRef = useRef(leave);
   leaveRef.current = leave;
 
+  // A spoken call that picks up has the screen: a line left open with nothing in it steps
+  // aside, and one holding words or files stays, since those are the user's
+  const wasOnCall = useRef(onCall);
+  useEffect(() => {
+    const pickedUp = onCall && !wasOnCall.current;
+    wasOnCall.current = onCall;
+    if (pickedUp && !draft.trim() && !given.files.length) setOpen(false);
+  }, [onCall, draft, given.files.length]);
+
   // The pill's card would grow where the line stands, so the pill is told (room-pill)
   const up = open || dragging || calling;
   // Esc is the line's while it is up, not the field's: the field is disabled while words are

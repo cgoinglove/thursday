@@ -25,7 +25,6 @@ import { Conversation, ThreadHeader } from "./room-conversation";
 import {
   Empty,
   HistoryList,
-  isUnread,
   ListHeader,
   needsYou,
   Quiet,
@@ -211,7 +210,6 @@ export const BotRoom = memo(function BotRoom() {
 
   const busy = threads.filter((entry) => entry.status === "working").length;
   const pending = newest.filter(needsYou).length;
-  const unread = newest.filter(isUnread);
   // In the open room the list says what each bot is on; its foot keeps the faces,
   // so a step's words never come and go under the list.
   const faces = useMemo(
@@ -320,15 +318,14 @@ export const BotRoom = memo(function BotRoom() {
           crew={crew}
           more={more}
           bubble={bubble}
+          // What waits on the user and nothing else: a finished job's result is the left
+          // corner's card (artifact-view), and one notice is enough
           rows={newest.filter(
-            (thread) =>
-              !rung.includes(thread.id) &&
-              (needsYou(thread) || isUnread(thread)),
+            (thread) => !rung.includes(thread.id) && needsYou(thread),
           )}
           count={threads.length}
           busy={busy}
           pending={pending}
-          unread={unread.length}
           onPick={(id) => {
             setPicked(id);
             setOpen(true);

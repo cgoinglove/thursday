@@ -29,8 +29,8 @@ paths:
   without the amber.
 - One brand color, blue (`brand` in `app/globals.css`), on black and white, for what matters on a
   screen (the user's pick): what it asks for (`Button variant="brand"`, round; the write line's
-  send), Thursday herself (her caption dot), and whatever else there most needs the eye — in the
-  pill, a new result's label and count, and an answer button outlined in it. It stays rare so it
+  send), Thursday herself (her caption dot), and whatever else there most needs the eye — a new
+  result's label in the room's list, and an answer button outlined in it. It stays rare so it
   keeps meaning that. What is on or picked is blue too (the user's pick) — a switch, a radio, a
   slider, a segment or a chip that fills, a picked card's border and its tick — and what is not
   is a hairline or muted words, so nothing picked has to be read twice; a label beside it is
@@ -99,8 +99,10 @@ paths:
 - The pill's bubble shows one thing that just happened, over the face of whoever spoke: that face
   with the bots it reached tucked behind it, then the words — no glyph between faces. Questions
   and stops take amber. Clicking the pill opens the room's list, never a thread; the "+" at its
-  left end asks for the write line instead. While that line is up the card does not grow —
-  the line stands there — and the pill's own words carry the count.
+  left end asks for the write line instead. The card above the pill grows for what waits on the
+  user — a question, a stop — and nothing else: a finished job's result is the left corner's
+  card alone, so one notice never shows twice (the user's pick). While the write line is up the
+  card does not grow — the line stands there — and the pill's own words say what waits.
   The open list keeps the pill's row at its foot, faces without step words, and a moment shows
   there instead of in a bubble; only an open thread hides it.
 - The first run is drawn as the call screen, over it (`intro`): her face where it will be, her
@@ -118,7 +120,8 @@ paths:
   until `scripts/intro-voice.mts` records it again, and a missing clip is never an error.
 - What is typed or handed over rather than said goes through one write line at the foot of the
   call screen (`write-line`): absent until asked for (the pill's "+", `/`, a file dragged onto the
-  window), it holds who it is for, the words and the files. Files are kept in the workspace
+  window), and gone again when a spoken call picks up with nothing in it, it holds who it is for,
+  the words and the files. Files are kept in the workspace
   under `GIVEN_FILES.dir` the moment they arrive and travel as paths in the words — which is
   also how the room draws them under the message. A thread's reply takes files the same way
   (`given-files` is the one hook and the one row of chips), and a drop that lands on the room

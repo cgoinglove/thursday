@@ -1436,9 +1436,7 @@ function Hint({
         <span className="text-muted-foreground/40">·</span>
         {behind ? (
           <>
-            <kbd className="rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-foreground/80 shadow-[0_1px_0_var(--border)]">
-              ↓
-            </kbd>
+            <kbd className={KEY_CAP}>↓</kbd>
             <span>back to now</span>
           </>
         ) : (
@@ -1462,6 +1460,7 @@ function Hint({
       <>
         <span>Tap Thursday, or say</span>
         <SaidPhrase phrase={wakePhrase} />
+        <ToWrite />
       </>
     );
   } else if (hotkeyLabel) {
@@ -1469,35 +1468,51 @@ function Hint({
     body = (
       <>
         <span>Tap Thursday, or press</span>
-        <kbd className="rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-foreground/80 shadow-[0_1px_0_var(--border)]">
-          {hotkeyLabel}
-        </kbd>
+        <kbd className={KEY_CAP}>{hotkeyLabel}</kbd>
+        <ToWrite />
       </>
     );
   } else {
     key = "tap";
-    // the only sentence on an idle screen; typed out to match the ascii face
+    // the only sentence on an idle screen; typed out to match the ascii face, and the
+    // way to write comes once it is
     body = (
-      <TextType
-        as="span"
-        text="Tap Thursday to talk"
-        loop={false}
-        typingSpeed={95}
-        initialDelay={400}
-        cursorCharacter="▌"
-        cursorClassName="ml-0.5 text-muted-foreground/50"
-        className="tracking-normal"
-      />
+      <>
+        <TextType
+          as="span"
+          text="Tap Thursday to talk"
+          loop={false}
+          typingSpeed={95}
+          initialDelay={400}
+          cursorCharacter="▌"
+          cursorClassName="ml-0.5 text-muted-foreground/50"
+          className="tracking-normal"
+        />
+        <span className="flex animate-in items-center gap-1.5 delay-[2600ms] duration-700 fill-mode-backwards fade-in">
+          <ToWrite />
+        </span>
+      </>
     );
   }
 
   return (
     <span
       key={key}
-      className="flex h-6 animate-in items-center gap-1.5 font-mono text-[11px] text-muted-foreground/70 fade-in duration-700"
+      className="flex h-6 animate-in items-center gap-1.5 font-mono text-[11px] text-muted-foreground fade-in duration-700"
     >
       {body}
     </span>
+  );
+}
+
+/** The other way in, said beside the ones to call: `/` opens the write line (write-line). */
+function ToWrite() {
+  return (
+    <>
+      <span className="text-muted-foreground/40">·</span>
+      <kbd className={KEY_CAP}>/</kbd>
+      <span>to write</span>
+    </>
   );
 }
 
