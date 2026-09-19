@@ -3,19 +3,11 @@
 import {
   ChevronLeft,
   ExternalLink,
-  File,
-  FileCode2,
-  FileJson,
-  FileText,
   FolderOpen,
-  Image,
   Images,
-  Music,
-  Sheet,
   Trash2,
-  Video,
 } from "lucide-react";
-import { Fragment, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/notify";
@@ -39,7 +31,6 @@ import {
 } from "@/features/settings/components/setting-ui";
 import { FileThumb } from "@/features/workspace/components/file-thumb";
 import { FilePreview } from "@/features/workspace/components/file-view";
-import type { FileViewKind } from "@/features/workspace/file-kind";
 import { openFileAction } from "@/features/workspace/workspace.action";
 import { shortAgo } from "@/lib/date-like";
 import { useServerAction } from "@/lib/protocol/use-server-action";
@@ -57,25 +48,14 @@ import { cn, formatBytes } from "@/lib/utils";
  * set of pictures is for. Browsing a tree is Workspace's job.
  */
 
-/** Every kind `viewKindOf` returns, plus the set. One icon table, as in Workspace. */
-const KIND_ICONS: Record<FileViewKind, typeof File> = {
-  markdown: FileText,
-  csv: Sheet,
-  json: FileJson,
-  text: FileText,
-  frame: FileCode2,
-  image: Image,
-  audio: Music,
-  video: Video,
-  none: File,
-};
-
 /** The row picked in the menu, and the file being read inside it. */
 type Reading = { row: Artifact; file: ArtifactFile | null };
 
 export function ArtifactSetting() {
   const [reading, setReading] = useState<Reading | null>(null);
   const [filter, setFilter] = useState("");
+  /** Whose shelf is up: a bot's name, `null` for what sits loose, `undefined` for everyone's. */
+  const [of, setOf] = useState<string | null | undefined>(undefined);
   const [rows, setRows] = useState(ARTIFACT_VIEW.rows);
 
   const { data, isLoading, error } = useServerRoute<ArtifactShelf>(
@@ -92,13 +72,13 @@ export function ArtifactSetting() {
   const entries = data?.entries ?? [];
   const total = data?.total ?? 0;
   const needle = filter.trim().toLowerCase();
-  const shown = needle
-    ? entries.filter(
-        (entry) =>
-          entry.name.toLowerCase().includes(needle) ||
-          entry.bot?.toLowerCase().includes(needle),
-      )
-    : entries;
+  const shown = entries.filter(
+    (entry) =>
+      (of === undefined || entry.bot === of) &&
+      (!needle ||
+        entry.name.toLowerCase().includes(needle) ||
+        entry.bot?.toLowerCase().includes(needle)),
+  );
 
   // A fresh row when the open one is still listed, so a rewrite shows through
   const picked =
@@ -133,36 +113,39 @@ export function ArtifactSetting() {
             className="mx-2 mb-1.5 w-auto"
           />
 
-          {shown.length === 0 ? (
-            <p className="px-4 py-3 text-xs text-muted-foreground/60">
-              {needle ? "Nothing matches" : "Nothing here yet"}
-            </p>
-          ) : (
-            groupByBot(shown).map(({ bot, rows }) => (
-              <Fragment key={bot ?? ""}>
-                <span className="flex items-center gap-1.5 px-3 pt-3 pb-1 font-mono text-[10px] text-muted-foreground/60">
-                  {bot && (
-                    <BotMark
-                      size={12}
-                      seed={bot}
-                      {...markOf(bot, bots)}
-                      notify={false}
-                      className="shrink-0"
-                    />
-                  )}
-                  <span className="truncate">{bot ?? "Unsorted"}</span>
-                </span>
-                {rows.map((entry) => (
-                  <MenuRow
-                    key={entry.path}
-                    entry={entry}
-                    active={entry.path === picked?.path}
-                    onPick={() => setReading({ row: entry, file: null })}
+          {/* Bots only: with every file listed here the bots themselves scrolled out of sight */}
+          <BotRow
+            label="Everyone"
+            count={entries.length}
+            active={of === undefined}
+            onPick={() => {
+              setOf(undefined);
+              setReading(null);
+            }}
+          />
+          {groupByBot(entries).map(({ bot, rows }) => (
+            <BotRow
+              key={bot ?? ""}
+              label={bot ?? "Unsorted"}
+              mark={
+                bot ? (
+                  <BotMark
+                    size={18}
+                    seed={bot}
+                    {...markOf(bot, bots)}
+                    notify={false}
+                    className="shrink-0"
                   />
-                ))}
-              </Fragment>
-            ))
-          )}
+                ) : undefined
+              }
+              count={rows.length}
+              active={of === bot}
+              onPick={() => {
+                setOf(bot);
+                setReading(null);
+              }}
+            />
+          ))}
 
           {total > entries.length && (
             <button
@@ -185,6 +168,7 @@ export function ArtifactSetting() {
             onOpen={(file) => setReading({ row: picked, file })}
             onBack={() => setReading({ row: picked, file: null })}
             onGone={() => setReading(null)}
+            onShelf={() => setReading(null)}
           />
         ) : shown.length > 0 ? (
           <Shelf
@@ -237,33 +221,35 @@ function countLine(shown: Artifact[], total: number, files: number): string {
   return files > total ? `${head} · ${files.toLocaleString("en")} files` : head;
 }
 
-/** One row of the menu. A set says how many it holds; a file says what it weighs. */
-function MenuRow({
-  entry,
+/** One row of the left pane: whose shelf the right pane shows. */
+function BotRow({
+  label,
+  mark,
+  count,
   active,
   onPick,
 }: {
-  entry: Artifact;
+  label: string;
+  mark?: ReactNode;
+  count: number;
   active: boolean;
   onPick: () => void;
 }) {
-  const Icon = entry.kind === "set" ? Images : KIND_ICONS[entry.view];
   return (
     <button
       type="button"
       onClick={onPick}
-      title={`${entry.name} · ${shortAgo(entry.at)}`}
       className={cn(
-        "mx-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
+        "mx-2 flex h-9 items-center gap-2 rounded-md px-2 text-left text-[13px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
         active
           ? "bg-secondary font-medium text-foreground"
           : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
       )}
     >
-      <Icon className="size-3.5 shrink-0 opacity-70" />
-      <span className="min-w-0 flex-1 truncate">{entry.name}</span>
-      <span className="shrink-0 font-mono text-[11px] text-muted-foreground/75">
-        {entry.kind === "set" ? entry.count : formatBytes(entry.bytes)}
+      {mark ?? <Images className="size-4 shrink-0" />}
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground/70 tabular-nums">
+        {count}
       </span>
     </button>
   );
@@ -276,6 +262,7 @@ function Reader({
   onOpen,
   onBack,
   onGone,
+  onShelf,
 }: {
   row: Artifact;
   /** The file being read inside a set; null reads the row itself. */
@@ -283,6 +270,8 @@ function Reader({
   onOpen: (file: ArtifactFile) => void;
   onBack: () => void;
   onGone: () => void;
+  /** Back to the shelf it was picked from. */
+  onShelf: () => void;
 }) {
   const [reveal] = useServerAction(openFileAction);
   const [remove, removing] = useServerAction(deleteArtifactAction, {
@@ -316,16 +305,14 @@ function Reader({
   return (
     <>
       <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border/60 px-6">
-        {file && (
-          <button
-            type="button"
-            onClick={onBack}
-            className="-ml-1 flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 font-mono text-[11px] text-muted-foreground outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            <ChevronLeft className="size-3" />
-            {row.name}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={file ? onBack : onShelf}
+          className="-ml-1 flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 font-mono text-[11px] text-muted-foreground outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <ChevronLeft className="size-3" />
+          {file ? row.name : "Shelf"}
+        </button>
         <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-foreground">
           {open ? (open.path.split("/").pop() ?? row.name) : row.name}
         </span>

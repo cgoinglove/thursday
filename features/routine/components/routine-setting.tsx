@@ -6,7 +6,6 @@ import {
   Loader2,
   MoreHorizontal,
   Play,
-  Plus,
   Trash2,
   X,
 } from "lucide-react";
@@ -101,15 +100,17 @@ export function RoutineSetting() {
             </SettingRailNote>
             {/* A routine's time is kept only as far as this allows, so it is set where they are */}
             <KeepWorkingSwitch />
-            <span className="h-4 w-px shrink-0 bg-border" />
-            <Button variant="outline" size="sm" onClick={() => setOpen("new")}>
-              <Plus />
-              New routine
-            </Button>
           </>
         }
       >
-        <SettingItems>
+        {/* At the head of the list, where Skills and Connectors add theirs: the foot was not seen */}
+        <SettingItems
+          addRow={
+            all.length < ROUTINE.max
+              ? { label: "New routine", onClick: () => setOpen("new") }
+              : undefined
+          }
+        >
           {all.length === 0 ? (
             <p className="p-4 text-sm leading-relaxed text-muted-foreground">
               Nothing starts by itself yet. Tell Thursday what should — "every

@@ -49,6 +49,7 @@ import {
   groupSatisfied,
   isConfigSet,
 } from "@/features/config/config.const";
+import { ReachGuide } from "@/features/reach/components/reach-guide";
 import { ReachState } from "@/features/reach/components/reach-state";
 import { REACH_KEYS } from "@/features/reach/reach.schema";
 import {
@@ -140,6 +141,7 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
         </SettingRailNote>
       }
     >
+      {screen === "phone" && <ReachGuide />}
       {groups.map((group) => (
         <SettingGroup
           key={group.id}
