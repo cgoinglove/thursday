@@ -28,7 +28,8 @@ paths:
 - One brand color, blue (`brand` in `app/globals.css`), and only as a point on black and white:
   the one thing a screen asks for (`Button variant="brand"`, round; the write line's send) and
   Thursday herself (her caption dot). What is on or picked — a switch, a radio, a tick, a card's
-  border, a chip that fills — is black (`primary`, `foreground`), and a label beside it is muted:
+  border, a chip or a segment that fills — is black (`primary`, `foreground`), and what is not is
+  a hairline or muted words, so nothing picked has to be read twice; a label beside it is muted:
   a settings screen holds a dozen of them, and blue on each is no point at all. Never a surface,
   never a status — a green beside it would read as a second brand.
 - What she is doing on a call is one line under her face, each drawn for at least

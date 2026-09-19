@@ -4,8 +4,9 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Single-value radiogroup styled as a pill; one option is always selected.
- * Pass `w-full *:flex-1` in `className` to stretch the buttons.
+ * Single-value radiogroup styled as a pill; one option is always selected, filled black
+ * like everything else that is picked. Pass `w-full *:flex-1` in `className` to stretch
+ * the buttons.
  */
 export function Segmented<T extends string>({
   options,
@@ -23,7 +24,10 @@ export function Segmented<T extends string>({
   return (
     <div
       role="radiogroup"
-      className={cn("flex w-fit gap-1 rounded-lg bg-muted p-0.5", className)}
+      className={cn(
+        "flex w-fit gap-0.5 rounded-full bg-muted p-0.75",
+        className,
+      )}
       {...rest}
     >
       {options.map((option) => {
@@ -37,9 +41,9 @@ export function Segmented<T extends string>({
             title={option.title}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-[11px] transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+              "flex h-7 items-center justify-center gap-1.5 rounded-full px-3 text-[12.5px] whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
               picked
-                ? "bg-background text-foreground shadow-sm"
+                ? "bg-primary font-medium text-primary-foreground"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
