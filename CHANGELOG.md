@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.11.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.10.0...thursday-agent-v0.11.0) (2026-09-19)
+
+
+### Features
+
+* **seeds:** every ready-made bot installs by default ([a90a087](https://github.com/cgoinglove/thursday/commit/a90a087f30352d2b9aee4f880e7affacf11c8ae1))
+* **seeds:** Mail is no longer offered, and a picture book asks what it should be ([8724434](https://github.com/cgoinglove/thursday/commit/87244342ee50387734351c728b7d895dc24a7926))
+* **seeds:** ready-made bots carry scripts, and any page can be a picture book ([f83cde1](https://github.com/cgoinglove/thursday/commit/f83cde1a8ee9d4ac76a8dd2b346fd09200d1c0e2))
+* **seeds:** Tutor explains anything as a picture book ([21a1615](https://github.com/cgoinglove/thursday/commit/21a161556bfd7c67d687d0cab283b898702659f7))
+
+
+### Fixes
+
+* **bot:** the pill folds back to its own width while the write line is up ([9dd662e](https://github.com/cgoinglove/thursday/commit/9dd662e15ec442c1917720b261a831b5222ed7fe))
+* **call:** a thread picked back up names its bot, and a line in writing redraws only on change ([7981b9b](https://github.com/cgoinglove/thursday/commit/7981b9b3e47e919fc809f12594b9dfc41305b48d))
+* **call:** she speaks the language being spoken, not the browser's ([2135fe6](https://github.com/cgoinglove/thursday/commit/2135fe6c34d0efc8b62d20903cfb7c87fde2625d))
+* **call:** the voice reads what the backend can do, as the guide lays it out ([990e17b](https://github.com/cgoinglove/thursday/commit/990e17ba4c0b5ab3b2647daeead796a7989b9d21))
+* **call:** the voice's ending rule hands the turn over ([e949d54](https://github.com/cgoinglove/thursday/commit/e949d54a3fde094faac710c1f3b87f32ccc57fb7))
+* **call:** the voice's ending rule hands the turn over ([730bc21](https://github.com/cgoinglove/thursday/commit/730bc212908174bfb56f6f7df9a3b790f2a74619))
+* **call:** work stays with the answer it led to, and a call in writing reads as typed ([dee5603](https://github.com/cgoinglove/thursday/commit/dee5603994aa3cd1edf909b431d7a40160dd351c))
+* **signins:** a kept sign-in takes back the cookies its site renewed ([c749e03](https://github.com/cgoinglove/thursday/commit/c749e032cb845d8a173b6612208c57e5b95fc9b6))
+
+
+### Under the hood
+
+* **call:** take out the nudge experiment ([bbfcec2](https://github.com/cgoinglove/thursday/commit/bbfcec203267a9229e556c31a33071d2b40c5fec))
+
+
+### Docs
+
+* **images:** a still of the demo call at 0:33 ([cdd40f1](https://github.com/cgoinglove/thursday/commit/cdd40f172678953eaa3cf438f6a9720e4716aa19))
+* **readme:** the demo GIF shows asking a running bot how it's going ([0df9ecb](https://github.com/cgoinglove/thursday/commit/0df9ecbae7c53bf510c4014f0cbc1c040065f502))
+
 ## [0.10.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.9.0...thursday-agent-v0.10.0) (2026-09-19)
 
 
