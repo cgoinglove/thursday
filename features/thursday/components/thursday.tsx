@@ -18,6 +18,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
@@ -164,8 +165,10 @@ function CallScreen({
   const hers =
     messages.findLast((turn) => turn.role === "assistant")?.text ?? "";
   // An open thread lies over the right of the call and moves none of it: her face and the
-  // captions are where they were when it closes
-  const sided = captionView === "sides" && status !== "idle";
+  // captions are where they were when it closes. A window too narrow for three columns
+  // draws her last line instead, whatever the setting.
+  const wide = useWide(SIDES_MIN_WIDTH);
+  const sided = captionView === "sides" && status !== "idle" && wide;
   const talk = useMemo(() => turnsOf(messages), [messages]);
   const turns = useTurnFocus(talk, sided);
   const lastRole = talk.at(-1)?.role;
@@ -249,17 +252,13 @@ function CallScreen({
               live={saying}
               onPick={turns.pick}
               under={
-                work.held ? (
-                  <WorkStack
-                    lines={work.lines}
-                    shown={work.on}
-                    thinkingSince={thinkingSince}
-                    thinkingTitle={thinkingTitle}
-                  />
+                work.held && work.lines.length > 0 ? (
+                  <WorkStack lines={work.lines} shown={work.on} />
                 ) : null
               }
-              // with the work gone and her answer not yet begun, her last words come back level
-              ahead={making && work.held}
+              // with the work gone and her answer not yet begun, her last words come back level;
+              // thinking alone takes nothing from them, since it stands under her face
+              ahead={making && work.held && work.lines.length > 0}
             />
           )}
         </div>
@@ -283,9 +282,11 @@ function CallScreen({
               (tool-line). The fast channel; the face does not follow it
               (use-thursday). */}
             <ActivityRow
-              // beside her face the work is on her side (WorkStack); this slot keeps the meter
+              // beside her face the lines are on her side (WorkStack); what she is thinking
+              // about and the meter stay here in either view
               tool={sided ? null : drawn}
-              thinkingSince={sided ? null : thinkingSince}
+              toolUp={drawn !== null}
+              thinkingSince={thinkingSince}
               thinkingTitle={thinkingTitle}
               // nobody is listened to on a call in writing: there is no microphone
               listening={
@@ -371,6 +372,25 @@ function CornerDot({ alert }: { alert: SectionAlert }) {
         alert === "red" ? "bg-destructive" : "bg-amber-600 dark:bg-amber-400",
       )}
     />
+  );
+}
+
+/**
+ * Below this window width the captions down the sides would be narrower than about 15rem
+ * (24vw) and her lines a few words each, so the call draws her last line under her face.
+ */
+const SIDES_MIN_WIDTH = 1000;
+
+/** Whether the window is at least `px` wide, kept current; a server render counts as wide. */
+function useWide(px: number) {
+  return useSyncExternalStore(
+    (listener) => {
+      const query = window.matchMedia(`(min-width: ${px}px)`);
+      query.addEventListener("change", listener);
+      return () => query.removeEventListener("change", listener);
+    },
+    () => window.matchMedia(`(min-width: ${px}px)`).matches,
+    () => true,
   );
 }
 
@@ -880,13 +900,16 @@ function useHeldThought(
 
 function ActivityRow({
   tool,
+  toolUp,
   thinkingSince,
   thinkingTitle,
   listening,
   getMicSpectrum,
 }: {
-  /** The line to draw now (useDwell). */
+  /** The line to draw here now (useDwell); none while the lines stand beside her face. */
   tool: ActivityLine | null;
+  /** A line is up, here or on her side: it is the same stretch of work, said more exactly. */
+  toolUp: boolean;
   thinkingSince: number | null;
   thinkingTitle: string | null;
   listening: boolean;
@@ -910,7 +933,7 @@ function ActivityRow({
       {thought && (
         <Fade
           at="col-start-1 row-start-1"
-          shown={thinkingSince !== null && !tool}
+          shown={thinkingSince !== null && !toolUp}
         >
           <Thinking title={title} />
         </Fade>
@@ -974,25 +997,19 @@ function useWork(drawn: ActivityLine | null, thinking: boolean) {
 
 /**
  * What she is doing, on her side of the captions and under her words: the last few lines
- * of work, older ones fainter, and what the backend is thinking about under them. No rule
- * and no plate — the glyphs at the head of the lines are what set them apart from her words.
+ * of work, older ones fainter. No rule and no plate — the glyphs at the head of the lines
+ * are what set them apart from her words. What she is thinking about stays under her face.
  */
 function WorkStack({
   lines,
   shown,
-  thinkingSince,
-  thinkingTitle,
 }: {
   lines: ActivityLine[];
   /** The stretch of work is still open; false is the fade on its way out. */
   shown: boolean;
-  thinkingSince: number | null;
-  thinkingTitle: string | null;
 }) {
-  const { thought, title } = useHeldThought(thinkingSince, thinkingTitle);
   const leaving = Math.max(0, lines.length - WORK_LINES);
   const rows = lines.length - leaving;
-  const newest = lines.at(-1);
   return (
     <div
       aria-hidden={!shown}
@@ -1000,7 +1017,7 @@ function WorkStack({
         "pointer-events-auto relative w-[min(100%,16.5rem)] transition-opacity duration-300 ease-out",
         !shown && "pointer-events-none opacity-0",
       )}
-      style={{ height: (rows + 1) * WORK_ROW }}
+      style={{ height: rows * WORK_ROW }}
     >
       {lines.map((line, k) => {
         const row = k - leaving;
@@ -1021,23 +1038,6 @@ function WorkStack({
           </div>
         );
       })}
-      {thought && (
-        <div
-          style={{
-            transform: `translateY(${rows * WORK_ROW}px)`,
-            height: WORK_ROW,
-          }}
-          className="absolute inset-x-0 top-0 flex items-center transition-transform duration-300 ease-out motion-reduce:transition-none"
-        >
-          {/* A tool wins over thinking: it is the same stretch of work, said more exactly */}
-          <Fade
-            at={cn("min-w-0", rows > 0 && "pl-6")}
-            shown={thinkingSince !== null && (!newest || newest.done)}
-          >
-            <Thinking title={title} />
-          </Fade>
-        </div>
-      )}
     </div>
   );
 }

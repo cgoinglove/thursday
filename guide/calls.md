@@ -74,10 +74,10 @@ keeps them under the search.
 ## Hearing the words
 
 **Settings › Thursday › Captions** picks where the words show: under her face, or down the
-two sides of the screen. What she is doing — a search, work handed to a bot, what she is
-thinking about — shows as one line under her face; with the words down the sides it stands on
-her side instead, under what she last said, the last three steps at a time with the older
-ones fainter. Every call is kept; **Settings › Thursday › History** opens them,
+two sides of the screen. A narrow window always shows them under her face. What she is
+doing — a search, work handed to a bot — shows as one line under her face; with the words down
+the sides it stands on her side instead, under what she last said, the last three steps at a
+time with the older ones fainter. What she is thinking about stays under her face either way. Every call is kept; **Settings › Thursday › History** opens them,
 one call at a time, and deletes a single call or all of them.
 
 ## Her voice, her face, her models

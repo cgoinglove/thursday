@@ -32,11 +32,13 @@ paths:
   a settings screen holds a dozen of them, and blue on each is no point at all. Never a surface,
   never a status — a green beside it would read as a second brand.
 - What she is doing on a call is one line under her face, each drawn for at least
-  `CALL_LINE.dwellMs` (`useDwell`). With captions down the sides the same lines stand on her
-  side instead, under her latest words (`WorkStack`): the last three, older ones fainter, what
-  the backend is thinking about under them, no rule and no plate. Work that follows the
-  caller's words before any of hers takes her level line as her turn in the making, and her
-  earlier words step back for it as they would for a new turn.
+  `CALL_LINE.dwellMs` (`useDwell`). With captions down the sides the tool lines stand on her
+  side instead, under her latest words (`WorkStack`): the last three, older ones fainter, no
+  rule and no plate. What the backend is thinking about stays under her face in either view,
+  held back while a tool line is up. A tool line that follows the caller's words before any
+  of hers takes her level line as her turn in the making, and her earlier words step back for
+  it as they would for a new turn; thinking alone moves nothing. A window narrower than
+  `SIDES_MIN_WIDTH` draws her last line whatever Captions says.
 - Errors are never swallowed. Inline or toast, they reach the user.
 - Thread questions remain visible while other bots work. Unread endings stay in the inbox until
   the user opens them — its card in the left corner and Thursday's `thread_show` count, closing the
