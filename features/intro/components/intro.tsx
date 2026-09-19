@@ -425,7 +425,7 @@ function KeyTurn({ keyed, onSaved }: { keyed: boolean; onSaved: () => void }) {
     return (
       <>
         <Done>OpenAI key saved</Done>
-        <Fine>Change it any time in Settings › Models &amp; keys.</Fine>
+        <Fine>Change it any time in Settings › API keys.</Fine>
       </>
     );
   return (
@@ -694,7 +694,12 @@ function Ready({ mic, bots }: { mic: boolean; bots: number }) {
   return (
     <span className="flex items-center gap-2 text-xs">
       {items.map((item, index) => (
-        <span key={item} className="flex items-center gap-2">
+        // One after another, as a list being checked off rather than a line of text
+        <span
+          key={item}
+          style={{ animationDelay: `${300 + index * 260}ms` }}
+          className="flex animate-in items-center gap-2 duration-300 fill-mode-backwards fade-in slide-in-from-bottom-1"
+        >
           {index > 0 && <span className="text-muted-foreground/40">·</span>}
           <span className="flex items-center gap-1.5">
             <Check className="size-3.25" />
