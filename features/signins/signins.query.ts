@@ -2,7 +2,11 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { appEvents } from "@/app/api/events/app-event.server";
 import { DATA_DIR, PATHS } from "@/config";
-import { WORKSPACE } from "@/features/workspace/workspace";
+import {
+  jobShellEnv,
+  openWorkspace,
+  WORKSPACE,
+} from "@/features/workspace/workspace";
 import { logger } from "@/lib/logger";
 import { type SignIn, siteOf } from "./signins.schema";
 
@@ -98,6 +102,67 @@ export async function borrowSignIn(
   const used = { ...kept, usedAt: new Date().toISOString() };
   await write(used);
   return { kind: "state", signIn: record(used), state: kept.state };
+}
+
+type Cookie = { name: string; domain: string; path: string; value: string };
+type State = { cookies?: Cookie[] };
+
+const cookieKey = (cookie: Cookie) =>
+  `${cookie.name}\n${cookie.domain}\n${cookie.path}`;
+
+/**
+ * A site renews its session cookies while the session is used, and the copy kept here goes
+ * stale: lent again, it can be refused, or end the session it was copied from. So after a
+ * bot's turn its browser's cookies go back into every kept sign-in — only the ones a sign-in
+ * already holds (same name, domain and path), so a browser that signed out, or never signed
+ * in, changes nothing. `session` is the participant's (workspace botBrowserSession); one
+ * attached to the user's own Chrome is theirs and is not read.
+ */
+export async function renewSignIns(session: string): Promise<void> {
+  const names = await readdir(VAULT).catch(() => [] as string[]);
+  if (!names.some((name) => name.endsWith(".json"))) return;
+
+  const sandbox = await openWorkspace();
+  const env = jobShellEnv(session);
+  const listed = await sandbox.exec("playwright-cli list --json", {
+    env,
+    timeoutMs: 15_000,
+  });
+  const { browsers } = JSON.parse(listed.stdout || "{}") as {
+    browsers?: { name: string; attached?: boolean }[];
+  };
+  const open = browsers?.find((b) => b.name === env.PLAYWRIGHT_CLI_SESSION);
+  if (!open || open.attached) return;
+
+  const path = `.playwright-cli/state-${crypto.randomUUID()}.json`;
+  let now: Map<string, Cookie>;
+  try {
+    const saved = await sandbox.exec(
+      `mkdir -p .playwright-cli && playwright-cli state-save ${path}`,
+      { env, timeoutMs: 30_000 },
+    );
+    if (saved.exitCode !== 0) return;
+    const state = JSON.parse(await sandbox.readFile(path, "utf-8")) as State;
+    now = new Map((state.cookies ?? []).map((c) => [cookieKey(c), c]));
+  } finally {
+    await sandbox.exec(`rm -f ${path}`);
+  }
+
+  for (const name of names) {
+    if (!name.endsWith(".json")) continue;
+    const kept = await read(decodeURIComponent(name.slice(0, -5)));
+    const state = kept?.state as State | undefined;
+    if (!kept || !state?.cookies) continue;
+    let renewed = false;
+    const cookies = state.cookies.map((cookie) => {
+      const fresh = now.get(cookieKey(cookie));
+      if (!fresh || JSON.stringify(fresh) === JSON.stringify(cookie))
+        return cookie;
+      renewed = true;
+      return fresh;
+    });
+    if (renewed) await write({ ...kept, state: { ...state, cookies } });
+  }
 }
 
 /** The user's say on one bot: let in, or not any more. Only the screen calls this. */

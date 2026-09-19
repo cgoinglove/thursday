@@ -30,6 +30,7 @@ import {
   type JobBot,
   type TokenUsage,
 } from "@/features/bot/bot.schema";
+import { renewSignIns } from "@/features/signins/signins.query";
 import {
   botBrowserSession,
   filesOnDisk,
@@ -154,6 +155,9 @@ export async function runBot(
       : null,
     openBotFolders(name),
   ]);
+  const session =
+    options.session ??
+    (options.threadId ? botBrowserSession(options.threadId, name) : null);
   const [prompt, tools] = await Promise.all([
     loadBotPrompt(
       name,
@@ -170,9 +174,7 @@ export async function runBot(
       target: "bot",
       bot: name,
       thread: options.threadId ?? null,
-      session:
-        options.session ??
-        (options.threadId ? botBrowserSession(options.threadId, name) : null),
+      session,
       model,
     }),
   ]);
@@ -474,6 +476,10 @@ export async function runBot(
     quiet.end();
     acknowledgeStep();
     await Promise.allSettled([...inFlight]);
+    if (session)
+      void renewSignIns(session).catch((cause) =>
+        logger.warn(`${name}: kept sign-ins were not renewed`, cause),
+      );
   }
 
   try {

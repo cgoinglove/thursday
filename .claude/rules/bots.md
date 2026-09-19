@@ -38,7 +38,9 @@ paths:
   across another's session among its files. Which bots may borrow is settled on screen only
   (Settings › Sign-ins, or the button a waiting bot's question carries,
   `signin-ask`): a refused borrow is noted as `asking`, and nothing a tool is told lets a bot
-  in. Boot takes in what bots used to keep under `bots/<name>/.auth`.
+  in. Boot takes in what bots used to keep under `bots/<name>/.auth`. Sites renew session cookies
+  as they are used, so after every bot turn the cookies a kept sign-in already holds are copied back
+  from that participant's browser (`renewSignIns`); a copy left stale can end the session.
 - **No browser, nothing runs — unless the user said otherwise.** `presence` (app/api/events) says
   whether a browser is on the stream; when the last one has been gone a while, jobs stop and wait
   and open calls close. When one comes back, only jobs paused for browser absence pick themselves
