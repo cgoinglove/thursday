@@ -46,6 +46,9 @@ next-env.d.ts
 
 # agent workspace (local; holds the user's installed skills)
 /.ai-workspace
+
+# the sites the user signed in to (local; sessions that sign in as them)
+/.sign-ins
 # editor agent tooling, not the app's
 # Tool skills are installed per machine and symlink into /.agents, so a
 # committed one is a dangling link on every clone.

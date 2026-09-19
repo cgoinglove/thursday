@@ -13,7 +13,8 @@ import { type SignIn, siteOf } from "./signins.schema";
  * through the app, which asks the list below first. A file holds the record and the
  * browser's storage state together, so signing out is removing one file.
  */
-const VAULT = join(DATA_DIR, "sign-ins");
+// Dot-prefixed like the workspace, so in a checkout it never reads as part of the app
+const VAULT = join(DATA_DIR, ".sign-ins");
 
 type Kept = SignIn & { state: unknown };
 

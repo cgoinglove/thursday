@@ -180,7 +180,7 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   a smaller copy instead of sending one.
 - **A sign-in is the app's to keep and the user's to lend.** A bot borrows one with
   `sign_in_use` and hands over the one the user just made with `sign_in_keep`
-  (`tools/signin.tool`); the session lives under `DATA_DIR/sign-ins`, one file a site, outside
+  (`tools/signin.tool`); the session lives under `DATA_DIR/.sign-ins`, one file a site, outside
   the workspace, and crosses it only as a file that exists for one browser-CLI command. That is
   a place, not a lock — a bot's shell is not confined — and what it buys is that no bot comes
   across another's session among its files. Which bots may borrow is settled on screen only
