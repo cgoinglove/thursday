@@ -61,12 +61,11 @@ import {
   textCallRunsOn,
 } from "@/features/thursday/thursday.schema";
 import { useThursdayStore } from "@/features/thursday/thursday.store";
+import type { Ringing, Rung } from "@/features/thursday/use-call-ring";
 import { useTextCall } from "@/features/thursday/use-text-call";
 import {
   type ActivityLine,
   type CallEnd,
-  type Ringing,
-  type Rung,
   useThursday,
 } from "@/features/thursday/use-thursday";
 import { ArtifactView } from "@/features/workspace/components/artifact-view";

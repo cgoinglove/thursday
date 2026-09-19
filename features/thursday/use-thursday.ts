@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { toast } from "@/components/ui/toast";
 import {
-  CALL_BACK,
   CALL_END,
   CALL_ENDED_MS,
   CALL_IDLE,
@@ -15,15 +14,10 @@ import {
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { acceptThreadRelaysAction } from "@/features/bot/bot.action";
 import type { Bot, Thread } from "@/features/bot/bot.schema";
-import {
-  botThreads,
-  ringingThreads,
-  screenActs,
-} from "@/features/bot/thread.store";
+import { botThreads, screenActs } from "@/features/bot/thread.store";
 import { runRemoteTool } from "@/features/thursday/tool-call";
 import { isCombo, useHotkey } from "@/hooks/use-hotkey";
 import { useWakeWord } from "@/hooks/use-wake-word";
-import { toDate } from "@/lib/date-like";
 import type { LiveClose } from "@/lib/live/live.schema";
 import {
   type LiveActivity,
@@ -37,7 +31,6 @@ import {
   createAudioTap,
   SPECTRUM_BANDS,
 } from "@/lib/live/live.tap";
-import { createRing } from "@/lib/live/ring";
 import { createProbe } from "@/lib/probe";
 import { type Result, unwrapResult } from "@/lib/protocol/result";
 import {
@@ -58,7 +51,6 @@ import {
   saveTurnsAction,
 } from "./thursday.action";
 import type {
-  CallBack,
   CallMessage,
   CallStatus,
   FaceWord,
@@ -66,6 +58,7 @@ import type {
 } from "./thursday.schema";
 import { thursdaySettings, useThursdayStore } from "./thursday.store";
 import { searchQueryOf, searchSourcesOf, toolBot, toolLine } from "./tool-line";
+import { useCallRing } from "./use-call-ring";
 
 /**
  * One live call, plus the thread inbox the app watches even with no call open.
@@ -140,29 +133,6 @@ export type ActivityLine = {
   sources?: LiveSource[];
 };
 
-/** One thread a call-back is about, as the screen names it. */
-export type Rung = {
-  id: string;
-  /** The bot whose work rang: the one asking, else the thread's own. */
-  bot: string;
-  kind: "question" | "done" | "stopped";
-  label: string;
-  /** What it is about: the question, else how the work ended or where it stopped. */
-  text: string;
-  /** The answers the bot offered with its question. */
-  options: string[];
-};
-
-/** A call-back ringing: one call for everything that waits, told one by one once it is answered. */
-export type Ringing = {
-  /** The first thread that rang, shown whole. */
-  first: Rung;
-  /** The threads ringing with it, in the order they rang. */
-  others: Rung[];
-  /** When it rang out unanswered, from when it waits under her face as a missed list; null while it rings. */
-  missedAt: number | null;
-};
-
 /**
  * Why a call ended without the user hanging up: the line was quiet (CALL_IDLE),
  * she hung up (`end_call`), Live closed the session, or the connection dropped.
@@ -235,16 +205,6 @@ export function useThursday(
   const callId = useRef<string | null>(null);
   /** Open work already put to her while this page has been open: one set for both kinds of call (open-work). */
   const told = useRef(toldWork);
-  /**
-   * The call-back rings only for threads that changed after this: the last call's
-   * end, the last ring, or the page opening.
-   */
-  const ringAfter = useRef(Date.now());
-  /** The threads a call-back is up for, until it is answered or dismissed. */
-  const [ringingFor, setRingingFor] = useState<string[]>([]);
-  /** When they rang out: it stays on screen as a missed list from then, but nothing rings any more. */
-  const [rangOutAt, setRangOutAt] = useState<number | null>(null);
-  const isRinging = ringingFor.length > 0;
   /**
    * Keys put in this call that her voice has not carried yet: rejected, cut short
    * by a hang-up, or never spoken. Hanging up takes them out of `told`, so the
@@ -585,6 +545,9 @@ export function useThursday(
     latest.current = threads;
   }, [threads]);
 
+  const ring = useCallRing({ threads, resting: status === "idle", writing });
+  const { answered, settle } = ring;
+
   // The user acted on screen: she may have just read that question and must not ask again,
   // and a file put down is one she can be asked about. Facts, never what to do with them
   useEffect(
@@ -636,7 +599,7 @@ export function useThursday(
       // a pending face timer must not fire after the call
       restFace();
       // What came up on this call was this call's to tell; the call-back rings only for what comes after
-      ringAfter.current = Date.now();
+      settle();
       setIdleLeft(null);
       setSince(null);
       setStatus(live ? "ending" : "idle");
@@ -737,15 +700,14 @@ export function useThursday(
 
   const call = useCallback(async () => {
     // Every way in answers a ringing call-back: the face, the wake word, the hotkey
-    const calledBack = isRinging;
-    probe("call", { calledBack, ringingFor });
+    const calledBack = ring.isRinging;
+    probe("call", { calledBack, ringingFor: ring.ringingFor });
     // Guard with a ref, not `status`: three entry points (face, wake word,
     // hotkey) can fire in one frame and both see a stale "idle", opening two sessions
     if (opening.current || ending.current) return;
     // with a line open this press hangs up; `calling` covers the gap before re-render
     if (calling.current || status !== "idle") return hangUp();
-    setRingingFor([]);
-    setRangOutAt(null);
+    answered();
 
     setStatus("connecting");
     setEnded(null);
@@ -1120,130 +1082,17 @@ export function useThursday(
     holdThinking,
     showFailed,
     leave,
-    isRinging,
+    ring.isRinging,
+    ring.ringingFor,
+    answered,
   ]);
 
-  /**
-   * Call-back: rings when a thread is waiting on the user and no line is open,
-   * only for threads that changed after `ringAfter`. What came up during a call
-   * was that call's to tell, and the next call tells what it left unsaid. Ringing
-   * never opens the line; answering does (`call`). A thread handled meanwhile, on
-   * screen or by the setting going off, stops ringing for itself.
-   */
   // Why the last call ended is news for a moment, not the idle screen's one line
   useEffect(() => {
     if (!ended) return;
     const out = setTimeout(() => setEnded(null), CALL_ENDED_MS);
     return () => clearTimeout(out);
   }, [ended]);
-
-  const callBack = useThursdayStore((state) => state.callBack);
-  useEffect(() => {
-    if (!threads) return;
-    const wanted = new Set(
-      threads
-        .filter((thread) => ringsFor(thread, callBack))
-        .map((thread) => thread.id),
-    );
-    setRingingFor((ids) =>
-      ids.every((id) => wanted.has(id))
-        ? ids
-        : ids.filter((id) => wanted.has(id)),
-    );
-    if (status !== "idle" || writing) return;
-    const after = ringAfter.current;
-    const fresh = threads.filter(
-      (thread) =>
-        wanted.has(thread.id) && toDate(thread.updatedAt).getTime() > after,
-    );
-    if (!fresh.length) return;
-
-    probe("ring", { threads: fresh.map((thread) => thread.id) });
-    ringAfter.current = Date.now();
-    // Work that is new to it rings again, even if it had rung out
-    setRangOutAt(null);
-    setRingingFor((ids) => [
-      ...ids,
-      ...fresh.map((thread) => thread.id).filter((id) => !ids.includes(id)),
-    ]);
-  }, [threads, callBack, status, writing]);
-
-  // Writing to her answers a ring as calling her does, and what came up while they wrote
-  // was that call's to tell: nothing from before its end rings afterwards
-  useEffect(() => {
-    if (writing) {
-      setRingingFor([]);
-      setRangOutAt(null);
-    } else ringAfter.current = Date.now();
-  }, [writing]);
-
-  /**
-   * While it rings: it stops ringing by itself after CALL_BACK.ringMs and stays on
-   * the screen as a missed call until the user answers or dismisses it, so stepping
-   * away does not lose it (canvas "Thursday 콜백 알림" B, user 09-17). Esc dismisses.
-   * A thread added to a ring already going does not restart the clock.
-   */
-  const decline = useCallback(() => {
-    probe("ring.declined");
-    setRingingFor([]);
-    setRangOutAt(null);
-  }, []);
-
-  useEffect(() => {
-    if (!isRinging) return;
-    const out =
-      rangOutAt === null
-        ? setTimeout(() => setRangOutAt(Date.now()), CALL_BACK.ringMs)
-        : null;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented) decline();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      if (out) clearTimeout(out);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [isRinging, rangOutAt, decline]);
-  // It rings out loud for as long as the screen rings: a call nobody hears is a notice
-  useEffect(() => {
-    if (!isRinging || rangOutAt !== null) return;
-    const ring = createRing();
-    ring.start();
-    return () => ring.stop();
-  }, [isRinging, rangOutAt]);
-
-  /** What the ringing screen names: every thread that rang, the first one whole. */
-  const ringing = useMemo((): Ringing | null => {
-    const [first, ...others] = ringingFor.flatMap((id): Rung[] => {
-      const thread = threads?.find((one) => one.id === id);
-      if (!thread) return [];
-      const question = thread.room.questions[0];
-      return [
-        {
-          id: thread.id,
-          bot: question?.bot ?? thread.bot,
-          kind: question
-            ? "question"
-            : thread.status === "done"
-              ? "done"
-              : "stopped",
-          label: thread.label,
-          text:
-            question?.text ??
-            thread.outcome ??
-            thread.ask?.question ??
-            thread.label,
-          options: question?.options ?? [],
-        },
-      ];
-    });
-    return first ? { first, others, missedAt: rangOutAt } : null;
-  }, [ringingFor, threads, rangOutAt]);
-
-  // The screen under her face has these threads, so the room's pill leaves their rows to it
-  useEffect(() => {
-    ringingThreads.set(ringingFor);
-  }, [ringingFor]);
 
   /** Read by the face once per animation frame, outside React state. */
   const getSpectrum = useCallback(() => tap.current?.read() ?? EMPTY_BANDS, []);
@@ -1298,9 +1147,9 @@ export function useThursday(
     since,
     call,
     /** A call-back ringing; null when none is. Any way of placing a call answers it. */
-    ringing,
+    ringing: ring.ringing,
     /** Stops the ringing without answering. */
-    decline,
+    decline: ring.decline,
     getSpectrum,
     getMicSpectrum,
     /** null when the tap is the only entry point. */
@@ -1411,14 +1260,3 @@ function persist(
       });
     });
 }
-
-/**
- * Whether a thread is one the call-back rings for: a real question, or with
- * "any" every ending. A job the app stops and picks up by itself never rings.
- */
-const ringsFor = (thread: Thread, callBack: CallBack) =>
-  callBack !== "off" &&
-  !thread.seen &&
-  !thread.ask?.auto &&
-  (thread.room.questions.length > 0 ||
-    (callBack === "any" && thread.status !== "running"));

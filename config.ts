@@ -86,7 +86,7 @@ export const CALL_IDLE = {
 };
 
 /**
- * A call-back rings on the call screen instead of opening the line (useThursday).
+ * A call-back rings on the call screen instead of opening the line (use-call-ring).
  * - `ringMs`  how long it rings before it stops by itself. What rang stays in the room's
  *   inbox, and only work that changes after the ring starts rings again.
  */
