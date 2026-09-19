@@ -4,13 +4,13 @@
 
 ### 다들 프라이데이를 원했다. 이건 서스데이다.
 
-**내 컴퓨터에서 돌아가는 오픈소스 음성 AI 비서. 뒤에는 AI 봇 팀이 있습니다.**<br>
-나는 말하고, 느린 일은 봇들이 실제 브라우저와 셸과 내 파일로 처리합니다. 대화는 끊기지 않습니다.
+**GPT-Live 1로 말하는 오픈소스 음성 AI 비서. 내 컴퓨터에서 돌아가고, 뒤에는 AI 봇 팀이 있습니다.**<br>
+전화하듯 말하면 됩니다. 오래 걸리는 일은 봇들이 진짜 브라우저와 셸로 처리하고, 그동안에도 통화는 이어집니다.
 
 [![npm](https://img.shields.io/npm/v/thursday-agent?style=flat-square&color=111&label=npm)](https://www.npmjs.com/package/thursday-agent)
 [![CI](https://img.shields.io/github/actions/workflow/status/cgoinglove/thursday/ci.yml?style=flat-square&label=ci)](https://github.com/cgoinglove/thursday/actions/workflows/ci.yml)
 [![MIT](https://img.shields.io/badge/license-MIT-111?style=flat-square)](LICENSE)
-[![stars](https://img.shields.io/github/stars/cgoinglove/thursday?style=flat-square&color=111)](https://github.com/cgoinglove/thursday/stargazers)
+[![node](https://img.shields.io/node/v/thursday-agent?style=flat-square&color=111)](https://nodejs.org)
 
 [English](README.md) · [한국어](README.ko.md)
 
@@ -22,11 +22,18 @@
 npx thursday-agent
 ```
 
-OpenAI API 키를 넣고, 처음 쓸 봇을 고르고, **“hey thursday”**라고 말하세요. 계정도 `.env`도 필요 없습니다.
+Node.js 22.18 이상과 OpenAI API 키 하나면 됩니다. 첫 화면에 키를 넣고, 함께할 봇을 고른 뒤 **Thursday의 얼굴을 누르세요**. 가입도 `.env`도 없습니다. 한국어로 말하면 한국어로 답합니다. 음성은 그 키로 1분에 약 $0.05입니다.
+
+## 이렇게 말해 보세요
+
+- "20만 원 아래 코트 찾아서 한 페이지로 정리해 줘."
+- "평일 아침 9시마다 메일 확인하고 답장 초안 써 놔."
+- "동생 생일이 3월 3일인 거 기억해 줘."
+- "아까 그 코트 어디까지 됐어?" 일이 아직 도는 중에 물어봐도 됩니다.
 
 ## 일하는 동안에도 말로
 
-대부분의 에이전트는 입력하고 기다려야 합니다. Thursday는 중간에 끼어들 수 있는 실시간 음성 통화입니다. 몇 초 넘게 걸리는 일은 봇이 백그라운드에서 맡으니 통화가 조용해지지 않고, 끝나면 Thursday가 알려줍니다.
+음성 모델이 직접 브라우저를 열면 1분쯤 말이 없어지고, 조용한 통화는 끊긴 통화나 다름없습니다. 그래서 Thursday는 통화를 둘로 나눕니다. GPT-Live 1이 대화를 붙들고, 몇 초 넘게 걸리는 일은 봇이 뒤에서 맡습니다. 말을 끊어도 되고, 딴 얘기를 해도 되고, 시킨 일이 어디까지 됐는지 물어봐도 됩니다.
 
 ![봇이 백그라운드에서 숙소를 찾는 동안 이어지는 Thursday와의 음성 통화](docs/images/call.png)
 
@@ -56,7 +63,10 @@ OpenAI API 키를 넣고, 처음 쓸 봇을 고르고, **“hey thursday”**라
 
 ## 그리고
 
-- **전화를 끊어도 계속.** 작업은 내 컴퓨터에서 돌고, 끝나면 Thursday가 알려줍니다. 원하면 먼저 전화를 걸어 오게 할 수도 있습니다.
+- **전화를 끊어도 계속.** 작업은 내 컴퓨터에서 돌고, 끝나면 Thursday가 알려줍니다. 켜 두면 화면으로 먼저 전화를 걸어 옵니다.
+- **폰에서도.** 앱은 집 컴퓨터에서 돌고, 밖에서는 Telegram, Discord, Slack으로 말을 겁니다. 내 컴퓨터를 인터넷에 열지 않습니다.
+- **말 대신 글로.** `/`를 누르고 쓰면 됩니다. 같은 기억, 같은 봇이고 마이크도 분당 요금도 없습니다.
+- **루틴.** "평일 아침 9시마다 메일 확인해 줘." 봇과 할 일과 시간을 말로 정합니다.
 - **읽을 수 있는 기억.** Thursday가 나에 대해 아는 건 평범한 노트입니다. 어느 줄이든 열고, 고치고, 지울 수 있습니다.
 - **스킬과 MCP.** Agent Skills로 봇에게 새 방법을 가르치고, MCP 서버를 연결합니다.
 - **모델은 자유롭게.** OpenAI, Anthropic, Google, xAI, Vercel AI Gateway, ChatGPT 로그인. 봇마다 다르게 고릅니다.
@@ -78,7 +88,7 @@ Thursday는 무료이고 MIT 라이선스입니다. 키는 직접 넣습니다. 
 <details>
 <summary><b>내 데이터는 어디로 가나요?</b></summary>
 
-통화에서 한 말과 봇이 다루는 내용은 내가 설정한 모델 제공자와 내가 연결한 서비스로 갑니다. "hey thursday"는 브라우저의 음성 인식을 쓰는데, Chrome에서는 앱이 열려 있고 통화 중이 아닐 때 마이크 소리가 Google로 갑니다. Settings › Thursday에서 끄고, 얼굴을 누르거나 `alt+shift+T`로 통화를 시작하면 됩니다. 앱은 `127.0.0.1`에서만 열리고, 통화와 기억과 파일은 `~/.thursday`에 있습니다(소스에서 실행하면 체크아웃 폴더).
+통화에서 한 말과 봇이 다루는 내용은 내가 설정한 모델 제공자와 내가 연결한 서비스로 갑니다. "hey thursday" 호출어는 직접 켜기 전까지 꺼져 있습니다. 브라우저의 음성 인식을 쓰기 때문에, Chrome에서는 탭이 열려 있는 동안 마이크 소리가 Google로 갑니다. 얼굴을 누르거나 `alt+shift+T`를 쓰면 호출어 없이 통화가 시작됩니다. 앱은 `127.0.0.1`에서만 열리고, 통화와 기억과 파일은 `~/.thursday`에 있습니다(소스에서 실행하면 체크아웃 폴더).
 
 </details>
 
@@ -109,6 +119,6 @@ pnpm 10+ 이 필요합니다.
 
 **[작동 방식](docs/how-it-works.md)** · [기여하기](CONTRIBUTING.md) · [보안](SECURITY.md) · [MIT](LICENSE)
 
-치는 것보다 말하는 게 편하다면, [Thursday에 별을](https://github.com/cgoinglove/thursday) 눌러주세요.
+치는 것보다 말하는 게 편하다면, [Thursday에 별을](https://github.com/cgoinglove/thursday) 눌러주세요. 돌려 보다 막힌 곳은 [이슈로 알려 주세요](https://github.com/cgoinglove/thursday/issues/new). 그 목록이 로드맵입니다.
 
 </div>

@@ -4,13 +4,13 @@
 
 ### Everyone wanted Friday. This is Thursday.
 
-**An open-source voice assistant that runs on your computer, with a team of AI bots behind it.**<br>
-You talk. Bots take the slow work to a real browser, a shell and your files. The conversation never stops.
+**An open-source voice assistant on GPT-Live 1 that runs on your computer, with a team of AI bots behind it.**<br>
+You talk. Bots take the slow work to a real browser, a shell and your files, and she keeps talking while they work.
 
 [![npm](https://img.shields.io/npm/v/thursday-agent?style=flat-square&color=111&label=npm)](https://www.npmjs.com/package/thursday-agent)
 [![CI](https://img.shields.io/github/actions/workflow/status/cgoinglove/thursday/ci.yml?style=flat-square&label=ci)](https://github.com/cgoinglove/thursday/actions/workflows/ci.yml)
 [![MIT](https://img.shields.io/badge/license-MIT-111?style=flat-square)](LICENSE)
-[![stars](https://img.shields.io/github/stars/cgoinglove/thursday?style=flat-square&color=111)](https://github.com/cgoinglove/thursday/stargazers)
+[![node](https://img.shields.io/node/v/thursday-agent?style=flat-square&color=111)](https://nodejs.org)
 
 [English](README.md) · [한국어](README.ko.md)
 
@@ -22,11 +22,18 @@ You talk. Bots take the slow work to a real browser, a shell and your files. The
 npx thursday-agent
 ```
 
-Paste an OpenAI API key, pick your starter bots, and say **“hey thursday.”** No account, no `.env`.
+Needs Node.js 22.18+ and one OpenAI API key, pasted into the first screen. Pick your starter bots and **tap her face**. No account, no `.env`. The voice costs about $0.05 a minute on that key.
+
+## Try saying
+
+- “Find me a coat under two hundred dollars and put the options on one page.”
+- “Every weekday at nine, go through my mail and draft the replies.”
+- “Remember my sister's birthday is March third.”
+- “Where is that coat job?”, while it is still running.
 
 ## Talk while it works
 
-Most agents make you type and wait. Thursday is a real-time voice call you can interrupt. Anything that takes more than a few seconds goes to a bot in the background, so the call never goes quiet, and she tells you when it's back.
+A speech model that opens a browser goes silent for a minute, and a silent call is a dead call. So Thursday splits the call in two: GPT-Live 1 holds the conversation, and anything slower than a few seconds goes to a bot in the background. Interrupt her, change the subject, or ask how the job is going.
 
 ![A voice call with Thursday while a bot looks for hotels in the background](docs/images/call.png)
 
@@ -56,7 +63,10 @@ Pick starter bots on the first run, or make your own with a name and one sentenc
 
 ## And also
 
-- **Hang up, it keeps going.** Jobs run on your machine, and Thursday tells you when they finish, or calls you if you turn that on.
+- **Hang up, it keeps going.** Jobs run on your machine, and Thursday tells you when they finish, or rings your screen if you turn that on.
+- **From your phone.** Write to her from Telegram, Discord or Slack while the app runs at home. Nothing on your computer is opened to the internet.
+- **Type instead.** Press `/` and write to her: the same memory and bots, no microphone, nothing billed by the minute.
+- **Routines.** “Every weekday at nine, go through my mail”: a bot, a job and a time, set up by saying it.
 - **Memory you can read.** What she knows about you is plain notes. Open, edit, or delete any line.
 - **Skills and MCP.** Teach bots new methods with Agent Skills, and connect any MCP server.
 - **Any model.** OpenAI, Anthropic, Google, xAI, Vercel AI Gateway, or your ChatGPT sign-in, per bot.
@@ -78,7 +88,7 @@ Thursday is free and MIT-licensed. You bring the keys: OpenAI bills the voice at
 <details>
 <summary><b>Where does my data go?</b></summary>
 
-What you say on a call and what bots work on go to the model providers you set up and the services you connect. “Hey thursday” uses your browser's speech recognition, which in Chrome sends microphone audio to Google while the app is open and no call is; switch it off in Settings › Thursday and start calls with a tap or `alt+shift+T`. The app listens only on `127.0.0.1`, and your calls, memory and files live in `~/.thursday` (or the checkout, when you run from source).
+What you say on a call and what bots work on go to the model providers you set up and the services you connect. The “hey thursday” wake phrase is off until you switch it on: it uses your browser's speech recognition, which in Chrome sends microphone audio to Google while the tab is open. A tap on her face or `alt+shift+T` starts a call without it. The app listens only on `127.0.0.1`, and your calls, memory and files live in `~/.thursday` (or the checkout, when you run from source).
 
 </details>
 
@@ -109,6 +119,6 @@ Requires pnpm 10+.
 
 **[How it works](docs/how-it-works.md)** · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [MIT](LICENSE)
 
-If you'd rather say it than type it, [star Thursday](https://github.com/cgoinglove/thursday).
+If you'd rather say it than type it, [star Thursday](https://github.com/cgoinglove/thursday). Ran it? [Tell me where it stopped](https://github.com/cgoinglove/thursday/issues/new): that list is the roadmap.
 
 </div>
