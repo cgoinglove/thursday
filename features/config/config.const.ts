@@ -38,6 +38,8 @@ export type ConfigEntry = {
   kind?: MediaKind;
   /** The one the app points a newcomer at. */
   recommended?: true;
+  /** The service's own site, for a key that is no model provider's: its icon is the row's mark. */
+  site?: string;
 };
 
 /**
@@ -219,6 +221,7 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
         key: EXA_API_KEY,
         label: "Exa",
         hint: "web search in one call — dashboard.exa.ai",
+        site: "exa.ai",
       },
     ],
   },
@@ -232,6 +235,7 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
       {
         key: TELEGRAM_TOKEN_KEY,
         label: "Telegram",
+        site: "telegram.org",
         hint: "a bot token from @BotFather — then write to your bot, and allow it here",
       },
     ],

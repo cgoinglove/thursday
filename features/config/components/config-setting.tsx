@@ -19,6 +19,7 @@ import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { notify } from "@/components/ui/notify";
+import { SiteIcon } from "@/components/ui/site-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChatGptSignIn } from "@/features/ai/components/chatgpt-sign-in";
 import { ModelPicker } from "@/features/ai/components/model-picker";
@@ -78,23 +79,23 @@ const KIND_MARKS: Record<MediaKind, LucideIcon> = {
   transcription: Captions,
 };
 
-/** The order the one screen reads in: what a call needs, how bots get a model, what runs on it, how things are looked up, how she is reached from away. */
-const ORDER: ConfigGroup["id"][] = [
-  "voice",
-  "easy",
-  "text",
-  "bots",
-  "studio",
-  "search",
-  "phone",
-];
-
 /**
- * Keys and models on one screen, since a model cannot be picked without its key: the
- * accounts first — the voice key, the two easy ways as cards, every other provider as a
- * mark to tap — then what runs on them. Reads set/unset only, never a value.
+ * One screen per subject, each a list of the catalogue's groups in reading order: the
+ * accounts (the voice key, the two easy ways as cards, every other provider as a mark to
+ * tap, search), what runs on them, and how she is reached from a phone.
  */
-export function ModelsKeysSetting() {
+const SCREENS = {
+  keys: ["voice", "easy", "text", "search"],
+  models: ["bots", "studio"],
+  phone: ["phone"],
+} as const satisfies Record<string, readonly ConfigGroup["id"][]>;
+
+export const KeysSetting = () => <ConfigScreen screen="keys" />;
+export const ModelsSetting = () => <ConfigScreen screen="models" />;
+export const PhoneSetting = () => <ConfigScreen screen="phone" />;
+
+/** Reads set/unset only, never a value. */
+function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
   const { data, isLoading, error } = useServerRoute<ConfigStatus[]>(
     queryKey.config,
   );
@@ -107,7 +108,7 @@ export function ModelsKeysSetting() {
   const valueOf = (key: string) =>
     data?.find((entry) => entry.key === key)?.value;
 
-  const groups = ORDER.flatMap(
+  const groups = SCREENS[screen].flatMap(
     (id) => CONFIG_GROUPS.find((group) => group.id === id) ?? [],
   );
   const keys = groups
@@ -118,10 +119,15 @@ export function ModelsKeysSetting() {
     <SettingScreen
       footer={
         <SettingRailNote>
-          {keys.filter((entry) => isSet(entry.key)).length} of {keys.length} set
-          {groups.some((group) => !groupSatisfied(group, isSet))
-            ? " · a call needs one voice key"
-            : " · your keys stay on this machine"}
+          {screen === "models"
+            ? "Her own voice and backend models are in Thursday. A bot can pick its own on its page."
+            : screen === "phone"
+              ? "Nothing on this computer is opened to the internet: the app asks the chat service what was written."
+              : `${keys.filter((entry) => isSet(entry.key)).length} of ${keys.length} set${
+                  groups.some((group) => !groupSatisfied(group, isSet))
+                    ? " · a call needs one voice key"
+                    : " · your keys stay on this machine"
+                }`}
         </SettingRailNote>
       }
     >
@@ -475,7 +481,17 @@ function KeyMark({ entry }: { entry: ConfigEntry }) {
   if (entry.provider)
     return <ProviderIcon provider={entry.provider} className="size-4" />;
   const Mark = KEY_MARKS[entry.key] ?? KeyRound;
-  return <Mark className="size-4 text-muted-foreground" />;
+  const glyph = <Mark className="size-4 text-muted-foreground" />;
+  // A service that is not a model provider wears its own icon, as a site does in a thread
+  return entry.site ? (
+    <SiteIcon
+      host={entry.site}
+      className="size-4 rounded-[4px]"
+      fallback={glyph}
+    />
+  ) : (
+    glyph
+  );
 }
 
 /**

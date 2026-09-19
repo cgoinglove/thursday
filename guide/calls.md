@@ -36,7 +36,7 @@ the file was put, and hands it to a bot.
 
 It runs on the GPT Subscription when one is signed in, else on the OpenAI key, and the line
 says which before anything is sent. With neither it says so and sends nothing — both are in
-**Settings › Models & keys**. **Esc** ends it — saying goodbye does not, since there is no
+**Settings › API keys**. **Esc** ends it — saying goodbye does not, since there is no
 line for her to drop — and so does starting a spoken call: tapping her face in the middle of
 one ends the written call and places a spoken one. When a turn breaks — a plan's limit, a
 refused key — her face says ERROR and the provider's own words show in red under the line;

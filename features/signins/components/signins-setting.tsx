@@ -1,6 +1,14 @@
 "use client";
 
-import { KeyRound, LogOut, X } from "lucide-react";
+import {
+  AppWindow,
+  KeyRound,
+  LogIn,
+  LogOut,
+  type LucideIcon,
+  ShieldCheck,
+  X,
+} from "lucide-react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
@@ -45,6 +53,7 @@ export function SignInsSetting() {
         </SettingRailNote>
       }
     >
+      <How />
       <SettingItems>
         {all.length === 0 ? (
           <p className="p-4 text-sm leading-relaxed text-muted-foreground">
@@ -59,6 +68,47 @@ export function SignInsSetting() {
         )}
       </SettingItems>
     </SettingScreen>
+  );
+}
+
+/** How a sign-in comes to be here and who gets to use it, in three steps: the list below is what step two leaves. */
+const STEPS: [LucideIcon, string, string][] = [
+  [
+    AppWindow,
+    "A bot opens a window",
+    "When its work needs you signed in to a site, it opens that site on your screen and asks.",
+  ],
+  [
+    LogIn,
+    "You sign in there",
+    "The app keeps that sign-in here — the site's session, never your password.",
+  ],
+  [
+    ShieldCheck,
+    "Only that bot uses it",
+    "Later work is signed in without asking. Another bot has to ask you first.",
+  ],
+];
+
+function How() {
+  return (
+    <ol className="grid gap-3 pb-5 sm:grid-cols-3">
+      {STEPS.map(([Icon, title, text], at) => (
+        <li key={title} className="flex gap-3 rounded-xl bg-muted/40 p-3.5">
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-background text-muted-foreground ring-1 ring-border/60">
+            <Icon className="size-4" />
+          </span>
+          <span className="min-w-0 space-y-0.5">
+            <span className="block text-[13px] font-medium">
+              {at + 1}. {title}
+            </span>
+            <span className="block text-xs leading-relaxed text-muted-foreground">
+              {text}
+            </span>
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
 

@@ -314,7 +314,7 @@ async function prepare(body: unknown) {
 }
 
 export const NOTHING_TO_RUN_ON =
-  "Writing to Thursday needs a GPT subscription sign-in or an OpenAI key — Settings › Models & keys.";
+  "Writing to Thursday needs a GPT subscription sign-in or an OpenAI key — Settings › API keys.";
 
 /**
  * A search as a spoken call keeps it (tool-line searchOf): what was looked for and the pages

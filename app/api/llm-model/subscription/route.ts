@@ -4,7 +4,7 @@ import { serverRoute } from "@/lib/protocol/server-route";
 
 /**
  * How much of the GPT Subscription plan is used, null when nobody is signed in. Read by its
- * row in Settings › Models & keys and its sign-in dialog; the answer is built in ai/chatgpt.
+ * row in Settings › API keys and its sign-in dialog; the answer is built in ai/chatgpt.
  */
 export const GET = serverRoute(
   async (): Promise<SubscriptionUsage | null> => readChatGptUsage(),

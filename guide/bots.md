@@ -75,7 +75,7 @@ folder, listed on its page in Settings › Bots.
 ## Routines: jobs that start by themselves
 
 A routine is a bot, a job and a time: every weekday at nine, every six hours. It is made by
-telling Thursday — "every morning at nine, go through my mail" — or in **Settings › Threads ›
+telling Thursday — "every morning at nine, go through my mail" — or in **Settings ›
 Routines**, which lists them all, each with one switch. There are two kinds of time, a time of
 day on chosen days, or every so many hours, and at most twelve routines.
 
@@ -94,7 +94,7 @@ now** starts one without waiting.
 
 Routines start only while Thursday is running on this computer, and, like any job, only with
 the app open in a tab unless **Work while the app is closed** is on — the same switch that is
-under Settings › Bots, shown at the foot of Settings › Threads › Routines too. A time that passed
+under Settings › Bots, shown at the foot of Settings › Routines too. A time that passed
 meanwhile starts once when it is back, not once for every time missed.
 
 ## While the app is closed

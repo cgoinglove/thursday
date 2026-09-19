@@ -84,7 +84,7 @@ export function createSignInTools(
             await sandbox.readFile(path, "utf-8"),
           ) as unknown;
           const kept = await keepSignIn({ site, account, bot, state });
-          return `Kept: ${kept.site} as ${kept.account}. It is listed for them under Settings › Connectors › Sign-ins, where they can sign out of it.`;
+          return `Kept: ${kept.site} as ${kept.account}. It is listed for them under Settings › Sign-ins, where they can sign out of it.`;
         } finally {
           await sandbox.exec(`rm -f ${path}`);
         }

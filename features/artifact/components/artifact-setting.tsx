@@ -186,6 +186,12 @@ export function ArtifactSetting() {
             onBack={() => setReading({ row: picked, file: null })}
             onGone={() => setReading(null)}
           />
+        ) : shown.length > 0 ? (
+          <Shelf
+            entries={shown}
+            bots={bots}
+            onPick={(row) => setReading({ row, file: null })}
+          />
         ) : (
           <Nothing empty={total === 0} onReveal={() => reveal("artifacts")} />
         )
@@ -445,7 +451,75 @@ function Thumb({ file }: { file: ArtifactFile }) {
   );
 }
 
-/** The right pane before anything is picked: what lands here, and where it comes from. */
+/**
+ * The right pane before anything is picked: everything finished as its own face, under the
+ * bot that made it — the shelf the menu beside it is the index of. A set shows as a folder.
+ */
+function Shelf({
+  entries,
+  bots,
+  onPick,
+}: {
+  entries: Artifact[];
+  bots?: Bot[];
+  onPick: (row: Artifact) => void;
+}) {
+  return (
+    <div className="space-y-7 p-6">
+      {groupByBot(entries).map(({ bot, rows }) => (
+        <section key={bot ?? ""} className="space-y-3">
+          <h3 className="flex items-center gap-2 text-sm font-medium">
+            {bot && (
+              <BotMark
+                size={20}
+                seed={bot}
+                {...markOf(bot, bots)}
+                notify={false}
+                className="shrink-0"
+              />
+            )}
+            <span className="truncate">{bot ?? "Unsorted"}</span>
+            <span className="font-mono text-[11px] font-normal text-muted-foreground">
+              {rows.length}
+            </span>
+          </h3>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-x-4 gap-y-5">
+            {rows.map((row) => (
+              <button
+                key={row.path}
+                type="button"
+                onClick={() => onPick(row)}
+                className="group flex min-w-0 flex-col gap-1.5 rounded-xl text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                {row.kind === "set" ? (
+                  <span className="grid aspect-4/3 w-full place-items-center rounded-xl bg-muted/60 text-muted-foreground transition-colors group-hover:bg-muted">
+                    <FolderOpen className="size-5" />
+                  </span>
+                ) : (
+                  <FileThumb
+                    path={row.path}
+                    bytes={row.bytes}
+                    glyph="size-5"
+                    className="aspect-4/3 w-full rounded-xl"
+                  />
+                )}
+                <span className="min-w-0 space-y-0.5 px-0.5">
+                  <span className="block truncate text-[13px]">{row.name}</span>
+                  <span className="block truncate font-mono text-[10.5px] text-muted-foreground">
+                    {row.kind === "set" ? `${row.count} files · ` : ""}
+                    {shortAgo(row.at)}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+/** The right pane with nothing to show: what lands here, and where it comes from. */
 function Nothing({
   empty,
   onReveal,

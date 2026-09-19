@@ -1,6 +1,15 @@
 "use client";
 
-import { Aperture, ListChecks, Monitor, Moon, Sun } from "lucide-react";
+import {
+  Aperture,
+  KeyRound,
+  ListChecks,
+  LogIn,
+  Monitor,
+  Moon,
+  Smartphone,
+  Sun,
+} from "lucide-react";
 import dynamic from "next/dynamic";
 import {
   type ComponentType,
@@ -26,6 +35,7 @@ import { ModelsBadge } from "@/features/config/components/models-badge";
 import { McpBadge } from "@/features/connectors/components/mcp-badge";
 import { McpMark } from "@/features/connectors/components/mcp-mark";
 import { MemoryMark } from "@/features/memory/components/memory-mark";
+import { RoutineMark } from "@/features/routine/components/routine-mark";
 import { SkillsMark } from "@/features/skills/components/skills-mark";
 import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
 import { WorkspaceMark } from "@/features/workspace/components/workspace-mark";
@@ -71,9 +81,19 @@ const RoutineSetting = lazySection(() =>
     default: m.RoutineSetting,
   })),
 );
-const ModelsKeysSetting = lazySection(() =>
+const ModelsSetting = lazySection(() =>
   import("@/features/config/components/config-setting").then((m) => ({
-    default: m.ModelsKeysSetting,
+    default: m.ModelsSetting,
+  })),
+);
+const KeysSetting = lazySection(() =>
+  import("@/features/config/components/config-setting").then((m) => ({
+    default: m.KeysSetting,
+  })),
+);
+const PhoneSetting = lazySection(() =>
+  import("@/features/config/components/config-setting").then((m) => ({
+    default: m.PhoneSetting,
   })),
 );
 const ThursdaySetting = lazySection(() =>
@@ -144,26 +164,12 @@ function Tabbed({
   );
 }
 
-/** A routine only opens threads, and its runs are read among them. */
-const THREAD_TABS = [
-  { label: "Threads", Component: ThreadSetting },
-  { label: "Routines", Component: RoutineSetting },
-] as const;
-const ThreadsSection = () => <Tabbed tabs={THREAD_TABS} />;
-
 /** What the bots finished is part of everything they wrote: one folder, seen two ways. */
 const FILE_TABS = [
   { label: "Finished", Component: ArtifactSetting },
   { label: "All files", Component: WorkspaceSetting },
 ] as const;
 const FilesSection = () => <Tabbed tabs={FILE_TABS} />;
-
-/** Both are accounts outside this computer: servers the bots call, sites the user signed in to. */
-const CONNECTOR_TABS = [
-  { label: "Connectors", Component: McpSetting },
-  { label: "Sign-ins", Component: SignInsSetting },
-] as const;
-const ConnectorsSection = () => <Tabbed tabs={CONNECTOR_TABS} />;
 
 /** Adding a section is one entry here plus an id in settings.store. */
 const GROUPS = ["call", "work", "app"] as const;
@@ -209,10 +215,18 @@ export const SECTIONS: readonly {
     id: "threads",
     label: "Threads",
     group: "work",
-    hint: "Work the bots were handed, and what starts by itself",
+    hint: "Work the bots were handed",
     icon: ListChecks,
-    Component: ThreadsSection,
+    Component: ThreadSetting,
     Badge: ThreadBadge,
+  },
+  {
+    id: "routines",
+    label: "Routines",
+    group: "work",
+    hint: "Work that starts by itself, on a schedule",
+    icon: RoutineMark,
+    Component: RoutineSetting,
   },
   {
     id: "files",
@@ -234,19 +248,43 @@ export const SECTIONS: readonly {
     id: "mcp",
     label: "Connectors",
     group: "work",
-    hint: "Tools from MCP servers, and the sites you signed in to",
+    hint: "Tools from MCP servers",
     icon: McpMark,
-    Component: ConnectorsSection,
+    Component: McpSetting,
     Badge: McpBadge,
   },
   {
+    id: "signins",
+    label: "Sign-ins",
+    group: "work",
+    hint: "The sites you signed in to, and the bots that may use each",
+    icon: LogIn,
+    Component: SignInsSetting,
+  },
+  {
     id: "models",
-    label: "Models & keys",
+    label: "Models",
     group: "app",
-    hint: "What the app runs on, and what each part thinks with",
+    hint: "What bots think with, and what they draw, film and speak with",
     icon: Aperture,
-    Component: ModelsKeysSetting,
+    Component: ModelsSetting,
+  },
+  {
+    id: "keys",
+    label: "API keys",
+    group: "app",
+    hint: "The accounts the app runs on",
+    icon: KeyRound,
+    Component: KeysSetting,
     Badge: ModelsBadge,
+  },
+  {
+    id: "phone",
+    label: "Phone",
+    group: "app",
+    hint: "Write to Thursday from a chat app",
+    icon: Smartphone,
+    Component: PhoneSetting,
   },
 ];
 

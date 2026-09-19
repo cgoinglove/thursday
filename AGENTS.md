@@ -184,7 +184,7 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   the workspace, and crosses it only as a file that exists for one browser-CLI command. That is
   a place, not a lock — a bot's shell is not confined — and what it buys is that no bot comes
   across another's session among its files. Which bots may borrow is settled on screen only
-  (Settings › Connectors › Sign-ins, or the button a waiting bot's question carries,
+  (Settings › Sign-ins, or the button a waiting bot's question carries,
   `signin-ask`): a refused borrow is noted as `asking`, and nothing a tool is told lets a bot
   in. Boot takes in what bots used to keep under `bots/<name>/.auth`.
 - **A phone reaches her through a chat the server asks, never a port.** `reach` long-polls the

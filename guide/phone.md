@@ -8,7 +8,7 @@ the chat service what was written, and answers there.
 
 1. In Telegram, write to **@BotFather**, send `/newbot`, and pick a name. It answers with a
    token — a long line of numbers and letters.
-2. Paste the token in **Settings › Models & keys**, under **phone › Telegram**.
+2. Paste the token in **Settings › Phone**, under **Telegram**.
 3. From the phone, write anything to the new bot. It answers "open Thursday on your computer
    and press Allow".
 4. On the computer a question appears: **Let … reach Thursday from a phone?** Press **Allow**.

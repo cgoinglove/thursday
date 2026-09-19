@@ -505,7 +505,7 @@ function RunsOn({ runsOn }: { runsOn: TextCallProvider | null }) {
   const toKeys = (words: string) => (
     <button
       type="button"
-      onClick={() => openSettings("models")}
+      onClick={() => openSettings("keys")}
       className="rounded-sm text-foreground/80 underline underline-offset-3 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       {words}
@@ -535,7 +535,7 @@ function RunsOn({ runsOn }: { runsOn: TextCallProvider | null }) {
     <>
       <span>Writing to her needs a {plan} or an OpenAI key</span>
       <Dot />
-      {toKeys("Models & keys")}
+      {toKeys("API keys")}
     </>
   );
 }

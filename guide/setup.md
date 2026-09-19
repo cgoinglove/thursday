@@ -10,7 +10,7 @@ the address brings it back.
 
 ## Keys
 
-**Settings › Models & keys** holds them, and they stay on this machine. One OpenAI key is all
+**Settings › API keys** holds them, and they stay on this machine. One OpenAI key is all
 a call needs — it pays for both the voice and the model behind it. That key is checked with
 OpenAI as it is saved: one OpenAI turns away is not kept, and the screen says what OpenAI
 said about it (a mistyped key, one that was deleted). Bots can run on that same
@@ -52,7 +52,7 @@ popup window; a server that needs it again turns red on that screen.
 
 When a bot needs them signed in to a website — to post, to read mail, to order — it opens a
 browser window on their screen and asks; they sign in there themselves, and the app keeps that
-sign-in so later work does not ask again. **Settings › Connectors › Sign-ins** lists each one:
+sign-in so later work does not ask again. **Settings › Sign-ins** lists each one:
 the site, the account, and the bots that may use it. What is kept is the site's session, never
 a password, on this machine and outside the folder the bots work in.
 

@@ -9,10 +9,14 @@ const SETTING_SECTIONS = [
   "memory",
   "bot",
   "threads",
+  "routines",
   "files",
   "skills",
   "mcp",
+  "signins",
   "models",
+  "keys",
+  "phone",
 ] as const;
 
 export type SettingSectionId = (typeof SETTING_SECTIONS)[number];
