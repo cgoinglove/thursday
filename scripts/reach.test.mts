@@ -17,7 +17,8 @@ let updateId = 1;
 const realFetch = globalThis.fetch;
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
-  if (!url.startsWith("https://api.telegram.org/")) return realFetch(input, init);
+  if (!url.startsWith("https://api.telegram.org/"))
+    return realFetch(input, init);
   const method = url.split("/").pop() ?? "";
   const body =
     typeof init?.body === "string"
@@ -100,7 +101,10 @@ const until = async (what: () => boolean, label: string) => {
 };
 const saidTo = (chat: number) =>
   sent
-    .filter((one) => one.method === "sendMessage" && one.body.chat_id === String(chat))
+    .filter(
+      (one) =>
+        one.method === "sendMessage" && one.body.chat_id === String(chat),
+    )
     .map((one) => String(one.body.text));
 
 await writeConfig(TELEGRAM_TOKEN_KEY, "123:test-token");
@@ -170,18 +174,37 @@ test("a bot's question goes to the phone after the computer's chance, and a butt
       outcome: null,
       ask: null,
       room: {
-        relays: [{ id: 41, messageId: "q-1", bot: "Insta", kind: "question", text: "Which topic?" }],
+        relays: [
+          {
+            id: 41,
+            messageId: "q-1",
+            bot: "Insta",
+            kind: "question",
+            text: "Which topic?",
+          },
+        ],
         questions: [
-          { id: "q-1", bot: "Insta", text: "Which topic?", options: ["Rates", "Isudo"] },
+          {
+            id: "q-1",
+            bot: "Insta",
+            text: "Which topic?",
+            options: ["Rates", "Isudo"],
+          },
         ],
       },
     },
   ];
   appEvents.emit({ type: "threads" });
-  await until(() => turns.length === 3, "it is put to her as a turn that is not the user's");
+  await until(
+    () => turns.length === 3,
+    "it is put to her as a turn that is not the user's",
+  );
   assert.equal(turns[2].said, null);
   assert.match(turns[2].words, /Insta → Thursday, thread "Today's post"/);
-  await until(() => accepted.length === 1, "its relay rows are accepted once told");
+  await until(
+    () => accepted.length === 1,
+    "its relay rows are accepted once told",
+  );
   assert.deepEqual(accepted[0], [41]);
 
   const asked = sent.findLast((one) => one.method === "sendMessage");
@@ -200,7 +223,11 @@ test("a bot's question goes to the phone after the computer's chance, and a butt
     callback_query: {
       id: "press-1",
       from: { id: 7, first_name: "Sam" },
-      message: { message_id: 5, chat: { id: 7, type: "private" }, text: "Insta asks" },
+      message: {
+        message_id: 5,
+        chat: { id: 7, type: "private" },
+        text: "Insta asks",
+      },
       data: keyboard[1][0].callback_data,
     },
   });
