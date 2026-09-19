@@ -2,6 +2,7 @@
 
 import { asSchema } from "ai";
 import z from "zod";
+import { TEXT_CALL } from "@/config";
 import { LIVE_PROVIDER } from "@/features/ai/live.schema";
 import { loadTools } from "@/features/ai/load-tools";
 import { loadCallStanding } from "@/features/ai/prompts/call-standing";
@@ -34,8 +35,10 @@ import {
   type CallHandshake,
   CallThoughtSchema,
   CallTurnSchema,
+  type TextCallHandshake,
   ThursdaySettingsSchema,
 } from "./thursday.schema";
+import { NOTHING_TO_RUN_ON, readTextCallProvider } from "./thursday.text";
 
 // Server actions run one at a time per client, so the recording actions stay
 // small: a tool call mid-sentence may be queued behind them.
@@ -145,6 +148,29 @@ export const openCallAction = serverAction(
       opening: voice.opening,
       standing,
     };
+  },
+);
+
+/**
+ * Opens a call in writing (thursday.text): the row its turns hang off, and what stood
+ * open. No connection is made here — the first words are what reach a model — so a key
+ * that turns out refused leaves a row with those words in it, which is what happened.
+ */
+export const openTextCallAction = serverAction(
+  async (settings: unknown): Promise<TextCallHandshake> => {
+    const thursday = ThursdaySettingsSchema.parse(settings);
+    const provider = await readTextCallProvider();
+    if (!provider) publicError(NOTHING_TO_RUN_ON);
+    const [callId, standing] = await Promise.all([
+      insertCall({
+        provider,
+        model: TEXT_CALL.model,
+        backendModel: thursday.backendModel,
+      }),
+      loadCallStanding(),
+    ]);
+    createServerProbe("server")("call.open.text", { callId, provider });
+    return { callId, standing };
   },
 );
 

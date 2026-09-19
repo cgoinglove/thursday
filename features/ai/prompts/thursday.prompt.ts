@@ -50,9 +50,13 @@ import {
  * never cached.
  *
  * @param backendPrompt Settings › Thursday › Backend instructions, added last.
+ * @param written The call is in writing (thursday/thursday.text): nobody voices what comes
+ *   back, so the last chapter is an answer to read rather than a result to say; and there is
+ *   no line to drop, so the ending rule goes with the tool it names (load-tools).
  */
 export async function loadThursdayPrompt(
   backendPrompt?: string | null,
+  written = false,
 ): Promise<string> {
   const sandbox = await openWorkspace();
   const [
@@ -85,7 +89,7 @@ export async function loadThursdayPrompt(
   // Order matters: earlier calls go last so the current call follows them in time order
   const text = [
     thursdayIdentity(),
-    callEnding(),
+    written ? "" : callEnding(),
     memory(index, carried, open.notes),
     // A skill is named once, on the side that can read it: this computer's chapter
     // when the setting hands the call the tool, the bots' reach when it does not
@@ -95,7 +99,7 @@ export async function loadThursdayPrompt(
       botMemory,
     ),
     thisComputer(sandbox.cwd, hers ? skills : []),
-    result(),
+    written ? writtenAnswer() : result(),
     earlierCalls(calls, jobs),
     // Last, so it is the closest thing to the request
     additional(backendPrompt),
@@ -116,6 +120,16 @@ function result(): string {
   return `## Return the result
 
 Return the relevant facts, whether the task is complete, and what comes next — for work you handed over, who has it and whether it carries an earlier thread on or starts a new one — or the one question the user has to answer first. Use confirmed values from tool results and the notes above, and never invent a successful action. What you return is said aloud: keep it short and plain.`;
+}
+
+/**
+ * The same chapter for a call in writing: no voice stands between her and the user, so what
+ * she writes is the answer itself. It asks for the same facts and the same honesty as `result`.
+ */
+function writtenAnswer(): string {
+  return `## Answer in writing
+
+This call is in writing: there is no voice, and what you write is what the user reads, so answer them directly, in their language. Say the relevant facts, whether the task is complete, and what comes next — for work you handed over, who has it and whether it carries an earlier thread on or starts a new one — or the one question they have to answer first. Use confirmed values from tool results and the notes above, and never invent a successful action. Keep it short and plain.`;
 }
 
 /** Settings › Thursday › Backend instructions; no heading when empty. */

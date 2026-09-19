@@ -29,7 +29,8 @@ including the ended ones. A stopped thread leaves the corner at once.
 ## Handing a bot work without a call
 
 The **+** at the left end of that corner's pill — or the `/` key — opens a line at the foot of
-the screen: who it is for (the chip at its left, or `@` and a name), the words, and files.
+the screen: who it is for (the chip at its left, or `@` and a name), the words, and files. It
+opens on Thursday herself (`calls.md`, writing to her); picking a bot sends the words to it.
 Files come from the paperclip, a paste, or by dropping them anywhere on the window; they are
 kept in the workspace under `inbox/` as they arrive and wait in the line until words go with
 them. The bot cannot hear the call, so the message has to say the whole job. Enter sends it,

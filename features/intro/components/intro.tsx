@@ -23,6 +23,7 @@ import {
 import { Ear } from "@/features/thursday/components/thursday";
 import { useThursdayFace } from "@/features/thursday/face.store";
 import { awake } from "@/features/thursday/face-words";
+import { silentVoice } from "@/features/thursday/silent-voice";
 import type { CallStatus, FaceWord } from "@/features/thursday/thursday.schema";
 import { useThursdayStore } from "@/features/thursday/thursday.store";
 import { useWakeWord } from "@/hooks/use-wake-word";
@@ -698,17 +699,8 @@ function useDemo(playing: boolean) {
   const stage: DemoStage =
     ms > 9600 ? "landed" : ms > 5400 ? "working" : ms > 900 ? "asked" : "rest";
 
-  // No sound plays here: her rim moves to a voice made of slow sines
-  const voice = useCallback(() => {
-    const t = performance.now() / 1000;
-    return Array.from(
-      { length: 8 },
-      (_, band) =>
-        0.18 + 0.16 * Math.sin(t * (5 + band * 0.9) + band * 1.7) ** 2,
-    );
-  }, []);
-
-  return { turns, status, stage, saying: speaking, voice };
+  // No sound plays here: her rim moves to a voice nobody hears
+  return { turns, status, stage, saying: speaking, voice: silentVoice };
 }
 
 /** The pill and the corner where finished work lands, as they stand during the loop. */

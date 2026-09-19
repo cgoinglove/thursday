@@ -1,6 +1,7 @@
 import z from "zod";
 import { ASCII_FACE } from "@/config";
 import { LiveSettingsSchema } from "@/features/ai/live.schema";
+import { TEXT_MODEL_PROVIDERS } from "@/features/ai/model.schema";
 import { botIconSchema, type ThreadStatus } from "@/features/bot/bot.schema";
 import { ASCII_CHARSETS, FACE_KINDS } from "@/features/thursday/face.const";
 import type { DateLike } from "@/lib/date-like";
@@ -36,6 +37,31 @@ export type CallHandshake = {
    * The jobs open as the call started (ai/prompts/call-standing), put in as a quiet
    * fact right after the opening. Null when nothing has been handed over yet.
    */
+  standing: string | null;
+};
+
+/**
+ * What a call in writing can run on, in the order it is looked for: the GPT subscription
+ * when one is signed in, else the OpenAI key — both name the backend model the same way.
+ * A rule about what is set, asked once before the call: never a second try after a refusal.
+ */
+export const TEXT_CALL_PROVIDERS = [
+  { id: "chatgpt", ...TEXT_MODEL_PROVIDERS.chatgpt },
+  { id: "openai", ...TEXT_MODEL_PROVIDERS.openai },
+] as const;
+export type TextCallProvider = (typeof TEXT_CALL_PROVIDERS)[number]["id"];
+
+/** The same answer on the server (the keys themselves) and on the screen (their status). */
+export const textCallRunsOn = (
+  isSet: (key: string) => boolean,
+): TextCallProvider | null =>
+  TEXT_CALL_PROVIDERS.find((provider) => isSet(provider.apiKeyName))?.id ??
+  null;
+
+/** What the page holds for a call in writing: the row its turns hang off, and what stood open. */
+export type TextCallHandshake = {
+  callId: string;
+  /** The jobs open as the call started (ai/prompts/call-standing); sent back with every turn. */
   standing: string | null;
 };
 

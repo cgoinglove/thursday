@@ -22,6 +22,7 @@ import {
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
+import { Letters } from "@/components/ui/letters";
 import { ShinyText } from "@/components/ui/shiny-text";
 import { SourceChips } from "@/components/ui/source-chips";
 import TextType from "@/components/ui/text-type";
@@ -49,6 +50,7 @@ import {
 } from "@/features/settings/settings.alert";
 import { openSettings } from "@/features/settings/settings.store";
 import { useThursdayFace } from "@/features/thursday/face.store";
+import { silentVoice } from "@/features/thursday/silent-voice";
 import {
   type CallMessage,
   type CallStatus,
@@ -56,8 +58,10 @@ import {
   FACE_DEFAULT,
   type FaceWord,
   type ThursdayFace,
+  textCallRunsOn,
 } from "@/features/thursday/thursday.schema";
 import { useThursdayStore } from "@/features/thursday/thursday.store";
+import { useTextCall } from "@/features/thursday/use-text-call";
 import {
   type ActivityLine,
   type CallEnd,
@@ -73,7 +77,7 @@ import { cn, plainText } from "@/lib/utils";
 import { Face } from "./face";
 import { SideCaptions, turnsOf, useTurnFocus } from "./side-captions";
 import { TabState } from "./tab-state";
-import { WriteLine } from "./write-line";
+import { WriteLine, type WrittenCall } from "./write-line";
 
 /**
  * The call screen. The face is the only control; text stays beside it and is
@@ -119,6 +123,11 @@ type CallScreenProps = {
   face?: ThursdayFace;
   /** A speech key exists. Without one the screen stays but sleeps. */
   callable?: boolean;
+  /**
+   * What the write line needs to hold a call in writing; while one is on, the props
+   * above are that call's. Null where none can be held.
+   */
+  written?: WrittenCall | null;
 };
 
 function CallScreen({
@@ -142,12 +151,15 @@ function CallScreen({
   captionView = "sides",
   face = FACE_DEFAULT,
   callable = true,
+  written = null,
 }: CallScreenProps) {
   // without a key the face opens the key prompt instead of a call
   const [asking, setAsking] = useState(false);
   const asleep = !callable && status === "idle";
   const busy = status === "connecting" || status === "ending";
-  const live = status !== "idle" && !busy;
+  // A call in writing holds no line: her face still places a spoken one
+  const writing = Boolean(written?.on);
+  const live = status !== "idle" && !busy && !writing;
   // The caption box holds her words and nothing else, so the line she just
   // said stays put while she listens or works.
   const hers =
@@ -186,7 +198,14 @@ function CallScreen({
           <button
             type="button"
             disabled={busy}
-            onClick={asleep ? () => setAsking(true) : onTap}
+            // a call in writing may run with no speech key: then her face places nothing
+            onClick={
+              asleep
+                ? () => setAsking(true)
+                : writing && !callable
+                  ? undefined
+                  : onTap
+            }
             aria-label={
               asleep
                 ? "Add a speech key"
@@ -257,7 +276,10 @@ function CallScreen({
               tool={tool}
               thinkingSince={thinkingSince}
               thinkingTitle={thinkingTitle}
-              listening={status === "listening" && thinkingSince === null}
+              // nobody is listened to on a call in writing: there is no microphone
+              listening={
+                status === "listening" && thinkingSince === null && !writing
+              }
               speaking={status === "speaking"}
               getMicSpectrum={getMicSpectrum}
             />
@@ -287,6 +309,9 @@ function CallScreen({
                   onOpen={() => setAsking(true)}
                   onClose={() => setAsking(false)}
                 />
+              ) : writing ? (
+                // The write line is this call's one instruction, and it says it itself
+                <span className="h-6" />
               ) : (
                 <Hint
                   status={status}
@@ -309,7 +334,7 @@ function CallScreen({
       <BotRoom />
 
       {/* Whatever is typed or handed over instead of said */}
-      <WriteLine />
+      <WriteLine written={written} />
     </div>
   );
 }
@@ -433,7 +458,7 @@ function Flow({
 }: {
   text: string;
   lines?: number;
-  /** Each new character fades in as it arrives; what is already drawn stays put. */
+  /** Each new letter arrives out of a blur; what is already drawn stays put. */
   fadeIn?: boolean;
   className?: string;
 }) {
@@ -474,17 +499,7 @@ function Flow({
       }}
       className="break-keep transition-transform duration-200"
     >
-      {fadeIn
-        ? // char + index: a character already drawn keeps its key and never fades twice
-          Array.from(text).map((char, index) => (
-            <span
-              key={`${char}${index}`}
-              className="animate-in fade-in duration-300 motion-reduce:animate-none"
-            >
-              {char}
-            </span>
-          ))
-        : text}
+      {fadeIn ? <Letters text={text} /> : text}
     </p>
   );
 
@@ -1367,17 +1382,38 @@ export function Thursday() {
   const { data: config } = useServerRoute<ConfigStatus[]>(queryKey.config);
   const callable = isConfigSet(config, LIVE_PROVIDER.apiKeyName);
 
+  // A call in writing takes the same screen while no line is open; a spoken call ends it,
+  // which is what tapping her face in the middle of one does
+  const text = useTextCall();
+  const spoken = status !== "idle";
+  const endWritten = text.end;
+  useEffect(() => {
+    if (spoken && text.on) endWritten();
+  }, [spoken, text.on, endWritten]);
+  const writing = text.on && !spoken;
+  const written = useMemo(
+    (): WrittenCall => ({
+      on: writing,
+      busy: text.busy,
+      error: text.error,
+      say: text.say,
+      end: text.end,
+      runsOn: textCallRunsOn((key) => isConfigSet(config, key)),
+    }),
+    [writing, text.busy, text.error, text.say, text.end, config],
+  );
+
   return (
     <>
       {/* the tab shows the call and what is owed while the app is off-screen */}
       <TabState live={status !== "idle"} ringing={ringing !== null} />
       <CallScreen
-        status={status}
+        status={writing ? text.status : status}
         failed={failed}
-        messages={messages}
-        tool={tool}
-        thinkingSince={thinkingSince}
-        thinkingTitle={thinkingTitle}
+        messages={writing ? text.messages : messages}
+        tool={writing ? text.tool : tool}
+        thinkingSince={writing ? text.thinkingSince : thinkingSince}
+        thinkingTitle={writing ? text.thinkingTitle : thinkingTitle}
         ended={ended}
         faceWord={faceWord}
         onTap={call}
@@ -1388,11 +1424,14 @@ export function Thursday() {
         hotkeyLabel={hotkeyLabel}
         idleLeft={idleLeft}
         since={since}
-        getSpectrum={getSpectrum}
+        // her words arrive without a voice: the face moves to one nobody hears
+        getSpectrum={writing ? silentVoice : getSpectrum}
         getMicSpectrum={getMicSpectrum}
         face={face}
         captionView={captionView}
         callable={callable}
+        // a spoken call has the line to itself; what is typed then goes to a bot
+        written={spoken ? null : written}
       />
     </>
   );

@@ -13,6 +13,23 @@ The wake phrase and the shortcut are in **Settings › Thursday › Starting a c
 either can be switched on or off, or rewritten. The first-run setup offers the wake phrase
 too, with a try.
 
+## Writing to her instead
+
+The **+** at the left end of the pill in the bottom right corner — or the `/` key — opens a
+line at the foot of the screen, and it opens on her. What is sent there starts a call in
+writing: her answers come up beside her face as they do on a spoken call, what she is doing
+shows under it, and the line stays as the way to write back. She has the same memory, the same
+tools and the same bots as on a spoken call; there is no voice and no microphone, and nothing
+is billed by the minute. Files go with the words the way they do to a bot (`bots.md`).
+
+It runs on the GPT Subscription when one is signed in, else on the OpenAI key, and the line
+says which before anything is sent. With neither it says so and sends nothing — both are in
+**Settings › Models & keys**. **Esc** ends it — saying goodbye does not, since there is no
+line for her to drop — and so does starting a spoken call: tapping her face in the middle of
+one ends the written call and places a spoken one. It is kept with
+the other calls, marked *in writing*, and she reads it back on the next call like any other.
+During a spoken call the line writes to bots only.
+
 ## What she does on the line, and what goes to a bot
 
 She answers from what she keeps about them, runs a single command on their computer, and

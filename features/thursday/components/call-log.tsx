@@ -8,7 +8,7 @@ import { notify } from "@/components/ui/notify";
 import { ShinyText } from "@/components/ui/shiny-text";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SourceChips } from "@/components/ui/source-chips";
-import { CALL_HISTORY_PAGE } from "@/config";
+import { CALL_HISTORY_PAGE, TEXT_CALL } from "@/config";
 import type { ThreadStatus } from "@/features/bot/bot.schema";
 import { toolIcon } from "@/features/bot/components/bot-tool";
 import {
@@ -282,7 +282,8 @@ function CallEntry({
           {whenOf(started)}
         </span>
         <span className="font-mono text-[10px] text-muted-foreground">
-          {ran}
+          {/* a call held in the write line: nobody spoke on it */}
+          {call.model === TEXT_CALL.model ? `${ran} · in writing` : ran}
         </span>
         {/* The slot is held so the row keeps its height while the button is hidden. */}
         <span className="ml-auto flex size-7 shrink-0 items-center justify-center">

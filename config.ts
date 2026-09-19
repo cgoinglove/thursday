@@ -406,6 +406,17 @@ export const EXEC_TIMEOUT_MS = 180_000;
 export const CALL_EXEC_TIMEOUT_MS = 15_000;
 
 /**
+ * A call in writing (thursday/thursday.text): the call's backend alone, answering what is
+ * typed to her.
+ * - `maxSteps`  how many model steps one answer may take. Each tool she uses is a step,
+ *   so fewer cuts an answer short in the middle of looking something up; more lets a
+ *   cheap model circle for that long before the user reads anything.
+ * - `model`     what the call row carries where a voice call names its Live model, so a
+ *   call kept in writing can be told from one that was spoken.
+ */
+export const TEXT_CALL = { maxSteps: 12, model: "text" };
+
+/**
  * How long a shell command that was stopped — its timeout, or its job stopping —
  * gets to exit on SIGTERM before its whole process group is killed (lib/sandbox).
  * A command that ignores the first signal would otherwise hold its step, and

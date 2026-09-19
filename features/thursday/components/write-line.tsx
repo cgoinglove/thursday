@@ -9,15 +9,21 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
+import { TEXT_MODEL_PROVIDERS } from "@/features/ai/model.schema";
 import { startThreadAction } from "@/features/bot/bot.action";
 import { type Bot, DEFAULT_BOT } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
+import { ROOM_THURSDAY } from "@/features/bot/room.schema";
 import {
   type BotRef,
   roomOpens,
   useRoomOpen,
   writeLine,
 } from "@/features/bot/thread.store";
+import { openSettings } from "@/features/settings/settings.store";
+import { useCallHeld } from "@/features/thursday/call-signal";
+import type { TextCallProvider } from "@/features/thursday/thursday.schema";
+import type { TextCall } from "@/features/thursday/use-text-call";
 import {
   GivenFiles,
   roomDrop,
@@ -27,6 +33,7 @@ import { capturesKeys } from "@/hooks/use-hotkey";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn } from "@/lib/utils";
+import { ThursdayMark } from "./thursday-mark";
 
 /**
  * The write line: one bar at the foot of the screen for whatever is typed or handed
@@ -34,25 +41,45 @@ import { cn } from "@/lib/utils";
  * or a file dragged onto the window — and it holds who it is for, the words, and the
  * files. Files are kept in the workspace the moment they arrive (given-files), so they
  * wait here by path until words go with them. Sent to a bot, the room opens on the
- * thread it started.
+ * thread it started. Sent to Thursday — who it opens on until someone else is picked —
+ * it becomes a call in writing (use-text-call): the line stays up as that call's way
+ * in, says what the call runs on, and Esc ends the call rather than closing the line.
  */
+
+/** What the line needs of a call in writing, and what such a call would run on. */
+export type WrittenCall = Pick<
+  TextCall,
+  "on" | "busy" | "error" | "say" | "end"
+> & {
+  /** Null when neither sign-in is set: the line says what to set instead of sending. */
+  runsOn: TextCallProvider | null;
+};
+
+/** Who the line writes to: a bot by its name, or her. No bot can take her name (bot.schema). */
+type Recipient = BotRef & { description: string };
+const HER: Recipient = {
+  name: ROOM_THURSDAY,
+  description: "A call in writing — she answers here",
+};
 
 /** Where the last pick is remembered, so the line opens on whoever was written to last. */
 const LAST_TO = "thursday.write.to";
 
 const mentionOf = (draft: string) => /^@(\S*)$/.exec(draft.split(/\s/, 1)[0]);
 
-export function WriteLine() {
+export function WriteLine({ written }: { written: WrittenCall | null }) {
   const { data: bots } = useServerRoute<Bot[]>(queryKey.bot);
   // A fresh install has no rows and still has a worker (bot.schema DEFAULT_BOT)
   const roster = useMemo(
-    (): (BotRef & { description: string })[] =>
-      bots?.length
+    (): Recipient[] => [
+      ...(written ? [HER] : []),
+      ...(bots?.length
         ? bots
             .filter((bot) => !bot.disabled)
             .map(({ name, icon, description }) => ({ name, icon, description }))
-        : [DEFAULT_BOT],
-    [bots],
+        : [DEFAULT_BOT]),
+    ],
+    [bots, written],
   );
 
   const [open, setOpen] = useState(false);
@@ -72,12 +99,20 @@ export function WriteLine() {
       // storage may be blocked; the first bot is as good a start
     }
   }, []);
-  const to = roster.find((bot) => bot.name === toName) ?? roster[0];
+  const calling = Boolean(written?.on);
+  // While a call in writing is on, the line is that call's
+  const to = calling
+    ? HER
+    : (roster.find((bot) => bot.name === toName) ?? roster[0]);
+  const toHer = to === HER;
 
+  // The first run is drawn over this screen: nothing opens behind it (call-signal)
+  const held = useCallHeld();
   const show = useCallback(() => {
+    if (held) return;
     setOpen(true);
     requestAnimationFrame(() => field.current?.focus());
-  }, []);
+  }, [held]);
 
   const { take: keep } = given;
   const take = useCallback(
@@ -104,6 +139,7 @@ export function WriteLine() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [show]);
   useEffect(() => {
+    if (held) return;
     const carriesFiles = (event: DragEvent) =>
       Boolean(event.dataTransfer?.types.includes("Files"));
     const over = (event: DragEvent) => {
@@ -131,7 +167,7 @@ export function WriteLine() {
       window.removeEventListener("dragleave", leave);
       window.removeEventListener("drop", drop);
     };
-  }, [take]);
+  }, [take, held]);
 
   const [start, starting] = useServerAction(startThreadAction, {
     onOk: ({ id }) => {
@@ -162,16 +198,34 @@ export function WriteLine() {
         bot.name.toLowerCase().startsWith(mention[1].toLowerCase()),
       )
     : roster;
+  const [reaching, setReaching] = useState(false);
+  const waiting = starting || reaching || Boolean(toHer && written?.busy);
   const ready =
-    Boolean(draft.trim()) && !mention && !given.arriving && !starting;
+    Boolean(draft.trim()) &&
+    !mention &&
+    !given.arriving &&
+    !waiting &&
+    !(toHer && !written?.runsOn);
 
   const send = () => {
     if (!ready) return;
-    // A path in the words is how a file is handed to a bot, and how the room draws it
-    void start(to.name, given.withPaths(draft));
+    // A path in the words is how a file is handed over, and how the room draws it
+    const words = given.withPaths(draft);
+    if (!toHer) return void start(to.name, words);
+    if (!written) return;
+    setReaching(true);
+    written
+      .say(words)
+      .then(() => {
+        setDraft("");
+        given.clear();
+      })
+      // the action has already said why; the words stay to be sent again
+      .catch(() => {})
+      .finally(() => setReaching(false));
   };
 
-  if (!open && !dragging) return null;
+  if (!open && !dragging && !calling) return null;
 
   return (
     <>
@@ -215,21 +269,29 @@ export function WriteLine() {
               className="flex items-end gap-2"
             >
               <Popover
-                open={picking || Boolean(mention)}
+                open={!calling && (picking || Boolean(mention))}
                 onOpenChange={setPicking}
               >
                 <PopoverTrigger
+                  // the call in writing is hers until it ends
+                  disabled={calling}
                   render={
                     <button
                       type="button"
-                      aria-label={`To ${to.name}. Choose someone else`}
-                      className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-muted pr-2.5 pl-1.5 text-[13px] font-medium outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
+                      aria-label={
+                        calling
+                          ? `To ${to.name}`
+                          : `To ${to.name}. Choose someone else`
+                      }
+                      className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-muted pr-2.5 pl-1.5 text-[13px] font-medium outline-none transition-colors enabled:hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
                     />
                   }
                 >
                   <Mark bot={to} size={22} />
                   {to.name}
-                  <ChevronDown className="size-3 text-muted-foreground" />
+                  {!calling && (
+                    <ChevronDown className="size-3 text-muted-foreground" />
+                  )}
                 </PopoverTrigger>
                 <PopoverContent
                   side="top"
@@ -275,7 +337,7 @@ export function WriteLine() {
                 ref={field}
                 value={draft}
                 rows={1}
-                disabled={starting}
+                disabled={starting || reaching}
                 onChange={(event) => setDraft(event.target.value)}
                 onPaste={(event) => {
                   const pasted = [...event.clipboardData.files];
@@ -288,6 +350,8 @@ export function WriteLine() {
                 onKeyDown={(event) => {
                   if (event.key === "Escape") {
                     event.preventDefault();
+                    // Esc ends the call in writing, and the line goes with it
+                    if (calling) written?.end();
                     setOpen(false);
                     return;
                   }
@@ -295,7 +359,7 @@ export function WriteLine() {
                   if (event.nativeEvent.isComposing || event.keyCode === 229)
                     return;
                   event.preventDefault();
-                  if (mention) {
+                  if (mention && !calling) {
                     if (matches[0]) pick(matches[0]);
                     return;
                   }
@@ -304,7 +368,11 @@ export function WriteLine() {
                 placeholder={
                   given.files.length
                     ? "Say what to do with them"
-                    : `Say the whole job — ${to.name} cannot hear the call`
+                    : calling
+                      ? "Write back"
+                      : toHer
+                        ? "Write to her instead of calling"
+                        : `Say the whole job — ${to.name} cannot hear the call`
                 }
                 aria-label={`Message for ${to.name}`}
                 className="max-h-36 min-h-9 flex-1 resize-none border-0 bg-transparent px-0 py-1.5 text-[15px] leading-6 shadow-none focus-visible:ring-0 dark:bg-transparent"
@@ -339,7 +407,7 @@ export function WriteLine() {
                     : "bg-muted text-muted-foreground/40",
                 )}
               >
-                {starting ? (
+                {waiting ? (
                   <span className="size-3.5 animate-spin rounded-full border-2 border-current/30 border-t-current" />
                 ) : (
                   <ArrowUp className="size-4" />
@@ -348,12 +416,23 @@ export function WriteLine() {
             </form>
           </div>
 
-          <p className="flex items-center justify-center gap-2 font-mono text-[10.5px] text-muted-foreground/70">
-            <Key>Enter</Key> send
-            <span className="text-muted-foreground/40">·</span>
-            <Key>@</Key> pick a bot
-            <span className="text-muted-foreground/40">·</span>
-            <Key>Esc</Key> close
+          {toHer && written?.error && (
+            <p className="px-4 text-center text-xs leading-5 text-destructive">
+              {written.error}
+            </p>
+          )}
+          <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-mono text-[10.5px] text-muted-foreground/70">
+            {toHer ? (
+              <RunsOn runsOn={written?.runsOn ?? null} />
+            ) : (
+              <>
+                <Key>Enter</Key> send
+                <Dot />
+                <Key>@</Key> pick a bot
+              </>
+            )}
+            <Dot />
+            <Key>Esc</Key> {calling ? "to end" : "close"}
           </p>
         </div>
       </div>
@@ -361,7 +440,54 @@ export function WriteLine() {
   );
 }
 
+/**
+ * What a call in writing runs on, said before the first word is sent: the plan when a GPT
+ * subscription is signed in, else the OpenAI key with the way to the plan, else what to set.
+ */
+function RunsOn({ runsOn }: { runsOn: TextCallProvider | null }) {
+  const plan = TEXT_MODEL_PROVIDERS.chatgpt.label;
+  const toKeys = (words: string) => (
+    <button
+      type="button"
+      onClick={() => openSettings("models")}
+      className="rounded-sm text-foreground/80 underline underline-offset-3 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      {words}
+    </button>
+  );
+  if (runsOn === "chatgpt")
+    return (
+      <>
+        <span>text</span>
+        <Dot />
+        <span>no voice, no microphone</span>
+        <Dot />
+        <span>runs on your {plan}</span>
+      </>
+    );
+  if (runsOn === "openai")
+    return (
+      <>
+        <span>text</span>
+        <Dot />
+        <span>runs on your OpenAI key</span>
+        <Dot />
+        {toKeys(`Sign in to a ${plan} to use it instead`)}
+      </>
+    );
+  return (
+    <>
+      <span>Writing to her needs a {plan} or an OpenAI key</span>
+      <Dot />
+      {toKeys("Models & keys")}
+    </>
+  );
+}
+
+const Dot = () => <span className="text-muted-foreground/40">·</span>;
+
 function Mark({ bot, size }: { bot: BotRef; size: number }) {
+  if (bot === HER) return <ThursdayMark size={size} className="shrink-0" />;
   return (
     <BotMark
       size={size}

@@ -11,7 +11,7 @@ When a wish needs a setting, say which one and where, rather than agreeing to it
 
 | File | What is in it |
 |---|---|
-| `calls.md` | Calling her, what she does herself, how a call ends, the call's own settings |
+| `calls.md` | Calling her or writing to her, what she does herself, how a call ends, the call's own settings |
 | `bots.md` | Bots, the work they take, threads, questions, what they made, routines |
 | `memory.md` | What she keeps about the user, and how they change it |
 | `setup.md` | Keys, models, skills, connected services, where the files live, what it costs |

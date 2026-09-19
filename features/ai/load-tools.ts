@@ -66,6 +66,11 @@ type ToolRun =
        * a key is set: the manifest the call opened with decides what the model can ask for.
        */
       webSearch?: boolean;
+      /**
+       * A call in writing (thursday/thursday.text): there is no line to drop and nothing hands
+       * a turn back to the page mid-answer, so it holds none of the page's own tools.
+       */
+      written?: boolean;
     }
   | {
       target: "bot";
@@ -415,7 +420,7 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
       ...createThreadTools(run.callId),
       // What starts by itself is the user's to set up, so only the call holds it
       ...createRoutineTools(),
-      ...callTools(run.faceWords ?? false),
+      ...(run.written ? {} : callTools(run.faceWords ?? false)),
     };
   }
 

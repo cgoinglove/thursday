@@ -44,8 +44,8 @@ features/ai/              Everything the model sees. Composes domain query/schem
                                  what they say about themselves included); what she knows about the user.
                                  No capabilities, procedures, earlier calls, or tool names but `end_call`.
   prompts/thursday.prompt.ts     What the call's Responses backend hears: who Thursday is, memory with ids,
-                                 roster and threads, the machine, what to return, earlier calls with their
-                                 jobs.
+                                 roster and threads, the machine, what to return (on a call in writing,
+                                 an answer to read instead), earlier calls with their jobs.
   prompts/bot.prompt.ts          Everything a bot hears. Shares no text with the call prompt.
   prompts/memory-edit.prompt.ts  Everything an edit typed on the Memory screen hears.
   prompts/call-standing.ts       The jobs open as a call starts, put into the conversation once rather
@@ -108,7 +108,7 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
 - **Domains hold data, `features/ai` holds the model.** A domain folder has schema, query, action and
   components and knows nothing about prompts or tools. Prompts and `load-tools` are imported only by
   what runs a model: `bot.run` / `bot.runner`, `thursday.action` and the tool-call route,
-  `memory.edit`. Anything may import the model's vocabulary — `model.schema` (the model a row
+  `thursday.text`, `memory.edit`. Anything may import the model's vocabulary — `model.schema` (the model a row
   names), `tools/tool-name` (a screen drawing a tool line), `ai/components` (the model picker).
 - **Tool names come from one file.** `features/ai/tools/tool-name.ts` is the source. Tools and prompts
   import it, and so does code that reads stored tool calls back (`thread.query`, the call screen's
@@ -252,8 +252,8 @@ const [create] = useServerAction(createNoteAction, {
 
 **Write** — no routes. Only server actions wrapped in `serverAction`. Routes exist for three cases:
 external callers hitting a URL (oauth callback), work that must run in parallel (tool calls during a
-call — actions are serial per client), and a response that streams (the SSE route, and a memory
-edit drawn as the model makes it).
+call — actions are serial per client), and a response that streams (the SSE route, a memory
+edit drawn as the model makes it, a turn of a call in writing).
 
 ```ts
 export const createNoteAction = serverAction(async (path: unknown, description: unknown) => {
@@ -376,6 +376,17 @@ A 30-second poll remains as a safety net. No WebSockets.
   (`given-files` is the one hook and the one row of chips), and a drop that lands on the room
   is the open thread's rather than the line's. The open room is wide enough to cover her
   face, so the call and the line step aside for it (`roomOpen`).
+- The line opens on Thursday, and what is sent to her is a call in writing (`thursday.text`,
+  `use-text-call`): the call's backend alone — its prompt but for the ending rule and the last
+  chapter, its memory, its tools less the page's own (`end_call`, `emote`: there is no line to
+  drop), no Live session — drawn by the same call screen and kept as a call
+  row (`TEXT_CALL.model` where a spoken one names Live), so Earlier calls and the call log carry
+  it with no table of their own. The page holds the conversation and sends it whole each turn;
+  the server saves every turn as it happens. It runs on the GPT Subscription when one is signed
+  in, else the OpenAI key (`textCallRunsOn`, one rule for the server and the screen) — a rule
+  about what is set, never a second try after a refusal — and the line says which before
+  anything is sent. Esc or a spoken call ends it; a spoken call has the line to itself, so what
+  is typed then goes to a bot.
 
 # Rules
 

@@ -97,6 +97,15 @@ export async function saveTurns(callId: string, turns: CallTurn[]) {
   }
 }
 
+/** Where the next turn goes: a call in writing numbers its turns on the server (thursday.text). */
+export async function nextTurnSeq(callId: string): Promise<number> {
+  const [last] = await database
+    .select({ seq: sql<number | null>`max(${callMessageTable.seq})` })
+    .from(callMessageTable)
+    .where(eq(callMessageTable.callId, callId));
+  return last?.seq == null ? 0 : Number(last.seq) + 1;
+}
+
 /** A summary part arrives once, whole; a repeat keeps the first. */
 export async function saveThought(callId: string, thought: CallThought) {
   await database
