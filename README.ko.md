@@ -14,6 +14,10 @@
 
 [English](README.md) · [한국어](README.ko.md)
 
+![통화 중: 봇이 만든 페이지가 구석에 도착하는 동안 Thursday가 날씨 질문에 직접 답하는 장면](docs/images/demo.gif)
+
+[▶ 1분 30초 데모 영상 보기 (소리 있음)](https://youtu.be/V7fBDY3cYRU)
+
 </div>
 
 ## 빠른 시작
