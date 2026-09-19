@@ -204,7 +204,10 @@ export function Intro({
 
       {/* The call screen's own column, so nothing moves when the intro lifts */}
       <div className="flex h-full flex-col items-center justify-center gap-5 pt-[7vh]">
-        <div className="relative w-[min(28rem,72vw,52vh)]">
+        {/* The layout box is the part of her face she fills while talking; the canvas draws past
+            it for the room her words, the tail she works with and the gathering need, so what
+            sits under and beside her is not pushed away by empty field */}
+        <div className="relative w-[min(20rem,52vw,37.5vh)]">
           <button
             type="button"
             disabled={!last || !keyed}
@@ -222,7 +225,7 @@ export function Intro({
               failed={false}
               word={word}
               getSpectrum={step === "hello" ? demo.voice : voice.spectrum}
-              className="w-full"
+              className="-mx-[19.5%] -my-[19.5%] w-[139%] max-w-none"
             />
           </button>
 
