@@ -104,8 +104,10 @@ const HOVER_INK = 0.9;
 /** The words are 17px on 1.675; the level turn's first line sits here against the face's middle. */
 const LINE = 17 * 1.675;
 const LIFT = -40;
-/** Between her latest words and what stands under them. */
+/** Between her level words and what stands under them. */
 const UNDER_GAP = 8;
+/** The height key of what stands under the level turn, beside the turns' own ids. */
+const UNDER = "(under)";
 
 /**
  * The conversation beside the face, no plates and no names: a filled dot at
@@ -120,13 +122,14 @@ export function SideCaptions({
   onPick,
   under = null,
   ahead = false,
+  workOf,
 }: {
   turns: Turn[];
   pinned: Pinned;
   /** The last turn is still being said. */
   live: boolean;
   onPick: (role: Role, at: number) => void;
-  /** What stands under her latest words, on her side: the work behind them. */
+  /** Her turn in the making: the work under way before she has said anything to it. */
   under?: ReactNode;
   /**
    * That work is her turn in the making — theirs came last and she has not spoken yet — so
@@ -134,6 +137,8 @@ export function SideCaptions({
    * new turn.
    */
   ahead?: boolean;
+  /** The work behind one of her turns, drawn under it while it is level; null for none. */
+  workOf?: (turn: string) => ReactNode;
 }) {
   const last = turns.at(-1);
   return (
@@ -148,6 +153,7 @@ export function SideCaptions({
           onPick={(at) => onPick(role, at)}
           under={role === "assistant" ? under : null}
           ahead={role === "assistant" && ahead}
+          workOf={role === "assistant" ? workOf : undefined}
         />
       ))}
     </>
@@ -162,6 +168,7 @@ function SideColumn({
   onPick,
   under,
   ahead,
+  workOf,
 }: {
   role: Role;
   /** This side's turns only. */
@@ -172,6 +179,7 @@ function SideColumn({
   onPick: (at: number) => void;
   under: ReactNode;
   ahead: boolean;
+  workOf: ((turn: string) => ReactNode) | undefined;
 }) {
   const mine = role === "user";
   // Heights as laid out, before any transform: text grows while it is said, and
@@ -213,18 +221,22 @@ function SideColumn({
   // Every turn is placed by its top edge and scales from it. Centring the box
   // instead jumps a turn half a line the moment its text wraps, then slides it
   // back once the taller box is measured a frame later
+  // Under the level line: her turn in the making, else the work behind the turn that is
+  // level — the latest, or one gone back to
+  const below = at === turns.length ? under : (workOf?.(turns[at].id) ?? null);
   const top: number[] = Array(turns.length + 1).fill(0);
   top[at] = -LINE / 2;
   for (let k = at - 1; k >= 0; k--) top[k] = top[k + 1] - GAP - tall(k);
+  // what stands under a turn gone back to pushes the turns after it down, not over them
+  const room =
+    below && at < turns.length ? (heights[UNDER] ?? 0) + UNDER_GAP : 0;
   for (let k = at + 1; k < turns.length; k++)
-    top[k] = top[k - 1] + tall(k - 1) + GAP;
-  // Under the latest words while they are level; a side that went back shows none of it
-  const underTop =
-    at === turns.length
+    top[k] = top[k - 1] + tall(k - 1) + GAP + (k - 1 === at ? room : 0);
+  const underTop = !below
+    ? null
+    : at === turns.length
       ? top[at]
-      : at === latest
-        ? top[at] + (heights[turns[at].id] ?? LINE) + UNDER_GAP
-        : null;
+      : top[at] + (heights[turns[at].id] ?? LINE) + UNDER_GAP;
 
   return (
     <div
@@ -296,17 +308,17 @@ function SideColumn({
           </div>
         );
       })}
-      {under && (
+      {below && (
         <div
-          aria-hidden={underTop === null}
+          ref={measure}
+          data-turn={UNDER}
           style={{ transform: `translateY(${(underTop ?? 0).toFixed(1)}px)` }}
           className={cn(
             "absolute top-0 flex w-full transition-transform duration-[520ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
             mine ? "left-0 justify-start" : "right-0 justify-end",
-            underTop === null && "invisible",
           )}
         >
-          {under}
+          {below}
         </div>
       )}
     </div>

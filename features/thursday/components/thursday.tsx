@@ -77,7 +77,12 @@ import { useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, plainText } from "@/lib/utils";
 import { ConnectWave } from "./connect-wave";
 import { Face } from "./face";
-import { SideCaptions, turnsOf, useTurnFocus } from "./side-captions";
+import {
+  SideCaptions,
+  type Turn,
+  turnsOf,
+  useTurnFocus,
+} from "./side-captions";
 import { TabState } from "./tab-state";
 import { WriteLine, type WrittenCall } from "./write-line";
 
@@ -182,6 +187,10 @@ function CallScreen({
     if (lastRole !== "user") setMaking(false);
     else if (work.on) setMaking(true);
   }, [lastRole, work.on]);
+  // The work behind each of her turns stays with it for the call: what ran while she was on
+  // it, or before she answered, is kept under her words and shows again when she is gone
+  // back to. A later stretch of work on the same turn adds to it
+  const kept = useKeptWork(talk, work.lines);
   // the last turn is still being said: her voice is on, or yours came after hers and she has not answered
   const saying =
     (lastRole === "assistant" && status === "speaking") ||
@@ -260,6 +269,11 @@ function CallScreen({
               // with the work gone and her answer not yet begun, her last words come back level;
               // thinking alone takes nothing from them, since it stands under her face
               ahead={making && work.held && work.lines.length > 0}
+              workOf={(turn) =>
+                kept[turn]?.length ? (
+                  <WorkStack lines={kept[turn]} shown />
+                ) : null
+              }
             />
           )}
         </div>
@@ -995,6 +1009,36 @@ function useWork(drawn: ActivityLine | null, thinking: boolean) {
   }, [on]);
 
   return { lines, on, held };
+}
+
+/**
+ * The lines of work behind each of her turns, by turn: whatever ran while her latest turn
+ * was hers — before she answered, while she spoke — is that turn's. A turn is theirs until
+ * she speaks, so work before her answer waits for it. Lines are merged by the call they
+ * came from, so a second stretch on one turn adds to the first. A new call starts empty.
+ */
+function useKeptWork(talk: Turn[], lines: ActivityLine[]) {
+  const [kept, setKept] = useState<Record<string, ActivityLine[]>>({});
+  const last = talk.at(-1);
+  const owner = last?.role === "assistant" ? last.id : null;
+  useEffect(() => {
+    if (!owner || !lines.length) return;
+    setKept((was) => {
+      const now = new Set(lines.map(lineKey));
+      const merged = [
+        ...(was[owner] ?? []).filter((line) => !now.has(lineKey(line))),
+        ...lines,
+      ];
+      const same =
+        was[owner]?.length === merged.length &&
+        merged.every((line, k) => line === was[owner]?.[k]);
+      return same ? was : { ...was, [owner]: merged };
+    });
+  }, [owner, lines]);
+  useEffect(() => {
+    if (!talk.length) setKept({});
+  }, [talk.length]);
+  return kept;
 }
 
 /**

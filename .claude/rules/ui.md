@@ -34,8 +34,10 @@ paths:
   never a status — a green beside it would read as a second brand.
 - What she is doing on a call is one line under her face, each drawn for at least
   `CALL_LINE.dwellMs` (`useDwell`). With captions down the sides the tool lines stand on her
-  side instead, under her latest words (`WorkStack`): the last three, older ones fainter, no
-  rule and no plate. What the backend is thinking about stays under her face in either view,
+  side instead, under her words (`WorkStack`): the last three, older ones fainter, no rule and
+  no plate — and they stay with the turn they led to for the rest of the call, under it
+  whenever it is level, the one gone back to included (`useKeptWork`). What the backend is
+  thinking about stays under her face in either view,
   held back while a tool line is up. A tool line that follows the caller's words before any
   of hers takes her level line as her turn in the making, and her earlier words step back for
   it as they would for a new turn; thinking alone moves nothing. A window narrower than
