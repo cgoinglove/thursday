@@ -27,13 +27,16 @@ The voice and the backend are one assistant. Both prompts open with the same ide
 memory, and neither is told it is part of something else. The voice holds conversation and
 memory only. Right under the identity, `## Always` groups what holds on every turn: the ending
 rule (the only line marked `IMPORTANT`), the guide's starter backchannel and interruption
-policies, and under the guide's `Delegation policy` label three lines — hand everything but
-greetings, small talk and a brief clarification to the backend; hand over whatever the user says
-about themselves, their people, their plans or how they want things done as they say it, unless
-it is already written in the prompt; answer from what the backend returns without guessing while
-waiting. Live decides by itself whether to delegate, so the rule stays even this short. It says
-nothing else about how to speak; it sees no tool schema and no tool name but `end_call`, in the
-ending rule. The backend prompt holds the work: memory (merging a fact that repeats or changes one
+policies, and the guide's `Delegation policy` under its three labels: `Backend tools` names
+what the backend can do (end the call, background work, routines, memory, this computer and the
+web) and never how; `Delegate to the backend when` is the user wanting the call to end, anything
+on that list or a change to work already asked for, and whatever the user says about themselves,
+their people, their plans or how they want things done, unless it is already written in the
+prompt; `Do not delegate to the backend when` is greetings, small talk, only wanting her to stop
+talking, what the conversation already answers, and a brief clarification. Live decides by
+itself whether to delegate, and it decides from that list: without it (09-17 to 09-19) a
+hang-up, a stop or a routine was answered and never handed over. It says nothing else about how
+to speak; it sees no tool schema and no tool name but `end_call`, in the ending rule. The backend prompt holds the work: memory (merging a fact that repeats or changes one
 already kept, and tidying with the user past the limits), background work and threads, this
 computer, what to return, and the earlier calls. A request that carries earlier work further goes to
 that thread; one that stands on its own opens a new one; it asks the user only when it could be
@@ -215,7 +218,9 @@ voice answers yes and hands it to the backend at once, and the backend runs `end
 without deliberating. The ending rule names `end_call` in the voice prompt too, the one tool
 name it holds: without it, ending read as something to say rather than do.
 Whether that turn reaches the backend at all is the voice's own decision, and it often
-answers and hands nothing over (measured 09-18: eight calls, none ended by asking). The
+answers and hands nothing over. Ending the call leads the `Backend tools` list for that
+reason: with the list, five calls in seven ended by asking (09-16); without it, one in 21,
+then none in 34 (09-17 to 09-19). The
 quiet hang-up below is what ends such a call.
 The page does not close on `end_call` itself: it waits until her voice has been quiet
 for `CALL_END.quietMs`, or `CALL_END.unsaidMs` when nothing was said, never past

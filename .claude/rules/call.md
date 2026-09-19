@@ -19,10 +19,12 @@ paths:
   is told it is part of something else. The voice holds conversation and memory only. Right under
   its identity, `## Always` groups the ending rule (the only line stamped `IMPORTANT`), the guide's
   starter backchannel and interruption policies (the backchannel line asking for listening sounds
-  through a long turn), and under the guide's `Delegation policy` label three lines — hand everything
-  but greetings, small talk and a brief clarification to the backend, hand over whatever they say
-  about themselves as they say it, and answer from what the backend returns. What the backend can
-  do, how work is handed over, tidying memory and earlier calls are the backend's; it merges a fact
+  through a long turn), and the guide's `Delegation policy` under its three labels — `Backend tools`
+  (what the backend can do, ending the call first, never how), when to hand a turn over (a hang-up,
+  anything on that list, a change to work asked for, whatever they say about themselves) and when
+  not (greetings, small talk, only stopping her voice, a brief clarification). Live picks what to
+  hand over from that list: without it, hang-ups and stops were answered and never handed over.
+  How work is handed over, tidying memory and earlier calls are the backend's; it merges a fact
   that repeats or changes one already kept, and it asks the user whether work carries an earlier
   thread on or starts a new one only when it could be either. A relay carries facts — who, which thread —
   never instructions, since the backend reads it too.

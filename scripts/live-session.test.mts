@@ -860,7 +860,7 @@ test("stored settings keep OpenAI choices and the shared instruction, drop a Gro
   assert.deepEqual(migrateLiveSettings(null), LIVE_DEFAULTS);
 });
 
-test("both call prompts open as one Thursday: the voice gets a two-line delegation policy and memory and no earlier calls, the backend carries work on in threads, and every call has an opening", async () => {
+test("both call prompts open as one Thursday: the voice gets the guide's delegation policy and memory and no earlier calls, the backend carries work on in threads, and every call has an opening", async () => {
   let profileFacts = 200;
   let samFacts = 2;
   const botMock = mock.module("../features/bot/bot.query.ts", {
@@ -955,7 +955,7 @@ test("both call prompts open as one Thursday: the voice gets a two-line delegati
     assert.match(on.text, /Prefer brief replies/);
     assert.match(
       on.text,
-      /\n\n## Always\n\nIMPORTANT — always follow this: [^\n]+\n\nBackchannel policy: Use moderate backchannels\. .*\n\nInterruption policy: Stop speaking when the user interrupts\. Listen to what they say\.\n\nDelegation policy:\nDelegate to the backend everything [^\n]+\nWhatever they tell you about themselves[^\n]+unless it is already written below\.\nAnswer from what the backend returns[^\n]+\n\n## What you know about them\n/,
+      /\n\n## Always\n\nIMPORTANT — always follow this: [^\n]+\n\nBackchannel policy: Use moderate backchannels\. .*\n\nInterruption policy: Stop speaking when the user interrupts\. Listen to what they say\.\n\nDelegation policy:\nBackend tools:\n- Ending the call: [^\n]+\n(- [^\n]+\n){4}\nDelegate to the backend when:\n- The user wants the call to end\.\n(- [^\n]+\n)+\nDo not delegate to the backend when:\n(- [^\n]+\n)+\nDelegate before giving an answer that depends on backend work\. Do not guess the result while waiting\.\n\n## What you know about them\n/,
     );
     // Only the ending rule carries the stamp
     assert.equal(on.text.split("IMPORTANT").length, 2);
@@ -963,13 +963,10 @@ test("both call prompts open as one Thursday: the voice gets a two-line delegati
       on.text,
       /When the user speaks at length, acknowledge now and then/,
     );
-    // What the backend can do, and when to hand over, are no longer the voice's to read
-    assert.equal(
-      /Backend tools|Delegate to the backend when|What bots can reach for|- Web:/.test(
-        on.text,
-      ),
-      false,
-    );
+    // What the backend can do, never how: no skills, connected tools or bots by name
+    assert.equal(/What bots can reach for|- Web:/.test(on.text), false);
+    // Stopping her voice is hers, stopping a job the backend's
+    assert.match(on.text, /or only want you to stop talking/);
     assert.match(on.text, /- people\/sam — Their brother \(2\) "Sam"/);
     assert.match(on.text, /What is in these notes, the backend recalls\./);
     // The roster, threads and earlier calls are the backend's to read

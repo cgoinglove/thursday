@@ -21,11 +21,11 @@ import {
 
 /**
  * Everything the Live voice hears: who Thursday is and how a call ends (the words the backend
- * opens with too), the guide's starter backchannel and interruption policies, a two-line
- * delegation policy, and what she knows about the user. What the backend can do, how work is
- * handed over, earlier calls and tidying memory are the backend's (thursday.prompt): the voice
- * hands everything but conversation over and answers from what comes back. Assembled on every
- * call, never cached.
+ * opens with too), the guide's starter backchannel and interruption policies, its delegation
+ * policy (what the backend can do, when to hand over and when not), and what she knows about
+ * the user. How the work is done, earlier calls and tidying memory are the backend's
+ * (thursday.prompt): the voice hands everything but conversation over and answers from what
+ * comes back. Assembled on every call, never cached.
  */
 export async function loadLivePrompt(options: {
   /** Settings › Thursday › Voice instructions; added to, never replacing, what is below. */
@@ -101,18 +101,36 @@ Interruption policy: Stop speaking when the user interrupts. Listen to what they
 }
 
 /**
- * Under the guide's label, and no longer than this: Live decides for itself whether to hand a
- * turn over, and with no rule it answered from its own knowledge or only said it would act.
- * What the backend can do and how is the backend's to know. What they say about themselves is
- * named on its own: nothing is kept that is not handed over, and it is rarely a request. The
- * voice sees only profile and preferences whole, so "already written" is a rough filter; the
- * backend merges the rest (thursday.prompt memory).
+ * The guide's three labels, as it asks: Live decides for itself whether to hand a turn over,
+ * and reads that from what the list says the backend can do. Without the list (09-17 to 09-19)
+ * it said "yes" to a hang-up, a stop or a routine and handed nothing over: 1 `end_call` in 21
+ * calls, then none in 34, where the list had drawn 5 in 7. The list names what can be done,
+ * never how: tools, bots and threads stay the backend's. What they say about themselves is
+ * its own line: nothing is kept that is not handed over, and it is rarely a request. The voice
+ * sees only profile and preferences whole, so "already written" is a rough filter; the backend
+ * merges the rest (thursday.prompt memory). Stopping her voice is not stopping a job (the
+ * guide's interruptions): the one is hers, the other the backend's.
  */
 function delegation(): string {
   return `Delegation policy:
-Delegate to the backend everything the user asks for, tells you or asks about, except greetings, small talk and a brief clarification.
-Whatever they tell you about themselves, the people in their life, their plans or how they want things done goes to the backend as they say it, however small — unless it is already written below.
-Answer from what the backend returns, and do not guess the result while waiting.`;
+Backend tools:
+- Ending the call: hangs up the line.
+- Background work: hands a job to a bot, passes words on, stops or changes a job, answers a bot's question, says how the work stands.
+- Routines: jobs that start by themselves later.
+- Memory: keeps what the user tells you about themselves, and looks it up.
+- This computer and the web: runs a command, searches.
+
+Delegate to the backend when:
+- The user wants the call to end.
+- They ask for anything on that list, or change or stop work already asked for.
+- They tell you about themselves, the people in their life, their plans or how they want things done, however small, unless it is already written below.
+
+Do not delegate to the backend when:
+- They greet you, make small talk, or only want you to stop talking.
+- You can answer from the conversation or a result still current.
+- You need a brief clarification to understand the request.
+
+Delegate before giving an answer that depends on backend work. Do not guess the result while waiting.`;
 }
 
 /**
