@@ -118,17 +118,15 @@ export function ModelPicker({
               className={cn("shrink-0", compact ? "size-3" : "size-4")}
             />
             {!compact && (
-              <>
-                <span className="shrink-0 text-muted-foreground">
-                  {picked.label}
-                </span>
-                <span className="text-muted-foreground/40">·</span>
-              </>
+              // Only the room the model leaves: the icon still names the provider
+              <span className="min-w-0 max-w-fit grow basis-0 truncate text-muted-foreground">
+                {picked.label}
+                <span className="ml-2 text-muted-foreground/40">·</span>
+              </span>
             )}
             <span className={cn("truncate", !compact && "font-medium")}>
               {current?.label ?? (model || "Pick a model")}
             </span>
-            {!compact && current?.tier && <Tier tier={current.tier} />}
           </>
         ) : (
           // Unset is a value, not a blank: a text model falls back to the app
