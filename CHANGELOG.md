@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.10.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.9.0...thursday-agent-v0.10.0) (2026-09-19)
+
+
+### Features
+
+* **analyst:** add data-report skill with various report forms and scripts ([6f627b2](https://github.com/cgoinglove/thursday/commit/6f627b2e4422676a2d2d43c0a12eb316b1c3d8ce))
+* **ui:** what is on or picked is brand blue; buttons stay black ([eda7ca5](https://github.com/cgoinglove/thursday/commit/eda7ca50d89c038fb2799fc9d14f053d747bf5cc))
+
+
+### Fixes
+
+* **knip:** add seed-skills to ignore list in configuration ([b215038](https://github.com/cgoinglove/thursday/commit/b215038c15f9db1d9139c280f38db92b4a124816))
+* **settings:** the theme picker is blue like every other pick ([654f36f](https://github.com/cgoinglove/thursday/commit/654f36f8144bf080021631e58e0e59aa4aba1180))
+* **settings:** the theme picker's pick is a raised light pill, not blue ([b5d17b3](https://github.com/cgoinglove/thursday/commit/b5d17b362d4850331cc8cd129fa75a97621e095d))
+
+
+### Docs
+
+* **guide:** a picked schedule is filled blue ([8d9796f](https://github.com/cgoinglove/thursday/commit/8d9796f185c9edbf59055c38202c03ce1882f96d))
+* **readme:** the demo under the hero, and a link to it with sound ([0f4be6c](https://github.com/cgoinglove/thursday/commit/0f4be6c154c6a195e86a5c312e64fb92fad39ab0))
+
 ## [0.9.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.8.0...thursday-agent-v0.9.0) (2026-09-19)
 
 
