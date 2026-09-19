@@ -33,6 +33,8 @@ export const TOOL_NAMES = {
   sign_in_use: "sign_in_use",
   sign_in_keep: "sign_in_keep",
 
+  look_at: "look_at",
+
   end_call: "end_call",
   emote: "emote",
 } as const;

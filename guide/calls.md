@@ -30,6 +30,10 @@ she says what a bot finished or asks, and nothing rings while the written call i
 chip at the left of the line still picks a bot, for one message straight to it; after that
 the line is hers again, and **Esc** with a bot picked goes back to her.
 
+A picture handed over in writing is one she can look at herself — a receipt, a screenshot, a
+chart — so "what does this say?" is answered on the spot; on a spoken call she sees only where
+the file was put, and hands it to a bot.
+
 It runs on the GPT Subscription when one is signed in, else on the OpenAI key, and the line
 says which before anything is sent. With neither it says so and sends nothing — both are in
 **Settings › Models & keys**. **Esc** ends it — saying goodbye does not, since there is no

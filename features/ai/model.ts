@@ -151,6 +151,18 @@ export type TextModel = {
   searchTools: ToolSet | null;
 };
 
+/**
+ * Whether a picture a tool hands back reaches this model as a picture (tools/look.tool): the
+ * providers whose drivers carry an image inside a tool result. The gateway is asked by the
+ * family its model id opens with, since it passes the request on to that provider.
+ */
+export function seesToolImages(ref: TextModelRef): boolean {
+  const SEEING = ["openai", "chatgpt", "anthropic", "google", "xai"];
+  if (ref.provider !== "vercel-ai-gateway")
+    return SEEING.includes(ref.provider);
+  return SEEING.includes(ref.model.split("/")[0] ?? "");
+}
+
 /** A model whose provider has no web search to bind. */
 const plain = (ref: TextModelRef, model: LanguageModel): TextModel => ({
   ref,

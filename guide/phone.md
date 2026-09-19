@@ -28,8 +28,9 @@ conversation that goes quiet for about ten minutes is closed; what is written ne
 new one, and she reads the last one back like any earlier call.
 
 - **Pictures and files** sent to the bot are kept on the computer, in the workspace's `inbox`
-  folder, and she is told where — so "what is in this receipt?" or "hand this to Analyst"
-  work. Voice messages and videos are not read yet.
+  folder, and she is told where. A picture she can look at herself — "what does this
+  receipt say?" — and any file can be handed on: "give this to Analyst". Voice messages and
+  videos are not read yet.
 - **Files she names in an answer** — a report, an image a bot made — are sent along with it,
   up to three, since a phone cannot open a path on the computer.
 - **A bot's question, or work that finished**, reaches the phone about a minute after it

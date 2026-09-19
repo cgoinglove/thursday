@@ -87,6 +87,8 @@ long, `find` and `snapshot <ref>` are the cheap way through — keep raw HTML fo
 when the markup itself is what you need. A page that draws itself from a fetch
 is cheaper at the source: `requests` numbers what it pulled, `response-body N`
 prints one — the data already parsed, rather than read back out of the DOM.
+What only the eye can tell — a chart, a photo, whether the layout came out —
+is a `screenshot` and then the `look_at` tool, when you hold it.
 
 **Refs go stale** after anything that changed the page — snapshot again before
 the next click. A page that looks empty right after loading is still rendering.

@@ -170,6 +170,14 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   Requests to the same bot run sequentially. Messages are asynchronous: a waiting A can handle a question from B in its own
   context, but a bot waiting on the user's answer runs nothing until it arrives; its inbox holds. Only exchanged messages cross participant contexts. `room.query` owns durable inboxes,
   continuation claims and return routes; `bot.runner` owns live promises.
+- **A picture reaches a model through one tool.** `look_at` (`tools/look.tool`) answers with the
+  image itself: `execute` returns a small record — the path, never the bytes — which is what
+  is stored and drawn, and `toModelOutput` turns it into the picture for the run that asked.
+  So a row stays a line, and a resumed thread reads that a picture was looked at rather than
+  carrying it again. A bot holds it only when its provider carries an image inside a tool
+  result (`model.ts` `seesToolImages`); a call in writing holds it too, a spoken one cannot —
+  its backend is answered through the page, in text. Past `LOOK.maxBytes` it says how to make
+  a smaller copy instead of sending one.
 - **A sign-in is the app's to keep and the user's to lend.** A bot borrows one with
   `sign_in_use` and hands over the one the user just made with `sign_in_keep`
   (`tools/signin.tool`); the session lives under `DATA_DIR/sign-ins`, one file a site, outside

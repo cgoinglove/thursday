@@ -1,7 +1,7 @@
 import { asSchema, type ToolSet, tool } from "ai";
 import { formatDistanceToNowStrict } from "date-fns";
 import { CALL_EXEC_TIMEOUT_MS, IS_DEV } from "@/config";
-import type { TextModel } from "@/features/ai/model";
+import { seesToolImages, type TextModel } from "@/features/ai/model";
 import { clockNow } from "@/features/ai/prompts/prompt-helper";
 import {
   createThreadRecallTool,
@@ -14,6 +14,7 @@ import {
   threadTellSpec,
 } from "@/features/ai/tools/bot.tool";
 import { callTools } from "@/features/ai/tools/call.tool";
+import { createLookTool } from "@/features/ai/tools/look.tool";
 import { createMcpTools } from "@/features/ai/tools/mcp.tool";
 import { createMemoryTools } from "@/features/ai/tools/memory.tool";
 import { createRoutineTools } from "@/features/ai/tools/routine.tool";
@@ -421,7 +422,10 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
       ...createThreadTools(run.callId),
       // What starts by itself is the user's to set up, so only the call holds it
       ...createRoutineTools(),
-      ...(run.written ? {} : callTools(run.faceWords ?? false)),
+      // A picture handed over in writing is one she can see: a call in writing runs on
+      // providers that carry an image in a tool result, where a spoken one answers the
+      // backend through the page, in text alone
+      ...(run.written ? createLookTool() : callTools(run.faceWords ?? false)),
     };
   }
 
@@ -452,6 +456,8 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     // Pinned tools come with schemas; the rest sit behind `tool_search`, absent when nothing is left to find (mcp.tool)
     ...(await createMcpTools(run.bot, sandbox)),
     ...createSkillTools({ sandbox, skills, bot: run.bot }),
+    // Absent for a model a picture would not reach (ai/model seesToolImages)
+    ...(run.model && seesToolImages(run.model.ref) ? createLookTool() : {}),
     // Sign-ins are the app's to keep and the user's to lend (tools/signin.tool); the state
     // goes into this participant's own browser, the one its shell drives
     ...createSignInTools(sandbox, run.bot, jobShellEnv(run.session)),

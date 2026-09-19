@@ -546,6 +546,15 @@ export const MEMORY_LIMITS = {
 };
 
 /**
+ * One look at an image (features/ai/tools/look.tool).
+ * - `maxBytes`  the largest file handed to a model as a picture. It rides in the request as
+ *   base64, a third larger, on every step of the run that looked; providers refuse a request
+ *   past a few tens of megabytes, and a screenshot is a few hundred kilobytes. Over this the
+ *   tool says so and how to make a smaller copy, rather than sending it.
+ */
+export const LOOK = { maxBytes: 4 * 1024 * 1024 };
+
+/**
  * One web search (features/ai/tools/search.tool), Exa or a model's own.
  * - `sources`  hits worth carrying back; past this it is noise.
  * - `excerptChars`  how much of one page rides back with it; a bot that wants

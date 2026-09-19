@@ -9,6 +9,7 @@ const LINES: Record<string, string> = {
   [TOOL_NAMES.bash]: "Doing it on this computer",
   [TOOL_NAMES.web_search]: "Searching the web",
   [TOOL_NAMES.load_skill]: "Reading how to do this",
+  [TOOL_NAMES.look_at]: "Looking at the picture",
   [TOOL_NAMES.end_call]: "Ending the call",
 };
 
