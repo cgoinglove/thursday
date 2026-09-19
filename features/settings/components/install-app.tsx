@@ -126,22 +126,31 @@ export function InstallNudge({ hidden }: { hidden: boolean }) {
 }
 
 /**
- * At the foot of the settings nav, for as long as the browser offers it: a row like the nav's
- * own, in the brand colour with an arrow, because it is an action that leaves the page rather
- * than a section to open (the user's pick).
+ * At the foot of the settings nav, for as long as the browser offers it: what it does in one
+ * line under its name, with an arrow, because it opens the browser's own dialog rather than a
+ * section of this page.
  */
 export function InstallButton() {
   const can = useOffer() !== null;
   if (!can) return null;
   return (
-    <Button
-      variant="ghost"
-      className="group/install w-full justify-start text-brand hover:text-brand"
+    <button
+      type="button"
       onClick={() => void install()}
+      className="group/install flex w-full items-start gap-2.5 rounded-xl px-3 py-2.5 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
     >
-      <AppWindowMac className="mr-1" />
-      <span className="truncate text-sm">Install app</span>
-      <ArrowUpRight className="ml-auto transition-transform group-hover/install:translate-x-px group-hover/install:-translate-y-px" />
-    </Button>
+      <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg bg-background ring-1 ring-border">
+        <AppWindowMac className="size-3.5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1 text-sm font-medium">
+          Install app
+          <ArrowUpRight className="size-3.5 text-muted-foreground transition-transform group-hover/install:translate-x-px group-hover/install:-translate-y-px" />
+        </span>
+        <span className="block text-xs leading-snug text-muted-foreground">
+          Its own window, apart from your tabs
+        </span>
+      </span>
+    </button>
   );
 }
