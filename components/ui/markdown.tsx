@@ -3,7 +3,14 @@
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
-import { ComponentProps, memo, useSyncExternalStore } from "react";
+import {
+  Children,
+  type ComponentProps,
+  isValidElement,
+  memo,
+  type ReactElement,
+  useSyncExternalStore,
+} from "react";
 import { Streamdown } from "streamdown";
 
 const defaultProps: ComponentProps<typeof Streamdown> = {
@@ -43,6 +50,32 @@ const subscribeToTheme = (onChange: () => void) => {
 };
 const isDark = () => document.documentElement.classList.contains("dark");
 
+type HastChild = { type?: string; tagName?: string };
+
+/**
+ * Streamdown draws an image as a block with its own controls and lifts it out of a paragraph
+ * it is alone in — but an image with words beside it stays inside the `<p>`, which no `<p>`
+ * may hold. That paragraph is a `div`; everything else is Streamdown's own rule.
+ */
+function Paragraph({
+  children,
+  node,
+  ...rest
+}: ComponentProps<"p"> & { node?: { children?: HastChild[] } }) {
+  const parts = Children.toArray(children);
+  const only =
+    parts.length === 1 && isValidElement(parts[0])
+      ? (parts[0] as ReactElement<{ node?: HastChild }>)
+      : null;
+  const tag = only?.props.node?.tagName;
+  if (tag === "img" || (tag === "code" && only && "data-block" in only.props))
+    return <>{children}</>;
+  const Tag = node?.children?.some((child) => child.tagName === "img")
+    ? "div"
+    : "p";
+  return <Tag {...rest}>{children}</Tag>;
+}
+
 function PureMarkdown(props: ComponentProps<typeof Streamdown>) {
   const theme = useSyncExternalStore(subscribeToTheme, isDark, () => false)
     ? "dark"
@@ -54,6 +87,7 @@ function PureMarkdown(props: ComponentProps<typeof Streamdown>) {
       {...defaultProps}
       mermaid={MERMAID_THEME[theme]}
       {...props}
+      components={{ p: Paragraph, ...props.components }}
     />
   );
 }

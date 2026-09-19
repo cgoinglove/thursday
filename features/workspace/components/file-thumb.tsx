@@ -12,7 +12,13 @@ import {
   type LucideIcon,
   Music,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Markdown } from "@/components/ui/markdown";
 import { FILE_THUMB, WORKSPACE_VIEW } from "@/config";
@@ -156,7 +162,8 @@ function Shrunk({
 }) {
   const box = useRef<HTMLSpanElement>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
-  useEffect(() => {
+  // Before paint, so a tile is never empty for a frame
+  useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
     const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight });
@@ -212,7 +219,11 @@ function TextHead({
   if (text === null) return null;
   return viewKindOf(path) === "markdown" ? (
     <div className="pointer-events-none px-9 py-8 text-[15px] text-foreground">
-      <Markdown>{text}</Markdown>
+      {/* A face, not a reader: the tile it sits in is a button, which may hold no other —
+          so no copy or download controls, and a link is drawn without being one */}
+      <Markdown controls={false} components={{ a: "span" }}>
+        {text}
+      </Markdown>
     </div>
   ) : (
     <pre className="pointer-events-none px-7 py-6 font-mono text-[13px] leading-relaxed whitespace-pre-wrap text-foreground">
