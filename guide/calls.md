@@ -9,6 +9,10 @@ Three ways in, and any of them also answers a call she placed:
   off to begin with, because it keeps the microphone open for as long as the tab is.
 - Press the shortcut, `alt+shift+T` unless they changed it.
 
+She speaks first. From the second call on she is told, as the call opens, when the last one
+was and how it ended, so she can greet as someone who remembers it; a call she places herself
+opens on why she called instead.
+
 The wake phrase and the shortcut are in **Settings › Thursday › Starting a call**, where
 either can be switched on or off, or rewritten. The first-run setup offers the wake phrase
 too, with a try.

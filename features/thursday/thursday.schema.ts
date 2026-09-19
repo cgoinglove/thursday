@@ -31,6 +31,11 @@ export type CallHandshake = {
   /** The row every saved turn hangs off. Exists before the connection. */
   callId: string;
   sdp: string;
+  /**
+   * The call before this one (ai/prompts/call-last), put in as a quiet fact ahead of the
+   * opening so her greeting can pick it up. Null on the first call and on a call-back.
+   */
+  last: string | null;
   /** Trusted instructions sent after session.started, so she speaks first. */
   opening: string;
   /**

@@ -33,6 +33,8 @@ export async function loadLivePrompt(options: {
   locale?: string | null;
   /** The page placed this call because background work waits on the user (call-back). */
   calledBack?: boolean;
+  /** The last call is in the conversation ahead of the opening (call-last). */
+  remembers?: boolean;
 }): Promise<{ text: string; opening: string }> {
   const [carried, open, index] = await Promise.all([
     listAlwaysLoaded(),
@@ -68,7 +70,9 @@ export async function loadLivePrompt(options: {
       ? "You placed this call because background work has something for the user; it comes in next. Speak first: greet them in one line and say that is why you called."
       : first
         ? `Open the call now, in ${language}: say who you are and what you are here to do for them, in a line or two, then ask what to call them. Then stop and listen.`
-        : "The call has just started. Speak first: greet the user naturally, in one line.",
+        : options.remembers
+          ? "The call has just started. Speak first: greet the user naturally, in one line, as someone who remembers the last call."
+          : "The call has just started. Speak first: greet the user naturally, in one line.",
   };
 }
 

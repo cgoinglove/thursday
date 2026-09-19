@@ -5,6 +5,7 @@ import z from "zod";
 import { TEXT_CALL } from "@/config";
 import { LIVE_PROVIDER } from "@/features/ai/live.schema";
 import { loadTools } from "@/features/ai/load-tools";
+import { loadLastCall } from "@/features/ai/prompts/call-last";
 import { loadCallStanding } from "@/features/ai/prompts/call-standing";
 import { loadLivePrompt } from "@/features/ai/prompts/live.prompt";
 import { loadThursdayPrompt } from "@/features/ai/prompts/thursday.prompt";
@@ -90,13 +91,18 @@ export const openCallAction = serverAction(
       publicError(`No ${LIVE_PROVIDER.label} key — add one in Config.`);
     }
 
+    // A call-back opens on why she called, not on the call before it
+    const rang = z.boolean().default(false).parse(calledBack);
+    const last = rang ? null : await loadLastCall();
+
     // Assembled per call, never cached: both prompts read what earlier calls stored.
     const [voice, backend, tools, reasoning, standing, exaKey] =
       await Promise.all([
         loadLivePrompt({
           voicePrompt: thursday.voicePrompt,
           locale: thursday.locale,
-          calledBack: z.boolean().default(false).parse(calledBack),
+          calledBack: rang,
+          remembers: last !== null,
         }),
         loadThursdayPrompt(thursday.backendPrompt),
         loadToolManifest(thursday.faceWords ?? false, thursday.webSearch),
@@ -145,6 +151,7 @@ export const openCallAction = serverAction(
     return {
       callId,
       sdp: connection.transport.sdp,
+      last,
       opening: voice.opening,
       standing,
     };

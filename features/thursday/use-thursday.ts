@@ -772,6 +772,7 @@ export function useThursday(
       /** Filled in by the handshake, read by callbacks that only run after it. */
       const line = {
         callId: "",
+        last: null as string | null,
         opening: null as string | null,
         standing: null as string | null,
       };
@@ -841,6 +842,7 @@ export function useThursday(
           }
           callId.current = handshake.callId;
           line.callId = handshake.callId;
+          line.last = handshake.last;
           line.opening = handshake.opening;
           line.standing = handshake.standing;
           return handshake.sdp;
@@ -1051,6 +1053,9 @@ export function useThursday(
       // The quiet clock starts with the line, so nothing is put to her the moment it opens
       heard.current = Date.now();
 
+      // The call before this one, ahead of the greeting in the same queue, so her first
+      // words can pick it up (ai/prompts/call-last)
+      if (line.last) void live.append("thinking", line.last);
       if (line.opening) {
         // The greeting goes first; open work waits until she has said it
         readAloud();

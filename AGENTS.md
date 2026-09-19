@@ -50,6 +50,9 @@ features/ai/              Everything the model sees. Composes domain query/schem
   prompts/memory-edit.prompt.ts  Everything an edit typed on the Memory screen hears.
   prompts/call-standing.ts       The jobs open as a call starts, put into the conversation once rather
                                  than into a prompt: what is true only at that moment, in facts.
+  prompts/call-last.ts           The call before this one — when, how long, its last words — put in the
+                                 same way but ahead of the greeting: the voice's prompt holds no earlier
+                                 calls, and this is what lets her open as someone who remembers.
   prompts/prompt-helper.ts       Row-to-line formatters, a few thresholds, and the identity both call
                                  prompts open with.
   load-tools.ts           Which runtime holds which tools (ToolRun: the call, a bot, a memory edit).
