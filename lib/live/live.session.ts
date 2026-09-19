@@ -363,7 +363,16 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
       (entry) =>
         entry.turn.role === role &&
         start >= entry.turn.seq - LIVE_CALL.transcriptGapMs &&
-        start <= entry.end + LIVE_CALL.transcriptGapMs,
+        start <= entry.end + LIVE_CALL.transcriptGapMs &&
+        // Her answer to what they just said is a new turn, however soon it follows her
+        // last words; theirs still holds together across the listening sounds she makes
+        (role === "user" ||
+          !transcripts.some(
+            (other) =>
+              other.turn.role === "user" &&
+              other.turn.seq > entry.turn.seq &&
+              other.turn.seq < start,
+          )),
     );
     if (!group) {
       group = {

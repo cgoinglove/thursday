@@ -442,6 +442,34 @@ test("captions keep exact fragments through overlap and late delivery, and never
   assert.equal(released, true);
 });
 
+test("her answer after their words is a turn of its own, however soon it follows her last one", async (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  const { turns } = await connect();
+  const fragment = (
+    type: string,
+    id: string,
+    start: number,
+    end: number,
+    delta: string,
+  ) =>
+    wire.on.event({ type, event_id: id, start_ms: start, end_ms: end, delta });
+  fragment("session.output_transcript.delta", "a1", 0, 900, "Morning.");
+  fragment("session.input_transcript.delta", "u1", 1000, 1600, "Book it.");
+  // within the grouping gap of her first words, but after theirs
+  fragment("session.output_transcript.delta", "a2", 1800, 2400, "Done.");
+  context.mock.timers.tick(LIVE_CALL.transcriptSaveMs);
+
+  const saved = turns.filter((turn) => turn.done);
+  assert.deepEqual(
+    saved.map((turn) => [turn.role, turn.text]),
+    [
+      ["assistant", "Morning."],
+      ["user", "Book it."],
+      ["assistant", "Done."],
+    ],
+  );
+});
+
 test("closing never starts a late tool", async () => {
   let executed = 0;
   const { session, failures } = await connect({

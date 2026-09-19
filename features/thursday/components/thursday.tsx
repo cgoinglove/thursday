@@ -261,7 +261,8 @@ function CallScreen({
                   />
                 ) : null
               }
-              ahead={making}
+              // with the work gone and her answer not yet begun, her last words come back level
+              ahead={making && work.held}
             />
           )}
         </div>
