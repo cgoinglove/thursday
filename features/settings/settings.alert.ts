@@ -8,17 +8,19 @@ import { useMcpAlert } from "@/features/connectors/components/mcp-badge";
 import type { SettingSectionId } from "./settings.store";
 
 /**
- * What a section is reporting, in the app's two colours: amber waits on the
- * user, red is broken. A section at rest reports nothing. The fact lives here
- * so both places that draw it stay in step — the nav row (which can afford a
- * count) and the call screen's corner (which cannot).
+ * What a section is reporting: amber waits on the user and red is broken — the
+ * app's two status colours — and brand blue is worth setting up though nothing
+ * waits on it (the user's pick). A section at rest reports nothing. The fact
+ * lives here so both places that draw it stay in step — the nav row (which can
+ * afford a count) and the call screen's corner (which cannot).
  */
-export type SectionAlert = "amber" | "red" | null;
+export type SectionAlert = "amber" | "red" | "brand" | null;
 
-/** Broken outranks waiting; one of them is the whole ladder. */
+/** Broken outranks waiting, and waiting outranks a suggestion; one of them is the whole ladder. */
 export function worstAlert(alerts: SectionAlert[]): SectionAlert {
   if (alerts.includes("red")) return "red";
-  return alerts.includes("amber") ? "amber" : null;
+  if (alerts.includes("amber")) return "amber";
+  return alerts.includes("brand") ? "brand" : null;
 }
 
 /**
@@ -32,8 +34,7 @@ export function useSectionAlerts(): Partial<
   const bot = useBotAlert();
   const threads = useThreadAlert();
   const mcp = useMcpAlert();
-  const config = useConfigAlert();
-  const studio = useModelsAlert();
-  // keys and models are one section: a missing voice key and an empty studio both report there
-  return { bot, threads, mcp, models: worstAlert([config, studio]) };
+  const keys = useConfigAlert();
+  const models = useModelsAlert();
+  return { bot, threads, mcp, keys, models };
 }

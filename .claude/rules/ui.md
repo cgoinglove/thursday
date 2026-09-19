@@ -22,7 +22,9 @@ paths:
 - Two status colors only: amber (waits on the user — a question, a stopped job, an answer not yet
   opened; `WAITING_INK` in `lib/utils`) and red (failed — `text-destructive`). Success, connected and
   enabled have no color of their own: an unopened answer is amber because it waits on the user, not
-  because it worked. The settings nav reports the same two and nothing else (`NavBadge`). A
+  because it worked. The settings nav reports the same two, and one blue dot for a section worth
+  setting up that nothing waits on — Models with no studio model (the user's pick); the settings
+  door in the call screen's corner wears the worst of what it opens (`NavBadge`, `CornerDot`). A
   screen that already means "this waits on you" — the ringing call, the missed list — says so
   without the amber.
 - One brand color, blue (`brand` in `app/globals.css`), on black and white, for what matters on a
@@ -33,8 +35,8 @@ paths:
   slider, a segment or a chip that fills, a picked card's border and its tick — and what is not
   is a hairline or muted words, so nothing picked has to be read twice; a label beside it is
   muted. Buttons stay black (`primary`): blue says what is set, black what to press. A tick
-  that reports (saved, done, a key set) is not a pick and stays black. Never a surface, never a
-  status — a green beside it would read as a second brand.
+  that reports (saved, done, a key set) is not a pick and stays black. Never a surface, and no
+  status but that one nav dot — a green beside it would read as a second brand.
 - What she is doing on a call is one line under her face, each drawn for at least
   `CALL_LINE.dwellMs` (`useDwell`). With captions down the sides the tool lines stand on her
   side instead, under her words (`WorkStack`): the last three, older ones fainter, no rule and

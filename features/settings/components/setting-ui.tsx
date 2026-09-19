@@ -187,14 +187,15 @@ export function SettingFilter({
 
 /**
  * What a nav row reports about its section. Amber counts what waits on you, red
- * marks what failed — the app's two colours, and the nav carries no others.
- * A count of 0 draws nothing, so a section at rest stays quiet.
+ * marks what failed — the app's two status colours — and a blue dot says a
+ * section is worth setting up though nothing waits on it. The nav carries no
+ * others. A count of 0 draws nothing, so a section at rest stays quiet.
  */
 export function NavBadge({
   tone,
   count,
 }: {
-  tone: "amber" | "red";
+  tone: "amber" | "red" | "brand";
   /** Omitted draws a dot: the section has something wrong, not a number of things. */
   count?: number;
 }) {
@@ -204,7 +205,11 @@ export function NavBadge({
       <span
         className={cn(
           "size-1.5 shrink-0 rounded-full",
-          tone === "red" ? "bg-destructive" : "bg-amber-600 dark:bg-amber-400",
+          tone === "red"
+            ? "bg-destructive"
+            : tone === "brand"
+              ? "bg-brand"
+              : "bg-amber-600 dark:bg-amber-400",
         )}
       />
     );
@@ -212,7 +217,11 @@ export function NavBadge({
     <span
       className={cn(
         "shrink-0 font-mono text-[11px]",
-        tone === "red" ? "text-destructive" : WAITING_INK,
+        tone === "red"
+          ? "text-destructive"
+          : tone === "brand"
+            ? "text-brand"
+            : WAITING_INK,
       )}
     >
       {count}

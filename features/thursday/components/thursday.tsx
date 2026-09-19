@@ -391,7 +391,11 @@ function CornerDot({ alert }: { alert: SectionAlert }) {
       aria-hidden
       className={cn(
         "absolute top-0.5 right-0.5 size-1.5 rounded-full ring-2 ring-background",
-        alert === "red" ? "bg-destructive" : "bg-amber-600 dark:bg-amber-400",
+        alert === "red"
+          ? "bg-destructive"
+          : alert === "brand"
+            ? "bg-brand"
+            : "bg-amber-600 dark:bg-amber-400",
       )}
     />
   );

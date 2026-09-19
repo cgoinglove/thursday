@@ -31,6 +31,7 @@ import { Segmented } from "@/components/ui/segmented";
 import { BotBadge } from "@/features/bot/components/bot-badge";
 import { BotsMark } from "@/features/bot/components/bot-mark";
 import { ThreadBadge } from "@/features/bot/components/thread-badge";
+import { ConfigBadge } from "@/features/config/components/config-badge";
 import { ModelsBadge } from "@/features/config/components/models-badge";
 import { McpBadge } from "@/features/connectors/components/mcp-badge";
 import { McpMark } from "@/features/connectors/components/mcp-mark";
@@ -269,6 +270,7 @@ export const SECTIONS: readonly {
     hint: "What bots think with, and what they draw, film and speak with",
     icon: Aperture,
     Component: ModelsSetting,
+    Badge: ModelsBadge,
   },
   {
     id: "keys",
@@ -277,7 +279,7 @@ export const SECTIONS: readonly {
     hint: "The accounts the app runs on",
     icon: KeyRound,
     Component: KeysSetting,
-    Badge: ModelsBadge,
+    Badge: ConfigBadge,
   },
   {
     id: "phone",

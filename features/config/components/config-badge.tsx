@@ -7,6 +7,7 @@ import {
   groupSatisfied,
   isConfigSet,
 } from "@/features/config/config.const";
+import { NavBadge } from "@/features/settings/components/setting-ui";
 import type { SectionAlert } from "@/features/settings/settings.alert";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
 
@@ -19,4 +20,9 @@ export function useConfigAlert(): SectionAlert {
     (group) => group.section === "keys" && !groupSatisfied(group, isSet),
   );
   return unmet ? "amber" : null;
+}
+
+/** The API keys section's dot: a call has no key to run on. A dot, not a count. */
+export function ConfigBadge() {
+  return useConfigAlert() ? <NavBadge tone="amber" /> : null;
 }

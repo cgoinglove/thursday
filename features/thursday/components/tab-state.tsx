@@ -50,7 +50,8 @@ function tabIconSvg(alert: SectionAlert): string {
  * The tab, for when the app is not the window in front. The title leads with
  * what is owed — the Threads badge's count — and a live call keeps its waveform at
  * the end, so neither takes the other's place. The icon wears the settings
- * corner's dot: amber waits on the user, red is broken, and a section with
+ * corner's dot when something is owed: amber waits on the user, red is broken
+ * (a blue suggestion stays in the corner), and a section with
  * nothing to count still gets the dot.
  *
  * Draws nothing. A component rather than a hook in the call screen, so a report
@@ -66,7 +67,9 @@ export function TabState({
 }) {
   const { owed } = useThreadReport();
   const alerts = useSectionAlerts();
-  const alert = worstAlert(Object.values(alerts).map((each) => each ?? null));
+  const worst = worstAlert(Object.values(alerts).map((each) => each ?? null));
+  // A suggestion is for the settings corner, not the tab: from another window nothing is owed
+  const alert = worst === "brand" ? null : worst;
 
   useEffect(() => {
     const name = ringing ? `${APP_NAME} is calling` : APP_NAME;
