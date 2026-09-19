@@ -68,6 +68,7 @@ import {
 type Run = { threadId: string; stop: AbortController; done: Promise<void> };
 type Pinned = {
   __roomRuns?: Map<string, Run>;
+  __roomCompactAsked?: Set<string>;
   __roomThreadLock?: ReturnType<typeof createKeyedLock>;
   __roomPausing?: { current: Promise<void> };
 };
@@ -77,6 +78,21 @@ const threadLock = ((globalThis as Pinned).__roomThreadLock ??=
 const pausing = ((globalThis as Pinned).__roomPausing ??= {
   current: Promise.resolve(),
 });
+
+/**
+ * Desks the user asked to summarize themselves: each compacts at its next step, once,
+ * whatever its size (bot.run compactNow). Asked of a run, not stored — a lowered budget
+ * would compact every step after it, and a request is over once it is met. One that is
+ * idle meets it as its next turn starts; a restart forgets it, and the automatic one still
+ * comes at the budget.
+ */
+const compactAsked = ((globalThis as Pinned).__roomCompactAsked ??=
+  new Set<string>());
+const deskOf = (threadId: string, bot: string) => `${threadId}\n${bot}`;
+
+export function askCompact(threadId: string, bot: string) {
+  compactAsked.add(deskOf(threadId, bot));
+}
 
 export async function startThread(input: {
   bot: string;
@@ -289,6 +305,7 @@ async function attempt(work: RoomWork, signal: AbortSignal) {
         caller: work.caller,
         owner: thread.bot,
         contextBudget: await roomContextBudget(work.threadId, work.bot),
+        compactNow: () => compactAsked.delete(deskOf(work.threadId, work.bot)),
         session: botBrowserSession(work.threadId, work.bot),
         notes: () => consumeRoomInbox(work),
         send: async (input) => {

@@ -225,6 +225,10 @@ the other (`bin/thursday.mjs`). It is why the app is publishable at all — noth
   next step. To a model it is a *thread* everywhere; to the user it is a label and a bot.
 - **What cannot be won by instruction is enforced by structure**: tool sets, per-turn and per-room
   limits, output truncation, shell env. Do not add prompt sentences for things the code can enforce.
+- **A desk summarizes itself at its budget, or once when asked.** `bot.run` compacts when a
+  step's context passes the desk's budget. The user asking for it (the bar in a thread's
+  header) is a one-shot the runner holds in memory and the run takes at its next step
+  (`askCompact`, `compactNow`) — never a lowered budget, which would compact every step after.
 - **A turn ending is not a thread ending.** Bots finish with ordinary text or silence. The coordinator
   reports once its downstream work settles; idle rooms remain resumable. Store local calls before
   their effects and results before the next model step. Repair missing results only in the model

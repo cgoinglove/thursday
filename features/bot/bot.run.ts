@@ -104,6 +104,11 @@ type RunOptions = {
   caller: string;
   owner: string;
   contextBudget?: number;
+  /**
+   * The user asked for this desk to summarize itself now (bot.runner askCompact). Asked
+   * before each step and true once: the step after it compacts whatever its size.
+   */
+  compactNow?: () => boolean;
   notes?: () => Promise<string[]>;
   send: (input: {
     id: string;
@@ -272,7 +277,8 @@ export async function runBot(
       sent = size;
       let next = messages;
       // The opening survives every compaction, so past it and one summary there is nothing to compact
-      if (size > budget && messages.length > 2) {
+      const asked = options.compactNow?.() ?? false;
+      if ((size > budget || asked) && messages.length > 2) {
         // One long call that sends nothing until it is done, and bounds itself
         quiet.hold();
         const summary = await compact(model.model, agentTools, messages, {

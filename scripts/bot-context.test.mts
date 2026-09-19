@@ -118,7 +118,7 @@ mock.module("../lib/desktop-notify.ts", {
 const { database } = await import("../database/db.ts");
 const { migrateDatabase } = await import("../database/migrate.ts");
 const { botTable, threadMessageTable } = await import("../database/tables.ts");
-const { startThread, answerThread, cancelThread } = await import(
+const { startThread, answerThread, askCompact, cancelThread } = await import(
   "../features/bot/bot.runner.ts"
 );
 const { findThread, findThreadView, upsertMessage, lastSeq } = await import(
@@ -669,6 +669,36 @@ test("compaction and an arriving message preserve the same inbox on resume", asy
   const history = JSON.stringify(await listParticipantTranscript(id, "Alpha"));
   assert.ok(history.includes("Preserved private summary"));
   assert.ok(history.includes("After compaction"));
+});
+
+test("a desk asked to summarize itself does so at its next step, once, however small it is", async () => {
+  plans.set("Alpha", [() => text("First answer")]);
+  const id = await startThread({
+    bot: "Alpha",
+    request: "Small job",
+    label: "Asked to compact",
+    from: "user",
+  });
+  await waitFor(id, "done");
+
+  askCompact(id, "Alpha");
+  replies.set("Alpha", [() => "Summary the user asked for."]);
+  plans.set("Alpha", [
+    (prompt) => {
+      assert.ok(prompt.includes("Summary the user asked for"));
+      return text("Second answer");
+    },
+  ]);
+  await answerThread(id, "Go on");
+  await waitFor(id, "done");
+
+  // Met once: the turn after runs on what is there, with no summary asked of the model
+  plans.set("Alpha", [() => text("Third answer")]);
+  await answerThread(id, "And again");
+  await waitFor(id, "done");
+  const history = JSON.stringify(await listParticipantTranscript(id, "Alpha"));
+  assert.ok(history.includes("Third answer"));
+  assert.equal(history.split("Summary the user asked for").length - 1, 1);
 });
 
 test("interrupted provider operations and incomplete arguments are not invented as local tool results", () => {

@@ -26,6 +26,12 @@ what is running, what waits on the user and the five most recent endings (every 
 opened stays there too, however many), and **Settings › Threads**, which keeps all of them,
 including the ended ones. A stopped thread leaves the corner at once.
 
+A long thread summarizes itself when what the bot has to re-read each step fills up: the
+small bar at the top right of an open thread shows how full, beside the size of its last
+step. Pressing the bar has the bot summarize at its next step instead of waiting — worth it
+before carrying a long thread much further, since every step after costs less. The bot keeps
+the request and a summary of the rest; the conversation on screen stays whole.
+
 ## Handing a bot work without a call
 
 The **+** at the left end of that corner's pill — or the `/` key — opens a line at the foot of

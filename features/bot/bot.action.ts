@@ -15,6 +15,7 @@ import {
 } from "./bot.query";
 import {
   answerThread,
+  askCompact,
   cancelThread,
   removeFinishedThreads,
   removeThread,
@@ -153,6 +154,13 @@ export const answerThreadAction = serverAction(
     if (!answer.trim()) publicError("Nothing to tell it.");
     await answerThread(thread.id, answer.trim(), "user", recipient, replyTo);
     return { id: thread.id, label: thread.label, status: "running" as const };
+  },
+);
+
+/** The user asks a bot's desk in a thread to summarize itself at its next step (bot.runner askCompact). */
+export const compactThreadAction = serverAction(
+  async (id: unknown, bot: unknown) => {
+    askCompact(z.string().min(1).parse(id), z.string().min(1).parse(bot));
   },
 );
 

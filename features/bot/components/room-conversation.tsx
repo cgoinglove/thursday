@@ -19,6 +19,7 @@ import { Markdown } from "@/components/ui/markdown";
 import { ShinyText } from "@/components/ui/shiny-text";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
+import { compactThreadAction } from "@/features/bot/bot.action";
 import {
   Attachments,
   shortenPaths,
@@ -27,6 +28,7 @@ import { BotMark } from "@/features/bot/components/bot-mark";
 import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
 import { FileViewer } from "@/features/workspace/components/file-view";
 import { toDate } from "@/lib/date-like";
+import { useServerAction } from "@/lib/protocol/use-server-action";
 import {
   cn,
   errorToString,
@@ -140,25 +142,49 @@ function Tokens({ thread }: { thread: ThreadView }) {
   );
 }
 
-/** Context fill of the last step, not the running total. At the budget the bot compacts (bot.run compact) and the bar drops. */
+/**
+ * Context fill of the last step, not the running total. At the budget the bot compacts
+ * (bot.run compact) and the bar drops. Pressing it asks for that now: the thread's own bot
+ * summarizes itself at its next step, which for one that has stopped is its next turn.
+ */
 function Context({ thread }: { thread: ThreadView }) {
   const { contextTokens: used, contextBudget: budget } = thread;
+  const [asked, setAsked] = useState(false);
+  const [compact, asking] = useServerAction(compactThreadAction, {
+    onOk: () => setAsked(true),
+  });
+  // A new number is a step taken since: what was asked for has happened
+  useEffect(() => setAsked(false), [used]);
   if (!used || !budget) return null;
   const full = Math.min(1, used / budget);
 
   return (
-    <span
-      title={`Context ${formatCount(used)} of ${formatCount(budget)} — it summarizes itself here`}
-      className="block h-[3px] w-9 shrink-0 overflow-hidden rounded-full bg-muted"
+    <button
+      type="button"
+      disabled={asking || asked}
+      onClick={() => void compact(thread.id, thread.bot.name).catch(() => {})}
+      title={
+        asked
+          ? "It summarizes itself at its next step"
+          : `Context ${formatCount(used)} of ${formatCount(budget)} — it summarizes itself at the end of the bar. Press to have it do so at its next step`
+      }
+      aria-label="Summarize this thread's context at its next step"
+      className="-my-2 flex h-6 shrink-0 items-center rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-default"
     >
-      <span
-        className={cn(
-          "block h-full rounded-full",
-          full > 0.9 ? "bg-amber-500/80" : "bg-muted-foreground/70",
-        )}
-        style={{ width: `${Math.max(4, Math.round(full * 100))}%` }}
-      />
-    </span>
+      <span className="block h-[3px] w-9 overflow-hidden rounded-full bg-muted">
+        <span
+          className={cn(
+            "block h-full rounded-full",
+            asked
+              ? "animate-pulse bg-muted-foreground/40"
+              : full > 0.9
+                ? "bg-amber-500/80"
+                : "bg-muted-foreground/70",
+          )}
+          style={{ width: `${Math.max(4, Math.round(full * 100))}%` }}
+        />
+      </span>
+    </button>
   );
 }
 
