@@ -44,10 +44,11 @@ it covers is read, and any other agent should read the one for the area it chang
 finds them; Claude Code sees them through links in `.claude/skills/`. Three are written for this
 repo: `verify` (run the app and look, on a data folder of its own), `cleanup` (find what nothing
 uses, prove it dead, delete it) and `checkup` (what the agent setup loads, costs and has drifted
-from). The outside ones are listed in `skills-lock.json` and installed per machine with
-`npx skills experimental_install`: `grilling` (agree on the scope before a large change),
-`next-dev-loop` (ask the running Next server for its errors), `agent-browser`, `ai-sdk` and
-`shadcn`. Claude Code also runs two hooks from `.claude/settings.json` (they need `python3`):
+from). Beside them are copies of outside ones, each with its license: `grilling` (agree on the
+scope before a large change), `next-dev-loop` (ask the running Next server for its errors),
+`agent-browser`, `ai-sdk` and `shadcn`. `skills-lock.json` records where each came from, and
+`npx skills update` refreshes them from there; a skill added for everyone goes in the same way
+(`npx skills add <repo> --skill <name> -a claude-code codex`). Claude Code also runs two hooks from `.claude/settings.json` (they need `python3`):
 before a turn ends, typecheck, lint and knip on the files that session changed, with a word when
 `database/tables.ts` moved without a migration or a screen changed without `guide/`; and at the
 start of a session, a line when the weekly cleanup or the monthly checkup is due. CI runs the same

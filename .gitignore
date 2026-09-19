@@ -50,26 +50,12 @@ next-env.d.ts
 # the sites the user signed in to (local; sessions that sign in as them)
 /.sign-ins
 # editor agent tooling, not the app's
-# Skills live in /.agents/skills, where any agent that reads Agent Skills finds
-# them. Outside skills are installed per machine from skills-lock.json
-# (`npx skills experimental_install`), so only the three written for this repo
-# are committed there. Claude Code reads /.claude/skills instead: a link for each
-# shared skill is committed, and resolves once the install has run.
+# The skills for working on this repo are committed in /.agents/skills, where any
+# agent that reads Agent Skills finds them, and Claude Code reads them through the
+# links in /.claude/skills. A skill only you use stays out through
+# .git/info/exclude, which is never committed.
 /.agents/*
 !/.agents/skills/
-/.agents/skills/*
-!/.agents/skills/verify/
-!/.agents/skills/cleanup/
-!/.agents/skills/checkup/
-/.claude/skills/*
-!/.claude/skills/verify
-!/.claude/skills/cleanup
-!/.claude/skills/checkup
-!/.claude/skills/grilling
-!/.claude/skills/next-dev-loop
-!/.claude/skills/agent-browser
-!/.claude/skills/ai-sdk
-!/.claude/skills/shadcn
 /.claude/worktrees/
 .playwright-cli
 .playwright
