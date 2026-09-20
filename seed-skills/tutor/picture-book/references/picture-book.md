@@ -33,15 +33,18 @@ first is the cover, asking the question the book answers.
    book's language. Add the pages inside `<main>` and leave the rest of the file
    alone: its head already carries the style and the page turning, and rewriting
    the file whole loses them.
-4. Look at it once, as the reader will, in one bash call:
+4. Look at it once when a page carries a picture you did not draw — a photo you
+   downloaded, a generated one — or when a page may not fit. A book drawn in SVG
+   alone needs no browser at all; hand it back and skip to 5. To look, one bash call:
 
    ```bash
    node "$THURSDAY_SKILLS/browser/scripts/render.mjs" <book path> --size 960x540 --out <scratch>/pages && \
    node "$THURSDAY_SKILLS/browser/scripts/sheet.mjs" --out <scratch>/book.png --cols 4 <scratch>/pages/*.png
    ```
 
-   That is every page as one picture for a single `look_at`. A browser must be
-   open (`playwright-cli open` when none is). Fix what it shows, then stop.
+   That is every page as one picture for a single `look_at`. It opens a browser
+   of its own, which is this job's alone — no other bot's window is touched. Fix
+   what it shows, then stop.
 5. Hand back the path. The user turns pages with a swipe, the arrow keys or a
    tap on the right or left of a page, and `#3` in the address opens page 3.
 

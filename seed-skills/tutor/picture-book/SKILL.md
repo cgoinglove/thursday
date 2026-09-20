@@ -12,7 +12,9 @@ node "$THURSDAY_SKILLS/browser/scripts/render.mjs" <book> --size 960x540 --out <
 ```
 
 The book's own file holds its style and page turning: add pages inside `<main>`
-and never rewrite the file whole.
+and never rewrite the file whole. A book that is a web page and draws its own
+pictures needs no browser; only a downloaded or generated picture, a PDF or a
+video does.
 
 Two things decide whether it works: **one idea a page, and the picture carries it** — cover
 the words and the page still says it — and **a technical word comes after its picture**. Read
