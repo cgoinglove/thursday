@@ -192,7 +192,8 @@ export function ThreadSetting() {
         footer={
           <>
             <SettingRailNote>
-              {threads.length} loaded
+              {/* "loaded" is the paging word, not the reader's: more arrive as the list is scrolled */}
+              {threads.length} shown
               {waiting > 0 && ` · ${waiting} waiting on you`}
               {unread > 0 &&
                 ` · ${unread} new result${unread === 1 ? "" : "s"}`}
@@ -224,7 +225,7 @@ export function ThreadSetting() {
             {shown.length === 0 ? (
               <p className="p-4 text-sm leading-relaxed text-muted-foreground">
                 {needle
-                  ? "Nothing loaded matches. Keep scrolling to search further back."
+                  ? "Nothing here matches. Keep scrolling to search further back."
                   : "Nothing yet. When Thursday hands a job to a bot mid-call, it shows up here — while it runs, and after."}
               </p>
             ) : (

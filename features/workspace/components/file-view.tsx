@@ -554,6 +554,20 @@ function CsvTable({
 }) {
   const rows = useMemo(() => parseCsv(content), [content]);
   const [head, ...body] = rows;
+  // A column whose every filled cell is a number is read down, not across: right,
+  // and tabular so the places line up. A date (2026-07) is not one of these.
+  const numeric = useMemo(
+    () =>
+      (head ?? []).map(
+        (_, c) =>
+          body.some((row) => (row[c] ?? "").trim() !== "") &&
+          body.every((row) => {
+            const cell = (row[c] ?? "").trim();
+            return cell === "" || /^[+-]?[\d,]*\.?\d+%?$/.test(cell);
+          }),
+      ),
+    [head, body],
+  );
   if (!head) return <Plain text={content} className={className} />;
 
   return (
@@ -562,7 +576,10 @@ function CsvTable({
         <TableHeader>
           <TableRow>
             {head.map((cell, at) => (
-              <TableHead key={`${at}-${cell}`} className="whitespace-nowrap">
+              <TableHead
+                key={`${at}-${cell}`}
+                className={cn("whitespace-nowrap", numeric[at] && "text-right")}
+              >
                 {cell}
               </TableHead>
             ))}
@@ -572,7 +589,13 @@ function CsvTable({
           {body.map((row, r) => (
             <TableRow key={`${r}-${row[0] ?? ""}`}>
               {head.map((_, c) => (
-                <TableCell key={`${r}-${c}`} className="whitespace-nowrap">
+                <TableCell
+                  key={`${r}-${c}`}
+                  className={cn(
+                    "whitespace-nowrap",
+                    numeric[c] && "text-right tabular-nums",
+                  )}
+                >
                   {row[c] ?? ""}
                 </TableCell>
               ))}
