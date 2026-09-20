@@ -54,8 +54,11 @@
  * (`--alpha-*`), which is why it needs no second value for the dark.
  *
  * The steps are OpenAI's, from `@openai/apps-sdk-ui` 0.2.2 (MIT, Copyright 2025
- * OpenAI), as is the red below. What this app takes from that system is the
- * arrangement: a role picks a hue and the theme picks only which step of it.
+ * OpenAI), and so are the two hues below: the blue is theirs as it is, and what
+ * marks a failure sits halfway between their red and their orange, at the same
+ * lightness — a plain red beside this blue reads as an alarm, and almost nothing
+ * here is one. What this app takes from that system is the arrangement: a role
+ * picks a hue and the theme picks only which step of it.
  */
 :root,
 .dark .inverse {
@@ -160,7 +163,7 @@
 
   --brand: #0169cc; /* blue-500 */
   --brand-foreground: #ffffff;
-  --destructive: #911e1b; /* red-700 */
+  --destructive: #922e13; /* red-700 and orange-700, halfway */
 }
 
 .dark,
@@ -176,7 +179,7 @@
 
   --brand: #66b5ff; /* blue-200 */
   --brand-foreground: #ffffff;
-  --destructive: #fa423e; /* red-400 */
+  --destructive: #ef4c26; /* red-400 and orange-500, halfway */
 }
 
 /*

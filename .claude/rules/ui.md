@@ -23,7 +23,10 @@ paths:
   app comes off the ladder or one of the three hues in `app/globals.css`; nothing names a raw value
   at a call site. A floor is a floor: 4.5:1 for text, 3:1 for a shape or text at 24px and up, and a
   colour is measured before it goes in.
-- **Two status colors only: the brand blue and red.** Red is what failed (`text-destructive`); the
+- **Two status colors only: the brand blue and one warm.** `--destructive` is what failed or is
+  about to be destroyed — a red-orange rather than a red, since beside this blue a true red reads
+  as an alarm and almost nothing here is one. It is rare on purpose: an error's own words, a
+  connector that will not connect, a key a provider turned away, and the button that deletes. The
   brand colour is everything that wants the user — a question, a stopped job, an answer not yet
   opened, a section worth setting up — under its own name, `--waiting` (`WAITING_INK` in
   `lib/utils`), so the day one of those has to be told apart from the rest is one line and not a
