@@ -106,6 +106,8 @@ type State = {
   listening: (() => void) | null;
   /** A look at the inbox already on its way: a working bot changes threads many times a second. */
   looking: ReturnType<typeof setTimeout> | null;
+  /** Closes lines nobody is writing to any more (sweepIdleLines). */
+  idle: ReturnType<typeof setInterval> | null;
 };
 
 // Pinned, as the event bus is: a dev reload evaluates this module again, and a second
@@ -119,6 +121,7 @@ const state: State = (pinned.__reach ??= {
   choices: new Map(),
   listening: null,
   looking: null,
+  idle: null,
 });
 
 const changed = () => appEvents.emit({ type: "reach" });
@@ -185,7 +188,7 @@ export async function startReach(fresh?: ReachChannelName): Promise<void> {
     void listen(live);
   }
 
-  if (state.live.size)
+  if (state.live.size) {
     state.listening ??= appEvents.subscribe((event) => {
       if (event.type !== "threads" || state.looking) return;
       state.looking = setTimeout(() => {
@@ -195,6 +198,19 @@ export async function startReach(fresh?: ReachChannelName): Promise<void> {
         );
       }, 2_000);
     });
+    // What was already waiting when the server came up. The event that put it
+    // there was emitted by boot's own sweep, before this subscription existed
+    // (instrumentation sweepThreads), and nothing re-emits it: without this pass
+    // a question asked before a restart never reaches the phone at all.
+    void lookForOpenWork().catch((cause) =>
+      logger.error("reach: open work", cause),
+    );
+    state.idle ??= setInterval(() => {
+      void sweepIdleLines().catch((cause) =>
+        logger.error("reach: idle lines", cause),
+      );
+    }, REACH.idleMs).unref();
+  }
   changed();
 }
 
@@ -250,6 +266,15 @@ async function take(live: Live, incoming: Incoming) {
       await channel.say(
         incoming.chat,
         "This Thursday already answers someone else.",
+      );
+      return;
+    }
+    // One at a time: overwriting would drop the first person without a word, and
+    // put a name on the screen's Allow that is not the one who asked for it.
+    if (live.asking && live.asking.chat !== incoming.chat) {
+      await channel.say(
+        incoming.chat,
+        "Someone else is already waiting to be let in here.",
       );
       return;
     }
@@ -310,6 +335,23 @@ export async function forgetReach(name: ReachChannelName): Promise<void> {
   const live = state.live.get(name);
   if (live) await hangUp(live);
   changed();
+}
+
+/**
+ * Ends a line nobody has written to in REACH.idleMs. A phone conversation is kept
+ * as a call, and a call left open is one `isAnyCallLive` keeps finding — so a
+ * finished job is put on a screen rather than sent as a desktop notice
+ * (bot.runner), on a machine whose browser is closed. Someone who writes a few
+ * times and stops, which is most of them, leaves exactly that. `answer` makes the
+ * same judgement when the next words arrive; this is for when they never do.
+ */
+async function sweepIdleLines(): Promise<void> {
+  const now = Date.now();
+  for (const live of state.live.values()) {
+    // lastAt is 0 until the first turn is answered: that line is busy, not idle
+    if (live.line?.lastAt && now - live.line.lastAt > REACH.idleMs)
+      await hangUp(live);
+  }
 }
 
 /** Ends the conversation as a call. */
@@ -468,6 +510,12 @@ async function lookForOpenWork() {
     clearTimeout(timer);
     state.due.delete(key);
   }
+  // And nothing is kept about it either. Both are held for the life of the
+  // process (pinned above), so a question answered on the computer would leave
+  // its key and its buttons behind on every job, for as long as the server runs.
+  for (const key of state.told) if (!keys.has(key)) state.told.delete(key);
+  for (const [data, choice] of state.choices)
+    if (!keys.has(`question:${choice.question}`)) state.choices.delete(data);
   for (const item of open) {
     if (state.told.has(item.key) || state.due.has(item.key)) continue;
     state.due.set(
