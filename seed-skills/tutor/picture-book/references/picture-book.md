@@ -67,6 +67,12 @@ Choose each page's picture in this order:
   `var(--muted)` are there too. Keep text in it at 24 units or more, and a few
   flat shapes with thick outlines rather than detail. For a vertical video draw
   it tall (`viewBox="0 0 600 800"`).
+- **A number that is the point** — how much, how many, how it changed — is a
+  chart, not a sentence: put a `<figure id="p4-chart">` on that page and draw
+  into it with `node "$THURSDAY_SKILLS/interactive-page/scripts/chart.mjs" <book
+  path> <that id> <data.csv>`, from a CSV whose `# source:` line names where the
+  numbers came from. One chart in a book is plenty; keep the lines under it to
+  what it shows.
 - **A metaphor scene** — a feeling, an imagined place, a thing too small or too
   big to photograph — is a generated image: `generate_image` on the `studio`
   server through `tool_call`, `aspectRatio` `16:9` (`9:16` for a vertical
