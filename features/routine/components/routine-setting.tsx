@@ -450,6 +450,26 @@ function RoutineSheet({
     });
   };
 
+  /**
+   * A free field holds a draft until Save is pressed; blur used to commit it, so
+   * clicking away from a half-typed job handed the bot that half at its next run.
+   * Everything picked rather than typed still saves itself.
+   */
+  const typedAway = Boolean(
+    saved &&
+      ((draft.label.trim() && draft.label.trim() !== saved.label) ||
+        (draft.request.trim() && draft.request.trim() !== saved.request)),
+  );
+  const saveTyped = () => {
+    if (!saved) return;
+    const next: Partial<RoutineInput> = {};
+    if (draft.label.trim() && draft.label.trim() !== saved.label)
+      next.label = draft.label.trim();
+    if (draft.request.trim() && draft.request.trim() !== saved.request)
+      next.request = draft.request.trim();
+    if (Object.keys(next).length) commit(next);
+  };
+
   const confirmDelete = async () => {
     if (!saved) return;
     const confirmed = await notify.confirm({
@@ -573,11 +593,6 @@ function RoutineSheet({
                       id="routine-name"
                       value={draft.label}
                       onChange={(event) => patch({ label: event.target.value })}
-                      onBlur={() => {
-                        const next = draft.label.trim();
-                        if (next && next !== saved?.label)
-                          commit({ label: next });
-                      }}
                       placeholder="Morning mail"
                       maxLength={80}
                       autoFocus={!saved}
@@ -768,11 +783,6 @@ function RoutineSheet({
                       onChange={(event) =>
                         patch({ request: event.target.value })
                       }
-                      onBlur={() => {
-                        const next = draft.request.trim();
-                        if (next && next !== saved?.request)
-                          commit({ request: next });
-                      }}
                       placeholder="Go through the mail that came since the last run and draft replies to what needs one. Send nothing."
                       className="min-h-28"
                     />
@@ -835,6 +845,11 @@ function RoutineSheet({
                       ? STARTS_NOTE
                       : `Still needs ${missingOf(draft, schedule)}.`}
                   </p>
+                  {typedAway && (
+                    <Button size="sm" onClick={saveTyped}>
+                      Save
+                    </Button>
+                  )}
                   {saved ? (
                     <Button
                       variant="outline"

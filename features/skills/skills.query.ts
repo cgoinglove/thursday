@@ -270,6 +270,30 @@ export async function writeCustomSkill(
   return summary;
 }
 
+/**
+ * Writes one text file back inside a custom skill. The folder is never renamed:
+ * `dir` is the skill and `path` the file in it, both checked the same way a read
+ * is. Only a file that is already there can be written — the screen edits what it
+ * opened, and a new file in a skill is a job for the bot that works in it.
+ */
+export async function writeSkillFile(
+  dir: string,
+  path: string,
+  content: string,
+) {
+  const base = skillDir("custom", dir);
+  const full = insideSkill(base, path);
+  const info = await stat(full).catch(() => null);
+  if (!info?.isFile()) publicError("File not found");
+  if (Buffer.byteLength(content) > MAX_INLINE_BYTES) {
+    publicError("That is larger than this screen can write back");
+  }
+  // SKILL.md is what the list and every prompt read: a head that no longer
+  // parses would drop the skill out of both, so it is refused before it lands.
+  if (path === "SKILL.md") parseFrontmatter(content);
+  await writeFile(full, content, "utf-8");
+}
+
 /** Only custom skills can be deleted. */
 export async function deleteCustomSkill(dir: string) {
   const base = skillDir("custom", dir);

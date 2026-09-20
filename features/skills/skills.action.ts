@@ -8,6 +8,7 @@ import {
   renderSkillMarkdown,
   setSkillDisabled,
   writeCustomSkill,
+  writeSkillFile,
 } from "@/features/skills/skills.query";
 import {
   SkillDraftSchema,
@@ -89,6 +90,17 @@ export const uploadSkillAction = serverAction(async (upload: unknown) => {
 export const deleteSkillAction = serverAction(async (dir: unknown) => {
   await deleteCustomSkill(SkillNameSchema.parse(dir));
 });
+
+/** One text file of a skill of the user's own, written back as it is on screen. */
+export const writeSkillFileAction = serverAction(
+  async (dir: unknown, path: unknown, content: unknown) => {
+    await writeSkillFile(
+      SkillNameSchema.parse(dir),
+      z.string().trim().min(1).parse(path),
+      z.string().parse(content),
+    );
+  },
+);
 
 /** Both sources. Disabling writes to the skill's SKILL.md; default skills can only be disabled. */
 export const setSkillDisabledAction = serverAction(

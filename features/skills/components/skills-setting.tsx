@@ -46,6 +46,7 @@ import {
   deleteSkillAction,
   setSkillDisabledAction,
   uploadSkillAction,
+  writeSkillFileAction,
 } from "@/features/skills/skills.action";
 import type {
   SkillEntry,
@@ -263,7 +264,12 @@ function SkillBrowser({ skill }: { skill: SkillSummary }) {
 
         <div className="min-w-0 flex-1 overflow-y-auto">
           {file ? (
-            <FileView source={skill.source} dir={skill.dir} path={file} />
+            <FileView
+              source={skill.source}
+              dir={skill.dir}
+              path={file}
+              editable={skill.source === "custom"}
+            />
           ) : (
             <p className="p-6 text-sm text-muted-foreground/60">Pick a file</p>
           )}
@@ -432,14 +438,26 @@ function FileView({
   source,
   dir,
   path,
+  editable,
 }: {
   source: SkillSource;
   dir: string;
   path: string;
+  /** A skill of the user's own is written back from here; one that ships is read-only. */
+  editable?: boolean;
 }) {
+  /** The text being written, or null while the file is only being read. */
+  const [draft, setDraft] = useState<string | null>(null);
   const { data, isLoading, error } = useServerRoute<SkillNode>(
     queryKey.skillNode(source, dir, path),
   );
+  const [save, saving] = useServerAction(writeSkillFileAction, {
+    okMessage: "Saved",
+    onOk: () => {
+      setDraft(null);
+      revalidate(queryKey.skills);
+    },
+  });
 
   if (error) {
     return (
@@ -463,9 +481,51 @@ function FileView({
       {/* z-20: streamdown's code copy bar and table head stick at z-10 */}
       <div className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-border/60 bg-background/90 px-5 py-2 font-mono text-[11px] text-muted-foreground backdrop-blur">
         <span className="truncate">{name}</span>
-        <span className="shrink-0">{formatBytes(data.size)}</span>
+        <span className="flex shrink-0 items-center gap-2">
+          <span>{formatBytes(data.size)}</span>
+          {editable && data.content !== null && draft === null && (
+            <Button
+              size="xs"
+              variant="ghost"
+              className="font-mono"
+              onClick={() => setDraft(data.content ?? "")}
+            >
+              <SquarePen />
+              Edit
+            </Button>
+          )}
+          {draft !== null && (
+            <>
+              <Button
+                size="xs"
+                variant="ghost"
+                className="font-mono"
+                onClick={() => setDraft(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="xs"
+                className="font-mono"
+                loading={saving}
+                disabled={draft === data.content}
+                onClick={() => save(dir, path, draft)}
+              >
+                Save
+              </Button>
+            </>
+          )}
+        </span>
       </div>
-      {data.content === null ? (
+      {draft !== null ? (
+        <Textarea
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          spellCheck={false}
+          aria-label={`${name} contents`}
+          className="min-h-120 resize-none rounded-none border-0 font-mono text-[13px] leading-relaxed shadow-none focus-visible:ring-0"
+        />
+      ) : data.content === null ? (
         <p className="px-5 py-4 text-sm text-muted-foreground/60">
           Not a text file — a bot can still read it from disk.
         </p>
