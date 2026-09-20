@@ -27,6 +27,9 @@ it hands out has a way through when nobody on the roster is for it. This adds wh
   browser only through `$THURSDAY_SKILLS/browser/scripts/session.mjs` and takes `render`, `sheet`,
   `webimage` and `chart` from the shipped skills rather than keeping a copy; `render` serves on
   port 0, so concurrent jobs never share one.
+- **A kit script stands alone past that.** The ten lines that walk up to the workspace folder are
+  copied in each kit on purpose: a kit is copied into a bot's folder, and one more shared file is
+  one more thing that has to be there for it to run. Leave the copies.
 - **A bot's folder is "your own folder".** A `bots/<name>/…` path breaks when the bot is renamed.
 - **No outside conventions in a seed.** An external pack's file paths (`.agents/product-marketing.md`
   and the like) or a new place to store things stay out; a skill that needs such a file handles it.
