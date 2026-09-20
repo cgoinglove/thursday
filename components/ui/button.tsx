@@ -38,6 +38,14 @@ const buttonVariants = cva(
         "icon-lg": "size-9",
       },
     },
+    compoundVariants: [
+      // Every small size carries its own radius, and it lands after the variant's,
+      // so the one button that is always round came out square below `default`.
+      {
+        variant: "brand",
+        class: "rounded-full in-data-[slot=button-group]:rounded-full",
+      },
+    ],
     defaultVariants: {
       variant: "default",
       size: "default",
