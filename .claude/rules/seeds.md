@@ -36,8 +36,9 @@ it hands out has a way through when nobody on the roster is for it. This adds wh
 - **A seed is read on first install only.** A change to its text carries no upgrade or migration for
   rows already installed.
 - Jarvis's empty role (`systemPrompt: ""`) is deliberate and stays empty.
-- Planner owns the result without making it, as a CEO does. Its coordination is not weakened, and
-  skill names, other bots' names and making skills do not go back in.
+- **No seed coordinates the others.** A coordinator seed was tried and dropped: on the same
+  research job it spent 1.8x the tokens and 1.9x the time of the generalist for no better result,
+  and the generalist handed a part to another bot by itself. A bot that needs help asks for it.
 - **Every seed installs by default and shows in the intro's opening loop**, so a new seed is one
   more face there, which is a visible change.
 
