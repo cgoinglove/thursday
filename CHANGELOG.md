@@ -1,5 +1,50 @@
 # Changelog
 
+## [0.13.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.12.0...thursday-agent-v0.13.0) (2026-09-20)
+
+
+### Features
+
+* **bot:** the crew answers what happens to it ([c2b935e](https://github.com/cgoinglove/thursday/commit/c2b935e8fd9dd0a2bc9472f0f5aa66d7df84a723))
+* **data:** what the app kept of its own use clears itself after three months ([a607a94](https://github.com/cgoinglove/thursday/commit/a607a943e6dd6c4ca1520d5ab8c54e1818c18b84))
+* **reach:** each service names the way to its own bot, and Discord's invite is made for you ([4b68351](https://github.com/cgoinglove/thursday/commit/4b683516f1bcf228a799c1bee60da9692941221f))
+* **reach:** the phone screen is its four steps, live, and a code the phone reads ([20ab91d](https://github.com/cgoinglove/thursday/commit/20ab91d1a6d5cd21d34202f19f92f7f85ce3b754))
+* **seeds:** a picture book can draw a chart where a number is the point ([e3abf5d](https://github.com/cgoinglove/thursday/commit/e3abf5d387b74d6d67c6b9aba397bb219b1264d9))
+* **seeds:** no ready-made bot coordinates the others ([df6ee02](https://github.com/cgoinglove/thursday/commit/df6ee0260b832af206e301d1f6619687459a145d))
+* **skills:** a skill of your own is edited where it is read, and a routine's words wait for Save ([3877e21](https://github.com/cgoinglove/thursday/commit/3877e21f7f45569a69a1829e114ee106bd951036))
+* **ui:** one ladder, one colour for what wants you ([a4aabbb](https://github.com/cgoinglove/thursday/commit/a4aabbb00fef69b1fe863f984a546f6d761a97e7))
+* **ui:** what failed is a red-orange, not a red ([61aef5e](https://github.com/cgoinglove/thursday/commit/61aef5e201bbc036121d96505cf26a4814a67e93))
+
+
+### Fixes
+
+* **bot:** a face says what it has waiting — amber to answer, blue to read ([54e7893](https://github.com/cgoinglove/thursday/commit/54e7893577136b428ff107b09069a3faa3867896))
+* **bot:** the corner holds every unread ending, and lets go of the read ones ([f9b5404](https://github.com/cgoinglove/thursday/commit/f9b5404d62a4d485f0db5940adba486225e6eb8d))
+* **data:** the database is the owner's, kept when it will not open, and whole when copied ([9d39713](https://github.com/cgoinglove/thursday/commit/9d39713a9f6f6f041767ccb221e373a9f025eb82))
+* **events:** the browser's line comes back, and a busy server stops starving it ([b0ffaed](https://github.com/cgoinglove/thursday/commit/b0ffaedaca991ea64cc5a4b8ee3c8aae22ac8dc8))
+* **reach:** a phone line closes itself, and what waits survives a restart ([950f96b](https://github.com/cgoinglove/thursday/commit/950f96ba53b37282e2b7e5a24db325039ee94a38))
+* **seeds:** a picture book drawn in SVG needs no browser ([73d5500](https://github.com/cgoinglove/thursday/commit/73d5500021c48e05e6b88b78c340b0b45d747229))
+* **seeds:** Insta looks at what it copies, and asks the user for it ([45c73bd](https://github.com/cgoinglove/thursday/commit/45c73bdbefaec4fdd7195da9d91d16d3381c302c))
+* **seeds:** the kits' examples stop assuming one country, and a book is looked at in one call ([f047106](https://github.com/cgoinglove/thursday/commit/f047106ad28aa916b298cfdd24e1555d42332191))
+* **settings:** a column of numbers reads down, and two counts drop the paging word ([23aa2b6](https://github.com/cgoinglove/thursday/commit/23aa2b6dbcf2bf7122e9475b4804bfb3749f9cc4))
+* **settings:** the screens nobody had gone through — edges, air, counts that disagreed ([87c3c47](https://github.com/cgoinglove/thursday/commit/87c3c474bb85bae027025b629df5dd0af99a19d5))
+* **ui:** every settings index takes its picked row from the one constant ([0560ff4](https://github.com/cgoinglove/thursday/commit/0560ff4ff31c28c0df33223a838fe8075840ddc2))
+* **ui:** the one button that is always round stays round at every size ([9069e8d](https://github.com/cgoinglove/thursday/commit/9069e8df4e899db5b2ae2aea28eb7574fb2f3dc5))
+* **ui:** the room keeps its end in view, and the line says the other ways in ([ed4dd29](https://github.com/cgoinglove/thursday/commit/ed4dd291c95175163ae760bbcceed85121a09ade))
+* **workspace:** a deleted bot takes its folder, and emptying scratch spares live jobs ([1ce8b2e](https://github.com/cgoinglove/thursday/commit/1ce8b2e420b74f0db36ae719db594abf4482c549))
+
+
+### Performance
+
+* **bot:** a history page carries no transcript it cannot change either ([bbc4ade](https://github.com/cgoinglove/thursday/commit/bbc4ade739c950bf2b018196f7cfe01bcef8fc5e))
+* **bot:** every list of jobs reads an index, not the whole table ([1097371](https://github.com/cgoinglove/thursday/commit/10973711c0ccc8cee1280b97e2d92248ce7fc680))
+* **bot:** the inbox carries no transcript that can no longer change ([7af4cca](https://github.com/cgoinglove/thursday/commit/7af4cca6e20a4ed21c70068b7c5e4eba4c019699))
+
+
+### Docs
+
+* **seeds:** the workspace finder is copied in each kit on purpose ([0d2db14](https://github.com/cgoinglove/thursday/commit/0d2db1481fa47e6f8c9f5025c18532f074e112f4))
+
 ## [0.12.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.11.0...thursday-agent-v0.12.0) (2026-09-19)
 
 
