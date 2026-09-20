@@ -341,12 +341,13 @@ function Reader({
         >
           <FolderOpen />
         </Button>
+        {/* set apart from Reveal beside it, and red on the way in: the file goes from disk */}
         <Button
           size="icon-sm"
           variant="ghost"
           aria-label="Delete"
           loading={removing}
-          className="text-muted-foreground"
+          className="ml-1.5 text-muted-foreground hover:text-destructive"
           onClick={() => confirmRemove(open?.path ?? row.path)}
         >
           <Trash2 />
@@ -433,7 +434,7 @@ function Thumb({ file }: { file: ArtifactFile }) {
       path={file.path}
       bytes={file.bytes}
       glyph="size-5"
-      className="aspect-4/3 w-full rounded-xl"
+      className="aspect-4/3 w-full rounded-xl ring-1 ring-foreground/5 ring-inset"
     />
   );
 }
@@ -487,13 +488,15 @@ function Shelf({
                     path={row.path}
                     bytes={row.bytes}
                     glyph="size-5"
-                    className="aspect-4/3 w-full rounded-xl"
+                    className="aspect-4/3 w-full rounded-xl ring-1 ring-foreground/5 ring-inset"
                   />
                 )}
                 <span className="min-w-0 space-y-0.5 px-0.5">
                   <span className="block truncate text-[13px]">{row.name}</span>
                   <span className="block truncate font-mono text-[10.5px] text-muted-foreground">
-                    {row.kind === "set" ? `${row.count} files · ` : ""}
+                    {row.kind === "set"
+                      ? `${row.count} ${row.count === 1 ? "file" : "files"} · `
+                      : ""}
                     {shortAgo(row.at)}
                   </span>
                 </span>

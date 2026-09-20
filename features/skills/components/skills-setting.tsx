@@ -402,19 +402,24 @@ function DirList({
   );
 }
 
-/** Front matter is shown as a block, not markdown: `---` would read as a setext heading underline. */
+/**
+ * Front matter is not markdown (`---` would read as a setext heading underline) and it is
+ * not for this reader either: it is what a model is shown. Only the description is worth a
+ * line here — the name is already the dialog's title and the file's own first heading.
+ */
 function SkillMarkdown({ content }: { content: string }) {
   const front = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/.exec(content);
   const head = front?.[1].trim();
+  const said = head && /^description:[ \t]*(.+)$/m.exec(head)?.[1].trim();
   const body = front ? content.slice(front[0].length) : content;
 
   return (
     // min-w-0: wide tables and long code lines scroll inside their box
     <div className="min-w-0">
-      {head && (
-        <pre className="border-b border-border/60 bg-muted/20 px-5 py-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-muted-foreground">
-          {head}
-        </pre>
+      {said && (
+        <p className="border-b border-border/60 px-5 py-3 text-[13px] leading-relaxed text-muted-foreground">
+          {said}
+        </p>
       )}
       <div className="px-5 py-4 text-sm leading-relaxed">
         <Markdown>{body}</Markdown>

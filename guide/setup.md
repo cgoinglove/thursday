@@ -50,8 +50,9 @@ and are not on that screen, which lists the shared ones.
 
 **Settings › Connectors** connects MCP servers, by picking one from the list or pasting its
 details. Once connected, its tools are there for bots to search and call, and up to ten of
-them can be pinned to one bot so they are always in front of it. Signing in happens in a
-popup window; a server that needs it again turns red on that screen.
+them can be pinned to one bot so they are always in front of it. Opening a server lists every
+tool it carries, with a box to narrow them by name. Signing in happens in a popup window; a
+server that needs it again turns red on that screen.
 
 The list starts with everyday services — to-dos, the house, flights, and Zapier for Gmail,
 Google Calendar and the other apps connected there — and the tools for developers come after.

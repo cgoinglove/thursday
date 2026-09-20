@@ -47,6 +47,7 @@ import {
   Conversation,
   ThreadFacts,
 } from "@/features/bot/components/room-conversation";
+import { isUnread } from "@/features/bot/components/room-list";
 import {
   screenActs,
   threadFromRow,
@@ -178,9 +179,12 @@ export function ThreadSetting() {
   if (isLoading) return <SettingSkeleton rows={3} />;
   if (error) return <SettingError message={error.message} />;
 
+  // Both halves of what the nav's one number counts (thread-badge), told apart
+  // here because the foot has the room the badge does not.
   const waiting = threads.filter(
     (thread) => thread.status === "waiting",
   ).length;
+  const unread = threads.filter(isUnread).length;
 
   return (
     <>
@@ -190,6 +194,8 @@ export function ThreadSetting() {
             <SettingRailNote>
               {threads.length} loaded
               {waiting > 0 && ` · ${waiting} waiting on you`}
+              {unread > 0 &&
+                ` · ${unread} new result${unread === 1 ? "" : "s"}`}
             </SettingRailNote>
             {/* only with something to clear: a page not read yet may hold some */}
             {(hasMore ||
@@ -301,7 +307,7 @@ function Row({
             seed={thread.bot}
             {...markOf(thread.bot, bots)}
             state={running ? "thinking" : "idle"}
-            notify={needsThreadReply(thread)}
+            notify={needsThreadReply(thread) || (isUnread(thread) && "new")}
             crossed={thread.status === "cancelled"}
             className="shrink-0"
           />

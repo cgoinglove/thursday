@@ -20,7 +20,7 @@ import { type ReactNode, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/notify";
-import { WORKSPACE_VIEW } from "@/config";
+import { PATHS, WORKSPACE_VIEW } from "@/config";
 import {
   SettingError,
   SettingFilter,
@@ -120,6 +120,16 @@ export function WorkspaceSetting() {
     : entries;
   const folders = shown.filter((entry) => entry.kind === "dir");
   const files = shown.filter((entry) => entry.kind === "file");
+  /**
+   * Emptying scratch is offered unless the root proves there is nothing to empty —
+   * a workspace no job has used yet has no `scratch/`. Deeper in the tree the root's
+   * rows are not in hand, so the button stays.
+   */
+  const hasScratch =
+    dir !== "" ||
+    entries.some(
+      (entry) => entry.kind === "dir" && entry.name === PATHS.scratch,
+    );
   // A fresh row when the open file is in the folder on screen, so size and age
   // follow a rewrite; the last known row otherwise.
   const open =
@@ -148,15 +158,17 @@ export function WorkspaceSetting() {
             <FolderOpen />
             Reveal folder
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            loading={emptying}
-            onClick={confirmEmptyScratch}
-            className="text-destructive hover:text-destructive"
-          >
-            Empty scratch
-          </Button>
+          {hasScratch && (
+            <Button
+              variant="outline"
+              size="sm"
+              loading={emptying}
+              onClick={confirmEmptyScratch}
+              className="text-destructive hover:text-destructive"
+            >
+              Empty scratch
+            </Button>
+          )}
         </>
       }
       left={

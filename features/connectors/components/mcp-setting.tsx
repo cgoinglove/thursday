@@ -87,7 +87,8 @@ export function McpSetting() {
             "Nothing connected yet — a preset is the shortest way in"
           ) : (
             <>
-              {servers.length} connected · {tools} tools
+              {/* a server that failed is listed but not connected; counting it as both said 3 of 3 with one down */}
+              {servers.length - failed} connected · {tools} tools
               {failed > 0 && ` · ${failed} failed`}
             </>
           )}
@@ -120,6 +121,7 @@ function McpServerDialog({
   name: string;
   onDone: () => void;
 }) {
+  const [toolFilter, setToolFilter] = useState("");
   // Tools come with the detail read, not the list
   const { data: server, isLoading } = useServerRoute<MCPServer>(
     queryKey.mcpServer(name),
@@ -154,6 +156,12 @@ function McpServerDialog({
   if (!server) return null;
 
   const count = server.tools.length;
+  const needle = toolFilter.trim().toLowerCase();
+  const matched = needle
+    ? server.tools.filter((tool) =>
+        `${tool.name} ${tool.description ?? ""}`.toLowerCase().includes(needle),
+      )
+    : server.tools;
 
   const transport = isRemoteConfig(server.config) ? "HTTP" : "STDIO";
 
@@ -172,7 +180,13 @@ function McpServerDialog({
       }
       footer={
         <>
-          <Button variant="ghost" loading={removing} onClick={confirmRemove}>
+          {/* away from Reconnect and red: it takes the connection and the saved authorization with it */}
+          <Button
+            variant="ghost"
+            loading={removing}
+            onClick={confirmRemove}
+            className="mr-auto text-destructive hover:text-destructive"
+          >
             <Trash2 />
             Delete
           </Button>
@@ -193,13 +207,26 @@ function McpServerDialog({
         </p>
       )}
 
-      <p className="text-right font-mono text-xs text-muted-foreground">
-        {count} {count === 1 ? "tool" : "tools"}
-      </p>
+      {/* a server can carry dozens; the name is how one is found again */}
+      <div className="flex items-center gap-3">
+        <SettingFilter
+          value={toolFilter}
+          onChange={setToolFilter}
+          placeholder="Filter tools"
+        />
+        <span className="shrink-0 font-mono text-xs text-muted-foreground">
+          {count} {count === 1 ? "tool" : "tools"}
+        </span>
+      </div>
 
-      {server.tools.map((tool) => (
+      {matched.map((tool) => (
         <ToolCard key={tool.name} tool={tool} serverName={server.name} />
       ))}
+      {matched.length === 0 && count > 0 && (
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          No tool here goes by that.
+        </p>
+      )}
     </SettingDialogContent>
   );
 }
@@ -282,28 +309,16 @@ function ToolCard({ tool, serverName }: { tool: MCPTool; serverName: string }) {
 
   return (
     <div className="rounded-xl border border-border/60 bg-background p-4">
-      <div className="min-w-0 space-y-1">
-        <span className="block truncate font-mono text-sm">{tool.name}</span>
-        {tool.description ? (
-          <p
-            className={cn(
-              "text-xs text-muted-foreground",
-              !expanded && "line-clamp-2",
-              tool.description.length > 140 && "cursor-pointer",
-            )}
-            onClick={() => setExpanded(!expanded)}
-          >
-            {tool.description}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="mt-2 flex justify-end gap-1">
+      {/* the two openers sit on the name's line: on their own row the card was mostly air, and four tools filled the sheet */}
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="min-w-0 flex-1 truncate font-mono text-sm">
+          {tool.name}
+        </span>
         {schemas.length > 0 && (
           <Button
             size="xs"
             variant="ghost"
-            className="font-mono"
+            className="shrink-0 font-mono"
             onClick={() => setOpen(!open)}
           >
             {open ? <ChevronDown /> : <ChevronRight />}
@@ -313,13 +328,25 @@ function ToolCard({ tool, serverName }: { tool: MCPTool; serverName: string }) {
         <Button
           size="xs"
           variant="ghost"
-          className="font-mono"
+          className="shrink-0 font-mono"
           onClick={() => setTesting(!testing)}
         >
           {testing ? <ChevronDown /> : <ChevronRight />}
           Test
         </Button>
       </div>
+      {tool.description ? (
+        <p
+          className={cn(
+            "mt-0.5 text-xs leading-relaxed text-muted-foreground",
+            !expanded && "line-clamp-2",
+            tool.description.length > 140 && "cursor-pointer",
+          )}
+          onClick={() => setExpanded(!expanded)}
+        >
+          {tool.description}
+        </p>
+      ) : null}
 
       {open ? (
         <div className="mt-2 space-y-3 overflow-x-auto rounded-lg border border-input p-3">
