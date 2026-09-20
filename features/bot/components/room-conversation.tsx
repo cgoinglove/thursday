@@ -100,12 +100,6 @@ export function ThreadHeader({
       />
       <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
         {thread.label}
-        <span
-          title={thread.id}
-          className="ml-1.5 font-mono text-[10px] font-normal text-muted-foreground/60"
-        >
-          {thread.id.slice(0, 8)}
-        </span>
       </span>
       <ThreadFacts thread={thread} />
       <FoldButton onClick={onClose} />
@@ -294,6 +288,18 @@ export function Conversation({
     const box = scroller.current;
     if (box && following.current) box.scrollTop = box.scrollHeight;
   }, [thread.lines, thread.status, side]);
+
+  // A page or a picture under a message is drawn a moment after the words and grows the
+  // turn it is under: without this the last tiles end up behind the composer
+  useEffect(() => {
+    const box = scroller.current;
+    if (!box) return;
+    const watch = new ResizeObserver(() => {
+      if (following.current) box.scrollTop = box.scrollHeight;
+    });
+    for (const child of Array.from(box.children)) watch.observe(child);
+    return () => watch.disconnect();
+  }, [items.length, thread.lines, side]);
 
   return (
     // One FileViewer per conversation, not per bubble.

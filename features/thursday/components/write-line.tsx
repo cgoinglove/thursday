@@ -531,13 +531,20 @@ export function WriteLine({
             </div>
           )}
           <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-mono text-[10.5px] text-muted-foreground/70">
-            {toHer ? (
-              <RunsOn runsOn={written?.runsOn ?? null} />
+            {toHer && !written?.runsOn ? (
+              // nothing to run on: what to set is the only thing worth saying
+              <RunsOn runsOn={null} />
             ) : (
               <>
                 <Key>Enter</Key> send
                 <Dot />
-                <Key>@</Key> pick a bot
+                <Key>@</Key> {toHer ? "a bot" : "pick a bot"}
+                {toHer && (
+                  <>
+                    <Dot />
+                    <RunsOn runsOn={written?.runsOn ?? null} />
+                  </>
+                )}
               </>
             )}
             <Dot />
@@ -568,8 +575,6 @@ function RunsOn({ runsOn }: { runsOn: TextModelRef | null }) {
   if (runsOn)
     return (
       <>
-        <span>text</span>
-        <Dot />
         <span>runs on</span>
         {pick}
       </>

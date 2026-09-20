@@ -84,7 +84,9 @@ paths:
 - The files a message names are drawn under its words, whatever the message: what has a face of
   its own as a tile that opens in the viewer where the reader already is — an image, an html page in
   miniature (the live page, sandboxed, the first `FILE_THUMB.pages` of a message), the head of a
-  text — everything else as a row with its kind and size, a path with no file struck through. One
+  text — everything else as a row with its kind and size, a path with no file struck through. A
+  face is a step darker in the dark, where white paper is otherwise the brightest thing on the
+  screen; opened, it is itself again. One
   piece draws a file's face everywhere (`file-thumb`): under a message, in the corner, on the
   shelf in Settings › Files. Nothing a job finished opens by itself — it lands in
   the screen's left corner as a card, the same card with files or without: the bot, the label, how

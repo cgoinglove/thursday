@@ -130,6 +130,7 @@ export function ReachGuide() {
           Connect a chat app in four steps
         </p>
         <Segmented
+          view
           aria-label="Which chat app"
           value={name}
           onChange={setName}

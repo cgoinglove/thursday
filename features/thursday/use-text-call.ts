@@ -252,16 +252,31 @@ export function useTextCall(): TextCall {
 
   // Her words and yours, a turn per message; her tools are the line's, not a turn. A caption
   // draws plain words, so what she marked up — emphasis, a cited link — reads as its text
-  const turns = useMemo(
-    (): CallMessage[] =>
-      messages.flatMap((message) => {
-        if (message.role === "system" || isRelayTurn(message)) return [];
-        const said = wordsOf(message);
-        const text = message.role === "assistant" ? plainText(said) : said;
-        return text ? [{ id: message.id, role: message.role, text }] : [];
-      }),
-    [messages],
-  );
+  const turns = useMemo((): CallMessage[] => {
+    // An update put to her is not drawn, so what she says to it opens a caption of its
+    // own instead of running on from the words before it
+    let relayed = false;
+    return messages.flatMap((message) => {
+      if (message.role === "system") return [];
+      if (isRelayTurn(message)) {
+        relayed = true;
+        return [];
+      }
+      const said = wordsOf(message);
+      const text = message.role === "assistant" ? plainText(said) : said;
+      if (!text) return [];
+      const fresh = relayed;
+      relayed = false;
+      return [
+        {
+          id: message.id,
+          role: message.role,
+          text,
+          ...(fresh ? { fresh: true as const } : {}),
+        },
+      ];
+    });
+  }, [messages]);
 
   // The tool she is using, or just used: it takes the line until her words follow it. The
   // pages a search read stay through her answer, until the next words are sent, as on a

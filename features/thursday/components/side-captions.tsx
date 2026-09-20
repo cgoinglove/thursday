@@ -28,8 +28,9 @@ export function turnsOf(messages: CallMessage[]) {
   const turns: Turn[] = [];
   for (const message of messages) {
     const last = turns.at(-1);
-    if (last?.role === message.role) last.text = `${last.text} ${message.text}`;
-    else turns.push({ ...message });
+    if (last?.role === message.role && !message.fresh)
+      last.text = `${last.text} ${message.text}`;
+    else turns.push({ id: message.id, role: message.role, text: message.text });
   }
   return turns;
 }

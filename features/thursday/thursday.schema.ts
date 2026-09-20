@@ -156,6 +156,11 @@ export type CallMessage = {
   id: string;
   role: "user" | "assistant";
   text: string;
+  /**
+   * Starts a turn of its own rather than joining the words before it: what came in
+   * between was not drawn (a bot's update put to her, `use-text-call` RELAY_TURN).
+   */
+  fresh?: true;
 };
 
 /** A turn as the browser saves it. */

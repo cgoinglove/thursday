@@ -97,16 +97,20 @@ export function FileThumb({
         loading="lazy"
         decoding="async"
         onError={() => setBroken(true)}
-        className={cn("block bg-muted object-cover", className)}
+        className={cn(
+          "block bg-muted object-cover dark:brightness-[0.82]",
+          className,
+        )}
       />
     );
   }
   if (face === "page") {
     return (
-      // A page is drawn on white whatever the theme, as it is when opened
+      // A page is drawn on white whatever the theme, as it is when opened — a step
+      // down in the dark, where white paper is otherwise the brightest thing on screen
       <Shrunk
         width={FILE_THUMB.pageWidth}
-        className={cn("bg-white", className)}
+        className={cn("bg-white dark:brightness-[0.82]", className)}
       >
         {(height) => (
           <iframe
@@ -128,7 +132,7 @@ export function FileThumb({
     return (
       <Shrunk
         width={FILE_THUMB.textWidth}
-        className={cn("bg-background", className)}
+        className={cn("bg-background dark:brightness-[0.82]", className)}
       >
         {() => <TextHead path={path} onMissing={missing} />}
       </Shrunk>

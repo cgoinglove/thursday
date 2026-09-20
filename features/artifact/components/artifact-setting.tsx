@@ -211,13 +211,13 @@ function markOf(name: string, bots?: Bot[]) {
   };
 }
 
-/** `4 artifacts · 34 files`, and what is not on screen. Counts rows, so it is free. */
+/** `4 results · 34 files`, and what is not on screen. Counts rows, so it is free. */
 function countLine(shown: Artifact[], total: number, files: number): string {
   if (total === 0) return "empty";
   const head =
     total > shown.length
-      ? `${shown.length} of ${total.toLocaleString("en")} artifacts`
-      : `${total} ${total === 1 ? "artifact" : "artifacts"}`;
+      ? `${shown.length} of ${total.toLocaleString("en")} results`
+      : `${total} ${total === 1 ? "result" : "results"}`;
   return files > total ? `${head} · ${files.toLocaleString("en")} files` : head;
 }
 
