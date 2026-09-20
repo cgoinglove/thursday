@@ -535,3 +535,17 @@ export async function removeJobScratch(
     force: true,
   }).catch(() => {});
 }
+
+/**
+ * Removes a bot's own folder — its memory, the skills it installed, the scripts
+ * it wrote itself. Its lifetime is the bot's (config PATHS), so it goes when the
+ * bot does (bot.action deleteBot). The folder is named from the bot's name alone,
+ * so one left behind is inherited whole by the next bot given that name.
+ * `artifacts/<bot>` stays: finished work is the user's, not the bot's.
+ */
+export async function removeBotFolder(bot: string): Promise<void> {
+  await rm(join(WORKSPACE, botFolder(bot)), {
+    recursive: true,
+    force: true,
+  }).catch(() => {});
+}

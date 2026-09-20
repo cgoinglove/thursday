@@ -1,9 +1,15 @@
 import { readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { GIVEN_FILES, PATHS, WORKSPACE_VIEW } from "@/config";
+import { listThreadFolders } from "@/features/bot/thread.query";
 import { publicError } from "@/lib/public-error";
 import { isListedFolder, viewKindOf } from "./file-kind";
-import { insideWorkspace, openWorkspace, WORKSPACE } from "./workspace";
+import {
+  insideWorkspace,
+  jobScratch,
+  openWorkspace,
+  WORKSPACE,
+} from "./workspace";
 import type {
   FileOnDisk,
   WorkspaceEntry,
@@ -135,10 +141,23 @@ export async function deleteWorkspaceFile(rel: string): Promise<void> {
 /**
  * Empties `scratch/`, the folder the bots are told is for work in progress
  * (bot.prompt). The folder itself stays: `openWorkspace` expects the three.
+ *
+ * A job that is running, or waiting on an answer, keeps its own — this is the
+ * button someone presses when the disk is full, and it would otherwise pull the
+ * working material out from under a job mid-step. The sweep by age already makes
+ * the same exception (bot.runner sweepJobFiles).
  */
 export async function emptyScratch(): Promise<void> {
   const full = join(WORKSPACE, PATHS.scratch);
+  const busy = new Set(
+    (await listThreadFolders())
+      .filter(
+        (thread) => thread.status === "running" || thread.status === "waiting",
+      )
+      .map((thread) => jobScratch(thread.id, thread.label).split("/").pop()),
+  );
   for (const entry of await readdir(full).catch(() => [])) {
+    if (busy.has(entry)) continue;
     await rm(join(full, entry), { recursive: true, force: true });
   }
 }

@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { textModelProviderSchema } from "@/features/ai/model.schema";
 import { giveSeedSkills } from "@/features/skills/skills.discover";
+import { removeBotFolder } from "@/features/workspace/workspace";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
 import {
@@ -82,6 +83,8 @@ export const createSeedBotsAction = serverAction(async (picks: unknown) => {
 
 export const deleteBotAction = serverAction(async (name: string) => {
   if (!(await deleteBot(name))) publicError("Bot not found");
+  // The row is not the whole bot: what it kept is on disk under its name
+  await removeBotFolder(name);
 });
 
 /** Switched off, no bot is shown its own memory. What is already written stays on disk. */
