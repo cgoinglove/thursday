@@ -8,8 +8,8 @@ import { useServerRoute } from "@/lib/protocol/use-server-route";
 
 /**
  * What the thread list owes the user, from the inbox key both readings share:
- * jobs waiting on an answer and endings nobody has opened — amber, because both
- * wait on them. Unread endings remain in the inbox until opened, so every one
+ * jobs waiting on an answer and endings nobody has opened — the brand colour,
+ * because both want them. Unread endings remain in the inbox until opened, so every one
  * counted has a row to open. A job never ends as a failure (a model that breaks
  * pauses it as waiting), so nothing here is red.
  */
@@ -25,10 +25,10 @@ export function useThreadReport() {
 }
 
 export function useThreadAlert(): SectionAlert {
-  return useThreadReport().owed > 0 ? "amber" : null;
+  return useThreadReport().owed > 0 ? "brand" : null;
 }
 
 /** The nav counts what is owed. */
 export function ThreadBadge() {
-  return <NavBadge tone="amber" count={useThreadReport().owed} />;
+  return <NavBadge tone="brand" count={useThreadReport().owed} />;
 }

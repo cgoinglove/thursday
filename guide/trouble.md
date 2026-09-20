@@ -7,7 +7,7 @@ the app has already said which: a provider's own words are shown as they came, n
 
 - **"Call failed"** shows the provider's reason. A refused key, no credit left, or a model the
   key cannot use are all fixed in **Settings › API keys**, where a refused key is marked
-  red and one running low is marked amber.
+  red and one running low is marked in the colour the app uses for anything that wants them.
 - **She cannot be heard** on a call that opened by itself (she called back): the browser holds
   the sound until the page is touched. A tap anywhere lets it through.
 - **She does not hear them**: the browser asks for the microphone on the first call. If that

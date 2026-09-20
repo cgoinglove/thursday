@@ -21,6 +21,16 @@ const GROUP_GAP = "space-y-8";
 const SECTION_PAD = "px-8 pt-8 pb-6";
 
 /**
+ * The row a settings index is open on, the same on every section. It is the
+ * brand tint rather than grey because the right pane is the only other thing
+ * saying which row is picked, and a wash of colour answers that without being
+ * read. Faint on purpose: a selection is not an alert. The dark step is the
+ * larger of the two — the same wash over near-black reads lighter than it does
+ * over white.
+ */
+export const PICKED_ROW = "bg-brand/8 text-foreground dark:bg-brand/14";
+
+/**
  * The column the section title, a list body and the rail's words share, the
  * same on every section so nothing moves when the section changes. What fills
  * the whole width instead is anything that is a surface rather than a list: a
@@ -187,15 +197,15 @@ export function SettingFilter({
 
 /**
  * What a nav row reports about its section. Amber counts what waits on you, red
- * marks what failed — the app's two status colours — and a blue dot says a
- * section is worth setting up though nothing waits on it. The nav carries no
- * others. A count of 0 draws nothing, so a section at rest stays quiet.
+ * marks what failed, and the brand colour marks everything that wants the user
+ * — a question, a stopped job, an answer not opened, a section worth setting
+ * up. The nav carries no others. A count of 0 draws nothing, so a section at rest stays quiet.
  */
 export function NavBadge({
   tone,
   count,
 }: {
-  tone: "amber" | "red" | "brand";
+  tone: "red" | "brand";
   /** Omitted draws a dot: the section has something wrong, not a number of things. */
   count?: number;
 }) {
@@ -205,11 +215,7 @@ export function NavBadge({
       <span
         className={cn(
           "size-1.5 shrink-0 rounded-full",
-          tone === "red"
-            ? "bg-destructive"
-            : tone === "brand"
-              ? "bg-brand"
-              : "bg-amber-600 dark:bg-amber-400",
+          tone === "red" ? "bg-destructive" : "bg-waiting",
         )}
       />
     );
@@ -217,11 +223,7 @@ export function NavBadge({
     <span
       className={cn(
         "shrink-0 font-mono text-[11px]",
-        tone === "red"
-          ? "text-destructive"
-          : tone === "brand"
-            ? "text-brand"
-            : WAITING_INK,
+        tone === "red" ? "text-destructive" : WAITING_INK,
       )}
     >
       {count}

@@ -450,7 +450,7 @@ const USD = new Intl.NumberFormat("en-US", {
 
 /**
  * What a key says at the end of its row. A key only knows whether it is set, except the
- * gateway's, which also says what is left on it: amber waits on a top-up, red is a refusal.
+ * gateway's, which also says what is left on it: the waiting colour for a top-up, red is a refusal.
  */
 function keyState(
   set: boolean,

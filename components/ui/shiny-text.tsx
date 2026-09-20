@@ -13,8 +13,8 @@ const TONES = {
     band: "via-foreground",
   },
   waiting: {
-    under: "text-amber-700/60 dark:text-amber-400",
-    band: "via-amber-950 dark:via-amber-100",
+    under: "text-waiting/70",
+    band: "via-waiting/30",
   },
 } as const;
 

@@ -770,7 +770,7 @@ function CrewMark({ face }: { face: CrewFace }) {
       shape={face.icon?.shape}
       outline={face.icon?.outline}
       paint={face.icon?.paint}
-      notify={face.waiting || (face.unread && "new")}
+      notify={face.waiting || face.unread}
     />
   );
 }

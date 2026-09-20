@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef } from "react";
+import { useIsDark } from "@/hooks/use-theme";
 import { createVoiceFollower, SPECTRUM_BANDS } from "@/lib/live/live.tap";
 import { cn } from "@/lib/utils";
 import {
@@ -9,6 +10,7 @@ import {
   type MarkPaintLook,
   type MarkPaintSpec,
   type MarkShape,
+  markInk,
 } from "../mark.const";
 
 // Procedural bot avatar: a generated silhouette with two eyes, animated per frame from refs.
@@ -984,7 +986,8 @@ type BotMarkProps = {
    * The dot on the face: `true` waits on the user (amber), `"new"` is a result of its
    * nobody has opened yet (brand blue, the user's pick). False draws none.
    */
-  notify?: boolean | "new";
+  /** A dot on the rim: something of this bot wants the user. */
+  notify?: boolean;
   /** Eyes crossed out: a stopped thread, or a call that failed. */
   crossed?: boolean;
   state?: MarkState;
@@ -1048,7 +1051,8 @@ export function BotMark({
 
   const shapeSeed = seed === undefined ? cfg.seed : hashSeed(seed);
   const theShape = shape ?? cfg.shape;
-  const theFg = color ?? cfg.color;
+  // The stored colour is the user's; the paper it lands on decides how it is drawn.
+  const theFg = markInk(color ?? cfg.color, useIsDark());
   const notifying = notify ?? cfg.notify;
   const spec = paint ? MARK_PAINTS[paint] : null;
   const grow = growOf(size);
@@ -1578,12 +1582,7 @@ export function BotMark({
             cx={f(CENTER + Math.cos(nAngle) * cfg.notifyDist)}
             cy={f(CENTER + Math.sin(nAngle) * cfg.notifyDist)}
             r={cfg.notifyR}
-            className={cn(
-              notifying === "new"
-                ? "fill-brand"
-                : "fill-amber-600 dark:fill-amber-400",
-              NOTIFY_POP,
-            )}
+            className={cn("fill-waiting", NOTIFY_POP)}
           />
         )}
       </g>

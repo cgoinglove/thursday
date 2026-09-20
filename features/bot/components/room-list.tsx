@@ -363,7 +363,7 @@ export function ThreadRow({
             outline={thread.bot.icon?.outline}
             paint={thread.bot.icon?.paint}
             state={thread.status === "working" ? "thinking" : "idle"}
-            notify={attention || (isUnread(thread) && "new")}
+            notify={attention || isUnread(thread)}
             crossed={thread.status === "cancelled"}
           />
         </span>

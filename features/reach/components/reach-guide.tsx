@@ -451,7 +451,7 @@ function Bullet({ n, state }: { n: number; state: StepState }) {
       className={cn(
         "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-background font-mono text-[10.5px] ring-1",
         state === "now"
-          ? cn(WAITING_INK, "ring-amber-600/40")
+          ? cn(WAITING_INK, "ring-waiting/40")
           : "text-muted-foreground ring-border/60",
         state === "later" && "opacity-60",
       )}

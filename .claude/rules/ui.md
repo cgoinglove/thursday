@@ -18,16 +18,24 @@ paths:
   and never a new element that shifts the row when it finishes.
 - Words for something still running shine (`ShinyText`), everywhere, the call screen included.
   Only what is not words — a dot, an icon, a bar, a `Skeleton` — pulses. It takes its colours from the theme —
-  `tone="waiting"` for amber, never a colour — and truncates in its own box, not a parent's.
-- Two status colors only: amber (waits on the user — a question, a stopped job, an answer not yet
-  opened, where nothing tells the two apart — the Threads count is one number; `WAITING_INK` in
-  `lib/utils`) and red (failed — `text-destructive`). Success, connected and
-  enabled have no color of their own: an unopened answer is amber because it waits on the user, not
-  because it worked. The settings nav reports the same two, and one blue dot for a section worth
-  setting up that nothing waits on — Models with no studio model (the user's pick); the settings
-  door in the call screen's corner wears the worst of what it opens (`NavBadge`, `CornerDot`). A
-  screen that already means "this waits on you" — the ringing call, the missed list — says so
-  without the amber.
+  `tone="waiting"`, never a colour — and truncates in its own box, not a parent's.
+- **Colour is picked by meaning, and the theme picks only which step of it.** Every colour in the
+  app comes off the ladder or one of the three hues in `app/globals.css`; nothing names a raw value
+  at a call site. A floor is a floor: 4.5:1 for text, 3:1 for a shape or text at 24px and up, and a
+  colour is measured before it goes in.
+- **Two status colors only: the brand blue and red.** Red is what failed (`text-destructive`); the
+  brand colour is everything that wants the user — a question, a stopped job, an answer not yet
+  opened, a section worth setting up — under its own name, `--waiting` (`WAITING_INK` in
+  `lib/utils`), so the day one of those has to be told apart from the rest is one line and not a
+  sweep (the user's pick). Success, connected and enabled have no color of their own. The settings
+  nav reports the same two, and the settings door in the call screen's corner wears the worst of
+  what it opens (`NavBadge`, `CornerDot`). A screen that already means "this waits on you" — the
+  ringing call, the missed list — says so without it.
+- **A border is never a grey of its own.** It is the ink at low opacity (`--alpha-*`), which is
+  why it needs no second value for the dark. The ladder is the same list read from the other end
+  there (`--gray-0` is the paper and `--gray-1000` the ink in both), so a surface is named once;
+  the handful that are not symmetric — a card, `muted`, `ring` — name a step per theme rather than
+  a value.
 - One brand color, blue (`brand` in `app/globals.css`), on black and white, for what matters on a
   screen (the user's pick): what it asks for (`Button variant="brand"`, round; the write line's
   send), Thursday herself (her caption dot), and whatever else there most needs the eye — a new
@@ -58,7 +66,7 @@ paths:
   them seen (`thread_seen`); a relay acknowledgement alone never counts as reading. Use neutral surfaces for these
   notices and explicit labels for questions and new results.
 - Words stepped in with wait where the composer sits, registered, until the bot's next step reads
-  them: a loader and a shining line, never amber, since they wait on the bot and not on the user,
+  them: a loader and a shining line, never the waiting colour, since they wait on the bot and not on the user,
   and they can be taken back until then. Outside the thread only the pill says so, as a shining
   line held by that bot's face. Read, they join the conversation marked `stepped in` — derived (a
   user line straight after that bot's own tool step), never stored.
@@ -99,15 +107,18 @@ paths:
   size, so a bigger box holds more of them, and nothing fades — and every screen draws her through
   it, so a new icon is a change to that file. Only the browser tab keeps the bot-style mark
   (`THURSDAY_SEED`).
-- A bot draws with the face picked on its page wherever it appears; nothing varies its mark by
-  thread or place, only its state: a dot while something of its waits on the user — amber to
-  answer (a question, a stop), blue for a result nobody has opened, amber first when it has both
-  (the user's pick) — and crossed-out eyes on a thread the user stopped (`cancelled`). Faces do
+- A bot draws with the face picked on its page wherever it appears. The stored colour is the
+  user's and never changes; nine of the eighteen are too light to read on a white page, so the
+  light theme draws those as a darker twin of the same hue (`markInk` in `mark.const`). Nothing
+  else varies its mark by
+  thread or place, only its state: one dot in the brand colour while something of its wants the user — a question, a
+  stop, a result nobody has opened, all the same dot (the user's pick) — and crossed-out eyes on a
+  thread the user stopped (`cancelled`). Faces do
   not dim when others are at work: the lift of the one moving is what says who is (the user's pick). A job never ends as a failure: a model that
   breaks pauses it as waiting.
 - The pill's bubble shows one thing that just happened, over the face of whoever spoke: that face
   with the bots it reached tucked behind it, then the words — no glyph between faces. Questions
-  and stops take amber. Clicking the pill opens the room's list, never a thread; the "+" at its
+  and stops take the waiting colour. Clicking the pill opens the room's list, never a thread; the "+" at its
   left end asks for the write line instead. The card above the pill grows for what waits on the
   user — a question, a stop — and nothing else: a finished job's result is the left corner's
   card alone, so one notice never shows twice (the user's pick). While the write line is up the
@@ -159,7 +170,7 @@ paths:
   Vercel AI Gateway; the other providers wait behind "more" as a row of provider marks.
 - On the call screen the backend's thinking is one activity line ("Thinking about <title>",
   shining) and no more: a summary body, a list of thoughts and a rail were each built and taken out.
-- A stopped job's error text stays as it came, in red; it is not softened into amber or a friendly
+- A stopped job's error text stays as it came, in red; it is not softened into the waiting colour or a friendly
   sentence.
 - Typing in a free field is a draft, not a value. It saves when an item is picked or Save is
   pressed, never per keystroke or on blur, or a half-typed value lands in the database

@@ -13,9 +13,9 @@ import { useServerRoute } from "@/lib/protocol/use-server-route";
  */
 export function useBotAlert(): SectionAlert {
   const { data } = useServerRoute<Bot[]>(queryKey.bot);
-  return data && data.length === 0 ? "amber" : null;
+  return data && data.length === 0 ? "brand" : null;
 }
 
 export function BotBadge() {
-  return useBotAlert() ? <NavBadge tone="amber" /> : null;
+  return useBotAlert() ? <NavBadge tone="brand" /> : null;
 }

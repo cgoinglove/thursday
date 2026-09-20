@@ -57,6 +57,30 @@ export const MARK_PALETTE: string[] = MARK_COLORS.filter(
 /** The app's two status colours. A face wearing one reads as a state it is not in, so no roll lands on them. */
 const STATUS_INK: string[] = [MARK_INK.amber, MARK_INK.red];
 
+/**
+ * What a colour is drawn as on a white page. Nine of the eighteen are too light
+ * to read there — a yellow face on paper is 1.9:1 against a 3:1 floor for a
+ * shape — so each has a twin at the same hue and chroma, lightness lowered
+ * until it clears 3.2:1. The dark theme keeps the colour as it is, where all
+ * eighteen already pass. The stored value never changes: the picker, the name
+ * the user chose and the roll all stay on the original.
+ */
+const ON_PAPER: Record<string, string> = {
+  [MARK_INK.cyan]: "#009dbb",
+  [MARK_INK.teal]: "#00a190",
+  [MARK_INK.green]: "#00a640",
+  [MARK_INK.lime]: "#5ca100",
+  [MARK_INK.amber]: "#d07b00",
+  [MARK_INK.orange]: "#ec6700",
+  [MARK_INK.sky]: "#0098dc",
+  [MARK_INK.emerald]: "#00a46d",
+  [MARK_INK.yellow]: "#bb8600",
+};
+
+/** The colour as this theme should draw it. Anything not in the table is itself. */
+export const markInk = (color: string, dark: boolean): string =>
+  dark ? color : (ON_PAPER[color] ?? color);
+
 /** How the renderer lays a paint's colours out. */
 export type MarkPaintLook = "flow" | "duo" | "aurora";
 

@@ -19,10 +19,10 @@ export function useConfigAlert(): SectionAlert {
   const unmet = CONFIG_GROUPS.some(
     (group) => group.section === "keys" && !groupSatisfied(group, isSet),
   );
-  return unmet ? "amber" : null;
+  return unmet ? "brand" : null;
 }
 
 /** The API keys section's dot: a call has no key to run on. A dot, not a count. */
 export function ConfigBadge() {
-  return useConfigAlert() ? <NavBadge tone="amber" /> : null;
+  return useConfigAlert() ? <NavBadge tone="brand" /> : null;
 }

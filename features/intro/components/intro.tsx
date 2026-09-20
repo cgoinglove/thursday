@@ -61,7 +61,7 @@ import { useWakeWord } from "@/hooks/use-wake-word";
 import { type AudioTap, createAudioTap } from "@/lib/live/live.tap";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
-import { cn } from "@/lib/utils";
+import { cn, WAITING_INK } from "@/lib/utils";
 
 /**
  * The first run, laid over the call screen (app/page) and drawn as the call screen:
@@ -562,7 +562,7 @@ function MicTurn({ mic }: { mic: MicState }) {
         </Button>
         {mic.blocked ? (
           <>
-            <p className="text-[13px] leading-normal text-amber-700 dark:text-amber-400">
+            <p className={cn("text-[13px] leading-normal", WAITING_INK)}>
               This page is not allowed the microphone yet.
             </p>
             <Fine>

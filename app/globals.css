@@ -16,19 +16,6 @@
   --font-sans: var(--font-geist-sans), var(--font-noto-kr);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -43,6 +30,7 @@
   --color-primary: var(--primary);
   --color-brand-foreground: var(--brand-foreground);
   --color-brand: var(--brand);
+  --color-waiting: var(--waiting);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -56,79 +44,151 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * The ladder, and what the app calls each step.
+ *
+ * `--gray-0` is the paper and `--gray-1000` the ink, in BOTH themes: one list of
+ * steps, read from the other end in the dark. A surface is named once and lands
+ * right in either, and `--gray-500` is the pivot the two share. A border or a
+ * hover is never a grey of its own — it is the ink at low opacity
+ * (`--alpha-*`), which is why it needs no second value for the dark.
+ *
+ * The steps are OpenAI's, from `@openai/apps-sdk-ui` 0.2.2 (MIT, Copyright 2025
+ * OpenAI), as is the red below. What this app takes from that system is the
+ * arrangement: a role picks a hue and the theme picks only which step of it.
+ */
 :root,
 .dark .inverse {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --brand: oklch(0.58 0.17 255);
-  --brand-foreground: oklch(1 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --gray-0: #ffffff;
+  --gray-25: #fcfcfc;
+  --gray-50: #f9f9f9;
+  --gray-75: #f3f3f3;
+  --gray-100: #ededed;
+  --gray-150: #dfdfdf;
+  --gray-200: #cdcdcd;
+  --gray-250: #b9b9b9;
+  --gray-300: #afafaf;
+  --gray-350: #9f9f9f;
+  --gray-400: #8f8f8f;
+  --gray-450: #767676;
+  --gray-500: #5d5d5d;
+  --gray-550: #4f4f4f;
+  --gray-600: #414141;
+  --gray-650: #393939;
+  --gray-700: #303030;
+  --gray-750: #282828;
+  --gray-800: #212121;
+  --gray-850: #1c1c1c;
+  --gray-900: #181818;
+  --gray-925: #161616;
+  --gray-950: #131313;
+  --gray-975: #101010;
+  --gray-1000: #0d0d0d;
+  --ink: #0d0d0d;
 }
 
 .dark,
 :root:not(.dark) .inverse {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --brand: oklch(0.66 0.16 255);
-  --brand-foreground: oklch(1 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --gray-0: #0d0d0d;
+  --gray-25: #101010;
+  --gray-50: #131313;
+  --gray-75: #161616;
+  --gray-100: #181818;
+  --gray-150: #1c1c1c;
+  --gray-200: #212121;
+  --gray-250: #282828;
+  --gray-300: #303030;
+  --gray-350: #393939;
+  --gray-400: #414141;
+  --gray-450: #4f4f4f;
+  --gray-500: #5d5d5d;
+  --gray-550: #767676;
+  --gray-600: #8f8f8f;
+  --gray-650: #9f9f9f;
+  --gray-700: #afafaf;
+  --gray-750: #b9b9b9;
+  --gray-800: #cdcdcd;
+  --gray-850: #dfdfdf;
+  --gray-900: #ededed;
+  --gray-925: #f3f3f3;
+  --gray-950: #f9f9f9;
+  --gray-975: #fcfcfc;
+  --gray-1000: #ffffff;
+  --ink: #ffffff;
+}
+
+/* Resolved on whichever element carries the ladder, so `.inverse` gets its own. */
+:root,
+.dark,
+.inverse {
+  --alpha-05: color-mix(in oklab, var(--ink) 5%, transparent);
+  --alpha-08: color-mix(in oklab, var(--ink) 8%, transparent);
+  --alpha-10: color-mix(in oklab, var(--ink) 10%, transparent);
+  --alpha-12: color-mix(in oklab, var(--ink) 12%, transparent);
+  --alpha-15: color-mix(in oklab, var(--ink) 15%, transparent);
+  --alpha-20: color-mix(in oklab, var(--ink) 20%, transparent);
+
+  /* Written once: the same distance from the paper means the same in either theme. */
+  --background: var(--gray-0);
+  --foreground: var(--gray-1000);
+  --card-foreground: var(--gray-1000);
+  --popover-foreground: var(--gray-1000);
+  --primary: var(--gray-900);
+  --primary-foreground: var(--gray-0);
+  --secondary-foreground: var(--gray-900);
+  --accent-foreground: var(--gray-900);
+  --border: var(--alpha-10);
+
+  --radius: 0.625rem;
+}
+
+/*
+ * The rest is not symmetric, because the eye is not: a card lifts off a white
+ * page by its shadow and off a black one by being lighter, and the grey that
+ * reads as "quiet" sits nearer the paper in the dark. Each names a step.
+ */
+:root,
+.dark .inverse {
+  --card: var(--gray-0);
+  --popover: var(--gray-0);
+  --secondary: var(--gray-75);
+  --muted: var(--gray-75);
+  --accent: var(--gray-75);
+  --muted-foreground: var(--gray-450);
+  --input: var(--alpha-10);
+  --ring: var(--gray-300);
+
+  --brand: #0169cc; /* blue-500 */
+  --brand-foreground: #ffffff;
+  --destructive: #911e1b; /* red-700 */
+}
+
+.dark,
+:root:not(.dark) .inverse {
+  --card: var(--gray-100);
+  --popover: var(--gray-100);
+  --secondary: var(--gray-250);
+  --muted: var(--gray-250);
+  --accent: var(--gray-250);
+  --muted-foreground: var(--gray-650);
+  --input: var(--alpha-15);
+  --ring: var(--gray-500);
+
+  --brand: #66b5ff; /* blue-200 */
+  --brand-foreground: #ffffff;
+  --destructive: #fa423e; /* red-400 */
+}
+
+/*
+ * What waits on the user is the brand colour too (the user's pick): one thing
+ * the eye looks for, whether it is a question, a stopped job or an answer
+ * nobody has opened. It keeps its own name so the day it needs to be told apart
+ * from the rest is one line, not a sweep.
+ */
+:root,
+.dark,
+.inverse {
+  --waiting: var(--brand);
 }
 
 @layer base {

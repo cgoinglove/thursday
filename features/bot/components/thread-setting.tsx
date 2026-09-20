@@ -308,7 +308,7 @@ function Row({
             seed={thread.bot}
             {...markOf(thread.bot, bots)}
             state={running ? "thinking" : "idle"}
-            notify={needsThreadReply(thread) || (isUnread(thread) && "new")}
+            notify={needsThreadReply(thread) || isUnread(thread)}
             crossed={thread.status === "cancelled"}
             className="shrink-0"
           />
