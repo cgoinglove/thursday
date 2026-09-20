@@ -44,6 +44,12 @@ export type ReachChannelStatus = {
   name: ReachChannelName;
   /** The bot's own name on the service, once it has connected; null before. */
   bot: string | null;
+  /**
+   * Where to go to reach this bot, named by the service itself (`channel.ts`): the chat to
+   * open on Telegram, the invite that adds it to a server on Discord. Null where the
+   * service names none, or before it has connected.
+   */
+  link: string | null;
   allowed: ReachPerson | null;
   /** Someone wrote who is not let in yet: the screen asks the user whether they are. */
   asking: ReachPerson | null;

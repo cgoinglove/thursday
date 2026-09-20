@@ -140,7 +140,8 @@ export function createSlack(appToken: string, botToken: string): Channel {
         {},
         appToken,
       );
-      on.ready(me.user ? `@${me.user}` : "the app");
+      // Slack names no address for an app: it is opened from inside the workspace
+      on.ready(me.user ? `@${me.user}` : "the app", null);
 
       const closed = await runSocket(
         url,

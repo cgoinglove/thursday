@@ -27,9 +27,11 @@ them — there is no separate list of keys. A line that needs nothing stays shut
 1. At **discord.com/developers/applications**, make a New Application, open its **Bot** page,
    press **Reset Token** and copy the token.
 2. Paste it in step 2 of **Discord**, in **Settings › Phone**.
-3. A Discord bot can only be written to by someone who shares a server with it. On the
-   application's **OAuth2** page, make an invite link with the `bot` scope, open it, and add
-   the bot to a server of their own — a private one made for this is fine.
+3. A Discord bot can only be written to by someone who shares a server with it. Step 3 shows
+   **the invite, made for them** — the app asks Discord which application the token belongs
+   to and builds it, with the `bot` scope and no permissions inside the server. Open it, or
+   point the phone's camera at the square picture, and pick a server of their own; a private
+   one made for this is fine.
 4. Write to the bot directly (a direct message, not in the server), then press **Allow** on
    the computer. Only direct messages are read; nothing said in a server is.
 

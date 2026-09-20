@@ -62,8 +62,15 @@ test("discord identifies after hello, hands over a direct message, leaves a serv
   const stop = new AbortController();
   const got: unknown[] = [];
   let bot = "";
+  let link: string | null = null;
   const listening = createDiscord("bot-token").listen(
-    { ready: (name) => (bot = name), incoming: (one) => got.push(one) },
+    {
+      ready: (name, where) => {
+        bot = name;
+        link = where;
+      },
+      incoming: (one) => got.push(one),
+    },
     stop.signal,
   );
   await tick();
@@ -84,9 +91,15 @@ test("discord identifies after hello, hands over a direct message, leaves a serv
     op: 0,
     t: "READY",
     s: 1,
-    d: { user: { id: "b", username: "thursday" } },
+    d: { user: { id: "b", username: "thursday" }, application: { id: "app1" } },
   });
   assert.equal(bot, "thursday");
+  // The invite is the step nothing else can do for the user: Discord delivers a direct
+  // message only to a bot you share a server with, and READY names the application
+  assert.equal(
+    link,
+    "https://discord.com/oauth2/authorize?client_id=app1&scope=bot&permissions=0",
+  );
 
   const author = { id: "u1", username: "sam", global_name: "Sam" };
   socket.receive({

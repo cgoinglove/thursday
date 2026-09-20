@@ -152,7 +152,11 @@ export function createTelegram(token: string): Channel {
         undefined,
         signal,
       );
-      on.ready(me.username ? `@${me.username}` : (me.first_name ?? "the bot"));
+      on.ready(
+        me.username ? `@${me.username}` : (me.first_name ?? "the bot"),
+        // The chat with this bot, which a phone opens straight from its camera
+        me.username ? `https://t.me/${me.username}` : null,
+      );
 
       let offset = 0;
       while (!signal.aborted) {

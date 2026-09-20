@@ -37,9 +37,17 @@ export type Channel = {
    * `signal` aborts. Only one-to-one conversations are handed over: her answers are one
    * person's. Throws `ChannelRefusal` when the service turns the token away — asking again
    * would not change that — and anything else for trouble worth another try.
+   *
+   * `link` is the address that takes someone to this bot on the service, which only the
+   * service's own file can name — a chat to open on Telegram, an invite to accept on
+   * Discord — or null where the service has none. The screen draws it for a phone to read,
+   * so nothing about a service is worked out from its bot's name.
    */
   listen(
-    on: { ready(bot: string): void; incoming(incoming: Incoming): void },
+    on: {
+      ready(bot: string, link: string | null): void;
+      incoming(incoming: Incoming): void;
+    },
     signal: AbortSignal,
   ): Promise<void>;
   /** One message, at most `REACH.chars` long; `buttons` go under it, one to a row. */

@@ -14,6 +14,17 @@ const GATEWAY = "wss://gateway.discord.gg/?v=10&encoding=json";
 const INTENTS = 1 << 12;
 /** Discord's cap on one message. */
 const MAX = 1_900;
+/**
+ * The invite that adds this bot to a server, from the application id Discord names in READY.
+ * Discord delivers a direct message only between a person and a bot that share a server, so
+ * this is the step nothing else can do for the user. `permissions=0`: it reads and writes
+ * direct messages and wants nothing inside the server.
+ */
+const invite = (application?: string) =>
+  application
+    ? `https://discord.com/oauth2/authorize?client_id=${application}&scope=bot&permissions=0`
+    : null;
+
 /** Close codes that mean the token or what it asked for is refused, not that the line dropped. */
 const REFUSED: Record<number, string> = {
   4004: "Discord did not take the bot token.",
@@ -168,9 +179,13 @@ export function createDiscord(token: string): Channel {
                   },
                 });
               } else if (op === 1) send({ op: 1, d: sequence });
-              else if (op === 0 && t === "READY")
-                on.ready((d as { user: DiscordUser }).user.username);
-              else if (op === 0 && t) {
+              else if (op === 0 && t === "READY") {
+                const ready = d as {
+                  user: DiscordUser;
+                  application?: { id?: string };
+                };
+                on.ready(ready.user.username, invite(ready.application?.id));
+              } else if (op === 0 && t) {
                 const incoming = read(t, d);
                 if (incoming) on.incoming(incoming);
               }

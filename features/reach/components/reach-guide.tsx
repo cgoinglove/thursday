@@ -95,8 +95,11 @@ type Slot =
   | { open: string; label: string }
   | { key: string; looks: string }
   | { manifest: true }
-  /** The step the phone answers, where a link to the bot can be scanned. */
-  | { reach: true };
+  /**
+   * The address the service named for this bot, drawn for a phone to read. `does` is what
+   * pressing it does, for an address too long to read as a label.
+   */
+  | { says: string; does?: string };
 
 type Step = { body: ReactNode; slot?: Slot };
 
@@ -117,7 +120,7 @@ const STEPS: Record<ReachChannelName, Step[]> = {
     },
     {
       body: <>From your phone, write anything to your bot.</>,
-      slot: { reach: true },
+      slot: { says: "Point your phone's camera at it to open the chat." },
     },
     {
       body: (
@@ -147,11 +150,15 @@ const STEPS: Record<ReachChannelName, Step[]> = {
     {
       body: (
         <>
-          On the application's <B>OAuth2</B> page, make an invite link with the{" "}
-          <B>bot</B> scope and add the bot to a server of your own. Discord only
-          lets you write to a bot you share a server with.
+          <B>Add the bot to a server of your own</B> — Discord only delivers a
+          message to a bot you share a server with. A private server made for
+          this is fine.
         </>
       ),
+      slot: {
+        says: "Point your phone's camera at it, or open it here. It asks which server, and adds the bot with no permissions in it.",
+        does: "Add the bot to a server",
+      },
     },
     {
       body: (
@@ -160,7 +167,6 @@ const STEPS: Record<ReachChannelName, Step[]> = {
           <B>Allow</B> here.
         </>
       ),
-      slot: { reach: true },
     },
   ],
   slack: [
@@ -198,7 +204,6 @@ const STEPS: Record<ReachChannelName, Step[]> = {
           <B>Messages</B> tab, then press <B>Allow</B> here.
         </>
       ),
-      slot: { reach: true },
     },
   ],
 };
@@ -231,13 +236,6 @@ function stepStates(
     // when someone writes, so those steps wait on the user rather than on us
     return at < lastKey ? "done" : connected ? "now" : "flat";
   });
-}
-
-/** A link the phone can take a picture of instead of being typed; only Telegram names one. */
-function reachLink(channel: ReachChannelStatus | null): string | null {
-  if (!channel || channel.name !== "telegram") return null;
-  const bot = channel.bot?.startsWith("@") ? channel.bot.slice(1) : null;
-  return bot ? `https://t.me/${bot}` : null;
 }
 
 export function ReachGuide() {
@@ -301,7 +299,8 @@ function Channel({
 }) {
   const steps = STEPS[name];
   const states = stepStates(steps, isSet, Boolean(status?.bot));
-  const link = reachLink(status);
+  // It is listening and nobody has written yet: the last step is where that waits
+  const waiting = Boolean(status?.bot) && !status?.allowed;
 
   return (
     <div>
@@ -344,9 +343,8 @@ function Channel({
                 set={
                   step.slot && "key" in step.slot ? isSet(step.slot.key) : false
                 }
-                status={status}
-                link={link}
-                last={at === steps.length - 1}
+                link={status?.link ?? null}
+                waiting={waiting && at === steps.length - 1}
               />
             ))}
           </ol>
@@ -402,18 +400,18 @@ function Row({
   step,
   state,
   set,
-  status,
   link,
-  last,
+  waiting,
 }: {
   n: number;
   step: Step;
   state: StepState;
   /** Key steps only: whether the token is already stored. */
   set: boolean;
-  status: ReachChannelStatus | null;
+  /** Where the service says this bot is, once it has connected. */
   link: string | null;
-  last: boolean;
+  /** This is the step the first message from the phone is being waited for in. */
+  waiting: boolean;
 }) {
   return (
     <li className="flex gap-3 text-[13px] leading-relaxed">
@@ -433,9 +431,8 @@ function Row({
           slot={step.slot}
           state={state}
           set={set}
-          status={status}
           link={link}
-          last={last}
+          waiting={waiting}
         />
       </div>
     </li>
@@ -472,25 +469,23 @@ function Doing({
   slot,
   state,
   set,
-  status,
   link,
-  last,
+  waiting,
 }: {
   slot?: Slot;
   state: StepState;
   set: boolean;
-  status: ReachChannelStatus | null;
   link: string | null;
-  last: boolean;
+  waiting: boolean;
 }) {
-  if (state === "later" || !slot) {
-    if (state === "later" || !last || !status?.bot || status.allowed)
-      return null;
-    return <ShinyText text="Waiting for your first message…" tone="waiting" />;
-  }
-  if ("key" in slot)
+  const held = waiting && (
+    <ShinyText text="Waiting for your first message…" tone="waiting" />
+  );
+  if (state === "later") return null;
+  if (slot && "key" in slot)
     return <KeyField configKey={slot.key} looks={slot.looks} set={set} />;
   if (state === "done") return null;
+  if (!slot) return held || null;
   if ("open" in slot)
     return (
       <Button
@@ -503,18 +498,26 @@ function Doing({
       </Button>
     );
   if ("manifest" in slot) return <CopyManifest />;
+  // The service has not named its address yet: the words alone are the step
+  if (!link) return held || null;
   return (
     <div className="space-y-2.5">
-      {link && <Scan link={link} />}
-      {last && status?.bot && !status.allowed && (
-        <ShinyText text="Waiting for your first message…" tone="waiting" />
-      )}
+      <Scan link={link} says={slot.says} does={slot.does} />
+      {held}
     </div>
   );
 }
 
 /** The bot's own address, big enough to be read from the screen by a phone camera. */
-function Scan({ link }: { link: string }) {
+function Scan({
+  link,
+  says,
+  does,
+}: {
+  link: string;
+  says: string;
+  does?: string;
+}) {
   const { size, data } = encode(link);
   const shown = link.replace(/^https:\/\//, "");
   return (
@@ -543,16 +546,14 @@ function Scan({ link }: { link: string }) {
         </svg>
       </div>
       <div className="space-y-2">
-        <p className="text-muted-foreground">
-          Point your phone's camera at it, or open the link here.
-        </p>
+        <p className="text-muted-foreground">{says}</p>
         <Button
           size="sm"
           variant="outline"
           render={<a href={link} target="_blank" rel="noreferrer" />}
         >
           <ExternalLink />
-          {shown}
+          {does ?? shown}
         </Button>
       </div>
     </div>

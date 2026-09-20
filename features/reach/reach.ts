@@ -79,6 +79,8 @@ type Live = {
   channel: Channel;
   stop: AbortController;
   bot: string | null;
+  /** Where to go to reach this bot, as the service named it (`channel.ts`). */
+  link: string | null;
   problem: string | null;
   asking: ReachPerson | null;
   line: Line | null;
@@ -145,6 +147,7 @@ export async function readReachStatus(): Promise<ReachStatus> {
       [...state.live.values()].map(async (live) => ({
         name: live.name,
         bot: live.bot,
+        link: live.link,
         allowed: await readPerson(live.name),
         asking: live.asking,
         problem: live.problem,
@@ -179,6 +182,7 @@ export async function startReach(fresh?: ReachChannelName): Promise<void> {
       channel: MAKE[name](...keys),
       stop: new AbortController(),
       bot: null,
+      link: null,
       problem: null,
       asking: null,
       line: null,
@@ -225,8 +229,9 @@ async function listen(live: Live) {
     try {
       await live.channel.listen(
         {
-          ready: (bot) => {
+          ready: (bot, link) => {
             live.bot = bot;
+            live.link = link;
             live.problem = null;
             changed();
           },
