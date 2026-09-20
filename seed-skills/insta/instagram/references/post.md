@@ -1,6 +1,20 @@
 # A post, made the way the accounts that do well make it
 
-## 1. Find the reference accounts
+## 1. Ask what to build it after
+
+A post built without looking at one comes out as a slide deck: the numbers alone (ratio,
+slide count, tag count) say nothing about how a post looks. So before anything, unless
+your memory already holds a pattern for this niche, send Thursday one question with these
+options:
+
+- `I'll name them` — they give the handles. Go to step 2 with those.
+- `I'll open one` — open a window on their screen
+  (`playwright-cli open https://www.instagram.com/ --headed`), tell them to leave the post
+  or account they like on it, and end your turn. When they say it is there, read that screen
+  (`playwright-cli snapshot`) for the handle or post, and study that one first.
+- `Find one yourself` — do step 2.
+
+## 2. Find the reference accounts
 
 ```bash
 node <skill>/scripts/search.mjs "<niche word>" --out <scratch>/search.json
@@ -15,7 +29,7 @@ node <skill>/scripts/profile.mjs <handle> --out <scratch>/<handle>.json --sheet 
 
 Posts marked `pinned` are old ones kept on top; judge the pattern by the rest.
 
-## 2. Study how they post
+## 3. Study how they post
 
 `profile` prints the numbers: types, ratio, slides per carousel, caption length, hashtag
 count, cadence, and which posts did best. What the numbers cannot tell is how the slides
@@ -25,14 +39,21 @@ look — `look_at` the covers sheet once, then the best post's slides:
 node <skill>/scripts/sheet.mjs --out <scratch>/best.png <scratch>/<handle>.json --post 3
 ```
 
-Write the pattern down before building, one line each: ratio and slide count; the cover
+**The pattern is not written until the sheets have been looked at.** Numbers without a look
+are how a post comes out as a dark slide deck. Write it down after, one line each: what the
+covers look like at a glance (how big the words are against the picture, how much empty
+space, how strong the contrast, how much of the frame the picture takes); ratio and slide
+count; the cover
 (hook length, type size and weight, where the text sits, the photo or not); the inner
 slides (text alone, photo with a line, photo over its own blur); the background treatment
 (darkened, blurred, a gradient at the bottom, a flat colour); the source credit; the
 caption (first line, body, call to action, hashtags). Keep it in your memory with the
 accounts and the date, and read it next time instead of studying again.
 
-## 3. Pictures
+## 4. Pictures
+
+A screenshot of a web page is not a picture: a blog's header banner or a logo fills the
+slide with something nobody looks at. Take the article's own picture, or draw one.
 
 - **Something that happened**: the real picture. `node $THURSDAY_SKILLS/browser/scripts/webimage.mjs <article url> --out <post dir>`
   saves the page's own picture and prints the credit line; `--all` adds the large pictures
@@ -43,9 +64,12 @@ accounts and the date, and read it next time instead of studying again.
   file into the post folder, and let the slide crop it (`object-fit: cover`). A drawn
   picture is never passed off as the event. Posting one that looks real takes `--ai-label`.
 
-## 4. Slides
+## 5. Slides
 
-Copy `<skill>/templates/carousel.html` into the post folder beside the pictures. Set
+**Start from the template, always.** Copy `<skill>/templates/carousel.html` into the post
+folder beside the pictures and change it towards the pattern — type sizes, colours, where
+the words sit. Writing a slide file from nothing is how the pattern gets lost; if the
+pattern needs something the template cannot carry, say so in your answer. Set
 `--w`/`--h` to the size, keep one `<section data-slide>` per slide, and write each slide
 from the pattern. Feed is 1080x1350 (4:5) or 1080x1080 (1:1); every slide of a carousel is
 the same size.
@@ -58,7 +82,7 @@ node $THURSDAY_SKILLS/browser/scripts/render.mjs <post dir>/carousel.html --size
 `look_at` the check sheet once: text inside the slide, readable over the picture. Fonts come
 from the network; a slide in a language the machine has no font for renders as boxes.
 
-## 5. The composer
+## 6. The composer
 
 Write the caption to a file, then:
 
