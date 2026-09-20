@@ -24,6 +24,12 @@ import {
 } from "@/components/ui/tooltip";
 import { type Bot, type BotIcon, isAppStop } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
+import {
+  type BotGesture,
+  type CrewMotion,
+  type CrewPlaying,
+  motionOf,
+} from "@/features/bot/components/crew-motion";
 import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
 import { cn, plainText, WAITING_INK } from "@/lib/utils";
 import { MARK_PALETTE, MARK_SHAPES } from "../mark.const";
@@ -42,8 +48,8 @@ import { isUnread, ThreadRow } from "./room-list";
 
 /** The room folded: the pill at the foot of the call screen, the faces on it, and what passed between two parties riding above one for a moment. Split out of bot-room by subject; see it for the room as a whole. */
 
-/** Faces the row draws before the count takes over. */
-const CREW_MAX = 10;
+/** Faces the row draws before it starts hiding them (the user's pick). */
+const CREW_MAX = 14;
 
 /** How long a hand-off stays above a face, ms. */
 const HANDOFF_MS = 3400;
@@ -175,6 +181,10 @@ export function participantStates(threads: ThreadView[]): Map<string, string> {
  * stand for a sync: a failure, then a question, then an ending or a stop, then
  * messages, then a job arriving, an answer, a bot finishing its part or going
  * back to work.
+ *
+ * The same pass says what each face should do about it (`crew-motion`). One sync
+ * shows one bubble but every gesture it turned up, because a gesture sits on the
+ * face it belongs to and two of them never cover each other.
  */
 export function happenedIn(
   thread: ThreadView,
@@ -182,23 +192,27 @@ export function happenedIn(
   had: Set<string>,
   stood: Map<string, string>,
   stands: Map<string, string>,
-): Happening[] {
+): { moments: Happening[]; gestures: BotGesture[] } {
   const own = thread.bot;
+  const felt: BotGesture[] = [];
   // A thread this sync is the first to see — just opened, or back in the inbox
   // after dropping out of it — has no history here, so every line in it would
   // read as having just happened. Being taken on is the news; nothing else is.
   if (!was) {
     return thread.status === "working"
-      ? [
-          {
-            rank: 1,
-            at: own.name,
-            from: THURSDAY,
-            to: [own],
-            text: `took on “${clipWord(thread.label)}”`,
-          },
-        ]
-      : [];
+      ? {
+          moments: [
+            {
+              rank: 1,
+              at: own.name,
+              from: THURSDAY,
+              to: [own],
+              text: `took on “${clipWord(thread.label)}”`,
+            },
+          ],
+          gestures: [{ bot: own.name, gesture: "took" }],
+        }
+      : { moments: [], gestures: [] };
   }
 
   const out: Happening[] = [];
@@ -208,6 +222,8 @@ export function happenedIn(
   const rounds = new Map<string, Chatter[]>();
   for (const line of fresh) {
     if (line.kind === "user") {
+      if (line.steppedIn) felt.push({ bot: line.bot.name, gesture: "read" });
+      else felt.push({ bot: line.bot.name, gesture: "took" });
       out.push(
         line.steppedIn
           ? // the words were up while they waited (waitingStepIn); read, the bot says so
@@ -227,6 +243,7 @@ export function happenedIn(
             },
       );
     } else if (line.kind === "stop") {
+      felt.push({ bot: line.bot.name, gesture: "stop" });
       out.push({
         rank: 3,
         at: line.bot.name,
@@ -236,6 +253,7 @@ export function happenedIn(
         text: leadOf(line.text),
       });
     } else if (line.kind === "ask" && line.to?.name === THURSDAY.name) {
+      if (line.question) felt.push({ bot: line.bot.name, gesture: "ask" });
       out.push(
         line.question
           ? {
@@ -263,6 +281,9 @@ export function happenedIn(
     for (const line of round) {
       if (line.to) reached.set(line.to.name, line.to);
     }
+    felt.push({ bot: giver, gesture: "give" });
+    for (const bot of reached.values())
+      felt.push({ bot: bot.name, gesture: "take" });
     out.push({
       rank: 2,
       at: giver,
@@ -288,6 +309,7 @@ export function happenedIn(
           (line.kind === "ask" || line.kind === "say"),
       )
     ) {
+      felt.push({ bot: bot.name, gesture: "done" });
       out.push({
         rank: 1,
         at: bot.name,
@@ -299,9 +321,10 @@ export function happenedIn(
     }
   }
 
-  if (was === thread.status) return out;
+  if (was === thread.status) return { moments: out, gestures: felt };
   const label = clipWord(thread.label);
   if (thread.status === "cancelled") {
+    felt.push({ bot: own.name, gesture: "stop" });
     out.push({
       rank: 3,
       at: own.name,
@@ -312,10 +335,13 @@ export function happenedIn(
     });
   } else if (thread.status === "done") {
     // A job's own ending is the card in the screen's left corner (artifact-view); the pill
-    // keeps its bubbles for what is still going on
+    // keeps its bubbles for what is still going on. The face still says it happened — a
+    // somersault is on the bot, not over it, so it never stands where the card's notice would.
+    felt.push({ bot: own.name, gesture: "done" });
   } else if (thread.status === "working") {
     // Words from the user already have their bubble.
     if (!fresh.some((line) => line.kind === "user")) {
+      felt.push({ bot: own.name, gesture: "took" });
       out.push({
         rank: 1,
         at: own.name,
@@ -330,6 +356,7 @@ export function happenedIn(
     !out.some((one) => one.sign === "question" || one.sign === "stopped")
   ) {
     // A stop with no stop line of its own: the turn limit, or a room gone idle
+    felt.push({ bot: own.name, gesture: "stop" });
     out.push({
       rank: 3,
       at: own.name,
@@ -339,7 +366,7 @@ export function happenedIn(
       text: "paused",
     });
   }
-  return out;
+  return { moments: out, gestures: felt };
 }
 
 /** The step a bot is on, as the model labelled it. */
@@ -352,7 +379,7 @@ function wordOf(line: Chatter | null): string | null {
 /**
  * Who is in the row, in the order it is drawn.
  *
- * Anyone moving sorts to the front, so the count at the tail only ever hides
+ * Anyone moving sorts to the front, so the mark at the tail only ever hides
  * idle bots — a bot with something to say always has a face to say it from,
  * which is what lets a hand-off point at one. A bot that spoke inside somebody
  * else's job is in the room too, whether or not it owns a thread (latestPerBot).
@@ -477,6 +504,7 @@ export function Chip({
   count,
   busy,
   pending,
+  playing,
   onPick,
   onOpen,
 }: {
@@ -489,6 +517,8 @@ export function Chip({
   count: number;
   busy: number;
   pending: number;
+  /** The gesture each face is in the middle of, by bot name (crew-motion). */
+  playing: CrewPlaying;
   onPick: (id: string) => void;
   onOpen: () => void;
 }) {
@@ -553,6 +583,7 @@ export function Chip({
         bubble={grown ? null : bubble}
         label={count ? `Threads (${count})` : "Bots"}
         onClick={onOpen}
+        playing={playing}
         side={<RoomState busy={busy} pending={pending} grown={grown} />}
         onWrite={writeLine.open}
       />
@@ -573,6 +604,7 @@ export function CrewRow({
   crew,
   more,
   bubble,
+  playing,
   side,
   label,
   onClick,
@@ -581,6 +613,8 @@ export function CrewRow({
   crew: CrewFace[];
   more: number;
   bubble: Handoff | null;
+  /** The gesture each face is in the middle of, by bot name (crew-motion). */
+  playing: CrewPlaying;
   /** The right side: the room's state, or what just happened. */
   side: ReactNode;
   label: string;
@@ -620,7 +654,7 @@ export function CrewRow({
         aria-label={label}
         className="flex min-w-0 flex-1 items-center gap-2 rounded-full text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        <Crew crew={crew} more={more} bubble={bubble} />
+        <Crew crew={crew} more={more} bubble={bubble} playing={playing} />
         {side}
       </button>
     </div>
@@ -691,17 +725,25 @@ const FLOOR = 3;
  *
  * A face that is moving is awake: lifted and swollen a little. That layer alone
  * survives every collision — three bots at once are three awake faces, with no
- * order to decide.
+ * order to decide, and it sits outside the gesture layers so a bot at work is
+ * still lifted while it jumps.
+ *
+ * Under that, a face is three layers and a mark (`crew-motion`): the body through
+ * the air, the shape pressing and flattening, the turn. At rest the shape layer
+ * breathes. They are keyed on the gesture, so a second event on one face starts
+ * over rather than landing mid-way through the first.
  */
 function Crew({
   crew,
   more,
   bubble,
+  playing,
 }: {
   crew: CrewFace[];
   more: number;
   /** The hand-off up, drawn over the face it points at. */
   bubble: Handoff | null;
+  playing: CrewPlaying;
 }) {
   return (
     <span className="flex min-w-0 shrink items-center">
@@ -727,7 +769,10 @@ function Crew({
                   face.awake && "-translate-y-0.5 scale-110",
                 )}
               >
-                <CrewMark face={face} />
+                <CrewBody
+                  face={face}
+                  motion={motionOf(playing.get(face.name), index)}
+                />
               </span>
               {bubble?.at === face.name && <HandoffBubble handoff={bubble} />}
             </span>
@@ -747,15 +792,52 @@ function Crew({
       })}
       {more > 0 && (
         // Past CREW_MAX the row stops growing. Only idle bots are ever behind it —
-        // anyone moving sorted to the front — so the tail is a word, not a face-shaped
-        // box standing in for faces nobody needs to see (the user's pick).
+        // anyone moving sorted to the front — so the tail says there are more and not
+        // how many (the user's pick): a count nobody can act on is a number to read.
+        // Brand, but tinted rather than filled: filled brand is what waits on the user,
+        // and nothing here does.
         <span
-          className="ml-2 shrink-0 font-mono text-[10px] text-muted-foreground"
+          className="ml-2 flex h-[18px] shrink-0 items-center rounded-full bg-brand/10 px-2 font-mono text-[10.5px] leading-none font-medium text-brand"
           title={`${more} more`}
         >
-          +{more}
+          +
         </span>
       )}
+    </span>
+  );
+}
+
+/**
+ * A face's moving parts: the body, the shape and the turn, outermost first.
+ *
+ * Each layer animates one thing, because one element can only animate `transform`
+ * once and a jump needs its height and its squash on different curves. `data-crew-motion`
+ * is what a machine asked to hold still switches off (app/globals.css).
+ */
+function CrewBody({ face, motion }: { face: CrewFace; motion: CrewMotion }) {
+  const delay = motion.delayMs
+    ? { animationDelay: `${motion.delayMs}ms` }
+    : undefined;
+  return (
+    <span
+      key={motion.key}
+      data-crew-motion
+      className={cn("flex", motion.body)}
+      style={delay}
+    >
+      <span
+        data-crew-motion
+        className={cn("flex origin-bottom", motion.shape)}
+        style={delay}
+      >
+        <span
+          data-crew-motion
+          className={cn("flex", motion.turn)}
+          style={delay}
+        >
+          <CrewMark face={face} />
+        </span>
+      </span>
     </span>
   );
 }

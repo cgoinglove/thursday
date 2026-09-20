@@ -275,3 +275,328 @@
     }
   }
 }
+
+/* The crew's body language (features/bot/components/crew-motion.ts, which names which layer takes
+   which of these). A jump only reads as weight if the body and the shape are on different curves —
+   the body slows going up and speeds up coming down, the shape presses before the push and
+   flattens on contact — so a face is a stack of layers and each of these animates one of them.
+   Keyframes carry their own easing, which is what lets one animation change curve at each beat. */
+@theme {
+  /* Resting. Every face carries it, each on its own phase, and a gesture takes the layer over. */
+  --animate-crew-breath: crew-breath 2.6s ease-in-out infinite;
+
+  @keyframes crew-breath {
+    0%,
+    100% {
+      transform: scale(1, 1);
+    }
+    50% {
+      transform: scale(0.985, 1.025);
+    }
+  }
+}
+
+/* The jump every gesture is built from: gather, push, rise, fall, land, rebound, settle. */
+@theme {
+  --animate-crew-hop: crew-hop 0.74s both;
+  --animate-crew-hop-shape: crew-hop-shape 0.74s both;
+  --animate-crew-spin: crew-spin 0.74s cubic-bezier(0.3, 0, 0.35, 1) both;
+
+  @keyframes crew-hop {
+    0% {
+      transform: translateY(0);
+      animation-timing-function: cubic-bezier(0.25, 0, 0.2, 1);
+    }
+    16.2% {
+      transform: translateY(1.5px);
+      animation-timing-function: cubic-bezier(0.08, 0.62, 0.3, 1);
+    }
+    24.3% {
+      transform: translateY(0);
+      animation-timing-function: cubic-bezier(0.1, 0.6, 0.3, 1);
+    }
+    48.6% {
+      transform: translateY(-15px);
+      animation-timing-function: cubic-bezier(0.72, 0, 0.9, 0.42);
+    }
+    71.6%,
+    79.7% {
+      transform: translateY(0);
+      animation-timing-function: cubic-bezier(0.2, 0.82, 0.4, 1);
+    }
+    89.2% {
+      transform: translateY(-3px);
+      animation-timing-function: cubic-bezier(0.45, 0, 0.5, 1);
+    }
+    100% {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes crew-hop-shape {
+    0% {
+      transform: scale(1, 1);
+      animation-timing-function: cubic-bezier(0.35, 0, 0.3, 1);
+    }
+    16.2% {
+      transform: scale(1.15, 0.81);
+      animation-timing-function: cubic-bezier(0.2, 0.9, 0.4, 1);
+    }
+    24.3% {
+      transform: scale(0.89, 1.19);
+      animation-timing-function: ease-out;
+    }
+    37% {
+      transform: scale(1, 1);
+      animation-timing-function: ease-in;
+    }
+    62% {
+      transform: scale(0.94, 1.08);
+      animation-timing-function: linear;
+    }
+    71.6% {
+      transform: scale(1, 1);
+      animation-timing-function: cubic-bezier(0.25, 0.9, 0.4, 1);
+    }
+    79.7% {
+      transform: scale(1.26, 0.73);
+      animation-timing-function: cubic-bezier(0.25, 0.9, 0.4, 1);
+    }
+    89.2% {
+      transform: scale(0.94, 1.09);
+      animation-timing-function: cubic-bezier(0.4, 0, 0.4, 1);
+    }
+    95% {
+      transform: scale(1.04, 0.97);
+    }
+    100% {
+      transform: scale(1, 1);
+    }
+  }
+
+  /* Finished: the turn happens only while the feet are off the ground, so it lands straight. */
+  @keyframes crew-spin {
+    0%,
+    24.3% {
+      transform: rotate(0deg);
+    }
+    71.6%,
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+}
+
+/* Asks you: a short hop to catch the eye, then the head goes over and comes back. */
+@theme {
+  --animate-crew-ask: crew-ask 0.82s both;
+  --animate-crew-ask-turn: crew-ask-turn 0.82s both;
+
+  @keyframes crew-ask {
+    0% {
+      transform: translateY(0);
+      animation-timing-function: cubic-bezier(0.1, 0.6, 0.3, 1);
+    }
+    14.6% {
+      transform: translateY(-5px);
+      animation-timing-function: cubic-bezier(0.7, 0, 0.9, 0.45);
+    }
+    26.8%,
+    100% {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes crew-ask-turn {
+    0% {
+      transform: rotate(0deg);
+      animation-timing-function: cubic-bezier(0.2, 0.85, 0.35, 1);
+    }
+    31.7% {
+      transform: rotate(-15deg);
+      animation-timing-function: cubic-bezier(0.35, 0, 0.3, 1);
+    }
+    53.7% {
+      transform: rotate(13deg);
+      animation-timing-function: cubic-bezier(0.35, 0, 0.3, 1);
+    }
+    73.2% {
+      transform: rotate(-6deg);
+      animation-timing-function: cubic-bezier(0.4, 0, 0.4, 1);
+    }
+    100% {
+      transform: rotate(0deg);
+    }
+  }
+}
+
+/* Handed work over: the giver turns to whoever it reached and holds there a moment. */
+@theme {
+  --animate-crew-give: crew-give 0.9s both;
+
+  @keyframes crew-give {
+    0% {
+      transform: rotate(0deg) translateX(0);
+      animation-timing-function: cubic-bezier(0.2, 0.85, 0.35, 1);
+    }
+    22.2%,
+    72.2% {
+      transform: rotate(12deg) translateX(1.5px);
+      animation-timing-function: cubic-bezier(0.35, 0, 0.35, 1);
+    }
+    100% {
+      transform: rotate(0deg) translateX(0);
+    }
+  }
+}
+
+/* Took work from another bot: a small hop back, a beat after the giver turns. */
+@theme {
+  --animate-crew-take: crew-take 0.52s both;
+  --animate-crew-take-shape: crew-take-shape 0.52s both;
+
+  @keyframes crew-take {
+    0% {
+      transform: translateY(0);
+      animation-timing-function: cubic-bezier(0.25, 0, 0.2, 1);
+    }
+    11.5% {
+      transform: translateY(1.5px);
+      animation-timing-function: cubic-bezier(0.1, 0.6, 0.3, 1);
+    }
+    40.4% {
+      transform: translateY(-9px);
+      animation-timing-function: cubic-bezier(0.72, 0, 0.9, 0.42);
+    }
+    80.8%,
+    100% {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes crew-take-shape {
+    0% {
+      transform: scale(1, 1);
+      animation-timing-function: cubic-bezier(0.3, 0, 0.3, 1);
+    }
+    11.5% {
+      transform: scale(1.12, 0.85);
+      animation-timing-function: cubic-bezier(0.2, 0.9, 0.4, 1);
+    }
+    21.2% {
+      transform: scale(0.92, 1.12);
+      animation-timing-function: ease-out;
+    }
+    40.4% {
+      transform: scale(1, 1);
+      animation-timing-function: ease-in;
+    }
+    80.8% {
+      transform: scale(1.18, 0.8);
+      animation-timing-function: cubic-bezier(0.25, 0.9, 0.4, 1);
+    }
+    92% {
+      transform: scale(0.96, 1.05);
+    }
+    100% {
+      transform: scale(1, 1);
+    }
+  }
+}
+
+/* Stopped: it sinks and stays flattened for most of a second. The one gesture that does not
+   bounce back, so a stop never reads as good news. */
+@theme {
+  --animate-crew-sink: crew-sink 1.15s both;
+  --animate-crew-sink-shape: crew-sink-shape 1.15s both;
+
+  @keyframes crew-sink {
+    0% {
+      transform: translateY(0);
+      animation-timing-function: cubic-bezier(0.4, 0, 0.3, 1);
+    }
+    17.4%,
+    69.6% {
+      transform: translateY(2px);
+      animation-timing-function: cubic-bezier(0.3, 0.8, 0.4, 1);
+    }
+    100% {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes crew-sink-shape {
+    0% {
+      transform: scale(1, 1);
+      animation-timing-function: cubic-bezier(0.4, 0, 0.25, 1);
+    }
+    17.4%,
+    69.6% {
+      transform: scale(1.13, 0.85);
+      animation-timing-function: cubic-bezier(0.3, 0.85, 0.4, 1);
+    }
+    87% {
+      transform: scale(0.98, 1.02);
+    }
+    100% {
+      transform: scale(1, 1);
+    }
+  }
+}
+
+/* Read what you stepped in with: two nods in place, the second smaller. It never leaves the row. */
+@theme {
+  --animate-crew-nod: crew-nod 0.56s both;
+  --animate-crew-nod-shape: crew-nod-shape 0.56s both;
+
+  @keyframes crew-nod {
+    0% {
+      transform: translateY(0);
+      animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1);
+    }
+    21.4% {
+      transform: translateY(1.5px);
+      animation-timing-function: cubic-bezier(0.3, 0.8, 0.4, 1);
+    }
+    50% {
+      transform: translateY(0);
+      animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1);
+    }
+    71.4% {
+      transform: translateY(1px);
+      animation-timing-function: cubic-bezier(0.3, 0.8, 0.4, 1);
+    }
+    100% {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes crew-nod-shape {
+    0% {
+      transform: scale(1, 1);
+      animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1);
+    }
+    21.4% {
+      transform: scale(1.11, 0.86);
+      animation-timing-function: cubic-bezier(0.2, 0.8, 0.4, 1);
+    }
+    50% {
+      transform: scale(0.97, 1.04);
+      animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1);
+    }
+    71.4% {
+      transform: scale(1.07, 0.92);
+      animation-timing-function: cubic-bezier(0.4, 0, 0.4, 1);
+    }
+    100% {
+      transform: scale(1, 1);
+    }
+  }
+}
+
+/* Every one of them is a courtesy, so a machine asked to hold still keeps the faces where they are. */
+@media (prefers-reduced-motion: reduce) {
+  [data-crew-motion] {
+    animation: none !important;
+  }
+}

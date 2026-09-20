@@ -5,6 +5,10 @@ import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { INBOX_FINISHED, PAGE_SIZE } from "@/config";
 import { type Bot, type Thread } from "@/features/bot/bot.schema";
+import {
+  type BotGesture,
+  useCrewGestures,
+} from "@/features/bot/components/crew-motion";
 import { ThreadReply } from "@/features/bot/components/thread-reply";
 import { toDate } from "@/lib/date-like";
 import { useServerPages } from "@/lib/protocol/use-server-pages";
@@ -150,6 +154,17 @@ export const BotRoom = memo(function BotRoom() {
     [moment, threads, bots],
   );
   const { crew, more } = useMemo(() => crewOf(bots, threads), [bots, threads]);
+  const [playing, play] = useCrewGestures();
+
+  // The crew arriving is the one thing the whole row answers, and it answers once:
+  // before the bots are read the row is stand-ins, and a wave on those would be a
+  // greeting from nobody.
+  const greeted = useRef(false);
+  useEffect(() => {
+    if (greeted.current || !bots?.length) return;
+    greeted.current = true;
+    play(bots.map((bot) => ({ bot: bot.name, gesture: "wave" as const })));
+  }, [bots, play]);
 
   // What each thread and participant was, and which lines had landed, at the
   // previous sync. Only what changed since then just happened.
@@ -172,22 +187,26 @@ export const BotRoom = memo(function BotRoom() {
     if (!was) return;
 
     // One bubble at a time: of what this sync brought, the one that matters
-    // most, and of equals the later.
+    // most, and of equals the later. Every gesture it turned up plays, though —
+    // each sits on its own face, so they never cover one another.
     let top: Happening | null = null;
+    const felt: BotGesture[] = [];
     for (const thread of threads) {
-      const happened = happenedIn(
+      const { moments, gestures } = happenedIn(
         thread,
         was.get(thread.id),
         had,
         stood,
         standing.current,
       );
-      for (const one of happened) {
+      felt.push(...gestures);
+      for (const one of moments) {
         if (!top || one.rank >= top.rank) top = one;
       }
     }
     if (top) handoff(top);
-  }, [threads, handoff]);
+    play(felt);
+  }, [threads, handoff, play]);
 
   // Reading a thread is reading its ending; that is what clears its dot.
   useSeenOnDetail(open ? current : null);
@@ -300,6 +319,7 @@ export const BotRoom = memo(function BotRoom() {
                 crew={faces}
                 more={more}
                 bubble={null}
+                playing={playing}
                 label="Fold the room away"
                 onClick={fold}
                 onWrite={writeLine.open}
@@ -320,6 +340,7 @@ export const BotRoom = memo(function BotRoom() {
           crew={crew}
           more={more}
           bubble={bubble}
+          playing={playing}
           // What waits on the user and nothing else: a finished job's result is the left
           // corner's card (artifact-view), and one notice is enough
           rows={newest.filter(

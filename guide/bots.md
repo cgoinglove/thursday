@@ -48,6 +48,16 @@ step. Pressing the bar has the bot summarize at its next step instead of waiting
 before carrying a long thread much further, since every step after costs less. The bot keeps
 the request and a summary of the rest; the conversation on screen stays whole.
 
+## What the faces in the corner do
+
+The bots in the bottom-right pill move when something happens to them, and only then. One
+jumps and turns over when it finishes a job; one hops and tilts its head when it has a question
+for you; one nods when it has read words you sent mid-call; one sinks and stays flat when it
+stops. Handing work to another bot turns the giver toward it and the other one hops back. The
+dot on a face is the part that stays — the movement is only the moment it happened.
+
+If more bots are on than fit, the pill ends in a small **+**. Opening the room shows them all.
+
 ## Handing a bot work without a call
 
 The **+** at the left end of that corner's pill — or the `/` key — opens a line at the foot of

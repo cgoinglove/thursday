@@ -48,7 +48,8 @@ paths:
   slider, a segment or a chip that fills, a picked card's border and its tick — and what is not
   is a hairline or muted words, so nothing picked has to be read twice; a label beside it is
   muted. A chip among several that may all be picked is tinted with a tick, not filled, so a
-  row of them stays light (the user's pick). A switch between views of one thing sets nothing
+  row of them stays light (the user's pick). The pill's tail, which only says there are more
+  faces than fit, is a faint brand wash rather than a fill: nothing behind it waits on anyone. A switch between views of one thing sets nothing
   and is a white pill (`Segmented view`, a dialog's tabs), never blue. Buttons stay black (`primary`): blue says what is set, black what to press. A tick
   that reports (saved, done, a key set) is not a pick and stays black. Never a surface, and no
   status but that one nav dot — a green beside it would read as a second brand.
@@ -119,15 +120,27 @@ paths:
   thread the user stopped (`cancelled`). Faces do
   not dim when others are at work: the lift of the one moving is what says who is (the user's pick). A job never ends as a failure: a model that
   breaks pauses it as waiting.
+- A face answers what happens to the bot behind it with one gesture, and `crew-motion` is the
+  whole vocabulary: which gesture each event gets, how long it runs, and which of a face's
+  layers it takes (the body through the air, the shape pressing and flattening, the turn) — a
+  jump reads as weight only when its height and its squash run on different curves. At rest
+  every face breathes, each on its own phase. One gesture at a time per face: a second event
+  starts over rather than landing inside the first. A gesture is a moment and a dot is a
+  state, so the dot outlives it, and a gesture never stands where a notice would — it is on the
+  face, not over it. Nothing moves that nothing happened to, and the lift of a working bot sits
+  outside all of it, so a bot at work is still lifted while it jumps.
 - The pill's bubble shows one thing that just happened, over the face of whoever spoke: that face
   with the bots it reached tucked behind it, then the words — no glyph between faces. Questions
   and stops take the waiting colour. Clicking the pill opens the room's list, never a thread; the "+" at its
   left end asks for the write line instead. The card above the pill grows for what waits on the
   user — a question, a stop — and nothing else: a finished job's result is the left corner's
-  card alone, so one notice never shows twice (the user's pick). While the write line is up the
+  card alone, so one notice never shows twice (the user's pick); the bot's own face turns a
+  somersault, which is the pill saying it without a second notice. While the write line is up the
   card does not grow — the line stands there — and the pill's own words say what waits.
   The open list keeps the pill's row at its foot, faces without step words, and a moment shows
-  there instead of in a bubble; only an open thread hides it.
+  there instead of in a bubble; only an open thread hides it. The row holds `CREW_MAX` faces and
+  says nothing until it is full; past that its tail is a "+" and no number, since a count of
+  bots nobody can act on is a number to read (the user's pick).
 - The first run is drawn as the call screen, over it (`intro`): her face where it will be, her
   words down its left as captions are, and on its right the caller's turn — a key, the
   microphone, the bots, what they think with. It opens on the app's one loop played silently in
