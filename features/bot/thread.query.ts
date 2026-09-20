@@ -288,7 +288,10 @@ export async function listThreadHistory(
     )
     .orderBy(desc(threadTable.updatedAt))
     .limit(options.limit ?? PAGE_SIZE);
-  return withLines(rows);
+  // As the inbox: only what can still move carries its transcript. Every page
+  // loaded here is re-read on the same `threads` signal, so a screen left open
+  // beside a working bot would re-read a page of endings per step.
+  return withLines(rows, (row) => isLive(row.status));
 }
 
 /**

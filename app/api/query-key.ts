@@ -81,7 +81,9 @@ export const queryKey = {
   threads: "/api/bot/thread",
   /**
    * History page: Thread[] newest first. `before` is the last page's final
-   * updatedAt (ISO), null for the first page.
+   * updatedAt (ISO), null for the first page. Lines as in `threads`: only what
+   * can still move carries them, and every page loaded is re-read on the same
+   * signal.
    */
   threadHistory: (before: string | null) => ({
     url: "/api/bot/thread",

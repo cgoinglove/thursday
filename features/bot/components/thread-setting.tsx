@@ -104,6 +104,13 @@ export function ThreadSetting() {
 
   // A thread that leaves the list (deleted, cleared) closes the sheet.
   const reading = threads.find((thread) => thread.id === openId);
+  // The list carries lines only for a thread that can still move (thread.query
+  // listThreadHistory), so the sheet reads the one it opens whole. The key sits
+  // under the list's, so the same signal keeps both live.
+  const { data: opened } = useServerRoute<Thread | null>(
+    openId ? queryKey.thread(openId) : null,
+  );
+  const whole = opened?.id === openId ? opened : undefined;
   // Opening a thread is reading its ending; that is what clears its dot.
   useSeenOnDetail(reading);
 
@@ -240,6 +247,7 @@ export function ThreadSetting() {
 
       <ThreadSheet
         thread={reading}
+        whole={whole}
         bots={bots}
         onClose={() => setOpenId(null)}
         onStop={(thread) => stop(thread.id)}
@@ -410,13 +418,16 @@ function ThreadMenu({
  */
 function ThreadSheet({
   thread,
+  whole,
   bots,
   onClose,
   onStop,
   onDelete,
 }: {
-  /** The open thread; none closes the sheet. */
+  /** The open thread; none closes the sheet. The row, which may carry no lines. */
   thread?: Thread;
+  /** The same thread with every line, once it has been read (ThreadSetting). */
+  whole?: Thread;
   bots?: Bot[];
   onClose: () => void;
   onStop: (thread: Thread) => void;
@@ -433,6 +444,13 @@ function ThreadSheet({
   const view = useMemo(
     () => (thread ? threadFromRow(thread, bots) : null),
     [thread, bots],
+  );
+  // The conversation is the one part that needs the lines. A row that carries
+  // them — a thread still going — draws at once and the whole one takes over.
+  const talk = useMemo(
+    () =>
+      whole ? threadFromRow(whole, bots) : view?.lines.length ? view : null,
+    [whole, view, bots],
   );
   const side = thread ? (sides[thread.id] ?? null) : null;
 
@@ -492,15 +510,23 @@ function ThreadSheet({
                   </DialogClose>
                 </div>
 
-                <Conversation
-                  thread={view}
-                  tab={side}
-                  onTab={(next) =>
-                    setSides((was) => ({ ...was, [thread.id]: next }))
-                  }
-                  className="max-h-none min-h-0 flex-1 px-5"
-                  tabsClassName="px-5"
-                />
+                {talk ? (
+                  <Conversation
+                    thread={talk}
+                    tab={side}
+                    onTab={(next) =>
+                      setSides((was) => ({ ...was, [thread.id]: next }))
+                    }
+                    className="max-h-none min-h-0 flex-1 px-5"
+                    tabsClassName="px-5"
+                  />
+                ) : (
+                  <div className="flex min-h-0 flex-1 flex-col gap-2 px-5 py-4">
+                    <Skeleton className="h-3 w-4/5" />
+                    <Skeleton className="h-3 w-3/5" />
+                    <Skeleton className="h-3 w-2/3" />
+                  </div>
+                )}
 
                 <div className="shrink-0 px-5 pt-2 pb-4">
                   <ThreadReply

@@ -35,8 +35,12 @@ import { FoldButton, TAB } from "./room-conversation";
 
 export const needsYou = needsThreadReply;
 
-/** An ending nobody has opened. It needs the user too, to read rather than to answer. */
-export const isUnread = (thread: ThreadView) =>
+/**
+ * An ending nobody has opened. It needs the user too, to read rather than to
+ * answer. Takes the two fields it reads, as `needsThreadReply` does, so a
+ * stored row answers it as well as a drawn one.
+ */
+export const isUnread = (thread: { status: string; seen: boolean }) =>
   thread.status === "done" && !thread.seen;
 
 /** The room's two lists. */
