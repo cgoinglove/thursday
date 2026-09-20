@@ -205,6 +205,10 @@ export async function findThread(id: string) {
   return thread ?? null;
 }
 
+/** Whether a thread can still write another line. */
+const isLive = (status: ThreadStatus) =>
+  status === "running" || status === "waiting";
+
 /** Keep open work, unread endings and unrelayed messages alongside recent read endings. */
 export async function listInboxThreads(): Promise<Thread[]> {
   const [open, finished, unread, unrelayed] = await Promise.all([
@@ -250,7 +254,12 @@ export async function listInboxThreads(): Promise<Thread[]> {
       ]),
     ).values(),
   ].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
-  return withLines(rows);
+  // Only what can still move carries its transcript. An ended thread is in the
+  // inbox so it can be seen and opened, and the row says all the list draws of
+  // it (its outcome, its room); its lines come with the thread itself when it
+  // is opened (queryKey.thread). Without this the one list the event stream
+  // re-reads on every change is every finished job's transcript, again.
+  return withLines(rows, (row) => isLive(row.status));
 }
 
 /** The call's bounded overview includes older open work before recent endings. */
@@ -605,19 +614,25 @@ function viewOf(row: ThreadRow, lines: ThreadLine[]): Omit<Thread, "room"> {
   };
 }
 
-/** Reduces every thread's messages to lines and attaches them to the rows. */
-async function withLines(rows: ThreadRow[]): Promise<Thread[]> {
+/**
+ * Rows in the shape the screen reads, their lines replayed from the stored
+ * messages. `carries` leaves a row's lines out: the transcript is the whole
+ * cost of a thread — a long job's runs to megabytes — and a list that is read
+ * again on every change cannot afford the ones that cannot change.
+ */
+async function withLines(
+  rows: ThreadRow[],
+  carries: (row: ThreadRow) => boolean = () => true,
+): Promise<Thread[]> {
   if (rows.length === 0) return [];
-  const messages = await database
-    .select()
-    .from(threadMessageTable)
-    .where(
-      inArray(
-        threadMessageTable.threadId,
-        rows.map((row) => row.id),
-      ),
-    )
-    .orderBy(threadMessageTable.seq);
+  const withText = rows.filter(carries).map((row) => row.id);
+  const messages = withText.length
+    ? await database
+        .select()
+        .from(threadMessageTable)
+        .where(inArray(threadMessageTable.threadId, withText))
+        .orderBy(threadMessageTable.seq)
+    : [];
 
   const threadIds = rows.map((row) => row.id);
   const [works, deliveries, relays] = await Promise.all([

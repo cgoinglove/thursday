@@ -72,9 +72,11 @@ export const queryKey = {
   routines: "/api/routine",
 
   /**
-   * Inbox: Thread[] newest first with their lines, everything running or asking plus
-   * the most recent finished few. Read by use-thursday only; the `threads` signal
-   * triggers revalidation, with a 30s poll as fallback.
+   * Inbox: Thread[] newest first, everything running or asking plus the most
+   * recent finished few. Read by use-thursday only; the `threads` signal
+   * triggers revalidation, with a 30s poll as fallback. Only what can still
+   * move carries its lines — an ended thread's are read with `thread` below,
+   * since this list is re-read every time anything changes.
    */
   threads: "/api/bot/thread",
   /**
@@ -85,7 +87,11 @@ export const queryKey = {
     url: "/api/bot/thread",
     query: { history: 1, before },
   }),
-  /** Thread | null: one job with its lines, for a job neither list holds (the room opening an older one). */
+  /**
+   * Thread | null: one job with all of its lines. What the room reads for the
+   * thread it has open, whether or not a list holds it. Under `threads`, so the
+   * same signal keeps an open thread live.
+   */
   thread: (id: string) => ({ url: "/api/bot/thread", query: { id } }),
   /** ResultPart[]: the full result of one tool call; lists carry only a few lines. */
   toolResult: (threadId: string | null, callId: string | null) => ({

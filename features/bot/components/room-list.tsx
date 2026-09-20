@@ -28,7 +28,7 @@ import { RoutineMark } from "@/features/routine/components/routine-mark";
 import { type DateLike, shortAgo, toDate } from "@/lib/date-like";
 import { type ServerPages } from "@/lib/protocol/use-server-pages";
 import { cn, plainText, WAITING_INK } from "@/lib/utils";
-import { lastSaid, rosterOf, type ThreadView } from "../thread.store";
+import { lastSaid, type ThreadView } from "../thread.store";
 import { FoldButton, TAB } from "./room-conversation";
 
 /** The room open on its lists: what is happening now, and the history behind it. Split out of bot-room by subject; see it for the room as a whole. */
@@ -398,7 +398,7 @@ export function ThreadRow({
                 <RoutineMark className="size-3 text-muted-foreground/80" />
               </span>
             )}
-            <BotRoster bots={rosterOf(thread)} />
+            <BotRoster bots={thread.roster} />
             <span className="flex-1" />
             <span className="shrink-0 font-mono text-[11px] leading-4 text-muted-foreground/70 tabular-nums">
               {shortAgo(thread.updatedAt)}

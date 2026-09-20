@@ -48,7 +48,6 @@ import {
   ThreadFacts,
 } from "@/features/bot/components/room-conversation";
 import {
-  rosterOf,
   screenActs,
   threadFromRow,
   useSeenOnDetail,
@@ -309,7 +308,7 @@ function Row({
                   <RoutineMark className="size-3 text-muted-foreground/80" />
                 </span>
               )}
-              <BotRoster bots={rosterOf(view)} />
+              <BotRoster bots={view.roster} />
               {running && (
                 <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground" />
               )}
@@ -513,7 +512,7 @@ function ThreadSheet({
                       room: thread.room,
                     }}
                     status={thread.status}
-                    faces={rosterOf(view)}
+                    faces={view.roster}
                     to={side ?? thread.bot}
                   />
                 </div>

@@ -41,7 +41,6 @@ import {
   type BotRef,
   type Chatter,
   heardBy,
-  rosterOf,
   type ThreadItem,
   type ThreadView,
   type ThreadViewStatus,
@@ -267,7 +266,7 @@ export function Conversation({
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const following = useRef(true);
-  const roster = rosterOf(thread);
+  const roster = thread.roster;
   const side =
     onTab && tab !== thread.bot.name && roster.some((bot) => bot.name === tab)
       ? tab

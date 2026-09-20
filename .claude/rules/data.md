@@ -88,6 +88,11 @@ none does. New event = one union line + one emit + one handler (+ one `SIGNALS` 
 compiler enforces it). Emit where the fact happens (the query's write, the watcher), not in each caller.
 A 30-second poll remains as a safety net. No WebSockets.
 
+**What a signal re-reads is read again on every write in its domain**, so it carries only what can
+still change. The inbox leaves out the transcript of a thread that has ended, and the room reads the
+one it has open by id (`queryKey.thread`, under the same key so the same signal keeps it live).
+Judge such a list by what one write costs to re-read, not by what it costs once.
+
 **Values on the wire**
 
 - Timestamps are `DateLike` (`lib/date-like`): ISO strings on the wire, `Date` in drizzle.

@@ -78,6 +78,12 @@ export type ThreadView = {
   label: string;
   /** Who it went to. Other bots join through messages (`ask`). */
   bot: BotRef;
+  /**
+   * Every bot in this thread, its own first, in the order each took part. Read
+   * off the room, not the lines: the inbox leaves an ended thread's lines out
+   * (thread.query `listInboxThreads`) and its row still has to name everyone.
+   */
+  roster: BotRef[];
   lines: Chatter[];
   room: RoomView;
   status: ThreadViewStatus;
@@ -253,12 +259,25 @@ export function threadFromRow(row: Thread, bots?: Bot[]): ThreadView {
     }
   }
 
+  const roster: BotRef[] = [owner];
+  const join = (bot: BotRef | null) => {
+    if (!bot || bot.name === ROOM_THURSDAY) return;
+    if (!roster.some((one) => one.name === bot.name)) roster.push(bot);
+  };
+  for (const one of row.room.participants) join(ref(one.bot));
+  // A bot a line names before it has a participant row of its own
+  for (const line of lines) {
+    join(line.bot);
+    join(line.to);
+  }
+
   return {
     id: row.id,
     room: row.room,
     request: row.request,
     label: row.label,
     bot: owner,
+    roster,
     lines,
     status: row.status === "running" ? "working" : row.status,
     outcome: row.outcome,
@@ -459,22 +478,6 @@ export function useBotThreads(): ThreadView[] {
 }
 
 const isOutcome = (line: Chatter) => line.kind === "result";
-
-/** Every bot in this thread, the thread's own first, in the order each speaks or is spoken to. */
-export function rosterOf(thread: ThreadView): BotRef[] {
-  const out: BotRef[] = [thread.bot];
-  for (const line of thread.lines) {
-    for (const bot of [line.bot, line.to]) {
-      if (
-        bot &&
-        bot.name !== ROOM_THURSDAY &&
-        !out.some((one) => one.name === bot.name)
-      )
-        out.push(bot);
-    }
-  }
-  return out;
-}
 
 /** The model message a line was cut from: thread.query ids its lines `<message id>-<part>`. */
 const messageOf = (line: Chatter) => line.id.slice(0, line.id.lastIndexOf("-"));

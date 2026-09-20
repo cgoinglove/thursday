@@ -31,7 +31,6 @@ import {
   type BotRef,
   type Chatter,
   latestPerBot,
-  rosterOf,
   type ThreadView,
   type ThreadViewStatus,
   useWriteLineUp,
@@ -184,9 +183,26 @@ export function happenedIn(
   stood: Map<string, string>,
   stands: Map<string, string>,
 ): Happening[] {
+  const own = thread.bot;
+  // A thread this sync is the first to see — just opened, or back in the inbox
+  // after dropping out of it — has no history here, so every line in it would
+  // read as having just happened. Being taken on is the news; nothing else is.
+  if (!was) {
+    return thread.status === "working"
+      ? [
+          {
+            rank: 1,
+            at: own.name,
+            from: THURSDAY,
+            to: [own],
+            text: `took on “${clipWord(thread.label)}”`,
+          },
+        ]
+      : [];
+  }
+
   const out: Happening[] = [];
   const fresh = thread.lines.filter((line) => !had.has(line.id));
-  const own = thread.bot;
 
   // Bot to bot. A giver handing work to several at once is one bubble naming them all.
   const rounds = new Map<string, Chatter[]>();
@@ -260,7 +276,7 @@ export function happenedIn(
   }
 
   // Another bot done with its part and no last word; the thread's own ending is the job's.
-  for (const bot of rosterOf(thread)) {
+  for (const bot of thread.roster) {
     const key = `${thread.id}\n${bot.name}`;
     if (
       bot.name !== own.name &&
@@ -283,18 +299,6 @@ export function happenedIn(
     }
   }
 
-  if (!was) {
-    if (thread.status === "working") {
-      out.push({
-        rank: 1,
-        at: own.name,
-        from: THURSDAY,
-        to: [own],
-        text: `took on “${clipWord(thread.label)}”`,
-      });
-    }
-    return out;
-  }
   if (was === thread.status) return out;
   const label = clipWord(thread.label);
   if (thread.status === "cancelled") {

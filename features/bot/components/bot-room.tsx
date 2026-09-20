@@ -13,7 +13,6 @@ import {
   botThreads,
   roomOpen,
   roomOpens,
-  rosterOf,
   type ThreadViewStatus,
   threadFromRow,
   useBotThreads,
@@ -120,21 +119,24 @@ export const BotRoom = memo(function BotRoom() {
     [history.items, bots],
   );
 
-  // The inbox copy first: it is the one the threads signal keeps live. A job
-  // neither list holds (Thursday opening an older one) is read on its own.
+  // An open thread is read whole by its id, whether or not a list holds it: the
+  // inbox leaves an ended thread's lines out (thread.query listInboxThreads).
+  // The key sits under the inbox's, so the `threads` signal keeps it live too.
   const listed = picked
     ? (newest.find((entry) => entry.id === picked) ??
       past.find((entry) => entry.id === picked) ??
       null)
     : null;
   const { data: lone, isLoading: fetching } = useServerRoute<Thread | null>(
-    picked && !listed ? queryKey.thread(picked) : null,
+    picked ? queryKey.thread(picked) : null,
   );
   const alone = useMemo(
     () => (lone && lone.id === picked ? threadFromRow(lone, bots) : null),
     [lone, picked, bots],
   );
-  const current = listed ?? alone;
+  // A listed thread that carries its lines opens at once and the whole one
+  // takes over; one that does not waits, rather than flashing an empty room.
+  const current = alone ?? (listed?.lines.length ? listed : null);
 
   const [moment, handoff] = useHandoff();
   // A moment passes; words that wait on a bot stay up under it until they are read
@@ -265,7 +267,7 @@ export const BotRoom = memo(function BotRoom() {
                 status={
                   current.status === "working" ? "running" : current.status
                 }
-                faces={rosterOf(current)}
+                faces={current.roster}
                 to={sides[current.id] ?? current.bot.name}
                 className="mx-3 mb-2 shrink-0"
               />
