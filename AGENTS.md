@@ -166,6 +166,13 @@ Several agents may work in one checkout at once, and someone's own data sits bes
   left in the index goes out with the next session's plain `git commit`. Never `git clean`,
   `git checkout .`, `git stash` or `git reset`: each takes another session's work with it.
   Changes you did not make are left alone, even when asked to tidy up.
+- **Commit the whole of your change.** Every check you run reads the tree in front of you; CI reads
+  the one you committed. An export staged without the file that uses it passes locally and is dead
+  code to everyone who pulls. So when you stage a subset, check that subset and not the tree: copy
+  it out (`git archive $(git write-tree) | tar -x -C "$(mktemp -d)"`, with `node_modules` symlinked
+  in) and run the checks there. `knip` on CI reports rather than fails for the same reason, so a
+  line of it is never on its own a reason to delete — the file that uses it may be sitting
+  uncommitted in someone else's tree.
 - **Some files are someone's data, not clutter**: the database, `DATA_DIR/.sign-ins` (live
   sign-in sessions), the workspace bots work in (`.ai-workspace/`). Never delete them to tidy up,
   and never start a server on them (`.claude/rules/verify.md`).
