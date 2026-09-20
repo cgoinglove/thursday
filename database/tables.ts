@@ -192,6 +192,10 @@ export const threadTable = sqliteTable(
   (t) => [
     // A routine's runs, newest first (routine.query)
     index("idx_thread_routine").on(t.routineId, t.createdAt),
+    // Every list of jobs picks by status and sorts by this: the call's inbox, the
+    // history, what is still running, and the hourly file sweep (thread.query).
+    // Without it each one reads every row a user has ever made.
+    index("idx_thread_status_updated").on(t.status, t.updatedAt),
   ],
 );
 

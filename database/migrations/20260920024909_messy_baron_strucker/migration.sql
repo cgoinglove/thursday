@@ -1,0 +1,1 @@
+CREATE INDEX `idx_thread_status_updated` ON `thread` (`status`,`updated_at`);
