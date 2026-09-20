@@ -9,7 +9,7 @@ Brief preferences: topics, edition, size, glance, sources, audio, time. Updated 
 ## Topics
 - AI = AI OR OpenAI OR Anthropic OR "language model"
 - Startups = startup funding OR "raises" OR "Series A"
-- Korea = "South Korea" economy OR politics OR Samsung -"North Korea"
+- Home = "<the reader's country>" economy OR politics -"<a name that drags in the wrong stories>"
 
 ## Edition
 en, US (page in English)
@@ -18,10 +18,10 @@ en, US (page in English)
 Lead and 5
 
 ## Glance
-Weather: Seoul. Markets: KOSPI:^KS11, S&P 500:^GSPC, USD/KRW:KRW=X
+Weather: Lisbon. Markets: S&P 500:^GSPC, Nasdaq:^IXIC, EUR/USD:EURUSD=X
 
 ## Sources
-Prefer: techcrunch.com, koreaherald.com
+Prefer: techcrunch.com, reuters.com
 Avoid: coindesk.com
 
 ## Audio

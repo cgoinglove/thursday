@@ -14,7 +14,7 @@ S=<this skill's folder>/scripts
 node $S/news.mjs "AI=AI OR OpenAI OR Anthropic" "Startups=startup funding" \
   --lang en --country US --hours 30 --out $SCRATCH/cand.json [--avoid a.com] [--prefer b.com]
 # ...and the glance, in the same call when the user wants one
-node $S/glance.mjs --weather "Seoul" --markets "KOSPI:^KS11,USD/KRW:KRW=X,BTC-USD" --out $SCRATCH/glance.json
+node $S/glance.mjs --weather "<their city>" --markets "S&P 500:^GSPC,EUR/USD:EURUSD=X,BTC-USD" --out $SCRATCH/glance.json
 # 2. The chosen stories, read from their publishers, photos saved
 node $S/story.mjs $SCRATCH/cand.json a1 a4 b2 c1 c3 --out $SCRATCH/stories
 # 3. Write $SCRATCH/brief.json, then the page and one picture of it

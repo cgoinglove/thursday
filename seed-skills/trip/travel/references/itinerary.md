@@ -48,7 +48,7 @@ Words on the page are yours, in the user's language: set `lang` and `labels` whe
     { "item": "Food, about $50 a person a day", "amount": 400 }
   ],
   "fx": "<the line fx.mjs printed>",
-  "notes": ["Korean passports need no visa for 90 days."],
+  "notes": ["Entry rules checked for the traveller's passport on 2026-09-20."],
   "sources": [{ "url": "https://www.google.com/travel/flights", "label": "Google Flights" }]
 }
 ```

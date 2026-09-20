@@ -12,7 +12,7 @@ import { resolve } from "node:path";
 import { get, list, parseArgs, run, Stop } from "./lib.mjs";
 
 const USAGE =
-  'usage: node glance.mjs --out glance.json [--weather "Seoul"] [--markets "KOSPI:^KS11,USD/KRW:KRW=X,BTC-USD"] [--lang en] [--units c|f]';
+  'usage: node glance.mjs --out glance.json [--weather "Lisbon"] [--markets "S&P 500:^GSPC,EUR/USD:EURUSD=X,BTC-USD"] [--lang en] [--units c|f]';
 
 // WMO weather codes, folded into the few a picture tells apart
 const SKY = [

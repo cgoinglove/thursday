@@ -11,14 +11,14 @@ One `news.mjs` call holds every topic, and `glance.mjs` rides in the same bash c
 - A topic's query is what Google News would be searched with: `OR` between names, quotes for
   a phrase, `-word` to leave something out, `site:` for one outlet. Keep the label short —
   it heads the topic's section on the page.
-- The edition is the language the user reads news in: `--lang ko --country KR` searches
-  Korean outlets in Korean, `--lang en --country US` American ones in English. A topic about
+- The edition is the language the user reads news in: `--lang en --country US` searches
+  American outlets in English, `--lang de --country DE` German ones in German. A topic about
   another country is still searched in the reader's edition, by its name in that language.
 - `--hours` is the freshness window: 30 for a daily brief, so yesterday morning's story is
   still in; 72 after a weekend. Publisher feeds come in with `--feed "<label>=<rss url>"`.
-- The glance takes Yahoo Finance symbols: `^GSPC` S&P 500, `^IXIC` Nasdaq, `^KS11` KOSPI,
-  `^N225` Nikkei, `KRW=X` won per dollar, `EURUSD=X`, `BTC-USD`, `005930.KS` a Korean
-  listing. `Label:symbol` names one; the weather wants a city's name.
+- The glance takes Yahoo Finance symbols: `^GSPC` S&P 500, `^IXIC` Nasdaq, `^FTSE` FTSE 100,
+  `^N225` Nikkei, `EURUSD=X` a currency pair, `BTC-USD`, `AAPL` or `005930.KS` one listing
+  anywhere. `Label:symbol` names one; the weather wants a city's name.
 
 ## Choose
 
