@@ -13,7 +13,6 @@ import {
   KeyRound,
   type LucideIcon,
   Search,
-  Smartphone,
   TriangleAlert,
 } from "lucide-react";
 import { useState } from "react";
@@ -55,8 +54,6 @@ import {
   isConfigSet,
 } from "@/features/config/config.const";
 import { ReachGuide } from "@/features/reach/components/reach-guide";
-import { ReachState } from "@/features/reach/components/reach-state";
-import { REACH_KEYS } from "@/features/reach/reach.schema";
 import {
   SettingDialogContent,
   SettingError,
@@ -72,15 +69,7 @@ import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
 
 /** A key that is not a provider's still wears a mark, or its row is a hole in the column. */
-const KEY_MARKS: Record<string, LucideIcon> = {
-  [EXA_API_KEY]: Search,
-  // A chat service whose own icon did not load
-  ...Object.fromEntries(
-    Object.values(REACH_KEYS)
-      .flat()
-      .map((key) => [key, Smartphone]),
-  ),
-};
+const KEY_MARKS: Record<string, LucideIcon> = { [EXA_API_KEY]: Search };
 
 /** How many provider marks the first-run step shows before "More": one row of the narrow column. */
 const ACCOUNTS_FIRST = 4;
@@ -96,17 +85,33 @@ const KIND_MARKS: Record<MediaKind, LucideIcon> = {
 /**
  * One screen per subject, each a list of the catalogue's groups in reading order: the
  * accounts (the voice key, the two easy ways as cards, every other provider as a mark to
- * tap, search), what runs on them, and how she is reached from a phone.
+ * tap, search), and what runs on them. Phone is its own screen, below.
  */
 const SCREENS = {
   keys: ["voice", "easy", "text", "search"],
   models: ["bots", "studio"],
-  phone: ["phone"],
 } as const satisfies Record<string, readonly ConfigGroup["id"][]>;
 
 export const KeysSetting = () => <ConfigScreen screen="keys" />;
 export const ModelsSetting = () => <ConfigScreen screen="models" />;
-export const PhoneSetting = () => <ConfigScreen screen="phone" />;
+
+/**
+ * Phone is no list of keys: each token is set inside the step that asks for it, so the whole
+ * screen is `reach-guide`. Its keys stay in the catalogue — that is the write action's allow
+ * list — they are simply not drawn as rows here.
+ */
+export const PhoneSetting = () => (
+  <SettingScreen
+    footer={
+      <SettingRailNote>
+        Nothing on this computer is opened to the internet: the app asks the
+        chat service what was written.
+      </SettingRailNote>
+    }
+  >
+    <ReachGuide />
+  </SettingScreen>
+);
 
 /** Reads set/unset only, never a value. */
 function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
@@ -135,17 +140,14 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
         <SettingRailNote>
           {screen === "models"
             ? "Her own voice and backend models are in Thursday. A bot can pick its own on its page."
-            : screen === "phone"
-              ? "Nothing on this computer is opened to the internet: the app asks the chat service what was written."
-              : `${keys.filter((entry) => isSet(entry.key)).length} of ${keys.length} set${
-                  groups.some((group) => !groupSatisfied(group, isSet))
-                    ? " · a call needs one voice key"
-                    : " · your keys stay on this machine"
-                }`}
+            : `${keys.filter((entry) => isSet(entry.key)).length} of ${keys.length} set${
+                groups.some((group) => !groupSatisfied(group, isSet))
+                  ? " · a call needs one voice key"
+                  : " · your keys stay on this machine"
+              }`}
         </SettingRailNote>
       }
     >
-      {screen === "phone" && <ReachGuide />}
       {groups.map((group) => (
         <SettingGroup
           key={group.id}
@@ -195,7 +197,6 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
               )}
             </SettingItems>
           )}
-          {group.id === "phone" && <ReachState />}
         </SettingGroup>
       ))}
     </SettingScreen>

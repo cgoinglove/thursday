@@ -6,12 +6,19 @@ computer is opened to the internet: the app connects out to the chat service, an
 there. Telegram is the quickest to set up. More than one can be on; what she has to tell
 goes to the one they last wrote from.
 
+**Settings › Phone** lists the three chat apps, one line each; opening a line shows its four
+steps, and each step is marked as it is done. The tokens are pasted in the steps that ask for
+them — there is no separate list of keys. A line that needs nothing stays shut.
+
 ## Setting it up: Telegram
 
 1. In Telegram, write to **@BotFather**, send `/newbot`, and pick a name. It answers with a
    token — a long line of numbers and letters.
-2. Paste the token in **Settings › Phone**, under **Telegram**.
-3. From the phone, write anything to the new bot. It answers "open Thursday on your computer
+2. Paste the token in step 2 and press **Save**. The step ticks, and the line says which bot
+   is listening.
+3. Step 3 shows a **square picture of the bot's address**. Point the phone's camera at it —
+   that opens the chat with the new bot — and write anything. (The address is a button too,
+   for a computer that has Telegram on it.) The bot answers "open Thursday on your computer
    and press Allow".
 4. On the computer a question appears: **Let … reach Thursday from a phone?** Press **Allow**.
 
@@ -19,7 +26,7 @@ goes to the one they last wrote from.
 
 1. At **discord.com/developers/applications**, make a New Application, open its **Bot** page,
    press **Reset Token** and copy the token.
-2. Paste it in **Settings › Phone**, under **Discord**.
+2. Paste it in step 2 of **Discord**, in **Settings › Phone**.
 3. A Discord bot can only be written to by someone who shares a server with it. On the
    application's **OAuth2** page, make an invite link with the `bot` scope, open it, and add
    the bot to a server of their own — a private one made for this is fine.
@@ -56,8 +63,9 @@ Slack takes an app of their own and two tokens.
    `connections:write` scope. It starts with `xapp-`: that is the **app token**.
 3. **Install App** to the workspace. The **Bot User OAuth Token** starts with `xoxb-`: that
    is the **bot token**.
-4. Paste both in **Settings › Phone**, under **Slack**. It connects once both are there.
-5. In Slack, open the app under **Apps** and write in its **Messages** tab, then press
+   Each token is pasted in the step that asks for it, in **Settings › Phone › Slack**; it
+   connects once both are there.
+4. In Slack, open the app under **Apps** and write in its **Messages** tab, then press
    **Allow** on the computer. Slack shows no "typing…" for an app, so an answer simply arrives.
 
 ## Who is let in
@@ -66,8 +74,9 @@ One person can be let in through each service. Whoever is let in can talk to her
 work on the computer — so the question is asked on the computer's screen, never on the phone.
 Anyone else who finds the bot is told it already answers someone else.
 
-Removing a token in Settings stops that service, and a new token starts over: nobody is let
-in to a new bot yet. **Let them go**, under the tokens, lets the person go and keeps the bot.
+**Change the token**, under the step that took it, replaces or removes it: removing stops that
+service, and a new token starts over, since nobody is let in to a new bot yet. **Let them go**,
+under that app's steps, lets the person go and keeps the bot.
 
 ## What it is
 
@@ -99,8 +108,8 @@ still be running on the computer.
 
 ## When it does not answer
 
-- The line under the tokens in **Settings › Phone** shows what the service said when it
-  refuses one — a wrong token, or on Slack a permission the app was made without.
+- The app's own line in **Settings › Phone** shows what the service said when it refuses a
+  token — a wrong one, or on Slack a permission the app was made without — in red.
 - The computer is asleep or the app is not running: on Telegram, messages wait and are
   answered when it is back; on Discord and Slack, what was written meanwhile is not seen.
 - "No key" or a plan's limit is said in the chat in the provider's own words, as on the
