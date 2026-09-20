@@ -79,6 +79,7 @@ import {
   mediaModelWords,
 } from "@/features/config/config.const";
 import {
+  PICKED_ROW,
   SettingDialogContent,
   SettingError,
   SettingNote,
@@ -166,7 +167,7 @@ export function BotSetting() {
               className={cn(
                 "flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
                 drafting
-                  ? "bg-secondary text-foreground"
+                  ? PICKED_ROW
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
               )}
             >
@@ -272,7 +273,7 @@ function RosterRow({
       onClick={onPick}
       className={cn(
         "mx-2 flex items-center gap-2.5 rounded-md px-2 py-2 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
-        active ? "bg-secondary" : "hover:bg-muted/60",
+        active ? PICKED_ROW : "hover:bg-muted/60",
       )}
     >
       <BotMark
@@ -443,7 +444,7 @@ function SeedRows({
               owned
                 ? "opacity-45 ring-border/60"
                 : on
-                  ? "ring-brand"
+                  ? cn(PICKED_ROW, "ring-brand")
                   : "ring-border/60",
             )}
           >

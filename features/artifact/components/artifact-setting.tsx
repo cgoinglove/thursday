@@ -23,6 +23,7 @@ import type {
 import type { Bot } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import {
+  PICKED_ROW,
   SettingError,
   SettingFilter,
   SettingPanes,
@@ -242,7 +243,7 @@ function BotRow({
       className={cn(
         "mx-2 flex h-9 items-center gap-2 rounded-md px-2 text-left text-[13px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
         active
-          ? "bg-secondary font-medium text-foreground"
+          ? cn(PICKED_ROW, "font-medium")
           : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
       )}
     >

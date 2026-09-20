@@ -30,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { PATHS, PROMPT_CROWDED } from "@/config";
 import {
+  PICKED_ROW,
   SettingDialogContent,
   SettingError,
   SettingFilter,
@@ -333,7 +334,7 @@ function Row({
       className={cn(
         "mx-1 flex items-center gap-1.5 rounded-md px-2 py-1 text-left text-xs outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
         active
-          ? "bg-secondary text-foreground"
+          ? PICKED_ROW
           : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
       )}
     >

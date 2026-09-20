@@ -48,8 +48,13 @@ paths:
   slider, a segment or a chip that fills, a picked card's border and its tick — and what is not
   is a hairline or muted words, so nothing picked has to be read twice; a label beside it is
   muted. A chip among several that may all be picked is tinted with a tick, not filled, so a
-  row of them stays light (the user's pick). The pill's tail, which only says there are more
-  faces than fit, is a faint brand wash rather than a fill: nothing behind it waits on anyone. A switch between views of one thing sets nothing
+  row of them stays light (the user's pick). The row a settings index is open on, and a card
+  ticked in a list of them, wash the same blue faint enough to read as paper with a tint
+  (`PICKED_ROW` in `setting-ui`): the index row so which one the right pane belongs to needs no
+  reading, the card so its border and tick are not carrying it alone. Every one takes that wash
+  from the one constant. The pill's tail, which only says there are more
+  faces than fit, is a faint brand wash rather than a fill: nothing behind it waits on anyone.
+  A switch between views of one thing sets nothing
   and is a white pill (`Segmented view`, a dialog's tabs), never blue. Buttons stay black (`primary`): blue says what is set, black what to press. A tick
   that reports (saved, done, a key set) is not a pick and stays black. Never a surface, and no
   status but that one nav dot — a green beside it would read as a second brand.

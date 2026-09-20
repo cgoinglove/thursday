@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/notify";
 import { PATHS, WORKSPACE_VIEW } from "@/config";
 import {
+  PICKED_ROW,
   SettingError,
   SettingFilter,
   SettingPanes,
@@ -303,7 +304,7 @@ function EntryRow({
       className={cn(
         "mx-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
         active
-          ? "bg-secondary font-medium text-foreground"
+          ? cn(PICKED_ROW, "font-medium")
           : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
       )}
     >
