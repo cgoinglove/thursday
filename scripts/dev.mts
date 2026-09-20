@@ -7,7 +7,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import {
-  askToRemoveDatabase,
+  askToSetDatabaseAside,
   MIGRATION_FAILED_EXIT,
 } from "../bin/database.mjs";
 import { freePort } from "../bin/port.mjs";
@@ -48,7 +48,7 @@ function start() {
   );
   child.on("exit", async (code) => {
     const dbPath = DB_FILE_NAME.replace(/^file:/, "");
-    if (code === MIGRATION_FAILED_EXIT && (await askToRemoveDatabase(dbPath)))
+    if (code === MIGRATION_FAILED_EXIT && (await askToSetDatabaseAside(dbPath)))
       return start();
     process.exit(code ?? 0);
   });

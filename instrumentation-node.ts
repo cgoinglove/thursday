@@ -5,15 +5,15 @@ export async function boot() {
 
   // Nothing can run on a database this build cannot migrate, and nothing can
   // remove it while this process holds it: say why, then exit with the code
-  // both starters answer by offering to remove it (bin/database.mjs).
+  // both starters answer by offering to set it aside (bin/database.mjs).
   const { migrateDatabase } = await import("@/database/migrate");
   await migrateDatabase().catch((cause) => {
     const path = DB_FILE_NAME.replace(/^file:/, "");
     logger.error(`Cannot migrate ${path}`);
     console.error(
       `  ${cause instanceof Error ? cause.message : cause}\n` +
-        "  Removing it starts over with an empty one. API keys, bots, connectors, calls, threads and memory go with it; the workspace and skills stay.\n" +
-        `  rm "${path}" "${path}-wal" "${path}-shm"\n`,
+        "  Starting over gives an empty one. API keys, bots, connectors, calls, threads and memory go with it; the workspace and skills stay.\n" +
+        `  The old ${path} is moved aside as .corrupt-<time> rather than removed, so a file damaged by a crash or a full disk can still be opened.\n`,
     );
     process.exit(65);
   });
@@ -93,6 +93,7 @@ export async function boot() {
 
   // The launcher forwards shutdown signals so pending work records its manual resume boundary.
   if (process.env.NEXT_MANUAL_SIG_HANDLE) {
+    const { checkpoint } = await import("@/database/db");
     let stopping = false;
     for (const [signal, code] of [
       ["SIGINT", 130],
@@ -104,7 +105,12 @@ export async function boot() {
         logger.info(`${signal} — parking what was running`);
         const parked = pauseThreads(
           "The server was shut down while this was running.",
-        ).catch((cause) => logger.error("pause threads", cause));
+        )
+          .catch((cause) => logger.error("pause threads", cause))
+          // Nothing writes after this, so the write-ahead log can be folded back
+          // in: from here the database is one file to copy (guide/setup).
+          .then(() => checkpoint())
+          .catch((cause) => logger.error("checkpoint", cause));
         // The launcher kills the server four seconds after passing a stop on
         const late = new Promise((resolve) => setTimeout(resolve, 3_000));
         void Promise.race([parked, late]).finally(() => process.exit(code));

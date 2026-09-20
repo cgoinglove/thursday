@@ -2,6 +2,7 @@
 
 import { asSchema } from "ai";
 import z from "zod";
+import { reclaim } from "@/database/db";
 import { LIVE_PROVIDER, LiveSettingsSchema } from "@/features/ai/live.schema";
 import { loadTools } from "@/features/ai/load-tools";
 import { textModelRefSchema } from "@/features/ai/model.schema";
@@ -227,6 +228,9 @@ export const resetHistoryAction = serverAction(async () => {
 
   const calls = await deleteEndedCalls();
   const notes = await deleteAllNotes();
+
+  // The rows are gone; this is what gives their space back (database/db)
+  await reclaim();
 
   return { calls, threads: threadIds.length, notes };
 });

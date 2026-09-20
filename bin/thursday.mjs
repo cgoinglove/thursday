@@ -8,7 +8,7 @@ import { existsSync, symlinkSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { askToRemoveDatabase, MIGRATION_FAILED_EXIT } from "./database.mjs";
+import { askToSetDatabaseAside, MIGRATION_FAILED_EXIT } from "./database.mjs";
 import { freePort } from "./port.mjs";
 import { ROOT, toolPath } from "./tools.mjs";
 
@@ -122,7 +122,10 @@ function start() {
   });
   child = server;
   server.on("exit", async (code) => {
-    if (code === MIGRATION_FAILED_EXIT && (await askToRemoveDatabase(database)))
+    if (
+      code === MIGRATION_FAILED_EXIT &&
+      (await askToSetDatabaseAside(database))
+    )
       return start();
     process.exit(code ?? 0);
   });

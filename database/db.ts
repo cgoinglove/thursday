@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { chmodSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { type Client, createClient, type Transaction } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
@@ -53,10 +53,50 @@ function connect(): Client {
   // connection: it survives, and every later connection opens into WAL.
   //
   // Not awaited: statements queue on the client, and a top-level await would
-  // keep this module out of CJS consumers.
-  void made.execute("PRAGMA journal_mode = WAL");
+  // keep this module out of CJS consumers. `ownerOnly` follows the first
+  // statement because SQLite does not make the file until one runs.
+  void made.execute("PRAGMA journal_mode = WAL").finally(ownerOnly);
 
   return made;
+}
+
+/**
+ * Locks the database to the account that runs the app. It holds every provider
+ * key and every sign-in token as plain text (features/config), and SQLite makes
+ * the file with the process umask — 644 on macOS, which any other account on the
+ * machine can read, as can whatever syncs the folder it sits in. The sign-ins
+ * beside it are already owner-only (signins.query write).
+ */
+function ownerOnly(): void {
+  for (const file of [DB_PATH, `${DB_PATH}-wal`, `${DB_PATH}-shm`]) {
+    try {
+      chmodSync(file, 0o600);
+    } catch {
+      // A sidecar SQLite has not written yet, or a file this account does not own
+    }
+  }
+}
+
+/**
+ * Folds the write-ahead log back into the database file. Under WAL the recent
+ * writes live in `local.db-wal` and SQLite folds them in when it chooses, so a
+ * copy of `local.db` on its own can be missing everything since the last fold —
+ * and a copy is what a backup, or a move to another machine, takes. Called as the
+ * server stops (instrumentation), the one moment nothing else is writing.
+ */
+export async function checkpoint(): Promise<void> {
+  await client.execute("PRAGMA wal_checkpoint(TRUNCATE)");
+}
+
+/**
+ * Gives the deleted rows' pages back to the disk. SQLite hands them to its own
+ * free list instead, so the file never shrinks below the most it has ever held
+ * and someone who wipes a year of calls to make room gets none of it back. It
+ * rewrites the whole file, so it belongs to a wipe that is already rare and
+ * deliberate (thursday.action resetHistory), never to deleting one call.
+ */
+export async function reclaim(): Promise<void> {
+  await client.execute("VACUUM");
 }
 
 export const database = drizzle({ client });

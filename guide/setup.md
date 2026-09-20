@@ -104,6 +104,13 @@ never touches it. Nothing is sent anywhere but the model providers that were set
 and the services that were connected. The app listens only to this machine and has no account
 and no login.
 
+A copy of that folder is the backup, and it is taken with the app stopped. While it runs, the
+newest calls and messages are in a second file beside the database, so a copy of the database on
+its own can be missing the last thing that was said; stopping the app folds that file back in and
+leaves one whole database behind. Moving to another computer is the same folder put in the same
+place there. If the app ever says it cannot open the database, it does not throw the old one away:
+it moves it aside with `.corrupt` and the time in the name, next to the new empty one.
+
 ## What it costs
 
 The user brings their own keys, so the cost is whatever those providers charge: the call is
