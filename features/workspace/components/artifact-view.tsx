@@ -12,6 +12,7 @@ import type { Bot } from "@/features/bot/bot.schema";
 import { shortenPaths } from "@/features/bot/components/attachments";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import {
+  botThreads,
   roomOpens,
   type ThreadView,
   useBotThreads,
@@ -31,9 +32,12 @@ import { FileViewer, useOpenFile } from "./file-view";
 /**
  * What finished, in the screen's left corner. A job used to open its document by
  * itself, over whatever was on screen; now the corner says what is there and the
- * user opens it. Every job stands as the same card, with files or without. It
- * keeps nothing: closing a card or reloading clears it, and a result they have
- * not read still waits in the bot room.
+ * user opens it. Every job stands as the same card, with files or without.
+ *
+ * The corner keeps nothing of its own. It is the unread endings the server holds,
+ * less the ones this browser waved off, so a reload brings back what is still
+ * unread and a job that ended while the page was shut or the stream was down has
+ * its card the moment the list arrives.
  *
  * Opening a card is reading it: the thread is marked seen, as opening it in the
  * room does, so the room stops calling it new and Thursday stops owing it on a
@@ -173,12 +177,28 @@ function Notice() {
     },
   });
 
-  // What finished while the page was away, or before a reload, and is still unread: the
-  // corner holds it until it is opened or waved off, as an event would have put it there
-  const seeded = useRef(false);
+  /**
+   * Threads the list has shown ended. Until one is in here its card is held
+   * whatever the list says: the event arrives the moment the row is written and
+   * a read already in flight answers with the thread still running, which would
+   * take the card straight back off again.
+   */
+  const ended = useRef(new Set<string>());
+
+  /**
+   * The corner is the unread endings the server knows about, less the ones this
+   * browser waved off. An event puts a card up the moment a job ends — with the
+   * files it actually wrote — and this is what keeps the corner right the rest
+   * of the time: what finished while the page was away or the stream was down
+   * gets its card, and what was read anywhere (the room, `thread_show`, another
+   * tab) loses it.
+   */
   useEffect(() => {
-    if (seeded.current || !threads.length) return;
-    seeded.current = true;
+    if (!botThreads.primed()) return;
+    for (const thread of threads) {
+      if (thread.status === "done" || thread.status === "cancelled")
+        ended.current.add(thread.id);
+    }
     const dismissed = new Set(readDismissed());
     const waiting = threads
       .filter(
@@ -188,37 +208,26 @@ function Notice() {
       .sort(
         (a, b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime(),
       );
-    if (!waiting.length) return;
-    setRows((was) =>
-      [
-        ...was,
-        ...waiting
-          .filter((thread) => !was.some((row) => row.threadId === thread.id))
-          .map(cardOf),
-      ].slice(0, FINISHED_NOTICE.rows),
-    );
+    const unread = new Set(waiting.map((thread) => thread.id));
+    setRows((was) => {
+      const kept = was.filter(
+        (row) => !ended.current.has(row.threadId) || unread.has(row.threadId),
+      );
+      const added = waiting
+        .filter((thread) => !kept.some((row) => row.threadId === thread.id))
+        .map(cardOf);
+      const next = [...added, ...kept].slice(0, FINISHED_NOTICE.rows);
+      const same =
+        next.length === was.length &&
+        next.every((row, at) => row.threadId === was[at].threadId);
+      return same ? was : next;
+    });
   }, [threads]);
 
   const drop = (threadId: string) => {
     rememberDismissed([threadId]);
     setRows((was) => was.filter((row) => row.threadId !== threadId));
   };
-
-  // Read somewhere else (the room, `thread_show`): the card goes. A card is armed
-  // only once its thread was seen unread, since the thread list may still hold
-  // the ending before this one when the event lands.
-  const unread = useRef(new Set<string>());
-  useEffect(() => {
-    const gone: string[] = [];
-    for (const row of rows) {
-      const thread = threads.find((one) => one.id === row.threadId);
-      if (!thread) continue;
-      if (!thread.seen) unread.current.add(row.threadId);
-      else if (unread.current.delete(row.threadId)) gone.push(row.threadId);
-    }
-    if (gone.length)
-      setRows((was) => was.filter((row) => !gone.includes(row.threadId)));
-  }, [rows, threads]);
 
   if (!rows.length) return null;
 

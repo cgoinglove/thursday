@@ -82,7 +82,12 @@ export function useCallRing({
     );
     if (!fresh.length) return;
 
-    ringAfter.current = Date.now();
+    // The newest change this list brought, never the clock: a job that ended
+    // while the read was on its way is older than "now" by the time it lands,
+    // and would never ring at all.
+    ringAfter.current = Math.max(
+      ...fresh.map((thread) => toDate(thread.updatedAt).getTime()),
+    );
     // Work that is new to it rings again, even if it had rung out
     setRangOutAt(null);
     setRingingFor((ids) => [

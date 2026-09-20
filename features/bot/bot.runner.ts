@@ -252,10 +252,15 @@ async function drive(work: RoomWork, signal: AbortSignal) {
   await finishRoomWork(work, final.text);
   const thread = await findThread(work.threadId);
   if (thread?.status === "done") {
+    // An answer is written for the screen; what says it elsewhere says it as words
+    const words = plainText(thread.outcome ?? "").slice(
+      0,
+      FINISHED_NOTICE.words,
+    );
     // With a page open the page tells it (artifact-view): a notification it shows brings
     // Thursday forward when pressed, where the OS one opens the script runner behind it
     if (!presence.watching && !(await isAnyCallLive()))
-      desktopNotify(thread.label, thread.outcome ?? "");
+      desktopNotify(thread.label, words);
     const files = await filesOnDisk(pathsIn(thread.outcome ?? ""), null);
     // A page to read leads the notice; the rest follow in the order they were written.
     const lead = files.findIndex(opensOnFinish);
@@ -264,7 +269,7 @@ async function drive(work: RoomWork, signal: AbortSignal) {
       threadId: thread.id,
       label: thread.label,
       bot: thread.bot,
-      words: plainText(thread.outcome ?? "").slice(0, FINISHED_NOTICE.words),
+      words,
       paths:
         lead > 0
           ? [files[lead], ...files.filter((_, at) => at !== lead)]
