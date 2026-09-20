@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Noto_Sans_KR } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
-import { AppEventSource } from "@/app/api/events/app-event.client";
 import { ThemeSync } from "@/components/ui/theme-sync";
 import { Toaster } from "@/components/ui/toast";
 import { APP_NAME } from "@/config";
@@ -44,7 +43,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {THEME_BOOT}
         </Script>
         <ThemeSync />
-        <AppEventSource />
         {children}
         <Toaster />
       </body>

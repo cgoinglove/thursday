@@ -93,6 +93,21 @@ still change. The inbox leaves out the transcript of a thread that has ended, an
 one it has open by id (`queryKey.thread`, under the same key so the same signal keeps it live).
 Judge such a list by what one write costs to re-read, not by what it costs once.
 
+Three things about the stream itself are not free, and each has bitten:
+
+- **The app's own screen opens it** (`app/page`), never the layout. A browser gives an origin six
+  connections and a stream holds one for as long as its tab lives, so the file viewer's tabs would
+  take them all and the app's reads would queue behind nothing. That count is also `presence`, so a
+  tab that does not listen must not be on the stream at all.
+- **A signal goes out at once, then at most every `ms`** (`createEventStream` `coalesce`). A trailing
+  timer pushed back by each new event instead sends nothing while a bot is working, which is exactly
+  when the screen has something to say.
+- **A stream that fails outright never comes back on its own.** EventSource retries only while the
+  endpoint keeps answering as an event stream; one reply that is not (a rebuild's error page, a
+  proxy) closes it for good. `fromEventSource` watches for that and opens the line again — without it
+  the tab goes silent until it is reloaded, while the server reads the missing stream as nobody
+  watching and parks what was running.
+
 **Values on the wire**
 
 - Timestamps are `DateLike` (`lib/date-like`): ISO strings on the wire, `Date` in drizzle.

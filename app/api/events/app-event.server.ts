@@ -16,7 +16,6 @@ type Pinned = {
   __appEvents?: EventBus<AppEvent>;
   __appEventStream?: EventStream<AppEvent>;
   __presence?: Presence;
-  __bootId?: string;
 };
 const pinned = globalThis as Pinned;
 
@@ -31,7 +30,13 @@ export const appEvents: EventBus<AppEvent> = (pinned.__appEvents ??=
 export const presence: Presence = (pinned.__presence ??=
   createPresence(BROWSER_GONE_MS));
 
-/** Signals coalesce over 150ms; data events pass through. */
+/**
+ * A signal goes out at once and then at most every 150ms; data events pass
+ * through. A bot at work raises one per row it writes, several in the same
+ * millisecond at the end of a step — the pacing is what keeps that from being
+ * one read of the inbox each, and the leading edge is what keeps a single
+ * change from waiting on it.
+ */
 export const appEventStream: EventStream<AppEvent> =
   (pinned.__appEventStream ??= createEventStream(appEvents, {
     coalesce: {
@@ -40,6 +45,3 @@ export const appEventStream: EventStream<AppEvent> =
     },
     onWatchers: presence.track,
   }));
-
-/** Identifies this server process; changes on restart. */
-export const BOOT_ID: string = (pinned.__bootId ??= crypto.randomUUID());

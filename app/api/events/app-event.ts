@@ -4,8 +4,13 @@
  * itself. A new signal must also be added to `SIGNALS` below.
  */
 export type AppEvent =
-  /** Sent on connect. A changed `boot` means the server restarted; re-read everything. */
-  | { type: "hello"; boot: string }
+  /**
+   * Sent on every connect, so also on every reconnect. Whatever changed while
+   * the line was down raised a signal nobody heard, so the receiver re-reads
+   * everything — except on the connect the page opens with, where every reader
+   * has just read (app-event.client, use-thursday).
+   */
+  | { type: "hello" }
   /** Signal: a thread changed (every write in thread.query and room.query). */
   | { type: "threads" }
   /** Signal: a routine was made, changed, removed, or moved on to its next time. */
@@ -38,16 +43,22 @@ export type AppEvent =
   /** Data: Thursday puts what a job made in front of the user; `paths` as in `finished`. */
   | { type: "showFile"; paths: string[] };
 
-/** Union members carrying nothing but `type`. */
+/**
+ * Union members carrying nothing but `type`: a signal names the GET to read
+ * again and needs no payload to do it. `hello` has none either and is not one —
+ * it belongs to the connection rather than to a key, and asks for every read.
+ */
 type Signal<E = AppEvent> = E extends AppEvent
-  ? keyof E extends "type"
-    ? E["type"]
-    : never
+  ? E["type"] extends "hello"
+    ? never
+    : keyof E extends "type"
+      ? E["type"]
+      : never
   : never;
 
 /**
- * Signals are coalesced before sending (app-event.server). The `Record` type
- * makes a signal missing here a compile error.
+ * Signals are paced before sending (app-event.server). The `Record` type makes
+ * a signal missing here a compile error.
  */
 export const SIGNALS: Record<Signal, true> = {
   threads: true,

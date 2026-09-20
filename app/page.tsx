@@ -1,3 +1,4 @@
+import { AppEventSource } from "@/app/api/events/app-event.client";
 import { rollSeedIcons } from "@/features/bot/bot.seed";
 import { isCallable } from "@/features/config/config.query";
 import { Intro } from "@/features/intro/components/intro";
@@ -10,6 +11,10 @@ import { hasAnyCall } from "@/features/thursday/thursday.query";
  * The app's only screen. The call screen always renders (it shows its own
  * no-key state); the intro overlays it until a first call has been placed here, or
  * when `?intro` asks for it.
+ *
+ * The event stream is opened here rather than in the layout: this is the one
+ * screen that listens, and a tab holding a stream nothing reads costs the app a
+ * browser connection and counts as a watcher (app-event.client).
  */
 export default async function Home({ searchParams }: PageProps<"/">) {
   const { intro } = await searchParams;
@@ -28,6 +33,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       />
       <ReachAsk />
       <Boot />
+      <AppEventSource />
     </div>
   );
 }

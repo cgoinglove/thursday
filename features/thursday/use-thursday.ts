@@ -507,12 +507,21 @@ export function useThursday(
   const { data: threads } = useServerRoute<Thread[]>(queryKey.threads, {
     refreshInterval: THREAD_POLL_FALLBACK_MS,
   });
+  /** Whether the stream has said hello once; a later one is a reconnect. */
+  const greeted = useRef(false);
 
   // Server event stream (app/api/events): signals revalidate their key
   useAppEvent({
     hello: () => {
       // Sent on every connect, so this is also every reconnect: nothing that
-      // changed while the stream was down raised a signal anybody heard
+      // changed while the stream was down raised a signal anybody heard. The
+      // first is this page's own, where every reader has just read — and a
+      // revalidation skips the deduping window, so it would be a second round
+      // of every read on the screen.
+      if (!greeted.current) {
+        greeted.current = true;
+        return;
+      }
       void revalidateAll();
     },
     threads: () => void revalidate(queryKey.threads),

@@ -8,7 +8,10 @@ import type { DefaultEvent, EventBus } from "./events";
  */
 
 type EventStreamOptions<E extends DefaultEvent> = {
-  /** Events sharing a key within `ms` send only the last. A null key sends immediately. */
+  /**
+   * Paces events sharing a key: the first goes out at once, then at most one
+   * every `ms`, the last of what came in between. A null key sends immediately.
+   */
   coalesce?: { ms: number; keyOf: (event: E) => string | null };
   /** How often a comment line holds the line open when nothing happens. */
   heartbeatMs?: number;
@@ -41,7 +44,15 @@ export function createEventStream<E extends DefaultEvent>(
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
         let closed = false;
-        const pending = new Map<string, ReturnType<typeof setTimeout>>();
+        /**
+         * Keys inside their pacing window: the timer that closes it, and the
+         * latest event waiting for it. A window opens behind an event that went
+         * out, so an isolated one is never held back at all.
+         */
+        const pacing = new Map<
+          string,
+          { timer: ReturnType<typeof setTimeout>; wait: { last: E | null } }
+        >();
         /** Bus events that arrived before the opening snapshot went out. */
         let held: E[] | null = [];
 
@@ -56,18 +67,36 @@ export function createEventStream<E extends DefaultEvent>(
         };
         const send = (event: E) => write(`data: ${JSON.stringify(event)}\n\n`);
 
+        /**
+         * Opens a key's window. When it closes, whatever came in during it goes
+         * out behind another window, so a burst keeps pacing; a window that
+         * closes on nothing ends the chain.
+         */
+        const pace = (key: string) => {
+          const wait: { last: E | null } = { last: null };
+          const timer = setTimeout(() => {
+            pacing.delete(key);
+            if (closed || !wait.last) return;
+            send(wait.last);
+            pace(key);
+          }, options.coalesce?.ms);
+          pacing.set(key, { timer, wait });
+        };
+
         const queue = (event: E) => {
+          if (closed) return;
           const key = options.coalesce?.keyOf(event) ?? null;
           if (key === null) return send(event);
-          const timer = pending.get(key);
-          if (timer) clearTimeout(timer);
-          pending.set(
-            key,
-            setTimeout(() => {
-              pending.delete(key);
-              send(event);
-            }, options.coalesce?.ms),
-          );
+          const open = pacing.get(key);
+          // Inside an open window: hold the latest and let the window send it.
+          // Pushing the window back instead would starve a key that keeps
+          // firing, which is exactly when the screen most needs it.
+          if (open) {
+            open.wait.last = event;
+            return;
+          }
+          send(event);
+          pace(key);
         };
 
         const unsubscribe = bus.subscribe((event) =>
@@ -84,7 +113,7 @@ export function createEventStream<E extends DefaultEvent>(
           options.onWatchers?.(watchers);
           unsubscribe();
           clearInterval(heartbeat);
-          for (const timer of pending.values()) clearTimeout(timer);
+          for (const open of pacing.values()) clearTimeout(open.timer);
           try {
             controller.close();
           } catch {

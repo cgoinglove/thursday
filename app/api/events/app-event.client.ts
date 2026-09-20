@@ -15,8 +15,14 @@ export function useAppEvent(handlers: EventHandlers<AppEvent>) {
 }
 
 /**
- * Opens the one connection per tab, from the root layout. EventSource
- * reconnects on its own and replays the on-connect events.
+ * Opens the one connection per tab, from the app's own screen (app/page) and
+ * nowhere else — not from the root layout, which would open one on the file
+ * viewer's tabs too, where nothing listens. A stream is a connection held open
+ * and a browser allows an origin only six of them, so a few files left open for
+ * reading would take every one and the app's own reads would simply queue. The
+ * count is also what says a browser is there at all (presence): a viewer tab
+ * would keep jobs running with the app closed, and take the desktop
+ * notification that a job finishing is owed.
  */
 export function AppEventSource() {
   useEffect(() => fromEventSource(queryKey.events, bus), []);
