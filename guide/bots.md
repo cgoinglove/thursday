@@ -37,7 +37,10 @@ same thread rather than starting a new one.
 Threads live in two places: the corner at the bottom right of the call screen, which shows
 what is running, what waits on the user and the five most recent endings (every one not yet
 opened stays there too, however many), and **Settings › Threads**, which keeps all of them,
-including the ended ones. A stopped thread leaves the corner at once.
+including the ended ones. A stopped thread leaves the corner at once. A job that is over is
+kept for three months and then goes, with the conversation behind it — one still running or
+waiting on an answer is never cleared, however old, and what the job made stays in
+**Files › Finished** either way.
 
 A long thread summarizes itself when what the bot has to re-read each step fills up: the
 small bar at the top right of an open thread shows how full, beside the size of its last

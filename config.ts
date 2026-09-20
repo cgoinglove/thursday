@@ -494,6 +494,25 @@ export const WORKSPACE_KEEP = {
 };
 
 /**
+ * How long what the app kept of its own use stays before it clears it by itself
+ * (instrumentation): an ended call with its turns, and a job that finished with
+ * its messages. Nothing else grows without an end — every other table is a
+ * standing list the user edits — and these two are the ones a daily driver writes
+ * most: a ten-minute call is about 150 rows, a thirty-step job about 60 wider ones.
+ * - `forMs`  counted from when the call ended or the job did. A job still running
+ *            or waiting on the user is never touched however old, and a job's
+ *            finished work is not in these rows: it is in `artifacts/`, which
+ *            nothing clears. Long enough that she can still be asked about a
+ *            season's worth of what was said.
+ * - `sweepEveryMs`  how often the app looks, besides once at boot. Far shorter
+ *            than `forMs`, so the exact moment never matters.
+ */
+export const HISTORY_KEEP = {
+  forMs: 90 * 24 * 60 * 60 * 1000,
+  sweepEveryMs: 6 * 60 * 60 * 1000,
+};
+
+/**
  * How much of the previous call the prompt carries verbatim: `rows` turns are
  * fetched, then filled newest-first until `tokens` is spent.
  */

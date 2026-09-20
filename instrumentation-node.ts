@@ -1,6 +1,12 @@
 export async function boot() {
-  const { APP_DIR, APP_NAME, DATA_DIR, DB_FILE_NAME, WORKSPACE_KEEP } =
-    await import("@/config");
+  const {
+    APP_DIR,
+    APP_NAME,
+    DATA_DIR,
+    DB_FILE_NAME,
+    HISTORY_KEEP,
+    WORKSPACE_KEEP,
+  } = await import("@/config");
   const { logger } = await import("@/lib/logger");
 
   // Nothing can run on a database this build cannot migrate, and nothing can
@@ -44,8 +50,26 @@ export async function boot() {
 
   // Same for calls: an open call row from a vanished tab would route finished
   // jobs to a listener that is not there (bot.runner).
-  const { sweepCalls } = await import("@/features/thursday/thursday.query");
+  const { deleteEndedCalls, sweepCalls } = await import(
+    "@/features/thursday/thursday.query"
+  );
   await sweepCalls();
+
+  // And what the app kept of its own use goes by age as well (config HISTORY_KEEP):
+  // an ended call with its turns, a job that is over with its messages. After
+  // sweepThreads and sweepCalls, so nothing the last process left open is counted
+  // as finished. A job's results are not in these rows — they are in `artifacts/`.
+  const { removeFinishedThreads } = await import("@/features/bot/bot.runner");
+  const sweepHistory = () =>
+    void (async () => {
+      const before = new Date(Date.now() - HISTORY_KEEP.forMs);
+      const calls = await deleteEndedCalls(before);
+      const jobs = await removeFinishedThreads(before);
+      if (calls || jobs)
+        logger.info(`cleared ${calls} old call(s) and ${jobs} old job(s)`);
+    })().catch((cause) => logger.error("sweep history", cause));
+  sweepHistory();
+  setInterval(sweepHistory, HISTORY_KEEP.sweepEveryMs).unref();
 
   // Browser absence pauses work automatically unless the user asked for it to go on
   // (bot.schema KEEP_WORKING_KEY). Restart and failure always require manual resume.

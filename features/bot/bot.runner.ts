@@ -512,13 +512,30 @@ async function removeLockedThread(id: string) {
   return removed;
 }
 
-export async function removeFinishedThreads(): Promise<number> {
+/**
+ * Removes jobs that are over, with everything they held. With `endedBefore` only
+ * the ones that ended before then go, which is how the app clears by age
+ * (instrumentation, config HISTORY_KEEP); without it, all of them, which is the
+ * user pressing Clear finished. A job is taken under its lock and read again
+ * inside it, so one picked back up in that moment is left alone.
+ */
+export async function removeFinishedThreads(
+  endedBefore?: Date,
+): Promise<number> {
+  const cutoff = endedBefore?.getTime();
+  // The same age a job's files are judged by (sweepJobFiles): a thread is only
+  // stamped `endedAt` on done and cancelled, so `updatedAt` stands in for the rest.
+  const over = (thread: { endedAt: Date | null; updatedAt: Date }) =>
+    cutoff === undefined ||
+    (thread.endedAt ?? thread.updatedAt).getTime() < cutoff;
   let removed = 0;
   for (const thread of await listThreadFolders()) {
     if (thread.status !== "done" && thread.status !== "cancelled") continue;
+    if (!over(thread)) continue;
     await threadLock(thread.id, async () => {
       const current = await findThread(thread.id);
       if (current?.status !== "done" && current?.status !== "cancelled") return;
+      if (!over(current)) return;
       if (await removeLockedThread(thread.id)) removed += 1;
     });
   }

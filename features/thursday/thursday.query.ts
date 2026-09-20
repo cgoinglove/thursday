@@ -402,10 +402,11 @@ export async function listCallHistory(options: {
  * Every call that has ended, and its turns (cascade). A call still on the line
  * stays: its tab is still writing turns against the row (see `deleteCall`).
  */
-export async function deleteEndedCalls(): Promise<number> {
+export async function deleteEndedCalls(endedBefore?: Date): Promise<number> {
+  const over = isNotNull(callTable.endedAt);
   const removed = await database
     .delete(callTable)
-    .where(isNotNull(callTable.endedAt))
+    .where(endedBefore ? and(over, lt(callTable.endedAt, endedBefore)) : over)
     .returning({ id: callTable.id });
   return removed.length;
 }

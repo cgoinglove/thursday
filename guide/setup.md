@@ -105,6 +105,11 @@ never touches it. Nothing is sent anywhere but the model providers that were set
 and the services that were connected. The app listens only to this machine and has no account
 and no login.
 
+One thing sits outside it: the browser the bots work in. It is downloaded once into this
+computer's own cache folder, a few hundred megabytes, and an app update that moves to a newer
+browser leaves the older one there — so that folder, not `.thursday`, is where to look if the
+disk is short.
+
 A copy of that folder is the backup, and it is taken with the app stopped. While it runs, the
 newest calls and messages are in a second file beside the database, so a copy of the database on
 its own can be missing the last thing that was said; stopping the app folds that file back in and
