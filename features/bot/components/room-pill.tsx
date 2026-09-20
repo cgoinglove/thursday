@@ -39,7 +39,7 @@ import {
 } from "../thread.store";
 
 import { leadOf, stepOf, THURSDAY } from "./room-conversation";
-import { ThreadRow } from "./room-list";
+import { isUnread, ThreadRow } from "./room-list";
 
 /** The room folded: the pill at the foot of the call screen, the faces on it, and what passed between two parties riding above one for a moment. Split out of bot-room by subject; see it for the room as a whole. */
 
@@ -58,8 +58,10 @@ type CrewFace = {
   icon?: BotIcon | null;
   /** Working or waiting: both are awake. */
   awake: boolean;
-  /** Waiting on an answer; carries the dot. */
+  /** Waiting on an answer; carries the amber dot. */
   waiting: boolean;
+  /** A result of its nobody has opened; carries the blue one. */
+  unread: boolean;
   /** The step it is on, in the model's own words. Null when it is not working. */
   word: string | null;
   /** A stand-in for an install with no bots; dimmed with the rest. */
@@ -355,6 +357,10 @@ export function crewOf(
   bots: Bot[] | undefined,
   threads: ThreadView[],
 ): { crew: CrewFace[]; more: number } {
+  // What is finished and unopened is the other thing a face can carry (the user's pick)
+  const unread = new Set(
+    threads.filter(isUnread).map((thread) => thread.bot.name),
+  );
   const live = new Map<string, { waiting: boolean; word: string | null }>();
   for (const entry of latestPerBot(threads)) {
     const { thread, bot, line } = entry;
@@ -374,6 +380,7 @@ export function crewOf(
       icon: bot.icon,
       awake: live.has(bot.name),
       waiting: live.get(bot.name)?.waiting ?? false,
+      unread: unread.has(bot.name),
       word: live.get(bot.name)?.word ?? null,
     });
   }
@@ -386,6 +393,7 @@ export function crewOf(
       icon: null,
       awake: true,
       waiting: doing.waiting,
+      unread: unread.has(name),
       word: doing.word,
     });
   }
@@ -399,8 +407,9 @@ export function crewOf(
     if (!named.has(ghost.name)) roster.push(ghost);
   }
 
+  // Who needs the user first, then who is moving, then who left something to read
   const rank = (face: CrewFace) =>
-    face.waiting ? 0 : face.awake ? 1 : face.standIn ? 3 : 2;
+    face.waiting ? 0 : face.awake ? 1 : face.unread ? 2 : face.standIn ? 4 : 3;
   const sorted = roster
     .map((face, at) => ({ face, at }))
     .sort((a, b) => rank(a.face) - rank(b.face) || a.at - b.at)
@@ -659,6 +668,7 @@ const GHOSTS: CrewFace[] = ["alto", "brio", "cinder", "delta"].map(
     },
     awake: false,
     waiting: false,
+    unread: false,
     word: null,
     standIn: true,
   }),
@@ -689,9 +699,6 @@ function Crew({
   /** The hand-off up, drawn over the face it points at. */
   bubble: Handoff | null;
 }) {
-  // While anyone is moving or waiting, the rest step back so it reads at a glance who is
-  const lit = (face: CrewFace) => face.awake || face.waiting || face.word;
-  const astir = crew.some(lit);
   return (
     <span className="flex min-w-0 shrink items-center">
       {crew.map((face, index) => {
@@ -702,8 +709,7 @@ function Crew({
               // these are not circles. Earlier faces sit on top, so the dot on a
               // waiting face is never covered by its neighbour.
               className={cn(
-                "relative shrink-0 transition-[margin,opacity] duration-500 ease-out",
-                astir && !lit(face) && "opacity-40",
+                "relative shrink-0 transition-[margin] duration-500 ease-out",
                 // A word to the left has already broken the shingle.
                 index > 0 && !crew[index - 1].word && "-ml-2",
                 face.standIn && "opacity-35",
@@ -736,13 +742,11 @@ function Crew({
         );
       })}
       {more > 0 && (
-        // Past CREW_MAX the row stops growing. Only idle bots are ever behind it:
-        // anyone moving sorted to the front.
+        // Past CREW_MAX the row stops growing. Only idle bots are ever behind it —
+        // anyone moving sorted to the front — so the tail is a word, not a face-shaped
+        // box standing in for faces nobody needs to see (the user's pick).
         <span
-          className={cn(
-            "grid size-7 shrink-0 place-items-center rounded-[9px] bg-muted font-mono text-[10px] text-muted-foreground ring-1 ring-border/50",
-            !crew.at(-1)?.word && "-ml-2",
-          )}
+          className="ml-2 shrink-0 font-mono text-[10px] text-muted-foreground"
           title={`${more} more`}
         >
           +{more}
@@ -762,7 +766,7 @@ function CrewMark({ face }: { face: CrewFace }) {
       shape={face.icon?.shape}
       outline={face.icon?.outline}
       paint={face.icon?.paint}
-      notify={face.waiting}
+      notify={face.waiting || (face.unread && "new")}
     />
   );
 }

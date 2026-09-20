@@ -980,7 +980,11 @@ type BotMarkProps = {
   outline?: boolean;
   /** A paint (MARK_PAINTS) worn in place of `color`. */
   paint?: MarkPaint;
-  notify?: boolean;
+  /**
+   * The dot on the face: `true` waits on the user (amber), `"new"` is a result of its
+   * nobody has opened yet (brand blue, the user's pick). False draws none.
+   */
+  notify?: boolean | "new";
   /** Eyes crossed out: a stopped thread, or a call that failed. */
   crossed?: boolean;
   state?: MarkState;
@@ -1568,12 +1572,18 @@ export function BotMark({
           </g>
         )}
         {notifying && (
-          // The dot waits on the user, so it wears amber in NavBadge's shades.
+          // Waiting on the user wears amber in NavBadge's shades; a result nobody
+          // has opened wears the brand blue its label does (room-list).
           <circle
             cx={f(CENTER + Math.cos(nAngle) * cfg.notifyDist)}
             cy={f(CENTER + Math.sin(nAngle) * cfg.notifyDist)}
             r={cfg.notifyR}
-            className={cn("fill-amber-600 dark:fill-amber-400", NOTIFY_POP)}
+            className={cn(
+              notifying === "new"
+                ? "fill-brand"
+                : "fill-amber-600 dark:fill-amber-400",
+              NOTIFY_POP,
+            )}
           />
         )}
       </g>

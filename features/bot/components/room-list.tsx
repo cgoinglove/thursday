@@ -36,7 +36,7 @@ import { FoldButton, TAB } from "./room-conversation";
 export const needsYou = needsThreadReply;
 
 /** An ending nobody has opened. It needs the user too, to read rather than to answer. */
-const isUnread = (thread: ThreadView) =>
+export const isUnread = (thread: ThreadView) =>
   thread.status === "done" && !thread.seen;
 
 /** The room's two lists. */
@@ -359,7 +359,7 @@ export function ThreadRow({
             outline={thread.bot.icon?.outline}
             paint={thread.bot.icon?.paint}
             state={thread.status === "working" ? "thinking" : "idle"}
-            notify={attention}
+            notify={attention || (isUnread(thread) && "new")}
             crossed={thread.status === "cancelled"}
           />
         </span>

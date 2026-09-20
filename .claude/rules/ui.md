@@ -20,7 +20,8 @@ paths:
   Only what is not words — a dot, an icon, a bar, a `Skeleton` — pulses. It takes its colours from the theme —
   `tone="waiting"` for amber, never a colour — and truncates in its own box, not a parent's.
 - Two status colors only: amber (waits on the user — a question, a stopped job, an answer not yet
-  opened; `WAITING_INK` in `lib/utils`) and red (failed — `text-destructive`). Success, connected and
+  opened, where nothing tells the two apart — the Threads count is one number; `WAITING_INK` in
+  `lib/utils`) and red (failed — `text-destructive`). Success, connected and
   enabled have no color of their own: an unopened answer is amber because it waits on the user, not
   because it worked. The settings nav reports the same two, and one blue dot for a section worth
   setting up that nothing waits on — Models with no studio model (the user's pick); the settings
@@ -30,7 +31,8 @@ paths:
 - One brand color, blue (`brand` in `app/globals.css`), on black and white, for what matters on a
   screen (the user's pick): what it asks for (`Button variant="brand"`, round; the write line's
   send), Thursday herself (her caption dot), and whatever else there most needs the eye — a new
-  result's label in the room's list, and an answer button outlined in it. It stays rare so it
+  result's label in the room's list, the dot on the face that left it, and an answer button
+  outlined in it. It stays rare so it
   keeps meaning that. What is on or picked is blue too (the user's pick) — a switch, a radio, a
   slider, a segment or a chip that fills, a picked card's border and its tick — and what is not
   is a hairline or muted words, so nothing picked has to be read twice; a label beside it is
@@ -97,8 +99,10 @@ paths:
   it, so a new icon is a change to that file. Only the browser tab keeps the bot-style mark
   (`THURSDAY_SEED`).
 - A bot draws with the face picked on its page wherever it appears; nothing varies its mark by
-  thread or place, only its state: the amber notify dot while it waits on the user, crossed-out
-  eyes on a thread the user stopped (`cancelled`). A job never ends as a failure: a model that
+  thread or place, only its state: a dot while something of its waits on the user — amber to
+  answer (a question, a stop), blue for a result nobody has opened, amber first when it has both
+  (the user's pick) — and crossed-out eyes on a thread the user stopped (`cancelled`). Faces do
+  not dim when others are at work: the lift of the one moving is what says who is (the user's pick). A job never ends as a failure: a model that
   breaks pauses it as waiting.
 - The pill's bubble shows one thing that just happened, over the face of whoever spoke: that face
   with the bots it reached tucked behind it, then the words — no glyph between faces. Questions
