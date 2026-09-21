@@ -79,3 +79,7 @@ The canvas's path and every picture's path, so both the whole comparison and the
 options are in front of whoever chooses. Then, in words: the axis each option explores,
 which one you would lead with, and what that one costs — and that the `spec` button on a
 board copies it as an instruction to build from.
+
+When the pictures could not be made — no browser on this machine — hand back the canvas
+on its own and say so in one line. It is the whole comparison either way; what is lost is
+seeing the options without opening it.

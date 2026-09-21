@@ -10,6 +10,11 @@ node <skill dir>/scripts/canvas.mjs new <name>                 # the canvas, in 
 node <skill dir>/scripts/canvas.mjs shots <name> --size WxH    # every board as a picture beside it
 ```
 
+`new` needs nothing of the machine. `shots` drives a browser, so load the browser skill
+and have a page open before it; when that skill's `open` fails with a missing executable,
+its Install section is what answers it — the app fetches the browser itself at boot, so
+a canvas can be written and handed back even on a machine where that never finished.
+
 The canvas's own file holds its style, its panning and its zooming: add boards inside
 `<div id="stage">` and never rewrite the file whole. It opens fitted rather than at
 full size, because the app draws it 1024px wide and does not scroll it.
