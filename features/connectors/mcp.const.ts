@@ -334,10 +334,4 @@ export const MCP_PRESETS: MCPPreset[] = [
     description: "Questions, answers, and teams",
     config: { url: "https://mcp.stackoverflow.com" },
   },
-  {
-    name: "playwright",
-    icon: "playwright.dev",
-    description: "Drive a real browser",
-    config: { command: "npx", args: ["@playwright/mcp@latest"] },
-  },
 ];
