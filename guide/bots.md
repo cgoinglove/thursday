@@ -84,6 +84,11 @@ correction, a narrower ask. Until the bot reads them they wait where the message
 waiting by that bot's face. Once read, they join the conversation marked *stepped in*, so it is
 clear later why the bot changed course. Saying the same to her on a call does the same thing.
 
+A bot that is not on a step has nothing to step into — one that handed part of the job to
+another bot and is waiting for it back. Its tab shows the message box open instead, under a
+line saying who is working. Words sent there start that bot again at once, while the other
+one carries on.
+
 ## When a bot needs the user
 
 - **A question** pauses that bot until it is answered. It shows where the message box is,

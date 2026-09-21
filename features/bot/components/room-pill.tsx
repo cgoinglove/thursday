@@ -115,7 +115,14 @@ export function waitingStepIn(
 ): Handoff | null {
   for (const thread of threads) {
     if (thread.status !== "working") continue;
-    const note = thread.room.deliveries.find((one) => !one.delivered);
+    // Words to an idle bot start it at once, and their own bubble says they arrived
+    const note = thread.room.deliveries.find(
+      (one) =>
+        !one.delivered &&
+        thread.room.participants.some(
+          (who) => who.bot === one.bot && who.state === "running",
+        ),
+    );
     if (note)
       return {
         at: note.bot,

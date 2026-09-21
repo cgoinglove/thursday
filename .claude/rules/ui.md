@@ -74,6 +74,10 @@ paths:
   card does not — or Thursday has told them and marked
   them seen (`thread_seen`); a relay acknowledgement alone never counts as reading. Use neutral surfaces for these
   notices and explicit labels for questions and new results.
+- Step in is for a bot on a step — its own row in the room running or queued — never for a
+  thread that is running: a bot idle inside one (it handed its part over and waits) gets the
+  open composer under a still line naming who is working, because words to it start it again
+  at once (`room.query` `deliver`) and there is no step to step into.
 - Words stepped in with wait where the composer sits, registered, until the bot's next step reads
   them: a loader and a shining line, never the waiting colour, since they wait on the bot and not on the user,
   and they can be taken back until then. Outside the thread only the pill says so, as a shining

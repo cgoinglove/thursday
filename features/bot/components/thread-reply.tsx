@@ -65,9 +65,10 @@ type ReplyThread = {
 /**
  * Talking to a thread without voice, through one pipe (bot.runner answerThread). A
  * question or a pause docks where the composer was, one at a time, on a sheet
- * with no border of its own. A running thread shows Step in rather than an open
- * box, so the job does not turn into a chat. An open call is told too
- * (screenActs), or it asks again.
+ * with no border of its own. A bot on a step shows Step in rather than an open
+ * box, so the job does not turn into a chat; one that is idle inside a running
+ * thread has an open box, since there is no step to step into. An open call is
+ * told too (screenActs), or it asks again.
  */
 export function ThreadReply({
   thread,
@@ -138,18 +139,28 @@ export function ThreadReply({
   const queued = waiting
     .map((delivery) => `${delivery.bot}: ${delivery.text}`)
     .join(" · ");
-  const active =
-    participants
-      .filter((participant) => participant.state === "running")
-      .map((participant) => participant.bot)
-      .join(", ") || thread.bot;
+  const working = participants
+    .filter((participant) => participant.state === "running")
+    .map((participant) => participant.bot);
+  const active = working.join(", ") || thread.bot;
+  // Step in interrupts a bot on a step, or about to take one. A bot that handed its part over
+  // and waits is on none: words sent to it start it again at once (room.query deliver), so its
+  // box is open, and nothing here calls that stepping in.
+  const onStep =
+    status === "running" &&
+    participants.some(
+      (participant) =>
+        participant.bot === recipientName &&
+        (participant.state === "running" || participant.state === "queued"),
+    );
+  const idle = status === "running" && !onStep;
   const faceOf = (name: string): BotRef =>
     faces.find((bot) => bot.name === name) ?? { name };
 
   const send = async (text: string) => {
     if (busy) return false;
     const sent = await answer(thread, text, recipientName, replyTo);
-    if (sent && status === "running") setStepping(false);
+    if (sent && onStep) setStepping(false);
     return sent;
   };
   /** A choice is sent as it is, through the same pipe as typed words. */
@@ -283,7 +294,7 @@ export function ThreadReply({
     );
   }
 
-  if (status === "running" && !stepping) {
+  if (onStep && !stepping) {
     return (
       <div
         className={cn(
@@ -353,6 +364,18 @@ export function ThreadReply({
 
   return (
     <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
+      {/* Nothing of this bot's is moving, so the line is still: no loader, no shine.
+          The job goes on without it, so the stop stays within reach. */}
+      {idle && (
+        <div className="flex min-w-0 items-center gap-2 pr-1.5 pl-3.5">
+          <p className="min-w-0 flex-1 truncate text-[12.5px] leading-5 text-muted-foreground break-keep">
+            {recipientName} is idle
+            {working.length > 0 && ` · ${working.join(", ")} working`}
+          </p>
+          <span className="h-4 w-px shrink-0 bg-border" />
+          {stopButton}
+        </div>
+      )}
       <DraftComposer
         key={JSON.stringify([thread.id, recipientName])}
         threadId={thread.id}
@@ -360,12 +383,14 @@ export function ThreadReply({
         send={send}
         busy={busy}
         // The box appears only after Step in; focus it.
-        autoFocus={status === "running"}
-        onEscape={status === "running" ? () => setStepping(false) : undefined}
+        autoFocus={onStep}
+        onEscape={onStep ? () => setStepping(false) : undefined}
         placeholder={
-          status === "running"
+          onStep
             ? `What's off? ${recipientName} reads this before its next step`
-            : "Anything more? It picks up where it left off"
+            : idle
+              ? `Anything for ${recipientName}? It starts again as soon as you send`
+              : "Anything more? It picks up where it left off"
         }
         label={`Message for ${recipientName}`}
         className="rounded-2xl bg-background py-1.5 pr-1.5 pl-3.5 ring-1 ring-border/80 transition-shadow focus-within:ring-ring/60"
@@ -383,7 +408,7 @@ export function ThreadReply({
           ) : null
         }
         trailing={
-          status === "running" ? (
+          onStep ? (
             <Button
               type="button"
               size="icon-sm"
@@ -398,7 +423,7 @@ export function ThreadReply({
           ) : null
         }
       />
-      {!!queued && status !== "running" && (
+      {!!queued && !onStep && (
         <p className="flex min-w-0 items-center gap-2 px-1 text-xs text-muted-foreground">
           <Loader2 className="size-3 shrink-0 animate-spin" />
           <span className="truncate">Sending to {queued}</span>
