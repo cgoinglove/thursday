@@ -99,11 +99,7 @@ function fromArgs(
   // nothing of is one the user cannot go back and check
   if (name === TOOL_NAMES.memory_recall) {
     const path = said(args, "path");
-    return path ? `Checking your notes · ${path}` : null;
-  }
-  if (name === TOOL_NAMES.memory_forget) {
-    const facts = Array.isArray(args.factIds) ? args.factIds.length : 0;
-    return facts > 1 ? `Forgetting ${facts} facts` : null;
+    return path ? `Checking · ${path}` : null;
   }
   // The tool asks the model for this line for this screen (workspace.tool bash);
   // the command stands in when it wrote none
