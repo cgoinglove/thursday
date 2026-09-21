@@ -14,7 +14,7 @@ import { clip } from "@/lib/utils";
  * wrong — text left in the wrong field, a follow-up sent as new work — so the choice
  * is which tool to call, and nothing about a call is left to fill in or leave out.
  */
-const THREAD_REF = z.string().describe("The thread, by its label or its id.");
+const THREAD_REF = z.string().describe("Its label or id.");
 
 export const threadStartSpec = {
   description:
@@ -37,7 +37,7 @@ export const threadStartSpec = {
 
 export const threadTellSpec = {
   description:
-    "Say something to a thread that exists: a correction while it runs, the next step once it has finished, or to go on after it stopped. Its bot reads it with everything the thread already holds.",
+    "Say something to a thread that exists. Its bot reads it with everything the thread already holds.",
   parameters: z.object({
     thread: THREAD_REF,
     words: z
@@ -75,7 +75,7 @@ export const threadShowSpec = {
 
 export const threadSeenSpec = {
   description:
-    "Mark a thread's result as seen by the user, once they have heard it and have nothing more to ask about it. It leaves the work waiting on them.",
+    "Mark a thread's result as seen by the user. It leaves the work waiting on them.",
   parameters: z.object({ thread: THREAD_REF }),
 };
 
