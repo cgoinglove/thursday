@@ -1,6 +1,6 @@
 ---
 name: interactive-page
-description: "Diagrams, charts and pages people use: a quick page (a comparison, a short report laid out as one HTML file, written in seconds); a diagram of how something is built or flows (architecture, workflow, sequence, data flow, states) drawn by the archify engine; a chart of numbers in a report; or an interactive page (controls, tabs, a calculator) as one self-contained HTML file."
+description: "Diagrams, charts and pages people use: a quick page (a comparison, a short report laid out as one HTML file, written in seconds); a diagram of how something is built or flows (architecture, workflow, sequence, data flow, states) drawn by the archify engine; a chart of numbers in a report; a canvas of design options side by side, each with its picture and the values it is made of; or an interactive page (controls, tabs, a calculator) as one self-contained HTML file."
 license: Complete terms in LICENSE.txt
 ---
 
@@ -31,6 +31,25 @@ caption, from the first version: download them from the pages you read into the 
 
 Take the kit below instead when the page is a tool — controls that keep state, a calculator,
 charts that respond — and markdown when it is only a few paragraphs.
+
+## A canvas
+
+Ways something could look, to choose between — screens, a page, a poster — go side by side
+on one canvas that pans and zooms: a board per option at its exact size, a note beside each
+on what it is for and what it costs, and a picture of every board.
+
+```bash
+node <skill dir>/scripts/canvas.mjs new <name>                 # the canvas, in your artifacts folder
+node <skill dir>/scripts/canvas.mjs shots <name> --size WxH    # every board as a picture beside it
+```
+
+`new` needs nothing of the machine. `shots` drives a browser, so load the browser skill and
+have a page open before it; when that skill's `open` fails with a missing executable, its
+Install section is what answers it. Two things decide whether a canvas works: **every board
+is the same size**, because one `--size` shoots them all and a board that misses it comes
+back named as wrong; and **a palette is never written into a board by hand** — the canvas
+measures what each board really paints and copies it as text to build from. Read
+`references/canvas.md` before the first board.
 
 ## A page
 
