@@ -41,7 +41,9 @@ import { FileViewer, useOpenFile } from "./file-view";
  *
  * Opening a card is reading it: the thread is marked seen, as opening it in the
  * room does, so the room stops calling it new and Thursday stops owing it on a
- * call. Closing a card is not. A thread read anywhere else takes its card away.
+ * call. So is clearing the corner, which is the one way on this screen to have
+ * done with a pile of them. Closing one card is not — that is this browser
+ * waving it off. A thread read anywhere else takes its card away.
  */
 export function ArtifactView() {
   return (
@@ -231,15 +233,19 @@ function Notice() {
 
   if (!rows.length) return null;
 
-  const read = (threadId: string) => {
-    drop(threadId);
-    void markSeenAction([threadId])
+  const read = (threadIds: string[]) => {
+    rememberDismissed(threadIds);
+    setRows((was) => was.filter((row) => !threadIds.includes(row.threadId)));
+    void markSeenAction(threadIds)
       .then(unwrapResult)
       .then(() => revalidate(queryKey.threads))
       .catch((cause) =>
         toast.add({
           type: "error",
-          title: "Could not mark the thread as read",
+          title:
+            threadIds.length > 1
+              ? "Could not mark the threads as read"
+              : "Could not mark the thread as read",
           description: errorToString(cause),
         }),
       );
@@ -265,7 +271,7 @@ function Notice() {
                   path,
                   row.paths.filter((one) => viewKindOf(one) === "image"),
                 );
-                read(row.threadId);
+                read([row.threadId]);
               } else {
                 // the room marks a thread seen as it opens it
                 roomOpens.open(row.threadId);
@@ -278,12 +284,12 @@ function Notice() {
         {rows.length > 1 && (
           <p className="flex shrink-0 items-center px-1.5 font-mono text-[10px] text-muted-foreground">
             <span className="flex-1">{rows.length} new</span>
+            {/* Clearing the corner is reading what is in it: one card's X waves that card
+                off here, but a user who clears the lot has had them all, so the dots go
+                with them and Thursday stops owing them on a call. */}
             <button
               type="button"
-              onClick={() => {
-                rememberDismissed(rows.map((row) => row.threadId));
-                setRows([]);
-              }}
+              onClick={() => read(rows.map((row) => row.threadId))}
               className="rounded-md px-1 font-sans text-[11px] outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               Clear all

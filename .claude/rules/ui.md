@@ -72,7 +72,11 @@ paths:
   that reports (saved, done, a key set) is not a pick and stays black. Never a surface, and no
   status but that one nav dot — a green beside it would read as a second brand.
 - What she is doing on a call is one line under her face, each drawn for at least
-  `CALL_LINE.dwellMs` (`useDwell`). With captions down the sides the tool lines stand on her
+  `CALL_LINE.dwellMs` (`useDwell`). **A line names what it touched, whether the tool wrote or
+  read** (`tool-line` `fromArgs`): the note's path, the command — the model's own line for it
+  where the tool asks for one — the skill, the picture, the thread's label. A tool that reads
+  and says nothing of what it read is a step the user cannot go back and check, since only
+  the writing side leaves a row behind. With captions down the sides the tool lines stand on her
   side instead, under her words (`WorkStack`): the last three, older ones fainter, no rule and
   no plate — and they stay with the turn they led to for the rest of the call, under it
   whenever it is level, the one gone back to included (`useKeptWork`). What the backend is
@@ -83,8 +87,9 @@ paths:
   `SIDES_MIN_WIDTH` draws her last line whatever Captions says.
 - Errors are never swallowed. Inline or toast, they reach the user.
 - Thread questions remain visible while other bots work. Unread endings stay in the inbox until
-  the user opens them — its card in the left corner and Thursday's `thread_show` count, closing the
-  card does not — or Thursday has told them and marked
+  the user opens them — its card in the left corner and Thursday's `thread_show` count, and so
+  does clearing the corner, which is the one way there to have done with a pile of them;
+  closing one card does not — or Thursday has told them and marked
   them seen (`thread_seen`); a relay acknowledgement alone never counts as reading. Use neutral surfaces for these
   notices and explicit labels for questions and new results.
 - The message box names who it is addressed to (`To <bot>`), because a thread with several

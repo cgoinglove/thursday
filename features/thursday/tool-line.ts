@@ -46,13 +46,23 @@ function routineWhen(args: Record<string, unknown>): string | null {
  */
 const FACT_MAX = 28;
 
-function snippet(text: string): string {
+/** A line whose snippet is the whole of it carries more, since nothing else shares the row. */
+const SAID_MAX = 44;
+
+function snippet(text: string, max = FACT_MAX): string {
   const said = text.trim().replace(/\s+/g, " ");
-  if (said.length <= FACT_MAX) return said;
-  const cut = said.slice(0, FACT_MAX);
+  if (said.length <= max) return said;
+  const cut = said.slice(0, max);
   const space = cut.lastIndexOf(" ");
-  return `${(space > FACT_MAX / 2 ? cut.slice(0, space) : cut).trimEnd()}…`;
+  return `${(space > max / 2 ? cut.slice(0, space) : cut).trimEnd()}…`;
 }
+
+/** A path as the line names it: the file, not the folders above it. */
+const fileName = (path: string) => path.split("/").filter(Boolean).at(-1) ?? "";
+
+/** One string argument, trimmed, or "" while the arguments are still streaming in. */
+const said = (args: Record<string, unknown>, key: string) =>
+  typeof args[key] === "string" ? (args[key] as string).trim() : "";
 
 /** The first fact of a `memory_remember` call, while the arguments are whole enough to read. */
 function firstFact(
@@ -78,24 +88,48 @@ function fromArgs(
   bot: string | null,
 ): string | null {
   if (name === TOOL_NAMES.memory_remember) {
-    const path = typeof args.path === "string" ? args.path.trim() : "";
+    const path = said(args, "path");
     const fact = firstFact(args);
     if (!path) return null;
     if (!fact) return `Noting that under ${path}`;
     const more = fact.more > 0 ? ` (+${fact.more})` : "";
     return `Noting under ${path}: ${snippet(fact.text)}${more}`;
   }
+  // What is read is named as exactly as what is written: a note she opened and said
+  // nothing of is one the user cannot go back and check
+  if (name === TOOL_NAMES.memory_recall) {
+    const path = said(args, "path");
+    return path ? `Checking your notes · ${path}` : null;
+  }
+  if (name === TOOL_NAMES.memory_forget) {
+    const facts = Array.isArray(args.factIds) ? args.factIds.length : 0;
+    return facts > 1 ? `Forgetting ${facts} facts` : null;
+  }
+  // The tool asks the model for this line for this screen (workspace.tool bash);
+  // the command stands in when it wrote none
+  if (name === TOOL_NAMES.bash) {
+    const what = said(args, "description") || said(args, "command");
+    return what ? `On this computer · ${snippet(what, SAID_MAX)}` : null;
+  }
+  if (name === TOOL_NAMES.load_skill) {
+    const skill = said(args, "name");
+    return skill ? `Reading the ${skill} skill` : null;
+  }
+  if (name === TOOL_NAMES.look_at) {
+    const path = said(args, "path");
+    return path ? `Looking at ${fileName(path)}` : null;
+  }
   if (name === TOOL_NAMES.thread_start) {
-    const bot = typeof args.bot === "string" ? args.bot.trim() : "";
+    const bot = said(args, "bot");
     return bot ? `Handing this to ${bot}` : "Handing this over";
   }
   if (name === TOOL_NAMES.web_search) {
-    const query = typeof args.query === "string" ? args.query.trim() : "";
+    const query = said(args, "query");
     return query ? `Searching · ${query}` : null;
   }
   if (name === TOOL_NAMES.routine) {
     if (args.action === "create") {
-      const bot = typeof args.bot === "string" ? args.bot.trim() : "";
+      const bot = said(args, "bot");
       const when = routineWhen(args);
       const what = [bot, when].filter(Boolean).join(", ");
       return what ? `Setting a routine · ${what}` : "Setting a routine";
@@ -104,7 +138,7 @@ function fromArgs(
     if (args.action === "delete") return "Deleting a routine";
     return null;
   }
-  const label = typeof args.thread === "string" ? args.thread.trim() : "";
+  const label = said(args, "thread");
   if (name === TOOL_NAMES.thread_tell)
     return bot ? `Telling ${bot}` : "Passing that on";
   if (name === TOOL_NAMES.thread_answer)

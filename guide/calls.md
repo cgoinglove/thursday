@@ -80,7 +80,9 @@ keeps them under the search.
 
 **Settings › Thursday › Captions** picks where the words show: under her face, or down the
 two sides of the screen. A narrow window always shows them under her face. What she is
-doing — a search, work handed to a bot — shows as one line under her face; with the words down
+doing — a search, work handed to a bot, a note she reads or writes — shows as one line under
+her face, and the line names what it is about: which note, which command on this computer,
+which picture. With the words down
 the sides it stands on her side instead, under what she said, the last three steps at a time
 with the older ones fainter, and the steps stay with that answer for the rest of the call:
 clicking an earlier answer of hers brings it back with the steps behind it. What she is

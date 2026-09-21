@@ -127,7 +127,10 @@ lines is a file. Nothing opens by itself: every finished job waits as a card in 
 the bottom left of the call screen — the bot, the job's name, how its answer begins, and its
 files under that — until it is opened or dismissed, a reload of the page included. Opening a card, or a file on it, counts as
 reading the result: the thread stops showing as new, and she will not bring it up on a call.
-Dismissing a card does not; the result still waits in its thread. The files also show under
+Dismissing one card does not; that result still waits in its thread. **Clear all**, which
+appears once more than one card is waiting, does: it reads the whole pile at once, the way
+opening each of them would, which is also what she does when asked on a call to clear what is
+finished. The files also show under
 the bot's words in the thread: pictures as thumbnails, a page or a written report as a small preview
 of itself. Asking her on a call to show a result opens that file on the screen. All of them
 stay under **Settings › Files**, one shelf per bot. Its second tab, **All files**, is the
