@@ -37,7 +37,7 @@ const heldAt = (port, host) =>
   });
 
 /** Whether something already holds the port, on any address. */
-async function taken(port) {
+export async function portTaken(port) {
   for (const host of ADDRESSES) {
     if (await heldAt(port, host)) return true;
   }
@@ -70,6 +70,9 @@ const keepPort = (home, port) => {
   }
 };
 
+/** The address this data folder is expected on: the port it kept, else the default. */
+export const homePort = (home) => lastPort(home) ?? DEFAULT_PORT;
+
 /**
  * A port nobody asked for is ours to move; a port that was asked for (`--port`,
  * `PORT`) is not, and saying so is more use than moving it quietly. Exits with
@@ -92,13 +95,13 @@ export async function freePort(asked, home) {
 async function pickPort(asked, home) {
   const wanted = asked?.trim() || undefined;
   const last = wanted === undefined && home ? lastPort(home) : null;
-  if (last && !(await taken(last))) return last;
+  if (last && !(await portTaken(last))) return last;
   const from = Number(wanted ?? DEFAULT_PORT);
   if (!Number.isInteger(from) || from < 1 || from > 65535) {
     console.error(`\n  Not a port: ${wanted}\n`);
     process.exit(1);
   }
-  if (!(await taken(from))) return from;
+  if (!(await portTaken(from))) return from;
   if (wanted !== undefined) {
     console.error(
       `\n  Port ${from} is already in use.\n  Try another: --port ${from + 1}\n`,
@@ -106,7 +109,7 @@ async function pickPort(asked, home) {
     process.exit(1);
   }
   for (let port = from + 1; port < from + SEARCH; port++) {
-    if (!(await taken(port))) return port;
+    if (!(await portTaken(port))) return port;
   }
   console.error(`\n  Nothing free between ${from} and ${from + SEARCH}.\n`);
   process.exit(1);

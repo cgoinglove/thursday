@@ -30,6 +30,7 @@ if (has("-h", "--help")) {
 
   Usage
     $ thursday [options]
+    $ thursday autostart [--off]   Start with the computer, macOS only
 
   Options
     --port <n>     Port to serve on (default 4747, or the next free one)
@@ -72,6 +73,14 @@ const DEFAULT_HOME = APP === ROOT ? join(homedir(), ".thursday") : ROOT;
 
 const asked = flag("port") ?? process.env.PORT;
 const home = resolve(flag("home") || process.env.THURSDAY_HOME || DEFAULT_HOME);
+
+// Turning it on or off is the whole command; it never goes on to serve.
+if (argv[0] === "autostart") {
+  const { autostart } = await import("./autostart.mjs");
+  await autostart({ root: ROOT, home, off: has("--off") });
+  process.exit(0);
+}
+
 const port = String(await freePort(asked, home));
 const url = `http://localhost:${port}`;
 /** Where config.ts DB_FILE_NAME puts the database under the home. */

@@ -83,12 +83,20 @@ a password, on this machine and outside the folder the bots work in.
 
 The app runs in a browser tab, and a tab is easy to lose: closed, it takes the wake phrase,
 the shortcut and her calls with it. Chrome and Edge can install it instead, which gives it
-its own window and its own icon in the Dock or the taskbar, and it can be set to open when
-the computer starts. The call screen offers it once, under the buttons at its top right —
-**Install**, or **Not now** and it does not ask again — and **Install app** stays at the foot
-of the Settings list for as long as it is not installed. Safari on a Mac does it from
-its File menu, **Add to Dock**; Firefox cannot. It is the same local app either way; nothing
-moves anywhere.
+its own window and its own icon in the Dock or the taskbar, and the browser can be told to
+open that window when the computer starts. The call screen offers it once, under the buttons
+at its top right — **Install**, or **Not now** and it does not ask again — and **Install app**
+stays at the foot of the Settings list for as long as it is not installed. Safari on a Mac
+does it from its File menu, **Add to Dock**; Firefox cannot. It is the same local app either
+way; nothing moves anywhere.
+
+The window only shows what the server is serving, and the server is started in a terminal. On
+a Mac it does not have to be: `thursday autostart` hands it to the computer, which starts it at
+login and starts it again whenever it stops, so the icon in the Dock opens straight into a call
+with no terminal anywhere. `thursday autostart --off` takes it back. A server nobody is watching
+writes what it would have said to `server.local.log`, beside the database. The address is the
+one it is on when autostart is turned on, so moving it with `--port` means turning autostart on
+once more. Linux and Windows start it the way they start anything else at login.
 
 The app comes back on the same address every time it starts: the first start takes port 4747,
 which other apps rarely use, and keeps it. If that port is taken by
