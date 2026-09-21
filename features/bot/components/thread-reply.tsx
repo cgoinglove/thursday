@@ -154,6 +154,9 @@ export function ThreadReply({
         (participant.state === "running" || participant.state === "queued"),
     );
   const idle = status === "running" && !onStep;
+  // Only the bot the job went to answers the user. Anyone it pulled in reports to it,
+  // so words addressed to them come back one step removed (room.query finishRoomWork).
+  const relayed = recipientName !== thread.bot;
   const faceOf = (name: string): BotRef =>
     faces.find((bot) => bot.name === name) ?? { name };
 
@@ -368,9 +371,22 @@ export function ThreadReply({
           The job goes on without it, so the stop stays within reach. */}
       {idle && (
         <div className="flex min-w-0 items-center gap-2 pr-1.5 pl-3.5">
-          <p className="min-w-0 flex-1 truncate text-[12.5px] leading-5 text-muted-foreground break-keep">
-            {recipientName} is idle
-            {working.length > 0 && ` · ${working.join(", ")} working`}
+          <p className="flex min-w-0 flex-1 items-center gap-1.5 text-[12.5px] leading-5">
+            {/* This bot is on no step, so its own half does not shine; whoever holds
+                the job up still does, as every line that is still moving does. */}
+            <span className="shrink-0 text-muted-foreground">
+              {recipientName} is idle
+            </span>
+            {working.length > 0 && (
+              <>
+                <span className="shrink-0 text-muted-foreground/50">·</span>
+                <ShinyText
+                  text={`${working.join(", ")} working`}
+                  speed={2.4}
+                  className="min-w-0 truncate"
+                />
+              </>
+            )}
           </p>
           <span className="h-4 w-px shrink-0 bg-border" />
           {stopButton}
@@ -423,6 +439,11 @@ export function ThreadReply({
           ) : null
         }
       />
+      {relayed && (
+        <p className="min-w-0 truncate px-1 text-xs text-muted-foreground">
+          {recipientName}&rsquo;s answer goes back to {thread.bot}
+        </p>
+      )}
       {!!queued && !onStep && (
         <p className="flex min-w-0 items-center gap-2 px-1 text-xs text-muted-foreground">
           <Loader2 className="size-3 shrink-0 animate-spin" />
@@ -680,6 +701,7 @@ function RecipientPicker({
           />
         }
       >
+        <span className="pl-1 text-muted-foreground">To</span>
         <Face bot={current} size={14} />
         <span className="max-w-32 truncate">{current.name}</span>
         <ChevronDown className="size-3 shrink-0 text-muted-foreground" />

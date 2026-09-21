@@ -76,6 +76,11 @@ and the room opens on the thread it started.
 The message box of an open thread takes files the same way: the paperclip, a paste, or a drop
 anywhere on the room.
 
+Once more than one bot is in a thread, the box says who it is addressed to, and the name can be
+changed to any of them. Only the bot the job went to answers the user: write to one it pulled
+in, and the box says so — that bot's answer goes back to the one who called it, and reaches the
+user in its report.
+
 ## Telling a running bot something
 
 **Step in** on a running thread puts words in front of the bot before its next step — a

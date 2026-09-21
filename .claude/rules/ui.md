@@ -74,6 +74,9 @@ paths:
   card does not — or Thursday has told them and marked
   them seen (`thread_seen`); a relay acknowledgement alone never counts as reading. Use neutral surfaces for these
   notices and explicit labels for questions and new results.
+- The message box names who it is addressed to (`To <bot>`), because a thread with several
+  participants sends to whichever tab is open. Addressed to a bot other than the thread's own,
+  it also says where that bot's answer lands: it reports to whoever called it, not to the user.
 - Step in is for a bot on a step — its own row in the room running or queued — never for a
   thread that is running: a bot idle inside one (it handed its part over and waits) gets the
   open composer under a still line naming who is working, because words to it start it again
