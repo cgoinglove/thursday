@@ -1,6 +1,6 @@
 ---
 name: interactive-page
-description: "Diagrams, charts and pages people use: a quick page (a comparison, a short report laid out as one HTML file, written in seconds); a diagram of how something is built or flows (architecture, workflow, sequence, data flow, states) drawn by the archify engine; a chart of numbers in a report; a canvas of design options side by side, each with its picture and the values it is made of; or an interactive page (controls, tabs, a calculator) as one self-contained HTML file."
+description: "Diagrams, charts and pages people use: a quick page (a comparison, a short report laid out as one HTML file, written in seconds); a diagram of how something is built or flows (architecture, workflow, sequence, data flow, states) drawn by the archify engine; a chart of numbers in a report; a canvas of design options side by side, each with its picture and the values it is made of; a deck of slides to present or to explain something step by step; or an interactive page (controls, tabs, a calculator) as one self-contained HTML file."
 license: Complete terms in LICENSE.txt
 ---
 
@@ -50,6 +50,24 @@ is the same size**, because one `--size` shoots them all and a board that misses
 back named as wrong; and **a palette is never written into a board by hand** — the canvas
 measures what each board really paints and copies it as text to build from. Read
 `references/canvas.md` before the first board.
+
+## A deck
+
+Something told a step at a time — a talk, a pitch, an explanation someone follows slide by
+slide — is a deck: slides of one exact size in one HTML file, shown one at a time and scaled
+to the window, with what is said over each kept off the slide.
+
+```bash
+node <skill dir>/scripts/deck.mjs new <name> [--size WxH]    # the deck, in your artifacts folder (1920x1080)
+node <skill dir>/scripts/deck.mjs shots <name>               # every slide as a picture beside it
+```
+
+Nothing on a slide reflows: it is laid out once, for its own size, and **clips whatever does
+not fit** — so run `shots`, which refuses a slide that overflows by its number, and fix those.
+`shots` drives a browser, as it does for a canvas. This is a deck to show on a screen, and it
+prints one slide a page; a deck that has to be sent or edited as a PowerPoint file is an
+office document, which is another method's work. Read `references/deck.md` before the first
+slide.
 
 ## A page
 

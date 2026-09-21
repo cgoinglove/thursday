@@ -1,0 +1,258 @@
+/* A deck: slides of one exact size, shown one at a time and scaled to the window.
+   No network, no build, light and dark. What is written on a slide is what is seen:
+   nothing reflows, so a slide is laid out once, for its own size. */
+:root {
+  color-scheme: light dark;
+  --bg: #fff;
+  --fg: #18181b;
+  --muted: #71717a;
+  --line: #e4e4e7;
+  --soft: #f4f4f5;
+  --accent: #2563eb;
+  --bad: #b91c1c;
+  --field: #e9e9ec;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111113;
+    --fg: #f4f4f5;
+    --muted: #a1a1aa;
+    --line: #2a2a2e;
+    --soft: #1c1c1f;
+    --accent: #60a5fa;
+    --bad: #f87171;
+    --field: #050506;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--field);
+  color: var(--fg);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo",
+    "Noto Sans KR", sans-serif;
+  text-wrap: pretty;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* The stage is one slide big and scaled as a whole; only the open slide is drawn. */
+#deck {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(var(--w) * 1px);
+  height: calc(var(--h) * 1px);
+  transform-origin: 0 0;
+}
+section[data-slide] {
+  position: absolute;
+  inset: 0;
+  display: none;
+  overflow: hidden;
+  padding: 96px 112px;
+  background: var(--bg);
+  font-size: 36px;
+  line-height: 1.5;
+}
+section[data-slide].open {
+  display: block;
+}
+
+/* Plain HTML on a slide reads well as it is. */
+section[data-slide] h1 {
+  margin: 0 0 32px;
+  font-size: 96px;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+section[data-slide] h2 {
+  margin: 0 0 40px;
+  font-size: 60px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+section[data-slide] h3 {
+  margin: 0 0 16px;
+  font-size: 40px;
+  line-height: 1.25;
+}
+section[data-slide] p,
+section[data-slide] ul,
+section[data-slide] ol,
+section[data-slide] figure,
+section[data-slide] blockquote {
+  margin: 0 0 28px;
+}
+section[data-slide] ul,
+section[data-slide] ol {
+  padding-left: 1.2em;
+}
+section[data-slide] li + li {
+  margin-top: 14px;
+}
+section[data-slide] small,
+section[data-slide] .muted {
+  color: var(--muted);
+  font-size: 26px;
+}
+section[data-slide] img,
+section[data-slide] svg {
+  max-width: 100%;
+}
+section[data-slide] a {
+  color: var(--accent);
+}
+section[data-slide] blockquote {
+  padding-left: 40px;
+  border-left: 6px solid var(--line);
+  font-size: 48px;
+  line-height: 1.35;
+}
+/* A few shapes a slide often takes; anything else is an inline style. */
+section[data-slide].center {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+}
+section[data-slide].center.open {
+  display: flex;
+}
+.cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 72px;
+  align-items: start;
+}
+.cols.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 48px;
+}
+.card {
+  padding: 40px;
+  border: 2px solid var(--line);
+  border-radius: 24px;
+}
+.big {
+  font-size: 200px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+.accent {
+  color: var(--accent);
+}
+/* What the presenter says over a slide. Off the slide; `n` shows it under the deck. */
+section[data-slide] > aside {
+  display: none;
+}
+
+/* The bar: where in the deck, and what the keys do. */
+#bar {
+  position: fixed;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 36px;
+  padding: 0 12px;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+#bar strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--fg);
+  font-weight: 600;
+}
+#bar .spacer {
+  flex: 1;
+}
+#bar output {
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) {
+  #bar .keys {
+    display: none;
+  }
+}
+#cut {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--bad);
+  color: var(--bg);
+  font-weight: 500;
+}
+#cut[hidden] {
+  display: none;
+}
+#notes {
+  position: fixed;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  bottom: 36px;
+  max-height: 30%;
+  overflow: auto;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+#notes[hidden] {
+  display: none;
+}
+:fullscreen #bar {
+  display: none;
+}
+
+/* Flat: every slide drawn, one under another at true size. It is what the renderer
+   shoots and what a printer prints. A slide grows here instead of clipping, so one that
+   does not fit comes out the wrong size and the renderer refuses it by name. */
+body.shot {
+  overflow: visible;
+  height: auto;
+  background: var(--bg);
+}
+body.shot #bar,
+body.shot #notes {
+  display: none;
+}
+body.shot #deck {
+  position: static;
+  height: auto;
+  transform: none;
+}
+body.shot section[data-slide],
+body.shot section[data-slide].center {
+  position: relative;
+  inset: auto;
+  display: block;
+  width: calc(var(--w) * 1px);
+  height: auto;
+  min-height: calc(var(--h) * 1px);
+  overflow: visible;
+  break-after: page;
+}
+body.shot section[data-slide].center {
+  display: flex;
+}
+@page {
+  margin: 0;
+}

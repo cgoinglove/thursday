@@ -101,8 +101,9 @@ skills/                   Skills shipped with the app (read-only). User skills l
                           when it changes. Typecheck and lint skip it and page/, the new-page template.
                           interactive-page/quick is the other path: a stylesheet and a template that
                           `page.mjs quick` inlines into one hand-written HTML file — no kit, no build.
-                          interactive-page/canvas is a third: a pan/zoom surface that `canvas.mjs` inlines into
-                          one HTML file of design options, and shoots board by board through the browser skill.
+                          interactive-page/canvas and /deck are two more: a pan/zoom surface of design options and
+                          slides of one exact size, each inlined into one HTML file by its own script
+                          (`canvas.mjs`, `deck.mjs`) and shot part by part through the browser skill (`shots.mjs`).
 seed-skills/<seed>/       A seed bot's own skills (read-only), copied into `bots/<name>/.agents/skills` when
                           it is made. A bot's own skills are listed to it alone, so a kit costs no other bot
                           a line; the folder has the workspace's own `.agents/skills` shape, so a bot that

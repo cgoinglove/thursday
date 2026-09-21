@@ -132,6 +132,12 @@ and spacing — to paste to whoever builds it. The values are measured from the 
 so what is copied is what is on screen. A dot copies the one colour under it. Any bot can lay
 options out this way when a choice is what was asked for; Designer is the one whose job it is.
 
+Something to present, or to be walked through a step at a time, comes back as a **deck**:
+slides shown one at a time, fitted to the window. The arrow keys, space or a tap on the right
+or left of a slide turn it, **f** fills the screen, and **n** shows what is said over the
+slide, which is kept off it. Printing it gives one slide a page. It is a deck to show on a
+screen — one to send or edit as a PowerPoint file is an office document, which Docs makes.
+
 A bot keeps its own memory — what a job taught it, how the user asked it to work — in its own
 folder, listed on its page in Settings › Bots.
 
