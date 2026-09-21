@@ -55,8 +55,7 @@ paths:
 - One brand color, blue (`brand` in `app/globals.css`), on black and white, for what matters on a
   screen (the user's pick): what it asks for (`Button variant="brand"`, round; the write line's
   send), Thursday herself (her caption dot), and whatever else there most needs the eye — a new
-  result's label in the room's list, the dot on the face that left it, and an answer button
-  outlined in it. It stays rare so it
+  result's label in the room's list and the dot on the face that left it. It stays rare so it
   keeps meaning that. What is on or picked is blue too (the user's pick) — a switch, a radio, a
   slider, a segment or a chip that fills, a picked card's border and its tick — and what is not
   is a hairline or muted words, so nothing picked has to be read twice; a label beside it is

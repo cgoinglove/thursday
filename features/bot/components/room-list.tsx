@@ -446,7 +446,7 @@ export function ThreadRow({
             <Button
               key={option}
               size="sm"
-              variant="outline"
+              variant="secondary"
               loading={sending === option}
               disabled={answering}
               onClick={async () => {
@@ -454,8 +454,9 @@ export function ThreadRow({
                 await answer(thread, option);
                 setSending(null);
               }}
-              // what moves the job on, so blue; outlined, so a list of them does not outweigh the call
-              className="h-7 gap-1.5 rounded-full border-brand bg-background px-3 text-[12px] text-brand hover:bg-brand/8 hover:text-brand dark:border-brand dark:bg-transparent dark:hover:bg-brand/12"
+              // The row already says the job wants the user, in the waiting colour and on the
+              // face. Picking this up again is not a second thing to notice (the user's pick).
+              className="h-7 gap-1.5 rounded-full px-3 text-[12px]"
             >
               {option === THREAD_CONTINUE && (
                 <ChevronsRight className="size-3.5" />
