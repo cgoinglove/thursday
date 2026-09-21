@@ -340,10 +340,4 @@ export const MCP_PRESETS: MCPPreset[] = [
     description: "Drive a real browser",
     config: { command: "npx", args: ["@playwright/mcp@latest"] },
   },
-  {
-    name: "chrome-devtools",
-    icon: "developer.chrome.com",
-    description: "Inspect and debug Chrome",
-    config: { command: "npx", args: ["chrome-devtools-mcp@latest"] },
-  },
 ];
