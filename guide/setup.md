@@ -85,6 +85,12 @@ a password, on this machine and outside the folder the bots work in.
   the bot is signed out again on its next job however often they sign in. For those a bot
   works in a tab of their own Chrome instead, signed in as they already are. That needs the
   **Playwright Extension** from the Chrome Web Store installed in their Chrome once, and
+  Chrome open: the last row of the list, **Your own Chrome**, has the button to it. The bot
+  gets a tab of its own and cannot see theirs; nothing is kept from it.
+- Some sites — Google is one — do not accept a sign-in carried from one browser to another:
+  the bot is signed out again on its next job however often they sign in. For those a bot
+  works in a tab of their own Chrome instead, signed in as they already are. That needs the
+  **Playwright Extension** from the Chrome Web Store installed in their Chrome once, and
   Chrome open. The bot gets a tab of its own and cannot see theirs; nothing is kept from it.
 The app runs in a browser tab, and a tab is easy to lose: closed, it takes the wake phrase,
 the shortcut and her calls with it. Chrome and Edge can install it instead, which gives it

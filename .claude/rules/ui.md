@@ -10,6 +10,10 @@ paths:
 # UI
 
 - Domain-agnostic components are shadcn (`components/ui/`). Check there before writing a new one.
+- What leaves the app is an `<a>` wearing the button's look, `cn(buttonVariants(…))`, never a
+  `Button` that renders one: Base UI gives that anchor `role="button"`, so it is no longer heard
+  as a link. The `cn` is not optional — unmerged, the base's `border-transparent` beats the
+  variant's border in the light theme and the outline disappears.
 - Markdown renders through `components/ui/markdown.tsx` (wraps streamdown).
 - Confirmations and prompts: `notify.confirm` / `notify.prompt`. Destructive actions confirm first.
 - **Esc goes to the last thing that opened, and one Esc does one thing** (`useEscape`,

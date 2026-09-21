@@ -2,6 +2,8 @@
 
 import {
   AppWindow,
+  ArrowUpRight,
+  Globe,
   KeyRound,
   LogIn,
   LogOut,
@@ -11,7 +13,7 @@ import {
 } from "lucide-react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { notify } from "@/components/ui/notify";
 import { SiteIcon } from "@/components/ui/site-icon";
 import type { Bot } from "@/features/bot/bot.schema";
@@ -66,6 +68,7 @@ export function SignInsSetting() {
             <Row key={signIn.site} signIn={signIn} bots={bots} />
           ))
         )}
+        <OwnChrome />
       </SettingItems>
     </SettingScreen>
   );
@@ -216,6 +219,47 @@ function Row({ signIn, bots }: { signIn: SignIn; bots?: Bot[] }) {
           </span>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Where the extension a bot attaches through is installed from; the browser CLI names the same page when it is missing. */
+const EXTENSION =
+  "https://chromewebstore.google.com/detail/playwright-extension/mmlmfjhmonkocbjadbfplnigmagldckm";
+
+/**
+ * The other way a bot is signed in, in the shape of the rows above it: a site that refuses a
+ * kept sign-in is worked in a tab of the user's own Chrome (skills/browser). The row claims no
+ * state — whether the extension is there is known only by attaching, which a bot's job does.
+ */
+function OwnChrome() {
+  return (
+    <div className="flex items-center gap-3 p-4">
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted/60">
+        <SiteIcon
+          host={new URL(EXTENSION).host}
+          className="size-5 rounded-[5px]"
+          fallback={<Globe className="size-4 text-muted-foreground" />}
+        />
+      </span>
+      <span className="min-w-0 flex-1 space-y-0.5">
+        <span className="block text-sm font-medium">Your own Chrome</span>
+        <span className="block text-[13px] text-muted-foreground">
+          For a site that will not stay signed in. A bot gets a tab of its own,
+          signed in as you.
+        </span>
+      </span>
+      {/* A link, not a button that navigates: it leaves the app, and should be heard as one */}
+      <a
+        href={EXTENSION}
+        target="_blank"
+        rel="noreferrer"
+        // Merged as Button merges them: a variant's border has to beat the base's transparent one
+        className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+      >
+        Get the extension
+        <ArrowUpRight />
+      </a>
     </div>
   );
 }
