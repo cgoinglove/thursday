@@ -99,6 +99,10 @@
   };
 
   field.addEventListener("pointerdown", (event) => {
+    // The surface captures the pointer to pan, which would swallow a press on a
+    // control drawn on it. Anything clickable keeps its own press.
+    if (event.target instanceof Element && event.target.closest("button, a, i"))
+      return;
     field.setPointerCapture(event.pointerId);
     down.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (down.size === 2) pinch = span();
@@ -183,11 +187,168 @@
     }
   };
 
+  /* What a board is made of, read off the page rather than written by hand: the
+     values it really paints, so the swatches and the spec cannot disagree with it. */
+
+  const hex = (value) => {
+    const rgb = value.match(
+      /^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/,
+    );
+    if (!rgb) return value;
+    if (rgb[4] !== undefined && Number(rgb[4]) === 0) return null; // fully transparent
+    const pair = (n) => Number(n).toString(16).padStart(2, "0");
+    return `#${pair(rgb[1])}${pair(rgb[2])}${pair(rgb[3])}`;
+  };
+
+  /** Most used first, so a palette reads as the design ranks it. */
+  const byUse = (counts, cap) =>
+    [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, cap)
+      .map(([value]) => value);
+
+  const px = (value) => Math.round(Number.parseFloat(value) || 0);
+
+  const readSpec = (frame) => {
+    const board = frame.querySelector(".board");
+    if (!board) return null;
+    const colours = new Map();
+    const families = new Map();
+    const sizes = new Set();
+    const weights = new Set();
+    const radii = new Set();
+    const gaps = new Set();
+    const add = (map, key) => key && map.set(key, (map.get(key) ?? 0) + 1);
+
+    for (const el of [board, ...board.querySelectorAll("*")]) {
+      const style = getComputedStyle(el);
+      add(colours, hex(style.color));
+      add(colours, hex(style.backgroundColor));
+      if (px(style.borderTopWidth)) add(colours, hex(style.borderTopColor));
+      // `fill` computes to black on every element, so only a drawing's own counts
+      if (el instanceof SVGElement) {
+        if (style.fill !== "none") add(colours, hex(style.fill));
+        if (style.stroke !== "none") add(colours, hex(style.stroke));
+      }
+      add(families, style.fontFamily.split(",")[0].replace(/["']/g, "").trim());
+      if (el.textContent?.trim()) {
+        sizes.add(px(style.fontSize));
+        weights.add(style.fontWeight);
+      }
+      if (px(style.borderTopLeftRadius))
+        radii.add(px(style.borderTopLeftRadius));
+      if (px(style.rowGap)) gaps.add(px(style.rowGap));
+      if (px(style.columnGap)) gaps.add(px(style.columnGap));
+    }
+    const num = (set) => [...set].sort((a, b) => a - b);
+    return {
+      w: Number(frame.style.getPropertyValue("--w")) || board.clientWidth,
+      h: Number(frame.style.getPropertyValue("--h")) || board.clientHeight,
+      colours: byUse(colours, 10),
+      families: byUse(families, 3),
+      sizes: num(sizes).reverse(),
+      weights: num(new Set([...weights].map(Number))),
+      radii: num(radii),
+      gaps: num(gaps),
+    };
+  };
+
+  /** The chosen board as an instruction: what it is, what it costs, and its values. */
+  const specText = (frame, spec) => {
+    const name = frame.dataset.name ?? "Board";
+    const note = [...document.querySelectorAll(".note")].find(
+      (one) =>
+        Number(one.style.getPropertyValue("--x")) ===
+        Number(frame.style.getPropertyValue("--x")),
+    );
+    const list = (label, values, join = " · ") =>
+      values.length ? `**${label}** ${values.join(join)}\n` : "";
+    return (
+      `## ${name}\n${spec.w}×${spec.h}\n\n` +
+      (note ? `${note.textContent.trim()}\n\n` : "") +
+      list("Colours", spec.colours) +
+      list(
+        "Type",
+        [
+          spec.families.join(", "),
+          `${spec.sizes.join("/")}px`,
+          spec.weights.join(" · "),
+        ].filter(Boolean),
+        "  ",
+      ) +
+      list(
+        "Radius",
+        spec.radii.map((n) => `${n}px`),
+      ) +
+      list(
+        "Gaps",
+        spec.gaps.map((n) => `${n}px`),
+      )
+    );
+  };
+
+  const copy = async (text, button) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // A canvas opened from disk has no clipboard permission; the old way still works
+      const box = document.createElement("textarea");
+      box.value = text;
+      document.body.append(box);
+      box.select();
+      document.execCommand("copy");
+      box.remove();
+    }
+    const was = button.textContent;
+    button.textContent = "copied";
+    setTimeout(() => {
+      button.textContent = was;
+    }, 1200);
+  };
+
+  /** The swatches and the button are added here, so a board's markup stays the design. */
+  const describe = () => {
+    for (const frame of document.querySelectorAll(".frame")) {
+      const strip = frame.querySelector("h2");
+      if (!strip || strip.querySelector(".swatches")) continue;
+      const spec = readSpec(frame);
+      if (!spec) continue;
+      // Kept before anything is added to the strip, so the name stays the name
+      frame.dataset.name = strip.textContent.trim();
+
+      const swatches = document.createElement("span");
+      swatches.className = "swatches";
+      for (const colour of spec.colours.slice(0, 8)) {
+        const dot = document.createElement("i");
+        dot.style.background = colour;
+        dot.title = colour;
+        dot.addEventListener("click", (event) => {
+          event.stopPropagation();
+          navigator.clipboard?.writeText(colour).catch(() => {});
+        });
+        swatches.append(dot);
+      }
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "spec";
+      button.textContent = "spec";
+      button.title = "Copy this board as an instruction";
+      button.addEventListener("click", () =>
+        copy(specText(frame, readSpec(frame)), button),
+      );
+
+      strip.append(swatches, button);
+    }
+  };
+
   // Fonts change how tall a note is, and the fit is measured from that.
   fit();
   checkFit();
+  describe();
   document.fonts?.ready.then(() => {
     if (!own) fit();
     checkFit();
+    describe();
   });
 })();

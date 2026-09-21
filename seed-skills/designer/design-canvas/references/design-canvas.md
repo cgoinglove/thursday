@@ -58,8 +58,24 @@ A board that is not exactly `--size` is named in the output and has no usable pi
 a board whose content overflows is clipped silently, and only the canvas says so, in
 its bar and on the board. Open the canvas after `shots` and fix what it marks.
 
+## The values a board is made of
+
+The canvas reads every board after it is drawn and puts what it really paints in its name
+strip: a row of swatches, and a `spec` button that copies that board as text — its name, its
+note, its size, and the colours, type, radii and gaps it actually uses. Both come from the
+page itself, so they cannot disagree with the design.
+
+- **Never write a palette or a type scale into a board by hand.** It would be a second copy
+  of what the canvas already measures, and the two would drift. Design the board; the values
+  describe themselves.
+- Use real values in the markup rather than names only you know: `#0f1d1a` or a `var(--brand)`
+  the page defines. A colour written as a name nothing resolves shows up as that name.
+- The `spec` copy is what makes the chosen board buildable: whoever picks it pastes that text
+  to whatever writes the code. Say so when you hand the canvas back, in one line.
+
 ## What to hand back
 
 The canvas's path and every picture's path, so both the whole comparison and the single
 options are in front of whoever chooses. Then, in words: the axis each option explores,
-which one you would lead with, and what that one costs.
+which one you would lead with, and what that one costs — and that the `spec` button on a
+board copies it as an instruction to build from.

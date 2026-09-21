@@ -117,6 +117,11 @@ looked through without opening the canvas. It designs from what is already there
 a brand, a page it was shown — and it cannot see the app's own screens as they are today: give
 it a screenshot when the options should sit beside one.
 
+Above each option sit the colours it actually uses and a **spec** button. The button copies
+that option as text — what it is for, what it costs, its size, and its colours, type, corners
+and spacing — to paste to whoever builds it. The values are measured from the drawing itself,
+so what is copied is what is on screen. A dot copies the one colour under it.
+
 A bot keeps its own memory — what a job taught it, how the user asked it to work — in its own
 folder, listed on its page in Settings › Bots.
 
