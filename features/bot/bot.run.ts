@@ -117,7 +117,6 @@ type RunOptions = {
     text: string;
     kind?: "message" | "question";
     options?: string[] | null;
-    replyTo?: string | null;
   }) => Promise<unknown>;
   emit: (event: ThreadEvent) => Promise<void>;
 };
@@ -166,7 +165,6 @@ export async function runBot(
         thread: options.threadId ?? null,
         owner: options.owner,
         caller: options.caller,
-        messageId: parent,
       },
       { scratch, own, artifacts },
     ),

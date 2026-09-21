@@ -81,7 +81,7 @@ export const threadSeenSpec = {
 
 export const sendMessageSpec = {
   description:
-    "Send a message to a participant or Thursday and receive a delivery receipt immediately. Mark a question for Thursday to request user input; ordinary messages to Thursday are notifications and need no answer.",
+    "Send a message to another bot or to Thursday; the delivery receipt comes back immediately. A bot answers with the final text of its turn, which reaches you later as a new message. Mark a question for Thursday to request user input; ordinary messages to Thursday are notifications and need no answer.",
   parameters: RoomMessageSchema.extend({
     kind: RoomMessageSchema.shape.kind.describe(
       "Use question only when Thursday must obtain an answer from the user: it ends your turn, and you continue when the answer arrives. Use message for bot collaboration, progress updates and reports.",
@@ -93,19 +93,15 @@ export const sendMessageSpec = {
       .string()
       .trim()
       .min(1)
-      .describe("Choose a bot from the roster, or Thursday to reach the user."),
+      .describe(
+        "A bot from the roster other than the one you are answering, or Thursday to reach the user.",
+      ),
     text: z
       .string()
       .trim()
       .min(1)
       .describe(
         "Write the message and include the context the recipient needs.",
-      ),
-    replyTo: z
-      .string()
-      .nullish()
-      .describe(
-        "Use an incoming message ID to send an explicit reply; omit to start a new exchange. Your ordinary final text already replies to your current correspondent.",
       ),
   }),
 };

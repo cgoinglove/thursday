@@ -27,9 +27,19 @@ paths:
   The browser is the build boot downloads (`ensureBrowser`), named in every shell
   (`jobShellEnv`); left to itself the CLI launches the user's own Chrome, which many machines
   lack and whose window on macOS takes the links the user opens.
-  Requests to the same bot run sequentially. Messages are asynchronous: a waiting A can handle a question from B in its own
-  context, but a bot waiting on the user's answer runs nothing until it arrives; its inbox holds. Only exchanged messages cross participant contexts. `room.query` owns durable inboxes,
+  Requests to the same bot run sequentially, and a bot waiting on the user's answer runs nothing
+  until it arrives; its inbox holds. Only exchanged messages cross participant contexts. `room.query` owns durable inboxes,
   continuation claims and return routes; `bot.runner` owns live promises.
+- **A message is a call, and a turn's last words are its return.** `send_message` to another bot
+  opens an exchange (`thread_work`: who called, whose row to wake), and the callee's final text
+  comes back to the caller's inbox once its row is done — never while it still waits on anyone it
+  called itself (`finishRoomWork`). So the one being answered is never messaged, and
+  `sendRoomMessage` refuses it and says why: sent upward, a message would open an exchange the
+  other way, each side's ending would wake the other, and the room's report would be the last
+  pleasantry rather than the result. A question back to the caller is how the turn ends, and the
+  caller's reply is a new call onto the same desk. Words to a bot already on a call from the
+  sender join that call and are read before its next step, as the user's own are (`tellRoom`),
+  so one job gives one answer.
 - **A sign-in is the app's to keep and the user's to lend.** A bot borrows one with
   `sign_in_use` and hands over the one the user just made with `sign_in_keep`
   (`tools/signin.tool`); the session lives under `DATA_DIR/.sign-ins`, one file a site, outside

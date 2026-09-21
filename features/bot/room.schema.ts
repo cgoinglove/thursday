@@ -5,7 +5,6 @@ export const RoomMessageSchema = z.object({
   text: z.string().trim().min(1),
   kind: z.enum(["message", "question"]).default("message"),
   options: z.array(z.string().trim().min(1)).nullish(),
-  replyTo: z.string().nullish(),
 });
 
 /** Server scheduling state, independent of whether a bot wrote a final sentence. */

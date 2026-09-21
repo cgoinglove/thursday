@@ -206,38 +206,48 @@ export async function sendRoomMessage(
     if (reply) return { messageId: key, to: reply.to };
     if (input.to === run.bot)
       publicError("Continue your own work directly; choose another recipient.");
-    if (input.replyTo) {
-      const [target] = await tx
-        .select()
-        .from(work)
-        .where(
-          and(eq(work.id, input.replyTo), eq(work.threadId, run.threadId)),
-        );
-      if (
-        !target ||
-        target.bot !== run.bot ||
-        target.caller !== input.to ||
-        terminal(target.state)
-      )
-        publicError(
-          "Reply to an open message addressed to you from that recipient.",
-        );
-      if (target.parentId) {
-        await deliver(tx, {
-          key,
-          threadId: run.threadId,
-          workId: target.parentId,
-          speaker: run.bot,
-          text: input.text,
-        });
-        return { messageId: key, to: input.to };
-      }
-      // Thursday has no model continuation to wake; the message enters the user inbox below.
-    }
+    // The one being answered is reached by the turn's last words (finishRoomWork), never by a
+    // message: sent upward it would open an exchange the other way, and each side's ending
+    // would then wake the other in turn.
+    if (input.to !== ROOM_THURSDAY && input.to === run.caller)
+      publicError(
+        `${input.to} is who you are answering. End your turn and your final text goes to ${input.to}: the answer, or the question you need settled first.`,
+      );
     const all = await tx
       .select()
       .from(work)
       .where(eq(work.threadId, run.threadId));
+    // Words to a bot already on a call from this one join that call, as the user's own do
+    // (tellRoom): read before its next step, and answered once, by the one ending.
+    const calls = all.filter(
+      (row) =>
+        row.bot === input.to &&
+        row.caller === run.bot &&
+        input.to !== ROOM_THURSDAY &&
+        !terminal(row.state),
+    );
+    const joined = calls.find((row) => row.state === "running") ?? calls[0];
+    if (joined) {
+      const held = await isAsking(tx, run.threadId, input.to);
+      await deliver(tx, {
+        key,
+        threadId: run.threadId,
+        workId: joined.id,
+        speaker: run.bot,
+        text: input.text,
+      });
+      await tx
+        .update(thread)
+        .set({ wrapped: false, updatedAt: new Date() })
+        .where(eq(thread.id, run.threadId));
+      return {
+        messageId: key,
+        to: input.to,
+        note: held
+          ? `${input.to} is waiting for the user's answer and reads this after it.`
+          : `${input.to} is already working for you and reads this before its next step. Its one answer covers both.`,
+      };
+    }
     const bots = new Set(
       all.map((row) => row.bot).filter((bot) => bot !== ROOM_THURSDAY),
     );
@@ -457,8 +467,8 @@ export async function finishRoomWork(run: RoomWork, text: string) {
         .select()
         .from(work)
         .where(eq(work.id, run.parentId));
-      // An explicit reply (send_message replyTo) still unread is the answer; a
-      // silent ending adds nothing to it, and the reply already wakes the caller
+      // An earlier return of this bot's still unread is the answer; a silent
+      // ending adds nothing to it, and that return already wakes the caller
       const [replied] = text
         ? []
         : await tx

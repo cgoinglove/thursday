@@ -46,12 +46,11 @@ import {
   skillLines,
 } from "./prompt-helper";
 
-/** Where this turn sits: the thread, who coordinates it, who is asking, and the exchange it answers. */
+/** Where this turn sits: the thread, who coordinates it, and who is asking. */
 type Seat = {
   thread: string | null;
   owner: string;
   caller: string;
-  messageId: string | null;
 };
 
 /** Assemble this participant's instructions and current return route on every turn. */
@@ -128,7 +127,7 @@ function identity(name: string, seat?: Seat | null): string {
       ? "**You** coordinate this thread: its result goes from you to Thursday."
       : `**${owner}** coordinates this thread and brings its result to Thursday.`;
   const current = seat
-    ? `\n\nCurrent conversation: ${seat.caller} → ${name}. Your final text goes back to ${seat.caller}. Message ID: ${seat.messageId ?? "initial request"}.`
+    ? `\n\nCurrent conversation: ${seat.caller} → ${name}. Your final text goes back to ${seat.caller}.`
     : "";
 
   return `You are ${name}, one of the bots in this thread. ${nowLine()}
@@ -322,11 +321,11 @@ function collaboration(name: string, seat?: Seat | null): string {
   const owner = (seat?.owner ?? name) === name;
   const ending = owner
     ? `Bring what you received together into one result for Thursday: what was done, where it is, what you decided that the request did not say, and what is still open, at the detail the user asked for. Every file you name in it is drawn under your words in the thread and waits in the screen's corner for the user to open, so name each one you want them to see — the page to read first, then the rest.`
-    : `Your final text goes back to ${seat?.caller ?? "whoever asked"}: give them everything they need to carry on.`;
+    : `Your final text is your answer to ${seat?.caller ?? "whoever asked"}, and all they see of your work: give them everything they need to carry on. When you cannot go on without something from them, end with that question instead; their reply brings you back with all you have done still in front of you.`;
 
   return `## Working together
 
-Nobody sees your work but you, and you see only what others send you, so whatever crosses between you has to stand on its own. A request says what is wanted, what is already known or done, and where the files are; an answer gives exact values, file paths and what is still unverified. Tell whoever is waiting when something they depend on changes. End your turn when you have nothing more to do now: replies arrive as new messages and wake you.
+Nobody sees your work but you, and you see only what others send you, so whatever crosses between you has to stand on its own. A request says what is wanted, what is already known or done, and where the files are; an answer gives exact values, file paths and what is still unverified. Tell a bot you handed work to when what it depends on changes: it reads that before its next step. End your turn when you have nothing more to do now: replies arrive as new messages and wake you.
 
 Ask Thursday with kind \`question\` only for a decision, permission or something only the user knows: clearly, with the context to answer, and short options when they help. Use kind \`message\` for news that needs no answer, and your final text for the result.
 

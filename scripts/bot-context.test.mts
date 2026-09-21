@@ -357,23 +357,25 @@ test("natural turns send asynchronously and retain participant histories", async
   assert.equal((await findThread(id))?.outcome, "Follow-up report");
 });
 
-test("a waiting participant answers a side question without an alternate model invocation", async () => {
+test("a question back to the caller is the turn's last words, and the answer is a new call", async () => {
   plans.set("Alpha", [
     () => ask("Beta", "Research"),
     () => text("Waiting."),
     (prompt) => {
-      assert.ok(prompt.includes("Which format"));
-      return text("Use a table.");
+      assert.ok(prompt.includes("Which format?"));
+      return ask("Beta", "Use a table.");
     },
+    () => text("Waiting for the research."),
     (prompt) => {
       assert.ok(prompt.includes("Research complete"));
       return text("Combined report");
     },
   ]);
   plans.set("Beta", [
-    () => ask("Alpha", "Which format?"),
-    () => text("Waiting for the format."),
+    () => text("Which format?"),
     (prompt) => {
+      // The same desk: what it asked is still in front of it
+      assert.ok(prompt.includes("Which format?"));
       assert.ok(prompt.includes("Use a table."));
       return text("Research complete");
     },
@@ -387,6 +389,39 @@ test("a waiting participant answers a side question without an alternate model i
   await waitFor(id, "done");
   assert.equal((await findThread(id))?.outcome, "Combined report");
   assert.equal((await listRoomWork(id)).length, 3);
+});
+
+test("a message to the one being answered is refused, and the last words reach them once", async () => {
+  plans.set("Alpha", [
+    () => ask("Beta", "Research"),
+    () => text("Waiting."),
+    (prompt) => {
+      assert.ok(prompt.includes("The findings, in full"));
+      return text("Report built on the findings");
+    },
+  ]);
+  plans.set("Beta", [
+    () => ask("Alpha", "The findings, sent as a message"),
+    (prompt) => {
+      assert.ok(prompt.includes("Alpha is who you are answering"));
+      return text("The findings, in full");
+    },
+  ]);
+  const before = inputs.get("Alpha")?.length ?? 0;
+  const id = await startThread({
+    bot: "Alpha",
+    request: "Research and report",
+    label: "Upward",
+    from: "user",
+  });
+  await waitFor(id, "done");
+  // No exchange opened the other way, so nothing came back after the report
+  assert.equal((await findThread(id))?.outcome, "Report built on the findings");
+  const rows = await listRoomWork(id);
+  assert.equal(rows.length, 2);
+  assert.ok(!rows.some((row) => row.bot === "Alpha" && row.caller === "Beta"));
+  // Alpha ran three steps in all: nothing woke it a second time
+  assert.equal((inputs.get("Alpha")?.length ?? 0) - before, 3);
 });
 
 test("silent turns remain resumable without a forced answer or retry loop", async () => {
@@ -504,7 +539,7 @@ test("resume repairs only missing local tool results and preserves real ones", (
   assert.deepEqual(resumeTranscript(restored), restored);
 });
 
-test("same-bot requests serialize and committed sends deduplicate", async () => {
+test("words to a bot already on a call join it, and committed sends deduplicate", async () => {
   const { insertThread } = await import("../features/bot/thread.query.ts");
   const { claimRoomWork, finishRoomWork, cancelRoom, consumeRoomInbox } =
     await import("../features/bot/room.query.ts");
@@ -524,15 +559,30 @@ test("same-bot requests serialize and committed sends deduplicate", async () => 
     await sendRoomMessage(root, { id: "same-send", to: "Beta", text: "One" }),
     receipt,
   );
-  await sendRoomMessage(root, { id: "second-send", to: "Beta", text: "Two" });
+  // Beta is already on a call from Alpha: more words join it rather than queue a second one
+  const more = await sendRoomMessage(root, {
+    id: "second-send",
+    to: "Beta",
+    text: "Two",
+  });
+  assert.match(String(more.note), /already working for you/);
   const beta = (await claimRoomWork(thread.id))!;
   assert.equal(beta.bot, "Beta");
   assert.equal(await claimRoomWork(thread.id), null);
-  await consumeRoomInbox(beta);
-  await finishRoomWork(beta, "First result");
-  const second = (await claimRoomWork(thread.id))!;
-  assert.equal(second.bot, "Beta");
-  assert.notEqual(beta.id, second.id);
+  assert.deepEqual(await consumeRoomInbox(beta), [
+    "Alpha:\n\nOne",
+    "Alpha:\n\nTwo",
+  ]);
+  // Words that arrive while it runs are read before its next step
+  await sendRoomMessage(root, { id: "third-send", to: "Beta", text: "Three" });
+  assert.deepEqual(await consumeRoomInbox(beta), ["Alpha:\n\nThree"]);
+  await finishRoomWork(beta, "One result");
+  assert.equal(await claimRoomWork(thread.id), null);
+  // Once it has answered, the next words are a new call
+  await sendRoomMessage(root, { id: "fourth-send", to: "Beta", text: "Four" });
+  const again = (await claimRoomWork(thread.id))!;
+  assert.equal(again.bot, "Beta");
+  assert.notEqual(beta.id, again.id);
   await cancelRoom(thread.id);
   await assert.rejects(
     sendRoomMessage(root, { id: "stale", to: "Gamma", text: "Too late" }),
@@ -1109,10 +1159,12 @@ test("the assembled participant prompt names its return route and exposes asynch
     thread: null,
     owner: "Alpha",
     caller: "Gamma",
-    messageId: "incoming-message",
   });
   assert.ok(prompt.text.includes("Gamma → Beta"));
   assert.ok(prompt.text.includes("Your final text goes back to Gamma"));
+  assert.ok(prompt.text.includes("Your final text is your answer to Gamma"));
+  assert.ok(!prompt.text.includes("Message ID"));
+  assert.ok(!("replyTo" in sendMessageSpec.parameters.shape));
   assert.ok(
     prompt.text.includes("End your turn when you have nothing more to do now"),
   );
@@ -1706,7 +1758,7 @@ test("native provider data without a complete native message resumes as a truthf
   );
 });
 
-test("the coordinator can address Thursday using the original incoming message ID", async () => {
+test("a question to Thursday waits on the user and names who asked", async () => {
   const { insertThread, deleteThread } = await import(
     "../features/bot/thread.query.ts"
   );
@@ -1723,7 +1775,6 @@ test("the coordinator can address Thursday using the original incoming message I
     to: "Thursday",
     text: "Which destination should I use?",
     kind: "question",
-    replyTo: root.id,
   });
   assert.equal(
     (await listRoomWork(thread.id)).find((work) => work.id === sent.messageId)
