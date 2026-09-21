@@ -46,9 +46,9 @@ A job never fails for good; it pauses and waits.
   them in System Settings.
 - **Sign in or pay**: by design. The bot opens the page and waits for them. A sign-in is
   kept for next time (`setup.md`, Sites they signed in to); paying is always theirs to press.
-- **Search the web**: only OpenAI, Anthropic, Google and xAI models search by themselves. A
   A site that asks again on every job although they signed in is refusing a sign-in carried
   between browsers: the same section says how a bot works in their own Chrome instead.
+- **Search the web**: only OpenAI, Anthropic, Google and xAI models search by themselves. A
   bot on anything else opens pages instead. A search key in Settings › API keys gives every bot
   search.
 - **Reach a connected service**: a server that needs signing in again turns red in
