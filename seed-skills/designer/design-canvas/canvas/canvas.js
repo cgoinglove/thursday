@@ -221,24 +221,32 @@
     const add = (map, key) => key && map.set(key, (map.get(key) ?? 0) + 1);
 
     for (const el of [board, ...board.querySelectorAll("*")]) {
-      const style = getComputedStyle(el);
-      add(colours, hex(style.color));
-      add(colours, hex(style.backgroundColor));
-      if (px(style.borderTopWidth)) add(colours, hex(style.borderTopColor));
+      // The board is the frame this file draws: its border, backdrop and corners are
+      // the canvas, not the design — and on the leading one that border is the accent.
+      // Inside it everything is the design's, so only the board is read for what the
+      // design put on it itself.
+      const look = el === board ? el.style : getComputedStyle(el);
+      add(colours, hex(look.color));
+      add(colours, hex(look.backgroundColor));
+      if (px(look.borderTopWidth)) add(colours, hex(look.borderTopColor));
       // `fill` computes to black on every element, so only a drawing's own counts
       if (el instanceof SVGElement) {
-        if (style.fill !== "none") add(colours, hex(style.fill));
-        if (style.stroke !== "none") add(colours, hex(style.stroke));
+        if (look.fill && look.fill !== "none") add(colours, hex(look.fill));
+        if (look.stroke && look.stroke !== "none")
+          add(colours, hex(look.stroke));
       }
-      add(families, style.fontFamily.split(",")[0].replace(/["']/g, "").trim());
+      if (look.fontFamily)
+        add(
+          families,
+          look.fontFamily.split(",")[0].replace(/["']/g, "").trim(),
+        );
       if (el.textContent?.trim()) {
-        sizes.add(px(style.fontSize));
-        weights.add(style.fontWeight);
+        if (look.fontSize) sizes.add(px(look.fontSize));
+        if (look.fontWeight) weights.add(look.fontWeight);
       }
-      if (px(style.borderTopLeftRadius))
-        radii.add(px(style.borderTopLeftRadius));
-      if (px(style.rowGap)) gaps.add(px(style.rowGap));
-      if (px(style.columnGap)) gaps.add(px(style.columnGap));
+      if (px(look.borderTopLeftRadius)) radii.add(px(look.borderTopLeftRadius));
+      if (px(look.rowGap)) gaps.add(px(look.rowGap));
+      if (px(look.columnGap)) gaps.add(px(look.columnGap));
     }
     const num = (set) => [...set].sort((a, b) => a - b);
     return {
