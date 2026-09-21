@@ -11,6 +11,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { appEvents } from "@/app/api/events/app-event.server";
+import { queryKey } from "@/app/api/query-key";
 import {
   BOT_WORK,
   INBOX_FINISHED,
@@ -1051,6 +1052,17 @@ function resultParts(
   }
 
   const record = output as Record<string, unknown>;
+  // A picture, as the row keeps it: the path it was looked at by (tools/look.tool). The
+  // line names the file and the full result draws it, both off the file route
+  if (
+    typeof record.path === "string" &&
+    String(record.mediaType ?? "").startsWith("image/")
+  ) {
+    return [
+      { type: "text", text: record.path },
+      { type: "image", src: queryKey.file(record.path) },
+    ];
+  }
   if (Array.isArray(record.sources)) {
     return (
       record.sources

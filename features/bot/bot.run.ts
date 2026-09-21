@@ -338,7 +338,7 @@ export async function runBot(
           acknowledgeStep = resolve;
         });
         steps.push({
-          messages: step.response.messages,
+          messages: storedMessages(step),
           usage: usageOf(step.usage),
         });
       },
@@ -659,6 +659,41 @@ async function summarize(
     );
   }
   return { text: `${COMPACT_PREAMBLE}\n\n${summary}`, usage: usageOf(usage) };
+}
+
+/**
+ * A step's messages as the thread stores them. The sdk fills `response.messages` with what
+ * each tool sent the model — `toModelOutput` where a tool has one — so a tool answering with
+ * a picture writes its bytes into the row and carries them into every resume of that thread.
+ * Stored instead is what `execute` returned, which is also what a step is written as while it
+ * streams (bot.runner), so the two writes of one step agree. Tool errors are left as they came.
+ */
+function storedMessages(step: {
+  response: { messages: ModelMessage[] };
+  toolResults: Array<{ toolCallId: string; output: unknown }>;
+}): ModelMessage[] {
+  if (!step.toolResults.length) return step.response.messages;
+  const executed = new Map(
+    step.toolResults.map((result) => [result.toolCallId, result.output]),
+  );
+  return step.response.messages.map((message) => {
+    if (message.role !== "tool") return message;
+    return {
+      ...message,
+      content: message.content.map((part) => {
+        if (part.type !== "tool-result" || !executed.has(part.toolCallId))
+          return part;
+        const output = executed.get(part.toolCallId);
+        return {
+          ...part,
+          output:
+            typeof output === "string"
+              ? ({ type: "text", value: output } as const)
+              : ({ type: "json", value: output as never } as const),
+        };
+      }),
+    };
+  });
 }
 
 /** Step messages handed from `onStepEnd` to the loop. A take that arrives before the push waits. */

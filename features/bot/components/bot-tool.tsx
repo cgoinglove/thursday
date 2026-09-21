@@ -493,12 +493,20 @@ function Everything({
   );
 }
 
+/**
+ * One picture in an opened result. The row keeps the path, not the bytes
+ * (tools/look.tool), so a picture whose file is gone — a job's scratch is swept
+ * WORKSPACE_KEEP after it ends — draws as nothing and leaves its path below.
+ */
 function Shot({ src }: { src: string }) {
+  const [gone, setGone] = useState(false);
+  if (gone) return null;
   return (
     // biome-ignore lint/performance/noImgElement: tool screenshot, not an asset
     <img
       src={src}
       alt=""
+      onError={() => setGone(true)}
       className="block w-full rounded-lg bg-muted object-contain"
     />
   );

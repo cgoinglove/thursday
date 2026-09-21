@@ -56,8 +56,13 @@ features/ai/              Everything the model sees. Composes domain query/schem
   image itself: `execute` returns a small record — the path, never the bytes — which is what
   is stored and drawn, and `toModelOutput` turns it into the picture for the run that asked.
   So a row stays a line, and a resumed thread reads that a picture was looked at rather than
-  carrying it again. A bot holds it only when its provider carries an image inside a tool
-  result (`model.ts` `seesToolImages`); a call in writing holds it too, a spoken one cannot —
+  carrying it again. That split takes one step of its own: the sdk fills `response.messages`
+  with what each tool sent the model, so a step is stored as what `execute` returned instead
+  (`bot.run` `storedMessages`) — otherwise a tool answering with bytes writes them into the
+  transcript and carries them into every resume. The screen draws the record through the file
+  route, so a picture whose file has been swept draws as nothing (`bot-tool` `Shot`). A bot
+  holds the tool only when its provider carries an image inside a tool result (`model.ts`
+  `seesToolImages`); a call in writing holds it too, a spoken one cannot —
   its backend is answered through the page, in text. Past `LOOK.maxBytes` it says how to make
   a smaller copy instead of sending one.
 

@@ -12,11 +12,14 @@ import { insideWorkspace } from "@/features/workspace/workspace";
  * the image itself. What is stored and drawn is the small record `execute` returns — the
  * path, never the bytes — and `toModelOutput` turns it into the picture for the run that
  * asked, so a row stays a line and a resumed thread reads that a picture was looked at
- * rather than carrying it again. Held only by a model whose provider carries an image
+ * rather than carrying it again. That split is not the sdk's doing: it puts `toModelOutput`
+ * into `response.messages`, and a run is stored as what `execute` returned because
+ * `storedMessages` puts it back (bot.run). The screen draws the record through the file
+ * route (bot/thread.query resultParts). Held only by a model whose provider carries an image
  * inside a tool result (ai/model seesToolImages): to the rest it would arrive as nothing.
  */
 
-type Looked = { path: string; mediaType: string; bytes: number };
+type Looked = { path: string; mediaType: string };
 
 export function createLookTool(): ToolSet {
   return {
@@ -37,7 +40,7 @@ export function createLookTool(): ToolSet {
           return `${path} is not an image. Read it in the shell instead.`;
         if (info.size > LOOK.maxBytes)
           return `${path} is ${Math.ceil(info.size / 1024 / 1024)} MB, over the ${LOOK.maxBytes / 1024 / 1024} MB one look takes. Make a smaller copy in the shell first (on a Mac: sips -Z 1600 in.png --out out.png), then look at that.`;
-        return { path: path.trim(), mediaType: mimeOf(path), bytes: info.size };
+        return { path: path.trim(), mediaType: mimeOf(path) };
       },
       toModelOutput: async ({ output }) => {
         if (typeof output === "string") return { type: "text", value: output };
