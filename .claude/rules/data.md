@@ -106,7 +106,7 @@ Three things about the stream itself are not free, and each has bitten:
   endpoint keeps answering as an event stream; one reply that is not (a rebuild's error page, a
   proxy) closes it for good. `fromEventSource` watches for that and opens the line again — without it
   the tab goes silent until it is reloaded, while the server reads the missing stream as nobody
-  watching and parks what was running.
+  watching: its calls close, and what finishes goes to a desktop notice or a phone instead.
 
 **Values on the wire**
 

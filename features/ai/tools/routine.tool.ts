@@ -2,7 +2,7 @@ import { tool } from "ai";
 import * as z from "zod";
 import { ROUTINE } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
-import { listJobBots, readKeepWorkingOn } from "@/features/bot/bot.query";
+import { listJobBots } from "@/features/bot/bot.query";
 import {
   createRoutine,
   deleteRoutine,
@@ -174,17 +174,13 @@ export function createRoutineTools() {
             return `There is no bot called "${input.data.bot}". The bots are: ${names.join(", ")}. Nothing was made — call again with one of those.`;
           const made = await createRoutine(input.data).catch(refusal);
           if (typeof made === "string") return made;
-          // True as it is made, and the user's to change: a time they were promised can pass unkept
-          const held = (await readKeepWorkingOn())
-            ? ""
-            : " As things are set, it starts only while the app is open in a tab: a time that passes with it closed starts once when it is opened again. Settings › Routines has the switch that lets work go on with the app closed.";
           const first = whenOf(toDate(made.nextRunAt));
           return {
             ...told(made),
             note:
               made.schedule.kind === "once"
-                ? `${made.bot} starts "${made.label}" once, ${first}, and the routine then switches itself off. The start is a thread of its own, and its result reaches the conversation like any thread's.${held}`
-                : `${made.bot} starts "${made.label}" by itself, ${scheduleText(made.schedule)}, first ${first}. Each start is a thread of its own, and its result reaches the conversation like any thread's.${held}`,
+                ? `${made.bot} starts "${made.label}" once, ${first}, and the routine then switches itself off. The start is a thread of its own, and its result reaches the conversation like any thread's.`
+                : `${made.bot} starts "${made.label}" by itself, ${scheduleText(made.schedule)}, first ${first}. Each start is a thread of its own, and its result reaches the conversation like any thread's.`,
           };
         }
 

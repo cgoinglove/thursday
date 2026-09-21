@@ -85,7 +85,7 @@ under that app's steps, lets the person go and keeps the bot.
 A call in writing, like writing to her on the computer (`calls.md`): the same memory, the same
 bots, the same things she can do. It is kept with the other calls, marked *in writing*. A
 conversation that goes quiet for about ten minutes is closed, unless work she started from
-it is still running; what is written next starts a new one, and she reads the last one back
+it is still running — closing the app's tabs on the computer does not close it; what is written next starts a new one, and she reads the last one back
 like any earlier call.
 
 - **Writing again while she is still working** does not start a second answer: the words
@@ -121,10 +121,9 @@ Thursday** are kept in the browser and do not reach it.
 
 ## Work while away
 
-Bots stop when no browser tab has the app open, unless **Work while the app is closed** is
-on (Settings › Bots, `bots.md`). Someone who wants to hand over work from the phone and
-have it run while the computer's browser is closed needs that switch on. The app itself must
-still be running on the computer.
+Work handed over from the phone runs whether or not the app is open in a browser on the
+computer, and its result comes back to the phone. The app itself must be running on the
+computer: a machine that is off or asleep does nothing until it is back.
 
 ## When it does not answer
 

@@ -170,6 +170,12 @@ export async function readReachStatus(): Promise<ReachStatus> {
   };
 }
 
+/** The calls held open here for someone on a phone: no tab holds them, so none leaving closes them (instrumentation). */
+export const heldCalls = (): string[] =>
+  [...state.live.values()].flatMap((live) =>
+    live.line ? [live.line.callId] : [],
+  );
+
 /** The service a config key belongs to, for whoever writes keys (config.action). */
 export const reachChannelOf = (key: string): ReachChannelName | null =>
   REACH_CHANNELS.find((name) => REACH_KEYS[name].includes(key)) ?? null;
@@ -420,8 +426,8 @@ async function answer(live: Live, person: ReachPerson, words: string) {
   live.notes = live.notes.filter((note) => note.said);
   try {
     const settings = LiveSettingsSchema.parse({});
-    // Quiet for long enough, or closed under it (the tab went, the server restarted): the
-    // next words open a new call, which reads the last one back under Earlier calls
+    // Quiet for long enough, or closed under it (the server restarted): the next words
+    // open a new call, which reads the last one back under Earlier calls
     const kept = live.line;
     if (!kept || !(await isCallOpen(kept.callId)) || (await idle(kept))) {
       await hangUp(live);

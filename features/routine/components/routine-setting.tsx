@@ -38,7 +38,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { ROUTINE } from "@/config";
 import type { Bot } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
-import { KeepWorkingSwitch } from "@/features/bot/components/keep-working-switch";
 import { roomOpens } from "@/features/bot/thread.store";
 import {
   SettingError,
@@ -99,15 +98,11 @@ export function RoutineSetting() {
     <>
       <SettingScreen
         footer={
-          <>
-            {/* "3 of 12" read as a page number; the ceiling is worth saying only at it */}
-            <SettingRailNote>
-              {all.length} set up · {on} on
-              {all.length >= ROUTINE.max && ` · ${ROUTINE.max} is the most`}
-            </SettingRailNote>
-            {/* A routine's time is kept only as far as this allows, so it is set where they are */}
-            <KeepWorkingSwitch />
-          </>
+          // "3 of 12" read as a page number; the ceiling is worth saying only at it
+          <SettingRailNote>
+            {all.length} set up · {on} on
+            {all.length >= ROUTINE.max && ` · ${ROUTINE.max} is the most`}
+          </SettingRailNote>
         }
       >
         {/* At the head of the list, where Skills and Connectors add theirs: the foot was not seen */}

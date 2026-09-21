@@ -23,7 +23,7 @@ import { logger } from "@/lib/logger";
 import { isPublicError, publicError } from "@/lib/public-error";
 import { createKeyedLock } from "@/lib/queue";
 import { PromiseChain, plainText } from "@/lib/utils";
-import { findJobBot, readKeepWorkingOn } from "./bot.query";
+import { findJobBot } from "./bot.query";
 import { resumeTranscript, runBot, type ThreadEvent } from "./bot.run";
 import {
   isAppStop,
@@ -58,7 +58,6 @@ import {
   deleteThread,
   findThread,
   insertThread,
-  listAutoStoppedThreads,
   listRunningThreadIds,
   listThreadFolders,
   updateThread,
@@ -70,14 +69,10 @@ type Pinned = {
   __roomRuns?: Map<string, Run>;
   __roomCompactAsked?: Set<string>;
   __roomThreadLock?: ReturnType<typeof createKeyedLock>;
-  __roomPausing?: { current: Promise<void> };
 };
 const running = ((globalThis as Pinned).__roomRuns ??= new Map<string, Run>());
 const threadLock = ((globalThis as Pinned).__roomThreadLock ??=
   createKeyedLock());
-const pausing = ((globalThis as Pinned).__roomPausing ??= {
-  current: Promise.resolve(),
-});
 
 /**
  * Desks the user asked to summarize themselves: each compacts at its next step, once,
@@ -172,20 +167,6 @@ export async function answerThread(
 /** Claiming is short and serialized; model execution never holds the room lock. */
 async function pump(id: string) {
   await threadLock(id, async () => {
-    // With the setting on, no browser is not a reason to stop (bot.schema KEEP_WORKING_KEY)
-    if (!presence.watching && !(await readKeepWorkingOn())) {
-      const thread = await findThread(id);
-      if (
-        thread?.status === "running" &&
-        ![...running.values()].some((run) => run.threadId === id)
-      )
-        await pauseRoom(
-          id,
-          "The app is not open. Work resumes when it returns.",
-          true,
-        );
-      return;
-    }
     for (let pass = 0; pass < 2; pass++) {
       let work: RoomWork | null;
       while ((work = await claimRoomWork(id))) launch(work);
@@ -598,31 +579,15 @@ export async function sweepThreads() {
     });
   }
 }
-export async function pauseThreads(reason: string, auto = false) {
-  const pause = (async () => {
-    const ids = await listRunningThreadIds();
-    await Promise.all(
-      ids.map((id) =>
-        threadLock(id, async () => {
-          if ((await findThread(id))?.status !== "running") return;
-          await stopRuns(id);
-          await pauseRoom(id, reason, auto);
-        }),
-      ),
-    );
-  })();
-  pausing.current = pause;
-  await pause;
-}
-export async function resumeStoppedThreads() {
-  await pausing.current;
-  if (!presence.watching) return;
-  for (const id of await listAutoStoppedThreads()) {
-    await threadLock(id, async () => {
-      const current = await findThread(id);
-      if (current?.status !== "waiting" || !current.pending?.auto) return;
-      await resumeRoom(id, false);
-    });
-    await pump(id);
-  }
+export async function pauseThreads(reason: string) {
+  const ids = await listRunningThreadIds();
+  await Promise.all(
+    ids.map((id) =>
+      threadLock(id, async () => {
+        if ((await findThread(id))?.status !== "running") return;
+        await stopRuns(id);
+        await pauseRoom(id, reason);
+      }),
+    ),
+  );
 }

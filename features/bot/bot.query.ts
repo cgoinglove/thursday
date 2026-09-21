@@ -15,9 +15,7 @@ import {
   type BotIcon,
   DEFAULT_BOT,
   isBotMemoryOn,
-  isKeepWorkingOn,
   type JobBot,
-  KEEP_WORKING_KEY,
   type PinnedTool,
   pickedModel,
 } from "./bot.schema";
@@ -148,15 +146,6 @@ export async function readBotMemoryOn(): Promise<boolean> {
 
 export async function writeBotMemoryOn(on: boolean): Promise<void> {
   await writeConfig(BOT_MEMORY_KEY, on ? "on" : "off");
-}
-
-/** Whether work goes on with no browser open (bot.schema KEEP_WORKING_KEY). */
-export async function readKeepWorkingOn(): Promise<boolean> {
-  return isKeepWorkingOn(await readConfig(KEEP_WORKING_KEY));
-}
-
-export async function writeKeepWorkingOn(on: boolean): Promise<void> {
-  await writeConfig(KEEP_WORKING_KEY, on ? "on" : "off");
 }
 
 async function findBot(name: string) {

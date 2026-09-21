@@ -79,6 +79,9 @@ const { readCallConversation } = await import(
 const { answerInWriting, openTextCall } = await import(
   "../features/thursday/thursday.text.ts"
 );
+const { isCallOpen, sweepCalls } = await import(
+  "../features/thursday/thursday.query.ts"
+);
 
 after(async () => {
   await rm(home, { recursive: true, force: true });
@@ -148,4 +151,16 @@ test("what arrives while she works joins the turn between her steps, and keeps i
       ["assistant", "Nothing has been sta"],
     ],
   );
+});
+
+test("the last tab going closes the calls a tab held, never one the server holds for a phone", async () => {
+  const settings = LiveSettingsSchema.parse({});
+  const page = (await openTextCall(settings)).callId;
+  const phone = (await openTextCall(settings)).callId;
+  await sweepCalls([phone]);
+  assert.equal(await isCallOpen(page), false);
+  assert.equal(await isCallOpen(phone), true);
+  // At boot nothing is held: what the last process left open is closed
+  await sweepCalls();
+  assert.equal(await isCallOpen(phone), false);
 });

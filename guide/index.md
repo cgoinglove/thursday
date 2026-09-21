@@ -23,9 +23,9 @@ Two things hold everywhere:
 - **The screen is one page.** Her face in the middle starts and ends a call; the corner at the
   top right opens settings; the corner at the bottom right is where handed-over work shows up,
   and the corner at the bottom left is where finished work waits to be opened.
-- **Work outlives a call.** Anything handed to a bot keeps running after a call ends, as long
-  as the app is open in a browser tab — or with every tab closed, once that is switched on
-  (`bots.md`).
+- **Work outlives a call.** Anything handed to a bot keeps running after a call ends, with
+  or without the app open in a browser tab, for as long as Thursday is running on the
+  computer (`bots.md`).
 
 ## What to ask for
 

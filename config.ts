@@ -546,7 +546,8 @@ export const RECENT_CALL = { rows: 20, tokens: 600 };
 
 /**
  * How long the event stream may have no browser on it before the app treats
- * the browser as closed and stops what it was doing (app/api/events presence).
+ * the browser as closed (app/api/events presence): the calls its tabs held close, and
+ * what finishes from then on goes to a desktop notice or a phone. Work itself runs on.
  * Long enough to cover a reload or a route change.
  */
 export const BROWSER_GONE_MS = 10_000;

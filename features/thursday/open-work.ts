@@ -119,9 +119,7 @@ export function openWork(threads: Thread[]): OpenWork[] {
     );
     // A cancel is the user's own and already seen; nothing about it is news
     const ended = thread.status === "done";
-    // A stop the app picks back up by itself is not news: it runs again in a moment
-    const stopped =
-      thread.status === "waiting" && isAppStop(thread.ask) && !thread.ask?.auto;
+    const stopped = thread.status === "waiting" && isAppStop(thread.ask);
 
     if (ended || stopped) {
       if (thread.seen) continue;

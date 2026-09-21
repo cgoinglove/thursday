@@ -208,19 +208,18 @@ now** starts one without waiting.
 - Switching a routine off keeps it; deleting it keeps the threads it already opened.
 - A routine whose bot is switched off waits, and starts once the bot is back on.
 
-Routines start only while Thursday is running on this computer, and, like any job, only with
-the app open in a tab unless **Work while the app is closed** is on — the same switch that is
-under Settings › Bots, shown at the foot of Settings › Routines too. A time that passed
-meanwhile starts once when it is back, not once for every time missed.
+Routines start only while Thursday is running on this computer — whether or not the app is
+open in a tab. A time that passed while it was not running starts once when it is back, not
+once for every time missed.
 
 ## While the app is closed
 
-Jobs run on the user's own machine. Closing every tab pauses them within seconds, and opening
-one again picks them back up where they stopped. A call ends when the app closes; the work
-waits.
+Jobs run on the user's own machine, for as long as Thursday itself is running there. Closing
+every tab does not stop them: jobs carry on and routines start with nothing open, and a job
+that ends or asks sends a notification to the computer — or reaches the phone, when one is
+connected (`phone.md`). A spoken call ends when its tab closes; the work it handed over goes
+on. There is no switch for this.
 
-**Settings › Bots › Work while the app is closed** (the same switch is at the foot of Settings ›
-Routines) changes that: with it on, jobs carry on and routines start
-with nothing open, and a job that ends or asks sends a notification to the computer. It is off
-to begin with. Either way the work stops when the server itself stops — quitting the terminal
-it runs in, or the machine going to sleep.
+The work stops when the server itself stops — quitting the terminal it runs in, or the machine
+going to sleep. A job the server stopped under waits for **Continue**; it does not start again
+by itself.

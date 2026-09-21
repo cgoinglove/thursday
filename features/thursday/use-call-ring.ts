@@ -182,11 +182,10 @@ export function useCallRing({
 
 /**
  * Whether a thread is one the call-back rings for: a real question, or with
- * "any" every ending. A job the app stops and picks up by itself never rings.
+ * "any" every ending.
  */
 const ringsFor = (thread: Thread, callBack: CallBack) =>
   callBack !== "off" &&
   !thread.seen &&
-  !thread.ask?.auto &&
   (thread.room.questions.length > 0 ||
     (callBack === "any" && thread.status !== "running"));

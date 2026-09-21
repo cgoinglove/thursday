@@ -12,7 +12,6 @@ import {
   findJobBot,
   updateBot,
   writeBotMemoryOn,
-  writeKeepWorkingOn,
 } from "./bot.query";
 import {
   answerThread,
@@ -90,14 +89,6 @@ export const deleteBotAction = serverAction(async (name: string) => {
 /** Switched off, no bot is shown its own memory. What is already written stays on disk. */
 export const setBotMemoryOnAction = serverAction(async (on: unknown) => {
   await writeBotMemoryOn(on === true);
-});
-
-/**
- * Switched on, closing the last tab no longer stops running jobs; they carry on until
- * the server does (instrumentation, bot.runner pump).
- */
-export const setKeepWorkingOnAction = serverAction(async (on: unknown) => {
-  await writeKeepWorkingOn(on === true);
 });
 
 // Threads are opened by the `delegate` tool during a call, or here when the user

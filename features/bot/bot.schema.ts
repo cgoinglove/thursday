@@ -182,21 +182,6 @@ export const BOT_MEMORY_KEY = "BOT_MEMORY";
 export const isBotMemoryOn = (value: string | undefined) =>
   value?.trim() !== "off";
 
-// What happens to running work once every tab is gone (app/api/events presence,
-// config BROWSER_GONE_MS). A server-side setting, not a browser's: it decides what
-// the server does when no browser is there to hold one.
-
-/** Config key (features/config config.query) the switch lives under. */
-export const KEEP_WORKING_KEY = "KEEP_WORKING";
-
-/**
- * Off unless it was switched on, so closing the last tab still stops running jobs and
- * opening one again picks them back up. On, they run until the server itself stops, and
- * a job that ends or asks with nobody there sends a desktop notification and waits.
- */
-export const isKeepWorkingOn = (value: string | undefined) =>
-  value?.trim() === "on";
-
 /** One file of a bot's own memory (bot.memory), as its prompt lists it and its page draws it. */
 const BotMemoryFileSchema = z.object({
   file: z.string(),
@@ -294,7 +279,6 @@ export const untagSpeaker = (text: string): string => {
  */
 export type ThreadPending = {
   options: string[];
-  auto?: boolean;
   messageId?: string;
   bot?: string;
 };
@@ -395,15 +379,13 @@ export function threadActivity(lines: ThreadLine[], max = 120): string | null {
 
 /**
  * What a `waiting` thread asks: question from the row's `outcome`, options from
- * `pending`. `auto` is a stop the app picks back up by itself (ThreadPending), so
- * nobody is told about it and nobody is rung for it.
+ * `pending`.
  */
 const ThreadAskSchema = z.object({
   question: z.string(),
   messageId: z.string().optional(),
   bot: z.string().optional(),
   options: z.string().array(),
-  auto: z.boolean(),
 });
 
 export type ThreadAsk = z.infer<typeof ThreadAskSchema>;

@@ -61,7 +61,6 @@ export const queryKey = {
   /** boolean: whether bots keep their own memory (Settings > Bots) */
   botMemory: "/api/bot/memory",
   /** boolean: whether running jobs carry on with no browser open (Settings > Bots) */
-  botKeepWorking: "/api/bot/keep-working",
   /** BotMemory: one bot's own memory files, newest first (Settings > Bots) */
   botMemoryFiles: (bot: string) => ({
     url: "/api/bot/memory/files",

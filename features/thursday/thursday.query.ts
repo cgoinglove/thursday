@@ -7,6 +7,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  notInArray,
   sql,
 } from "drizzle-orm";
 import { CALL_HISTORY_PAGE } from "@/config";
@@ -310,12 +311,21 @@ export async function deleteCall(id: string): Promise<boolean> {
   return removed.length > 0;
 }
 
-/** Closes calls the previous process left open. Runs once at boot. */
-export async function sweepCalls() {
+/**
+ * Closes the calls nobody holds any more: at boot every call the last process left open,
+ * and when the last tab goes, every call but those the server holds itself (`held`: a
+ * conversation kept for a phone, reach).
+ */
+export async function sweepCalls(held: string[] = []) {
   await database
     .update(callTable)
     .set({ endedAt: new Date() })
-    .where(isNull(callTable.endedAt));
+    .where(
+      and(
+        isNull(callTable.endedAt),
+        held.length ? notInArray(callTable.id, held) : undefined,
+      ),
+    );
 }
 
 /**

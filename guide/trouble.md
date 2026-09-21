@@ -31,8 +31,9 @@ A job never fails for good; it pauses and waits.
   another model on the bot's page, then **Continue**.
 - **A ChatGPT sign-in ran out of its plan's usage**: the job stops and says when the plan
   resets; Settings › API keys shows how much is left.
-- **Every tab was closed**: jobs pause within seconds and pick up when the app is opened
-  again. **Settings › Bots › Work while the app is closed** keeps them running instead.
+- **The server stopped while it was running** — the terminal was quit, the machine slept or
+  restarted: the job waits, and **Continue** picks it up. Closing every tab is not this: jobs
+  run on with nothing open.
 - **It reached its step limit**: long jobs stop to check in. **Continue** gives it another run.
 
 ## A bot says it cannot do something

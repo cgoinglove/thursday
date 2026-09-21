@@ -1,6 +1,5 @@
-import { presence } from "@/app/api/events/app-event.server";
 import { ROUTINE } from "@/config";
-import { findJobBot, readKeepWorkingOn } from "@/features/bot/bot.query";
+import { findJobBot } from "@/features/bot/bot.query";
 import { startThread } from "@/features/bot/bot.runner";
 import { markSeen } from "@/features/bot/thread.query";
 import { toDate } from "@/lib/date-like";
@@ -50,17 +49,14 @@ async function open(routine: RoutineInput & { id: string }): Promise<string> {
 }
 
 /**
- * One look at what is due. Three things keep a due routine from starting, and they differ
+ * One look at what is due. Two things keep a due routine from starting, and they differ
  * in what becomes of the time it missed:
- * - no browser, and the user has not said work goes on without one: held, it starts once
- *   someone is back (the rule every job lives by, bot.runner pump);
  * - its bot is gone or switched off: held, it starts once the bot is back;
  * - its last run is still running or waiting: skipped, runs are never stacked.
  */
 export async function startDueRoutines(now = new Date()) {
   const due = await listDueRoutines(now);
   if (!due.length) return;
-  if (!presence.watching && !(await readKeepWorkingOn())) return;
   for (const row of due) {
     const bot = await findJobBot(row.bot);
     if (!bot || bot.disabled) continue;

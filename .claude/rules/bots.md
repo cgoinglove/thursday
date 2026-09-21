@@ -59,20 +59,21 @@ paths:
   site they are signed in to, and a kept session loaded there would replace their own.
   One profile for a bot across threads was tried and dropped: two browsers on one profile
   refuse to open, and a bot has two whenever threads overlap or a headed window outlives its job.
-- **No browser, nothing runs — unless the user said otherwise.** `presence` (app/api/events) says
-  whether a browser is on the stream; when the last one has been gone a while, jobs stop and wait
-  and open calls close. When one comes back, only jobs paused for browser absence pick themselves
-  back up. One switch changes it (`KEEP_WORKING_KEY`, Settings › Bots, off by default): work then
-  runs on with nothing open and only the server stopping parks it, while the open calls still
-  close with their tab. Both readers — boot's `onGone` and the room pump — ask the same key. A model call that breaks
+- **Work runs for as long as the server does, watched or not.** A phone, a routine and a server
+  kept up from login all start work with no browser open, so a missing browser stops nothing and
+  there is no switch for it: a job handed over from a phone once sat parked while she promised
+  its result. `presence` (app/api/events) still says whether a browser is on the stream, and
+  answers only what is about someone watching: the calls a tab held close when the last one has
+  been gone a while (never one the server holds for a phone, `reach` `heldCalls`), a finished
+  job raises a desktop notice, and open work goes to a phone. What bounds a job is its own
+  limits (`BOT_RUN`), which never depended on a tab. A model call that breaks
   is tried once more (`BOT_RUN.retryMs`); a second break, a provider's refusal, a server restart,
   a resource limit or a user stop waits for a person. Wired once at boot (`instrumentation`),
   not in each domain.
 - **A routine only opens threads.** `routine.clock` looks for what is due and calls `startThread`;
   everything after that — questions, stops, the relay into a call — is the thread's, and nothing in
   the room engine knows a routine exists. A run carries `thread.routine_id`, and how a routine is
-  doing is read off its latest run, never stored. A due routine is held while no browser is there
-  (the same key the pump asks) or its bot is off, and skipped while its last run is still open;
+  doing is read off its latest run, never stored. A due routine is held while its bot is off, and skipped while its last run is still open;
   its next time moves on before the run opens, so two looks start one thread — one that starts
   once has no next time and is switched off instead, and a moment already gone is refused as
   it is set (`routine.query`). Only the call holds

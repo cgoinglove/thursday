@@ -461,15 +461,6 @@ export async function listThreadFolders() {
     .from(threadTable);
 }
 
-/** Jobs paused for browser absence, which pick themselves back up. */
-export async function listAutoStoppedThreads(): Promise<string[]> {
-  const rows = await database
-    .select({ id: threadTable.id, pending: threadTable.pending })
-    .from(threadTable)
-    .where(eq(threadTable.status, "waiting"));
-  return rows.flatMap((row) => (row.pending?.auto ? [row.id] : []));
-}
-
 /**
  * Paths a list of message contents gave `write_file`, oldest first and each once; a
  * path written again moves to the end. A refused write is here too, so whoever shows
@@ -608,7 +599,6 @@ function viewOf(row: ThreadRow, lines: ThreadLine[]): Omit<Thread, "room"> {
         ? {
             question: row.outcome ?? "",
             options: pending?.options ?? [],
-            auto: pending?.auto === true,
             messageId: pending?.messageId,
             bot: pending?.bot,
           }

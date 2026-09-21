@@ -600,7 +600,7 @@ export async function settleRoom(threadId: string) {
   changed();
 }
 
-export async function pauseRoom(threadId: string, why: string, auto = false) {
+export async function pauseRoom(threadId: string, why: string) {
   await database.transaction(async (tx) => {
     const all = await tx.select().from(work).where(eq(work.threadId, threadId));
     for (const row of all.filter(
@@ -617,10 +617,7 @@ export async function pauseRoom(threadId: string, why: string, auto = false) {
       .set({
         status: "waiting",
         outcome: why,
-        pending: {
-          options: [THREAD_CONTINUE],
-          ...(auto ? { auto: true } : {}),
-        },
+        pending: { options: [THREAD_CONTINUE] },
         seen: false,
         endedAt: null,
         updatedAt: new Date(),
@@ -632,7 +629,6 @@ export async function pauseRoom(threadId: string, why: string, auto = false) {
       bot: all.find((row) => !row.parentId)?.bot ?? "Bot",
       text: why,
       kind: "interrupted",
-      accepted: auto,
     });
   });
   changed();

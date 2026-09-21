@@ -71,29 +71,15 @@ export async function boot() {
   sweepHistory();
   setInterval(sweepHistory, HISTORY_KEEP.sweepEveryMs).unref();
 
-  // Browser absence pauses work automatically unless the user asked for it to go on
-  // (bot.schema KEEP_WORKING_KEY). Restart and failure always require manual resume.
+  // Work runs for as long as the server does, watched or not: a phone, a routine and a
+  // server kept up from login all start it with no browser open. What a tab alone held goes
+  // with the tab — its calls — and a conversation the server holds for a phone stays (reach).
   const { presence } = await import("@/app/api/events/app-event.server");
-  const { pauseThreads, resumeStoppedThreads } = await import(
-    "@/features/bot/bot.runner"
-  );
-  const { readKeepWorkingOn } = await import("@/features/bot/bot.query");
+  const { pauseThreads } = await import("@/features/bot/bot.runner");
+  const { heldCalls } = await import("@/features/reach/reach");
   presence.onGone(() => {
-    void (async () => {
-      // The user's call (Settings › Bots): work either waits for them or runs on
-      if (await readKeepWorkingOn()) {
-        logger.info("browser gone — work goes on");
-      } else {
-        logger.info("browser gone — stopping what was running");
-        await pauseThreads("The browser closed while this was running.", true);
-      }
-      // The line is gone with the tab either way
-      await sweepCalls();
-    })().catch((cause) => logger.error("browser gone", cause));
-  });
-  presence.onBack(() => {
-    void resumeStoppedThreads().catch((cause) =>
-      logger.error("resume threads", cause),
+    void sweepCalls(heldCalls()).catch((cause) =>
+      logger.error("browser gone", cause),
     );
   });
 

@@ -70,7 +70,6 @@ import {
   rollSeedIcons,
 } from "@/features/bot/bot.seed";
 import { BotMark } from "@/features/bot/components/bot-mark";
-import { KeepWorkingSwitch } from "@/features/bot/components/keep-working-switch";
 import { MarkPalette } from "@/features/bot/components/mark-palette";
 import {
   type ConfigStatus,
@@ -1199,8 +1198,6 @@ function BotRail({
           }`
         ) : null}
       </SettingRailNote>
-      <KeepWorkingSwitch />
-      <span className="h-4 w-px shrink-0 bg-border" />
       <span className="shrink-0 text-xs text-muted-foreground">
         Bots keep their own memory
       </span>

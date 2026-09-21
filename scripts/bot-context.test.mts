@@ -142,7 +142,6 @@ const { BOT_RUN } = await import("../config.ts");
 BOT_RUN.retryMs = 1;
 const { eq } = await import("drizzle-orm");
 await migrateDatabase();
-Object.defineProperty(presence, "watching", { get: () => true });
 for (const name of models.keys())
   await database.insert(botTable).values({
     name,
@@ -1074,9 +1073,7 @@ test("a consumed inbox survives a crash before model execution and restart waits
   const { claimRoomWork, consumeRoomInbox } = await import(
     "../features/bot/room.query.ts"
   );
-  const { sweepThreads, resumeStoppedThreads } = await import(
-    "../features/bot/bot.runner.ts"
-  );
+  const { sweepThreads } = await import("../features/bot/bot.runner.ts");
   const thread = await insertThread({
     bot: "Alpha",
     request: "Crash window",
@@ -1092,9 +1089,7 @@ test("a consumed inbox survives a crash before model execution and restart waits
   const beta = (await claimRoomWork(thread.id))!;
   await consumeRoomInbox(beta);
   await sweepThreads();
-  await resumeStoppedThreads();
   assert.equal((await findThread(thread.id))?.status, "waiting");
-  assert.ok(!(await findThread(thread.id))?.pending?.auto);
   plans.set("Beta", [
     (prompt) => {
       assert.equal(prompt.split("Durable incoming message").length - 1, 1);
@@ -1113,42 +1108,44 @@ test("a consumed inbox survives a crash before model execution and restart waits
   await deleteThread(thread.id);
 });
 
-test("presence pauses automatically but a manually stopped room stays stopped", async () => {
-  const { pauseThreads, resumeStoppedThreads } = await import(
-    "../features/bot/bot.runner.ts"
-  );
+test("work runs with no browser on the stream, and a stop of the app's waits for a person", async () => {
+  // Every test here runs unwatched: a phone, a routine and a server kept up from login
+  // all start work with no tab open
+  assert.equal(presence.watching, false);
+  const { pauseThreads } = await import("../features/bot/bot.runner.ts");
   plans.set("Alpha", [
     () =>
       call(T.bash, {
-        command: "sleep 5; printf PRESENCE_BOUNDARY",
-        description: "Wait for the presence boundary.",
+        command: "sleep 5; printf UNWATCHED_BOUNDARY",
+        description: "Wait for the boundary.",
       }),
   ]);
   const id = await startThread({
     bot: "Alpha",
-    request: "Presence",
-    label: "Presence",
+    request: "Unwatched",
+    label: "Unwatched",
     from: "user",
   });
   const until = Date.now() + 2000;
   while (
     !(await rowsOf(id)).some((row) =>
-      JSON.stringify(row.content).includes("PRESENCE_BOUNDARY"),
+      JSON.stringify(row.content).includes("UNWATCHED_BOUNDARY"),
     )
   ) {
     assert.ok(Date.now() < until);
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
-  await pauseThreads("The browser closed.", true);
-  assert.equal((await findThread(id))?.pending?.auto, true);
+  // The server going down is the one thing that parks it, and only a person picks it up
+  await pauseThreads("The server was shut down while this was running.");
+  assert.equal((await findThread(id))?.status, "waiting");
   plans.set("Alpha", [
     (prompt) => {
-      assert.ok(prompt.includes("PRESENCE_BOUNDARY"));
-      return text("Presence recovered");
+      assert.ok(prompt.includes("UNWATCHED_BOUNDARY"));
+      return text("Picked back up");
     },
   ]);
-  await resumeStoppedThreads();
-  await waitFor(id, "done");
+  await answerThread(id, "Continue");
+  assert.equal((await waitFor(id, "done")).outcome, "Picked back up");
 });
 
 test("a late inbox message queues another turn atomically with completion", async () => {
@@ -1439,11 +1436,10 @@ test("a routine's next start is the next listed day at its time, and an interval
   assert.equal(scheduleText({ kind: "every", hours: 1 }), "Every hour");
 });
 
-test("the call makes, reads and removes a routine, and is told when its time can pass unkept", async () => {
+test("the call makes, reads and removes a routine", async () => {
   const { createRoutineTools } = await import(
     "../features/ai/tools/routine.tool.ts"
   );
-  const { writeKeepWorkingOn } = await import("../features/bot/bot.query.ts");
   type Run = (
     input: Record<string, unknown>,
     options: { toolCallId: string; messages: [] },
@@ -1472,7 +1468,6 @@ test("the call makes, reads and removes a routine, and is told when its time can
     /There is no bot called "Nobody"/,
   );
 
-  // Off, as it ships: the promise of a time is qualified in the same breath
   const held = (await routine({
     action: "create",
     ...job,
@@ -1481,7 +1476,8 @@ test("the call makes, reads and removes a routine, and is told when its time can
   })) as { id: string; when: string; bot: string; note: string };
   assert.equal(held.bot, "Alpha");
   assert.equal(held.when, "Daily 09:00 · Mon–Fri");
-  assert.ok(held.note.includes("only while the app is open in a tab"));
+  // A time is a promise kept whether or not anyone has the app open
+  assert.ok(!held.note.includes("only while the app is open"));
 
   const listed = (await routine({ action: "list" })) as {
     routines: { id: string; enabled: boolean }[];
@@ -1498,17 +1494,6 @@ test("the call makes, reads and removes a routine, and is told when its time can
     String(await routine({ action: "delete", routine: held.id })),
     /starts no more/,
   );
-
-  // On: nothing to qualify
-  await writeKeepWorkingOn(true);
-  const kept = (await routine({
-    action: "create",
-    ...job,
-    everyHours: 6,
-  })) as { id: string; note: string };
-  assert.ok(!kept.note.includes("only while the app is open"));
-  await routine({ action: "delete", routine: kept.id });
-  await writeKeepWorkingOn(false);
 });
 
 test("a routine opens one thread when it is due, skips while its last run is open, and waits for its bot", async () => {
