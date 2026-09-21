@@ -33,6 +33,8 @@ features/ai/              Everything the model sees. Composes domain query/schem
                                  prompts open with.
   load-tools.ts           Which runtime holds which tools (ToolRun: the call, a bot, a memory edit).
   model.ts / model.schema.ts   Which model runs, and how it is built.
+  words.ts                A stretch of conversation as its words alone, rebuilt as plain messages: what
+                          a long transcript is cut down to without parting a thought from its call.
   components/             The model's own controls: model picker and browser, provider icons.
 ```
 

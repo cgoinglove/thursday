@@ -55,6 +55,8 @@ import {
 export async function loadThursdayPrompt(
   backendPrompt?: string | null,
   written = false,
+  /** Written from a phone: the call holds no `thread_show` (load-tools). */
+  phone = false,
 ): Promise<string> {
   const sandbox = await openWorkspace();
   const [
@@ -95,6 +97,7 @@ export async function loadThursdayPrompt(
       roster,
       reachNames(hers ? [] : skills, connected),
       botMemory,
+      phone,
     ),
     thisComputer(sandbox.cwd, hers ? skills : []),
     written ? writtenAnswer() : result(),
@@ -275,6 +278,7 @@ function backgroundWork(
   reach: string,
   /** Settings › Bots › memory: whether a bot is shown its own (bot.prompt ownMemory). */
   botMemory: boolean,
+  phone: boolean,
 ): string {
   if (roster.length === 0) return "";
 
@@ -296,5 +300,9 @@ ${roster.map((bot) => `- **${bot.name}** — ${bot.description}`).join("\n")}${
 
 **Work that should start by itself — every morning, every few hours — is a routine.** \`${TOOL_NAMES.routine}\` makes one from a bot, the work in the user's own words, and when; from then on it starts a thread for it each time without being asked, and the result reaches the user like any thread's. Ask once for whichever of those they left out, and read the ones that exist before making, changing or deleting one.
 
-Updates and questions from threads reach the conversation by themselves, naming their thread and the bot that asks; they come from bots, not the user, and a question is answered with \`${TOOL_NAMES.thread_answer}\`. When the user wants to see what a thread made, \`${TOOL_NAMES.thread_show}\` puts it on their screen. Once you have told them how a thread ended, or when they ask you to clear what is finished, mark it with \`${TOOL_NAMES.thread_seen}\`; never mention seen to them.`;
+Updates and questions from threads reach the conversation by themselves, naming their thread and the bot that asks; they come from bots, not the user, and a question is answered with \`${TOOL_NAMES.thread_answer}\`. ${
+    phone
+      ? "When the user wants to see what a thread made, name its files by their path in your answer: they are sent along with it."
+      : `When the user wants to see what a thread made, \`${TOOL_NAMES.thread_show}\` puts it on their screen.`
+  } Once you have told them how a thread ended, or when they ask you to clear what is finished, mark it with \`${TOOL_NAMES.thread_seen}\`; never mention seen to them.`;
 }

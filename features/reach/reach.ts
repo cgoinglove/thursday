@@ -1,30 +1,37 @@
 import { readFile, stat } from "node:fs/promises";
 import type { ModelMessage } from "ai";
-import { appEvents } from "@/app/api/events/app-event.server";
-import { REACH } from "@/config";
+import { appEvents, presence } from "@/app/api/events/app-event.server";
+import { BROWSER_GONE_MS, REACH } from "@/config";
 import { LiveSettingsSchema } from "@/features/ai/live.schema";
 import { modelErrorToString } from "@/features/ai/model";
+import { asWords } from "@/features/ai/words";
 import { answerThread } from "@/features/bot/bot.runner";
 import type { Thread } from "@/features/bot/bot.schema";
 import { acceptRoomRelays } from "@/features/bot/room.query";
-import { listInboxThreads } from "@/features/bot/thread.query";
+import {
+  listCallJobs,
+  listInboxThreads,
+  markSeen,
+} from "@/features/bot/thread.query";
 import {
   readConfig,
   removeConfig,
   writeConfig,
 } from "@/features/config/config.query";
-import { openWork } from "@/features/thursday/open-work";
+import { type OpenWork, openWork } from "@/features/thursday/open-work";
 import { endCall, isCallOpen } from "@/features/thursday/thursday.query";
 import {
   answerInWriting,
   openTextCall,
+  type TurnNote,
 } from "@/features/thursday/thursday.text";
+import { toolLine } from "@/features/thursday/tool-line";
 import { pathsIn, viewKindOf } from "@/features/workspace/file-kind";
 import { filesOnDisk, insideWorkspace } from "@/features/workspace/workspace";
 import { keepGivenFiles } from "@/features/workspace/workspace.query";
+import { toDate } from "@/lib/date-like";
 import { logger } from "@/lib/logger";
 import { isPublicError } from "@/lib/public-error";
-import { plainText } from "@/lib/utils";
 import {
   type Button,
   type Channel,
@@ -49,10 +56,13 @@ import { createTelegram } from "./telegram";
  * with the backend a call in writing runs (thursday.text): same prompt, memory, tools and
  * rows, so it is a call like any other, held here instead of by a page. One person may
  * write through each service, and the screen is where they are let in: someone who can
- * write to her can, through her, run things on this computer. Open work that the computer
- * has not told goes to the service they last wrote from, as a turn of that conversation, so
- * an answer written back lands where she can route it, and a question's options go as
- * buttons that answer the bot directly.
+ * write to her can, through her, run things on this computer.
+ *
+ * A turn is what they wrote and what she answered; work she handed over comes back later,
+ * by itself. It comes as the bot wrote it, with its files, and no turn of hers is spent
+ * saying it again — she is left a fact, so what is written back lands where she can route
+ * it, and a question's options go as buttons that answer the bot directly. What they write
+ * while she is still working joins that turn rather than waiting for one of its own.
  *
  * Her settings are the browser's (thursday.store), which the server cannot read: a
  * conversation from a phone runs on the defaults.
@@ -65,7 +75,7 @@ const MAKE: Record<ReachChannelName, (...keys: string[]) => Channel> = {
   slack: (app, bot) => createSlack(app, bot),
 };
 
-/** The conversation with one person, for as long as it is kept going (REACH.idleMs). */
+/** The conversation with one person, for as long as it is kept going (REACH.idleMs, or work it started). */
 type Line = {
   callId: string;
   standing: string | null;
@@ -84,8 +94,15 @@ type Live = {
   problem: string | null;
   asking: ReachPerson | null;
   line: Line | null;
-  /** One turn at a time: a second message waits for the first to be answered. */
-  turn: Promise<void>;
+  /** The calls its conversations were kept as: a thread started from one comes back here. */
+  calls: Set<string>;
+  /** One turn at a time: what arrives during it joins it (`notes`). */
+  busy: boolean;
+  /**
+   * What has yet to enter the conversation: their words while a turn runs, and facts put
+   * in for them. A running turn takes them between its steps; the next takes the rest first.
+   */
+  notes: TurnNote[];
 };
 
 /** A button under a question: which bot's question it answers, and with what. */
@@ -100,10 +117,8 @@ type State = {
   live: Map<ReachChannelName, Live>;
   /** Where they last wrote from: open work goes there, once, rather than to every service. */
   last: ReachChannelName | null;
-  /** Open work already put to a phone, by item key (open-work). */
+  /** Open work settled here, by item key (open-work): sent to a phone, or left to the screen. */
   told: Set<string>;
-  /** Open work waiting out REACH.notifyAfterMs, by item key. */
-  due: Map<string, ReturnType<typeof setTimeout>>;
   choices: Map<string, Choice>;
   listening: (() => void) | null;
   /** A look at the inbox already on its way: a working bot changes threads many times a second. */
@@ -119,7 +134,6 @@ const state: State = (pinned.__reach ??= {
   live: new Map(),
   last: null,
   told: new Set(),
-  due: new Map(),
   choices: new Map(),
   listening: null,
   looking: null,
@@ -186,7 +200,9 @@ export async function startReach(fresh?: ReachChannelName): Promise<void> {
       problem: null,
       asking: null,
       line: null,
-      turn: Promise.resolve(),
+      calls: new Set(),
+      busy: false,
+      notes: [],
     };
     state.live.set(name, live);
     void listen(live);
@@ -194,21 +210,11 @@ export async function startReach(fresh?: ReachChannelName): Promise<void> {
 
   if (state.live.size) {
     state.listening ??= appEvents.subscribe((event) => {
-      if (event.type !== "threads" || state.looking) return;
-      state.looking = setTimeout(() => {
-        state.looking = null;
-        void lookForOpenWork().catch((cause) =>
-          logger.error("reach: open work", cause),
-        );
-      }, 2_000);
+      if (event.type === "threads") lookSoon();
     });
-    // What was already waiting when the server came up. The event that put it
-    // there was emitted by boot's own sweep, before this subscription existed
-    // (instrumentation sweepThreads), and nothing re-emits it: without this pass
-    // a question asked before a restart never reaches the phone at all.
-    void lookForOpenWork().catch((cause) =>
-      logger.error("reach: open work", cause),
-    );
+    // What boot's own sweep stopped (instrumentation sweepThreads) was emitted before
+    // this subscription existed, and nothing re-emits it
+    lookSoon();
     state.idle ??= setInterval(() => {
       void sweepIdleLines().catch((cause) =>
         logger.error("reach: idle lines", cause),
@@ -308,7 +314,7 @@ async function take(live: Live, incoming: Incoming) {
       );
     return;
   }
-  void write(live, person, words, words);
+  hear(live, person, words);
 }
 
 /** Lets in whoever is asking through that service. The screen's Allow (reach.action). */
@@ -338,7 +344,12 @@ export function declineReach(name: ReachChannelName): void {
 export async function forgetReach(name: ReachChannelName): Promise<void> {
   await removeConfig(reachPersonKey(name));
   const live = state.live.get(name);
-  if (live) await hangUp(live);
+  if (live) {
+    // What waited for them is not the next person's to read
+    live.notes = [];
+    live.calls.clear();
+    await hangUp(live);
+  }
   changed();
 }
 
@@ -351,12 +362,19 @@ export async function forgetReach(name: ReachChannelName): Promise<void> {
  * same judgement when the next words arrive; this is for when they never do.
  */
 async function sweepIdleLines(): Promise<void> {
-  const now = Date.now();
-  for (const live of state.live.values()) {
-    // lastAt is 0 until the first turn is answered: that line is busy, not idle
-    if (live.line?.lastAt && now - live.line.lastAt > REACH.idleMs)
-      await hangUp(live);
-  }
+  for (const live of state.live.values())
+    if (live.line && !live.busy && (await idle(live.line))) await hangUp(live);
+}
+
+/**
+ * Quiet for REACH.idleMs with nothing it started still running. She handed work over and
+ * her turn ended, as a bot's does when it calls another; the conversation is what that
+ * work comes back to, so it is kept until it has.
+ */
+async function idle(line: Line): Promise<boolean> {
+  if (Date.now() - line.lastAt <= REACH.idleMs) return false;
+  const started = await listCallJobs([line.callId]);
+  return !started.some((job) => job.status === "running");
 }
 
 /** Ends the conversation as a call. */
@@ -367,31 +385,29 @@ async function hangUp(live: Live) {
 }
 
 /**
- * One turn, after whatever turn is running. `said` is what the person wrote, kept as their
- * turn; null when `words` is open work put in for a bot, which is no turn of theirs.
+ * What they wrote. While a turn runs it joins that turn, read before her next step as a
+ * bot reads what it is told mid-job (bot.run); a chat cannot stop anyone writing twice, and
+ * a second turn for it would answer the first thing again. Otherwise it starts a turn, and
+ * what came too late for that turn's last step gets the next.
  */
-function write(
-  live: Live,
-  person: ReachPerson,
-  words: string,
-  said: string | null,
-  buttons?: Button[],
-): Promise<boolean> {
-  const done = live.turn.then(() => answer(live, person, words, said, buttons));
-  live.turn = done.then(
-    () => {},
-    () => {},
-  );
-  return done;
+function hear(live: Live, person: ReachPerson, words: string) {
+  if (live.busy) return void live.notes.push({ text: words, said: true });
+  live.busy = true;
+  void (async () => {
+    try {
+      for (let next: string | null = words; next !== null; ) {
+        await answer(live, person, next);
+        const late = live.notes.filter((note) => note.said);
+        live.notes = live.notes.filter((note) => !note.said);
+        next = late.length ? late.map((note) => note.text).join("\n") : null;
+      }
+    } finally {
+      live.busy = false;
+    }
+  })();
 }
 
-async function answer(
-  live: Live,
-  person: ReachPerson,
-  words: string,
-  said: string | null,
-  buttons?: Button[],
-): Promise<boolean> {
+async function answer(live: Live, person: ReachPerson, words: string) {
   const { channel } = live;
   // "typing…" lasts a few seconds on the service's side, so it is said again while she works
   void channel.typing(person.chat).catch(() => {});
@@ -399,56 +415,139 @@ async function answer(
     () => void channel.typing(person.chat).catch(() => {}),
     4_000,
   );
+  // Facts that waited go in ahead of the words; theirs that arrive from here on join the turn
+  const facts = live.notes.filter((note) => !note.said);
+  live.notes = live.notes.filter((note) => note.said);
   try {
     const settings = LiveSettingsSchema.parse({});
     // Quiet for long enough, or closed under it (the tab went, the server restarted): the
     // next words open a new call, which reads the last one back under Earlier calls
     const kept = live.line;
-    const stale =
-      !kept ||
-      Date.now() - kept.lastAt > REACH.idleMs ||
-      !(await isCallOpen(kept.callId));
-    if (stale) {
+    if (!kept || !(await isCallOpen(kept.callId)) || (await idle(kept))) {
       await hangUp(live);
       live.line = {
         ...(await openTextCall(settings)),
         messages: [],
         lastAt: 0,
       };
+      live.calls.add(live.line.callId);
     }
     const line = live.line as Line;
     const result = await answerInWriting({
       callId: line.callId,
       settings,
       standing: line.standing,
-      messages: [...line.messages, { role: "user", content: words }],
-      said,
+      messages: [
+        ...line.messages,
+        ...facts.map((note) => ({ role: "user" as const, content: note.text })),
+        { role: "user", content: words },
+      ],
+      said: words,
+      notes: () => live.notes.splice(0),
     });
-    line.messages = result.messages;
+    line.messages = carried(result.messages);
     line.lastAt = Date.now();
 
-    // A turn she ended without a word still shows what she did, in the call screen's words
-    const text = plainText(result.text) || result.did.join("\n");
-    const parts = inParts(text || "…");
-    for (const [at, part] of parts.entries())
-      await channel.say(
-        person.chat,
-        part,
-        at === parts.length - 1 ? buttons : undefined,
-      );
+    // What she did goes under what she said, in the call screen's words: a chat has no
+    // activity line, and a turn she ended without a word still shows that much
+    const did = [...new Set(result.did)].join(" · ");
+    await sayAll(
+      live,
+      person,
+      [asChat(result.text), did && `— ${did}`].filter(Boolean).join("\n\n"),
+    );
     await sendFiles(live, person, result.text);
-    return true;
   } catch (cause) {
+    live.notes.unshift(...facts);
+    // A conversation that never had a turn is no call to keep open: an open call is taken
+    // to be listening (bot.runner), and nothing would ever close this one
+    if (live.line && !live.line.lastAt) await hangUp(live);
     // What a provider refused is the user's to act on, so it reaches them as it was said
     const why = isPublicError(cause)
       ? cause.message
       : modelErrorToString(cause);
     logger.warn(`reach ${live.name}: ${why}`);
     await channel.say(person.chat, why).catch(() => {});
-    return false;
   } finally {
     clearInterval(typing);
   }
+}
+
+/**
+ * What of the conversation goes with the next turn. Up to the last thing they wrote it is
+ * words alone: what a tool answered and what she thought are most of what a turn weighs,
+ * every turn sends all of it again, and a thread is looked up again when it matters. From
+ * there on it is whole, so a follow-up still reads what she just found. A step that was
+ * only a tool call is kept as what she did, in the call screen's words, so she does not
+ * start the same work again. Past REACH.messages the oldest go down to REACH.trimTo, from
+ * where they speak, so no tool call is parted from its result.
+ */
+function carried(messages: ModelMessage[]): ModelMessage[] {
+  const last = Math.max(
+    messages.findLastIndex((message) => message.role === "user"),
+    0,
+  );
+  const kept = [
+    ...asWords(
+      messages.slice(0, last),
+      (name, input) => toolLine(name, JSON.stringify(input ?? {})) ?? name,
+      (text) =>
+        text.length > REACH.oldChars
+          ? `${text.slice(0, REACH.oldChars)}…`
+          : text,
+    ),
+    ...messages.slice(last),
+  ];
+  if (kept.length <= REACH.messages) return kept;
+  const from = kept.findIndex(
+    (message, at) =>
+      at >= kept.length - REACH.trimTo && message.role === "user",
+  );
+  return from > 0 ? kept.slice(from) : kept;
+}
+
+/**
+ * Markdown as a chat shows it: the marks go and the lines stay. None of the three draws
+ * markdown from a bot the same way, and a report run into one line cannot be read. A web
+ * address stays, since a phone can open it; a path is a file that goes along (sendFiles).
+ */
+function asChat(markdown: string): string {
+  return markdown
+    .replace(/```[^\n]*\n?([\s\S]*?)```/g, "$1")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/!?\[([^\]]*)\]\(([^)]*)\)/g, (_, text: string, to: string) =>
+      /^https?:/.test(to) && to !== text ? `${text} ${to}`.trim() : text,
+    )
+    .replace(/^\s*\|?[\s:|-]+\|\s*$/gm, "")
+    .replace(/^\s*\|(.*)\|\s*$/gm, (_, row: string) =>
+      row
+        .split("|")
+        .map((cell) => cell.trim())
+        .join(" · "),
+    )
+    .replace(/^\s{0,3}(#{1,6}\s+|>\s?)/gm, "")
+    .replace(/^(\s*)[-*+]\s+/gm, "$1• ")
+    .replace(/\*\*(?=\S)(.+?)(?<=\S)\*\*/g, "$1")
+    .replace(/(?<![\w*])\*(?=\S)(.+?)(?<=\S)\*(?![\w*])/g, "$1")
+    .replace(/[ \t]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** A text in chat-sized pieces, `buttons` under the last. */
+async function sayAll(
+  live: Live,
+  person: ReachPerson,
+  text: string,
+  buttons?: Button[],
+) {
+  const parts = inParts(text || "…");
+  for (const [at, part] of parts.entries())
+    await live.channel.say(
+      person.chat,
+      part,
+      at === parts.length - 1 ? buttons : undefined,
+    );
 }
 
 /** An answer in chat-sized pieces, cut at a paragraph or a line where one is near. */
@@ -500,59 +599,95 @@ async function whereTo(): Promise<{ live: Live; person: ReachPerson } | null> {
   return null;
 }
 
+/** When this server came up. What changed before it had the server before it. */
+const UP_SINCE = Date.now() - process.uptime() * 1000;
+
+/** One look for a burst: a working bot changes threads many times a second. */
+function lookSoon(ms = 2_000) {
+  state.looking ??= setTimeout(() => {
+    state.looking = null;
+    void lookForOpenWork().catch((cause) =>
+      logger.error("reach: open work", cause),
+    );
+  }, ms);
+}
+
 /**
- * Open work goes to the phone once the computer has had its chance (REACH.notifyAfterMs):
- * a question, or an ending nobody has seen. Progress does not — a phone that buzzes for
- * every step is one that gets muted.
+ * Open work — a question, or an ending nobody has seen — goes to the phone when the phone
+ * is where it will be read. A thread started from a conversation here comes back to it,
+ * whoever is watching; anything else comes only while no browser is (presence). Each item
+ * is settled the first time it is looked at, so a browser that leaves later brings no
+ * backlog with it, and a restart brings none either (UP_SINCE). Progress never goes: a
+ * phone that buzzes for every step is one that gets muted.
  */
 async function lookForOpenWork() {
-  if (!(await whereTo())) return;
-  const open = waiting(await listInboxThreads());
+  // A tab that was open comes back within the grace presence gives one; until then
+  // nobody watching is only nobody yet, and a restart would send the phone what it stopped
+  const unknown = UP_SINCE + BROWSER_GONE_MS - Date.now();
+  if (unknown > 0) return lookSoon(unknown);
+  const anyone = await whereTo();
+  if (!anyone) return;
+  const threads = await listInboxThreads();
+  const open = openWork(threads).filter((item) => item.kind !== "progress");
   const keys = new Set(open.map((item) => item.key));
-  // What stopped waiting — answered, seen, told on the computer — never goes
-  for (const [key, timer] of state.due) {
-    if (keys.has(key)) continue;
-    clearTimeout(timer);
-    state.due.delete(key);
-  }
-  // And nothing is kept about it either. Both are held for the life of the
+  // Nothing is kept about what stopped waiting. Both are held for the life of the
   // process (pinned above), so a question answered on the computer would leave
   // its key and its buttons behind on every job, for as long as the server runs.
   for (const key of state.told) if (!keys.has(key)) state.told.delete(key);
   for (const [data, choice] of state.choices)
     if (!keys.has(`question:${choice.question}`)) state.choices.delete(data);
-  for (const item of open) {
-    if (state.told.has(item.key) || state.due.has(item.key)) continue;
-    state.due.set(
-      item.key,
-      setTimeout(() => void tell(item.key), REACH.notifyAfterMs),
-    );
+
+  const fresh = open.filter((item) => !state.told.has(item.key));
+  if (!fresh.length) return;
+  const started = await startedHere();
+  for (const item of fresh) {
+    const thread = threads.find((one) => one.id === item.threadId);
+    if (!thread) continue;
+    state.told.add(item.key);
+    const from = started.get(item.threadId);
+    const person = from ? await readPerson(from.name) : null;
+    if (from && person) await tell({ live: from, person }, item, thread);
+    else if (
+      !presence.watching &&
+      toDate(thread.updatedAt).getTime() >= UP_SINCE
+    )
+      await tell(anyone, item, thread);
   }
 }
 
-const waiting = (threads: Thread[]) =>
-  openWork(threads).filter((item) => item.kind !== "progress");
-
-async function tell(key: string) {
-  state.due.delete(key);
-  const to = await whereTo();
-  if (!to || state.told.has(key)) return;
-
-  const threads = await listInboxThreads();
-  const item = waiting(threads).find((one) => one.key === key);
-  if (!item) return;
-
-  // A question's own options answer the bot directly, without a turn of hers in between
-  const thread = threads.find((one) =>
-    one.room.questions.some((question) => `question:${question.id}` === key),
+/** The threads started from a conversation here, each with the service it was. */
+async function startedHere(): Promise<Map<string, Live>> {
+  const lives = [...state.live.values()];
+  const jobs = await listCallJobs(lives.flatMap((live) => [...live.calls]));
+  return new Map(
+    jobs.flatMap((job) => {
+      const live = lives.find((one) => one.calls.has(job.callId ?? ""));
+      return live ? [[job.id, live] as const] : [];
+    }),
   );
-  const question = thread?.room.questions.find(
-    (one) => `question:${one.id}` === key,
+}
+
+/**
+ * One piece of open work, as the bot wrote it: whose it is and which thread, a line of
+ * its own, then the words, its files after them. No turn of hers is spent on it — it is
+ * already written — and she is left the fact, as she is when a question is answered on
+ * screen. Delivered is seen: what reached their hands is not unread on the computer, and
+ * that is what keeps it from being sent again.
+ */
+async function tell(
+  to: { live: Live; person: ReachPerson },
+  item: OpenWork,
+  thread: Thread,
+) {
+  const { live, person } = to;
+  // A question's own options answer the bot directly, without a turn of hers in between
+  const question = thread.room.questions.find(
+    (one) => `question:${one.id}` === item.key,
   );
   const buttons = (question?.options ?? []).map((option, at) => {
     const data = `${question?.id.slice(0, 40)}:${at}`;
     state.choices.set(data, {
-      threadId: thread?.id ?? "",
+      threadId: thread.id,
       bot: question?.bot ?? "",
       question: question?.id ?? "",
       answer: option,
@@ -560,11 +695,26 @@ async function tell(key: string) {
     return { text: option, data };
   });
 
-  state.told.add(key);
-  const told = await write(to.live, to.person, item.line, null, buttons);
-  // Hers to tell again if it never got there; accepted as on a page once it did
-  if (told) await acceptRoomRelays(item.relayIds);
-  else state.told.delete(key);
+  try {
+    await sayAll(
+      live,
+      person,
+      `${item.show.line} · ${item.show.name}\n\n${asChat(item.text) || "…"}`,
+      buttons,
+    );
+  } catch (cause) {
+    // Still open, so the next look tries again
+    logger.warn(`reach ${live.name}: could not tell ${item.key}`, cause);
+    state.told.delete(item.key);
+    return;
+  }
+  await sendFiles(live, person, item.text);
+  live.notes.push({
+    text: `${item.line}\n[The user has this on their phone, as ${item.show.bot} wrote it.]`,
+    said: false,
+  });
+  if (item.kind === "ending") await markSeen([item.threadId]);
+  else await acceptRoomRelays(item.relayIds);
 }
 
 async function choose(
@@ -592,9 +742,9 @@ async function choose(
         `${under.text}\n\n→ ${choice.answer}`,
       );
     // She is told, as she is when a question is answered on screen: a fact, not a turn
-    live.line?.messages.push({
-      role: "user",
-      content: `[The user answered ${choice.bot}'s question from their phone: ${choice.answer}. It has reached ${choice.bot}.]`,
+    live.notes.push({
+      text: `[The user answered ${choice.bot}'s question from their phone: ${choice.answer}. It has reached ${choice.bot}.]`,
+      said: false,
     });
   } catch (cause) {
     await live.channel.say(

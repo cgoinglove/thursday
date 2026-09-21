@@ -130,7 +130,7 @@ export async function streamTextCall(
     providerOptions: run.providerOptions,
     stopWhen: stepCountIs(TEXT_CALL.maxSteps),
     abortSignal: signal,
-    onStepEnd: stepSaver(run.callId, run.seq),
+    onStepEnd: turnRows(run.callId, run.seq).step,
   });
   // A provider's refusal is the user's to act on, so it is never masked
   return createUIMessageStreamResponse({
@@ -142,12 +142,17 @@ export async function streamTextCall(
   });
 }
 
+/** What reaches a turn already running: the user's own words, or a fact put in for them. */
+export type TurnNote = { text: string; said: boolean };
+
 /**
  * A turn whose conversation the server holds (reach): the same run as a page's, answered
  * whole. `messages` is the conversation so far, ending on what was just written; `said` is
  * those words when they are the user's, saved as their turn, and null for an update put in
- * for a bot, which is no turn of its own. What comes back is her words, what she did, and
- * the messages to carry into the next turn.
+ * for a bot, which is no turn of its own. `notes` is asked before every step after the
+ * first: what arrived while she worked joins this turn instead of waiting for the next, as
+ * it does for a bot (bot.run). What comes back is her words, what she did, and the
+ * messages to carry into the next turn, in the order they were said.
  */
 export async function answerInWriting(input: {
   callId: string;
@@ -155,27 +160,43 @@ export async function answerInWriting(input: {
   standing: string | null;
   messages: ModelMessage[];
   said: string | null;
+  notes?: () => TurnNote[];
   signal?: AbortSignal;
 }): Promise<{ text: string; did: string[]; messages: ModelMessage[] }> {
   const { callId, settings, standing, messages, said, signal } = input;
   const [run, seq] = await Promise.all([
-    loadRun(callId, settings),
+    loadRun(callId, settings, null, true),
     nextTurnSeq(callId),
   ]);
   if (said !== null)
     await saveTurns(callId, [
       { id: crypto.randomUUID(), role: "user", text: said, seq },
     ]);
+  const rows = turnRows(callId, said === null ? seq : seq + 1);
+  const head = standingHead(standing);
+  // What the latest step was sent. The sdk returns only what she made, so this is where
+  // a note that joined keeps its place between her steps
+  let sent: ModelMessage[] = [...head, ...messages];
   const result = await generateText({
     model: run.model,
     instructions: run.system,
-    messages: [...standingHead(standing), ...messages],
+    messages: sent,
     allowSystemInMessages: true,
     tools: run.tools,
     providerOptions: run.providerOptions,
     stopWhen: stepCountIs(TEXT_CALL.maxSteps),
     abortSignal: signal,
-    onStepEnd: stepSaver(callId, said === null ? seq : seq + 1),
+    prepareStep: async ({ stepNumber, messages: soFar }) => {
+      const notes = stepNumber > 0 ? (input.notes?.() ?? []) : [];
+      sent = [
+        ...soFar,
+        ...notes.map((note) => ({ role: "user" as const, content: note.text })),
+      ];
+      for (const note of notes) if (note.said) await rows.said(note.text);
+      // Carried forward by the sdk: from here the steps stack on these
+      return notes.length ? { messages: sent } : undefined;
+    },
+    onStepEnd: rows.step,
   });
   return {
     text: result.text.trim(),
@@ -188,17 +209,26 @@ export async function answerInWriting(input: {
           call.toolName,
       ),
     ),
-    messages: [...messages, ...result.response.messages],
+    messages: [
+      ...sent.slice(head.length),
+      ...(result.steps.at(-1)?.response.messages ?? []),
+    ],
   };
 }
 
 /**
- * Saves a step as it ends, in the order she made its parts: a tool turn keeps its name and
- * arguments as a spoken call's does, her words are a turn, a summary is a thought.
+ * The rows of one turn, numbered from one counter. `step` saves a step as it ends, in the
+ * order she made its parts: a tool turn keeps its name and arguments as a spoken call's
+ * does, her words are a turn, a summary is a thought. `said` keeps words of the user's that
+ * joined the turn between two of her steps.
  */
-function stepSaver(callId: string, from: number) {
+function turnRows(callId: string, from: number) {
   let seq = from;
-  return async (step: StepResult<ToolSet>) => {
+  const said = (text: string) =>
+    saveTurns(callId, [
+      { id: crypto.randomUUID(), role: "user", text, seq: seq++ },
+    ]);
+  const step = async (step: StepResult<ToolSet>) => {
     for (const part of step.content) {
       if (part.type === "tool-call") {
         const answered = step.content.find(
@@ -239,6 +269,7 @@ function stepSaver(callId: string, from: number) {
       }
     }
   };
+  return { step, said };
 }
 
 /** What stood open as the call began, ahead of the conversation. */
@@ -250,6 +281,8 @@ async function loadRun(
   callId: string,
   settings: LiveSettings,
   picked?: TextModelRef | null,
+  /** Held by the server for someone on a phone: no screen of theirs to put anything on. */
+  phone = false,
 ) {
   const ref = await runsOnOf(settings, picked);
   // Reasoning effort is OpenAI's word: asked of its models only, sent to them only
@@ -257,12 +290,13 @@ async function loadRun(
 
   const [model, system, held, exaKey, openaiKey] = await Promise.all([
     getTextModel(ref),
-    loadThursdayPrompt(settings.backendPrompt, true),
+    loadThursdayPrompt(settings.backendPrompt, true, phone),
     loadTools({
       target: "thursday",
       callId,
       webSearch: settings.webSearch,
       written: true,
+      phone,
     }),
     readConfig(EXA_API_KEY),
     readConfig(LIVE_PROVIDER.apiKeyName),

@@ -81,6 +81,10 @@ paths:
   step's context passes the desk's budget. The user asking for it (the bar in a thread's
   header) is a one-shot the runner holds in memory and the run takes at its next step
   (`askCompact`, `compactNow`) — never a lowered budget, which would compact every step after.
+  A transcript the provider refuses even to summarise is asked once more as its words alone
+  (`ai/words`). Never `pruneMessages` there: it takes a tool call and leaves the thought that
+  led to it, and OpenAI's API refuses a conversation in which a thought arrives without what
+  it led to.
 - **A turn ending is not a thread ending.** Bots finish with ordinary text or silence. The coordinator
   reports once its downstream work settles; idle rooms remain resumable. Store local calls before
   their effects and results before the next model step. Repair missing results only in the model

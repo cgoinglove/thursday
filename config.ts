@@ -79,14 +79,18 @@ export const CALL_IDLE = {
  * - `pollSeconds`  how long one ask waits for a message before it is asked again. The chat
  *   service holds the request open, so longer is fewer requests, not slower answers.
  * - `retryMs`  the wait after an ask that failed (no network, the service down).
- * - `idleMs`  how long nothing is written before the conversation is closed as a call. What
- *   is written next opens a new one, which reads this one back under Earlier calls. Shorter
- *   and an evening is many calls; longer and her context carries hours of turns, and a
- *   finished thread raises no desktop notice meanwhile (an open call is taken to be listening).
- * - `notifyAfterMs`  how long open work — a bot's question, an ending nobody has seen —
- *   waits for the computer before it goes to the phone. A call on the page tells it, or the
- *   user opens it, and then it never goes; shorter and the phone buzzes for what is already
- *   on screen in front of them.
+ * - `idleMs`  how long nothing is written before the conversation is closed as a call,
+ *   unless work it started is still running. What is written next opens a new one, which
+ *   reads this one back under Earlier calls. Shorter and an evening is many calls; longer and
+ *   a finished thread raises no desktop notice meanwhile (an open call is taken to be listening).
+ * - `messages`  how much of the conversation she is sent with a turn. Every turn sends all of
+ *   it again, so this bounds what a long day of writing costs a turn, not what the model can
+ *   hold. Only words are counted: what a tool answered and what she thought leave an older
+ *   turn before this is looked at.
+ * - `trimTo`  what is left once `messages` is passed, cut where the user speaks. Below it on
+ *   purpose: a conversation that loses one message a turn opens differently every turn, and
+ *   the provider's prompt cache never matches.
+ * - `oldChars`  the most an older message keeps. The turn just answered is never cut.
  * - `chars`  how much goes in one chat message; a longer answer goes as several.
  * - `files`  how many of the files her answer names are sent along with it.
  * - `fileBytes`  the largest file sent; the service refuses more.
@@ -95,7 +99,9 @@ export const REACH = {
   pollSeconds: 50,
   retryMs: 5_000,
   idleMs: 10 * 60_000,
-  notifyAfterMs: 60_000,
+  messages: 40,
+  trimTo: 30,
+  oldChars: 1_000,
   chars: 3_500,
   files: 3,
   fileBytes: 45 * 1024 * 1024,

@@ -759,7 +759,7 @@ function labelOf(args: Record<string, unknown>): string | null {
  * label is model-written (bash `description`), other tools use the first
  * telling argument, else the argument shape.
  */
-function argumentLine(name: string, input: unknown): string {
+export function argumentLine(name: string, input: unknown): string {
   const args = (input ?? {}) as Record<string, unknown>;
   if (typeof args !== "object" || Array.isArray(args)) {
     return clip(String(input ?? ""), LINE_MAX);

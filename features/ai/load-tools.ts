@@ -71,6 +71,12 @@ type ToolRun =
        * a turn back to the page mid-answer, so it holds none of the page's own tools.
        */
       written?: boolean;
+      /**
+       * Written from a phone (reach): no screen of theirs is in front of them, so the tool
+       * that puts what a thread made on it is left out. What they ask to see goes with her
+       * answer instead, as the files it names.
+       */
+      phone?: boolean;
     }
   | {
       target: "bot";
@@ -417,7 +423,11 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
       // in its place (thursday.action), so the call never holds both
       ...(run.webSearch === false ? {} : await createCallSearchTool(sandbox)),
       // Handing work over, following it, and hanging up belong to the voice session only
-      ...createThreadTools(run.callId),
+      ...Object.fromEntries(
+        Object.entries(createThreadTools(run.callId)).filter(
+          ([name]) => !(run.phone && name === TOOL_NAMES.thread_show),
+        ),
+      ),
       // What starts by itself is the user's to set up, so only the call holds it
       ...createRoutineTools(),
       // A picture handed over in writing is one she can see: a call in writing runs on

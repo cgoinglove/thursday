@@ -39,6 +39,7 @@ jobs:
       # Every provider is mocked; none of these reaches the network.
       - run: pnpm test:live
       - run: pnpm test:bot
+      - run: pnpm test:reach
       - run: pnpm test:artifact
       - run: pnpm test:skills
 

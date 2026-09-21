@@ -78,10 +78,33 @@ paths:
   `thursday.text` `answerInWriting`: the run a page's call in writing streams, answered whole,
   with the conversation held by the server instead of a page and kept as the same call row. One
   person may write through each service, and only the computer's screen lets them in
-  (`reach-ask`): whoever writes to her can start work here. Open work goes to the service they
-  last wrote from, once the computer has had
-  `REACH.notifyAfterMs` to tell it — as a turn of that conversation that is not the user's, its
-  relay rows accepted once she has answered, a question's options as buttons that answer the bot
-  directly — and progress never does. Her settings live in the browser, so a phone runs on the
-  defaults. `pnpm test:reach` runs the core against a stubbed service and the two socket
-  channels against a stubbed socket.
+  (`reach-ask`): whoever writes to her can start work here. A turn is what they wrote and
+  what she answered; work she handed over comes back by itself. It goes as the bot wrote it —
+  a line saying whose and which thread, the words with their marks off and their lines kept,
+  its files, a question's options as buttons that answer the bot directly — and never as a
+  turn of hers, which would spend a whole backend turn repeating what is already written. She
+  is left the fact (`Live.notes`), read ahead of what is written next. Where it goes is one
+  rule: a thread started from a conversation here comes back to it whoever is watching
+  (`listCallJobs` over the calls it was kept as), anything else only while no browser is
+  (`presence`), and progress never. Each item is settled the first time it is looked at and
+  nothing from before the server came up is news, so neither a browser leaving nor a restart
+  sends a backlog, and after a restart nothing is judged until a tab that was open has had
+  `BROWSER_GONE_MS` to come back; delivered is seen (`markSeen`), which is what stops a second sending.
+  What is written while she works joins that turn between her steps (`answerInWriting`
+  `notes`, as `bot.run` takes a bot's), since a chat cannot stop anyone writing twice, and
+  what comes after her last step gets the next turn. The conversation outlives `REACH.idleMs`
+  while a thread it started is running. What goes with the next turn is words alone up to
+  the last thing they wrote and whole from there (`carried`, `ai/words`): tool results and her thoughts
+  are most of a turn's weight and every turn sends all of it again. They are rebuilt as
+  plain messages, not pruned in place — her text keeps the provider's item id, and sent
+  without the thought beside it the provider refuses the conversation — and past
+  `REACH.messages` the oldest are cut deep (`trimTo`), from where the user speaks, so no tool
+  call loses its result and the prompt cache holds between cuts. Nothing written from a
+  phone goes to a bot directly: whose a reply is would have to be guessed, per service. A
+  turn held for a phone has no `thread_show` (`load-tools` `phone`, and the prompt's
+  sentence with it): no screen of theirs is in front of them, so what they ask to see goes
+  as the files her answer names. What she did goes under her answer as one line in
+  `tool-line`'s words, since a chat has no activity line. Her
+  settings live in the browser, so a phone runs on the defaults. `pnpm test:reach` runs the
+  core against a stubbed service, the two socket channels against a stubbed socket, and a
+  held turn against a scripted model.

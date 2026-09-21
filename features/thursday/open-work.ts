@@ -28,6 +28,10 @@ export type OpenWork = {
   line: string;
   /** Relay rows it covers, accepted once it lands. */
   relayIds: number[];
+  /** The thread it is about: who asked for that thread decides where it goes (reach). */
+  threadId: string;
+  /** What the bot wrote, whole: where it is read rather than heard, `line`'s cut is not needed (reach). */
+  text: string;
   /** The same item on the activity line, so the user sees where her words came from. */
   show: ActivityLine;
 };
@@ -103,6 +107,8 @@ export function openWork(threads: Thread[]): OpenWork[] {
         relayIds: relays
           .filter((relay) => relay.messageId === question.id)
           .map((relay) => relay.id),
+        threadId: thread.id,
+        text: question.text,
         show: show(question.bot, `${question.bot} asks`),
       });
     }
@@ -120,10 +126,12 @@ export function openWork(threads: Thread[]): OpenWork[] {
     if (ended || stopped) {
       if (thread.seen) continue;
       const kind = stopped ? "stopped" : "done";
+      const text =
+        (stopped ? thread.ask?.question : null) ?? thread.outcome ?? "";
       const said =
         kind === "stopped"
-          ? `It stopped before finishing. Where it got to: ${spoken(thread.ask?.question ?? thread.outcome ?? "")}`
-          : `Done. Its answer: ${spoken(thread.outcome ?? "")}`;
+          ? `It stopped before finishing. Where it got to: ${spoken(text)}`
+          : `Done. Its answer: ${spoken(text)}`;
       items.push({
         rank: OPEN_RANK[kind],
         key: `${kind}:${thread.id}@${changed}`,
@@ -131,6 +139,8 @@ export function openWork(threads: Thread[]): OpenWork[] {
         line: `${bracket(thread.bot, kind)}\n${said}`,
         // Its ending says what its progress messages said
         relayIds: loose.map((relay) => relay.id),
+        threadId: thread.id,
+        text,
         show: show(
           thread.bot,
           kind === "stopped"
@@ -148,6 +158,8 @@ export function openWork(threads: Thread[]): OpenWork[] {
         kind: "progress",
         line: `${bracket(relay.bot, relay.kind)}\n${spoken(relay.text)}`,
         relayIds: [relay.id],
+        threadId: thread.id,
+        text: relay.text,
         show: show(relay.bot, `${relay.bot} ${RELAY_SAYS[relay.kind]}`),
       });
     }

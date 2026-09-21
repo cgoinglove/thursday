@@ -125,6 +125,7 @@ const { findThread, findThreadView, upsertMessage, lastSeq } = await import(
   "../features/bot/thread.query.ts"
 );
 const { resumeTranscript } = await import("../features/bot/bot.run.ts");
+const { asWords } = await import("../features/ai/words.ts");
 const { botBrowserSession } = await import(
   "../features/workspace/workspace.ts"
 );
@@ -777,6 +778,90 @@ test("interrupted provider operations and incomplete arguments are not invented 
   assert.ok(projection.includes("remote execution state is unknown"));
   assert.ok(projection.includes("argument stream was interrupted"));
   assert.deepEqual(resumeTranscript(restored), restored);
+});
+
+test("a transcript as its words alone carries no thought and no tool, so nothing can be sent unpaired", async () => {
+  const step = (n: number): any[] => [
+    {
+      role: "assistant",
+      content: [
+        {
+          type: "reasoning",
+          text: "",
+          providerOptions: {
+            openai: { itemId: `rs_${n}`, reasoningEncryptedContent: "enc" },
+          },
+        },
+        {
+          type: "tool-call",
+          toolCallId: `call_${n}`,
+          toolName: T.bash,
+          input: { command: `step ${n}` },
+          providerOptions: { openai: { itemId: `fc_${n}` } },
+        },
+      ],
+    },
+    {
+      role: "tool",
+      content: [
+        {
+          type: "tool-result",
+          toolCallId: `call_${n}`,
+          toolName: T.bash,
+          output: { type: "text", value: "x".repeat(2_000) },
+        },
+      ],
+    },
+  ];
+  const words = asWords(
+    [
+      { role: "user", content: "The job" },
+      ...[1, 2, 3].flatMap(step),
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "text",
+            text: "Where it got to.",
+            providerOptions: { openai: { itemId: "msg_1" } },
+          },
+        ],
+      },
+    ],
+    (name, input) => `${name}: ${(input as { command: string }).command}`,
+  );
+  // What each step did and what was said, the steps of one reply as one plain message
+  assert.deepEqual(words, [
+    { role: "user", content: "The job" },
+    {
+      role: "assistant",
+      content: [
+        ...[1, 2, 3].map((n) => `${T.bash}: step ${n}`),
+        "Where it got to.",
+      ].join("\n"),
+    },
+  ]);
+
+  // What a provider is sent: no thought, no call, no id to be found without its pair
+  const { createOpenAI } = await import("@ai-sdk/openai");
+  const { generateText } = await import("ai");
+  let sent: { type?: string; id?: string }[] = [];
+  const openai = createOpenAI({
+    apiKey: "sk-test",
+    fetch: async (_url, init) => {
+      sent = JSON.parse(String(init?.body)).input;
+      throw new Error("Captured, not sent");
+    },
+  });
+  await generateText({
+    model: openai.responses("gpt-5.6-luna"),
+    messages: words,
+    maxRetries: 0,
+  }).catch(() => {});
+  assert.equal(sent.length, 2);
+  assert.ok(
+    sent.every((item) => !item.type?.startsWith("reasoning") && !item.id),
+  );
 });
 
 test("B keeps its history when C contacts it later in the same room", async () => {

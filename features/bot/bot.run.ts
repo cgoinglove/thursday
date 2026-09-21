@@ -6,7 +6,6 @@ import {
   type ModelMessage,
   type PrepareStepResult,
   type ProviderMetadata,
-  pruneMessages,
   stepCountIs,
   ToolLoopAgent,
   type ToolSet,
@@ -25,6 +24,7 @@ import {
 import { loadBotPrompt } from "@/features/ai/prompts/bot.prompt";
 import { sendMessageSpec } from "@/features/ai/tools/bot.tool";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
+import { asWords } from "@/features/ai/words";
 import {
   COMPACT_AT_MIN,
   type JobBot,
@@ -40,7 +40,12 @@ import {
 import { logger } from "@/lib/logger";
 import { estimateTokens } from "@/lib/tokens";
 import { findJobBot } from "./bot.query";
-import { findThread, listWrittenPaths, writtenPathsIn } from "./thread.query";
+import {
+  argumentLine,
+  findThread,
+  listWrittenPaths,
+  writtenPathsIn,
+} from "./thread.query";
 
 /** Events from one participant turn; the runner persists them in that participant's transcript. */
 type BotEvent =
@@ -607,14 +612,14 @@ async function compact(
     failure = cause;
   }
   if (isContextOverflow(failure)) {
-    // pruneMessages drops a call together with its result, so the transcript stays whole
-    const lighter = pruneMessages({
+    // Too long even to be summarised: asked once more of its words alone (ai/words), each
+    // step that only used a tool as the line the thread screen draws for it
+    const words = asWords(
       messages,
-      toolCalls: "before-last-4-messages",
-      emptyMessages: "remove",
-    });
+      (name, input) => `${name}: ${argumentLine(name, input)}`,
+    );
     try {
-      return await summarize(model, tools, lighter, options);
+      return await summarize(model, tools, words, options);
     } catch (cause) {
       if (options.signal?.aborted) throw cause;
       failure = cause;
