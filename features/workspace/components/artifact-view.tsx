@@ -234,6 +234,10 @@ function Notice() {
 
   if (!rows.length) return null;
 
+  // Three are drawn; the rest stand behind them and step forward as cards are closed
+  const shown = rows.slice(0, FINISHED_NOTICE.shown);
+  const behind = rows.length - shown.length;
+
   const read = (threadIds: string[]) => {
     rememberDismissed(threadIds);
     setRows((was) => was.filter((row) => !threadIds.includes(row.threadId)));
@@ -261,7 +265,7 @@ function Notice() {
           The padding is room for the cards' rings and shadows, which a scroll box would
           clip, and the negative margin puts their edge back on the rail. */}
       <div className="pointer-events-auto absolute bottom-0 left-0 -m-2 flex max-h-[80vh] w-82 max-w-full flex-col-reverse gap-2 overflow-y-auto p-2 scrollbar-none">
-        {rows.map((row) => (
+        {shown.map((row) => (
           <FinishedCard
             key={row.threadId}
             row={row}
@@ -282,9 +286,25 @@ function Notice() {
             onClose={() => drop(row.threadId)}
           />
         ))}
+        {/* The cards behind are drawn as what they are: the top edges of a pile, standing
+            on the last card in front, with how many there are said beside the count. */}
+        {behind > 0 && (
+          <div aria-hidden className="-mb-2 flex shrink-0 flex-col">
+            {behind > 1 && (
+              <span className="mx-8 h-2 rounded-t-[14px] border border-foreground/15 border-b-0 bg-muted" />
+            )}
+            <span className="mx-4 h-2.5 rounded-t-[16px] border border-foreground/20 border-b-0 bg-muted" />
+          </div>
+        )}
         {rows.length > 1 && (
-          <p className="flex shrink-0 items-center px-1.5 font-mono text-[10px] text-muted-foreground">
-            <span className="flex-1">{rows.length} new</span>
+          <p className="flex shrink-0 items-center gap-2 px-1.5 font-mono text-[10px] text-muted-foreground">
+            <span>{rows.length} new</span>
+            {behind > 0 && (
+              <span className="rounded-full bg-muted px-2 py-0.5 font-medium font-sans text-[11.5px] text-foreground/80">
+                +{behind} behind
+              </span>
+            )}
+            <span className="flex-1" />
             {/* Clearing the corner is reading what is in it: one card's X waves that card
                 off here, but a user who clears the lot has had them all, so the dots go
                 with them and Thursday stops owing them on a call. */}

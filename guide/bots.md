@@ -125,7 +125,9 @@ one carries on.
 A job ends in the thing that was asked for and a short report. Anything longer than a few
 lines is a file. Nothing opens by itself: every finished job waits as a card in the corner at
 the bottom left of the call screen — the bot, the job's name, how its answer begins, and its
-files under that — until it is opened or dismissed, a reload of the page included. Opening a card, or a file on it, counts as
+files under that — until it is opened or dismissed, a reload of the page included. Three cards
+show at a time; more stand behind them as the edges of a pile, counted in a chip beside it
+(**+2 behind**), and come forward as the ones in front are opened or dismissed. Opening a card, or a file on it, counts as
 reading the result: the thread stops showing as new, and she will not bring it up on a call.
 Dismissing one card does not; that result still waits in its thread. **Clear all**, which
 appears once more than one card is waiting, does: it reads the whole pile at once, the way

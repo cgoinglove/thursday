@@ -150,7 +150,11 @@ paths:
 - Nothing a job finished opens by itself — it lands in
   the screen's left corner as a card, the same card with files or without: the bot, the label, how
   the answer opens, the files under the words. A reload brings back the cards still unread, less those this browser
-  closed; the pill makes no bubble of a job's ending, since the card says it.
+  closed; the pill makes no bubble of a job's ending, since the card says it. The corner draws
+  `FINISHED_NOTICE.shown` cards at once, which stand clear of her face and her words; the rest
+  it holds stand behind them, drawn as what they are — the top edges of a pile on the last card
+  in front, with how many said in a chip beside the count — and step forward as the ones in
+  front are opened or closed (the user's pick).
 - Thursday is small in one way: `thursday-mark` draws the call's orb in miniature — glyphs keep one
   size, so a bigger box holds more of them, and nothing fades — and every screen draws her through
   it, so a new icon is a change to that file. Only the browser tab keeps the bot-style mark
@@ -185,7 +189,9 @@ paths:
   somersault, which is the pill saying it without a second notice. While the write line is up the
   card does not grow and the pill's right side says only what is running: the line stands where
   the card would, and the track it leaves the pill is not wide enough for a sentence as well.
-  What waits on the user is still there, as the dot on the face it always was.
+  What waits on the user is still there, as the dot on the face it always was. However many
+  wait, the card keeps to about three rows and the rest are a scroll away under its count
+  (the user's pick, over cutting the list at three).
   The open list keeps the pill's row at its foot, faces without step words, and a moment shows
   there instead of in a bubble; only an open thread hides it. The row holds `CREW_MAX` faces and
   says nothing until it is full; past that its tail is a "+" and no number, since a count of
@@ -212,8 +218,9 @@ paths:
   (`given-files` is the one hook and the one row of chips), and a drop that lands on the room
   is the open thread's rather than the line's. An open thread lies over the right of the call
   and moves none of it — her face and the captions are where they were when it closes (the
-  user's pick). The room's list is a short card in the corner. What the line sends to Thursday
-  is a call in writing (`.claude/rules/call.md`).
+  user's pick). The room's list is a short card in the corner: Now and History both keep under
+  a thread's height and scroll, since a list is scanned and a thread is read. What the line
+  sends to Thursday is a call in writing (`.claude/rules/call.md`).
 - **One message box at a time, and the room has the foot** (the user's pick; `thread.store`
   `roomOpen`). While anything stands open in the room the write line is not drawn, and when
   the room folds it comes back as it was — the words in it kept, and a call in writing still
@@ -221,7 +228,11 @@ paths:
   call. Asking for the line folds the room, whoever asks (the list's own "+", `/`, a file put
   down outside the room), with one exception: with a thread open `/` goes to that thread's
   message box, since it is the one on screen — and a thread with no box to write in (a bot
-  on a step) leaves the key alone rather than folding under the reader.
+  on a step) leaves the key alone rather than folding under the reader. While a call in
+  writing waits behind the room, the room says so at its head (`bot-room` `CallWaits`): her
+  face, that she is still on the line, and one press back to her. The line that would say the
+  call is on is the very thing put away, and without the band a thread opened
+  mid-conversation reads as the conversation having ended.
 - **The foot of the screen is a rail of fixtures, and one row above it for what opens**
   (`thursday` `CallFoot`). On the rail, along the bottom and never moving: the finished cards
   at the left end, the write line in the middle, the pill at the right. A line that comes up
