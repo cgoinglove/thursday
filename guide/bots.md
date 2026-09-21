@@ -21,7 +21,8 @@ publisher's own photo and a version to hear, and learns from "less of this". Dig
 video's transcript, a podcast, an article or a PDF and answers with key points that link to the
 moment they are said. Docs makes PDFs, invoices, slide decks, Word and Excel files, and fills,
 signs, merges or translates the ones it is given; a deck or a Word file comes with a PDF copy,
-which is what the app shows.
+which is what the app shows. Designer puts two to four ways a screen or a page could look side
+by side on one canvas, each with what it is for and what it costs.
 
 Something that should happen every day — a morning brief, a price to watch — is set up by
 asking her for a routine; a bot suggests the words, but only the call can start one.
@@ -107,6 +108,14 @@ same book can be a PDF, or a video that reads itself aloud (landscape, or portra
 when the request does not say which, it asks first. It remembers what the user already
 knows and how they liked being taught. The video needs a speech model in **Settings › Models**, and a drawn
 picture an image model; without one it asks for it and stops.
+
+Asked how something should look, **Designer** hands back a canvas: the ways it could go, side
+by side on one surface, each with a note on what it is for and what it costs, and the one it
+would carry forward outlined. Drag to move it, pinch or hold ⌘ and scroll to zoom, and press 0
+to fit it all back in the window. Every option is also a picture of its own, so they can be
+looked through without opening the canvas. It designs from what is already there — a codebase,
+a brand, a page it was shown — and it cannot see the app's own screens as they are today: give
+it a screenshot when the options should sit beside one.
 
 A bot keeps its own memory — what a job taught it, how the user asked it to work — in its own
 folder, listed on its page in Settings › Bots.

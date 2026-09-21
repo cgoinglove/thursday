@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{title}}</title>
+    <style>
+      /* canvas.css */
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>{{title}}</h1>
+      <span id="cut" hidden></span>
+      <span class="spacer"></span>
+      <span class="keys">drag to move · ⌘wheel to zoom · 0 fits</span>
+      <span class="zoom">
+        <button type="button" data-zoom="out" aria-label="Zoom out">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg>
+        </button>
+        <output id="at">100%</output>
+        <button type="button" data-zoom="in" aria-label="Zoom in">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14" /></svg>
+        </button>
+        <button type="button" data-zoom="fit" aria-label="Fit to the window">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3" />
+          </svg>
+        </button>
+      </span>
+    </header>
+
+    <div id="field">
+      <div id="stage">
+        <!-- One <article class="frame"> per option, one <p class="note"> beside it.
+             --x/--y place it on the surface, --w/--h are the board's exact size in px:
+             the renderer shoots every .board at one size, so give every board the same
+             one (a phone is 390x844, a desktop 1280x800, a poster 1240x1754). Leave
+             80px between boards in a row and 160px between rows, and put each note in
+             the gutter above or beside its board. Add class="leading" to the one option
+             being carried forward — nothing else is coloured.
+             Write the board's content as plain HTML with inline styles. Nothing comes
+             from the network: a picture sits beside this file as <img src="shot.png">. -->
+
+        <article class="frame leading" data-mark="Leading" style="--x: 0; --y: 0; --w: 1280; --h: 800">
+          <h2>A — <small>one line on what this one is</small></h2>
+          <div class="board" data-slide></div>
+        </article>
+
+        <p class="note" style="--x: 0; --y: -170; --w: 640">
+          <strong>A — name the axis it explores</strong>
+          Why this one, in a sentence.
+          What it costs: the honest tradeoff, not a hedge.
+        </p>
+
+        <article class="frame" style="--x: 1360; --y: 0; --w: 1280; --h: 800">
+          <h2>B — <small>one line on what this one is</small></h2>
+          <div class="board" data-slide></div>
+        </article>
+
+        <p class="note" style="--x: 1360; --y: -170; --w: 640">
+          <strong>B — a different axis, not a shade of A</strong>
+          Why this one, in a sentence.
+          What it costs.
+        </p>
+      </div>
+    </div>
+
+    <script>
+      // canvas.js
+    </script>
+  </body>
+</html>
