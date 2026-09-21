@@ -644,34 +644,6 @@ export function threadItems(
 }
 
 /**
- * Each bot's latest line and the thread it belongs to. Bots that took a job but
- * have not spoken yet are included with `line` null.
- */
-type BotLine = {
-  bot: BotRef;
-  thread: ThreadView;
-  line: Chatter | null;
-};
-
-export function latestPerBot(list: ThreadView[]): BotLine[] {
-  const byBot = new Map<string, BotLine>();
-
-  for (const thread of list) {
-    // Assigned but still silent; still in the room
-    if (!byBot.has(thread.bot.name)) {
-      byBot.set(thread.bot.name, { bot: thread.bot, thread, line: null });
-    }
-    for (const line of thread.lines) {
-      if (line.kind === "user" || line.kind === "note" || line.kind === "stop")
-        continue;
-      byBot.set(line.bot.name, { bot: line.bot, thread, line });
-    }
-  }
-
-  return [...byBot.values()];
-}
-
-/**
  * Opening a job's detail is reading its ending: the thread in the room, or on
  * the Settings › Threads sheet. That, or Thursday marking it seen once she has
  * told them (`thread` `seen`), is what clears its dot — a list scrolled past is

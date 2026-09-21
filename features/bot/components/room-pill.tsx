@@ -36,7 +36,6 @@ import { MARK_PALETTE, MARK_SHAPES } from "../mark.const";
 import {
   type BotRef,
   type Chatter,
-  latestPerBot,
   type ThreadView,
   type ThreadViewStatus,
   useWriteLineUp,
@@ -377,12 +376,54 @@ function wordOf(line: Chatter | null): string | null {
 }
 
 /**
+ * What each bot is doing, read off its own row in each thread rather than off
+ * the thread's status. A thread is working while any one participant runs, so
+ * the bots it handed work to rest inside a thread that is still working, and
+ * only the one on a step is up.
+ *
+ * Waiting outranks working: a bot that stopped to ask is not on a step. A
+ * question names the bot that asked it; a stop the app made has no question of
+ * its own, so that one waits on the thread's own bot.
+ */
+function standingsOf(
+  threads: ThreadView[],
+): Map<string, { waiting: boolean; word: string | null }> {
+  const out = new Map<string, { waiting: boolean; word: string | null }>();
+  for (const thread of threads) {
+    const asking = new Set(thread.room.questions.map((one) => one.bot));
+    if (thread.status === "waiting" && !asking.size)
+      asking.add(thread.bot.name);
+    for (const one of thread.room.participants) {
+      if (asking.has(one.bot)) {
+        out.set(one.bot, { waiting: true, word: null });
+        continue;
+      }
+      if (out.get(one.bot)?.waiting) continue;
+      if (one.state !== "running" && one.state !== "queued") continue;
+      // A turn in line is not a step: the face is up with nothing to say.
+      const line =
+        one.state === "running"
+          ? thread.lines.findLast(
+              (item) =>
+                item.bot.name === one.bot &&
+                item.kind !== "user" &&
+                item.kind !== "note" &&
+                item.kind !== "stop",
+            )
+          : null;
+      out.set(one.bot, { waiting: false, word: wordOf(line ?? null) });
+    }
+  }
+  return out;
+}
+
+/**
  * Who is in the row, in the order it is drawn.
  *
  * Anyone moving sorts to the front, so the mark at the tail only ever hides
  * idle bots — a bot with something to say always has a face to say it from,
- * which is what lets a hand-off point at one. A bot that spoke inside somebody
- * else's job is in the room too, whether or not it owns a thread (latestPerBot).
+ * which is what lets a hand-off point at one. A bot at work inside somebody
+ * else's job is in the room too, whether or not it owns a row of its own.
  */
 export function crewOf(
   bots: Bot[] | undefined,
@@ -392,17 +433,7 @@ export function crewOf(
   const unread = new Set(
     threads.filter(isUnread).map((thread) => thread.bot.name),
   );
-  const live = new Map<string, { waiting: boolean; word: string | null }>();
-  for (const entry of latestPerBot(threads)) {
-    const { thread, bot, line } = entry;
-    // Waiting outranks working: a bot that stopped to ask is not on a step.
-    if (thread.status === "waiting" && thread.bot.name === bot.name) {
-      live.set(bot.name, { waiting: true, word: null });
-      continue;
-    }
-    if (thread.status !== "working" || live.get(bot.name)?.waiting) continue;
-    live.set(bot.name, { waiting: false, word: wordOf(line) });
-  }
+  const live = standingsOf(threads);
 
   const named = new Map<string, CrewFace>();
   for (const bot of bots ?? []) {

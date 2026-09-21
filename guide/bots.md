@@ -57,6 +57,10 @@ for you; one nods when it has read words you sent mid-call; one sinks and stays 
 stops. Handing work to another bot turns the giver toward it and the other one hops back. The
 dot on a face is the part that stays — the movement is only the moment it happened.
 
+A face lifts while that bot is on a step, and says what the step is. It answers for that bot
+alone: one that has handed its part to another and is waiting for it back sits still, even
+though the job it belongs to is still running.
+
 If more bots are on than fit, the pill ends in a small **+**. Opening the room shows them all.
 
 ## Handing a bot work without a call

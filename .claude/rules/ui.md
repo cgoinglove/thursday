@@ -134,6 +134,9 @@ paths:
   state, so the dot outlives it, and a gesture never stands where a notice would — it is on the
   face, not over it. Nothing moves that nothing happened to, and the lift of a working bot sits
   outside all of it, so a bot at work is still lifted while it jumps.
+- A face in the row answers for its own bot: it is up while that bot's row in the room is
+  running or queued (`room.participants`), never because the thread it sits in is working —
+  one participant on a step keeps a thread working while everyone it handed work to rests.
 - The pill's bubble shows one thing that just happened, over the face of whoever spoke: that face
   with the bots it reached tucked behind it, then the words — no glyph between faces. Questions
   and stops take the waiting colour. Clicking the pill opens the room's list, never a thread; the "+" at its
