@@ -87,7 +87,7 @@ const found = orFail(
         ({ SEL, max }) => {
           if (/\/accounts\/login|\/challenge\//.test(location.pathname))
             return {
-              error: `Not signed in (${location.pathname}). Borrow the kept sign-in, goto the inbox, run again.`,
+              error: `Not signed in (${location.pathname}). Open a browser, borrow the instagram.com sign-in, then goto the site — then run again.`,
             };
           const list = document.querySelector(SEL.inboxList);
           if (!list)

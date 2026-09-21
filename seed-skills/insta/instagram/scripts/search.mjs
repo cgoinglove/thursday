@@ -81,7 +81,7 @@ const got = orFail(
       const path = page.url().replace(/^https?:\/\/[^/]+/, "");
       if (/\/accounts\/login|\/challenge\//.test(path))
         return {
-          error: `Not signed in (${path}). Borrow the kept sign-in first.`,
+          error: `Not signed in (${path}). Open a browser, borrow the instagram.com sign-in, then goto the site first.`,
         };
       if (!pages)
         return {

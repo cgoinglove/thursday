@@ -10,8 +10,10 @@ screen. These scripts read the same pages through your own browser session and p
 few lines, so run them first and snapshot only when one tells you to. Each is
 `node <this skill's dir>/scripts/<name>.mjs`; chain them with `&&` in one bash call.
 
-Sign in before any of them: `sign_in_use` with `instagram.com`, then `playwright-cli goto
-https://www.instagram.com/`. A script that says "Not signed in" means that step is missing.
+Sign in before any of them, in this order: `playwright-cli open`, then `sign_in_use` with
+`instagram.com`, then `playwright-cli goto https://www.instagram.com/`. The kept sign-in goes
+into a browser that is already open, and a page drawn before it still looks signed out. A
+script that says "Not signed in" means one of those three is missing.
 
 **Opening a DM thread marks it seen.** `inbox` never opens one; `read` does.
 
