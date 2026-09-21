@@ -83,7 +83,8 @@ paths:
   a line saying whose and which thread, the words with their marks off and their lines kept,
   its files, a question's options as buttons that answer the bot directly — and never as a
   turn of hers, which would spend a whole backend turn repeating what is already written. She
-  is left the fact (`Live.notes`), read ahead of what is written next. Where it goes is one
+  is left the fact (`Live.notes`), read ahead of what is written next, and it says when in the
+  prompt's own clock (`clockNow`): a line can wait a night, and she knows only what time it is now. Where it goes is one
   rule: a thread started from a conversation here comes back to it whoever is watching
   (`listCallJobs` over the calls it was kept as), anything else only while no browser is
   (`presence`), and progress never. Each item is settled the first time it is looked at and

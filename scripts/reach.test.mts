@@ -332,7 +332,7 @@ test("she is left the fact, and reads it ahead of what is written next", async (
   const read = turns.at(-1)?.messages.map((one) => String(one.content)) ?? [];
   assert.ok(
     read.some((text) =>
-      /Insta → Thursday, thread "Today's post".*question[\s\S]*The user has this on their phone, as Insta wrote it/.test(
+      /Insta → Thursday, thread "Today's post".*question[\s\S]*The user has had this on their phone, as Insta wrote it, since \d{4}-\d{2}-\d{2} /.test(
         text,
       ),
     ),
@@ -340,7 +340,9 @@ test("she is left the fact, and reads it ahead of what is written next", async (
   );
   assert.ok(
     read.some((text) =>
-      /answered Insta's question from their phone: Isudo/.test(text),
+      /answered Insta's question from their phone at \d{4}-\d{2}-\d{2} .*: Isudo/.test(
+        text,
+      ),
     ),
     "and what the button answered",
   );

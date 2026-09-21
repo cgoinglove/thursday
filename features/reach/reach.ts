@@ -4,6 +4,7 @@ import { appEvents, presence } from "@/app/api/events/app-event.server";
 import { BROWSER_GONE_MS, REACH } from "@/config";
 import { LiveSettingsSchema } from "@/features/ai/live.schema";
 import { modelErrorToString } from "@/features/ai/model";
+import { clockNow } from "@/features/ai/prompts/prompt-helper";
 import { asWords } from "@/features/ai/words";
 import { answerThread } from "@/features/bot/bot.runner";
 import type { Thread } from "@/features/bot/bot.schema";
@@ -716,7 +717,8 @@ async function tell(
   }
   await sendFiles(live, person, item.text);
   live.notes.push({
-    text: `${item.line}\n[The user has this on their phone, as ${item.show.bot} wrote it.]`,
+    // With the time, in the prompt's own clock: a fact that waited a night reads as just now otherwise
+    text: `${item.line}\n[The user has had this on their phone, as ${item.show.bot} wrote it, since ${clockNow()}.]`,
     said: false,
   });
   if (item.kind === "ending") await markSeen([item.threadId]);
@@ -749,7 +751,7 @@ async function choose(
       );
     // She is told, as she is when a question is answered on screen: a fact, not a turn
     live.notes.push({
-      text: `[The user answered ${choice.bot}'s question from their phone: ${choice.answer}. It has reached ${choice.bot}.]`,
+      text: `[The user answered ${choice.bot}'s question from their phone at ${clockNow()}: ${choice.answer}. It has reached ${choice.bot}.]`,
       said: false,
     });
   } catch (cause) {
