@@ -234,7 +234,7 @@ function Notice() {
 
   if (!rows.length) return null;
 
-  // Three are drawn; the rest stand behind them and step forward as cards are closed
+  // One is drawn; the rest stand behind it and step forward as it is opened or closed
   const shown = rows.slice(0, FINISHED_NOTICE.shown);
   const behind = rows.length - shown.length;
 
@@ -301,19 +301,19 @@ function Notice() {
             <span>{rows.length} new</span>
             {behind > 0 && (
               <span className="rounded-full bg-muted px-2 py-0.5 font-medium font-sans text-[11.5px] text-foreground/80">
-                +{behind} behind
+                +{behind} more
               </span>
             )}
             <span className="flex-1" />
-            {/* Clearing the corner is reading what is in it: one card's X waves that card
-                off here, but a user who clears the lot has had them all, so the dots go
-                with them and Thursday stops owing them on a call. */}
+            {/* Where the rest of them are. The corner reads what it draws and nothing
+                else — it held a Clear all while the cards behind were out of sight, which
+                read results the user had never been shown. */}
             <button
               type="button"
-              onClick={() => read(rows.map((row) => row.threadId))}
+              onClick={() => roomOpens.open()}
               className="rounded-md px-1 font-sans text-[11px] outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
             >
-              Clear all
+              Open the room
             </button>
           </p>
         )}

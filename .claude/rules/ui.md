@@ -151,10 +151,14 @@ paths:
   the screen's left corner as a card, the same card with files or without: the bot, the label, how
   the answer opens, the files under the words. A reload brings back the cards still unread, less those this browser
   closed; the pill makes no bubble of a job's ending, since the card says it. The corner draws
-  `FINISHED_NOTICE.shown` cards at once, which stand clear of her face and her words; the rest
-  it holds stand behind them, drawn as what they are — the top edges of a pile on the last card
-  in front, with how many said in a chip beside the count — and step forward as the ones in
-  front are opened or closed (the user's pick).
+  `FINISHED_NOTICE.shown` of them at once — one, which stands clear of what she is saying
+  beside her face whatever length that runs to (the user's pick) — and the rest it holds stand
+  behind it, drawn as what they are: the top edges of a pile on the card in front, with how
+  many in a chip beside the count. They step forward as the one in front is opened or closed.
+  **The corner reads what it draws and nothing else.** It held a Clear all, which read the
+  whole pile at once; with cards behind out of sight that marks results the user was never
+  shown. The way to the rest is the room, where they are listed and read one at a time
+  (`roomOpens.open()` with no thread named opens that list).
 - Thursday is small in one way: `thursday-mark` draws the call's orb in miniature — glyphs keep one
   size, so a bigger box holds more of them, and nothing fades — and every screen draws her through
   it, so a new icon is a change to that file. Only the browser tab keeps the bot-style mark

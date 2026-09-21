@@ -458,14 +458,15 @@ export function useWriteLineUp(): boolean {
   );
 }
 
-const opens = new Set<(id: string) => void>();
+const opens = new Set<(id: string | null) => void>();
 
 /** Asks the room to open a thread from elsewhere on the screen. */
 export const roomOpens = {
-  open(id: string) {
-    for (const listener of opens) listener(id);
+  /** A thread by its id, or the list it would have been picked from when none is named. */
+  open(id?: string) {
+    for (const listener of opens) listener(id ?? null);
   },
-  subscribe(listener: (id: string) => void) {
+  subscribe(listener: (id: string | null) => void) {
     opens.add(listener);
     return () => {
       opens.delete(listener);

@@ -230,6 +230,7 @@ export const BotRoom = memo(function BotRoom() {
     () =>
       roomOpens.subscribe((id) => {
         setPicked(id);
+        setTab("now");
         setOpen(true);
       }),
     [],

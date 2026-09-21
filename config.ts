@@ -317,13 +317,14 @@ export const GIVEN_FILES = {
  * clears it, and what the user has not opened still waits in the bot room.
  * - `rows`   finished jobs it holds before the oldest drops off. More turns the
  *   corner into a second inbox, and the room already is one.
- * - `shown`  cards drawn at once. Every job is a whole card, and three with files
- *   stand clear of her face and her words; the rest of `rows` wait behind them,
- *   counted, and step forward as the ones in front are closed.
+ * - `shown`  cards drawn at once. One card stands clear of what she is saying
+ *   beside her face, whatever length that runs to; two leave 38px of it and three
+ *   cover 236px (measured at 1280x860). The rest of `rows` wait behind it, counted,
+ *   and step forward as the one in front is opened or closed.
  * - `words`  characters of the answer a card is sent. It draws two lines of
  *   them; the rest only makes the event heavier.
  */
-export const FINISHED_NOTICE = { rows: 5, shown: 3, words: 240 };
+export const FINISHED_NOTICE = { rows: 5, shown: 1, words: 240 };
 
 /**
  * Cap on the text a single tool result returns to the model (chars). Beyond
