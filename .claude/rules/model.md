@@ -64,9 +64,11 @@ features/ai/              Everything the model sees. Composes domain query/schem
   transcript and carries them into every resume. The screen draws the record through the file
   route, so a picture whose file has been swept draws as nothing (`bot-tool` `Shot`). A bot
   holds the tool only when its provider carries an image inside a tool result (`model.ts`
-  `seesToolImages`); a call in writing holds it too, a spoken one cannot —
-  its backend is answered through the page, in text. Past `LOOK.maxBytes` it says how to make
-  a smaller copy instead of sending one.
+  `seesToolImages`); a call in writing holds it too, a spoken one cannot — its backend is
+  answered through the page, in text. Past `LOOK.maxBytes` it says how to make a smaller copy
+  instead of sending one. An image call works from pictures by the same rule
+  (`tools/studio.tool` `generate_image`, `images`): paths in, bytes read where the tool runs,
+  so what a bot changed a picture into costs its transcript a path and not a picture.
 
 # Writing for a model
 
@@ -123,6 +125,15 @@ a call, a shipped `SKILL.md`.
   separate context, search on the user's behalf: with no model picked for it, the feature is not
   there — absent beats slow or costly. The one exception is the bots' default model, without which
   no bot runs.
+- **Which steps of thinking a model takes is asked, written down, or left alone.** The gateway
+  answers at run time (`reasoning_options` on its catalog row); a provider used directly carries
+  its steps on its shelf row (`model.schema` `efforts`), read off that provider's own sdk — the
+  table it checks a model against, the map it folds a step through — and never guessed. Unknown
+  is not empty: a step a provider hands straight to its API fails the whole call, so a model
+  nobody has checked runs on its own default (`runEffort`), and a step it quietly folds into
+  another comes back as an sdk warning rather than an error. A step belongs to the ladder it came
+  from: pick another model and the control gives it up where that model has no such step
+  (`effort-switch`), so what is stored is never a step the run would drop.
 - **A model's habits do not move with prompt text.** One that never writes a note on its own does
   not start because a sentence asks it to; the lever is which model runs. Before blaming a model
   for never filling a tool field, check that the test gave it the case the field is for.

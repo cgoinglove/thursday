@@ -28,10 +28,12 @@ import {
 import { SiteIcon } from "@/components/ui/site-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChatGptSignIn } from "@/features/ai/components/chatgpt-sign-in";
+import { EffortSwitch } from "@/features/ai/components/effort-switch";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import { ProviderIcon } from "@/features/ai/components/provider-icon";
 import {
   type AiProvider,
+  effortSchema,
   type GatewayCredits,
   type MediaKind,
   parseMediaModel,
@@ -49,6 +51,7 @@ import {
   type ConfigEntry,
   type ConfigGroup,
   type ConfigStatus,
+  DEFAULT_EFFORT_KEY,
   EXA_API_KEY,
   groupSatisfied,
   isConfigSet,
@@ -176,12 +179,14 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
           ) : (
             <SettingItems>
               {group.entries.map((entry) =>
-                entry.choices ? (
+                entry.effortOf ? null : entry.choices ? (
                   <ChoiceRow
                     key={entry.key}
                     entry={entry}
                     choices={entry.choices}
                     value={valueOf(entry.key)}
+                    effort={effortEntryOf(group, entry.key)}
+                    effortValue={valueOf(DEFAULT_EFFORT_KEY)}
                     isSet={isSet}
                   />
                 ) : (
@@ -566,11 +571,16 @@ function ChoiceRow({
   entry,
   choices,
   value,
+  effort,
+  effortValue,
   isSet,
 }: {
   entry: ConfigEntry;
   choices: ConfigChoice[];
   value?: string;
+  /** The entry that sets how hard this model thinks, drawn inside this row (config.const `effortOf`). */
+  effort?: ConfigEntry;
+  effortValue?: string;
   isSet: (key: string) => boolean;
 }) {
   const ref = entry.text ? parseTextModel(value) : parseMediaModel(value);
@@ -609,24 +619,52 @@ function ChoiceRow({
             </span>
           )}
         </span>
-        <ModelPicker
-          kind={entry.kind}
-          provider={ref?.provider ?? null}
-          model={ref?.model ?? ""}
-          unset={
-            entry.kind
-              ? "Not offered to bots until you pick one"
-              : (usable[0]?.label ?? "No key for any of these yet")
-          }
-          onChange={(next) =>
-            save(entry.key, `${next.provider}/${next.model.trim()}`)
-          }
-          onUnset={value ? () => clear(entry.key) : undefined}
-        />
+        {/* The effort rides the picker's own line: it sets how the model thinks, not a setting of its own */}
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <ModelPicker
+              kind={entry.kind}
+              provider={ref?.provider ?? null}
+              model={ref?.model ?? ""}
+              unset={
+                entry.kind
+                  ? "Not offered to bots until you pick one"
+                  : (usable[0]?.label ?? "No key for any of these yet")
+              }
+              onChange={(next) =>
+                save(entry.key, `${next.provider}/${next.model.trim()}`)
+              }
+              onUnset={
+                value
+                  ? () => {
+                      clear(entry.key);
+                      // A step is read off a model's own ladder; with the model back to automatic
+                      // there is none to read, so the step goes with it.
+                      if (effort && effortValue) clear(effort.key);
+                    }
+                  : undefined
+              }
+            />
+          </div>
+          {effort && ref && (
+            <EffortSwitch
+              provider={ref.provider}
+              model={ref.model}
+              value={effortSchema.safeParse(effortValue).data ?? null}
+              onChange={(next) =>
+                next ? save(effort.key, next) : clear(effort.key)
+              }
+            />
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
+/** The effort entry that belongs to a model row, where its group has one. */
+const effortEntryOf = (group: ConfigGroup, key: string) =>
+  group.entries.find((entry) => entry.effortOf === key);
 
 function openSignInDialog(entry: ConfigEntry) {
   return notify.component({

@@ -25,6 +25,11 @@ paths:
   `data <scratch>`.
 - **A job runs with no browser on the stream**, so a bot on a scratch home can be driven from
   a script as it is.
+- **A scratch home is not a keyless one.** Next loads `.env` whatever the data folder points at,
+  so a copy started this way can call the user's providers for real. A thread written straight
+  into that database as `running`, or one whose work row is, is picked up and run the moment a
+  browser is on the stream: rows seeded to be looked at are `done` or `cancelled`, and a bot is
+  driven only on purpose.
 - **A scratch copy's config holds the keys in plain text.** Stop its server and delete the copy
   when done.
 - **Screens are checked read-only.** Attach Playwright and do not open threads: opening one marks

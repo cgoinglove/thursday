@@ -4,7 +4,13 @@
 // the standalone server. Plain JavaScript: this runs before anything is built.
 
 import { spawn } from "node:child_process";
-import { existsSync, symlinkSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  readlinkSync,
+  rmSync,
+  symlinkSync,
+} from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -99,12 +105,14 @@ if (APP !== ROOT) {
     [join(ROOT, "public"), join(APP, "public")],
   ]) {
     if (!existsSync(from)) continue;
-    // Already there — linked by an earlier run, or copied in by hand.
-    try {
-      symlinkSync(from, to, "junction");
-    } catch (cause) {
-      if (cause.code !== "EEXIST") throw cause;
-    }
+    // Only a link to this build is left alone. The tracer copies whatever a
+    // route reads at runtime, so `public` arrives as a real folder holding a
+    // few of its files: taking that for a link serves those and 404s the rest
+    // — the icon, the call's sounds, the voice samples.
+    const there = lstatSync(to, { throwIfNoEntry: false });
+    if (there?.isSymbolicLink() && readlinkSync(to) === from) continue;
+    if (there) rmSync(to, { recursive: true, force: true });
+    symlinkSync(from, to, "junction");
   }
 }
 

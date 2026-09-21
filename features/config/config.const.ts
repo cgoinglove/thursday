@@ -1,6 +1,7 @@
 import { LIVE_PROVIDER } from "@/features/ai/live.schema";
 import {
   canMakeKind,
+  EFFORTS,
   MEDIA_MODEL_PROVIDER_LIST,
   type MediaKind,
   parseMediaModel,
@@ -39,6 +40,8 @@ export type ConfigEntry = {
   signIn?: true;
   /** Present means a choice, not a secret: the value may be shown and served. */
   choices?: ConfigChoice[];
+  /** The model entry this one sets the thinking effort for; drawn inside that row, never on its own. */
+  effortOf?: string;
   /** A studio kind. The value is `provider/model`, picked with the model picker, so ids outside `choices` are accepted. */
   kind?: MediaKind;
   /** The one the app points a newcomer at. */
@@ -135,6 +138,9 @@ export const EXA_API_KEY = "EXA_API_KEY";
 /** What a bot runs on when it has not picked its own model (bot.schema `provider`/`model`). */
 export const DEFAULT_MODEL_KEY = "DEFAULT_MODEL";
 
+/** How hard it thinks there, unless the bot set its own (bot.schema `effort`). */
+export const DEFAULT_EFFORT_KEY = "DEFAULT_EFFORT";
+
 const defaultModelEntry: ConfigEntry = {
   key: DEFAULT_MODEL_KEY,
   label: "Default model",
@@ -148,6 +154,22 @@ const defaultModelEntry: ConfigEntry = {
       needs: provider.apiKeyName,
     })),
   ),
+};
+
+/**
+ * The step the default model thinks at. Its own key, drawn inside the model's row rather than
+ * beside it (`effortOf`): the two are read as one setting, and a step means nothing without
+ * the model whose ladder it comes from.
+ */
+const defaultEffortEntry: ConfigEntry = {
+  key: DEFAULT_EFFORT_KEY,
+  label: "Default effort",
+  effortOf: DEFAULT_MODEL_KEY,
+  choices: EFFORTS.map((effort) => ({
+    value: effort,
+    label: effort,
+    needs: DEFAULT_MODEL_KEY,
+  })),
 };
 
 /**
@@ -277,7 +299,7 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
     hint: "what a bot runs on when it has not picked its own — start small: a small model is quick and costs little",
     section: "models",
     require: "none",
-    entries: [defaultModelEntry],
+    entries: [defaultModelEntry, defaultEffortEntry],
   },
   {
     id: "studio",

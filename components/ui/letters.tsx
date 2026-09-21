@@ -26,12 +26,22 @@ export function Letters({ text }: { text: string }) {
     drawn.current = letters;
   }, [letters]);
 
-  return letters.map((letter, at) => (
-    // letter + index: one already drawn keeps its key and never arrives twice
-    <Letter key={`${letter}${at}`} wait={Math.max(0, at - from) * LETTER_MS}>
-      {letter}
-    </Letter>
-  ));
+  // The letters are wrapped, not returned loose: dropped straight into a flex row
+  // (the call screen's idle line) every letter would become an item of its own and
+  // stand apart by that row's gap. Inline, so text still wraps where it would.
+  return (
+    <span>
+      {letters.map((letter, at) => (
+        // letter + index: one already drawn keeps its key and never arrives twice
+        <Letter
+          key={`${letter}${at}`}
+          wait={Math.max(0, at - from) * LETTER_MS}
+        >
+          {letter}
+        </Letter>
+      ))}
+    </span>
+  );
 }
 
 function Letter({ wait, children }: { wait: number; children: string }) {

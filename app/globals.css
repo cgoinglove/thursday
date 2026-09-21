@@ -166,6 +166,7 @@
   --brand: #0169cc; /* blue-500 */
   --brand-foreground: #ffffff;
   --destructive: #922e13; /* red-700 and orange-700, halfway */
+  --effort-end: #4f46e5; /* indigo-600 */
 }
 
 .dark,
@@ -179,9 +180,27 @@
   --input: var(--alpha-15);
   --ring: var(--gray-500);
 
-  --brand: #66b5ff; /* blue-200 */
+  --brand: #0a84ff; /* the iOS dark system blue: the vivid end that still clears 4.5:1 on this paper */
   --brand-foreground: #ffffff;
   --destructive: #ef4c26; /* red-400 and orange-500, halfway */
+  --effort-end: #a5b4fc; /* indigo-300 */
+}
+
+/*
+ * How hard a model is set to think, as a ladder rather than a colour (the user's pick): the brand
+ * standing well back from the paper at the bottom, so there is room to climb, and one indigo at
+ * the top that nothing else in the app wears. A screen names a step, never a value, and the steps
+ * derive from the two ends, so both themes are written once. Measured against the paper each sits
+ * on: every fill clears 3:1 and every name 4.5:1 (features/ai/components/effort-switch).
+ */
+:root,
+.dark,
+.inverse {
+  --effort-minimal: color-mix(in srgb, var(--brand) 67%, var(--background));
+  --effort-low: color-mix(in srgb, var(--brand) 80%, var(--background));
+  --effort-medium: color-mix(in srgb, var(--effort-end) 22%, var(--brand));
+  --effort-high: color-mix(in srgb, var(--effort-end) 58%, var(--brand));
+  --effort-xhigh: var(--effort-end);
 }
 
 /*
@@ -246,6 +265,19 @@
     }
     to {
       background-position: -50% center;
+    }
+  }
+}
+
+/* The effort ladder breathing (effort-switch): the ramp is laid across the whole
+   track and only part of it is uncovered, so this walks that ramp a few pixels
+   and back. Slow enough to be a colour that lives rather than a thing moving. */
+@theme {
+  --animate-effort: effort 7s ease-in-out infinite;
+
+  @keyframes effort {
+    50% {
+      background-position-x: -16px;
     }
   }
 }
@@ -598,7 +630,8 @@
 
 /* Every one of them is a courtesy, so a machine asked to hold still keeps the faces where they are. */
 @media (prefers-reduced-motion: reduce) {
-  [data-crew-motion] {
+  [data-crew-motion],
+  [data-effort-fill] {
     animation: none !important;
   }
 }

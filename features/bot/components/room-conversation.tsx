@@ -553,12 +553,16 @@ function WorkRow({
             }
             tone={standing === "asking" ? "waiting" : "muted"}
             speed={2.4}
-            className="min-w-0 truncate text-[12px] leading-4"
+            className={cn(
+              "min-w-0 truncate text-[12px] leading-4",
+              shown && "flex-1",
+            )}
           />
         ) : (
           <FoldedWords
             words={last ? stepOf(last) : ""}
             facts={[counts, tookOf(lines)].filter(Boolean).join(" · ")}
+            grow={shown}
           />
         )}
         {lines.length > 0 && <FoldArrow open={shown} />}

@@ -6,7 +6,7 @@ import {
   mcpToolTable,
   threadTable,
 } from "@/database/tables";
-import type { TextModelProviderId } from "@/features/ai/model.schema";
+import type { Effort, TextModelProviderId } from "@/features/ai/model.schema";
 import { readConfig, writeConfig } from "@/features/config/config.query";
 import { botFolderName } from "@/features/workspace/workspace";
 import {
@@ -32,6 +32,7 @@ const asJobBot = (row: {
   model: string | null;
   disabled: boolean;
   compactAt: number | null;
+  effort: Effort | null;
 }): JobBot => ({
   name: row.name,
   description: row.description,
@@ -41,6 +42,7 @@ const asJobBot = (row: {
   model: row.model,
   disabled: row.disabled,
   compactAt: row.compactAt,
+  effort: row.effort,
 });
 
 /**

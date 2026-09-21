@@ -69,7 +69,7 @@ export const CALL_LINE = { dwellMs: 2_000 };
  * - `warnMs`  how much of `hangUpMs` counts down on screen.
  */
 export const CALL_IDLE = {
-  hangUpMs: 20_000,
+  hangUpMs: 40_000,
   warnMs: 10_000,
 };
 
@@ -259,8 +259,8 @@ export const MEMORY_CONVERSATION_PAGE = 100;
  */
 export const WORKSPACE_VIEW = {
   rows: 200,
-  autoCloseMs: 5_000,
   textMax: 512 * 1024,
+  autoCloseMs: 5_000,
   elementMax: 50 * 1024 * 1024,
 };
 
@@ -586,7 +586,8 @@ export const MEMORY_LIMITS = {
 };
 
 /**
- * One look at an image (features/ai/tools/look.tool).
+ * One picture handed to a model: a look at an image (features/ai/tools/look.tool), and one
+ * an image call works from (features/ai/tools/studio.tool).
  * - `maxBytes`  the largest file handed to a model as a picture. It rides in the request as
  *   base64, a third larger, on every step of the run that looked; providers refuse a request
  *   past a few tens of megabytes, and a screenshot is a few hundred kilobytes. Over this the

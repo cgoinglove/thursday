@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  AudioLines,
   Camera,
+  Captions,
   Check,
   ChevronDown,
   ExternalLink,
@@ -9,6 +11,7 @@ import {
   FilePen,
   FileText,
   Globe,
+  Image as ImageIcon,
   KeyRound,
   ListChecks,
   Loader2,
@@ -17,6 +20,7 @@ import {
   PhoneOff,
   Send,
   Terminal,
+  Video,
   Wrench,
 } from "lucide-react";
 import Image from "next/image";
@@ -26,22 +30,24 @@ import { ShinyText } from "@/components/ui/shiny-text";
 import { hostOf, SiteIcon } from "@/components/ui/site-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SourceChips, type SourcePage } from "@/components/ui/source-chips";
-import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
+import { STUDIO_SERVER } from "@/config";
+import { STUDIO_TOOLS, TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import type { ResultPart } from "@/features/bot/bot.schema";
 import { imagePathsIn } from "@/features/bot/components/attachments";
 import { McpMark } from "@/features/connectors/components/mcp-mark";
 import { MemoryMark } from "@/features/memory/components/memory-mark";
 import { RoutineMark } from "@/features/routine/components/routine-mark";
 import { SkillsMark } from "@/features/skills/components/skills-mark";
+import { FileThumb } from "@/features/workspace/components/file-thumb";
 import { FileLink } from "@/features/workspace/components/file-view";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn } from "@/lib/utils";
 import type { ToolUse } from "../thread.store";
 
 /*
- * Tool calls rendered per tool: TOOL_VIEWS by name, GenericTool for the rest. Results
- * arrive as a glance (thread.query RESULT_LINES, each line clipped); "Everything"
- * fetches the whole output, and only once it is opened.
+ * Tool calls rendered per tool: a studio call by what it makes, then TOOL_VIEWS by name,
+ * GenericTool for the rest. Results arrive as a glance (thread.query RESULT_LINES, each
+ * line clipped); "Everything" fetches the whole output, and only once it is opened.
  */
 
 type ToolProps = {
@@ -56,6 +62,32 @@ const TOOL_VIEWS: Partial<Record<string, ComponentType<ToolProps>>> = {
   [TOOL_NAMES.web_search]: WebSearchTool,
   [TOOL_NAMES.bash]: ShellTool,
   [TOOL_NAMES.write_file]: FileTool,
+};
+
+/** Every studio tool name, for reading one off a call line. */
+const STUDIO_NAMES: string[] = Object.values(STUDIO_TOOLS);
+
+/**
+ * A studio call read off its line. The studio's tools reach a bot through `tool_call`
+ * like a server's, but they are the app's own, so the row says what is being made
+ * rather than that a server was called. The line is the app's own too —
+ * `<server> <tool> <what it was given>` (thread.query `argumentLine`) — so both names
+ * are matched against the vocabulary rather than guessed at.
+ */
+function studioCall(tool: ToolUse): { name: string; words: string } | null {
+  if (tool.name !== TOOL_NAMES.tool_call) return null;
+  const [server, called, ...rest] = tool.input.split(" ");
+  if (server !== STUDIO_SERVER) return null;
+  const name = STUDIO_NAMES.find((one) => one === called);
+  return name ? { name, words: rest.join(" ") } : null;
+}
+
+/** The studio's tools by what each makes. */
+const STUDIO_ICONS: Record<string, LucideIcon> = {
+  [STUDIO_TOOLS.generate_image]: ImageIcon,
+  [STUDIO_TOOLS.generate_video]: Video,
+  [STUDIO_TOOLS.generate_speech]: AudioLines,
+  [STUDIO_TOOLS.transcribe]: Captions,
 };
 
 /**
@@ -92,10 +124,11 @@ export const toolIcon = (name: string): LucideIcon =>
   TOOL_ICONS[name] ?? Wrench;
 
 /**
- * What a step did, read off the call alone: the glyph that says it, and what stands
- * beside it on its row — the site it opened, the pages a search read, the picture it
- * took, the file or program by name. A row that says `bash` six times says nothing;
- * this is only how a step is drawn, and a command it cannot place is a terminal line.
+ * What a step did, read off the call and what it answered with: the glyph that says it,
+ * and what stands beside it on its row — the site it opened, the pages a search read,
+ * the picture it took or drew, the file or program by name. A row that says `bash` six
+ * times says nothing; this is only how a step is drawn, and a command it cannot place
+ * is a terminal line.
  */
 type StepFace = {
   icon: LucideIcon;
@@ -103,6 +136,8 @@ type StepFace = {
   pages?: SourcePage[];
   image?: string;
   target?: string;
+  /** A picture is on its way: its place is held while the step runs. */
+  makes?: boolean;
 };
 
 /** Commands that look at files rather than do something to them. */
@@ -132,8 +167,26 @@ function pagesOf(tool: ToolUse): SourcePage[] {
   });
 }
 
+/**
+ * The pictures a step names — in the call it made, and in what it gave back. A tool
+ * that draws answers with the path of what it drew, and so does a script that wrote
+ * a chart; either way the step shows it without being opened.
+ */
+function picturesOf(tool: ToolUse): string[] {
+  return imagePathsIn(
+    [tool.path ?? "", tool.input, ...texts(tool.results)].join("\n"),
+  );
+}
+
 export function stepFace(tool: ToolUse): StepFace {
-  const image = imagePathsIn(`${tool.path ?? ""} ${tool.input}`)[0];
+  const image = picturesOf(tool)[0];
+  const studio = studioCall(tool);
+  if (studio)
+    return {
+      icon: STUDIO_ICONS[studio.name] ?? Wrench,
+      image,
+      makes: studio.name === STUDIO_TOOLS.generate_image,
+    };
   if (tool.name === TOOL_NAMES.web_search)
     return { icon: Globe, pages: pagesOf(tool) };
   if (tool.name === TOOL_NAMES.write_file)
@@ -237,8 +290,49 @@ function StepTarget({ face }: { face: StepFace }) {
 }
 
 export function BotTool(props: ToolProps) {
-  const View = TOOL_VIEWS[props.tool.name] ?? GenericTool;
+  const View = studioCall(props.tool)
+    ? StudioTool
+    : (TOOL_VIEWS[props.tool.name] ?? GenericTool);
   return <View {...props} />;
+}
+
+/** The box what a studio call makes is drawn in, before and after it is there. */
+const PICTURE = "size-36 rounded-xl";
+
+/**
+ * A studio call: the words it was given, and what it made. The picture's place is
+ * held from the first step — a skeleton while the model draws, the picture itself
+ * once it is saved — so nothing moves when it lands, and the picture says what the
+ * saved path would have said. Anything else it answers with stays a line.
+ */
+function StudioTool({ tool, threadId, collapsed }: ToolProps) {
+  const call = studioCall(tool);
+  const [picture] = picturesOf(tool);
+  const drawing =
+    tool.results === undefined && call?.name === STUDIO_TOOLS.generate_image;
+
+  return (
+    <Frame tool={tool} threadId={threadId} collapsed={collapsed}>
+      {call?.words && (
+        <p className="px-3 pt-1 pb-1.5 text-[13px] leading-snug break-keep">
+          “{call.words}”
+        </p>
+      )}
+      {picture ? (
+        <FileLink
+          path={picture}
+          title={picture}
+          className="mx-3 mb-1.5 block w-fit overflow-hidden rounded-xl outline-none ring-1 ring-foreground/5 transition-opacity ring-inset hover:opacity-90 focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <FileThumb path={picture} className={PICTURE} />
+        </FileLink>
+      ) : drawing ? (
+        <Skeleton className={cn("mx-3 mb-1.5", PICTURE)} />
+      ) : (
+        <Lines lines={texts(tool.results)} />
+      )}
+    </Frame>
+  );
 }
 
 function WebSearchTool({ tool, threadId, collapsed }: ToolProps) {
@@ -394,7 +488,7 @@ function Frame({
           </span>
         )}
 
-        <StepShots paths={imagePathsIn(`${tool.path ?? ""} ${tool.input}`)} />
+        <StepShots paths={picturesOf(tool)} waiting={running && face.makes} />
         <StepTarget face={face} />
         {!running && (
           <Check className="size-3 shrink-0 text-muted-foreground/50" />
@@ -419,14 +513,16 @@ function Frame({
 }
 
 /**
- * Images the call itself names, tucked on its row: what a step drew or captured
- * shows without opening it. The file may not be there — a path in a command is
- * no promise — so one that does not load drops out rather than asking the server.
+ * The pictures a step names, tucked on its row: what it drew or captured shows without
+ * opening it. The file may not be there — a path in a command is no promise — so one
+ * that does not load drops out rather than asking the server. `waiting` holds the box
+ * of a picture still being drawn, so the row does not change shape when it lands.
  */
-function StepShots({ paths }: { paths: string[] }) {
+function StepShots({ paths, waiting }: { paths: string[]; waiting?: boolean }) {
   const [gone, setGone] = useState<string[]>([]);
   const shown = paths.filter((path) => !gone.includes(path)).slice(0, SHOTS);
-  if (!shown.length) return null;
+  if (!shown.length)
+    return waiting ? <Skeleton className="size-6 shrink-0 rounded-md" /> : null;
 
   return (
     <span className="flex shrink-0 items-center">

@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { basename, extname } from "node:path";
 import {
   generateImage,
@@ -8,6 +8,7 @@ import {
 } from "ai";
 import { format } from "date-fns";
 import z from "zod";
+import { LOOK } from "@/config";
 import {
   buildImageModel,
   buildSpeechModel,
@@ -16,6 +17,7 @@ import {
   resolveMediaRef,
 } from "@/features/ai/model";
 import { STUDIO_TOOLS } from "@/features/ai/tools/tool-name";
+import { viewKindOf } from "@/features/workspace/file-kind";
 import { logger } from "@/lib/logger";
 import type { Sandbox } from "@/lib/sandbox";
 import { errorToString } from "@/lib/utils";
@@ -92,6 +94,27 @@ async function save(
   return path;
 }
 
+/**
+ * One picture an image call works from, read off disk. A line back instead of bytes
+ * is the model's to act on: the call is never made, so nothing is spent on a path
+ * that was a guess.
+ */
+async function picture(
+  sandbox: Sandbox,
+  path: string,
+): Promise<Uint8Array | string> {
+  const one = path.trim();
+  if (viewKindOf(one) !== "image")
+    return `${one} is not a picture. Work from a png, jpg, webp or gif.`;
+  const full = sandbox.resolve(one);
+  const info = await stat(full).catch(() => null);
+  if (!info?.isFile())
+    return `There is no file at ${one}. Give the path from the workspace root, as \`ls\` shows it.`;
+  if (info.size > LOOK.maxBytes)
+    return `${one} is ${Math.ceil(info.size / 1024 / 1024)} MB, over the ${LOOK.maxBytes / 1024 / 1024} MB one picture takes. Make a smaller copy in the shell first (on a Mac: sips -Z 1600 in.png --out out.png), then use that.`;
+  return readFile(full);
+}
+
 /** The path first, on its own line: whoever draws this row reads line one as the file to open. */
 const saved = (path: string) =>
   `${path}\nSaved. Give the user this path — the file opens from the thread row. Do not describe it back to them; they can open it.`;
@@ -111,26 +134,42 @@ const imageTool = async (): Promise<StudioTool | null> => {
   return define({
     name: STUDIO_TOOLS.generate_image,
     description:
-      "Draw an image and save it as a file in the workspace. What comes back is its path.",
+      "Draw an image and save it as a file in the workspace, or change pictures already there. What comes back is its path.",
     inputSchema: z.object({
       prompt: z
         .string()
         .describe(
-          "What to draw, described: subject, style, mood, what is in frame. The image model does not see the job or the conversation, so nothing can be left implied.",
+          "What to draw, described: subject, style, mood, what is in frame. With `images`, what to change about them. The image model does not see the job or the conversation, so nothing can be left implied.",
+        ),
+      images: z
+        .array(z.string())
+        .nullish()
+        .describe(
+          "Workspace paths of pictures to work from: the one being changed, or ones to draw from. Hand the picture over rather than describing it — whatever the words leave out is kept. Null to draw from nothing.",
         ),
       aspectRatio: z
         .enum(RATIOS)
         .nullish()
-        .describe("Aspect ratio. Null for square."),
+        .describe(
+          "Aspect ratio. Null for square, or for the shape of what `images` names.",
+        ),
     }),
     execute: async (
-      { prompt, aspectRatio },
+      { prompt, images, aspectRatio },
       { sandbox, artifacts, abortSignal },
     ) => {
+      const sources: Uint8Array[] = [];
+      for (const path of images ?? []) {
+        const source = await picture(sandbox, path);
+        if (typeof source === "string") return source;
+        sources.push(source);
+      }
       const { image } = await generateImage({
         model,
-        prompt,
-        aspectRatio: aspectRatio ?? "1:1",
+        prompt: sources.length ? { images: sources, text: prompt } : prompt,
+        // Working from a picture keeps its shape unless another was asked for:
+        // squaring a wide one nobody asked to reframe is a change of its own
+        aspectRatio: aspectRatio ?? (sources.length ? undefined : "1:1"),
         abortSignal,
       });
       const path = await save(

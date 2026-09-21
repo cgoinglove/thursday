@@ -118,9 +118,12 @@ export const HotkeySchema = z.object({
 
 export type Hotkey = z.infer<typeof HotkeySchema>;
 
-/** A combination no browser or OS claims. */
+/**
+ * Off to begin with, like the wake phrase: a key held over every page is asked for, not
+ * assumed. The combo is one no browser or OS claims.
+ */
 export const HOTKEY_DEFAULT: Hotkey = {
-  enabled: true,
+  enabled: false,
   combo: "alt+shift+KeyT",
 };
 
@@ -133,7 +136,10 @@ export const CALL_BACK_MODES = ["off", "waiting", "any"] as const;
 export const CallBackSchema = z.enum(CALL_BACK_MODES);
 export type CallBack = z.infer<typeof CallBackSchema>;
 
-/** A job that waits on the user rings; one that only finished waits for the next call. */
+/**
+ * Everything a bot finishes rings, because nobody watches a screen for work they handed
+ * over. The quieter modes are one setting away, and "off" is what stops the ring entirely.
+ */
 export const CALL_BACK_DEFAULT: CallBack = "waiting";
 
 export const CALL_BACK_LABEL: Record<CallBack, string> = {

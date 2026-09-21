@@ -20,6 +20,7 @@ import {
   isProviderRefusal,
   modelErrorToString,
   resolveDefaultModel,
+  runEffort,
 } from "@/features/ai/model";
 import { loadBotPrompt } from "@/features/ai/prompts/bot.prompt";
 import { sendMessageSpec } from "@/features/ai/tools/bot.tool";
@@ -189,6 +190,9 @@ export async function runBot(
     await compactBudget(model.ref, bot.compactAt),
     options.contextBudget || Number.POSITIVE_INFINITY,
   );
+  // What the owner set, else the app default, and nothing at all where the model's ladder is
+  // unknown (model.ts runEffort). The sdk translates the step into whatever this provider takes.
+  const reasoning = await runEffort(model.ref, bot.effort);
 
   // A committed question to the user ends the turn; the answer brings the bot back (room.query tellRoom).
   let asked = false;
@@ -270,6 +274,7 @@ export async function runBot(
     model: model.model,
     instructions: prompt.text,
     tools: agentTools,
+    reasoning,
     stopWhen: [stepCountIs(MAX_STEPS), () => asked],
     prepareStep: async ({ stepNumber, steps, messages }) => {
       await writtenStep;

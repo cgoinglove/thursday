@@ -40,10 +40,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { APP_NAME, BOT_RUN, PROMPT_CROWDED } from "@/config";
+import { EffortSwitch } from "@/features/ai/components/effort-switch";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import {
   compactAtFor,
   contextWindowOf,
+  type Effort,
   type GatewayModel,
   type TextModelProviderId,
 } from "@/features/ai/model.schema";
@@ -566,7 +568,9 @@ function SeedPackage({
         </p>
       </div>
 
-      <div className="px-8 pt-4">
+      {/* pb, not the footer's own: the pane scrolls, so the last row would
+          otherwise end hard against the rule above Add */}
+      <div className="px-8 pt-4 pb-8">
         <SeedRows have={have} faces={faces} picks={picks} />
       </div>
 
@@ -606,6 +610,12 @@ function SeedDialog({
 }
 
 /**
+ * Faces the invite carries before the rest become a count. The line it sits on is
+ * the roster's width less New bot, and every seed drawn is a word off that label.
+ */
+const INVITE_FACES = 3;
+
+/**
  * The invite, on the New bot line rather than in the roster: both are ways to get
  * a bot, and neither is a bot you have. It carries the faces of the ones still on
  * offer, in the colours they would be created with, because a row of names would
@@ -622,6 +632,8 @@ function SeedInvite({
   have: Set<string>;
   onDone: (name: string | null) => void;
 }) {
+  const shown = missing.slice(0, INVITE_FACES);
+  const rest = missing.length - shown.length;
   return (
     <button
       type="button"
@@ -648,11 +660,11 @@ function SeedInvite({
           are bots to add. It carries the affordance on its own when one seed is
           left and the faces are a single dot */}
       <Plus className="size-3 shrink-0" />
-      {missing.map((seed, at) => (
+      {shown.map((seed, at) => (
         <span
           key={seed.name}
           className={cn("block", at > 0 && "-ml-1.5")}
-          style={{ zIndex: missing.length - at }}
+          style={{ zIndex: shown.length - at }}
         >
           <BotMark
             size={20}
@@ -661,6 +673,11 @@ function SeedInvite({
           />
         </span>
       ))}
+      {rest > 0 && (
+        <span className="ml-0.5 shrink-0 font-mono text-[11px] tabular-nums">
+          +{rest}
+        </span>
+      )}
     </button>
   );
 }
@@ -709,6 +726,7 @@ function BotPage({
     model: bot?.model ?? "",
     // In thousands of tokens, the unit the field is typed in
     compactAt: bot?.compactAt ? String(bot.compactAt / 1000) : "",
+    effort: (bot?.effort ?? null) as Effort | null,
     toolIds: bot?.tools.map((tool) => tool.id) ?? [],
   }));
   const {
@@ -719,6 +737,7 @@ function BotPage({
     provider,
     model,
     compactAt,
+    effort,
     toolIds,
   } = fields;
   // Typed by hand; otherwise the field shows what the picked model fills in
@@ -780,6 +799,7 @@ function BotPage({
       compactAt: compactEdited
         ? tokensFromK(compactAt)
         : filledTokens(pickedWindow),
+      effort,
       toolIds,
     });
   };
@@ -900,27 +920,55 @@ function BotPage({
         </Row>
 
         <Row label="Runs on">
-          <ModelPicker
-            provider={provider}
-            model={model}
-            onChange={(next) => {
-              patch({ provider: next.provider, model: next.model });
-              // A new model fills in its own point; a number typed for the old one no longer fits
-              setCompactEdited(false);
-              // A provider without a model is not a model; save once both are picked.
-              if (next.model) {
-                commit({
-                  ...next,
-                  compactAt: filledTokens(windowOf(next.provider, next.model)),
-                });
-              }
-            }}
-            onUnset={() => {
-              patch({ provider: null, model: "" });
-              setCompactEdited(false);
-              commit({ provider: null, model: null, compactAt: null });
-            }}
-          />
+          {/* The effort rides the picker's own line: it sets how this model thinks, not a row of its own */}
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <ModelPicker
+                provider={provider}
+                model={model}
+                onChange={(next) => {
+                  patch({ provider: next.provider, model: next.model });
+                  // A new model fills in its own point; a number typed for the old one no longer fits
+                  setCompactEdited(false);
+                  // A provider without a model is not a model; save once both are picked.
+                  if (next.model) {
+                    commit({
+                      ...next,
+                      compactAt: filledTokens(
+                        windowOf(next.provider, next.model),
+                      ),
+                    });
+                  }
+                }}
+                onUnset={() => {
+                  // Back on the app default model, and on its effort with it: a step belongs to the
+                  // ladder it came from, and this bot no longer names a model to read one off.
+                  patch({ provider: null, model: "", effort: null });
+                  setCompactEdited(false);
+                  commit({
+                    provider: null,
+                    model: null,
+                    compactAt: null,
+                    effort: null,
+                  });
+                }}
+              />
+            </div>
+            <EffortSwitch
+              provider={provider}
+              model={model.trim()}
+              value={effort}
+              onChange={(next) => {
+                patch({ effort: next });
+                commit({ effort: next });
+              }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {model.trim()
+              ? "How hard it thinks, beside what it thinks with. Auto leaves it to the model."
+              : "App default model, and its effort with it."}
+          </p>
         </Row>
 
         <Row label="Compacts at">

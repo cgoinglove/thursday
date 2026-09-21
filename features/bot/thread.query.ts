@@ -16,6 +16,7 @@ import {
   BOT_WORK,
   INBOX_FINISHED,
   PAGE_SIZE,
+  STUDIO_SERVER,
   THREAD_STATUS_LIMIT,
 } from "@/config";
 import { database } from "@/database/db";
@@ -763,25 +764,38 @@ export function argumentLine(name: string, input: unknown): string {
     const called = Array.isArray(args.tools)
       ? args.tools.map(String).join(", ")
       : String(args.tool ?? "");
+    const inner = (args.args ?? null) as Record<string, unknown> | null;
+    // The studio's tools are the app's own, and what they are given is a sentence
+    // rather than a server's arguments: the row draws it as words, off this line
+    // (`<server> <tool> <what it was given>`, bot/components/bot-tool studioCall)
     const passed =
-      args.args && typeof args.args === "object"
-        ? JSON.stringify(args.args)
+      inner && typeof inner === "object"
+        ? String(args.server ?? "") === STUDIO_SERVER
+          ? tellingOf(inner)
+          : JSON.stringify(inner)
         : "";
     return clip(
       [String(args.server ?? ""), called, passed].filter(Boolean).join(" "),
       LINE_MAX,
     );
   }
+  const telling = tellingOf(args);
+  if (telling) return clip(telling, LINE_MAX);
+  const keys = Object.keys(args);
+  return keys.length ? clip(JSON.stringify(args), LINE_MAX) : "";
+}
+
+/** The first argument that carries the point, as it was written. */
+function tellingOf(args: Record<string, unknown>): string {
   for (const key of TELLING) {
     const value = stringAt(args, key);
-    if (value) return clip(value, LINE_MAX);
+    if (value) return value;
   }
   for (const key of Object.keys(args)) {
     const value = stringAt(args, key);
-    if (value) return clip(value, LINE_MAX);
+    if (value) return value;
   }
-  const keys = Object.keys(args);
-  return keys.length ? clip(JSON.stringify(args), LINE_MAX) : "";
+  return "";
 }
 
 /** Result lines carried in the list, enough for a glance. */

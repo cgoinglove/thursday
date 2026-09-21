@@ -92,14 +92,14 @@ Write to her from Telegram, Discord or Slack while the app runs at home. A bot's
 <details>
 <summary><b>What does it cost?</b></summary>
 
-Thursday is free and MIT-licensed. You bring the keys: OpenAI bills the voice at about $0.05 a minute while a call is open, silence included ([pricing](https://developers.openai.com/api/docs/pricing)), and a call with nothing said for 20 seconds hangs up by itself. Bots use whichever provider you pick for them.
+Thursday is free and MIT-licensed. You bring the keys: OpenAI bills the voice at about $0.05 a minute while a call is open, silence included ([pricing](https://developers.openai.com/api/docs/pricing)), and a call with nothing said for 40 seconds hangs up by itself. Bots use whichever provider you pick for them.
 
 </details>
 
 <details>
 <summary><b>Where does my data go?</b></summary>
 
-What you say on a call and what bots work on go to the model providers you set up and the services you connect. The “hey thursday” wake phrase is off until you switch it on: it uses your browser's speech recognition, which in Chrome sends microphone audio to Google while the tab is open. A tap on her face or `alt+shift+T` starts a call without it. The app listens only on `127.0.0.1`, and your calls, memory and files live in `~/.thursday` (or the checkout, when you run from source).
+What you say on a call and what bots work on go to the model providers you set up and the services you connect. The “hey thursday” wake phrase is off until you switch it on: it uses your browser's speech recognition, which in Chrome sends microphone audio to Google while the tab is open. A tap on her face starts a call without it, and so does the `alt+shift+T` shortcut once you switch that on. The app listens only on `127.0.0.1`, and your calls, memory and files live in `~/.thursday` (or the checkout, when you run from source).
 
 </details>
 

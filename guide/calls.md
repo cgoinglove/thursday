@@ -7,7 +7,8 @@ Three ways in, and any of them also answers a call she placed:
 - Tap her face.
 - Say the wake phrase, "hey thursday" unless they changed it — once it is switched on: it is
   off to begin with, because it keeps the microphone open for as long as the tab is.
-- Press the shortcut, `alt+shift+T` unless they changed it.
+- Press the shortcut, `alt+shift+T` unless they changed it — once it is switched on: it
+  is off to begin with too, so no key is held over every page until it is asked for.
 
 She speaks first. From the second call on she is told, as the call opens, when the last one
 was and how it ended, so she can greet as someone who remembers it; a call she places herself
@@ -69,7 +70,7 @@ hers to pick; she says who took it.
 
 Saying they want to hang up ends the call when she takes it that way, which she does not
 always. Tapping her face ends it for certain, and so does the shortcut. A call with nothing
-said for 20 seconds ends by itself, with a countdown in the last 10 seconds. The line is
+said for 40 seconds ends by itself, with a countdown in the last 10 seconds. The line is
 billed by the minute while it is open, silence included.
 
 ## Where an answer came from
@@ -117,9 +118,9 @@ is not the window in front, as a notification that brings her forward when press
 browser asks once, the first time a call is placed). With no Thursday window open at all,
 the computer's own notification says it instead; on a Mac pressing that one opens Script
 Editor rather than the app. **Settings › Thursday › Starting a
-call › She calls you** makes the screen ring instead: "When a job needs me" rings for a
-question or a stop — where it starts — "Whenever a job ends" rings for results too, and
-"Never" leaves it to the notification. It is one call however much is waiting: while it rings, the screen says under her
+call › She calls you** makes the screen ring instead: "Whenever a job ends" rings for
+results as well as questions — where it starts — "When a job needs me" rings only for a
+question or a stop, and "Never" leaves it to the notification. It is one call however much is waiting: while it rings, the screen says under her
 face whose work it is about and what it asks — with the answers the bot offered, and the
 other work waiting by name — and one round button, Answer. Tapping her face answers too, and
 so does the wake phrase when it is on (the screen says so beside "not now"); Esc is "not now".

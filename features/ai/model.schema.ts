@@ -29,6 +29,23 @@ export const textModelRefSchema = z.object({
 export type TextModelProviderId = z.infer<typeof textModelProviderSchema>;
 export type TextModelRef = z.infer<typeof textModelRefSchema>;
 
+/**
+ * The one ladder the app sets, weakest first: the sdk's own `reasoning` setting minus its
+ * `provider-default`, which is what an unset value means here. Each provider translates these
+ * into its own shape (`reasoning_effort`, a thinking budget, a thinking level), so nothing here
+ * is provider-specific. `max` is missing on purpose: no sdk setting reaches it.
+ */
+export const EFFORTS = [
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+] as const;
+export const effortSchema = z.enum(EFFORTS);
+export type Effort = z.infer<typeof effortSchema>;
+
 /** Size of a suggested model, not quality. A label rather than a price because prices move. */
 const MODEL_TIERS = ["small", "mid", "large"] as const;
 type ModelTier = (typeof MODEL_TIERS)[number];
@@ -45,6 +62,14 @@ export type SuggestModel = {
    * does not carry the model: the run falls back to `BOT_RUN.compactAt`.
    */
   context?: number | null;
+  /**
+   * The steps of the ladder this model answers to, written down because only the gateway can be
+   * asked at run time. Read off the provider's own sdk — the table it checks a model against, the
+   * map it translates a step through — never guessed: a step a provider passes straight to its
+   * API fails the whole call, not just the setting. An empty list is "this model has no ladder";
+   * left out is "nobody has checked", and both run on the model's own default (ai/model runEffort).
+   */
+  efforts?: readonly Effort[];
 };
 
 /**
@@ -63,6 +88,23 @@ export function contextWindowOf(
   }
   const shelf = TEXT_MODEL_PROVIDERS[provider].suggestModels;
   return shelf.find((row) => row.id === model)?.context ?? null;
+}
+
+/**
+ * Which steps a model takes: the gateway's own answer for a gateway model, else what its shelf
+ * row says. Null means nobody knows, which is not the same as an empty list ("it has none") —
+ * a run sets nothing in either case, but a screen says something different about them.
+ */
+export function effortsOf(
+  provider: TextModelProviderId,
+  model: string,
+  catalog: readonly GatewayModel[] = [],
+): readonly Effort[] | null {
+  if (provider === "vercel-ai-gateway") {
+    return catalog.find((row) => row.id === model)?.efforts ?? null;
+  }
+  const shelf = TEXT_MODEL_PROVIDERS[provider].suggestModels;
+  return shelf.find((row) => row.id === model)?.efforts ?? null;
 }
 
 /**
@@ -396,24 +438,28 @@ export const TEXT_MODEL_PROVIDERS: Record<
         label: "5.6 Luna",
         tier: "small",
         context: 1_050_000,
+        efforts: ["none", "low", "medium", "high", "xhigh"],
       },
       {
         id: "gpt-5.6-terra",
         label: "5.6 Terra",
         tier: "mid",
         context: 1_050_000,
+        efforts: ["none", "low", "medium", "high", "xhigh"],
       },
       {
         id: "gpt-5.6-sol",
         label: "5.6 Sol",
         tier: "large",
         context: 1_050_000,
+        efforts: ["none", "low", "medium", "high", "xhigh"],
       },
       {
         id: "gpt-6-astra",
         label: "6 Astra",
         tier: "large",
         context: 1_050_000,
+        efforts: ["low", "medium", "high", "xhigh"],
       },
     ],
   },
@@ -432,24 +478,28 @@ export const TEXT_MODEL_PROVIDERS: Record<
         label: "5.6 Luna",
         tier: "small",
         context: 272_000,
+        efforts: ["none", "low", "medium", "high", "xhigh"],
       },
       {
         id: "gpt-5.6-terra",
         label: "5.6 Terra",
         tier: "mid",
         context: 272_000,
+        efforts: ["none", "low", "medium", "high", "xhigh"],
       },
       {
         id: "gpt-5.6-sol",
         label: "5.6 Sol",
         tier: "large",
         context: 272_000,
+        efforts: ["none", "low", "medium", "high", "xhigh"],
       },
       {
         id: "gpt-6-astra",
         label: "6 Astra",
         tier: "large",
         context: 272_000,
+        efforts: ["low", "medium", "high", "xhigh"],
       },
     ],
   },
@@ -459,20 +509,32 @@ export const TEXT_MODEL_PROVIDERS: Record<
     keysAt: "https://platform.claude.com/settings/keys",
     keyLooks: "sk-ant-…",
     suggestModels: [
-      { id: "claude-haiku-4-5", label: "Haiku 4.5", tier: "small" },
+      {
+        id: "claude-haiku-4-5",
+        label: "Haiku 4.5",
+        tier: "small",
+        efforts: ["none", "minimal", "low", "medium", "high", "xhigh"],
+      },
       {
         id: "claude-sonnet-5",
         label: "Sonnet 5",
         tier: "mid",
         context: 1_000_000,
+        efforts: ["none", "low", "medium", "high", "xhigh"],
       },
       {
         id: "claude-opus-5",
         label: "Opus 5",
         tier: "large",
         context: 1_000_000,
+        efforts: ["none", "low", "medium", "high", "xhigh"],
       },
-      { id: "claude-fable-5-1", label: "Fable 5.1", tier: "large" },
+      {
+        id: "claude-fable-5-1",
+        label: "Fable 5.1",
+        tier: "large",
+        efforts: ["none", "low", "medium", "high", "xhigh"],
+      },
     ],
   },
   google: {
@@ -486,12 +548,14 @@ export const TEXT_MODEL_PROVIDERS: Record<
         label: "3.5 Flash Lite",
         tier: "small",
         context: 1_000_000,
+        efforts: ["minimal", "low", "medium", "high"],
       },
       {
         id: "gemini-3.8-flash",
         label: "3.8 Flash",
         tier: "mid",
         context: 1_000_000,
+        efforts: ["low", "medium", "high"],
       },
     ],
   },
@@ -501,7 +565,13 @@ export const TEXT_MODEL_PROVIDERS: Record<
     keysAt: "https://console.x.ai",
     keyLooks: "xai-…",
     suggestModels: [
-      { id: "grok-4.6", label: "Grok 4.6", tier: "large", context: 500_000 },
+      {
+        id: "grok-4.6",
+        label: "Grok 4.6",
+        tier: "large",
+        context: 500_000,
+        efforts: ["none", "low", "medium", "high", "xhigh"],
+      },
     ],
   },
   /**
@@ -570,10 +640,30 @@ export const TEXT_MODEL_PROVIDERS: Record<
     apiKeyName: "MISTRAL_API_KEY",
     keysAt: "https://console.mistral.ai/api-keys",
     suggestModels: [
-      { id: "ministral-8b-latest", label: "Ministral 8B", tier: "small" },
-      { id: "mistral-small-latest", label: "Small", tier: "mid" },
-      { id: "mistral-medium-latest", label: "Medium", tier: "large" },
-      { id: "mistral-large-latest", label: "Large", tier: "large" },
+      {
+        id: "ministral-8b-latest",
+        label: "Ministral 8B",
+        tier: "small",
+        efforts: [],
+      },
+      {
+        id: "mistral-small-latest",
+        label: "Small",
+        tier: "mid",
+        efforts: ["none", "high"],
+      },
+      {
+        id: "mistral-medium-latest",
+        label: "Medium",
+        tier: "large",
+        efforts: ["none", "high"],
+      },
+      {
+        id: "mistral-large-latest",
+        label: "Large",
+        tier: "large",
+        efforts: [],
+      },
     ],
   },
   deepseek: {
@@ -587,12 +677,14 @@ export const TEXT_MODEL_PROVIDERS: Record<
         label: "V4.1 Flash",
         tier: "small",
         context: 1_000_000,
+        efforts: ["none", "low", "high", "xhigh"],
       },
       {
         id: "deepseek-v4-pro",
         label: "V4 Pro",
         tier: "large",
         context: 1_000_000,
+        efforts: ["none", "low", "high", "xhigh"],
       },
     ],
   },
@@ -608,18 +700,21 @@ export const TEXT_MODEL_PROVIDERS: Record<
         label: "GPT OSS 20B",
         tier: "small",
         context: 131_072,
+        efforts: ["low", "medium", "high"],
       },
       {
         id: "openai/gpt-oss-120b",
         label: "GPT OSS 120B",
         tier: "mid",
         context: 131_072,
+        efforts: ["low", "medium", "high"],
       },
       {
         id: "llama-3.3-70b-versatile",
         label: "Llama 3.3 70B",
         tier: "mid",
         context: 131_072,
+        efforts: [],
       },
     ],
   },
@@ -877,6 +972,8 @@ export type GatewayModel = {
   retiring: boolean;
   /** Context window in tokens; null when the gateway did not say. What a run compacts against (bot.run). */
   contextWindow: number | null;
+  /** The ladder the gateway lists for this model (`reasoning_options`), narrowed to steps the app can set; null when it lists none. */
+  efforts: Effort[] | null;
 };
 
 /**

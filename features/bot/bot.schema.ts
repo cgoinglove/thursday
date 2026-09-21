@@ -1,5 +1,7 @@
 import z from "zod";
 import {
+  type Effort,
+  effortSchema,
   type TextModelProviderId,
   textModelProviderSchema,
 } from "@/features/ai/model.schema";
@@ -88,6 +90,8 @@ const BotSchema = z.object({
   model: z.string().nullish(),
   /** Where this bot's runs compact; empty derives it from the model's own window. */
   compactAt: z.number().nullish(),
+  /** How hard it thinks; empty takes the app default (Settings > Models). */
+  effort: effortSchema.nullish(),
   /** Switched off by the user: kept whole, shown to no model. */
   disabled: z.boolean(),
   createdAt: DateLikeSchema,
@@ -116,6 +120,8 @@ export const BotFormSchema = z.object({
     .int()
     .min(COMPACT_AT_MIN, `At least ${COMPACT_AT_MIN / 1000}k`)
     .nullish(),
+  /** Empty takes the app default; a step the model's ladder does not hold is dropped at the run (ai/model runEffort). */
+  effort: effortSchema.nullish(),
   disabled: z.boolean().optional(),
   toolIds: z.number().int().array().max(MAX_PINNED_TOOLS).default([]),
 });
@@ -153,6 +159,8 @@ export type JobBot = {
   disabled: boolean;
   /** Where its runs compact; null derives it from the model (ai/model compactBudget). */
   compactAt: number | null;
+  /** How hard it thinks; null takes the app default (ai/model runEffort). */
+  effort: Effort | null;
 };
 
 /**
@@ -170,6 +178,7 @@ export const DEFAULT_BOT: JobBot = {
   model: null,
   disabled: false,
   compactAt: null,
+  effort: null,
 };
 
 // A bot's own memory (features/bot/bot.memory): the setting behind it. The files

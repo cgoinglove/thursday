@@ -12,7 +12,7 @@ A call runs on two models: **GPT-Live 1** holds the conversation, and a Response
 - **Everything else goes to a bot.** She hands it over and keeps talking. A speech model that ran a browser itself would go silent for minutes.
 - **When a job comes back,** she tells you in a sentence. A file it made shows up in the corner of your screen, and a question it asks shows up as buttons.
 
-Settings › Thursday picks the voice, the backend model and its reasoning, web search, the wake word (off until you switch it on) and hotkey, and whether she rings your screen when a job ends.
+Settings › Thursday picks the voice, the backend model and its reasoning, web search, the wake word and the hotkey (both off until you switch them on), and whether she rings your screen when a job ends.
 
 The voice is billed per active minute, silence included; the backend is billed per token. Both use your OpenAI API key, not a ChatGPT subscription.
 

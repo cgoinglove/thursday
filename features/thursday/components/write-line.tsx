@@ -223,10 +223,18 @@ export function WriteLine({
     },
   });
 
+  /**
+   * The list a typed `@` opens: where the arrow keys stand in it, and whether Esc has left
+   * the typed word alone so it can be sent as words.
+   */
+  const [cursor, setCursor] = useState(0);
+  const [asWords, setAsWords] = useState(false);
+
   const pick = (bot: BotRef) => {
     setPicking(false);
     // typed as a mention, the pick replaces it
     setDraft((text) => (mentionOf(text) ? text.replace(/^@\S*\s?/, "") : text));
+    setCursor(0);
     field.current?.focus();
     if (calling) return setBesides(bot.name === HER.name ? null : bot.name);
     setToName(bot.name);
@@ -237,12 +245,18 @@ export function WriteLine({
     }
   };
 
-  const mention = mentionOf(draft);
+  const mention = asWords ? null : mentionOf(draft);
   const matches = mention
     ? roster.filter((bot) =>
         bot.name.toLowerCase().startsWith(mention[1].toLowerCase()),
       )
     : roster;
+  // Taken modulo the list, which a keystroke shortens and the roster can too
+  const at = matches.length ? cursor % matches.length : 0;
+  const walk = (by: number) =>
+    setCursor((was) =>
+      matches.length ? (was + by + matches.length) % matches.length : 0,
+    );
   const [reaching, setReaching] = useState(false);
   const waiting = starting || reaching || Boolean(toHer && written?.busy);
   const ready =
@@ -380,14 +394,15 @@ export function WriteLine({
                   <p className="px-2.5 pt-1.5 pb-1 font-mono text-[10px] text-muted-foreground">
                     to
                   </p>
-                  {matches.map((bot) => (
+                  {matches.map((bot, index) => (
                     <button
                       key={bot.name}
                       type="button"
                       onClick={() => pick(bot)}
                       className={cn(
                         "flex h-11.5 w-full items-center gap-2.5 rounded-xl px-2.5 text-left outline-none hover:bg-muted focus-visible:bg-muted",
-                        bot.name === to.name && !mention && "bg-muted",
+                        (mention ? index === at : bot.name === to.name) &&
+                          "bg-muted",
                       )}
                     >
                       <Mark bot={bot} size={24} />
@@ -414,7 +429,13 @@ export function WriteLine({
                 value={draft}
                 rows={1}
                 disabled={starting || reaching}
-                onChange={(event) => setDraft(event.target.value)}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setDraft(next);
+                  setCursor(0);
+                  // once left alone the word stays words, until it is no longer one
+                  if (!mentionOf(next)) setAsWords(false);
+                }}
                 onPaste={(event) => {
                   const pasted = [...event.clipboardData.files];
                   if (!pasted.length) return;
@@ -422,20 +443,28 @@ export function WriteLine({
                   take(pasted);
                 }}
                 // During IME composition the keys belong to the character being made:
-                // Enter confirms it and Esc drops it (keyCode 229 for browsers without
-                // isComposing).
+                // Enter confirms it and the arrows walk its own candidates
+                // (keyCode 229 for browsers without isComposing).
                 onKeyDown={(event) => {
                   const composing =
                     event.nativeEvent.isComposing || event.keyCode === 229;
                   if (event.key === "Escape" && !composing) {
                     event.preventDefault();
+                    // a typed name is left alone first: the words and the line stay
+                    if (mention) return setAsWords(true);
                     return leave();
+                  }
+                  const arrow =
+                    event.key === "ArrowDown" || event.key === "ArrowUp";
+                  if (mention && arrow && !composing) {
+                    event.preventDefault();
+                    return walk(event.key === "ArrowDown" ? 1 : -1);
                   }
                   if (event.key !== "Enter" || event.shiftKey || composing)
                     return;
                   event.preventDefault();
                   if (mention) {
-                    if (matches[0]) pick(matches[0]);
+                    if (matches[at]) pick(matches[at]);
                     return;
                   }
                   send();
@@ -524,25 +553,38 @@ export function WriteLine({
             </div>
           )}
           <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-mono text-[10.5px] text-muted-foreground/70">
-            {toHer && !written?.runsOn ? (
-              // nothing to run on: what to set is the only thing worth saying
-              <RunsOn runsOn={null} />
+            {mention ? (
+              // an open list has the keys: nothing is sent or left while it is up
+              <>
+                <Key>↑↓</Key> walk
+                <Dot />
+                <Key>Enter</Key> take
+                <Dot />
+                <Key>Esc</Key> close the list
+              </>
             ) : (
               <>
-                <Key>Enter</Key> send
-                <Dot />
-                <Key>@</Key> {toHer ? "a bot" : "pick a bot"}
-                {toHer && (
+                {toHer && !written?.runsOn ? (
+                  // nothing to run on: what to set is the only thing worth saying
+                  <RunsOn runsOn={null} />
+                ) : (
                   <>
+                    <Key>Enter</Key> send
                     <Dot />
-                    <RunsOn runsOn={written?.runsOn ?? null} />
+                    <Key>@</Key> {toHer ? "a bot" : "pick a bot"}
+                    {toHer && (
+                      <>
+                        <Dot />
+                        <RunsOn runsOn={written?.runsOn ?? null} />
+                      </>
+                    )}
                   </>
                 )}
+                <Dot />
+                <Key>Esc</Key>{" "}
+                {calling ? (toHer ? "to end" : "back to her") : "close"}
               </>
             )}
-            <Dot />
-            <Key>Esc</Key>{" "}
-            {calling ? (toHer ? "to end" : "back to her") : "close"}
           </p>
         </div>
       </div>

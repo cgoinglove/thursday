@@ -7,6 +7,7 @@ import {
   parseFrontmatter,
   renderSkillMarkdown,
   setSkillDisabled,
+  skillFolderName,
   writeCustomSkill,
   writeSkillFile,
 } from "@/features/skills/skills.query";
@@ -36,7 +37,7 @@ const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 /**
  * A lone `.md`, or a `.zip` / `.skill` archive containing a SKILL.md. The
  * folder holding SKILL.md becomes the skill root; the skill's folder is named
- * after the front matter name, not the file.
+ * after the front matter name reduced to a path segment, not after the file.
  */
 export const uploadSkillAction = serverAction(async (upload: unknown) => {
   const { fileName, base64 } = SkillUploadSchema.parse(upload);
@@ -84,7 +85,7 @@ export const uploadSkillAction = serverAction(async (upload: unknown) => {
       : Buffer.from(skillMd as Uint8Array).toString("utf-8");
   const meta = parseFrontmatter(text);
 
-  return writeCustomSkill(meta.name, files);
+  return writeCustomSkill(skillFolderName(meta.name), files);
 });
 
 export const deleteSkillAction = serverAction(async (dir: unknown) => {

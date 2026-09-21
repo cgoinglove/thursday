@@ -9,7 +9,7 @@ import {
 import { int, text } from "drizzle-orm/sqlite-core/columns";
 import { sqliteTable } from "drizzle-orm/sqlite-core/table";
 import z from "zod";
-import type { TextModelProviderId } from "@/features/ai/model.schema";
+import type { Effort, TextModelProviderId } from "@/features/ai/model.schema";
 import {
   botIconSchema,
   type ThreadPending,
@@ -44,6 +44,12 @@ export const botTable = sqliteTable("bot", {
    * `compactBudget`), and falls back to a constant only where that is unknowable.
    */
   compactAt: int("compact_at"),
+  /**
+   * How hard this bot thinks, as one step of the app's ladder (ai/model.schema `EFFORTS`).
+   * Null is the usual answer: the run takes the app default instead (ai/model `runEffort`),
+   * and sets nothing at all where the model's ladder is unknown.
+   */
+  effort: text("effort").$type<Effort>(),
   /**
    * Switched off: the row stays whole and nothing is thrown away, but no model
    * is ever shown this bot (bot.query listJobBots). Jobs it already has still

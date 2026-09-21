@@ -4,8 +4,8 @@
 
 A bot is a text model with a name, one sentence about what it is for, and a face. That
 sentence is how a job finds its bot. The roster is **Settings › Bots**: a bot is made there
-with a name and that sentence, switched off without being deleted, given its own model, its
-own tools and its own written instructions. The first run offers the ready-made ones, all
+with a name and that sentence, switched off without being deleted, given its own model and how
+hard that model thinks, its own tools and its own written instructions. The first run offers the ready-made ones, all
 switched on; any of them can be switched off there, and added later from the same screen.
 
 Every bot has the same kit: a shell on this computer, a real browser of its own or the one
@@ -97,6 +97,12 @@ Once more than one bot is in a thread, the box says who it is addressed to, and 
 changed to any of them. Only the bot the job went to answers the user: write to one it pulled
 in, and the box says so — that bot's answer goes back to the one who called it, and reaches the
 user in its report.
+
+A picture already there can be changed rather than drawn again: ask for what should be
+different about the one the bot made, or about one handed over, and it works from that
+picture, so everything the words leave out stays as it was. It needs an image model in
+**Settings › Models**; where the one picked cannot work from a picture, the bot says so
+rather than drawing something else.
 
 ## Telling a running bot something
 

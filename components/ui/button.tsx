@@ -2,6 +2,7 @@ import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { Loader2Icon } from "lucide-react";
+import { isValidElement } from "react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
@@ -59,6 +60,7 @@ function Button({
   size = "default",
   loading = false,
   disabled,
+  render,
   children,
   ...props
 }: ButtonPrimitive.Props &
@@ -71,6 +73,10 @@ function Button({
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       disabled={disabled || loading}
+      render={render}
+      // Base UI checks this against what is really rendered: a `render` of an <a> is not
+      // a button, and saying otherwise drops the native semantics forms rely on.
+      nativeButton={!isValidElement(render) || render.type === "button"}
       {...props}
     >
       {loading && <Loader2Icon className="animate-spin" />}

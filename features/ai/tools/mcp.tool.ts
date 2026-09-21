@@ -45,8 +45,10 @@ const mcpToolSpec = {
     parameters: z.object({
       server: z.string().describe("The server the tool lives on."),
       tool: z.string().describe("Its name, as search returned it."),
+      // A loose object, not `z.record`: a record adds `propertyNames`, which
+      // OpenAI drops with a warning — JSON keys are strings either way.
       args: z
-        .record(z.string(), z.unknown())
+        .looseObject({})
         .nullish()
         .describe(
           "Arguments matching the inputSchema search returned — do not guess. Null when it takes none.",

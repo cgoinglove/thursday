@@ -27,7 +27,6 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Letters } from "@/components/ui/letters";
 import { ShinyText } from "@/components/ui/shiny-text";
 import { SourceChips } from "@/components/ui/source-chips";
-import TextType from "@/components/ui/text-type";
 import {
   Tooltip,
   TooltipContent,
@@ -1472,39 +1471,37 @@ function Hint({
     key = `wake:${wakePhrase}`;
     body = (
       <>
-        <span>Tap Thursday, or say</span>
-        <SaidPhrase phrase={wakePhrase} />
-        <ToWrite />
+        <Letters text="Tap Thursday, or say" />
+        {/* the phrase is what the sentence ends on, so it takes the next letter's turn */}
+        <After at={500}>
+          <SaidPhrase phrase={wakePhrase} />
+        </After>
+        <After at={WRITE_AT}>
+          <ToWrite />
+        </After>
       </>
     );
   } else if (hotkeyLabel) {
     key = `key:${hotkeyLabel}`;
     body = (
       <>
-        <span>Tap Thursday, or press</span>
-        <kbd className={KEY_CAP}>{hotkeyLabel}</kbd>
-        <ToWrite />
+        <Letters text="Tap Thursday, or press" />
+        <After at={550}>
+          <kbd className={KEY_CAP}>{hotkeyLabel}</kbd>
+        </After>
+        <After at={WRITE_AT}>
+          <ToWrite />
+        </After>
       </>
     );
   } else {
     key = "tap";
-    // the only sentence on an idle screen; typed out to match the ascii face, and the
-    // way to write comes once it is
     body = (
       <>
-        <TextType
-          as="span"
-          text="Tap Thursday to talk"
-          loop={false}
-          typingSpeed={95}
-          initialDelay={400}
-          cursorCharacter="▌"
-          cursorClassName="ml-0.5 text-muted-foreground/50"
-          className="tracking-normal"
-        />
-        <span className="flex animate-in items-center gap-1.5 delay-[2600ms] duration-700 fill-mode-backwards fade-in">
+        <Letters text="Tap Thursday to talk" />
+        <After at={WRITE_AT}>
           <ToWrite />
-        </span>
+        </After>
       </>
     );
   }
@@ -1515,6 +1512,29 @@ function Hint({
       className="flex h-6 animate-in items-center gap-1.5 font-mono text-[11px] text-muted-foreground fade-in duration-700"
     >
       {body}
+    </span>
+  );
+}
+
+/**
+ * When the way to write joins the line: once the sentence before it has landed, which
+ * is 19 letters at Letters' 25ms plus the 0.4s the last one takes. Every idle line uses
+ * the same beat, so the three read as one screen rather than three.
+ */
+const WRITE_AT = 900;
+
+/**
+ * A piece of the idle line that waits its turn. The sentence arrives letter by letter
+ * (Letters), so what is not a letter — the wake phrase, the key cap, the way to write —
+ * says when it belongs: `at` is the millisecond it starts, counted the same way.
+ */
+function After({ at, children }: { at: number; children: React.ReactNode }) {
+  return (
+    <span
+      style={{ animationDelay: `${at}ms` }}
+      className="flex animate-in items-center gap-1.5 duration-700 fill-mode-backwards fade-in"
+    >
+      {children}
     </span>
   );
 }

@@ -42,6 +42,23 @@ function skillDir(source: SkillSource, dir: string) {
   return full;
 }
 
+/**
+ * The folder for a skill that came from elsewhere, from the name it gives itself:
+ * a path segment, since the folder goes into a prompt and into a shell command.
+ * SKILL.md keeps its own name — only the folder is reduced.
+ */
+export function skillFolderName(name: string) {
+  const dir = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .slice(0, 64)
+    .replace(/^-+|-+$/g, "");
+  if (!dir)
+    publicError("That skill's name has no letters to name a folder with");
+  return dir;
+}
+
 function insideSkill(base: string, path: string) {
   const full = resolve(base, path);
   const rel = relative(base, full);

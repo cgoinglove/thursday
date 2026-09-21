@@ -16,11 +16,11 @@ import { Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ASCII_FACE } from "@/config";
+import { EffortSwitch } from "@/features/ai/components/effort-switch";
 import {
   LIVE_BACKEND_MODELS,
   LIVE_DEFAULTS,
   LIVE_PROVIDER,
-  LIVE_REASONING,
   type LiveSettings,
 } from "@/features/ai/live.schema";
 import type { AiProvider } from "@/features/ai/model.schema";
@@ -259,14 +259,11 @@ function ModelsSetting({
 
           {/* Auto omits the parameter, so a model without reasoning still runs */}
           <ModelBlock label="reasoning">
-            <Segmented
-              aria-label="Reasoning effort"
-              className="w-full flex-wrap *:flex-1"
-              options={REASONING_OPTIONS}
-              value={value.reasoningEffort ?? "auto"}
-              onChange={(effort) =>
-                onChange({ reasoningEffort: effort === "auto" ? null : effort })
-              }
+            <EffortSwitch
+              provider="openai"
+              model={value.backendModel}
+              value={value.reasoningEffort}
+              onChange={(reasoningEffort) => onChange({ reasoningEffort })}
             />
           </ModelBlock>
 
@@ -437,19 +434,6 @@ function BackendModelPicker({
     </div>
   );
 }
-
-const REASONING_OPTIONS: readonly {
-  value: "auto" | (typeof LIVE_REASONING)[number];
-  label: string;
-  title: string;
-}[] = [
-  { value: "auto", label: "auto", title: "The model's own default" },
-  ...LIVE_REASONING.map((effort) => ({
-    value: effort,
-    label: effort,
-    title: `Reasoning effort ${effort}`,
-  })),
-];
 
 /**
  * What the backend may reach for. Web search is this browser's setting; the

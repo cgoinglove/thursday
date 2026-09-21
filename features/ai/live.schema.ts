@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { COMMON_VALIDATE } from "@/lib/limits";
 import { LIVE_BACKEND_MODEL } from "@/lib/live/live.schema";
-import { TEXT_MODEL_PROVIDERS } from "./model.schema";
+import { effortSchema, TEXT_MODEL_PROVIDERS } from "./model.schema";
 
 export const LIVE_PROVIDER = {
   id: "openai",
@@ -61,15 +61,6 @@ export const LIVE_VOICE_NOTE: Partial<
 export const voiceSamplePath = (voice: string) => `/voices/${voice}.ogg`;
 
 export const LIVE_BACKEND_MODELS = TEXT_MODEL_PROVIDERS.openai.suggestModels;
-export const LIVE_REASONING = [
-  "none",
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-] as const;
-
 const instruction = z.string().max(COMMON_VALIDATE.prompt.max).default("");
 
 export const LiveSettingsSchema = z.object({
@@ -79,9 +70,10 @@ export const LiveSettingsSchema = z.object({
   backendPrompt: instruction,
   /**
    * A call waits out loud, so the backend reasons as little as the work allows.
-   * Null omits the parameter, for a model that only runs on its own default.
+   * One step of the app's own ladder (model.schema `EFFORTS`); null omits the
+   * parameter, for a model that only runs on its own default.
    */
-  reasoningEffort: z.enum(LIVE_REASONING).nullable().default("low"),
+  reasoningEffort: effortSchema.nullable().default("low"),
   /**
    * On, so a question about today — weather, a price, a score — is answered on the line
    * instead of becoming a bot's job. A stored choice, so the default reaches only a

@@ -16,9 +16,20 @@ export const SkillNameSchema = z
     "Use letters, numbers, dashes and underscores only",
   );
 
+/**
+ * The `name` in SKILL.md. Not a path — the folder is — and a skill written elsewhere
+ * titles itself however it likes, so anything readable is taken: a stricter rule here
+ * drops that skill out of every prompt and out of the list. `load_skill` matches it as text.
+ */
+export const SkillTitleSchema = z
+  .string()
+  .trim()
+  .min(1, "Skill name is required")
+  .max(64, "Skill name is too long");
+
 /** The YAML block at the top of every SKILL.md. `disabled` lives in the file so state travels with the folder. */
 export const SkillFrontmatterSchema = z.object({
-  name: SkillNameSchema,
+  name: SkillTitleSchema,
   description: z.string().trim().min(1, "Description is required"),
   /** true hides the skill from the list and the prompt; absent means enabled. */
   disabled: z.boolean().optional(),
@@ -27,8 +38,9 @@ export const SkillFrontmatterSchema = z.object({
 });
 export type SkillFrontmatter = z.infer<typeof SkillFrontmatterSchema>;
 
-/** A hand-typed single-file skill. */
+/** A hand-typed single-file skill; its name is also the folder it is written to. */
 export const SkillDraftSchema = SkillFrontmatterSchema.extend({
+  name: SkillNameSchema,
   content: z.string().trim().min(1, "Content is required"),
 });
 

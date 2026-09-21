@@ -23,6 +23,7 @@ import {
 } from "ai";
 import { GATEWAY_LOW_CREDIT } from "@/config";
 import {
+  DEFAULT_EFFORT_KEY,
   DEFAULT_MODEL_KEY,
   MEDIA_MODEL_KEYS,
 } from "@/features/config/config.const";
@@ -36,6 +37,10 @@ import {
   compactAtFor,
   contextWindowOf,
   defaultModelOf,
+  EFFORTS,
+  type Effort,
+  effortSchema,
+  effortsOf,
   type GatewayCredits,
   type GatewayModel,
   type GatewayPrice,
@@ -258,7 +263,22 @@ type CatalogRow = {
   deprecated_at?: number | null;
   pricing?: Record<string, unknown> | null;
   context_window?: number | null;
+  /** How this model's reasoning can be set: a named ladder, a budget in tokens, or an on/off. */
+  reasoning_options?: { type?: string; values?: string[] }[] | null;
 };
+
+/**
+ * The steps of the gateway's ladder the app can actually set. A row may name a step no sdk
+ * setting reaches (`max`), or price its reasoning by the token instead of by name — both come
+ * back as null, which reads as "nothing to offer here" rather than as a step.
+ */
+function effortsOfRow(row: CatalogRow): Effort[] | null {
+  const named = (row.reasoning_options ?? []).find(
+    (option) => option?.type === "effort",
+  );
+  const kept = EFFORTS.filter((step) => named?.values?.includes(step));
+  return kept.length ? kept : null;
+}
 
 /** USD per 1M tokens from the gateway's per-token string. Null is "it did not say", never zero. */
 function per1M(value: unknown): number | null {
@@ -354,6 +374,7 @@ export async function readGatewayCatalog(): Promise<GatewayModel[]> {
           typeof row.context_window === "number" && row.context_window > 0
             ? row.context_window
             : null,
+        efforts: effortsOfRow(row),
       }),
     )
     .sort((a, b) => a.id.localeCompare(b.id));
@@ -420,6 +441,31 @@ export async function compactBudget(
       ? await readGatewayCatalog().catch(() => [])
       : [];
   return compactAtFor(contextWindowOf(ref.provider, ref.model, catalog));
+}
+
+/**
+ * How hard a run thinks: what the bot's owner set, else the app default (Settings > Models).
+ * It is sent only when the model's own ladder is known to hold it — a step a provider hands
+ * straight to its API fails the whole call, so an unknown ladder runs on the model's default
+ * instead of guessing. What a model quietly folds into another step is the sdk's business and
+ * comes back as a warning, not an error.
+ */
+export async function runEffort(
+  ref: TextModelRef,
+  /** What the bot's owner set, if anything (bot.effort); it wins. */
+  chosen?: Effort | null,
+): Promise<Effort | undefined> {
+  const wanted =
+    chosen ?? effortSchema.safeParse(await readConfig(DEFAULT_EFFORT_KEY)).data;
+  if (!wanted) return undefined;
+  // Never worth failing a run over: an unreachable catalog is a fallback, not an error
+  const catalog =
+    ref.provider === "vercel-ai-gateway"
+      ? await readGatewayCatalog().catch(() => [])
+      : [];
+  return effortsOf(ref.provider, ref.model, catalog)?.includes(wanted)
+    ? wanted
+    : undefined;
 }
 
 /**
