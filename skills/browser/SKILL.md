@@ -57,12 +57,21 @@ and whatever you did bring back.
 **A sign-in is a fork, not a wall.** Three ways through, and which one fits is
 yours to read off the job:
 
-- **A sign-in the app already keeps.** Call the `sign_in_use` tool with the
-  site, then `goto` the site — cookies without a reload leave the signed-out
-  page that was already drawn, which reads as an expired session when it is not.
-  Cheapest when it works, so try it before anything else.
-- **The browser they are already in.** `attach --cdp=chrome` carries their own
-  profile and whatever it is signed into.
+- **A sign-in the app already keeps.** Cheapest when it works, so try it before
+  the other two. It goes into the browser you have open, so the order is `open`,
+  then the `sign_in_use` tool with the site, then `goto` — a state loaded with no
+  browser open is refused, and one loaded before you `open` again is thrown away
+  with the browser that held it. Open the window you mean to keep first, headed
+  or not. `goto` last because cookies without a reload leave the signed-out page
+  that was already drawn, which reads as an expired session when it is not.
+- **Their own Chrome.** `attach --extension=chrome` gives you a tab of your own
+  in the Chrome they use, signed in as they are; their tabs stay theirs. It is the
+  way through for a site that still shows you signed out right after
+  `sign_in_use` — some refuse a sign-in carried between browsers, and signing in
+  again in your window will not last there either. It needs the Playwright
+  extension in their Chrome: when the command says it is missing, give them the
+  link it prints and ask. A click there waits on a tab that is in front:
+  `--raw run-code "async page => page.bringToFront()"` first.
 - **They sign in themselves.** `open <the login url> --headed --persistent` —
   the login page, not the front door — then a `question` to Thursday in one line
   saying what to sign into and that the window is open, options `Signed in` /
@@ -146,7 +155,8 @@ playwright-cli open                       # headless; add a url to navigate at o
 playwright-cli open <url> --headed        # a real window on their screen
 playwright-cli open <url> --persistent    # keep a profile between opens
 playwright-cli open --mobile              # mobile layout — lighter pages, smaller snapshots
-playwright-cli attach --cdp=chrome        # the browser they already have open
+playwright-cli attach --cdp=chrome        # the browser they already have open, every tab
+playwright-cli attach --extension=chrome  # one tab of your own in their Chrome
 playwright-cli goto <url>
 playwright-cli go-back | go-forward | reload
 playwright-cli resize 1280 800            # before a screenshot or a pdf

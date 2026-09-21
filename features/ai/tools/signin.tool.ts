@@ -1,7 +1,11 @@
 import { type ToolSet, tool } from "ai";
 import z from "zod";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
-import { borrowSignIn, keepSignIn } from "@/features/signins/signins.query";
+import {
+  borrowSignIn,
+  keepSignIn,
+  sessionBrowser,
+} from "@/features/signins/signins.query";
 import { siteOf } from "@/features/signins/signins.schema";
 import type { Sandbox } from "@/lib/sandbox";
 
@@ -37,9 +41,12 @@ export function createSignInTools(
   return {
     [TOOL_NAMES.sign_in_use]: tool({
       description:
-        "Sign your browser in to a site with a sign-in the user already made and the app kept. Call it before anything else when a page wants a sign-in.",
+        "Sign your browser in to a site with a sign-in the user already made and the app kept. Open your browser first: the sign-in goes into the browser you have open, and opening another one afterwards throws it away.",
       inputSchema: z.object({ site: SITE }),
       execute: async ({ site }) => {
+        // A kept session loaded into their Chrome would replace the one they are signed in with
+        if ((await sessionBrowser(sandbox, env)) === "theirs")
+          return "You are working in their own Chrome: it is already signed in as them, and nothing is loaded into it. Go to the site.";
         const found = await borrowSignIn(site, bot);
         if (found.kind === "none")
           return found.kept.length
@@ -54,8 +61,8 @@ export function createSignInTools(
           () => sandbox.exec(`rm -f ${path}`),
         );
         return failed
-          ? `The sign-in could not be loaded into your browser: ${failed}. Open a page first, then call again.`
-          : `Signed in to ${found.signIn.site} as ${found.signIn.account}. Go to the site again (\`goto\`) — a page drawn before this still looks signed out. If it still asks for a sign-in, the site ended the session: ask them to sign in again, then \`${TOOL_NAMES.sign_in_keep}\`.`;
+          ? `The sign-in could not be loaded into your browser: ${failed}. Open the browser you mean to keep (\`playwright-cli open …\`, headed if you want a window), then call this again — opening another browser after this throws the sign-in away.`
+          : `Signed in to ${found.signIn.site} as ${found.signIn.account}. Go to the site again (\`goto\`) — a page drawn before this still looks signed out. If it still shows you signed out after that, the site does not accept a sign-in carried over from another browser, and signing in again here will not last either: work in their own Chrome instead, \`playwright-cli attach --extension=chrome\`.`;
       },
     }),
 
@@ -71,6 +78,8 @@ export function createSignInTools(
           ),
       }),
       execute: async ({ site, account }) => {
+        if ((await sessionBrowser(sandbox, env)) === "theirs")
+          return "You are working in their own Chrome: it stays signed in as them by itself, and nothing is kept from it.";
         const path = passing();
         const failed = await cli(
           `mkdir -p .playwright-cli && playwright-cli state-save ${path}`,

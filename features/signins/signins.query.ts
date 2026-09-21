@@ -8,6 +8,7 @@ import {
   WORKSPACE,
 } from "@/features/workspace/workspace";
 import { logger } from "@/lib/logger";
+import type { Sandbox } from "@/lib/sandbox";
 import { type SignIn, siteOf } from "./signins.schema";
 
 /**
@@ -33,6 +34,22 @@ async function read(site: string): Promise<Kept | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * The sign-in a name stands for: its own, else the one kept for a domain it sits under, the
+ * longest first. A site's cookies are its domain's, so `myaccount.google.com` is signed in
+ * by what was kept as `google.com` — asked by another name, the same session read as missing.
+ */
+async function readFor(site: string): Promise<Kept | null> {
+  const asked = siteOf(site);
+  const exact = await read(asked);
+  if (exact) return exact;
+  const over = (await listSignIns())
+    .map((one) => one.site)
+    .filter((kept) => asked.endsWith(`.${kept}`))
+    .sort((a, b) => b.length - a.length)[0];
+  return over ? read(over) : null;
 }
 
 async function write(kept: Kept) {
@@ -63,8 +80,8 @@ export async function keepSignIn(input: {
   bot: string;
   state: unknown;
 }): Promise<SignIn> {
-  const site = siteOf(input.site);
-  const before = await read(site);
+  const before = await readFor(input.site);
+  const site = before?.site ?? siteOf(input.site);
   const kept: Kept = {
     site,
     account: input.account.trim() || site,
@@ -91,7 +108,7 @@ export async function borrowSignIn(
   | { kind: "none"; kept: string[] }
   | { kind: "ask"; signIn: SignIn }
 > {
-  const kept = await read(site);
+  const kept = await readFor(site);
   if (!kept)
     return { kind: "none", kept: (await listSignIns()).map((one) => one.site) };
   if (!kept.bots.includes(bot)) {
@@ -102,6 +119,26 @@ export async function borrowSignIn(
   const used = { ...kept, usedAt: new Date().toISOString() };
   await write(used);
   return { kind: "state", signIn: record(used), state: kept.state };
+}
+
+/**
+ * Whose browser a participant's session drives: its own, or the user's Chrome it attached
+ * to. Theirs holds every site they are signed in to, so its state is never read out.
+ */
+export async function sessionBrowser(
+  sandbox: Sandbox,
+  env: Record<string, string>,
+): Promise<"own" | "theirs" | null> {
+  const listed = await sandbox.exec("playwright-cli list --json", {
+    env,
+    timeoutMs: 15_000,
+  });
+  const { browsers } = JSON.parse(listed.stdout || "{}") as {
+    browsers?: { name: string; attached?: boolean }[];
+  };
+  const open = browsers?.find((b) => b.name === env.PLAYWRIGHT_CLI_SESSION);
+  if (!open) return null;
+  return open.attached ? "theirs" : "own";
 }
 
 type Cookie = { name: string; domain: string; path: string; value: string };
@@ -124,15 +161,7 @@ export async function renewSignIns(session: string): Promise<void> {
 
   const sandbox = await openWorkspace();
   const env = jobShellEnv(session);
-  const listed = await sandbox.exec("playwright-cli list --json", {
-    env,
-    timeoutMs: 15_000,
-  });
-  const { browsers } = JSON.parse(listed.stdout || "{}") as {
-    browsers?: { name: string; attached?: boolean }[];
-  };
-  const open = browsers?.find((b) => b.name === env.PLAYWRIGHT_CLI_SESSION);
-  if (!open || open.attached) return;
+  if ((await sessionBrowser(sandbox, env)) !== "own") return;
 
   const path = `.playwright-cli/state-${crypto.randomUUID()}.json`;
   let now: Map<string, Cookie>;

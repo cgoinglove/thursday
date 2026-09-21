@@ -51,6 +51,14 @@ paths:
   in. Boot takes in what bots used to keep under `bots/<name>/.auth`. Sites renew session cookies
   as they are used, so after every bot turn the cookies a kept sign-in already holds are copied back
   from that participant's browser (`renewSignIns`); a copy left stale can end the session.
+  A name stands for the sign-in kept over it: `myaccount.google.com` borrows what was kept as
+  `google.com`. A site that binds a session to the browser it was made in refuses the copy
+  however fresh (Google: signed out four minutes after it was kept), and no renewing fixes
+  that — such work goes to the user's own Chrome (`attach --extension`, the browser skill).
+  Nothing is kept from that browser or loaded into it (`sessionBrowser`): its state is every
+  site they are signed in to, and a kept session loaded there would replace their own.
+  One profile for a bot across threads was tried and dropped: two browsers on one profile
+  refuse to open, and a bot has two whenever threads overlap or a headed window outlives its job.
 - **No browser, nothing runs — unless the user said otherwise.** `presence` (app/api/events) says
   whether a browser is on the stream; when the last one has been gone a while, jobs stop and wait
   and open calls close. When one comes back, only jobs paused for browser absence pick themselves
