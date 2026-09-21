@@ -29,6 +29,7 @@ import {
   type BotRef,
   roomOpens,
   screenActs,
+  useRoomOpen,
   writeLine,
 } from "@/features/bot/thread.store";
 import { openSettings } from "@/features/settings/settings.store";
@@ -152,28 +153,33 @@ export function WriteLine({
     requestAnimationFrame(() => field.current?.focus());
   }, [held]);
 
+  // The three ways in all ask through the store, so the room hears it and folds: the line
+  // and the open room never share the screen (thread.store roomOpen)
+  const room = useRoomOpen();
   const { take: keep } = given;
   const take = useCallback(
     (list: File[]) => {
-      show();
+      writeLine.open();
       void keep(list);
     },
-    [keep, show],
+    [keep],
   );
 
-  // The three ways in. `/` is the window's unless something is being typed into
+  // `/` is the window's unless something is being typed into, and an open thread's:
+  // there the key goes to that thread's own message box (bot-room)
   useEffect(() => writeLine.subscribe(show), [show]);
   useEffect(() => {
+    if (room === "thread") return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey)
         return;
       if (!windowKey(event)) return;
       event.preventDefault();
-      show();
+      writeLine.open();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [show]);
+  }, [room]);
   useEffect(() => {
     if (held) return;
     const carriesFiles = (event: DragEvent) =>
@@ -282,8 +288,10 @@ export function WriteLine({
     if (pickedUp && !draft.trim() && !given.files.length) setOpen(false);
   }, [onCall, draft, given.files.length]);
 
+  // Put away while the room stands open and back as it was once it folds, the words in it
+  // and a call in writing both kept: the room has the foot, and one message box is enough.
   // The pill's card would grow where the line stands, so the pill is told (room-pill)
-  const up = open || dragging || calling;
+  const up = (open || dragging || calling) && !room;
   // Esc is the line's while it is up, not the field's: the field is disabled while words are
   // on their way and the browser drops its focus then, which is also when a call that broke
   // has to be left.

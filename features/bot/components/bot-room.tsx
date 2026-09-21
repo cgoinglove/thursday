@@ -10,13 +10,14 @@ import {
   useCrewGestures,
 } from "@/features/bot/components/crew-motion";
 import { ThreadReply } from "@/features/bot/components/thread-reply";
-import { useEscape } from "@/hooks/use-hotkey";
+import { useEscape, windowKey } from "@/hooks/use-hotkey";
 import { toDate } from "@/lib/date-like";
 import { useServerPages } from "@/lib/protocol/use-server-pages";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn } from "@/lib/utils";
 import {
   botThreads,
+  roomOpen,
   roomOpens,
   type ThreadViewStatus,
   threadFromRow,
@@ -72,6 +73,11 @@ export const BotRoom = memo(function BotRoom() {
   // A thread is read at nearly the window's height and lies over the call; only the write
   // line steps aside for it. The list is a short card in the corner
   const reading = open && picked !== null;
+  // The write line is put away while anything stands open here (thread.store roomOpen)
+  useEffect(() => {
+    roomOpen.set(open ? (reading ? "thread" : "list") : null);
+    return () => roomOpen.set(null);
+  }, [open, reading]);
   /** The bot each thread shows, by thread id; a thread not in here is on All. */
   const [sides, setSides] = useState<Record<string, string | null>>({});
   /** The list on screen: what is current, or everything that has ended. */
@@ -248,6 +254,32 @@ export const BotRoom = memo(function BotRoom() {
   // list it was picked from, and the list folds away.
   useEscape(open, () => (reading ? setPicked(null) : fold()));
 
+  // Asking for the write line folds the room, whoever asks: its own "+", `/`, a file put
+  // down elsewhere. The two never share the screen.
+  const foldRef = useRef(fold);
+  foldRef.current = fold;
+  useEffect(() => writeLine.subscribe(() => foldRef.current()), []);
+
+  // With a thread open `/` is still the way to the message box, and the one on screen is
+  // this thread's. A thread with no box to write in (a bot on a step) leaves the key alone.
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!reading) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey)
+        return;
+      if (!windowKey(event)) return;
+      const box = panel.current?.querySelector<HTMLTextAreaElement>(
+        "textarea:not(:disabled)",
+      );
+      if (!box) return;
+      event.preventDefault();
+      box.focus();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [reading]);
+
   return (
     // Two places, one for each state (thursday CallFoot). Folded, the pill is a fixture at
     // the right end of the rail and stays there whatever else is on screen. Open, the room
@@ -262,6 +294,7 @@ export const BotRoom = memo(function BotRoom() {
     >
       {open ? (
         <div
+          ref={panel}
           // what is dropped on the room is the open thread's (given-files roomDrop)
           data-room
           className="pointer-events-auto flex max-h-full w-160 max-w-full animate-in flex-col overflow-hidden rounded-3xl bg-background/75 shadow-2xl shadow-black/6 ring-1 ring-border/50 backdrop-blur-xl fade-in slide-in-from-bottom-1 duration-200"

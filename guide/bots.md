@@ -88,6 +88,11 @@ and the room opens on the thread it started.
 The message box of an open thread takes files the same way: the paperclip, a paste, or a drop
 anywhere on the room.
 
+There is one message box on screen at a time. While the corner stands open — the list or a
+thread — the line at the foot is put away, and it comes back as it was, words and all, when
+the corner folds. With a thread open, `/` goes to that thread's own message box; with the
+list open, `/` or the **+** folds the list and brings the line up.
+
 Once more than one bot is in a thread, the box says who it is addressed to, and the name can be
 changed to any of them. Only the bot the job went to answers the user: write to one it pulled
 in, and the box says so — that bot's answer goes back to the one who called it, and reaches the

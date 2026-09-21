@@ -372,13 +372,42 @@ export function useRingingThreads(): string[] {
   );
 }
 
+/**
+ * What stands open in the room. The room and the write line never share the screen: one
+ * message box at a time, and the room has the foot while it is open — the line is put
+ * away until it folds and comes back as it was, a call in writing still on behind it.
+ */
+type RoomStands = "list" | "thread" | null;
+let roomStands: RoomStands = null;
+const roomListeners = new Set<() => void>();
+
+export const roomOpen = {
+  set(stands: RoomStands) {
+    if (stands === roomStands) return;
+    roomStands = stands;
+    for (const listener of roomListeners) listener();
+  },
+};
+
+export function useRoomOpen(): RoomStands {
+  return useSyncExternalStore(
+    (listener) => {
+      roomListeners.add(listener);
+      return () => roomListeners.delete(listener);
+    },
+    () => roomStands,
+    () => null,
+  );
+}
+
 const writes = new Set<() => void>();
 let writeLineUp = false;
 const writeLineListeners = new Set<() => void>();
 
 /**
- * Asks the screen for its write line: the pill's "+" does, from either place the pill stands.
- * The line says when it is up (`shown`), since it stands where the pill's card would grow.
+ * Asks the screen for its write line: the pill's "+", `/`, a file put down. Whoever asks,
+ * the room hears it too and folds, since the two never share the screen. The line says
+ * when it is up (`shown`), since it stands where the pill's card would grow.
  */
 export const writeLine = {
   open() {

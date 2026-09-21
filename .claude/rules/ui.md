@@ -199,6 +199,14 @@ paths:
   and moves none of it — her face and the captions are where they were when it closes (the
   user's pick). The room's list is a short card in the corner. What the line sends to Thursday
   is a call in writing (`.claude/rules/call.md`).
+- **One message box at a time, and the room has the foot** (the user's pick; `thread.store`
+  `roomOpen`). While anything stands open in the room the write line is not drawn, and when
+  the room folds it comes back as it was — the words in it kept, and a call in writing still
+  on behind it, which is why that line never needs a way to be closed without ending the
+  call. Asking for the line folds the room, whoever asks (the list's own "+", `/`, a file put
+  down outside the room), with one exception: with a thread open `/` goes to that thread's
+  message box, since it is the one on screen — and a thread with no box to write in (a bot
+  on a step) leaves the key alone rather than folding under the reader.
 - **The foot of the screen is a rail of fixtures, and one row above it for what opens**
   (`thursday` `CallFoot`). On the rail, along the bottom and never moving: the finished cards
   at the left end, the write line in the middle, the pill at the right. A line that comes up
