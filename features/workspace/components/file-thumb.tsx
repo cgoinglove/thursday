@@ -12,6 +12,7 @@ import {
   type LucideIcon,
   Music,
 } from "lucide-react";
+import Image from "next/image";
 import {
   useCallback,
   useEffect,
@@ -89,19 +90,24 @@ export function FileThumb({
   const face = broken ? "glyph" : faceOf(path, bytes);
 
   if (face === "image") {
+    // Optimized to a tile's width rather than served whole: what a bot made is
+    // megabytes, and a screen lists dozens (config FILE_THUMB imageWidth). The box
+    // is the caller's, as for every other face; the picture fills it.
     return (
-      // biome-ignore lint/performance/noImgElement: local raw route, nothing to optimize
-      <img
-        src={queryKey.file(path)}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        onError={() => setBroken(true)}
-        className={cn(
-          "block bg-muted object-cover dark:brightness-[0.82]",
-          className,
-        )}
-      />
+      <span
+        className={cn("relative block overflow-hidden bg-muted", className)}
+      >
+        <Image
+          src={queryKey.file(path)}
+          alt=""
+          fill
+          sizes={`${FILE_THUMB.imageWidth}px`}
+          loading="lazy"
+          decoding="async"
+          onError={() => setBroken(true)}
+          className="object-cover dark:brightness-[0.82]"
+        />
+      </span>
     );
   }
   if (face === "page") {

@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+import Image from "next/image";
 import {
   createContext,
   type ReactNode,
@@ -507,10 +508,11 @@ function FileDialog({
                   one === path ? "ring-2 ring-foreground" : "opacity-55",
                 )}
               >
-                {/* biome-ignore lint/performance/noImgElement: local raw route, nothing to optimize */}
-                <img
+                <Image
                   src={queryKey.file(one)}
                   alt=""
+                  width={96}
+                  height={96}
                   loading="lazy"
                   className="size-full bg-muted object-cover"
                 />

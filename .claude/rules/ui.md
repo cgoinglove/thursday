@@ -128,7 +128,11 @@ paths:
   screen; opened, it is itself again. It wears a hairline wherever it is drawn, since a white
   page on a white sheet has no edge of its own. One
   piece draws a file's face everywhere (`file-thumb`): under a message, in the corner, on the
-  shelf in Settings › Files. Nothing a job finished opens by itself — it lands in
+  shelf in Settings › Files. A face is optimized to a tile's width (`FILE_THUMB.imageWidth`,
+  `next.config` images) — what a bot makes is megabytes and a shelf lists dozens — while a
+  picture opened to be looked at is served whole. Every other picture waits until it is on
+  screen: the ones in a report's own words too (`ui/markdown` `Picture`), or a long report
+  pulls its whole gallery before a word of it is read. Nothing a job finished opens by itself — it lands in
   the screen's left corner as a card, the same card with files or without: the bot, the label, how
   the answer opens, the files under the words. A reload brings back the cards still unread, less those this browser
   closed; the pill makes no bubble of a job's ending, since the card says it.

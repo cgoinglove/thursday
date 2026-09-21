@@ -76,6 +76,19 @@ function Paragraph({
   return <Tag {...rest}>{children}</Tag>;
 }
 
+/**
+ * An image a bot wrote into its report, which is whatever it made — often a few
+ * megabytes. Streamdown asks for every one of them at once, so a long report pulls
+ * its whole gallery before a word of it is on screen; these wait until they are.
+ */
+function Picture({
+  node,
+  ...rest
+}: ComponentProps<"img"> & { node?: unknown }) {
+  // biome-ignore lint/performance/noImgElement: a report's own image, at whatever size it was made
+  return <img {...rest} alt={rest.alt ?? ""} loading="lazy" decoding="async" />;
+}
+
 function PureMarkdown(props: ComponentProps<typeof Streamdown>) {
   const theme = useSyncExternalStore(subscribeToTheme, isDark, () => false)
     ? "dark"
@@ -87,7 +100,7 @@ function PureMarkdown(props: ComponentProps<typeof Streamdown>) {
       {...defaultProps}
       mermaid={MERMAID_THEME[theme]}
       {...props}
-      components={{ p: Paragraph, ...props.components }}
+      components={{ p: Paragraph, img: Picture, ...props.components }}
     />
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { FileX } from "lucide-react";
+import Image from "next/image";
 import { useMemo } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { FILE_THUMB } from "@/config";
@@ -125,13 +126,14 @@ export function Attachments({
                 tile,
               )}
             >
-              {/* biome-ignore lint/performance/noImgElement: local raw route, nothing to optimize */}
-              <img
+              <Image
                 src={queryKey.file(file.path)}
                 alt={nameOf(file.path)}
+                fill
+                sizes={`${FILE_THUMB.imageWidth}px`}
                 loading="lazy"
                 decoding="async"
-                className="size-full object-cover"
+                className="object-cover"
               />
               {over > 0 && at === shown.length - 1 && (
                 <span className="absolute inset-0 grid place-items-center bg-black/45 text-[14px] font-medium text-white">

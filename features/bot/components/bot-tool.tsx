@@ -19,6 +19,7 @@ import {
   Terminal,
   Wrench,
 } from "lucide-react";
+import Image from "next/image";
 import { type ComponentType, type ReactNode, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { ShinyText } from "@/components/ui/shiny-text";
@@ -182,10 +183,11 @@ export function StepTile({
       className="grid size-6 shrink-0 place-items-center overflow-hidden rounded-full bg-background text-muted-foreground outline-none transition-transform hover:scale-110 focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       {face.image && !gone ? (
-        // biome-ignore lint/performance/noImgElement: local raw route, nothing to optimize
-        <img
+        <Image
           src={queryKey.file(face.image)}
           alt=""
+          width={48}
+          height={48}
           loading="lazy"
           decoding="async"
           onError={() => setGone(true)}
@@ -429,11 +431,12 @@ function StepShots({ paths }: { paths: string[] }) {
   return (
     <span className="flex shrink-0 items-center">
       {shown.map((path, at) => (
-        // biome-ignore lint/performance/noImgElement: local raw route, nothing to optimize
-        <img
+        <Image
           key={path}
           src={queryKey.file(path)}
           alt=""
+          width={48}
+          height={48}
           loading="lazy"
           decoding="async"
           onError={() => setGone((was) => [...was, path])}

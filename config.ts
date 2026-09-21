@@ -261,12 +261,22 @@ export const WORKSPACE_VIEW = {
  *   screenful; more is downloaded and never seen.
  * - `pages`  how many live pages one message draws. Each is a real page load, scripts
  *   and all; the ones past this show their glyph and open as before.
+ * - `imageWidth`  the width a picture's face is optimized to before it is sent. A tile is
+ *   at most ~180 CSS px, so this is the retina size; the source is whatever a bot made,
+ *   often a few megabytes. One width for every tile, so the same picture in two places is
+ *   optimized once. Raising it costs bandwidth and decode time on every screen that lists
+ *   files; lowering it shows in the largest tile first.
+ * - `cacheSeconds`  how long an optimized face is reused before it is made again. A bot
+ *   can overwrite a file under the same name, and the optimizer keys on the url alone, so
+ *   this is also how stale a tile can be. Making one again costs ~50ms on the server.
  */
 export const FILE_THUMB = {
   pageWidth: 1024,
   textWidth: 512,
   textBytes: 4096,
   pages: 2,
+  imageWidth: 384,
+  cacheSeconds: 300,
 };
 
 /**
