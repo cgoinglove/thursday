@@ -17,11 +17,15 @@ export interface Sandbox {
     opts: { withFileTypes: true },
   ): Promise<{ name: string; isDirectory(): boolean }[]>;
 
-  /** Find by file name/path */
-  glob(
-    pattern: string,
-    opts?: { path?: string; limit?: number },
-  ): Promise<string[]>;
+  /**
+   * Every file under a folder, as paths relative to it: shallowest first and by name
+   * within a depth, so a list cut at `limit` still holds what sits at the top.
+   * `total` counts them all.
+   */
+  listFiles(
+    path: string,
+    opts?: { limit?: number },
+  ): Promise<{ files: string[]; total: number }>;
 
   exec(
     command: string,
@@ -120,18 +124,6 @@ export const createSandBox = ({
   const res = (p: string) =>
     p.startsWith("/") || /^[A-Za-z]:/.test(p) ? p : pathResolve(cwd, p);
 
-  // A very simple glob → regex. Only **/, * and ? are supported
-  const globToRe = (g: string) =>
-    new RegExp(
-      "^" +
-        g
-          .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-          .replace(/\*\*\//g, "(?:.*/)?")
-          .replace(/\*/g, "[^/]*")
-          .replace(/\?/g, "[^/]") +
-        "$",
-    );
-
   return {
     cwd,
     resolve: res,
@@ -148,16 +140,14 @@ export const createSandBox = ({
 
     fold: (text, name = "output") => foldLong(text, name, cwd, spill),
 
-    async glob(pattern, { path = ".", limit = 200 } = {}) {
+    async listFiles(path, { limit = 200 } = {}) {
       const root = res(path);
-      const re = globToRe(pattern);
-      const out: string[] = [];
-      for await (const f of walkFiles(root)) {
-        const rel = relative(root, f).split(sep).join("/");
-        if (re.test(rel) || re.test(f)) out.push(f);
-        if (out.length >= limit) break;
-      }
-      return out;
+      const all: string[] = [];
+      for await (const f of walkFiles(root))
+        all.push(relative(root, f).split(sep).join("/"));
+      const depth = (p: string) => p.split("/").length;
+      all.sort((a, b) => depth(a) - depth(b) || (a < b ? -1 : a > b ? 1 : 0));
+      return { files: all.slice(0, limit), total: all.length };
     },
 
     exec(command, { cwd: c, timeoutMs = EXEC_TIMEOUT_MS, signal, env } = {}) {

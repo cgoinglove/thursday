@@ -60,5 +60,9 @@ it hands out has a way through when nobody on the roster is for it. This adds wh
   all (archify).
 - **A main `SKILL.md` holds one or two facts the model does not know.** Procedures go in
   `references/`.
+- **`load_skill` lists a skill's files shallowest first, up to `SKILL_FILES_LISTED`**, and says
+  how many it left out. What a `SKILL.md` points at sits directly in `references/` and
+  `scripts/`; a bundled engine or a component kit goes a folder deeper, where a cut list drops
+  it first.
 - **An external skill is chosen by its GitHub stars and by reading its repository**, not by its
   install count on skills.sh: one had half a million installs and five stars.

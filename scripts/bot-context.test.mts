@@ -1842,3 +1842,32 @@ test("answer drafts remain separate for two questions from the same bot", async 
   );
   assert.equal(threadDrafts.get("draft-room", "Alpha"), "A general message");
 });
+
+test("a bot that loads a skill is shown the files that ship with it", async () => {
+  plans.set("Alpha", [
+    () => call(T.load_skill, { name: "skill-creator" }),
+    (prompt) => {
+      // The list is how a bot learns which script a skill's text points at
+      assert.ok(prompt.includes("scripts/validate.mjs"));
+      return text("Loaded.");
+    },
+  ]);
+  const id = await startThread({
+    bot: "Alpha",
+    request: "Write this down as a skill",
+    label: "Skill",
+    from: "user",
+  });
+  await waitFor(id, "done");
+  const parts = (await rowsOf(id)).flatMap((row): any[] =>
+    Array.isArray(row.content) ? row.content : [],
+  );
+  const loaded = parts.find(
+    (part) => part.type === "tool-result" && part.toolName === T.load_skill,
+  );
+  assert.deepEqual(loaded.output.value.files, [
+    "LICENSE.txt",
+    "SKILL.md",
+    "scripts/validate.mjs",
+  ]);
+});

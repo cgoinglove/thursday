@@ -40,6 +40,7 @@ jobs:
       - run: pnpm test:live
       - run: pnpm test:bot
       - run: pnpm test:artifact
+      - run: pnpm test:skills
 
       # The build is the only check that catches a client component importing
       # something server-only, and the only one that proves a release can ship.

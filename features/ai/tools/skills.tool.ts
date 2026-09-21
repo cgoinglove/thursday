@@ -1,5 +1,6 @@
 import { tool } from "ai";
 import z from "zod";
+import { SKILL_FILES_LISTED } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import {
   loadSkills,
@@ -77,14 +78,16 @@ export const createSkillTools = ({
         const content = await sandbox.readFile(skillFile, "utf-8");
         const { body } = splitFrontmatter(content);
 
-        const files = await sandbox.glob("**/*", {
-          path: skill.path,
-          limit: 50,
+        const { files, total } = await sandbox.listFiles(skill.path, {
+          limit: SKILL_FILES_LISTED,
         });
 
         return {
           skillDirectory: skill.path,
           files,
+          ...(total > files.length && {
+            more: `${total - files.length} more files, deeper in these folders. List a folder in the shell to see them.`,
+          }),
           content: body,
         };
       },
