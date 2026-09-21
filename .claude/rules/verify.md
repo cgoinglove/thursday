@@ -13,7 +13,8 @@ paths:
 - **A running app's database is someone's real data.** A dev server started on it resumes the jobs
   that were parked, and a copy swapped in under it loses whatever is set in the app meanwhile.
   Check on a server of your own over an empty `THURSDAY_HOME`, or attach read-only to the one
-  already running.
+  already running. In a checkout `pnpm start` opens that same database, not an empty one of its
+  own (bin/thursday.mjs).
 - **A port is not proof.** Before attaching, find the `next dev` whose cwd is this repository
   (`lsof -a -p <pid> -d cwd`).
 - **Next refuses a second dev server in one folder.** To check a function, call the app's modules

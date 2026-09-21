@@ -16,9 +16,6 @@ const { version, name } = JSON.parse(
   await readFile(join(ROOT, "package.json"), "utf8"),
 );
 
-/** The user's files: database, workspace, installed skills. Never inside the package — an upgrade replaces that. */
-const DEFAULT_HOME = join(homedir(), ".thursday");
-
 const argv = process.argv.slice(2);
 const has = (...names) => names.some((one) => argv.includes(one));
 const flag = (name) => {
@@ -36,7 +33,7 @@ if (has("-h", "--help")) {
 
   Options
     --port <n>     Port to serve on (default 4747, or the next free one)
-    --home <dir>   Where your data lives (default ~/.thursday)
+    --home <dir>   Where your data lives (default ~/.thursday; a checkout uses itself)
     --no-open      Do not open a browser
     -v, --version  Print the version
     -h, --help     This
@@ -51,13 +48,6 @@ if (has("-v", "--version")) {
   process.exit(0);
 }
 
-const asked = flag("port") ?? process.env.PORT;
-const home = resolve(flag("home") || process.env.THURSDAY_HOME || DEFAULT_HOME);
-const port = String(await freePort(asked, home));
-const url = `http://localhost:${port}`;
-/** Where config.ts DB_FILE_NAME puts the database under the home. */
-const database = join(home, "local.db");
-
 /**
  * The published package is the standalone tree itself (scripts/pack); a
  * checkout keeps it where Next wrote it. Whichever holds `server.js` is what
@@ -70,6 +60,22 @@ if (!APP) {
   console.error(`\n  No build in ${ROOT}\n  In a checkout, run: pnpm build\n`);
   process.exit(1);
 }
+
+/**
+ * The user's files: database, workspace, installed skills. An installed package
+ * keeps them in the home folder, never inside the package — an upgrade replaces
+ * that. A checkout keeps them in the checkout, which is where `pnpm dev` already
+ * writes them (config.ts DATA_DIR): a build started here opens the data it was
+ * developed against, not a second, empty one beside it.
+ */
+const DEFAULT_HOME = APP === ROOT ? join(homedir(), ".thursday") : ROOT;
+
+const asked = flag("port") ?? process.env.PORT;
+const home = resolve(flag("home") || process.env.THURSDAY_HOME || DEFAULT_HOME);
+const port = String(await freePort(asked, home));
+const url = `http://localhost:${port}`;
+/** Where config.ts DB_FILE_NAME puts the database under the home. */
+const database = join(home, "local.db");
 
 /**
  * Next leaves `.next/static` and `public` out of the standalone tree on purpose

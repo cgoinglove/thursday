@@ -20,7 +20,7 @@ Useful:
 | `pnpm typecheck` / `pnpm lint` | types and lint |
 | `pnpm test:live` / `pnpm test:bot` / `pnpm test:artifact` | the call, bots, file viewer URLs — offline, providers mocked |
 | `pnpm reset` | wipe local data (calls, jobs, memory) and optionally the build |
-| `pnpm build` && `pnpm start` | the production server, as `npx thursday-agent` runs it |
+| `pnpm build` && `pnpm start` | the production server, as `npx thursday-agent` runs it — on this checkout's data, not `~/.thursday` |
 | `pnpm pack:check` | build the tree npm would publish, into `dist/` |
 
 ## Before you open a pull request
