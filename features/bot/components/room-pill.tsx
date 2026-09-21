@@ -497,16 +497,24 @@ export function crewOf(
  * running. Endings say nothing here: a finished job's result is the left
  * corner's card. With nothing going on and nothing grown, the pill offers a
  * hand; with a row grown and nothing going on, it is quiet.
+ *
+ * While the write line stands beside it the pill says one thing or none: what is
+ * running. A hand is already offered, and what waits on the user is asked for in
+ * its own card, so the pill keeps to the width the line leaves it.
  */
 function restingState({
   busy,
   pending,
   grown,
+  writing,
 }: {
   busy: number;
   pending: number;
   grown: boolean;
+  writing?: boolean;
 }): { text: string; shine: boolean; spin?: boolean } | null {
+  if (writing)
+    return busy > 0 ? { text: "working", shine: true, spin: true } : null;
   if (pending > 0)
     return {
       text: pending === 1 ? "waiting on you" : `${pending} waiting on you`,
@@ -622,7 +630,14 @@ export function Chip({
         label={count ? `Threads (${count})` : "Bots"}
         onClick={onOpen}
         playing={playing}
-        side={<RoomState busy={busy} pending={pending} grown={grown} />}
+        side={
+          <RoomState
+            busy={busy}
+            pending={pending}
+            grown={grown}
+            writing={lineUp}
+          />
+        }
         onWrite={writeLine.open}
       />
     </div>
@@ -707,6 +722,8 @@ export function RoomState(props: {
   busy: number;
   pending: number;
   grown: boolean;
+  /** The write line is up beside the pill. */
+  writing?: boolean;
 }) {
   const state = restingState(props);
   if (!state) return null;

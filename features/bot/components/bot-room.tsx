@@ -14,6 +14,7 @@ import { useEscape } from "@/hooks/use-hotkey";
 import { toDate } from "@/lib/date-like";
 import { useServerPages } from "@/lib/protocol/use-server-pages";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
+import { cn } from "@/lib/utils";
 import {
   botThreads,
   roomOpens,
@@ -248,11 +249,17 @@ export const BotRoom = memo(function BotRoom() {
   useEscape(open, () => (reading ? setPicked(null) : fold()));
 
   return (
-    // The right of the screen's foot, taking whatever the finished cards leave: the
-    // resting pill grows leftward into that and no further, and the open room keeps its
-    // own 40rem inside it. A thread is read here, files and all, over the right of the
-    // call (which does not move for it).
-    <div className="pointer-events-none flex min-h-0 min-w-0 flex-1 flex-col items-end gap-2">
+    // Two places, one for each state (thursday CallFoot). Folded, the pill is a fixture at
+    // the right end of the rail and stays there whatever else is on screen. Open, the room
+    // is not a fixture: it takes the row above the rail, all the height the rail leaves and
+    // none of its width, and is read there files and all, over the right of the call (which
+    // does not move for it).
+    <div
+      className={cn(
+        "pointer-events-none flex min-h-0 justify-end",
+        open ? "col-span-3 row-start-1" : "col-start-3 row-start-2",
+      )}
+    >
       {open ? (
         <div
           // what is dropped on the room is the open thread's (given-files roomDrop)

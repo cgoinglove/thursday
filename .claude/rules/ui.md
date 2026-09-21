@@ -164,8 +164,9 @@ paths:
   user — a question, a stop — and nothing else: a finished job's result is the left corner's
   card alone, so one notice never shows twice (the user's pick); the bot's own face turns a
   somersault, which is the pill saying it without a second notice. While the write line is up the
-  card does not grow — one composer and one notice at the foot of the screen, not both — and the
-  pill's own words say what waits.
+  card does not grow and the pill's right side says only what is running: the line stands where
+  the card would, and the track it leaves the pill is not wide enough for a sentence as well.
+  What waits on the user is still there, as the dot on the face it always was.
   The open list keeps the pill's row at its foot, faces without step words, and a moment shows
   there instead of in a bubble; only an open thread hides it. The row holds `CREW_MAX` faces and
   says nothing until it is full; past that its tail is a "+" and no number, since a count of
@@ -194,13 +195,17 @@ paths:
   and moves none of it — her face and the captions are where they were when it closes (the
   user's pick). The room's list is a short card in the corner. What the line sends to Thursday
   is a call in writing (`.claude/rules/call.md`).
-- **The foot of the screen is one column, and the line is its last row** (`thursday` `CallFoot`):
-  the finished cards and the room sit in a row above it — the cards keep their width and the
-  room takes the rest, so the pill grows leftward into empty screen and stops before them — and
-  a line that comes up pushes both corners up by exactly its own height. Nothing at the foot is
-  kept clear of anything else by a width, a breakpoint or a measured value, which is why a
-  pill of any length, a room of any height and a line holding files cannot land on one another
-  (the user's pick). Anything new at the foot joins that column or that row; it does not
+- **The foot of the screen is a rail of fixtures, and one row above it for what opens**
+  (`thursday` `CallFoot`). On the rail, along the bottom and never moving: the finished cards
+  at the left end, the write line in the middle, the pill at the right. A line that comes up
+  takes the track its two neighbours leave rather than pushing either of them anywhere — the
+  pill is furniture and furniture does not move (the user's pick) — which is why it carries
+  less while the line is up. The cards stand on the rail and grow upward out of it, so however
+  many have piled up they take none of its height. The row above is for what opened rather
+  than sits there: a thread in the room, which takes the height the rail leaves and none of its
+  width. Nothing at the foot is kept clear of anything else by a breakpoint or a measured
+  value, which is why a pill of any length, a thread of any height and a line holding files
+  cannot land on one another. Anything new at the foot joins the rail or that row; it does not
   position itself against the window.
 
 # Taste

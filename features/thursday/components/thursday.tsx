@@ -362,9 +362,11 @@ function CallScreen({
         </div>
       </div>
 
-      <CallFoot written={written} onCall={live}>
+      <CallFoot>
         {/* Documents a finished thread produced; opens itself on the artifact event */}
         <ArtifactView />
+        {/* Whatever is typed or handed over instead of said */}
+        <WriteLine written={written} onCall={live} />
         <BotRoom />
       </CallFoot>
     </div>
@@ -372,27 +374,18 @@ function CallScreen({
 }
 
 /**
- * The foot of the call screen: the two corners in a row, and the write line under them.
- * A column, so a line that comes up pushes the corners up by exactly its own height —
- * the corners step aside for the line and nothing is ever measured, guessed at a
- * breakpoint, or drawn over. Her face and the captions above are untouched by any of it.
+ * The foot of the call screen. Its bottom row is a rail of fixtures that never move:
+ * the finished cards on the left, the write line in the middle, the pill on the right.
+ * A line that comes up takes the track its two neighbours leave rather than pushing
+ * either of them anywhere, so a pill of any length and a line holding files cannot land
+ * on one another. The row above is for what opens rather than sits there — a thread in
+ * the room — which takes the height the rail leaves and none of its width. Her face and
+ * the captions above are untouched by all of it.
  */
-function CallFoot({
-  children,
-  written,
-  onCall,
-}: {
-  children: ReactNode;
-  written: WrittenCall | null;
-  onCall: boolean;
-}) {
+function CallFoot({ children }: { children: ReactNode }) {
   return (
-    <div className="pointer-events-none absolute inset-0 z-10 flex flex-col gap-2 p-5">
-      {/* The finished cards keep their width; the room takes the rest, so the pill grows
-          leftward into empty screen and stops before the cards rather than over them. */}
-      <div className="flex min-h-0 flex-1 items-end gap-4">{children}</div>
-      {/* Whatever is typed or handed over instead of said */}
-      <WriteLine written={written} onCall={onCall} />
+    <div className="pointer-events-none absolute inset-0 z-10 grid grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[minmax(0,1fr)_auto] items-end gap-x-4 gap-y-2 p-5">
+      {children}
     </div>
   );
 }

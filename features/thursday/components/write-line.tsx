@@ -311,9 +311,9 @@ export function WriteLine({
           <div className="absolute inset-3 rounded-3xl border-[1.5px] border-dashed border-foreground/30" />
         </div>
       )}
-      {/* The foot lays this under the corners, so the line never has to step aside for
-          them and they never sit on it (thursday CallFoot). */}
-      <div className="flex justify-center">
+      {/* The middle of the rail: the line takes the track the cards and the pill leave,
+          so it never has to step aside for them and they never sit on it (thursday CallFoot). */}
+      <div className="col-start-2 row-start-2 flex min-w-0 justify-center">
         <div className="pointer-events-auto flex w-160 max-w-full animate-in flex-col gap-2 fade-in slide-in-from-bottom-2 duration-200">
           <div className="flex flex-col gap-2 rounded-[26px] bg-background p-2 shadow-[0_22px_44px_-20px_rgb(0_0_0/0.22)] ring-1 ring-border">
             {(given.files.length > 0 || dragging) && (

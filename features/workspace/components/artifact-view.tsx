@@ -246,46 +246,51 @@ function Notice() {
   };
 
   return (
-    // Newest at the foot, nearest the hand; reversed so a full corner scrolls from there.
-    // The padding is room for the cards' rings and shadows, which a scroll box would clip,
-    // and the negative margin puts their edge back on the foot's own rail.
-    <div className="pointer-events-auto -m-2 flex max-h-full w-82 max-w-full shrink-0 flex-col-reverse gap-2 overflow-y-auto p-2 scrollbar-none">
-      {rows.map((row) => (
-        <FinishedCard
-          key={row.threadId}
-          row={row}
-          bot={bots?.find((one) => one.name === row.bot)}
-          onOpen={(path) => {
-            if (path) {
-              openFile(
-                path,
-                row.paths.filter((one) => viewKindOf(one) === "image"),
-              );
-              read(row.threadId);
-            } else {
-              // the room marks a thread seen as it opens it
-              roomOpens.open(row.threadId);
-              drop(row.threadId);
-            }
-          }}
-          onClose={() => drop(row.threadId)}
-        />
-      ))}
-      {rows.length > 1 && (
-        <p className="flex shrink-0 items-center px-1.5 font-mono text-[10px] text-muted-foreground">
-          <span className="flex-1">{rows.length} new</span>
-          <button
-            type="button"
-            onClick={() => {
-              rememberDismissed(rows.map((row) => row.threadId));
-              setRows([]);
+    // The left end of the rail (thursday CallFoot). The cell holds their width and no
+    // height: the stack stands on the rail and grows upward out of it, so however many
+    // have piled up they take nothing from the room reading above.
+    <div className="pointer-events-none relative col-start-1 row-start-2 w-82 max-w-full">
+      {/* Newest at the foot, nearest the hand; reversed so a full corner scrolls from there.
+          The padding is room for the cards' rings and shadows, which a scroll box would
+          clip, and the negative margin puts their edge back on the rail. */}
+      <div className="pointer-events-auto absolute bottom-0 left-0 -m-2 flex max-h-[80vh] w-82 max-w-full flex-col-reverse gap-2 overflow-y-auto p-2 scrollbar-none">
+        {rows.map((row) => (
+          <FinishedCard
+            key={row.threadId}
+            row={row}
+            bot={bots?.find((one) => one.name === row.bot)}
+            onOpen={(path) => {
+              if (path) {
+                openFile(
+                  path,
+                  row.paths.filter((one) => viewKindOf(one) === "image"),
+                );
+                read(row.threadId);
+              } else {
+                // the room marks a thread seen as it opens it
+                roomOpens.open(row.threadId);
+                drop(row.threadId);
+              }
             }}
-            className="rounded-md px-1 font-sans text-[11px] outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            Clear all
-          </button>
-        </p>
-      )}
+            onClose={() => drop(row.threadId)}
+          />
+        ))}
+        {rows.length > 1 && (
+          <p className="flex shrink-0 items-center px-1.5 font-mono text-[10px] text-muted-foreground">
+            <span className="flex-1">{rows.length} new</span>
+            <button
+              type="button"
+              onClick={() => {
+                rememberDismissed(rows.map((row) => row.threadId));
+                setRows([]);
+              }}
+              className="rounded-md px-1 font-sans text-[11px] outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              Clear all
+            </button>
+          </p>
+        )}
+      </div>
     </div>
   );
 }
