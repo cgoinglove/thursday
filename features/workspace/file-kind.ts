@@ -145,8 +145,13 @@ function between(from: string, to: string): string[] {
 }
 
 export function pathsIn(text: string): string[] {
-  // Strip urls first, or `example.com/price.html` becomes a chip
-  const prose = text.replace(/\b[a-z][\w+.-]*:\/\/\S+/gi, " ");
+  // Strip urls first, or `example.com/price.html` becomes a chip. A scheme on a
+  // single slash is a link prefix on a real path (`sandbox:/…`, how a model links
+  // a file it wrote): left in place it holds the match off the leading `/`, which
+  // then starts inside the path and comes back a folder short.
+  const prose = text
+    .replace(/\b[a-z][\w+.-]*:\/\/\S+/gi, " ")
+    .replace(/\b[a-z][\w+.-]+:(?=\/)/gi, " ");
   const seen = new Set<string>();
   // A list names its folder once, then only the names in it: a bare name is
   // read in the folder of the path before it
