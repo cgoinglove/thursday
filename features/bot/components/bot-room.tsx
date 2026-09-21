@@ -10,12 +10,12 @@ import {
   useCrewGestures,
 } from "@/features/bot/components/crew-motion";
 import { ThreadReply } from "@/features/bot/components/thread-reply";
+import { useEscape } from "@/hooks/use-hotkey";
 import { toDate } from "@/lib/date-like";
 import { useServerPages } from "@/lib/protocol/use-server-pages";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
 import {
   botThreads,
-  roomOpen,
   roomOpens,
   type ThreadViewStatus,
   threadFromRow,
@@ -71,10 +71,6 @@ export const BotRoom = memo(function BotRoom() {
   // A thread is read at nearly the window's height and lies over the call; only the write
   // line steps aside for it. The list is a short card in the corner
   const reading = open && picked !== null;
-  useEffect(() => {
-    roomOpen.set(reading);
-    return () => roomOpen.set(false);
-  }, [reading]);
   /** The bot each thread shows, by thread id; a thread not in here is on All. */
   const [sides, setSides] = useState<Record<string, string | null>>({});
   /** The list on screen: what is current, or everything that has ended. */
@@ -247,16 +243,21 @@ export const BotRoom = memo(function BotRoom() {
     scroll.current = 0;
   };
 
+  // Esc walks back the way the header's own two buttons do: a thread returns to the
+  // list it was picked from, and the list folds away.
+  useEscape(open, () => (reading ? setPicked(null) : fold()));
+
   return (
-    // As wide as the resting pill may grow: 80% of the window. The open room
-    // keeps its own 40rem inside it, and nearly the window's height: a thread is
-    // read here, files and all, over the right of the call (which does not move for it).
-    <div className="pointer-events-none absolute right-5 bottom-5 z-10 flex w-[min(80vw,calc(100vw-2.5rem))] flex-col items-end gap-2">
+    // The right of the screen's foot, taking whatever the finished cards leave: the
+    // resting pill grows leftward into that and no further, and the open room keeps its
+    // own 40rem inside it. A thread is read here, files and all, over the right of the
+    // call (which does not move for it).
+    <div className="pointer-events-none flex min-h-0 min-w-0 flex-1 flex-col items-end gap-2">
       {open ? (
         <div
           // what is dropped on the room is the open thread's (given-files roomDrop)
           data-room
-          className="pointer-events-auto flex max-h-[calc(100dvh-5.5rem)] w-160 max-w-full animate-in flex-col overflow-hidden rounded-3xl bg-background/75 shadow-2xl shadow-black/6 ring-1 ring-border/50 backdrop-blur-xl fade-in slide-in-from-bottom-1 duration-200"
+          className="pointer-events-auto flex max-h-full w-160 max-w-full animate-in flex-col overflow-hidden rounded-3xl bg-background/75 shadow-2xl shadow-black/6 ring-1 ring-border/50 backdrop-blur-xl fade-in slide-in-from-bottom-1 duration-200"
         >
           {!current && picked && fetching ? (
             <ThreadLoading onBack={() => setPicked(null)} onClose={fold} />

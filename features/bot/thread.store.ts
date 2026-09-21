@@ -372,32 +372,6 @@ export function useRingingThreads(): string[] {
   );
 }
 
-/**
- * Whether a thread stands open in the room. The write line reads it to step aside — two
- * composers cannot share the foot of the screen. The call itself never moves for the room.
- */
-let roomIsOpen = false;
-const roomListeners = new Set<() => void>();
-
-export const roomOpen = {
-  set(open: boolean) {
-    if (open === roomIsOpen) return;
-    roomIsOpen = open;
-    for (const listener of roomListeners) listener();
-  },
-};
-
-export function useRoomOpen(): boolean {
-  return useSyncExternalStore(
-    (listener) => {
-      roomListeners.add(listener);
-      return () => roomListeners.delete(listener);
-    },
-    () => roomIsOpen,
-    () => false,
-  );
-}
-
 const writes = new Set<() => void>();
 let writeLineUp = false;
 const writeLineListeners = new Set<() => void>();

@@ -10,7 +10,7 @@ import {
 } from "react";
 import { Letters } from "@/components/ui/letters";
 import type { CallMessage } from "@/features/thursday/thursday.schema";
-import { capturesKeys } from "@/hooks/use-hotkey";
+import { windowKey } from "@/hooks/use-hotkey";
 import { cn } from "@/lib/utils";
 
 /**
@@ -59,10 +59,9 @@ export function useTurnFocus(turns: Turn[], enabled: boolean) {
     if (!enabled) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "ArrowDown") return;
-      if (event.defaultPrevented || event.altKey || event.ctrlKey) return;
-      if (event.metaKey || event.shiftKey || capturesKeys(event.target)) return;
-      if ((event.target as HTMLElement | null)?.closest?.('[role="dialog"]'))
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
         return;
+      if (!windowKey(event)) return;
       event.preventDefault();
       setPinned(NOW);
     };

@@ -2,6 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 
+/**
+ * The keys the window owns: the combo that places a call, the plain keys a screen
+ * claims, and Esc. Nothing here reaches a dialog — Base UI dismisses one on the
+ * document and stops the event there, so it never arrives at the window.
+ */
+
 const HOLD = ["ctrl", "alt", "meta"] as const;
 
 const IS_MODIFIER = /^(Control|Alt|Shift|Meta|OS)/;
@@ -20,6 +26,54 @@ export const capturesKeys = (target: EventTarget | null) => {
       node.closest?.("[data-hotkey-capture]"),
   );
 };
+
+/** Mid-composition the keys belong to the character being made, not to the window. */
+const composing = (event: KeyboardEvent) =>
+  event.isComposing || event.keyCode === 229;
+
+/**
+ * Whether a plain key (no modifier) is the window's to take: not typed into a field,
+ * not inside a dialog a screen opened over everything, not already answered.
+ */
+export const windowKey = (event: KeyboardEvent) =>
+  !event.defaultPrevented &&
+  !composing(event) &&
+  !capturesKeys(event.target) &&
+  !(event.target as HTMLElement | null)?.closest?.('[role="dialog"]');
+
+/**
+ * Esc goes to the last layer that opened and no further. One listener owns the key
+ * for the whole window, so layers never race over which effect registered first —
+ * the ringing call, the write line and the room each get their turn in the order
+ * they appeared. A field that wants Esc for itself handles it and calls
+ * `preventDefault`.
+ */
+const layers: { current: () => void }[] = [];
+
+const onEscapeKey = (event: KeyboardEvent) => {
+  if (event.key !== "Escape" || event.defaultPrevented) return;
+  // Esc during composition drops the character being made, not the layer around it
+  if (composing(event)) return;
+  const top = layers.at(-1);
+  if (!top) return;
+  event.preventDefault();
+  top.current();
+};
+
+export function useEscape(open: boolean, onEscape: () => void) {
+  const latest = useRef(onEscape);
+  latest.current = onEscape;
+
+  useEffect(() => {
+    if (!open) return;
+    layers.push(latest);
+    if (layers.length === 1) window.addEventListener("keydown", onEscapeKey);
+    return () => {
+      layers.splice(layers.indexOf(latest), 1);
+      if (!layers.length) window.removeEventListener("keydown", onEscapeKey);
+    };
+  }, [open]);
+}
 
 export function comboOf(event: {
   code: string;

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CALL_BACK } from "@/config";
 import type { Thread } from "@/features/bot/bot.schema";
 import { ringingThreads } from "@/features/bot/thread.store";
+import { useEscape } from "@/hooks/use-hotkey";
 import { toDate } from "@/lib/date-like";
 import { createRing } from "@/lib/live/ring";
 import type { CallBack } from "./thursday.schema";
@@ -116,24 +117,14 @@ export function useCallRing({
     setRangOutAt(null);
   }, []);
 
+  // One Esc does one thing: a line or a room already up keeps its own, and this
+  // takes the next (use-hotkey useEscape).
+  useEscape(isRinging, decline);
   useEffect(() => {
-    if (!isRinging) return;
-    const out =
-      rangOutAt === null
-        ? setTimeout(() => setRangOutAt(Date.now()), CALL_BACK.ringMs)
-        : null;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      // One Esc does one thing: the write line, when it is up too, takes the next
-      event.preventDefault();
-      decline();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      if (out) clearTimeout(out);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [isRinging, rangOutAt, decline]);
+    if (!isRinging || rangOutAt !== null) return;
+    const out = setTimeout(() => setRangOutAt(Date.now()), CALL_BACK.ringMs);
+    return () => clearTimeout(out);
+  }, [isRinging, rangOutAt]);
   // It rings out loud for as long as the screen rings: a call nobody hears is a notice
   useEffect(() => {
     if (!isRinging || rangOutAt !== null) return;

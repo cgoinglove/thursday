@@ -12,6 +12,15 @@ paths:
 - Domain-agnostic components are shadcn (`components/ui/`). Check there before writing a new one.
 - Markdown renders through `components/ui/markdown.tsx` (wraps streamdown).
 - Confirmations and prompts: `notify.confirm` / `notify.prompt`. Destructive actions confirm first.
+- **Esc goes to the last thing that opened, and one Esc does one thing** (`useEscape`,
+  `hooks/use-hotkey`). One window listener holds the key for every layer the app draws itself —
+  the ringing call, the write line, the room — so which effect registered first never decides
+  who gets it. A dialog keeps its own: Base UI dismisses one on the document and stops the
+  event there, so it never reaches the window. A field that wants the key handles it and calls
+  `preventDefault`; mid-composition it belongs to the character being made and no layer takes
+  it. A layer that opens in steps walks back the same way its own buttons do — a thread to the
+  list, the list folded. A plain key a screen claims (`/`, `↓`) asks `windowKey` rather than
+  repeating the guard at each call site.
 - Notifications: `toast.add`, only for things that happen off-screen. Skip it when the result is
   visible.
 - Waiting is always a loader: buttons swap their icon for a Loader, lists use `Skeleton`. Never dots,
@@ -20,8 +29,8 @@ paths:
   Only what is not words — a dot, an icon, a bar, a `Skeleton` — pulses. It takes its colours from the theme —
   `tone="waiting"`, never a colour — and truncates in its own box, not a parent's.
 - **Colour is picked by meaning, and the theme picks only which step of it.** Every colour in the
-  app comes off the ladder or one of the three hues in `app/globals.css`; nothing names a raw value
-  at a call site. A floor is a floor: 4.5:1 for text, 3:1 for a shape or text at 24px and up, and a
+  app comes off the ladder, one of the three hues, or the effort steps in `app/globals.css`;
+  nothing names a raw value at a call site. A floor is a floor: 4.5:1 for text, 3:1 for a shape or text at 24px and up, and a
   colour is measured before it goes in.
 - **Two status colors only: the brand blue and one warm.** `--destructive` is what failed or is
   about to be destroyed — a red-orange rather than a red, since beside this blue a true red reads
@@ -151,7 +160,8 @@ paths:
   user — a question, a stop — and nothing else: a finished job's result is the left corner's
   card alone, so one notice never shows twice (the user's pick); the bot's own face turns a
   somersault, which is the pill saying it without a second notice. While the write line is up the
-  card does not grow — the line stands there — and the pill's own words say what waits.
+  card does not grow — one composer and one notice at the foot of the screen, not both — and the
+  pill's own words say what waits.
   The open list keeps the pill's row at its foot, faces without step words, and a moment shows
   there instead of in a bubble; only an open thread hides it. The row holds `CREW_MAX` faces and
   says nothing until it is full; past that its tail is a "+" and no number, since a count of
@@ -178,9 +188,16 @@ paths:
   (`given-files` is the one hook and the one row of chips), and a drop that lands on the room
   is the open thread's rather than the line's. An open thread lies over the right of the call
   and moves none of it — her face and the captions are where they were when it closes (the
-  user's pick); only the line steps aside (`roomOpen`), since two composers cannot share the
-  foot of the screen. The room's list is a short card in the corner. What the line sends to
-  Thursday is a call in writing (`.claude/rules/call.md`).
+  user's pick). The room's list is a short card in the corner. What the line sends to Thursday
+  is a call in writing (`.claude/rules/call.md`).
+- **The foot of the screen is one column, and the line is its last row** (`thursday` `CallFoot`):
+  the finished cards and the room sit in a row above it — the cards keep their width and the
+  room takes the rest, so the pill grows leftward into empty screen and stops before them — and
+  a line that comes up pushes both corners up by exactly its own height. Nothing at the foot is
+  kept clear of anything else by a width, a breakpoint or a measured value, which is why a
+  pill of any length, a room of any height and a line holding files cannot land on one another
+  (the user's pick). Anything new at the foot joins that column or that row; it does not
+  position itself against the window.
 
 # Taste
 

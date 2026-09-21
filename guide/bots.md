@@ -44,6 +44,11 @@ waiting on an answer is never cleared, however old, and what the job made stays 
 **Files › Finished** either way. A picture in the conversation is drawn from the file it was
 taken from, so one a job only made along the way goes when that file does; what it finished stays.
 
+Pressing the pill opens that corner as a list; pressing a row opens the thread. **Esc** walks
+back the way the two buttons at the top of it do — out of a thread to the list, out of the list
+to the pill — and so does the ✕. Whatever else is on the screen, one **Esc** closes one thing,
+the last one opened: a dialog first, then the write line, then the room.
+
 A long thread summarizes itself when what the bot has to re-read each step fills up: the
 small bar at the top right of an open thread shows how full, beside the size of its last
 step. Pressing the bar has the bot summarize at its next step instead of waiting — worth it

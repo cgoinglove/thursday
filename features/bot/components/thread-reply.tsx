@@ -623,14 +623,17 @@ function DraftComposer({
           void take(pasted);
         }}
         onKeyDown={(event) => {
-          if (event.key === "Escape" && onEscape) {
+          // During IME composition the keys belong to the character being made: Enter
+          // confirms it and Esc drops it (keyCode 229 for browsers without isComposing).
+          const composing =
+            event.nativeEvent.isComposing || event.keyCode === 229;
+          if (event.key === "Escape" && onEscape && !composing) {
+            // taken here, so the same key does not also close the room around it
+            event.preventDefault();
             onEscape();
             return;
           }
-          if (event.key !== "Enter" || event.shiftKey) return;
-          // During IME composition Enter confirms the character, not the message
-          // (keyCode 229 for browsers without isComposing).
-          if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+          if (event.key !== "Enter" || event.shiftKey || composing) return;
           event.preventDefault();
           void submit();
         }}

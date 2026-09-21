@@ -247,8 +247,9 @@ function Notice() {
 
   return (
     // Newest at the foot, nearest the hand; reversed so a full corner scrolls from there.
-    // The padding is room for the cards' rings and shadows, which a scroll box would clip.
-    <div className="absolute bottom-3 left-3 z-10 flex max-h-[calc(100%-1.5rem)] w-82 max-w-[calc(100vw-1.5rem)] flex-col-reverse gap-2 overflow-y-auto p-2 scrollbar-none">
+    // The padding is room for the cards' rings and shadows, which a scroll box would clip,
+    // and the negative margin puts their edge back on the foot's own rail.
+    <div className="pointer-events-auto -m-2 flex max-h-full w-82 max-w-full shrink-0 flex-col-reverse gap-2 overflow-y-auto p-2 scrollbar-none">
       {rows.map((row) => (
         <FinishedCard
           key={row.threadId}

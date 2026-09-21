@@ -29,7 +29,6 @@ import {
   type BotRef,
   roomOpens,
   screenActs,
-  useRoomOpen,
   writeLine,
 } from "@/features/bot/thread.store";
 import { openSettings } from "@/features/settings/settings.store";
@@ -41,7 +40,7 @@ import {
   roomDrop,
   useGivenFiles,
 } from "@/features/workspace/components/given-files";
-import { capturesKeys } from "@/hooks/use-hotkey";
+import { useEscape, windowKey } from "@/hooks/use-hotkey";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn } from "@/lib/utils";
@@ -125,7 +124,6 @@ export function WriteLine({
   });
   const field = useRef<HTMLTextAreaElement>(null);
   const picker = useRef<HTMLInputElement>(null);
-  const aside = useRoomOpen();
 
   useEffect(() => {
     try {
@@ -169,9 +167,7 @@ export function WriteLine({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey)
         return;
-      if (event.defaultPrevented || capturesKeys(event.target)) return;
-      if ((event.target as HTMLElement | null)?.closest?.('[role="dialog"]'))
-        return;
+      if (!windowKey(event)) return;
       event.preventDefault();
       show();
     };
@@ -277,9 +273,6 @@ export function WriteLine({
     if (calling) written?.end();
     setOpen(false);
   };
-  const leaveRef = useRef(leave);
-  leaveRef.current = leave;
-
   // A spoken call that picks up has the screen: a line left open with nothing in it steps
   // aside, and one holding words or files stays, since those are the user's
   const wasOnCall = useRef(onCall);
@@ -293,19 +286,8 @@ export function WriteLine({
   const up = open || dragging || calling;
   // Esc is the line's while it is up, not the field's: the field is disabled while words are
   // on their way and the browser drops its focus then, which is also when a call that broke
-  // has to be left. A dialog over the screen keeps its own Esc
-  useEffect(() => {
-    if (!up) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      if ((event.target as HTMLElement | null)?.closest?.('[role="dialog"]'))
-        return;
-      event.preventDefault();
-      leaveRef.current();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [up]);
+  // has to be left.
+  useEscape(up, leave);
   // and the focus comes back once they have gone, or failed to
   const sending = starting || reaching;
   useEffect(() => {
@@ -323,20 +305,15 @@ export function WriteLine({
       {dragging && (
         <div
           aria-hidden
-          className="pointer-events-none fixed inset-0 z-20 bg-background/60"
+          // over everything the foot holds: it is drawn after the corners and before the line
+          className="pointer-events-none fixed inset-0 bg-background/60"
         >
           <div className="absolute inset-3 rounded-3xl border-[1.5px] border-dashed border-foreground/30" />
         </div>
       )}
-      <div
-        className={cn(
-          // under this width the pill's own row reaches the line: the line stands above it
-          "pointer-events-none fixed inset-x-0 bottom-7 z-30 flex justify-center px-5 transition-[padding] duration-500 ease-out max-[1180px]:bottom-18",
-          // an open thread has a composer of its own at the foot of the room (40rem and its
-          // margin): the line steps aside for it, the one thing on the screen that does
-          aside && "min-[1180px]:pr-[41.25rem]",
-        )}
-      >
+      {/* The foot lays this under the corners, so the line never has to step aside for
+          them and they never sit on it (thursday CallFoot). */}
+      <div className="flex justify-center">
         <div className="pointer-events-auto flex w-160 max-w-full animate-in flex-col gap-2 fade-in slide-in-from-bottom-2 duration-200">
           <div className="flex flex-col gap-2 rounded-[26px] bg-background p-2 shadow-[0_22px_44px_-20px_rgb(0_0_0/0.22)] ring-1 ring-border">
             {(given.files.length > 0 || dragging) && (
@@ -430,15 +407,17 @@ export function WriteLine({
                   event.preventDefault();
                   take(pasted);
                 }}
-                // During IME composition Enter confirms the character, not the message
-                // (keyCode 229 for browsers without isComposing).
+                // During IME composition the keys belong to the character being made:
+                // Enter confirms it and Esc drops it (keyCode 229 for browsers without
+                // isComposing).
                 onKeyDown={(event) => {
-                  if (event.key === "Escape") {
+                  const composing =
+                    event.nativeEvent.isComposing || event.keyCode === 229;
+                  if (event.key === "Escape" && !composing) {
                     event.preventDefault();
                     return leave();
                   }
-                  if (event.key !== "Enter" || event.shiftKey) return;
-                  if (event.nativeEvent.isComposing || event.keyCode === 229)
+                  if (event.key !== "Enter" || event.shiftKey || composing)
                     return;
                   event.preventDefault();
                   if (mention) {

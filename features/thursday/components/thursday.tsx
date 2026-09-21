@@ -362,13 +362,37 @@ function CallScreen({
         </div>
       </div>
 
-      {/* Documents a finished thread produced; opens itself on the artifact event */}
-      <ArtifactView />
+      <CallFoot written={written} onCall={live}>
+        {/* Documents a finished thread produced; opens itself on the artifact event */}
+        <ArtifactView />
+        <BotRoom />
+      </CallFoot>
+    </div>
+  );
+}
 
-      <BotRoom />
-
+/**
+ * The foot of the call screen: the two corners in a row, and the write line under them.
+ * A column, so a line that comes up pushes the corners up by exactly its own height —
+ * the corners step aside for the line and nothing is ever measured, guessed at a
+ * breakpoint, or drawn over. Her face and the captions above are untouched by any of it.
+ */
+function CallFoot({
+  children,
+  written,
+  onCall,
+}: {
+  children: ReactNode;
+  written: WrittenCall | null;
+  onCall: boolean;
+}) {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-10 flex flex-col gap-2 p-5">
+      {/* The finished cards keep their width; the room takes the rest, so the pill grows
+          leftward into empty screen and stops before the cards rather than over them. */}
+      <div className="flex min-h-0 flex-1 items-end gap-4">{children}</div>
       {/* Whatever is typed or handed over instead of said */}
-      <WriteLine written={written} onCall={live} />
+      <WriteLine written={written} onCall={onCall} />
     </div>
   );
 }
