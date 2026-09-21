@@ -212,60 +212,6 @@ export async function readCallConversation(
   };
 }
 
-/** How many turns of the last call a new call is told (ai/prompts/call-last): the last two exchanges, since the very last is often only a goodbye. */
-const LAST_CALL_TURNS = 4;
-
-/**
- * The latest call that has ended and had words in it: when it started, when its last turn
- * was said (`endedAt` is boot time for a call the sweep closed), what kind it was, and its
- * last spoken turns in order. Null before there is one.
- */
-export async function findLastCall(): Promise<{
-  startedAt: Date;
-  until: Date;
-  model: string;
-  turns: { role: "user" | "assistant"; text: string }[];
-} | null> {
-  const spoken = inArray(callMessageTable.role, ["user", "assistant"]);
-  const [call] = await database
-    .select({
-      id: callTable.id,
-      startedAt: callTable.startedAt,
-      model: callTable.model,
-    })
-    .from(callTable)
-    .innerJoin(callMessageTable, eq(callMessageTable.callId, callTable.id))
-    .where(and(isNotNull(callTable.endedAt), spoken))
-    .groupBy(callTable.id)
-    .orderBy(desc(callTable.startedAt))
-    .limit(1);
-  if (!call) return null;
-  const rows = await database
-    .select({
-      role: callMessageTable.role,
-      text: callMessageTable.text,
-      at: callMessageTable.at,
-    })
-    .from(callMessageTable)
-    .where(and(eq(callMessageTable.callId, call.id), spoken))
-    .orderBy(desc(callMessageTable.seq))
-    .limit(LAST_CALL_TURNS);
-  const turns = rows
-    .reverse()
-    .flatMap((row) =>
-      row.role === "tool" || !row.text.trim()
-        ? []
-        : [{ role: row.role, text: row.text }],
-    );
-  if (!turns.length) return null;
-  return {
-    startedAt: call.startedAt,
-    until: rows[0]?.at ?? call.startedAt,
-    model: call.model,
-    turns,
-  };
-}
-
 /** Whether a call was ever placed here: until one is, the first-run intro shows (app/page). */
 export async function hasAnyCall() {
   const one = await database

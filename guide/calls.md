@@ -10,9 +10,9 @@ Three ways in, and any of them also answers a call she placed:
 - Press the shortcut, `alt+shift+T` unless they changed it — once it is switched on: it
   is off to begin with too, so no key is held over every page until it is asked for.
 
-She speaks first. From the second call on she is told, as the call opens, when the last one
-was and how it ended, so she can greet as someone who remembers it; a call she places herself
-opens on why she called instead. She speaks the language the user speaks and switches when they
+She speaks first, with a short greeting. She knows what was said on the last few calls and
+when, and picks one up when the user does; every call is a new one, so she does not open on
+old work or on how the last call ended. A call she places herself opens on why she called. She speaks the language the user speaks and switches when they
 do; the browser's language plays no part, so the very first greeting is in whatever she picks.
 
 The wake phrase and the shortcut are in **Settings › Thursday › Starting a call**, where
@@ -28,7 +28,7 @@ shows with them, and the line stays as the way to write back. She has the same m
 tools and the same bots as on a spoken call; there is no voice and no microphone, and nothing
 is billed by the minute. Files go with the words the way they do to a bot (`bots.md`). Work
 she handed over comes back in writing too: once nothing has been written for a few seconds
-she says what a bot finished or asks, and nothing rings while the written call is on. The
+she says what a bot asks or finished during it, and nothing rings while the written call is on. The
 chip at the left of the line still picks a bot, for one message straight to it; after that
 the line is hers again, and **Esc** with a bot picked goes back to her.
 
@@ -110,8 +110,10 @@ the app was installed.
 
 ## When work has something to say
 
-While a call is open, a question or a result from a bot comes into the conversation by
-itself, in a quiet moment, and she says it.
+While a call is open, a question from a bot, and a result or a progress line that comes in
+during the call, reach the conversation by themselves in a quiet moment, and she says them.
+Work that had already finished before the call opened is not read out: it is on the screen —
+the card, the pill, the thread — and she looks it up when asked.
 
 With no call open, a finished job lands as a card in the bottom left corner, and if Thursday
 is not the window in front, as a notification that brings her forward when pressed (the

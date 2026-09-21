@@ -19,6 +19,20 @@ import type { ActivityLine } from "./use-thursday";
  */
 export const toldWork = new Set<string>();
 
+/**
+ * What already stood when a call opened, by item key, and stays on the screen: a call is
+ * about now, so an ending or a progress line from before it is never put to her — the
+ * notification and the pill hold it, and she looks when asked. A question is the
+ * exception: its thread is held up until somebody answers. A call the page placed is
+ * about exactly that work, and holds nothing back.
+ */
+export const stoodBefore = (threads: Thread[]): Set<string> =>
+  new Set(
+    openWork(threads)
+      .filter((item) => item.kind !== "question")
+      .map((item) => item.key),
+  );
+
 /** One piece of background work waiting on the user, as the relay clock puts it to her. */
 export type OpenWork = {
   key: string;

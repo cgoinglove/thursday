@@ -17,7 +17,7 @@ import { unwrapResult } from "@/lib/protocol/result";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { plainText } from "@/lib/utils";
-import { openWork, toldWork } from "./open-work";
+import { openWork, stoodBefore, toldWork } from "./open-work";
 import { endCallAction, openTextCallAction } from "./thursday.action";
 import type {
   CallMessage,
@@ -88,6 +88,8 @@ export function useTextCall(): TextCall {
   );
   const held = useRef(line);
   held.current = line;
+  /** What already stood when this call opened, and so is not put to her (open-work). */
+  const stood = useRef(new Set<string>());
   const [open] = useServerAction(openTextCallAction);
   const {
     messages,
@@ -128,6 +130,7 @@ export function useTextCall(): TextCall {
         // the hook has already said why when this throws
         to = { ...(await open(settings, runsOn())), at: Date.now() };
         held.current = to;
+        stood.current = stoodBefore(inbox.current ?? []);
         setLine(to);
       }
       clearError();
@@ -207,7 +210,7 @@ export function useTextCall(): TextCall {
       if (!to || busy.current || relaying.current || !inbox.current) return;
       if (Date.now() - stirred.current < CALL_RELAY.quietMs) return;
       const open = openWork(inbox.current).filter(
-        (item) => !toldWork.has(item.key),
+        (item) => !toldWork.has(item.key) && !stood.current.has(item.key),
       );
       const first = open[0];
       if (!first) return;

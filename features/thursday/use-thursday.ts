@@ -37,7 +37,7 @@ import { errorToString } from "@/lib/utils";
 import { FACE_WORD_MAX, undrawable } from "./ascii.const";
 import { callSignal, useCallHeld } from "./call-signal";
 import { finished, goodbye, greeting } from "./face-words";
-import { openWork, toldWork } from "./open-work";
+import { openWork, stoodBefore, toldWork } from "./open-work";
 import {
   endCallAction,
   openCallAction,
@@ -205,6 +205,8 @@ export function useThursday(
    * next call puts them in again; what she voiced stays out.
    */
   const unvoiced = useRef(new Set<string>());
+  /** What already stood when this call opened, and so is not put to her (open-work). */
+  const stood = useRef(new Set<string>());
   /** The keys of the update on the line now, carried once her voice starts and stops on it. */
   const onLine = useRef<string[]>([]);
   /** That update's relay rows, accepted once she has voiced it. */
@@ -402,7 +404,7 @@ export function useThursday(
     rang.current = false;
     if (!rung && Date.now() - heard.current < CALL_RELAY.quietMs) return;
     const open = openWork(threads).filter(
-      (item) => !told.current.has(item.key),
+      (item) => !told.current.has(item.key) && !stood.current.has(item.key),
     );
     const first = open[0];
     if (!first) return;
@@ -733,7 +735,6 @@ export function useThursday(
       /** Filled in by the handshake, read by callbacks that only run after it. */
       const line = {
         callId: "",
-        last: null as string | null,
         opening: null as string | null,
         standing: null as string | null,
       };
@@ -803,7 +804,6 @@ export function useThursday(
           }
           callId.current = handshake.callId;
           line.callId = handshake.callId;
-          line.last = handshake.last;
           line.opening = handshake.opening;
           line.standing = handshake.standing;
           return handshake.sdp;
@@ -1008,23 +1008,22 @@ export function useThursday(
       session.current = live;
       opening.current = false;
       rang.current = calledBack;
+      stood.current = calledBack
+        ? new Set()
+        : stoodBefore(latest.current ?? []);
       // Context is not gated: held lines first, then each as it comes
       outbox.open((text) => void live.append("thinking", text));
       // The quiet clock starts with the line, so nothing is put to her the moment it opens
       heard.current = Date.now();
 
-      // The call before this one, ahead of the greeting in the same queue, so her first
-      // words can pick it up (ai/prompts/call-last)
-      if (line.last) void live.append("thinking", line.last);
       if (line.opening) {
         // The greeting goes first; open work waits until she has said it
         readAloud();
         void live.append("instructions", line.opening).then(unless);
       }
-      // What is already open, behind the greeting in the same queue: a quiet fact,
-      // so it is never spoken, and in before their first request rather than after
-      // it, which is when the answer needs it (ai/prompts/call-standing)
-      if (line.standing) void live.append("thinking", line.standing);
+      // What is already open is the backend's to know and nobody's to hear: it waits there
+      // for the first turn the voice hands over (ai/prompts/call-standing)
+      if (line.standing) live.brief(line.standing);
 
       wearFace("listening");
       setSince(Date.now());

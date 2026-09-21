@@ -25,7 +25,7 @@ paths:
   anything on that list, a change to work asked for, whatever they say about themselves) and when
   not (greetings, small talk, only stopping her voice, a brief clarification). Live picks what to
   hand over from that list: without it, hang-ups and stops were answered and never handed over.
-  How work is handed over, tidying memory and earlier calls are the backend's; it merges a fact
+  How work is handed over, the threads and tidying memory are the backend's; it merges a fact
   that repeats or changes one already kept, and it asks the user whether work carries an earlier
   thread on or starts a new one only when it could be either. A relay carries facts — who, which thread —
   never instructions, since the backend reads it too.
@@ -41,7 +41,17 @@ paths:
   work (unseen endings and stops, unanswered questions) goes in when neither side has been
   transcribed for `CALL_RELAY.quietMs` (on a call the page placed for it, once she has said so),
   each item once a call and, once she has voiced it, not on a
-  later call while the page is open (a job that asks or ends again is a new item). Updates go in by
+  later call while the page is open (a job that asks or ends again is a new item).
+  **A call is about now, and the voice repeats whatever it is given.** What was said on the
+  last calls is reading in the voice's prompt, under a heading that says they are over — never
+  turns in the conversation, where the hang-up a call ended on was answered as if just said,
+  and never a line ahead of the greeting, which opened 15 calls in 15 on old work and 7 on
+  "we were cut off". The threads open as a call starts are the backend's alone: queued with
+  `response.item.create` (`brief`), which starts no turn and which the voice never reads, so a
+  request that carries earlier work on still reaches its thread. And what already stood when
+  the call opened — an ending, a progress line — stays on the screen (`stoodBefore`): only a
+  question, which holds its thread up, is put to her from before the call, and a call the
+  page placed holds nothing back. Updates go in by
   kind — trusted behaviour as
   `session.instructions.append`, bot output as `commentary`, never the reverse — nothing goes in
   while the backend holds the turn, a bot's message goes in cut to what can be said aloud

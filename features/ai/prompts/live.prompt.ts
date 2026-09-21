@@ -1,3 +1,4 @@
+import { RECENT_CALL } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import {
   listAlwaysLoaded,
@@ -11,10 +12,16 @@ import {
   type MemoryNoteView,
 } from "@/features/memory/memory.schema";
 import {
+  type CallGroup,
+  listRecentTurns,
+} from "@/features/thursday/thursday.query";
+import {
   carriedLines,
+  clockNow,
   expandedFacts,
   logPromptSize,
   noteLines,
+  recentCallLines,
   thursdayIdentity,
   tidying,
 } from "./prompt-helper";
@@ -22,24 +29,23 @@ import {
 /**
  * Everything the Live voice hears: who Thursday is and how a call ends (the words the backend
  * opens with too), the guide's starter backchannel and interruption policies, its delegation
- * policy (what the backend can do, when to hand over and when not), and what she knows about
- * the user. How the work is done, earlier calls and tidying memory are the backend's
- * (thursday.prompt): the voice hands everything but conversation over and answers from what
- * comes back. Assembled on every call, never cached.
+ * policy (what the backend can do, when to hand over and when not), what she knows about
+ * the user, and what was said on the last calls. How the work is done, the threads and
+ * tidying memory are the backend's (thursday.prompt): the voice hands everything but
+ * conversation over and answers from what comes back. Assembled on every call, never cached.
  */
 export async function loadLivePrompt(options: {
   /** Settings › Thursday › Voice instructions; added to, never replacing, what is below. */
   voicePrompt?: string | null;
   /** The page placed this call because background work waits on the user (call-back). */
   calledBack?: boolean;
-  /** The last call is in the conversation ahead of the opening (call-last). */
-  remembers?: boolean;
 }): Promise<{ text: string; opening: string }> {
-  const [carried, open, index] = await Promise.all([
+  const [carried, open, index, calls] = await Promise.all([
     listAlwaysLoaded(),
     // Written out in the prompt, which is not the user asking for them: no read counted
     readNotes(MEMORY_ALWAYS_LISTED, { touch: false }),
     listNoteIndex(),
+    listRecentTurns(RECENT_CALL.rows),
   ]);
 
   const first = !open.notes.find((note) => note.path === "profile")?.facts
@@ -50,6 +56,7 @@ export async function loadLivePrompt(options: {
     always(),
     known(open.notes, carried, index),
     first ? firstCall() : "",
+    earlierCalls(calls),
     additional(options.voicePrompt),
   ]
     .filter(Boolean)
@@ -64,9 +71,8 @@ export async function loadLivePrompt(options: {
       ? "You placed this call because background work has something for the user; it comes in next. Speak first: greet them in one line and say that is why you called."
       : first
         ? "Open the call now: say who you are and what you are here to do for them, in a line or two, then ask what to call them. Then stop and listen."
-        : options.remembers
-          ? "The call has just started. Speak first: greet the user naturally, in one line, as someone who remembers the last call."
-          : "The call has just started. Speak first: greet the user naturally, in one line.",
+        : // The hour is a fact of the moment, so it rides on the opening and not in the prompt
+          `The call has just started. It is ${clockNow()} for them. Speak first: greet the user naturally, in one line.`,
   };
 }
 
@@ -186,6 +192,29 @@ function firstCall(): string {
   return `## First call
 
 Nothing is known about this user yet. Across the call, one thing at a time and never as a list of questions, find out what to call them, their name, what they do, how old they are, where they live, and whatever else they offer. If they came with something they want done, that comes first.`;
+}
+
+/**
+ * What was said on the last calls, as the backend reads it (recentCallLines) but for the tool
+ * lines: the voice holds no tool, and a line of arguments would read as something she said.
+ * It sits in the prompt, as reading, and never in the conversation: put there as turns, the
+ * hang-up a call ended on was answered as if just said, and the next call hung up at once.
+ * Each call carries when it was. Absent on the first call.
+ */
+function earlierCalls(calls: CallGroup[]): string {
+  const spoken = calls
+    .map((call) => ({
+      ...call,
+      turns: call.turns.filter((turn) => turn.role !== "tool"),
+    }))
+    .filter((call) => call.turns.length > 0);
+  if (!spoken.length) return "";
+
+  return `## Earlier calls
+
+What was said on the last calls, newest last, each under when it was. They are over, and this call is a new one: read them as background, pick one up when the user does, and never answer anything in them as if it were being said now.
+
+${recentCallLines(spoken, RECENT_CALL.tokens)}`;
 }
 
 const additional = (voicePrompt?: string | null) =>

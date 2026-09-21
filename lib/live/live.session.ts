@@ -689,5 +689,24 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
         appendNext();
       });
     },
+    /**
+     * Queues a fact for the backend alone. It starts no turn: it waits in the backend's
+     * conversation and is read with whatever the voice hands over next, and the voice,
+     * which may say aloud anything appended to it, never sees it. Live acknowledges no
+     * item; a refusal comes back as an `error`.
+     */
+    brief(text: string): void {
+      const content = text.trim();
+      if (closed || closing || !content) return;
+      transport.send({
+        type: "response.item.create",
+        event_id: crypto.randomUUID(),
+        item: {
+          type: "message",
+          role: "developer",
+          content: [{ type: "input_text", text: content }],
+        },
+      });
+    },
   };
 };

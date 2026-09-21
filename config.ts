@@ -36,6 +36,8 @@ export const LIVE_CALL = {
  * while the page stays open. A job that asks or ends again is a new item.
  * - `quietMs`  how long neither side's words have been transcribed before open work goes
  *   in. Shorter talks over the user; longer leaves results waiting through pauses.
+ *   @PENDING whether an update should go in the moment it happens, with no wait for
+ *   quiet, is being tried on real calls: set this to 0 to hear it.
  * - `perTurn`  how many items of one kind go in at once. More puts several updates in
  *   one breath; fewer spreads them over more quiet moments.
  * - `readMs`  how long an update she never voices holds back the next one. Shorter can

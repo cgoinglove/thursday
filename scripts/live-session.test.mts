@@ -577,6 +577,28 @@ test("updates go out one at a time by kind, settle on their own acknowledgement,
   assert.equal(sent.length, 2);
 });
 
+test("a fact for the backend alone goes as an item of its own: no append the voice would read, and no turn started", async () => {
+  const { session } = await connect();
+  session.brief(
+    '  [The threads as this call opened.]\n- "Flights" (t1) — Scout — done  ',
+  );
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].type, "response.item.create");
+  assert.deepEqual(sent[0].item, {
+    type: "message",
+    role: "developer",
+    content: [
+      {
+        type: "input_text",
+        text: '[The threads as this call opened.]\n- "Flights" (t1) — Scout — done',
+      },
+    ],
+  });
+  // Nothing to say is nothing sent
+  session.brief("   ");
+  assert.equal(sent.length, 1);
+});
+
 test("a long update goes chunk by chunk, and a rejected chunk drops the rest of it", async () => {
   const { session, warnings } = await connect();
   const long = "word ".repeat(200);
@@ -860,7 +882,7 @@ test("stored settings keep OpenAI choices and the shared instruction, drop a Gro
   assert.deepEqual(migrateLiveSettings(null), LIVE_DEFAULTS);
 });
 
-test("both call prompts open as one Thursday: the voice gets the guide's delegation policy and memory and no earlier calls, the backend carries work on in threads, and every call has an opening", async () => {
+test("both call prompts open as one Thursday: the voice gets the guide's delegation policy, memory and the last calls as reading, the backend carries work on in threads, and every call has an opening", async () => {
   let profileFacts = 200;
   let samFacts = 2;
   const botMock = mock.module("../features/bot/bot.query.ts", {
@@ -968,10 +990,15 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     assert.match(on.text, /or only want you to stop talking/);
     assert.match(on.text, /- people\/sam — Their brother \(2\) "Sam"/);
     assert.match(on.text, /What is in these notes, the backend recalls\./);
-    // The roster, threads and earlier calls are the backend's to read
-    assert.equal(on.text.includes("Scout"), false);
+    // What was said on earlier calls is hers to read, as reading under the past's own
+    // heading: the spoken lines, each call under when it was, and never a tool line
+    assert.match(
+      on.text,
+      /\n\n## Earlier calls\n\nWhat was said on the last calls, newest last, each under when it was\. They are over, and this call is a new one: [^\n]+\n\n### [^\n]+\nuser: Book the dentist\.\nyou: Scout has it\.\n\n## Additional instructions\n/,
+    );
+    // The roster and the threads stay the backend's
     assert.equal(
-      /thread|\bseen\b|## Earlier calls|dentist|works beside you/.test(on.text),
+      /thread|you → |\bseen\b|works beside you/.test(on.text),
       false,
     );
     assert.equal("input" in on, false);

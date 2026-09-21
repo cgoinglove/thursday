@@ -12,7 +12,7 @@ code when changing session events, settings, prompts, or persistence.
 
 | Runtime | Context and instructions | Work |
 | --- | --- | --- |
-| Live voice | `live.prompt`: who Thursday is; under `## Always` the ending rule, backchannel, interruption and a short delegation policy; profile and preferences with the note listing | Listen, speak, backchannel, handle interruptions, hand everything but conversation to the backend |
+| Live voice | `live.prompt`: who Thursday is; under `## Always` the ending rule, backchannel, interruption and a short delegation policy; profile and preferences with the note listing; what was said on the last calls, as reading | Listen, speak, backchannel, handle interruptions, hand everything but conversation to the backend |
 | Responses backend | `thursday.prompt`: who Thursday is, memory with ids, bot roster, threads and what bots can reach, this computer, what to return, earlier calls with their jobs; tool schemas | Recall, update and tidy memory, run short commands and web searches, carry work on in its thread or open a new one, route thread messages and cancellations, delegate long work |
 | Background bots | `bot.prompt` and the stored participant transcript | Shell, browser, MCP, skills, and work that outlives a call |
 | Application | Authoritative database and tool implementations | Validate actions, retain results, enforce thread limits, render progress, save call history |
@@ -77,13 +77,15 @@ storage.
    settings only; the server reads the key.
 3. On the server, assemble both prompts and the current tool manifest. Create the
    Live session with the fixed voice model, the chosen voice, voice instructions and
-   `delegation.responses` backend settings. No `input`: earlier calls are the backend's to read.
+   `delegation.responses` backend settings. No `input`: what was said on the last calls is a
+   chapter of the voice's instructions, marked as over. As turns of the conversation, the
+   hang-up a call ended on was answered as if just said.
    Insert the call row only after the provider accepts, so a refusal leaves no open row.
 4. Apply the SDP answer and wait for `session.started`. Do not send Realtime startup
    configuration, audio commits, or a voice `response.create`.
 5. Send the opening as `session.instructions.append`, so she speaks first: a first call
    (no profile facts) greets the user and asks what to call them, and any other call opens
-   with a short greeting.
+   with a short greeting, told the hour it is for them.
    Updates that arrived while connecting follow once she has voiced the opening.
    For work that changed after the last call ended (a call tells what came up during it),
    the page rings instead of opening a line (call-back): the user answers it like any
@@ -93,11 +95,15 @@ storage.
    she placed it, ahead of every other opening, and the first open work goes in as soon
    as she has voiced that, without waiting for a quiet line: why she called is the first
    thing asked. The opening names no bot text; the work itself follows as commentary.
-6. Behind the opening in the same queue, send what work stands open as the call started —
-   label, id, bot, state — as `session.thinking.append`, so it is never spoken and is in
-   before the first request rather than after it. It is facts, with no tool named, because
-   the voice reads the same conversation. A prompt cannot carry it: a job moves, ends or is
-   started from the screen while they talk, and only the tool reads it as it is now.
+6. Queue what work stands open as the call started — label, id, bot, state — for the backend
+   alone: `response.item.create` with a `developer` message and no `response.create`. It
+   starts no turn and waits in the backend's conversation for the first one the voice hands
+   over, which is when the answer needs it; the voice never reads it, since it may say aloud
+   anything appended to it and holds no tool that takes a thread. Live acknowledges no item:
+   a refusal arrives as an `error`. A prompt cannot carry it: a job moves, ends or is started
+   from the screen while they talk, and only the tool reads it as it is now.
+   What already stood when the call opened is not put to her either, but for questions: an
+   ending or a progress line from before the call stays on the screen.
 
 A hang-up during startup invalidates that attempt, so a connection that finishes
 later is closed rather than taking over the screen. Do not change machine trust,

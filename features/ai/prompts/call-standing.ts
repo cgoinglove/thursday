@@ -5,17 +5,19 @@ import { toDate } from "@/lib/date-like";
 import { clip } from "@/lib/utils";
 
 /**
- * What work stands open as a call opens, put into the conversation once (thursday.action,
- * use-thursday) rather than into a prompt: a prompt is read as what is true for the whole
- * call, and this is true only at the moment it goes in — a job moves, ends or is started
- * from the screen while they talk. It is also what lets a request that carries earlier work
- * further reach that thread instead of opening a second one: the inbox relay carries only
- * what is news (a question, an ending nobody has seen, a progress line), so a job that
+ * What work stands open as a call opens, put into the backend's conversation once
+ * (thursday.action, use-thursday) rather than into a prompt: a prompt is read as what is true
+ * for the whole call, and this is true only at the moment it goes in — a job moves, ends or
+ * is started from the screen while they talk. It is what lets a request that carries earlier
+ * work further reach that thread instead of opening a second one: the inbox relay carries
+ * only what is news (a question, an ending nobody has seen, a progress line), so a job that
  * finished and was told about is invisible without this.
  *
- * Facts only, and no tool name: the voice is in the same conversation and holds no tool
- * that takes a thread. What to do with the list is the backend prompt's (thursday.prompt
- * Background work). Same rows and same order as `thread` `status` with nothing named.
+ * The backend's alone: a spoken call queues it for the backend (`brief`) and a call in
+ * writing heads its messages with it. The voice never reads it — handed a list of threads
+ * it opened every call on them (15 greetings in 15), and it holds no tool that takes one.
+ * Facts only, and no tool name: what to do with the list is the backend prompt's
+ * (thursday.prompt Background work). Same rows and same order as `thread` `status`.
  */
 export async function loadCallStanding(): Promise<string | null> {
   const threads = await listThreadOverview();
