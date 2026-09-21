@@ -49,7 +49,9 @@ Esc still ends it. When an OpenAI key is set and was not what broke, the button 
 words again on that key instead; it never switches by itself, since what a turn costs changes
 with what it runs on. Opening a thread in the
 corner does not end it: the line steps out while the corner is open, her answers keep
-arriving beside her face, and the line is back when the corner folds (`bots.md`). It is kept with
+arriving beside her face, and the line is back when the corner folds (`bots.md`). The corner
+says so across its top while it is open — *Thursday is still on the line* — and **Back to
+her** there folds it in one press. It is kept with
 the other calls, marked *in writing*, and she reads it back on the next call like any other.
 During a spoken call the line writes to bots only — but a file put down then (dropped on the
 window, pasted, or picked with the paperclip) is one she is told about as it lands: its chip

@@ -132,7 +132,15 @@ appears once more than one card is waiting, does: it reads the whole pile at onc
 opening each of them would, which is also what she does when asked on a call to clear what is
 finished. The files also show under
 the bot's words in the thread: pictures as thumbnails, a page or a written report as a small preview
-of itself. Asking her on a call to show a result opens that file on the screen. All of them
+of itself.
+
+A file opens over the app rather than in a new browser window — a report, a picture, a sound,
+a video, a written note alike — so the call is still behind it and **Esc** closes it. The ↗
+button at the top right of that window opens the file in a browser tab, for printing it or
+keeping it open beside something else. Asking her on a call to show a result opens it the same
+way, and that one closes itself after five seconds: the top of the window counts the seconds
+down, and moving the mouse, pressing a key or scrolling anywhere in it stops the count for
+good. Nothing opened by hand is ever on that clock. All of them
 stay under **Settings › Files**, one shelf per bot. Its second tab, **All files**, is the
 whole folder, for looking around rather than for the results.
 

@@ -9,6 +9,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { queryKey } from "@/app/api/query-key";
@@ -36,60 +37,57 @@ import { cn, errorToString, formatBytes } from "@/lib/utils";
 
 /**
  * Renders workspace files; shared by the viewer page (/artifact) and the
- * path-chip dialog. The file decides how it opens: kinds the browser draws or
- * plays itself (html, pdf, image, audio, video) in a new tab, readable text in
- * a dialog, everything else (and anything outside the workspace) in the OS
- * default app.
+ * path-chip dialog. Anything this app can draw opens where the reader already
+ * is — a report over the call is still the call's screen, and a new window is
+ * one the app cannot close again when they ask it to. What leaves for a tab
+ * leaves because they pressed the button that says so; a file the app cannot
+ * draw goes to the OS default app.
  */
-
-/** Kinds the browser renders on its own; they open as a page, never as text. */
-const OWN_PAGE = new Set<FileViewKind>(["frame", "image", "audio", "video"]);
 
 /**
- * Kinds that open where the reader already is. An image is looked at, not read:
- * a new tab for one thumbnail loses the thread it came from, and the images
- * beside it. A page, a sound and a video still get the tab — they want the room.
+ * Kinds the browser fills itself, as an element rather than as text. The dialog
+ * draws these full-bleed and `FilePreview` never fetches them.
  */
-const IN_DIALOG = new Set<FileViewKind>(["image"]);
+const DRAWS_ITSELF = new Set<FileViewKind>([
+  "frame",
+  "image",
+  "audio",
+  "video",
+]);
 
-type FileTarget =
-  | { how: "tab"; path: string; href: string }
-  | { how: "dialog"; path: string }
-  | { how: "os" };
+type FileTarget = { how: "dialog"; path: string } | { how: "os" };
 
 export function fileTarget(raw: string): FileTarget {
   const path = workspaceRelative(raw);
   if (!path) return { how: "os" };
-  const kind = viewKindOf(path);
-  if (IN_DIALOG.has(kind)) return { how: "dialog", path };
-  if (OWN_PAGE.has(kind)) {
-    return { how: "tab", path, href: queryKey.fileView(path) };
-  }
-  return kind === "none" ? { how: "os" } : { how: "dialog", path };
+  return viewKindOf(path) === "none" ? { how: "os" } : { how: "dialog", path };
 }
+
+/** How a file was opened: the reader pressed something, or Thursday put it up on a call. */
+type Opening = { path: string; group: string[]; byHer: boolean };
 
 /** Opening a file in the shared dialog; `group` are the files it can be stepped through (one message's images). */
 const OpenInDialog = createContext<
-  ((path: string, group?: string[]) => void) | null
+  ((path: string, group?: string[], byHer?: boolean) => void) | null
 >(null);
 
 /**
- * Opens a file from code (artifact-view), same policy as `FileLink`. Returns
- * whether it opened: a new tab without a user gesture may be blocked.
+ * Opens a file from code (artifact-view), same policy as `FileLink`. `byHer`
+ * marks what Thursday put up rather than the reader, which is what the dialog
+ * puts on a clock. Returns whether it opened: outside a `FileViewer` it falls
+ * back to a tab, which without a user gesture may be blocked.
  */
 export function useOpenFile() {
   const inDialog = useContext(OpenInDialog);
   return useCallback(
-    (raw: string, group: string[] = []): boolean => {
+    (raw: string, group: string[] = [], byHer = false): boolean => {
       const target = fileTarget(raw);
       if (target.how === "os") return false;
-      if (target.how === "dialog" && inDialog) {
-        inDialog(target.path, group);
+      if (inDialog) {
+        inDialog(target.path, group, byHer);
         return true;
       }
-      const href =
-        target.how === "tab" ? target.href : queryKey.fileView(target.path);
-      return window.open(href, "_blank") !== null;
+      return window.open(queryKey.fileView(target.path), "_blank") !== null;
     },
     [inDialog],
   );
@@ -97,11 +95,10 @@ export function useOpenFile() {
 
 /** One dialog shared by every link beneath it. */
 export function FileViewer({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState<{ path: string; group: string[] } | null>(
-    null,
-  );
+  const [open, setOpen] = useState<Opening | null>(null);
   const show = useCallback(
-    (path: string, group: string[] = []) => setOpen({ path, group }),
+    (path: string, group: string[] = [], byHer = false) =>
+      setOpen({ path, group, byHer }),
     [],
   );
   return (
@@ -111,6 +108,7 @@ export function FileViewer({ children }: { children: ReactNode }) {
         path={open?.path ?? null}
         group={open?.group ?? []}
         kind={open ? viewKindOf(open.path) : "text"}
+        byHer={open?.byHer ?? false}
         onPath={(path) => setOpen((was) => was && { ...was, path })}
         onClose={() => setOpen(null)}
       />
@@ -118,7 +116,7 @@ export function FileViewer({ children }: { children: ReactNode }) {
   );
 }
 
-/** A link to one file; `fileTarget` decides where. A new tab is a real `<a>` so middle-click works. */
+/** A link to one file; `fileTarget` decides whether this app draws it or the OS does. */
 export function FileLink({
   path,
   group,
@@ -140,21 +138,6 @@ export function FileLink({
   const target = fileTarget(path);
   const inDialog = useContext(OpenInDialog);
   const [openWithOs, opening] = useServerAction(openFileAction);
-
-  if (target.how === "tab") {
-    return (
-      <a
-        href={target.href}
-        target="_blank"
-        rel="noreferrer"
-        title={title ?? path}
-        aria-label={label}
-        className={className}
-      >
-        {children}
-      </a>
-    );
-  }
 
   return (
     <button
@@ -313,7 +296,7 @@ export function FilePreview({ path, bytes }: { path: string; bytes: number }) {
   const kind = viewKindOf(path);
   // Only text kinds are fetched; the rest are elements the browser fills itself.
   const { content, failure, truncated } = useFileText(
-    OWN_PAGE.has(kind) ? null : path,
+    DRAWS_ITSELF.has(kind) ? null : path,
   );
 
   // An `<img>` decodes whole and a huge page cannot be scrolled, and neither
@@ -325,6 +308,38 @@ export function FilePreview({ path, bytes }: { path: string; bytes: number }) {
     return <TooBig path={path} bytes={bytes} />;
   }
 
+  if (DRAWS_ITSELF.has(kind)) {
+    return <FileElement path={path} kind={kind} where="preview" />;
+  }
+  if (failure) {
+    return <p className="p-5 font-mono text-xs text-destructive">{failure}</p>;
+  }
+  if (content === null) {
+    return (
+      <div className="space-y-3 p-5">
+        <Skeleton className="h-5 w-2/3" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-5/6" />
+      </div>
+    );
+  }
+  return <FileBody kind={kind} content={content} truncated={truncated} />;
+}
+
+/**
+ * A kind the browser fills itself, as the element that fills it. One place,
+ * because the dialog and the preview draw the same file: they differ only in
+ * how much room a picture is given.
+ */
+function FileElement({
+  path,
+  kind,
+  where,
+}: {
+  path: string;
+  kind: FileViewKind;
+  where: "dialog" | "preview";
+}) {
   if (kind === "frame") {
     // No sandbox: the html is local and just written by a bot; sandboxing only
     // breaks its forms, fonts and scripts (same call as /artifact).
@@ -343,34 +358,30 @@ export function FilePreview({ path, bytes }: { path: string; bytes: number }) {
       <img
         src={queryKey.file(path)}
         alt={path}
-        className="mx-auto max-w-full p-6"
+        className={
+          where === "dialog"
+            ? "mx-auto max-h-[calc(100vh-11rem)] object-contain p-4"
+            : "mx-auto max-w-full p-6"
+        }
       />
     );
   }
-  if (kind === "audio" || kind === "video") {
-    return kind === "audio" ? (
+  if (kind === "audio") {
+    return (
       <audio controls src={queryKey.file(path)} className="w-full p-6">
         <track kind="captions" />
       </audio>
-    ) : (
-      <video controls src={queryKey.file(path)} className="max-w-full p-6">
-        <track kind="captions" />
-      </video>
     );
   }
-  if (failure) {
-    return <p className="p-5 font-mono text-xs text-destructive">{failure}</p>;
-  }
-  if (content === null) {
-    return (
-      <div className="space-y-3 p-5">
-        <Skeleton className="h-5 w-2/3" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-5/6" />
-      </div>
-    );
-  }
-  return <FileBody kind={kind} content={content} truncated={truncated} />;
+  return (
+    <video
+      controls
+      src={queryKey.file(path)}
+      className="mx-auto max-h-full max-w-full p-4"
+    >
+      <track kind="captions" />
+    </video>
+  );
 }
 
 /** Past `elementMax`: the preview says what it is instead of taking the tab down with it. */
@@ -393,11 +404,56 @@ function TooBig({ path, bytes }: { path: string; bytes: number }) {
   );
 }
 
-/** A file in a dialog: an image as itself, anything readable fetched from the raw route when opened. */
+/**
+ * A file she put up rather than the reader closes itself after
+ * `WORKSPACE_VIEW.autoCloseMs`, so a report that arrived mid-call gives the
+ * screen back without anyone reaching for the mouse. The first real input keeps
+ * it for good — it is one cancellation, not a watch, because a page being read
+ * gets no input at all, and what happens inside the frame (a report, a pdf) is
+ * invisible from out here. A pointer crossing into the dialog and the window
+ * losing focus to the frame stand in for that, which is what `keep` is for.
+ */
+function useAutoClose(armed: boolean, onClose: () => void) {
+  const [left, setLeft] = useState<number | null>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
+  const cancel = useRef<() => void>(() => undefined);
+
+  useEffect(() => {
+    if (!armed) {
+      setLeft(null);
+      return;
+    }
+    let seconds = Math.round(WORKSPACE_VIEW.autoCloseMs / 1000);
+    setLeft(seconds);
+    const stop = () => {
+      window.clearInterval(tick);
+      for (const event of ["pointermove", "keydown", "wheel", "blur"])
+        window.removeEventListener(event, keep);
+      setLeft(null);
+    };
+    const keep = () => stop();
+    const tick = window.setInterval(() => {
+      seconds -= 1;
+      if (seconds > 0) return setLeft(seconds);
+      stop();
+      close.current();
+    }, 1000);
+    for (const event of ["pointermove", "keydown", "wheel", "blur"])
+      window.addEventListener(event, keep);
+    cancel.current = stop;
+    return stop;
+  }, [armed]);
+
+  return { left, keep: useCallback(() => cancel.current(), []) };
+}
+
+/** A file in a dialog: what the browser draws itself as an element, anything readable fetched from the raw route when opened. */
 function FileDialog({
   path,
   group = [],
   kind,
+  byHer,
   onPath,
   onClose,
 }: {
@@ -406,26 +462,44 @@ function FileDialog({
   /** The files this one sits among, so an image can be stepped through them. */
   group?: string[];
   kind: FileViewKind;
+  /** Thursday put it up on a call; the reader did not ask for it, so it closes itself. */
+  byHer: boolean;
   onPath?: (path: string) => void;
   onClose: () => void;
 }) {
   const image = kind === "image";
-  const { content, failure, truncated } = useFileText(image ? null : path);
+  const element = DRAWS_ITSELF.has(kind);
+  const { content, failure, truncated } = useFileText(element ? null : path);
   const name = path?.split("/").pop() ?? "";
   const at = path ? group.indexOf(path) : -1;
   const step = (by: number) => {
     if (at < 0 || !onPath) return;
     onPath(group[(at + by + group.length) % group.length]);
   };
+  const { left, keep } = useAutoClose(byHer && path !== null, onClose);
+  // A page and a video are read at a size of their own; everything else is as tall as it is
+  const roomy = kind === "frame" || kind === "video";
+  const popup = useRef<HTMLDivElement>(null);
 
   return (
     <Dialog open={path !== null} onOpenChange={(next) => !next && onClose()}>
       <DialogContent
+        ref={popup}
+        // One of these opens on its own mid-call, and a ring landing on the first
+        // button reads as something to press. The popup takes the key instead.
+        initialFocus={popup}
         onKeyDown={(event) => {
           if (event.key === "ArrowLeft") step(-1);
           if (event.key === "ArrowRight") step(1);
         }}
-        className="flex max-h-[calc(100vh-3rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
+        // The pointer entering the frame is invisible to the window listener
+        onPointerOver={keep}
+        className={cn(
+          "flex flex-col gap-0 overflow-hidden p-0",
+          roomy
+            ? "h-[min(42rem,calc(100vh-3rem))] sm:max-w-232"
+            : "max-h-[calc(100vh-3rem)] sm:max-w-4xl",
+        )}
       >
         <DialogTitle className="sr-only">{name}</DialogTitle>
 
@@ -433,6 +507,11 @@ function FileDialog({
           <span className="min-w-0 flex-1 truncate font-mono text-[12px]">
             {path}
           </span>
+          {left !== null && (
+            <span className="shrink-0 pr-1 font-mono text-[11px] text-muted-foreground tabular-nums">
+              {`Closing in ${left}s`}
+            </span>
+          )}
           {at >= 0 && group.length > 1 && (
             <>
               <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
@@ -456,7 +535,8 @@ function FileDialog({
               </Button>
             </>
           )}
-          {image && path && (
+          {path && (
+            // The one way out of the app, and it is pressed on purpose
             <Button
               variant="ghost"
               size="icon-sm"
@@ -474,14 +554,15 @@ function FileDialog({
           )}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto">
-          {image && path ? (
-            // biome-ignore lint/performance/noImgElement: local raw route, nothing to optimize
-            <img
-              src={queryKey.file(path)}
-              alt={name}
-              className="mx-auto max-h-[calc(100vh-11rem)] object-contain p-4"
-            />
+        <div
+          className={cn(
+            "min-h-0 flex-1",
+            // A page scrolls inside its own frame; nothing else does
+            kind === "frame" ? "overflow-hidden" : "overflow-auto",
+          )}
+        >
+          {element && path ? (
+            <FileElement path={path} kind={kind} where="dialog" />
           ) : failure ? (
             <p className="p-5 font-mono text-xs text-destructive">{failure}</p>
           ) : content === null ? (

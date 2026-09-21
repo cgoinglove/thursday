@@ -403,6 +403,8 @@ export function useRoomOpen(): RoomStands {
 const writes = new Set<() => void>();
 let writeLineUp = false;
 const writeLineListeners = new Set<() => void>();
+let callWaits = false;
+const callWaitsListeners = new Set<() => void>();
 
 /**
  * Asks the screen for its write line: the pill's "+", `/`, a file put down. Whoever asks,
@@ -424,7 +426,25 @@ export const writeLine = {
     writeLineUp = up;
     for (const listener of writeLineListeners) listener();
   },
+  /** A call in writing is on behind the open room: the room says so, since the line cannot. */
+  waits(on: boolean) {
+    if (on === callWaits) return;
+    callWaits = on;
+    for (const listener of callWaitsListeners) listener();
+  },
 };
+
+/** Whether a call in writing waits behind the open room, its line put away. */
+export function useCallWaits(): boolean {
+  return useSyncExternalStore(
+    (listener) => {
+      callWaitsListeners.add(listener);
+      return () => callWaitsListeners.delete(listener);
+    },
+    () => callWaits,
+    () => false,
+  );
+}
 
 /** Whether the write line is up at the foot of the screen. */
 export function useWriteLineUp(): boolean {

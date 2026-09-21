@@ -137,7 +137,17 @@ paths:
   `next.config` images) — what a bot makes is megabytes and a shelf lists dozens — while a
   picture opened to be looked at is served whole. Every other picture waits until it is on
   screen: the ones in a report's own words too (`ui/markdown` `Picture`), or a long report
-  pulls its whole gallery before a word of it is read. Nothing a job finished opens by itself — it lands in
+  pulls its whole gallery before a word of it is read.
+- **Whatever this app can draw opens over it, and only the ↗ button leaves for a tab.** A report
+  over the call is still the call's screen, and a window the app opened is one it cannot close
+  again when they ask it to. One dialog draws them all (`file-view` `FileDialog`, `FileElement`
+  drawing the kinds the browser fills itself); a page and a video get a size of their own, and a
+  file no kind knows goes to the OS. A file **she** put up rather than the reader closes itself
+  after `WORKSPACE_VIEW.autoCloseMs`, counting down beside the path, and the first pointer move,
+  key or scroll cancels that for good — one cancellation, never a watch, since a page being read
+  gets no input at all and what happens inside the frame is invisible from outside it. What the
+  reader opened is never on that clock, and neither dialog takes the focus ring onto a button.
+- Nothing a job finished opens by itself — it lands in
   the screen's left corner as a card, the same card with files or without: the bot, the label, how
   the answer opens, the files under the words. A reload brings back the cards still unread, less those this browser
   closed; the pill makes no bubble of a job's ending, since the card says it.

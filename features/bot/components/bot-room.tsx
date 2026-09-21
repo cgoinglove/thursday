@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowRight } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
@@ -10,6 +11,7 @@ import {
   useCrewGestures,
 } from "@/features/bot/components/crew-motion";
 import { ThreadReply } from "@/features/bot/components/thread-reply";
+import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
 import { useEscape, windowKey } from "@/hooks/use-hotkey";
 import { toDate } from "@/lib/date-like";
 import { useServerPages } from "@/lib/protocol/use-server-pages";
@@ -22,6 +24,7 @@ import {
   type ThreadViewStatus,
   threadFromRow,
   useBotThreads,
+  useCallWaits,
   useRingingThreads,
   useSeenOnDetail,
   writeLine,
@@ -250,6 +253,9 @@ export const BotRoom = memo(function BotRoom() {
     scroll.current = 0;
   };
 
+  // Her call in writing is still on behind the room, its line put away (write-line)
+  const callWaits = useCallWaits();
+
   // Esc walks back the way the header's own two buttons do: a thread returns to the
   // list it was picked from, and the list folds away.
   useEscape(open, () => (reading ? setPicked(null) : fold()));
@@ -288,8 +294,12 @@ export const BotRoom = memo(function BotRoom() {
     // does not move for it).
     <div
       className={cn(
-        "pointer-events-none flex min-h-0 justify-end",
-        open ? "col-span-3 row-start-1" : "col-start-3 row-start-2",
+        "pointer-events-none flex min-h-0 items-end justify-end",
+        // stretched to the row, so the room's own `max-h-full` has a height to be full of:
+        // left to its content, a long list grows straight past the top of the window
+        open
+          ? "col-span-3 row-start-1 self-stretch"
+          : "col-start-3 row-start-2",
       )}
     >
       {open ? (
@@ -299,6 +309,7 @@ export const BotRoom = memo(function BotRoom() {
           data-room
           className="pointer-events-auto flex max-h-full w-160 max-w-full animate-in flex-col overflow-hidden rounded-3xl bg-background/75 shadow-2xl shadow-black/6 ring-1 ring-border/50 backdrop-blur-xl fade-in slide-in-from-bottom-1 duration-200"
         >
+          {callWaits && <CallWaits onBack={fold} />}
           {!current && picked && fetching ? (
             <ThreadLoading onBack={() => setPicked(null)} onClose={fold} />
           ) : current ? (
@@ -401,3 +412,32 @@ export const BotRoom = memo(function BotRoom() {
     </div>
   );
 });
+
+/**
+ * Said at the head of the open room while a call in writing waits behind it. The room has
+ * the foot, so the line that would say the call is on is not drawn: without this, opening
+ * a thread mid-conversation looks like the conversation ended. It is her face and a way
+ * back in one press, since Esc from a thread takes two.
+ */
+function CallWaits({ onBack }: { onBack: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onBack}
+      className="group/waits flex shrink-0 items-center gap-2.5 bg-brand/8 py-2.5 pr-3 pl-4 text-left outline-none transition-colors hover:bg-brand/12 focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-brand/14 dark:hover:bg-brand/20"
+    >
+      <ThursdayMark size={22} className="shrink-0" />
+      <span className="min-w-0 flex-1 text-[13px] leading-5">
+        <span className="font-medium">Thursday is still on the line</span>
+        <span className="text-muted-foreground">
+          {" "}
+          — in writing. She is here when this closes.
+        </span>
+      </span>
+      <span className="flex h-7 shrink-0 items-center gap-1 rounded-full px-2.5 font-medium text-[12.5px] text-brand ring-1 ring-brand/40 transition-colors group-hover/waits:bg-brand/10">
+        Back to her
+        <ArrowRight className="size-3.5" />
+      </span>
+    </button>
+  );
+}

@@ -155,11 +155,12 @@ function Notice() {
 
   useAppEvent({
     // Asked for on a call (`thread` `open`): the file opens, where a finished job
-    // only says it is there
+    // only says it is there. Hers to put up, so it takes itself down again
     showFile: (event) =>
       openFile(
         event.paths[0],
         event.paths.filter((path) => viewKindOf(path) === "image"),
+        true,
       ),
     finished: (event) => {
       tellFinished(event.threadId, event.label, event.words);

@@ -305,6 +305,12 @@ export function WriteLine({
     writeLine.shown(up);
     return () => writeLine.shown(false);
   }, [up]);
+  // Put away with her call still on, the line cannot say so itself: the room does (bot-room)
+  const waits = calling && Boolean(room);
+  useEffect(() => {
+    writeLine.waits(waits);
+    return () => writeLine.waits(false);
+  }, [waits]);
 
   if (!up) return null;
 

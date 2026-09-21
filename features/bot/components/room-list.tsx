@@ -144,7 +144,8 @@ export function HistoryList({
       onScroll={(event) => {
         scroll.current = event.currentTarget.scrollTop;
       }}
-      className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pt-1 pb-2 scrollbar-none"
+      // a list is scanned, not read: it keeps under a thread's height and scrolls
+      className="flex max-h-[50vh] min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pt-1 pb-2 scrollbar-none"
     >
       {pages.error ? (
         <p className="px-2.5 py-3 text-[12px] text-destructive">
@@ -285,7 +286,8 @@ export function ThreadList({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pt-1 pb-1 scrollbar-none">
+    // a list is scanned, not read: it keeps under a thread's height and scrolls
+    <div className="flex max-h-[50vh] min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pt-1 pb-1 scrollbar-none">
       {GROUPS.map((group, at) => {
         const rows = bucket.get(group.id) ?? [];
         if (!rows.length) return null;

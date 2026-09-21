@@ -244,9 +244,16 @@ export const MEMORY_CONVERSATION_PAGE = 100;
  * - `elementMax`  an image or page drawn as an element. Past it nothing is
  *           drawn: an `<img>` decodes whole and a huge DOM cannot be scrolled.
  *           Audio and video are not capped — they stream over Range.
+ * - `autoCloseMs`  how long a file Thursday put up on a call stands before it
+ *           closes itself. It is the glance, not the read: long enough to see
+ *           what arrived, short enough that a caller who is not looking gets
+ *           their screen back without touching anything. The first real input
+ *           cancels it for good, so raising this only lengthens the glance.
+ *           A file the user opened is never on this clock.
  */
 export const WORKSPACE_VIEW = {
   rows: 200,
+  autoCloseMs: 5_000,
   textMax: 512 * 1024,
   elementMax: 50 * 1024 * 1024,
 };

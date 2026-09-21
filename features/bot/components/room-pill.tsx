@@ -603,7 +603,8 @@ export function Chip({
           </p>
           {/* px-1: a row keeps its own 8px, so its mark lands on the rail while
               the shape it lights up on hover stays inside the card's corners */}
-          <div className="max-h-[45vh] overflow-y-auto px-1.5 pb-2">
+          {/* about three rows, the rest a scroll away: the count above says how many */}
+          <div className="max-h-[34vh] overflow-y-auto px-1.5 pb-2">
             {/* Keyed on growing, so the rows rise in after the card each time it opens */}
             <div key={String(grown)}>
               {rows.map((thread, index) => (
