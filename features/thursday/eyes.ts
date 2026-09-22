@@ -23,8 +23,8 @@ const EYE = {
   /** Above the body's centre, as the mark has it (eyeY 100 of 120). */
   y: -20,
   radius: 112,
-  /** A glyph body needs a little more hole than a solid one before it reads. */
-  over: 1.14,
+  /** A glyph body needs more hole than a solid one before it reads, and a little more than that. */
+  over: 1.22,
 } as const;
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
