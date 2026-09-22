@@ -118,9 +118,9 @@ when the job is about another.
 
 **Local HTML.** `file:` URLs are refused, and a fixed port lets two jobs
 capture each other's pages. For a picture of it,
-`node <skill dir>/scripts/render.mjs <file.html> --size 1280x800 --out <dir>`
+`node <skill dir>/scripts/render.mjs <file.html> --out <dir> [--size 1280x800]`
 serves its folder on a free port for the run and saves each `[data-slide]`
-(else the viewport) as a PNG of exactly that size. To open or print it:
+(else the viewport) as a PNG — of exactly `--size`, or of its own size without it. To open or print it:
 `python3 -u -m http.server 0 --bind 127.0.0.1 --directory <dir> > <scratch>/serve.log 2>&1 &`,
 read the port from that log, `goto http://127.0.0.1:<port>/<file>.html`;
 `pdf --filename=out.pdf` prints it. Kill the server when done.

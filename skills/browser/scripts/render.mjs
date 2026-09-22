@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 /**
- * Screenshots HTML slides to PNGs of exactly the given size, in a tab of its own
- * beside whatever page the session has open. Every `[data-slide]` element in the
- * file is one PNG; a file with none is one PNG of the whole viewport. The file's
- * folder is served over http for the length of the run, so pictures beside it load.
+ * Screenshots HTML slides to PNGs, in a tab of its own beside whatever page the
+ * session has open. Every `[data-slide]` element in the file is one PNG; a file with
+ * none is one PNG of the whole viewport. With `--size` every slide must come out
+ * exactly that size, and one that does not fails the run; without it each slide is
+ * shot at the size it is drawn at and its size is printed, for the caller to judge.
+ * The file's folder is served over http for the length of the run, so pictures
+ * beside it load.
  *
- *   node render.mjs <slides.html> --size 1080x1350 --out <dir> [--name slide]
+ *   node render.mjs <slides.html> --out <dir> [--size 1080x1350] [--name slide]
  */
 import { createReadStream, existsSync, mkdirSync, statSync } from "node:fs";
 import { createServer } from "node:http";
@@ -18,9 +21,9 @@ const file = opts._[0] && resolve(opts._[0]);
 const [w, h] = String(opts.size ?? "")
   .split("x")
   .map(Number);
-if (!file || !opts.out || !w || !h)
+if (!file || !opts.out || (opts.size !== undefined && !(w && h)))
   fail(
-    "usage: node render.mjs <slides.html> --size 1080x1350 --out <dir> [--name slide]",
+    "usage: node render.mjs <slides.html> --out <dir> [--size 1080x1350] [--name slide]",
   );
 if (!existsSync(file)) fail(`No such file: ${file}`);
 const out = resolve(opts.out);
@@ -71,7 +74,9 @@ const done = orFail(
     async (page, { url, w, h, out, name }) => {
       const tab = await page.context().newPage();
       try {
-        await tab.setViewportSize({ width: w, height: h });
+        // Slides of their own size lay out the same in any window; the viewport only
+        // matters for a file with none, whose picture is the window itself
+        await tab.setViewportSize({ width: w || 1280, height: h || 800 });
         await tab.goto(url, { waitUntil: "load" });
         await tab.evaluate(async () => {
           await document.fonts.ready;
@@ -111,7 +116,7 @@ server.close();
 let wrong = 0;
 for (const path of done.files) {
   const size = imageSize(path);
-  const ok = size && size.w === w && size.h === h;
+  const ok = size && (!w || (size.w === w && size.h === h));
   if (!ok) wrong++;
   console.log(
     `${path} ${size ? `${size.w}x${size.h}` : "?"}${ok ? "" : ` — not ${w}x${h}`}`,
@@ -123,4 +128,6 @@ if (wrong)
   fail(
     `${wrong} slide(s) came out at the wrong size: give every [data-slide] exactly width ${w}px and height ${h}px, with nothing overflowing it.`,
   );
-console.log(`${done.files.length} slide(s) at ${w}x${h} in ${out}`);
+console.log(
+  `${done.files.length} slide(s)${w ? ` at ${w}x${h}` : ""} in ${out}`,
+);
