@@ -18,9 +18,23 @@
   let y = 0;
   let own = false; // the view is the reader's once they move it; resizing stops refitting
 
+  /**
+   * The surface's dots, drawn on the field rather than the stage so they never scale
+   * into blobs: the step doubles or halves until it sits in a readable band, which is
+   * what makes zooming feel like moving over a surface instead of resizing a picture.
+   */
+  const dots = () => {
+    let step = 32 * z;
+    while (step < 18) step *= 2;
+    while (step > 72) step /= 2;
+    field.style.backgroundSize = `${step}px ${step}px`;
+    field.style.backgroundPosition = `${x % step}px ${y % step}px`;
+  };
+
   const draw = () => {
     stage.style.transform = `translate(${x}px, ${y}px) scale(${z})`;
     if (out) out.value = `${Math.round(z * 100)}%`;
+    dots();
   };
 
   /** What the boards and notes cover, in surface px. */
@@ -69,6 +83,48 @@
   };
 
   const center = () => [innerWidth / 2, innerHeight / 2];
+
+  /**
+   * One board at a time, the way a canvas is read when it is time to choose: the arrow
+   * keys walk them in the order they were written and bring each one up on its own,
+   * `0` or Esc puts them all back side by side. Without this a reader drags and zooms
+   * by hand to compare two boards that are a screen apart.
+   */
+  const boards = () => [...document.querySelectorAll(".frame")];
+  let at = -1;
+
+  const say = () => {
+    const seat = document.getElementById("seat");
+    if (!seat) return;
+    const all = boards();
+    seat.textContent =
+      at < 0 || !all[at]
+        ? ""
+        : `${all[at].dataset.name || all[at].querySelector("h2")?.textContent?.trim() || `board ${at + 1}`} · ${at + 1}/${all.length}`;
+  };
+
+  /** Brings board `n` up alone, as large as the window takes it. */
+  const show = (n) => {
+    const all = boards();
+    if (!all.length) return;
+    at = (n + all.length) % all.length;
+    const frame = all[at];
+    const l = Number(frame.style.getPropertyValue("--x")) || 0;
+    const t = Number(frame.style.getPropertyValue("--y")) || 0;
+    const w = frame.offsetWidth;
+    const h = frame.offsetHeight;
+    const top = (document.querySelector("header")?.offsetHeight ?? 0) + PAD;
+    z = clamp(
+      Math.min((innerWidth - PAD * 2) / w, (innerHeight - top - PAD) / h, 1),
+    );
+    x = (innerWidth - w * z) / 2 - l * z;
+    y = top + (innerHeight - top - PAD - h * z) / 2 - t * z;
+    own = true;
+    draw();
+    say();
+  };
+
+  const step = (by) => show(at < 0 ? (by > 0 ? 0 : -1) : at + by);
 
   field.addEventListener(
     "wheel",
@@ -145,11 +201,16 @@
       on.closest("input, textarea, [contenteditable]")
     )
       return;
-    if (event.key === "0") fit();
-    else if (event.key === "1") zoomAt(1, ...center());
+    if (event.key === "0" || event.key === "Escape") {
+      at = -1;
+      fit();
+      say();
+    } else if (event.key === "1") zoomAt(1, ...center());
     else if (event.key === "+" || event.key === "=")
       zoomAt(z * 1.25, ...center());
     else if (event.key === "-") zoomAt(z / 1.25, ...center());
+    else if (event.key === "ArrowRight" || event.key === "ArrowDown") step(1);
+    else if (event.key === "ArrowLeft" || event.key === "ArrowUp") step(-1);
     else return;
     event.preventDefault();
   });

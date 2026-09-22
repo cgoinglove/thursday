@@ -10,6 +10,7 @@
   --accent: #2563eb;
   --bad: #b91c1c;
   --field: #fafafa;
+  --dot: #d4d4d8;
   --shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 8px 24px -12px rgb(0 0 0 / 18%);
 }
 @media (prefers-color-scheme: dark) {
@@ -22,6 +23,7 @@
     --accent: #60a5fa;
     --bad: #f87171;
     --field: #151517;
+    --dot: #2f2f34;
     --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px -12px rgb(0 0 0 / 70%);
   }
 }
@@ -81,6 +83,20 @@ header .keys {
   font-size: 0.75rem;
   white-space: nowrap;
 }
+/* Which board is up on its own, when one is. Empty — and so invisible — otherwise. */
+#seat {
+  flex: none;
+  padding: 0.0625rem 0.5rem;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--fg);
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+#seat:empty {
+  display: none;
+}
 @media (max-width: 640px) {
   header .keys {
     display: none;
@@ -136,11 +152,19 @@ header .keys {
   will-change: transform;
   user-select: none;
 }
+/* The surface itself: dots so that dragging reads as moving over something, not as
+   sliding a picture. The step is set from the zoom in canvas.js, never by scaling
+   this layer, or the dots would smear at every zoom but 100%. */
 #field {
   position: absolute;
   inset: 0;
   cursor: grab;
   touch-action: none;
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    var(--dot) 1px,
+    transparent 0
+  );
 }
 #field.dragging {
   cursor: grabbing;
@@ -293,6 +317,8 @@ body.shot #stage,
 body.shot #field {
   position: static;
   transform: none;
+  /* The surface's dots belong to the canvas, never to a board's picture */
+  background-image: none;
 }
 body.shot .frame {
   position: static;
