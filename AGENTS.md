@@ -109,6 +109,8 @@ seed-skills/<seed>/       A seed bot's own skills (read-only), copied into `bots
                           a line; the folder has the workspace's own `.agents/skills` shape, so a bot that
                           runs `npx skills add` from its folder installs for itself (skills/find-skills).
                           marketer/ is a trimmed copy of marketingskills (MIT; its README says what was cut).
+                          A kit script stands on public APIs, managed tools and the app's own scripts, never on
+                          another site's markup or private endpoints (.claude/rules/seeds.md).
 ```
 
 Domains today: `thursday` (the call), `bot` (bots and the jobs they run), `routine` (jobs that start

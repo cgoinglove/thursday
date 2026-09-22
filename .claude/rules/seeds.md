@@ -14,19 +14,24 @@ it hands out has a way through when nobody on the roster is for it. This adds wh
 
 ## Seed prompts
 
-- **A seed names no skill.** A bundled skill can be switched off too, and calling one that is not
-  there answers `No skill named`. The seed says to call a method from the Skills list when one
-  fits, and otherwise to find and install one with `find-skills` — naming no pack. The exceptions
-  are the tool of the bot's trade (the browser skill), a structural dependency such as
-  `requires`, and a skill from the seed's own kit (`seed-skills/<seed>/`), which is copied into
-  the bot's folder when it is made and so is there unless the user removed it.
+- **A seed names no skill, no tool procedure, and nothing the base prompt already says.** A
+  bundled skill can be switched off too, and calling one that is not there answers `No skill
+  named`; the base prompt already lists every skill with its description and says to open one
+  before a job it covers. How to sign in, pay, or send a question is the tool's and the browser
+  skill's to say — a sentence about it in a role is a copy that drifts (the sign-in order was
+  wrong in four places at once). A role holds what only it knows: what is this bot's, what it
+  ends as, the judgement only this role makes, what it keeps in memory. The exceptions are the
+  tool of the bot's trade (the browser skill) and a structural dependency such as `requires`.
 - **What a job repeats is a kit script, not a paragraph.** Reading a web app through snapshots
-  costs tens of thousands of characters a look; a script that extracts the same rows costs a few
-  hundred (Insta's DM reader, Analyst's series fetch). A kit script keeps its selectors in one
-  file and fails loudly when they stop matching, never with an empty result. It drives the
-  browser only through `$THURSDAY_SKILLS/browser/scripts/session.mjs` and takes `render`, `sheet`,
-  `webimage` and `chart` from the shipped skills rather than keeping a copy; `render` serves on
-  port 0, so concurrent jobs never share one.
+  costs tens of thousands of characters a look; a script that fetches the same rows costs a few
+  hundred (Analyst's series fetch). A kit script stands on a public API, a managed tool (yt-dlp,
+  a library) or the app's own scripts — never on another site's markup, its private endpoints
+  or a pinned client version, which break the day that site changes and break quietly. What a
+  script cannot get that way is read once through the browser skill, or put on the user's
+  screen. It fails loudly, never with an empty result. It drives the browser only through
+  `$THURSDAY_SKILLS/browser/scripts/session.mjs`, which opens a headless browser itself when
+  none is open, and takes `render`, `sheet`, `webimage` and `chart` from the shipped skills
+  rather than keeping a copy; `render` serves on port 0, so concurrent jobs never share one.
 - **A kit script stands alone past that.** The ten lines that walk up to the workspace folder are
   copied in each kit on purpose: a kit is copied into a bot's folder, and one more shared file is
   one more thing that has to be there for it to run. Leave the copies.

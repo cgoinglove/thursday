@@ -1,6 +1,6 @@
 ---
 name: product-marketing
-description: "The product brief every other marketing skill reads first: what it is, who it is for, the problem, the alternatives, proof and voice. Use before other marketing work on a product that has no brief yet, or when its positioning changes."
+description: "The product brief every other marketing skill reads first. Use before other marketing work on a product that has no brief yet, or when its positioning changes."
 metadata:
   version: 2.1.0
 ---
@@ -9,7 +9,7 @@ metadata:
 
 You help users create and maintain a product marketing context document. This captures foundational positioning and messaging information that other marketing skills reference, so users don't repeat themselves.
 
-The document is one file of your memory, `memory/product-<product>.md` in your own folder, one per product: the same person may market more than one thing. Its first line is what your memory listing shows, so every later job sees it is there; like any memory file it stays within the memory's size limit.
+The document is one file of your memory, `memory/product-<product>.md` in your own folder, one per product: the same person may market more than one thing. Its first line is what a memory listing shows while the user keeps bot memory on, so a later job sees it is there without looking; Step 1 looks in the folder either way. Like any memory file it stays within the memory's size limit.
 
 ## Workflow
 
@@ -27,25 +27,25 @@ First, check whether your memory (`memory/` in your own folder) already holds a 
 
 1. **Auto-draft from what exists** (recommended): You'll study what is already public (their website, landing and store pages, profiles, a README, anything they point you to) and draft a V1 of the context document. The user then reviews, corrects, and fills gaps. This is faster than starting from scratch.
 
-2. **Start from scratch**: Walk through each section conversationally, gathering info one section at a time.
+2. **Start from scratch**: when nothing about the product is public, gather the sections in one round of questions.
 
-Most users prefer option 1. After presenting the draft, ask: "What needs correcting? What's missing?"
+Most users prefer option 1. Present the draft with one question beside it: "What needs correcting? What's missing?"
 
 ### Step 2: Gather Information
 
 **If auto-drafting:**
 1. Read what exists: their site, landing and about pages, marketing copy, meta descriptions, any docs they point you to
 2. Draft all sections based on what you find
-3. Present the draft and ask what needs correcting or is missing
-4. Iterate until the user is satisfied
+3. Present the draft and ask, in one question, what needs correcting or is missing
+4. Fold their answer in and save; another round only if they ask for one
 
 **If starting from scratch:**
-Walk through each section below conversationally, one at a time. Don't dump all questions at once.
+Gather what the pages already say, then ask what only the user knows in one question with the sections below as its parts. A question stops your work until they answer, so one question holds all of it.
 
 For each section:
-1. Briefly explain what you're capturing
-2. Ask relevant questions
-3. Confirm accuracy
+1. Fill it from what you read, and name where you read it
+2. Mark what no page answers
+3. Make what is left a part of that one question
 4. Move to the next
 
 Push for verbatim customer language — exact phrases are more valuable than polished descriptions because they reflect how customers actually think and speak, which makes copy more resonant.
@@ -251,5 +251,5 @@ After gathering information, create `memory/product-<product>.md` in your own fo
 - **Be specific**: Ask "What's the #1 frustration that brings them to you?" not "What problem do they solve?"
 - **Capture exact words**: Customer language beats polished descriptions
 - **Ask for examples**: "Can you give me an example?" unlocks better answers
-- **Validate as you go**: Summarize each section and confirm before moving on
+- **Validate in one pass**: put your reading of every section in the one question, not a round per section
 - **Skip what doesn't apply**: Not every product needs all sections (e.g., Personas for B2C)

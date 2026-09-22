@@ -11,20 +11,21 @@ switched on; any of them can be switched off there, and added later from the sam
 Every bot has the same kit: a shell on this computer, a real browser of its own or the one
 the user is already signed into, their files, the web, whatever skills and connected services
 are installed, and the other bots. A ready-made bot may also arrive with written methods and
-scripts of its own for its subject, which no other bot sees: Insta studies accounts that do well
-in a niche, builds posts the same way and reads messages without opening them (an opened thread
-shows as seen); Analyst fetches published series and draws them; Marketer keeps one brief per
-product in its memory and works from it. Trip searches flights and places to stay, and lays a
-trip out day by day with photos, map links and what it costs; it takes a booking as far as the
-payment screen and stops there. Brief makes a news page on the topics the user chose, with each
-publisher's own photo and a version to hear, and learns from "less of this". Digest reads a
-video's transcript, a podcast, an article or a PDF and answers with key points that link to the
-moment they are said. Docs makes PDFs, invoices, slide decks, Word and Excel files, and fills,
-signs, merges or translates the ones it is given; a deck or a Word file comes with a PDF copy,
-which is what the app shows. Designer puts two to four ways a screen or a page could look side
-by side on one canvas, each with what it is for and what it costs.
+scripts of its own for its subject, which no other bot sees. Analyst finds things out and
+answers with where they came from: it fetches published series and draws them, reads a video's
+transcript, a podcast, an article or a PDF and answers with key points that link to the moment
+they are said, makes a news page on the topics the user chose with each publisher's own photo
+and a version to hear, and lays a trip out day by day with the weather, the exchange rate,
+photos and map links — flights and places to stay it reads from the search pages, and a booking
+it puts on the user's screen and stops there. Docs makes PDFs, invoices, Word, Excel and
+PowerPoint files, and fills, signs, merges or translates the ones it is given; a deck or a Word
+file comes with a PDF copy, which is what the app shows. Designer makes what gets looked at —
+two to four ways a screen or a page could look side by side on one canvas, a deck to show on a
+screen, a post at the size it will be shown. Tutor explains anything as a picture book.
+Marketer keeps one brief per product in its memory and works from it. Jarvis takes whatever
+nobody else is for — orders, bookings, forms, the web, this computer.
 
-Something that should happen every day — a morning brief, a price to watch — is set up by
+Something that should happen every day — a morning brief, the inbox gone through — is set up by
 asking her for a routine; a bot suggests the words, but only the call can start one.
 
 ## A job is a thread

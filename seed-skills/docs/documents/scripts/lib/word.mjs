@@ -23,7 +23,14 @@ function frontMatter(source) {
   const meta = {};
   for (const line of m[1].split(/\r?\n/)) {
     const kv = /^([\w-]+):\s*(.*)$/.exec(line);
-    if (kv) meta[kv[1].toLowerCase()] = kv[2].replace(/^["']|["']$/g, "");
+    if (!kv) continue;
+    const raw = kv[2].trim();
+    // A quoted value is taken whole (an accent colour is a #); an unquoted one
+    // ends where a trailing ` # comment` starts, which is never part of it
+    const quoted = /^(["'])([\s\S]*)\1$/.exec(raw);
+    meta[kv[1].toLowerCase()] = quoted
+      ? quoted[2]
+      : raw.replace(/\s+#.*$/, "").replace(/^["']|["']$/g, "");
   }
   return { meta, body: source.slice(m[0].length) };
 }

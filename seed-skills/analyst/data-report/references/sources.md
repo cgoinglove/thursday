@@ -11,16 +11,22 @@ call; an industry body's report; a research firm's estimate; news.
 | FRED | US economy, rates, markets; many OECD and BIS series for other countries | `fred <ID,…>` |
 | World Bank | Every country, yearly: GDP, population, inflation, trade | `worldbank <ISO2,…> <INDICATOR>` |
 | Yahoo Finance | Stocks, ETFs, indices, crypto, futures; any exchange | `yahoo <TICKER,…> [--interval 1d\|1wk\|1mo]` |
-| ECB reference rates | Exchange rates, about 30 currencies, since 1999 | `fx <BASE> <QUOTE,…>` |
+| ECB reference rates, through frankfurter.dev | Exchange rates, about 30 currencies, business days since 1999 | `fx <BASE> <QUOTE,…>` |
 | SEC XBRL | US-listed companies' reported figures, yearly or quarterly | `sec <TICKER> --find <word>`, then `sec <TICKER> <CONCEPT,…>` |
 | Wikipedia pageviews | Public interest in a topic, monthly (a stand-in for search trends) | `pageviews <ARTICLE,…> [--wiki ko]` |
 
-Ids worth knowing, all checked to be current:
+**Yahoo is the unofficial one.** `yahoo` reads the endpoint Yahoo's own charts call, not a
+published API: it blocks and rate-limits without notice, and says so when it does. Then take the
+closes from the exchange's own page (krx.co.kr, nasdaq.com) or the company's IR page, one row a
+date, into a CSV with a `# source:` line — and say in the text where the prices came from.
+
+Ids worth knowing:
 
 - FRED, US: `CPIAUCSL` consumer prices, `UNRATE` unemployment, `FEDFUNDS` policy rate, `DGS10`
   10-year Treasury, `MORTGAGE30US` 30-year mortgage, `SP500`, `NASDAQCOM`, `DCOILWTICO` oil.
 - FRED, Korea: `IRSTCI01KRM156N` overnight rate, `IRLTLT01KRM156N` 10-year bond,
-  `LRHUTTTTKRM156S` unemployment, `DEXKOUS` won per dollar (daily), `QSKR628BIS` house prices.
+  `LRHUTTTTKRM156S` unemployment, `DEXKOUS` won per dollar (daily), `QKRR628BIS` real house
+  prices (quarterly, index 2010 = 100).
   Korea's monthly consumer prices are no longer on FRED; the yearly rate is World Bank
   `FP.CPI.TOTL.ZG`, the monthly index is on the Bank of Korea and KOSIS sites.
 - World Bank: `NY.GDP.MKTP.CD` GDP in dollars, `NY.GDP.MKTP.KD.ZG` real growth, `NY.GDP.PCAP.CD`

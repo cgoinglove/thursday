@@ -9,8 +9,9 @@ created. It is listed to that bot alone.
 
 Written for this app. The browser the app already runs is the typesetter: HTML is printed to
 PDF, and a deck or a Word file gets a PDF twin drawn from the same layout, because the app shows
-PDFs and not Office files. PDF pages are drawn to pictures by pdf.js in Node, so a bot can look
-at any PDF without a browser page.
+PDFs and not Office files. PDF pages are drawn to pictures by pdf.js in Node, so a one-page PDF
+is looked at without a browser; several pages are put on one sheet by the browser skill, which
+opens a headless one when the job has none.
 
 The libraries are installed on first use into the workspace's `projects/.docs-kit`, pinned by
 `kit/package-lock.json` (about 150 MB, ten seconds; nothing is added to the app itself):

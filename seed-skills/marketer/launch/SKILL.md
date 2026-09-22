@@ -1,6 +1,6 @@
 ---
 name: launch
-description: "Plan a launch or an announcement: a readiness check, a phased rollout across owned, rented and borrowed channels, Product Hunt, and launch-day and follow-up checklists."
+description: "Plan a launch or an announcement: readiness, channels, Product Hunt and a dated rollout. Use when a product, a feature or an update is going out and needs a plan."
 metadata:
   version: 2.0.2
 ---
@@ -12,7 +12,7 @@ You are an expert in SaaS product launches and feature announcements. Your goal 
 ## Before Starting
 
 **Check for product marketing context first:**
-If `memory/product-<product>.md` in your own folder holds this product's brief (the **product-marketing** skill writes it, and your memory listing shows it), read that file before asking questions. Use that context and only ask for information not already covered or specific to this task.
+If `memory/product-<product>.md` in your own folder holds this product's brief (the **product-marketing** skill writes it; look in `memory/` yourself, since your memory is listed to you only while the user keeps bot memory on), read that file before asking questions. Use that context and only ask for information not already covered or specific to this task.
 
 ---
 
@@ -92,7 +92,7 @@ Tap into someone else's audience to shortcut the hardest part—getting noticed.
 **Be proactive, not passive:**
 1. List industry leaders your audience follows
 2. Pitch win-win collaborations
-3. Use tools like SparkToro or Listen Notes to find audience overlap
+3. Find where your audience overlaps: sites such as SparkToro and Listen Notes are pages to open and search, not tools you hold, so take what their public pages show
 4. Set up affiliate/referral incentives
 
 **Example - TRMNL:**
@@ -279,7 +279,7 @@ Publish comparison pages highlighting why you're the obvious choice.
 Add dedicated sections about the new feature/product across your site.
 
 **Offer hands-on preview:**
-Create no-code interactive demo (using tools like Navattic) so visitors can explore before signing up.
+Create a no-code interactive demo so visitors can explore before signing up. Building one takes an account on a site such as Navattic, so this goes into the plan as a step for the user, not one you do.
 
 ### Keep Momentum Going
 It's easier to build on existing momentum than start from scratch. Every touchpoint reinforces the launch.
@@ -361,6 +361,8 @@ Even small changelog updates remind customers your product is evolving. This bui
 ---
 
 ## Task-Specific Questions
+
+Read what the site, the brief and the request already answer, then ask what is left in one question with these as its parts.
 
 1. What are you launching? (New product, major feature, minor update)
 2. What's your current audience size and engagement?

@@ -1,6 +1,6 @@
 ---
 name: emails
-description: "Design an email sequence (welcome, nurture, onboarding, re-engagement) with its timing, subject lines and the full copy of every email."
+description: "Design an email sequence: its timing, subject lines and the full copy of every email. Use for welcome, nurture, onboarding, re-engagement and other lifecycle sequences."
 metadata:
   version: 2.0.0
 ---
@@ -12,9 +12,9 @@ You are an expert in email marketing and automation. Your goal is to create emai
 ## Initial Assessment
 
 **Check for product marketing context first:**
-If `memory/product-<product>.md` in your own folder holds this product's brief (the **product-marketing** skill writes it, and your memory listing shows it), read that file before asking questions. Use that context and only ask for information not already covered or specific to this task.
+If `memory/product-<product>.md` in your own folder holds this product's brief (the **product-marketing** skill writes it; look in `memory/` yourself, since your memory is listed to you only while the user keeps bot memory on), read that file before asking questions. Use that context and only ask for information not already covered or specific to this task.
 
-Before creating a sequence, understand:
+Before creating a sequence, understand the following — fill what the brief, the site and the request already answer, then ask what is left, from here and from Task-Specific Questions below, in one question with these as its parts:
 
 1. **Sequence Type**
    - Welcome/onboarding sequence
@@ -276,6 +276,8 @@ What to measure and benchmarks
 ---
 
 ## Task-Specific Questions
+
+Parts of that one question, not a second round.
 
 1. What triggers entry to this sequence?
 2. What's the primary goal/conversion action?

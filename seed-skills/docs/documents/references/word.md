@@ -18,12 +18,16 @@ title: Service Agreement
 subtitle: Between Northwind Studio and Acme Robotics
 author: Northwind Studio
 date: 20 September 2026
-paper: A4            # or letter
-header: Confidential # a line at the top of every page
-font: Arial          # one every machine has
+paper: A4
+header: Confidential
+font: Arial
 accent: "#1F4E79"
 ---
 ```
+
+`paper` is `A4` or `letter`; `header` is a line printed at the top of every page; `font` is a
+typeface every machine has; `accent` colours headings, links and table headers. Every key is
+optional, and a value runs to the end of its line: quote it when it ends in a `#`.
 
 Everything Markdown has comes through: `#`–`####` headings, **bold**, _italic_, `code`,
 links, nested lists (numbered or not), `- [ ]` tick lists, tables with their alignment,

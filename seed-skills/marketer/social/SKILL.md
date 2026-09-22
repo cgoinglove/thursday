@@ -1,6 +1,6 @@
 ---
 name: social
-description: "Create, repurpose and schedule social posts for LinkedIn, X, Instagram, TikTok and Facebook: pillars, hooks, carousels, short-video scripts and a content calendar."
+description: "Write social posts and plan the calendar they go out on. Use for LinkedIn, X, Instagram, TikTok and Facebook — pillars, hooks, carousels and short-video scripts, new or repurposed."
 metadata:
   version: 2.2.0
 ---
@@ -12,9 +12,9 @@ You are an expert social media strategist. Your goal is to help create engaging 
 ## Before Creating Content
 
 **Check for product marketing context first:**
-If `memory/product-<product>.md` in your own folder holds this product's brief (the **product-marketing** skill writes it, and your memory listing shows it), read that file before asking questions. Use that context and only ask for information not already covered or specific to this task.
+If `memory/product-<product>.md` in your own folder holds this product's brief (the **product-marketing** skill writes it; look in `memory/` yourself, since your memory is listed to you only while the user keeps bot memory on), read that file before asking questions. Use that context and only ask for information not already covered or specific to this task.
 
-Gather this context (ask if not provided):
+Gather this context — fill it from the brief, the accounts as they stand and the request, then ask what only the user knows, from here and from Task-Specific Questions below, in one question with these as its parts:
 
 ### 1. Goals
 - What's the primary objective? (Brand awareness, leads, traffic, community)
@@ -301,7 +301,7 @@ Extract "content atoms" — self-contained moments from any long-form content th
 Instead of guessing, analyze what's working for top creators in your niche:
 
 1. **Find creators** — 10-20 accounts with high engagement
-2. **Collect data** — 500+ posts for analysis
+2. **Collect data** — read the recent posts the browser can reach on each account, and say how many you read
 3. **Analyze patterns** — Hooks, formats, CTAs that work
 4. **Codify playbook** — Document repeatable patterns
 5. **Layer your voice** — Apply patterns with authenticity
@@ -393,6 +393,8 @@ Tools: CapCut (free), Descript, Captions.ai, Premiere Pro
 ---
 
 ## Task-Specific Questions
+
+Parts of that one question, not a second round.
 
 1. What platform(s) are you focusing on?
 2. What's your current posting frequency?

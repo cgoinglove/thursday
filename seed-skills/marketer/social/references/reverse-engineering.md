@@ -3,7 +3,7 @@
 Instead of guessing what works, systematically analyze top-performing content in your niche and extract proven patterns.
 
 ## Contents
-- The 6-Step Framework (Niche ID, Scrape, Analyze, Playbook, Layer Voice, Convert)
+- The 6-Step Framework (Niche ID, Collect, Analyze, Playbook, Layer Voice, Convert)
 - The Formula
 - Reverse Engineering Checklist
 
@@ -22,18 +22,14 @@ Identify 10-20 creators in your space who consistently get high engagement:
 **Where to find them:**
 - LinkedIn: Search by industry keywords, check "People also viewed"
 - Twitter/X: Check who your target audience follows and engages with
-- Use tools like SparkToro, Followerwonk, or manual research
+- Search the platform itself and the open web; audience-overlap sites are pages you can open and search, never accounts you hold
 - Look at who gets featured in industry newsletters
 
-### 2. SCRAPE — Collect Posts at Scale
+### 2. COLLECT — Read What You Can Reach
 
-Gather 500-1000+ posts from your identified creators for analysis:
+Gather posts from those creators with the browser skill: open each public profile, read the recent posts off the snapshot, move to the next. You hold no scraper and no data API, so sample instead of sweeping — the latest 20-30 posts on each of 10-20 accounts is a sample the patterns below can rest on. Write down how many posts you read, from how many accounts, over what period, and carry those three numbers into every finding.
 
-**Tools:**
-- **Apify** — LinkedIn scraper, Twitter scraper actors
-- **Phantom Buster** — Multi-platform automation
-- **Export tools** — Platform-specific export features
-- **Manual collection** — For smaller datasets, copy/paste into spreadsheet
+A profile that wants a sign-in is the browser skill's fork (a kept sign-in, their own browser, or a window they sign into). One that stays walled is left out of the sample and named as left out.
 
 **Data to collect:**
 - Post text/content
@@ -185,7 +181,7 @@ Bridge from engagement to business results:
 ## Reverse Engineering Checklist
 
 - [ ] Identified 10-20 top creators in niche
-- [ ] Collected 500+ posts for analysis
+- [ ] Read the posts you could reach, with the count, the accounts and the period written down
 - [ ] Ranked by engagement rate
 - [ ] Documented top 10 hook patterns
 - [ ] Documented top 5 format patterns

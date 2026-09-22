@@ -1,15 +1,17 @@
 // A picture book read aloud: every page screenshotted as one frame, held for as
-// long as its voice runs, and joined into one mp4 beside the book.
+// long as its voice runs, and joined into one mp4 beside the book, with the
+// voices it was read with kept in the book's own folder.
 import { spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  renameSync,
   rmSync,
   statSync,
 } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, extname, join } from "node:path";
 
 // The shipped browser skill's renderer, reached the way every kit script reaches it
 const RENDER = join(
@@ -169,9 +171,32 @@ export function bookVideo({ book, voices, size, workspace, shown }, Stop) {
   } finally {
     rmSync(frames, { recursive: true, force: true });
   }
+  const kept = keepVoices(book, voices);
   const secs = Math.round(lengths.reduce((a, b) => a + b, 0));
   const mb = (statSync(out).size / 1024 / 1024).toFixed(1);
   console.log(
     `Made ${shown(out)}: ${voices.length} pages, ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")} long, ${size}, ${mb} MB. Hand back this path.`,
   );
+  console.log(
+    `The voices are now ${shown(kept)}/page-01… in page order, kept for a page rewritten later; the book's folder is one thing in Artifacts.`,
+  );
+}
+
+/**
+ * The voices, moved into `voices/` beside the book and numbered by page: the studio
+ * writes them loose among the user's finished work, and they belong to this book.
+ * Staged first, so a file already in there is never overwritten by another page's.
+ */
+function keepVoices(book, voices) {
+  const dir = join(dirname(book), "voices");
+  const stage = mkdtempSync(join(dirname(book), ".voices-"));
+  voices.forEach((file, i) =>
+    renameSync(
+      file,
+      join(stage, `page-${String(i + 1).padStart(2, "0")}${extname(file)}`),
+    ),
+  );
+  rmSync(dir, { recursive: true, force: true });
+  renameSync(stage, dir);
+  return dir;
 }

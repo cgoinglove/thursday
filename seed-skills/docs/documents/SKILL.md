@@ -1,6 +1,6 @@
 ---
 name: documents
-description: "Real office files, made and read: a PDF laid out for print (letter, report, resume, one-pager), an invoice, quote or receipt with its sums worked out, a PowerPoint deck from an outline, a Word file from Markdown, an Excel workbook with formulas; reading any PDF, Word, PowerPoint or Excel file; filling and signing PDF forms; merging, splitting and turning pages; translating or rewording a file in place with its layout kept."
+description: "Real office files, made and read: PDF, Word, PowerPoint, Excel. Use when a document is the result — a PDF laid out for print, an invoice with its sums worked out, a deck from an outline, a .docx or .xlsx, a form to fill or sign, pages to merge, split or turn, or a file translated with its layout kept."
 ---
 
 # Documents

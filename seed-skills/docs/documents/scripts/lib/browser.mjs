@@ -1,7 +1,6 @@
 // The browser the shell's session already has, used as a typesetter: HTML in, PDF or
 // PNG out. Driven only through the shipped browser skill's session.mjs; a file is
 // served from its own folder on a port the system picks, so two jobs never meet.
-import { execFileSync } from "node:child_process";
 import {
   copyFileSync,
   createReadStream,
@@ -37,8 +36,9 @@ const TYPES = {
 const KIT_ROUTE = "/__docs-kit/";
 
 let session = null;
+/** The one way in: session.mjs opens a headless browser itself when the job has none. */
 async function sessionScripts() {
-  if (!session) {
+  if (!session)
     session = await import(
       shippedSkill("browser", "scripts", "session.mjs")
     ).catch(() => {
@@ -46,21 +46,6 @@ async function sessionScripts() {
         "The shipped browser skill's session.mjs is missing; this command prints through the browser.",
       );
     });
-    // A job that has not opened its browser yet gets a headless one; an open one is left as it is
-    try {
-      execFileSync("playwright-cli", ["--raw", "eval", "1"], {
-        stdio: "ignore",
-      });
-    } catch {
-      try {
-        execFileSync("playwright-cli", ["open"], { stdio: "ignore" });
-      } catch {
-        throw new Stop(
-          "No browser could be opened (`playwright-cli open` failed): the browser skill's Install section.",
-        );
-      }
-    }
-  }
   return session;
 }
 

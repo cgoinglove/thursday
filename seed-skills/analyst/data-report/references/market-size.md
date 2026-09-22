@@ -1,7 +1,7 @@
 # Market size
 
 How big a market is and how much of it is reachable: TAM, SAM, SOM, each with its arithmetic in
-the open, so a reader can change one input and see the rest move.
+the open, so a reader can follow every number back to the input it came from.
 
 ## Collect
 
@@ -31,11 +31,13 @@ input the answer depends on most.
 ## Page
 
 Title: the size as a finding. Then the two driver tables, a bar chart of TAM / SAM / SOM, the
-growth series as a line when there is one, and the assumptions the user may want to change.
+growth series as a line when there is one, and the assumptions the answer rests on, each with the
+figure used. The page is a quick page and does not compute: a reader who wants to work the numbers
+themselves is asking for a built page, which is a different job — say so and ask.
 
 ## Example (illustrative numbers)
 
-> **Home coffee subscriptions here: ₩180–260 billion a year (2025)**
+> **Home coffee subscriptions here: ₩170–255 billion a year (2025)**
 >
 > | Bottom-up driver | Value | Source |
 > |---|---|---|

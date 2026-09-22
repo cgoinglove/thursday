@@ -207,11 +207,16 @@ const number = (value, what) => {
   return n;
 };
 
-/** A rate as a fraction: 10, "10%" and 0.1 are all ten percent. */
+/**
+ * A rate as a fraction: "10%", 10 and 0.1 are all ten percent, "1%" is one.
+ * A number written with % is always a percentage; a bare one is a fraction
+ * below 1 and a percentage above it.
+ */
 const rate = (value, what) => {
   if (value == null) return 0;
-  const n = number(String(value).replace("%", ""), what);
-  return n > 1 ? n / 100 : n;
+  const written = String(value);
+  const n = number(written.replace("%", ""), what);
+  return written.includes("%") || n > 1 ? n / 100 : n;
 };
 
 function computeTotals(data) {
@@ -238,6 +243,13 @@ function computeTotals(data) {
       minimumFractionDigits: digits,
       maximumFractionDigits: Math.max(digits, 4),
     }).format(n);
+  // A discount is an amount, or "N%" of what it comes off — on a line and on the order alike
+  const discountOf = (value, base) =>
+    !value
+      ? 0
+      : String(value).includes("%")
+        ? minor((base / unit) * rate(value, "discount"))
+        : minor(number(value, "discount"));
   if (!Array.isArray(data.items) || !data.items.length)
     throw new Stop('"items" is a list of { description, quantity, price }.');
   const defaultTax =
@@ -250,11 +262,7 @@ function computeTotals(data) {
     const qty = number(item.quantity ?? 1, `Item ${i + 1} quantity`);
     const price = number(item.price, `Item ${i + 1} price`);
     const gross = minor(qty * price);
-    const off = item.discount
-      ? String(item.discount).includes("%") || Number(item.discount) < 1
-        ? minor((gross / unit) * rate(item.discount, "discount"))
-        : minor(number(item.discount, "discount"))
-      : 0;
+    const off = discountOf(item.discount, gross);
     return {
       ...item,
       qty,
@@ -266,11 +274,7 @@ function computeTotals(data) {
     };
   });
   const subtotal = lines.reduce((s, l) => s + l.amount, 0);
-  const discount = data.discount
-    ? String(data.discount).includes("%")
-      ? minor((subtotal / unit) * rate(data.discount, "discount"))
-      : minor(number(data.discount, "discount"))
-    : 0;
+  const discount = discountOf(data.discount, subtotal);
   // The order discount is shared across lines in proportion, so each tax rate is charged on what is left
   const byRate = new Map();
   for (const line of lines) {

@@ -269,4 +269,4 @@ These phrases are overused in AI-generated content:
 - "This begs the question..."
 - "Let's delve into..."
 
-See the seo-audit skill's `references/ai-writing-detection.md` for a complete list of AI writing tells.
+These are the ones that turn up in page copy. Treat any phrase that could open any page about anything as the same tell: cut it rather than swap it for another.
