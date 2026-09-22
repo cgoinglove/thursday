@@ -49,7 +49,7 @@ Node.js 22.18 이상과 OpenAI API 키 하나면 됩니다. 첫 화면에 키를
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/team-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/team-light.png" alt="한 알약 안의 봇 셋이 다른 봇을 부르고, 질문 하나가 사용자를 기다린다" width="880">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/team-light.png" alt="봇 둘의 스레드 — 하나가 일을 넘기고, 다른 하나가 비교한 것을 보고하고, 질문 하나가 나를 기다린다" width="880">
 </picture>
 
 ### 심부름은 진짜 브라우저로
@@ -58,7 +58,7 @@ Node.js 22.18 이상과 OpenAI API 키 하나면 됩니다. 첫 화면에 키를
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/errands-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/errands-light.png" alt="봇이 채워 두고 남긴 결제 화면, ‘waiting on you’ 표시와 함께" width="880">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/errands-light.png" alt="봇이 몰던 브라우저의 결제 화면 — 다 채워 두고 결제 버튼 앞에서 멈춰 열린 채로 남았다" width="880">
 </picture>
 
 ### 결과는 파일로 남습니다

@@ -43,13 +43,13 @@ A speech model that opens a browser goes silent for a minute, and a silent call 
   <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/talk-light.png" alt="On a call: she says a bot is on it and will tell you when it is back. Below, the job is handed over and a web search starts" width="880">
 </picture>
 
-### One sentence, a whole team
+### One ask, a whole team
 
 Bots hand parts of a job to each other, check what comes back, and ask you only when a decision is yours. Every handoff is saved: open the thread to see who did what, or step in.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/team-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/team-light.png" alt="Three bots in one pill, looping in another, and a question waiting on the user" width="880">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/team-light.png" alt="A thread between two bots: one hands the job over, the other reports what it compared, and a question waits on you" width="880">
 </picture>
 
 ### Errands, in a real browser
@@ -58,7 +58,7 @@ Orders, bookings, forms, the inbox. A bot uses its own browser or the Chrome you
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/errands-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/errands-light.png" alt="A checkout a bot filled in and left open, marked “waiting on you”" width="880">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/errands-light.png" alt="A checkout in a browser a bot drove: filled in, stopped at the Pay button, left open on your screen" width="880">
 </picture>
 
 ### Results you can keep
