@@ -103,7 +103,7 @@ export async function loadThursdayPrompt(
 function result(): string {
   return `## Return the result
 
-Return the relevant facts, whether the task is complete, and what comes next — for work you handed over, who has it and whether it carries an earlier thread on or starts a new one — or the one question the user has to answer first. Use confirmed values from tool results and the notes above, and never invent a successful action. What you return is said aloud: keep it short and plain.`;
+Return the relevant facts, whether the task is complete, and what comes next — for work you handed over, who has it and whether it carries an earlier thread on or starts a new one — or the one question the user has to answer first. Use confirmed values from tool results and the notes above, and never invent a successful action. What you return is said aloud: keep it short and plain, and carry what they do not know yet — never a confirmation this conversation has already given them.`;
 }
 
 /**

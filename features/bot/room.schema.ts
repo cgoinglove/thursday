@@ -3,6 +3,12 @@ import { z } from "zod";
 export const RoomMessageSchema = z.object({
   to: z.string().trim().min(1),
   text: z.string().trim().min(1),
+  /**
+   * Why this recipient is being reached, for the user rather than for the recipient: a job
+   * that pulled another bot in reads as one bot's work without it, since only the thread's
+   * own bot reaches the screen. Kept by the tool call itself, so it needs no column.
+   */
+  why: z.string().trim().min(1),
   kind: z.enum(["message", "question"]).default("message"),
   options: z.array(z.string().trim().min(1)).nullish(),
 });

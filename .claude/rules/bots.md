@@ -30,6 +30,10 @@ paths:
   Requests to the same bot run sequentially, and a bot waiting on the user's answer runs nothing
   until it arrives; its inbox holds. Only exchanged messages cross participant contexts. `room.query` owns durable inboxes,
   continuation claims and return routes; `bot.runner` owns live promises.
+- **A message says why it was sent, and the reason is the user's to read.** `send_message` takes
+  a `why` beside its words: only the thread's own bot reaches the screen, so a job half done by
+  someone it brought in reads as one bot's work, and the user cannot tell who did what. It is
+  kept by the tool call itself, which stores its arguments whole, so it costs no column.
 - **A message is a call, and a turn's last words are its return.** `send_message` to another bot
   opens an exchange (`thread_work`: who called, whose row to wake), and the callee's final text
   comes back to the caller's inbox once its row is done — never while it still waits on anyone it

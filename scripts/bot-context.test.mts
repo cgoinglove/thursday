@@ -167,6 +167,7 @@ const ask = (bot: string, request: string) =>
   call(T.send_message, {
     to: bot,
     text: request,
+    why: "the test's reason",
     kind: bot === "Thursday" ? "question" : "message",
   });
 const waitFor = async (id: string, status: string) => {
@@ -450,6 +451,7 @@ test("a question pauses the bot that asked, and words to that bot answer it", as
       call(T.send_message, {
         to: "Thursday",
         text: "Choose a destination.",
+        why: "the test's reason",
         kind: "question",
         options: ["Destination one", "Destination two"],
       }),
@@ -487,6 +489,7 @@ test("Continue offered as a choice answers the question rather than resuming a s
       call(T.send_message, {
         to: "Thursday",
         text: "Keep going with the long version?",
+        why: "the test's reason",
         kind: "question",
         options: ["Continue", "Stop here"],
       }),
@@ -554,9 +557,15 @@ test("words to a bot already on a call join it, and committed sends deduplicate"
     id: "same-send",
     to: "Beta",
     text: "One",
+    why: "the test's reason",
   });
   assert.deepEqual(
-    await sendRoomMessage(root, { id: "same-send", to: "Beta", text: "One" }),
+    await sendRoomMessage(root, {
+      id: "same-send",
+      to: "Beta",
+      text: "One",
+      why: "the test\'s reason",
+    }),
     receipt,
   );
   // Beta is already on a call from Alpha: more words join it rather than queue a second one
@@ -564,6 +573,7 @@ test("words to a bot already on a call join it, and committed sends deduplicate"
     id: "second-send",
     to: "Beta",
     text: "Two",
+    why: "the test's reason",
   });
   assert.match(String(more.note), /already working for you/);
   const beta = (await claimRoomWork(thread.id))!;
@@ -574,18 +584,33 @@ test("words to a bot already on a call join it, and committed sends deduplicate"
     "Alpha:\n\nTwo",
   ]);
   // Words that arrive while it runs are read before its next step
-  await sendRoomMessage(root, { id: "third-send", to: "Beta", text: "Three" });
+  await sendRoomMessage(root, {
+    id: "third-send",
+    to: "Beta",
+    text: "Three",
+    why: "the test\'s reason",
+  });
   assert.deepEqual(await consumeRoomInbox(beta), ["Alpha:\n\nThree"]);
   await finishRoomWork(beta, "One result");
   assert.equal(await claimRoomWork(thread.id), null);
   // Once it has answered, the next words are a new call
-  await sendRoomMessage(root, { id: "fourth-send", to: "Beta", text: "Four" });
+  await sendRoomMessage(root, {
+    id: "fourth-send",
+    to: "Beta",
+    text: "Four",
+    why: "the test\'s reason",
+  });
   const again = (await claimRoomWork(thread.id))!;
   assert.equal(again.bot, "Beta");
   assert.notEqual(beta.id, again.id);
   await cancelRoom(thread.id);
   await assert.rejects(
-    sendRoomMessage(root, { id: "stale", to: "Gamma", text: "Too late" }),
+    sendRoomMessage(root, {
+      id: "stale",
+      to: "Gamma",
+      text: "Too late",
+      why: "the test\'s reason",
+    }),
     /no longer running/,
   );
   assert.equal((await listRoomWork(thread.id)).length, 3);
@@ -1085,6 +1110,7 @@ test("a consumed inbox survives a crash before model execution and restart waits
     id: "crash-message",
     to: "Beta",
     text: "Durable incoming message",
+    why: "the test's reason",
   });
   const beta = (await claimRoomWork(thread.id))!;
   await consumeRoomInbox(beta);
@@ -1280,6 +1306,7 @@ test("a bot's prompt lists its other threads with its own last words, never the 
     id: "other-threads-call",
     to: "Beta",
     text: "Price the three plans",
+    why: "the test's reason",
   });
   const beta = (await claimRoomWork(earlier.id))!;
   await finishRoomWork(
@@ -1608,6 +1635,7 @@ test("a committed message recovers its real receipt after the tool result is los
     id: "lost-receipt",
     to: "Beta",
     text: "Already committed",
+    why: "the test's reason",
   });
   const history: import("ai").ModelMessage[] = [
     {
@@ -1784,6 +1812,7 @@ test("compaction thresholds belong to the participant across different callers",
     id: "budget-message",
     to: "Beta",
     text: "Work within the accepted context",
+    why: "the test's reason",
   });
   const beta = (await claimRoomWork(thread.id))!;
   await lowerRoomContextBudget(beta, 12000);
@@ -1844,6 +1873,7 @@ test("a question to Thursday waits on the user and names who asked", async () =>
     id: "reply-to-thursday",
     to: "Thursday",
     text: "Which destination should I use?",
+    why: "the test's reason",
     kind: "question",
   });
   assert.equal(
@@ -1865,11 +1895,13 @@ test("Thursday updates do not create questions or prevent the final report", asy
       call(T.send_message, {
         to: "Thursday",
         text: "The first part is ready.",
+        why: "the test's reason",
       }),
     () =>
       call(T.send_message, {
         to: "Thursday",
         text: "The requested work is complete.",
+        why: "the test's reason",
         kind: "message",
       }),
     () => text("All work is complete."),

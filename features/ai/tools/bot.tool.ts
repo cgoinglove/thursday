@@ -103,6 +103,13 @@ export const sendMessageSpec = {
       .describe(
         "Write the message and include the context the recipient needs.",
       ),
+    why: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(
+        "What you need from them, in a few words, written for the user to read: they see who was brought in and what for.",
+      ),
   }),
 };
 

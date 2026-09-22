@@ -121,6 +121,7 @@ type RunOptions = {
     id: string;
     to: string;
     text: string;
+    why: string;
     kind?: "message" | "question";
     options?: string[] | null;
   }) => Promise<unknown>;
