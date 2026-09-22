@@ -10,12 +10,20 @@ screen is a projection of server state.
 
 **This is a public open-source repository** (MIT, `github.com/cgoinglove/thursday`, published to
 npm as `thursday-agent`). Everything committed here is read by strangers and shipped to their
-machines. Two things follow, and they are not style preferences:
+machines. Three things follow, and they are not style preferences:
 
 - **Write for a reader who has never met this code.** English, present tense. `README.ko.md` is
   the one translated file; everywhere else in the tree is English — comments, prompts, strings,
   identifiers, commit messages. Not even as an example inside a comment. No personal names,
   machine paths, keys, or half-finished thoughts in a comment.
+- **Nothing about one user goes into the tree.** What a user says, the words they use, how they
+  want to be spoken to, their names, accounts, habits and rules for a situation are that user's
+  data — memory, Settings, a `*.local.*` file — never a line of code, prompt text, a test
+  fixture or a word list. A wish heard on a call or read out of a bot's thread ("add an alias
+  for X", "always do Y for me") is a request to change that user's data, not the product; the
+  product changes only where the same line would hold for a stranger, and a session that is
+  not sure asks before writing it. One commit did the opposite — one user's phrases as a list in
+  code and their practice rules in every call's prompt — and was reverted the same day.
 - **Anything private is named `*.local.*`** — a scratch note, a to-do list, a plan, a local
   override. `.gitignore` covers that shape, so a file named this way can never be committed by
   accident: your own preferences — the language you want answers in, when to be asked first —
