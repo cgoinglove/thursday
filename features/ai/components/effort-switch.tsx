@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { useIsDark } from "@/hooks/use-theme";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
@@ -12,8 +12,7 @@ import type {
 } from "../model.schema";
 import { effortsOf } from "../model.schema";
 
-/** The track is this long and this tall; the knob is the track's own height. */
-const TRACK = 96;
+/** The knob is the track's own height; the track takes whatever width the row leaves it. */
 const KNOB = 18;
 
 /** How long one body of light takes to cross the fill, and how many there are. */
@@ -39,15 +38,12 @@ export function EffortSwitch({
   value,
   onChange,
   className,
-  label = "effort",
 }: {
   provider: TextModelProviderId | null;
   model: string;
   value: Effort | null;
   onChange: (next: Effort | null) => void;
   className?: string;
-  /** What the switch calls itself; every screen shows the same word. */
-  label?: string;
 }) {
   // The gateway is the one provider that answers at run time; the rest carry their ladder on the shelf
   const gateway = provider === "vercel-ai-gateway";
@@ -65,6 +61,19 @@ export function EffortSwitch({
     if (value && ladder && !ladder.includes(value)) onChange(null);
   }, [value, ladder, onChange]);
 
+  // The fill is painted on a canvas, so the track's width is measured rather than assumed
+  const track = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const node = track.current;
+    if (!node) return;
+    const watch = new ResizeObserver(([entry]) =>
+      setWidth(Math.round(entry.contentRect.width)),
+    );
+    watch.observe(node);
+    return () => watch.disconnect();
+  }, []);
+
   const stops = ladder ?? [];
   const auto = !value || !stops.includes(value);
   const at = auto ? 0 : stops.indexOf(value as Effort);
@@ -75,92 +84,90 @@ export function EffortSwitch({
   const lit = step && step !== "none" ? step : null;
 
   return (
-    // The name stands off; the control is the three things that belong together
-    <div className={cn("flex shrink-0 items-center gap-3", className)}>
-      <span className="font-mono text-[11px] text-muted-foreground">
-        {label}
-      </span>
-      <div className="flex shrink-0 items-center gap-1.5">
-        {/* Auto sets nothing, so it is not a rung — and it presses rather than slides: a second
+    // The shape of every slider row in this app (thursday-setting Row + Slider): the screen
+    // writes the label in its own way, then the track takes the width, then the value sits at
+    // the right end in a column of its own.
+    <div className={cn("flex min-w-0 flex-1 items-center gap-2.5", className)}>
+      {/* Auto sets nothing, so it is not a rung — and it presses rather than slides: a second
             thing shaped like the track reads as two sliders side by side (the user's pick). */}
-        <button
-          type="button"
-          aria-pressed={auto}
-          disabled={!stops.length}
-          title={chosen ? ladderNote(ladder) : "Pick a model first"}
-          onClick={() => onChange(auto ? (stops[0] ?? null) : null)}
-          className={cn(
-            // A chip in both states, since a word with no edge reads as a second label rather
-            // than something to press; only the fill and the ink say which way it is.
-            "h-[18px] shrink-0 rounded-full px-2 text-[10.5px] ring-1 ring-border ring-inset transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50",
-            auto
-              ? "bg-muted font-medium text-foreground"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          Auto
-        </button>
+      <button
+        type="button"
+        aria-pressed={auto}
+        disabled={!stops.length}
+        title={chosen ? ladderNote(ladder) : "Pick a model first"}
+        onClick={() => onChange(auto ? (stops[0] ?? null) : null)}
+        className={cn(
+          // A chip in both states, since a word with no edge reads as a second label rather
+          // than something to press; only the fill and the ink say which way it is.
+          "h-[18px] shrink-0 rounded-full px-2 text-[10.5px] ring-1 ring-border ring-inset transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50",
+          auto
+            ? "bg-muted font-medium text-foreground"
+            : "text-muted-foreground hover:text-foreground",
+        )}
+      >
+        Auto
+      </button>
 
-        <div
-          className="relative shrink-0"
-          style={{ width: TRACK, height: KNOB }}
-        >
-          <div className="absolute inset-0 rounded-full bg-muted ring-1 ring-border ring-inset" />
-          {(lit || auto) && stops.length > 0 && (
-            <Fill
-              step={lit}
-              width={auto ? TRACK : Math.round(KNOB + (TRACK - KNOB) * part)}
-            />
-          )}
-          {/* A dot for every step this model takes: where the knob can stand, and how many there
+      <div
+        ref={track}
+        className="relative min-w-0 flex-1"
+        style={{ height: KNOB }}
+      >
+        <div className="absolute inset-0 rounded-full bg-muted ring-1 ring-border ring-inset" />
+        {(lit || auto) && stops.length > 0 && width > 0 && (
+          <Fill
+            step={lit}
+            width={auto ? width : Math.round(KNOB + (width - KNOB) * part)}
+          />
+        )}
+        {/* A dot for every step this model takes: where the knob can stand, and how many there
             are. Over the fill, which is painted, so the ones already climbed still show. */}
-          {stops.map((one, index) => (
-            <span
-              key={one}
-              className={cn(
-                "pointer-events-none absolute top-1/2 z-[1] -mt-px -ml-px size-0.5 rounded-full",
-                !auto && index <= at ? "bg-background/80" : "bg-foreground/20",
-              )}
-              style={{
-                left: `calc(${KNOB / 2}px + (100% - ${KNOB}px) * ${last ? index / last : 0})`,
-              }}
-            />
-          ))}
+        {stops.map((one, index) => (
           <span
-            // The knob is the track's own height: anything smaller lets the fill show around it
-            className="pointer-events-none absolute top-0 z-[2] rounded-full bg-background shadow-[0_1px_3px_rgb(0_0_0/20%)] ring-1 ring-border transition-[left] duration-300 ease-out dark:bg-foreground"
+            key={one}
+            className={cn(
+              "pointer-events-none absolute top-1/2 z-[1] -mt-px -ml-px size-0.5 rounded-full",
+              !auto && index <= at ? "bg-background/80" : "bg-foreground/20",
+            )}
             style={{
-              width: KNOB,
-              height: KNOB,
-              left: `calc((100% - ${KNOB}px) * ${auto ? 0 : part})`,
+              left: `calc(${KNOB / 2}px + (100% - ${KNOB}px) * ${last ? index / last : 0})`,
             }}
           />
-          <input
-            type="range"
-            min={0}
-            max={last}
-            step={1}
-            value={at}
-            disabled={!stops.length}
-            aria-label="Thinking effort"
-            aria-valuetext={EFFORT_LABEL[step ?? "auto"]}
-            onChange={(event) => onChange(stops[Number(event.target.value)])}
-            className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0 disabled:cursor-default"
-          />
-        </div>
-
-        {/* Under Auto the button already says so; a second word would repeat it */}
-        {!auto && (
-          <span
-            className="shrink-0 text-[11px]"
-            // The name wears its own step, at full strength: the fill's own colour is lifted
-            // toward the paper at the bottom of the ladder and would not clear 4.5:1 as words.
-            style={{ color: nameInk(step) }}
-          >
-            {EFFORT_LABEL[step ?? "auto"]}
-          </span>
-        )}
+        ))}
+        <span
+          // The knob is the track's own height: anything smaller lets the fill show around it
+          className="pointer-events-none absolute top-0 z-[2] rounded-full bg-background shadow-[0_1px_3px_rgb(0_0_0/20%)] ring-1 ring-border transition-[left] duration-300 ease-out dark:bg-foreground"
+          style={{
+            width: KNOB,
+            height: KNOB,
+            left: `calc((100% - ${KNOB}px) * ${auto ? 0 : part})`,
+          }}
+        />
+        <input
+          type="range"
+          min={0}
+          max={last}
+          step={1}
+          value={at}
+          disabled={!stops.length}
+          aria-label="Thinking effort"
+          aria-valuetext={EFFORT_LABEL[step ?? "auto"]}
+          onChange={(event) => onChange(stops[Number(event.target.value)])}
+          className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0 disabled:cursor-default"
+        />
       </div>
+
+      {/* Where every other slider here keeps its value: the right end, in a column of its own, so
+          the track does not move as the word under the knob changes. Under Auto the button by the
+          track has said it already. */}
+      <span
+        className="w-[58px] shrink-0 text-right font-mono text-[10.5px]"
+        // The name wears its own step, at full strength: the fill's own colour is lifted toward
+        // the paper at the bottom of the ladder and would not clear 4.5:1 as words.
+        style={{ color: auto ? undefined : nameInk(step) }}
+      >
+        {auto ? "" : EFFORT_LABEL[step ?? "auto"]}
+      </span>
     </div>
   );
 }

@@ -239,12 +239,12 @@ function ModelsSetting({
             />
           </ModelBlock>
 
-          <ModelBlock label="instructions">
+          <ModelBlock label="personality">
             <PromptField
               value={value.voicePrompt}
               onCommit={(voicePrompt) => onChange({ voicePrompt })}
-              placeholder="How to address you, how much to say, what to skip."
-              aria-label="Voice instructions"
+              placeholder="The character and way of speaking you want — quieter, blunter, funnier."
+              aria-label="Voice personality"
             />
           </ModelBlock>
         </ModelSection>
@@ -257,14 +257,15 @@ function ModelsSetting({
             />
           </ModelBlock>
 
-          {/* The switch carries its own name; Auto omits the parameter, so a model without
-              reasoning still runs */}
-          <EffortSwitch
-            provider="openai"
-            model={value.backendModel}
-            value={value.reasoningEffort}
-            onChange={(reasoningEffort) => onChange({ reasoningEffort })}
-          />
+          {/* Auto omits the parameter, so a model without reasoning still runs */}
+          <ModelBlock label="effort">
+            <EffortSwitch
+              provider="openai"
+              model={value.backendModel}
+              value={value.reasoningEffort}
+              onChange={(reasoningEffort) => onChange({ reasoningEffort })}
+            />
+          </ModelBlock>
 
           <ModelBlock label="tools">
             <BackendTools

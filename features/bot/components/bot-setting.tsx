@@ -920,7 +920,6 @@ function BotPage({
         </Row>
 
         <Row label="Runs on">
-          {/* The effort rides the picker's own line: it sets how this model thinks, not a row of its own */}
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <ModelPicker
@@ -954,20 +953,27 @@ function BotPage({
                 }}
               />
             </div>
-            <EffortSwitch
-              provider={provider}
-              model={model.trim()}
-              value={effort}
-              onChange={(next) => {
-                patch({ effort: next });
-                commit({ effort: next });
-              }}
-            />
           </div>
           <p className="text-xs text-muted-foreground">
             {model.trim()
-              ? "How hard it thinks, beside what it thinks with. Auto leaves the step to the model."
+              ? "What this bot thinks with. App default puts it back on the one in Settings › Models."
               : "App default model, and its effort with it."}
+          </p>
+        </Row>
+
+        <Row label="Effort">
+          <EffortSwitch
+            provider={provider}
+            model={model.trim()}
+            value={effort}
+            onChange={(next) => {
+              patch({ effort: next });
+              commit({ effort: next });
+            }}
+          />
+          <p className="text-xs text-muted-foreground">
+            How hard it thinks, on the steps this model takes. Auto leaves the
+            step to the model.
           </p>
         </Row>
 

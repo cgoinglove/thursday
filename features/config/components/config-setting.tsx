@@ -619,9 +619,8 @@ function ChoiceRow({
             </span>
           )}
         </span>
-        {/* The effort rides the picker's own line: it sets how the model thinks, not a setting of its own */}
-        <div className="flex items-center gap-3">
-          <div className="min-w-0 flex-1">
+        <div className="flex flex-col gap-2">
+          <div className="min-w-0">
             <ModelPicker
               kind={entry.kind}
               provider={ref?.provider ?? null}
@@ -646,15 +645,22 @@ function ChoiceRow({
               }
             />
           </div>
+          {/* Its own line under the model, the shape every slider here has: what it is, the
+              track, the value at the right end (thursday-setting Row + Slider). */}
           {effort && ref && (
-            <EffortSwitch
-              provider={ref.provider}
-              model={ref.model}
-              value={effortSchema.safeParse(effortValue).data ?? null}
-              onChange={(next) =>
-                next ? save(effort.key, next) : clear(effort.key)
-              }
-            />
+            <div className="flex items-center gap-3 pt-0.5">
+              <span className="w-12 shrink-0 font-mono text-[11px] text-muted-foreground">
+                effort
+              </span>
+              <EffortSwitch
+                provider={ref.provider}
+                model={ref.model}
+                value={effortSchema.safeParse(effortValue).data ?? null}
+                onChange={(next) =>
+                  next ? save(effort.key, next) : clear(effort.key)
+                }
+              />
+            </div>
           )}
         </div>
       </div>
