@@ -25,8 +25,8 @@ print. The `--from` kinds are shapes, not subjects — a `report` leads with the
 what supports it, a `memo` is short and top-down, a `comparison` is the table and next to
 no prose, a `plan` is a tracker with status and owners, `notes` are what was decided and who
 does what. Each opens with a title and a line under it — an as-of date and who it is by,
-as chips — and the file draws its own contents list from the headings and turns a `.tabs`
-block into tabs. Headings, paragraphs, lists, tables and figures need no classes; the
+as chips — and the file draws its own contents beside the page from the headings (nothing
+to write for it) and turns a `.tabs` block into tabs. Headings, paragraphs, lists, tables and figures need no classes; the
 comment inside the file lists the few that lay out the rest — a grid of cards, one big
 number, a note, a chip, a checklist, a bar, a source list. A little inline `<script>` is
 fine for a toggle or a sort. When a document compares things people choose partly by how
@@ -44,5 +44,7 @@ To look at a page before handing it back, `node $THURSDAY_SKILLS/browser/scripts
 <page.html> --out <dir> --size 1024x1400` leaves a picture of it; a server of your own is
 not needed.
 
-Nothing is edited in the app: what changes is the file. A document that has to be sent or
+A document wears a head — who made it, its name, Edit, a theme button, Export — and the
+reader can edit it in place: opened in the app it saves back into the file, opened
+elsewhere it keeps a copy. Write inside `<main>` only. A document that has to be sent or
 edited as a Word or PDF file is an office document, which is another method's work.

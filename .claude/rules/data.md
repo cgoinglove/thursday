@@ -48,10 +48,12 @@ const [create] = useServerAction(createNoteAction, {
 });
 ```
 
-**Write** — no routes. Only server actions wrapped in `serverAction`. Routes exist for three cases:
+**Write** — no routes. Only server actions wrapped in `serverAction`. Routes exist for four cases:
 external callers hitting a URL (oauth callback), work that must run in parallel (tool calls during a
-call — actions are serial per client), and a response that streams (the SSE route, a memory
-edit drawn as the model makes it, a turn of a call in writing).
+call — actions are serial per client), a response that streams (the SSE route, a memory
+edit drawn as the model makes it, a turn of a call in writing), and a page a bot wrote saving
+itself back (`PUT` on the file route): its editor runs inside the frame that route served it
+into, where no action can be reached, and it may only overwrite the `.html` it was opened as.
 
 ```ts
 export const createNoteAction = serverAction(async (path: unknown, description: unknown) => {

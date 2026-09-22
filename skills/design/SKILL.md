@@ -22,9 +22,10 @@ app draws it at 1024px wide. `S=<skill dir>/scripts`
 4. Hand back the canvas's path and the pictures' paths, and say in words what each
    option explores and which you would lead with.
 
-Two things the file does that you do not write: it measures each board's real colours,
-type and spacing into its name strip, with a `spec` button that copies the board as an
-instruction; and a link from one board to another (`<a href="#next">`) brings that board
-up, so a flow is walked through the way it would be used. Boards on one canvas can be
-different sizes — a phone beside a desktop — and there is no editing in the app: what
-changes is the file, shot again.
+What the file does that you do not write: a head naming who made it and how many boards,
+a rail (select, move, every board, the list), a list of every board small on the left, and
+when a board is picked its real colours, type and spacing on the right with a button that
+copies it as an instruction; a link from one board to another (`<a href="#next">`) brings
+that board up, so a flow is walked through the way it would be used. Write inside `#stage`
+only. Boards on one canvas can be different sizes — a phone beside a desktop — and there is
+no editing in the app: what changes is the file, shot again.

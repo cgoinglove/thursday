@@ -1,14 +1,20 @@
-// Panning and zooming the surface: drag or wheel to move, pinch or cmd-wheel to
-// zoom about the pointer, +/-/0/1 from the keyboard. It opens fitted, because the
-// app draws this file at 1024px wide and does not scroll it: at 1:1 a canvas of
-// boards would show one corner.
+// The canvas under the shell's head: the surface pans and zooms (drag or wheel to move,
+// pinch or cmd-wheel to zoom about the pointer, +/-/0/1 from the keyboard), the rail
+// picks whether a press selects a board or only moves the surface, the list on the left
+// holds every board small, and the board that is picked shows what it is really made of
+// on the right. It opens fitted, because the app draws this file at 1024px wide and does
+// not scroll it: at 1:1 a canvas of boards would show one corner.
 (() => {
   // The renderer opens a flat copy of this file with the boards alone at true size.
   if (document.body.classList.contains("shot")) return;
 
-  const stage = document.getElementById("stage");
   const field = document.getElementById("field");
+  const stage = document.getElementById("stage");
   const out = document.getElementById("at");
+  const hover = document.getElementById("hover");
+  const spec = document.getElementById("spec");
+  const layers = document.getElementById("layer-list");
+  const png = document.getElementById("png");
   const MIN = 0.05;
   const MAX = 4;
   const PAD = 48;
@@ -17,6 +23,18 @@
   let x = 0;
   let y = 0;
   let own = false; // the view is the reader's once they move it; resizing stops refitting
+  let pictures = false; // whether the renderer left board-NN.png beside this file
+
+  const boards = () => [...document.querySelectorAll(".frame")];
+  const nameOf = (frame) =>
+    frame.dataset.name ||
+    frame.querySelector("h2")?.textContent?.trim() ||
+    `board ${boards().indexOf(frame) + 1}`;
+  const sizeOf = (frame) => ({
+    w: Number(frame.style.getPropertyValue("--w")) || frame.offsetWidth,
+    h: Number(frame.style.getPropertyValue("--h")) || 0,
+  });
+  const pictureOf = (n) => `board-${String(n + 1).padStart(2, "0")}.png`;
 
   /**
    * The surface's dots, drawn on the field rather than the stage so they never scale
@@ -35,6 +53,7 @@
     stage.style.transform = `translate(${x}px, ${y}px) scale(${z})`;
     if (out) out.value = `${Math.round(z * 100)}%`;
     dots();
+    hover.hidden = true;
   };
 
   /** What the boards and notes cover, in surface px. */
@@ -53,23 +72,21 @@
   };
 
   const clamp = (n) => Math.min(MAX, Math.max(MIN, n));
+  const room = () => ({ w: field.clientWidth, h: field.clientHeight });
+
+  /** A box of the surface as large as the field takes it, centred. */
+  const frameIn = (l, t, w, h) => {
+    const { w: fw, h: fh } = room();
+    z = clamp(Math.min((fw - PAD * 2) / w, (fh - PAD * 2) / h, 1));
+    x = (fw - w * z) / 2 - l * z;
+    y = (fh - h * z) / 2 - t * z;
+    draw();
+  };
 
   const fit = () => {
     const box = bounds();
     if (!box) return;
-    const w = box.r - box.l;
-    const h = box.b - box.t;
-    const top = (document.querySelector("header")?.offsetHeight ?? 0) + PAD;
-    z = clamp(
-      Math.min(
-        (innerWidth - PAD * 2) / w,
-        (innerHeight - top - PAD) / h,
-        1, // never blow a small canvas up to fill the window
-      ),
-    );
-    x = (innerWidth - w * z) / 2 - box.l * z;
-    y = top + (innerHeight - top - PAD - h * z) / 2 - box.t * z;
-    draw();
+    frameIn(box.l, box.t, box.r - box.l, box.b - box.t);
   };
 
   /** Zoom to `next`, keeping the surface point under (cx, cy) where it is. */
@@ -82,15 +99,15 @@
     draw();
   };
 
-  const center = () => [innerWidth / 2, innerHeight / 2];
+  const center = () => [field.clientWidth / 2, field.clientHeight / 2];
+  /** Pointer coordinates as the field sees them. */
+  const local = (event) => {
+    const box = field.getBoundingClientRect();
+    return [event.clientX - box.left, event.clientY - box.top];
+  };
 
-  /**
-   * One board at a time, the way a canvas is read when it is time to choose: the arrow
-   * keys walk them in the order they were written and bring each one up on its own,
-   * `0` or Esc puts them all back side by side. Without this a reader drags and zooms
-   * by hand to compare two boards that are a screen apart.
-   */
-  const boards = () => [...document.querySelectorAll(".frame")];
+  /* ── picking a board ─────────────────────────────────────────────────────── */
+
   let at = -1;
 
   const say = () => {
@@ -98,42 +115,102 @@
     if (!seat) return;
     const all = boards();
     seat.textContent =
-      at < 0 || !all[at]
-        ? ""
-        : `${all[at].dataset.name || all[at].querySelector("h2")?.textContent?.trim() || `board ${at + 1}`} · ${at + 1}/${all.length}`;
+      at < 0 || !all[at] ? "" : `${nameOf(all[at])} · ${at + 1}/${all.length}`;
   };
 
-  /** Brings board `n` up alone, as large as the window takes it. */
+  /** The picked board's values, in the pane on the right, and in the export menu. */
+  const describePicked = () => {
+    const all = boards();
+    const frame = all[at];
+    for (const [n, row] of [...layers.children].entries())
+      row.classList.toggle("sh-on", n === at);
+    for (const one of all) one.classList.toggle("picked", one === frame);
+    const copies = document.querySelectorAll("[data-copy-spec]");
+    if (!frame) {
+      spec.hidden = true;
+      if (png) png.hidden = true;
+      for (const button of copies)
+        if (button.closest(".sh-list")) button.hidden = true;
+      return;
+    }
+    const read = readSpec(frame);
+    document.getElementById("spec-name").textContent = nameOf(frame);
+    const list = document.getElementById("spec-list");
+    list.replaceChildren();
+    const row = (label, value) => {
+      const dt = document.createElement("dt");
+      dt.textContent = label;
+      const dd = document.createElement("dd");
+      if (typeof value === "string") dd.textContent = value;
+      else dd.append(...value);
+      list.append(dt, dd);
+    };
+    row("Size", `${read.w} × ${read.h}`);
+    if (read.colours.length)
+      row(
+        "Colours",
+        read.colours.slice(0, 6).flatMap((colour) => {
+          const swatch = document.createElement("i");
+          swatch.style.background = colour;
+          const code = document.createElement("span");
+          code.textContent = colour.toUpperCase();
+          return [swatch, code];
+        }),
+      );
+    if (read.families.length) row("Type", read.families.join(", "));
+    if (read.sizes.length) row("Sizes", `${read.sizes.join(" / ")} px`);
+    if (read.weights.length) row("Weights", read.weights.join(" · "));
+    if (read.radii.length) row("Radius", `${read.radii.join(" · ")} px`);
+    if (read.gaps.length) row("Gaps", `${read.gaps.join(" · ")} px`);
+    spec.hidden = false;
+    if (png) {
+      png.href = pictureOf(at);
+      png.hidden = !pictures;
+    }
+    for (const button of copies) button.hidden = false;
+  };
+
+  const pick = (n) => {
+    at = n;
+    say();
+    describePicked();
+    const frame = boards()[at];
+    if (frame?.id) history.replaceState(null, "", `#${frame.id}`);
+  };
+
+  const unpick = () => {
+    at = -1;
+    say();
+    describePicked();
+    if (location.hash) history.replaceState(null, "", location.pathname);
+  };
+
+  /**
+   * One board at a time, the way a canvas is read when it is time to choose: the arrow
+   * keys walk them in the order they were written and bring each one up on its own,
+   * `0` or Esc puts them all back side by side. Without this a reader drags and zooms
+   * by hand to compare two boards that are a screen apart.
+   */
   const show = (n) => {
     const all = boards();
     if (!all.length) return;
-    at = (n + all.length) % all.length;
-    const frame = all[at];
+    const to = (n + all.length) % all.length;
+    const frame = all[to];
     const l = Number(frame.style.getPropertyValue("--x")) || 0;
     const t = Number(frame.style.getPropertyValue("--y")) || 0;
-    const w = frame.offsetWidth;
-    const h = frame.offsetHeight;
-    const top = (document.querySelector("header")?.offsetHeight ?? 0) + PAD;
-    z = clamp(
-      Math.min((innerWidth - PAD * 2) / w, (innerHeight - top - PAD) / h, 1),
-    );
-    x = (innerWidth - w * z) / 2 - l * z;
-    y = top + (innerHeight - top - PAD - h * z) / 2 - t * z;
     own = true;
-    draw();
-    say();
-    // The address names the board that is up, so a link or a reload lands on it
-    if (frame.id) history.replaceState(null, "", `#${frame.id}`);
+    // Picked first: the pane that opens on the right takes room the fit must know about
+    pick(to);
+    frameIn(l, t, frame.offsetWidth, frame.offsetHeight);
   };
 
   const step = (by) => show(at < 0 ? (by > 0 ? 0 : -1) : at + by);
 
   /** Every board back side by side, the way the canvas opened. */
   const fitAll = () => {
-    at = -1;
+    unpick();
+    own = false;
     fit();
-    say();
-    if (location.hash) history.replaceState(null, "", location.pathname);
   };
 
   /** The board the address names, when it names one. */
@@ -142,6 +219,23 @@
       (frame) =>
         frame.id && frame.id === decodeURIComponent(location.hash.slice(1)),
     );
+
+  /* ── the rail ────────────────────────────────────────────────────────────── */
+
+  const setTool = (tool) => {
+    document.body.dataset.tool = tool;
+    for (const button of document.querySelectorAll("[data-tool]"))
+      button.classList.toggle("sh-on", button.dataset.tool === tool);
+  };
+  for (const button of document.querySelectorAll("[data-tool]"))
+    button.addEventListener("click", () => setTool(button.dataset.tool));
+  setTool("select");
+  document.querySelector("[data-layers]")?.addEventListener("click", () => {
+    document.body.classList.toggle("no-layers");
+    if (!own) fit();
+  });
+
+  /* ── the surface ─────────────────────────────────────────────────────────── */
 
   /**
    * A link from one board to another — `<a href="#next">` inside a board, to the frame
@@ -167,7 +261,7 @@
     (event) => {
       event.preventDefault();
       if (event.ctrlKey || event.metaKey) {
-        zoomAt(z * Math.exp(-event.deltaY / 320), event.clientX, event.clientY);
+        zoomAt(z * Math.exp(-event.deltaY / 320), ...local(event));
         return;
       }
       x -= event.deltaX;
@@ -178,9 +272,12 @@
     { passive: false },
   );
 
-  // Drag to pan; two fingers to pinch. Pointer events cover mouse, pen and touch.
+  // Drag to pan; two fingers to pinch. Pointer events cover mouse, pen and touch. A
+  // press that never moved is a pick, when the tool is the arrow.
   const down = new Map();
   let pinch = 0;
+  let moved = 0;
+  let pressed = null;
   const span = () => {
     const [a, b] = [...down.values()];
     return Math.hypot(a.x - b.x, a.y - b.y);
@@ -193,11 +290,19 @@
   field.addEventListener("pointerdown", (event) => {
     // The surface captures the pointer to pan, which would swallow a press on a
     // control drawn on it. Anything clickable keeps its own press.
-    if (event.target instanceof Element && event.target.closest("button, a, i"))
+    if (
+      event.target instanceof Element &&
+      event.target.closest(
+        "button, a, input, select, textarea, label, summary, .cv-zoom, .cv-hover",
+      )
+    )
       return;
     field.setPointerCapture(event.pointerId);
     down.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (down.size === 2) pinch = span();
+    moved = 0;
+    pressed =
+      event.target instanceof Element ? event.target.closest(".frame") : null;
     field.classList.add("dragging");
   });
 
@@ -206,12 +311,14 @@
     if (!was) return;
     const now = { x: event.clientX, y: event.clientY };
     down.set(event.pointerId, now);
+    moved += Math.hypot(now.x - was.x, now.y - was.y);
     own = true;
     if (down.size === 2) {
       const wide = span();
       if (pinch > 0) {
+        const box = field.getBoundingClientRect();
         const [cx, cy] = middle();
-        zoomAt(z * (wide / pinch), cx, cy);
+        zoomAt(z * (wide / pinch), cx - box.left, cy - box.top);
       }
       pinch = wide;
       return;
@@ -224,10 +331,58 @@
   const up = (event) => {
     down.delete(event.pointerId);
     if (down.size < 2) pinch = 0;
-    if (down.size === 0) field.classList.remove("dragging");
+    if (down.size === 0) {
+      field.classList.remove("dragging");
+      if (moved < 4 && document.body.dataset.tool === "select") {
+        if (pressed) pick(boards().indexOf(pressed));
+        else unpick();
+      }
+      pressed = null;
+    }
   };
   field.addEventListener("pointerup", up);
   field.addEventListener("pointercancel", up);
+
+  /* Over a board: open it alone, or its picture. Placed over the board's corner as the
+     field sees it, and gone as the surface moves. */
+  let hovered = null;
+  stage.addEventListener("pointerover", (event) => {
+    if (down.size) return;
+    const frame =
+      event.target instanceof Element && event.target.closest(".frame");
+    if (!frame || frame === hovered) return;
+    hovered = frame;
+    const board = frame.querySelector(".board") ?? frame;
+    const box = board.getBoundingClientRect();
+    const fieldBox = field.getBoundingClientRect();
+    hover.hidden = false;
+    hover.style.left = `${Math.min(box.right - fieldBox.left - hover.offsetWidth - 6, fieldBox.width - hover.offsetWidth - 6)}px`;
+    hover.style.top = `${Math.max(6, box.top - fieldBox.top + 6)}px`;
+    const n = boards().indexOf(frame);
+    const picture = hover.querySelector("[data-hover=png]");
+    picture.href = pictureOf(n);
+    picture.hidden = !pictures;
+    hover.querySelector("[data-hover=open]").onclick = () => show(n);
+  });
+  field.addEventListener("pointerleave", () => {
+    hovered = null;
+    hover.hidden = true;
+  });
+  stage.addEventListener("pointerout", (event) => {
+    const to =
+      event.relatedTarget instanceof Element ? event.relatedTarget : null;
+    if (to && (to.closest(".frame") === hovered || to.closest(".cv-hover")))
+      return;
+    hovered = null;
+    hover.hidden = true;
+  });
+  hover.addEventListener("pointerleave", (event) => {
+    const to =
+      event.relatedTarget instanceof Element ? event.relatedTarget : null;
+    if (to && to.closest(".frame") === hovered) return;
+    hovered = null;
+    hover.hidden = true;
+  });
 
   addEventListener("keydown", (event) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -244,6 +399,8 @@
     else if (event.key === "-") zoomAt(z / 1.25, ...center());
     else if (event.key === "ArrowRight" || event.key === "ArrowDown") step(1);
     else if (event.key === "ArrowLeft" || event.key === "ArrowUp") step(-1);
+    else if (event.key === "v" || event.key === "V") setTool("select");
+    else if (event.key === "h" || event.key === "H") setTool("hand");
     else return;
     event.preventDefault();
   });
@@ -251,14 +408,14 @@
   for (const button of document.querySelectorAll("[data-zoom]")) {
     button.addEventListener("click", () => {
       const how = button.dataset.zoom;
-      if (how === "fit") fit();
+      if (how === "fit") fitAll();
       else zoomAt(z * (how === "in" ? 1.25 : 0.8), ...center());
     });
   }
 
-  addEventListener("resize", () => {
+  new ResizeObserver(() => {
     if (!own) fit();
-  });
+  }).observe(field);
 
   /**
    * A board clips what does not fit, and its picture comes out the right size either
@@ -343,9 +500,10 @@
       if (px(look.columnGap)) gaps.add(px(look.columnGap));
     }
     const num = (set) => [...set].sort((a, b) => a - b);
+    const size = sizeOf(frame);
     return {
-      w: Number(frame.style.getPropertyValue("--w")) || board.clientWidth,
-      h: Number(frame.style.getPropertyValue("--h")) || board.clientHeight,
+      w: size.w,
+      h: size.h || board.clientHeight,
       colours: byUse(colours, 10),
       families: byUse(families, 3),
       sizes: num(sizes).reverse(),
@@ -356,8 +514,7 @@
   };
 
   /** The chosen board as an instruction: what it is, what it costs, and its values. */
-  const specText = (frame, spec) => {
-    const name = frame.dataset.name ?? "Board";
+  const specText = (frame, read) => {
     const note = [...document.querySelectorAll(".note")].find(
       (one) =>
         Number(one.style.getPropertyValue("--x")) ===
@@ -366,25 +523,25 @@
     const list = (label, values, join = " · ") =>
       values.length ? `**${label}** ${values.join(join)}\n` : "";
     return (
-      `## ${name}\n${spec.w}×${spec.h}\n\n` +
+      `## ${nameOf(frame)}\n${read.w}×${read.h}\n\n` +
       (note ? `${note.textContent.trim()}\n\n` : "") +
-      list("Colours", spec.colours) +
+      list("Colours", read.colours) +
       list(
         "Type",
         [
-          spec.families.join(", "),
-          `${spec.sizes.join("/")}px`,
-          spec.weights.join(" · "),
+          read.families.join(", "),
+          `${read.sizes.join("/")}px`,
+          read.weights.join(" · "),
         ].filter(Boolean),
         "  ",
       ) +
       list(
         "Radius",
-        spec.radii.map((n) => `${n}px`),
+        read.radii.map((n) => `${n}px`),
       ) +
       list(
         "Gaps",
-        spec.gaps.map((n) => `${n}px`),
+        read.gaps.map((n) => `${n}px`),
       )
     );
   };
@@ -401,59 +558,81 @@
       document.execCommand("copy");
       box.remove();
     }
-    const was = button.textContent;
-    button.textContent = "copied";
-    setTimeout(() => {
-      button.textContent = was;
-    }, 1200);
+    shell.say(button.querySelector("span") ?? button, "Copied");
+  };
+  for (const button of document.querySelectorAll("[data-copy-spec]"))
+    button.addEventListener("click", () => {
+      const frame = boards()[at];
+      if (frame) copy(specText(frame, readSpec(frame)), button);
+      button.closest("details")?.removeAttribute("open");
+    });
+
+  /** The swatches on each name strip, and the list of boards: added here, so a board's markup stays the design. */
+  const describe = () => {
+    const all = boards();
+    document.getElementById("boards-count").textContent = String(all.length);
+    layers.replaceChildren();
+    all.forEach((frame, n) => {
+      const strip = frame.querySelector("h2");
+      const read = readSpec(frame);
+      if (strip && read && !strip.querySelector(".swatches")) {
+        // Kept before anything is added to the strip, so the name stays the name
+        frame.dataset.name = strip.textContent.trim();
+        const swatches = document.createElement("span");
+        swatches.className = "swatches";
+        for (const colour of read.colours.slice(0, 8)) {
+          const dot = document.createElement("i");
+          dot.style.background = colour;
+          dot.title = colour;
+          dot.addEventListener("click", (event) => {
+            event.stopPropagation();
+            navigator.clipboard?.writeText(colour).catch(() => {});
+          });
+          swatches.append(dot);
+        }
+        strip.append(swatches);
+      }
+      const row = document.createElement("a");
+      const board = frame.querySelector(".board");
+      const size = sizeOf(frame);
+      if (board && size.w && size.h)
+        row.append(shell.thumb(board, 44, size.w, size.h));
+      const name = document.createElement("span");
+      name.textContent = nameOf(frame);
+      const dims = document.createElement("em");
+      dims.textContent = `${size.w}×${size.h}`;
+      row.append(name, dims);
+      row.addEventListener("click", () => show(n));
+      layers.append(row);
+    });
   };
 
-  /** The swatches and the button are added here, so a board's markup stays the design. */
-  const describe = () => {
-    for (const frame of document.querySelectorAll(".frame")) {
-      const strip = frame.querySelector("h2");
-      if (!strip || strip.querySelector(".swatches")) continue;
-      const spec = readSpec(frame);
-      if (!spec) continue;
-      // Kept before anything is added to the strip, so the name stays the name
-      frame.dataset.name = strip.textContent.trim();
-
-      const swatches = document.createElement("span");
-      swatches.className = "swatches";
-      for (const colour of spec.colours.slice(0, 8)) {
-        const dot = document.createElement("i");
-        dot.style.background = colour;
-        dot.title = colour;
-        dot.addEventListener("click", (event) => {
-          event.stopPropagation();
-          navigator.clipboard?.writeText(colour).catch(() => {});
-        });
-        swatches.append(dot);
-      }
-
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "spec";
-      button.textContent = "spec";
-      button.title = "Copy this board as an instruction";
-      button.addEventListener("click", () =>
-        copy(specText(frame, readSpec(frame)), button),
-      );
-
-      strip.append(swatches, button);
-    }
+  // What the file keeps of itself: the boards as written, never the reader's view
+  shell.clean = (copy) => {
+    copy.querySelector("#layer-list")?.replaceChildren();
+    copy.querySelector("#spec")?.setAttribute("hidden", "");
+    copy.querySelector("#hover")?.setAttribute("hidden", "");
+    copy.querySelector("#stage")?.removeAttribute("style");
+    copy.querySelector("#field")?.removeAttribute("style");
+    copy.querySelector("body")?.removeAttribute("data-tool");
+    for (const frame of copy.querySelectorAll(".frame.picked"))
+      frame.classList.remove("picked");
+    for (const el of copy.querySelectorAll(".swatches")) el.remove();
   };
 
   // Opens on the board the address names, else fitted to the whole canvas. Fonts change
   // how tall a note is, and the fit is measured from that.
   const open = () => (named() === -1 ? fit() : show(named()));
   addEventListener("hashchange", open);
+  describe();
   open();
   checkFit();
-  describe();
+  shell.probe(pictureOf(0)).then((there) => {
+    pictures = there;
+    if (at >= 0) describePicked();
+  });
   document.fonts?.ready.then(() => {
     if (!own) fit();
     checkFit();
-    describe();
   });
 })();

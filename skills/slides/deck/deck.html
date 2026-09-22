@@ -4,42 +4,101 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{title}}</title>
+    <script>
+      // shell.theme
+    </script>
     <style>
+      /* shell.css */
       /* deck.css */
       /* page size */
     </style>
   </head>
   <body style="--w: {{w}}; --h: {{h}}">
-    <main id="deck">
-      <!-- One <section data-slide> per slide, in order. Every slide is exactly {{w}}x{{h}}px
-           and nothing reflows: lay it out once, for that size, and keep it inside — a slide
-           that overflows is refused by its number when you shoot it.
-           Copy the slide you need from the skill's deck/slides/ — cover, statement, cards,
-           number, table, quote, image, close — and change the words. Every style is inline
-           (px and hex, no classes): references/deck.md is the whole subset, the height
-           arithmetic and what makes a deck work. Set the ground, the ink and the one accent
-           once and keep them the same on every slide.
-           An <aside> directly inside a slide is what is said over it, shown with the n key
-           and never on the slide. Nothing comes from the network: a picture sits beside this
-           file as <img src="photo.jpg">. Set lang above to the deck's language. -->
+    <header class="sh-head">
+      <span class="sh-who" data-bot="{{bot}}"><b>{{bot}}</b></span>
+      <i class="sh-dot"></i>
+      <span class="sh-title">{{title}}</span>
+      <span class="sh-sub">{{w}}×{{h}}</span>
+      <span class="sh-badge sh-bad" id="cut" hidden></span>
+      <span class="sh-gap"></span>
+      <span class="sh-tools">
+        <button type="button" class="sh-b sh-icon" data-go="-1" aria-label="Previous slide">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+        </button>
+        <span class="sh-count"><b id="at">1</b> / <span id="of">1</span></span>
+        <button type="button" class="sh-b sh-icon" data-go="1" aria-label="Next slide">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+        </button>
+        <i class="sh-rule"></i>
+        <button type="button" class="sh-b sh-icon" data-notes aria-label="Speaker notes" title="Notes (n)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14M5 10h14M5 15h8" /></svg>
+        </button>
+        <button type="button" class="sh-b sh-icon" data-full aria-label="Fill the screen" title="Fill the screen (f)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" /></svg>
+        </button>
+        <button type="button" class="sh-b sh-outline" data-present title="Present from this slide">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 4 13 8-13 8Z" fill="currentcolor" stroke="none" /></svg>
+          <span class="sh-word">Present</span>
+        </button>
+      </span>
+      <i class="sh-rule"></i>
+      <button type="button" class="sh-b sh-icon" data-theme-cycle aria-label="Theme">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 3.5a8.5 8.5 0 0 1 0 17Z" fill="currentcolor" stroke="none" /></svg>
+      </button>
+      <details class="sh-menu">
+        <summary class="sh-b sh-outline">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4.5-4.5M12 14l-4.5-4.5M4 20h16" /></svg>
+          <span class="sh-word">Export</span>
+          <svg class="sh-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </summary>
+        <div class="sh-list">
+          <button type="button" class="sh-item" data-export="print">Print · one slide a page<small>PDF</small></button>
+          <a class="sh-item" id="png" target="_blank" hidden>This slide as a picture<small>PNG</small></a>
+          <button type="button" class="sh-item" data-export="html">Download this file<small>HTML</small></button>
+        </div>
+      </details>
+    </header>
 
-      <section data-slide style="background:#FBFBF8; color:#1A1A1A; font-family:system-ui,sans-serif; padding:128px; display:flex; flex-direction:column; justify-content:center; gap:40px">
-        <h1 style="font-size:112px; font-weight:400; line-height:1.05; max-width:1400px">{{title}}</h1>
-        <p style="font-size:36px; color:#6A7179; max-width:1200px">One line on what this deck is for.</p>
-        <aside>What is said over the first slide.</aside>
-      </section>
+    <main id="stage">
+      <div id="deck">
+        <!-- One <section data-slide> per slide, in order. Every slide is exactly {{w}}x{{h}}px
+             and nothing reflows: lay it out once, for that size, and keep it inside — a slide
+             that overflows is refused by its number when you shoot it.
+             Copy the slide you need from the skill's deck/slides/ — cover, statement, cards,
+             number, table, quote, image, close — and change the words. Every style is inline
+             (px and hex, no classes): references/deck.md is the whole subset, the height
+             arithmetic and what makes a deck work. Set the ground, the ink and the one accent
+             once and keep them the same on every slide.
+             An <aside> directly inside a slide is what is said over it, shown by the Notes
+             button and never on the slide. Nothing comes from the network: a picture sits
+             beside this file as <img src="photo.jpg">. Set lang above to the deck's language.
+             Everything above and below <main> is the deck's own frame: leave it as it is. -->
+
+        <section data-slide style="background:#FBFBF8; color:#1A1A1A; font-family:system-ui,sans-serif; padding:128px; display:flex; flex-direction:column; justify-content:center; gap:40px">
+          <h1 style="font-size:112px; font-weight:400; line-height:1.05; max-width:1400px">{{title}}</h1>
+          <p style="font-size:36px; color:#6A7179; max-width:1200px">One line on what this deck is for.</p>
+          <aside>What is said over the first slide.</aside>
+        </section>
+      </div>
     </main>
 
-    <div id="notes" hidden></div>
-    <footer id="bar">
-      <strong>{{title}}</strong>
-      <span id="cut" hidden></span>
-      <span class="spacer"></span>
-      <span class="keys">← → turn · f fills the screen · n notes</span>
-      <output id="at"></output>
+    <aside id="notes" hidden>
+      <p class="sh-pane-h">Said over this slide</p>
+      <div id="notes-text"></div>
+    </aside>
+
+    <footer id="strip">
+      <div class="sh-strip-h">
+        <span class="sh-pane-h">Slides <em id="strip-count"></em></span>
+        <button type="button" class="sh-b sh-sm sh-icon" data-strip aria-label="Hide the slides">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </button>
+      </div>
+      <div class="sh-strip-row" id="thumbs"></div>
     </footer>
 
     <script>
+      // shell.js
       // deck.js
     </script>
   </body>

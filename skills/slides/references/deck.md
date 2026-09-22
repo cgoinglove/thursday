@@ -151,7 +151,7 @@ less motion.
 ## Speaker notes
 
 An `<aside>` directly inside a slide is what is said over it: it never shows on the slide, the
-`n` key puts it under the deck, and it is not printed. Write notes only when they were asked
+Notes button in the head (or the `n` key) puts it under the stage, and it is not printed. Write notes only when they were asked
 for — and then the deck goes visual-first and the script lives in the notes, not on the slide.
 Write them as speech, not bullets. The `<aside>` is the section's last child.
 
@@ -167,8 +167,8 @@ no name of yours reaches it, so it is shot by its path — the file, or the fold
 and its pictures land beside it, where whoever presents will look.
 
 Every slide becomes `slide-01.png`, `slide-02.png` … beside the deck, in order. **A slide that
-overflows comes out taller than 1080 and is refused by its number**, and the bar at the foot of
-the deck names the same slides as `cut`. That is the arithmetic above catching you: fix each
+overflows comes out taller than 1080 and is refused by its number**, and the head of the deck
+names the same slides as `cut`. That is the arithmetic above catching you: fix each
 one and shoot again, two rounds at most. The renderer uses the job's browser, and opens a
 headless one when none is.
 

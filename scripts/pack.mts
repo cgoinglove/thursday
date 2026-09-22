@@ -384,6 +384,9 @@ const REQUIRED = [
   "skills/interactive-page/quick/pages/blank.html",
   "skills/design/canvas/canvas.html",
   "skills/slides/deck/deck.html",
+  "skills/shell/shell.css",
+  "skills/shell/shell.js",
+  "skills/shell/theme.js",
   // Copied into a seed bot when it is made; without it the Marketer starts empty
   "seed-skills/marketer/product-marketing/SKILL.md",
   // Copied into the workspace at boot (features/ai/guide); without it the call has none to read

@@ -1,51 +1,92 @@
 /* The quick page's whole look: plain HTML reads well with no class at all, and a few
    classes lay out what a report needs. No network, no build, light and dark. */
-:root {
-  color-scheme: light dark;
-  --bg: #fff;
-  --fg: #18181b;
-  --muted: #71717a;
-  --line: #e4e4e7;
-  --soft: #f4f4f5;
-  --accent: #2563eb;
-  --good: #15803d;
-  --bad: #b91c1c;
-  --warn: #b45309;
+/* The page: the contents in a pane on the left, the paper in the middle at a reading
+   width. The head and the theme are the shell's (shell.css). */
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  height: auto;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #111113;
-    --fg: #f4f4f5;
-    --muted: #a1a1aa;
-    --line: #2a2a2e;
-    --soft: #1c1c1f;
-    --accent: #60a5fa;
-    --good: #4ade80;
-    --bad: #f87171;
-    --warn: #fbbf24;
+.sh-page {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+}
+.sh-toc {
+  position: sticky;
+  top: var(--head);
+  width: 212px;
+  max-height: calc(100vh - var(--head));
+  padding: 1rem 0.75rem;
+  font-size: 13px;
+}
+.sh-toc ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sh-toc ol ol {
+  padding-left: 0.75rem;
+  font-size: 12px;
+}
+.sh-toc a {
+  display: block;
+  padding: 0.3125rem 0.5rem;
+  border-radius: calc(var(--radius) * 0.6);
+  color: var(--ink-2);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sh-toc a:hover {
+  background: var(--sunk);
+  color: var(--ink);
+}
+.sh-toc a.sh-on {
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-weight: 500;
+}
+body.sh-no-toc .sh-toc {
+  display: none;
+}
+@media (max-width: 900px) {
+  .sh-toc {
+    display: none;
+  }
+  body.sh-toc-open:not(.sh-no-toc) .sh-toc {
+    display: block;
+    position: fixed;
+    z-index: 4;
+    top: var(--head);
+    left: 0;
+    bottom: 0;
+    box-shadow: var(--shadow);
   }
 }
-* {
-  box-sizing: border-box;
-}
-html {
-  -webkit-text-size-adjust: 100%;
-}
-body {
+.sh-paper {
+  flex: 1;
+  min-width: 0;
+  max-width: 46rem;
   margin: 0 auto;
-  max-width: 56rem;
-  padding: 3rem 1.5rem 5rem;
-  background: var(--bg);
-  color: var(--fg);
+  padding: 2.5rem 1.5rem 6rem;
   font:
-    16px / 1.65 ui-sans-serif,
+    16px / 1.7 ui-sans-serif,
     system-ui,
     -apple-system,
     "Segoe UI",
     "Apple SD Gothic Neo",
     "Noto Sans KR",
     sans-serif;
-  text-wrap: pretty;
+}
+.sh-paper:focus {
+  outline: 0;
+}
+h2:target,
+h3:target {
+  scroll-margin-top: calc(var(--head) + 1rem);
 }
 h1 {
   margin: 0 0 0.4rem;
@@ -194,9 +235,9 @@ tr.best td {
   color: var(--muted);
 }
 
-/* A chip: a fact that stands on its own — a date, a person, a status. .date and .who
+/* A chip: a fact that stands on its own — a date, a person, a status. .date and .sh-who
    carry a glyph; .status reads as a setting someone can change, with a tone from
-   .good .warn .bad */
+   .good .warn .sh-bad */
 .chip {
   display: inline-flex;
   align-items: center;
@@ -213,7 +254,7 @@ tr.best td {
   vertical-align: 0.1em;
 }
 .chip.date::before,
-.chip.who::before {
+.chip.sh-who::before {
   content: "";
   width: 0.85em;
   height: 0.85em;
@@ -225,7 +266,7 @@ tr.best td {
 .chip.date::before {
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E");
 }
-.chip.who::before {
+.chip.sh-who::before {
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M4 21a8 8 0 0 1 16 0'/%3E%3C/svg%3E");
 }
 .chip.status::after {
@@ -240,7 +281,7 @@ tr.best td {
 }
 .chip.good,
 .chip.warn,
-.chip.bad {
+.chip.sh-bad {
   color: inherit;
   border-color: transparent;
 }
@@ -250,39 +291,8 @@ tr.best td {
 .chip.warn {
   background: color-mix(in srgb, var(--warn) 16%, transparent);
 }
-.chip.bad {
+.chip.sh-bad {
   background: color-mix(in srgb, var(--bad) 12%, transparent);
-}
-
-/* The contents list, drawn from the headings: <nav class="contents"></nav> */
-nav.contents {
-  margin: 0 0 2rem;
-  padding: 0.9rem 1.1rem;
-  border: 1px solid var(--line);
-  border-radius: 0.7rem;
-  font-size: 0.9rem;
-}
-nav.contents ol {
-  margin: 0;
-  padding-left: 1.2rem;
-}
-nav.contents ol ol {
-  margin-top: 0.15rem;
-  font-size: 0.85rem;
-}
-nav.contents li + li {
-  margin-top: 0.15rem;
-}
-nav.contents a {
-  color: var(--fg);
-  text-decoration: none;
-}
-nav.contents a:hover {
-  text-decoration: underline;
-}
-h2:target,
-h3:target {
-  scroll-margin-top: 1rem;
 }
 
 /* A checklist: <ul class="check"><li><input type="checkbox" checked> done</li> */
@@ -417,7 +427,7 @@ ol.footnotes {
   margin-top: 0.2rem;
 }
 
-/* A note set apart; .good .bad .warn tint it */
+/* A note set apart; .good .sh-bad .warn tint it */
 .note {
   padding: 0.9rem 1.1rem;
   border-radius: 0.7rem;
@@ -429,14 +439,14 @@ ol.footnotes {
 .good {
   color: var(--good);
 }
-.bad {
+.sh-bad {
   color: var(--bad);
 }
 .warn {
   color: var(--warn);
 }
 .note.good,
-.note.bad,
+.note.sh-bad,
 .note.warn {
   color: inherit;
   border-left: 3px solid currentColor;
@@ -444,7 +454,7 @@ ol.footnotes {
 .note.good {
   border-color: var(--good);
 }
-.note.bad {
+.note.sh-bad {
   border-color: var(--bad);
 }
 .note.warn {
@@ -485,15 +495,72 @@ summary {
 details[open] > summary {
   margin-bottom: 0.6rem;
 }
+/* Editing: a block under the pointer, its handle in the gutter, the formatting that
+   floats over a selection, and the two small menus. All of it outside the paper, so
+   none of it is ever saved with it. */
+body.sh-editing .sh-paper > .sh-hot {
+  box-shadow: 0 0 0 6px var(--soft);
+  border-radius: 4px;
+  background: var(--soft);
+}
+#grip {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  gap: 2px;
+}
+#grip[hidden] {
+  display: none;
+}
+#grip .sh-b {
+  color: var(--ink-3);
+}
+.sh-bubble {
+  position: absolute;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+.sh-bubble[hidden] {
+  display: none;
+}
+.sh-bubble .sh-rule {
+  height: 16px;
+}
+.sh-popover {
+  position: absolute;
+  z-index: 7;
+  min-width: 180px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+.sh-popover[hidden] {
+  display: none;
+}
+body.sh-editing .sh-paper a {
+  cursor: text;
+}
+
 @media print {
-  body {
+  .sh-paper {
     max-width: none;
     padding: 0;
   }
   a {
     color: inherit;
   }
-  nav.contents,
+  #grip,
+  .sh-bubble,
+  .sh-popover,
   .tabs [role="tablist"] {
     display: none;
   }

@@ -136,10 +136,11 @@ split it and shoot again, two rounds at most.
 
 ## The values a board is made of
 
-The canvas reads every board after it is drawn and puts what it really paints in its name
-strip: a row of swatches, and a `spec` button that copies that board as text — its name,
-its note, its size, and the colours, type, radii and gaps it actually uses. Both come from
-the page itself, so they cannot disagree with the design.
+The canvas reads every board after it is drawn: a row of swatches goes on its name strip,
+and when a board is picked — clicked, or brought up with the arrows or from the list on
+the left — its size, colours, type, radii and gaps stand in the pane on the right, with a
+button that copies the board as text: its name, its note, and those values. All of it comes
+from the page itself, so it cannot disagree with the design.
 
 - **Never write a palette or a type scale into a board by hand.** It would be a second
   copy of what the canvas already measures, and the two would drift. Design the board;
@@ -147,13 +148,13 @@ the page itself, so they cannot disagree with the design.
   palette is what it is for, and the canvas still measures it.)
 - Use real values in the markup rather than names only you know: `#1B1A17`, not a colour
   word nothing resolves.
-- The `spec` copy is what makes the chosen board buildable: whoever picks it pastes that
-  text to whatever writes the code. Say so when you hand the canvas back, in one line.
+- That copy is what makes the chosen board buildable: whoever picks it pastes that text
+  to whatever writes the code. Say so when you hand the canvas back, in one line.
 
 ## What to hand back
 
 The canvas's path and every picture's path, so both the whole comparison and the single
 options are in front of whoever chooses. Then, in words: the axis each option explores,
-which one you would lead with, and what that one costs — and that the `spec` button on a
+which one you would lead with, and what that one costs — and that the copy button beside a
 board copies it as an instruction. When the pictures could not be made — no browser on
 this machine — hand back the canvas on its own and say so in one line.

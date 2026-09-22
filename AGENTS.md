@@ -115,6 +115,10 @@ skills/                   Skills shipped with the app (read-only). User skills l
                           inlined into one HTML file by its own script (`canvas.mjs`, `deck.mjs`), started from
                           ready boards (design/boards) or slides (slides/deck/slides), and shot part by part
                           through the browser skill's renderer.
+                          shell/ is not a skill (no SKILL.md) but what the three scripts above inline into
+                          every file they write: the head a page wears when opened — who made it, its name,
+                          theme, export — its buttons and menus, and the theme under all of it. Its classes
+                          are prefixed `sh-` because a bot's own stylesheet shares the page.
 seed-skills/<seed>/       A seed bot's own skills (read-only), copied into `bots/<name>/.agents/skills` when
                           it is made. A bot's own skills are listed to it alone, so a kit costs no other bot
                           a line; the folder has the workspace's own `.agents/skills` shape, so a bot that

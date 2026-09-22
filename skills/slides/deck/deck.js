@@ -1,29 +1,42 @@
-// Showing the deck: one slide at a time, scaled to the window. Arrows, space and the
-// Page keys turn it, a tap on the right or left of the slide does too, `f` fills the
-// screen, `n` shows the presenter's notes, and the address (#3) names the slide open so
-// a link or a reload lands there. It always fits, because the app draws this file at
-// 1024px wide without scrolling it: at 1:1 a slide would show one corner.
+// Showing the deck: one slide at a time, scaled to the stage the head, the notes and the
+// strip leave it. The arrows, space and the Page keys turn it, a tap on the right or left
+// of the slide does too, and so do the buttons in the head and the strip; `f` fills the
+// screen, `n` shows the presenter's notes, and the address (#3) names the slide open so a
+// link or a reload lands there. It always fits, because the app draws this file at 1024px
+// wide without scrolling it: at 1:1 a slide would show one corner.
 (() => {
   const slides = [...document.querySelectorAll("section[data-slide]")];
+  const stage = document.getElementById("stage");
   const deck = document.getElementById("deck");
   const notes = document.getElementById("notes");
+  const notesText = document.getElementById("notes-text");
+  const strip = document.getElementById("strip");
+  const thumbs = document.getElementById("thumbs");
   const at = document.getElementById("at");
-  const BAR = 36;
+  const of = document.getElementById("of");
+  const png = document.getElementById("png");
 
   // Printing wants what the renderer wants: every slide, flat, at true size
   addEventListener("beforeprint", () => document.body.classList.add("shot"));
   addEventListener("afterprint", () => document.body.classList.remove("shot"));
   if (document.body.classList.contains("shot") || !slides.length) return;
 
-  const w = deck.offsetWidth;
-  const h = deck.offsetHeight;
+  const w = Number(getComputedStyle(document.body).getPropertyValue("--w"));
+  const h = Number(getComputedStyle(document.body).getPropertyValue("--h"));
+  const PAD = 20;
   let open = 0;
 
+  /** The slide as large as the stage takes it, centred. */
   const fit = () => {
-    const room = innerHeight - (document.fullscreenElement ? 0 : BAR);
-    const z = Math.min(innerWidth / w, room / h);
-    const x = (innerWidth - w * z) / 2;
-    const y = (room - h * z) / 2;
+    const room = document.fullscreenElement
+      ? { w: innerWidth, h: innerHeight, pad: 0 }
+      : { w: stage.clientWidth, h: stage.clientHeight, pad: PAD };
+    const z = Math.min(
+      (room.w - room.pad * 2) / w,
+      (room.h - room.pad * 2) / h,
+    );
+    const x = (room.w - w * z) / 2;
+    const y = (room.h - h * z) / 2;
     deck.style.transform = `translate(${x}px, ${y}px) scale(${z})`;
   };
 
@@ -34,10 +47,17 @@
     // Landing on the slide already open (a reload, the address bar) is no turn.
     deck.dataset.turn = open === was ? "" : open > was ? "on" : "back";
     slides.forEach((slide, n) => slide.classList.toggle("open", n === open));
-    if (at) at.value = `${open + 1} / ${slides.length}`;
-    if (notes && !notes.hidden)
-      notes.textContent =
+    at.textContent = String(open + 1);
+    if (!notes.hidden)
+      notesText.textContent =
         slides[open].querySelector(":scope > aside")?.textContent.trim() ?? "";
+    for (const [n, button] of [...thumbs.children].entries()) {
+      button.classList.toggle("sh-on", n === open);
+      if (n === open)
+        button.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+    // The picture the renderer left for this slide, when it did
+    if (png) png.href = `slide-${String(open + 1).padStart(2, "0")}.png`;
     history.replaceState(null, "", `#${open + 1}`);
   };
 
@@ -45,6 +65,20 @@
     const n = Number(location.hash.slice(1));
     go(n >= 1 ? n - 1 : 0);
   };
+
+  const toggleNotes = () => {
+    notes.hidden = !notes.hidden;
+    document
+      .querySelector("[data-notes]")
+      ?.classList.toggle("sh-on", !notes.hidden);
+    go(open);
+    fit();
+  };
+
+  const fill = () =>
+    document.fullscreenElement
+      ? document.exitFullscreen()
+      : document.documentElement.requestFullscreen?.();
 
   addEventListener("keydown", (event) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -66,14 +100,9 @@
     if (step) go(open + step);
     else if (event.key === "Home") go(0);
     else if (event.key === "End") go(slides.length - 1);
-    else if (event.key === "f")
-      document.fullscreenElement
-        ? document.exitFullscreen()
-        : document.documentElement.requestFullscreen?.();
-    else if (event.key === "n" && notes) {
-      notes.hidden = !notes.hidden;
-      go(open);
-    } else return;
+    else if (event.key === "f") fill();
+    else if (event.key === "n") toggleNotes();
+    else return;
     event.preventDefault();
   });
 
@@ -85,9 +114,51 @@
     go(open + (event.clientX < box.left + box.width / 3 ? -1 : 1));
   });
 
+  /* The head's own buttons, and the strip's. */
+  for (const button of document.querySelectorAll("[data-go]"))
+    button.addEventListener("click", () =>
+      go(open + Number(button.dataset.go)),
+    );
+  document
+    .querySelector("[data-notes]")
+    ?.addEventListener("click", toggleNotes);
+  document.querySelector("[data-full]")?.addEventListener("click", fill);
+  document.querySelector("[data-present]")?.addEventListener("click", () => {
+    if (!document.fullscreenElement) fill();
+  });
+  document.querySelector("[data-strip]")?.addEventListener("click", () => {
+    strip.classList.toggle("shut");
+    fit();
+  });
+  of.textContent = String(slides.length);
+  document.getElementById("strip-count").textContent = String(slides.length);
+
+  /**
+   * Every slide, small, in the strip: the slides themselves scaled down, so the strip is
+   * always what the deck is now. Built once; a slide edited by hand shows on reload.
+   */
+  slides.forEach((slide, n) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.setAttribute("aria-label", `Slide ${n + 1}`);
+    const copy = shell.thumb(slide, 150, w, h);
+    copy.firstChild.firstChild.classList.add("open");
+    button.append(copy);
+    const num = document.createElement("em");
+    num.textContent = String(n + 1);
+    button.append(num);
+    button.addEventListener("click", () => go(n));
+    thumbs.append(button);
+  });
+
+  // A slide with nothing in a picture beside it has no picture to export
+  shell.probe("slide-01.png").then((there) => {
+    if (png) png.hidden = !there;
+  });
+
   /**
    * A slide clips what does not fit, and nothing else on screen says so. Every slide is
-   * measured once, drawn or not, and the bar names the ones that are cut.
+   * measured once, drawn or not, and the head names the ones that are cut.
    */
   const checkFit = () => {
     const cut = [];
@@ -107,7 +178,18 @@
     say.textContent = `cut: ${cut.join(", ")}`;
   };
 
-  addEventListener("resize", fit);
+  // What the file keeps of itself: the deck, never the strip's copies or the open state
+  shell.clean = (copy) => {
+    copy.querySelector("#thumbs")?.replaceChildren();
+    copy.querySelector("#notes")?.setAttribute("hidden", "");
+    copy.querySelector("#notes-text")?.replaceChildren();
+    for (const slide of copy.querySelectorAll("section[data-slide]"))
+      slide.classList.remove("open");
+    copy.querySelector("#deck")?.removeAttribute("style");
+    copy.querySelector("#deck")?.removeAttribute("data-turn");
+  };
+
+  new ResizeObserver(fit).observe(stage);
   addEventListener("fullscreenchange", fit);
   addEventListener("hashchange", toHash);
   toHash();

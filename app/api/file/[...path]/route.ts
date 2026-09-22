@@ -1,7 +1,8 @@
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { rename, stat, writeFile } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { decodePath } from "@/app/api/query-key";
+import { PAGE_SAVE } from "@/config";
 import { mimeOf } from "@/features/workspace/file-kind";
 import { insideWorkspace } from "@/features/workspace/workspace";
 import { type RouteContext, serverRoute } from "@/lib/protocol/server-route";
@@ -83,5 +84,32 @@ export const GET = serverRoute(
       createReadStream(full, { start, end }),
     ) as ReadableStream<Uint8Array>;
     return new Response(body, { status: range ? 206 : 200, headers });
+  },
+);
+
+/**
+ * A page a bot wrote, saving itself back. The document's editor runs inside the frame
+ * this route served it into, where no server action can be reached, so it puts the
+ * whole file here — the one write on the wire that is not an action. It takes only a
+ * page that already exists: this is a page keeping its own edits, never a way to make
+ * a file. Written whole or not at all, beside the file and then moved into place.
+ */
+export const PUT = serverRoute(
+  async (request, { params }: RouteContext<{ path: string[] }>) => {
+    const rel = decodePath((await params).path);
+    const full = await insideWorkspace(rel);
+    if (!full) return new Response("Outside the workspace", { status: 403 });
+    if (!/\.html?$/i.test(rel))
+      return new Response("Only a page saves itself", { status: 415 });
+    const info = await stat(full).catch(() => null);
+    if (!info?.isFile()) return new Response("Not found", { status: 404 });
+
+    const body = Buffer.from(await request.arrayBuffer());
+    if (body.byteLength > PAGE_SAVE.maxBytes)
+      return new Response("Too large to keep", { status: 413 });
+    const beside = `${full}.${process.pid}.saving`;
+    await writeFile(beside, body);
+    await rename(beside, full);
+    return new Response(null, { status: 204 });
   },
 );

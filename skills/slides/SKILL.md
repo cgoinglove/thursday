@@ -23,5 +23,9 @@ tap, `f` filling the screen and `n` showing the presenter's notes. `S=<skill dir
 4. Hand back the deck's path, and in a line what it argues and how many slides it is.
 
 A slide fades in as it is turned to (`data-transition="push"` or `"none"` on a section
-changes that); an `<aside>` inside a slide is what is said over it and never shows on it.
-Nothing is edited in the app: what changes is the file, shot again.
+changes that); an `<aside>` inside a slide is what is said over it and never shows on it —
+the Notes button in the deck's head shows it under the stage. The file draws its own frame
+around the slides: a head naming who made it, arrows and a count, notes, full screen,
+Present, a theme button and Export (print, this slide's picture, the file), and a strip of
+every slide small at the foot. Write inside `<main>` only. Nothing is edited in the app:
+what changes is the file, shot again.
