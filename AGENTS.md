@@ -183,7 +183,9 @@ Several agents may work in one checkout at once, and someone's own data sits bes
   the one you committed. An export staged without the file that uses it passes locally and is dead
   code to everyone who pulls. So when you stage a subset, check that subset and not the tree: copy
   it out (`git archive $(git write-tree) | tar -x -C "$(mktemp -d)"`, with `node_modules` symlinked
-  in) and run the checks there. `knip` on CI reports rather than fails for the same reason, so a
+  in) and run the checks there — all but `pnpm build`, which cannot run in that copy because
+  Turbopack refuses a `node_modules` symlink pointing outside the project root; run that one in
+  the tree and say so. `knip` on CI reports rather than fails for the same reason, so a
   line of it is never on its own a reason to delete — the file that uses it may be sitting
   uncommitted in someone else's tree.
 - **Some files are someone's data, not clutter**: the database, `DATA_DIR/.sign-ins` (live
