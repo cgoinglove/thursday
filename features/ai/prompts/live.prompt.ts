@@ -1,4 +1,5 @@
 import { RECENT_CALL } from "@/config";
+import { englishModeInstruction } from "@/features/ai/english-mode";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import {
   listAlwaysLoaded,
@@ -86,6 +87,8 @@ const always = () => `## Always
 ${ending()}
 
 ${speaking()}
+
+${englishModeInstruction()}
 
 ${delegation()}`;
 

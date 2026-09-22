@@ -976,7 +976,7 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     assert.match(on.text, /Prefer brief replies/);
     assert.match(
       on.text,
-      /\n\n## Always\n\nIMPORTANT — always follow this: [^\n]+\n\nBackchannel policy: Use moderate backchannels\. .*\n\nInterruption policy: Stop speaking when the user interrupts\. Listen to what they say\.\n\nSpeak the language the user is speaking, [^\n]+\n\nDelegation policy:\nBackend tools:\n- Ending the call: [^\n]+\n(- [^\n]+\n){4}\nDelegate to the backend when:\n- The user wants the call to end\.\n(- [^\n]+\n)+\nDo not delegate to the backend when:\n(- [^\n]+\n)+\nDelegate before giving an answer that depends on backend work\. Do not guess the result while waiting\.\n\n## What you know about them\n/,
+      /\n\n## Always\n\nIMPORTANT — always follow this: [^\n]+\n\nBackchannel policy: Use moderate backchannels\. .*\n\nInterruption policy: Stop speaking when the user interrupts\. Listen to what they say\.\n\nSpeak the language the user is speaking, [^\n]+\n\nEnglish-learning mode: [\s\S]+?\n\nDelegation policy:\nBackend tools:\n- Ending the call: [^\n]+\n(- [^\n]+\n){4}\nDelegate to the backend when:\n- The user wants the call to end\.\n(- [^\n]+\n)+\nDo not delegate to the backend when:\n(- [^\n]+\n)+\nDelegate before giving an answer that depends on backend work\. Do not guess the result while waiting\.\n\n## What you know about them\n/,
     );
     // Only the ending rule carries the stamp
     assert.equal(on.text.split("IMPORTANT").length, 2);
