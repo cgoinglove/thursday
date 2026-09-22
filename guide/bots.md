@@ -36,10 +36,11 @@ each — where it stands, the start of its own last words there, the files they 
 open one to read those words in full, so carrying work further still means going back to the
 same thread rather than starting a new one.
 
-Threads live in two places: the corner at the bottom right of the call screen, which shows
-what is running, what waits on the user and the five most recent endings (every one not yet
-opened stays there too, however many), and **Settings › Threads**, which keeps all of them,
-including the ended ones. A stopped thread leaves the corner at once. A job that is over is
+Threads live in two places: the corner at the bottom right of the call screen, which shows what
+is running and what waits on the user, and **Settings › Threads**, which keeps all of them,
+including the ended ones. What has ended is the other corner's — the cards at the bottom left —
+so one result is never read in two places, and the count on the pill is the jobs waiting on an
+answer and nothing else. The pill's own **History** tab lists what is over. A job that is over is
 kept for three months and then goes, with the conversation behind it — one still running or
 waiting on an answer is never cleared, however old, and what the job made stays in
 **Files › Finished** either way. A picture in the conversation is drawn from the file it was
@@ -59,7 +60,7 @@ the request and a summary of the rest; the conversation on screen stays whole.
 ## What the faces in the corner do
 
 The bots in the bottom-right pill move when something happens to them, and only then. One
-jumps and turns over when it finishes a job; one hops and tilts its head when it has a question
+jumps and turns over when it finishes a job; one jumps and tilts its head when it has a question
 for you; one nods when it has read words you sent mid-call; one sinks and stays flat when it
 stops. Handing work to another bot turns the giver toward it and the other one hops back. The
 dot on a face is the part that stays — the movement is only the moment it happened.
@@ -130,18 +131,17 @@ one carries on.
 ## What comes back
 
 A job ends in the thing that was asked for and a short report. Anything longer than a few
-lines is a file. Nothing opens by itself: every finished job waits as a card in the corner at
-the bottom left of the call screen — the bot, the job's name, how its answer begins, and its
-files under that — until it is opened or dismissed, a reload of the page included. One card
-shows at a time, so it never covers what she is saying beside her face; the others stand
-behind it as the edges of a pile, counted in a chip (**+4 more**), and the next comes forward
-as the one in front is opened or dismissed. Opening a card, or a file on it, counts as
-reading the result: the thread stops showing as new, and she will not bring it up on a call.
-Dismissing one card does not; that result still waits in its thread. **Open the room**, beside
-the count, goes to the list of them — the corner never reads a result it has not shown. Asking
-her on a call to clear what is finished still reads them all at once. The files also show under
-the bot's words in the thread: pictures as thumbnails, a page or a written report as a small preview
-of itself.
+lines is a file. Nothing opens by itself: every finished job waits in the corner at the bottom
+left of the call screen until it is opened or dismissed, a reload of the page included. The
+newest is a card — the bot, the job's name, how its answer begins, and its files under that —
+and the ones before it are a line each, with small faces of what they left and how many more.
+Only one card shows at a time, so it never covers what she is saying beside her face. Opening a
+card or a line, or a file on one, counts as reading the result: the thread stops showing as new,
+and she will not bring it up on a call. Dismissing one with its ✕ does not; that result still
+waits in its thread. **Clear all**, beside the count, reads every one of them — the corner never
+reads a result it has not shown, and here it shows all of them. Asking her on a call to clear
+what is finished does the same. The files also show under the bot's words in the thread: pictures
+as thumbnails, a page or a written report as a small preview of itself.
 
 A file opens over the app rather than in a new browser window — a report, a picture, a sound,
 a video, a written note alike — so the call is still behind it and **Esc** closes it. The ↗

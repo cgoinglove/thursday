@@ -36,17 +36,20 @@ paths:
   app comes off the ladder, one of the three hues, or the effort steps in `app/globals.css`;
   nothing names a raw value at a call site. A floor is a floor: 4.5:1 for text, 3:1 for a shape or text at 24px and up, and a
   colour is measured before it goes in.
-- **Two status colors only: the brand blue and one warm.** `--destructive` is what failed or is
-  about to be destroyed — a red-orange rather than a red, since beside this blue a true red reads
-  as an alarm and almost nothing here is one. It is rare on purpose: an error's own words, a
-  connector that will not connect, a key a provider turned away, and the button that deletes. The
-  brand colour is everything that wants the user — a question, a stopped job, an answer not yet
-  opened, a section worth setting up — under its own name, `--waiting` (`WAITING_INK` in
-  `lib/utils`), so the day one of those has to be told apart from the rest is one line and not a
-  sweep (the user's pick). Success, connected and enabled have no color of their own. The settings
-  nav reports the same two, and the settings door in the call screen's corner wears the worst of
-  what it opens (`NavBadge`, `CornerDot`). A screen that already means "this waits on you" — the
-  ringing call, the missed list — says so without it.
+- **Two status colors only, and both are warm.** `--destructive` is what failed or is about to be
+  destroyed — a red-orange rather than a red, since beside this blue a true red reads as an alarm
+  and almost nothing here is one. It is rare on purpose: an error's own words, a connector that
+  will not connect, a key a provider turned away, and the button that deletes. `--waiting`
+  (`WAITING_INK` in `lib/utils`) is everything that wants the user — a question, a stopped job, an
+  answer not yet opened, a section worth setting up — an ember, brighter than what failed and one
+  step deeper in the light theme than the amber this app carried before, which measured 3.19:1 on
+  white where small text needs 4.5 (the user's pick). The two are told apart by shape as much as by
+  hue: the warm is a dot on a face, a count, a word on the pill, and red is a line of error text
+  with its glyph. It lands on those three and nothing else — never a button, never a name, since
+  words that want the user shine instead (`ShinyText tone="reading"`). Success, connected and
+  enabled have no color of their own. The settings nav reports the same two, and the settings door
+  in the call screen's corner wears the worst of what it opens (`NavBadge`, `CornerDot`). A screen
+  that already means "this waits on you" — the ringing call, the missed list — says so without it.
 - **A border is never a grey of its own.** It is the ink at low opacity (`--alpha-*`), which is
   why it needs no second value for the dark. The ladder is the same list read from the other end
   there (`--gray-0` is the paper and `--gray-1000` the ink in both), so a surface is named once;
@@ -54,9 +57,8 @@ paths:
   a value.
 - One brand color, blue (`brand` in `app/globals.css`), on black and white, for what matters on a
   screen (the user's pick): what it asks for (`Button variant="brand"`, round; the write line's
-  send), Thursday herself (her caption dot), and whatever else there most needs the eye — a new
-  result's label in the room's list and the dot on the face that left it. It stays rare so it
-  keeps meaning that. What is on or picked is blue too (the user's pick) — a switch, a radio, a
+  send) and Thursday herself (her caption dot). What wants the user is the warm's, not the
+  brand's. It stays rare so it keeps meaning that. What is on or picked is blue too (the user's pick) — a switch, a radio, a
   slider, a segment or a chip that fills, a picked card's border and its tick — and what is not
   is a hairline or muted words, so nothing picked has to be read twice; a label beside it is
   muted. A chip among several that may all be picked is tinted with a tick, not filled, so a
@@ -85,12 +87,19 @@ paths:
   it as they would for a new turn; thinking alone moves nothing. A window narrower than
   `SIDES_MIN_WIDTH` draws her last line whatever Captions says.
 - Errors are never swallowed. Inline or toast, they reach the user.
-- Thread questions remain visible while other bots work. Unread endings stay in the inbox until
-  the user opens them — its card in the left corner and Thursday's `thread_show` count, and so
-  does clearing the corner, which is the one way there to have done with a pile of them;
-  closing one card does not — or Thursday has told them and marked
-  them seen (`thread_seen`); a relay acknowledgement alone never counts as reading. Use neutral surfaces for these
-  notices and explicit labels for questions and new results.
+- **One rule puts a job on one side of the screen, and every count comes off it** (`bot.schema`
+  `standOf`): ended is the left corner's, waiting on the user and working are the room's list, and
+  a job that has ended is over whatever its room still holds — an open question row left on one is
+  dead, closed at boot (`thread.query closeEndedQuestions`). A number and the rows under it are
+  then the same jobs by construction; they once were not, and the pill said three where the list
+  showed two. Thread questions remain visible while other bots work. Unread endings stay in the
+  inbox until the user opens them — the card or line in the left corner and Thursday's
+  `thread_show` count, and so does clearing the corner; closing one with its ✕ does not — or
+  Thursday has told them and marked them seen (`thread_seen`); a relay acknowledgement alone never
+  counts as reading. A question needs no word saying it is one: the dot on the face, the words
+  shining (`tone="reading"`) and the bot's own choices under them say it three ways, and the
+  choices are answered from the row itself, to the bot that asked. What the app stopped keeps its
+  label, since it is not asking anyone.
 - The message box names who it is addressed to (`To <bot>`), because a thread with several
   participants sends to whichever tab is open. Addressed to a bot other than the thread's own,
   it also says where that bot's answer lands: it reports to whoever called it, not to the user.
@@ -146,18 +155,17 @@ paths:
   key or scroll cancels that for good — one cancellation, never a watch, since a page being read
   gets no input at all and what happens inside the frame is invisible from outside it. What the
   reader opened is never on that clock, and neither dialog takes the focus ring onto a button.
-- Nothing a job finished opens by itself — it lands in
-  the screen's left corner as a card, the same card with files or without: the bot, the label, how
-  the answer opens, the files under the words. A reload brings back the cards still unread, less those this browser
-  closed; the pill makes no bubble of a job's ending, since the card says it. The corner draws
-  `FINISHED_NOTICE.shown` of them at once — one, which stands clear of what she is saying
-  beside her face whatever length that runs to (the user's pick) — and the rest it holds stand
-  behind it, drawn as what they are: the top edges of a pile on the card in front, with how
-  many in a chip beside the count. They step forward as the one in front is opened or closed.
-  **The corner reads what it draws and nothing else.** It held a Clear all, which read the
-  whole pile at once; with cards behind out of sight that marks results the user was never
-  shown. The way to the rest is the room, where they are listed and read one at a time
-  (`roomOpens.open()` with no thread named opens that list).
+- **What has ended stands in the left corner, and nothing else does** (`bot.schema` `standOf`, the
+  one place that decides which side a job is on). Nothing a job finished opens by itself — it
+  lands there as a card, the same card with files or without: the bot, the label, how the answer
+  opens, the files under the words. A reload brings back what is still unread, less those this
+  browser closed; the pill makes no bubble of a job's ending, since the card says it. The corner
+  draws `FINISHED_NOTICE.shown` of them as a card — one, which stands clear of what she is saying
+  beside her face whatever length that runs to (the user's pick) — and every other one it holds
+  as a line under it: the face, the label, and small faces of what it left with a count past
+  `ROW_FACES`. **The corner reads what it draws and nothing else**, which is what lets it hold a
+  Clear all: a pile of edges said there were more and nothing about them, and reading that was
+  reading results the user had never seen.
 - Thursday is small in one way: `thursday-mark` draws the call's orb in miniature — glyphs keep one
   size, so a bigger box holds more of them, and nothing fades — and every screen draws her through
   it, so a new icon is a change to that file. Only the browser tab keeps the bot-style mark

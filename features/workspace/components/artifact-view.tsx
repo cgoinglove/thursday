@@ -234,9 +234,9 @@ function Notice() {
 
   if (!rows.length) return null;
 
-  // One is drawn; the rest stand behind it and step forward as it is opened or closed
+  // One is drawn whole; the rest are a line each, so nothing is hidden behind anything
   const shown = rows.slice(0, FINISHED_NOTICE.shown);
-  const behind = rows.length - shown.length;
+  const listed = rows.slice(FINISHED_NOTICE.shown);
 
   const read = (threadIds: string[]) => {
     rememberDismissed(threadIds);
@@ -286,38 +286,108 @@ function Notice() {
             onClose={() => drop(row.threadId)}
           />
         ))}
-        {/* The cards behind are drawn as what they are: the top edges of a pile, standing
-            on the last card in front, with how many there are said beside the count. */}
-        {behind > 0 && (
-          <div aria-hidden className="-mb-2 flex shrink-0 flex-col">
-            {behind > 1 && (
-              <span className="mx-8 h-2 rounded-t-[14px] border border-foreground/15 border-b-0 bg-muted" />
-            )}
-            <span className="mx-4 h-2.5 rounded-t-[16px] border border-foreground/20 border-b-0 bg-muted" />
-          </div>
-        )}
+        {/* Everything else it holds is a line: whose it is, what it was, and the faces of what
+            it left. A pile of edges said there were more and nothing about them. */}
+        {listed.map((row) => (
+          <FinishedRow
+            key={row.threadId}
+            row={row}
+            bot={bots?.find((one) => one.name === row.bot)}
+            onOpen={() => {
+              // the room marks a thread seen as it opens it
+              roomOpens.open(row.threadId);
+              drop(row.threadId);
+            }}
+            onClose={() => drop(row.threadId)}
+          />
+        ))}
         {rows.length > 1 && (
           <p className="flex shrink-0 items-center gap-2 px-1.5 font-mono text-[10px] text-muted-foreground">
             <span>{rows.length} new</span>
-            {behind > 0 && (
-              <span className="rounded-full bg-muted px-2 py-0.5 font-medium font-sans text-[11.5px] text-foreground/80">
-                +{behind} more
-              </span>
-            )}
             <span className="flex-1" />
-            {/* Where the rest of them are. The corner reads what it draws and nothing
-                else — it held a Clear all while the cards behind were out of sight, which
-                read results the user had never been shown. */}
+            {/* The corner reads what it draws and nothing else, which is why this is here at
+                all: with every one of them on screen, reading the lot is a thing the user can
+                mean. */}
             <button
               type="button"
-              onClick={() => roomOpens.open()}
+              onClick={() => read(rows.map((one) => one.threadId))}
               className="rounded-md px-1 font-sans text-[11px] outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
             >
-              Open the room
+              Clear all
             </button>
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+/** How many of a row's files fit on its line before the rest become a number. */
+const ROW_FACES = 3;
+
+/**
+ * One ending under the card: the bot, what it was, and small faces for what it left. Pressing it
+ * opens the thread, which reads it; the ✕ only takes it off this screen.
+ */
+function FinishedRow({
+  row,
+  bot,
+  onOpen,
+  onClose,
+}: {
+  row: Finished;
+  bot: Pick<Bot, "icon"> | undefined;
+  onOpen: () => void;
+  onClose: () => void;
+}) {
+  const more = row.paths.length - ROW_FACES;
+  return (
+    <div className="flex shrink-0 animate-in items-center gap-2 rounded-2xl bg-background py-1.5 pr-1.5 pl-2.5 shadow-black/8 shadow-md ring-1 ring-border fade-in slide-in-from-bottom-1 duration-300">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex min-w-0 flex-1 items-center gap-2 rounded-lg text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <BotMark
+          size={18}
+          seed={row.bot}
+          color={bot?.icon?.color}
+          shape={bot?.icon?.shape}
+          outline={bot?.icon?.outline}
+          paint={bot?.icon?.paint}
+          notify={false}
+          className="shrink-0"
+        />
+        <span className="min-w-0 flex-1 truncate text-[12.5px] leading-5">
+          {row.label}
+        </span>
+        {row.paths.length > 0 && (
+          <span className="flex shrink-0 items-center gap-1">
+            {row.paths.slice(0, ROW_FACES).map((path) => (
+              <FileThumb
+                key={path}
+                path={path}
+                glyph="size-2.5"
+                className="size-5 rounded-[6px] ring-1 ring-border"
+              />
+            ))}
+            {more > 0 && (
+              <span className="font-mono text-[10px] text-muted-foreground">
+                +{more}
+              </span>
+            )}
+          </span>
+        )}
+      </button>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Dismiss"
+        onClick={onClose}
+        className="shrink-0 text-muted-foreground"
+      >
+        <X />
+      </Button>
     </div>
   );
 }

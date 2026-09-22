@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/tooltip";
 import { type Bot, type BotIcon, isAppStop } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
+import { BotTip } from "@/features/bot/components/bot-tip";
 import {
   type BotGesture,
   type CrewMotion,
@@ -789,6 +790,15 @@ const FLOOR = 3;
  * breathes. They are keyed on the gesture, so a second event on one face starts
  * over rather than landing mid-way through the first.
  */
+/** What a face says when the pointer rests on it: the same state its dot and lift already show. */
+function tipOf(face: CrewFace): string {
+  if (face.standIn) return "No bots yet";
+  if (face.waiting) return "Waiting on you";
+  if (face.word) return face.word;
+  if (face.unread) return "Left you a result";
+  return face.awake ? "Working" : "Idle";
+}
+
 function Crew({
   crew,
   more,
@@ -818,18 +828,20 @@ function Crew({
               )}
               style={{ zIndex: crew.length - index }}
             >
-              <span
-                // The lift is the face's alone, so an awake face does not swell its bubble.
-                className={cn(
-                  "flex transition-transform duration-500 ease-out",
-                  face.awake && "-translate-y-0.5 scale-110",
-                )}
-              >
-                <CrewBody
-                  face={face}
-                  motion={motionOf(playing.get(face.name), index)}
-                />
-              </span>
+              <BotTip bot={face.name} icon={face.icon} line={tipOf(face)}>
+                <span
+                  // The lift is the face's alone, so an awake face does not swell its bubble.
+                  className={cn(
+                    "flex transition-transform duration-500 ease-out",
+                    face.awake && "-translate-y-0.5 scale-110",
+                  )}
+                >
+                  <CrewBody
+                    face={face}
+                    motion={motionOf(playing.get(face.name), index)}
+                  />
+                </span>
+              </BotTip>
               {bubble?.at === face.name && <HandoffBubble handoff={bubble} />}
             </span>
             {face.word && (

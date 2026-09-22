@@ -966,7 +966,7 @@ function BotPage({
           </div>
           <p className="text-xs text-muted-foreground">
             {model.trim()
-              ? "How hard it thinks, beside what it thinks with. Auto leaves it to the model."
+              ? "How hard it thinks, beside what it thinks with. Auto leaves the step to the model."
               : "App default model, and its effort with it."}
           </p>
         </Row>

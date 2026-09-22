@@ -8,6 +8,7 @@ import {
   lt,
   max,
   ne,
+  notInArray,
   sql,
 } from "drizzle-orm";
 import { appEvents } from "@/app/api/events/app-event.server";
@@ -162,6 +163,42 @@ export async function markSeen(ids: string[]) {
       .where(inArray(threadRelayTable.threadId, ids));
   });
   changed();
+}
+
+/**
+ * A job that has ended cannot still be asking. Ending one closes the room with it
+ * (`bot.runner cancelThread`, `room.query` on the last turn), so this finds none in a database
+ * this build wrote; it is here for rows an older one left behind, where the thread said it was
+ * over while its room still held an open question — which every count then owed the user and no
+ * list could show. Run once at boot, and cheap: the same rows are never found twice.
+ */
+export async function closeEndedQuestions() {
+  const ended = database
+    .select({ id: threadTable.id })
+    .from(threadTable)
+    .where(inArray(threadTable.status, ["done", "cancelled"]));
+  const closed = await database
+    .update(threadWorkTable)
+    .set({ state: "cancelled" })
+    .where(
+      and(
+        notInArray(threadWorkTable.state, ["done", "cancelled"]),
+        inArray(threadWorkTable.threadId, ended),
+      ),
+    )
+    .returning({ id: threadWorkTable.id });
+  const cleared = await database
+    .update(threadTable)
+    .set({ pending: null })
+    .where(
+      and(
+        inArray(threadTable.status, ["done", "cancelled"]),
+        isNotNull(threadTable.pending),
+      ),
+    )
+    .returning({ id: threadTable.id });
+  if (closed.length || cleared.length) changed();
+  return { closed: closed.length, cleared: cleared.length };
 }
 
 /**

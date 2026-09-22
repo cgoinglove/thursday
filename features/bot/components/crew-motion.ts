@@ -56,7 +56,14 @@ const LAYERS: Record<
     shape: "animate-crew-hop-shape",
     turn: "animate-crew-spin",
   },
-  ask: { body: "animate-crew-ask", turn: "animate-crew-ask-turn" },
+  // The same jump every other gesture is built from, with the head going over in the air instead
+  // of a somersault: a question is the one thing here that has to catch the eye across a room, and
+  // the hop it had rose five pixels (the user's pick).
+  ask: {
+    body: "animate-crew-hop",
+    shape: "animate-crew-hop-shape",
+    turn: "animate-crew-ask-turn",
+  },
   give: { turn: "animate-crew-give" },
   take: { body: "animate-crew-take", shape: "animate-crew-take-shape" },
   stop: { body: "animate-crew-sink", shape: "animate-crew-sink-shape" },

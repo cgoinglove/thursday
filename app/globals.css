@@ -167,6 +167,8 @@
   --brand-foreground: #ffffff;
   --destructive: #922e13; /* red-700 and orange-700, halfway */
   --effort-end: #4f46e5; /* indigo-600 */
+  --effort-crown: #ec4899; /* pink-500 */
+  --waiting: #c43d18; /* ember: red-600 and orange-700, halfway */
 }
 
 .dark,
@@ -184,14 +186,18 @@
   --brand-foreground: #ffffff;
   --destructive: #ef4c26; /* red-400 and orange-500, halfway */
   --effort-end: #a5b4fc; /* indigo-300 */
+  --effort-crown: #f9a8d4; /* pink-300 */
+  --waiting: #ff7a55; /* the same ember, at the step this paper needs */
 }
 
 /*
  * How hard a model is set to think, as a ladder rather than a colour (the user's pick): the brand
- * standing well back from the paper at the bottom, so there is room to climb, and one indigo at
- * the top that nothing else in the app wears. A screen names a step, never a value, and the steps
- * derive from the two ends, so both themes are written once. Measured against the paper each sits
- * on: every fill clears 3:1 and every name 4.5:1 (features/ai/components/effort-switch).
+ * standing well back from the paper at the bottom, so there is room to climb, indigo in the
+ * middle, and a crown the top two steps alone reach, so full power looks like it. A screen names a
+ * step, never a value, and the steps derive from the ends, so both themes are written once.
+ * Measured against the paper each sits on: every fill clears 3:1 and every name 4.5:1. These are
+ * what a step's row on the switch is tinted with; the switch's own fill is painted from the same
+ * three ends (features/ai/components/effort-switch).
  */
 :root,
 .dark,
@@ -204,16 +210,12 @@
 }
 
 /*
- * What waits on the user is the brand colour too (the user's pick): one thing
- * the eye looks for, whether it is a question, a stopped job or an answer
- * nobody has opened. It keeps its own name so the day it needs to be told apart
- * from the rest is one line, not a sweep.
+ * What waits on the user is a warm of its own (the user's pick): an ember, one step deeper in the
+ * light theme than the amber this app carried before, because that one measured 3.19:1 on white
+ * and small text needs 4.5. It is told from what failed by being brighter and by never being a
+ * line of text: the warm is a dot on a face, a count, the pill's own word; red stays an error.
+ * Written per theme beside the brand.
  */
-:root,
-.dark,
-.inverse {
-  --waiting: var(--brand);
-}
 
 @layer base {
   * {
@@ -265,19 +267,6 @@
     }
     to {
       background-position: -50% center;
-    }
-  }
-}
-
-/* The effort ladder breathing (effort-switch): the ramp is laid across the whole
-   track and only part of it is uncovered, so this walks that ramp a few pixels
-   and back. Slow enough to be a colour that lives rather than a thing moving. */
-@theme {
-  --animate-effort: effort 7s ease-in-out infinite;
-
-  @keyframes effort {
-    50% {
-      background-position-x: -16px;
     }
   }
 }
@@ -421,25 +410,9 @@
   }
 }
 
-/* Asks you: a short hop to catch the eye, then the head goes over and comes back. */
+/* Asks you: the jump above, with the head going over and coming back in the air. */
 @theme {
-  --animate-crew-ask: crew-ask 0.82s both;
   --animate-crew-ask-turn: crew-ask-turn 0.82s both;
-
-  @keyframes crew-ask {
-    0% {
-      transform: translateY(0);
-      animation-timing-function: cubic-bezier(0.1, 0.6, 0.3, 1);
-    }
-    14.6% {
-      transform: translateY(-5px);
-      animation-timing-function: cubic-bezier(0.7, 0, 0.9, 0.45);
-    }
-    26.8%,
-    100% {
-      transform: translateY(0);
-    }
-  }
 
   @keyframes crew-ask-turn {
     0% {

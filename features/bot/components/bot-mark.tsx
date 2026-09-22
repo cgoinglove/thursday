@@ -984,7 +984,7 @@ type BotMarkProps = {
   paint?: MarkPaint;
   /**
    * The dot on the face: `true` waits on the user (amber), `"new"` is a result of its
-   * nobody has opened yet (brand blue, the user's pick). False draws none.
+   * nobody has opened yet (the waiting warm, the user's pick). False draws none.
    */
   /** A dot on the rim: something of this bot wants the user. */
   notify?: boolean;
@@ -1577,7 +1577,7 @@ export function BotMark({
         )}
         {notifying && (
           // Waiting on the user wears amber in NavBadge's shades; a result nobody
-          // has opened wears the brand blue its label does (room-list).
+          // has opened wears the one warm that says a thing wants the user (globals `--waiting`).
           <circle
             cx={f(CENTER + Math.cos(nAngle) * cfg.notifyDist)}
             cy={f(CENTER + Math.sin(nAngle) * cfg.notifyDist)}

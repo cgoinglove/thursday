@@ -4,8 +4,8 @@ import { ArrowRight } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
-import { INBOX_FINISHED, PAGE_SIZE } from "@/config";
-import { type Bot, type Thread } from "@/features/bot/bot.schema";
+import { PAGE_SIZE } from "@/config";
+import { type Bot, standOf, type Thread } from "@/features/bot/bot.schema";
 import {
   type BotGesture,
   useCrewGestures,
@@ -89,16 +89,10 @@ export const BotRoom = memo(function BotRoom() {
   const scroll = useRef(0);
 
   const newest = [...threads].reverse();
-  // Endings stay on Now by count, never by time or by being read: the newest
-  // INBOX_FINISHED, plus any the user has not had yet however many there are.
-  // A cancel is the user's own stop, with nothing to read, so it goes at once.
-  let endings = 0;
-  const now = newest.filter((entry) => {
-    if (entry.status === "cancelled") return false;
-    if (entry.status !== "done") return true;
-    endings += 1;
-    return endings <= INBOX_FINISHED || !entry.seen;
-  });
+  // One rule decides which side of the screen a job stands on (bot.schema `standOf`): what has
+  // ended is the left corner's, everything else is this list's. So the count on the pill and the
+  // rows under it are the same jobs, and an ending is never read in two places.
+  const now = newest.filter((entry) => standOf(entry) !== "finished");
 
   // Read only while History is on screen, or one of its threads is.
   const browsing = open && tab === "history";

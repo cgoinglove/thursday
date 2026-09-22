@@ -16,6 +16,11 @@ const TONES = {
     under: "text-waiting/70",
     band: "via-waiting/30",
   },
+  /** Words the user is meant to read rather than watch: full ink, and the warm only passes over. */
+  reading: {
+    under: "text-foreground",
+    band: "via-waiting/80",
+  },
 } as const;
 
 export type ShinyTone = keyof typeof TONES;

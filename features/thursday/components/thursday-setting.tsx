@@ -257,15 +257,14 @@ function ModelsSetting({
             />
           </ModelBlock>
 
-          {/* Auto omits the parameter, so a model without reasoning still runs */}
-          <ModelBlock label="reasoning">
-            <EffortSwitch
-              provider="openai"
-              model={value.backendModel}
-              value={value.reasoningEffort}
-              onChange={(reasoningEffort) => onChange({ reasoningEffort })}
-            />
-          </ModelBlock>
+          {/* The switch carries its own name; Auto omits the parameter, so a model without
+              reasoning still runs */}
+          <EffortSwitch
+            provider="openai"
+            model={value.backendModel}
+            value={value.reasoningEffort}
+            onChange={(reasoningEffort) => onChange({ reasoningEffort })}
+          />
 
           <ModelBlock label="tools">
             <BackendTools

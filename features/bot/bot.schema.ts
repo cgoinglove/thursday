@@ -431,8 +431,30 @@ const ThreadSchema = z.object({
 
 export type Thread = z.infer<typeof ThreadSchema>;
 
-/** A participant can ask the user while other participants keep working. */
+/**
+ * Which side of the screen a job stands on, and the one place that decides it. The left corner
+ * holds what is over, the room's list holds everything else, and every count comes from here —
+ * so a number and the list under it can never say different things.
+ *
+ * A job that has ended is over, whatever its room still holds: a question row left open on an
+ * ended thread is dead, not owed (`thread.query closeEndedQuestions` closes those at boot). A
+ * participant can ask while other participants keep working, so a question outranks the thread's
+ * own status.
+ */
+export type ThreadStand = "finished" | "needsYou" | "working";
+
+export const standOf = (thread: {
+  status: string;
+  room: Thread["room"];
+}): ThreadStand => {
+  if (thread.status === "done" || thread.status === "cancelled")
+    return "finished";
+  if (thread.status === "waiting" || thread.room.questions.length > 0)
+    return "needsYou";
+  return "working";
+};
+
 export const needsThreadReply = (thread: {
   status: string;
   room: Thread["room"];
-}) => thread.status === "waiting" || thread.room.questions.length > 0;
+}) => standOf(thread) === "needsYou";

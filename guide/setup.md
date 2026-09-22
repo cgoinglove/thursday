@@ -36,12 +36,13 @@ and transcription. A kind with no model picked simply is not
 there — a bot that needs it says so rather than guessing. The call's own two models are in
 Settings › Thursday instead.
 
-Under the model is how hard it thinks: an **Auto** button beside a slider of the steps that model
-takes. Higher is slower and costs more, and **Auto** leaves it to the model, which is what
-every model starts on. The steps differ by model — some offer four, some two, and one whose
-steps the app cannot check offers none, so it runs on its own. Change the model and the step
-comes along where the new one has it, and falls back to **Auto** where it does not. A bot's own
-page has the same slider under its model; a bot back on **App default** follows this one again.
+Beside the model is **effort**: how hard it thinks. An **Auto** switch sits next to the word, and
+beside that a short slider with a dot at every step that model takes. Higher is slower and costs
+more, and **Auto** leaves the step to the model, which is what every model starts on. The steps
+differ by model — some offer four, some two, and one whose steps the app cannot check offers
+none, so it runs on its own. Change the model and the step comes along where the new one has it,
+and falls back to **Auto** where it does not. A bot's own page and the call's backend have the
+same control; a bot back on **App default** follows this one again.
 
 ## Skills
 

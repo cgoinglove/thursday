@@ -18,8 +18,10 @@ import {
   DEFAULT_BOT,
   isAppStop,
   needsThreadReply,
+  standOf,
   THREAD_CONTINUE,
   type Thread,
+  type ThreadStand,
 } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { BotRoster } from "@/features/bot/components/bot-roster";
@@ -253,20 +255,17 @@ function GhostRow() {
   );
 }
 
-/** List sections in order, split by what a thread asks of the user rather than by status. First match wins. */
+/**
+ * List sections in order, from the one rule (bot.schema `standOf`): this list holds what has not
+ * ended, so a section here is either waiting on the user or working. What is over is the left
+ * corner's, and after that the History tab's.
+ */
 const GROUPS: {
-  id: string;
+  id: ThreadStand;
   label: string;
-  holds: (thread: ThreadView) => boolean;
 }[] = [
-  { id: "you", label: "needs you", holds: needsYou },
-  { id: "unread", label: "new results", holds: isUnread },
-  {
-    id: "working",
-    label: "working",
-    holds: (thread) => thread.status === "working",
-  },
-  { id: "done", label: "done", holds: () => true },
+  { id: "needsYou", label: "needs you" },
+  { id: "working", label: "working" },
 ];
 
 export function ThreadList({
@@ -276,13 +275,12 @@ export function ThreadList({
   threads: ThreadView[];
   onPick: (id: string) => void;
 }) {
-  const bucket = new Map<string, ThreadView[]>();
+  const bucket = new Map<ThreadStand, ThreadView[]>();
   for (const thread of threads) {
-    const group =
-      GROUPS.find((one) => one.holds(thread)) ?? GROUPS[GROUPS.length - 1];
-    const rows = bucket.get(group.id);
+    const stand = standOf(thread);
+    const rows = bucket.get(stand);
     if (rows) rows.push(thread);
-    else bucket.set(group.id, [thread]);
+    else bucket.set(stand, [thread]);
   }
 
   return (
@@ -339,9 +337,13 @@ export function ThreadRow({
   );
   const [answer, answering] = useAnswerThread();
   const [sending, setSending] = useState<string | null>(null);
-  // Options are answered inline, without opening the thread.
-  const options =
-    thread.status === "waiting" && isAppStop(thread.ask)
+  // What the user can answer from the row, without opening the thread: a bot's own choices where
+  // it gave any, else the one Continue an app stop offers. The choices are already on the row a
+  // question is read from, so a list that shows the question shows what to answer it with.
+  const question = thread.room.questions[0];
+  const options = question
+    ? (question.options ?? [])
+    : thread.status === "waiting" && isAppStop(thread.ask)
       ? (thread.ask?.options ?? [])
       : [];
 
@@ -371,21 +373,12 @@ export function ThreadRow({
         </span>
 
         <span className="min-w-0 flex-1">
-          {(attention || isUnread(thread)) && (
-            <span
-              className={cn(
-                "block font-mono text-[10px] tracking-wide",
-                // a result is what arrived; a question keeps the muted label, its words carry the amber
-                attention ? "text-muted-foreground" : "text-brand",
-              )}
-            >
-              {thread.room.questions.length
-                ? `${thread.room.questions.length === 1 ? "Question" : `${thread.room.questions.length} questions`} · ${[...new Set(thread.room.questions.map((question) => question.bot))].join(", ")}`
-                : thread.status === "waiting"
-                  ? isAppStop(thread.ask)
-                    ? "Paused"
-                    : "Question"
-                  : "New result"}
+          {/* A question needs no word saying it is one: the dot on the face, the words shining and
+              the answers under them say it three ways already (the user's pick). What the app
+              stopped is not asking anyone, so that one keeps its label and nothing else. */}
+          {attention && !question && isAppStop(thread.ask) && (
+            <span className="block font-mono text-[10px] tracking-wide text-muted-foreground">
+              Paused
             </span>
           )}
           <span className="flex items-center justify-between gap-2">
@@ -416,10 +409,13 @@ export function ThreadRow({
             )}
             {/* Anything still moving says so by shining, here as in the thread
                 (bot-tool) and the pill (Chip). */}
-            {thread.status === "working" && !attention ? (
+            {thread.status === "working" || question ? (
               <ShinyText
                 text={line.text}
-                speed={2.2}
+                speed={question ? 3.4 : 2.2}
+                // A question is words to read, so it shines on the foreground rather than being
+                // tinted; a step shines the way every moving line in the app does.
+                tone={question ? "reading" : undefined}
                 // The shine brings its own ink; only the placeholder's italic carries over.
                 className={cn(
                   "min-w-0 flex-1 truncate text-[12px] leading-4",
@@ -451,11 +447,14 @@ export function ThreadRow({
               disabled={answering}
               onClick={async () => {
                 setSending(option);
-                await answer(thread, option);
+                // A bot's question is answered to the bot that asked it, under that question:
+                // the row carries both, so answering here is the same act as answering inside.
+                await answer(thread, option, question?.bot, question?.id);
                 setSending(null);
               }}
-              // The row already says the job wants the user, in the waiting colour and on the
-              // face. Picking this up again is not a second thing to notice (the user's pick).
+              // The row already says the job wants the user — the dot, the shine. A coloured
+              // button would be a third thing saying it (the user's pick: never an outline,
+              // never a colour on a button).
               className="h-7 gap-1.5 rounded-full px-3 text-[12px]"
             >
               {option === THREAD_CONTINUE && (

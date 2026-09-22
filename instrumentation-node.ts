@@ -38,6 +38,16 @@ export async function boot() {
   );
   await sweepThreads();
 
+  // And a job an older build left ended while its room still held an open question is over:
+  // it owed every count an answer no list could show (thread.query closeEndedQuestions).
+  const { closeEndedQuestions } = await import("@/features/bot/thread.query");
+  await closeEndedQuestions()
+    .then(({ closed, cleared }) => {
+      if (closed || cleared)
+        logger.info(`closed ${closed} question(s) on ${cleared} ended job(s)`);
+    })
+    .catch((cause) => logger.error("close ended questions", cause));
+
   // What jobs left behind is cleared by age (config WORKSPACE_KEEP): once now,
   // then on a timer. Housekeeping rather than work, so no browser is needed.
   // After sweepThreads, so a job the last process left running counts as waiting.
