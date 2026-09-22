@@ -327,6 +327,45 @@ export function FilePreview({ path, bytes }: { path: string; bytes: number }) {
 }
 
 /**
+ * A file the browser fills itself. No sandbox: the html is local and just written
+ * by a bot; sandboxing only breaks its forms, fonts and scripts.
+ *
+ * `takeKeys` hands it the keyboard once it has loaded, for the page that shows
+ * nothing else: a deck turns with the arrow keys and a canvas walks its boards the
+ * same way, and until the frame holds focus those keys go to the page around it —
+ * the first arrow did nothing at all until the deck itself had been clicked.
+ * Beside a thread it is left alone, where the keyboard is the write line's.
+ *
+ * The element is what takes it, not `contentWindow`: focusing the window inside
+ * leaves the document's focus on the page's own body and the keys still miss.
+ * It is taken as this mounts rather than on the frame's `load`, which on a page
+ * rendered by the server has already fired by the time React is listening.
+ */
+export function FileFrame({
+  path,
+  className,
+  takeKeys,
+}: {
+  path: string;
+  className: string;
+  takeKeys?: boolean;
+}) {
+  const frame = useRef<HTMLIFrameElement>(null);
+  useEffect(() => {
+    if (takeKeys) frame.current?.focus();
+  }, [takeKeys]);
+  return (
+    <iframe
+      ref={frame}
+      title={path}
+      src={queryKey.file(path)}
+      allow="clipboard-read; clipboard-write; fullscreen; autoplay"
+      className={className}
+    />
+  );
+}
+
+/**
  * A kind the browser fills itself, as the element that fills it. One place,
  * because the dialog and the preview draw the same file: they differ only in
  * how much room a picture is given.
@@ -341,16 +380,7 @@ function FileElement({
   where: "dialog" | "preview";
 }) {
   if (kind === "frame") {
-    // No sandbox: the html is local and just written by a bot; sandboxing only
-    // breaks its forms, fonts and scripts (same call as /artifact).
-    return (
-      <iframe
-        title={path}
-        src={queryKey.file(path)}
-        allow="clipboard-read; clipboard-write; fullscreen; autoplay"
-        className="h-full w-full bg-white"
-      />
-    );
+    return <FileFrame path={path} className="h-full w-full bg-white" />;
   }
   if (kind === "image") {
     return (

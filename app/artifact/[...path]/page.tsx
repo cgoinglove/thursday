@@ -2,7 +2,7 @@ import { open, readFile, stat } from "node:fs/promises";
 import { notFound } from "next/navigation";
 import { decodePagePath, queryKey } from "@/app/api/query-key";
 import { WORKSPACE_VIEW } from "@/config";
-import { FileBody } from "@/features/workspace/components/file-view";
+import { FileBody, FileFrame } from "@/features/workspace/components/file-view";
 import { viewKindOf } from "@/features/workspace/file-kind";
 import { insideWorkspace } from "@/features/workspace/workspace";
 
@@ -48,13 +48,11 @@ export default async function ArtifactPage({ params }: Params) {
       </header>
 
       {kind === "frame" ? (
-        // No sandbox: the html is local and just written by the bot; sandboxing
-        // only breaks its forms, fonts and scripts.
-        <iframe
-          title={rel}
-          src={queryKey.file(rel)}
-          allow="clipboard-read; clipboard-write; fullscreen; autoplay"
+        // This page is the file and nothing else, so the keyboard is its own
+        <FileFrame
+          path={rel}
           className="h-[calc(100vh-2.5rem)] w-full bg-white"
+          takeKeys
         />
       ) : kind === "image" ? (
         // biome-ignore lint/performance/noImgElement: local raw route, nothing to optimize
