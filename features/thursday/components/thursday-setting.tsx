@@ -394,6 +394,28 @@ function StylePicker({
               )}
             </button>
           ))}
+          {/* Last in the same list, not a button beside it: writing your own is one of
+              the ways to answer "who is she to you", and it sits on top of whichever
+              character is picked rather than replacing it. */}
+          <button
+            type="button"
+            onClick={() => {
+              setWriting(true);
+              setOpen(false);
+            }}
+            className={cn(
+              "flex w-full items-baseline gap-3 rounded-md px-2 py-1.5 text-left",
+              own.trim() ? PICKED_ROW : "hover:bg-muted/60",
+            )}
+          >
+            <span className="w-20 shrink-0 text-sm font-medium">Your own</span>
+            <span className="min-w-0 flex-1 text-xs text-muted-foreground">
+              Say it in your words, over the one above.
+            </span>
+            {own.trim() ? (
+              <Check className="size-3.5 shrink-0 text-brand" />
+            ) : null}
+          </button>
         </PopoverContent>
       </Popover>
 
@@ -404,15 +426,7 @@ function StylePicker({
           placeholder="Quieter. Don't explain things I didn't ask about."
           aria-label="In your own words"
         />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setWriting(true)}
-          className="text-xs text-muted-foreground underline-offset-4 hover:underline"
-        >
-          Write my own instead…
-        </button>
-      )}
+      ) : null}
     </div>
   );
 }
