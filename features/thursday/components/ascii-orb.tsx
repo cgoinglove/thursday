@@ -5,8 +5,6 @@ import { ASCII_FACE } from "@/config";
 import { createVoiceFollower, SPECTRUM_BANDS } from "@/lib/live/live.tap";
 import {
   ALPHA_TOP,
-  CHAR_RATE,
-  EMOJI_CHAR_RATE,
   EMOJI_MIN_LEVEL,
   EMOJI_POOL,
   EMOJI_RATIO,
@@ -15,7 +13,9 @@ import {
   RAMP,
   smoothstep,
 } from "../ascii.const";
+import { type EyeScript, eyeScript, eyeState, inEye } from "../eyes";
 import type { AsciiCharset } from "../face.const";
+import { fbm, shell, warp } from "../field";
 import type { FaceWord } from "../thursday.schema";
 
 export type AsciiOrbMode =
@@ -255,6 +255,9 @@ type Cell = {
   dy: number;
   dist: number;
   angle: number;
+  /** cos/sin of `angle`, kept because the resting field asks for them every frame */
+  cos: number;
+  sin: number;
   /** Per-cell random (0..1) */
   seed: number;
   /** Per-cell brightness response (0..1); without it cells at equal distance fall into the same step and form rings */
@@ -287,15 +290,103 @@ function letterAt(
 }
 
 /**
- * Idle: a soft breathing wave inside a small circle. `lift` brightens it in
- * place; `scale` is the body's share of IDLE_R, which is how it opens and closes.
+ * The phosphor. A cell takes a brighter value at once and decays from it, on two clocks: a short
+ * one that carries the body and a long, weaker one that is the tail. Two rather than one, because
+ * a single constant either smears everything or nothing. Seconds.
  */
-function idleValue(cell: Cell, t: number, lift = 0, scale = 1) {
-  const r = IDLE_R * Math.max(0.02, scale);
-  const body = 1 - smoothstep(r * 0.55, r, cell.dist);
-  const w = Math.sin(cell.dist * 0.05 - t * 0.4);
-  const breath = Math.sin(t * 0.35) * 0.07;
-  return (0.58 + lift + w * 0.2 + breath) * body;
+const TRAIL_FAST = 0.085;
+const TRAIL_SLOW = 0.8;
+/** What the long clock is worth beside the short one. */
+const TRAIL_WEIGHT = 0.52;
+
+/**
+ * How often a cell picks a new glyph at an unchanged brightness, a second. Slow on purpose: the
+ * eye follows a glyph's identity, so a field whose glyphs shuffle while its shape holds still is
+ * read as television snow rather than as something moving. The motion comes from the field — a
+ * cell also re-picks the moment its brightness moves two steps, which is most of what happens
+ * while she speaks. The wave that leaves her face keeps the faster rate (ascii.const CHAR_RATE):
+ * it is over in two seconds and has no shape to hold.
+ */
+const CHURN_ASCII = 0.45;
+const CHURN_EMOJI = 0.3;
+
+/**
+ * Her eyes open about this often, times a factor between 0.55 and 1.45 drawn fresh each time, and
+ * the script they run is drawn too (eyes.ts). Nothing about it is meant to be learnable: a face
+ * that does the same thing on a beat stops being seen once the beat has been counted. Seconds.
+ */
+const EYES_APART = 34;
+/** How long the body takes to close around them, and to let go again. */
+const EYES_IN = 1.25;
+const EYES_OUT = 1.5;
+
+/** How fast a piece she has thrown travels outward (reference units a second). */
+const EMBER_DRIFT = 66;
+/** How far out a piece is still drawn. Inside FIELD_R, or a thrown piece dies on the edge. */
+const EMBER_REACH = 318;
+/** The edge's roughness, as a share of the body. */
+const EMBER_FRAY = 0.18;
+
+/**
+ * The rim is the same at every cell of one angle, and it is the most expensive part of the field,
+ * so it is worked out once a frame around the circle and read from here. A power of two: the
+ * lookup masks rather than divides.
+ */
+const RIM_STEPS = 256;
+const rimRing = new Float32Array(RIM_STEPS);
+const frayRing = new Float32Array(RIM_STEPS);
+function layRim(t: number) {
+  for (let i = 0; i < RIM_STEPS; i++) {
+    const a = (i / RIM_STEPS) * Math.PI * 2 - Math.PI;
+    rimRing[i] = shell(a, IDLE_R, t, 0.24, 0.09, 0.09);
+    frayRing[i] =
+      (fbm(Math.cos(a) * 6.5, Math.sin(a) * 6.5, t * 0.45, 2) - 0.5) *
+      IDLE_R *
+      EMBER_FRAY *
+      1.2;
+  }
+}
+const ringAt = (table: Float32Array, angle: number) =>
+  table[
+    ((((angle + Math.PI) / (Math.PI * 2)) * RIM_STEPS) | 0) & (RIM_STEPS - 1)
+  ];
+
+/**
+ * Resting: an ember. A wick that keeps burning, pieces that leave it and are read further along
+ * their flight the older they are, a boundary that is noise rather than a radius, and a skin of
+ * two scales with a floor taken off it so the low places are empty rather than dim.
+ *
+ * `lift` brightens it in place; `scale` is the body's share of IDLE_R, which is how it opens and
+ * closes. The pieces it throws go with `scale` too: they are a resting behaviour, and anything
+ * else coming up — her voice, the comet — has to have the field to itself.
+ */
+function emberValue(cell: Cell, t: number, lift = 0, scale = 1) {
+  const s = Math.max(0.02, scale);
+  // each cell sits a little in or out of the edge, and the offset drifts: a boundary drawn as a
+  // curve reads as a drawn line however bumpy the curve is
+  const rim =
+    (ringAt(rimRing, cell.angle) + ringAt(frayRing, cell.angle)) * s +
+    (cell.grain - 0.5) * IDLE_R * EMBER_FRAY;
+  const core = 1 - smoothstep(rim * 0.36, rim, cell.dist);
+  // several blotches across the body, not one across all of it — one that size is a gradient, and
+  // half the face goes out with it
+  const blotch = warp(cell.dx * 0.021 + 4, cell.dy * 0.021, t * 0.16, 3);
+  const grain = fbm(cell.dx * 0.05 - 2, cell.dy * 0.05, t * 0.5, 2);
+  const skin = blotch * 1.45 + grain * 0.55 - 0.6;
+  let value = core * (0.3 + (skin > 0 ? skin * skin * 2.8 : 0)) * (1 + lift);
+  const flight = fbm(
+    cell.cos * 2.4,
+    cell.sin * 2.4,
+    (cell.dist - t * EMBER_DRIFT) * 0.0075,
+    3,
+  );
+  // squared, so a strand has an end rather than fading out everywhere at once
+  value +=
+    Math.max(0, flight - 0.42) ** 2 *
+    7.8 *
+    (1 - smoothstep(96, EMBER_REACH, cell.dist)) *
+    scale;
+  return value;
 }
 
 /** The rim's radius for a raw push: as pushed up to SPEAK_KNEE, then easing into SPEAK_MAX. */
@@ -572,7 +663,7 @@ function fieldValue(
 ) {
   let value =
     f.scale > 0.02
-      ? idleValue(cell, t, f.lift, f.scale) * (1 - 0.6 * f.speech)
+      ? emberValue(cell, t, f.lift, f.scale) * (1 - 0.6 * f.speech)
       : 0;
   if (f.gather > 0.01) value += gatherValue(cell, t, f.scale) * f.gather;
   if (f.comet > 0.01) value += cometValue(cell, t) * f.comet;
@@ -603,6 +694,11 @@ export function AsciiOrb({
     asciiN: Int32Array;
     emojiN: Int32Array;
     glyph: string[];
+    fast: Float32Array;
+    slow: Float32Array;
+    wasLevel: Int8Array;
+    turn: Int32Array;
+    pick: Int32Array;
   } | null>(null);
   const charsetRef = useRef(charset);
   /** cur is the color on screen, target the one it eases toward */
@@ -655,6 +751,12 @@ export function AsciiOrb({
   } | null>(null);
   /** Grid pitch in reference units, for laying a word onto cells that already exist */
   const pitchRef = useRef({ cw: 1, ch: 1 });
+  /** When she next looks up, and the script she will run when she does */
+  const lookRef = useRef<{
+    script: EyeScript | null;
+    from: number;
+    until: number;
+  }>({ script: null, from: 0, until: 0 });
 
   // grid is rebuilt only when size or density changes
   useEffect(() => {
@@ -700,6 +802,8 @@ export function AsciiOrb({
           dy,
           dist,
           angle: Math.atan2(dy, dx),
+          cos: dist > 0 ? dx / dist : 1,
+          sin: dist > 0 ? dy / dist : 0,
           seed: hash(c, r),
           grain: hash(c * 5.7 + 19, r * 2.3 + 53),
           gap: 0.05 + hash(c * 7.3 + 11, r * 3.1 + 5) * 0.3,
@@ -728,6 +832,14 @@ export function AsciiOrb({
       asciiN: new Int32Array(RAMP.length),
       emojiN: new Int32Array(RAMP.length),
       glyph: new Array<string>(cells.length),
+      // the phosphor: a cell takes a brighter value at once and decays from it, on two clocks —
+      // a short one that carries the body and a long, weaker one that is the tail
+      fast: new Float32Array(cells.length),
+      slow: new Float32Array(cells.length),
+      // what each cell is holding, so it is not re-picked at an unchanged brightness
+      wasLevel: new Int8Array(cells.length).fill(-9),
+      turn: new Int32Array(cells.length).fill(-9),
+      pick: new Int32Array(cells.length),
     };
 
     // match canvas resolution to the device pixel ratio
@@ -920,7 +1032,37 @@ export function AsciiOrb({
       f.word = toward(f.word, want.word, RISE.word, FALL.word, dt);
       const solidError = f.err > 0.5;
       const solidWord = f.word > 0.5;
-      const rate = cs === "emojiOnly" ? EMOJI_CHAR_RATE : CHAR_RATE;
+      const rate = cs === "emojiOnly" ? CHURN_EMOJI : CHURN_ASCII;
+
+      // the rim is the same at every cell of one angle: worked out once, read per cell
+      layRim(clock);
+      const fastKeep = Math.exp(-dt / TRAIL_FAST);
+      const slowKeep = Math.exp(-dt / TRAIL_SLOW);
+
+      // Her eyes, which belong to resting alone. `held` closes them well before anything else
+      // comes up, and the whole thing is skipped while a word or ERROR has the face.
+      const restful = f.scale * (1 - f.speech) * (1 - f.comet) * (1 - f.gather);
+      let eyes: ReturnType<typeof eyeState> | null = null;
+      let eyesHeld = 0;
+      if (restful > 0.4 && !solidError && !solidWord) {
+        const look = lookRef.current;
+        if (clock > look.until) {
+          // when she next looks up is noise, and so is which of the scripts she runs
+          look.script = eyeScript((clock * 1000) | 0);
+          look.from = clock + EYES_APART * (0.55 + Math.random() * 0.9);
+          look.until = look.from + EYES_IN + look.script.total + EYES_OUT;
+        }
+        const age = clock - look.from;
+        const span = look.until - look.from;
+        if (look.script && age > 0) {
+          eyesHeld =
+            smoothstep(0, EYES_IN, age) *
+            (1 -
+              smoothstep(span - EYES_OUT - 0.35, span - EYES_OUT + 0.1, age)) *
+            smoothstep(0.4, 0.75, restful);
+          eyes = eyeState(look.script, Math.max(0, age - EYES_IN * 0.7));
+        }
+      }
 
       const all = cellsRef.current;
       for (let ci = 0; ci < all.length; ci++) {
@@ -935,9 +1077,11 @@ export function AsciiOrb({
           voice,
         );
 
-        if (
-          !((solidError && cell.letter >= 0) || (solidWord && cell.word >= 0))
-        ) {
+        const plain = !(
+          (solidError && cell.letter >= 0) ||
+          (solidWord && cell.word >= 0)
+        );
+        if (plain) {
           // per-cell brightness response breaks concentric rings; multiplicative, so empty (0) stays empty
           v *= 0.66 + cell.grain * 0.72;
           // slowly drifting noise on top
@@ -955,7 +1099,28 @@ export function AsciiOrb({
           ) {
             v = Math.max(v, 0.9);
           }
+        }
 
+        // An eye is a hole, and it drops its trail rather than fading: a hole that goes out over
+        // the tail time reads as neither open nor shut.
+        const hole =
+          eyesHeld > 0.03 &&
+          eyes !== null &&
+          inEye(cell.dx, cell.dy, IDLE_R * f.scale, eyesHeld, eyes, t);
+        if (hole) {
+          bk.fast[ci] = 0;
+          bk.slow[ci] = 0;
+          continue;
+        }
+
+        // the phosphor: brighten at once, fall away on two clocks
+        const lit = (bk.fast[ci] =
+          v > bk.fast[ci] * fastKeep ? v : bk.fast[ci] * fastKeep);
+        const tail = (bk.slow[ci] =
+          v > bk.slow[ci] * slowKeep ? v : bk.slow[ci] * slowKeep);
+        v = lit > tail * TRAIL_WEIGHT ? lit : tail * TRAIL_WEIGHT;
+
+        if (plain) {
           const gate = cell.gap + Math.sin(t * 0.28 + cell.seed * 6.283) * 0.05;
           if (v < gate) v = 0;
         }
@@ -965,22 +1130,38 @@ export function AsciiOrb({
         const level = (v * (RAMP.length - 1)) | 0;
         if (level === 0) continue;
 
+        // A glyph is kept until the cell's brightness has really moved, plus a slow churn of its
+        // own. Re-picking on a fast clock at an unchanged brightness is what reads as television
+        // snow rather than as something moving: the eye follows a glyph's identity.
         const slot = (clock * rate + cell.seed * 7) | 0;
+        if (
+          slot !== bk.turn[ci] ||
+          level - bk.wasLevel[ci] >= 2 ||
+          bk.wasLevel[ci] - level >= 2
+        ) {
+          bk.turn[ci] = slot;
+          bk.wasLevel[ci] = level;
+          bk.pick[ci] = ((cell.seed * 997) | 0) + slot + level;
+        }
+        const pick = bk.pick[ci];
 
         const showEmoji =
           cs === "emojiOnly" ||
           (cs === "emoji" && cell.emoji && level >= EMOJI_MIN_LEVEL);
 
         if (showEmoji) {
-          const i =
-            (((cell.seed * EMOJI_POOL.length) | 0) + slot) % EMOJI_POOL.length;
-          bk.glyph[ci] = EMOJI_POOL[i];
+          bk.glyph[ci] =
+            EMOJI_POOL[
+              ((pick % EMOJI_POOL.length) + EMOJI_POOL.length) %
+                EMOJI_POOL.length
+            ];
           bk.emoji[level][bk.emojiN[level]++] = ci;
         } else {
           const variants = RAMP[level];
-          const i =
-            (((cell.seed * variants.length) | 0) + slot) % variants.length;
-          bk.glyph[ci] = variants[i];
+          bk.glyph[ci] =
+            variants[
+              ((pick % variants.length) + variants.length) % variants.length
+            ];
           bk.ascii[level][bk.asciiN[level]++] = ci;
         }
       }

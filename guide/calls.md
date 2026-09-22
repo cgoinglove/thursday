@@ -98,9 +98,13 @@ the app was installed.
 ## Her voice, her face, her models
 
 - **Face**: a field of characters — plain characters, some emoji or all emoji, and how big and
-  how dense, in Settings › Thursday › Face. It can spell a short word: a hello as the app opens, CALL while she
-  rings, OK as finished work comes in, BYE as a call ends, and whatever she chooses to show.
-  While she works it is a single tail circling.
+  how dense, in Settings › Thursday › Face. At rest it burns like an ember: the middle keeps
+  moving and pieces drift off the edge, and it is never the same twice. Every half-minute or so
+  it gathers itself and opens two eyes, which look around, blink and go — sometimes for a few
+  seconds, sometimes barely at all. Nothing sets that off and nothing stops it; it only happens
+  while she is resting, never while she is speaking or working. It can spell a short word: a
+  hello as the app opens, CALL while she rings, OK as finished work comes in, BYE as a call
+  ends, and whatever she chooses to show. While she works it is a single tail circling.
 - **Voice**: 22 voices in Settings › Thursday › Models. Clicking a name plays it.
 - **Models**: the voice runs on GPT-Live; the model that thinks and uses tools behind it is
   picked in the same card, with how hard it thinks and whether it can search the web. Web
