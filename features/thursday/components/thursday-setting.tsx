@@ -619,7 +619,7 @@ function FacePicker({
       <div className="space-y-5 py-2">
         {/* Same layout as the call screen: face above, one line below */}
         <div className="flex flex-col items-center gap-4 pt-2">
-          <Face look={value} size={176} className="w-44" />
+          <Face look={value} className="w-44" />
         </div>
 
         <Row label="Glyphs">

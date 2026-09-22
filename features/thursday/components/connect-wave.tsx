@@ -9,6 +9,7 @@ import {
   EMOJI_MIN_LEVEL,
   EMOJI_POOL,
   EMOJI_RATIO,
+  emojiAlpha,
   hash,
   RAMP,
   smoothstep,
@@ -213,7 +214,7 @@ export function ConnectWave({
         const turn = Math.floor(t * rate + c.seed * 10);
         if (emojiAt(c, level)) {
           // emoji keep their own colour, so only alpha varies, as on her face
-          ctx.globalAlpha = 0.35 + (level / top) * 0.65;
+          ctx.globalAlpha = emojiAlpha(level, top, charset === "emojiOnly");
           const at = Math.floor(hash(c.seed * 97, turn) * EMOJI_POOL.length);
           ctx.drawImage(
             emojis,

@@ -196,7 +196,6 @@ export function VoicePicker({
               look={face}
               status={playing ? "speaking" : "idle"}
               getSpectrum={spectrum}
-              size={176}
               className="w-44"
             />
             <span className="text-sm font-medium">

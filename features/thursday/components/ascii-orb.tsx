@@ -8,12 +8,20 @@ import {
   EMOJI_MIN_LEVEL,
   EMOJI_POOL,
   EMOJI_RATIO,
+  emojiAlpha,
+  emojiWeight,
   hash,
   LETTERS,
   RAMP,
   smoothstep,
 } from "../ascii.const";
-import { type EyeScript, eyeScript, eyeState, inEye } from "../eyes";
+import {
+  type EyeFit,
+  type EyeScript,
+  eyeScript,
+  eyeState,
+  inEye,
+} from "../eyes";
 import type { AsciiCharset } from "../face.const";
 import { fbm, shell, warp } from "../field";
 import type { FaceWord } from "../thursday.schema";
@@ -21,7 +29,6 @@ import type { FaceWord } from "../thursday.schema";
 export type AsciiOrbMode =
   | "idle"
   | "connecting"
-  /** The user's turn: the resting body, thinned out, retyping with the microphone */
   /** Hanging up: the body draws in and goes out, leaving the field empty */
   | "ending"
   | "speaking"
@@ -56,6 +63,14 @@ type AsciiOrbProps = {
    */
   color?: [number, number, number];
 };
+
+/** Her glyphs, at the size the user set. */
+const GLYPH_FONT = (px: number) =>
+  `700 ${px}px ui-monospace,SFMono-Regular,Menlo,monospace`;
+
+/** The same, for an emoji standing at one rung of the ramp rather than at the top of it. */
+const emojiFont = (px: number, level: number, top: number) =>
+  GLYPH_FONT(px * (0.5 + emojiWeight(level, top) * 0.5));
 
 /** Peak brightness of the default grey orb */
 const DEFAULT_COLOR: [number, number, number] = [235, 235, 235];
@@ -324,10 +339,34 @@ const EYES_OUT = 1.5;
 const EMBER_DRIFT = 66;
 /** How far out a piece is still drawn. Inside FIELD_R, or a thrown piece dies on the edge. */
 const EMBER_REACH = 318;
-/** The edge's roughness, as a share of the body. */
-const EMBER_FRAY = 0.18;
+/**
+ * The edge. Three things can push a cell in or out of it, and she stops reading as a face when
+ * they are all turned up: a boundary shoved about by a quarter of its own radius is not a radius
+ * any more. So the two that move the whole SILHOUETTE are nearly off, and the one that is left is
+ * per-cell — the outline stays a circle and what is chewed is the last cell of it.
+ */
+const EMBER_ROUGH = 0.11;
+const EMBER_LOBE = 0.018;
+const EMBER_WOBBLE = 0.04;
+const EMBER_GRIT = 0.13;
+/**
+ * Where the body stops being full and starts falling away to the rim, as a share of it, resting
+ * and drawn in around her eyes. It has to be late: a body that thins from a third of the way out
+ * has its visible edge wherever the skin happens to be bright, which is a shape with no radius
+ * rather than a face.
+ */
+const EMBER_FILL = 0.86;
+const EMBER_FILL_HELD = 0.95;
+/** What the skin is worth where its blotches are dark — low enough to be dim, never to be a hole. */
+const EMBER_FLOOR = 0.42;
 /** How much bigger the body is once it has drawn itself in around the eyes. */
 const EMBER_GATHER_GROW = 0.08;
+/**
+ * How she wears her eyes (eyes.ts). The pair sits where the bot faces put it; only the lens is
+ * larger, and less so than it had to be while the body was sparse — a hole reads at once against
+ * a body that is filled, and it was the sparseness that made it need the size.
+ */
+const EMBER_EYES: EyeFit = { gap: 1.05, size: 1.12, fray: 0.42 };
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -342,12 +381,11 @@ const frayRing = new Float32Array(RIM_STEPS);
 function layRim(t: number) {
   for (let i = 0; i < RIM_STEPS; i++) {
     const a = (i / RIM_STEPS) * Math.PI * 2 - Math.PI;
-    rimRing[i] = shell(a, IDLE_R, t, 0.24, 0.09, 0.09);
+    rimRing[i] = shell(a, IDLE_R, t, EMBER_ROUGH, 0.09, EMBER_LOBE);
     frayRing[i] =
       (fbm(Math.cos(a) * 6.5, Math.sin(a) * 6.5, t * 0.45, 2) - 0.5) *
       IDLE_R *
-      EMBER_FRAY *
-      1.2;
+      EMBER_WOBBLE;
   }
 }
 const ringAt = (table: Float32Array, angle: number) =>
@@ -374,15 +412,23 @@ function emberValue(cell: Cell, t: number, lift = 0, scale = 1, gather = 0) {
   // each cell sits a little in or out of the edge, and the offset drifts: a boundary drawn as a
   // curve reads as a drawn line however bumpy the curve is
   const rim =
-    (ringAt(rimRing, cell.angle) + ringAt(frayRing, cell.angle)) * s +
-    (cell.grain - 0.5) * IDLE_R * EMBER_FRAY;
-  // gathered, the body fills nearly to its edge instead of fading from a third of the way out
-  const core = 1 - smoothstep(rim * (0.36 + 0.54 * held), rim, cell.dist);
+    (ringAt(rimRing, cell.angle) +
+      ringAt(frayRing, cell.angle) +
+      (cell.grain - 0.5) * IDLE_R * EMBER_GRIT) *
+    s;
+  // gathered, the body fills all the way to its edge
+  const core =
+    1 -
+    smoothstep(
+      rim * (EMBER_FILL + (EMBER_FILL_HELD - EMBER_FILL) * held),
+      rim,
+      cell.dist,
+    );
   const grain = fbm(cell.dx * 0.05 - 2, cell.dy * 0.05, t * 0.5, 2);
   const skin = blotch * 1.45 + grain * 0.55 - 0.6;
   let value =
     core *
-    (0.3 + (skin > 0 ? skin * skin * 2.8 : 0)) *
+    (EMBER_FLOOR + (skin > 0 ? skin * skin * 2.8 : 0)) *
     (1 + lift) *
     (1 + 0.5 * held);
   const flight = fbm(
@@ -866,7 +912,7 @@ export function AsciiOrb({
     const ctx = host.getContext("2d");
     if (ctx) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.font = `700 ${fontSize}px ui-monospace,SFMono-Regular,Menlo,monospace`;
+      ctx.font = GLYPH_FONT(fontSize);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctxRef.current = ctx;
@@ -915,6 +961,14 @@ export function AsciiOrb({
       letters: layWord(cellsRef.current, cw, ch, word.text),
       hold: word.hold ?? WORD_HOLD,
     };
+    // A word that came with her is already lit, so the field is put where it already is rather
+    // than eased there. Otherwise the body opens on the first frames and is taken away again a
+    // moment later, which is a blink on the screen the app opens with.
+    if (lit > 0) {
+      const f = fieldRef.current;
+      f.word = 1;
+      f.scale = 0;
+    }
   }, [word]);
 
   // animation loop
@@ -1135,6 +1189,7 @@ export function AsciiOrb({
             eyesHeld,
             eyes,
             t,
+            EMBER_EYES,
           );
         if (hole) {
           bk.fast[ci] = 0;
@@ -1220,17 +1275,21 @@ export function AsciiOrb({
         }
       }
 
-      // emoji keep their own color, so only alpha varies
+      // Emoji keep their own colour, so alpha is all the shading they have, and alpha alone does
+      // not shade a shape (ascii.const emojiWeight): drawn alone the dim end is drawn smaller too.
+      const alone = cs === "emojiOnly";
       for (let lv = 1; lv <= top; lv++) {
         const n = bk.emojiN[lv];
         if (n === 0) continue;
-        ctx.globalAlpha = 0.35 + (lv / top) * 0.65;
+        ctx.globalAlpha = emojiAlpha(lv, top, alone);
+        if (alone) ctx.font = emojiFont(fontSize, lv, top);
         const idx = bk.emoji[lv];
         for (let i = 0; i < n; i++) {
           const cell = cells[idx[i]];
           ctx.fillText(bk.glyph[idx[i]], cell.x, cell.y);
         }
       }
+      if (alone) ctx.font = GLYPH_FONT(fontSize);
       ctx.globalAlpha = 1;
 
       raf = requestAnimationFrame(draw);

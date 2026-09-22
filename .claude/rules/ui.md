@@ -173,15 +173,30 @@ paths:
   moves leaves a tail, and it keeps the glyph it is holding until its brightness really moves,
   since the eye follows a glyph's identity and a field that shuffles glyphs while its shape holds
   still is read as television snow. A boundary is never a curve: each cell sits a little in or out
-  of it and the offset drifts, which is what her speaking rim already did. Nothing on the face is
-  evenly filled — the low places are empty rather than dim.
+  of it and the offset drifts, which is what her speaking rim already did — but only the cell
+  moves. Anything that pushes the whole outline, a slow lobe or a wave around the circumference,
+  buys its irregularity by spending the radius, and three of them at once left her a shape with no
+  radius at all. She is a circle, full to within a cell or two of her rim, and what is ragged is
+  that last cell (the user's pick: the face not being a circle was the odd part, not the eyes).
+- **A ramp of emoji is not a ramp.** Alpha is all the shading an emoji has, and alpha alone does
+  not shade a shape: a pale emoji is the same nine pixels across as a bright one, where a "." is a
+  tenth of an "米". Sprinkled over an ascii body they are the highlights alone and it never comes
+  up; drawn by themselves — which is the app's default — eleven even steps come out as one weight
+  everywhere, so what she has thrown weighs what her body weighs and there is no silhouette left.
+  The ramp splits instead of shading (`ascii.const` `emojiWeight`): the bottom rungs are the halo
+  and fall away in size as well as alpha, and everything from the body up is simply there.
 - **Her eyes belong to resting.** Every half-minute or so the pieces draw in, the body closes, and
   two eyes open in it and run one of five scripts (`eyes.ts`); they shut before anything else comes
   up, and a cell inside one drops its trail rather than fading, or a half-gone hole reads as
-  neither open nor shut. The shape is the bot faces' own, carried by one scale, so the eyes that
-  open in the intro's star are the ones that open in the small face. Five scripts and a noisy
-  interval, because a face that does the same thing on a beat stops being seen once the beat has
-  been counted — nothing sets it off and nothing stops it.
+  neither open nor shut. The shape is the bot faces' own, so the eyes that open in the intro's
+  star are the ones that open in the small face — carried by two numbers rather than one: the pair
+  sits where the mark puts it, and only the lens is scaled up, since a hole in a body of glyphs
+  has to be bigger than one in a solid shape before it reads at all. One number for both pushed
+  the pair out and up along with the lens, and that is what made the proportions wrong. The
+  outline frays while the eye is opening and closing and not once it is open: an eye eight cells
+  across cannot carry a fray and stay an eye — what is ragged is the moment, not the shape. Five
+  scripts and a noisy interval, because a face that does the same thing on a beat stops being seen
+  once the beat has been counted — nothing sets it off and nothing stops it.
 - Thursday is small in one way: `thursday-mark` draws the call's orb in miniature — glyphs keep one
   size, so a bigger box holds more of them, and nothing fades — and every screen draws her through
   it, so a new icon is a change to that file. Only the browser tab keeps the bot-style mark

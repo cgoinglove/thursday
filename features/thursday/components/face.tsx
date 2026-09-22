@@ -79,23 +79,22 @@ function OrbFace({
 
 /**
  * The face at the size of its box, measured because the canvas face needs real
- * pixels. Fades in: the chosen face arrives after hydration, so the first
- * frame is always the default and must not be shown. memo: the call screen
- * re-renders per transcript fragment; the face's props are stable references.
+ * pixels. It is not drawn at all until the box has been measured: the orb builds
+ * a grid per size, and building one for a guess and then again for the real width
+ * throws away the first one's trails in front of the user. Fades in: the chosen
+ * face arrives after hydration, so the first frame is always the default and must
+ * not be shown. memo: the call screen re-renders per transcript fragment; the
+ * face's props are stable references.
  */
 export const Face = memo(function Face({
   look,
   // a face without a call is between calls (previews)
   status = "idle",
-  size = 448,
   className,
   ...rest
-}: Omit<FaceProps, "size" | "status"> & {
-  size?: number;
-  status?: CallStatus;
-}) {
+}: Omit<FaceProps, "size" | "status"> & { status?: CallStatus }) {
   const box = useRef<HTMLDivElement>(null);
-  const [px, setPx] = useState(size);
+  const [px, setPx] = useState<number | null>(null);
   const [shown, setShown] = useState(false);
 
   useEffect(() => {
@@ -103,6 +102,7 @@ export const Face = memo(function Face({
     if (!element) return;
     const observer = new ResizeObserver(([entry]) => {
       const width = Math.round(entry.contentRect.width);
+      // a box with no width yet is not a size to build a grid for
       if (width > 0) setPx(width);
     });
     observer.observe(element);
@@ -121,11 +121,13 @@ export const Face = memo(function Face({
       className={cn(
         // square regardless of contents, so hiding the face does not collapse the box
         "aspect-square transition-opacity duration-700 ease-out",
-        shown ? "opacity-100" : "opacity-0",
+        shown && px !== null ? "opacity-100" : "opacity-0",
         className,
       )}
     >
-      <OrbFace {...rest} look={look} status={status} size={px} />
+      {px !== null && (
+        <OrbFace {...rest} look={look} status={status} size={px} />
+      )}
     </div>
   );
 });
