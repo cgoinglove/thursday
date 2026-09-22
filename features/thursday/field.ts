@@ -64,7 +64,10 @@ export function warp(x: number, y: number, z: number, pull = 4) {
  * displacement rather than as a rotation: a field turned with distance spirals, a field pushed
  * with distance drifts, and drifting is what smoke does.
  */
-export function windAt(t: number) {
-  const theta = -0.34 + (fbm(t * 0.06, 3, 1.4, 2) - 0.5) * 0.8;
-  return { x: Math.cos(theta), y: Math.sin(theta) };
+export function windAt(t: number, seed = 0) {
+  // The whole circle, not a wobble around a fixed heading: a base angle plus a small swing means
+  // every run blows the same way, and a plume that always leans east is a decoration. The noise
+  // spans more than a turn, and `seed` is where in it this face started.
+  const a = fbm(t * 0.05 + seed * 3.7, 3.1 + seed, 1.4, 2) * 9.2;
+  return { x: Math.cos(a), y: Math.sin(a) };
 }

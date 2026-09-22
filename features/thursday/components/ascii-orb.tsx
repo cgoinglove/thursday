@@ -310,7 +310,7 @@ function letterAt(
  * a single constant either smears everything or nothing. Seconds.
  */
 const TRAIL_FAST = 0.085;
-const TRAIL_SLOW = 1.4;
+const TRAIL_SLOW = 1.1;
 /** What the long clock is worth beside the short one. */
 const TRAIL_WEIGHT = 0.64;
 
@@ -346,8 +346,8 @@ const EYES_FILL = 0.3;
  * falloff reaches past the radius, so her last cells scatter faint rather than stop at a line.
  * She is a circle; what is irregular is what happens inside her and what leaves her.
  */
-const EMBER_CORE = 0.5;
-const EMBER_EDGE = 1.14;
+const EMBER_CORE = 0.35;
+const EMBER_EDGE = 0.95;
 const EMBER_SKIN = 0.55;
 const EMBER_SWING = 0.45;
 const EMBER_SWAY = 0.13;
@@ -811,6 +811,8 @@ export function AsciiOrb({
   const modeRef = useRef({ mode, start: 0 });
   /** When she mounted (ms), to tell a word that came with her from one given later. */
   const bornAt = useRef(performance.now());
+  /** Where in the wind's noise this face starts, so two loads do not blow the same way. */
+  const windSeed = useRef(Math.random() * 90).current;
   /**
    * The field on screen. It only ever eases toward the mode's targets, so it
    * starts drawn in and opens on the first frames like any other arrival.
@@ -1130,7 +1132,7 @@ export function AsciiOrb({
       const rate = cs === "emojiOnly" ? CHURN_EMOJI : CHURN_ASCII;
 
       // this frame's wind, which is what her plume leans on
-      const gust = windAt(clock * 0.35);
+      const gust = windAt(clock * 0.35, windSeed);
       const fastKeep = Math.exp(-dt / TRAIL_FAST);
       const slowKeep = Math.exp(-dt / TRAIL_SLOW);
 
