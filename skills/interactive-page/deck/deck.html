@@ -13,24 +13,20 @@
     <main id="deck">
       <!-- One <section data-slide> per slide, in order. Every slide is exactly {{w}}x{{h}}px
            and nothing reflows: lay it out once, for that size, and keep it inside — a slide
-           clips what does not fit. One idea a slide, and a title that says the point.
-           Plain HTML reads well as it is (h1 h2 h3 p ul blockquote small); class="center"
-           on the section centres it, and .cols / .cols.three, .card, .big and .accent lay out
-           the rest. Anything else is an inline style. An <aside> directly inside a slide is
-           what is said over it, shown with the n key and never on the slide.
-           Nothing comes from the network: a picture sits beside this file as
-           <img src="photo.jpg">. Set lang above to the deck's language. -->
+           that overflows is refused by its number when you shoot it.
+           Copy the slide you need from the skill's deck/slides/ — cover, statement, cards,
+           number, table, quote, image, close — and change the words. Every style is inline
+           (px and hex, no classes): references/deck.md is the whole subset, the height
+           arithmetic and what makes a deck work. Set the ground, the ink and the one accent
+           once and keep them the same on every slide.
+           An <aside> directly inside a slide is what is said over it, shown with the n key
+           and never on the slide. Nothing comes from the network: a picture sits beside this
+           file as <img src="photo.jpg">. Set lang above to the deck's language. -->
 
-      <section data-slide class="center">
-        <h1>{{title}}</h1>
-        <p class="muted">One line on what this deck is for.</p>
+      <section data-slide style="background:#FBFBF8; color:#1A1A1A; font-family:system-ui,sans-serif; padding:128px; display:flex; flex-direction:column; justify-content:center; gap:40px">
+        <h1 style="font-size:112px; font-weight:400; line-height:1.05; max-width:1400px">{{title}}</h1>
+        <p style="font-size:36px; color:#6A7179; max-width:1200px">One line on what this deck is for.</p>
         <aside>What is said over the first slide.</aside>
-      </section>
-
-      <section data-slide>
-        <h2>A title that says the point</h2>
-        <p></p>
-        <aside></aside>
       </section>
     </main>
 

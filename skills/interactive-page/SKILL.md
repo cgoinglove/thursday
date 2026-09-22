@@ -38,8 +38,11 @@ report needs one, name both files as you hand back.
 
 **Canvas and deck.** Parts of one exact size in one file: a board per option with a note on
 what it is for and what it costs, or a slide per step with what is said over it kept off the
-slide. `node $S/canvas.mjs shots <name> --size WxH` and `node $S/deck.mjs shots <name>` leave
-a picture of each beside the file and refuse, by name, one that overflows. `shots` drives a
+slide. A deck starts from a ready slide in `deck/slides/` — cover, statement, cards, number,
+table, quote, image, close — copied in and reworded; every style is inline, so the values stay
+readable by whatever reads the slides next. `node $S/canvas.mjs shots <name> --size WxH` and
+`node $S/deck.mjs shots <name>` leave a picture of each beside the file and refuse, by name,
+one that overflows. `shots` drives a
 browser: the job's own when one is open, else a headless one it opens. A deck here is shown on a screen and prints a slide a page;
 one that has to be sent or edited as a PowerPoint file is an office document, which is another
 method's work.
