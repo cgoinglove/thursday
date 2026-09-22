@@ -166,6 +166,22 @@ paths:
   `ROW_FACES`. **The corner reads what it draws and nothing else**, which is what lets it hold a
   Clear all: a pile of edges said there were more and nothing about them, and reading that was
   reading results the user had never seen.
+- **Her face at rest is an ember, and what makes it alive is that it remembers.** The field is
+  value noise read at a place another noise has moved (`field.ts`), never a sine: a sine repeats
+  at an interval the eye finds in seconds and moves every cell in step. The renderer keeps a
+  phosphor — a cell takes a brighter value at once and decays from it on two clocks — so what
+  moves leaves a tail, and it keeps the glyph it is holding until its brightness really moves,
+  since the eye follows a glyph's identity and a field that shuffles glyphs while its shape holds
+  still is read as television snow. A boundary is never a curve: each cell sits a little in or out
+  of it and the offset drifts, which is what her speaking rim already did. Nothing on the face is
+  evenly filled — the low places are empty rather than dim.
+- **Her eyes belong to resting.** Every half-minute or so the pieces draw in, the body closes, and
+  two eyes open in it and run one of five scripts (`eyes.ts`); they shut before anything else comes
+  up, and a cell inside one drops its trail rather than fading, or a half-gone hole reads as
+  neither open nor shut. The shape is the bot faces' own, carried by one scale, so the eyes that
+  open in the intro's star are the ones that open in the small face. Five scripts and a noisy
+  interval, because a face that does the same thing on a beat stops being seen once the beat has
+  been counted — nothing sets it off and nothing stops it.
 - Thursday is small in one way: `thursday-mark` draws the call's orb in miniature — glyphs keep one
   size, so a bigger box holds more of them, and nothing fades — and every screen draws her through
   it, so a new icon is a change to that file. Only the browser tab keeps the bot-style mark
@@ -269,7 +285,11 @@ paths:
   floating beside it, and it is not blue.
 - The button that calls her carries no phone glyph: one round blue button, and her face is a
   button too. Cancel is small and set apart (the Esc hint), never a twin of the main button.
-- The app opens plainly. Ascii is her face alone — no full-screen wave, no boot curtain.
+- The app opens plainly. Ascii is her face alone — no full-screen wave, no boot curtain. The one
+  wave there is (`connect-wave`) belongs to a call picking up and to nothing else: it used to play
+  once on every load as well, a round front crossing the whole window a second in and landing on
+  top of the hello she was already showing, and a round front is the most regular thing that can
+  be put on this screen (the user's pick).
 - What a first-time user reads or hears is plain, everyday English with no jargon (a key is
   "think of it as a password").
 - Signing in with ChatGPT is called "GPT Subscription" everywhere. The key step leads with it and

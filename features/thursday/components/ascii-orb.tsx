@@ -326,6 +326,10 @@ const EMBER_DRIFT = 66;
 const EMBER_REACH = 318;
 /** The edge's roughness, as a share of the body. */
 const EMBER_FRAY = 0.18;
+/** How much bigger the body is once it has drawn itself in around the eyes. */
+const EMBER_GATHER_GROW = 0.08;
+
+const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 /**
  * The rim is the same at every cell of one angle, and it is the most expensive part of the field,
@@ -360,32 +364,41 @@ const ringAt = (table: Float32Array, angle: number) =>
  * closes. The pieces it throws go with `scale` too: they are a resting behaviour, and anything
  * else coming up — her voice, the comet — has to have the field to itself.
  */
-function emberValue(cell: Cell, t: number, lift = 0, scale = 1) {
-  const s = Math.max(0.02, scale);
+function emberValue(cell: Cell, t: number, lift = 0, scale = 1, gather = 0) {
+  // several blotches across the body, not one across all of it — one that size is a gradient, and
+  // half the face goes out with it
+  const blotch = warp(cell.dx * 0.021 + 4, cell.dy * 0.021, t * 0.16, 3);
+  // and it closes in patches rather than as one ring, on the same blotches
+  const held = gather > 0 ? clamp01(gather * 1.5 - 0.45 * blotch) : 0;
+  const s = Math.max(0.02, scale) * (1 + EMBER_GATHER_GROW * held);
   // each cell sits a little in or out of the edge, and the offset drifts: a boundary drawn as a
   // curve reads as a drawn line however bumpy the curve is
   const rim =
     (ringAt(rimRing, cell.angle) + ringAt(frayRing, cell.angle)) * s +
     (cell.grain - 0.5) * IDLE_R * EMBER_FRAY;
-  const core = 1 - smoothstep(rim * 0.36, rim, cell.dist);
-  // several blotches across the body, not one across all of it — one that size is a gradient, and
-  // half the face goes out with it
-  const blotch = warp(cell.dx * 0.021 + 4, cell.dy * 0.021, t * 0.16, 3);
+  // gathered, the body fills nearly to its edge instead of fading from a third of the way out
+  const core = 1 - smoothstep(rim * (0.36 + 0.54 * held), rim, cell.dist);
   const grain = fbm(cell.dx * 0.05 - 2, cell.dy * 0.05, t * 0.5, 2);
   const skin = blotch * 1.45 + grain * 0.55 - 0.6;
-  let value = core * (0.3 + (skin > 0 ? skin * skin * 2.8 : 0)) * (1 + lift);
+  let value =
+    core *
+    (0.3 + (skin > 0 ? skin * skin * 2.8 : 0)) *
+    (1 + lift) *
+    (1 + 0.5 * held);
   const flight = fbm(
     cell.cos * 2.4,
     cell.sin * 2.4,
     (cell.dist - t * EMBER_DRIFT) * 0.0075,
     3,
   );
-  // squared, so a strand has an end rather than fading out everywhere at once
+  // squared, so a strand has an end rather than fading out everywhere at once. The pieces are
+  // drawn back in as she gathers: what the eyes open in has to be a face, not a scattering.
   value +=
     Math.max(0, flight - 0.42) ** 2 *
     7.8 *
     (1 - smoothstep(96, EMBER_REACH, cell.dist)) *
-    scale;
+    scale *
+    (1 - held);
   return value;
 }
 
@@ -660,10 +673,11 @@ function fieldValue(
   wordHold: number,
   f: Field,
   v: Voice,
+  gather: number,
 ) {
   let value =
     f.scale > 0.02
-      ? emberValue(cell, t, f.lift, f.scale) * (1 - 0.6 * f.speech)
+      ? emberValue(cell, t, f.lift, f.scale, gather) * (1 - 0.6 * f.speech)
       : 0;
   if (f.gather > 0.01) value += gatherValue(cell, t, f.scale) * f.gather;
   if (f.comet > 0.01) value += cometValue(cell, t) * f.comet;
@@ -1044,6 +1058,7 @@ export function AsciiOrb({
       const restful = f.scale * (1 - f.speech) * (1 - f.comet) * (1 - f.gather);
       let eyes: ReturnType<typeof eyeState> | null = null;
       let eyesHeld = 0;
+      let eyesGather = 0;
       if (restful > 0.4 && !solidError && !solidWord) {
         const look = lookRef.current;
         if (clock > look.until) {
@@ -1055,11 +1070,17 @@ export function AsciiOrb({
         const age = clock - look.from;
         const span = look.until - look.from;
         if (look.script && age > 0) {
-          eyesHeld =
+          const settled = smoothstep(0.4, 0.75, restful);
+          // the body closes first and lets go last; the eyes are a slice inside that, shut well
+          // before it loosens, so there is never a half-faded hole in a scattering
+          eyesGather =
             smoothstep(0, EYES_IN, age) *
+            (1 - smoothstep(span - EYES_OUT, span, age)) *
+            settled;
+          eyesHeld =
+            smoothstep(0.3, 0.72, eyesGather) *
             (1 -
-              smoothstep(span - EYES_OUT - 0.35, span - EYES_OUT + 0.1, age)) *
-            smoothstep(0.4, 0.75, restful);
+              smoothstep(span - EYES_OUT - 0.35, span - EYES_OUT + 0.1, age));
           eyes = eyeState(look.script, Math.max(0, age - EYES_IN * 0.7));
         }
       }
@@ -1075,6 +1096,7 @@ export function AsciiOrb({
           shown?.hold ?? WORD_HOLD,
           f,
           voice,
+          eyesGather,
         );
 
         const plain = !(
@@ -1106,7 +1128,14 @@ export function AsciiOrb({
         const hole =
           eyesHeld > 0.03 &&
           eyes !== null &&
-          inEye(cell.dx, cell.dy, IDLE_R * f.scale, eyesHeld, eyes, t);
+          inEye(
+            cell.dx,
+            cell.dy,
+            IDLE_R * f.scale * (1 + EMBER_GATHER_GROW * eyesGather),
+            eyesHeld,
+            eyes,
+            t,
+          );
         if (hole) {
           bk.fast[ci] = 0;
           bk.slow[ci] = 0;

@@ -13,7 +13,6 @@ import {
   RAMP,
   smoothstep,
 } from "../ascii.const";
-import { useCallHeld } from "../call-signal";
 import type { AsciiCharset } from "../face.const";
 import type { CallStatus } from "../thursday.schema";
 
@@ -67,17 +66,18 @@ function sheet(glyphs: readonly string[]) {
   return canvas;
 }
 
-/** Her face fades in over this long as the screen loads (face.tsx `duration-700`); the wave leaves it then. */
-const FACE_IN_MS = 700;
-
 const still = () =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /**
- * When the screen loads and when a call connects, one wave of her glyphs leaves her face and rolls out to every corner
- * of the window: a round front made ragged, and crumbs left where it passed. It is drawn
- * over the whole screen, never takes a click, and does not play when the system asks
- * for less motion. Placed inside the box her face is laid out in; the wave starts at its centre.
+ * When a call connects, one wave of her glyphs leaves her face and rolls out to every corner of
+ * the window: a round front made ragged, and crumbs left where it passed. It is drawn over the
+ * whole screen, never takes a click, and does not play when the system asks for less motion.
+ * Placed inside the box her face is laid out in; the wave starts at its centre.
+ *
+ * It used to play once as the screen loaded too. The app opens plainly (rules/ui.md): a round
+ * front crossing the whole window a second after a reload is the most regular thing on the
+ * screen, and it landed on top of the hello she is already showing (the user's pick).
  */
 export function ConnectWave({
   status,
@@ -90,10 +90,6 @@ export function ConnectWave({
   const canvas = useRef<HTMLCanvasElement>(null);
   const was = useRef(status);
   const [playing, setPlaying] = useState(false);
-  // the first-run intro lies over the call screen, and a wave under it is never seen
-  const held = useCallHeld();
-  const heldNow = useRef(held);
-  heldNow.current = held;
   // Emoji are drawn as the screen loads: the first emoji a page draws is slow, and the
   // moment a call picks up is the wrong moment for it
   const emoji = useRef<HTMLCanvasElement | null>(null);
@@ -115,23 +111,6 @@ export function ConnectWave({
     if (still()) return;
     setPlaying(true);
   }, [status]);
-
-  // Once per load, as her face arrives: after the fonts, so the emoji are drawn ready
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let gone = false;
-    void document.fonts.ready.then(() => {
-      if (gone) return;
-      timer = setTimeout(() => {
-        if (heldNow.current || still()) return;
-        setPlaying(true);
-      }, FACE_IN_MS);
-    });
-    return () => {
-      gone = true;
-      clearTimeout(timer);
-    };
-  }, []);
 
   useEffect(() => {
     const element = canvas.current;
