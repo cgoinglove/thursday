@@ -116,15 +116,20 @@ for (const [who, held] of holders)
       const given = await load(held, name);
       assert.equal(given.skillDirectory, skill, `${name}: the folder it names`);
       assert.ok(given.content.length > 0, `${name}: instructions`);
-      assert.ok(given.files.includes("SKILL.md"), `${name}: lists SKILL.md`);
       assert.ok(
-        given.files.every((path) => !path.startsWith("/")),
-        `${name}: paths are relative to the skill's folder`,
+        given.files.includes(join(skill, "SKILL.md")),
+        `${name}: lists SKILL.md`,
+      );
+      // Each file is the path that opens it: a bare name was read as a path from the
+      // workspace and the first read of a skill's own file failed in 3 jobs out of 3
+      assert.ok(
+        given.files.every((path) => path.startsWith(`${skill}/`)),
+        `${name}: every path opens from the skill's folder`,
       );
       for (const folder of ["references", "scripts"])
         for (const path of await direct(skill, folder))
           assert.ok(
-            given.files.includes(path),
+            given.files.includes(join(skill, path)),
             `${name}: ${path} is missing from the list a bot gets`,
           );
 
