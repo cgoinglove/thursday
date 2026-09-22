@@ -25,6 +25,7 @@ import {
 import type { AsciiCharset } from "../face.const";
 import { fbm, ihash, warp, windAt } from "../field";
 import type { FaceWord } from "../thursday.schema";
+import { WASH_SETS, washAt } from "../wash";
 
 export type AsciiOrbMode =
   | "idle"
@@ -310,7 +311,7 @@ function letterAt(
  * a single constant either smears everything or nothing. Seconds.
  */
 const TRAIL_FAST = 0.085;
-const TRAIL_SLOW = 1.1;
+const TRAIL_SLOW = 1.25;
 /** What the long clock is worth beside the short one. */
 const TRAIL_WEIGHT = 0.64;
 
@@ -369,7 +370,7 @@ const EMBER_FEW = 2.4;
 const EMBER_FAN = 0.009;
 const EMBER_FROM = 88;
 const EMBER_TO = 330;
-const EMBER_POINT = 1.8;
+const EMBER_POINT = 1.25;
 const EMBER_RAGGED = 1.15;
 const EMBER_LEAN = 0.72;
 const EMBER_CRUMB_FROM = 0.42;
@@ -382,6 +383,17 @@ const EMBER_CRUMB_RATE = 1.7;
  * something to be holes in.
  */
 const EMBER_EYE_LIFT = 0.12;
+
+/**
+ * About how often part of her is briefly made of something else, and about how long one sits
+ * (wash.ts). Rare on purpose: it is an event, and an event that happens every few seconds is a
+ * texture. A cell keeps its set for a moment after the wash has left it, so the front is ragged
+ * coming and going rather than switching cleanly. Seconds.
+ */
+const WASH_APART = 42;
+const WASH_HOLD = 3.2;
+const WASH_LINGER = 0.3;
+const WASH_LINGER_MORE = 0.9;
 
 /**
  * How she wears her eyes (eyes.ts): the bot faces' own layout, with a lens a tenth larger,
@@ -444,12 +456,12 @@ function emberValue(
   );
   const far =
     EMBER_FROM +
-    30 +
+    40 +
     EMBER_TO *
       EMBER_RAGGED *
       Math.max(
         0,
-        fbm(Math.cos(la) * 1.1 + 5, Math.sin(la) * 1.1, t * 0.09, 2) - 0.34,
+        fbm(Math.cos(la) * 1.1 + 5, Math.sin(la) * 1.1, t * 0.09, 2) - 0.18,
       );
   const out = smoothstep(EMBER_FROM, far, cell.dist);
   let spray =
@@ -782,6 +794,8 @@ export function AsciiOrb({
     wasLevel: Int8Array;
     turn: Int32Array;
     pick: Int32Array;
+    pool: Int8Array;
+    poolFor: Float32Array;
   } | null>(null);
   const charsetRef = useRef(charset);
   /** cur is the color on screen, target the one it eases toward */
@@ -925,6 +939,9 @@ export function AsciiOrb({
       wasLevel: new Int8Array(cells.length).fill(-9),
       turn: new Int32Array(cells.length).fill(-9),
       pick: new Int32Array(cells.length),
+      // which set has this cell, and for how much longer it keeps it once the wash has passed
+      pool: new Int8Array(cells.length),
+      poolFor: new Float32Array(cells.length),
     };
 
     // match canvas resolution to the device pixel ratio
@@ -1213,6 +1230,20 @@ export function AsciiOrb({
           }
         }
 
+        // the wash, and the moment a cell holds its set after the wash has left it
+        const washed = plain
+          ? washAt(cell.dx, cell.dy, clock, WASH_APART, WASH_HOLD)
+          : 0;
+        if (washed) {
+          bk.pool[ci] = washed;
+          bk.poolFor[ci] = WASH_LINGER + cell.grain * WASH_LINGER_MORE;
+        } else if (bk.poolFor[ci] > 0) {
+          bk.poolFor[ci] -= dt;
+          if (bk.poolFor[ci] <= 0) bk.pool[ci] = 0;
+        } else {
+          bk.pool[ci] = 0;
+        }
+
         // An eye is a hole, and it drops its trail rather than fading: a hole that goes out over
         // the tail time reads as neither open nor shut.
         const hole =
@@ -1222,6 +1253,7 @@ export function AsciiOrb({
         if (hole) {
           bk.fast[ci] = 0;
           bk.slow[ci] = 0;
+          bk.pool[ci] = 0;
           continue;
         }
 
@@ -1261,19 +1293,16 @@ export function AsciiOrb({
           cs === "emojiOnly" ||
           (cs === "emoji" && cell.emoji && level >= EMOJI_MIN_LEVEL);
 
+        // A washed cell keeps its brightness and its bucket — only where its glyph comes from
+        // changes, so it is drawn at the same weight as everything around it.
+        const set = bk.pool[ci] ? WASH_SETS[bk.pool[ci] - 1] : null;
         if (showEmoji) {
-          bk.glyph[ci] =
-            EMOJI_POOL[
-              ((pick % EMOJI_POOL.length) + EMOJI_POOL.length) %
-                EMOJI_POOL.length
-            ];
+          const bag = set ? set.emoji : EMOJI_POOL;
+          bk.glyph[ci] = bag[((pick % bag.length) + bag.length) % bag.length];
           bk.emoji[level][bk.emojiN[level]++] = ci;
         } else {
-          const variants = RAMP[level];
-          bk.glyph[ci] =
-            variants[
-              ((pick % variants.length) + variants.length) % variants.length
-            ];
+          const bag = set ? set.ascii : RAMP[level];
+          bk.glyph[ci] = bag[((pick % bag.length) + bag.length) % bag.length];
           bk.ascii[level][bk.asciiN[level]++] = ci;
         }
       }
