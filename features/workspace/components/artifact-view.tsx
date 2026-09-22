@@ -26,7 +26,7 @@ import {
 import { toDate } from "@/lib/date-like";
 import { unwrapResult } from "@/lib/protocol/result";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
-import { errorToString, plainText } from "@/lib/utils";
+import { cn, errorToString, plainText } from "@/lib/utils";
 import { FileViewer, useOpenFile } from "./file-view";
 
 /**
@@ -64,8 +64,21 @@ export type Finished = {
   paths: string[];
 };
 
-/** File faces a card draws before the rest fold into a count. */
-const FACES_SHOWN = 4;
+/** Tailwind writes its columns out, so a count picks one rather than building the class. */
+const ACROSS = {
+  2: "grid-cols-2",
+  3: "grid-cols-3",
+  4: "grid-cols-4",
+} as const;
+
+/**
+ * Faces across a card's row, which is also how many it draws before the rest fold into a
+ * count: as many as it holds, up to four, so the row ends where the card's column ends
+ * rather than short of it. One file on its own takes half the row instead of all of it —
+ * the size a single report is worth reading at, and what a message's own files do.
+ */
+const facesAcross = (files: number): keyof typeof ACROSS =>
+  files <= 2 ? 2 : files === 3 ? 3 : 4;
 
 /**
  * Cards waved off in this browser, newest first, so a reload does not bring them back. Short:
@@ -409,7 +422,9 @@ export function FinishedCard({
   onOpen: (path: string | null) => void;
   onClose: () => void;
 }) {
-  const more = row.paths.length - FACES_SHOWN;
+  const across = facesAcross(row.paths.length);
+  const shown = row.paths.slice(0, across);
+  const more = row.paths.length - shown.length;
 
   return (
     <div className="flex shrink-0 animate-in gap-2.5 rounded-[20px] bg-background py-2.5 pr-2 pl-2.5 shadow-black/10 shadow-lg ring-1 ring-border fade-in slide-in-from-bottom-2 duration-300">
@@ -454,28 +469,33 @@ export function FinishedCard({
             <X />
           </Button>
         </div>
-        {row.paths.length > 0 && (
-          <div className="flex items-center gap-1.5 pt-0.5">
-            {row.paths.slice(0, FACES_SHOWN).map((path) => (
+        {shown.length > 0 && (
+          // Square, and as wide as the row allows: a picture a bot leaves is a
+          // landscape screen and a page is laid out to whatever box it is given,
+          // so a face that is taller than it is wide is mostly what it cropped away
+          <div className={cn("grid gap-1.5 pt-0.5", ACROSS[across])}>
+            {shown.map((path, at) => (
               <button
                 key={path}
                 type="button"
                 title={path.split("/").pop()}
                 onClick={() => onOpen(path)}
-                className="rounded-[10px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="relative rounded-[10px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
               >
                 <FileThumb
                   path={path}
-                  glyph="size-4"
-                  className="h-15 w-12 rounded-[10px] ring-1 ring-border"
+                  glyph={across === 2 ? "size-6" : "size-4"}
+                  className="aspect-square w-full rounded-[10px] ring-1 ring-border"
                 />
+                {/* What is left over is counted on the last face, as it is under a
+                    message, so the row still ends where the column does */}
+                {more > 0 && at === shown.length - 1 && (
+                  <span className="absolute inset-0 grid place-items-center rounded-[10px] bg-black/45 font-medium text-[14px] text-white">
+                    +{more}
+                  </span>
+                )}
               </button>
             ))}
-            {more > 0 && (
-              <span className="px-1 font-mono text-[11px] text-muted-foreground">
-                +{more}
-              </span>
-            )}
           </div>
         )}
       </div>

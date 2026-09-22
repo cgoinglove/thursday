@@ -170,7 +170,11 @@ paths:
 - **What has ended stands in the left corner, and nothing else does** (`bot.schema` `standOf`, the
   one place that decides which side a job is on). Nothing a job finished opens by itself — it
   lands there as a card, the same card with files or without: the bot, the label, how the answer
-  opens, the files under the words. A reload brings back what is still unread, less those this
+  opens, the files under the words. Those faces are square and share the card's column — two,
+  three or four across, as many as it holds, and what is left over is counted on the last one,
+  so the row ends where the column does. A face taller than it is wide is mostly what it cropped
+  away: a picture a bot leaves is a landscape screen, and a page is laid out to whatever box the
+  tile gives it. A reload brings back what is still unread, less those this
   browser closed; the pill makes no bubble of a job's ending, since the card says it. The corner
   draws `FINISHED_NOTICE.shown` of them as a card — one, which stands clear of what she is saying
   beside her face whatever length that runs to (the user's pick) — and every other one it holds
