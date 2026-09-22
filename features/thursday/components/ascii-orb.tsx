@@ -23,7 +23,7 @@ import {
   inEye,
 } from "../eyes";
 import type { AsciiCharset } from "../face.const";
-import { fbm, shell, warp } from "../field";
+import { fbm, ihash, warp, windAt } from "../field";
 import type { FaceWord } from "../thursday.schema";
 
 export type AsciiOrbMode =
@@ -310,9 +310,9 @@ function letterAt(
  * a single constant either smears everything or nothing. Seconds.
  */
 const TRAIL_FAST = 0.085;
-const TRAIL_SLOW = 0.8;
+const TRAIL_SLOW = 1.4;
 /** What the long clock is worth beside the short one. */
-const TRAIL_WEIGHT = 0.52;
+const TRAIL_WEIGHT = 0.64;
 
 /**
  * How often a cell picks a new glyph at an unchanged brightness, a second. Slow on purpose: the
@@ -330,122 +330,143 @@ const CHURN_EMOJI = 0.3;
  * the script they run is drawn too (eyes.ts). Nothing about it is meant to be learnable: a face
  * that does the same thing on a beat stops being seen once the beat has been counted. Seconds.
  */
-const EYES_APART = 34;
+const EYES_APART = 26;
 /** How long the body takes to close around them, and to let go again. */
 const EYES_IN = 1.25;
 const EYES_OUT = 1.5;
+/** The lid: how long it takes to come up, how long to come down, and how long the noise dirties it. */
+const EYES_OPEN = 0.38;
+const EYES_SHUT = 0.34;
+const EYES_FILL = 0.3;
 
-/** How fast a piece she has thrown travels outward (reference units a second). */
-const EMBER_DRIFT = 66;
-/** How far out a piece is still drawn. Inside FIELD_R, or a thrown piece dies on the edge. */
-const EMBER_REACH = 318;
 /**
- * The edge. Three things can push a cell in or out of it, and she stops reading as a face when
- * they are all turned up: a boundary shoved about by a quarter of its own radius is not a radius
- * any more. So the two that move the whole SILHOUETTE are nearly off, and the one that is left is
- * per-cell — the outline stays a circle and what is chewed is the last cell of it.
+ * Her body. A soft radial falloff and a skin that churns but never empties, which is what it was
+ * the day it was picked. The boundary carries only two small things — a slow noise around the
+ * circle that moves the radius a few percent, and a per-cell offset on top of that — and the
+ * falloff reaches past the radius, so her last cells scatter faint rather than stop at a line.
+ * She is a circle; what is irregular is what happens inside her and what leaves her.
  */
-const EMBER_ROUGH = 0.11;
-const EMBER_LOBE = 0.018;
-const EMBER_WOBBLE = 0.04;
-const EMBER_GRIT = 0.13;
+const EMBER_CORE = 0.5;
+const EMBER_EDGE = 1.14;
+const EMBER_SKIN = 0.55;
+const EMBER_SWING = 0.45;
+const EMBER_SWAY = 0.13;
+const EMBER_GRIT = 0.1;
+
 /**
- * Where the body stops being full and starts falling away to the rim, as a share of it, resting
- * and drawn in around her eyes. It has to be late: a body that thins from a third of the way out
- * has its visible edge wherever the skin happens to be bright, which is a shape with no radius
- * rather than a face.
+ * And what she throws. Read further along its flight the older it is, and then three things that
+ * stop it being a halo: the reach is its OWN noise by direction, so some ways carry and some
+ * barely leave; the whole of it leans on a slow wind, read as a displacement rather than a turn;
+ * and the bar rises along the way, so a filament is wide where it leaves her and a thread by its
+ * end. Past `CRUMB_FROM` it stops being a filament at all — each cell there is lit on its own
+ * clock, so the end is a few crumbs flying rather than a soft point.
  */
-const EMBER_FILL = 0.86;
-const EMBER_FILL_HELD = 0.95;
-/** What the skin is worth where its blotches are dark — low enough to be dim, never to be a hole. */
-const EMBER_FLOOR = 0.42;
-/** How much bigger the body is once it has drawn itself in around the eyes. */
-const EMBER_GATHER_GROW = 0.08;
+const EMBER_DRIFT = 62;
+const EMBER_STRAND = 0.375;
+const EMBER_WEIGHT = 9.5;
+const EMBER_NARROW = 0.13;
+const EMBER_FEW = 2.4;
+const EMBER_FAN = 0.009;
+const EMBER_FROM = 88;
+const EMBER_TO = 330;
+const EMBER_POINT = 1.8;
+const EMBER_RAGGED = 1.15;
+const EMBER_LEAN = 0.72;
+const EMBER_CRUMB_FROM = 0.42;
+const EMBER_CRUMB_RATE = 1.7;
+
 /**
- * How she wears her eyes (eyes.ts). The pair sits where the bot faces put it; only the lens is
- * larger, and less so than it had to be while the body was sparse — a hole reads at once against
- * a body that is filled, and it was the sparseness that made it need the size.
+ * What opening her eyes does to the rest of her: almost nothing, on purpose. She used to draw her
+ * pieces back in, fill to her rim and grow, which turned her into a plain circle for the one
+ * moment she is most worth looking at. All that is left is a little lift, so the holes have
+ * something to be holes in.
  */
-const EMBER_EYES: EyeFit = { gap: 1.05, size: 1.12, fray: 0.42 };
+const EMBER_EYE_LIFT = 0.12;
+
+/**
+ * How she wears her eyes (eyes.ts): the bot faces' own layout, with a lens a tenth larger,
+ * because a hole in a body of glyphs needs a little more than a hole in a solid shape.
+ */
+const EMBER_EYES: EyeFit = { gap: 1, size: 1.1 };
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 /**
- * The rim is the same at every cell of one angle, and it is the most expensive part of the field,
- * so it is worked out once a frame around the circle and read from here. A power of two: the
- * lookup masks rather than divides.
+ * Resting: an ember. `lift` brightens it in place; `scale` is the body's share of IDLE_R, which is
+ * how it opens and closes. `gather` is only how far her eyes are up. `gust` is this frame's wind.
  */
-const RIM_STEPS = 256;
-const rimRing = new Float32Array(RIM_STEPS);
-const frayRing = new Float32Array(RIM_STEPS);
-function layRim(t: number) {
-  for (let i = 0; i < RIM_STEPS; i++) {
-    const a = (i / RIM_STEPS) * Math.PI * 2 - Math.PI;
-    rimRing[i] = shell(a, IDLE_R, t, EMBER_ROUGH, 0.09, EMBER_LOBE);
-    frayRing[i] =
-      (fbm(Math.cos(a) * 6.5, Math.sin(a) * 6.5, t * 0.45, 2) - 0.5) *
-      IDLE_R *
-      EMBER_WOBBLE;
-  }
-}
-const ringAt = (table: Float32Array, angle: number) =>
-  table[
-    ((((angle + Math.PI) / (Math.PI * 2)) * RIM_STEPS) | 0) & (RIM_STEPS - 1)
-  ];
-
-/**
- * Resting: an ember. A wick that keeps burning, pieces that leave it and are read further along
- * their flight the older they are, a boundary that is noise rather than a radius, and a skin of
- * two scales with a floor taken off it so the low places are empty rather than dim.
- *
- * `lift` brightens it in place; `scale` is the body's share of IDLE_R, which is how it opens and
- * closes. The pieces it throws go with `scale` too: they are a resting behaviour, and anything
- * else coming up — her voice, the comet — has to have the field to itself.
- */
-function emberValue(cell: Cell, t: number, lift = 0, scale = 1, gather = 0) {
-  // several blotches across the body, not one across all of it — one that size is a gradient, and
-  // half the face goes out with it
-  const blotch = warp(cell.dx * 0.021 + 4, cell.dy * 0.021, t * 0.16, 3);
-  // and it closes in patches rather than as one ring, on the same blotches
-  const held = gather > 0 ? clamp01(gather * 1.5 - 0.45 * blotch) : 0;
-  const s = Math.max(0.02, scale) * (1 + EMBER_GATHER_GROW * held);
-  // each cell sits a little in or out of the edge, and the offset drifts: a boundary drawn as a
-  // curve reads as a drawn line however bumpy the curve is
-  const rim =
-    (ringAt(rimRing, cell.angle) +
-      ringAt(frayRing, cell.angle) +
-      (cell.grain - 0.5) * IDLE_R * EMBER_GRIT) *
-    s;
-  // gathered, the body fills all the way to its edge
-  const core =
-    1 -
-    smoothstep(
-      rim * (EMBER_FILL + (EMBER_FILL_HELD - EMBER_FILL) * held),
-      rim,
-      cell.dist,
-    );
-  const grain = fbm(cell.dx * 0.05 - 2, cell.dy * 0.05, t * 0.5, 2);
-  const skin = blotch * 1.45 + grain * 0.55 - 0.6;
+function emberValue(
+  cell: Cell,
+  t: number,
+  lift: number,
+  scale: number,
+  gather: number,
+  gust: { x: number; y: number },
+) {
+  const held = gather > 0 ? clamp01(gather * 1.5) : 0;
+  const base = IDLE_R * Math.max(0.02, scale);
+  const r =
+    base *
+      (1 -
+        EMBER_SWAY * 0.5 +
+        EMBER_SWAY *
+          fbm(
+            Math.cos(cell.angle) * 1.5 + 3,
+            Math.sin(cell.angle) * 1.5,
+            t * 0.18,
+            2,
+          )) +
+    (cell.grain - 0.5) * base * EMBER_GRIT;
+  const core = 1 - smoothstep(r * EMBER_CORE, r * EMBER_EDGE, cell.dist);
   let value =
     core *
-    (EMBER_FLOOR + (skin > 0 ? skin * skin * 2.8 : 0)) *
+    (EMBER_SKIN +
+      EMBER_SWING * warp(cell.dx * 0.016, cell.dy * 0.016, t * 0.5, 3)) *
     (1 + lift) *
-    (1 + 0.5 * held);
+    (1 + EMBER_EYE_LIFT * held);
+  // Arriving and leaving happen in patches on her own noise, never as one disc changing
+  // brightness: a circle that fades up out of an empty field is the cleanest thing that can be
+  // put on this screen, and it is the one moment everything else here is built to avoid.
+  if (scale < 0.98) {
+    const arrive = warp(cell.dx * 0.015 - 7, cell.dy * 0.015 + 3, 11.4, 2);
+    value *= smoothstep(arrive - 0.34, arrive + 0.34, scale * 1.7 - 0.24);
+  }
+  // leaned: the further out a cell is, the further upwind the field is read for it
+  const lx = cell.dx - gust.x * cell.dist * EMBER_LEAN;
+  const ly = cell.dy - gust.y * cell.dist * EMBER_LEAN;
+  const la = Math.atan2(ly, lx);
+  const fan = EMBER_FEW / (1 + cell.dist * EMBER_FAN);
   const flight = fbm(
-    cell.cos * 2.4,
-    cell.sin * 2.4,
-    (cell.dist - t * EMBER_DRIFT) * 0.0075,
+    Math.cos(la) * fan,
+    Math.sin(la) * fan,
+    (cell.dist - t * EMBER_DRIFT) * 0.008,
     3,
   );
-  // squared, so a strand has an end rather than fading out everywhere at once. The pieces are
-  // drawn back in as she gathers: what the eyes open in has to be a face, not a scattering.
-  value +=
-    Math.max(0, flight - 0.42) ** 2 *
-    7.8 *
-    (1 - smoothstep(96, EMBER_REACH, cell.dist)) *
-    scale *
-    (1 - held);
-  return value;
+  const far =
+    EMBER_FROM +
+    30 +
+    EMBER_TO *
+      EMBER_RAGGED *
+      Math.max(
+        0,
+        fbm(Math.cos(la) * 1.1 + 5, Math.sin(la) * 1.1, t * 0.09, 2) - 0.34,
+      );
+  const out = smoothstep(EMBER_FROM, far, cell.dist);
+  let spray =
+    (Math.max(0, flight - (EMBER_STRAND + EMBER_NARROW * out)) * 2.6) ** 2 *
+    EMBER_WEIGHT *
+    (1 - out) ** EMBER_POINT *
+    scale;
+  if (out > EMBER_CRUMB_FROM && spray > 0) {
+    const apart = smoothstep(EMBER_CRUMB_FROM, 1, out);
+    const lit = ihash(
+      cell.dx * 0.19,
+      cell.dy * 0.19,
+      ((t * EMBER_CRUMB_RATE + cell.seed * 5) | 0) + 3,
+    );
+    spray *= 1 - apart + apart * (lit < 0.42 ? 2.1 : 0.06);
+  }
+  return value + spray;
 }
 
 /** The rim's radius for a raw push: as pushed up to SPEAK_KNEE, then easing into SPEAK_MAX. */
@@ -720,10 +741,12 @@ function fieldValue(
   f: Field,
   v: Voice,
   gather: number,
+  gust: { x: number; y: number },
 ) {
   let value =
     f.scale > 0.02
-      ? emberValue(cell, t, f.lift, f.scale, gather) * (1 - 0.6 * f.speech)
+      ? emberValue(cell, t, f.lift, f.scale, gather, gust) *
+        (1 - 0.6 * f.speech)
       : 0;
   if (f.gather > 0.01) value += gatherValue(cell, t, f.scale) * f.gather;
   if (f.comet > 0.01) value += cometValue(cell, t) * f.comet;
@@ -1067,17 +1090,21 @@ export function AsciiOrb({
             WORD_SCATTER +
             WORD_FADE_OUT +
             WORD_LINGER;
-      const want: Field = wording
-        ? {
-            scale: 0,
-            lift: 0,
-            gather: 0,
-            comet: 0,
-            speech: 0,
-            err: 0,
-            word: 1,
-          }
-        : targetFor(cur.mode, t - cur.start);
+      const want: Field = targetFor(cur.mode, t - cur.start);
+      if (wording) {
+        want.word = 1;
+        // The word owns the face only until its letters start to leave. From there the body grows
+        // back underneath them, the way every other change on this face is made. Held to the very
+        // end instead, the letters go, the field is empty for most of a second, and then a circle
+        // appears out of nothing: a gap, and then a flash.
+        if (shown !== null && wordAge < shown.hold) {
+          want.scale = 0;
+          want.lift = 0;
+          want.gather = 0;
+          want.comet = 0;
+          want.speech = 0;
+        }
+      }
       const f = fieldRef.current;
       f.scale = toward(
         f.scale,
@@ -1102,8 +1129,8 @@ export function AsciiOrb({
       const solidWord = f.word > 0.5;
       const rate = cs === "emojiOnly" ? CHURN_EMOJI : CHURN_ASCII;
 
-      // the rim is the same at every cell of one angle: worked out once, read per cell
-      layRim(clock);
+      // this frame's wind, which is what her plume leans on
+      const gust = windAt(clock * 0.35);
       const fastKeep = Math.exp(-dt / TRAIL_FAST);
       const slowKeep = Math.exp(-dt / TRAIL_SLOW);
 
@@ -1131,11 +1158,17 @@ export function AsciiOrb({
             smoothstep(0, EYES_IN, age) *
             (1 - smoothstep(span - EYES_OUT, span, age)) *
             settled;
-          eyesHeld =
-            smoothstep(0.3, 0.72, eyesGather) *
-            (1 -
-              smoothstep(span - EYES_OUT - 0.35, span - EYES_OUT + 0.1, age));
+          // It opens by the LID, not by the hole filling itself in: a hole that fills cell by
+          // cell over a second is something appearing, and a hole that fills itself back in at
+          // the end is something dissolving. Neither is what an eye does. The cell noise is
+          // still there, but only for the third of a second the lid is moving.
+          const upAt = EYES_IN * 0.6;
+          const closeAt = span - EYES_OUT - 0.3;
+          eyesHeld = smoothstep(upAt, upAt + EYES_FILL, age);
           eyes = eyeState(look.script, Math.max(0, age - EYES_IN * 0.7));
+          eyes.lid *=
+            smoothstep(upAt, upAt + EYES_OPEN, age) *
+            (1 - smoothstep(closeAt, closeAt + EYES_SHUT, age));
         }
       }
 
@@ -1151,6 +1184,7 @@ export function AsciiOrb({
           f,
           voice,
           eyesGather,
+          gust,
         );
 
         const plain = !(
@@ -1159,15 +1193,15 @@ export function AsciiOrb({
         );
         if (plain) {
           // per-cell brightness response breaks concentric rings; multiplicative, so empty (0) stays empty
-          v *= 0.66 + cell.grain * 0.72;
+          v *= 0.56 + cell.grain * 0.92;
           // slowly drifting noise on top
           v *=
-            0.8 +
+            0.7 +
             hash(
               Math.floor(cell.dx * 0.05 + t * 0.5),
               Math.floor(cell.dy * 0.05 - t * 0.3),
             ) *
-              0.4;
+              0.62;
 
           if (
             v > 0.3 &&
@@ -1182,15 +1216,7 @@ export function AsciiOrb({
         const hole =
           eyesHeld > 0.03 &&
           eyes !== null &&
-          inEye(
-            cell.dx,
-            cell.dy,
-            IDLE_R * f.scale * (1 + EMBER_GATHER_GROW * eyesGather),
-            eyesHeld,
-            eyes,
-            t,
-            EMBER_EYES,
-          );
+          inEye(cell.dx, cell.dy, IDLE_R * f.scale, eyesHeld, eyes, EMBER_EYES);
         if (hole) {
           bk.fast[ci] = 0;
           bk.slow[ci] = 0;

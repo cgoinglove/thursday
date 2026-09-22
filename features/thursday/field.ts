@@ -60,33 +60,11 @@ export function warp(x: number, y: number, z: number, pull = 4) {
 }
 
 /**
- * A radius that is not a circle: fine fray from one noise, and a few slow lobes from a much
- * broader one. The lobes matter — a crenellated circle is still read as a circle.
+ * A direction that turns slowly, for anything that has to lean the same way at once. Read as a
+ * displacement rather than as a rotation: a field turned with distance spirals, a field pushed
+ * with distance drifts, and drifting is what smoke does.
  */
-export function shell(
-  angle: number,
-  radius: number,
-  t: number,
-  rough = 0.22,
-  spin = 0.11,
-  lobe = 0,
-) {
-  const n = fbm(
-    Math.cos(angle) * 1.6 + 9,
-    Math.sin(angle) * 1.6 + 4,
-    t * spin,
-    3,
-  );
-  const big = lobe
-    ? (fbm(
-        Math.cos(angle) * 0.52 + 2,
-        Math.sin(angle) * 0.52,
-        t * spin * 0.55,
-        2,
-      ) -
-        0.5) *
-      2 *
-      lobe
-    : 0;
-  return radius * (1 - rough * 0.5 + rough * n) * (1 + big);
+export function windAt(t: number) {
+  const theta = -0.34 + (fbm(t * 0.06, 3, 1.4, 2) - 0.5) * 0.8;
+  return { x: Math.cos(theta), y: Math.sin(theta) };
 }

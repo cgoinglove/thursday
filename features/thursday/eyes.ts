@@ -7,11 +7,12 @@
 // against a centre of 120, in a body of radius 112). One scale carries all of it to any size, which
 // is the point: the eyes that open in the intro's star are the ones that open in the small face.
 //
-// Two things a mark does not need. A hole that grows by scaling is the one move a noise cannot
-// roughen, so opening and closing happen cell by cell on the eye's own noise instead. And the
-// outline frays while that is happening — but only while it is happening: at the call's size an
-// eye is about eight cells across, and an outline that keeps wobbling by a cell and a half stops
-// being an eye. What is ragged is the moment, not the shape.
+// Two things a mark does not need. The lid does the opening and the closing — the lens grows from
+// a slit and goes back to one — because a hole that fills itself in cell by cell is something
+// appearing, and one that fills itself back in is something dissolving; neither is what an eye
+// does. The cell noise is still there, but only for the third of a second the lid is moving: the
+// outline itself never wobbles, since at the call's size an eye is about eight cells across and
+// an outline that moves by a cell and a half stops being an eye.
 //
 // How a face wears the pair is an EyeFit, and it is two numbers, not one. Making the lens big
 // enough to read as a hole in a body of glyphs used to push the pair apart and up with it, which
@@ -36,8 +37,6 @@ export type EyeFit = {
   gap: number;
   /** How much larger the lens is than the mark's — a hole in glyphs needs more than a solid one. */
   size: number;
-  /** How far the outline is torn while it is opening or closing. */
-  fray: number;
 };
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -66,7 +65,7 @@ export type EyeScript = { beats: Beat[]; total: number; tilt: number };
 export type EyeState = {
   gaze: readonly [number, number];
   tilt: number;
-  /** Multiplies the eye's length. A blink takes it to nothing and back. */
+  /** Multiplies the eye's length. A blink takes it to nothing and back, and so do the lids. */
   lid: number;
 };
 
@@ -206,15 +205,12 @@ export function inEye(
   bodyRadius: number,
   held: number,
   state: EyeState,
-  t: number,
   fit: EyeFit,
 ) {
   if (held <= 0.03 || state.lid <= 0.02) return false;
   // where the pair sits is the mark's own layout; only the lens is scaled up from it
   const k = bodyRadius / EYE.radius;
   const ks = k * fit.size;
-  // torn on the way in and out, and settled once it is open
-  const torn = fit.fray * (1 - held);
   for (const side of [-1, 1]) {
     const ex =
       dx - (side * (EYE.gap / 2) * k * fit.gap + state.gaze[0] * bodyRadius);
@@ -230,16 +226,15 @@ export function inEye(
     const p = (along + len / 2) / len;
     if (p <= 0 || p >= 1) continue;
     const spine = 2 * (1 - p) * p * -EYE.bend * ks;
-    let half = ((EYE.width * ks) / 2) * Math.sin(Math.PI * p) ** EYE.taper;
-    if (torn > 0.002) {
-      half *=
-        1 - torn + torn * 2 * fbm(along * 0.03 + side * 9, t * 0.5, 4.2, 2);
-    }
+    const half = ((EYE.width * ks) / 2) * Math.sin(Math.PI * p) ** EYE.taper;
     if (Math.abs(across - spine) > half) continue;
-    // opening and closing happen in pieces on the eye's own noise, not by scaling
+    // While the lid is moving the edge is dirty: the last cells come and go on the eye's own
+    // noise. Read BEFORE the lean, from each eye's own centre, so both eyes come apart on the
+    // very same pattern — as the mark's two eyes are the same path twice. Read after it, the
+    // lean turns that pattern a different way in each eye and one opens ahead of the other.
     if (
       held < 0.99 &&
-      held < fbm(px * 0.026 + 3, py * 0.026, 7.7, 2) * 0.88 + 0.06
+      held < fbm(ex * 0.026 + 3, ey * 0.026, 7.7, 2) * 0.88 + 0.06
     )
       continue;
     return true;

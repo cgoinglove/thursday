@@ -172,12 +172,15 @@ paths:
   phosphor — a cell takes a brighter value at once and decays from it on two clocks — so what
   moves leaves a tail, and it keeps the glyph it is holding until its brightness really moves,
   since the eye follows a glyph's identity and a field that shuffles glyphs while its shape holds
-  still is read as television snow. A boundary is never a curve: each cell sits a little in or out
-  of it and the offset drifts, which is what her speaking rim already did — but only the cell
-  moves. Anything that pushes the whole outline, a slow lobe or a wave around the circumference,
-  buys its irregularity by spending the radius, and three of them at once left her a shape with no
-  radius at all. She is a circle, full to within a cell or two of her rim, and what is ragged is
-  that last cell (the user's pick: the face not being a circle was the odd part, not the eyes).
+  still is read as television snow. A boundary is never a curve: a slow noise around the circle
+  moves her radius a few percent, each cell sits a little in or out of wherever that put it, and
+  the falloff reaches past the radius so her last cells scatter faint instead of stopping at a
+  line. Small, all of it — anything that pushes the whole outline buys its irregularity by
+  spending the radius, and three such at once left her a shape with no radius at all (the user's
+  pick: the face not being a circle was the odd part, not the eyes). She is a circle; what is
+  irregular is what happens inside her and what leaves her. What leaves her leans on a slow wind
+  and comes apart at its end into crumbs on their own clocks, because a reach that depends on
+  distance alone can only ever draw a halo, however sharp its edge.
 - **A ramp of emoji is not a ramp.** Alpha is all the shading an emoji has, and alpha alone does
   not shade a shape: a pale emoji is the same nine pixels across as a bright one, where a "." is a
   tenth of an "米". Sprinkled over an ascii body they are the highlights alone and it never comes
@@ -188,15 +191,19 @@ paths:
 - **Her eyes belong to resting.** Every half-minute or so the pieces draw in, the body closes, and
   two eyes open in it and run one of five scripts (`eyes.ts`); they shut before anything else comes
   up, and a cell inside one drops its trail rather than fading, or a half-gone hole reads as
-  neither open nor shut. The shape is the bot faces' own, so the eyes that open in the intro's
-  star are the ones that open in the small face — carried by two numbers rather than one: the pair
-  sits where the mark puts it, and only the lens is scaled up, since a hole in a body of glyphs
-  has to be bigger than one in a solid shape before it reads at all. One number for both pushed
-  the pair out and up along with the lens, and that is what made the proportions wrong. The
-  outline frays while the eye is opening and closing and not once it is open: an eye eight cells
-  across cannot carry a fray and stay an eye — what is ragged is the moment, not the shape. Five
-  scripts and a noisy interval, because a face that does the same thing on a beat stops being seen
-  once the beat has been counted — nothing sets it off and nothing stops it.
+  neither open nor shut. The shape is the bot faces' own, carried by two numbers rather than one:
+  the pair sits where the mark puts it, and only the lens is scaled up, since a hole in a body of
+  glyphs has to be bigger than one in a solid shape before it reads at all. One number for both
+  pushed the pair out and up along with the lens, and that is what made the proportions wrong.
+  **The lid does the opening and the closing** — the lens grows from a slit and goes back to one.
+  A hole that fills itself in cell by cell is something appearing and one that fills itself back
+  in is something dissolving, and neither is what an eye does; the cell noise is still there, but
+  only for the third of a second the lid is moving. The outline itself never wobbles: an eye eight
+  cells across cannot carry a fray and stay an eye. And opening her eyes changes nothing else
+  about her — she used to draw her pieces in, fill to her rim and grow, which made her a plain
+  circle for the one moment she is most worth looking at. Five scripts and a noisy interval,
+  because a face that does the same thing on a beat stops being seen once the beat has been
+  counted — nothing sets it off and nothing stops it.
 - Thursday is small in one way: `thursday-mark` draws the call's orb in miniature — glyphs keep one
   size, so a bigger box holds more of them, and nothing fades — and every screen draws her through
   it, so a new icon is a change to that file. Only the browser tab keeps the bot-style mark
