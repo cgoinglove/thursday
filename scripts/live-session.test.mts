@@ -969,7 +969,7 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     const on = await loadLivePrompt({
       voicePrompt: "Use a calm voice.",
     });
-    assert.match(on.text, /modeled on Friday, the AI in \*Iron Man\*/);
+    assert.match(on.text, /their friend first, and their assistant second/);
     assert.match(on.text, /Prefer brief replies/);
     assert.match(
       on.text,
@@ -978,7 +978,7 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     // Who she is to talk to sits right under the identity, character only: no stamp, no rule
     assert.match(
       on.text,
-      /modeled on Friday, the AI in \*Iron Man\*\. \*\*Now\*\*: [^\n]+\n\nWhat they tell you is kept, [^\n]+\n\nWarm and quick to laugh\. [^\n]+\n\nWhen they hand you work, it is work: [^\n]+\n\n## Always\n/,
+      /a name, not a day of the week\. \*\*Now\*\*: [^\n]+\n\nWhat they tell you is kept, [^\n]+\n\nWarm and quick to laugh\. [^\n]+\n\nWhen they hand you work, it is work: [^\n]+\n\n## Always\n/,
     );
     assert.equal(on.text.includes("IMPORTANT"), false);
     assert.match(
@@ -999,7 +999,7 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     // heading: the spoken lines, each call under when it was, and never a tool line
     assert.match(
       on.text,
-      /\n\n## Earlier calls\n\nWhat was said on the last calls, newest last, each under when it was\. They are over, and this call is a new one: [^\n]+\n\n### [^\n]+\nuser: Book the dentist\.\nyou: Scout has it\.\n\n## Additional instructions\n/,
+      /\n\n## Earlier calls\n\nWhat was said on the last calls, newest last, each under when it was\. They are over, and this call is a new one: [^\n]+\n\n### [^\n]+\nuser: Book the dentist\.\nyou: Scout has it\.\n\n## Who they want you to be\n/,
     );
     // The roster and the threads stay the backend's
     assert.equal(

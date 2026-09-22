@@ -111,7 +111,9 @@ a call, a shipped `SKILL.md`.
   `## Always`, one of them on language: the one the user is speaking, never the browser's (a first
   call opened in the browser's language kept an English speaker in Korean).
 - **A taste the model keeps refusing is the user's line to write.** How to address them and the
-  like go in Settings › Thursday › Voice instructions; the prompt is not pushed harder.
+  like go in Settings › Thursday › Personality — the user's own persona, read as character over
+  the picked one and last in the prompt; the prompt is not pushed harder. What belongs to them
+  rather than to how she speaks is memory's, which both models read whole.
 
 ## Memory
 

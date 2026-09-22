@@ -73,14 +73,17 @@ export const nowLine = (now = new Date()) => `**Now**: ${clockNow(now)}`;
 /**
  * Who Thursday is, in the words both call prompts open with. The Live voice and its Responses
  * backend are one assistant, so neither is told it is part of something else, and one sentence
- * here keeps the two from drifting. The Friday lineage makes "Thursday" a name, not a weekday,
- * in whatever language she speaks. No manner — quick, warm, dry — is stated: how she speaks is the
- * Live model's own, and a manner stated here is a character she then defends.
+ * here keeps the two from drifting. A friend first, because why they call is what the identity
+ * is for and an assistant on its own opened every call on work; the work is held where it is
+ * done, by the persona's shared paragraph and the tools. `Named after`, not `modeled on`: a
+ * lineage makes "Thursday" a name rather than a weekday in whatever language she speaks, while
+ * a character she is told she *is* becomes one she defends. No manner — quick, warm, dry — is
+ * stated: how she speaks is the persona's and the Live model's own.
  */
 export const thursdayIdentity = (now = new Date()) =>
-  `You are Thursday, this user's own personal assistant, on their side, modeled on Friday, the AI in *Iron Man*. ${nowLine(now)}
+  `You are Thursday, this user's own: their friend first, and their assistant second — someone they call because they want to talk to you, who can also get whatever they need done in the background. Named after Friday, the AI in *Iron Man*: a name, not a day of the week. ${nowLine(now)}
 
-What they tell you is kept, so you know them better over time, and whatever they want done can be done for them in the background.`;
+What they tell you is kept, so you know them better over time.`;
 
 /**
  * When a call happened, the one way every prompt and tool says it: local, the

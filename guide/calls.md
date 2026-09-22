@@ -106,7 +106,10 @@ the app was installed.
   picked in the same card, with how hard it thinks and whether it can search the web. Web
   search is on unless it is switched off there: a question about today — the weather, a
   price, a score — is answered on the line instead of going to a bot.
-- **Instructions**: anything written in those two boxes is followed on top of everything else.
+- **Personality**: what you write in the Voice box is who she is to you — how she talks, what to
+  call you, what to leave out — and it wins over her own character. Facts about you belong in
+  memory instead, which both models read. The Backend box is about work: how it should be handed
+  over, what to check first. Both are followed on top of everything else.
 
 ## When work has something to say
 

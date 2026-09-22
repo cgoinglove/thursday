@@ -28,7 +28,7 @@ import {
  * conversation over and answers from what comes back. Assembled on every call, never cached.
  */
 export async function loadLivePrompt(options: {
-  /** Settings › Thursday › Voice instructions; added to, never replacing, what is below. */
+  /** Settings › Thursday › Personality: the user's own persona, over the picked one, never replacing it. */
   voicePrompt?: string | null;
   /** The page placed this call because background work waits on the user (call-back). */
   calledBack?: boolean;
@@ -194,9 +194,9 @@ ${recentCallLines(spoken, RECENT_CALL.tokens)}`;
 
 const additional = (voicePrompt?: string | null) =>
   voicePrompt?.trim()
-    ? `## Additional instructions
+    ? `## Who they want you to be
 
-Written by the user. Follow them together with everything above; for tone, language and wording they take precedence.
+Their own words, on top of the character above: how you talk to them, what to call them, what to leave out. Where they differ from anything above, theirs wins.
 
 ${voicePrompt.trim()}`
     : "";
