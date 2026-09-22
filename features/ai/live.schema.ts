@@ -71,7 +71,7 @@ export const LiveSettingsSchema = z.object({
    * which of the 22 says it is the setting above, and changing one leaves the other.
    */
   persona: z.string().trim().min(1).max(64).default(DEFAULT_PERSONA),
-  voicePrompt: instruction,
+  stylePrompt: instruction,
   backendModel: z.string().trim().min(1).max(128).default(LIVE_BACKEND_MODEL),
   backendPrompt: instruction,
   /**
@@ -82,10 +82,17 @@ export const LiveSettingsSchema = z.object({
   reasoningEffort: effortSchema.nullable().default("low"),
   /**
    * On, so a question about today — weather, a price, a score — is answered on the line
-   * instead of becoming a bot's job. A stored choice, so the default reaches only a
-   * browser that has none.
+   * instead of becoming a bot's job. A stored choice, so the default reaches only an
+   * install that has none.
    */
   webSearch: z.boolean().default(true),
+  /**
+   * Off unless switched on: a skill is a page of instructions, and reading one
+   * mid-sentence spends the call's context on it. Read where the tool set is built
+   * (ai/load-tools) and where the prompt lists what she can read (prompts/thursday.prompt),
+   * which is why it is the server's and not a browser's.
+   */
+  readSkills: z.boolean().default(false),
 });
 export type LiveSettings = z.infer<typeof LiveSettingsSchema>;
 export const LIVE_DEFAULTS = LiveSettingsSchema.parse({});
@@ -94,7 +101,8 @@ export const LIVE_DEFAULTS = LiveSettingsSchema.parse({});
  * Settings stored before Live-only, or hand-edited, into valid ones. An OpenAI
  * voice and backend model carry over; a Grok voice does not, since its names
  * mean nothing to Live. The one shared instruction goes into both new fields so
- * nothing the user wrote is lost. Each field recovers on its own: one bad value
+ * nothing the user wrote is lost, and `voicePrompt` is what `stylePrompt` was called
+ * while only the voice read it. Each field recovers on its own: one bad value
  * falls back to its default and leaves the rest as they were.
  */
 export function migrateLiveSettings(value: unknown): Record<string, unknown> {
@@ -116,11 +124,12 @@ export function migrateLiveSettings(value: unknown): Record<string, unknown> {
   const candidate: Record<keyof LiveSettings, unknown> = {
     voice: stored.voice ?? openai?.voice,
     persona: stored.persona,
-    voicePrompt: stored.voicePrompt ?? systemPrompt,
+    stylePrompt: stored.stylePrompt ?? stored.voicePrompt ?? systemPrompt,
     backendModel: stored.backendModel ?? openai?.backendModel,
     backendPrompt: stored.backendPrompt ?? systemPrompt,
     reasoningEffort: stored.reasoningEffort,
     webSearch: stored.webSearch,
+    readSkills: stored.readSkills,
   };
   const live = Object.fromEntries(
     (Object.keys(candidate) as (keyof LiveSettings)[]).map((key) => {

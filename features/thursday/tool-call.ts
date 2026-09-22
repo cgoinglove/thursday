@@ -4,6 +4,7 @@ import { queryKey } from "@/app/api/query-key";
 import type { LiveToolCall } from "@/lib/live/live.session";
 import { type Result, unwrapResult } from "@/lib/protocol/result";
 import { errorToString } from "@/lib/utils";
+import type { CallHandshake } from "./thursday.schema";
 
 /**
  * Runs a tool the Live backend called on the server and returns the string
@@ -12,8 +13,8 @@ import { errorToString } from "@/lib/utils";
 export async function runRemoteTool(
   callId: string,
   call: LiveToolCall,
-  /** Settings › Thursday › Search the web as the call opened: the route builds the set the call was given. */
-  webSearch: boolean,
+  /** What the call's manifest was built from: the route builds the set it was given. */
+  opened: CallHandshake["opened"],
   /** Aborted when the call ends, so a running tool stops with it (route). */
   signal?: AbortSignal,
 ): Promise<string> {
@@ -24,7 +25,7 @@ export async function runRemoteTool(
       body: JSON.stringify({
         toolCallId: call.id,
         callId,
-        webSearch,
+        ...opened,
         name: call.name,
         // Validation happens where the tool runs.
         input: call.arguments ? JSON.parse(call.arguments) : {},

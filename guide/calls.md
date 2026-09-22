@@ -113,18 +113,21 @@ the app was installed.
   while she is resting, never while she is speaking or working. It can spell a short word: a
   hello as the app opens, CALL while she rings, OK as finished work comes in, BYE as a call
   ends, and whatever she chooses to show. While she works it is a single tail circling.
-- **Voice**: 22 voices in Settings › Thursday › Models. Clicking a name plays it.
+- **Voice**: 22 voices in Settings › Thursday › Models. Clicking a name plays it. It is the
+  one setting here that only a spoken call uses.
 - **Models**: the voice runs on GPT-Live; the model that thinks and uses tools behind it is
   picked in the same card, with how hard it thinks and whether it can search the web. Web
   search is on unless it is switched off there: a question about today — the weather, a
   price, a score — is answered on the line instead of going to a bot.
 - **Style**: who she is to you — ten of them, and the only difference is how she talks. The
   row under the voices shows the one she is on; opening it lists the rest with a line each,
-  and the change takes from the next call. It never changes what she can do. Under it,
-  **Write my own** opens a box for saying it in your own words instead — how she talks, how
-  much she says, what she leaves out — which wins wherever the two differ. What to call you
-  is not this: say it on a call and she keeps it, the way she keeps anything else about you.
-  The Backend box is about work: how it should be handed over, what to check first.
+  and the change takes from the next call. It never changes what she can do. Last in the
+  same list, **Your own** opens a box for saying it in your own words on top of whichever
+  one is picked — how she talks, how much she says, what she leaves out — which wins
+  wherever the two differ. Both hold whether she is speaking or writing, so she is the same
+  one on a call, on the line and from a phone. What to call you is not this: say it on a
+  call and she keeps it, the way she keeps anything else about you. The Backend box is
+  about work: how it should be handed over, what to check first.
 
 ## When work has something to say
 

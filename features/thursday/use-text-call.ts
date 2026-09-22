@@ -24,7 +24,7 @@ import type {
   CallStatus,
   TextCallHandshake,
 } from "./thursday.schema";
-import { thursdaySettings, useThursdayStore } from "./thursday.store";
+import { useThursdayStore } from "./thursday.store";
 import { searchSourcesOf, toolBot, toolLine } from "./tool-line";
 import type { ActivityLine } from "./use-thursday";
 
@@ -124,11 +124,10 @@ export function useTextCall(): TextCall {
 
   const say = useCallback(
     async (words: string) => {
-      const settings = thursdaySettings();
       let to = held.current;
       if (!to) {
         // the hook has already said why when this throws
-        to = { ...(await open(settings, runsOn())), at: Date.now() };
+        to = { ...(await open(runsOn())), at: Date.now() };
         held.current = to;
         stood.current = stoodBefore(inbox.current ?? []);
         setLine(to);
@@ -139,7 +138,6 @@ export function useTextCall(): TextCall {
         {
           body: {
             callId: to.callId,
-            settings,
             standing: to.standing,
             runsOn: runsOn(),
           },
@@ -157,7 +155,6 @@ export function useTextCall(): TextCall {
     void regenerate({
       body: {
         callId: to.callId,
-        settings: thursdaySettings(),
         standing: to.standing,
         runsOn: runsOn(),
       },
@@ -239,7 +236,6 @@ export function useTextCall(): TextCall {
         {
           body: {
             callId: to.callId,
-            settings: thursdaySettings(),
             standing: to.standing,
             runsOn: runsOn(),
           },

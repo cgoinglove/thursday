@@ -156,8 +156,11 @@ export const queryKey = {
     query: { before },
   }),
 
-  /** boolean: whether the call may read a skill itself (Settings › Thursday) */
-  callSkills: "/api/thursday/skills",
+  /**
+   * LiveSettings: who she is on a call and what she may do (Settings › Thursday). The
+   * app's, not one browser's — a phone writing in and a second machine read the same row.
+   */
+  thursdaySettings: "/api/thursday/settings",
 
   /**
    * POST, not a read; the one endpoint here SWR never touches. Body is

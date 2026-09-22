@@ -30,7 +30,6 @@ import { createWorkspaceTools } from "@/features/ai/tools/workspace.tool";
 import type { answerThread } from "@/features/bot/bot.runner";
 import { threadActivity } from "@/features/bot/bot.schema";
 import { loadSkills } from "@/features/skills/skills.discover";
-import { readCallSkillsOn } from "@/features/thursday/thursday.query";
 import {
   botShellEnv,
   jobShellEnv,
@@ -49,7 +48,7 @@ import { clip } from "@/lib/utils";
  * presupposes waiting (MCP, studio, browser) belongs to the bot. Only the call and an edit on
  * the memory screen write to memory: revising, carrying and naming need the user there. A bot reads it.
  * Skills are the one thing that crosses back, and only when asked for: the call reads one itself
- * when Settings › Thursday says so (thursday.query readCallSkillsOn).
+ * when Settings › Thursday says so (`readSkills`).
  */
 
 type ToolTarget = "thursday" | "bot" | "memory-edit";
@@ -66,6 +65,13 @@ type ToolRun =
        * builds the set the manifest listed.
        */
       webSearch?: boolean;
+      /**
+       * Settings › Thursday › Read skills herself, when the call opens: a skill is a page
+       * of instructions arriving mid-sentence, so it is off unless switched on. Switched
+       * off the prompt does not list them as hers either (thursday.prompt), so the two
+       * always say the same thing.
+       */
+      readSkills?: boolean;
       /**
        * A call in writing (thursday/thursday.text): there is no line to drop and nothing hands
        * a turn back to the page mid-answer, so it holds none of the page's own tools.
@@ -393,10 +399,7 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
   const sandbox = await openWorkspace();
 
   if (run.target === "thursday") {
-    // Off unless switched on: a skill is a page of instructions arriving
-    // mid-sentence. Switched off, the prompt does not list them as hers either
-    // (thursday.prompt), so the two always say the same thing
-    const skills = (await readCallSkillsOn())
+    const skills = run.readSkills
       ? createSkillTools({ sandbox, skills: await loadSkills(sandbox) })
       : {};
 

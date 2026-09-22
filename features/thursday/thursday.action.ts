@@ -27,9 +27,11 @@ import {
   deleteEndedCalls,
   endCall,
   insertCall,
+  readLiveSettings,
   saveThought,
   saveTurns,
-  writeCallSkillsOn,
+  seedLiveSettings,
+  writeLiveSettings,
 } from "./thursday.query";
 import {
   type CallHandshake,
@@ -49,8 +51,10 @@ const SDP_MAX_LENGTH = 65_536;
  * The same tool set /api/thursday/tool-call executes. Tools without `execute`
  * (`end_call`, `emote`) are included: the model must see them and the page intercepts them.
  */
-async function loadToolManifest(webSearch: boolean): Promise<ToolManifest[]> {
-  const tools = await loadTools({ target: "thursday", webSearch });
+async function loadToolManifest(
+  opened: CallHandshake["opened"],
+): Promise<ToolManifest[]> {
+  const tools = await loadTools({ target: "thursday", ...opened });
 
   return Object.entries(tools).map(([name, definition]) => {
     const { $schema, ...parameters } = asSchema(definition.inputSchema)
@@ -74,12 +78,8 @@ async function loadToolManifest(webSearch: boolean): Promise<ToolManifest[]> {
  * for waiting work rather than the user, which changes what she opens with.
  */
 export const openCallAction = serverAction(
-  async (
-    settings: unknown,
-    sdp: unknown,
-    calledBack?: unknown,
-  ): Promise<CallHandshake> => {
-    const thursday = LiveSettingsSchema.parse(settings);
+  async (sdp: unknown, calledBack?: unknown): Promise<CallHandshake> => {
+    const thursday = await readLiveSettings();
     const offer = z.string().min(1).max(SDP_MAX_LENGTH).parse(sdp);
     const apiKey = await readConfig(LIVE_PROVIDER.apiKeyName);
     if (!apiKey) {
@@ -87,17 +87,26 @@ export const openCallAction = serverAction(
     }
 
     const rang = z.boolean().default(false).parse(calledBack);
+    // What the manifest is built from, sent back with the handshake so a tool called
+    // later is looked up in this same set (thursday.schema `opened`)
+    const opened = {
+      webSearch: thursday.webSearch,
+      readSkills: thursday.readSkills,
+    };
 
     // Assembled per call, never cached: both prompts read what earlier calls stored.
     const [voice, backend, tools, reasoning, standing, exaKey] =
       await Promise.all([
         loadLivePrompt({
-          voicePrompt: thursday.voicePrompt,
+          stylePrompt: thursday.stylePrompt,
           persona: thursday.persona,
           calledBack: rang,
         }),
-        loadThursdayPrompt(thursday.backendPrompt),
-        loadToolManifest(thursday.webSearch),
+        loadThursdayPrompt({
+          backendPrompt: thursday.backendPrompt,
+          readSkills: thursday.readSkills,
+        }),
+        loadToolManifest(opened),
         acceptedReasoning({
           apiKey,
           model: thursday.backendModel,
@@ -134,6 +143,7 @@ export const openCallAction = serverAction(
       sdp: connection.transport.sdp,
       opening: voice.opening,
       standing,
+      opened,
     };
   },
 );
@@ -144,21 +154,29 @@ export const openCallAction = serverAction(
  * that turns out refused leaves a row with those words in it, which is what happened.
  */
 export const openTextCallAction = serverAction(
-  async (settings: unknown, runsOn?: unknown): Promise<TextCallHandshake> => {
-    return openTextCall(
-      LiveSettingsSchema.parse(settings),
-      textModelRefSchema.nullish().parse(runsOn),
-    );
-  },
+  async (runsOn?: unknown): Promise<TextCallHandshake> =>
+    openTextCall(textModelRefSchema.nullish().parse(runsOn)),
 );
 
 /**
- * Hands the call `load_skill`, or takes it back. Nothing is cached: the next
- * call builds its tool set and its prompt from this (ai/load-tools).
+ * Settings › Thursday, saved whole. The screen holds every field, so there is nothing to
+ * merge and no order for two saves to disagree about. Nothing is cached: the next call
+ * builds its prompts and its tool set from this (ai/load-tools, prompts/thursday.prompt).
  */
-export const setCallSkillsAction = serverAction(async (on: unknown) => {
-  await writeCallSkillsOn(z.boolean().parse(on));
+export const setLiveSettingsAction = serverAction(async (settings: unknown) => {
+  await writeLiveSettings(LiveSettingsSchema.parse(settings));
 });
+
+/**
+ * The copy a browser kept before these moved to the server, offered once on load. It is
+ * taken only while no row exists, so a second browser — or the same one opened again —
+ * cannot put its own back over what is kept.
+ */
+export const seedLiveSettingsAction = serverAction(async (settings: unknown) =>
+  // Not parsed here: the seed migrates what it is given, since a browser that has not been
+  // opened in a while names its fields as an older version did (thursday.query)
+  seedLiveSettings(settings),
+);
 
 export const saveTurnsAction = serverAction(
   async (callId: unknown, turns: unknown) => {

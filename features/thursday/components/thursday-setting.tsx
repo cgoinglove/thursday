@@ -54,10 +54,7 @@ import {
   setThursdayFace,
   useThursdayFace,
 } from "@/features/thursday/face.store";
-import {
-  resetHistoryAction,
-  setCallSkillsAction,
-} from "@/features/thursday/thursday.action";
+import { resetHistoryAction } from "@/features/thursday/thursday.action";
 import {
   CALL_BACK_LABEL,
   CALL_BACK_MODES,
@@ -71,6 +68,7 @@ import {
   type Wake,
 } from "@/features/thursday/thursday.schema";
 import { useThursdayStore } from "@/features/thursday/thursday.store";
+import { useLiveSettings } from "@/features/thursday/use-live-settings";
 import { WorkChipSetting } from "@/features/thursday/work-chip";
 import { useDraft } from "@/hooks/use-draft";
 import {
@@ -87,14 +85,16 @@ import { cn, WAITING_INK } from "@/lib/utils";
 
 /**
  * Settings for the call: face, captions, the two models, how a call starts, and
- * its history. Everything but the skills switch is kept in the browser
- * (thursday.store, face.store) and read when a call opens; skills are the
- * server's, because they are read where no browser is.
+ * its history. Who she is and what she may do is the app's, kept where a call reads it
+ * (use-live-settings); how this machine talks to her — captions, her face, the wake
+ * phrase, the hotkey — stays in the browser (thursday.store, face.store).
  */
 export function ThursdaySetting() {
-  // local store: no waiting, no revalidation
+  // This machine's own: no waiting, no revalidation
   const thursday = useThursdayStore();
   const patch = useThursdayStore((state) => state.patch);
+  // Hers: read from the server, so a second computer draws the same answers
+  const { settings, patch: change } = useLiveSettings();
 
   const {
     data: providers = [],
@@ -103,7 +103,7 @@ export function ThursdaySetting() {
   } = useServerRoute<AiProvider[]>(queryKey.llmModel);
   const face = useThursdayFace();
 
-  if (isLoading) return <SettingSkeleton rows={4} />;
+  if (isLoading || !settings) return <SettingSkeleton rows={4} />;
   if (error) return <SettingError message={error.message} />;
 
   const hasKey = providers.some(
@@ -130,10 +130,10 @@ export function ThursdaySetting() {
       <WorkChipSetting />
 
       <ModelsSetting
-        value={thursday}
+        value={settings}
         face={face}
         hasKey={hasKey}
-        onChange={patch}
+        onChange={change}
       />
 
       {/* Every way a call starts other than pressing her face, read at once */}
@@ -253,9 +253,9 @@ function ModelsSetting({
           <ModelBlock label="style">
             <StylePicker
               value={value.persona}
-              own={value.voicePrompt}
+              own={value.stylePrompt}
               onPersona={(persona) => onChange({ persona })}
-              onOwn={(voicePrompt) => onChange({ voicePrompt })}
+              onOwn={(stylePrompt) => onChange({ stylePrompt })}
             />
           </ModelBlock>
         </ModelSection>
@@ -281,7 +281,8 @@ function ModelsSetting({
           <ModelBlock label="tools">
             <BackendTools
               webSearch={value.webSearch}
-              onWebSearch={(webSearch) => onChange({ webSearch })}
+              readSkills={value.readSkills}
+              onChange={onChange}
             />
           </ModelBlock>
 
@@ -563,29 +564,25 @@ function BackendModelPicker({
  */
 function BackendTools({
   webSearch,
-  onWebSearch,
+  readSkills,
+  onChange,
 }: {
   webSearch: boolean;
-  onWebSearch: (on: boolean) => void;
+  readSkills: boolean;
+  onChange: (change: Partial<LiveSettings>) => void;
 }) {
-  const { data: skills } = useServerRoute<boolean>(queryKey.callSkills);
-  const [setSkills] = useServerAction(setCallSkillsAction, {
-    onOk: () => revalidate(queryKey.callSkills),
-  });
-
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-x-7 gap-y-3">
         <InlineSwitch
           label="Search the web"
           checked={webSearch}
-          onChange={onWebSearch}
+          onChange={(on) => onChange({ webSearch: on })}
         />
         <InlineSwitch
           label="Read skills herself"
-          checked={skills ?? false}
-          disabled={skills === undefined}
-          onChange={(on) => setSkills(on)}
+          checked={readSkills}
+          onChange={(on) => onChange({ readSkills: on })}
         />
       </div>
       {webSearch && (
@@ -593,7 +590,7 @@ function BackendTools({
           Each search adds to the backend's OpenAI usage.
         </SettingNote>
       )}
-      {skills && <InstalledSkills />}
+      {readSkills && <InstalledSkills />}
     </div>
   );
 }

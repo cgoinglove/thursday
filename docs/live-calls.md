@@ -59,12 +59,17 @@ call opens. Auto reasoning sends no effort.
 Web search adds the `web_search` tool while it is on, which it is by default. Changes
 apply from the next call.
 
-Settings stay in the browser under the existing `thursday.settings` key, beside wake
-word, shortcut, captions and call-back (`thursday.store`). `migrateLiveSettings`
-upgrades stored values: an OpenAI voice and backend model carry over, a Grok voice is
-retired without touching historical calls or xAI text and media keys, and the old
-shared instruction is copied into both new instruction fields. Each field recovers on
-its own, so one malformed value falls back to its default and leaves the rest.
+Settings are kept beside the database, as one JSON row under `THURSDAY_SETTINGS`
+(`thursday.query readLiveSettings`), so a call opened here, a call in writing and a
+phone writing in all run on the same ones. The browser keeps only what is about this
+machine — wake word, shortcut, captions, call-back and the write line's own model
+(`thursday.store`) — and hands over the copy it kept before, once, on the first load
+that finds one. `migrateLiveSettings` upgrades stored values: an OpenAI voice and
+backend model carry over, a Grok voice is retired without touching historical calls or
+xAI text and media keys, the old shared instruction is copied into both new instruction
+fields, and `voicePrompt` is what `stylePrompt` was called while only the voice read it.
+Each field recovers on its own, so one malformed value falls back to its default and
+leaves the rest.
 
 Every call is kept on this machine. Live transcription needs no separate model or
 request, so there is nothing to switch off to save cost. Keep `store: false` in the

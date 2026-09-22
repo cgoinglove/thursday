@@ -50,7 +50,7 @@ import type {
   FaceWord,
   LiveStatus,
 } from "./thursday.schema";
-import { thursdaySettings, useThursdayStore } from "./thursday.store";
+import { useThursdayStore } from "./thursday.store";
 import { searchQueryOf, searchSourcesOf, toolBot, toolLine } from "./tool-line";
 import { useCallRing } from "./use-call-ring";
 
@@ -727,7 +727,6 @@ export function useThursday(
       const chime = new Audio(CONNECTED_SOUND);
       farewell.current ??= new Audio(HUNG_UP_SOUND);
 
-      const settings = thursdaySettings();
       const stop = new AbortController();
       working.current = stop;
       const saving = { failures: 0 };
@@ -737,6 +736,8 @@ export function useThursday(
         callId: "",
         opening: null as string | null,
         standing: null as string | null,
+        /** The set this call's manifest was built from (thursday.schema `opened`). */
+        opened: { webSearch: true, readSkills: false },
       };
 
       // one turn per id; the session reports display groups one at a time
@@ -795,9 +796,7 @@ export function useThursday(
 
       const live = await openLiveSession({
         initialize: async (sdp) => {
-          const handshake = unwrapResult(
-            await openCallAction(settings, sdp, calledBack),
-          );
+          const handshake = unwrapResult(await openCallAction(sdp, calledBack));
           if (!current()) {
             void endCallAction(handshake.callId);
             throw new Error("The call closed during startup.");
@@ -806,6 +805,7 @@ export function useThursday(
           line.callId = handshake.callId;
           line.opening = handshake.opening;
           line.standing = handshake.standing;
+          line.opened = handshake.opened;
           return handshake.sdp;
         },
         audio: tap.current,
@@ -834,7 +834,7 @@ export function useThursday(
               const output = await runRemoteTool(
                 line.callId,
                 call,
-                settings.webSearch,
+                line.opened,
                 stop.signal,
               );
               nameTool(call, output);

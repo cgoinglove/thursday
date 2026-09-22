@@ -27,6 +27,13 @@ export type CallHandshake = {
    * alone once the line is up. Null when nothing has been handed over yet.
    */
   standing: string | null;
+  /**
+   * The two settings the tool manifest was built from, sent back so a tool running later
+   * is looked up in the same set (tool-call, api/thursday/tool-call). What the call opened
+   * with, never what is set now: a switch flipped mid-call would leave the model holding a
+   * manifest for tools the route no longer builds.
+   */
+  opened: { webSearch: boolean; readSkills: boolean };
 };
 
 /**
@@ -75,20 +82,19 @@ export type ThursdayFace = z.infer<typeof ThursdayFaceSchema>;
 export const FACE_DEFAULT: ThursdayFace = ThursdayFaceSchema.parse({});
 
 /**
- * Config keys (features/config config.query) the call's server-side settings
- * live under. Everything else about the call is the browser's (thursday.store);
- * these are read where the prompts and the tool set are built, so they cannot be.
+ * Config keys (features/config config.query) the call's settings live under. Who she
+ * is and what she may do is the app's, not one browser's: a phone writing in has no
+ * browser to carry it (features/reach), and a second machine would meet a stranger.
+ * What is left in the browser is how that machine talks to her (thursday.store).
+ * `THURSDAY_SKILLS` was the one field that had to be here before the rest followed;
+ * it is read back once, as `readSkills`, for an install that set it (thursday.query).
  */
 export const THURSDAY_KEYS = {
-  /** "on" hands the call `load_skill`; anything else, unset included, is off. */
-  skills: "THURSDAY_SKILLS",
+  /** The whole of `LiveSettings` as JSON (ai/live.schema). */
+  settings: "THURSDAY_SETTINGS",
+  /** What `readSkills` was, before the settings moved here. Read once, never written. */
+  wasSkills: "THURSDAY_SKILLS",
 } as const;
-
-/**
- * Off unless switched on. A skill is a page of instructions, and reading one
- * mid-sentence spends the session's context on it (ai/load-tools).
- */
-export const isSkillsOn = (value: string | undefined) => value?.trim() === "on";
 
 export const WAKE_PHRASE = { min: 3, max: 32 };
 

@@ -76,8 +76,16 @@ const { TOOL_NAMES } = await import("../features/ai/tools/tool-name.ts");
 const { answerInWriting, openTextCall } = await import(
   "../features/thursday/thursday.text.ts"
 );
-const { isCallOpen, listRecentTurns, sweepCalls } = await import(
-  "../features/thursday/thursday.query.ts"
+const {
+  isCallOpen,
+  listRecentTurns,
+  readLiveSettings,
+  seedLiveSettings,
+  sweepCalls,
+  writeLiveSettings,
+} = await import("../features/thursday/thursday.query.ts");
+const { THURSDAY_KEYS } = await import(
+  "../features/thursday/thursday.schema.ts"
 );
 
 after(async () => {
@@ -86,8 +94,7 @@ after(async () => {
 });
 
 test("what arrives while she works joins the turn between her steps, and keeps its place", async () => {
-  const settings = LiveSettingsSchema.parse({});
-  const { callId } = await openTextCall(settings);
+  const { callId } = await openTextCall();
   steps.push(
     () => [
       {
@@ -105,7 +112,6 @@ test("what arrives while she works joins the turn between her steps, and keeps i
   ];
   const result = await answerInWriting({
     callId,
-    settings,
     standing: "What stood open as the call began.",
     messages: [{ role: "user", content: "check the credit" }],
     said: "check the credit",
@@ -153,13 +159,55 @@ test("what arrives while she works joins the turn between her steps, and keeps i
 });
 
 test("the last tab going closes the calls a tab held, never one the server holds for a phone", async () => {
-  const settings = LiveSettingsSchema.parse({});
-  const page = (await openTextCall(settings)).callId;
-  const phone = (await openTextCall(settings)).callId;
+  const page = (await openTextCall()).callId;
+  const phone = (await openTextCall()).callId;
   await sweepCalls([phone]);
   assert.equal(await isCallOpen(page), false);
   assert.equal(await isCallOpen(phone), true);
   // At boot nothing is held: what the last process left open is closed
   await sweepCalls();
   assert.equal(await isCallOpen(phone), false);
+});
+
+// The settings every entrance reads, and the one path that runs once per install: what a
+// browser kept before they moved here, and the switch that was a row of its own.
+test("the kept settings take a browser's copy once, and read the old skills row until they hold one", async () => {
+  const { LIVE_DEFAULTS } = await import("../features/ai/live.schema.ts");
+  // Nothing kept: the defaults, and the switch as its own row left it
+  assert.equal((await readLiveSettings()).persona, LIVE_DEFAULTS.persona);
+  assert.equal((await readLiveSettings()).readSkills, false);
+  await writeConfig(THURSDAY_KEYS.wasSkills, "on");
+  assert.equal((await readLiveSettings()).readSkills, true);
+
+  // A browser's own copy, in the shape it kept it: `voicePrompt` is what the style was
+  // called while only the voice read it, and the old switch is where `readSkills` starts
+  const carried = {
+    voice: "cedar",
+    persona: "calm",
+    voicePrompt: "Quieter.",
+    captionView: "sides",
+  };
+  assert.equal(await seedLiveSettings(carried), true);
+  const kept = await readLiveSettings();
+  assert.equal(kept.voice, "cedar");
+  assert.equal(kept.persona, "calm");
+  assert.equal(kept.stylePrompt, "Quieter.");
+  // Not a field of theirs, so it never reaches the row
+  assert.equal("captionView" in kept, false);
+
+  // A second browser, opened later, cannot put its own over what is kept
+  assert.equal(
+    await seedLiveSettings({ voice: "marin", persona: "rough" }),
+    false,
+  );
+  assert.equal((await readLiveSettings()).persona, "calm");
+
+  // Written whole, so a field left out goes back to its default rather than lingering
+  await writeLiveSettings(LiveSettingsSchema.parse({ persona: "hype" }));
+  const now = await readLiveSettings();
+  assert.equal(now.persona, "hype");
+  assert.equal(now.voice, LIVE_DEFAULTS.voice);
+  assert.equal(now.stylePrompt, "");
+  // Its own field now, so the row that used to hold it is not read again
+  assert.equal(now.readSkills, false);
 });

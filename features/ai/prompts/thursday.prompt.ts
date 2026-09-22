@@ -18,7 +18,6 @@ import {
 import {
   type CallGroup,
   listRecentTurns,
-  readCallSkillsOn,
 } from "@/features/thursday/thursday.query";
 import { openWorkspace } from "@/features/workspace/workspace";
 import { listConnectedToolNames } from "../tools/connected";
@@ -29,6 +28,7 @@ import {
   reachNames,
   recentCallLines,
   skillLines,
+  styleLines,
   thursdayIdentity,
   tidying,
 } from "./prompt-helper";
@@ -41,22 +41,28 @@ import {
  * nothing here is about how to talk. The loader is the table of contents,
  * and empty chapters are dropped. Shares no sentence with bot.prompt. Assembled on every call,
  * never cached.
- *
- * @param backendPrompt Settings › Thursday › Backend instructions, added last.
- * @param written The call is in writing (thursday/thursday.text): nobody voices what comes
- *   back, so the last chapter is an answer to read rather than a result to say, and there is
- *   no line to drop (load-tools).
  */
-export async function loadThursdayPrompt(
-  backendPrompt?: string | null,
-  written = false,
+export async function loadThursdayPrompt(options: {
+  /** Settings › Thursday › Backend instructions, added last. */
+  backendPrompt?: string | null;
+  /**
+   * The call is in writing (thursday/thursday.text): nobody voices what comes back, so the
+   * last chapter is an answer to read rather than a result to say, and there is no line to
+   * drop (load-tools).
+   */
+  written?: boolean;
   /** Written from a phone: the call holds no `thread_show` (load-tools). */
-  phone = false,
+  phone?: boolean;
   /** The picked character, read only on a call in writing, where this is who talks. */
-  persona?: string,
-): Promise<string> {
+  persona?: string;
+  /** Settings › Thursday › Style in their own words, read on the same terms as `persona`. */
+  stylePrompt?: string | null;
+  /** Whether the call was handed `load_skill` (Settings › Thursday, load-tools). */
+  readSkills?: boolean;
+}): Promise<string> {
+  const { backendPrompt, written = false, phone = false, readSkills } = options;
   const sandbox = await openWorkspace();
-  const [skills, index, open, connected, roster, calls, hers, botMemory] =
+  const [skills, index, open, connected, roster, calls, botMemory] =
     await Promise.all([
       loadSkills(sandbox),
       listNoteIndex(),
@@ -65,8 +71,6 @@ export async function loadThursdayPrompt(
       listConnectedToolNames(),
       listJobBots(),
       listRecentTurns(RECENT_CALL.rows),
-      // Whether the call was handed `load_skill` (Settings › Thursday, load-tools)
-      readCallSkillsOn(),
       readBotMemoryOn(),
     ]);
   // The jobs those calls opened, folded into the transcript below
@@ -75,17 +79,21 @@ export async function loadThursdayPrompt(
   // Order matters: earlier calls go last so the current call follows them in time order
   const text = [
     thursdayIdentity(),
-    written ? personaLines(persona) : "",
+    // On a spoken call the voice is the one talking, and how she talks is its prompt's
+    // (live.prompt). In writing there is no voice, so the character and their own words
+    // come here instead — the same two, read by whichever of the two is speaking
+    written ? personaLines(options.persona) : "",
+    written ? styleLines(options.stylePrompt) : "",
     memory(index, open.notes),
     // A skill is named once, on the side that can read it: this computer's chapter
     // when the setting hands the call the tool, the bots' reach when it does not
     backgroundWork(
       roster,
-      reachNames(hers ? [] : skills, connected),
+      reachNames(readSkills ? [] : skills, connected),
       botMemory,
       phone,
     ),
-    thisComputer(sandbox.cwd, hers ? skills : []),
+    thisComputer(sandbox.cwd, readSkills ? skills : []),
     written ? writtenAnswer() : result(),
     earlierCalls(calls, jobs),
     // Last, so it is the closest thing to the request

@@ -54,6 +54,7 @@ import { awake } from "@/features/thursday/face-words";
 import { silentVoice } from "@/features/thursday/silent-voice";
 import type { CallStatus, FaceWord } from "@/features/thursday/thursday.schema";
 import { useThursdayStore } from "@/features/thursday/thursday.store";
+import { useLiveSettings } from "@/features/thursday/use-live-settings";
 import {
   type Finished,
   FinishedCard,
@@ -691,11 +692,11 @@ function BotsTurn({
  * popover, for changing it later (thursday-setting StylePicker).
  */
 function StyleTurn() {
-  const persona = useThursdayStore((state) => state.persona);
-  const patch = useThursdayStore((state) => state.patch);
+  // Hers, so she is the same one on a phone and on the next computer (use-live-settings)
+  const { settings, patch } = useLiveSettings();
   const at = Math.max(
     0,
-    PERSONAS.findIndex((one) => one.id === persona),
+    PERSONAS.findIndex((one) => one.id === settings?.persona),
   );
   const one = PERSONAS[at];
   const step = (by: number) =>

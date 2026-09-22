@@ -13,11 +13,7 @@ import {
 } from "ai";
 import { ZodError, z } from "zod";
 import { TEXT_CALL } from "@/config";
-import {
-  LIVE_PROVIDER,
-  type LiveSettings,
-  LiveSettingsSchema,
-} from "@/features/ai/live.schema";
+import { LIVE_PROVIDER, type LiveSettings } from "@/features/ai/live.schema";
 import { loadTools } from "@/features/ai/load-tools";
 import { getTextModel, modelErrorToString } from "@/features/ai/model";
 import {
@@ -35,6 +31,7 @@ import { isPublicError, publicError } from "@/lib/public-error";
 import {
   insertCall,
   nextTurnSeq,
+  readLiveSettings,
   saveThought,
   saveTurns,
 } from "./thursday.query";
@@ -83,10 +80,9 @@ async function runsOnOf(
 
 /** The row a call in writing is kept under, and what stood open as it began. */
 export async function openTextCall(
-  settings: LiveSettings,
   picked?: TextModelRef | null,
 ): Promise<TextCallHandshake> {
-  const ref = await runsOnOf(settings, picked);
+  const ref = await runsOnOf(await readLiveSettings(), picked);
   const [callId, standing] = await Promise.all([
     insertCall({
       provider: ref.provider,
@@ -100,7 +96,6 @@ export async function openTextCall(
 
 const BodySchema = z.object({
   callId: z.string().min(1),
-  settings: LiveSettingsSchema,
   /** What stood open as the call opened (ai/prompts/call-standing), as the page was handed it. */
   standing: z.string().nullish(),
   /** The model picked on the write line; absent, the rule decides (runsOnOf). */
@@ -156,16 +151,15 @@ export type TurnNote = { text: string; said: boolean };
  */
 export async function answerInWriting(input: {
   callId: string;
-  settings: LiveSettings;
   standing: string | null;
   messages: ModelMessage[];
   said: string | null;
   notes?: () => TurnNote[];
   signal?: AbortSignal;
 }): Promise<{ text: string; did: string[]; messages: ModelMessage[] }> {
-  const { callId, settings, standing, messages, said, signal } = input;
+  const { callId, standing, messages, said, signal } = input;
   const [run, seq] = await Promise.all([
-    loadRun(callId, settings, null, true),
+    loadRun(callId, null, true),
     nextTurnSeq(callId),
   ]);
   if (said !== null)
@@ -279,22 +273,30 @@ const standingHead = (standing: string | null | undefined): ModelMessage[] =>
 /** What a turn runs on, whoever holds the conversation: the model, her prompt, her tools. */
 async function loadRun(
   callId: string,
-  settings: LiveSettings,
   picked?: TextModelRef | null,
   /** Held by the server for someone on a phone: no screen of theirs to put anything on. */
   phone = false,
 ) {
+  const settings = await readLiveSettings();
   const ref = await runsOnOf(settings, picked);
   // Reasoning effort is OpenAI's word: asked of its models only, sent to them only
   const openai = ref.provider === "openai" || ref.provider === "chatgpt";
 
   const [model, system, held, exaKey, openaiKey] = await Promise.all([
     getTextModel(ref),
-    loadThursdayPrompt(settings.backendPrompt, true, phone, settings.persona),
+    loadThursdayPrompt({
+      backendPrompt: settings.backendPrompt,
+      written: true,
+      phone,
+      persona: settings.persona,
+      stylePrompt: settings.stylePrompt,
+      readSkills: settings.readSkills,
+    }),
     loadTools({
       target: "thursday",
       callId,
       webSearch: settings.webSearch,
+      readSkills: settings.readSkills,
       written: true,
       phone,
     }),
@@ -343,10 +345,9 @@ async function loadRun(
 }
 
 async function prepare(body: unknown) {
-  const { callId, settings, standing, runsOn, messages } =
-    BodySchema.parse(body);
+  const { callId, standing, runsOn, messages } = BodySchema.parse(body);
   const [run, ui, seq] = await Promise.all([
-    loadRun(callId, settings, runsOn),
+    loadRun(callId, runsOn),
     validateUIMessages({ messages }),
     nextTurnSeq(callId),
   ]);

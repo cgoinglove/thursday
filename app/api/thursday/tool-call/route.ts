@@ -17,8 +17,9 @@ const ToolCallSchema = z.object({
   toolCallId: z.string().min(1),
   /** The call this came from; `delegate` attaches the job to it. */
   callId: z.string().nullish(),
-  /** The call's search setting as it opened, so this set is the one its manifest listed. */
+  /** What the call's manifest was built from, so this set is the one it listed. */
   webSearch: z.boolean().default(true),
+  readSkills: z.boolean().default(false),
   name: z.string().min(1),
   input: z.unknown().optional(),
 });
@@ -35,13 +36,17 @@ async function drain(output: unknown): Promise<unknown> {
 }
 
 export const POST = serverRoute(async (request) => {
-  const { toolCallId, callId, webSearch, name, input } = ToolCallSchema.parse(
-    await request.json(),
-  );
+  const { toolCallId, callId, webSearch, readSkills, name, input } =
+    ToolCallSchema.parse(await request.json());
 
-  // The set the call opened with, not whatever the body names: a search that is
-  // switched off is not there to run either
-  const tools = await loadTools({ target: "thursday", callId, webSearch });
+  // The set the call opened with, not what is set now: a switch flipped mid-call would
+  // leave the model holding a manifest for tools this route no longer builds
+  const tools = await loadTools({
+    target: "thursday",
+    callId,
+    webSearch,
+    readSkills,
+  });
   const tool = tools[name];
   if (!tool) publicError(`There is no tool called "${name}".`);
 

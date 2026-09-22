@@ -16,7 +16,8 @@ paths:
 - **The call is one Thursday on two models.** The Live voice and its Responses backend open with the
   same identity (`thursdayIdentity`, the only sentence a helper holds) and read the same memory;
   neither is told it is part of something else. Whoever talks to the user reads the persona
-  (`prompts/persona.ts`): the voice on a spoken call, the backend on a call in writing. The
+  (`prompts/persona.ts`) and the user's own words over it (`styleLines`): the voice on a
+  spoken call, the backend on a call in writing. The
   voice holds conversation and memory only. Right under the persona, `## Always` groups the guide's
   starter backchannel and interruption policies, both as the guide writes them: asking on top of
   them for a listening sound through a long turn made one call in five a bare "응" and chopped
@@ -35,6 +36,19 @@ paths:
   tool in 4 of the 7 spoken calls that asked, 2 of them in time (09-20 to 09-21). A name and a
   stamp did not make the voice hand a hang-up over; what does is measured on real calls (todo 31),
   and the tool's own description says what it does.
+- **Who she is is the app's; how a machine talks to her is the browser's.** All of
+  `LiveSettings` — voice, persona, their own words, the backend model and its effort, the
+  web search, the backend instructions, whether she may read a skill — is one JSON row
+  beside the database (`THURSDAY_SETTINGS`, `readLiveSettings`), read by every entrance
+  rather than carried in by one of them: a phone writing in has no browser to carry it
+  (`features/reach`), and a second machine would otherwise meet a stranger. It is written
+  whole, never merged, since the screen holds every field. What stays in the browser is
+  this machine's own — wake phrase, hotkey, captions, call-back, the write line's model
+  (`thursday.store`) — and the copy a browser kept before is offered to the server once, on
+  the first load that finds one, and taken only while no row exists. A spoken call is the
+  one exception in the other direction: what its tool manifest was built from rides back on
+  the handshake (`opened`) and is sent with every tool call, so a switch flipped mid-call
+  cannot leave the model holding a manifest the route no longer builds.
 - **Tools run on the server.** A call's tool invocation is forwarded by the page to the server, so
   tools call domain queries directly. The one exception is anything that touches the call itself
   (hang up, a word on her face).
@@ -69,7 +83,7 @@ paths:
   backend is the voice's own decision; the page never starts one the voice kept.
 - **A call in writing.** The write line opens on Thursday, and what is sent to her is a call in
   writing (`thursday.text`, `use-text-call`): the call's backend alone — its prompt but for the
-  last chapter, its memory and the persona, its tools less the page's own (`end_call`, `emote`:
+  last chapter, its memory, the persona and their own words over it, its tools less the page's own (`end_call`, `emote`:
   there is no line to drop), no Live session — drawn by the same call screen and kept as a call
   row (`TEXT_CALL.model` where a spoken one names Live), so Earlier calls and the call log carry
   it with no table of their own. The page holds the conversation and sends it whole each turn;
@@ -122,6 +136,8 @@ paths:
   sentence with it): no screen of theirs is in front of them, so what they ask to see goes
   as the files her answer names. What she did goes under her answer as one line in
   `tool-line`'s words, since a chat has no activity line. Her
-  settings live in the browser, so a phone runs on the defaults. `pnpm test:reach` runs the
+  settings are the app's, read where a call reads them (`readLiveSettings`), so the person
+  here meets the same Thursday the screen does — voice aside, which nothing here speaks.
+  `pnpm test:reach` runs the
   core against a stubbed service, the two socket channels against a stubbed socket, and a
   held turn against a scripted model.

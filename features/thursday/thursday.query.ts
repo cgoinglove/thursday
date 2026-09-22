@@ -17,6 +17,11 @@ import {
   callTable,
   callThoughtTable,
 } from "@/database/tables";
+import {
+  type LiveSettings,
+  LiveSettingsSchema,
+  migrateLiveSettings,
+} from "@/features/ai/live.schema";
 import { listCallJobs } from "@/features/bot/thread.query";
 import { readConfig, writeConfig } from "@/features/config/config.query";
 import type { LiveClose } from "@/lib/live/live.schema";
@@ -24,22 +29,58 @@ import {
   type CallRecord,
   type CallThought,
   type CallTurn,
-  isSkillsOn,
   THURSDAY_KEYS,
 } from "./thursday.schema";
 
 /**
- * Whether the call is handed `load_skill` (Settings › Thursday). Off unless
- * switched on: reading a skill mid-call spends the session's context on a page
- * of instructions. Read where the tool set is built (ai/load-tools) and where
- * the prompt lists what she can read (ai/prompts/thursday.prompt).
+ * The call's settings, for whoever is about to run one: the screen drawing them, a call
+ * being opened, or someone writing from a phone. One row of JSON rather than a row a
+ * field, so a field added later reaches an install that never wrote one —
+ * `migrateLiveSettings` fills what is missing and falls back to the default for anything
+ * a hand-edit broke, field by field.
  */
-export async function readCallSkillsOn(): Promise<boolean> {
-  return isSkillsOn(await readConfig(THURSDAY_KEYS.skills));
+export async function readLiveSettings(): Promise<LiveSettings> {
+  const stored = asObject(await readConfig(THURSDAY_KEYS.settings));
+  const settings = LiveSettingsSchema.parse(migrateLiveSettings(stored));
+  if (stored && "readSkills" in stored) return settings;
+  // Before the settings moved here this switch was a row of its own, and an install
+  // that turned it on keeps it on. Its row is read, never written again
+  const was = await readConfig(THURSDAY_KEYS.wasSkills);
+  return { ...settings, readSkills: was?.trim() === "on" };
 }
 
-export async function writeCallSkillsOn(on: boolean) {
-  await writeConfig(THURSDAY_KEYS.skills, on ? "on" : "off");
+/** Replaces them whole: the screen holds every field, so there is nothing to merge. */
+export async function writeLiveSettings(settings: LiveSettings): Promise<void> {
+  await writeConfig(THURSDAY_KEYS.settings, JSON.stringify(settings));
+}
+
+/**
+ * A browser's own copy, moved here once. Does nothing when a row exists, so the second
+ * tab to load — and every load after — leaves what is already kept, and no settings of
+ * one machine's can overwrite another's later on. What comes in is whatever that browser
+ * last wrote, which may name its fields as two versions ago did, so it is migrated rather
+ * than parsed: parsing alone drops what it cannot name, and a `voicePrompt` written before
+ * the style was read in writing is the user's own words.
+ */
+export async function seedLiveSettings(carried: unknown): Promise<boolean> {
+  if (await readConfig(THURSDAY_KEYS.settings)) return false;
+  await writeLiveSettings(
+    LiveSettingsSchema.parse(migrateLiveSettings(carried)),
+  );
+  return true;
+}
+
+/** A stored row as the object it was written from; null for anything else. */
+function asObject(row: string | undefined): Record<string, unknown> | null {
+  if (!row) return null;
+  try {
+    const value: unknown = JSON.parse(row);
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function insertCall(input: {

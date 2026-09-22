@@ -34,7 +34,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { CALL_IDLE, CALL_LINE } from "@/config";
-import { LIVE_PROVIDER } from "@/features/ai/live.schema";
+import { LIVE_DEFAULTS, LIVE_PROVIDER } from "@/features/ai/live.schema";
 import { TEXT_MODEL_PROVIDERS } from "@/features/ai/model.schema";
 import { type Bot, DEFAULT_BOT } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
@@ -64,6 +64,7 @@ import {
 } from "@/features/thursday/thursday.schema";
 import { useThursdayStore } from "@/features/thursday/thursday.store";
 import type { Ringing, Rung } from "@/features/thursday/use-call-ring";
+import { useLiveSettings } from "@/features/thursday/use-live-settings";
 import { useTextCall } from "@/features/thursday/use-text-call";
 import {
   type ActivityLine,
@@ -1727,7 +1728,10 @@ export function Thursday({
   // What a call in writing runs on: the model picked on the line while its key is still
   // set, else the rule (the plan, else the OpenAI key) on the call's backend model
   const textModel = useThursdayStore((state) => state.textModel);
-  const backendModel = useThursdayStore((state) => state.backendModel);
+  // Hers, read from the server; until it lands the default is the model almost every
+  // install runs on, and the line settles a beat later if this one does not
+  const { settings } = useLiveSettings();
+  const backendModel = settings?.backendModel ?? LIVE_DEFAULTS.backendModel;
   const written = useMemo((): WrittenCall => {
     const has = (key: string) => isConfigSet(config, key);
     const ruled = textCallRunsOn(has);

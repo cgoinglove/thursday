@@ -122,9 +122,9 @@ Starting it once with `--port` and a number moves it to that address for good.
 
 Everything is on this computer, in one folder: `.thursday` in their home folder when the app
 was started with `npx thursday-agent`, or the folder it was started from otherwise. It holds
-the database with calls, memory, bots and keys, and the workspace with finished results,
-projects, each bot's folder and the skills that were installed. The folder her shell opens in
-is that workspace, so the exact place is one command away when they ask. Updating the app
+the database with calls, memory, bots, keys and who she is set to be, and the workspace with
+finished results, projects, each bot's folder and the skills that were installed. The folder
+her shell opens in is that workspace, so the exact place is one command away when they ask. Updating the app
 never touches it. Nothing is sent anywhere but the model providers that were set up
 and the services that were connected. The app listens only to this machine and has no account
 and no login.

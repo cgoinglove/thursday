@@ -2,7 +2,6 @@ import { readFile, stat } from "node:fs/promises";
 import type { ModelMessage } from "ai";
 import { appEvents, presence } from "@/app/api/events/app-event.server";
 import { BROWSER_GONE_MS, REACH } from "@/config";
-import { LiveSettingsSchema } from "@/features/ai/live.schema";
 import { modelErrorToString } from "@/features/ai/model";
 import { clockNow } from "@/features/ai/prompts/prompt-helper";
 import { asWords } from "@/features/ai/words";
@@ -65,8 +64,10 @@ import { createTelegram } from "./telegram";
  * it, and a question's options go as buttons that answer the bot directly. What they write
  * while she is still working joins that turn rather than waiting for one of its own.
  *
- * Her settings are the browser's (thursday.store), which the server cannot read: a
- * conversation from a phone runs on the defaults.
+ * Who she is and what she may do is the app's, kept where a call reads it
+ * (thursday.query readLiveSettings), so the person here meets the same Thursday the
+ * screen does. What stays in a browser is how that machine talks to her, which a chat
+ * has no use for.
  */
 
 /** How each service is made from its keys, in `REACH_KEYS` order. The one place that knows there are three. */
@@ -426,14 +427,13 @@ async function answer(live: Live, person: ReachPerson, words: string) {
   const facts = live.notes.filter((note) => !note.said);
   live.notes = live.notes.filter((note) => note.said);
   try {
-    const settings = LiveSettingsSchema.parse({});
     // Quiet for long enough, or closed under it (the server restarted): the next words
     // open a new call, which reads the last one back under Earlier calls
     const kept = live.line;
     if (!kept || !(await isCallOpen(kept.callId)) || (await idle(kept))) {
       await hangUp(live);
       live.line = {
-        ...(await openTextCall(settings)),
+        ...(await openTextCall()),
         messages: [],
         lastAt: 0,
       };
@@ -442,7 +442,6 @@ async function answer(live: Live, person: ReachPerson, words: string) {
     const line = live.line as Line;
     const result = await answerInWriting({
       callId: line.callId,
-      settings,
       standing: line.standing,
       messages: [
         ...line.messages,

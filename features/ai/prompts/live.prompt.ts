@@ -15,6 +15,7 @@ import {
   logPromptSize,
   noteLines,
   recentCallLines,
+  styleLines,
   thursdayIdentity,
   tidying,
 } from "./prompt-helper";
@@ -28,8 +29,8 @@ import {
  * conversation over and answers from what comes back. Assembled on every call, never cached.
  */
 export async function loadLivePrompt(options: {
-  /** Settings › Thursday › Personality: the user's own persona, over the picked one, never replacing it. */
-  voicePrompt?: string | null;
+  /** Settings › Thursday › Style, in their own words: over the picked character, never replacing it. */
+  stylePrompt?: string | null;
   /** The page placed this call because background work waits on the user (call-back). */
   calledBack?: boolean;
   /** Settings › Thursday › Style: which character she is on this call (persona). */
@@ -52,7 +53,7 @@ export async function loadLivePrompt(options: {
     known(open.notes, index),
     first ? firstCall() : "",
     earlierCalls(calls),
-    additional(options.voicePrompt),
+    styleLines(options.stylePrompt),
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -193,12 +194,3 @@ What was said on the last calls, newest last, each under when it was. They are o
 
 ${recentCallLines(spoken, RECENT_CALL.tokens)}`;
 }
-
-const additional = (voicePrompt?: string | null) =>
-  voicePrompt?.trim()
-    ? `## Who they want you to be
-
-Their own words, on top of the character above: how you talk to them, how much to say, what to leave out. Where they differ from anything above, theirs wins.
-
-${voicePrompt.trim()}`
-    : "";

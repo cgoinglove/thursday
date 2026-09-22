@@ -116,8 +116,10 @@ like any earlier call.
   that bot directly. Anything else written back goes to her, never straight to a bot, and
   she passes it on.
 
-She uses her default voice-backend settings from a phone: changes made in **Settings ›
-Thursday** are kept in the browser and do not reach it.
+She is the same Thursday from a phone as on the computer: the style, the models, how hard
+she thinks, whether she can search the web and your backend instructions are all what
+**Settings › Thursday** says. Her voice is the one thing that plays no part here, since
+nothing is spoken.
 
 ## Work while away
 

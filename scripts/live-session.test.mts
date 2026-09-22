@@ -846,7 +846,7 @@ test("stored settings keep OpenAI choices and the shared instruction, drop a Gro
   });
   assert.equal(openai.voice, "cedar");
   assert.equal(openai.backendModel, "gpt-5.6-sol");
-  assert.equal(openai.voicePrompt, "Call me Sam.");
+  assert.equal(openai.stylePrompt, "Call me Sam.");
   assert.equal(openai.backendPrompt, "Call me Sam.");
   assert.equal(openai.captionView, "sides");
   assert.equal(openai.reasoningEffort, LIVE_DEFAULTS.reasoningEffort);
@@ -855,6 +855,12 @@ test("stored settings keep OpenAI choices and the shared instruction, drop a Gro
   assert.equal(LIVE_DEFAULTS.webSearch, true);
   assert.equal("model" in openai, false);
   assert.equal("systemPrompt" in openai, false);
+
+  // What `stylePrompt` was called while only the voice read it
+  assert.equal(
+    migrateLiveSettings({ voicePrompt: "Quieter." }).stylePrompt,
+    "Quieter.",
+  );
 
   const grok = migrateLiveSettings({
     model: { provider: "xai", voice: "Ara", model: "grok-voice" },
@@ -967,7 +973,7 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
       "../features/ai/prompts/thursday.prompt.ts"
     );
     const on = await loadLivePrompt({
-      voicePrompt: "Use a calm voice.",
+      stylePrompt: "Use a calm voice.",
     });
     assert.match(on.text, /their friend first, and their assistant second/);
     assert.match(on.text, /Prefer brief replies/);
@@ -1020,7 +1026,7 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     // One Thursday: the backend opens with the voice's own identity and is never told it is a
     // part. On a spoken call it does not talk, so the persona is the voice's alone; on a call
     // in writing it is the one talking, and reads the same persona
-    const backend = await loadThursdayPrompt(null);
+    const backend = await loadThursdayPrompt({});
     const withoutClock = (text: string) =>
       text.replace(/\*\*Now\*\*: [^\n]+/, "");
     const identity = on.text.slice(0, on.text.indexOf("\n\nWarm and quick"));
@@ -1032,7 +1038,7 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     );
     assert.equal(backend.includes("Warm and quick to laugh"), false);
     assert.equal(backend.includes("IMPORTANT"), false);
-    const written = await loadThursdayPrompt(null, true);
+    const written = await loadThursdayPrompt({ written: true });
     assert.match(
       written,
       /\n\nWarm and quick to laugh\. [^\n]+\n\nWhen they hand you work, it is work: [^\n]+\n\n## Memory\n/,
@@ -1087,7 +1093,7 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     assert.equal(/tidying|grown past/.test(heavy.text), false);
     assert.match(heavy.opening, /The call has just started/);
     assert.match(
-      await loadThursdayPrompt(null),
+      await loadThursdayPrompt({}),
       /grown past what it holds well \(people\/sam\): say so once in what you return/,
     );
     samFacts = 2;

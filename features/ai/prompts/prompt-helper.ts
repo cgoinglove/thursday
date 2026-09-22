@@ -86,6 +86,20 @@ export const thursdayIdentity = (now = new Date()) =>
 What they tell you is kept, so you know them better over time.`;
 
 /**
+ * Settings › Thursday › Style, in the user's own words, on top of the picked character
+ * rather than in place of it. Read by whichever of the two is the one talking: the voice
+ * on a spoken call, the backend on a call in writing (live.prompt, thursday.prompt).
+ */
+export const styleLines = (stylePrompt?: string | null) =>
+  stylePrompt?.trim()
+    ? `## Who they want you to be
+
+Their own words, on top of the character above: how you talk to them, how much to say, what to leave out. Where they differ from anything above, theirs wins.
+
+${stylePrompt.trim()}`
+    : "";
+
+/**
  * When a call happened, the one way every prompt and tool says it: local, the
  * same shape as `Now` (clockNow), with how long ago. A UTC stamp beside a local
  * `Now` put two clocks nine hours apart in one prompt, and a call from last
