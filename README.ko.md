@@ -1,22 +1,21 @@
 <div align="center">
 
-<img src="docs/images/hero.png" alt="Thursday — 이모지 얼굴을 가진 오픈소스 음성 비서" width="760">
+<a href="https://youtu.be/V7fBDY3cYRU">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/hero-dark.gif">
+    <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/hero-light.gif" alt="Thursday — GPT-Live 1 위에서 도는 오픈소스 음성 비서와 AI 봇 팀. 하나는 페이지를 끝냈고, 하나는 웹을 뒤지는 중이다" width="880">
+  </picture>
+</a>
 
-### 다들 프라이데이를 원했다. 이건 서스데이다.
-
-**GPT-Live 1로 말하는 오픈소스 음성 AI 비서. 내 컴퓨터에서 돌아가고, 뒤에는 AI 봇 팀이 있습니다.**<br>
-전화하듯 말하면 됩니다. 오래 걸리는 일은 봇들이 진짜 브라우저와 셸로 처리하고, 그동안에도 통화는 이어집니다.
+**GPT-Live 1 위에서 도는 오픈소스 음성 비서. 뒤에는 AI 봇 팀이 있습니다.**<br>
+내 컴퓨터에서, 내 OpenAI 키로 돕니다. 나는 말하고, 오래 걸리는 일은 봇들이 진짜 브라우저와 셸과 내 파일로 처리합니다.
 
 [![npm](https://img.shields.io/npm/v/thursday-agent?style=flat-square&color=111&label=npm)](https://www.npmjs.com/package/thursday-agent)
 [![CI](https://img.shields.io/github/actions/workflow/status/cgoinglove/thursday/ci.yml?style=flat-square&label=ci)](https://github.com/cgoinglove/thursday/actions/workflows/ci.yml)
 [![MIT](https://img.shields.io/badge/license-MIT-111?style=flat-square)](LICENSE)
 [![node](https://img.shields.io/node/v/thursday-agent?style=flat-square&color=111)](https://nodejs.org)
 
-[English](README.md) · [한국어](README.ko.md)
-
-![통화 중: "Jarvis, how's it going?"이라고 묻자 Thursday가 봇의 작업을 확인하고 GitHub 트렌딩 페이지가 완성됐다고 답하는 장면](docs/images/demo.gif)
-
-[▶ 1분 30초 데모 영상 보기 (소리 있음)](https://youtu.be/V7fBDY3cYRU)
+[English](README.md) · [한국어](README.ko.md) · [▶ 90초 데모 보기](https://youtu.be/V7fBDY3cYRU)
 
 </div>
 
@@ -26,92 +25,84 @@
 npx thursday-agent
 ```
 
-Node.js 22.18 이상과 OpenAI API 키 하나면 됩니다. 첫 화면에 키를 넣고, 함께할 봇을 고른 뒤 **Thursday의 얼굴을 누르세요**. 가입도 `.env`도 없습니다. 한국어로 말하면 한국어로 답합니다. 음성은 그 키로 1분에 약 $0.05입니다.
+Node.js 22.18 이상과 OpenAI API 키 하나면 됩니다. 첫 화면에 키를 넣고, 함께할 봇을 고른 뒤 **얼굴을 누르면** 통화가 시작됩니다. 가입도 `.env` 도 없습니다. 통화는 그 키로 1분에 약 $0.05 입니다. 한국어로 말하면 한국어로 답합니다(화면은 아직 영어입니다).
 
-![처음 실행: 키 하나, 함께할 봇 고르기, 첫 통화를 거는 버튼 하나](docs/images/first-run.png)
+## 이렇게 시켜 보세요
 
-## 이렇게 말해 보세요
+- “20만 원 아래로 코트 좀 찾아서 한 페이지에 정리해 줘.”
+- “평일 아침 아홉 시마다 메일 훑고 답장 초안 잡아 줘.”
+- “누나 생일 3월 3일인 거 기억해 둬.”
+- 일이 도는 중에 “아까 코트 건 어디까지 됐어?”
 
-- "20만 원 아래 코트 찾아서 한 페이지로 정리해 줘."
-- "평일 아침 9시마다 메일 확인하고 답장 초안 써 놔."
-- "동생 생일이 3월 3일인 거 기억해 줘."
-- "아까 그 코트 어디까지 됐어?" 일이 아직 도는 중에 물어봐도 됩니다.
+### 시켜 놓고, 계속 말하세요
 
-## 일하는 동안에도 말로
+음성 모델이 직접 브라우저를 열면 1분쯤 말이 없어지고, 조용한 통화는 끊긴 통화나 다름없습니다. 그래서 몇 초 넘게 걸리는 일은 봇에게 넘기고 통화는 이어집니다. 말을 끊어도 되고, 딴 얘기를 해도 되고, 시킨 일이 어디까지 됐는지 물어봐도 됩니다.
 
-음성 모델이 직접 브라우저를 열면 1분쯤 말이 없어지고, 조용한 통화는 끊긴 통화나 다름없습니다. 그래서 Thursday는 통화를 둘로 나눕니다. GPT-Live 1이 대화를 붙들고, 몇 초 넘게 걸리는 일은 봇이 뒤에서 맡습니다. 말을 끊어도 되고, 딴 얘기를 해도 되고, 시킨 일이 어디까지 됐는지 물어봐도 됩니다.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/talk-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/talk-light.png" alt="통화 중 — 봇이 맡았고 돌아오면 알려 주겠다고 말한다. 그 아래로 일이 넘어가고 웹 검색이 시작된다" width="880">
+</picture>
 
-![일이 어디까지 됐냐고 물으면, 통화가 이어지는 동안 봇이 하고 있는 단계를 알려 주는 Thursday](docs/images/call.png)
+### 한마디면 팀이 움직입니다
 
-## 한 문장이면 팀이 움직입니다
+봇들은 일을 나눠 맡고, 서로의 결과를 확인하고, 내가 정해야 할 때만 묻습니다. 주고받은 것은 전부 스레드에 남습니다. 누가 뭘 했는지 열어 보고, 중간에 끼어들 수도 있습니다.
 
-봇들은 일을 서로 나누고, 돌아온 결과를 확인하고, 내가 정해야 할 것만 나에게 묻습니다. 주고받은 말은 모두 남습니다. 스레드를 열면 누가 무엇을 했는지 보이고, 그 자리에서 끼어들 수도 있습니다.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/team-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/team-light.png" alt="한 알약 안의 봇 셋이 다른 봇을 부르고, 질문 하나가 사용자를 기다린다" width="880">
+</picture>
 
-![봇들이 요청을 나누고, 찾은 것을 주고받고, 사용자에게 한 번 묻고, 그 말들이 하나하나 완성된 페이지가 되는 장면](docs/images/team.png)
+### 심부름은 진짜 브라우저로
 
-## 심부름은 실제 브라우저로
+주문, 예약, 신청서, 메일함. 봇은 전용 브라우저나 내가 이미 로그인해 둔 Chrome 을 씁니다. 결제는 마지막 버튼 앞에서 멈추고, 그 화면은 내가 누르라고 열린 채로 남습니다.
 
-주문, 예약, 신청서, 받은편지함. 봇은 자기 브라우저나 내가 이미 로그인한 Chrome을 씁니다. 로그인이 필요한 사이트면 봇이 창을 열어 주고 내가 직접 로그인하며, 앱은 그 로그인을 내가 허락한 봇에게만 빌려줍니다. 결제는 Pay 버튼 앞에서 멈추고 그 화면을 내 앞에 열어 둡니다.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/errands-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/errands-light.png" alt="봇이 채워 두고 남긴 결제 화면, ‘waiting on you’ 표시와 함께" width="880">
+</picture>
 
-![봇이 채워 두고 열어 둔 결제 화면, Pay 버튼은 사용자 몫](docs/images/errands.png)
+### 결과는 파일로 남습니다
 
-## 남는 결과물
+페이지, 차트, 영상, 슬라이드, 문서, 스크립트. 전부 내 컴퓨터에 파일로 저장되고, 다 되면 화면 구석에 올라옵니다. “보여 줘” 하면 열립니다.
 
-페이지, 차트, 영상, 슬라이드, 문서, 스크립트가 내 컴퓨터에 파일로 저장됩니다. 다 되면 화면 구석에 미리보기로 올라오고, "보여 줘" 하면 열립니다.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/results-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/results-light.png" alt="봇이 만든 페이지와, 그 옆에 저장된 파일 이름" width="880">
+</picture>
 
-![Thursday가 일이 끝났다고 말하는 동안 화면 구석에서 기다리는 완성된 페이지](docs/images/results.png)
+## 이런 것도 됩니다
 
-## 나만의 봇 팀
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/more-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/more-light.png" alt="내 봇 팀 — 첫 실행에서 고르거나 직접 만들고, 봇마다 다른 모델로. 폰에서 — 텔레그램·디스코드·슬랙으로 말 걸기. 루틴 — 평일 아침 아홉 시, 봇 하나와 일 하나와 시각 하나. 읽을 수 있는 메모리 — 열고 고치고 지울 수 있는 평범한 메모" width="880">
+</picture>
 
-처음 실행할 때 기본 봇을 고르거나, 이름과 무엇을 하는 봇인지 한 문장으로 직접 만드세요. 봇마다 모델과 도구를 따로 줄 수 있습니다.
+## 어떻게 돌아가나
 
-![처음 실행할 때 함께할 봇을 고르는 화면, 봇마다 얼굴과 맡은 일이 있습니다](docs/images/bots.png)
+Thursday 는 내 컴퓨터에서 도는 오픈소스 음성 비서입니다. 통화는 OpenAI 의 GPT-Live 1 이 붙들고, 도구는 Responses 모델이 씁니다. 몇 초 넘게 걸리는 일은 뒤에서 도는 봇에게 갑니다 — OpenAI·Anthropic·Google·xAI 의 텍스트 모델에 셸, 진짜 브라우저, 내 파일, Agent Skills, MCP 서버가 붙은 것입니다. 봇들은 일을 나눠 맡고 내가 정해야 할 때 묻습니다. 그 결과와 질문은 통화 안으로 돌아오고, 전화를 끊어도 일은 계속 돕니다. 루틴은 정해진 시각에 일을 시작합니다. 그녀가 나에 대해 아는 것은 내가 읽을 수 있는 평범한 메모입니다. 말 대신 글로 시켜도 되고, 앱에서도 텔레그램·디스코드·슬랙에서도 됩니다. [자세히 →](docs/how-it-works.md)
 
-## 폰에서도
+## 돌리기 전에 알아 둘 것
 
-앱은 집 컴퓨터에서 돌고, 밖에서는 Telegram, Discord, Slack으로 말을 겁니다. 봇의 질문은 버튼으로 오고, Thursday가 말한 파일은 답과 함께 옵니다. 내 컴퓨터를 인터넷에 열지 않습니다.
-
-![폰에서 Thursday와 나눈 대화: 돌아온 페이지, 버튼 두 개로 온 봇의 질문](docs/images/phone.png)
-
-## 그리고
-
-- **전화를 끊어도 계속.** 작업은 내 컴퓨터에서 돌고, 끝나면 Thursday가 알려줍니다. 켜 두면 화면으로 먼저 전화를 걸어 옵니다.
-- **말 대신 글로.** `/`를 누르고 쓰면 됩니다. 같은 기억, 같은 봇이고 마이크도 분당 요금도 없습니다.
-- **루틴.** "평일 아침 9시마다 메일 확인해 줘." 봇과 할 일과 시간을 말로 정합니다.
-- **읽을 수 있는 기억.** Thursday가 나에 대해 아는 건 평범한 노트입니다. 어느 줄이든 열고, 고치고, 지울 수 있습니다.
-- **스킬과 MCP.** Agent Skills로 봇에게 새 방법을 가르치고, MCP 서버를 연결합니다.
-- **모델은 자유롭게.** OpenAI, Anthropic, Google, xAI, Vercel AI Gateway, ChatGPT 로그인. 봇마다 다르게 고릅니다.
-- **로컬 우선.** Thursday 계정도, 우리 서버도 없습니다. 앱과 데이터와 키가 모두 내 컴퓨터에 있습니다.
-
-## 필요한 것
-
-- Node.js 22.18+
-- 음성용 OpenAI API 키
-- macOS. Linux도 될 것이고, Windows는 아직 테스트하지 않았습니다.
+- **모델은 로컬이 아닙니다.** 앱과 데이터와 키는 내 컴퓨터에 있지만, 통화 음성은 OpenAI 로 가고 봇은 내가 넣은 프로바이더로 갑니다. 로컬 엔드포인트는 [열린 이슈](https://github.com/cgoinglove/thursday/issues/16)입니다.
+- **샌드박스가 아닙니다.** 봇은 내 계정으로 진짜 명령을 실행합니다. 결제 앞에서 멈추는 것과 로그인 전에 묻는 것은 모델이 따르는 지시이지 잠금장치가 아닙니다. 민감한 것을 맡기기 전에 [SECURITY.md](SECURITY.md) 를 읽어 주세요.
+- **macOS 에서 만들었습니다.** Linux 는 될 것 같지만 확인하지 못했고, Windows 는 아직입니다. 화면은 영어지만 말은 내 언어로 합니다.
 
 <details>
-<summary><b>비용이 드나요?</b></summary>
+<summary><b>돈은 얼마나 드나요?</b></summary>
 
-Thursday는 무료이고 MIT 라이선스입니다. 키는 직접 넣습니다. 음성은 통화가 열려 있는 동안 OpenAI 요금으로 1분에 약 $0.05이고, 말이 없는 시간도 포함됩니다([요금표](https://developers.openai.com/api/docs/pricing)). 40초 동안 아무 말이 없으면 통화는 알아서 끊깁니다. 봇은 각자 고른 제공자의 요금을 따릅니다.
+Thursday 자체는 무료이고 MIT 입니다. 키는 내가 넣습니다. 통화는 OpenAI 가 1분에 약 $0.05 로 매기고(말이 없는 시간도 포함, [요금표](https://developers.openai.com/api/docs/pricing)), 봇은 내가 고른 프로바이더에 토큰만큼 붙습니다.
 
 </details>
 
 <details>
 <summary><b>내 데이터는 어디로 가나요?</b></summary>
 
-통화에서 한 말과 봇이 다루는 내용은 내가 설정한 모델 제공자와 내가 연결한 서비스로 갑니다. "hey thursday" 호출어는 직접 켜기 전까지 꺼져 있습니다. 브라우저의 음성 인식을 쓰기 때문에, Chrome에서는 탭이 열려 있는 동안 마이크 소리가 Google로 갑니다. 얼굴을 누르면 호출어 없이 통화가 시작되고, `alt+shift+T` 단축키도 직접 켜면 같은 일을 합니다. 앱은 `127.0.0.1`에서만 열리고, 통화와 기억과 파일은 `~/.thursday`에 있습니다(소스에서 실행하면 체크아웃 폴더).
+통화에서 한 말과 봇이 다루는 것은 내가 설정한 모델 프로바이더와 내가 연결한 서비스로 갑니다. “hey thursday” 호출어는 켜기 전까지 꺼져 있습니다 — 브라우저의 음성 인식을 쓰는데, Chrome 에서는 탭이 열려 있는 동안 마이크 소리가 Google 로 갑니다. 얼굴을 누르면 호출어 없이 통화가 시작됩니다. 앱은 `127.0.0.1` 에서 듣고, 통화·메모리·파일은 `~/.thursday` 에 있습니다(소스로 돌리면 그 폴더에).
 
 </details>
 
 <details>
-<summary><b>봇이 내 컴퓨터를 써도 안전한가요?</b></summary>
-
-봇은 실제 명령을 실행합니다. 강력한 로컬 도구로 다뤄주세요. 샌드박스가 아닙니다. 로그인 전에 묻고 결제 앞에서 멈추는 것은 모델이 따르는 지시이지 잠금장치가 아닙니다. 민감한 곳에 접근하게 하기 전에 [SECURITY.md](SECURITY.md)를 읽어주세요.
-
-</details>
-
-<details>
-<summary><b>소스에서 실행</b></summary>
+<summary><b>소스로 돌리기</b></summary>
 
 ```bash
 git clone https://github.com/cgoinglove/thursday.git
@@ -120,7 +111,7 @@ pnpm install
 pnpm dev
 ```
 
-pnpm 10+ 이 필요합니다.
+pnpm 10 이상이 필요합니다.
 
 </details>
 
@@ -128,8 +119,10 @@ pnpm 10+ 이 필요합니다.
 
 <br>
 
-**[작동 방식](docs/how-it-works.md)** · [기여하기](CONTRIBUTING.md) · [보안](SECURITY.md) · [MIT](LICENSE)
+다들 프라이데이를 원했죠. 이건 서즈데이입니다.
 
-치는 것보다 말하는 게 편하다면, [Thursday에 별을](https://github.com/cgoinglove/thursday) 눌러주세요. 돌려 보다 막힌 곳은 [이슈로 알려 주세요](https://github.com/cgoinglove/thursday/issues/new). 그 목록이 로드맵입니다.
+**[어떻게 돌아가나](docs/how-it-works.md)** · [기여하기](CONTRIBUTING.md) · [보안](SECURITY.md) · [MIT](LICENSE)
+
+돌려 보셨나요? [막힌 곳을 알려 주세요](https://github.com/cgoinglove/thursday/issues/new). 그 목록이 곧 로드맵입니다.
 
 </div>
