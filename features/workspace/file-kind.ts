@@ -17,7 +17,12 @@ export type FileViewKind =
   /** Played by the browser's own element; /api/file serves Range for seeking. */
   | "audio"
   | "video"
-  /** Left to the OS default app. */
+  /**
+   * Nothing of it can be drawn here, so a row opens it in the computer's own
+   * program (`file-view` fileTarget). It is still listed: a result the app
+   * cannot show is a result all the same. What is never listed is machinery
+   * (`isListedFile`).
+   */
   | "none";
 
 const TEXT = (type: string) => `text/${type}; charset=utf-8`;
@@ -46,13 +51,29 @@ const TYPE_BY_EXTENSION: Record<string, { kind: FileViewKind; mime: string }> =
     mp4: { kind: "video", mime: "video/mp4" },
     webm: { kind: "video", mime: "video/webm" },
 
+    // What Docs hands back is the file itself, and no browser draws these: the
+    // row opens them in Word, Excel or PowerPoint. Named here for the mime and
+    // so a report naming one gets a chip.
+    docx: {
+      kind: "none",
+      mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    },
+    xlsx: {
+      kind: "none",
+      mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    },
+    pptx: {
+      kind: "none",
+      mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    },
+
     // Not opened by the screen, but referenced by bot-written html; without a mime the browser gets octet-stream
     css: { kind: "none", mime: TEXT("css") },
     js: { kind: "none", mime: TEXT("javascript") },
     woff2: { kind: "none", mime: "font/woff2" },
   };
 
-const extensionOf = (path: string) =>
+export const extensionOf = (path: string) =>
   path.split(".").pop()?.toLowerCase() ?? "";
 
 export const viewKindOf = (path: string): FileViewKind =>
@@ -70,21 +91,33 @@ const UNLISTED_FOLDERS = new Set(["node_modules", "__pycache__"]);
 export const isListedFolder = (name: string): boolean =>
   !name.startsWith(".") && !UNLISTED_FOLDERS.has(name);
 
+/**
+ * Files that are machinery rather than work: what a page a bot wrote links to.
+ * Anything else is listed, whatever its extension — a bot has a shell, so the
+ * table above will always be behind what it can make, and a result nobody can
+ * see is a job lost.
+ */
+const UNLISTED_EXTENSIONS = new Set(["css", "js", "woff2"]);
+
+/** Whether a screen lists a file — the file half of `isListedFolder`. */
+export const isListedFile = (name: string): boolean =>
+  !UNLISTED_EXTENSIONS.has(extensionOf(name));
+
 /** Content-type for the file route; unknown types download. */
 export const mimeOf = (path: string): string =>
   TYPE_BY_EXTENSION[extensionOf(path)]?.mime ?? "application/octet-stream";
 
-/** Extensions recognised as paths in report text. Only viewable ones: `.js` would turn "Next.js" into a chip. */
-const VIEWABLE = Object.entries(TYPE_BY_EXTENSION)
-  .filter(([, type]) => type.kind !== "none")
-  .map(([extension]) => extension);
+/** Extensions recognised as paths in report text. Only listed ones: `.js` would turn "Next.js" into a chip. */
+const LISTED = Object.keys(TYPE_BY_EXTENSION).filter(
+  (extension) => !UNLISTED_EXTENSIONS.has(extension),
+);
 
 // The lookbehind class is the body's own, plus `/` and `:`: written as `\w` it
 // was ASCII-only, so a name whose first character is not ASCII matched from the
 // second one instead, and came back a letter short. The optional leading `/`
 // takes an absolute path or a file-route link whole rather than none of it.
 const PATH_RE = new RegExp(
-  String.raw`(?<![\p{L}\p{N}_/:@%-])\/?(?:[\p{L}\p{N}_.@%-]+/)*[\p{L}\p{N}_@%-]+(?:\.[\p{L}\p{N}_-]+)*\.(?:${VIEWABLE.join("|")})\b`,
+  String.raw`(?<![\p{L}\p{N}_/:@%-])\/?(?:[\p{L}\p{N}_.@%-]+/)*[\p{L}\p{N}_@%-]+(?:\.[\p{L}\p{N}_-]+)*\.(?:${LISTED.join("|")})\b`,
   "giu",
 );
 

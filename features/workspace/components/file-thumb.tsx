@@ -11,6 +11,7 @@ import {
   FileVideo,
   type LucideIcon,
   Music,
+  Presentation,
 } from "lucide-react";
 import Image from "next/image";
 import {
@@ -23,7 +24,7 @@ import {
 import { queryKey } from "@/app/api/query-key";
 import { Markdown } from "@/components/ui/markdown";
 import { FILE_THUMB, WORKSPACE_VIEW } from "@/config";
-import { viewKindOf } from "@/features/workspace/file-kind";
+import { extensionOf, viewKindOf } from "@/features/workspace/file-kind";
 import { cn } from "@/lib/utils";
 
 /** The glyph names the file, not what opening it does: a tile you can read at a glance. */
@@ -37,13 +38,21 @@ const ICONS: Record<string, LucideIcon> = {
   video: FileVideo,
 };
 
+/**
+ * Glyphs an extension names better than its kind does: `frame` is a PDF or a
+ * page, and every Office file is the same kind but a different program.
+ */
+const GLYPHS: Record<string, LucideIcon> = {
+  pdf: FileText,
+  html: FileCode,
+  htm: FileCode,
+  docx: FileType,
+  xlsx: FileSpreadsheet,
+  pptx: Presentation,
+};
+
 export function fileIcon(path: string): LucideIcon {
-  const kind = viewKindOf(path);
-  // `frame` is two very different things; the extension is what the reader recognises.
-  if (kind === "frame") {
-    return path.toLowerCase().endsWith(".pdf") ? FileText : FileCode;
-  }
-  return ICONS[kind] ?? File;
+  return GLYPHS[extensionOf(path)] ?? ICONS[viewKindOf(path)] ?? File;
 }
 
 /** What a thumbnail can show of a file without opening it. */

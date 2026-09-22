@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { GIVEN_FILES, PATHS, WORKSPACE_VIEW } from "@/config";
 import { listThreadFolders } from "@/features/bot/thread.query";
 import { publicError } from "@/lib/public-error";
-import { isListedFolder, viewKindOf } from "./file-kind";
+import { isListedFile, isListedFolder, viewKindOf } from "./file-kind";
 import {
   insideWorkspace,
   jobScratch,
@@ -45,7 +45,7 @@ export async function readWorkspaceFolder(
     .filter((entry) =>
       entry.isDirectory()
         ? isListedFolder(entry.name)
-        : entry.isFile() && viewKindOf(entry.name) !== "none",
+        : entry.isFile() && isListedFile(entry.name),
     )
     // Folders first, then files, each alphabetical — the skill browser's order.
     .sort(

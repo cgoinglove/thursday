@@ -3,7 +3,11 @@ import { readdir, rm, stat } from "node:fs/promises";
 import { basename, join, relative, sep } from "node:path";
 import { ARTIFACT_VIEW, PATHS } from "@/config";
 import { listBotNames } from "@/features/bot/bot.query";
-import { isListedFolder, viewKindOf } from "@/features/workspace/file-kind";
+import {
+  isListedFile,
+  isListedFolder,
+  viewKindOf,
+} from "@/features/workspace/file-kind";
 import {
   ARTIFACTS,
   botFolderName,
@@ -47,8 +51,8 @@ async function fileAt(
   path: string,
   name: string,
 ): Promise<ArtifactFile | null> {
+  if (!isListedFile(name)) return null;
   const view = viewKindOf(name);
-  if (view === "none") return null;
   const info = await stat(join(dir, name)).catch(() => null);
   if (!info?.isFile()) return null;
   return { path, name, bytes: info.size, at: info.mtime, view };
@@ -76,7 +80,7 @@ async function entryAt(
     ]);
     // Counted the way the sheet draws them, or the row promises more than it opens
     const count = inside.filter(
-      (child) => child.isFile() && viewKindOf(child.name) !== "none",
+      (child) => child.isFile() && isListedFile(child.name),
     ).length;
     if (!info || count === 0) return null;
     return {

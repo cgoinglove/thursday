@@ -153,6 +153,11 @@ good. Nothing opened by hand is ever on that clock. All of them
 stay under **Settings › Files**, one shelf per bot. Its second tab, **All files**, is the
 whole folder, for looking around rather than for the results.
 
+A file the app cannot draw — a Word file, a spreadsheet, a PowerPoint, anything it has no
+reader for — sits on the shelf like the rest and opens in the program this computer uses for
+it. Only the pieces a page a bot wrote is built from, its stylesheets, scripts and fonts, stay
+off the shelf.
+
 Asked to explain something simply, **Tutor** makes a picture book: a picture and a line
 or two a page, turned by swiping, the arrow keys, or tapping the right or left of the page. The
 same book can be a PDF, or a video that reads itself aloud (landscape, or portrait when asked);
