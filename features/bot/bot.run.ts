@@ -281,10 +281,17 @@ export async function runBot(
       await writtenStep;
       options.signal?.throwIfAborted();
       const step: NonNullable<PrepareStepResult<ToolSet>> = {};
-      // The provider's input count includes instructions and tool schemas the
-      // estimate cannot see; the estimate covers a provider that reports none.
+      // What the provider counted, and the estimate only for one that counts nothing —
+      // never the larger of the two. `sizeOf` reads a message as its JSON, so a picture
+      // in the conversation is counted as the length of its base64: a 1 MB screenshot
+      // measures about 350k tokens against a 400k budget where the provider charges one
+      // or two thousand, and a job compacted itself after two of them with its window
+      // almost empty. The provider's count also covers the instructions and tool schemas
+      // the estimate cannot see, so it is the better number wherever it exists. It is the
+      // step before this one, missing that step's tool result; `compactHeadroom` is the
+      // room that leaves.
       const measured = steps.at(-1)?.usage.inputTokens ?? 0;
-      const size = Math.max(measured, sizeOf(messages));
+      const size = measured || sizeOf(messages);
       sent = size;
       let next = messages;
       // The opening survives every compaction, so past it and one summary there is nothing to compact

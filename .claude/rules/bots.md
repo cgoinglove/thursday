@@ -83,7 +83,11 @@ paths:
   it is set (`routine.query`). Only the call holds
   the `routine` tool: what starts by itself is the user's to set up, never a bot's.
 - **A desk summarizes itself at its budget, or once when asked.** `bot.run` compacts when a
-  step's context passes the desk's budget. The user asking for it (the bar in a thread's
+  step's context passes the desk's budget, measured by what the provider counted and by
+  `sizeOf` only where it counts nothing — never the larger of the two. `sizeOf` reads a
+  message as its JSON, so a picture is counted as the length of its base64: one screenshot
+  measured around 350k tokens against a 400k budget where the provider charged a couple of
+  thousand, and a job summarised itself with its window almost empty. The user asking for it (the bar in a thread's
   header) is a one-shot the runner holds in memory and the run takes at its next step
   (`askCompact`, `compactNow`) — never a lowered budget, which would compact every step after.
   A transcript the provider refuses even to summarise is asked once more as its words alone
