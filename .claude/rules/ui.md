@@ -33,7 +33,7 @@ paths:
   Only what is not words — a dot, an icon, a bar, a `Skeleton` — pulses. It takes its colours from the theme —
   `tone="waiting"`, never a colour — and truncates in its own box, not a parent's.
 - **Colour is picked by meaning, and the theme picks only which step of it.** Every colour in the
-  app comes off the ladder, one of the three hues, or the effort steps in `app/globals.css`;
+  app comes off the ladder or one of the three hues in `app/globals.css`;
   nothing names a raw value at a call site. A floor is a floor: 4.5:1 for text, 3:1 for a shape or text at 24px and up, and a
   colour is measured before it goes in.
 - **Two status colors only, and both are warm.** `--destructive` is what failed or is about to be
@@ -58,8 +58,9 @@ paths:
   the handful that are not symmetric — a card, `muted`, `ring` — name a step per theme rather than
   a value.
 - One brand color, blue (`brand` in `app/globals.css`), on black and white, for what matters on a
-  screen (the user's pick): what it asks for (`Button variant="brand"`, round; the write line's
-  send) and Thursday herself (her caption dot). What wants the user is the warm's, not the
+  screen (the user's pick): what it asks for (`Button variant="brand"`, round), Thursday herself
+  (her caption dot), and the smoke on the button that opens the write line (`write-orb`). The
+  line's own send is black, like every other button that is only there to be pressed. What wants the user is the warm's, not the
   brand's. It stays rare so it keeps meaning that. What is on or picked is blue too (the user's pick) — a switch, a radio, a
   slider, a segment or a chip that fills, a picked card's border and its tick — and what is not
   is a hairline or muted words, so nothing picked has to be read twice; a label beside it is
@@ -74,6 +75,12 @@ paths:
   and is a white pill (`Segmented view`, a dialog's tabs), never blue. Buttons stay black (`primary`): blue says what is set, black what to press. A tick
   that reports (saved, done, a key set) is not a pick and stays black. Never a surface, and no
   status but that one nav dot — a green beside it would read as a second brand.
+- **How hard a model thinks is a value to pick, like any other.** One button group sets it
+  (`features/ai/components/effort-switch`, a `Segmented`): one button per step that model takes
+  and none beside them, so a model with two steps shows two. `auto` leads the group — it sets
+  nothing and leaves the model to decide, which is a different answer from `none` — and it is the
+  only button a model whose ladder nobody knows offers. The step that is set is the brand's, like
+  everything else that is picked; there is no hue of its own, no ramp and nothing that moves.
 - What she is doing on a call is one line under her face, each drawn for at least
   `CALL_LINE.dwellMs` (`useDwell`). **A line names what it touched, whether the tool wrote or
   read** (`tool-line` `fromArgs`): the note's path, the command — the model's own line for it
@@ -126,8 +133,11 @@ paths:
 - Every message draws as words — the user's, questions, answers and reports between participants,
   a bot's reply, the ending — never as the tool call that sent it. The open tab's bot's own work
   draws in full and none of it folds (the user's pick): its words as words and every tool call
-  a row, where a step shows what it touched (the site, the file, the pages a search read),
-  never the tool's name. Another bot's work between the messages it sends or receives (steps,
+  a row, where a step shows what it touched or made (the site, the file, the pages a search
+  read, the picture it drew — in the call and in what came back), never the tool's name. What
+  is still being made holds its box from the first step, a `Skeleton` where the picture will
+  be, so nothing moves when it lands. A tool the app itself ships draws as what it makes
+  rather than as the server it is reached through (`bot-tool` `studioCall`). Another bot's work between the messages it sends or receives (steps,
   stops, the words beside a call) folds into one row before its next message: a head that
   says what it did last in the bot's own words, how many steps and how long, over a strip of
   tiles — a picture it took, the site it opened, else a glyph for what it did — and the row
@@ -237,9 +247,17 @@ paths:
   left end asks for the write line instead. The card above the pill grows for what waits on the
   user — a question, a stop — and nothing else: a finished job's result is the left corner's
   card alone, so one notice never shows twice (the user's pick); the bot's own face turns a
-  somersault, which is the pill saying it without a second notice. While the write line is up the
-  card does not grow and the pill's right side says only what is running: the line stands where
-  the card would, and the track it leaves the pill is not wide enough for a sentence as well.
+  somersault, which is the pill saying it without a second notice. The write line takes nothing
+  from the pill — same faces, same words, same width, since the line stands in the row above and
+  the pill has the rail — except the card, which would grow across the line and so waits until it
+  closes. The "+" itself becomes the line meanwhile: smoke turning over in a glass
+  (`write-orb`), one hue with three tones of it, carried left to right at a pace that breathes
+  and never runs backwards, lifted a little off the pill. It keeps its box, so the pill is the
+  same pill. It is painted per pixel from value noise — no library, 0.52ms a frame at 28px,
+  which at 30fps is a sixtieth of one core — and it stands still for anyone who has asked for
+  less motion. The numbers in it were read off frames the user brought rather than guessed, and
+  the file says which. It wears the app's blue, walked from `--brand` at those distances, so the
+  one blue at that end of the screen is this and the line's send is black.
   What waits on the user is still there, as the dot on the face it always was. However many
   wait, the card keeps to about three rows and the rest are a scroll away under its count
   (the user's pick, over cutting the list at three).
@@ -285,17 +303,20 @@ paths:
   call is on is the very thing put away, and without the band a thread opened
   mid-conversation reads as the conversation having ended.
 - **The foot of the screen is a rail of fixtures, and one row above it for what opens**
-  (`thursday` `CallFoot`). On the rail, along the bottom and never moving: the finished cards
-  at the left end, the write line in the middle, the pill at the right. A line that comes up
-  takes the track its two neighbours leave rather than pushing either of them anywhere — the
-  pill is furniture and furniture does not move (the user's pick) — which is why it carries
-  less while the line is up. The cards stand on the rail and grow upward out of it, so however
-  many have piled up they take none of its height. The row above is for what opened rather
-  than sits there: a thread in the room, which takes the height the rail leaves and none of its
-  width. Nothing at the foot is kept clear of anything else by a breakpoint or a measured
-  value, which is why a pill of any length, a thread of any height and a line holding files
-  cannot land on one another. Anything new at the foot joins the rail or that row; it does not
-  position itself against the window.
+  (`thursday` `CallFoot`). On the rail, along the bottom and never moving: the finished cards at
+  the left end, the pill at the right. The pill takes the whole rail rather than a column of it,
+  so no column can cap it — furniture neither moves nor shrinks (the user's pick), and at sixteen
+  bots it is the same 467px with the write line up as without. The cards stand on the rail and
+  grow upward out of it, so however many have piled up they take none of its height. The row
+  above is for what opened rather than sits there: a thread in the room, which takes the height
+  the rail leaves and none of its width, or the write line, which stands in the middle. That
+  row's two ends take equal tracks, so its middle is the window's middle and the line stands
+  under her face whatever is on the rail beneath it. A window too narrow for the line and the
+  cards that grow up beside it takes the width off the ends, which truncate where they stand,
+  never off the line's place. Nothing at the foot is kept clear of anything else by a breakpoint
+  or a measured value, which is why a pill of any length, a thread of any height and a line
+  holding files cannot land on one another. Anything new at the foot joins the rail or that row;
+  it does not position itself against the window.
 
 # Taste
 

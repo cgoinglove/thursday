@@ -339,9 +339,10 @@ export function WriteLine({
           <div className="absolute inset-3 rounded-3xl border-[1.5px] border-dashed border-foreground/30" />
         </div>
       )}
-      {/* The middle of the rail: the line takes the track the cards and the pill leave,
-          so it never has to step aside for them and they never sit on it (thursday CallFoot). */}
-      <div className="col-start-2 row-start-2 flex min-w-0 justify-center">
+      {/* The row above the rail, in the middle of the window: the pill has the rail to
+          itself and the two ends of this row take equal tracks, so the line stands under
+          her face whatever the pill is saying (thursday CallFoot). */}
+      <div className="col-start-2 row-start-1 flex min-w-0 items-end justify-center">
         <div className="pointer-events-auto flex w-160 max-w-full animate-in flex-col gap-2 fade-in slide-in-from-bottom-2 duration-200">
           <div className="flex flex-col gap-2 rounded-[26px] bg-background p-2 shadow-[0_22px_44px_-20px_rgb(0_0_0/0.22)] ring-1 ring-border">
             {(given.files.length > 0 || dragging) && (
@@ -505,9 +506,12 @@ export function WriteLine({
                 aria-label="Send"
                 disabled={!ready}
                 className={cn(
-                  "grid size-9 shrink-0 place-items-center rounded-full outline-none transition-colors focus-visible:ring-3 focus-visible:ring-brand/30",
+                  "grid size-9 shrink-0 place-items-center rounded-full outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+                  // Black, because blue is what is set and black is what to press — and the
+                  // one blue at this end of the screen is the orb on the button that opened
+                  // this line (write-orb), which would be two of them.
                   ready
-                    ? "bg-brand text-brand-foreground hover:bg-brand/85"
+                    ? "bg-primary text-primary-foreground hover:bg-primary/85"
                     : "bg-muted text-muted-foreground/40",
                 )}
               >

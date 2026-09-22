@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
-import { useIsDark } from "@/hooks/use-theme";
+import { Segmented } from "@/components/ui/segmented";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
-import { cn } from "@/lib/utils";
 import type {
   Effort,
   GatewayModel,
@@ -12,20 +11,14 @@ import type {
 } from "../model.schema";
 import { effortsOf } from "../model.schema";
 
-/** The knob is the track's own height; the track takes whatever width the row leaves it. */
-const KNOB = 18;
-
-/** How long one body of light takes to cross the fill, and how many there are. */
-const BODIES = 7;
-
 /**
- * How hard a model is set to think: the steps that model takes, on one short switch that rides
- * beside the model it belongs to rather than taking a row of its own.
+ * How hard a model is set to think: the steps that model takes, as one button group beside the
+ * model it belongs to. A step is a value to pick, like every other `Segmented` here, so the one
+ * set is the brand's.
  *
- * `auto` is not one of them — it sets nothing and leaves the model to decide, which is a different
- * kind of answer from `none` ("do not think") — so it is a toggle beside the switch's name rather
- * than a rung, and under it the fill shows as a ghost, since the model may end up anywhere on it.
- * The track carries a dot at every step that model takes, so two steps and six read the same.
+ * `auto` is not one of the steps — it sets nothing and leaves the model to decide, which is a
+ * different kind of answer from `none` ("do not think") — so it leads the group rather than
+ * sitting in the ladder's order.
  *
  * A model whose ladder nobody knows offers `auto` alone: a step a provider hands straight to its
  * API fails the whole call, so it is never offered on a guess (ai/model runEffort drops it too).
@@ -37,13 +30,11 @@ export function EffortSwitch({
   model,
   value,
   onChange,
-  className,
 }: {
   provider: TextModelProviderId | null;
   model: string;
   value: Effort | null;
   onChange: (next: Effort | null) => void;
-  className?: string;
 }) {
   // The gateway is the one provider that answers at run time; the rest carry their ladder on the shelf
   const gateway = provider === "vercel-ai-gateway";
@@ -54,310 +45,57 @@ export function EffortSwitch({
   const ladder =
     chosen && provider ? effortsOf(provider, model, catalog ?? []) : null;
 
-  // A step this model does not take is not a step: the run would drop it and the knob has nowhere
-  // to stand, so the value goes rather than sitting behind an Auto nobody can see. Only where the
+  // A step this model does not take is not a step: the run would drop it and no button stands for
+  // it, so the value goes rather than sitting behind an Auto nobody can see. Only where the
   // ladder is known — unknown is "nobody has checked", which is not a reason to throw a value away.
   useEffect(() => {
     if (value && ladder && !ladder.includes(value)) onChange(null);
   }, [value, ladder, onChange]);
 
-  // The fill is painted on a canvas, so the track's width is measured rather than assumed
-  const track = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
+  // What the last press asked for, until the screen's own value catches up. A screen that keeps
+  // this on the server (Settings > Models) hands back the stored value, so between the press and
+  // the write landing the group would draw the step before it — one button, then the other.
+  // A write that fails leaves the press showing until the value moves; the failure toasts.
+  const [pressed, setPressed] = useState<{ step: Effort | null } | null>(null);
   useEffect(() => {
-    const node = track.current;
-    if (!node) return;
-    const watch = new ResizeObserver(([entry]) =>
-      setWidth(Math.round(entry.contentRect.width)),
-    );
-    watch.observe(node);
-    return () => watch.disconnect();
-  }, []);
+    setPressed((last) => (last && last.step === value ? null : last));
+  }, [value]);
+  const shown = pressed ? pressed.step : value;
 
   const stops = ladder ?? [];
-  const auto = !value || !stops.includes(value);
-  const at = auto ? 0 : stops.indexOf(value as Effort);
-  const last = Math.max(0, stops.length - 1);
-  const part = last ? at / last : 0;
-  const step = auto ? null : stops[at];
-  /** `none` is the bottom of the ladder, not a quantity: it paints nothing. */
-  const lit = step && step !== "none" ? step : null;
+  const auto = !shown || !stops.includes(shown);
 
   return (
-    // The shape of every slider row in this app (thursday-setting Row + Slider): the screen
-    // writes the label in its own way, then the track takes the width, then the value sits at
-    // the right end in a column of its own.
-    <div className={cn("flex min-w-0 flex-1 items-center gap-2.5", className)}>
-      {/* Auto sets nothing, so it is not a rung — and it presses rather than slides: a second
-            thing shaped like the track reads as two sliders side by side (the user's pick). */}
-      <button
-        type="button"
-        aria-pressed={auto}
-        disabled={!stops.length}
-        title={chosen ? ladderNote(ladder) : "Pick a model first"}
-        onClick={() => onChange(auto ? (stops[0] ?? null) : null)}
-        className={cn(
-          // A chip in both states, since a word with no edge reads as a second label rather
-          // than something to press; only the fill and the ink say which way it is.
-          "h-[18px] shrink-0 rounded-full px-2 text-[10.5px] ring-1 ring-border ring-inset transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50",
-          auto
-            ? "bg-muted font-medium text-foreground"
-            : "text-muted-foreground hover:text-foreground",
-        )}
-      >
-        Auto
-      </button>
-
-      <div
-        ref={track}
-        className="relative min-w-0 flex-1"
-        style={{ height: KNOB }}
-      >
-        <div className="absolute inset-0 rounded-full bg-muted ring-1 ring-border ring-inset" />
-        {(lit || auto) && stops.length > 0 && width > 0 && (
-          <Fill
-            step={lit}
-            width={auto ? width : Math.round(KNOB + (width - KNOB) * part)}
-          />
-        )}
-        {/* A dot for every step this model takes: where the knob can stand, and how many there
-            are. Over the fill, which is painted, so the ones already climbed still show. */}
-        {stops.map((one, index) => (
-          <span
-            key={one}
-            className={cn(
-              "pointer-events-none absolute top-1/2 z-[1] -mt-px -ml-px size-0.5 rounded-full",
-              !auto && index <= at ? "bg-background/80" : "bg-foreground/20",
-            )}
-            style={{
-              left: `calc(${KNOB / 2}px + (100% - ${KNOB}px) * ${last ? index / last : 0})`,
-            }}
-          />
-        ))}
-        <span
-          // The knob is the track's own height: anything smaller lets the fill show around it
-          className="pointer-events-none absolute top-0 z-[2] rounded-full bg-background shadow-[0_1px_3px_rgb(0_0_0/20%)] ring-1 ring-border transition-[left] duration-300 ease-out dark:bg-foreground"
-          style={{
-            width: KNOB,
-            height: KNOB,
-            left: `calc((100% - ${KNOB}px) * ${auto ? 0 : part})`,
-          }}
-        />
-        <input
-          type="range"
-          min={0}
-          max={last}
-          step={1}
-          value={at}
-          disabled={!stops.length}
-          aria-label="Thinking effort"
-          aria-valuetext={EFFORT_LABEL[step ?? "auto"]}
-          onChange={(event) => onChange(stops[Number(event.target.value)])}
-          className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0 disabled:cursor-default"
-        />
-      </div>
-
-      {/* Where every other slider here keeps its value: the right end, in a column of its own, so
-          the track does not move as the word under the knob changes. Under Auto the button by the
-          track has said it already. */}
-      <span
-        className="w-[58px] shrink-0 text-right font-mono text-[10.5px]"
-        // The name wears its own step, at full strength: the fill's own colour is lifted toward
-        // the paper at the bottom of the ladder and would not clear 4.5:1 as words.
-        style={{ color: auto ? undefined : nameInk(step) }}
-      >
-        {auto ? "" : EFFORT_LABEL[step ?? "auto"]}
-      </span>
+    // The group is as wide as its steps rather than stretched to the column, since a model whose
+    // ladder nobody knows offers `auto` alone and a lone stretched button reads as a bar. The note
+    // sits on the group rather than on `auto`, for the same reason: it is the whole row's.
+    <div
+      className="min-w-0"
+      title={chosen ? ladderNote(ladder) : "Pick a model first"}
+    >
+      <Segmented
+        aria-label="Thinking effort"
+        className="max-w-full flex-wrap"
+        options={[
+          { value: "auto", label: "auto", title: "The model's own default" },
+          ...stops.map((step) => ({
+            value: step,
+            label: step,
+            title: `Thinking effort ${step}`,
+          })),
+        ]}
+        value={auto ? "auto" : (shown as Effort)}
+        onChange={(next) => {
+          const step = next === "auto" ? null : next;
+          setPressed({ step });
+          onChange(step);
+        }}
+      />
     </div>
   );
 }
 
-/**
- * The filled part of the track, painted rather than tinted: bodies of light drift inside it at
- * their own speeds under one gradient, blurred so none of them shows an edge, with a highlight
- * crossing now and then. It is the one place in the app that draws, because a colour that lives
- * cannot be had from a gradient sliding sideways (the user's pick).
- *
- * The colours come from the tokens the rest of the ladder is built from, read off the element so
- * a theme change re-reads them: the brand at the bottom, indigo in the middle, and one crown the
- * top two steps alone reach. Reduced motion gets the same picture standing still.
- */
-function Fill({ step, width }: { step: Effort | null; width: number }) {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  // Re-reads the tokens: they are written per theme, and the canvas holds pixels, not variables
-  const dark = useIsDark();
-
-  useEffect(() => {
-    const node = canvas.current;
-    const context = node?.getContext("2d");
-    if (!node || !context) return;
-
-    const ratio = Math.min(2, window.devicePixelRatio || 1);
-    node.width = Math.round(width * ratio);
-    node.height = Math.round(KNOB * ratio);
-    context.setTransform(ratio, 0, 0, ratio, 0, 0);
-
-    const stops = fillStops(node, step);
-    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    const draw = (seconds: number) => {
-      context.clearRect(0, 0, width, KNOB);
-      const base = context.createLinearGradient(0, 0, width, 0);
-      // The stops are `r,g,b` triples, which is what the bodies of light need as `rgba(…)`
-      stops.forEach((colour, index) =>
-        base.addColorStop(index / (stops.length - 1), `rgb(${colour})`),
-      );
-      context.fillStyle = base;
-      context.fillRect(0, 0, width, KNOB);
-
-      context.save();
-      context.globalCompositeOperation = "lighter";
-      // Blurred first: a body of light has no edge, and an unblurred one shows its circle
-      context.filter = `blur(${Math.max(3, KNOB * 0.42)}px)`;
-      for (let index = 0; index < BODIES; index += 1) {
-        const speed = 0.1 + index * 0.045;
-        const phase = index * 1.7;
-        const x = width * (0.5 + 0.78 * Math.sin(seconds * speed + phase));
-        const y =
-          KNOB * (0.5 + 0.7 * Math.sin(seconds * speed * 1.7 + phase * 1.4));
-        const radius =
-          KNOB * (0.85 + 0.8 * (0.5 + 0.5 * Math.sin(seconds * 0.23 + index)));
-        const last = index === BODIES - 1;
-        const tone = last ? "255,255,255" : stops[index % stops.length];
-        const body = context.createRadialGradient(x, y, 0, x, y, radius);
-        body.addColorStop(0, rgba(tone, last ? 0.26 : 0.5));
-        body.addColorStop(0.6, rgba(tone, last ? 0.08 : 0.16));
-        body.addColorStop(1, rgba(tone, 0));
-        context.fillStyle = body;
-        context.fillRect(-KNOB, -KNOB, width + KNOB * 2, KNOB * 3);
-      }
-      context.filter = "none";
-      context.restore();
-
-      const sweep = ((seconds * 0.28) % 1.6) * (width + 120) - 60;
-      const shine = context.createLinearGradient(sweep - 46, 0, sweep + 46, 0);
-      shine.addColorStop(0, "rgba(255,255,255,0)");
-      shine.addColorStop(0.5, "rgba(255,255,255,0.16)");
-      shine.addColorStop(1, "rgba(255,255,255,0)");
-      context.fillStyle = shine;
-      context.fillRect(0, 0, width, KNOB);
-
-      // The light sits on the top of the track, as it would on a real one
-      const lid = context.createLinearGradient(0, 0, 0, KNOB);
-      lid.addColorStop(0, "rgba(255,255,255,0.22)");
-      lid.addColorStop(0.5, "rgba(255,255,255,0)");
-      context.fillStyle = lid;
-      context.fillRect(0, 0, width, KNOB * 0.6);
-    };
-
-    if (still) {
-      draw(0);
-      return;
-    }
-    let frame = 0;
-    const started = performance.now();
-    const tick = () => {
-      frame = requestAnimationFrame(tick);
-      draw((performance.now() - started) / 1000);
-    };
-    tick();
-    return () => cancelAnimationFrame(frame);
-  }, [step, width, dark]);
-
-  return (
-    <canvas
-      ref={canvas}
-      aria-hidden
-      className={cn(
-        "pointer-events-none absolute top-0 left-0 rounded-full transition-[width] duration-300 ease-out",
-        !step && "opacity-30",
-      )}
-      style={{ width, height: KNOB }}
-    />
-  );
-}
-
-const rgba = (tone: string, alpha: number) => `rgba(${tone},${alpha})`;
-
-/**
- * What one step's fill is made of, as `r,g,b` triples: the bottom of the ladder stands back from
- * the paper so there is room to climb, the middle turns into indigo, and the top two steps alone
- * reach the crown — so full power looks like full power. Every colour is resolved off the element
- * rather than typed here, so the tokens stay the one place the ladder is written.
- */
-function fillStops(node: HTMLElement, step: Effort | null): string[] {
-  const read = (token: string) => resolve(node, token);
-  const brand = read("--brand");
-  const indigo = read("--effort-end");
-  const crown = read("--effort-crown");
-  const paper = read("--background");
-  const lift = (part: number) => mix(brand, paper, part);
-  const deep = (part: number) => mix(brand, indigo, part);
-  switch (step) {
-    case "minimal":
-      return [lift(0.42), lift(0.26), brand];
-    case "low":
-      return [lift(0.28), lift(0.12), brand];
-    case "high":
-      return [brand, deep(0.55), indigo, mix(indigo, crown, 0.65)];
-    case "xhigh":
-      return [brand, indigo, mix(indigo, crown, 0.5), crown];
-    default:
-      // `medium`, and the ghost the ladder shows under Auto
-      return [lift(0.12), brand, deep(0.38)];
-  }
-}
-
-/** A custom property as `r,g,b`: computed styles hand custom properties back unresolved, so the
- *  value is put on a colour the browser does resolve. */
-function resolve(node: HTMLElement, token: string): string {
-  const probe = document.createElement("span");
-  probe.style.color = `var(${token})`;
-  probe.style.display = "none";
-  node.appendChild(probe);
-  const colour = getComputedStyle(probe).color;
-  probe.remove();
-  const parts = colour.match(/\d+(\.\d+)?/g);
-  return parts
-    ? parts
-        .slice(0, 3)
-        .map((channel) => Math.round(Number(channel)))
-        .join(",")
-    : "0,0,0";
-}
-
-const mix = (from: string, to: string, part: number): string =>
-  from
-    .split(",")
-    .map((channel, index) =>
-      Math.round(
-        Number(channel) * (1 - part) + Number(to.split(",")[index]) * part,
-      ),
-    )
-    .join(",");
-
-/**
- * What colour a step's name is: the step's own, except at the bottom of the ladder, where the
- * fill stands back from the paper and the word would go with it.
- */
-function nameInk(step: Effort | null): string {
-  if (!step || step === "none") return "var(--muted-foreground)";
-  if (step === "minimal" || step === "low") return "var(--brand)";
-  return `var(--effort-${step})`;
-}
-
-/** Auto is not a step of the ladder: it sets nothing and the model runs on its own default. */
-const EFFORT_LABEL: Record<Effort | "auto", string> = {
-  auto: "Auto",
-  none: "None",
-  minimal: "Minimal",
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  xhigh: "Extra high",
-};
-
-/** What the toggle's tooltip says: how many steps there are, or why there are none. */
+/** What the group's tooltip says: how many steps there are, or why there are none. */
 function ladderNote(ladder: readonly Effort[] | null): string {
   if (ladder === null) return "This model's steps are unknown";
   if (ladder.length === 0) return "This model has no effort to set";

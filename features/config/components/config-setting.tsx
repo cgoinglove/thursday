@@ -587,14 +587,12 @@ function ChoiceRow({
   const usable = choices.filter((choice) => isSet(choice.needs));
   // A text model is what a bot thinks with, so it wears the bots mark; Cpu here was the memory glyph (memory-mark).
   const Mark = entry.kind ? KIND_MARKS[entry.kind] : BotsMark;
+  // The row redraws with the pick — the model, its effort, the auto/off badge — so nothing
+  // is said about it; only a failure is (rules/ui notifications).
   const [save] = useServerAction(setConfigAction, {
-    okMessage: `${entry.label} saved`,
     onOk: () => revalidate(queryKey.config),
   });
   const [clear] = useServerAction(removeConfigAction, {
-    okMessage: entry.kind
-      ? `${entry.label} switched off`
-      : `${entry.label} back to automatic`,
     onOk: () => revalidate(queryKey.config),
   });
 
@@ -645,11 +643,11 @@ function ChoiceRow({
               }
             />
           </div>
-          {/* Its own line under the model, the shape every slider here has: what it is, the
-              track, the value at the right end (thursday-setting Row + Slider). */}
+          {/* Its own line under the model: what it is, then the steps. The label sits at the
+              top, since a long ladder wraps to a second row of buttons. */}
           {effort && ref && (
-            <div className="flex items-center gap-3 pt-0.5">
-              <span className="w-12 shrink-0 font-mono text-[11px] text-muted-foreground">
+            <div className="flex items-start gap-3 pt-0.5">
+              <span className="w-12 shrink-0 pt-1.5 font-mono text-[11px] text-muted-foreground">
                 effort
               </span>
               <EffortSwitch

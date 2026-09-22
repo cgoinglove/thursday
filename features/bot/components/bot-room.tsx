@@ -283,18 +283,17 @@ export const BotRoom = memo(function BotRoom() {
 
   return (
     // Two places, one for each state (thursday CallFoot). Folded, the pill is a fixture at
-    // the right end of the rail and stays there whatever else is on screen. Open, the room
-    // is not a fixture: it takes the row above the rail, all the height the rail leaves and
-    // none of its width, and is read there files and all, over the right of the call (which
-    // does not move for it).
+    // the right end of the rail: it spans the rail rather than sitting in a column of it, so
+    // nothing the rows above do can cap its width and it says the same thing with the write
+    // line up as without. Open, the room is not a fixture: it takes the row above the rail,
+    // all the height the rail leaves and none of its width, and is read there files and all,
+    // over the right of the call (which does not move for it).
     <div
       className={cn(
         "pointer-events-none flex min-h-0 items-end justify-end",
         // stretched to the row, so the room's own `max-h-full` has a height to be full of:
         // left to its content, a long list grows straight past the top of the window
-        open
-          ? "col-span-3 row-start-1 self-stretch"
-          : "col-start-3 row-start-2",
+        open ? "col-span-3 row-start-1 self-stretch" : "col-span-3 row-start-2",
       )}
     >
       {open ? (

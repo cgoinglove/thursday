@@ -31,6 +31,7 @@ import {
   type CrewPlaying,
   motionOf,
 } from "@/features/bot/components/crew-motion";
+import { WriteOrb } from "@/features/bot/components/write-orb";
 import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
 import { cn, plainText, WAITING_INK } from "@/lib/utils";
 import { MARK_PALETTE, MARK_SHAPES } from "../mark.const";
@@ -499,23 +500,18 @@ export function crewOf(
  * corner's card. With nothing going on and nothing grown, the pill offers a
  * hand; with a row grown and nothing going on, it is quiet.
  *
- * While the write line stands beside it the pill says one thing or none: what is
- * running. A hand is already offered, and what waits on the user is asked for in
- * its own card, so the pill keeps to the width the line leaves it.
+ * The write line takes nothing away from this: the line has a track of its own
+ * and stands in it whatever the pill is saying (thursday CallFoot).
  */
 function restingState({
   busy,
   pending,
   grown,
-  writing,
 }: {
   busy: number;
   pending: number;
   grown: boolean;
-  writing?: boolean;
 }): { text: string; shine: boolean; spin?: boolean } | null {
-  if (writing)
-    return busy > 0 ? { text: "working", shine: true, spin: true } : null;
   if (pending > 0)
     return {
       text: pending === 1 ? "waiting on you" : `${pending} waiting on you`,
@@ -569,8 +565,10 @@ export function Chip({
   onPick: (id: string) => void;
   onOpen: () => void;
 }) {
-  // The write line stands where the card would grow: while it is up the pill stays a pill,
-  // and its own words say what waits
+  // A grown card is the room's width, and with the line up the rail leaves the pill half
+  // of what is beside it (thursday CallFoot): the card would open narrower than it closes.
+  // It stays a pill instead — its words are untouched, and the dot on a face still says
+  // who is waiting.
   const lineUp = useWriteLineUp();
   const grown = rows.length > 0 && !lineUp;
 
@@ -632,15 +630,9 @@ export function Chip({
         label={count ? `Threads (${count})` : "Bots"}
         onClick={onOpen}
         playing={playing}
-        side={
-          <RoomState
-            busy={busy}
-            pending={pending}
-            grown={grown}
-            writing={lineUp}
-          />
-        }
+        side={<RoomState busy={busy} pending={pending} grown={grown} />}
         onWrite={writeLine.open}
+        writing={lineUp}
       />
     </div>
   );
@@ -664,6 +656,7 @@ export function CrewRow({
   label,
   onClick,
   onWrite,
+  writing,
 }: {
   crew: CrewFace[];
   more: number;
@@ -676,6 +669,8 @@ export function CrewRow({
   onClick: () => void;
   /** Opens the write line: the pill's own "+", at its left end rather than loose beside it. */
   onWrite: () => void;
+  /** The line that button opens is up. */
+  writing?: boolean;
 }) {
   return (
     <div className="flex shrink-0 items-center gap-2 py-1.5 pr-3 pl-1.5">
@@ -687,11 +682,21 @@ export function CrewRow({
               type="button"
               onClick={onWrite}
               aria-label="Write to Thursday or a bot"
-              className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-foreground outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
+              aria-pressed={writing}
+              className={cn(
+                "relative grid size-7 shrink-0 place-items-center overflow-hidden rounded-full outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+                // While the line it opens stands above, the button is the line: smoke turning
+                // over in the glass (write-orb), lifted a little off the pill. It keeps its box
+                // either way, so the pill is the same pill, and pressing it again puts the
+                // caret back.
+                writing
+                  ? "shadow-[0_6px_14px_-7px_color-mix(in_oklab,var(--brand)_60%,transparent)]"
+                  : "bg-muted text-foreground hover:bg-accent",
+              )}
             />
           }
         >
-          <Plus className="size-3.5" />
+          {writing ? <WriteOrb /> : <Plus className="size-3.5" />}
         </TooltipTrigger>
         <TooltipContent>
           Write to Thursday or a bot
@@ -724,13 +729,13 @@ export function RoomState(props: {
   busy: number;
   pending: number;
   grown: boolean;
-  /** The write line is up beside the pill. */
-  writing?: boolean;
 }) {
   const state = restingState(props);
   if (!state) return null;
   return (
-    <span className="ml-auto flex h-7 shrink-0 items-center gap-1.5">
+    // Shrinks before the faces do: a crowded row has no space for words, and what
+    // the words say is already on the faces (a dot, a word beside the one moving).
+    <span className="ml-auto flex h-7 min-w-0 shrink items-center gap-1.5">
       {state.shine ? (
         <ShinyText
           text={state.text}

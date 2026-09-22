@@ -290,8 +290,8 @@ function AskForKey({
   onSaved: () => void;
 }) {
   const [value, setValue] = useState("");
+  // The key row gives way to the provider's models the moment it lands, in this same column
   const [save, saving] = useServerAction(setConfigAction, {
-    okMessage: `${provider.label} key saved`,
     onOk: () => {
       revalidate(queryKey.llmModel);
       revalidate(queryKey.config);

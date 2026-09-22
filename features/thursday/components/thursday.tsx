@@ -70,6 +70,7 @@ import {
   type CallEnd,
   useThursday,
 } from "@/features/thursday/use-thursday";
+import { WorkChip } from "@/features/thursday/work-chip";
 import { ArtifactView } from "@/features/workspace/components/artifact-view";
 import { useHotkeyLabel } from "@/hooks/use-hotkey";
 import { RING_CYCLE_MS } from "@/lib/live/ring";
@@ -373,17 +374,22 @@ function CallScreen({
 }
 
 /**
- * The foot of the call screen. Its bottom row is a rail of fixtures that never move:
- * the finished cards on the left, the write line in the middle, the pill on the right.
- * A line that comes up takes the track its two neighbours leave rather than pushing
- * either of them anywhere, so a pill of any length and a line holding files cannot land
- * on one another. The row above is for what opens rather than sits there — a thread in
- * the room — which takes the height the rail leaves and none of its width. Her face and
- * the captions above are untouched by all of it.
+ * The foot of the call screen: two rows, and nothing in either moves for the other.
+ *
+ * The bottom row is the rail of fixtures — the finished cards at its left end, the pill
+ * at its right. The pill takes the whole rail rather than a column of it, so no column
+ * can ever cap it: it is as wide as what it is saying, with the line up or down.
+ *
+ * The row above is for what opens rather than sits there: a thread in the room, or the
+ * write line. The columns are only theirs, and the two ends take equal tracks, so the
+ * middle is the window's middle and the line stands under her face whatever is on the
+ * rail below it. A window too narrow for the line and the cards takes the width off
+ * both ends, never off the line's place. Her face and the captions above are untouched
+ * by all of it.
  */
 function CallFoot({ children }: { children: ReactNode }) {
   return (
-    <div className="pointer-events-none absolute inset-0 z-10 grid grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[minmax(0,1fr)_auto] items-end gap-x-4 gap-y-2 p-5">
+    <div className="pointer-events-none absolute inset-0 z-10 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto] items-end gap-x-4 gap-y-2 p-5">
       {children}
     </div>
   );
@@ -963,23 +969,27 @@ function ActivityRow({
 
   const hearing = listening && !tool;
   return (
-    <div className="grid h-7 max-w-full items-center justify-items-center">
-      {shown && (
-        <Fade at="col-start-1 row-start-1 max-w-full" shown={tool !== null}>
-          <Activity tool={shown} />
+    <div className="flex h-7 max-w-full items-center justify-center gap-2">
+      <div className="grid min-w-0 items-center justify-items-center">
+        {shown && (
+          <Fade at="col-start-1 row-start-1 max-w-full" shown={tool !== null}>
+            <Activity tool={shown} />
+          </Fade>
+        )}
+        {thought && (
+          <Fade
+            at="col-start-1 row-start-1"
+            shown={thinkingSince !== null && !toolUp}
+          >
+            <Thinking title={title} />
+          </Fade>
+        )}
+        <Fade at="col-start-1 row-start-1" shown={hearing}>
+          <Ear live={hearing} getMicSpectrum={getMicSpectrum} />
         </Fade>
-      )}
-      {thought && (
-        <Fade
-          at="col-start-1 row-start-1"
-          shown={thinkingSince !== null && !toolUp}
-        >
-          <Thinking title={title} />
-        </Fade>
-      )}
-      <Fade at="col-start-1 row-start-1" shown={hearing}>
-        <Ear live={hearing} getMicSpectrum={getMicSpectrum} />
-      </Fade>
+      </div>
+      {/* Off by default; the whole feature is features/thursday/work-chip */}
+      <WorkChip shown={thinkingSince !== null} />
     </div>
   );
 }

@@ -103,6 +103,8 @@ const RECEDED_INK = 0.56;
 const HOVER_INK = 0.9;
 /** The words are 17px on 1.675; the level turn's first line sits here against the face's middle. */
 const LINE = 17 * 1.675;
+/** The level turn scrolls in place past this many of its own lines, instead of growing forever. */
+const LEVEL_MAX_LINES = 10;
 const LIFT = -40;
 /** Between her level words and what stands under them. */
 const UNDER_GAP = 8;
@@ -221,13 +223,21 @@ function SideColumn({
     return () => watch.current?.unobserve(node);
   }, []);
 
-  if (!turns.length && !under) return null;
   const latest = turns.length - 1;
   // One past the latest is a level line with no words on it yet: what stands under takes it
   const at =
     pinned === null && (ahead || !turns.length)
       ? turns.length
       : Math.min(pinned ?? latest, latest);
+  // The level turn scrolls in place past LEVEL_MAX_LINES; keep it pinned to the
+  // newest words as they stream in, the way a chat log stays at its foot.
+  const scrollRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (node) node.scrollTop = node.scrollHeight;
+  }, [turns[at]?.text]);
+
+  if (!turns.length && !under) return null;
   const near = (k: number) =>
     PERSPECTIVE / (PERSPECTIVE + DEPTH * Math.abs(k - at));
   const size = (k: number) => (k === at ? 1 : SMALL);
@@ -298,11 +308,14 @@ function SideColumn({
             )}
           >
             <p
+              ref={level ? scrollRef : undefined}
               className={cn(
                 "break-keep text-pretty opacity-(--ink) transition-opacity duration-[520ms] motion-reduce:transition-none",
                 !level && "line-clamp-4",
+                level && "overflow-y-auto overscroll-contain scrollbar-none",
                 pickable && "group-hover/turn:opacity-(--lift)",
               )}
+              style={level ? { maxHeight: LINE * LEVEL_MAX_LINES } : undefined}
             >
               {level && (
                 <span

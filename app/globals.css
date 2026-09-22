@@ -166,8 +166,6 @@
   --brand: #0169cc; /* blue-500 */
   --brand-foreground: #ffffff;
   --destructive: #dc2626; /* Tailwind red-600 */
-  --effort-end: #4f46e5; /* indigo-600 */
-  --effort-crown: #ec4899; /* pink-500 */
   --waiting: #c43d18; /* ember: red-600 and orange-700, halfway */
 }
 
@@ -185,28 +183,7 @@
   --brand: #0a84ff; /* the iOS dark system blue: the vivid end that still clears 4.5:1 on this paper */
   --brand-foreground: #ffffff;
   --destructive: #ef4444; /* Tailwind red-500 */
-  --effort-end: #a5b4fc; /* indigo-300 */
-  --effort-crown: #f9a8d4; /* pink-300 */
   --waiting: #ff7a55; /* the same ember, at the step this paper needs */
-}
-
-/*
- * How hard a model is set to think, as a ladder rather than a colour (the user's pick): the brand
- * standing well back from the paper at the bottom, so there is room to climb, indigo in the
- * middle, and a crown the top two steps alone reach, so full power looks like it. A screen names a
- * step, never a value, and the steps derive from the ends, so both themes are written once.
- * Measured against the paper each sits on: every fill clears 3:1 and every name 4.5:1. These are
- * what a step's row on the switch is tinted with; the switch's own fill is painted from the same
- * three ends (features/ai/components/effort-switch).
- */
-:root,
-.dark,
-.inverse {
-  --effort-minimal: color-mix(in srgb, var(--brand) 67%, var(--background));
-  --effort-low: color-mix(in srgb, var(--brand) 80%, var(--background));
-  --effort-medium: color-mix(in srgb, var(--effort-end) 22%, var(--brand));
-  --effort-high: color-mix(in srgb, var(--effort-end) 58%, var(--brand));
-  --effort-xhigh: var(--effort-end);
 }
 
 /*
@@ -603,8 +580,7 @@
 
 /* Every one of them is a courtesy, so a machine asked to hold still keeps the faces where they are. */
 @media (prefers-reduced-motion: reduce) {
-  [data-crew-motion],
-  [data-effort-fill] {
+  [data-crew-motion] {
     animation: none !important;
   }
 }
