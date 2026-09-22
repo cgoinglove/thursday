@@ -165,7 +165,7 @@
 
   --brand: #0169cc; /* blue-500 */
   --brand-foreground: #ffffff;
-  --destructive: #922e13; /* red-700 and orange-700, halfway */
+  --destructive: #dc2626; /* Tailwind red-600 */
   --effort-end: #4f46e5; /* indigo-600 */
   --effort-crown: #ec4899; /* pink-500 */
   --waiting: #c43d18; /* ember: red-600 and orange-700, halfway */
@@ -184,7 +184,7 @@
 
   --brand: #0a84ff; /* the iOS dark system blue: the vivid end that still clears 4.5:1 on this paper */
   --brand-foreground: #ffffff;
-  --destructive: #ef4c26; /* red-400 and orange-500, halfway */
+  --destructive: #ef4444; /* Tailwind red-500 */
   --effort-end: #a5b4fc; /* indigo-300 */
   --effort-crown: #f9a8d4; /* pink-300 */
   --waiting: #ff7a55; /* the same ember, at the step this paper needs */

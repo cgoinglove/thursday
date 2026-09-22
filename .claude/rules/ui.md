@@ -37,9 +37,11 @@ paths:
   nothing names a raw value at a call site. A floor is a floor: 4.5:1 for text, 3:1 for a shape or text at 24px and up, and a
   colour is measured before it goes in.
 - **Two status colors only, and both are warm.** `--destructive` is what failed or is about to be
-  destroyed — a red-orange rather than a red, since beside this blue a true red reads as an alarm
-  and almost nothing here is one. It is rare on purpose: an error's own words, a connector that
-  will not connect, a key a provider turned away, and the button that deletes. `--waiting`
+  destroyed — Tailwind's red-600 in the light theme and red-500 in the dark, the plain red people
+  already read as an error rather than the red-orange halfway tone this app carried before, which
+  measured too dark and muddy beside the brand blue. It stays apart from `--waiting` by hue alone
+  (0° against the ember's 13°), not by avoiding red. It is rare on purpose: an error's own words, a
+  connector that will not connect, a key a provider turned away, and the button that deletes. `--waiting`
   (`WAITING_INK` in `lib/utils`) is everything that wants the user — a question, a stopped job, an
   answer not yet opened, a section worth setting up — an ember, brighter than what failed and one
   step deeper in the light theme than the amber this app carried before, which measured 3.19:1 on
