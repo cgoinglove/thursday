@@ -134,7 +134,8 @@ export function BotSetting() {
    * One roll for this screen, in BOT_SEEDS order. The faces on the invite, in the
    * picker and on the bot that gets created are then the same, because
    * `createSeedBotsAction` takes it (bot.seed rollSeedIcons rolls per install so
-   * no two rosters look alike; a seed itself carries none).
+   * no two rosters look alike; a seed itself carries none, bar Jarvis, which keeps
+   * the fallback's face).
    */
   const [faces] = useState(rollSeedIcons);
   const [draft, setDraft] = useState<DraftCreate | null>(null);

@@ -22,7 +22,7 @@ import {
   startThread,
 } from "./bot.runner";
 import { BotFormSchema, botIconSchema } from "./bot.schema";
-import { findBotSeed, rollSeedIcons } from "./bot.seed";
+import { BOT_SEEDS, findBotSeed, rollSeedIcons } from "./bot.seed";
 import { markSeen, resolveThread } from "./thread.query";
 
 export const createBotAction = serverAction(async (input: unknown) => {
@@ -57,18 +57,20 @@ export const createSeedBotsAction = serverAction(async (picks: unknown) => {
   const wanted = SeedPickSchema.array().max(20).parse(picks);
 
   // Seeds carry no face of their own (bot.seed); one roll covers the whole batch
-  // so bots made together never come out looking alike
+  // so bots made together never come out looking alike. Read by the seed's own
+  // place in the list rather than the caller's order, because one face in it is
+  // fixed (Jarvis) and a shorter pick list would hand it to another bot
   const rolled = rollSeedIcons();
 
   const created: string[] = [];
-  for (const [at, pick] of wanted.entries()) {
+  for (const pick of wanted) {
     const seed = findBotSeed(pick.name);
     if (!seed) continue;
     const bot = await createBot({
       name: seed.name,
       description: seed.description,
       systemPrompt: seed.systemPrompt,
-      icon: pick.icon ?? rolled[at % rolled.length],
+      icon: pick.icon ?? rolled[BOT_SEEDS.indexOf(seed)],
       provider: pick.provider,
       model: pick.model,
       toolIds: [],

@@ -1,6 +1,11 @@
 import { BROWSER_SKILL } from "@/config";
 import type { MediaKind } from "@/features/ai/model.schema";
-import { type BotIcon, DEFAULT_BOT, randomBotIcons } from "./bot.schema";
+import {
+  type BotIcon,
+  DEFAULT_BOT,
+  DEFAULT_BOT_ICON,
+  randomBotIcons,
+} from "./bot.schema";
 
 /**
  * Bots offered to a fresh install. Jarvis shares its name with the row-less
@@ -8,7 +13,9 @@ import { type BotIcon, DEFAULT_BOT, randomBotIcons } from "./bot.schema";
  * editable row. Names are one word with no punctuation because they travel through
  * a voice transcript into `thread_start`. A seed draws no face of its own: shape and
  * colour alike are rolled per install (`rollSeedIcons`), so no two rosters look
- * alike. No seed names a model; the run resolves the app default.
+ * alike. Jarvis is the one exception, because it is already on screen before it is
+ * a row: it wears the fallback's own face (bot.schema DEFAULT_BOT_ICON). No seed
+ * names a model; the run resolves the app default.
  *
  * A prompt is the bot's role: the last chapter of the base prompt (ai/prompts/bot.prompt),
  * which already says the bot's name, lists the other bots as they are now, covers
@@ -127,6 +134,12 @@ export const findBotSeed = (name: string) =>
 /**
  * One face per seed, in `BOT_SEEDS` order. Rolled by the caller and carried from
  * there — the intro shows the face it is about to create, and the roll happens on
- * the server so hydration does not change it (app/page).
+ * the server so hydration does not change it (app/page). Jarvis keeps the face the
+ * fallback already wears, so installing it changes nothing on screen.
  */
-export const rollSeedIcons = (): BotIcon[] => randomBotIcons(BOT_SEEDS.length);
+export const rollSeedIcons = (): BotIcon[] => {
+  const rolled = randomBotIcons(BOT_SEEDS.length);
+  return BOT_SEEDS.map((seed, at) =>
+    seed.name === DEFAULT_BOT.name ? DEFAULT_BOT_ICON : rolled[at],
+  );
+};

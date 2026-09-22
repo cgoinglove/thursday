@@ -8,7 +8,12 @@ import {
 import { DateLikeSchema } from "@/lib/date-like";
 import { COMMON_VALIDATE } from "@/lib/limits";
 import { clip } from "@/lib/utils";
-import { MARK_PAINT_IDS, MARK_SHAPES, randomMarkFills } from "./mark.const";
+import {
+  MARK_PAINT_IDS,
+  MARK_SHAPES,
+  MARK_SYSTEM,
+  randomMarkFills,
+} from "./mark.const";
 import { ROOM_THURSDAY, RoomViewSchema } from "./room.schema";
 
 /** How a bot's mark is drawn. Every field is optional; the seed alone gives every bot a distinct face. */
@@ -167,13 +172,20 @@ export type JobBot = {
  * Worker that exists when no bot row does, so a fresh install can delegate.
  * Has no prompt: the base persona (ai/prompts/bot.prompt) says everything it needs.
  * The Jarvis seed takes the same name on purpose (bot.seed): installed, its row
- * stands in for the fallback.
+ * stands in for the fallback, and carries this same face, so the worker a fresh
+ * install already delegates to does not change colour on becoming a row. The face
+ * is the theme's own ink: a bot nobody chose wears no colour that says who it is.
  */
+export const DEFAULT_BOT_ICON: BotIcon = {
+  color: MARK_SYSTEM,
+  shape: "blob",
+};
+
 export const DEFAULT_BOT: JobBot = {
   name: "Jarvis",
   description: "Anything — this computer, a browser, the web, files, services",
   systemPrompt: null,
-  icon: { color: "#14B8A6", shape: "squircle" },
+  icon: DEFAULT_BOT_ICON,
   provider: null,
   model: null,
   disabled: false,
