@@ -17,7 +17,8 @@ do; the browser's language plays no part, so the very first greeting is in whate
 
 The wake phrase and the shortcut are in **Settings › Thursday › Starting a call**, where
 either can be switched on or off, or rewritten. The first-run setup offers the wake phrase
-too, with a try.
+too, with a try, and it is where her style is picked the first time — one at a time, with
+her words beside her face.
 
 ## Writing to her instead
 
@@ -89,7 +90,14 @@ which picture. With the words down
 the sides it stands on her side instead, under what she said, the last three steps at a time
 with the older ones fainter, and the steps stay with that answer for the rest of the call:
 clicking an earlier answer of hers brings it back with the steps behind it. What she is
-thinking about stays under her face either way. **Settings › Thursday › History** opens the
+thinking about stays under her face either way.
+
+While she is working the line says so, and the answer can take a while. The microphone stays
+open the whole time — anything said meanwhile is heard, and she answers it once the work is
+done, so there is no need to repeat it. **Settings › Thursday › While she works** puts a chip
+beside that line saying the answer is coming; it starts off.
+
+**Settings › Thursday › History** opens the
 calls that were kept,
 one call at a time, and deletes a single call or all of them. A call is kept for three months
 and then goes by itself, so what she reads back is the season behind her, not everything since
@@ -110,11 +118,13 @@ the app was installed.
   picked in the same card, with how hard it thinks and whether it can search the web. Web
   search is on unless it is switched off there: a question about today — the weather, a
   price, a score — is answered on the line instead of going to a bot.
-- **Personality**: what you write in the Voice box is who she is to you — how she talks, how much
-  she says, what she leaves out — and it wins over her own character. What to call you is not
-  that: say it on a call and she keeps it, the way she keeps anything else about you, where both
-  models read it. The Backend box is about work: how it should be handed over, what to check
-  first. Both are followed on top of everything else.
+- **Style**: who she is to you — ten of them, and the only difference is how she talks. The
+  row under the voices shows the one she is on; opening it lists the rest with a line each,
+  and the change takes from the next call. It never changes what she can do. Under it,
+  **Write my own** opens a box for saying it in your own words instead — how she talks, how
+  much she says, what she leaves out — which wins wherever the two differ. What to call you
+  is not this: say it on a call and she keeps it, the way she keeps anything else about you.
+  The Backend box is about work: how it should be handed over, what to check first.
 
 ## When work has something to say
 

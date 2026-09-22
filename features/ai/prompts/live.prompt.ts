@@ -32,6 +32,8 @@ export async function loadLivePrompt(options: {
   voicePrompt?: string | null;
   /** The page placed this call because background work waits on the user (call-back). */
   calledBack?: boolean;
+  /** Settings › Thursday › Style: which character she is on this call (persona). */
+  persona?: string;
 }): Promise<{ text: string; opening: string }> {
   const [open, index, calls] = await Promise.all([
     // Written out in the prompt, which is not the user asking for them: no read counted
@@ -45,7 +47,7 @@ export async function loadLivePrompt(options: {
 
   const text = [
     thursdayIdentity(),
-    personaLines(),
+    personaLines(options.persona),
     always(),
     known(open.notes, index),
     first ? firstCall() : "",

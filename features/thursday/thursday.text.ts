@@ -290,7 +290,7 @@ async function loadRun(
 
   const [model, system, held, exaKey, openaiKey] = await Promise.all([
     getTextModel(ref),
-    loadThursdayPrompt(settings.backendPrompt, true, phone),
+    loadThursdayPrompt(settings.backendPrompt, true, phone, settings.persona),
     loadTools({
       target: "thursday",
       callId,

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { COMMON_VALIDATE } from "@/lib/limits";
 import { LIVE_BACKEND_MODEL } from "@/lib/live/live.schema";
 import { effortSchema, TEXT_MODEL_PROVIDERS } from "./model.schema";
+import { DEFAULT_PERSONA } from "./prompts/persona";
 
 export const LIVE_PROVIDER = {
   id: "openai",
@@ -65,6 +66,11 @@ const instruction = z.string().max(COMMON_VALIDATE.prompt.max).default("");
 
 export const LiveSettingsSchema = z.object({
   voice: z.string().trim().min(1).max(128).default("marin"),
+  /**
+   * Which character she is on a call (prompts/persona). A temperament, not a voice:
+   * which of the 22 says it is the setting above, and changing one leaves the other.
+   */
+  persona: z.string().trim().min(1).max(64).default(DEFAULT_PERSONA),
   voicePrompt: instruction,
   backendModel: z.string().trim().min(1).max(128).default(LIVE_BACKEND_MODEL),
   backendPrompt: instruction,
@@ -109,6 +115,7 @@ export function migrateLiveSettings(value: unknown): Record<string, unknown> {
 
   const candidate: Record<keyof LiveSettings, unknown> = {
     voice: stored.voice ?? openai?.voice,
+    persona: stored.persona,
     voicePrompt: stored.voicePrompt ?? systemPrompt,
     backendModel: stored.backendModel ?? openai?.backendModel,
     backendPrompt: stored.backendPrompt ?? systemPrompt,

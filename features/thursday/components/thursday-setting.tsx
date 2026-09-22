@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, TriangleAlert } from "lucide-react";
+import { Check, ChevronsUpDown, TriangleAlert } from "lucide-react";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
@@ -11,6 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { notify } from "@/components/ui/notify";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
@@ -24,9 +29,11 @@ import {
   type LiveSettings,
 } from "@/features/ai/live.schema";
 import type { AiProvider } from "@/features/ai/model.schema";
+import { DEFAULT_PERSONA, PERSONAS } from "@/features/ai/prompts/persona";
 import { KEY_MIN, KeyInput } from "@/features/config/components/voice-key";
 import { setConfigAction } from "@/features/config/config.action";
 import {
+  PICKED_ROW,
   SettingError,
   SettingGroup,
   SettingNote,
@@ -64,6 +71,7 @@ import {
   type Wake,
 } from "@/features/thursday/thursday.schema";
 import { useThursdayStore } from "@/features/thursday/thursday.store";
+import { WorkChipSetting } from "@/features/thursday/work-chip";
 import { useDraft } from "@/hooks/use-draft";
 import {
   comboOf,
@@ -117,6 +125,9 @@ export function ThursdaySetting() {
         value={thursday.captionView}
         onChange={(captionView) => patch({ captionView })}
       />
+
+      {/* Off by default; the whole feature is features/thursday/work-chip */}
+      <WorkChipSetting />
 
       <ModelsSetting
         value={thursday}
@@ -239,12 +250,12 @@ function ModelsSetting({
             />
           </ModelBlock>
 
-          <ModelBlock label="personality">
-            <PromptField
-              value={value.voicePrompt}
-              onCommit={(voicePrompt) => onChange({ voicePrompt })}
-              placeholder="The character and way of speaking you want — quieter, blunter, funnier."
-              aria-label="Voice personality"
+          <ModelBlock label="style">
+            <StylePicker
+              value={value.persona}
+              own={value.voicePrompt}
+              onPersona={(persona) => onChange({ persona })}
+              onOwn={(voicePrompt) => onChange({ voicePrompt })}
             />
           </ModelBlock>
         </ModelSection>
@@ -307,6 +318,101 @@ function ModelSection({
         </span>
       </span>
       <div className="min-w-0 space-y-4">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * Which character she is, and under it the user's own words when they want them. Ten of
+ * them do not fit a card, so the row shows the one picked and the rest open over it; the
+ * free field is behind a button because a style is what most people want and an empty box
+ * asking for a personality is what nobody fills.
+ */
+function StylePicker({
+  value,
+  own,
+  onPersona,
+  onOwn,
+}: {
+  value: string;
+  own: string;
+  onPersona: (persona: string) => void;
+  onOwn: (voicePrompt: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  // Written words are the reason the field is open; closing it would hide them
+  const [writing, setWriting] = useState(false);
+  const picked =
+    PERSONAS.find((one) => one.id === value) ??
+    PERSONAS.find((one) => one.id === DEFAULT_PERSONA) ??
+    PERSONAS[0];
+
+  return (
+    <div className="space-y-2">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger
+          render={
+            <button
+              type="button"
+              className="flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="text-sm font-medium">{picked.label}</span>
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {picked.about}
+                </span>
+              </span>
+              <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
+            </button>
+          }
+        />
+        <PopoverContent align="start" className="w-104 p-1.5">
+          <p className="px-2 py-1.5 text-xs text-muted-foreground">
+            How she talks to you. It never changes what she can do.
+          </p>
+          {PERSONAS.map((one) => (
+            <button
+              key={one.id}
+              type="button"
+              onClick={() => {
+                onPersona(one.id);
+                setOpen(false);
+              }}
+              className={cn(
+                "flex w-full items-baseline gap-3 rounded-md px-2 py-1.5 text-left",
+                one.id === picked.id ? PICKED_ROW : "hover:bg-muted/60",
+              )}
+            >
+              <span className="w-20 shrink-0 text-sm font-medium">
+                {one.label}
+              </span>
+              <span className="min-w-0 flex-1 text-xs text-muted-foreground">
+                {one.about}
+              </span>
+              {one.id === picked.id && (
+                <Check className="size-3.5 shrink-0 text-brand" />
+              )}
+            </button>
+          ))}
+        </PopoverContent>
+      </Popover>
+
+      {writing || own.trim() ? (
+        <PromptField
+          value={own}
+          onCommit={onOwn}
+          placeholder="Quieter. Don't explain things I didn't ask about."
+          aria-label="In your own words"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setWriting(true)}
+          className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+        >
+          Write my own instead…
+        </button>
+      )}
     </div>
   );
 }

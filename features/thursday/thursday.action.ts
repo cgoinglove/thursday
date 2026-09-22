@@ -93,6 +93,7 @@ export const openCallAction = serverAction(
       await Promise.all([
         loadLivePrompt({
           voicePrompt: thursday.voicePrompt,
+          persona: thursday.persona,
           calledBack: rang,
         }),
         loadThursdayPrompt(thursday.backendPrompt),

@@ -25,6 +25,7 @@ import {
   parseTextModel,
   type TextModelProviderId,
 } from "@/features/ai/model.schema";
+import { PERSONAS } from "@/features/ai/prompts/persona";
 import type { BotIcon } from "@/features/bot/bot.schema";
 import { BOT_SEEDS, type BotSeed } from "@/features/bot/bot.seed";
 import { BotMark } from "@/features/bot/components/bot-mark";
@@ -73,7 +74,7 @@ import { cn, WAITING_INK } from "@/lib/utils";
  * has been placed here (app/page `firstRun`), or whenever `?intro` asks.
  */
 
-const STEPS = ["key", "mic", "bots", "models", "call"] as const;
+const STEPS = ["key", "mic", "bots", "models", "style", "call"] as const;
 type Step = "hello" | (typeof STEPS)[number];
 
 /** Her words, long enough to sit well beside her face: two or three lines. */
@@ -87,6 +88,8 @@ const SAYS = {
   bots: "Long work goes to bots, so we can keep talking while they are at it. They work on this computer, with a shell, a browser and your files, and signing in or paying always stays with you.",
   models:
     "Bots think with a model you choose. Start small: a small model is quick and costs little, and any bot can move up later. An OpenAI key already covers it; a GPT subscription or one Vercel key opens far more.",
+  style:
+    "One more, and it is the fun one: who I am to you. Ten of them, and the only difference is how I talk — pick whoever sounds like someone you would call, and change your mind whenever you like.",
   call: "That is everything I need. Call me, tell me what to call you, and ask for one thing, anything you would ask a person at the next desk. I will show you the rest as we go.",
   asleep:
     "I still have no voice of my own, so there is no call yet, but everything else works. Look around; tap me whenever you have a key and I will take it from there.",
@@ -274,6 +277,7 @@ export function Intro({
                 />
               )}
               {step === "models" && <ModelsTurn />}
+              {step === "style" && <StyleTurn />}
             </div>
           )}
         </div>
@@ -413,6 +417,8 @@ function herTurns(step: Step, keyed: boolean, heard: boolean): Turn[] {
   if (step === "bots") return lines;
   lines.push(line("models", SAYS.models));
   if (step === "models") return lines;
+  lines.push(line("style", SAYS.style));
+  if (step === "style") return lines;
   lines.push(keyed ? line("call", SAYS.call) : line("asleep", SAYS.asleep));
   return lines;
 }
@@ -679,6 +685,57 @@ function BotsTurn({
  * The app's default model — the one Settings › Models keeps, which every bot runs on until
  * its own page picks one — set as it is picked, so leaving the intro any way keeps it.
  */
+/**
+ * Picking her character on the first run: one at a time, because a first run has the whole
+ * screen and choosing who she is is the point of it. Settings holds the same ten in a
+ * popover, for changing it later (thursday-setting StylePicker).
+ */
+function StyleTurn() {
+  const persona = useThursdayStore((state) => state.persona);
+  const patch = useThursdayStore((state) => state.patch);
+  const at = Math.max(
+    0,
+    PERSONAS.findIndex((one) => one.id === persona),
+  );
+  const one = PERSONAS[at];
+  const step = (by: number) =>
+    patch({
+      persona: PERSONAS[(at + by + PERSONAS.length) % PERSONAS.length].id,
+    });
+
+  return (
+    <div className="flex w-full max-w-md flex-col gap-4">
+      <div className="space-y-1">
+        <div className="text-2xl font-semibold">{one.label}</div>
+        <p className="text-sm text-muted-foreground">{one.about}</p>
+      </div>
+      <p className="min-h-20 text-left text-sm leading-relaxed text-foreground/80">
+        {one.lines}
+      </p>
+      <div className="flex items-center justify-center gap-2">
+        <Button variant="outline" size="sm" onClick={() => step(-1)}>
+          Someone else
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => step(1)}>
+          Next
+        </Button>
+      </div>
+      {/* Which one is showing is which one is set: there is nothing to confirm */}
+      <div className="flex justify-center gap-1.5">
+        {PERSONAS.map((each, index) => (
+          <span
+            key={each.id}
+            className={cn(
+              "h-0.5 w-5 rounded-full",
+              index === at ? "bg-foreground" : "bg-border",
+            )}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ModelsTurn() {
   const { data } = useServerRoute<ConfigStatus[]>(queryKey.config);
   const stored = parseTextModel(

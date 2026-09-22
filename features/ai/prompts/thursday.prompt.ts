@@ -52,6 +52,8 @@ export async function loadThursdayPrompt(
   written = false,
   /** Written from a phone: the call holds no `thread_show` (load-tools). */
   phone = false,
+  /** The picked character, read only on a call in writing, where this is who talks. */
+  persona?: string,
 ): Promise<string> {
   const sandbox = await openWorkspace();
   const [skills, index, open, connected, roster, calls, hers, botMemory] =
@@ -73,7 +75,7 @@ export async function loadThursdayPrompt(
   // Order matters: earlier calls go last so the current call follows them in time order
   const text = [
     thursdayIdentity(),
-    written ? personaLines() : "",
+    written ? personaLines(persona) : "",
     memory(index, open.notes),
     // A skill is named once, on the side that can read it: this computer's chapter
     // when the setting hands the call the tool, the bots' reach when it does not
