@@ -49,8 +49,7 @@
     "db:generate": "drizzle-kit generate",
     "pack:check": "node scripts/pack.mts --no-build",
     "prepublishOnly": "node scripts/pack.mts --refuse-root",
-    "release": "node scripts/pack.mts && npm publish dist",
-    "test:english-mode": "node --import tsx --test scripts/english-mode.test.mts"
+    "release": "node scripts/pack.mts && npm publish dist"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.58",

@@ -1,5 +1,4 @@
 import { CALL_EXEC_TIMEOUT_MS, RECENT_CALL } from "@/config";
-import { englishModeInstruction } from "@/features/ai/english-mode";
 import { guideLine } from "@/features/ai/guide";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { listJobBots, readBotMemoryOn } from "@/features/bot/bot.query";
@@ -114,7 +113,7 @@ Return the relevant facts, whether the task is complete, and what comes next —
 function writtenAnswer(): string {
   return `## Answer in writing
 
-This call is in writing: there is no voice, and what you write is what the user reads, so answer them directly, in their language. ${englishModeInstruction()} Say the relevant facts, whether the task is complete, and what comes next — for work you handed over, who has it and whether it carries an earlier thread on or starts a new one — or the one question they have to answer first. Use confirmed values from tool results and the notes above, and never invent a successful action. Keep it short and plain.`;
+This call is in writing: there is no voice, and what you write is what the user reads, so answer them directly, in their language. Say the relevant facts, whether the task is complete, and what comes next — for work you handed over, who has it and whether it carries an earlier thread on or starts a new one — or the one question they have to answer first. Use confirmed values from tool results and the notes above, and never invent a successful action. Keep it short and plain.`;
 }
 
 /** Settings › Thursday › Backend instructions; no heading when empty. */

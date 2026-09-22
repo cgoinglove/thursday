@@ -1,5 +1,4 @@
 import { RECENT_CALL } from "@/config";
-import { englishModeInstruction } from "@/features/ai/english-mode";
 import { listNoteIndex, readNotes } from "@/features/memory/memory.query";
 import {
   MEMORY_ALWAYS_LISTED,
@@ -81,8 +80,6 @@ export async function loadLivePrompt(options: {
 const always = () => `## Always
 
 ${speaking()}
-
-${englishModeInstruction()}
 
 ${delegation()}`;
 
