@@ -20,6 +20,7 @@ Make
   pdf <page.html> [--out name]                 print it to PDF; pictures of every page come with it
   invoice <data.json> [--out name]             an invoice, quote or receipt: totals worked out, HTML + PDF
   deck <outline.json> [--out name]             a .pptx deck and its PDF twin from an outline
+  deck-from <deck.html> [--out name]           a .pptx of a deck already written as slides
   docx <text.md> [--out name]                  a Word file and its PDF twin from Markdown
   xlsx <book.json> [--out name]                a spreadsheet: headers, formats, formulas, totals
 
@@ -64,6 +65,8 @@ async function main() {
       return (await import("./lib/invoice.mjs")).invoice(a, opts);
     case "deck":
       return (await import("./lib/deck.mjs")).deck(a, opts);
+    case "deck-from":
+      return (await import("./lib/deck-html.mjs")).deckFromHtml(a, opts);
     case "docx":
       return (await import("./lib/word.mjs")).docx(a, opts);
     case "xlsx":

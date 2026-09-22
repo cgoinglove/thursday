@@ -15,8 +15,10 @@ $D            # every command, one line each
 The first run installs its libraries into `projects/.docs-kit` (about 10 seconds). A bare name
 after `--out` lands in your folder under `artifacts/`.
 
-**The app shows PDFs, not Office files.** A deck or a Word file is made with a PDF twin beside
-it, drawn from the same layout; hand back both paths. Every command that makes a page leaves
+**An Office file stands on the app's shelf, but nothing draws it there.** A row opens it in
+Word, Excel or PowerPoint instead, so a deck or a Word file is made with a PDF twin beside it,
+drawn from the same layout, and that twin is what anyone can look at without leaving the app;
+hand back both paths. Every command that makes a page leaves
 pictures of it: look at the overview it names (the `look_at` tool, when you hold it) before you
 hand anything back, and fix what you see — text too small, a page with one line on it, a wrong
 number.

@@ -942,7 +942,7 @@ async function writePptx(slides, outline, t, out) {
  * pptxgenjs writes a paragraph's properties again before every run after the first, which
  * PowerPoint may call a damaged file: each paragraph keeps its first `<a:pPr>` only.
  */
-async function onePropertyBlock(buffer) {
+export async function onePropertyBlock(buffer) {
   const { default: JSZip } = await kit("jszip");
   const zip = await JSZip.loadAsync(buffer);
   const PPR = /<a:pPr\b[^>]*\/>|<a:pPr\b[^>]*>[\s\S]*?<\/a:pPr>/g;
