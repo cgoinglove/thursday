@@ -18,8 +18,10 @@ paths:
   neither is told it is part of something else. Whoever talks to the user reads the persona
   (`prompts/persona.ts`): the voice on a spoken call, the backend on a call in writing. The
   voice holds conversation and memory only. Right under the persona, `## Always` groups the guide's
-  starter backchannel and interruption policies (the backchannel line asking for listening sounds
-  through a long turn), and the guide's `Delegation policy` under its three labels — `Backend tools`
+  starter backchannel and interruption policies, both as the guide writes them: asking on top of
+  them for a listening sound through a long turn made one call in five a bare "응" and chopped
+  one of her sentences in seven in half, because the user's own line already asked for it and
+  how much of it anyone wants is theirs to say. And the guide's `Delegation policy` under its three labels — `Backend tools`
   (what the backend can do, ending the call first, never how), when to hand a turn over (a hang-up,
   anything on that list, a change to work asked for, whatever they say about themselves) and when
   not (greetings, small talk, only stopping her voice, a brief clarification). Live picks what to

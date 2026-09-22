@@ -983,7 +983,7 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     assert.equal(on.text.includes("IMPORTANT"), false);
     assert.match(
       on.text,
-      /When the user speaks at length, acknowledge now and then/,
+      /Backchannel policy: Use moderate backchannels\. Acknowledge naturally without competing with the main response\./,
     );
     // What the backend can do, never how: no skills, connected tools or bots by name
     assert.equal(/What bots can reach for|- Web:/.test(on.text), false);

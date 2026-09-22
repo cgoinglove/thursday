@@ -90,7 +90,7 @@ ${delegation()}`;
  * opened in the browser's language kept an English speaker in Korean.
  */
 function speaking(): string {
-  return `Backchannel policy: Use moderate backchannels. When the user speaks at length, acknowledge now and then with a short listening sound so they know you are following, without competing with the main response.
+  return `Backchannel policy: Use moderate backchannels. Acknowledge naturally without competing with the main response.
 
 Interruption policy: Stop speaking when the user interrupts. Listen to what they say.
 
