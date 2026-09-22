@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MEMORY_LIMITS } from "@/config";
 import { type DateLike, DateLikeSchema, toDate } from "@/lib/date-like";
 
 /**
@@ -26,12 +27,25 @@ export const memorySourceLabel = (source: MemorySource | null | undefined) =>
         ? "a bot"
         : "";
 
+/**
+ * The line a note is listed by: what it is about, in one line, the names people
+ * use for it included. The screen's actions and the model's tools both check it
+ * here, so a line too long for the listing is refused whichever hand wrote it
+ * (config MEMORY_LIMITS.descriptionChars).
+ */
+export const NoteLineSchema = z
+  .string()
+  .trim()
+  .min(1, "A note needs a line saying what it is about")
+  .max(
+    MEMORY_LIMITS.descriptionChars,
+    `A note's line is one line: at most ${MEMORY_LIMITS.descriptionChars} characters`,
+  );
+
 // Storage is fact-based: one row per fact, history via isLatest.
 const MemoryFactSchema = z.object({
   id: z.number(),
   text: z.string(),
-  /** Loaded into every prompt without opening the note (config MEMORY_LIMITS.carried). */
-  alwaysLoad: z.boolean(),
   /** Null on rows written before the hand was recorded. */
   source: MemorySourceSchema.nullish(),
   createdAt: DateLikeSchema,
@@ -41,7 +55,6 @@ const MemoryNoteSchema = z.object({
   id: z.number(),
   path: z.string(),
   description: z.string(),
-  aliases: z.string().array().nullish(),
   /** Created by the user; never auto-deleted when empty. */
   ownedByUser: z.boolean(),
   hits: z.number(),
@@ -56,14 +69,21 @@ export type MemoryNote = z.infer<typeof MemoryNoteSchema>;
 
 /**
  * Where notes may live and what each place holds. The prompt lists it, writes
- * validate against it, the screen groups by it. Everything here may be read aloud.
+ * validate against it, the screen groups by it, and the two root notes are
+ * listed by their line here. Everything here may be read aloud. Profile and
+ * preferences are written out whole in every call's prompt, which is why the
+ * preferences line says a rule belongs there: a rule filed under a topic is
+ * one the voice never reads.
  */
 export const MEMORY_PATHS = [
   {
     path: "profile",
-    of: "The user themselves — their name, age, what they do, where they live, and whatever else says who they are",
+    of: "The user themselves — name, age, what they do, where they live, whatever else says who they are",
   },
-  { path: "preferences", of: "How they want things done, and said" },
+  {
+    path: "preferences",
+    of: "How they want things done, and said — read whole on every call, so a rule for a particular situation goes here too",
+  },
   { path: "people/", of: "Someone in their life, and what matters about them" },
   {
     path: "projects/",
@@ -94,22 +114,17 @@ export const isMemoryPath = (path: string) => MEMORY_PATH_RE.test(path);
 
 /**
  * Notes that stay listed with zero facts. Their listing line is the app's, not
- * a model's: memory.query ensureRootNotes resets it at boot and a model's
- * `description` for one is ignored (ai/tools/memory.tool), so the line cannot
- * drift with whoever wrote last.
+ * a model's: memory.query ensureRootNotes resets it at boot and no tool renames
+ * one (ai/tools/memory.tool), so the line cannot drift with whoever wrote last.
  */
 export const MEMORY_ALWAYS_LISTED: string[] = ["profile", "preferences"];
 
 export const isAlwaysListed = (path: string) =>
   MEMORY_ALWAYS_LISTED.includes(path);
 
-/** The line the app writes for one of those. */
-export const appNoteLine = (path: string) =>
-  MEMORY_PATHS.find((entry) => entry.path === path)?.of ?? null;
-
 /**
  * `other` holds a path outside the convention. A model cannot create one
- * (memory_remember refuses it), so only rows older than that rule land there,
+ * (memory_create refuses it), so only rows older than that rule land there,
  * kept on screen to open and delete.
  */
 export type MemorySection = "you" | (typeof MEMORY_SECTIONS)[number] | "other";
@@ -133,13 +148,6 @@ type MemoryFactRef = {
   saidAt?: Date;
 };
 
-/** A fact carried at the top of the prompt, with its note path. */
-export type MemoryAlwaysLoaded = {
-  id: number;
-  path: string;
-  text: string;
-};
-
 /** A note as returned by recall or after a write. */
 export type MemoryNoteView = {
   path: string;
@@ -147,37 +155,16 @@ export type MemoryNoteView = {
   facts: MemoryFactRef[];
 };
 
-/** One note per write; `path` is the upsert key, the rest is the note's new state. */
-export type MemoryNoteWrite = {
-  path: string;
-  /** Replaces wholesale when given; omitted leaves the current one. */
-  description?: string | null;
-  /** Spoken names for the note. Replaces wholesale when given. */
-  aliases?: string[] | null;
-  facts?:
-    | {
-        text: string;
-        replaces?: number | null;
-        /** Omitted: false for new facts, unchanged for revised ones. */
-        alwaysLoad?: boolean | null;
-      }[]
-    | null;
-};
-
-export type MemoryWrite = {
-  /** Touched notes re-read after the write, fact ids included. */
-  notes: MemoryNoteView[];
-  /** Notes this write created without a description. */
-  unnamed: string[];
-  /** Facts stored as ordinary because no alwaysLoad slot was free. */
-  notLoaded: string[];
+/** One fact as a model writes it; `replaces` retires the fact it stands in for. */
+export type MemoryFactWrite = {
+  text: string;
+  replaces?: number | null;
 };
 
 /** One line of the note index in the system prompt. */
 export type MemoryIndexEntry = {
   path: string;
   description: string;
-  aliases?: string[] | null;
   factCount: number;
   /** Last recall, or creation when never recalled. */
   lastSeenAt: DateLike;

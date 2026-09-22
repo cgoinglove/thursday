@@ -1,13 +1,8 @@
 import { RECENT_CALL } from "@/config";
 import { englishModeInstruction } from "@/features/ai/english-mode";
-import {
-  listAlwaysLoaded,
-  listNoteIndex,
-  readNotes,
-} from "@/features/memory/memory.query";
+import { listNoteIndex, readNotes } from "@/features/memory/memory.query";
 import {
   MEMORY_ALWAYS_LISTED,
-  type MemoryAlwaysLoaded,
   type MemoryIndexEntry,
   type MemoryNoteView,
 } from "@/features/memory/memory.schema";
@@ -17,9 +12,7 @@ import {
 } from "@/features/thursday/thursday.query";
 import { personaLines } from "./persona";
 import {
-  carriedLines,
   clockNow,
-  expandedFacts,
   logPromptSize,
   noteLines,
   recentCallLines,
@@ -41,8 +34,7 @@ export async function loadLivePrompt(options: {
   /** The page placed this call because background work waits on the user (call-back). */
   calledBack?: boolean;
 }): Promise<{ text: string; opening: string }> {
-  const [carried, open, index, calls] = await Promise.all([
-    listAlwaysLoaded(),
+  const [open, index, calls] = await Promise.all([
     // Written out in the prompt, which is not the user asking for them: no read counted
     readNotes(MEMORY_ALWAYS_LISTED, { touch: false }),
     listNoteIndex(),
@@ -56,7 +48,7 @@ export async function loadLivePrompt(options: {
     thursdayIdentity(),
     personaLines(),
     always(),
-    known(open.notes, carried, index),
+    known(open.notes, index),
     first ? firstCall() : "",
     earlierCalls(calls),
     additional(options.voicePrompt),
@@ -142,37 +134,28 @@ Delegate before giving an answer that depends on backend work. Do not guess the 
 }
 
 /**
- * Profile and preferences written out by the same rule as the backend's (expandedFacts), carried
- * facts from other notes, then every other note as a listing line: what Thursday knows is the
- * same on both sides. Ids and the contents of listed notes stay the backend's.
+ * Profile and preferences written out whole, as the backend reads them, then every other note
+ * as a listing line: what Thursday knows is the same on both sides. Whole, because a rule she
+ * is to follow is only followed when it is in front of her: the ten newest lines with the
+ * rest counted hid the oldest rules first, which are the ones about how to speak to them. Ids
+ * and the contents of listed notes stay the backend's.
  */
-function known(
-  open: MemoryNoteView[],
-  carried: MemoryAlwaysLoaded[],
-  index: MemoryIndexEntry[],
-): string {
-  const carriedIds = new Set(carried.map((fact) => fact.id));
+function known(open: MemoryNoteView[], index: MemoryIndexEntry[]): string {
   const written = new Set(open.map((note) => note.path));
   const notes = open
     .filter((note) => note.facts.length)
-    .map((note) => {
-      const { shown, hidden } = expandedFacts(note.facts, carriedIds);
-      const lines = shown.map((fact) => `- ${fact.text}`);
-      if (hidden) lines.push(`- … ${hidden} more in this note`);
-      return `${note.path}:\n${lines.join("\n")}`;
-    });
-  const elsewhere = carried.filter((fact) => !written.has(fact.path));
+    .map(
+      (note) =>
+        `${note.path}:\n${note.facts.map((fact) => `- ${fact.text}`).join("\n")}`,
+    );
   const others = index.filter((note) => !written.has(note.path));
-  if (!notes.length && !elsewhere.length && !others.length) return "";
+  if (!notes.length && !others.length) return "";
 
   const parts = [
     ...notes,
-    elsewhere.length
-      ? `Carried into every call:\n${carriedLines(elsewhere, { ids: false })}`
-      : "",
     // Ages ride on the listing only when there is too much to hold: they are what to drop by
     others.length
-      ? `Everything else you have kept — path — what it is about (facts) "what they call it":\n\n${noteLines(others, tidying(index).crowded)}\n\nWhat is in these notes, the backend recalls.`
+      ? `Everything else you have kept — path — what it is about (facts):\n\n${noteLines(others, tidying(index).crowded)}\n\nWhat is in these notes, the backend recalls.`
       : "",
   ].filter(Boolean);
 
@@ -180,7 +163,7 @@ function known(
 
 ${parts.join("\n\n")}
 
-Preferences are how they want things done and said: follow them. A topic not listed is one you know nothing about yet.`;
+Preferences are how they want things done and said, some of it for a particular situation: follow them. A topic not listed is one you know nothing about yet.`;
 }
 
 function firstCall(): string {

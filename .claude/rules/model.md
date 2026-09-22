@@ -117,11 +117,26 @@ a call, a shipped `SKILL.md`.
 
 - **What the call is told about writing memory is one paragraph.** A list of rules makes the voice
   careful, and a careful voice saves nothing.
-- **No memory pass when a call ends.** That is the moment a browser most often leaves, and
-  `presence` stops the run halfway through.
-- **The model that just worked never rewrites the whole state.** Asked to, it rebuilt the note
-  around this turn's subject and dropped the old lines, every time. It says what to change; a
-  separate call whose only job is the rewrite does it, and one queue keeps them in order.
+- **A note is found by its path and its line, and nothing else.** No aliases, no pins: a model
+  reads the listing rather than looking anything up, so a second name is a field it fills and
+  never uses (30 writes sent aliases, 0 reads used one), and a fact pinned into every call is
+  one that belongs under profile or preferences, which every call already reads whole. The line
+  says what a note is about, never what is inside — the facts do that — and is capped
+  (`MEMORY_LIMITS.descriptionChars`) because a line rewritten on every write grew into a list
+  of the facts (36 to 118 characters in eight writes).
+- **Memory's writes are three tools with every argument required.** `memory_create` starts a
+  note with its line and first facts, `memory_remember` adds facts to one that exists,
+  `memory_describe` changes a line — where one tool with optional fields had a cheap model
+  filling every field it was shown. A write to a path that is not on the listing is refused
+  and names the tool that makes it; nothing is filed elsewhere.
+- **Profile and preferences are whole in both call prompts.** A rule is followed only when it
+  is in front of the voice, and the ten newest lines with the rest counted hid the oldest
+  rules first — the ones about how to speak to them. `factsPerNote` bounds those chapters.
+- **No memory pass after a call, yet.** Merging is done as the call writes (`replaces`, 10 of 46
+  writes), and the one pass that was tried rebuilt a note around the turn's subject and dropped
+  the old lines. A pass earns its place when duplicates are counted surviving the in-call merge,
+  and then it holds `memory_remember` and never `memory_forget`: the model that just worked says
+  what to change, a separate call does the rewrite, and one queue keeps them in order.
 
 # Providers
 

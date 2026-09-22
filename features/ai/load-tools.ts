@@ -380,24 +380,15 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
   if (run.target === "memory-edit") {
     // Memory's own read and writes, in the user's hand: they asked for it on
     // screen. Opening a note to change it is not a recall (memory.tool countReads)
-    const hand = createMemoryTools("user", null, { countReads: false });
-    return {
-      [TOOL_NAMES.memory_recall]: hand[TOOL_NAMES.memory_recall],
-      [TOOL_NAMES.memory_remember]: hand[TOOL_NAMES.memory_remember],
-      [TOOL_NAMES.memory_forget]: hand[TOOL_NAMES.memory_forget],
-    };
+    return createMemoryTools("user", null, { countReads: false });
   }
 
   // The call's hand; a fact it writes is tied to the call it was said in. A bot
-  // is handed only the reads from it (below).
-  const { [TOOL_NAMES.memory_conversation]: conversation, ...memory } =
-    createMemoryTools(
-      "call",
-      run.target === "thursday" ? (run.callId ?? null) : null,
-    );
-  const readBack: ToolSet = {
-    [TOOL_NAMES.memory_conversation]: conversation,
-  };
+  // is handed only the read from it (below).
+  const memory = createMemoryTools(
+    "call",
+    run.target === "thursday" ? (run.callId ?? null) : null,
+  );
 
   const sandbox = await openWorkspace();
 
@@ -411,7 +402,6 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
 
     return {
       ...memory,
-      ...readBack,
       ...skills,
       // The shell alone, for no longer than her answer can wait on it (config
       // CALL_EXEC_TIMEOUT_MS). A whole file is a job, not a glance (workspace.tool)
@@ -443,7 +433,6 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
   return {
     // A bot only reads memory: every write is the call's, and there is no screen to show a note on
     [TOOL_NAMES.memory_recall]: memory[TOOL_NAMES.memory_recall],
-    ...readBack,
     // Exa when its key is set, else this bot's own model when it can search;
     // absent when neither, and the browser is the way in (search.tool)
     ...(await createSearchTool(run.model, sandbox)),

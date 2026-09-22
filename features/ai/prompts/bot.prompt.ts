@@ -164,9 +164,9 @@ ${persona.trim()}`
 function memory(index: MemoryIndexEntry[]): string {
   return `## Thursday's memory of the user
 
-What Thursday keeps from talking with them. When the job needs something about them, open the note with \`${TOOL_NAMES.memory_recall}\`; a fact marked \`said\` came from a call, and \`${TOOL_NAMES.memory_conversation}\` opens that call. What you learn about them goes in your answer — Thursday decides what to keep.
+What Thursday keeps from talking with them. When the job needs something about them, open the note with \`${TOOL_NAMES.memory_recall}\`; a fact marked \`said\` came from a call. What you learn about them goes in your answer — Thursday decides what to keep.
 
-path — what is under it (facts) "what the user calls it"
+path — what it is about (facts)
 
 ${noteLines(index)}`;
 }

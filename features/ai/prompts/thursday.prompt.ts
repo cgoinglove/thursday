@@ -5,15 +5,10 @@ import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { listJobBots, readBotMemoryOn } from "@/features/bot/bot.query";
 import type { JobBot } from "@/features/bot/bot.schema";
 import { type CallJob, listCallJobs } from "@/features/bot/thread.query";
-import {
-  listAlwaysLoaded,
-  listNoteIndex,
-  readNotes,
-} from "@/features/memory/memory.query";
+import { listNoteIndex, readNotes } from "@/features/memory/memory.query";
 import {
   MEMORY_ALWAYS_LISTED,
   MEMORY_PATHS,
-  type MemoryAlwaysLoaded,
   type MemoryIndexEntry,
   type MemoryNoteView,
 } from "@/features/memory/memory.schema";
@@ -30,8 +25,6 @@ import { openWorkspace } from "@/features/workspace/workspace";
 import { listConnectedToolNames } from "../tools/connected";
 import { personaLines } from "./persona";
 import {
-  carriedLines,
-  expandedFacts,
   logPromptSize,
   noteLines,
   reachNames,
@@ -62,30 +55,19 @@ export async function loadThursdayPrompt(
   phone = false,
 ): Promise<string> {
   const sandbox = await openWorkspace();
-  const [
-    skills,
-    index,
-    carried,
-    open,
-    connected,
-    roster,
-    calls,
-    hers,
-    botMemory,
-  ] = await Promise.all([
-    loadSkills(sandbox),
-    listNoteIndex(),
-    // Facts carried into every call without opening a note
-    listAlwaysLoaded(),
-    // Written out in the prompt, which is not the user asking for them: no read counted
-    readNotes(MEMORY_ALWAYS_LISTED, { touch: false }),
-    listConnectedToolNames(),
-    listJobBots(),
-    listRecentTurns(RECENT_CALL.rows),
-    // Whether the call was handed `load_skill` (Settings › Thursday, load-tools)
-    readCallSkillsOn(),
-    readBotMemoryOn(),
-  ]);
+  const [skills, index, open, connected, roster, calls, hers, botMemory] =
+    await Promise.all([
+      loadSkills(sandbox),
+      listNoteIndex(),
+      // Written out in the prompt, which is not the user asking for them: no read counted
+      readNotes(MEMORY_ALWAYS_LISTED, { touch: false }),
+      listConnectedToolNames(),
+      listJobBots(),
+      listRecentTurns(RECENT_CALL.rows),
+      // Whether the call was handed `load_skill` (Settings › Thursday, load-tools)
+      readCallSkillsOn(),
+      readBotMemoryOn(),
+    ]);
   // The jobs those calls opened, folded into the transcript below
   const jobs = await listCallJobs(calls.map((call) => call.callId));
 
@@ -93,7 +75,7 @@ export async function loadThursdayPrompt(
   const text = [
     thursdayIdentity(),
     written ? personaLines() : "",
-    memory(index, carried, open.notes),
+    memory(index, open.notes),
     // A skill is named once, on the side that can read it: this computer's chapter
     // when the setting hands the call the tool, the bots' reach when it does not
     backgroundWork(
@@ -146,15 +128,14 @@ ${backendPrompt.trim()}`
     : "";
 
 /**
- * Profile and preferences written out, carried facts, the listing, and what goes in. What is
- * worth keeping is the model's call; how a fact is written — carried, dated — is the tool's
- * schema to say. Merging is said here too: left to the `replaces` description alone, facts on
- * one subject piled up beside each other (09-17). Merging loses nothing; deleting does, so
- * `memory_forget` stays for what the user names.
+ * Profile and preferences written out whole, the listing, and what goes in. What is worth
+ * keeping is the model's call; how a fact is written — dated, replacing — is the tool's schema
+ * to say, and so is which tool starts a note. Merging is said here too: left to the `replaces`
+ * description alone, facts on one subject piled up beside each other (09-17). Merging loses
+ * nothing; deleting does, so `memory_forget` stays for what the user names.
  */
 function memory(
   index: MemoryIndexEntry[],
-  carried: MemoryAlwaysLoaded[],
   /** The always-listed notes, whole (MEMORY_ALWAYS_LISTED). */
   open: MemoryNoteView[],
 ): string {
@@ -169,9 +150,8 @@ function memory(
     crowded || heavy.length
       ? `\n\nSaved memory has grown past what it holds well${heaviest.length ? ` (${heaviest.join(", ")})` : ""}: say so once in what you return, go through what looks out of date with the user, and forget only what they name.`
       : "";
-  // A note written out here is left off the listing, and so are its carried lines
+  // A note written out here is left off the listing
   const written = new Set(open.map((note) => note.path));
-  const carriedIds = new Set(carried.map((fact) => fact.id));
 
   const head = `## Memory
 
@@ -179,42 +159,29 @@ What you have kept from talking with this user — the only thing that survives 
 
   const openNotes = `Who they are, and how they want things done and said — follow what is under preferences. The #id is what \`replaces\` and \`${TOOL_NAMES.memory_forget}\` take:
 
-${open.map((note) => openNoteLines(note, carriedIds)).join("\n\n")}`;
+${open.map(openNoteLines).join("\n\n")}`;
 
-  const elsewhere = carried.filter((fact) => !written.has(fact.path));
-  const alreadyKnown = elsewhere.length
-    ? `Already known — carried into every call:
-
-${carriedLines(elsewhere)}`
-    : "";
-
-  const listing = `Every other note — path — what is under it (facts) "what the user calls it":
+  const listing = `Every other note — path — what it is about (facts):
 
 ${noteLines(
   index.filter((note) => !written.has(note.path)),
   crowded,
 )}${tidy}
 
-Open a note before answering out of it; a topic not listed is one you know nothing about. A fact marked \`said\` came from a call; \`${TOOL_NAMES.memory_conversation}\` opens that call when the line alone cannot answer.
+Open a note before answering out of it; a topic not listed is one you know nothing about. A fact marked \`said\` came from a call.
 
-Keep what the user tells you as it comes up, with \`${TOOL_NAMES.memory_remember}\`, without waiting to be asked: what they actually said, never a guess, nothing they asked you not to keep, and from a bot's report only what it confirmed about them.
+Keep what the user tells you as it comes up, with \`${TOOL_NAMES.memory_remember}\`, without waiting to be asked: what they actually said, never a guess, nothing they asked you not to keep, and from a bot's report only what it confirmed about them. A subject that is not on the listing gets a note of its own with \`${TOOL_NAMES.memory_create}\`, under one of the paths below.
 
-**Keep memory clean as you write.** A fact that repeats, narrows or changes one already in the note replaces it, merged into one line, rather than sitting beside it. A later call finds a note only by its path, its line and the names in quotes: keep the line true, and give something new its own path below.
+**Keep memory clean as you write.** A fact that repeats, narrows or changes one already in the note replaces it, merged into one line, rather than sitting beside it. A later call finds a note only by its path and its line: give something new its own path below, and when a line no longer says what its note is about, \`${TOOL_NAMES.memory_describe}\` puts it right.
 
 ${MEMORY_PATHS.map((entry) => `- ${entry.path} — ${entry.of}`).join("\n")}`;
 
-  return [head, openNotes, alreadyKnown, listing].filter(Boolean).join("\n\n");
+  return [head, openNotes, listing].join("\n\n");
 }
 
-/** One always-listed note with ids, by the rule the voice reads it by too (expandedFacts); the rest counted, with the way to open them. */
-function openNoteLines(note: MemoryNoteView, carried: Set<number>): string {
-  const { shown, hidden } = expandedFacts(note.facts, carried);
-  const lines = shown.map((fact) => `- ${fact.text} #${fact.id}`);
-  if (hidden) {
-    lines.push(
-      `- … ${hidden} older not shown — \`${TOOL_NAMES.memory_recall}\` ${note.path} opens the whole note`,
-    );
-  }
+/** One always-listed note, whole, with the ids its facts are replaced and forgotten by. */
+function openNoteLines(note: MemoryNoteView): string {
+  const lines = note.facts.map((fact) => `- ${fact.text} #${fact.id}`);
   return `${note.path} — ${note.description}
 ${lines.length ? lines.join("\n") : "- (nothing yet)"}`;
 }

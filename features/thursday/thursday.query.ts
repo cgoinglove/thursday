@@ -166,52 +166,6 @@ export async function listRecentTurns(limit: number): Promise<CallGroup[]> {
     .map((group) => ({ ...group, turns: group.turns.reverse() }));
 }
 
-/**
- * One page of a call, every turn in order, tool turns included; null when the
- * call is gone. Tool turns keep their name and nothing else is read by the
- * caller (ai/tools/memory.tool), but the row carries it all.
- */
-export async function readCallConversation(
-  callId: string,
-  page: number,
-  size: number,
-): Promise<{
-  startedAt: Date;
-  total: number;
-  turns: {
-    role: "user" | "assistant" | "tool";
-    tool: string | null;
-    text: string;
-  }[];
-} | null> {
-  const [call] = await database
-    .select({ startedAt: callTable.startedAt })
-    .from(callTable)
-    .where(eq(callTable.id, callId));
-  if (!call) return null;
-
-  const [counted] = await database
-    .select({ total: sql<number>`count(*)` })
-    .from(callMessageTable)
-    .where(eq(callMessageTable.callId, callId));
-  const turns = await database
-    .select({
-      role: callMessageTable.role,
-      tool: callMessageTable.tool,
-      text: callMessageTable.text,
-    })
-    .from(callMessageTable)
-    .where(eq(callMessageTable.callId, callId))
-    .orderBy(asc(callMessageTable.seq))
-    .limit(size)
-    .offset((page - 1) * size);
-  return {
-    startedAt: call.startedAt,
-    total: Number(counted?.total ?? 0),
-    turns,
-  };
-}
-
 /** Whether a call was ever placed here: until one is, the first-run intro shows (app/page). */
 export async function hasAnyCall() {
   const one = await database

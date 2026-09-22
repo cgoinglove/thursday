@@ -410,8 +410,8 @@ export const callThoughtTable = sqliteTable(
 );
 
 /**
- * One note per subject. Path convention: 'profile' | 'preferences' | 'inbox'
- * | 'people/<name>' | 'projects/<name>' | 'topics/<topic>'.
+ * One note per subject. Path convention: 'profile' | 'preferences'
+ * | 'people/<name>' | 'projects/<name>' | 'topics/<topic>' (memory.schema MEMORY_PATHS).
  * Forgetting score = (hits + 1) / (1 + days since lastReadAt).
  */
 
@@ -419,10 +419,9 @@ export const memoryNoteTable = sqliteTable("memory_note", {
   /** Surrogate key; `path` is the name people and the model use. */
   id: int("id").primaryKey({ autoIncrement: true }),
   path: text("path").notNull().unique(),
-  // One line; the listing shows nothing else, so it stands in for search.
+  // One line saying what the note is about, the names people use for it included; the
+  // listing shows nothing else, so it stands in for search. Cap: config MEMORY_LIMITS.descriptionChars.
   description: text("description").notNull(),
-  // Other names for the same subject, as people say them.
-  aliases: text("aliases", { mode: "json" }).$type<string[]>().default([]),
   // Written by the user, not observed by the agent; the note survives losing its last fact.
   ownedByUser: int("owned_by_user", { mode: "boolean" })
     .notNull()
@@ -452,10 +451,6 @@ export const memoryFactTable = sqliteTable(
     text: text("text").notNull(),
     // false marks a superseded version; edits append a new row instead of overwriting.
     isLatest: int("is_latest", { mode: "boolean" }).notNull().default(true),
-    /** Carried in every prompt without opening the note. Cap: config MEMORY_LIMITS.carried. */
-    alwaysLoad: int("always_load", { mode: "boolean" })
-      .notNull()
-      .default(false),
     /**
      * Who wrote it (memory.schema MemorySource): the user on the screen, the
      * call, or a bot mid-job. Memory is one note kept by three hands, and a
@@ -478,7 +473,6 @@ export const memoryFactTable = sqliteTable(
   },
   (t) => [
     index("idx_memory_fact_note").on(t.noteId, t.isLatest),
-    index("idx_memory_fact_always").on(t.alwaysLoad, t.isLatest),
     index("idx_memory_fact_call").on(t.callId),
   ],
 );

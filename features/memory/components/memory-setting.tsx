@@ -1,15 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import {
-  Check,
-  ChevronRight,
-  Pencil,
-  Pin,
-  Plus,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Check, ChevronRight, Pencil, Plus, Trash2, X } from "lucide-react";
 import { type KeyboardEvent, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
@@ -29,7 +21,6 @@ import {
   deleteNoteAction,
   forgetFactAction,
   reviseFactAction,
-  setFactAlwaysLoadAction,
   updateNoteAction,
 } from "@/features/memory/memory.action";
 import {
@@ -48,7 +39,6 @@ import {
   SettingGroup,
   SettingItems,
   SettingMore,
-  SettingRailNote,
   SettingScreen,
   SettingSkeleton,
   SettingToolbar,
@@ -93,12 +83,9 @@ export function MemorySetting() {
   // The filter only sees loaded pages, and opens every note it matched
   const needle = filter.trim().toLowerCase();
   const matches = (note: MemoryNote) =>
-    [
-      note.path,
-      note.description,
-      ...(note.aliases ?? []),
-      ...note.facts.map((fact) => fact.text),
-    ].some((text) => text.toLowerCase().includes(needle));
+    [note.path, note.description, ...note.facts.map((fact) => fact.text)].some(
+      (text) => text.toLowerCase().includes(needle),
+    );
   const shown = needle ? notes.filter(matches) : notes;
   const flip = (id: number) =>
     setFlipped((current) => {
@@ -108,10 +95,6 @@ export function MemorySetting() {
     });
 
   const facts = notes.reduce((sum, note) => sum + note.factCount, 0);
-  const carried = notes.reduce(
-    (sum, note) => sum + note.facts.filter((fact) => fact.alwaysLoad).length,
-    0,
-  );
   const more = hasMore ? "+" : "";
 
   return (
@@ -119,22 +102,15 @@ export function MemorySetting() {
     <div className="relative h-full min-h-0">
       <SettingScreen
         footer={
-          <>
-            <SettingRailNote>
-              <span className="font-mono">
-                {carried} of {MEMORY_LIMITS.carried} carried into every call
-              </span>
-            </SettingRailNote>
-            <Button
-              size="sm"
-              variant={editing ? "secondary" : "ghost"}
-              aria-pressed={editing}
-              onClick={() => setEditing(!editing)}
-            >
-              <ProviderMarks />
-              Edit with a model
-            </Button>
-          </>
+          <Button
+            size="sm"
+            variant={editing ? "secondary" : "ghost"}
+            aria-pressed={editing}
+            onClick={() => setEditing(!editing)}
+          >
+            <ProviderMarks />
+            Edit with a model
+          </Button>
         }
       >
         <SettingToolbar
@@ -382,6 +358,7 @@ function NoteLine({ note, onDone }: { note: MemoryNote; onDone: () => void }) {
         onKeyDown={editKeys(commit, onDone)}
         aria-label="The note's line"
         placeholder="One line Thursday sees in her list"
+        maxLength={MEMORY_LIMITS.descriptionChars}
         className="h-8 min-w-0 flex-1 text-[13px]"
       />
       <Button
@@ -443,7 +420,6 @@ function AddFact({ noteId }: { noteId: number }) {
   );
 }
 
-/** The carried cap is enforced server-side; a refusal arrives as a toast. */
 function FactRow({
   noteId,
   fact,
@@ -459,7 +435,6 @@ function FactRow({
       revalidate(queryKey.memory);
     },
   });
-  const [carry, carrying] = useServerAction(setFactAlwaysLoadAction, refresh);
   const [forget, forgetting] = useServerAction(forgetFactAction, refresh);
 
   const save = () => {
@@ -471,22 +446,6 @@ function FactRow({
 
   return (
     <div className="flex min-h-10 items-center gap-1.5">
-      <Button
-        size="icon-sm"
-        variant={fact.alwaysLoad ? "secondary" : "ghost"}
-        aria-pressed={fact.alwaysLoad}
-        aria-label={
-          fact.alwaysLoad ? "Stop carrying into calls" : "Carry into every call"
-        }
-        title="Carried into every call, without opening this note"
-        loading={carrying}
-        onClick={() => carry(noteId, fact.id, !fact.alwaysLoad)}
-      >
-        {!carrying && (
-          <Pin className={cn(!fact.alwaysLoad && "text-muted-foreground/45")} />
-        )}
-      </Button>
-
       {editing ? (
         <>
           <Input
@@ -672,6 +631,7 @@ function MemoryCreate({ onDone }: { onDone: () => void }) {
               onChange={(event) => setDescription(event.target.value)}
               onKeyDown={(event) => event.key === "Enter" && submit()}
               placeholder="One line Thursday sees in her list"
+              maxLength={MEMORY_LIMITS.descriptionChars}
               required
             />
           </FieldContent>

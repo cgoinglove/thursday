@@ -1,16 +1,18 @@
 # What she keeps about them
 
 Memory is notes, and a note is lines of plain text. `profile` is who they are, `preferences`
-is how they want things done and said, and the rest are one note per person, project or
-topic. Some lines are carried into every call; the others are opened when the subject comes
-up.
+is how they want things done and said — including what to do in a particular situation —
+and the rest are one note per person, project or topic. Each note is listed by one line
+saying what it is about, with the names they use for it. Profile and preferences are read
+whole on every call; every other note is opened when its subject comes up.
 
 She writes memory herself as things come up in a call. Bots read it and never write it.
 
 **Settings › Memory** is the whole of it. There the user can:
 
-- read any note, and see when each line was saved and which call said it,
-- change a line, pin one so it comes into every call, or delete it,
+- read any note, and see when each line was saved and which hand wrote it,
+- change a line or delete it,
+- change the line a note is listed by,
 - make a note of their own,
 - type what changed instead of editing by hand — a model makes the edits and each one shows
   as it lands.

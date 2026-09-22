@@ -5,9 +5,10 @@
  */
 export const TOOL_NAMES = {
   memory_recall: "memory_recall",
+  memory_create: "memory_create",
   memory_remember: "memory_remember",
+  memory_describe: "memory_describe",
   memory_forget: "memory_forget",
-  memory_conversation: "memory_conversation",
 
   bash: "bash",
   write_file: "write_file",

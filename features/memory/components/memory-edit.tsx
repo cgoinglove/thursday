@@ -208,7 +208,6 @@ type Change = {
   kind: "Remember" | "Replace" | "Forget" | "Rename" | "Opened";
   path: string;
   lines: { before?: string; after?: string }[];
-  carried: boolean;
 };
 
 /** What a call does, read off its arguments — still arriving while it streams — and the facts the screen has shown. */
@@ -221,18 +220,20 @@ function describe(
     path?: string;
     factIds?: (number | null | undefined)[] | null;
     description?: string | null;
-    aliases?: (string | undefined)[] | null;
-    facts?:
-      | ({
-          text?: string;
-          replaces?: number | null;
-          alwaysLoad?: boolean | null;
-        } | null)[]
-      | null;
+    facts?: ({ text?: string; replaces?: number | null } | null)[] | null;
   };
+  const path = args.path ?? "";
 
   if (name === TOOL_NAMES.memory_recall) {
-    return { kind: "Opened", path: args.path ?? "", lines: [], carried: false };
+    return { kind: "Opened", path, lines: [] };
+  }
+
+  if (name === TOOL_NAMES.memory_describe) {
+    return {
+      kind: "Rename",
+      path,
+      lines: args.description ? [{ after: `“${args.description}”` }] : [],
+    };
   }
 
   if (name === TOOL_NAMES.memory_forget) {
@@ -244,10 +245,10 @@ function describe(
       lines: ids.map((id, index) => ({
         before: facts[index]?.text ?? `Fact #${id}`,
       })),
-      carried: false,
     };
   }
 
+  // A new note's line leads its first facts; a fact replacing one the screen has shown reads as the change
   const facts = (args.facts ?? []).filter((fact) => fact != null);
   const lines: Change["lines"] = facts.map((fact) =>
     fact.replaces != null
@@ -257,22 +258,13 @@ function describe(
         }
       : { after: fact.text },
   );
-  if (args.description) lines.push({ after: `“${args.description}”` });
-  const aliases = (args.aliases ?? []).filter(Boolean);
-  if (aliases.length) {
-    lines.push({
-      after: `Called ${aliases.map((alias) => `“${alias}”`).join(", ")}`,
-    });
+  if (name === TOOL_NAMES.memory_create && args.description) {
+    lines.unshift({ after: `“${args.description}”` });
   }
   return {
-    kind: facts.some((fact) => fact.replaces != null)
-      ? "Replace"
-      : facts.length
-        ? "Remember"
-        : "Rename",
-    path: args.path ?? "",
+    kind: facts.some((fact) => fact.replaces != null) ? "Replace" : "Remember",
+    path,
     lines,
-    carried: facts.some((fact) => fact.alwaysLoad),
   };
 }
 
@@ -322,7 +314,6 @@ function ChangeRow({
         <p className="pt-0.5 font-mono text-[11px] text-muted-foreground">
           {change.kind}
           {change.path && ` · ${change.path}`}
-          {change.carried && " · carried into every call"}
         </p>
         {broke && errorText && (
           <p className="text-xs text-destructive">{errorText}</p>

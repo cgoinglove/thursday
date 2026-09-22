@@ -5,9 +5,10 @@ import type { Thread } from "@/features/bot/bot.schema";
 // never reads these. Unknown names resolve to null and the screen shows the name.
 const LINES: Record<string, string> = {
   [TOOL_NAMES.memory_recall]: "Checking your notes",
+  [TOOL_NAMES.memory_create]: "Starting a note",
   [TOOL_NAMES.memory_remember]: "Noting that down",
+  [TOOL_NAMES.memory_describe]: "Renaming a note",
   [TOOL_NAMES.memory_forget]: "Forgetting that",
-  [TOOL_NAMES.memory_conversation]: "Reading back an earlier call",
   [TOOL_NAMES.bash]: "Doing it on this computer",
   [TOOL_NAMES.web_search]: "Searching the web",
   [TOOL_NAMES.load_skill]: "Reading how to do this",
@@ -64,7 +65,7 @@ const fileName = (path: string) => path.split("/").filter(Boolean).at(-1) ?? "";
 const said = (args: Record<string, unknown>, key: string) =>
   typeof args[key] === "string" ? (args[key] as string).trim() : "";
 
-/** The first fact of a `memory_remember` call, while the arguments are whole enough to read. */
+/** The first fact of a `memory_remember` or `memory_create` call, while the arguments are whole enough to read. */
 function firstFact(
   args: Record<string, unknown>,
 ): { text: string; more: number } | null {
@@ -87,19 +88,27 @@ function fromArgs(
   args: Record<string, unknown>,
   bot: string | null,
 ): string | null {
-  if (name === TOOL_NAMES.memory_remember) {
+  if (
+    name === TOOL_NAMES.memory_remember ||
+    name === TOOL_NAMES.memory_create
+  ) {
     const path = said(args, "path");
     const fact = firstFact(args);
+    const verb = name === TOOL_NAMES.memory_create ? "Starting" : "Noting";
     if (!path) return null;
-    if (!fact) return `Noting that under ${path}`;
+    if (!fact) return `${verb} ${path}`;
     const more = fact.more > 0 ? ` (+${fact.more})` : "";
-    return `Noting under ${path}: ${snippet(fact.text)}${more}`;
+    return `${verb} ${path}: ${snippet(fact.text)}${more}`;
   }
   // What is read is named as exactly as what is written: a note she opened and said
   // nothing of is one the user cannot go back and check
   if (name === TOOL_NAMES.memory_recall) {
     const path = said(args, "path");
     return path ? `Checking · ${path}` : null;
+  }
+  if (name === TOOL_NAMES.memory_describe) {
+    const path = said(args, "path");
+    return path ? `Renaming · ${path}` : null;
   }
   // The tool asks the model for this line for this screen (workspace.tool bash);
   // the command stands in when it wrote none

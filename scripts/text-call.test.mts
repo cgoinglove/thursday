@@ -73,13 +73,10 @@ const { LIVE_PROVIDER, LiveSettingsSchema } = await import(
 );
 await writeConfig(LIVE_PROVIDER.apiKeyName, "sk-test");
 const { TOOL_NAMES } = await import("../features/ai/tools/tool-name.ts");
-const { readCallConversation } = await import(
-  "../features/thursday/thursday.query.ts"
-);
 const { answerInWriting, openTextCall } = await import(
   "../features/thursday/thursday.text.ts"
 );
-const { isCallOpen, sweepCalls } = await import(
+const { isCallOpen, listRecentTurns, sweepCalls } = await import(
   "../features/thursday/thursday.query.ts"
 );
 
@@ -141,7 +138,9 @@ test("what arrives while she works joins the turn between her steps, and keeps i
   assert.match(systems[0], /name its files by their path in your answer/);
 
   // Their words are turns of theirs; a fact is no turn of its own
-  const rows = (await readCallConversation(callId, 1, 20))?.turns ?? [];
+  const rows =
+    (await listRecentTurns(200)).find((call) => call.callId === callId)
+      ?.turns ?? [];
   assert.deepEqual(
     rows.map((row) => [row.role, row.text.slice(0, 20)]),
     [

@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { appEvents } from "@/app/api/events/app-event.server";
-import { MEMORY_LIMITS, PAGE_SIZE } from "@/config";
+import { PAGE_SIZE } from "@/config";
 import { database } from "@/database/db";
 import { callTable, memoryFactTable, memoryNoteTable } from "@/database/tables";
 import { createKeyedLock } from "@/lib/queue";
@@ -8,11 +8,9 @@ import {
   isAlwaysListed,
   MEMORY_ALWAYS_LISTED,
   MEMORY_PATHS,
-  type MemoryAlwaysLoaded,
+  type MemoryFactWrite,
   type MemoryNoteView,
-  type MemoryNoteWrite,
   type MemorySource,
-  type MemoryWrite,
   recallScore,
 } from "./memory.schema";
 
@@ -67,7 +65,6 @@ function latestFacts(noteIds: number[]) {
       id: memoryFactTable.id,
       noteId: memoryFactTable.noteId,
       text: memoryFactTable.text,
-      alwaysLoad: memoryFactTable.alwaysLoad,
       source: memoryFactTable.source,
       createdAt: memoryFactTable.createdAt,
       saidAt: callTable.startedAt,
@@ -215,74 +212,28 @@ export async function ensureRootNotes() {
   }
 }
 
-type NamedNote = { id: number; path: string; description: string };
-
 /**
- * Resolves names to notes: exact path first, then aliases and titles.
- * Reads and writes share this so a note opened by alias is written under the same path.
+ * Notes by path, whole. A path is the one name a note has: the listing a model
+ * reads carries it on every line, so a name that is not on it is answered as
+ * missing rather than guessed at.
  */
-async function findNotesByName(names: string[]) {
-  const wanted = names.map((name) => name.trim()).filter(Boolean);
-  const found: NamedNote[] = [];
-  const missing: string[] = [];
-  if (!wanted.length) return { found, missing };
-
-  const columns = {
-    id: memoryNoteTable.id,
-    path: memoryNoteTable.path,
-    description: memoryNoteTable.description,
-  };
-
-  const exact = await database
-    .select(columns)
-    .from(memoryNoteTable)
-    .where(inArray(memoryNoteTable.path, wanted));
-  const byName = new Map<string, NamedNote>(
-    exact.map((note) => [note.path.toLowerCase(), note]),
-  );
-
-  // Aliases are a JSON column, so the fallback scans the table once.
-  if (wanted.some((name) => !byName.has(name.toLowerCase()))) {
-    const rows = await database
-      .select({ ...columns, aliases: memoryNoteTable.aliases })
-      .from(memoryNoteTable);
-    const put = (name: string, note: NamedNote) => {
-      const key = name.trim().toLowerCase();
-      if (key && !byName.has(key)) byName.set(key, note);
-    };
-    // Exact paths first so an alias cannot shadow another note's path.
-    for (const row of rows) put(row.path, row);
-    for (const row of rows) {
-      put(row.path.slice(row.path.indexOf("/") + 1), row);
-      for (const alias of row.aliases ?? []) put(alias, row);
-    }
-  }
-
-  const seen = new Set<number>();
-  for (const name of wanted) {
-    const hit = byName.get(name.toLowerCase());
-    if (!hit) {
-      missing.push(name);
-      continue;
-    }
-    if (seen.has(hit.id)) continue;
-    seen.add(hit.id);
-    found.push(hit);
-  }
-  return { found, missing };
-}
-
-/** Path of the note a model-given name refers to, or null. */
-export async function resolveNotePath(name: string): Promise<string | null> {
-  const { found } = await findNotesByName([name]);
-  return found[0]?.path ?? null;
-}
-
 export async function readNotes(
-  names: string[],
+  paths: string[],
   options: { touch?: boolean } = {},
 ): Promise<{ notes: MemoryNoteView[]; missing: string[] }> {
-  const { found, missing } = await findNotesByName(names);
+  const wanted = [...new Set(paths.map((path) => path.trim()).filter(Boolean))];
+  if (!wanted.length) return { notes: [], missing: [] };
+
+  const found = await database
+    .select({
+      id: memoryNoteTable.id,
+      path: memoryNoteTable.path,
+      description: memoryNoteTable.description,
+    })
+    .from(memoryNoteTable)
+    .where(inArray(memoryNoteTable.path, wanted));
+  const byPath = new Map(found.map((note) => [note.path, note]));
+  const missing = wanted.filter((path) => !byPath.has(path));
   if (!found.length) return { notes: [], missing };
 
   const ids = found.map((note) => note.id);
@@ -295,301 +246,183 @@ export async function readNotes(
       .where(inArray(memoryNoteTable.id, ids));
   }
 
-  return {
-    notes: found.map((note) => ({
-      path: note.path,
-      description: note.description,
-      facts: facts
-        .filter((fact) => fact.noteId === note.id)
-        .map((fact) => ({
-          id: fact.id,
-          text: fact.text,
-          ...(fact.saidAt ? { saidAt: fact.saidAt } : {}),
-        })),
-    })),
-    missing,
-  };
+  // In the order asked for
+  const notes = wanted.flatMap((path) => {
+    const note = byPath.get(path);
+    return note
+      ? [
+          {
+            path: note.path,
+            description: note.description,
+            facts: facts
+              .filter((fact) => fact.noteId === note.id)
+              .map((fact) => ({
+                id: fact.id,
+                text: fact.text,
+                ...(fact.saidAt ? { saidAt: fact.saidAt } : {}),
+              })),
+          },
+        ]
+      : [];
+  });
+  return { notes, missing };
 }
 
 /** Facts differing only in whitespace, punctuation or case count as the same fact. */
 const sameFact = (text: string) =>
   text.toLowerCase().replace(/[\s.,!?…·'"`]/g, "");
 
-/**
- * One transaction for the whole batch: a revision is retire + insert and must not
- * be split. Facts already present (sameFact) are skipped, not reinserted.
- */
-export async function writeNotes(
-  input: MemoryNoteWrite[],
-  /** Which hand is writing; recorded on every fact (memory.schema MemorySource). */
-  source: MemorySource,
-  /** The call it is being said in; null for the screen and for a bot. */
-  callId: string | null = null,
-): Promise<MemoryWrite> {
-  const unnamed: string[] = [];
-  const paths: string[] = [];
-  // Facts that asked for alwaysLoad when no slot was free (still stored).
-  const notLoaded: string[] = [];
+type Tx = Parameters<Parameters<typeof database.transaction>[0]>[0];
 
-  await serialize(() =>
-    database.transaction(async (tx) => {
-      // Free alwaysLoad slots (config MEMORY_LIMITS.carried), counted inside the transaction.
-      const [loaded] = await tx
-        .select({ count: sql<number>`count(*)` })
+/**
+ * Writes a batch of facts under one note inside the caller's transaction. A
+ * revision is retire + insert and must not be split; a fact already present
+ * (sameFact) is skipped, not reinserted, so a batch that repeats the note merges.
+ */
+async function insertFacts(
+  tx: Tx,
+  noteId: number,
+  facts: MemoryFactWrite[],
+  source: MemorySource,
+  callId: string | null,
+): Promise<void> {
+  const existing = await tx
+    .select({ id: memoryFactTable.id, text: memoryFactTable.text })
+    .from(memoryFactTable)
+    .where(
+      and(
+        eq(memoryFactTable.noteId, noteId),
+        eq(memoryFactTable.isLatest, true),
+      ),
+    );
+  // Normalized text -> current row; kept current so duplicates within one call merge too.
+  const known = new Map(existing.map((row) => [sameFact(row.text), row]));
+
+  for (const fact of facts) {
+    const text = fact.text.trim();
+    if (!text) continue;
+
+    if (fact.replaces != null) {
+      const [target] = await tx
+        .select({ id: memoryFactTable.id, text: memoryFactTable.text })
         .from(memoryFactTable)
         .where(
           and(
-            eq(memoryFactTable.alwaysLoad, true),
-            eq(memoryFactTable.isLatest, true),
-          ),
-        );
-      let room = MEMORY_LIMITS.carried - Number(loaded?.count ?? 0);
-
-      /** Claims an alwaysLoad slot; without one the fact is stored as ordinary. */
-      const claim = (want: boolean, text: string) => {
-        if (!want) return false;
-        if (room > 0) {
-          room -= 1;
-          return true;
-        }
-        notLoaded.push(text);
-        return false;
-      };
-
-      for (const entry of input) {
-        const path = entry.path.trim();
-        if (!path) continue;
-        paths.push(path);
-
-        const description = entry.description?.trim();
-        const aliases = entry.aliases?.map((a) => a.trim()).filter(Boolean);
-        const facts = (entry.facts ?? [])
-          .map((fact) => ({ ...fact, text: fact.text.trim() }))
-          .filter((fact) => fact.text);
-
-        // Description and aliases replace, never merge; omitted fields stay untouched.
-        const [existingNote] = await tx
-          .select({ id: memoryNoteTable.id })
-          .from(memoryNoteTable)
-          .where(eq(memoryNoteTable.path, path));
-
-        let noteId: number;
-        if (existingNote) {
-          noteId = existingNote.id;
-          if (description || aliases) {
-            await tx
-              .update(memoryNoteTable)
-              .set({
-                ...(description ? { description } : {}),
-                ...(aliases ? { aliases } : {}),
-                updatedAt: new Date(),
-              })
-              .where(eq(memoryNoteTable.id, noteId));
-          }
-        } else {
-          const [made] = await tx
-            .insert(memoryNoteTable)
-            .values({
-              path,
-              // Placeholder description; the caller is told via `unnamed`.
-              description: description ?? facts[0]?.text.slice(0, 80) ?? path,
-              ...(aliases ? { aliases } : {}),
-            })
-            .returning({ id: memoryNoteTable.id });
-          noteId = made.id;
-          if (!description) unnamed.push(path);
-        }
-
-        if (!facts.length) continue;
-
-        const existing = await tx
-          .select({
-            id: memoryFactTable.id,
-            text: memoryFactTable.text,
-            alwaysLoad: memoryFactTable.alwaysLoad,
-          })
-          .from(memoryFactTable)
-          .where(
-            and(
-              eq(memoryFactTable.noteId, noteId),
-              eq(memoryFactTable.isLatest, true),
-            ),
-          );
-        // Normalized text -> current row; kept current so duplicates within one call merge too.
-        const known = new Map(existing.map((row) => [sameFact(row.text), row]));
-
-        /** Toggles alwaysLoad on an existing row; the fact itself is unchanged. */
-        const reload = async (
-          row: { id: number; alwaysLoad: boolean },
-          want: boolean,
-          text: string,
-        ) => {
-          if (want === row.alwaysLoad) return;
-          // Unloading frees a slot for later facts in the same write.
-          const next = want ? claim(true, text) : ((room += 1), false);
-          if (next === row.alwaysLoad) return;
-          await tx
-            .update(memoryFactTable)
-            .set({ alwaysLoad: next })
-            .where(eq(memoryFactTable.id, row.id));
-          row.alwaysLoad = next;
-        };
-
-        for (const fact of facts) {
-          if (fact.replaces != null) {
-            const [target] = await tx
-              .select({
-                id: memoryFactTable.id,
-                text: memoryFactTable.text,
-                alwaysLoad: memoryFactTable.alwaysLoad,
-              })
-              .from(memoryFactTable)
-              .where(
-                and(
-                  eq(memoryFactTable.id, fact.replaces),
-                  eq(memoryFactTable.noteId, noteId),
-                  eq(memoryFactTable.isLatest, true),
-                ),
-              );
-            // An unknown id falls through and the fact is simply stored.
-            if (target) {
-              // Same text: only alwaysLoad changes, so no new version.
-              if (sameFact(target.text) === sameFact(fact.text)) {
-                await reload(
-                  target,
-                  fact.alwaysLoad ?? target.alwaysLoad,
-                  fact.text,
-                );
-                known.set(sameFact(target.text), target);
-                continue;
-              }
-
-              await tx
-                .update(memoryFactTable)
-                .set({ isLatest: false })
-                .where(eq(memoryFactTable.id, target.id));
-              known.delete(sameFact(target.text));
-              // A retired alwaysLoad row frees its slot for the replacement.
-              if (target.alwaysLoad) room += 1;
-
-              // No duplicate check: this is a revision, not an addition.
-              const [added] = await tx
-                .insert(memoryFactTable)
-                .values({
-                  noteId,
-                  text: fact.text,
-                  source,
-                  callId,
-                  alwaysLoad: claim(
-                    fact.alwaysLoad ?? target.alwaysLoad,
-                    fact.text,
-                  ),
-                })
-                .returning({
-                  id: memoryFactTable.id,
-                  alwaysLoad: memoryFactTable.alwaysLoad,
-                });
-              known.set(sameFact(fact.text), { ...added, text: fact.text });
-              continue;
-            }
-          }
-
-          const seen = known.get(sameFact(fact.text));
-          if (seen) {
-            // Rewriting a known fact is a no-op unless it asks to change alwaysLoad.
-            if (fact.alwaysLoad != null) {
-              await reload(seen, fact.alwaysLoad, fact.text);
-            }
-            continue;
-          }
-
-          const [added] = await tx
-            .insert(memoryFactTable)
-            .values({
-              noteId,
-              text: fact.text,
-              source,
-              callId,
-              alwaysLoad: claim(fact.alwaysLoad === true, fact.text),
-            })
-            .returning({
-              id: memoryFactTable.id,
-              alwaysLoad: memoryFactTable.alwaysLoad,
-            });
-          known.set(sameFact(fact.text), { ...added, text: fact.text });
-        }
-
-        await tx
-          .update(memoryNoteTable)
-          .set({ updatedAt: new Date() })
-          .where(eq(memoryNoteTable.id, noteId));
-      }
-    }),
-  );
-
-  // Re-read without touching hits: saving is not recall.
-  const { notes } = await readNotes(paths, { touch: false });
-  changed();
-  return { notes, unnamed, notLoaded };
-}
-
-/** Facts loaded into every session. The limit is a safety net over the cap writeNotes enforces. */
-export function listAlwaysLoaded(): Promise<MemoryAlwaysLoaded[]> {
-  return database
-    .select({
-      id: memoryFactTable.id,
-      path: memoryNoteTable.path,
-      text: memoryFactTable.text,
-    })
-    .from(memoryFactTable)
-    .innerJoin(memoryNoteTable, eq(memoryFactTable.noteId, memoryNoteTable.id))
-    .where(
-      and(
-        eq(memoryFactTable.alwaysLoad, true),
-        eq(memoryFactTable.isLatest, true),
-      ),
-    )
-    .orderBy(asc(memoryNoteTable.path), asc(memoryFactTable.id))
-    .limit(MEMORY_LIMITS.carried);
-}
-
-/** Settings toggle for alwaysLoad; same cap as model writes, no new version. */
-export async function setFactAlwaysLoad(
-  noteId: number,
-  factId: number,
-  alwaysLoad: boolean,
-): Promise<"ok" | "full" | "missing"> {
-  const result = await serialize(() =>
-    database.transaction(async (tx): Promise<"ok" | "full" | "missing"> => {
-      if (alwaysLoad) {
-        const [loaded] = await tx
-          .select({ count: sql<number>`count(*)` })
-          .from(memoryFactTable)
-          .where(
-            and(
-              eq(memoryFactTable.alwaysLoad, true),
-              eq(memoryFactTable.isLatest, true),
-            ),
-          );
-        if (Number(loaded?.count ?? 0) >= MEMORY_LIMITS.carried) return "full";
-      }
-
-      const [row] = await tx
-        .update(memoryFactTable)
-        .set({ alwaysLoad })
-        .where(
-          and(
-            eq(memoryFactTable.id, factId),
+            eq(memoryFactTable.id, fact.replaces),
             eq(memoryFactTable.noteId, noteId),
             eq(memoryFactTable.isLatest, true),
           ),
-        )
-        .returning({ id: memoryFactTable.id });
-      return row ? "ok" : "missing";
+        );
+      // An unknown id falls through and the fact is simply stored; the same text is nothing to change
+      if (target) {
+        if (sameFact(target.text) === sameFact(text)) continue;
+        await tx
+          .update(memoryFactTable)
+          .set({ isLatest: false })
+          .where(eq(memoryFactTable.id, target.id));
+        known.delete(sameFact(target.text));
+        // No duplicate check: this is a revision, not an addition.
+        const [added] = await tx
+          .insert(memoryFactTable)
+          .values({ noteId, text, source, callId })
+          .returning({ id: memoryFactTable.id });
+        known.set(sameFact(text), { ...added, text });
+        continue;
+      }
+    }
+
+    if (known.has(sameFact(text))) continue;
+    const [added] = await tx
+      .insert(memoryFactTable)
+      .values({ noteId, text, source, callId })
+      .returning({ id: memoryFactTable.id });
+    known.set(sameFact(text), { ...added, text });
+  }
+
+  await tx
+    .update(memoryNoteTable)
+    .set({ updatedAt: new Date() })
+    .where(eq(memoryNoteTable.id, noteId));
+}
+
+/**
+ * Facts under a note that is already on the listing; null when the path is not.
+ * A missing path is an answer for the caller to relay, never a note made on the
+ * way: a note comes into being with its line (createNoteWithFacts).
+ *
+ * @param source Which hand is writing; recorded on every fact (memory.schema MemorySource).
+ * @param callId The call it is being said in; null for the screen and for a bot.
+ */
+export async function writeFacts(
+  path: string,
+  facts: MemoryFactWrite[],
+  source: MemorySource,
+  callId: string | null = null,
+): Promise<MemoryNoteView | null> {
+  const target = path.trim();
+  const written = await serialize(() =>
+    database.transaction(async (tx) => {
+      const [note] = await tx
+        .select({ id: memoryNoteTable.id })
+        .from(memoryNoteTable)
+        .where(eq(memoryNoteTable.path, target));
+      if (!note) return false;
+      await insertFacts(tx, note.id, facts, source, callId);
+      return true;
     }),
   );
-  if (result === "ok") changed();
-  return result;
+  if (!written) return null;
+
+  // Re-read without touching hits: saving is not recall.
+  const { notes } = await readNotes([target], { touch: false });
+  changed();
+  return notes[0] ?? null;
+}
+
+/**
+ * A new note with its line and its first facts, in one transaction; null when
+ * the path is already taken, so a second write to a subject amends the note
+ * that has it (writeFacts) rather than making a twin.
+ */
+export async function createNoteWithFacts(
+  path: string,
+  description: string,
+  facts: MemoryFactWrite[],
+  source: MemorySource,
+  callId: string | null = null,
+): Promise<MemoryNoteView | null> {
+  const target = path.trim();
+  const made = await serialize(() =>
+    database.transaction(async (tx) => {
+      const [note] = await tx
+        .insert(memoryNoteTable)
+        .values({ path: target, description })
+        .onConflictDoNothing({ target: memoryNoteTable.path })
+        .returning({ id: memoryNoteTable.id });
+      if (!note) return false;
+      await insertFacts(tx, note.id, facts, source, callId);
+      return true;
+    }),
+  );
+  if (!made) return null;
+
+  const { notes } = await readNotes([target], { touch: false });
+  changed();
+  return notes[0] ?? null;
+}
+
+/** The line a note is listed by, replaced whole; false when there is no such note. */
+export async function describeNote(
+  path: string,
+  description: string,
+): Promise<boolean> {
+  const [note] = await database
+    .update(memoryNoteTable)
+    .set({ description, updatedAt: new Date() })
+    .where(eq(memoryNoteTable.path, path.trim()))
+    .returning({ id: memoryNoteTable.id });
+  if (note) changed();
+  return Boolean(note);
 }
 
 /** Index for the system prompt: one line per note, no fact text, hottest first. */
@@ -600,7 +433,6 @@ export async function listNoteIndex() {
         id: memoryNoteTable.id,
         path: memoryNoteTable.path,
         description: memoryNoteTable.description,
-        aliases: memoryNoteTable.aliases,
         hits: memoryNoteTable.hits,
         lastReadAt: memoryNoteTable.lastReadAt,
         createdAt: memoryNoteTable.createdAt,
@@ -632,7 +464,6 @@ export async function listNoteIndex() {
       .map((note) => ({
         path: note.path,
         description: note.description,
-        aliases: note.aliases,
         factCount: countOf.get(note.id) ?? 0,
         lastSeenAt: note.lastReadAt ?? note.createdAt,
       }))
@@ -692,17 +523,6 @@ export async function forgetFactById(
   );
   if (forgotten) changed();
   return forgotten;
-}
-
-/** Who wrote a fact and the call it was said in; null when there is no such fact. */
-export async function findFactCall(
-  id: number,
-): Promise<{ source: MemorySource | null; callId: string | null } | null> {
-  const [fact] = await database
-    .select({ source: memoryFactTable.source, callId: memoryFactTable.callId })
-    .from(memoryFactTable)
-    .where(eq(memoryFactTable.id, id));
-  return fact ?? null;
 }
 
 /**

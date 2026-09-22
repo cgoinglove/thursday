@@ -236,13 +236,6 @@ export const THREAD_STATUS_LIMIT = 10;
 export const CALL_HISTORY_PAGE = 10;
 
 /**
- * Turns per page when a model opens the conversation a fact was saved in
- * (ai/tools/memory.tool `memory_conversation`). A whole call nearly always
- * fits one page; the page is there so an hour-long call cannot arrive at once.
- */
-export const MEMORY_CONVERSATION_PAGE = 100;
-
-/**
  * The Workspace section (features/workspace), which browses what bots wrote.
  * - `rows`  entries one folder listing returns; the rest load on demand. Only
  *           the ones returned are `stat`ed, so a folder of 20,000 files costs
@@ -566,25 +559,22 @@ export const PROMPT_BUDGET = 6_000;
 /**
  * What counts as too much memory to hold in one piece (features/memory), counted
  * in facts. Nothing is deleted on its own: past either of the first two the call's backend is
- * told to say so once in what it returns and settle it with the user (thursday.prompt memory),
- * and the third is the only hard one. Facts rather
- * than tokens because it is the number the user sees on their own screen and the
+ * told to say so once in what it returns and settle it with the user (thursday.prompt memory).
+ * Facts rather than tokens because it is the number the user sees on their own screen and the
  * number a model is told after every write — a token estimate is nobody's unit and
- * cannot be acted on.
+ * cannot be acted on. Profile and preferences are written out whole in every call's prompt,
+ * so `factsPerNote` is also what bounds those two chapters.
  * - `facts`  facts held across every note, above which the listing is too long.
  * - `factsPerNote`  facts in one note, above which that note is named instead.
- * - `carried`  facts loaded into every call's prompt without opening a note; past
- *            it the write path stores the next one as an ordinary fact and says so.
- * - `expanded`  facts of profile and preferences written out in each call's prompt
- *            without opening them — carried ones first, then the newest. The rest
- *            are counted there and she opens the note for them. Raising it costs
- *            every call up to twice that many lines; bots never see these.
+ * - `descriptionChars`  the longest line a note is listed by, on screen and in a
+ *            prompt alike; a longer one is refused. A line is what a note is about,
+ *            and past this length it has become a list of what is inside — which
+ *            the facts already are.
  */
 export const MEMORY_LIMITS = {
   facts: 400,
   factsPerNote: 50,
-  carried: 20,
-  expanded: 10,
+  descriptionChars: 100,
 };
 
 /**

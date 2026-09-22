@@ -913,13 +913,11 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
   });
   const memoryMock = mock.module("../features/memory/memory.query.ts", {
     namedExports: {
-      listAlwaysLoaded: async () => [
-        { id: 1, path: "profile", text: "Prefer brief replies." },
-      ],
       readNotes: async () => ({
         notes: [
           {
             path: "profile",
+            description: "The user themselves",
             facts: Array.from({ length: profileFacts }, (_, index) => ({
               id: index + 1,
               text: index === 0 ? "Prefer brief replies." : `Fact ${index}`,
@@ -930,8 +928,7 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
       listNoteIndex: async () => [
         {
           path: "people/sam",
-          description: "Their brother",
-          aliases: ["Sam"],
+          description: "Their brother, Sam",
           factCount: samFacts,
           lastSeenAt: new Date(),
         },
@@ -992,8 +989,12 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     assert.equal(/What bots can reach for|- Web:/.test(on.text), false);
     // Stopping her voice is hers, stopping a job the backend's
     assert.match(on.text, /or only want you to stop talking/);
-    assert.match(on.text, /- people\/sam — Their brother \(2\) "Sam"/);
+    assert.match(on.text, /- people\/sam — Their brother, Sam \(2\)/);
     assert.match(on.text, /What is in these notes, the backend recalls\./);
+    // Profile and preferences are whole on both sides: the oldest line is the one
+    // about how to speak to them, and a count in its place hid it first
+    assert.match(on.text, /- Fact 199\n/);
+    assert.equal(/more in this note|older not shown/.test(on.text), false);
     // What was said on earlier calls is hers to read, as reading under the past's own
     // heading: the spoken lines, each call under when it was, and never a tool line
     assert.match(
@@ -1040,6 +1041,12 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
       backend,
       /\*\*Keep memory clean as you write\.\*\* A fact that repeats, narrows or changes one already in the note replaces it/,
     );
+    assert.match(backend, /- Prefer brief replies\. #1\n/);
+    assert.match(backend, /- Fact 199 #200\n/);
+    // The three writes are named where each is acted on; the trial tool that opened a call is gone
+    assert.match(backend, /gets a note of its own with `memory_create`/);
+    assert.match(backend, /`memory_describe` puts it right/);
+    assert.equal(backend.includes("memory_conversation"), false);
     for (const heading of [
       "## Memory",
       "## Background work",

@@ -8,10 +8,7 @@ import {
 import { STUDIO_TOOLS, TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import type { BotWorkLine } from "@/features/bot/bot.schema";
 import type { McpToolRef } from "@/features/connectors/mcp.schema";
-import type {
-  MemoryAlwaysLoaded,
-  MemoryIndexEntry,
-} from "@/features/memory/memory.schema";
+import type { MemoryIndexEntry } from "@/features/memory/memory.schema";
 import type { SkillMetadata } from "@/features/skills/skills.discover";
 import { searchOf, startedLabel } from "@/features/thursday/tool-line";
 import { toDate } from "@/lib/date-like";
@@ -98,23 +95,6 @@ export const callStamp = (at: Date): string =>
 export const saidStamp = (at: Date): string =>
   format(at, "yyyy-MM-dd (EEE) HH:mm");
 
-/**
- * A call as a conversation: who said what, and which tool was used — never its
- * arguments or its result. What was asked for and what was said back is the
- * conversation; the arguments are already in memory and the results are not
- * what anyone said.
- */
-export const conversationLines = (
-  turns: { role: string; tool: string | null; text: string }[],
-): string =>
-  turns
-    .map((turn) =>
-      turn.role === "tool"
-        ? `you → ${turn.tool ?? "tool"}`
-        : `${turn.role === "user" ? "user" : "you"}: ${turn.text}`,
-    )
-    .join("\n");
-
 /** `4mo`, `12d`: short enough to read aloud. */
 function sinceLast(at: MemoryIndexEntry["lastSeenAt"]): string {
   const days = Math.floor((Date.now() - toDate(at).getTime()) / 86_400_000);
@@ -123,52 +103,15 @@ function sinceLast(at: MemoryIndexEntry["lastSeenAt"]): string {
   return `${Math.max(days, 0)}d`;
 }
 
-/** `- people/partner — partner (3) "my partner" · 12d` */
+/** `- people/partner — partner, their first name (3) · 12d` */
 export function noteLines(index: MemoryIndexEntry[], age = false): string {
   if (!index.length) return "(nothing saved yet)";
   return index
     .map((note) => {
-      const aliases = note.aliases?.length
-        ? ` ${note.aliases.map((alias) => `"${alias}"`).join(" ")}`
-        : "";
       const since = age ? ` · ${sinceLast(note.lastSeenAt)}` : "";
-      return `- ${note.path} — ${note.description?.trim()} (${note.factCount})${aliases}${since}`;
+      return `- ${note.path} — ${note.description?.trim()} (${note.factCount})${since}`;
     })
     .join("\n");
-}
-
-/** `- Prefers to be called by their first name · profile #12`; without the id for the voice, which holds no tool that takes one. */
-export const carriedLines = (
-  loaded: MemoryAlwaysLoaded[],
-  options: { ids?: boolean } = {},
-): string =>
-  loaded
-    .map(
-      (fact) =>
-        `- ${fact.text} · ${fact.path}${options.ids === false ? "" : ` #${fact.id}`}`,
-    )
-    .join("\n");
-
-/**
- * The facts of an always-listed note that a call prompt writes out: its carried ones, then the
- * newest, up to MEMORY_LIMITS.expanded, in the order they were saved. A carried fact is never
- * left out, even past the cap. Shared so the voice and the backend read the same lines; `hidden`
- * is what is left for opening the note.
- */
-export function expandedFacts<Fact extends { id: number }>(
-  facts: Fact[],
-  carried: Set<number>,
-): { shown: Fact[]; hidden: number } {
-  const pinned = facts.filter((fact) => carried.has(fact.id));
-  const rest = facts.filter((fact) => !carried.has(fact.id));
-  const room = Math.max(0, MEMORY_LIMITS.expanded - pinned.length);
-  const kept = new Set(
-    [...pinned, ...rest.slice(Math.max(0, rest.length - room))].map(
-      (fact) => fact.id,
-    ),
-  );
-  const shown = facts.filter((fact) => kept.has(fact.id));
-  return { shown, hidden: facts.length - shown.length };
 }
 
 /**
