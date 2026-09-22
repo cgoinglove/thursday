@@ -2,8 +2,8 @@
 // A canvas of options: boards pinned on one pan/zoom surface in the bot's artifacts
 // folder, and every board as a picture of its own.
 //
-//   node canvas.mjs new <name>      the canvas, styled, to write boards into
-//   node canvas.mjs shots <name>    every board as a PNG beside it, each at its own size
+//   node canvas.mjs new <name>           the canvas, styled, to write boards into
+//   node canvas.mjs shots <name|path>    every board as a PNG beside it, each at its own size
 import { spawnSync } from "node:child_process";
 import {
   copyFileSync,
@@ -12,9 +12,10 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -37,7 +38,12 @@ const WORKSPACE = findWorkspace();
 // The shipped skills, where the browser skill's renderer takes the pictures: named in a
 // bot's shell, and otherwise the folder this skill itself sits in beside it
 const SKILLS = process.env.THURSDAY_SKILLS || resolve(SKILL, "..");
-const shown = (path) => relative(WORKSPACE, path) || ".";
+/** A path as the reader should type it: short from the workspace, whole from outside it. */
+const shown = (path) => {
+  const near = relative(WORKSPACE, path);
+  if (!near) return ".";
+  return near.startsWith("..") ? path : near;
+};
 
 class Stop extends Error {}
 
@@ -53,6 +59,20 @@ function fileFor(name) {
     name,
     `${name}.html`,
   );
+}
+
+/**
+ * What `shots` was pointed at. A name is this bot's own canvas. A path — the file, or the
+ * folder holding it — is how a canvas another bot made is shot: work handed over lands in
+ * the folder of whoever it was handed to, which no name of mine reaches.
+ */
+function sourceFor(arg) {
+  if (!arg) throw new Stop("Give a canvas name, or the path to one.");
+  if (!arg.includes("/") && !arg.endsWith(".html")) return fileFor(arg);
+  const path = resolve(arg);
+  return existsSync(path) && statSync(path).isDirectory()
+    ? join(path, `${basename(path)}.html`)
+    : path;
 }
 
 function newCanvas(name) {
@@ -92,10 +112,10 @@ function boardSizes(html) {
 }
 
 async function shotCanvas(name) {
-  const file = fileFor(name);
+  const file = sourceFor(name);
   if (!existsSync(file))
     throw new Stop(
-      `No canvas ${shown(file)}. Start it with: node ${SCRIPT} new ${name}`,
+      `No canvas ${shown(file)}. Start one with: node ${SCRIPT} new <name>, or give the path to one that exists.`,
     );
   const sizes = boardSizes(readFileSync(file, "utf8"));
   if (!sizes.length)
@@ -159,7 +179,7 @@ const commands = { new: newCanvas, shots: shotCanvas };
 const [command, ...rest] = process.argv.slice(2);
 try {
   if (!commands[command])
-    throw new Stop("Usage: canvas.mjs new <name> | shots <name>");
+    throw new Stop("Usage: canvas.mjs new <name> | shots <name|path>");
   await commands[command](...rest);
 } catch (error) {
   // A `Stop` is a line for the reader, not a stack

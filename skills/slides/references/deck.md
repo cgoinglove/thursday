@@ -159,7 +159,12 @@ Write them as speech, not bullets. The `<aside>` is the section's last child.
 
 ```bash
 node <skill dir>/scripts/deck.mjs shots <name>
+node <skill dir>/scripts/deck.mjs shots <path to a deck>   # one another bot made
 ```
+
+A name is your own deck. A deck handed to you sits in the other bot's artifacts folder, where
+no name of yours reaches it, so it is shot by its path — the file, or the folder holding it —
+and its pictures land beside it, where whoever presents will look.
 
 Every slide becomes `slide-01.png`, `slide-02.png` … beside the deck, in order. **A slide that
 overflows comes out taller than 1080 and is refused by its number**, and the bar at the foot of

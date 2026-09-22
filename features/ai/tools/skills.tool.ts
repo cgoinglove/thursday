@@ -84,7 +84,10 @@ export const createSkillTools = ({
 
         return {
           skillDirectory: skill.path,
-          files,
+          // Each file as the path that opens it. Listed as bare names beside the
+          // directory, they were typed as paths from the workspace instead and the
+          // first read of a skill's own file failed in 3 jobs out of 3 (09-23).
+          files: files.map((file) => `${skill.path}/${file}`),
           ...(total > files.length && {
             more: `${total - files.length} more files, deeper in these folders. List a folder in the shell to see them.`,
           }),

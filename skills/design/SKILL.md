@@ -16,8 +16,9 @@ app draws it at 1024px wide. `S=<skill dir>/scripts`
    `poster`, `post`, `wireframe`, `direction` — into the canvas and change what is on it.
    `references/canvas.md` is the layout, the sizes and what makes a set of options a real
    choice; read it before the first board.
-3. `node $S/canvas.mjs shots <name>` — every board as a PNG beside the file, each at its
-   own size; one that overflows is refused by number.
+3. `node $S/canvas.mjs shots <name|path>` — every board as a PNG beside the file, each at
+   its own size; one that overflows is refused by number. A canvas another bot handed you
+   is reached by its path, never by name.
 4. Hand back the canvas's path and the pictures' paths, and say in words what each
    option explores and which you would lead with.
 

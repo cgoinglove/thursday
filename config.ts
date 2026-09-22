@@ -653,7 +653,8 @@ export const CHATGPT_USAGE_HIGH = 80;
 /**
  * How many of a skill's files `load_skill` lists beside its instructions. The list is
  * what tells a bot which references and scripts are there to open, and it is paid for
- * on every load: a path is about ten tokens. Shallowest first, so what is cut is what
+ * on every load: each is the full path it is opened by, some twenty tokens. Shallowest
+ * first, so what is cut is what
  * sits deep in a bundled engine or a component kit, and the tool says how many were.
  */
 export const SKILL_FILES_LISTED = 50;

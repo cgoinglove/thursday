@@ -118,7 +118,12 @@ CSS px, 96 to an inch. Give a board the size of the thing it stands for:
 
 ```bash
 node <skill dir>/scripts/canvas.mjs shots <name>
+node <skill dir>/scripts/canvas.mjs shots <path to a canvas>   # one another bot made
 ```
+
+A name is your own canvas. A canvas handed to you sits in the other bot's artifacts folder,
+where no name of yours reaches it, so it is shot by its path — the file, or the folder
+holding it — and its pictures land beside it, where whoever chooses will look.
 
 Every board becomes `board-01.png`, `board-02.png` … beside the canvas, in the order they
 appear, each at its own size. They are what goes in front of whoever chooses — the canvas

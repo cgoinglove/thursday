@@ -76,6 +76,10 @@ it hands out has a way through when nobody on the roster is for it. This adds wh
   included (09-22). Two ways to make one thing
   (the deck here and the office `deck` of the Docs kit) each say in their description which
   ask is theirs.
+- **A skill's script takes a path as well as a name.** A name resolves inside the running
+  bot's own artifacts folder, and work handed to another bot lands in that bot's: pointed at
+  a deck a second bot wrote, `shots <name>` could reach nothing, so the bot called the
+  renderer itself and left two copies of the deck and two sets of pictures (09-23).
 - **A main `SKILL.md` holds one or two facts the model does not know.** Procedures go in
   `references/`.
 - **`load_skill` lists a skill's files shallowest first, up to `SKILL_FILES_LISTED`**, and says

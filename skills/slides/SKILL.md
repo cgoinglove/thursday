@@ -17,8 +17,9 @@ tap, `f` filling the screen and `n` showing the presenter's notes. `S=<skill dir
    Every style is inline, so the values stay readable by whatever reads the slides next.
    `references/deck.md` is the subset, the height arithmetic and what makes a deck work;
    read it before the first slide.
-3. `node $S/deck.mjs shots <name>` — every slide as a PNG beside the file; one that
-   overflows is refused by number.
+3. `node $S/deck.mjs shots <name|path>` — every slide as a PNG beside the file; one that
+   overflows is refused by number. A deck another bot handed you is reached by its path,
+   never by name.
 4. Hand back the deck's path, and in a line what it argues and how many slides it is.
 
 A slide fades in as it is turned to (`data-transition="push"` or `"none"` on a section
