@@ -2,8 +2,8 @@
 
 <a href="https://youtu.be/V7fBDY3cYRU">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/hero-dark.gif">
-    <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/hero-light.gif" alt="Thursday — GPT-Live 1 위에서 도는 오픈소스 음성 비서와 AI 봇 팀. 하나는 페이지를 끝냈고, 하나는 웹을 뒤지는 중이다" width="880">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/hero-dark.png">
+    <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/hero-light.png" alt="Thursday — GPT-Live 1 위에서 도는 오픈소스 음성 비서와 AI 봇 팀. 하나는 페이지를 끝냈고, 하나는 웹을 뒤지는 중이다" width="880">
   </picture>
 </a>
 

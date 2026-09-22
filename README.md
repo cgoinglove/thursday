@@ -2,8 +2,8 @@
 
 <a href="https://youtu.be/V7fBDY3cYRU">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/hero-dark.gif">
-    <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/hero-light.gif" alt="Thursday — an open-source voice assistant on GPT-Live 1, with a team of AI bots: one has finished a page, another is searching the web" width="880">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/hero-dark.png">
+    <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/hero-light.png" alt="Thursday — an open-source voice assistant on GPT-Live 1, with a team of AI bots: one has finished a page, another is searching the web" width="880">
   </picture>
 </a>
 
