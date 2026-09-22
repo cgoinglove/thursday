@@ -40,5 +40,9 @@ caption from the first version, downloaded into the page's folder from the pages
 crossing edge or a clipped label never reaches the user. It is a page of its own; when a
 document needs one, name both files as you hand back.
 
+To look at a page before handing it back, `node $THURSDAY_SKILLS/browser/scripts/render.mjs
+<page.html> --out <dir> --size 1024x1400` leaves a picture of it; a server of your own is
+not needed.
+
 Nothing is edited in the app: what changes is the file. A document that has to be sent or
 edited as a Word or PDF file is an office document, which is another method's work.
