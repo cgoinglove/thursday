@@ -437,8 +437,15 @@ export const BOT_WORK = {
  */
 export const ROUTINE = { tickMs: 30_000, max: 12, minHours: 1, runsShown: 5 };
 
-/** Name of the shipped browser skill (PATHS.skills.default); a seed bot claims it by name. */
+/**
+ * Shipped skills a seed bot claims by name (PATHS.skills.default), because they are the tool
+ * of that bot's trade rather than one method among many (.claude/rules/seeds.md). Every other
+ * skill a bot finds through its own description.
+ */
 export const BROWSER_SKILL = "browser";
+export const DESIGN_SKILL = "design";
+export const SLIDES_SKILL = "slides";
+export const PAGE_SKILL = "interactive-page";
 
 /**
  * Size of the browser a job drives (workspace.ts jobShellEnv). A headed window

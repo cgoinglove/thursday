@@ -380,8 +380,10 @@ const REQUIRED = [
   "skills/browser/scripts/session.mjs",
   // Without its lockfile the page kit installs whatever versions are current that day
   "skills/interactive-page/kit/package-lock.json",
-  // What `page.mjs quick` inlines; without it a quick page is an error
-  "skills/interactive-page/quick/quick.css",
+  // What `page.mjs quick`, `canvas.mjs new` and `deck.mjs new` inline; without them each is an error
+  "skills/interactive-page/quick/pages/blank.html",
+  "skills/design/canvas/canvas.html",
+  "skills/slides/deck/deck.html",
   // Copied into a seed bot when it is made; without it the Marketer starts empty
   "seed-skills/marketer/product-marketing/SKILL.md",
   // Copied into the workspace at boot (features/ai/guide); without it the call has none to read

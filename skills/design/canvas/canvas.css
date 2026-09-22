@@ -51,8 +51,9 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-/* The bar: what this canvas is, and where the view is. */
-header {
+/* The bar: what this canvas is, and where the view is. Only the page's own — a board
+   draws its own <header> and must not be pinned to the window by this. */
+body > header {
   position: fixed;
   z-index: 2;
   top: 0;
@@ -66,7 +67,7 @@ header {
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(8px);
 }
-header h1 {
+body > header h1 {
   margin: 0;
   font-size: 0.875rem;
   font-weight: 600;
@@ -75,10 +76,10 @@ header h1 {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-header .spacer {
+body > header .spacer {
   flex: 1;
 }
-header .keys {
+body > header .keys {
   color: var(--muted);
   font-size: 0.75rem;
   white-space: nowrap;
@@ -98,7 +99,7 @@ header .keys {
   display: none;
 }
 @media (max-width: 640px) {
-  header .keys {
+  body > header .keys {
     display: none;
   }
 }
@@ -240,6 +241,42 @@ header .keys {
   background: var(--bg);
   box-shadow: var(--shadow);
 }
+/* A board's content starts from nothing: no default margin on a heading, a paragraph or
+   a list, no bullet indent, no space between table cells. What is on a board is laid
+   out by its own flex, grid, gap and padding alone, so a picture of it is what was
+   written and a browser's defaults never add height to it. */
+.board
+:is(
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  p,
+  ul,
+  ol,
+  li,
+  dl,
+  figure,
+  blockquote,
+  table,
+  fieldset,
+  form,
+  pre,
+  hr
+) {
+  margin: 0;
+}
+.board :is(ul, ol, fieldset) {
+  padding: 0;
+}
+.board table {
+  border-spacing: 0;
+}
+.board :is(img, svg, video) {
+  display: block;
+}
 /* A board whose content does not fit it. Red is failure, as everywhere in the app. */
 .frame.cut > .board {
   border-color: var(--bad);
@@ -302,13 +339,33 @@ header .keys {
   font-size: 0.875rem;
   font-weight: 600;
 }
+/* A title over a row of boards — a flow, a round, a page of the exploration — never
+   over one, whose name strip already names it. */
+.note.title {
+  color: var(--fg);
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+/* A sticky: a remark pinned to the surface — a question, a thing to decide, what the
+   user said — with a ground of its own so it reads as put there, not as a caption. */
+.note.sticky {
+  width: calc(var(--w, 240) * 1px);
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--soft);
+  color: var(--fg);
+  box-shadow: var(--shadow);
+}
 
 /* Shot mode: the boards alone, laid out in a column at true size, for the renderer. */
 body.shot {
   overflow: visible;
   background: var(--bg);
 }
-body.shot header,
+body.shot > header,
 body.shot .note,
 body.shot .frame > h2 {
   display: none;

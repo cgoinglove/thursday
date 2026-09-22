@@ -5,7 +5,10 @@
 //   node page.mjs new <name>        start a page in the kit
 //   node page.mjs build <name>      bundle it into one offline HTML file in the artifacts folder
 //   node page.mjs add <package>...  add a library the kit lacks; every page can use it after
-//   node page.mjs quick <name>      one hand-written HTML file, styled, no kit
+//   node page.mjs quick <name> [--from <kind>]
+//                                   one hand-written HTML file, styled, no kit — from a ready
+//                                   document (quick/pages: report, memo, comparison, plan,
+//                                   notes) or blank
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -205,12 +208,23 @@ function buildPage(name) {
 
 /**
  * A page with nothing to build: one HTML file in the bot's artifacts folder, the quick
- * stylesheet inlined, written by hand from there. No kit is installed for it.
+ * stylesheet and script inlined, its body a ready document (`--from`) or blank, written
+ * by hand from there. No kit is installed for it.
  */
-function quickPage(name) {
+function quickPage(name, ...args) {
   if (!name || !NAME.test(name))
     throw new Stop(
       `${name ? `"${name}" is not` : "Give"} a page name: letters, numbers, - and _ only.`,
+    );
+  const quick = join(SKILL, "quick");
+  const kinds = readdirSync(join(quick, "pages"))
+    .filter((file) => file.endsWith(".html"))
+    .map((file) => file.slice(0, -5));
+  const at = args.indexOf("--from");
+  const kind = at === -1 ? "blank" : (args[at + 1] ?? "");
+  if (!kinds.includes(kind))
+    throw new Stop(
+      `No ready document "${kind}": --from takes one of ${kinds.filter((k) => k !== "blank").join(", ")}.`,
     );
   const out = join(
     WORKSPACE,
@@ -219,19 +233,18 @@ function quickPage(name) {
   );
   if (existsSync(out))
     throw new Stop(`${shown(out)} already exists. Edit it there.`);
-  const quick = join(SKILL, "quick");
+  const part = (path) => readFileSync(join(quick, path), "utf8").trim();
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(
     out,
-    readFileSync(join(quick, "quick.html"), "utf8")
-      .replaceAll("{{title}}", name)
-      .replace(
-        "{{css}}",
-        readFileSync(join(quick, "quick.css"), "utf8").trim(),
-      ),
+    part("quick.html")
+      .replace("{{body}}", () => part(join("pages", `${kind}.html`)))
+      .replace("{{css}}", () => part("quick.css"))
+      .replace("{{js}}", () => part("quick.js"))
+      .replaceAll("{{title}}", name),
   );
   console.log(
-    `${shown(out)} is ready: one file that opens offline, styled already. Write its body in plain HTML (the comment inside lists the few classes), and hand back this path.`,
+    `${shown(out)} is ready: one file that opens offline, styled already${kind === "blank" ? "" : `, laid out as a ${kind}`}. Write it in plain HTML from what is there (the comment inside says what each part is for), and hand back this path.`,
   );
 }
 
@@ -249,10 +262,10 @@ try {
   if (command === "new") newPage(rest[0]);
   else if (command === "build") buildPage(rest[0]);
   else if (command === "add") addPackages(rest);
-  else if (command === "quick") quickPage(rest[0]);
+  else if (command === "quick") quickPage(...rest);
   else
     throw new Stop(
-      "Usage: page.mjs quick <name> | new <name> | build <name> | add <package>...",
+      "Usage: page.mjs quick <name> [--from <kind>] | new <name> | build <name> | add <package>...",
     );
 } catch (error) {
   if (!(error instanceof Stop)) throw error;

@@ -122,9 +122,45 @@
     own = true;
     draw();
     say();
+    // The address names the board that is up, so a link or a reload lands on it
+    if (frame.id) history.replaceState(null, "", `#${frame.id}`);
   };
 
   const step = (by) => show(at < 0 ? (by > 0 ? 0 : -1) : at + by);
+
+  /** Every board back side by side, the way the canvas opened. */
+  const fitAll = () => {
+    at = -1;
+    fit();
+    say();
+    if (location.hash) history.replaceState(null, "", location.pathname);
+  };
+
+  /** The board the address names, when it names one. */
+  const named = () =>
+    boards().findIndex(
+      (frame) =>
+        frame.id && frame.id === decodeURIComponent(location.hash.slice(1)),
+    );
+
+  /**
+   * A link from one board to another — `<a href="#next">` inside a board, to the frame
+   * with that id — brings that board up. It is how a mockup is walked through: the
+   * button on one screen leads to the screen it opens. Any other link keeps its meaning.
+   */
+  stage.addEventListener("click", (event) => {
+    const link =
+      event.target instanceof Element && event.target.closest("a[href^='#']");
+    if (!link) return;
+    const to = boards().findIndex(
+      (frame) =>
+        frame.id &&
+        frame.id === decodeURIComponent(link.getAttribute("href").slice(1)),
+    );
+    if (to === -1) return;
+    event.preventDefault();
+    show(to);
+  });
 
   field.addEventListener(
     "wheel",
@@ -201,11 +237,8 @@
       on.closest("input, textarea, [contenteditable]")
     )
       return;
-    if (event.key === "0" || event.key === "Escape") {
-      at = -1;
-      fit();
-      say();
-    } else if (event.key === "1") zoomAt(1, ...center());
+    if (event.key === "0" || event.key === "Escape") fitAll();
+    else if (event.key === "1") zoomAt(1, ...center());
     else if (event.key === "+" || event.key === "=")
       zoomAt(z * 1.25, ...center());
     else if (event.key === "-") zoomAt(z / 1.25, ...center());
@@ -411,8 +444,11 @@
     }
   };
 
-  // Fonts change how tall a note is, and the fit is measured from that.
-  fit();
+  // Opens on the board the address names, else fitted to the whole canvas. Fonts change
+  // how tall a note is, and the fit is measured from that.
+  const open = () => (named() === -1 ? fit() : show(named()));
+  addEventListener("hashchange", open);
+  open();
   checkFit();
   describe();
   document.fonts?.ready.then(() => {

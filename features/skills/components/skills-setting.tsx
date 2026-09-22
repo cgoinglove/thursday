@@ -8,10 +8,12 @@ import {
   File,
   FileText,
   Folder,
+  Frame,
   Globe,
   type LucideIcon,
   MousePointer2,
   Plus,
+  Presentation,
   Search,
   SquarePen,
   Trash2,
@@ -63,9 +65,11 @@ import { cn, formatBytes } from "@/lib/utils";
 const SKILL_MARKS: Record<string, LucideIcon> = {
   browser: Globe,
   computer: AppWindow,
+  design: Frame,
   "find-skills": Search,
   "interactive-page": MousePointer2,
   "skill-creator": SquarePen,
+  slides: Presentation,
 };
 
 const markOf = (skill: SkillSummary) =>

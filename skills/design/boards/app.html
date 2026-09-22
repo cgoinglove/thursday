@@ -1,0 +1,103 @@
+<!-- An app screen on a desktop (1280x800): a sidebar, a list, and the one row that is
+     open beside it. Copy the frame and its note into the canvas, give them the next
+     letter and a place (--x/--y), and change what is on the board. Five values are the
+     design's, not this board's — set them the same on every board of one direction:
+     the ground (#F6F4EF), the ink (#1B1A17), the muted ink (#6B6861), the rule (#E2DED5)
+     and the one accent (#A8491E). Controls are real elements — <a>, <button>, <input>
+     with a <label> — even on a mockup, and a row of them is a flex box with a gap. -->
+<article class="frame" id="app" style="--x: 0; --y: 0; --w: 1280; --h: 800">
+  <h2>A — <small>the list and the one that is open, side by side</small></h2>
+  <div class="board" data-slide style="background:#F6F4EF; color:#1B1A17; font-family:'Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif; font-size:14px; line-height:1.4; display:flex">
+
+    <nav style="width:232px; display:flex; flex-direction:column; gap:4px; padding:24px 16px; border-right:1px solid #E2DED5">
+      <p style="font-family:Georgia,'Times New Roman',serif; font-size:20px; padding:8px 12px 20px">Spoke &amp; Chain</p>
+      <a href="#" style="display:flex; align-items:center; gap:12px; height:40px; padding:0 12px; border-radius:8px; color:#1B1A17; text-decoration:none">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Today</a>
+      <a href="#" aria-current="page" style="display:flex; align-items:center; gap:12px; height:40px; padding:0 12px; border-radius:8px; background:#EDE9E1; color:#1B1A17; font-weight:600; text-decoration:none">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Bookings</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; height:40px; padding:0 12px; border-radius:8px; color:#1B1A17; text-decoration:none">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Customers</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; height:40px; padding:0 12px; border-radius:8px; color:#1B1A17; text-decoration:none">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l8-4 8 4v10l-8 4-8-4z M4 7l8 4 8-4M12 11v10"/></svg>Parts</a>
+      <a href="#" style="display:flex; align-items:center; gap:12px; height:40px; padding:0 12px; border-radius:8px; color:#1B1A17; text-decoration:none">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg>Settings</a>
+    </nav>
+
+    <main style="flex:1; display:flex; flex-direction:column; min-width:0">
+      <header style="display:flex; align-items:center; gap:16px; height:88px; padding:0 32px; border-bottom:1px solid #E2DED5">
+        <div style="flex:1">
+          <h1 style="font-family:Georgia,'Times New Roman',serif; font-size:28px; font-weight:400; line-height:1.1">Bookings</h1>
+          <p style="color:#6B6861; margin-top:2px">Tuesday 23 September · 6 booked, 2 done</p>
+        </div>
+        <label style="display:flex; align-items:center; gap:8px; width:240px; height:40px; padding:0 12px; border:1px solid #E2DED5; border-radius:8px; background:#FFFFFF; color:#6B6861">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+          <input type="search" placeholder="Customer or bike" style="flex:1; border:0; background:none; font:inherit; color:#1B1A17; outline:none">
+        </label>
+        <button type="button" style="height:40px; padding:0 16px; border:0; border-radius:8px; background:#A8491E; color:#FFFFFF; font:inherit; font-weight:600">New booking</button>
+      </header>
+
+      <div style="flex:1; display:flex; min-height:0">
+        <table style="flex:1; border-collapse:collapse; align-self:flex-start; font-size:14px">
+          <tr style="color:#6B6861; font-size:12px; text-transform:uppercase; letter-spacing:0.06em">
+            <th style="text-align:left; font-weight:600; padding:16px 12px 12px 32px">Time</th>
+            <th style="text-align:left; font-weight:600; padding:16px 12px 12px">Customer</th>
+            <th style="text-align:left; font-weight:600; padding:16px 12px 12px">Bike</th>
+            <th style="text-align:left; font-weight:600; padding:16px 12px 12px">Job</th>
+            <th style="text-align:left; font-weight:600; padding:16px 32px 12px 12px">Status</th>
+          </tr>
+          <tr style="border-top:1px solid #E2DED5">
+            <td style="padding:0 12px 0 32px; height:56px; font-variant-numeric:tabular-nums">09:00</td><td style="padding:0 12px">Mara Lindqvist</td><td style="padding:0 12px; color:#6B6861">Gravel, steel</td><td style="padding:0 12px">Full service</td>
+            <td style="padding:0 32px 0 12px"><span style="display:inline-block; padding:2px 10px; border-radius:999px; background:#EDE9E1; font-size:12px; font-weight:600">Done</span></td>
+          </tr>
+          <tr style="border-top:1px solid #E2DED5">
+            <td style="padding:0 12px 0 32px; height:56px; font-variant-numeric:tabular-nums">10:30</td><td style="padding:0 12px">Tomas Reyes</td><td style="padding:0 12px; color:#6B6861">City, hub gear</td><td style="padding:0 12px">Puncture, rear</td>
+            <td style="padding:0 32px 0 12px"><span style="display:inline-block; padding:2px 10px; border-radius:999px; background:#EDE9E1; font-size:12px; font-weight:600">Done</span></td>
+          </tr>
+          <tr style="border-top:1px solid #E2DED5; background:#F3E3D9">
+            <td style="padding:0 12px 0 32px; height:56px; font-variant-numeric:tabular-nums">11:15</td><td style="padding:0 12px; font-weight:600">Ji-woo Han</td><td style="padding:0 12px; color:#6B6861">Road, carbon</td><td style="padding:0 12px">Brake pads and a true</td>
+            <td style="padding:0 32px 0 12px"><span style="display:inline-block; padding:2px 10px; border-radius:999px; background:#A8491E; color:#FFFFFF; font-size:12px; font-weight:600">On the stand</span></td>
+          </tr>
+          <tr style="border-top:1px solid #E2DED5">
+            <td style="padding:0 12px 0 32px; height:56px; font-variant-numeric:tabular-nums">13:00</td><td style="padding:0 12px">Priya Natarajan</td><td style="padding:0 12px; color:#6B6861">Cargo, e-assist</td><td style="padding:0 12px">Chain and cassette</td>
+            <td style="padding:0 32px 0 12px"><span style="display:inline-block; padding:2px 10px; border-radius:999px; border:1px solid #E2DED5; font-size:12px; font-weight:600">Parts due</span></td>
+          </tr>
+          <tr style="border-top:1px solid #E2DED5">
+            <td style="padding:0 12px 0 32px; height:56px; font-variant-numeric:tabular-nums">14:30</td><td style="padding:0 12px">Ben Okafor</td><td style="padding:0 12px; color:#6B6861">Kids 20", single</td><td style="padding:0 12px">Stabilisers off</td>
+            <td style="padding:0 32px 0 12px"><span style="display:inline-block; padding:2px 10px; border-radius:999px; border:1px solid #E2DED5; font-size:12px; font-weight:600">Booked</span></td>
+          </tr>
+          <tr style="border-top:1px solid #E2DED5; border-bottom:1px solid #E2DED5">
+            <td style="padding:0 12px 0 32px; height:56px; font-variant-numeric:tabular-nums">16:00</td><td style="padding:0 12px">Sofia Almeida</td><td style="padding:0 12px; color:#6B6861">Folding</td><td style="padding:0 12px">Hinge check</td>
+            <td style="padding:0 32px 0 12px"><span style="display:inline-block; padding:2px 10px; border-radius:999px; border:1px solid #E2DED5; font-size:12px; font-weight:600">Booked</span></td>
+          </tr>
+        </table>
+
+        <aside style="width:360px; display:flex; flex-direction:column; gap:20px; padding:28px 32px; border-left:1px solid #E2DED5; background:#FFFFFF">
+          <div>
+            <p style="color:#6B6861; font-size:12px; text-transform:uppercase; letter-spacing:0.06em">11:15 · on the stand</p>
+            <h2 style="font-family:Georgia,'Times New Roman',serif; font-size:24px; font-weight:400; margin-top:6px">Ji-woo Han</h2>
+            <p style="color:#6B6861">Road, carbon · came in 10:52</p>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px">
+            <p style="font-weight:600">Brake pads and a true</p>
+            <p style="color:#6B6861; line-height:1.5">Rear wheel rubs at the top of each turn. Pads worn to the line on the front.</p>
+          </div>
+          <table style="border-collapse:collapse; font-size:14px">
+            <tr><td style="padding:8px 0; border-bottom:1px solid #E2DED5">Pads, front pair</td><td style="padding:8px 0; border-bottom:1px solid #E2DED5; text-align:right; font-variant-numeric:tabular-nums">[PRICE]</td></tr>
+            <tr><td style="padding:8px 0; border-bottom:1px solid #E2DED5">Wheel true, rear</td><td style="padding:8px 0; border-bottom:1px solid #E2DED5; text-align:right; font-variant-numeric:tabular-nums">[PRICE]</td></tr>
+            <tr><td style="padding:8px 0; font-weight:600">Quoted</td><td style="padding:8px 0; text-align:right; font-weight:600; font-variant-numeric:tabular-nums">[TOTAL]</td></tr>
+          </table>
+          <div style="flex:1"></div>
+          <div style="display:flex; gap:8px">
+            <button type="button" style="flex:1; height:44px; border:0; border-radius:8px; background:#A8491E; color:#FFFFFF; font:inherit; font-weight:600">Mark done</button>
+            <button type="button" style="flex:1; height:44px; border:1px solid #E2DED5; border-radius:8px; background:#FFFFFF; color:#1B1A17; font:inherit; font-weight:600">Message</button>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</article>
+<p class="note" style="--x: 0; --y: -170; --w: 640">
+  <strong>A — the list stays in view while one is open</strong>
+  The day is read left to right and the open row never covers it.
+  What it costs: 360px for the open one, so the list has room for five columns, not seven.
+</p>

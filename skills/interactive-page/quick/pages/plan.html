@@ -1,0 +1,47 @@
+<!-- A plan: where each piece stands, who has it and when it is due, read at a glance.
+     The tracker table is the document; a status is a chip whose tone says how it is
+     going. "This week" is the short list someone can act on today. Risks are named
+     with their fallback, never as a list of worries. The contents list draws itself. -->
+<p class="kicker">Plan</p>
+<h1>{{title}}</h1>
+<p class="byline"><span class="chip date">As of 23 September 2026</span> <span class="chip who">Owner</span> <span class="chip status good">On track</span></p>
+<p class="lede">What this plan delivers, and by when, in one sentence.</p>
+
+<nav class="contents" aria-label="Contents"></nav>
+
+<h2>Where it stands</h2>
+<div class="scroll">
+<table>
+  <thead><tr><th>Piece</th><th>Who</th><th>Due</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td>The first piece, done</td><td><span class="chip who">Name</span></td><td><span class="chip date">16 Sep</span></td><td><span class="chip status good">Done</span></td></tr>
+    <tr><td>The piece in hand</td><td><span class="chip who">Name</span></td><td><span class="chip date">30 Sep</span></td><td><span class="chip status good">In progress</span></td></tr>
+    <tr><td>The piece that slipped, and by how much</td><td><span class="chip who">Name</span></td><td><span class="chip date">7 Oct</span></td><td><span class="chip status warn">At risk</span></td></tr>
+    <tr><td>Not started</td><td><span class="chip who">Name</span></td><td><span class="chip date">21 Oct</span></td><td><span class="chip status">Not started</span></td></tr>
+  </tbody>
+</table>
+</div>
+<div class="bar" style="--at: 35%"></div>
+<p><small>35% of the pieces done · 4 of 11</small></p>
+
+<h2>This week</h2>
+<ul class="check">
+  <li><input type="checkbox" checked> Done on Monday</li>
+  <li><input type="checkbox"> The next thing, with who <span class="chip who">Name</span></li>
+  <li><input type="checkbox"> The thing after it</li>
+</ul>
+
+<h2>Risks</h2>
+<p class="note warn"><strong>What could slip.</strong> Why, and the fallback if it does.</p>
+
+<h2>Timeline</h2>
+<div class="scroll">
+<table>
+  <thead><tr><th>When</th><th>What lands</th></tr></thead>
+  <tbody>
+    <tr><td><span class="chip date">30 Sep</span></td><td>The first milestone</td></tr>
+    <tr><td><span class="chip date">21 Oct</span></td><td>The second</td></tr>
+    <tr><td><span class="chip date">15 Nov</span></td><td>Delivered</td></tr>
+  </tbody>
+</table>
+</div>

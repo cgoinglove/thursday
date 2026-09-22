@@ -1,0 +1,61 @@
+<!-- A direction (1280x800): the look on its own, before any screen is drawn in it —
+     the type pairing, the palette and three controls, so a whole aesthetic can be
+     chosen from two to four of these side by side. Name each after the feeling it
+     goes for ("warm workshop", "dense and quick"), never a shade of the one beside
+     it. One to three typefaces: a display face with character over a plain body
+     face. A toned ground rather than pure white; one or two accents. The canvas
+     measures the colours and sizes off the board itself, so write the real values in
+     the markup and never a second list of them by hand. -->
+<article class="frame" id="direction" style="--x: 0; --y: 0; --w: 1280; --h: 800">
+  <h2>H — <small>warm workshop: paper, ink and rust</small></h2>
+  <div class="board" data-slide style="background:#F6F4EF; color:#1B1A17; font-family:'Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif; font-size:16px; line-height:1.5; display:flex; gap:64px; padding:64px">
+
+    <div style="flex:1; display:flex; flex-direction:column; gap:32px">
+      <p style="color:#6B6861; font-size:13px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase">Type</p>
+      <p style="font-family:Georgia,'Times New Roman',serif; font-size:160px; font-weight:400; line-height:0.9; letter-spacing:-0.02em">Aa</p>
+      <div style="display:flex; flex-direction:column; gap:12px">
+        <p style="font-family:Georgia,'Times New Roman',serif; font-size:40px; font-weight:400; line-height:1.1">Fixed by Friday, or the labour is free.</p>
+        <p style="font-size:17px; color:#6B6861; max-width:440px">Georgia for what the shop says, the system's sans for what the app says. Two faces, four sizes, weight for emphasis.</p>
+      </div>
+      <div style="flex:1"></div>
+      <p style="color:#6B6861; font-size:13px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase">Colour</p>
+      <div style="display:flex; gap:16px">
+        <div style="flex:1; display:flex; flex-direction:column; gap:8px"><div style="height:64px; border:1px solid #E2DED5; border-radius:10px; background:#F6F4EF"></div><p style="font-size:13px; color:#6B6861">ground #F6F4EF</p></div>
+        <div style="flex:1; display:flex; flex-direction:column; gap:8px"><div style="height:64px; border-radius:10px; background:#1B1A17"></div><p style="font-size:13px; color:#6B6861">ink #1B1A17</p></div>
+        <div style="flex:1; display:flex; flex-direction:column; gap:8px"><div style="height:64px; border-radius:10px; background:#6B6861"></div><p style="font-size:13px; color:#6B6861">muted #6B6861</p></div>
+        <div style="flex:1; display:flex; flex-direction:column; gap:8px"><div style="height:64px; border-radius:10px; background:#A8491E"></div><p style="font-size:13px; color:#6B6861">accent #A8491E</p></div>
+        <div style="flex:1; display:flex; flex-direction:column; gap:8px"><div style="height:64px; border-radius:10px; background:#F3E3D9"></div><p style="font-size:13px; color:#6B6861">tint #F3E3D9</p></div>
+      </div>
+    </div>
+
+    <div style="width:400px; display:flex; flex-direction:column; gap:32px">
+      <p style="color:#6B6861; font-size:13px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase">Controls</p>
+      <div style="display:flex; gap:8px">
+        <button type="button" style="flex:1; height:44px; border:0; border-radius:10px; background:#A8491E; color:#FFFFFF; font:inherit; font-weight:600">Book a repair</button>
+        <button type="button" style="flex:1; height:44px; border:1px solid #E2DED5; border-radius:10px; background:#FFFFFF; color:#1B1A17; font:inherit; font-weight:600">See prices</button>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px">
+        <label for="sample" style="font-size:14px; font-weight:600">Phone</label>
+        <input id="sample" type="tel" placeholder="So we can text when it is ready" style="height:48px; padding:0 14px; border:1px solid #E2DED5; border-radius:10px; background:#FFFFFF; font:inherit; color:#1B1A17">
+      </div>
+      <div style="display:flex; flex-direction:column; gap:10px; padding:20px; border:1px solid #E2DED5; border-radius:14px; background:#FFFFFF">
+        <div style="display:flex; align-items:center; gap:12px">
+          <p style="flex:1; font-weight:600">Ji-woo Han</p>
+          <span style="padding:2px 10px; border-radius:999px; background:#A8491E; color:#FFFFFF; font-size:12px; font-weight:600">On the stand</span>
+        </div>
+        <p style="color:#6B6861; font-size:14px">Brake pads and a true · road, carbon</p>
+        <table style="border-collapse:collapse; font-size:14px; margin-top:4px">
+          <tr><td style="padding:6px 0; border-top:1px solid #E2DED5">Pads, front pair</td><td style="padding:6px 0; border-top:1px solid #E2DED5; text-align:right; font-variant-numeric:tabular-nums">[PRICE]</td></tr>
+          <tr><td style="padding:6px 0; border-top:1px solid #E2DED5; font-weight:600">Quoted</td><td style="padding:6px 0; border-top:1px solid #E2DED5; text-align:right; font-weight:600; font-variant-numeric:tabular-nums">[TOTAL]</td></tr>
+        </table>
+      </div>
+      <div style="flex:1"></div>
+      <p style="font-size:14px; color:#6B6861; line-height:1.5">Corners 10px on controls, 14px on cards. Rules one pixel, the ground's own line colour. Nothing is grey on grey: muted ink stays at 5:1 on the paper.</p>
+    </div>
+  </div>
+</article>
+<p class="note" style="--x: 0; --y: -170; --w: 640">
+  <strong>H — warm workshop</strong>
+  Paper and rust say a real place with a bench in it; the serif gives the shop a voice.
+  What it costs: it is quiet. Beside a louder direction it can read as plain.
+</p>

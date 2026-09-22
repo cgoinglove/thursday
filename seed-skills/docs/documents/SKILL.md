@@ -1,6 +1,6 @@
 ---
 name: documents
-description: "Real office files, made and read: PDF, Word, PowerPoint, Excel. Use when a document is the result — a PDF laid out for print, an invoice with its sums worked out, a deck from an outline, a .docx or .xlsx, a form to fill or sign, pages to merge, split or turn, or a file translated with its layout kept."
+description: "Real office files, made and read: PDF, Word, PowerPoint, Excel. Use when a file is the result — a PDF laid out for print, an invoice with its sums worked out, a .pptx from an outline or from a deck the slides skill wrote, a .docx or .xlsx, a form to fill or sign, pages to merge, split or turn, or a file translated with its layout kept. A deck to show on a screen or a page to read is not a file: that is the slides or the page skill's."
 ---
 
 # Documents
@@ -29,7 +29,8 @@ Read only the reference for the job in front of you:
 |---|---|
 | A letter, report, resume, one-pager, certificate — anything printed | `references/print.md` |
 | An invoice, a quote, a receipt | `references/invoice.md` |
-| A slide deck (.pptx) | `references/deck.md` |
+| A slide deck (.pptx) from an outline | `references/deck.md` |
+| A .pptx of a deck already written as slides (the `slides` skill's file) | none: `$D deck-from <deck.html>` measures every slide in a browser and writes each box where it was |
 | A Word file (.docx), made or read | `references/word.md` |
 | A spreadsheet (.xlsx, .csv), made or read | `references/sheets.md` |
 | A PDF to read, fill, sign, merge, split or turn | `references/pdf.md` |

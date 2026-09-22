@@ -1,0 +1,54 @@
+<!-- A form on a phone (390x844): every field is an <input>, <select> or <textarea> with
+     its own <label>, 48px tall, one column, the one action at the bottom. A choice of a
+     few is a row of radio buttons drawn as pills, still radio buttons. A fact you were
+     not given — a price, an opening time — is a visible placeholder like [FROM PRICE],
+     never a made-up one. The back link points at the board this one opens from. -->
+<article class="frame" id="form" style="--x: 0; --y: 0; --w: 390; --h: 844">
+  <h2>C — <small>book a repair, one screen</small></h2>
+  <div class="board" data-slide style="background:#F6F4EF; color:#1B1A17; font-family:'Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif; font-size:16px; line-height:1.4; display:flex; flex-direction:column">
+
+    <header style="display:flex; align-items:center; gap:8px; padding:52px 12px 8px">
+      <a href="#phone" aria-label="Back" style="width:44px; height:44px; display:grid; place-items:center; border-radius:999px; color:#1B1A17">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+      </a>
+      <h1 style="font-family:Georgia,'Times New Roman',serif; font-size:24px; font-weight:400">Book a repair</h1>
+    </header>
+
+    <form style="flex:1; display:flex; flex-direction:column; gap:20px; padding:12px 20px 24px">
+      <div style="display:flex; flex-direction:column; gap:6px">
+        <label for="name" style="font-size:14px; font-weight:600">Your name</label>
+        <input id="name" type="text" autocomplete="name" style="height:48px; padding:0 14px; border:1px solid #E2DED5; border-radius:10px; background:#FFFFFF; font:inherit; color:#1B1A17">
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px">
+        <label for="phone" style="font-size:14px; font-weight:600">Phone</label>
+        <input id="phone" type="tel" autocomplete="tel" placeholder="So we can text when it is ready" style="height:48px; padding:0 14px; border:1px solid #E2DED5; border-radius:10px; background:#FFFFFF; font:inherit; color:#1B1A17">
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px">
+        <label for="bike" style="font-size:14px; font-weight:600">The bike</label>
+        <select id="bike" style="height:48px; padding:0 14px; border:1px solid #E2DED5; border-radius:10px; background:#FFFFFF; font:inherit; color:#1B1A17">
+          <option>Road</option><option>Gravel</option><option>City</option><option>Cargo or e-bike</option><option>Kids</option><option>Folding</option>
+        </select>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px">
+        <label for="job" style="font-size:14px; font-weight:600">What needs doing</label>
+        <textarea id="job" rows="3" placeholder="Brakes squeal, gears skip, a puncture…" style="min-height:96px; padding:12px 14px; border:1px solid #E2DED5; border-radius:10px; background:#FFFFFF; font:inherit; color:#1B1A17; resize:none"></textarea>
+      </div>
+      <fieldset style="display:flex; flex-direction:column; gap:8px; border:0; padding:0; margin:0">
+        <legend style="font-size:14px; font-weight:600; padding:0; margin-bottom:8px">When</legend>
+        <div style="display:flex; gap:8px">
+          <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; height:44px; border:1px solid #A8491E; border-radius:999px; background:#F3E3D9; font-size:14px; font-weight:600"><input type="radio" name="when" checked style="margin:0; accent-color:#A8491E">Tomorrow</label>
+          <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; height:44px; border:1px solid #E2DED5; border-radius:999px; background:#FFFFFF; font-size:14px; font-weight:600"><input type="radio" name="when" style="margin:0; accent-color:#A8491E">This week</label>
+          <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; height:44px; border:1px solid #E2DED5; border-radius:999px; background:#FFFFFF; font-size:14px; font-weight:600"><input type="radio" name="when" style="margin:0; accent-color:#A8491E">Whenever</label>
+        </div>
+      </fieldset>
+      <div style="flex:1"></div>
+      <p style="color:#6B6861; font-size:14px; line-height:1.5">A check is free. Work starts from [FROM PRICE], and nothing is done before you have said yes to the quote.</p>
+      <button type="submit" style="height:52px; border:0; border-radius:14px; background:#A8491E; color:#FFFFFF; font:inherit; font-weight:600">Book it</button>
+    </form>
+  </div>
+</article>
+<p class="note" style="--x: 0; --y: -170; --w: 390">
+  <strong>C — five fields and a promise</strong>
+  Everything the shop needs to say yes, nothing it can ask on the phone.
+  What it costs: no photo of the fault; that comes by text after booking.
+</p>

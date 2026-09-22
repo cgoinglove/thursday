@@ -33,17 +33,24 @@
 
     <div id="field">
       <div id="stage">
-        <!-- One <article class="frame"> per option, one <p class="note"> beside it.
-             --x/--y place it on the surface, --w/--h are the board's exact size in px:
-             the renderer shoots every .board at one size, so give every board the same
-             one (a phone is 390x844, a desktop 1280x800, a poster 1240x1754). Leave
-             80px between boards in a row and 160px between rows, and put each note in
-             the gutter above or beside its board. Add class="leading" to the one option
-             being carried forward — nothing else is coloured.
-             Write the board's content as plain HTML with inline styles. Nothing comes
-             from the network: a picture sits beside this file as <img src="shot.png">. -->
+        <!-- One <article class="frame"> per option, one <p class="note"> beside it. Start
+             each from a board in the skill's boards/ folder — app, phone, form, landing,
+             poster, post, wireframe, direction — and change what is on it.
+             --x/--y place a frame on the surface, --w/--h are its board's exact size in px:
+             every board is shot at its own size, so a phone (390x844) can sit beside a
+             desktop (1280x800). Leave 80px between boards in a row and 240px between rows,
+             with each note in the gutter above its board. Add class="leading" to the one
+             option being carried forward — nothing else is coloured.
+             A frame's id is what a link on another board points at: <a href="#next"> on a
+             button brings that board up, which is how a flow is walked through.
+             A <p class="note title"> over a row names what the row is; a
+             <p class="note sticky"> is a remark pinned to the surface.
+             Write a board's content as plain HTML with inline styles. Nothing comes from
+             the network: a picture sits beside this file as <img src="shot.png">. -->
 
-        <article class="frame leading" data-mark="Leading" style="--x: 0; --y: 0; --w: 1280; --h: 800">
+        <p class="note title" style="--x: 0; --y: -320; --w: 1200">{{title}}</p>
+
+        <article class="frame leading" id="A" data-mark="Leading" style="--x: 0; --y: 0; --w: 1280; --h: 800">
           <h2>A — <small>one line on what this one is</small></h2>
           <div class="board" data-slide></div>
         </article>
@@ -54,7 +61,7 @@
           What it costs: the honest tradeoff, not a hedge.
         </p>
 
-        <article class="frame" style="--x: 1360; --y: 0; --w: 1280; --h: 800">
+        <article class="frame" id="B" style="--x: 1360; --y: 0; --w: 1280; --h: 800">
           <h2>B — <small>one line on what this one is</small></h2>
           <div class="board" data-slide></div>
         </article>

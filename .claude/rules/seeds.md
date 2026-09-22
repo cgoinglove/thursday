@@ -21,7 +21,13 @@ it hands out has a way through when nobody on the roster is for it. This adds wh
   skill's to say — a sentence about it in a role is a copy that drifts (the sign-in order was
   wrong in four places at once). A role holds what only it knows: what is this bot's, what it
   ends as, the judgement only this role makes, what it keeps in memory. The exceptions are the
-  tool of the bot's trade (the browser skill) and a structural dependency such as `requires`.
+  tool of the bot's trade and a structural dependency such as `requires`. A skill is that tool
+  when the bot's whole output comes out of it, not when it is one method among several: the
+  browser for anything that reads a page; design, slides and the page skill for the bot that
+  makes what is looked at. All are named from `config.ts` (BROWSER_SKILL, DESIGN_SKILL,
+  SLIDES_SKILL, PAGE_SKILL), never spelled in the prose — a bot that has to find its own trade
+  through a description list writes the thing by hand instead, which is what Designer did on
+  09-22.
 - **What a job repeats is a kit script, not a paragraph.** Reading a web app through snapshots
   costs tens of thousands of characters a look; a script that fetches the same rows costs a few
   hundred (Analyst's series fetch). A kit script stands on a public API, a managed tool (yt-dlp,
@@ -60,9 +66,14 @@ it hands out has a way through when nobody on the roster is for it. This adds wh
 
 ## Skills
 
-- **A new capability extends an existing skill first** — `interactive-page` for anything shaped like
-  a result — or a few lines of its description. A good external skill may come in whole, engine and
-  all (archify).
+- **A new capability extends an existing skill first** — `interactive-page` for a page, `design`
+  for a board, `slides` for a slide — or a few lines of its description. A good external skill
+  may come in whole, engine and all (archify).
+- **A skill's name is the first thing a bot matches a job against.** A kind of result a user
+  asks for by name — a deck, a design — is a skill of its own (`slides`, `design`); a kind
+  nobody names (a chart, a diagram) stays a method inside one. Two ways to make one thing
+  (the deck here and the office `deck` of the Docs kit) each say in their description which
+  ask is theirs.
 - **A main `SKILL.md` holds one or two facts the model does not know.** Procedures go in
   `references/`.
 - **`load_skill` lists a skill's files shallowest first, up to `SKILL_FILES_LISTED`**, and says

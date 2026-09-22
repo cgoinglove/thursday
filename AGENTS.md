@@ -107,11 +107,14 @@ skills/                   Skills shipped with the app (read-only). User skills l
                           interactive-page/kit is the one React kit every page builds on, versions pinned by its
                           package-lock.json; scripts/page.mjs installs it into the workspace once and again
                           when it changes. Typecheck and lint skip it and page/, the new-page template.
-                          interactive-page/quick is the other path: a stylesheet and a template that
-                          `page.mjs quick` inlines into one hand-written HTML file — no kit, no build.
-                          interactive-page/canvas and /deck are two more: a pan/zoom surface of design options and
-                          slides of one exact size, each inlined into one HTML file by its own script
-                          (`canvas.mjs`, `deck.mjs`) and shot part by part through the browser skill (`shots.mjs`).
+                          interactive-page/quick is the other path: a stylesheet, a script and ready documents
+                          (quick/pages) that `page.mjs quick` inlines into one hand-written HTML file — no kit,
+                          no build.
+                          design/ and slides/ are skills of their own, since a user asks for them by name: a
+                          pan/zoom canvas of boards, each at its own size, and slides of one exact size, each
+                          inlined into one HTML file by its own script (`canvas.mjs`, `deck.mjs`), started from
+                          ready boards (design/boards) or slides (slides/deck/slides), and shot part by part
+                          through the browser skill's renderer.
 seed-skills/<seed>/       A seed bot's own skills (read-only), copied into `bots/<name>/.agents/skills` when
                           it is made. A bot's own skills are listed to it alone, so a kit costs no other bot
                           a line; the folder has the workspace's own `.agents/skills` shape, so a bot that

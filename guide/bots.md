@@ -167,11 +167,14 @@ picture an image model; without one it asks for it and stops.
 
 Asked how something should look, **Designer** hands back a canvas: the ways it could go, side
 by side on one surface, each with a note on what it is for and what it costs, and the one it
-would carry forward outlined. Drag to move it, pinch or hold ⌘ and scroll to zoom, and press 0
-to fit it all back in the window. Every option is also a picture of its own, so they can be
-looked through without opening the canvas. It designs from what is already there — a codebase,
-a brand, a page it was shown — and it cannot see the app's own screens as they are today: give
-it a screenshot when the options should sit beside one.
+would carry forward outlined. Drag to move it, pinch or hold ⌘ and scroll to zoom, the arrow
+keys bring the options up one at a time, and 0 fits it all back in the window. Boards on one
+canvas can be different sizes — a phone beside a desktop screen, a poster beside a post — and
+a button on one board can lead to the next, so a flow of screens is walked through the way
+it would be used. Every option is also a picture of its own, so they can be looked through
+without opening the canvas. It designs from what is already there — a codebase, a brand, a
+page it was shown — and it cannot see the app's own screens as they are today: give it a
+screenshot when the options should sit beside one.
 
 Above each option sit the colours it actually uses and a **spec** button. The button copies
 that option as text — what it is for, what it costs, its size, and its colours, type, corners
@@ -184,6 +187,12 @@ slides shown one at a time, fitted to the window. The arrow keys, space or a tap
 or left of a slide turn it, **f** fills the screen, and **n** shows what is said over the
 slide, which is kept off it. Printing it gives one slide a page. It is a deck to show on a
 screen — one to send or edit as a PowerPoint file is an office document, which Docs makes.
+
+Something to read — a report, a memo, a comparison, a plan, notes of a meeting — comes back
+as one page: a title with the date and who it is by under it, a contents list that jumps to
+each section, chips for dates, people and status, checklists, tables with the pick marked, and
+the sources at the end. It reads on a phone and prints as a document. Nothing in it is edited
+in the app: ask the bot for the change, and the page is written again.
 
 A bot keeps its own memory — what a job taught it, how the user asked it to work — in its own
 folder, listed on its page in Settings › Bots.

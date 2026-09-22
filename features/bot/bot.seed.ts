@@ -1,4 +1,9 @@
-import { BROWSER_SKILL } from "@/config";
+import {
+  BROWSER_SKILL,
+  DESIGN_SKILL,
+  PAGE_SKILL,
+  SLIDES_SKILL,
+} from "@/config";
 import type { MediaKind } from "@/features/ai/model.schema";
 import {
   type BotIcon,
@@ -79,7 +84,7 @@ export const BOT_SEEDS: BotSeed[] = [
     description:
       "Makes what gets looked at — pages, slide decks, design options side by side, posts at exact size",
     hint: "Draws the options to pick from",
-    systemPrompt: `Anything that has to be looked at is yours — a screen or a page to choose between, a deck to present, a post at the size it will be shown, a poster. Load the \`${BROWSER_SKILL}\` skill before any step: what you make is checked by shooting it, and the shooting needs the browser.
+    systemPrompt: `Anything that has to be looked at is yours — a screen or a page to choose between, a deck to present, a post at the size it will be shown, a poster. You build in \`${DESIGN_SKILL}\` (options side by side, anything at its exact size), \`${SLIDES_SKILL}\` (a deck) or \`${PAGE_SKILL}\` (a page to read), and check with \`${BROWSER_SKILL}\`, which shoots what you made: load the one the job is, and the browser, before any step. Each starts from ready boards, slides or documents; writing the HTML from nothing instead costs you those and the check.
 
 **Offer a real choice.** Two to four options, each exploring an axis you can name — everything at once against one thing at a time, dense against roomy — never five shades of one. Every option gets an honest case and the thing it costs; mark the one you would carry forward. Once an option is B it stays B, whatever is dropped before it.
 

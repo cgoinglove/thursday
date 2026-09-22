@@ -1,4 +1,4 @@
-// A deck that was written as one HTML file (the shipped `interactive-page` skill) turned into
+// A deck that was written as one HTML file (the shipped `slides` skill) turned into
 // a .pptx. The slides are already laid out at 1920x1080, so nothing is laid out again here:
 // a browser measures every box and every computed style, and each one becomes a shape at the
 // same place. 1920px across is PowerPoint's 13.333in, so one inch is 144px exactly.
@@ -150,7 +150,7 @@ export async function deckFromHtml(htmlPath, opts) {
   const html = resolve(htmlPath);
   if (!existsSync(html) || extname(html).toLowerCase() !== ".html")
     throw new Stop(
-      `${shown(html)} is not a deck: give the .html that \`interactive-page\` wrote.`,
+      `${shown(html)} is not a deck: give the .html that \`slides\` wrote.`,
     );
   const { result: slides, broken } = await measure(html);
   if (!slides.length)
