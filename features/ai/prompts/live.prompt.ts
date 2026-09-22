@@ -1,6 +1,5 @@
 import { RECENT_CALL } from "@/config";
 import { englishModeInstruction } from "@/features/ai/english-mode";
-import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import {
   listAlwaysLoaded,
   listNoteIndex,
@@ -16,6 +15,7 @@ import {
   type CallGroup,
   listRecentTurns,
 } from "@/features/thursday/thursday.query";
+import { personaLines } from "./persona";
 import {
   carriedLines,
   clockNow,
@@ -28,10 +28,10 @@ import {
 } from "./prompt-helper";
 
 /**
- * Everything the Live voice hears: who Thursday is and how a call ends (the words the backend
- * opens with too), the guide's starter backchannel and interruption policies, its delegation
- * policy (what the backend can do, when to hand over and when not), what she knows about
- * the user, and what was said on the last calls. How the work is done, the threads and
+ * Everything the Live voice hears: who Thursday is and who she is to talk to (persona), the
+ * guide's starter backchannel and interruption policies, its delegation policy (what the
+ * backend can do, when to hand over and when not), what she knows about the user, and what
+ * was said on the last calls. How the work is done, the threads and
  * tidying memory are the backend's (thursday.prompt): the voice hands everything but
  * conversation over and answers from what comes back. Assembled on every call, never cached.
  */
@@ -54,6 +54,7 @@ export async function loadLivePrompt(options: {
 
   const text = [
     thursdayIdentity(),
+    personaLines(),
     always(),
     known(open.notes, carried, index),
     first ? firstCall() : "",
@@ -72,35 +73,26 @@ export async function loadLivePrompt(options: {
       ? "You placed this call because background work has something for the user; it comes in next. Speak first: greet them in one line and say that is why you called."
       : first
         ? "Open the call now: say who you are and what you are here to do for them, in a line or two, then ask what to call them. Then stop and listen."
-        : // The hour is a fact of the moment, so it rides on the opening and not in the prompt
-          `The call has just started. It is ${clockNow()} for them. Speak first: greet the user naturally, in one line.`,
+        : // The hour is a fact of the moment, so it rides on the opening and not in the prompt.
+          // One thing about them, never work: the threads are what opened every call before
+          `The call has just started. It is ${clockNow()} for them. Speak first: greet the user naturally, in one line. You may pick up one thing from what you know about them — never a list, never work.`,
   };
 }
 
 /**
- * The rules for every turn, together right under the identity, where the model weighs most.
- * One heading marks them; `IMPORTANT` stays on the ending rule alone, the one that failed
- * without it (09-17), so stamping it on all of them would thin it out.
+ * The rules for every turn, together right under the persona, where the model weighs most.
+ * Ending the call is on the delegation list and nowhere else: the rule that stood above
+ * these, stamped IMPORTANT, ran end_call in 4 of the 7 calls that asked, 2 of them in
+ * time — a name and a stamp did not make the voice hand a hang-up over (todo 31 measures
+ * what does).
  */
 const always = () => `## Always
-
-${ending()}
 
 ${speaking()}
 
 ${englishModeInstruction()}
 
 ${delegation()}`;
-
-/**
- * How a call ends, as the voice can end it: it holds no tools, so it says yes and hands the turn
- * over, and the backend runs the tool. The rule both prompts shared until 09-20 ("forget every
- * other task, answer yes, then use the tool") left the voice saying yes and going quiet with the
- * line still open, four times in five. The tool is still named, the one name the voice sees, so
- * ending reads as something done rather than said.
- */
-const ending = () =>
-  `IMPORTANT — always follow this: when the user wants the call to end, however they say it, answer yes in one word of their language and hand it to the backend at once. Only the backend can end the line, with the ${TOOL_NAMES.end_call} tool; saying yes alone leaves it open.`;
 
 /**
  * The guide's starter lines on listening and interruptions, labels kept as it says. The
@@ -130,7 +122,7 @@ Speak the language the user is speaking, whatever language came before; when the
 function delegation(): string {
   return `Delegation policy:
 Backend tools:
-- Ending the call: hangs up the line.
+- Ending the call: hangs up the line — only the backend can, so a hang-up they ask for is handed over, not answered.
 - Background work: hands a job to a bot, passes words on, stops or changes a job, answers a bot's question, says how the work stands.
 - Routines: jobs that start by themselves later.
 - Memory: keeps what the user tells you about themselves, and looks it up.

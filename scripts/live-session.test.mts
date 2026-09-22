@@ -976,10 +976,14 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     assert.match(on.text, /Prefer brief replies/);
     assert.match(
       on.text,
-      /\n\n## Always\n\nIMPORTANT — always follow this: [^\n]+\n\nBackchannel policy: Use moderate backchannels\. .*\n\nInterruption policy: Stop speaking when the user interrupts\. Listen to what they say\.\n\nSpeak the language the user is speaking, [^\n]+\n\nEnglish-learning mode: [\s\S]+?\n\nDelegation policy:\nBackend tools:\n- Ending the call: [^\n]+\n(- [^\n]+\n){4}\nDelegate to the backend when:\n- The user wants the call to end\.\n(- [^\n]+\n)+\nDo not delegate to the backend when:\n(- [^\n]+\n)+\nDelegate before giving an answer that depends on backend work\. Do not guess the result while waiting\.\n\n## What you know about them\n/,
+      /\n\n## Always\n\nBackchannel policy: Use moderate backchannels\. .*\n\nInterruption policy: Stop speaking when the user interrupts\. Listen to what they say\.\n\nSpeak the language the user is speaking, [^\n]+\n\nEnglish-learning mode: [\s\S]+?\n\nDelegation policy:\nBackend tools:\n- Ending the call: hangs up the line — only the backend can, so a hang-up they ask for is handed over, not answered\.\n(- [^\n]+\n){4}\nDelegate to the backend when:\n- The user wants the call to end\.\n(- [^\n]+\n)+\nDo not delegate to the backend when:\n(- [^\n]+\n)+\nDelegate before giving an answer that depends on backend work\. Do not guess the result while waiting\.\n\n## What you know about them\n/,
     );
-    // Only the ending rule carries the stamp
-    assert.equal(on.text.split("IMPORTANT").length, 2);
+    // Who she is to talk to sits right under the identity, character only: no stamp, no rule
+    assert.match(
+      on.text,
+      /modeled on Friday, the AI in \*Iron Man\*\. \*\*Now\*\*: [^\n]+\n\nWhat they tell you is kept, [^\n]+\n\nWarm and quick to laugh\. [^\n]+\n\nWhen they hand you work, it is work: [^\n]+\n\n## Always\n/,
+    );
+    assert.equal(on.text.includes("IMPORTANT"), false);
     assert.match(
       on.text,
       /When the user speaks at length, acknowledge now and then/,
@@ -1003,31 +1007,34 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     );
     assert.equal("input" in on, false);
     assert.equal(/memory_|generate_|load_skill|`/.test(on.text), false);
-    // The one tool name the voice holds: the ending rule, where it makes ending a thing to do.
-    // It holds no tools, so the rule is to hand the turn over, not to use the tool
-    assert.equal(on.text.split("end_call").length, 2);
-    assert.match(
-      on.text,
-      /answer yes in one word of their language and hand it to the backend at once\. Only the backend can end the line, with the end_call tool/,
-    );
+    // The voice holds no tool and hears no tool's name: ending the call is on the
+    // delegation list like everything else the backend does
+    assert.equal(on.text.includes("end_call"), false);
     assert.equal(on.text.endsWith("Use a calm voice."), true);
-    assert.match(on.opening, /The call has just started/);
+    assert.match(
+      on.opening,
+      /^The call has just started\. It is [^\n]+ for them\. Speak first: greet the user naturally, in one line\. You may pick up one thing from what you know about them — never a list, never work\.$/,
+    );
 
     // One Thursday: the backend opens with the voice's own identity and is never told it is a
-    // part; its ending rule is its own, since only it can end the line
+    // part. On a spoken call it does not talk, so the persona is the voice's alone; on a call
+    // in writing it is the one talking, and reads the same persona
     const backend = await loadThursdayPrompt(null);
     const withoutClock = (text: string) =>
       text.replace(/\*\*Now\*\*: [^\n]+/, "");
-    const identity = on.text.slice(0, on.text.indexOf("\n\n## Always"));
+    const identity = on.text.slice(0, on.text.indexOf("\n\nWarm and quick"));
     assert.equal(
       withoutClock(backend).startsWith(
-        `${withoutClock(identity)}\n\nIMPORTANT — always follow this: `,
+        `${withoutClock(identity)}\n\n## Memory\n`,
       ),
       true,
     );
+    assert.equal(backend.includes("Warm and quick to laugh"), false);
+    assert.equal(backend.includes("IMPORTANT"), false);
+    const written = await loadThursdayPrompt(null, true);
     assert.match(
-      backend,
-      /forget every other task, answer yes in one word of their language, then immediately, without thinking, use the end_call tool\./,
+      written,
+      /\n\nWarm and quick to laugh\. [^\n]+\n\nWhen they hand you work, it is work: [^\n]+\n\n## Memory\n/,
     );
     assert.match(
       backend,
@@ -1043,8 +1050,8 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
       assert.equal(backend.includes(`\n${heading}\n`), true, heading);
     assert.equal(backend.includes("## Voice conversation context"), false);
     assert.equal(/backend of Thursday|voice model/.test(backend), false);
-    // The end_call name sits in the ending rule only
-    assert.equal(backend.split("end_call").length, 2);
+    // No tool is named for ending: the tool's own description says what it does
+    assert.equal(backend.includes("end_call"), false);
     // A thread, not a bot, is what work carries on in; asking is for a real fork only
     assert.match(
       backend,

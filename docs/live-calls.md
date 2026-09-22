@@ -12,7 +12,7 @@ code when changing session events, settings, prompts, or persistence.
 
 | Runtime | Context and instructions | Work |
 | --- | --- | --- |
-| Live voice | `live.prompt`: who Thursday is; under `## Always` the ending rule, backchannel, interruption and a short delegation policy; profile and preferences with the note listing; what was said on the last calls, as reading | Listen, speak, backchannel, handle interruptions, hand everything but conversation to the backend |
+| Live voice | `live.prompt`: who Thursday is and who she is to talk to (persona); under `## Always` backchannel, interruption and a short delegation policy; profile and preferences with the note listing; what was said on the last calls, as reading | Listen, speak, backchannel, handle interruptions, hand everything but conversation to the backend |
 | Responses backend | `thursday.prompt`: who Thursday is, memory with ids, bot roster, threads and what bots can reach, this computer, what to return, earlier calls with their jobs; tool schemas | Recall, update and tidy memory, run short commands and web searches, carry work on in its thread or open a new one, route thread messages and cancellations, delegate long work |
 | Background bots | `bot.prompt` and the stored participant transcript | Shell, browser, MCP, skills, and work that outlives a call |
 | Application | Authoritative database and tool implementations | Validate actions, retain results, enforce thread limits, render progress, save call history |
@@ -25,9 +25,11 @@ text, so the application would have to reconstruct the request and operate the b
 The voice and the backend are one assistant. Both prompts open with the same identity
 (`thursdayIdentity`), each followed by its own rule for ending the call, read the same
 memory, and neither is told it is part of something else. The voice holds conversation and
-memory only. Right under the identity, `## Always` groups what holds on every turn: the ending
-rule (the only line marked `IMPORTANT`), the guide's starter backchannel and interruption
-policies, and the guide's `Delegation policy` under its three labels: `Backend tools` names
+memory only. Under the identity comes the persona (`prompts/persona.ts`): the guide's
+Personality lines, character only, read by whoever talks to the user — the voice here, the
+backend on a call in writing. Then `## Always` groups what holds on every turn: the guide's
+starter backchannel and interruption policies, and the guide's `Delegation policy` under its
+three labels: `Backend tools` names
 what the backend can do (end the call, background work, routines, memory, this computer and the
 web) and never how; `Delegate to the backend when` is the user wanting the call to end, anything
 on that list or a change to work already asked for, and whatever the user says about themselves,
@@ -36,7 +38,7 @@ prompt; `Do not delegate to the backend when` is greetings, small talk, only wan
 talking, what the conversation already answers, and a brief clarification. Live decides by
 itself whether to delegate, and it decides from that list: without it (09-17 to 09-19) a
 hang-up, a stop or a routine was answered and never handed over. It says nothing else about how
-to speak; it sees no tool schema and no tool name but `end_call`, in the ending rule. The backend prompt holds the work: memory (merging a fact that repeats or changes one
+to speak; it sees no tool schema and no tool name. The backend prompt holds the work: memory (merging a fact that repeats or changes one
 already kept, and tidying with the user past the limits), background work and threads, this
 computer, what to return, and the earlier calls. A request that carries earlier work further goes to
 that thread; one that stands on its own opens a new one; it asks the user only when it could be
@@ -219,15 +221,14 @@ for a goodbye, which would leave the ending to the model.
 
 ## Closing and recovery
 
-The user wanting the call to end, however they say it, sets everything else aside: the
-voice answers yes and hands it to the backend at once, and the backend runs `end_call`
-without deliberating. The voice's rule names `end_call` too, the one tool name it holds:
-without it, ending read as something to say rather than do. The two rules say what each
-side can do: while they were one sentence ("forget every other task, answer yes, then use
-the tool"), the voice said yes and went quiet with the line open, four times in five
-(09-20), so its rule says to hand the turn over, and that a yes alone leaves the line open.
-Whether that turn reaches the backend at all is the voice's own decision, and it often
-answers and hands nothing over. Ending the call leads the `Backend tools` list for that
+The user wanting the call to end is handed to the backend like any other request, and the
+backend runs `end_call`; only it can. Neither prompt carries a rule for it any more. The
+rules tried — one sentence shared by both ("forget every other task, answer yes, then use
+the tool"), then the voice's own ("answer yes and hand it over; only the backend can end the
+line, with `end_call`"), stamped `IMPORTANT` — ran the tool in 4 of the 7 spoken calls that
+asked and in time in 2 (09-20 to 09-21). Whether the turn reaches the backend at all is the
+voice's own decision, and it often answers and hands nothing over; what changes that is
+measured on real calls rather than written. Ending the call leads the `Backend tools` list for that
 reason: with the list, five calls in seven ended by asking (09-16); without it, one in 21,
 then none in 34 (09-17 to 09-19). The
 quiet hang-up below is what ends such a call.

@@ -14,11 +14,10 @@ paths:
 # The call
 
 - **The call is one Thursday on two models.** The Live voice and its Responses backend open with the
-  same identity (`thursdayIdentity`, the only sentence a helper holds), each followed by its own
-  rule for ending the call — the voice says yes and hands the turn over at once, the backend runs
-  `end_call` without deliberating, since only it can end the line — and read the same memory; neither
-  is told it is part of something else. The voice holds conversation and memory only. Right under
-  its identity, `## Always` groups the ending rule (the only line stamped `IMPORTANT`), the guide's
+  same identity (`thursdayIdentity`, the only sentence a helper holds) and read the same memory;
+  neither is told it is part of something else. Whoever talks to the user reads the persona
+  (`prompts/persona.ts`): the voice on a spoken call, the backend on a call in writing. The
+  voice holds conversation and memory only. Right under the persona, `## Always` groups the guide's
   starter backchannel and interruption policies (the backchannel line asking for listening sounds
   through a long turn), and the guide's `Delegation policy` under its three labels — `Backend tools`
   (what the backend can do, ending the call first, never how), when to hand a turn over (a hang-up,
@@ -29,6 +28,11 @@ paths:
   that repeats or changes one already kept, and it asks the user whether work carries an earlier
   thread on or starts a new one only when it could be either. A relay carries facts — who, which thread —
   never instructions, since the backend reads it too.
+  **Ending the call is on the delegation list and nowhere else.** Neither prompt carries a rule
+  for it any more: the rule above `## Always`, stamped `IMPORTANT` and naming `end_call`, ran the
+  tool in 4 of the 7 spoken calls that asked, 2 of them in time (09-20 to 09-21). A name and a
+  stamp did not make the voice hand a hang-up over; what does is measured on real calls (todo 31),
+  and the tool's own description says what it does.
 - **Tools run on the server.** A call's tool invocation is forwarded by the page to the server, so
   tools call domain queries directly. The one exception is anything that touches the call itself
   (hang up, a word on her face).
@@ -63,7 +67,7 @@ paths:
   backend is the voice's own decision; the page never starts one the voice kept.
 - **A call in writing.** The write line opens on Thursday, and what is sent to her is a call in
   writing (`thursday.text`, `use-text-call`): the call's backend alone — its prompt but for the
-  ending rule and the last chapter, its memory, its tools less the page's own (`end_call`, `emote`:
+  last chapter, its memory and the persona, its tools less the page's own (`end_call`, `emote`:
   there is no line to drop), no Live session — drawn by the same call screen and kept as a call
   row (`TEXT_CALL.model` where a spoken one names Live), so Earlier calls and the call log carry
   it with no table of their own. The page holds the conversation and sends it whole each turn;

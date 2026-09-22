@@ -28,6 +28,7 @@ import {
 } from "@/features/thursday/thursday.query";
 import { openWorkspace } from "@/features/workspace/workspace";
 import { listConnectedToolNames } from "../tools/connected";
+import { personaLines } from "./persona";
 import {
   carriedLines,
   expandedFacts,
@@ -41,17 +42,18 @@ import {
 } from "./prompt-helper";
 
 /**
- * Everything the call's Responses backend hears: who Thursday is and how a call ends (the words
- * the voice opens with too), then the work the voice hands over — memory with ids, background
- * work with the roster, this computer — what to return, and the last calls with their jobs, which
- * only the backend reads. Nothing here is about how to talk. The loader is the table of contents,
+ * Everything the call's Responses backend hears: who Thursday is — and, on a call in writing,
+ * who she is to talk to (persona), since then it is the one talking — then the work the voice
+ * hands over — memory with ids, background work with the roster, this computer — what to
+ * return, and the last calls with their jobs, which only the backend reads. On a spoken call
+ * nothing here is about how to talk. The loader is the table of contents,
  * and empty chapters are dropped. Shares no sentence with bot.prompt. Assembled on every call,
  * never cached.
  *
  * @param backendPrompt Settings › Thursday › Backend instructions, added last.
  * @param written The call is in writing (thursday/thursday.text): nobody voices what comes
- *   back, so the last chapter is an answer to read rather than a result to say; and there is
- *   no line to drop, so the ending rule goes with the tool it names (load-tools).
+ *   back, so the last chapter is an answer to read rather than a result to say, and there is
+ *   no line to drop (load-tools).
  */
 export async function loadThursdayPrompt(
   backendPrompt?: string | null,
@@ -90,7 +92,7 @@ export async function loadThursdayPrompt(
   // Order matters: earlier calls go last so the current call follows them in time order
   const text = [
     thursdayIdentity(),
-    written ? "" : ending(),
+    written ? personaLines() : "",
     memory(index, carried, open.notes),
     // A skill is named once, on the side that can read it: this computer's chapter
     // when the setting hands the call the tool, the bots' reach when it does not
@@ -112,13 +114,6 @@ export async function loadThursdayPrompt(
   logPromptSize("thursday", text);
   return text;
 }
-
-/**
- * How a call ends, right after the identity. Only the backend can end the line, so its rule is
- * to do it at once, with the tool named; the voice's own rule (live.prompt) is to hand it over.
- */
-const ending = () =>
-  `IMPORTANT — always follow this: when the user wants the call to end, however they say it, forget every other task, answer yes in one word of their language, then immediately, without thinking, use the ${TOOL_NAMES.end_call} tool.`;
 
 /**
  * What goes back is said aloud, so it is what a tool or a note confirmed and nothing more — or

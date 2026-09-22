@@ -14,12 +14,16 @@ features/ai/              Everything the model sees. Composes domain query/schem
   tools/<d>.tool.ts       The tools one domain answers (memory, bot, workspace, mcp, …): name, description,
                           args, execute. Execute calls the domain query.
   tools/tool-name.ts      Every name the model sees. Tools and prompts both import from here.
-  prompts/live.prompt.ts         What the Live voice hears: who Thursday is; under `## Always` the ending
-                                 rule, the guide's backchannel and interruption policies and a short
-                                 delegation policy (everything but conversation goes to the backend,
-                                 what they say about themselves included); what she knows about the user;
-                                 what was said on the last calls, as reading, without the tool lines.
-                                 No capabilities, procedures, threads, or tool names but `end_call`.
+  prompts/live.prompt.ts         What the Live voice hears: who Thursday is and who she is to talk to
+                                 (persona); under `## Always` the guide's backchannel and interruption
+                                 policies and a short delegation policy (everything but conversation
+                                 goes to the backend, ending the call and what they say about themselves
+                                 included); what she knows about the user; what was said on the last
+                                 calls, as reading, without the tool lines. No capabilities, procedures,
+                                 threads, or tool names.
+  prompts/persona.ts             Who Thursday is to talk to: the guide's Personality lines, character
+                                 only, several kept to try against each other and one in use. Read by
+                                 whoever talks — the voice, or the backend on a call in writing.
   prompts/thursday.prompt.ts     What the call's Responses backend hears: who Thursday is, memory with ids,
                                  roster and threads, the machine, what to return (on a call in writing,
                                  an answer to read instead), earlier calls with their jobs.
@@ -92,7 +96,8 @@ a call, a shipped `SKILL.md`.
 - **The end is the thing asked for.** Asked to act, a run ends with the act done, not with a
   report about it.
 - **The style is Claude Code's own**: short imperative English and a full `.describe()` on every
-  field. `IMPORTANT` marks one line, the call's ending rule; marking many weakens them all.
+  field. No line is stamped `IMPORTANT`: the one that was (the call's ending rule) changed nothing
+  the numbers could see, and marking many weakens them all.
 - **Optional fields are `.nullish()`.** `.nullable()` fails hard when the key is left out, and a
   cheap model pays for it in retries (four failed tool calls in ten).
 - **One mistake in one conversation is no reason.** No sentence, example or structure aims at it:
