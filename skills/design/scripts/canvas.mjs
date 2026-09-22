@@ -34,9 +34,9 @@ function findWorkspace() {
 }
 
 const WORKSPACE = findWorkspace();
-// The shipped skills: the browser skill's renderer is what takes the pictures
-const SKILLS =
-  process.env.THURSDAY_SKILLS || join(WORKSPACE, ".agents", "skills");
+// The shipped skills, where the browser skill's renderer takes the pictures: named in a
+// bot's shell, and otherwise the folder this skill itself sits in beside it
+const SKILLS = process.env.THURSDAY_SKILLS || resolve(SKILL, "..");
 const shown = (path) => relative(WORKSPACE, path) || ".";
 
 class Stop extends Error {}

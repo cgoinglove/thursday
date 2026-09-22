@@ -71,7 +71,9 @@ it hands out has a way through when nobody on the roster is for it. This adds wh
   may come in whole, engine and all (archify).
 - **A skill's name is the first thing a bot matches a job against.** A kind of result a user
   asks for by name — a deck, a design — is a skill of its own (`slides`, `design`); a kind
-  nobody names (a chart, a diagram) stays a method inside one. Two ways to make one thing
+  nobody names (a chart, a diagram) stays a method inside one. Under one umbrella name,
+  bots opened it unprompted in 0 of 2 jobs; split and named, 6 of 6, a bot with no role
+  included (09-22). Two ways to make one thing
   (the deck here and the office `deck` of the Docs kit) each say in their description which
   ask is theirs.
 - **A main `SKILL.md` holds one or two facts the model does not know.** Procedures go in

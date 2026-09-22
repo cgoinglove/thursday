@@ -242,9 +242,10 @@ body > header .keys {
   box-shadow: var(--shadow);
 }
 /* A board's content starts from nothing: no default margin on a heading, a paragraph or
-   a list, no bullet indent, no space between table cells. What is on a board is laid
-   out by its own flex, grid, gap and padding alone, so a picture of it is what was
-   written and a browser's defaults never add height to it. */
+   a list, no space between table cells, no box around a fieldset. What is on a board is
+   laid out by its own flex, grid, gap and padding alone, so a picture of it is what was
+   written and a browser's defaults never add height to it. A list keeps its indent, so
+   a plain bulleted list still shows its bullets; a nav list sets padding:0 itself. */
 .board
 :is(
   h1,
@@ -268,13 +269,15 @@ body > header .keys {
 ) {
   margin: 0;
 }
-.board :is(ul, ol, fieldset) {
+.board fieldset {
   padding: 0;
+  border: 0;
 }
 .board table {
   border-spacing: 0;
 }
-.board :is(img, svg, video) {
+/* Not svg: an icon drawn inline with a sentence stays on the line */
+.board :is(img, video) {
   display: block;
 }
 /* A board whose content does not fit it. Red is failure, as everywhere in the app. */
