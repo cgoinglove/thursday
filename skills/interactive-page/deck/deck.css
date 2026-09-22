@@ -66,6 +66,51 @@ section[data-slide].open {
   display: block;
 }
 
+/* Turning a slide. A slide is shown by `display`, which cannot be animated, so the one
+   arriving is animated over the one that has already gone: the eye reads that as the
+   pair moving. `data-transition` on a section picks how, `fade` when it says nothing;
+   `none` is for a slide that must not move, such as one whose picture must land still.
+   Direction comes from the deck (`data-turn`), so going back reads as going back. */
+@keyframes slide-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes slide-push-on {
+  from {
+    opacity: 0;
+    transform: translateX(6%);
+  }
+}
+@keyframes slide-push-back {
+  from {
+    opacity: 0;
+    transform: translateX(-6%);
+  }
+}
+section[data-slide].open {
+  animation: slide-fade 0.26s ease both;
+}
+#deck[data-turn="on"] section[data-slide][data-transition="push"].open {
+  animation-name: slide-push-on;
+}
+#deck[data-turn="back"] section[data-slide][data-transition="push"].open {
+  animation-name: slide-push-back;
+}
+section[data-slide][data-transition="none"].open,
+#deck[data-turn=""] section[data-slide].open {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  section[data-slide].open {
+    animation: none;
+  }
+}
+/* A picture of a slide is a still: nothing may be mid-animation when it is taken. */
+body.shot section[data-slide].open {
+  animation: none;
+}
+
 /* Plain HTML on a slide reads well as it is. */
 section[data-slide] h1 {
   margin: 0 0 32px;

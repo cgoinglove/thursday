@@ -28,7 +28,11 @@
   };
 
   const go = (i) => {
+    const was = open;
     open = Math.max(0, Math.min(slides.length - 1, i));
+    // Which way the deck is going, so the slide coming in enters from that side.
+    // Landing on the slide already open (a reload, the address bar) is no turn.
+    deck.dataset.turn = open === was ? "" : open > was ? "on" : "back";
     slides.forEach((slide, n) => slide.classList.toggle("open", n === open));
     if (at) at.value = `${open + 1} / ${slides.length}`;
     if (notes && !notes.hidden)

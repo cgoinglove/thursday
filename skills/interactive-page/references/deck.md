@@ -139,6 +139,15 @@ the blocks span the 824px. A statement slide with open space below is correct.
   content. Never invent a figure or a quote — a detail you were not given stays a visible blank
   like `[figure]`, named in your answer.
 
+## Turning
+
+A slide fades in as it is turned to, from the side the deck is going. `data-transition` on
+a section changes that for that slide: `push` slides it in from the edge, `none` holds it
+still — which is what a slide wants when the thing on it must not move as it arrives. Leave
+it off unless there is a reason; a deck where every slide enters differently is a deck
+nobody watches. Nothing moves in a picture of a slide, or for a reader who has asked for
+less motion.
+
 ## Speaker notes
 
 An `<aside>` directly inside a slide is what is said over it: it never shows on the slide, the
