@@ -2,204 +2,145 @@
 // a .pptx. The slides are already laid out at 1920x1080, so nothing is laid out again here:
 // a browser measures every box and every computed style, and each one becomes a shape at the
 // same place. 1920px across is PowerPoint's 13.333in, so one inch is 144px exactly.
-import { createReadStream, existsSync, statSync, writeFileSync } from "node:fs";
-import { createServer } from "node:http";
-import { basename, dirname, extname, join, resolve, sep } from "node:path";
+import { existsSync, writeFileSync } from "node:fs";
+import { basename, dirname, extname, join, resolve } from "node:path";
+import { inTab } from "./browser.mjs";
 import { onePropertyBlock } from "./deck.mjs";
-import { kit, output, Stop, shippedSkill, shown } from "./kit.mjs";
+import { kit, output, Stop, shown } from "./kit.mjs";
 
 /** PowerPoint's wide slide is 13.333 x 7.5in; a deck is written at 1920 x 1080. */
 const PER_INCH = 144;
 
-const TYPES = {
-  ".html": "text/html; charset=utf-8",
-  ".css": "text/css",
-  ".js": "text/javascript",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".webp": "image/webp",
-  ".gif": "image/gif",
-  ".svg": "image/svg+xml",
-};
-
-/** Serves the deck's folder on a port the system picks, so two jobs never meet. */
-async function serve(root) {
-  const server = createServer((req, res) => {
-    const path = resolve(
-      root,
-      `.${decodeURIComponent(new URL(req.url, "http://x").pathname)}`,
-    );
-    if (
-      !path.startsWith(root + sep) ||
-      !existsSync(path) ||
-      statSync(path).isDirectory()
-    )
-      return void res.writeHead(404).end();
-    res.writeHead(200, {
-      "content-type":
-        TYPES[extname(path).toLowerCase()] ?? "application/octet-stream",
-    });
-    createReadStream(path).pipe(res);
-  });
-  await new Promise((ok) => server.listen(0, "127.0.0.1", ok));
-  return { port: server.address().port, close: () => server.close() };
-}
-
 /**
- * Runs in the page: every slide's boxes, in paint order. Nothing here decides what a slide
- * should look like — it reports what the browser already drew.
+ * Measures the deck in a tab of its own: `browser.mjs` inTab serves the folder, waits for
+ * the fonts and the pictures, and says which pictures never loaded. What runs in the page
+ * is written here, inside the call, because only what the callback itself holds crosses
+ * into the browser — nothing reads from this module out there.
  */
-function measureInPage() {
-  const hex = (colour) => {
-    const n = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/.exec(
-      colour || "",
-    );
-    if (!n || Number(n[4] ?? 1) === 0) return null;
-    return [n[1], n[2], n[3]]
-      .map((v) => Number(v).toString(16).padStart(2, "0"))
-      .join("")
-      .toUpperCase();
-  };
-  const ownText = (el) =>
-    [...el.childNodes]
-      .filter((node) => node.nodeType === 3)
-      .map((node) => node.textContent)
-      .join("")
-      .replace(/\s+/g, " ")
-      .trim();
+const measure = (html) =>
+  inTab(
+    html,
+    async (tab) =>
+      tab.evaluate(() => {
+        const hex = (colour) => {
+          const n =
+            /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/.exec(
+              colour || "",
+            );
+          if (!n || Number(n[4] ?? 1) === 0) return null;
+          return [n[1], n[2], n[3]]
+            .map((v) => Number(v).toString(16).padStart(2, "0"))
+            .join("")
+            .toUpperCase();
+        };
+        const ownText = (el) =>
+          [...el.childNodes]
+            .filter((node) => node.nodeType === 3)
+            .map((node) => node.textContent)
+            .join("")
+            .replace(/\s+/g, " ")
+            .trim();
 
-  const slides = [];
-  for (const section of document.querySelectorAll("[data-slide]")) {
-    const frame = section.getBoundingClientRect();
-    // A deck scales itself to the window, and a rect carries that transform. The
-    // untransformed layout width is what the slide was written at, so this undoes it.
-    const scale = section.offsetWidth ? frame.width / section.offsetWidth : 1;
-    const aside = section.querySelector("aside");
-    const notes = aside ? aside.textContent.trim() : "";
-    const shapes = [];
-    const at = (el) => {
-      const r = el.getBoundingClientRect();
-      return {
-        x: (r.left - frame.left) / scale,
-        y: (r.top - frame.top) / scale,
-        w: r.width / scale,
-        h: r.height / scale,
-      };
-    };
+        // The deck scales itself to the window and animates a turn; this is the class its own
+        // stylesheet uses to stand still at true size, which is what a picture is taken through.
+        document.body.classList.add("shot");
 
-    for (const el of section.querySelectorAll("*")) {
-      if (el.tagName === "ASIDE" || el.closest("aside")) continue;
-      const cs = getComputedStyle(el);
-      if (cs.display === "none" || cs.visibility === "hidden") continue;
-      const box = at(el);
-      if (box.w < 1 || box.h < 1) continue;
-
-      const fill = hex(cs.backgroundColor);
-      const border = Number.parseFloat(cs.borderTopWidth) || 0;
-      if (fill || border)
-        shapes.push({
-          kind: "rect",
-          ...box,
-          fill,
-          line: border ? hex(cs.borderTopColor) : null,
-          lineWidth: border,
-          radius: Number.parseFloat(cs.borderTopLeftRadius) || 0,
-        });
-
-      if (el.tagName === "IMG") {
-        shapes.push({
-          kind: "image",
-          ...box,
-          src: el.getAttribute("src"),
-          cover: cs.objectFit !== "contain",
-        });
-        continue;
-      }
-      if (el.tagName === "TABLE") {
-        const rows = [...el.rows].map((row) =>
-          [...row.cells].map((cell) => {
-            const s = getComputedStyle(cell);
+        const slides = [];
+        for (const section of document.querySelectorAll("[data-slide]")) {
+          const frame = section.getBoundingClientRect();
+          // A deck scales itself to the window, and a rect carries that transform. The
+          // untransformed layout width is what the slide was written at, so this undoes it.
+          const scale = section.offsetWidth
+            ? frame.width / section.offsetWidth
+            : 1;
+          const aside = section.querySelector("aside");
+          const notes = aside ? aside.textContent.trim() : "";
+          const shapes = [];
+          const at = (el) => {
+            const r = el.getBoundingClientRect();
             return {
-              text: cell.textContent.replace(/\s+/g, " ").trim(),
-              bold: Number(s.fontWeight) >= 600,
-              colour: hex(s.color),
-              size: Number.parseFloat(s.fontSize),
-              align: s.textAlign === "start" ? "left" : s.textAlign,
+              x: (r.left - frame.left) / scale,
+              y: (r.top - frame.top) / scale,
+              w: r.width / scale,
+              h: r.height / scale,
             };
-          }),
-        );
-        shapes.push({ kind: "table", ...box, rows });
-        continue;
-      }
+          };
 
-      const text = ownText(el);
-      if (!text) continue;
-      shapes.push({
-        kind: "text",
-        ...box,
-        text,
-        size: Number.parseFloat(cs.fontSize),
-        colour: hex(cs.color) ?? "000000",
-        bold: Number(cs.fontWeight) >= 600,
-        italic: cs.fontStyle === "italic",
-        face: cs.fontFamily.split(",")[0].replace(/["']/g, "").trim(),
-        align: cs.textAlign === "start" ? "left" : cs.textAlign,
-        line: Number.parseFloat(cs.lineHeight) / Number.parseFloat(cs.fontSize),
-        spacing: Number.parseFloat(cs.letterSpacing) || 0,
-      });
-    }
-    slides.push({
-      bg: hex(getComputedStyle(section).backgroundColor) ?? "FFFFFF",
-      size: { w: section.offsetWidth, h: section.offsetHeight },
-      notes,
-      shapes,
-    });
-  }
-  return slides;
-}
+          for (const el of section.querySelectorAll("*")) {
+            if (el.tagName === "ASIDE" || el.closest("aside")) continue;
+            const cs = getComputedStyle(el);
+            if (cs.display === "none" || cs.visibility === "hidden") continue;
+            const box = at(el);
+            if (box.w < 1 || box.h < 1) continue;
 
-/** Measures the deck through the job's browser; the shipped skill opens a headless one when none is. */
-async function measure(html) {
-  if (!process.env.THURSDAY_SKILLS)
-    throw new Stop(
-      "THURSDAY_SKILLS is not set: run this from a bot's shell, where it names the shipped skills.",
-    );
-  const { inPage, orFail } = await import(
-    shippedSkill("browser", "scripts", "session.mjs")
-  );
-  const server = await serve(dirname(html));
-  try {
-    return orFail(
-      await inPage(
-        async (page, a) => {
-          const tab = await page.context().newPage();
-          try {
-            await tab.setViewportSize({ width: 1920, height: 1080 });
-            await tab.goto(a.url, { waitUntil: "load" });
-            await tab.evaluate(async () => {
-              await document.fonts.ready;
-              await Promise.all(
-                [...document.images].map((i) => i.decode().catch(() => {})),
+            const fill = hex(cs.backgroundColor);
+            const border = Number.parseFloat(cs.borderTopWidth) || 0;
+            if (fill || border)
+              shapes.push({
+                kind: "rect",
+                ...box,
+                fill,
+                line: border ? hex(cs.borderTopColor) : null,
+                lineWidth: border,
+                radius: Number.parseFloat(cs.borderTopLeftRadius) || 0,
+              });
+
+            if (el.tagName === "IMG") {
+              shapes.push({
+                kind: "image",
+                ...box,
+                src: el.getAttribute("src"),
+                cover: cs.objectFit !== "contain",
+              });
+              continue;
+            }
+            if (el.tagName === "TABLE") {
+              const rows = [...el.rows].map((row) =>
+                [...row.cells].map((cell) => {
+                  const s = getComputedStyle(cell);
+                  return {
+                    text: cell.textContent.replace(/\s+/g, " ").trim(),
+                    bold: Number(s.fontWeight) >= 600,
+                    colour: hex(s.color),
+                    size: Number.parseFloat(s.fontSize),
+                    align: s.textAlign === "start" ? "left" : s.textAlign,
+                  };
+                }),
               );
+              shapes.push({ kind: "table", ...box, rows });
+              continue;
+            }
+
+            const text = ownText(el);
+            if (!text) continue;
+            shapes.push({
+              kind: "text",
+              ...box,
+              text,
+              size: Number.parseFloat(cs.fontSize),
+              colour: hex(cs.color) ?? "000000",
+              bold: Number(cs.fontWeight) >= 600,
+              italic: cs.fontStyle === "italic",
+              face: cs.fontFamily.split(",")[0].replace(/["']/g, "").trim(),
+              align: cs.textAlign === "start" ? "left" : cs.textAlign,
+              line:
+                Number.parseFloat(cs.lineHeight) /
+                Number.parseFloat(cs.fontSize),
+              spacing: Number.parseFloat(cs.letterSpacing) || 0,
             });
-            // The deck scales itself to the window; the shot copy's class turns that off
-            await tab.evaluate(() => document.body.classList.add("shot"));
-            return await tab.evaluate(a.measure);
-          } finally {
-            await tab.close();
           }
-        },
-        {
-          url: `http://127.0.0.1:${server.port}/${encodeURIComponent(basename(html))}`,
-          measure: `(${measureInPage.toString()})()`,
-        },
-      ),
-    );
-  } finally {
-    server.close();
-  }
-}
+          slides.push({
+            bg: hex(getComputedStyle(section).backgroundColor) ?? "FFFFFF",
+            size: { w: section.offsetWidth, h: section.offsetHeight },
+            notes,
+            shapes,
+          });
+        }
+        return slides;
+      }),
+    {},
+    { viewport: { width: 1920, height: 1080 } },
+  );
 
 /**
  * `doc.mjs deck-from <deck.html> [--out name]` — the same slides as a PowerPoint file.
@@ -211,7 +152,7 @@ export async function deckFromHtml(htmlPath, opts) {
     throw new Stop(
       `${shown(html)} is not a deck: give the .html that \`interactive-page\` wrote.`,
     );
-  const slides = await measure(html);
+  const { result: slides, broken } = await measure(html);
   if (!slides.length)
     throw new Stop(
       `${shown(html)} holds no slides: a slide is one <section data-slide>.`,
@@ -230,7 +171,8 @@ export async function deckFromHtml(htmlPath, opts) {
   pptx.title = basename(html, ".html");
 
   const inches = (px) => px / PER_INCH;
-  const missing = new Set();
+  // What the browser could not load is already known; this is what is not on disk at all
+  const missing = new Set(broken);
   for (const slide of slides) {
     const s = pptx.addSlide();
     s.background = { color: slide.bg };
@@ -242,13 +184,13 @@ export async function deckFromHtml(htmlPath, opts) {
         h: inches(shape.h),
       };
       if (shape.kind === "rect")
-        s.addShape(shape.radius >= 8 ? "roundRect" : "rect", {
+        s.addShape(shape.radius ? "roundRect" : "rect", {
           ...at,
           fill: shape.fill ? { color: shape.fill } : { type: "none" },
           line: shape.line
             ? { color: shape.line, width: shape.lineWidth * 0.75 }
             : { type: "none" },
-          ...(shape.radius >= 8 ? { rectRadius: inches(shape.radius) } : {}),
+          ...(shape.radius ? { rectRadius: inches(shape.radius) } : {}),
         });
       else if (shape.kind === "image") {
         const file = join(dirname(html), shape.src ?? "");
