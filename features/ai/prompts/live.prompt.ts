@@ -196,7 +196,7 @@ const additional = (voicePrompt?: string | null) =>
   voicePrompt?.trim()
     ? `## Who they want you to be
 
-Their own words, on top of the character above: how you talk to them, what to call them, what to leave out. Where they differ from anything above, theirs wins.
+Their own words, on top of the character above: how you talk to them, how much to say, what to leave out. Where they differ from anything above, theirs wins.
 
 ${voicePrompt.trim()}`
     : "";

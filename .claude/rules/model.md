@@ -110,10 +110,11 @@ a call, a shipped `SKILL.md`.
   something: GPT-Live does these on its own. The only exceptions are the guide's lines under
   `## Always`, one of them on language: the one the user is speaking, never the browser's (a first
   call opened in the browser's language kept an English speaker in Korean).
-- **A taste the model keeps refusing is the user's line to write.** How to address them and the
-  like go in Settings › Thursday › Personality — the user's own persona, read as character over
-  the picked one and last in the prompt; the prompt is not pushed harder. What belongs to them
-  rather than to how she speaks is memory's, which both models read whole.
+- **A taste the model keeps refusing is the user's line to write.** The character they want goes
+  in Settings › Thursday › Personality — their own persona, read over the picked one and last in
+  the prompt; the prompt is not pushed harder. What to call them is not a manner but a fact about
+  them, so it is asked for and kept in memory, which both models read whole and which she can put
+  right herself when it changes.
 
 ## Memory
 
