@@ -18,41 +18,57 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+const cli = (args) =>
+  new Promise((done) =>
+    execFile(
+      "playwright-cli",
+      args,
+      { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
+      (error, stdout, stderr) =>
+        done({
+          error,
+          out: (stdout ?? "").trim(),
+          said: `${stdout ?? ""}${stderr ?? ""}`.trim(),
+        }),
+    ),
+  );
+
 /**
  * Runs `code` — the source of one `async page => …` — and resolves to what it returned,
- * parsed; undefined when it returned nothing. Stops the script with a readable line when
- * no browser is open or the code threw.
+ * parsed; undefined when it returned nothing. A job that has not opened its browser yet
+ * gets a headless one here, once, so every kit script shares this one way in; a browser
+ * already open, headed or not, is left as it is. Stops the script with a readable line
+ * when the code threw.
  */
 export async function runCode(code) {
   // One argument is capped (E2BIG past 128 KB on Linux, less with a big environment)
   const dir = code.length > 64_000 ? mkdtempSync(join(tmpdir(), "run-")) : null;
   if (dir) writeFileSync(join(dir, "code.js"), code);
-  const out = await new Promise((done) =>
-    execFile(
-      "playwright-cli",
-      dir
-        ? ["--raw", "run-code", `--filename=${join(dir, "code.js")}`]
-        : ["--raw", "run-code", code],
-      { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
-      (error, stdout, stderr) => {
-        if (dir) rmSync(dir, { recursive: true, force: true });
-        if (!error) return done(stdout.trim());
-        if (error.code === "ENOENT")
-          fail(
-            "playwright-cli is not on this shell's PATH: the browser skill's Install section.",
-          );
-        const said = `${stdout ?? ""}${stderr ?? ""}`.trim();
-        fail(
-          /not open|no (open )?browser/i.test(said)
-            ? "No browser is open in this session. `playwright-cli open`, sign in if the site needs it, then run this again."
-            : `The browser answered with an error:\n${said
-                .replace(/^### Error\s*/, "")
-                .replace(/^Error:\s*/, "")
-                .slice(0, 800)}`,
-        );
-      },
-    ),
-  );
+  const args = dir
+    ? ["--raw", "run-code", `--filename=${join(dir, "code.js")}`]
+    : ["--raw", "run-code", code];
+  let got = await cli(args);
+  if (got.error?.code === "ENOENT")
+    fail(
+      "playwright-cli is not on this shell's PATH: the browser skill's Install section.",
+    );
+  if (got.error && /not open|no (open )?browser/i.test(got.said)) {
+    const opened = await cli(["open"]);
+    if (opened.error)
+      fail(
+        "No browser is open in this session and one could not be opened (`playwright-cli open` failed): the browser skill's Install section.",
+      );
+    got = await cli(args);
+  }
+  if (dir) rmSync(dir, { recursive: true, force: true });
+  if (got.error)
+    fail(
+      `The browser answered with an error:\n${got.said
+        .replace(/^### Error\s*/, "")
+        .replace(/^Error:\s*/, "")
+        .slice(0, 800)}`,
+    );
+  const out = got.out;
   if (!out) return undefined;
   try {
     return JSON.parse(out);
@@ -100,6 +116,14 @@ export function fail(message) {
 
 /** A page-side answer `{ error }` stops the script with that message. */
 export function orFail(result) {
-  if (result && typeof result === "object" && result.error) fail(result.error);
+  if (result && typeof result === "object" && result.error) {
+    // Chromium prints only headless: a job whose browser is a window on the user's
+    // screen closes it, and the next run opens a headless one by itself
+    if (/only supported for Headless/i.test(result.error))
+      fail(
+        "A PDF is printed by a headless browser, and this job's is a window on the user's screen: `playwright-cli close`, then run this again.",
+      );
+    fail(result.error);
+  }
   return result;
 }

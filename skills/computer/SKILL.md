@@ -1,6 +1,6 @@
 ---
 name: computer
-description: "This Mac itself — its apps, its windows, what is on screen. Read a window as text, click, type, open or focus an app, walk a menu, read the clipboard."
+description: "This Mac itself — its apps, its windows, what is on screen, the clipboard. Reach for it when the job is in an app rather than a browser: read a window as text, click, type, open or focus an app, walk a menu."
 platforms: [darwin]
 ---
 
@@ -125,7 +125,8 @@ move, resize, minimize, set-bounds, list), `menu` (click, list), `menubar`,
 
 ## Install
 
-`peekaboo` needs macOS 15 or later.
+The app does not install `peekaboo`. When it is not on `PATH`, say so and stop — do not
+build it from source, and do not install it without the user's yes. It needs macOS 15 or later.
 
 ```bash
 brew tap steipete/tap
@@ -133,4 +134,3 @@ brew install steipete/tap/peekaboo
 peekaboo --version
 ```
 
-If it is not on `PATH`, say so and stop — do not build it from source.

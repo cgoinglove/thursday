@@ -1,6 +1,6 @@
 ---
 name: skill-creator
-description: "Create a new skill or fix an existing one. Reach for this whenever the user is describing a repeatable way of working rather than a one-off task — even if the word 'skill' never comes up."
+description: "Write a new skill, or fix one that exists. Reach for it whenever the user describes a repeatable way of working rather than a one-off task, even when the word skill never comes up."
 ---
 
 # Skill Creator
@@ -26,13 +26,13 @@ Where it sits decides who gets it, and the app reads two places:
 Both are also where `npx skills add` downloads to, depending on the folder it is
 run from.
 
-`../skills/` ships with the app and is under git. Do not write there. When a
+The shipped skills (`$THURSDAY_SKILLS`, the folder a bot's shell names) come with the app and are read-only. Do not write there. When a
 name collides, the app's skill wins — a user skill with the same name is not
 listed at all. To change a shipped skill, make one under a different name, and
 copy the original folder as a starting point if that helps.
 
 `bash` runs in the workspace, so a shared skill's path is simply
-`.agents/skills/<name>/` and a shipped skill's is `../skills/<name>/`. If
+`.agents/skills/<name>/` and a shipped skill's is `$THURSDAY_SKILLS/<name>/`. If
 `load_skill` handed you an absolute path, use that.
 
 ## Who does the writing
@@ -42,7 +42,7 @@ rewriting, and checking — minutes of work, not a sentence.
 
 **If you are Thursday**: do the interview yourself, out loud. That part is
 conversation and it is the part you are good at — one question per turn, no
-lists read aloud. Then hand the whole brief to a bot with `delegate`. The bot
+lists read aloud. Then hand the whole brief to a bot with `thread_start`. The bot
 cannot hear the call, so the request has to carry all of the answers, the exact
 target path, and the fact that it must validate before reporting. If no bot
 fits, write it yourself — but say first that you are going quiet for a moment.
@@ -115,13 +115,13 @@ tree bigger than that is a tree with files nobody will open.
 `write_file` replaces the whole file, so read it first unless you mean to lose
 what is there. Leave the name and the folder name alone — they are what the
 user's earlier requests and other skills pointing here refer to. Do not edit
-skills that ship with the app (`../skills/`) — make a copy under a different
+skills that ship with the app (`$THURSDAY_SKILLS`) — make a copy under a different
 name in one of the two places above and edit that.
 
 ## Before you report
 
 ```bash
-node ../skills/skill-creator/scripts/validate.mjs <the skill's folder>
+node $THURSDAY_SKILLS/skill-creator/scripts/validate.mjs <the skill's folder>
 ```
 
 It checks the things that fail silently: frontmatter the app cannot parse, a

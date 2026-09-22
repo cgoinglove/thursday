@@ -51,8 +51,8 @@ node <skill dir>/scripts/canvas.mjs shots <name> --size 1280x800
 
 Every board becomes `board-01.png`, `board-02.png` … beside the canvas, in the order
 they appear. They are what goes in front of whoever chooses — the canvas is one live
-face in a thread, the pictures are four. The renderer needs a browser already open in
-this job.
+face in a thread, the pictures are four. The renderer uses the job's browser, and opens a headless one when
+none is.
 
 A board that is not exactly `--size` is named in the output and has no usable picture;
 a board whose content overflows is clipped silently, and only the canvas says so, in

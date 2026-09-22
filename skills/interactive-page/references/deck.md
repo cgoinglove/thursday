@@ -53,7 +53,7 @@ node <skill dir>/scripts/deck.mjs shots <name>
 Every slide becomes `slide-01.png`, `slide-02.png` … beside the deck, in order. A slide whose
 content overflows comes out taller than the deck and is refused by its number; on the deck
 itself the bar at the foot names the same slides as `cut`. Fix every one and shoot again, two
-rounds at most. The renderer needs a browser already open in this job.
+rounds at most. The renderer uses the job's browser, and opens a headless one when none is.
 
 ## What to hand back
 

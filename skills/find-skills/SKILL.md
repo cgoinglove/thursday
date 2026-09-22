@@ -1,6 +1,6 @@
 ---
 name: find-skills
-description: "Find and install a skill from the open registry. Use when a job needs a method you don't have yet."
+description: "Find and install a skill from the open registry. Reach for it when a job needs a written method that is not on your Skills list."
 ---
 
 # Find skills
@@ -62,9 +62,11 @@ reviewed by anyone.
 
 - **Who published it.** The vendors on https://skills.sh/official publish their
   own tools — `anthropics`, `vercel-labs`, `microsoft` and the rest. An unknown
-  owner with a handful of installs is a stranger's shell script.
-- **How many installs.** Thousands means it has been run by other people.
-  Under a hundred means you are the one testing it.
+  owner is a stranger's shell script until its repository says otherwise.
+- **Its repository, not its install count.** Open the GitHub repository the
+  registry names: the stars, the last commit, and what `SKILL.md` and its scripts
+  actually do. A count of installs says only that it was fetched — one skill had
+  half a million installs and five stars.
 - **What it needs to work.** Most vendor skills wrap that vendor's CLI and want
   an API key. Read its SKILL.md before you build a plan on top of it — a skill
   you cannot authenticate is no use in this job.

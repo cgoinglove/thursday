@@ -9,15 +9,19 @@
 //   --kind line|bar      line when the first column is dates, bar otherwise
 //   --title "<text>"     what the chart shows (default: the CSV's `# title:`)
 //   --columns a,b        which value columns to draw (default: all)
-//   --from / --to        a date range to draw, YYYY[-MM[-DD]]
+//   --from / --to        a date range to draw, YYYY[-MM[-DD]] or YYYY-Qn. Each bound takes
+//                        the whole period named: --to 2025 keeps all of 2025.
 //   --index              rebase every line to 100 at its first shared date
-//   --mark "2025-03=Rate cut"   a dated event line; repeat for more
+//   --mark "2025-03=Rate cut"   a dated event line, on a line chart; repeat for more
 //   --unit "%"  --prefix "$"    around every number shown
-//   --highlight "<label>"       the one bar in the accent color; the rest go quiet
+//   --highlight "<label>"       the one bar in the accent color; the rest go quiet (bars only)
 //   --keep-order         bars in the CSV's order instead of largest first
 //   --source "<url or text>"    when the CSV has no `# source:` line
 //   --note "<text>"      one line under the chart: an estimate, a gap, a break in the series
 //   --locale ko          how numbers and dates are written (a BCP 47 tag)
+//
+// An unknown --kind, a bound that is not a date, a --highlight naming no row and a --mark
+// outside the range drawn all stop, rather than draw something quietly wrong.
 //
 // The figure carries no words of its own beyond what it is given, so it reads the same
 // in any language: the site's name, a date, "CSV".
@@ -105,6 +109,27 @@ function toTime(cell) {
   if (m) return Date.UTC(+m[1], m[2] ? +m[2] - 1 : 0, m[3] ? +m[3] : 1);
   m = s.match(/^(\d{4})-?Q([1-4])$/i);
   if (m) return Date.UTC(+m[1], (+m[2] - 1) * 3, 1);
+  return null;
+}
+
+/**
+ * A `--from` or `--to` bound, as the start of the period named or (with `end`) its last day:
+ * a bound written as a year or a month covers all of it. Null when it is not a date.
+ */
+function toBound(value, end) {
+  const s = String(value).trim();
+  let m = s.match(/^(\d{4})(?:-(\d{1,2}))?(?:-(\d{1,2}))?$/);
+  if (m) {
+    const [, y, mo, d] = m;
+    if (d) return Date.UTC(+y, +mo - 1, +d);
+    if (mo) return end ? Date.UTC(+y, +mo, 0) : Date.UTC(+y, +mo - 1, 1);
+    return end ? Date.UTC(+y, 11, 31) : Date.UTC(+y, 0, 1);
+  }
+  m = s.match(/^(\d{4})-?Q([1-4])$/i);
+  if (m)
+    return end
+      ? Date.UTC(+m[1], +m[2] * 3, 0)
+      : Date.UTC(+m[1], (+m[2] - 1) * 3, 1);
   return null;
 }
 
@@ -517,22 +542,56 @@ function main() {
   });
   const dated = rows.every((r) => toTime(r[0]) !== null);
   const kind = flags.kind ?? (dated ? "line" : "bar");
+  if (kind !== "line" && kind !== "bar")
+    throw new Stop(`"${flags.kind}" is not a kind: --kind line or --kind bar.`);
   if (kind === "line" && !dated)
     throw new Stop(
       "A line needs dates in the first column (YYYY, YYYY-MM, YYYY-MM-DD or YYYY-Qn); draw categories with --kind bar.",
     );
 
+  const bound = (key, end) => {
+    if (flags[key] === undefined) return null;
+    const t = toBound(flags[key], end);
+    if (t === null)
+      throw new Stop(
+        `--${key} "${flags[key]}" is not a date: YYYY, YYYY-MM, YYYY-MM-DD or YYYY-Qn.`,
+      );
+    return t;
+  };
+  const lo = bound("from", false);
+  const hi = bound("to", true);
+  if (!dated && (lo !== null || hi !== null))
+    throw new Stop(
+      "--from and --to need dates in the first column; this CSV has categories in it.",
+    );
+
   let body = rows;
-  if (dated) {
-    const lo = flags.from ? toTime(flags.from) : null;
-    const hi = flags.to ? toTime(flags.to) : null;
+  if (dated)
     body = rows
       .map((r) => ({ r, t: toTime(r[0]) }))
       .filter(({ t }) => (lo === null || t >= lo) && (hi === null || t <= hi))
       .sort((a, b) => a.t - b.t)
       .map(({ r }) => r);
-  }
   if (!body.length) throw new Stop("No rows left to draw in that range.");
+
+  const highlight = flags.highlight;
+  if (highlight !== undefined) {
+    if (typeof highlight !== "string")
+      throw new Stop('--highlight needs a row: --highlight "<label>".');
+    if (kind !== "bar")
+      throw new Stop(
+        "--highlight picks out one bar; a line chart has none. Drop it, or draw --kind bar.",
+      );
+    if (!body.some((r) => r[0] === highlight))
+      throw new Stop(
+        `--highlight "${highlight}" is not one of the rows: ${body.map((r) => r[0]).join(", ")}.`,
+      );
+  }
+  if (flags.mark.length && kind !== "line")
+    throw new Stop(
+      "--mark draws a dated line on a line chart; a bar chart has no date axis. Put the event in --note instead.",
+    );
+
   let series = cols.map((c) => ({
     name: header[c],
     values: body.map((r) => toNumber(r[c])),
@@ -559,6 +618,7 @@ function main() {
         ),
       }));
     }
+    const xs = body.map((r) => toTime(r[0]));
     const marks = flags.mark.map((m) => {
       const [date, ...label] = String(m).split("=");
       const t = toTime(date);
@@ -566,11 +626,15 @@ function main() {
         throw new Stop(
           `--mark "${m}" needs a date first: --mark "2025-03=Rate cut".`,
         );
+      if (t < xs[0] || t > xs.at(-1))
+        throw new Stop(
+          `--mark "${m}" falls outside ${body[0][0]} → ${body.at(-1)[0]}, the rows drawn; it would not appear. Widen --from/--to or drop the mark.`,
+        );
       return { t, text: label.join("=") || date };
     });
     const draw = (size) =>
       lineChart({
-        xs: body.map((r) => toTime(r[0])),
+        xs,
         labels: body.map((r) => r[0]),
         series,
         fmt: indexed ? formatter(locale, {}) : fmt,
@@ -596,7 +660,7 @@ function main() {
           values: order.map((i) => s.values[i]),
         })),
         fmt,
-        highlight: typeof flags.highlight === "string" ? flags.highlight : null,
+        highlight: highlight ?? null,
         size,
       }),
     );

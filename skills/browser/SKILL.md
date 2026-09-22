@@ -1,7 +1,6 @@
 ---
 name: browser
-description: "Any browser and anything on the web — a page, a click, a form, a sign-in, a tab. Open a page and read it, fill a form, sign in, download, screenshot, print a page or an HTML file to PDF. It can put a real window on their screen to show them the thing itself — an order at checkout, a map, a page — and it is how a browser is reached even when one is already running on their Mac (`attach`) — a browser is never driven by clicking it through the machine. A page that wants a sign-in is still this skill's job: a kept session, the browser they are already in, or the window this opens in front of them."
-allowed-tools: Bash(playwright-cli:*) Bash(npx:*) Bash(npm:*)
+description: "A real browser from the shell: open, read, click, fill, sign in, download, print. Reach for it for anything on the web or in a browser — a page to read, a form, a checkout to leave on the user's screen, their own Chrome, a local HTML file to print — and read it before the first browser command of a job."
 ---
 
 # The browser
@@ -129,7 +128,9 @@ read the port from that log, `goto http://127.0.0.1:<port>/<file>.html`;
 **Scripts in `<skill dir>/scripts`**: `sheet.mjs` puts many pictures on one
 image for a single `look_at`, `webimage.mjs` saves a page's own picture with
 its credit line, and `session.mjs` lets a script of yours drive this session —
-`references/scripts.md`.
+`references/scripts.md`. What one `run-code` call can do — several reads at
+once, a wait, a download, the clipboard — is `references/run-code.md`; a
+recording of the screen for the user is `references/recording.md`.
 
 Snapshots land in `.playwright-cli/` and are cleared after a few days. A file you
 name — `--filename=`, a `pdf`, a download — goes under `scratch/`, or
