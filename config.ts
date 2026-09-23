@@ -35,9 +35,10 @@ export const LIVE_CALL = {
  * Each item goes in once a call; once she has voiced it, not on a later call either,
  * while the page stays open. A job that asks or ends again is a new item.
  * - `quietMs`  how long neither side's words have been transcribed before open work goes
- *   in. Shorter talks over the user; longer leaves results waiting through pauses.
- *   @PENDING whether an update should go in the moment it happens, with no wait for
- *   quiet, is being tried on real calls: set this to 0 to hear it.
+ *   in. Transcripts arrive after the words and the clock looks once a second, so the line
+ *   has been quiet a little longer than this. Shorter talks over the user, and at 0 an
+ *   update goes in mid-sentence; longer leaves a result that is ready waiting through the
+ *   small talk around it.
  * - `perTurn`  how many items of one kind go in at once. More puts several updates in
  *   one breath; fewer spreads them over more quiet moments.
  * - `readMs`  how long an update she never voices holds back the next one. Shorter can
@@ -47,7 +48,7 @@ export const LIVE_CALL = {
  *   answer needed. The rest stays in the thread.
  */
 export const CALL_RELAY = {
-  quietMs: 7_000,
+  quietMs: 2_000,
   perTurn: 3,
   readMs: 15_000,
   chars: 600,
