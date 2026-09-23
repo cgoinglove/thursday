@@ -508,11 +508,13 @@ body.shot .frame {
   width: auto;
 }
 /* A board grows here instead of clipping, so a picture of one that does not fit comes
-   out the wrong size and the renderer refuses it by name. On the canvas it clips. */
+   out the wrong size and the renderer refuses it by name. On the canvas it clips. It
+   grows over a height and an overflow the board sets itself as well, or a board sized
+   inline would clip in its picture too and pass. */
 body.shot .frame > .board {
-  height: auto;
+  height: auto !important;
   min-height: calc(var(--h) * 1px);
-  overflow: visible;
+  overflow: visible !important;
   border: 0;
   border-radius: 0;
   box-shadow: none;
