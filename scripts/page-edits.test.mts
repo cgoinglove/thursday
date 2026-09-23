@@ -10,9 +10,9 @@ process.env.THURSDAY_HOME = home;
 after(() => rm(home, { recursive: true, force: true }));
 
 const { editedSince, getBetween, putBetween } = await import(
-  "../skills/shell/put.mjs"
+  "../skills/artifact/runtime/shell/put.mjs"
 );
-const { wear } = await import("../skills/shell/wear.mjs");
+const { wear } = await import("../skills/artifact/runtime/shell/wear.mjs");
 const { WORKSPACE } = await import("../features/workspace/workspace.ts");
 const { savePage } = await import("../features/workspace/workspace.query.ts");
 
@@ -114,4 +114,75 @@ test("a page from before revisions keeps its edits as it did", async () => {
     revision: "",
   });
   assert.equal(await readFile(file, "utf8"), edited);
+});
+
+test("a document written in Markdown is put in the document's own markup, and makes its page the first time", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const dir = await mkdtemp(join(tmpdir(), "thursday-document-"));
+  after(() => rm(dir, { recursive: true, force: true }));
+  const md = join(dir, "rent.md");
+  await writeFile(
+    md,
+    [
+      "---",
+      "kicker: Report",
+      "date: As of 24 September",
+      "by: Analyst, Sam",
+      "---",
+      "<!-- the outline's guidance -->",
+      "# Rent rose faster than pay",
+      "",
+      "The lede, read first.",
+      "",
+      "```stats",
+      "9% | rise in rent",
+      "4% | rise in pay",
+      "```",
+      "",
+      "| District | Rent |",
+      "|---|---:|",
+      "| Mapo | 85 |",
+      "",
+      "> [!WARNING]",
+      "> A first estimate.",
+      "",
+      "- [x] Checked",
+      "- [ ] Next",
+      "",
+      "![Mapo, as the listing shows it](photo.jpg)",
+      "",
+      '<figure id="rent"></figure>',
+    ].join("\n"),
+  );
+  const script = join(
+    import.meta.dirname,
+    "..",
+    "skills",
+    "artifact",
+    "scripts",
+    "document.mjs",
+  );
+  execFileSync(process.execPath, [script, "put", "rent", md], {
+    cwd: dir,
+    env: { ...process.env, THURSDAY_ARTIFACTS: "" },
+  });
+  const html = await readFile(join(dir, "artifacts", "rent.html"), "utf8");
+  for (const piece of [
+    "<title>Rent rose faster than pay</title>",
+    '<p class="kicker">Report</p>',
+    '<span class="chip who">Analyst</span> <span class="chip who">Sam</span>',
+    '<p class="lede">The lede, read first.</p>',
+    '<div class="grid"><div class="card"><p class="stat">9%</p>'.replace(
+      "><div",
+      ">\n<div",
+    ),
+    '<td class="num">85</td>',
+    '<div class="note warn">',
+    '<ul class="check">',
+    '<input type="checkbox" checked> Checked',
+    "<figcaption>Mapo, as the listing shows it</figcaption>",
+    '<figure id="rent"></figure>',
+  ])
+    assert.ok(html.includes(piece), `the page holds ${piece}`);
+  assert.ok(!html.includes("the outline's guidance"), "comments are dropped");
 });

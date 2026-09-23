@@ -20,16 +20,18 @@ the user opens what they made in the app and edits a page, a deck or a canvas th
 - `skills/README.md` — which folders are not skills, the script paths promised, outside copies.
 - `features/skills/skills.discover.ts` — where skills are found, and which one holds a name.
 - `features/ai/tools/skills.tool.ts` — `load_skill`: a skill's instructions and files.
-- `skills/shell/put.mjs` — how a bot writes into a page a skill made; the revision saves check.
-- `features/ai/tools/deck.tool.ts` — `make_deck`: typed slides that `skills/deck` draws.
+- `skills/artifact/SKILL.md` — what the user keeps (document, canvas, picture book, deck) as one skill, its `runtime/` behind it.
+- `skills/artifact/runtime/shell/put.mjs` — how a bot writes into a page a skill made; the revision saves check.
+- `features/ai/tools/deck.tool.ts` — `make_deck`: typed slides that `skills/artifact/runtime/deck` draws.
 - `features/bot/bot.seed.ts` — the seed bots' roles, and what a role may name.
 - `features/artifact/artifact.query.ts` — finished work, listed from the bots' folders alone.
 - `app/api/file/[...path]/route.ts` — a workspace file served; a page runs on its own origin.
 
 ## How it fits
 A job's shell names the bot's artifacts folder and the shipped skills (`botShellEnv` in
-`features/workspace/workspace.ts`); `page.mjs` and `canvas.mjs` write there by default, and
-`make_deck` runs `deck.mjs` itself. All three dress their one HTML file in `skills/shell`. The app
+`features/workspace/workspace.ts`); `document.mjs`, `canvas.mjs` and `book.mjs` write there by
+default, and `make_deck` runs `deck.mjs` itself. All dress their one HTML file in the artifact
+skill's `runtime/shell`, which `load_skill` never lists (`PATHS.skills.runtime`). The app
 lists finished work from the folders, serves it through `app/api/file`, and frames a page in
 `FileFrame` (`features/workspace/components/file-view.tsx`), which hands a reader's edits to
 `savePage` (`features/workspace/workspace.query.ts`).
@@ -57,4 +59,4 @@ lists finished work from the folders, serves it through `app/api/file`, and fram
 `pnpm test:skills` (`load_skill`'s file list, `put` against a reader's save, `make_deck`) and
 `pnpm test:artifact` (which finished file opens, viewer URLs). A kit script run by hand from an
 empty folder outside the checkout and the workspace, with `THURSDAY_ARTIFACTS` unset, writes
-under `./artifacts`: `node <repo>/skills/interactive-page/scripts/page.mjs quick demo --from memo`.
+under `./artifacts`: `node <repo>/skills/artifact/scripts/document.mjs put demo <repo>/skills/artifact/templates/document/memo.md`.

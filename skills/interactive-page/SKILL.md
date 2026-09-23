@@ -1,52 +1,23 @@
 ---
 name: interactive-page
-description: "A page to read, as one HTML file: a report, a memo, a comparison, a plan, meeting notes — written from a ready document with a title line, a contents list, chips for dates and status, checklists and sources — with a chart of numbers or a diagram of how something is built or flows. Not a canvas of design options (design), not a deck (make_deck) and not a picture book (picture-book)."
+description: "A page someone uses, as one HTML file: a tool, a calculator, a tracker, numbers to explore, a diagram of how something is built or flows. Use it when the result is meant to be used rather than only read. Not a document, deck, canvas or picture book (artifact)."
 license: Complete terms in LICENSE.txt
 ---
 
-# Interactive Page
+# Interactive page
 
-What reads better looked at than as a run of markdown. Every kind is one self-contained HTML
-file in your folder under `artifacts/`: it opens with no network, so pictures and fonts sit
-beside it, and its path is what you hand back. A few paragraphs stay markdown.
+A result meant to be used, not just read: controls, tabs, a chart to explore, a calculator, a
+map of how something works. One self-contained HTML file in your folder under `artifacts/`
+(`$THURSDAY_ARTIFACTS`): it opens with no network, so its script and styles are inside it and
+its pictures sit beside it, and its path is what you hand back. A result only read is a
+document — the `artifact` skill.
 
-Pick by what they will do with it. `S=<skill dir>/scripts`
+| They will | Kind | How |
+|---|---|---|
+| use a small tool — a calculator, a converter, a tracker, a checklist that remembers | a page | one HTML file you write whole: its HTML, a `<style>` and a `<script>` inside it |
+| see numbers, or explore them | a chart | `node <skill dir>/scripts/chart.mjs <page.html> <figure id> <data.csv>` draws a cited chart into the page (no arguments lists its options). Never hand-write chart SVG |
+| see how something is built or flows | a diagram | `references/diagram.md` — the archify engine lays it out and checks it |
 
-| They will | Kind | Start | Then |
-|---|---|---|---|
-| read it — a report, a memo, options compared, a plan, notes of a meeting | document | `node $S/page.mjs quick <name> --from report\|memo\|comparison\|plan\|notes` | the comment inside the file |
-| read a page that fits none of those | quick page | `node $S/page.mjs quick <name>` | the comment inside the file |
-| see numbers | chart, drawn into a document | `node $S/chart.mjs <page.html> <figure id> <data.csv>` | no arguments lists its options |
-| see how something is built or flows | diagram | | `references/diagram.md` |
-
-**Document.** Written by hand from a ready one, already styled: light and dark, phone-width,
-print. The `--from` kinds are shapes, not subjects — a `report` leads with the answer and
-what supports it, a `memo` is short and top-down, a `comparison` is the table and next to
-no prose, a `plan` is a tracker with status and owners, `notes` are what was decided and who
-does what. Each opens with a title and a line under it — an as-of date and who it is by,
-as chips — and the file draws its own contents beside the page from the headings (nothing
-to write for it) and turns a `.tabs` block into tabs. Headings, paragraphs, lists, tables and figures need no classes; the
-comment inside the file lists the few that lay out the rest — a grid of cards, one big
-number, a note, a chip, a checklist, a bar, a source list. A little inline `<script>` is
-fine for a toggle or a sort. When a document compares things people choose partly by how
-they look — places, stays, food, things to buy — each one gets a photo or two with a short
-caption from the first version, downloaded into the page's folder from the pages you read.
-
-**Chart.** A cited inline SVG with its rows. Never hand-write chart SVG. A report that stays a
-`.md` takes a `mermaid` block, which the app draws.
-
-**Diagram.** Drawn by the archify engine, not as a mermaid block: it checks the layout, so a
-crossing edge or a clipped label never reaches the user. It is a page of its own; when a
-document needs one, name both files as you hand back.
-
-To look at a page before handing it back, `node $S/page.mjs shots <name|path>` leaves up
-to three pictures of it down the page in `scratch/`, as it opens in the app; a server of
-your own is not needed.
-
-A document wears a head — who made it, its name, Edit, a theme button, Export — and the
-reader can edit it in place: opened in the app it saves back into the file, opened
-elsewhere it keeps a copy. Write its body in a file of your own and `node $S/page.mjs put
-<name|path> <file>`: only `put` writes the body, since writing the file itself takes the head
-with it. To change a document that exists, `node $S/page.mjs get <name|path> <file>` first
-and change that file: the reader may have edited the page since, and `put` refuses to undo
-their edits.
+A page you write whole is yours to shape; keep it one file, readable on a phone, and working
+without the network. It has no head from the app and no Edit: a page someone reads and edits is
+a document.

@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import z from "zod";
-import { SKILL_FILES_LISTED } from "@/config";
+import { PATHS, SKILL_FILES_LISTED, SKILLS_FOLDED } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import {
   loadSkills,
@@ -34,15 +34,21 @@ export const createSkillTools = ({
             "Exact name from the Skills list, or of a skill installed during this job. Do not guess names.",
           ),
       }),
-      execute: async ({ name }, { messages }) => {
-        const named = (list: SkillMetadata[]) =>
-          list.find((s) => s.name.toLowerCase() === name.toLowerCase());
+      execute: async ({ name: asked }, { messages }) => {
+        const named = (list: SkillMetadata[], one: string) =>
+          list.find((s) => s.name.toLowerCase() === one.toLowerCase());
         // The list is read when the run starts; a skill installed since is only on disk
-        const listed = named(skills) ? skills : await loadSkills(sandbox, bot);
-        const skill = named(listed);
+        const listed = named(skills, asked)
+          ? skills
+          : await loadSkills(sandbox, bot);
+        // A shipped skill folded into another, named by a role written before the fold
+        const folded = named(listed, asked)
+          ? undefined
+          : SKILLS_FOLDED[asked.toLowerCase()];
+        const skill = named(listed, folded ?? asked);
         if (!skill) {
           return {
-            error: `No skill named '${name}'.`,
+            error: `No skill named '${asked}'.`,
             available: listed.map((s) => s.name),
           };
         }
@@ -80,6 +86,7 @@ export const createSkillTools = ({
 
         const { files, total } = await sandbox.listFiles(skill.path, {
           limit: SKILL_FILES_LISTED,
+          skip: [PATHS.skills.runtime],
         });
 
         return {
@@ -90,6 +97,9 @@ export const createSkillTools = ({
           files: files.map((file) => `${skill.path}/${file}`),
           ...(total > files.length && {
             more: `${total - files.length} more files, deeper in these folders. List a folder in the shell to see them.`,
+          }),
+          ...(folded && {
+            note: `'${asked}' is part of '${skill.name}' now: these are its instructions.`,
           }),
           content: body,
         };

@@ -42,16 +42,16 @@ none. `node $S/fetch.mjs` with no arguments lists every source and option.
 script cannot reach. A CSV you build from a page or a file you were given takes the same shape: a
 `# source: <url>` line (and `# fetched: YYYY-MM-DD`) above a header row.
 
-## A page: the quick page, with charts drawn into it
+## A page: a document, with charts drawn into it
 
-When the form calls for a page, start it as a quick page — one styled HTML file in your folder under
-`artifacts/` — and write its words by hand. It arrives styled: replace the title and the lede line
-and write below them, and leave its `<head>` as it is. Never write chart SVG by hand: leave an empty
-`<figure id="…"></figure>` where each chart goes, then fill every one in one bash call. Both scripts
-ship with the app:
+When the form calls for a page, it is a document: write it in Markdown in a file of your own and
+put it, with the `artifact` skill's script — the first put makes it, styled, in your folder under
+`artifacts/`. Never write chart SVG by hand: leave an empty `<figure id="…"></figure>` where each
+chart goes in the Markdown, put the document, then fill every figure in one bash call. Both
+scripts ship with the app:
 
 ```bash
-node "$THURSDAY_SKILLS/interactive-page/scripts/page.mjs" quick <page>
+node "$THURSDAY_SKILLS/artifact/scripts/document.mjs" put <page> <scratch>/<page>.md
 C="$THURSDAY_SKILLS/interactive-page/scripts/chart.mjs"
 node $C "$THURSDAY_ARTIFACTS/<page>.html" rates <scratch>/rates.csv \
   --title "Mortgage rates followed the 10-year down" --unit "%" --mark "2024-09=First Fed cut" --locale ko
@@ -62,9 +62,10 @@ Each figure carries its source link, the fetch date and the rows behind it with 
 the page needs no separate data section. A line for dates, bars for categories (largest first,
 `--highlight` the one that matters, named exactly as the row is); `--index` when series in different
 units are compared; `--mark` for each dated event the text explains, inside the range drawn. Run it
-again to replace a figure. `node $C` with no arguments lists every option.
+again to replace a figure, and after every later put. `node $C` with no arguments lists every
+option.
 
-A table a form asks for — the comparison matrix, a results table, the driver rows — is written into
-the page as a plain `<table>`, numbers in `<td class="num">` and the best cell in each row in
-`<strong>`. Never type a number into one by hand: paste what a script printed, or the figure from
+A table a form asks for — the comparison matrix, a results table, the driver rows — is a Markdown
+table in the document, number columns aligned right (`---:`) and the best cell in each row in
+`**bold**`. Never type a number into one by hand: paste what a script printed, or the figure from
 the page you read, and keep its source in the row or under the table.

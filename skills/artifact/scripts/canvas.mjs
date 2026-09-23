@@ -25,8 +25,8 @@ import {
   keep,
   notInside,
   putBetween,
-} from "../../shell/put.mjs";
-import { wear } from "../../shell/wear.mjs";
+} from "../runtime/shell/put.mjs";
+import { wear } from "../runtime/shell/wear.mjs";
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SCRIPT = join(SKILL, "scripts", "canvas.mjs");
@@ -90,7 +90,10 @@ function newCanvas(name) {
   if (existsSync(out))
     throw new Stop(`${shown(out)} already exists. Edit it there.`);
   const part = (ext) =>
-    readFileSync(join(SKILL, "canvas", `canvas.${ext}`), "utf8").trim();
+    readFileSync(
+      join(SKILL, "runtime", "canvas", `canvas.${ext}`),
+      "utf8",
+    ).trim();
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(
     out,
@@ -102,7 +105,7 @@ function newCanvas(name) {
     ),
   );
   console.log(
-    `${shown(out)} is ready: one file that opens offline, and opens fitted. Copy a board from ${join(SKILL, "boards")} for each option into a file of your own and change what is on it (the comment inside the canvas says how), then run: node ${SCRIPT} put ${name} <that file> && node ${SCRIPT} shots ${name}`,
+    `${shown(out)} is ready: one file that opens offline, and opens fitted. Copy a board from ${join(SKILL, "templates", "boards")} for each option into a file of your own and change what is on it (the comment inside the canvas says how), then run: node ${SCRIPT} put ${name} <that file> && node ${SCRIPT} shots ${name}`,
   );
 }
 
@@ -212,14 +215,13 @@ async function shotCanvas(name) {
     if (entry.isFile() && join(dir, entry.name) !== file)
       copyFileSync(join(dir, entry.name), join(flat, entry.name));
 
-  const scripts = join(SKILLS, "browser", "scripts");
   const sheet = join(dir, "boards.png");
   rmSync(sheet, { force: true });
   const done = spawnSync(
     process.execPath,
     // Never in the job's own browser, which may be a window on their screen
     [
-      join(scripts, "render.mjs"),
+      join(SKILLS, "artifact", "runtime", "render.mjs"),
       copy,
       "--out",
       dir,
@@ -240,7 +242,7 @@ async function shotCanvas(name) {
   // out taller than the size it was written at. Named here by board, as the canvas itself
   // marks it `cut`.
   const { imageSize } = await import(
-    pathToFileURL(join(scripts, "image-size.mjs")).href
+    pathToFileURL(join(SKILLS, "browser", "scripts", "image-size.mjs")).href
   );
   const wrong = [];
   sizes.forEach((size, i) => {

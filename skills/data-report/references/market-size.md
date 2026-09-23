@@ -32,7 +32,7 @@ input the answer depends on most.
 
 Title: the size as a finding. Then the two driver tables, a bar chart of TAM / SAM / SOM, the
 growth series as a line when there is one, and the assumptions the answer rests on, each with the
-figure used. The page is a quick page and does not compute: the numbers are the ones worked out
+figure used. The page is a document and does not compute: the numbers are the ones worked out
 here, stated.
 
 ## Example (illustrative numbers)

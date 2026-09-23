@@ -164,7 +164,7 @@
 
   const changed = () => shell.edits.changed();
 
-  // The marks a bot's put writes between (skills/shell put.mjs), as the page was opened
+  // The marks a bot's put writes between (runtime/shell put.mjs), as the page was opened
   // with them. Clearing the whole paper takes them too; the kept file carries them still.
   const marks = [...paper.childNodes].filter(
     (node) =>

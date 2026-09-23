@@ -22,7 +22,9 @@ import {
   SKILLS_OFF_KEY,
   SkillFrontmatterSchema,
 } from "@/features/skills/skills.schema";
+import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
+import { errorToString } from "@/lib/utils";
 
 /** Skills are folders on disk, so "query" here means the filesystem. Nothing else touches the skill dirs. */
 
@@ -104,9 +106,20 @@ export const runsHere = (frontmatter: SkillFrontmatter) => {
   return !platforms?.length || platforms.includes(process.platform);
 };
 
-/** The names of the skills the user switched off (skills.schema SKILLS_OFF_KEY). */
+/**
+ * The names of the skills the user switched off (skills.schema SKILLS_OFF_KEY). Every prompt
+ * lists skills through this, so a config that cannot be read lists them all rather than
+ * failing the prompt.
+ */
 export async function readSkillsOff(): Promise<Set<string>> {
-  return parseSkillsOff(await readConfig(SKILLS_OFF_KEY));
+  try {
+    return parseSkillsOff(await readConfig(SKILLS_OFF_KEY));
+  } catch (cause) {
+    logger.warn(
+      `skills switched off could not be read — ${errorToString(cause)}`,
+    );
+    return new Set();
+  }
 }
 
 /** Off in Settings, or by the line versions before `SKILLS_OFF_KEY` wrote into the file. */
@@ -156,7 +169,8 @@ export async function setSkillOff(
   }
   const { name } = parseFrontmatter(content);
 
-  const names = await readSkillsOff();
+  // Read as it is, not through readSkillsOff: a list that failed to load must not be written over
+  const names = parseSkillsOff(await readConfig(SKILLS_OFF_KEY));
   if (off) names.add(name.toLowerCase());
   else names.delete(name.toLowerCase());
   await writeConfig(SKILLS_OFF_KEY, JSON.stringify([...names].sort()));

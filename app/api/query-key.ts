@@ -128,7 +128,7 @@ export const queryKey = {
 
   /** Raw workspace file, no Result envelope; for iframe, img and fetch, not SWR. */
   file: (path: string) => `/api/file/${encodePath(path)}`,
-  /** A page drawn as a file's tile: the route ignores the query, and a page wearing the shell draws its content alone (skills/shell). */
+  /** A page drawn as a file's tile: the route ignores the query, and a page wearing the shell draws its content alone (skills/artifact/runtime/shell). */
   fileFace: (path: string) => `/api/file/${encodePath(path)}?face`,
   /** A site's icon, fetched by the server (lib/favicon): an image, never a JSON read. */
   favicon: (host: string) => `/api/favicon/${encodeURIComponent(host)}`,

@@ -72,7 +72,7 @@ function newBook(name) {
   const out = bookFile(name);
   if (existsSync(out))
     throw new Stop(`${shown(out)} already exists. Edit it there.`);
-  const book = join(SKILL, "book");
+  const book = join(SKILL, "runtime", "book");
   const part = (file) => readFileSync(join(book, file), "utf8").trim();
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(
@@ -99,7 +99,7 @@ function shotBook(name) {
   const done = spawnSync(
     process.execPath,
     [
-      join(SKILLS, "browser", "scripts", "render.mjs"),
+      join(SKILLS, "artifact", "runtime", "render.mjs"),
       book,
       "--size",
       "960x540",

@@ -13,11 +13,11 @@ import {
 } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
 
-// The shipped browser skill's renderer, reached the way every kit script reaches it
+// The artifact skill's camera, reached the way every kit script reaches it
 const RENDER = join(
   process.env.THURSDAY_SKILLS ?? "",
-  "browser",
-  "scripts",
+  "artifact",
+  "runtime",
   "render.mjs",
 );
 // Silence after each page's voice before the next page turns

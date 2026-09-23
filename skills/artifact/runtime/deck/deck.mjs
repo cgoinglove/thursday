@@ -24,13 +24,13 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { imageSize } from "../browser/scripts/image-size.mjs";
+import { imageSize } from "../../../browser/scripts/image-size.mjs";
 import { keep, putBetween } from "../shell/put.mjs";
 import { retitle, wear } from "../shell/wear.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-// The shipped skills, where the browser skill's renderer takes the pictures
-const SKILLS = process.env.THURSDAY_SKILLS || resolve(HERE, "..");
+// The shipped skills, where the artifact skill's camera takes the pictures
+const SKILLS = process.env.THURSDAY_SKILLS || resolve(HERE, "..", "..", "..");
 /** Every slide's size; the tool offers no other. */
 const W = 1920;
 const H = 1080;
@@ -135,7 +135,7 @@ function shotDeck(file) {
   const done = spawnSync(
     process.execPath,
     [
-      join(SKILLS, "browser", "scripts", "render.mjs"),
+      join(SKILLS, "artifact", "runtime", "render.mjs"),
       copy,
       "--size",
       `${W}x${H}`,

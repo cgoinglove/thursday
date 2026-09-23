@@ -26,17 +26,24 @@ import type { Sandbox } from "@/lib/sandbox";
 
 /**
  * A slide deck as typed slides: the model fills a layout's fields, and the app draws them
- * (skills/deck). Nothing about how a slide looks is the model's to get wrong — sizes,
+ * (skills/artifact/runtime/deck). Nothing about how a slide looks is the model's to get wrong — sizes,
  * colours, where a heading sits, what happens to words that do not fit — so a deck comes
  * out right from any model that can fill a schema. The file holds the deck as data and
  * draws itself from it, and a change sends the whole deck again, checked against the
  * revision the file names so a change never lands on a deck its writer has not seen.
  *
- * The character caps are sized for the drawing in skills/deck/deck.css: what fits a slide
+ * The character caps are sized for the drawing in skills/artifact/runtime/deck/deck.css: what fits a slide
  * at full size. Past them the type would shrink too far, and a slide would be a page.
  */
 
-const SCRIPT = join(APP_DIR, PATHS.skills.default, "deck", "deck.mjs");
+const SCRIPT = join(
+  APP_DIR,
+  PATHS.skills.default,
+  "artifact",
+  PATHS.skills.runtime,
+  "deck",
+  "deck.mjs",
+);
 
 const THEMES = ["forest", "sea", "clay", "ink"] as const;
 
@@ -345,7 +352,7 @@ type Put =
   | { revision: string }
   | { changed: true; revision: string; deck: unknown };
 
-/** The deck into its file (skills/deck/deck.mjs put), unless the file names another revision. */
+/** The deck into its file (deck.mjs put), unless the file names another revision. */
 async function put(
   file: string,
   deck: { title: string; theme: string | null; slides: Slide[] },

@@ -341,7 +341,7 @@ export function FilePreview({ path, bytes }: { path: string; bytes: number }) {
 }
 
 /**
- * A page a bot wrote wears a head that can edit it (skills/shell) and asks the frame
+ * A page a bot wrote wears a head that can edit it (skills/artifact/runtime/shell) and asks the frame
  * showing it to keep what changed. The frame names the file; the page never does. Each
  * page the frame loads is answered with a name for the file it was opened as, and its
  * saves carry that name back, so a save still in flight when the frame moves to another

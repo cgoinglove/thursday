@@ -219,6 +219,9 @@ export const PATHS = {
     // alone. The same shape as `custom`, so `npx skills add` run from the bot's folder
     // installs here and what that tool leaves beside it goes when the bot's folder does.
     own: ".agents/skills",
+    // Inside a skill, what its scripts draw with — a page's shell, a deck's drawing — and a
+    // bot never opens: `load_skill` leaves it out of the files it lists
+    runtime: "runtime",
   },
 };
 
@@ -448,8 +451,18 @@ export const ROUTINE = { tickMs: 30_000, max: 12, minHours: 1, runsShown: 5 };
  * of that bot's trade rather than one method among many. Every other
  * skill a bot finds through its own description.
  */
-export const DESIGN_SKILL = "design";
+export const ARTIFACT_SKILL = "artifact";
 export const PAGE_SKILL = "interactive-page";
+
+/**
+ * Shipped skill names that were folded into another, and the one they are in now. A role
+ * copied into a bot before the fold still names the old one (bot.seed): `load_skill` opens
+ * the new one for it and says so, rather than answering that no such skill exists.
+ */
+export const SKILLS_FOLDED: Record<string, string> = {
+  design: ARTIFACT_SKILL,
+  "picture-book": ARTIFACT_SKILL,
+};
 
 /**
  * A deck a bot makes with `make_deck` (ai/tools/deck.tool).

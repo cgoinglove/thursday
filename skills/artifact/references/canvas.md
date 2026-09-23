@@ -1,8 +1,48 @@
-# Writing a canvas
+# A canvas
+
+Ways something could look, side by side on one surface that pans and zooms, each board at the
+size the real thing has, a note beside each on what it is for and what it costs, and a picture of
+every board. One self-contained HTML file in your folder under `artifacts/`, fitted to the window
+because the app draws it at 1024px wide.
+
+## Contents
+- The steps
+- Writing a canvas
+- Sizes
+- Laying out a set of options
+- Designing well
+- The pictures
+- The values a board is made of
+- What to hand back
+
+## The steps
+
+1. `node <skill dir>/scripts/canvas.mjs new <name>` — the canvas, styled and panning, with two
+   empty frames.
+2. Copy a board from `templates/boards/` for each option into a file of your own and change what
+   is on it (below). Read `craft.md` before the first board.
+3. `node <skill dir>/scripts/canvas.mjs put <name|path> <file> && node <skill dir>/scripts/canvas.mjs shots <name|path>`
+   — the boards and notes into the canvas, then every board as a picture beside it and
+   `boards.png` with all of them for one look; one that overflows is refused by number.
+4. Hand back the canvas's path and the pictures' paths, and say in words what each option
+   explores and which you would lead with.
+
+What the file does that you do not write: a head naming who made it and how many boards, a rail
+(select, move, pin a note, every board, the list), every board small on the left, and when a board
+is picked its real colours, type and spacing on the right with a button that copies it as an
+instruction; a link from one board to another (`<a href="#next">`) brings that board up, so a flow
+is walked the way it would be used. Only `put` writes the boards: never write the canvas file
+itself, which takes all of that with it. In the app the user can pin notes of their own on the
+canvas, `<p class="note sticky" data-by="user">`: they are the user's answer to the options, so
+read them, and leave them where they are unless the user asks otherwise. To change a canvas that
+exists, `node <skill dir>/scripts/canvas.mjs get <name|path> <file>` first and change that file:
+`put` refuses a canvas changed since your last put.
+
+## Writing a canvas
 
 `canvas.mjs new <name>` writes `<name>/<name>.html` in your artifacts folder, already
 styled and already panning. You write the options in a file of your own — one option is one
-frame and one note — and `put` them into it. Ready boards to copy sit in `boards/` beside this page — `app` (a desktop screen),
+frame and one note — and `put` them into it. Ready boards to copy sit in `templates/boards/` of this skill — `app` (a desktop screen),
 `phone`, `form`, `landing`, `poster`, `post`, `wireframe`, `direction`. Start from the one
 whose job matches, give it the next letter and a place, and change what is on it.
 
@@ -109,7 +149,7 @@ CSS px, 96 to an inch. Give a board the size of the thing it stands for:
   to act — grouped tight. Backgrounds may run to the edge; words stay 72px in from it.
   Body type is never under 16px, rules never under 1px, and it must still read in
   grayscale. A document that flows — a report, a letter — is not a canvas: it is a
-  page to read, the page skill's work.
+  page to read: a document, this skill's other kind.
 - **A small change stays small.** Asked to change one word, one colour, one element,
   change that and nothing else on the board. A redesign is asked for in those words.
 - **Not another company's design.** Asked to recreate a distinctive UI that is not the

@@ -24,7 +24,11 @@ export interface Sandbox {
    */
   listFiles(
     path: string,
-    opts?: { limit?: number },
+    opts?: {
+      limit?: number;
+      /** Folders directly under `path` whose files are left out, and not counted. */
+      skip?: string[];
+    },
   ): Promise<{ files: string[]; total: number }>;
 
   exec(
@@ -140,11 +144,13 @@ export const createSandBox = ({
 
     fold: (text, name = "output") => foldLong(text, name, cwd, spill),
 
-    async listFiles(path, { limit = 200 } = {}) {
+    async listFiles(path, { limit = 200, skip = [] } = {}) {
       const root = res(path);
       const all: string[] = [];
-      for await (const f of walkFiles(root))
-        all.push(relative(root, f).split(sep).join("/"));
+      for await (const f of walkFiles(root)) {
+        const rel = relative(root, f).split(sep).join("/");
+        if (!skip.includes(rel.split("/")[0] ?? "")) all.push(rel);
+      }
       const depth = (p: string) => p.split("/").length;
       all.sort((a, b) => depth(a) - depth(b) || (a < b ? -1 : a > b ? 1 : 0));
       return { files: all.slice(0, limit), total: all.length };

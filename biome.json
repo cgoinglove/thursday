@@ -16,7 +16,8 @@
       "!database/migrations",
       "!.design",
       "!skills/interactive-page/scripts/archify",
-      "!skills/interactive-page/quick/quick.html"
+      "!skills/artifact/runtime/document/quick.html",
+      "!skills/artifact/runtime/vendor"
     ]
   },
   "formatter": {

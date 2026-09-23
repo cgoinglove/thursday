@@ -1,24 +1,32 @@
 # Skills that ship with the app
 
 A skill is a folder with a `SKILL.md`. Its name and description are listed to every bot, and to
-the call when Settings › Thursday › Read skills is on; its body is read when a bot loads it. Every
-skill here belongs to every bot: a ready-made bot differs from another by its role, not by what it
-can load. Settings › Skills lists them and switches one off.
+the call when Settings › Thursday › Read skills is on; its body is read when a bot loads it.
+Settings › Skills lists them and switches one off.
 
-Two folders here are not skills, since they have no `SKILL.md`: `shell/` is what every page the app
-makes wears (its head, its theme, how an edit is kept, how a bot writes into it), and `deck/` is
-what the `make_deck` tool draws.
+What the user keeps and looks at — a document, a canvas, a picture book, a deck — is one skill,
+`artifact`, the way Claude's own Docs, Design and Slides are one kind of thing with a runtime
+behind them: a bot writes the content, and what draws it is the skill's `runtime/` folder — the
+shell every page wears (its head, its theme, how an edit is kept, how a bot writes into it), the
+document, canvas, book and deck drawings, and the camera that shoots them. `load_skill` does not
+list a `runtime/` folder: a bot never opens it. `make_deck` draws with `artifact/runtime/deck`.
 
 Scripts reach one another through `$THURSDAY_SKILLS`, which names this folder in a bot's shell. A
 path under it is a promise to every skill a user or a bot installed: `browser/scripts/session.mjs`,
 `render.mjs`, `webimage.mjs`, `sheet.mjs` and `image-size.mjs`, and
-`interactive-page/scripts/chart.mjs` and `page.mjs`, stay where they are.
+`interactive-page/scripts/chart.mjs` and `page.mjs`, stay where they are. `browser/scripts/render.mjs`
+and `interactive-page/scripts/page.mjs` now only run the camera and the document script the
+artifact skill holds.
 
 ## Where outside work came from
 
+- **`artifact/references/craft.md`** is adapted from Anthropic's `frontend-design` skill
+  (anthropics/skills at 34040c9, Apache-2.0, terms in `artifact/LICENSE.txt`); the file's head says
+  what changed. The rest of `artifact` is this app's own.
+- **`artifact/runtime/vendor/marked.mjs`** is marked 16.4.2 (MIT, `marked.LICENSE.md` beside it),
+  unchanged: it turns a document's Markdown into its body.
 - **`interactive-page/scripts/archify`** is a trimmed copy of archify (MIT); its README says what
-  was cut. `design`, `interactive-page` and `skill-creator` carry Apache-2.0 terms in
-  `LICENSE.txt`.
+  was cut. `interactive-page` and `skill-creator` carry Apache-2.0 terms in `LICENSE.txt`.
 - **`product-marketing`, `copywriting`, `launch`, `social`, `emails` and `seo-audit`** are a trimmed
   copy of [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) at
   `5b2c0007766c6a1cf1d53fd8fc73e979e0821022` (MIT, `LICENSE` in each folder). Update them by copying

@@ -7,7 +7,7 @@
  *
  *   node page.mjs <brief.json> [--look <dir>]
  *
- * With --look it also renders the page at phone width through the shipped browser skill,
+ * With --look it also renders the page at phone width through the artifact skill's camera,
  * for one look at the photos.
  */
 import { spawnSync } from "node:child_process";
@@ -304,19 +304,19 @@ ${topicHtml}
 });
 
 /**
- * The page at phone width as one PNG, through the browser skill's render, in a headless
+ * The page at phone width as one PNG, through the artifact skill's camera, in a headless
  * browser of its own: never the job's, which may be a window on the user's screen.
  */
 function look(page, dir) {
   const render = join(
     process.env.THURSDAY_SKILLS ?? "",
-    "browser",
-    "scripts",
+    "artifact",
+    "runtime",
     "render.mjs",
   );
   if (!existsSync(render))
     throw new Stop(
-      `No render script at ${render}: the browser skill ships it under $THURSDAY_SKILLS.`,
+      `No render script at ${render}: the artifact skill ships it under $THURSDAY_SKILLS.`,
     );
   const got = spawnSync(
     "node",

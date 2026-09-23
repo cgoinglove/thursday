@@ -121,7 +121,10 @@ test("a bot is shown each shipped skill's references and scripts", async () => {
           `${name}: ${path} is missing from the list a bot gets`,
         );
 
-    const { total } = await sandbox.listFiles(skill, { limit: 1 });
+    const { total } = await sandbox.listFiles(skill, {
+      limit: 1,
+      skip: [PATHS.skills.runtime],
+    });
     assert.equal(
       given.files.length,
       Math.min(total, SKILL_FILES_LISTED),
@@ -160,4 +163,16 @@ test("a skill switched off, or made for another OS, is not listed and still hold
     new Set(["quiet"]),
   );
   assert.deepEqual(listed.map((one) => one.name).sort(), ["here", "kept"]);
+});
+
+test("a skill folded into another opens the one it is in now, and a runtime folder is never listed", async () => {
+  const given = (await load([shipped], "design")) as Awaited<
+    ReturnType<typeof load>
+  > & { note?: string };
+  assert.equal(given.skillDirectory, join(shipped, "artifact"));
+  assert.match(given.note ?? "", /'design' is part of 'artifact'/);
+  assert.ok(
+    given.files.every((path) => !path.includes("/runtime/")),
+    "what the scripts draw with is not a bot's to open",
+  );
 });

@@ -379,16 +379,21 @@ const REQUIRED = [
   "skills/browser/references",
   // Every skill's script that drives a browser imports it (THURSDAY_SKILLS)
   "skills/browser/scripts/session.mjs",
-  // What `page.mjs quick`, `canvas.mjs new` and `deck.mjs put` inline; without them each is an error
-  "skills/interactive-page/quick/pages/blank.html",
-  "skills/design/canvas/canvas.html",
-  "skills/deck/deck.html",
-  "skills/shell/wear.mjs",
-  "skills/shell/put.mjs",
-  "skills/shell/head.html",
-  "skills/shell/shell.css",
-  "skills/shell/shell.js",
-  "skills/shell/theme.js",
+  // What `document.mjs new`, `canvas.mjs new`, `book.mjs new` and `deck.mjs put` inline, and
+  // what turns a document's Markdown into its body; without them each is an error
+  "skills/artifact/runtime/document/pages/blank.html",
+  "skills/artifact/runtime/document/markdown.mjs",
+  "skills/artifact/runtime/vendor/marked.mjs",
+  "skills/artifact/runtime/canvas/canvas.html",
+  "skills/artifact/runtime/book/book.html",
+  "skills/artifact/runtime/deck/deck.html",
+  "skills/artifact/runtime/render.mjs",
+  "skills/artifact/runtime/shell/wear.mjs",
+  "skills/artifact/runtime/shell/put.mjs",
+  "skills/artifact/runtime/shell/head.html",
+  "skills/artifact/runtime/shell/shell.css",
+  "skills/artifact/runtime/shell/shell.js",
+  "skills/artifact/runtime/shell/theme.js",
   // Copied into the workspace at boot (features/ai/guide); without it the call has none to read
   "guide/index.md",
 ];

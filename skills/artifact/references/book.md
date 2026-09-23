@@ -3,7 +3,15 @@
 Anything explained the way a children's picture book explains it: each page is
 one picture with at most two short lines under it, in simple words. One HTML
 file is the book, and the same file is printed to a PDF or read aloud into a
-video, so the three never disagree.
+video, so the three never disagree. The book's own file holds its style and page
+turning: add pages inside `<main>` and never rewrite the file whole.
+
+## Contents
+- The two rules
+- Steps
+- Pictures
+- A PDF
+- A video that reads itself
 
 ## The two rules
 

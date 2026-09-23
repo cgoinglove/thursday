@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Draws a CSV into a page as one figure: an inline SVG chart, its source, and the rows
-// behind it with a CSV download. The page is a quick page (`page.mjs quick` beside this
-// script) or any HTML file; the figure takes the place of the element with the given id,
+// behind it with a CSV download. The page is a document (the artifact skill's document.mjs)
+// or any HTML file; the figure takes the place of the element with the given id,
 // or goes before </body> when there is none. Run it again and the same figure is replaced.
 //
 //   node chart.mjs <page.html> <id> <data.csv> [options]

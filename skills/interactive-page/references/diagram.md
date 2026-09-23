@@ -6,7 +6,7 @@ and dark themes, pan and zoom, search and export. You write a small typed JSON
 spec; the archify engine in `scripts/archify` lays it out, checks it and renders
 it. The page comes out the same every time, and a crossing edge or a clipped
 label is caught before the user sees it. A chart of numbers is not this: that is
-a mermaid block in the report.
+`scripts/chart.mjs`, drawn into the page or the document that carries it.
 
 Run the engine as `node <skill dir>/scripts/archify/bin/archify.mjs` (`archify`
 below). Node is all it needs. Keep the spec in this job's scratch folder; the

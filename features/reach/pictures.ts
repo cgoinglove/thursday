@@ -12,15 +12,15 @@ import type { OutgoingFile } from "./channel";
  * What a page looks like, for a chat that opens no HTML: pictures of it, sent with it. A
  * deck's slides and a canvas's boards are one picture each, at their own size; any other
  * page is read from the top, a phone's screen at a time. They are drawn by the renderer the
- * bots shoot with (skills/browser render.mjs), in a headless browser of their own that
+ * bots shoot with (skills/artifact/runtime/render.mjs), in a headless browser of their own that
  * keeps nothing and is closed once they are drawn.
  */
 
 const RENDER = join(
   APP_DIR,
   PATHS.skills.default,
-  "browser",
-  "scripts",
+  "artifact",
+  "runtime",
   "render.mjs",
 );
 

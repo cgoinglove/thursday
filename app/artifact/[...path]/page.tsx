@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 /**
- * How a page the app's own skills made names itself in its first bytes (skills/shell,
+ * How a page the app's own skills made names itself in its first bytes (skills/artifact/runtime/shell,
  * head.html). Such a page wears its own head — who made it, its name, Export — so the
  * tab is that page alone, with no bar of ours above it.
  */

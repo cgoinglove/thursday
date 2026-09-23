@@ -148,14 +148,14 @@ export async function deleteWorkspaceFile(rel: string): Promise<void> {
 }
 
 /**
- * The revision a page names in its head, new on every write (skills/shell head.html and
+ * The revision a page names in its head, new on every write (skills/artifact/runtime/shell head.html and
  * put.mjs write it too). The first one is the head's: a body cannot reach the head.
  */
 const REVISION = /<meta name="revision" content="([^"]*)">/;
 
 /**
  * Writes a page a bot made back over itself, as its reader edited it where the app shows
- * it (skills/shell). Only a page that is there already: this keeps edits and never makes
+ * it (skills/artifact/runtime/shell). Only a page that is there already: this keeps edits and never makes
  * a file. No larger than the viewer draws, since a page past that was never on screen to
  * be edited. Written beside the file and moved into place, so it is never half a page.
  *
