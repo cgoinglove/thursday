@@ -186,3 +186,20 @@ test("a document written in Markdown is put in the document's own markup, and ma
     assert.ok(html.includes(piece), `the page holds ${piece}`);
   assert.ok(!html.includes("the outline's guidance"), "comments are dropped");
 });
+
+test("front matter written without its fences is still the line over and under the title", async () => {
+  const { documentBody } = await import(
+    "../skills/artifact/runtime/document/markdown.mjs"
+  );
+  const body = documentBody(
+    "kicker: Report\ndate: 24 September\nby: Analyst\n\n# The finding\n\nThe lede.\n\nby: a line of prose\n",
+  );
+  assert.ok(
+    body.startsWith('<p class="kicker">Report</p>\n<h1>The finding</h1>'),
+  );
+  assert.ok(body.includes('<span class="chip who">Analyst</span>'));
+  assert.ok(
+    body.includes("<p>by: a line of prose</p>"),
+    "prose below the title stays prose",
+  );
+});

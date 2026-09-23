@@ -102,17 +102,33 @@ const markdown = new Marked({
   },
 });
 
-/** `key: value` lines between `---` fences at the very top, and the text after them. */
+/** The keys the line over and under the title is made of. */
+const KEY_LINE = /^(kicker|date|by|status|tone)\s*:\s*\S/i;
+
+/**
+ * `key: value` lines at the very top, and the text after them: between `---` fences, or the
+ * same keys written bare above the first heading — which a model often does, and which would
+ * otherwise print at the head of the page as a paragraph.
+ */
 function frontMatter(text) {
-  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text);
-  if (!match) return { meta: {}, rest: text };
   const meta = {};
-  for (const line of match[1].split(/\r?\n/)) {
+  const take = (line) => {
     const at = line.indexOf(":");
     if (at > 0)
       meta[line.slice(0, at).trim().toLowerCase()] = line.slice(at + 1).trim();
+  };
+  const fenced = /^\s*---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text);
+  if (fenced) {
+    for (const line of fenced[1].split(/\r?\n/)) take(line);
+    return { meta, rest: text.slice(fenced[0].length) };
   }
-  return { meta, rest: text.slice(match[0].length) };
+  const lines = text.replace(/^\s+/, "").split(/\r?\n/);
+  let bare = 0;
+  while (bare < lines.length && KEY_LINE.test(lines[bare].trim()))
+    take(lines[bare++]);
+  return bare
+    ? { meta, rest: lines.slice(bare).join("\n") }
+    : { meta, rest: text };
 }
 
 /** The document's body, as the page's put writes it, from a Markdown text. */

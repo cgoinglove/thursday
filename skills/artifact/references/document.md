@@ -30,9 +30,17 @@ A page that fits none starts from nothing: a `# ` title, then the page.
 - **The first `# ` heading is its title** — the tab and the head read it. The paragraph under it is
   the lede, read first and alone: the answer in a sentence or two.
 - **The line over and under the title** comes from front matter at the very top, all optional,
-  in the language the document is written in:
-  `kicker:` the word over the title · `date:` · `by:` (several split by commas) · `status:` with
-  `tone:` good, warn or bad.
+  in the language the document is written in — `kicker:` the word over the title, `date:`, `by:`
+  (several split by commas), `status:` with `tone:` good, warn or bad:
+
+  ```
+  ---
+  kicker: Report
+  date: As of 24 September 2026
+  by: Analyst
+  ---
+  # Rent rose faster than pay
+  ```
 - **Numbers that carry the finding** go in a ` ```stats ` block, one card a line:
   `42% | of renters moved in two years`.
 - **A table** is a Markdown table; a column aligned right (`---:`) is read as numbers.
