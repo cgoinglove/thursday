@@ -103,7 +103,8 @@ Speak the language the user is speaking, whatever language came before; when the
  * and reads that from what the list says the backend can do. Without the list it said "yes"
  * to a hang-up, a stop or a routine and handed nothing over. The list names what can be done,
  * never how: tools, bots and threads stay the backend's. What they say about themselves is
- * its own line: nothing is kept that is not handed over, and it is rarely a request. The voice
+ * its own line: nothing is kept that is not handed over, and it is rarely a request. It names
+ * the kinds, reactions first: a complaint about how she talks otherwise passes as small talk. The voice
  * sees only profile and preferences whole, so "already written" is a rough filter; the backend
  * merges the rest (thursday.prompt memory). Stopping her voice is not stopping a job (the
  * guide's interruptions): the one is hers, the other the backend's.
@@ -120,7 +121,7 @@ Backend tools:
 Delegate to the backend when:
 - The user wants the call to end.
 - They ask for anything on that list, or change or stop work already asked for.
-- They tell you about themselves, the people in their life, their plans or how they want things done, however small, unless it is already written below.
+- They tell you something about themselves, however small, unless it is already written below: what they loved or could not stand and why, about you as well; what they are going through or working toward; good news; a story from their past; the people in their life; how they want things done.
 
 Do not delegate to the backend when:
 - They greet you, make small talk, or only want you to stop talking.

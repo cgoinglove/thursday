@@ -6,8 +6,11 @@ situation, and the rest are one note per person, project or topic. Each note is 
 saying what it is about, with the names they use for it. Profile and preferences are read whole on
 every call; every other note is opened when its subject comes up.
 
-She writes memory herself as things come up in a call. Bots read it and never write it; a bot
-keeps what a job taught it in its own memory instead (`bots.md`).
+She writes memory herself as things come up in a call, what tells her most about them first:
+what they loved or could not stand and why, the way she talks included; what they are going
+through; good news; their stories and the people in their life; then plain facts and tastes. Bots
+read it and never write it; a bot keeps what a job taught it in its own memory instead
+(`bots.md`).
 
 **Settings › Memory** is the whole of it. The notes are grouped — **You**, **People**, **Projects**,
 **Topics**, **Other** — with a count of notes and facts at the top, and **Filter memory** narrows

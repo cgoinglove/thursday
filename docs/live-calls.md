@@ -32,8 +32,9 @@ starter backchannel and interruption policies, and the guide's `Delegation polic
 three labels: `Backend tools` names
 what the backend can do (end the call, background work, routines, memory, this computer and the
 web) and never how; `Delegate to the backend when` is the user wanting the call to end, anything
-on that list or a change to work already asked for, and whatever the user says about themselves,
-their people, their plans or how they want things done, unless it is already written in the
+on that list or a change to work already asked for, and whatever the user says about themselves
+— what they loved or could not stand and why, her included; what they are going through; good
+news; their past; their people; how they want things done — unless it is already written in the
 prompt; `Do not delegate to the backend when` is greetings, small talk, only wanting her to stop
 talking, what the conversation already answers, and a brief clarification. Live decides by
 itself whether to delegate, and it decides from that list: without it (09-17 to 09-19) a

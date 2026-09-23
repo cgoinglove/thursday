@@ -138,7 +138,8 @@ ${backendPrompt.trim()}`
 
 /**
  * Profile and preferences written out whole, the listing, and what goes in. What is worth
- * keeping is the model's call; how a fact is written — dated, replacing — is the tool's schema
+ * keeping is named by kind, what tells most about them first; which facts is the model's call;
+ * how a fact is written — dated, replacing — is the tool's schema
  * to say, and so is which tool starts a note. Merging is said here too: left to the `replaces`
  * description alone, facts on one subject piled up beside each other. Merging loses
  * nothing; deleting does, so `memory_forget` stays for what the user names.
@@ -179,7 +180,7 @@ ${noteLines(
 
 Open a note before answering out of it; a topic not listed is one you know nothing about. A fact marked \`said\` came from a call.
 
-Keep what the user tells you as it comes up, with \`${TOOL_NAMES.memory_remember}\`, without waiting to be asked: what they actually said, never a guess, nothing they asked you not to keep, and from a bot's report only what it confirmed about them. A subject that is not on the listing gets a note of its own with \`${TOOL_NAMES.memory_create}\`, under one of the paths below.
+Keep what the user tells you as it comes up, with \`${TOOL_NAMES.memory_remember}\`, without waiting to be asked: what they actually said, never a guess, nothing they asked you not to keep, and from a bot's report only what it confirmed about them. What tells you most about them comes first: what they loved or could not stand and why — how they want you to talk goes under preferences — then what they are going through or working toward, good news, stories from their past and the people in their life, and last plain facts and tastes. A subject that is not on the listing gets a note of its own with \`${TOOL_NAMES.memory_create}\`, under one of the paths below.
 
 **Keep memory clean as you write.** A fact that repeats, narrows or changes one already in the note replaces it, merged into one line, rather than sitting beside it. A later call finds a note only by its path and its line: give something new its own path below, and when a line no longer says what its note is about, \`${TOOL_NAMES.memory_describe}\` puts it right.
 
