@@ -457,6 +457,8 @@ export const ROUTINE = { tickMs: 30_000, max: 12, minHours: 1, runsShown: 5 };
  */
 export const ARTIFACT_SKILL = "artifact";
 export const PAGE_SKILL = "interactive-page";
+/** The Marketer's own, shipped in `seed-skills/marketer/` (PATHS.skills.seeds). */
+export const MARKETING_SKILL = "marketing";
 
 /**
  * Shipped skill names that were folded into another, and the one they are in now. A role

@@ -814,15 +814,15 @@ function Ready({ mic, bots }: { mic: boolean; bots: number }) {
 const DEMO_MS = 16_000;
 const DEMO = {
   ask: "Find me flights to Osaka in October.",
-  onIt: "On it. Analyst is looking. Keep talking, I will say when it is back.",
-  back: "Analyst is back. From ₩296,000, out of Incheon. The page is on your screen.",
+  onIt: "On it. Concierge is looking. Keep talking, I will say when it is back.",
+  back: "Concierge is back. From ₩296,000, out of Incheon. The page is on your screen.",
 } as const;
 
 /** What lands in the corner at the end of the loop: words alone, so nothing is read off disk. */
 const DEMO_LANDED: Finished = {
   threadId: "demo",
   label: "Osaka flights, October",
-  bot: "Analyst",
+  bot: "Concierge",
   words:
     "Three fares from ₩296,000 out of Incheon. The Tuesday morning one is the pick: direct, and the cheapest by a little.",
   paths: [],
@@ -893,7 +893,7 @@ function DemoCorners({ stage, icons }: { stage: DemoStage; icons: BotIcon[] }) {
               seed={seed.name}
               {...icons[index]}
               state={
-                stage === "working" && seed.name === "Analyst"
+                stage === "working" && seed.name === "Concierge"
                   ? "thinking"
                   : "idle"
               }
@@ -904,9 +904,9 @@ function DemoCorners({ stage, icons }: { stage: DemoStage; icons: BotIcon[] }) {
         </span>
         <span className="w-40 truncate text-left text-[13px] text-muted-foreground">
           {stage === "working"
-            ? "Analyst · reading fares"
+            ? "Concierge · reading fares"
             : stage === "landed"
-              ? "Analyst finished"
+              ? "Concierge finished"
               : "Need a hand?"}
         </span>
       </div>

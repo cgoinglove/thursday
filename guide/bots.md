@@ -22,17 +22,21 @@ judges them, what it keeps — and, for one whose trade needs a method no other 
 its own: Marketer's for marketing. A bot can also gain skills of its own as it works, when it finds
 or writes one and the user keeps it to that bot.
 
-- **Analyst** finds things out and answers with where they came from: it fetches published series
-  and draws them, reads a video's transcript, a podcast, an article or a PDF and answers with key
-  points that link to the moment they are said, makes a news page on the topics the user chose, and
-  lays a trip out day by day with the weather, the exchange rate, photos and map links — a booking
-  it puts on the user's screen and stops there.
+- **Analyst** finds things out and answers with where they came from: what something costs, how a
+  number moved and why, which one to pick, whether to buy now or wait. It fetches published series
+  and draws them.
+- **Curator** keeps the user up to date: a morning brief on the topics they follow, with each
+  publisher's own words and photo, and anything long — a video, a podcast, a talk, an article, a
+  PDF — handed back short, every point linked to the moment it is said.
+- **Concierge** takes trips and errands as far as they go: a trip laid out day by day with the
+  weather, the exchange rate, photos and map links, flights and stays found and compared, a booking,
+  an order or a form taken up to the step that pays — which it leaves on the user's screen.
 - **Designer** makes what gets looked at: two to four ways a screen or a page could look, side by
   side on one canvas, a deck to show on a screen, a post at the size it will be shown.
 - **Tutor** explains anything as a picture book.
 - **Marketer** keeps one brief per product in its memory and works from it, with a marketing skill
   no other bot carries: positioning, page copy, a launch plan, social posts, emails, an SEO audit.
-- **Jarvis** takes whatever nobody else is for — orders, bookings, forms, the web, this computer.
+- **Jarvis** takes whatever nobody else is for — the web, files, this computer.
 
 A bot keeps its own memory — what a job taught it, how the user asked it to work — in its own
 folder, listed on its page. **Bots keep their own memory**, on the same screen, switches that on or
