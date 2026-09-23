@@ -25,8 +25,14 @@ artifact skill holds.
   what changed. The rest of `artifact` is this app's own.
 - **`artifact/runtime/vendor/marked.mjs`** is marked 16.4.2 (MIT, `marked.LICENSE.md` beside it),
   unchanged: it turns a document's Markdown into its body.
+- **`interactive-page`'s app kit** (`runtime/kit`, `runtime/page`, `scripts/app.mjs`) follows Anthropic's
+  `web-artifacts-builder` (Apache-2.0, `interactive-page/LICENSE.txt`): React, TypeScript, Tailwind
+  CSS and shadcn/ui, bundled into one HTML file. Changed from it: vite with vite-plugin-singlefile
+  builds it instead of Parcel, which could not resolve Radix's `development` export condition;
+  every version is pinned by the kit's lockfile; the kit is installed once in the workspace and
+  shared by every app; recharts and react-markdown are in it.
 - **`interactive-page/scripts/archify`** is a trimmed copy of archify (MIT); its README says what
-  was cut. `interactive-page` and `skill-creator` carry Apache-2.0 terms in `LICENSE.txt`.
+  was cut. `skill-creator` carries Apache-2.0 terms in `LICENSE.txt`.
 - **`product-marketing`, `copywriting`, `launch`, `social`, `emails` and `seo-audit`** are a trimmed
   copy of [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) at
   `5b2c0007766c6a1cf1d53fd8fc73e979e0821022` (MIT, `LICENSE` in each folder). Update them by copying

@@ -34,5 +34,11 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "dist", "**/*.local.*"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.local.*",
+    // A page's kit: built by its own tools in the workspace, not by this app
+    "skills/interactive-page/runtime"
+  ]
 }
