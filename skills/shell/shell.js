@@ -83,6 +83,12 @@ window.shell = (() => {
     copy.removeAttribute("data-theme");
     for (const el of copy.querySelectorAll("details.sh-menu[open]"))
       el.removeAttribute("open");
+    // Where editing stood when the copy was made
+    copy.querySelector("#state")?.replaceChildren();
+    copy.querySelector("[data-reload]")?.setAttribute("hidden", "");
+    copy.querySelector("[data-edit]")?.classList.remove("sh-on");
+    const word = copy.querySelector("[data-edit] .sh-word");
+    if (word) word.textContent = "Edit";
     clean?.(copy);
     return `<!doctype html>\n${copy.outerHTML}\n`;
   };
@@ -180,6 +186,141 @@ window.shell = (() => {
   })();
 
   /**
+   * Editing a page in place, and keeping what changes: the head's Edit button, the line
+   * beside the title that says where things stand (#state), and Reload. The kind says when
+   * something changed (`changed`) and does its own part of switching (`onToggle`, run
+   * before what waits is kept). The app keeps a change a moment later when it holds the
+   * page; anywhere else nothing is kept until Done, which downloads a copy — so a box
+   * ticked while reading a file opened from disk costs nothing. A save the app answers
+   * `changed` — the file moved on after this page was opened: a bot wrote it, another
+   * window saved it — stops all keeping, since this copy would undo that; Reload shows the
+   * file as it is now, and Export still downloads this copy.
+   */
+  const edits = (() => {
+    const button = document.querySelector("[data-edit]");
+    const state = document.getElementById("state");
+    const reload = document.querySelector("[data-reload]");
+    const toggles = [];
+    let on = false;
+    let dirty = false;
+    let timer = 0;
+    let saving = 0; // saves on their way to the app
+    let stale = false; // the file was written after this page was opened: nothing more is kept
+
+    // The line's own text changes in place: a node put in its stead while someone types
+    // would end their run of typing
+    const say = (text) => {
+      if (!state) return;
+      const line = state.firstChild;
+      if (line?.nodeType === Node.TEXT_NODE) line.data = text;
+      else state.textContent = text;
+    };
+
+    reload?.addEventListener("click", () => location.reload());
+    const goneStale = () => {
+      stale = true;
+      clearTimeout(timer);
+      timer = 0;
+      say("Changed since it opened · not kept");
+      if (reload) reload.hidden = false;
+    };
+
+    /** Keeps the page now: into the file when the app holds it, as a copy otherwise. */
+    const keep = async () => {
+      clearTimeout(timer);
+      timer = 0;
+      if (stale) return;
+      const text = serialize(window.shell?.clean);
+      if (!host.keeps) {
+        download(fileName(), text);
+        dirty = false;
+        say("Copy downloaded");
+        return;
+      }
+      dirty = false;
+      say("Saving…");
+      saving++;
+      try {
+        await host.save(text);
+        if (!dirty) say(on ? "Saved" : "");
+      } catch (error) {
+        dirty = true;
+        if (error.changed) goneStale();
+        else say(`Not saved: ${String(error.message || error).slice(0, 60)}`);
+      } finally {
+        saving--;
+      }
+    };
+
+    const changed = () => {
+      dirty = true;
+      if (stale) return;
+      if (!host.keeps) {
+        if (on) say("Unsaved · Done keeps a copy");
+        return;
+      }
+      say("Unsaved…");
+      clearTimeout(timer);
+      timer = setTimeout(keep, 1200);
+    };
+
+    addEventListener("keydown", (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "s" && on) {
+        event.preventDefault();
+        keep();
+      }
+    });
+
+    // Leaving the page keeps what waits at once rather than a moment later: a dialog closed
+    // just after the last key takes the frame with it, and the pointer on its way to the
+    // close button leaves the page first. A tab closing on words not yet kept asks first.
+    const leaving = () => {
+      if (timer) keep();
+    };
+    addEventListener("blur", leaving);
+    root.addEventListener("pointerleave", leaving);
+    addEventListener("beforeunload", (event) => {
+      if (saving || (dirty && (on || host.keeps))) event.preventDefault();
+    });
+
+    const set = (next) => {
+      on = next;
+      button?.classList.toggle("sh-on", on);
+      const word = button?.querySelector(".sh-word");
+      if (word) word.textContent = on ? "Done" : "Edit";
+      for (const fn of toggles) fn(on);
+      if (on) {
+        host.ask();
+        if (stale) return;
+        say(
+          host.keeps
+            ? "Editing · saved as you go"
+            : "Editing · Done keeps a copy",
+        );
+        return;
+      }
+      if (dirty || timer) keep();
+      else say("");
+    };
+    button?.addEventListener("click", () => set(!on));
+    // The app may answer after Edit was pressed: the line catches up
+    host.onKeeps(() => {
+      if (on && !dirty && !stale) say("Editing · saved as you go");
+    });
+
+    return {
+      get on() {
+        return on;
+      },
+      /** `fn(on)` runs as editing switches, before what waits is kept. */
+      onToggle(fn) {
+        toggles.push(fn);
+      },
+      changed,
+    };
+  })();
+
+  /**
    * The address names what is open (`#3`, `#B`), so a link or a reload lands there. A page the
    * app serves is sandboxed, and there the browser may refuse to change it: the page goes on
    * without it.
@@ -255,6 +396,7 @@ window.shell = (() => {
     fileName,
     serialize,
     host,
+    edits,
     address,
     probe,
     thumb,

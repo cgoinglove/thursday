@@ -46,9 +46,12 @@ const escape = (text) =>
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
   );
 
-/** The deck as it sits in the page: JSON that no `</script>` or `<!--` inside it can end. */
+/**
+ * The deck as it sits in the page: JSON that no `</script>` or `<!--` inside it can end,
+ * in the script tag as a browser writes it back when the app keeps an edit.
+ */
 const inline = (deck) =>
-  `<script type="application/json" data-deck>${JSON.stringify(deck).replace(/</g, "\\u003c")}</script>`;
+  `<script type="application/json" data-deck="">${JSON.stringify(deck).replace(/</g, "\\u003c")}</script>`;
 
 const revisionOf = (html) =>
   /<meta name="revision" content="([^"]*)">/.exec(html)?.[1] ?? "";
@@ -56,7 +59,7 @@ const revisionOf = (html) =>
 /** The deck a page holds as data, or null: one written by hand before decks were data. */
 function deckIn(html) {
   const found =
-    /<!-- put: start[^>]*-->\s*<script type="application\/json" data-deck>([\s\S]*?)<\/script>/.exec(
+    /<!-- put: start[^>]*-->\s*<script type="application\/json" data-deck(?:="")?>([\s\S]*?)<\/script>/.exec(
       html,
     );
   if (!found) return null;

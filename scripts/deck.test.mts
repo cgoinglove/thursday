@@ -41,7 +41,7 @@ const file = (name: string) =>
 /** The deck a file holds, as the page reads it. */
 const held = async (path: string) =>
   JSON.parse(
-    /<script type="application\/json" data-deck>([\s\S]*?)<\/script>/.exec(
+    /<script type="application\/json" data-deck(?:="")?>([\s\S]*?)<\/script>/.exec(
       await readFile(path, "utf8"),
     )?.[1] ?? "null",
   );
@@ -122,6 +122,20 @@ test("a change lands only with the revision it was made on", async () => {
     note: string;
   };
   assert.match(stale.note, /changed since that revision/);
+});
+
+test("a deck the app kept after an edit is still read as a deck", async () => {
+  await make({ deck: "kept", title: "Kept", slides });
+  const path = file("kept");
+  // A browser writes the page back with its own spelling of the data's tag
+  const html = await readFile(path, "utf8");
+  for (const tag of ['data-deck="">', "data-deck>"]) {
+    await writeFile(path, html.replace(/data-deck(="")?>/, tag));
+    const said = (await make({ deck: "kept", title: "Again", slides })) as {
+      current: { title: string };
+    };
+    assert.equal(said.current.title, "Kept", tag);
+  }
 });
 
 test("a page that holds no deck is never written over", async () => {

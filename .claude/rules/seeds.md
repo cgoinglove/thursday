@@ -30,14 +30,18 @@ does not say. A `SKILL.md` is model-facing text, so `model.md` › Writing for a
     deck.tool`). A deck is typed because how a slide looks — its sizes, a heading that hops, words
     that run off it — is where a cheap model went wrong, so the model fills a layout's fields and
     this folder draws them: the file holds the deck as JSON, and its own script draws every slide
-    from it and shrinks the type of one that does not fit (`deck.js`). `deck.mjs` writes the deck
-    into the frame as it ships now, every time, so an update reaches decks made before it, and
-    shoots it. The schema's character caps answer to `deck.css`: a layout changed there moves them.
+    from it and shrinks the type of one that does not fit (`deck.js`). An edit in the app changes
+    that data and draws the slides again from it, so what a person edits and what a bot writes are
+    the same thing. `deck.mjs` writes the deck into the frame as it ships now, every time, so an
+    update reaches decks made before it, and shoots it. The schema's character caps answer to
+    `deck.css`: a layout changed there moves them; the editor does not hold to them, so a deck
+    handed back after an edit can be refused by the schema until the bot says less.
   - `shell/` is not a skill (no `SKILL.md`): it is what the three scripts (`page.mjs`, `canvas.mjs`,
     `deck.mjs`) put on every file they write, through the module they import (`shell/wear.mjs`) —
     the head a page wears, its buttons and menus, the theme, and the page asking the app that shows
     it to keep its edits — by message to the frame, the one door out of the sandbox the page is
-    served in (`data.md`). What a bot writes goes in by `put` (`shell/put.mjs`) between two marks
+    served in (`data.md`). A kind that edits (the document, the deck) takes Edit, the line that says
+    where keeping stands and Reload from the shell (`shell.edits`), and says only what changed. What a bot writes goes in by `put` (`shell/put.mjs`) between two marks
     the page is made with, so the frame is never written over. The start mark keeps a print of the
     last body put or got, and `put` refuses a page whose body is not that one — edited in the app
     or by hand — until `get` has handed the bot the body as it is now. Every put names a new

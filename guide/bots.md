@@ -212,7 +212,15 @@ the count, Notes (what is said over the slide), full screen, Present, a theme bu
 space or a tap on the right or left of a slide turn it too, **f** fills the screen and **n** shows
 the notes. Presenting shows the slide alone: the notes never go up on the screen the room sees. It is
 a deck to show on a screen; a copy to hand out prints to PDF, a slide a page. There is no PowerPoint
-file. A bot asked to change a deck starts from the deck as it is, and a deck made before an update to
+file.
+
+**Edit** in a deck's top bar changes it where it stands: every line of words on a slide is written in
+place, and its type grows smaller as it fills the slide; what is said over the slide is written in the
+notes under it; and the head of the strip moves the open slide earlier or later, copies it, deletes it,
+or picks another palette for the whole deck. ⌘Z takes a change back. What is changed is saved into
+the file as it is made. If a bot changed the deck after it was opened, nothing more is saved over it:
+the top bar says **Changed since it opened · not kept** and shows **Reload**. A bot asked to change a
+deck starts from the deck as it is, with what was edited in it, and a deck made before an update to
 the app takes on its new look the next time a bot changes it.
 
 Something to read — a report, a memo, a comparison, a plan, notes of a meeting — comes back as one

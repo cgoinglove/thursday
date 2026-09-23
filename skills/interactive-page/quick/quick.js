@@ -8,7 +8,6 @@
   const paper = document.getElementById("paper");
   const toc = document.getElementById("toc");
   const tocButton = document.querySelector("[data-toc]");
-  const state = document.getElementById("state");
   const editButton = document.querySelector("[data-edit]");
   const grip = document.getElementById("grip");
   const bubble = document.getElementById("bubble");
@@ -160,22 +159,9 @@
   contents();
   spy();
 
-  /* ── keeping it ──────────────────────────────────────────────────────────── */
+  /* ── keeping it (shell.edits) ────────────────────────────────────────────── */
 
-  let editing = false;
-  let dirty = false;
-  let timer = 0;
-  let saving = 0; // saves on their way to the app
-  let stale = false; // the file was written after this page was opened: nothing more is kept
-
-  // The line's own text changes in place: a node put in its stead while someone types
-  // would end their run of typing, as the pane would (contents)
-  const say = (text) => {
-    if (!state) return;
-    const line = state.firstChild;
-    if (line?.nodeType === Node.TEXT_NODE) line.data = text;
-    else state.textContent = text;
-  };
+  const changed = () => shell.edits.changed();
 
   // The marks a bot's put writes between (skills/shell put.mjs), as the page was opened
   // with them. Clearing the whole paper takes them too; the kept file carries them still.
@@ -203,7 +189,6 @@
       el.removeAttribute("style");
     copy.querySelector("#toc")?.replaceChildren();
     copy.querySelector("[data-toc]")?.setAttribute("hidden", "");
-    copy.querySelector("#state")?.replaceChildren();
     for (const id of ["grip", "bubble", "block-menu", "insert-menu"]) {
       const el = copy.querySelector(`#${id}`);
       el?.setAttribute("hidden", "");
@@ -218,7 +203,6 @@
         panel.removeAttribute("role");
       }
     }
-    copy.querySelector("[data-reload]")?.setAttribute("hidden", "");
     const kept = copy.querySelector("#paper");
     const has = (data) =>
       [...(kept?.childNodes ?? [])].some(
@@ -233,65 +217,6 @@
     }
   };
 
-  /**
-   * The file moved on after this page was opened — a bot put new work in, another window
-   * saved — and keeping this copy would undo that. Nothing more is kept: Reload shows the
-   * file as it is now, and Export still downloads this copy.
-   */
-  const reload = document.querySelector("[data-reload]");
-  reload?.addEventListener("click", () => location.reload());
-  const goneStale = () => {
-    stale = true;
-    clearTimeout(timer);
-    timer = 0;
-    say("Changed since it opened · not kept");
-    if (reload) reload.hidden = false;
-  };
-
-  /** Keeps the page now: into the file when the app holds it, as a copy otherwise. */
-  const keep = async () => {
-    clearTimeout(timer);
-    timer = 0;
-    if (stale) return;
-    const text = shell.serialize(shell.clean);
-    if (!shell.host.keeps) {
-      shell.download(shell.fileName(), text);
-      dirty = false;
-      say("Copy downloaded");
-      return;
-    }
-    dirty = false;
-    say("Saving…");
-    saving++;
-    try {
-      await shell.host.save(text);
-      if (!dirty) say(editing ? "Saved" : "");
-    } catch (error) {
-      dirty = true;
-      if (error.changed) goneStale();
-      else say(`Not saved: ${String(error.message || error).slice(0, 60)}`);
-    } finally {
-      saving--;
-    }
-  };
-
-  /**
-   * Something on the page changed. The app keeps it a moment later, when it is holding
-   * the page; nothing else is kept until Done, which downloads the copy — so a checkbox
-   * ticked while reading a file opened from disk costs nothing.
-   */
-  const changed = () => {
-    dirty = true;
-    if (stale) return;
-    if (!shell.host.keeps) {
-      if (editing) say("Unsaved · Done keeps a copy");
-      return;
-    }
-    say("Unsaved…");
-    clearTimeout(timer);
-    timer = setTimeout(keep, 1200);
-  };
-
   // A tick is a change like any other: the box's state is written onto it, since only
   // what is in the markup survives into the file
   paper.addEventListener("change", (event) => {
@@ -299,27 +224,6 @@
     if (!(box instanceof HTMLInputElement) || box.type !== "checkbox") return;
     box.toggleAttribute("checked", box.checked);
     changed();
-  });
-
-  addEventListener("keydown", (event) => {
-    if ((event.metaKey || event.ctrlKey) && event.key === "s" && editing) {
-      event.preventDefault();
-      keep();
-    }
-  });
-
-  // Leaving the page keeps what waits at once rather than a moment later: a dialog closed
-  // just after the last key takes the frame with it, and the pointer on its way to the
-  // close button leaves the page first. A tab closing on words not yet kept asks first; a
-  // tick while reading a file from disk was never going to be kept.
-  const leaving = () => {
-    if (timer) keep();
-  };
-  addEventListener("blur", leaving);
-  document.documentElement.addEventListener("pointerleave", leaving);
-  addEventListener("beforeunload", (event) => {
-    if (saving || (dirty && (editing || shell.host.keeps)))
-      event.preventDefault();
   });
 
   /* ── the editor ──────────────────────────────────────────────────────────── */
@@ -352,42 +256,23 @@
     }
   };
 
-  const setEditing = (on) => {
-    editing = on;
+  shell.edits.onToggle((on) => {
     document.body.classList.toggle("pg-editing", on);
     paper.contentEditable = on ? "true" : "false";
     seal();
-    editButton.classList.toggle("sh-on", on);
-    editButton.querySelector(".sh-word").textContent = on ? "Done" : "Edit";
-    if (on) {
-      shell.host.ask();
-      if (stale) return;
-      say(
-        shell.host.keeps
-          ? "Editing · saved as you go"
-          : "Editing · Done keeps a copy",
-      );
-      return;
-    }
+    if (on) return;
     shut();
     hideAll();
-    if (dirty || timer) keep();
-    else say("");
     contents();
     spy();
-  };
-  editButton.addEventListener("click", () => setEditing(!editing));
-  // The app may answer after Edit was pressed: the line under the title catches up
-  shell.host.onKeeps(() => {
-    if (editing && !dirty && !stale) say("Editing · saved as you go");
   });
 
   addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && editing) hideAll();
+    if (event.key === "Escape" && shell.edits.on) hideAll();
   });
 
   paper.addEventListener("input", () => {
-    if (!editing) return;
+    if (!shell.edits.on) return;
     seal(); // a chip pasted in joins the others
     changed();
     contents();
@@ -398,7 +283,7 @@
   // the caret leaves it (selectionchange, below), or on Enter or Esc with the caret just
   // past it.
   addEventListener("pointerdown", (event) => {
-    const chip = editing && event.target.closest?.("#paper .chip");
+    const chip = shell.edits.on && event.target.closest?.("#paper .chip");
     if (chip === open) return;
     shut();
     if (!chip) return;
@@ -443,7 +328,7 @@
   // In a table Tab walks the cells and, past the last one, starts a row; in a list it
   // indents the item. Anywhere else it leaves the page, as Tab does.
   paper.addEventListener("keydown", (event) => {
-    if (!editing || event.key !== "Tab") return;
+    if (!shell.edits.on || event.key !== "Tab") return;
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     const el = caretIn();
     const cell = el?.closest("td, th");
@@ -588,7 +473,7 @@
   // copied from this page is still a chip — and leaves another page's look and pictures
   // behind: a picture from the web would need the network the page opens without.
   paper.addEventListener("paste", (event) => {
-    if (!editing) return;
+    if (!shell.edits.on) return;
     const html = event.clipboardData?.getData("text/html");
     if (!html) return;
     event.preventDefault();
@@ -627,7 +512,7 @@
   };
 
   paper.addEventListener("pointermove", (event) => {
-    if (!editing || !blockMenu.hidden || !insertMenu.hidden) return;
+    if (!shell.edits.on || !blockMenu.hidden || !insertMenu.hidden) return;
     const here = blockOf(event.target);
     if (!here || here === block) return;
     for (const el of paper.querySelectorAll(".pg-hot"))
@@ -710,7 +595,8 @@
   };
 
   addEventListener("keydown", (event) => {
-    if (!editing || !(event.metaKey || event.ctrlKey) || event.altKey) return;
+    if (!shell.edits.on || !(event.metaKey || event.ctrlKey) || event.altKey)
+      return;
     const key = event.key.toLowerCase();
     const again = (key === "z" && event.shiftKey) || key === "y";
     if (key !== "z" && !again) return;
@@ -820,7 +706,7 @@
     });
 
   document.addEventListener("selectionchange", () => {
-    if (!editing) return;
+    if (!shell.edits.on) return;
     const sel = getSelection();
     if (open && !open.contains(sel?.anchorNode ?? null)) shut();
     const range = sel?.rangeCount ? sel.getRangeAt(0) : null;

@@ -18,10 +18,11 @@
     <header class="sh-head">
       {{shell.who}}
       <span class="sh-title">{{title}}</span>
-      <span class="sh-sub">{{w}}×{{h}}</span>
+      <span class="sh-sub" id="state"></span>
       <span class="sh-badge" id="cut" hidden></span>
       <span class="sh-gap"></span>
       <span class="sh-tools">
+        <button type="button" class="sh-b sh-outline" data-reload title="Show the deck as it is now" hidden>Reload</button>
         <button type="button" class="sh-b sh-icon" data-go="-1" aria-label="Previous slide">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
         </button>
@@ -39,6 +40,10 @@
         <button type="button" class="sh-b sh-outline" data-present title="Present from this slide">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 4 13 8-13 8Z" fill="currentcolor" stroke="none" /></svg>
           <span class="sh-word">Present</span>
+        </button>
+        <button type="button" class="sh-b sh-outline" data-edit title="Change the words, the order and the palette">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+          <span class="sh-word">Edit</span>
         </button>
       </span>
       <i class="sh-rule"></i>
@@ -72,6 +77,28 @@
     <footer id="strip">
       <div class="dk-strip-h">
         <span class="sh-pane-h">Slides <em id="strip-count"></em></span>
+        <span class="dk-tools" id="slide-tools" hidden>
+          <button type="button" class="sh-b sh-sm sh-icon" data-move="-1" aria-label="Move this slide earlier" title="Move earlier">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m7-7-7 7 7 7" /></svg>
+          </button>
+          <button type="button" class="sh-b sh-sm sh-icon" data-move="1" aria-label="Move this slide later" title="Move later">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-7-7 7 7-7 7" /></svg>
+          </button>
+          <button type="button" class="sh-b sh-sm sh-icon" data-duplicate aria-label="Duplicate this slide" title="Duplicate">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="13" height="13" rx="2" /><path d="M4 16V5a1 1 0 0 1 1-1h11" /></svg>
+          </button>
+          <button type="button" class="sh-b sh-sm sh-icon" data-delete aria-label="Delete this slide" title="Delete">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>
+          </button>
+          <i class="sh-rule"></i>
+          <span class="dk-swatches" role="radiogroup" aria-label="Palette">
+            <button type="button" class="dk-swatch" role="radio" data-palette="forest" aria-label="Forest" title="Forest"></button>
+            <button type="button" class="dk-swatch" role="radio" data-palette="sea" aria-label="Sea" title="Sea"></button>
+            <button type="button" class="dk-swatch" role="radio" data-palette="clay" aria-label="Clay" title="Clay"></button>
+            <button type="button" class="dk-swatch" role="radio" data-palette="ink" aria-label="Ink" title="Ink"></button>
+          </span>
+        </span>
+        <span class="sh-gap"></span>
         <button type="button" class="sh-b sh-sm sh-icon" data-strip aria-label="Fold the slides away" aria-expanded="true">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
         </button>

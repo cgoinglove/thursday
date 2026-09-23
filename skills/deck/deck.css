@@ -39,8 +39,10 @@ body:not(.shot) section[data-slide]:not(.open) {
 
 /* A palette is the deck's, set on every slide so a slide's miniature keeps it: a ground,
    the ink, muted text, a card and a rule, and one accent that is also the ground of the
-   slides where the argument turns. Every text colour clears 4.5:1 on what it sits on. */
-section[data-slide] {
+   slides where the argument turns. Every text colour clears 4.5:1 on what it sits on. The
+   swatches that pick one wear it too. The first is every slide's until another is named,
+   so it weighs nothing (:where). */
+:where(section[data-slide], .dk-swatch) {
   --dk-sans:
     system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo",
     "Malgun Gothic", sans-serif;
@@ -56,7 +58,7 @@ section[data-slide] {
   --dk-on-accent-muted: #b9ccc8;
   --dk-head: var(--dk-serif);
 }
-section[data-slide][data-palette="sea"] {
+[data-palette="sea"] {
   --dk-paper: #f6f8fb;
   --dk-card: #ffffff;
   --dk-ink: #0f1b2d;
@@ -67,7 +69,7 @@ section[data-slide][data-palette="sea"] {
   --dk-on-accent-muted: #bccde6;
   --dk-head: var(--dk-sans);
 }
-section[data-slide][data-palette="clay"] {
+[data-palette="clay"] {
   --dk-paper: #faf6f1;
   --dk-card: #ffffff;
   --dk-ink: #231913;
@@ -77,7 +79,7 @@ section[data-slide][data-palette="clay"] {
   --dk-on-accent: #faf6f1;
   --dk-on-accent-muted: #e7c4b6;
 }
-section[data-slide][data-palette="ink"] {
+[data-palette="ink"] {
   --dk-paper: #141618;
   --dk-card: #1c1f22;
   --dk-ink: #f1efea;
@@ -271,6 +273,13 @@ section[data-slide].dk-footed {
   gap: calc(48px * var(--dk-fit, 1));
   background: var(--dk-card);
 }
+/* The marks are the slide's, so the words are only what was said */
+.dk-said::before {
+  content: "\201C";
+}
+.dk-said::after {
+  content: "\201D";
+}
 .dk-said {
   max-width: 1500px;
   font-size: calc(72px * var(--dk-fit, 1));
@@ -403,7 +412,7 @@ section[data-slide] > aside {
 .dk-strip-h {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 6px;
 }
 .dk-strip-h .sh-pane-h {
@@ -456,6 +465,66 @@ section[data-slide] > aside {
 .dk-strip-row button:focus-visible .sh-thumb {
   outline: 2px solid var(--sh-brand);
   outline-offset: 1px;
+}
+
+/* Editing. The strip's head holds what changes the deck as a whole — the open slide's
+   place, a copy of it, taking it out, and the palette — and every line of words on a
+   slide is written where it stands, marked while the pointer is over it. The marks are
+   in the slide's own pixels, so they stay visible at the stage's scale. */
+.dk-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.dk-tools[hidden] {
+  display: none;
+}
+.dk-swatches {
+  display: flex;
+  gap: 6px;
+  padding: 0 4px;
+}
+.dk-swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--sh-line);
+  border-radius: 999px;
+  background: linear-gradient(
+    135deg,
+    var(--dk-accent) 0 50%,
+    var(--dk-paper) 50% 100%
+  );
+  cursor: pointer;
+}
+.dk-swatch[aria-checked="true"] {
+  box-shadow:
+    0 0 0 2px var(--sh-paper),
+    0 0 0 4px var(--sh-brand);
+}
+.dk-swatch:focus-visible {
+  outline: 2px solid var(--sh-brand);
+  outline-offset: 3px;
+}
+body.dk-editing:not(.shot) #deck [data-f] {
+  border-radius: 6px;
+  outline: 4px dashed transparent;
+  outline-offset: 10px;
+  cursor: text;
+}
+body.dk-editing:not(.shot) #deck [data-f]:hover {
+  outline-color: color-mix(in srgb, var(--sh-brand) 55%, transparent);
+}
+body.dk-editing:not(.shot) #deck [data-f]:focus {
+  outline: 6px solid var(--sh-brand);
+}
+body.dk-editing #notes-text {
+  min-height: 3.5em;
+  outline: none;
+  cursor: text;
+}
+body.dk-editing #notes-text:empty::before {
+  content: "Write what is said over this slide.";
 }
 
 /* Presenting, and a deck drawn as a file's face: the slide alone. The notes are the
