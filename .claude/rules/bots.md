@@ -87,6 +87,9 @@ changes with the code. This file holds what the runner and its neighbours keep.
   (`myaccount.google.com` borrows `google.com`). A site that binds a session to the browser it was
   made in (Google) refuses any copy; that work goes to the user's own Chrome (`attach --extension`,
   the browser skill), from which nothing is kept and into which nothing is loaded (`sessionBrowser`).
+- **A window opened for a sign-in closes once `sign_in_keep` has kept it**: the job's browser opens
+  again headless with the sign-in, on the same page (a browser cannot turn headless). The bot leaves
+  it up (`keepWindow`) only when what comes next there is the user's to see.
 
 ## Routines
 

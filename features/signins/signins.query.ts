@@ -121,6 +121,23 @@ export async function borrowSignIn(
   return { kind: "state", signIn: record(used), state: kept.state };
 }
 
+type ListedBrowser = { name: string; attached?: boolean; headed?: boolean };
+
+/** A participant's session as the browser CLI lists it, or null when it has none open. */
+async function listedBrowser(
+  sandbox: Sandbox,
+  env: Record<string, string>,
+): Promise<ListedBrowser | null> {
+  const listed = await sandbox.exec("playwright-cli list --json", {
+    env,
+    timeoutMs: 15_000,
+  });
+  const { browsers } = JSON.parse(listed.stdout || "{}") as {
+    browsers?: ListedBrowser[];
+  };
+  return browsers?.find((b) => b.name === env.PLAYWRIGHT_CLI_SESSION) ?? null;
+}
+
 /**
  * Whose browser a participant's session drives: its own, or the user's Chrome it attached
  * to. Theirs holds every site they are signed in to, so its state is never read out.
@@ -129,16 +146,18 @@ export async function sessionBrowser(
   sandbox: Sandbox,
   env: Record<string, string>,
 ): Promise<"own" | "theirs" | null> {
-  const listed = await sandbox.exec("playwright-cli list --json", {
-    env,
-    timeoutMs: 15_000,
-  });
-  const { browsers } = JSON.parse(listed.stdout || "{}") as {
-    browsers?: { name: string; attached?: boolean }[];
-  };
-  const open = browsers?.find((b) => b.name === env.PLAYWRIGHT_CLI_SESSION);
+  const open = await listedBrowser(sandbox, env);
   if (!open) return null;
   return open.attached ? "theirs" : "own";
+}
+
+/** Whether a participant's own browser is a window on the user's screen. */
+export async function sessionWindow(
+  sandbox: Sandbox,
+  env: Record<string, string>,
+): Promise<boolean> {
+  const open = await listedBrowser(sandbox, env);
+  return !!open && !open.attached && open.headed === true;
 }
 
 type Cookie = { name: string; domain: string; path: string; value: string };

@@ -80,7 +80,10 @@ yours to read off the job:
   fresh `snapshot` when the answer comes. A captcha or a code sent to their phone
   is the same move. Not `show` — it blocks waiting for annotations nobody will
   send. Once they are in, call the `sign_in_keep` tool: the app keeps the sign-in
-  for your later work, and they can sign out of it in Settings.
+  for your later work, and they can sign out of it in Settings. The window was for
+  the sign-in, so it closes and your browser goes on without one, signed in, on the
+  same page — unless what comes next there is theirs to see, the products to choose
+  or a checkout to confirm: then pass `keepWindow` and it stays.
 
 Never guess or invent a secret, or go looking for one somewhere they did not
 point you at. An email or username they gave you is not a secret — fill it and

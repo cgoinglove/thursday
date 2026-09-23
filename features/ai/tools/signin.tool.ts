@@ -5,6 +5,7 @@ import {
   borrowSignIn,
   keepSignIn,
   sessionBrowser,
+  sessionWindow,
 } from "@/features/signins/signins.query";
 import { siteOf } from "@/features/signins/signins.schema";
 import type { Sandbox } from "@/lib/sandbox";
@@ -38,6 +39,33 @@ export function createSignInTools(
           `exit ${ran.exitCode}`;
   };
 
+  /**
+   * The window a sign-in was made in goes, and the job's browser goes on without one, signed
+   * in, on the page it was on. A browser cannot turn headless, so it is closed and opened
+   * again with the sign-in loaded from `state` (a state file standing at that path).
+   */
+  const hideWindow = async (state: string): Promise<string> => {
+    if (!(await sessionWindow(sandbox, env).catch(() => false))) return "";
+    const at = await sandbox.exec(
+      `playwright-cli --raw run-code "async page => page.url()"`,
+      { env, timeoutMs: 15_000 },
+    );
+    let url = "";
+    try {
+      url = String(JSON.parse(at.stdout));
+    } catch {}
+    const failed =
+      (await cli("playwright-cli close")) ??
+      (await cli("playwright-cli open")) ??
+      (await cli(`playwright-cli state-load ${state}`)) ??
+      (/^https?:/.test(url)
+        ? await cli(`playwright-cli goto '${url.replaceAll("'", "'\\''")}'`)
+        : null);
+    return failed
+      ? `The window closed, but your browser did not come back signed in: ${failed}. Open it (\`playwright-cli open\`) and call \`${TOOL_NAMES.sign_in_use}\` with the site.`
+      : `The window was for the sign-in, so it is closed: your browser goes on without one, signed in, on the same page. When what comes next is theirs to see, open it \`--headed\` and call \`${TOOL_NAMES.sign_in_use}\` again.`;
+  };
+
   return {
     [TOOL_NAMES.sign_in_use]: tool({
       description:
@@ -68,7 +96,7 @@ export function createSignInTools(
 
     [TOOL_NAMES.sign_in_keep]: tool({
       description:
-        "Keep the sign-in the user just made in your browser window, so later work is signed in without asking them again. Call it right after they say they signed in.",
+        "Keep the sign-in the user just made in your browser window, so later work is signed in without asking them again. Call it right after they say they signed in. The window was for the sign-in: it closes, and your browser goes on without one, signed in, on the same page.",
       inputSchema: z.object({
         site: SITE,
         account: z
@@ -76,8 +104,14 @@ export function createSignInTools(
           .describe(
             "Who it is signed in as, as the site shows it — a handle, an email. The site's name when nothing is shown.",
           ),
+        keepWindow: z
+          .boolean()
+          .nullish()
+          .describe(
+            "True when what comes next on this site is theirs to see — the products to choose, a checkout to confirm — and the window stays up.",
+          ),
       }),
-      execute: async ({ site, account }) => {
+      execute: async ({ site, account, keepWindow }) => {
         if ((await sessionBrowser(sandbox, env)) === "theirs")
           return "You are working in their own Chrome: it stays signed in as them by itself, and nothing is kept from it.";
         const path = passing();
@@ -93,7 +127,8 @@ export function createSignInTools(
             await sandbox.readFile(path, "utf-8"),
           ) as unknown;
           const kept = await keepSignIn({ site, account, bot, state });
-          return `Kept: ${kept.site} as ${kept.account}. It is listed for them under Settings › Sign-ins, where they can sign out of it.`;
+          const said = `Kept: ${kept.site} as ${kept.account}. It is listed for them under Settings › Sign-ins, where they can sign out of it.`;
+          return keepWindow ? said : `${said} ${await hideWindow(path)}`.trim();
         } finally {
           await sandbox.exec(`rm -f ${path}`);
         }
