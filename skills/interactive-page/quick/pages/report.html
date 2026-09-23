@@ -1,11 +1,11 @@
 <!-- A report: the answer first, then what supports it, then what to do. Replace every
      line and keep the order. The three numbers under the lead are the ones the reader
      would ask for; drop the row when there are none. A figure or a quote you were not
-     given stays a visible blank, never an invented one. The contents are drawn beside the page from the headings
+     given stays a visible blank, never an invented one. The contents are drawn beside the page
      from the headings. Sources are what you actually read, with when. -->
 <p class="kicker">Report</p>
 <h1>{{title}}</h1>
-<p class="byline"><span class="chip date">As of 23 September 2026</span> <span class="chip who">Analyst</span></p>
+<p class="byline"><span class="chip date">As of {{today}}</span> <span class="chip who">Analyst</span></p>
 <p class="lede">The finding in one or two sentences: what the reader should take away, and what it rests on.</p>
 
 
@@ -41,6 +41,6 @@
 
 <h2>Sources</h2>
 <ol class="sources">
-  <li><a href="https://example.com/page">The page's own title</a> · read 23 September 2026</li>
+  <li><a href="https://example.com/page">The page's own title</a> · read {{today}}</li>
   <li>A file you were given, by its name</li>
 </ol>

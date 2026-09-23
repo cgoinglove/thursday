@@ -196,7 +196,9 @@ should sit beside one. Any bot can lay options out this way when a choice is wha
 Where the canvas has room — in its own tab — it shows a list of its boards on the left and a rail of
 tools: pick, move around, every board, the list. Clicking a board picks it and shows what it is made
 of on the right: its size, colours, type, corners and spacing, with a button that copies all of it
-as text for whoever builds it. The bar at its top names who made it and holds a theme button and
+as text for whoever builds it. Opened inside the app, where there is less room, the picked board's
+values take the list's place until every board is back (0 or Esc); on a phone they are left out, and
+**Export** still copies the board. The bar at its top names who made it and holds a theme button and
 **Export**: **Print · a board a page**, **This board as a picture**, **Copy this board as an
 instruction**, **Download this file**.
 
@@ -206,8 +208,9 @@ to jump to it, or fold the strip away. The bar at its top names who made it and 
 the count, Notes (what is said over the slide), full screen, Present, a theme button and **Export**
 (**Print · one slide a page**, **This slide as a picture**, **Download this file**). The arrow keys,
 space or a tap on the right or left of a slide turn it too, **f** fills the screen and **n** shows
-the notes. It is a deck to show on a screen — one to send or edit as a PowerPoint file is an office
-document, which Docs makes.
+the notes. Presenting shows the slide alone: the notes never go up on the screen the room sees. It is
+a deck to show on a screen — one to send or edit as a PowerPoint file is an office document, which
+Docs makes.
 
 Something to read — a report, a memo, a comparison, a plan, notes of a meeting — comes back as one
 page: a title with the date and who it is by, its contents beside it (the section being read is
@@ -215,8 +218,11 @@ marked), chips for dates, people and status, checklists, tables with the pick ma
 sources at the end. It reads on a phone and prints as a document. **Edit** in its top bar makes the
 page editable in place: a paragraph gets a handle and a **+** to put something after it, selected
 words get their formatting over them, and a chip — a date, a person, a status — moves as one piece:
-pressing it opens its words, and Enter or Esc closes it. ⌘Z takes back a paragraph moved, copied,
-deleted or put in, as it does typing. What is changed is saved back into the file as it is typed,
+pressing it opens its words, and Enter or Esc closes it. In a table Tab moves to the next cell and,
+past the last one, starts a row; in a list it indents the item. Something pasted keeps its words,
+links, lists and tables and leaves the look and the pictures of the page it came from behind. ⌘Z
+takes back a paragraph moved, copied, deleted or put in, as it does typing. What is changed is
+saved back into the file as it is typed,
 and at once when the page is left; a box ticked while reading is saved the same way. Closing its tab
 before a change is kept asks first. If the page changed after it was opened — its bot put new work
 in, or it was saved from another window — nothing more is saved over it: its top bar says **Changed

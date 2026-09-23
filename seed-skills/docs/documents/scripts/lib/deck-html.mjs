@@ -33,6 +33,18 @@ const measure = (html) =>
             .join("")
             .toUpperCase();
         };
+        // A typeface PowerPoint can name: `system-ui` and its kin are the browser's words
+        // for whatever the machine has, which no .pptx can carry
+        const faceOf = (family) =>
+          family
+            .split(",")
+            .map((one) => one.replace(/["']/g, "").trim())
+            .find(
+              (one) =>
+                !/^(system-ui|-apple-system|blinkmacsystemfont|ui-[a-z]+|sans-serif|serif|monospace|cursive|fantasy)$/i.test(
+                  one,
+                ),
+            ) ?? "Arial";
         const ownText = (el) =>
           [...el.childNodes]
             .filter((node) => node.nodeType === 3)
@@ -121,7 +133,7 @@ const measure = (html) =>
               colour: hex(cs.color) ?? "000000",
               bold: Number(cs.fontWeight) >= 600,
               italic: cs.fontStyle === "italic",
-              face: cs.fontFamily.split(",")[0].replace(/["']/g, "").trim(),
+              face: faceOf(cs.fontFamily),
               align: cs.textAlign === "start" ? "left" : cs.textAlign,
               line:
                 Number.parseFloat(cs.lineHeight) /

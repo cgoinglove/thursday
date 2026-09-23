@@ -211,6 +211,10 @@ window.shell = (() => {
     for (const aside of copy.querySelectorAll(":scope > aside")) aside.remove();
     stage.append(copy);
     box.append(stage);
+    // A picture of the thing, not a second one: its links, buttons and fields take no keys
+    // and are not read out. What holds it names itself (aria-label): a form's labels in
+    // the copy still reach a name made from its words.
+    box.inert = true;
     return { box, copy };
   };
 

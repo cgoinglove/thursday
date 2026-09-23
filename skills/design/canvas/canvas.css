@@ -239,7 +239,15 @@ body[data-tool="hand"] #field {
 .cv-spec .sh-b {
   width: 100%;
 }
+/* Where there is not room for both — the app's dialog is under 1000px — the picked board's
+   values take the place of the list until every board is back (0 or Esc). A phone has
+   room for neither: the Export menu still copies the board. */
 @media (max-width: 1100px) {
+  body:has(#spec:not([hidden])) :is(.cv-layers, [data-layers]) {
+    display: none;
+  }
+}
+@media (max-width: 720px) {
   .cv-spec {
     display: none;
   }

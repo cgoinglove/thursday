@@ -536,12 +536,13 @@
         if (look.stroke && look.stroke !== "none")
           add(colours, hex(look.stroke));
       }
-      if (look.fontFamily)
-        add(
-          families,
-          look.fontFamily.split(",")[0].replace(/["']/g, "").trim(),
-        );
+      // Type is what sets words: a radio button's face is the browser's, not the design's
       if (el.textContent?.trim()) {
+        if (look.fontFamily)
+          add(
+            families,
+            look.fontFamily.split(",")[0].replace(/["']/g, "").trim(),
+          );
         if (look.fontSize) sizes.add(px(look.fontSize));
         if (look.fontWeight) weights.add(look.fontWeight);
       }
@@ -648,6 +649,7 @@
       row.type = "button";
       const board = frame.querySelector(":scope > .board");
       const size = sizeOf(frame);
+      row.setAttribute("aria-label", `${nameOf(frame)}, ${size.w}×${size.h}`);
       if (board && size.w && size.h)
         row.append(shell.thumb(board, 44, 28, size.w, size.h).box);
       const name = document.createElement("span");

@@ -123,30 +123,39 @@
   });
 
   // Tabs: a `.tabs` block whose children are <section data-tab="Name">. One is shown at
-  // a time; printing shows them all, one under another, so nothing is lost on paper.
+  // a time; printing shows them all, one under another, so nothing is lost on paper. A
+  // press is heard on the paper, so a block copied in the editor switches as its source does.
+  const pickTab = (tabs, n) => {
+    const bar = tabs.querySelector(':scope > [role="tablist"]');
+    [...tabs.querySelectorAll(":scope > [data-tab]")].forEach((panel, i) => {
+      panel.hidden = i !== n;
+      bar?.children[i]?.setAttribute("aria-selected", String(i === n));
+    });
+  };
   for (const tabs of paper.querySelectorAll(".tabs")) {
     const panels = [...tabs.querySelectorAll(":scope > [data-tab]")];
     if (panels.length < 2) continue;
     const bar = document.createElement("div");
     bar.setAttribute("role", "tablist");
     bar.contentEditable = "false";
-    const pick = (n) =>
-      panels.forEach((panel, i) => {
-        panel.hidden = i !== n;
-        bar.children[i].setAttribute("aria-selected", String(i === n));
-      });
-    panels.forEach((panel, i) => {
+    for (const panel of panels) {
       const tab = document.createElement("button");
       tab.type = "button";
       tab.setAttribute("role", "tab");
       tab.textContent = panel.dataset.tab;
-      tab.addEventListener("click", () => pick(i));
       bar.append(tab);
       panel.setAttribute("role", "tabpanel");
-    });
+    }
     tabs.prepend(bar);
-    pick(0);
+    pickTab(tabs, 0);
   }
+  paper.addEventListener("click", (event) => {
+    const tab = event.target.closest?.(
+      '.tabs > [role="tablist"] > [role="tab"]',
+    );
+    if (tab)
+      pickTab(tab.closest(".tabs"), [...tab.parentNode.children].indexOf(tab));
+  });
 
   contents();
   spy();
@@ -415,6 +424,182 @@
     const sel = getSelection();
     sel.removeAllRanges();
     sel.addRange(past);
+  });
+
+  /* ── Tab, and what is pasted ─────────────────────────────────────────────── */
+
+  const caretIn = () => {
+    const at = getSelection()?.anchorNode;
+    const el = at instanceof Element ? at : at?.parentElement;
+    return el && paper.contains(el) ? el : null;
+  };
+  const selectAll = (el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+  };
+
+  // In a table Tab walks the cells and, past the last one, starts a row; in a list it
+  // indents the item. Anywhere else it leaves the page, as Tab does.
+  paper.addEventListener("keydown", (event) => {
+    if (!editing || event.key !== "Tab") return;
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    const el = caretIn();
+    const cell = el?.closest("td, th");
+    if (cell) {
+      event.preventDefault();
+      const cells = [...cell.closest("table").querySelectorAll("td, th")];
+      const to = cells[cells.indexOf(cell) + (event.shiftKey ? -1 : 1)];
+      if (to) return selectAll(to);
+      if (event.shiftKey) return;
+      const row = cell.closest("tr");
+      const fresh = row.cloneNode(true);
+      for (const one of fresh.children) {
+        one.replaceChildren();
+        one.removeAttribute("class");
+      }
+      moveBlock(fresh, () => row.after(fresh));
+      return selectAll(fresh.firstElementChild);
+    }
+    if (el?.closest("li")) {
+      event.preventDefault();
+      document.execCommand(event.shiftKey ? "outdent" : "indent");
+    }
+  });
+
+  /** What pasted words may bring with them: the shape of a document, never another page's look. */
+  const KEEP = {
+    P: "p",
+    H1: "h2",
+    H2: "h2",
+    H3: "h3",
+    H4: "h3",
+    H5: "h3",
+    H6: "h3",
+    UL: "ul",
+    OL: "ol",
+    LI: "li",
+    BLOCKQUOTE: "blockquote",
+    PRE: "pre",
+    HR: "hr",
+    BR: "br",
+    TABLE: "table",
+    THEAD: "thead",
+    TBODY: "tbody",
+    TR: "tr",
+    TH: "th",
+    TD: "td",
+    A: "a",
+    B: "b",
+    STRONG: "b",
+    I: "i",
+    EM: "i",
+    U: "u",
+    S: "s",
+    CODE: "code",
+    SPAN: "span",
+    INPUT: "input",
+  };
+  /** What holds no words of its own to keep: it goes whole. */
+  const DROP = new Set([
+    "SCRIPT",
+    "STYLE",
+    "LINK",
+    "META",
+    "TITLE",
+    "TEMPLATE",
+    "NOSCRIPT",
+    "IMG",
+    "PICTURE",
+    "SVG",
+    "VIDEO",
+    "AUDIO",
+    "IFRAME",
+    "OBJECT",
+    "EMBED",
+    "CANVAS",
+    "BUTTON",
+    "SELECT",
+    "TEXTAREA",
+    "FORM",
+  ]);
+  /** A box a page lays out with: its words become a paragraph, unless it holds blocks. */
+  const BOXES = new Set([
+    "DIV",
+    "SECTION",
+    "ARTICLE",
+    "MAIN",
+    "HEADER",
+    "FOOTER",
+    "ASIDE",
+    "NAV",
+    "FIGURE",
+    "FIGCAPTION",
+    "DETAILS",
+    "SUMMARY",
+    "DL",
+    "DT",
+    "DD",
+    "ADDRESS",
+    "CENTER",
+  ]);
+  const BLOCKS =
+    "p, h1, h2, h3, h4, h5, h6, ul, ol, li, table, blockquote, pre, hr, div, section, article";
+
+  const tidy = (from, into, own) => {
+    for (const node of [...from.childNodes]) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        into.append(node.data);
+        continue;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE || DROP.has(node.tagName))
+        continue;
+      const tag = KEEP[node.tagName];
+      const classes = [...node.classList].filter((name) => own.has(name));
+      if (!tag || (tag === "span" && !classes.length)) {
+        // A wrapper: its words stay where they are, a box's as a paragraph of their own
+        const box = BOXES.has(node.tagName) && !node.querySelector(BLOCKS);
+        if (box && node.textContent.trim())
+          tidy(node, into.appendChild(document.createElement("p")), own);
+        else tidy(node, into, own);
+        continue;
+      }
+      if (tag === "input" && node.getAttribute("type") !== "checkbox") continue;
+      const made = document.createElement(tag);
+      const href = node.getAttribute("href");
+      if (tag === "a" && href && /^(https?:|mailto:|#)/i.test(href))
+        made.setAttribute("href", href);
+      if (tag === "input") {
+        made.type = "checkbox";
+        made.toggleAttribute("checked", node.hasAttribute("checked"));
+      }
+      for (const name of ["colspan", "rowspan", "data-tab"])
+        if (node.hasAttribute(name))
+          made.setAttribute(name, node.getAttribute(name));
+      if (classes.length) made.className = classes.join(" ");
+      tidy(node, made, own);
+      into.append(made);
+    }
+    return into;
+  };
+
+  // A paste keeps words, links, lists and tables, and the document's own classes — a chip
+  // copied from this page is still a chip — and leaves another page's look and pictures
+  // behind: a picture from the web would need the network the page opens without.
+  paper.addEventListener("paste", (event) => {
+    if (!editing) return;
+    const html = event.clipboardData?.getData("text/html");
+    if (!html) return;
+    event.preventDefault();
+    const own = new Set(
+      [...paper.querySelectorAll("[class]")]
+        .flatMap((el) => [...el.classList])
+        .filter((name) => !/^(pg|sh)-/.test(name)),
+    );
+    const came = new DOMParser().parseFromString(html, "text/html").body;
+    const kept = tidy(came, document.createElement("div"), own);
+    document.execCommand("insertHTML", false, kept.innerHTML);
   });
 
   /** The block `node` sits in: one of the paper's own children. */

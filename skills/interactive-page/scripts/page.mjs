@@ -247,6 +247,12 @@ function quickPage(name, ...args) {
   if (existsSync(out))
     throw new Stop(`${shown(out)} already exists. Edit it there.`);
   const part = (path) => readFileSync(join(quick, path), "utf8").trim();
+  // A ready document is dated: today, so a date left as it came is at least the right one
+  const today = new Date().toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(
     out,
@@ -255,7 +261,8 @@ function quickPage(name, ...args) {
         .replace("{{body}}", () => part(join("pages", `${kind}.html`)))
         .replace("{{css}}", () => part("quick.css"))
         .replace("{{js}}", () => part("quick.js"))
-        .replaceAll("{{title}}", name),
+        .replaceAll("{{title}}", name)
+        .replaceAll("{{today}}", today),
     ),
   );
   console.log(

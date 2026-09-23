@@ -255,12 +255,23 @@ section[data-slide] > aside {
   outline-offset: 1px;
 }
 
-/* Presenting, and a deck drawn as a file's face: the slide alone. */
+/* Presenting, and a deck drawn as a file's face: the slide alone. The notes are the
+   presenter's, and presenting is what the room sees. */
 :fullscreen .sh-head,
 :fullscreen #strip,
+:fullscreen #notes,
 .sh-face #strip,
 .sh-face #notes {
   display: none;
+}
+
+/* On a phone the head keeps what turns the deck and presents it: Present fills the
+   screen, so the button that only does that goes, with the rules between groups. */
+@media (max-width: 480px) {
+  .sh-head [data-full],
+  .sh-head .sh-rule {
+    display: none;
+  }
 }
 :fullscreen #stage {
   background: #000;
