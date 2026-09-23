@@ -18,12 +18,20 @@ import {
 import {
   type EyeFit,
   type EyeScript,
+  type EyeState,
   eyeScript,
   eyeState,
   inEye,
 } from "../eyes";
 import type { AsciiCharset } from "../face.const";
-import { fbm, ihash, warp, windAt } from "../field";
+import { type Wind, windAt } from "../field";
+import {
+  createSmoke,
+  restValue,
+  type Smoke,
+  sighValue,
+  stepSmoke,
+} from "../smoke";
 import type { FaceWord } from "../thursday.schema";
 import { WASH_SETS, washAt } from "../wash";
 
@@ -72,6 +80,33 @@ const GLYPH_FONT = (px: number) =>
 /** The same, for an emoji standing at one rung of the ramp rather than at the top of it. */
 const emojiFont = (px: number, level: number, top: number) =>
   GLYPH_FONT(px * (0.5 + emojiWeight(level, top) * 0.5));
+
+/**
+ * Every emoji she can show — her own and the washes' — drawn once at every size she draws them,
+ * and wiped, before her first frame. The browser shapes a colour emoji the first time it meets it
+ * at a size, and that is most of a frame: met in her first frame, it stalls her arrival, and met
+ * when a wash first brings its set in, it stalls her then. A sheet copied from would spare the
+ * first frame too, but costs three times as much on every frame after it.
+ */
+function warmEmoji(ctx: CanvasRenderingContext2D, px: number, cells: Cell[]) {
+  if (cells.length === 0) return;
+  const glyphs = new Set<string>(EMOJI_POOL);
+  for (const set of WASH_SETS) for (const glyph of set.emoji) glyphs.add(glyph);
+  const top = RAMP.length - 1;
+  const fonts = [GLYPH_FONT(px)];
+  for (let lv = 1; lv <= top; lv++) fonts.push(emojiFont(px, lv, top));
+  for (const font of fonts) {
+    ctx.font = font;
+    let i = 0;
+    for (const glyph of glyphs) {
+      // at real cells, spread over the box, as her frames will place them
+      const cell = cells[(i++ * 97) % cells.length];
+      ctx.fillText(glyph, cell.x, cell.y);
+    }
+  }
+  ctx.font = GLYPH_FONT(px);
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+}
 
 /** Peak brightness of the default grey orb */
 const DEFAULT_COLOR: [number, number, number] = [235, 235, 235];
@@ -199,6 +234,12 @@ function toward(
  * body is about half, since the idle wave fades from 0.55 x IDLE_R.
  */
 const IDLE_R = 170;
+/**
+ * At rest she is this much larger than IDLE_R. Her body is solid only to half its radius and soft
+ * past that (smoke.ts), so at IDLE_R itself her resting face reads as smaller than her speaking
+ * one, which starts from IDLE_R.
+ */
+const REST_GROW = 1.08;
 
 /**
  * Connecting: crumbs travel in from the edge of the field to the resting body.
@@ -255,6 +296,16 @@ const WORD_LINGER = 0.9;
 /** A word given this soon after she mounts came with her (ms). */
 const BORN_WITH_MS = 600;
 /**
+ * She starts once the page has settled: begun while it is still loading, her arrival plays
+ * through its long tasks and stutters. Settled is SETTLE_FRAMES frames in a row, each under
+ * SETTLE_GAP_MS apart — about a quarter of a second with nothing long in it, since the page's
+ * last scripts and its last render can come a few frames apart. A machine that never manages
+ * that still gets her by SETTLE_AT_MOST_MS.
+ */
+const SETTLE_FRAMES = 15;
+const SETTLE_GAP_MS = 24;
+const SETTLE_AT_MOST_MS = 2500;
+/**
  * The widest and tallest a word is drawn, as shares of the box. Wider than her body, as ERROR
  * is: fitted to the body alone, a seven-letter word came out at the smallest size and was
  * hard to read.
@@ -308,12 +359,13 @@ function letterAt(
 /**
  * The phosphor. A cell takes a brighter value at once and decays from it, on two clocks: a short
  * one that carries the body and a long, weaker one that is the tail. Two rather than one, because
- * a single constant either smears everything or nothing. Seconds.
+ * a single constant either smears everything or nothing. The tail is short and light: her smoke
+ * already leaves its own trail, and a long one on top of it reads as ink. Seconds.
  */
 const TRAIL_FAST = 0.085;
-const TRAIL_SLOW = 1.25;
+const TRAIL_SLOW = 0.8;
 /** What the long clock is worth beside the short one. */
-const TRAIL_WEIGHT = 0.64;
+const TRAIL_WEIGHT = 0.52;
 
 /**
  * How often a cell picks a new glyph at an unchanged brightness, a second. Slow on purpose: the
@@ -323,8 +375,8 @@ const TRAIL_WEIGHT = 0.64;
  * while she speaks. The wave that leaves her face keeps the faster rate (ascii.const CHAR_RATE):
  * it is over in two seconds and has no shape to hold.
  */
-const CHURN_ASCII = 0.45;
-const CHURN_EMOJI = 0.3;
+const CHURN_ASCII = 0.4;
+const CHURN_EMOJI = 0.264;
 
 /**
  * Her eyes open about this often, times a factor between 0.55 and 1.45 drawn fresh each time, and
@@ -337,52 +389,18 @@ const EYES_IN = 1.25;
 const EYES_OUT = 1.5;
 /** The lid: how long it takes to come up, how long to come down, and how long the noise dirties it. */
 const EYES_OPEN = 0.38;
-const EYES_SHUT = 0.34;
+const EYES_SHUT = 1.35;
 const EYES_FILL = 0.3;
-
 /**
- * Her body. A soft radial falloff and a skin that churns but never empties, which is what it was
- * the day it was picked. The boundary carries only two small things — a slow noise around the
- * circle that moves the radius a few percent, and a per-cell offset on top of that — and the
- * falloff reaches past the radius, so her last cells scatter faint rather than stop at a line.
- * She is a circle; what is irregular is what happens inside her and what leaves her.
+ * How she shuts them: falling asleep, not switched off. The lid falls quickly and then creeps the
+ * last of the way (what is left of it goes as a power above 1 of what is left of the time), her
+ * gaze lowers by EYES_SLEEP_DOWN of her radius, and EYES_LID_FALL of what the eye loses comes off
+ * its top, so the lids meet below its middle. Lowered much further, the whole eye is seen sliding
+ * off.
  */
-const EMBER_CORE = 0.35;
-const EMBER_EDGE = 0.95;
-const EMBER_SKIN = 0.55;
-const EMBER_SWING = 0.45;
-const EMBER_SWAY = 0.13;
-const EMBER_GRIT = 0.1;
-
-/**
- * And what she throws. Read further along its flight the older it is, and then three things that
- * stop it being a halo: the reach is its OWN noise by direction, so some ways carry and some
- * barely leave; the whole of it leans on a slow wind, read as a displacement rather than a turn;
- * and the bar rises along the way, so a filament is wide where it leaves her and a thread by its
- * end. Past `CRUMB_FROM` it stops being a filament at all — each cell there is lit on its own
- * clock, so the end is a few crumbs flying rather than a soft point.
- */
-const EMBER_DRIFT = 62;
-const EMBER_STRAND = 0.375;
-const EMBER_WEIGHT = 9.5;
-const EMBER_NARROW = 0.13;
-const EMBER_FEW = 2.4;
-const EMBER_FAN = 0.009;
-const EMBER_FROM = 88;
-const EMBER_TO = 330;
-const EMBER_POINT = 1.25;
-const EMBER_RAGGED = 1.15;
-const EMBER_LEAN = 0.72;
-const EMBER_CRUMB_FROM = 0.42;
-const EMBER_CRUMB_RATE = 1.7;
-
-/**
- * What opening her eyes does to the rest of her: almost nothing, on purpose. She used to draw her
- * pieces back in, fill to her rim and grow, which turned her into a plain circle for the one
- * moment she is most worth looking at. All that is left is a little lift, so the holes have
- * something to be holes in.
- */
-const EMBER_EYE_LIFT = 0.12;
+const EYES_SLEEP_EASE = 2.2;
+const EYES_SLEEP_DOWN = 0.04;
+const EYES_LID_FALL = 0.7;
 
 /**
  * About how often part of her is briefly made of something else, and about how long one sits
@@ -399,87 +417,9 @@ const WASH_LINGER_MORE = 0.9;
  * How she wears her eyes (eyes.ts): the bot faces' own layout, with a lens a tenth larger,
  * because a hole in a body of glyphs needs a little more than a hole in a solid shape.
  */
-const EMBER_EYES: EyeFit = { gap: 1, size: 1.1 };
+const EYE_FIT: EyeFit = { gap: 1, size: 1.1 };
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
-
-/**
- * Resting: an ember. `lift` brightens it in place; `scale` is the body's share of IDLE_R, which is
- * how it opens and closes. `gather` is only how far her eyes are up. `gust` is this frame's wind.
- */
-function emberValue(
-  cell: Cell,
-  t: number,
-  lift: number,
-  scale: number,
-  gather: number,
-  gust: { x: number; y: number },
-) {
-  const held = gather > 0 ? clamp01(gather * 1.5) : 0;
-  const base = IDLE_R * Math.max(0.02, scale);
-  const r =
-    base *
-      (1 -
-        EMBER_SWAY * 0.5 +
-        EMBER_SWAY *
-          fbm(
-            Math.cos(cell.angle) * 1.5 + 3,
-            Math.sin(cell.angle) * 1.5,
-            t * 0.18,
-            2,
-          )) +
-    (cell.grain - 0.5) * base * EMBER_GRIT;
-  const core = 1 - smoothstep(r * EMBER_CORE, r * EMBER_EDGE, cell.dist);
-  let value =
-    core *
-    (EMBER_SKIN +
-      EMBER_SWING * warp(cell.dx * 0.016, cell.dy * 0.016, t * 0.5, 3)) *
-    (1 + lift) *
-    (1 + EMBER_EYE_LIFT * held);
-  // Arriving and leaving happen in patches on her own noise, never as one disc changing
-  // brightness: a circle that fades up out of an empty field is the cleanest thing that can be
-  // put on this screen, and it is the one moment everything else here is built to avoid.
-  if (scale < 0.98) {
-    const arrive = warp(cell.dx * 0.015 - 7, cell.dy * 0.015 + 3, 11.4, 2);
-    value *= smoothstep(arrive - 0.34, arrive + 0.34, scale * 1.7 - 0.24);
-  }
-  // leaned: the further out a cell is, the further upwind the field is read for it
-  const lx = cell.dx - gust.x * cell.dist * EMBER_LEAN;
-  const ly = cell.dy - gust.y * cell.dist * EMBER_LEAN;
-  const la = Math.atan2(ly, lx);
-  const fan = EMBER_FEW / (1 + cell.dist * EMBER_FAN);
-  const flight = fbm(
-    Math.cos(la) * fan,
-    Math.sin(la) * fan,
-    (cell.dist - t * EMBER_DRIFT) * 0.008,
-    3,
-  );
-  const far =
-    EMBER_FROM +
-    40 +
-    EMBER_TO *
-      EMBER_RAGGED *
-      Math.max(
-        0,
-        fbm(Math.cos(la) * 1.1 + 5, Math.sin(la) * 1.1, t * 0.09, 2) - 0.18,
-      );
-  const out = smoothstep(EMBER_FROM, far, cell.dist);
-  let spray =
-    (Math.max(0, flight - (EMBER_STRAND + EMBER_NARROW * out)) * 2.6) ** 2 *
-    EMBER_WEIGHT *
-    (1 - out) ** EMBER_POINT *
-    scale;
-  if (out > EMBER_CRUMB_FROM && spray > 0) {
-    const apart = smoothstep(EMBER_CRUMB_FROM, 1, out);
-    const lit = ihash(
-      cell.dx * 0.19,
-      cell.dy * 0.19,
-      ((t * EMBER_CRUMB_RATE + cell.seed * 5) | 0) + 3,
-    );
-    spray *= 1 - apart + apart * (lit < 0.42 ? 2.1 : 0.06);
-  }
-  return value + spray;
-}
 
 /** The rim's radius for a raw push: as pushed up to SPEAK_KNEE, then easing into SPEAK_MAX. */
 function rimAt(raw: number) {
@@ -752,12 +692,20 @@ function fieldValue(
   wordHold: number,
   f: Field,
   v: Voice,
-  gather: number,
-  gust: { x: number; y: number },
+  smoke: Smoke,
+  wind: Wind,
 ) {
   let value =
     f.scale > 0.02
-      ? emberValue(cell, t, f.lift, f.scale, gather, gust) *
+      ? restValue(
+          cell,
+          t,
+          f.lift,
+          IDLE_R * REST_GROW * f.scale,
+          f.scale,
+          smoke,
+          wind,
+        ) *
         (1 - 0.6 * f.speech)
       : 0;
   if (f.gather > 0.01) value += gatherValue(cell, t, f.scale) * f.gather;
@@ -957,6 +905,7 @@ export function AsciiOrb({
       ctx.font = GLYPH_FONT(fontSize);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
+      warmEmoji(ctx, fontSize, cells);
       ctxRef.current = ctx;
     }
 
@@ -983,9 +932,8 @@ export function AsciiOrb({
     modeRef.current = { mode, start: performance.now() * 0.001 };
   }, [mode]);
 
-  // a new word starts from its first letter, in place of one still showing — but the one
-  // that comes with her (the hello as the app opens) is there from her first frame: letters
-  // lighting in a moment after an empty face read as a late start
+  // a new word starts from its first letter, in place of one still showing; the one that comes
+  // with her (the hello as the app opens) starts when she does, lighting in like any other
   useEffect(() => {
     if (!word) return;
     // A word is said as it comes. One handed back later — the goodbye still held when a
@@ -993,20 +941,16 @@ export function AsciiOrb({
     if (Date.now() - word.at > (word.hold ?? WORD_HOLD) * 1000) return;
     const { cw, ch } = pitchRef.current;
     const now = performance.now();
-    const lit =
-      now - bornAt.current < BORN_WITH_MS
-        ? word.text.length * WORD_STEP_IN + WORD_FADE_IN + WORD_SCATTER
-        : 0;
     wordRef.current = {
       text: word.text,
-      start: now * 0.001 - lit,
+      start: now * 0.001,
       letters: layWord(cellsRef.current, cw, ch, word.text),
       hold: word.hold ?? WORD_HOLD,
     };
-    // A word that came with her is already lit, so the field is put where it already is rather
-    // than eased there. Otherwise the body opens on the first frames and is taken away again a
-    // moment later, which is a blink on the screen the app opens with.
-    if (lit > 0) {
+    // A word that came with her has the face from her first frame, so the field is put where the
+    // word wants it rather than eased there. Otherwise her body opens on the first frames and is
+    // taken away again a moment later, which is a blink on the screen the app opens with.
+    if (now - bornAt.current < BORN_WITH_MS) {
       const f = fieldRef.current;
       f.word = 1;
       f.scale = 0;
@@ -1017,9 +961,13 @@ export function AsciiOrb({
   useEffect(() => {
     let raf = 0;
     const follower = createVoiceFollower();
+    const smoke = createSmoke();
     const murmur = new Array<number>(SPECTRUM_BANDS).fill(0);
 
     let lastT = performance.now() * 0.001;
+    /** Whether she has started, and the smooth frames seen while she waits for the page to settle */
+    let started = false;
+    let smooth = 0;
     /** Glyph clock: seconds the loop has run, so a backgrounded tab resumes where it left off */
     let clock = 0;
     /** Seconds ERROR has been showing (errorValue) */
@@ -1027,6 +975,21 @@ export function AsciiOrb({
 
     const draw = (nowMs: number) => {
       const t = nowMs * 0.001;
+      if (!started) {
+        smooth = (t - lastT) * 1000 < SETTLE_GAP_MS ? smooth + 1 : 0;
+        lastT = t;
+        if (
+          smooth < SETTLE_FRAMES &&
+          nowMs - bornAt.current < SETTLE_AT_MOST_MS
+        ) {
+          raf = requestAnimationFrame(draw);
+          return;
+        }
+        started = true;
+        // a word that came with her starts with her, not while she waited
+        const waiting = wordRef.current;
+        if (waiting) waiting.start = t;
+      }
       // a backgrounded tab can deliver seconds in one frame; clamp so phases do not jump
       const dt = Math.min(0.05, Math.max(0, t - lastT));
       lastT = t;
@@ -1149,16 +1112,19 @@ export function AsciiOrb({
       const rate = cs === "emojiOnly" ? CHURN_EMOJI : CHURN_ASCII;
 
       // this frame's wind, which is what her plume leans on
-      const gust = windAt(clock * 0.35, windSeed);
+      const wind = windAt(clock, windSeed);
       const fastKeep = Math.exp(-dt / TRAIL_FAST);
       const slowKeep = Math.exp(-dt / TRAIL_SLOW);
 
       // Her eyes, which belong to resting alone. `held` closes them well before anything else
       // comes up, and the whole thing is skipped while a word or ERROR has the face.
       const restful = f.scale * (1 - f.speech) * (1 - f.comet) * (1 - f.gather);
-      let eyes: ReturnType<typeof eyeState> | null = null;
+      let eyes: EyeState | null = null;
       let eyesHeld = 0;
-      let eyesGather = 0;
+      // for her smoke: how open her eyes are, how far into shutting them, how long since they parted
+      let eyesOpen = 0;
+      let asleep = 0;
+      let sinceLids = -1;
       if (restful > 0.4 && !solidError && !solidWord) {
         const look = lookRef.current;
         if (clock > look.until) {
@@ -1171,25 +1137,33 @@ export function AsciiOrb({
         const span = look.until - look.from;
         if (look.script && age > 0) {
           const settled = smoothstep(0.4, 0.75, restful);
-          // the body closes first and lets go last; the eyes are a slice inside that, shut well
-          // before it loosens, so there is never a half-faded hole in a scattering
-          eyesGather =
-            smoothstep(0, EYES_IN, age) *
-            (1 - smoothstep(span - EYES_OUT, span, age)) *
-            settled;
           // It opens by the LID, not by the hole filling itself in: a hole that fills cell by
           // cell over a second is something appearing, and a hole that fills itself back in at
           // the end is something dissolving. Neither is what an eye does. The cell noise is
           // still there, but only for the third of a second the lid is moving.
           const upAt = EYES_IN * 0.6;
           const closeAt = span - EYES_OUT - 0.3;
+          const sleep = clamp01((age - closeAt) / EYES_SHUT);
           eyesHeld = smoothstep(upAt, upAt + EYES_FILL, age);
-          eyes = eyeState(look.script, Math.max(0, age - EYES_IN * 0.7));
-          eyes.lid *=
-            smoothstep(upAt, upAt + EYES_OPEN, age) *
-            (1 - smoothstep(closeAt, closeAt + EYES_SHUT, age));
+          const state = eyeState(look.script, Math.max(0, age - EYES_IN * 0.7));
+          const opened = state.lid * smoothstep(upAt, upAt + EYES_OPEN, age);
+          const left = (1 - sleep) ** EYES_SLEEP_EASE;
+          eyes = {
+            ...state,
+            gaze: [
+              state.gaze[0],
+              state.gaze[1] + EYES_SLEEP_DOWN * smoothstep(0, 0.65, sleep),
+            ],
+            lid: opened * left,
+            fall: opened * (1 - left) * (2 * EYES_LID_FALL - 1),
+          };
+          eyesOpen = eyesHeld * (1 - sleep) * settled;
+          asleep = smoothstep(0.1, 0.9, sleep) * settled;
+          if (settled > 0.5) sinceLids = age - upAt;
         }
       }
+      stepSmoke(smoke, t, dt, eyesOpen, asleep, sinceLids);
+      const restR = IDLE_R * REST_GROW * Math.max(0.02, f.scale);
 
       const all = cellsRef.current;
       for (let ci = 0; ci < all.length; ci++) {
@@ -1202,25 +1176,32 @@ export function AsciiOrb({
           shown?.hold ?? WORD_HOLD,
           f,
           voice,
-          eyesGather,
-          gust,
+          smoke,
+          wind,
         );
+        // the sigh she lets out as her eyes open, over whatever is there
+        if (smoke.sigh.live) {
+          const sigh = sighValue(cell, t, restR, smoke) * f.scale;
+          if (sigh > v) v = sigh;
+        }
 
         const plain = !(
           (solidError && cell.letter >= 0) ||
           (solidWord && cell.word >= 0)
         );
         if (plain) {
-          // per-cell brightness response breaks concentric rings; multiplicative, so empty (0) stays empty
-          v *= 0.56 + cell.grain * 0.92;
+          // per-cell brightness response breaks concentric rings; multiplicative, so empty (0) stays
+          // empty. Narrow on purpose: a wider spread sends more cells to the top rung and more to
+          // nothing, which is most of what reads as heavy.
+          v *= 0.66 + cell.grain * 0.72;
           // slowly drifting noise on top
           v *=
-            0.7 +
+            0.8 +
             hash(
               Math.floor(cell.dx * 0.05 + t * 0.5),
               Math.floor(cell.dy * 0.05 - t * 0.3),
             ) *
-              0.62;
+              0.4;
 
           if (
             v > 0.3 &&
@@ -1249,7 +1230,7 @@ export function AsciiOrb({
         const hole =
           eyesHeld > 0.03 &&
           eyes !== null &&
-          inEye(cell.dx, cell.dy, IDLE_R * f.scale, eyesHeld, eyes, EMBER_EYES);
+          inEye(cell.dx, cell.dy, restR, eyesHeld, eyes, EYE_FIT);
         if (hole) {
           bk.fast[ci] = 0;
           bk.slow[ci] = 0;

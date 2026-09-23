@@ -59,7 +59,7 @@ type Beat = {
   blink2?: readonly [number, number] | null;
 };
 
-export type EyeScript = { beats: Beat[]; total: number; tilt: number };
+export type EyeScript = { beats: Beat[]; total: number };
 
 /** What the eyes are doing at a moment: where they look, how they lean, how open the lids are. */
 export type EyeState = {
@@ -67,6 +67,12 @@ export type EyeState = {
   tilt: number;
   /** Multiplies the eye's length. A blink takes it to nothing and back, and so do the lids. */
   lid: number;
+  /**
+   * How far the eye's middle has dropped as it shuts, as a share of its whole length: 0 closes
+   * it on its middle; the share of what it loses that comes off the top, less the share off the
+   * bottom, puts the lids' meeting below the middle, as a falling-asleep eye closes.
+   */
+  fall?: number;
 };
 
 /**
@@ -78,6 +84,8 @@ export type EyeState = {
 export function eyeScript(seed: number): EyeScript {
   const r = (k: number) => ihash(seed, k * 7 + 3, 1);
   const side = r(3) < 0.5 ? -1 : 1;
+  // A lean she may take once she is looking at you. Never on the way up: an eye that arrives
+  // on the slant and then straightens reads as the drawing correcting itself.
   const tilt = (0.26 + r(2) * 0.18) * side;
   const home = [0, 0] as const;
   const away = (reach: number) =>
@@ -92,10 +100,10 @@ export function eyeScript(seed: number): EyeScript {
   let beats: Beat[];
   switch ((r(1) * 5) | 0) {
     case 0:
-      // the long one: in on the slant, level to look at you, blink, one look away, back
+      // the long one: open, look at you, blink, one look away, back
       beats = [
-        { ms: 1.3 + r(4) * 0.9, tilt, gaze: home, snap: 0.01 },
-        { ms: 1.4 + r(5) * 0.9, tilt: 0, gaze: home, snap: 0.6 },
+        { ms: 1.3 + r(4) * 0.9, tilt: 0, gaze: home, snap: 0.01 },
+        { ms: 1.4 + r(5) * 0.9, tilt: 0, gaze: home },
         blink(0.12),
         { ms: 1.2 + r(6) * 0.9, tilt: 0, gaze: away(1), snap: 0.1 },
         { ms: 1.3 + r(7) * 0.9, tilt: 0, gaze: home, snap: 0.12 },
@@ -112,16 +120,17 @@ export function eyeScript(seed: number): EyeScript {
     case 1:
       // a peek: barely open, one blink, gone
       beats = [
-        { ms: 0.9 + r(4) * 0.5, tilt: tilt * 0.5, gaze: home, snap: 0.01 },
-        { ms: 0.8 + r(5) * 0.5, tilt: 0, gaze: home, snap: 0.45 },
+        { ms: 0.9 + r(4) * 0.5, tilt: 0, gaze: home, snap: 0.01 },
+        { ms: 0.8 + r(5) * 0.5, tilt: 0, gaze: home },
         blink(0.1),
         { ms: 0.7 + r(6) * 0.6, tilt: 0, gaze: home },
       ];
       break;
     case 2:
-      // stays on the slant a long while, and only then comes level
+      // opens level, leans her head over for a while, comes level again
       beats = [
-        { ms: 2.6 + r(4) * 1.6, tilt, gaze: home, snap: 0.01 },
+        { ms: 1.2 + r(4) * 0.8, tilt: 0, gaze: home, snap: 0.01 },
+        { ms: 1.6 + r(13) * 1.2, tilt, gaze: home, snap: 0.9 },
         { ms: 0.8, tilt, gaze: home, blink: [0.14, 0.36] },
         { ms: 1.8 + r(5) * 1.1, tilt: 0, gaze: home, snap: 0.75 },
         { ms: 1.5 + r(6) * 1.3, tilt: 0, gaze: home },
@@ -130,7 +139,7 @@ export function eyeScript(seed: number): EyeScript {
     case 3:
       // looks away almost at once, comes back, blinks twice
       beats = [
-        { ms: 0.9 + r(4) * 0.5, tilt: tilt * 0.7, gaze: home, snap: 0.01 },
+        { ms: 0.9 + r(4) * 0.5, tilt: 0, gaze: home, snap: 0.01 },
         { ms: 1.1 + r(5) * 0.7, tilt: 0, gaze: away(1.1), snap: 0.09 },
         { ms: 1.4 + r(6) * 0.8, tilt: 0, gaze: home, snap: 0.12 },
         {
@@ -146,8 +155,8 @@ export function eyeScript(seed: number): EyeScript {
     default:
       // two separate glances, one each way
       beats = [
-        { ms: 1.2 + r(4) * 0.7, tilt, gaze: home, snap: 0.01 },
-        { ms: 1.2 + r(5) * 0.7, tilt: 0, gaze: home, snap: 0.55 },
+        { ms: 1.2 + r(4) * 0.7, tilt: 0, gaze: home, snap: 0.01 },
+        { ms: 1.2 + r(5) * 0.7, tilt: 0, gaze: home },
         { ms: 1 + r(6) * 0.6, tilt: 0, gaze: away(1), snap: 0.09 },
         { ms: 0.9 + r(7) * 0.5, tilt: 0, gaze: away(-0.85), snap: 0.09 },
         { ms: 1.2 + r(8) * 0.8, tilt: 0, gaze: home, snap: 0.12 },
@@ -158,7 +167,7 @@ export function eyeScript(seed: number): EyeScript {
 
   let total = 0;
   for (const beat of beats) total += beat.ms;
-  return { beats, total, tilt };
+  return { beats, total };
 }
 
 const AT_REST: EyeState = { gaze: [0, 0], tilt: 0, lid: 1 };
@@ -167,7 +176,7 @@ const AT_REST: EyeState = { gaze: [0, 0], tilt: 0, lid: 1 };
 export function eyeState(script: EyeScript, age: number): EyeState {
   let at = 0;
   let wasGaze: readonly [number, number] = [0, 0];
-  let wasTilt = script.tilt;
+  let wasTilt = 0;
   for (const beat of script.beats) {
     const local = age - at;
     if (local < beat.ms) {
@@ -214,7 +223,11 @@ export function inEye(
   for (const side of [-1, 1]) {
     const ex =
       dx - (side * (EYE.gap / 2) * k * fit.gap + state.gaze[0] * bodyRadius);
-    const ey = dy - (EYE.y * k + state.gaze[1] * bodyRadius);
+    const ey =
+      dy -
+      (EYE.y * k +
+        state.gaze[1] * bodyRadius +
+        ((state.fall ?? 0) * EYE.len * ks) / 2);
     // the pair leans together about their own centres
     const cos = Math.cos(state.tilt);
     const sin = Math.sin(state.tilt);

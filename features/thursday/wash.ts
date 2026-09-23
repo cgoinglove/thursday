@@ -55,8 +55,8 @@ export function washAt(
 ) {
   const slot = Math.floor(t / every);
   const start = slot * every + 0.6 + ihash(slot, 11, 5) * every * 0.45;
-  // some barely land and some sit
-  const dur = hold * (0.5 + ihash(slot, 17, 9) * 1.9);
+  // most sit a few seconds, and now and then one stays a long while
+  const dur = hold * (0.6 + 3.4 * ihash(slot, 17, 9) ** 2);
   const age = t - start;
   if (age < 0 || age > dur) return 0;
   const grow = smoothstep(0, 1.7 + ihash(slot, 3, 2) * 2.6, age);

@@ -99,11 +99,12 @@ Everything here is in **Settings › Thursday**, and changes apply from the next
 
 - **Face**: **Glyphs** picks what she is drawn with — **Characters**, **Sprinkled** (characters
   with some emoji) or **All emoji**, which is where it starts — and **Size** and **Density** how
-  big and how dense. At rest she burns like an ember: the middle keeps moving and pieces drift off
-  the edge. Every half-minute or so she gathers herself and opens two eyes, which look around,
-  blink and go; that happens only while she is resting. She can spell a short word: a hello as the
-  app opens, CALL while she rings, OK as finished work comes in, BYE as a call ends, and whatever
-  she chooses to show. While she works it is a single tail circling.
+  big and how dense. At rest she is a face of smoke: it keeps moving inside her and drifts off her
+  edge on a wind that comes and goes. Every half-minute or so she opens two eyes with a sigh of
+  smoke; while they are open her smoke grows thick and far-reaching, and she closes them slowly,
+  looking down, as if falling asleep. That happens only while she is resting. She can spell a
+  short word: a hello as the app opens, CALL while she rings, OK as finished work comes in, BYE as
+  a call ends, and whatever she chooses to show. While she works it is a single tail circling.
 - **Voice**: the voice runs on GPT-Live 1, with 22 voices to pick from; clicking a name plays it.
   It is the one setting here a written call or a phone does not use.
 - **Style**: who she is to them — ten of them, and the only difference is how she talks. The row
