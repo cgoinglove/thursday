@@ -1,0 +1,77 @@
+# Skills that ship with the app
+
+A skill is a folder with a `SKILL.md`. Its name and description are listed to every bot, and to
+the call when Settings › Thursday › Read skills is on; its body is read when a bot loads it. Every
+skill here belongs to every bot: a ready-made bot differs from another by its role, not by what it
+can load. Settings › Skills lists them and switches one off.
+
+Two folders here are not skills, since they have no `SKILL.md`: `shell/` is what every page the app
+makes wears (its head, its theme, how an edit is kept, how a bot writes into it), and `deck/` is
+what the `make_deck` tool draws.
+
+Scripts reach one another through `$THURSDAY_SKILLS`, which names this folder in a bot's shell. A
+path under it is a promise to every skill a user or a bot installed: `browser/scripts/session.mjs`,
+`render.mjs`, `webimage.mjs`, `sheet.mjs` and `image-size.mjs`, and
+`interactive-page/scripts/chart.mjs` and `page.mjs`, stay where they are.
+
+## Where outside work came from
+
+- **`interactive-page/scripts/archify`** is a trimmed copy of archify (MIT); its README says what
+  was cut. `design`, `interactive-page` and `skill-creator` carry Apache-2.0 terms in
+  `LICENSE.txt`.
+- **`product-marketing`, `copywriting`, `launch`, `social`, `emails` and `seo-audit`** are a trimmed
+  copy of [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) at
+  `5b2c0007766c6a1cf1d53fd8fc73e979e0821022` (MIT, `LICENSE` in each folder). Update them by copying
+  upstream again and repeating the changes below, not by editing them here.
+- **`data-report`**'s report forms borrow their shape from answer-first business writing and from
+  the report outlines in [anthropics/financial-services](https://github.com/anthropics/financial-services)
+  and [anthropics/knowledge-work-plugins](https://github.com/anthropics/knowledge-work-plugins)
+  (Apache-2.0); no text is copied from either.
+- **`media-digest`** reads transcripts, chapters and search through
+  [yt-dlp](https://github.com/yt-dlp/yt-dlp) (Unlicense), fetched as its release build into the
+  workspace the first time it is needed; a PDF through `pdftotext` when the machine has it, else
+  pypdf installed into the workspace; audio is cut with ffmpeg, or a portable build installed into
+  the workspace. No code is copied from any of them.
+- **`daily-brief`, `travel` and `data-report`** call sources that answer without a key (Google News
+  feeds, Open-Meteo, Frankfurter and the series `data-report/references/sources.md` lists); that
+  file names the ones that need one. Their scripts need Node and no packages.
+
+### Marketing: what was cut or changed from upstream
+
+- **Descriptions** rewritten to two sentences: what the skill is, in under 90 characters that stand
+  alone, then when to use it. Every bot's prompt carries each in full on every step. `social` says
+  "plan the calendar" rather than "schedule": nothing here posts on a schedule.
+- **The product brief** moved from `.agents/product-marketing.md` to `memory/product-<product>.md`
+  in the bot's own folder, one file per product, its first line naming the product. The workspace
+  root is not writable by a bot, one person may market more than one thing, and a file in the
+  bot's memory is listed in its prompt, so a later job sees the brief is there. Every "check for
+  product marketing context" line points there, and `product-marketing` drafts from public pages
+  rather than a codebase. The five skills that point at it say to look in `memory/` as well, because
+  the listing they relied on is drawn only while the user keeps bot memory on.
+- **Pointers to skills that do not ship here** removed: the *Related Skills* lists keep only these
+  six, and inline mentions of `copy-editing` and `ai-seo` are gone. A named skill a bot cannot load
+  sends it looking for one to install. No pointer goes into another skill's folder either
+  (`copywriting/references/natural-transitions.md` ended by sending the bot to a file of
+  `seo-audit`'s): `load_skill` lists only the files of the skill that was called.
+- **Tool registries** removed (`emails` *Tool Integrations*, the Introw link in `launch`): they link
+  to files outside the skill.
+- **Social listening** removed (`social/references/listening.md` and its sources template): it is
+  written for another agent's browser and folder layout.
+- **Tools a bot holds.** `seo-audit` named `web_fetch` and a "Browser tool". A bot here has a web
+  search that returns text excerpts and never markup, `bash`, and the browser through
+  `playwright-cli` in that shell. The schema-detection section and the note beside the tool list say
+  that, and the check is one `playwright-cli --raw eval` command.
+- **One question, not an interview.** A question reaches the user through Thursday and the bot runs
+  nothing until it is answered, so `product-marketing`'s "one section at a time" is gone: read what
+  the public pages say, then ask what only the user knows in one question with the sections as its
+  parts. The other five keep their question lists with one line saying the same, and the second list
+  at the end of `social`, `emails` and `seo-audit` is marked as parts of that one question rather
+  than a second round.
+- **Collecting posts.** `social`'s reverse-engineering step asked for 500-1000+ posts through Apify
+  or Phantom Buster. It reads what the browser can reach instead — the latest 20-30 posts on each of
+  10-20 accounts — and writes down how many posts, how many accounts and what period, which the
+  checklist asks for too. The method after collection is unchanged.
+- **Named services are sites, not tools.** `launch` keeps SparkToro, Listen Notes and Navattic as
+  pages to open and search, or as a step for the user where an account is needed.
+- Not taken: `evals/` folders, and the `ads`, `ad-creative` and `competitor-profiling` skills,
+  which assume ad-platform accounts or paid data APIs.

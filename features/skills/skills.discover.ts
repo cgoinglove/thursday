@@ -1,4 +1,3 @@
-import { cp } from "node:fs/promises";
 import { join } from "node:path";
 import { APP_DIR, DATA_DIR, PATHS } from "@/config";
 import { botFolder, WORKSPACE } from "@/features/workspace/workspace";
@@ -18,28 +17,15 @@ export const ownSkills = (bot: string) =>
   join(WORKSPACE, botFolder(bot), PATHS.skills.own);
 
 /**
- * Shipped first: a skill the app ships wins over any other of the same name. A bot's
- * own come next, so its copy of a workspace skill is the one it opens.
+ * Shipped first: a skill the app ships wins over any other of the same name, so a copy
+ * of one kept in a bot's folder is never the one it opens. A bot's own come next, so its
+ * copy of a workspace skill is the one it opens.
  */
 export const loadSkills = (sandbox: Sandbox, bot?: string) =>
   discoverSkills(
     sandbox,
     bot ? [shipped, ownSkills(bot), custom] : [shipped, custom],
   );
-
-/**
- * Copies a seed's kit (config PATHS.skills.seeds) into the bot made from it. A seed
- * without one has nothing to copy; a skill already in the bot's folder is kept.
- */
-export async function giveSeedSkills(seed: string, bot: string) {
-  const kit = join(APP_DIR, PATHS.skills.seeds, seed.toLowerCase());
-  await cp(kit, ownSkills(bot), {
-    recursive: true,
-    force: false,
-  }).catch((cause: NodeJS.ErrnoException) => {
-    if (cause.code !== "ENOENT") throw cause;
-  });
-}
 
 export interface SkillMetadata {
   name: string;

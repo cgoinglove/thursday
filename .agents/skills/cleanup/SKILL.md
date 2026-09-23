@@ -9,7 +9,7 @@ Agents rarely delete: they wrap old code in guards and leave the replaced path b
    - `pnpm knip` (never with `--cache`: on Next 16 a warm cache reports every `page.tsx` as unused).
    - `node .agents/skills/cleanup/deprecated.cjs` lists every call the installed types mark deprecated. `keyCode === 229` beside `isComposing` stays wherever it is: Safari confirms Korean input with `isComposing` already false.
 2. Prove each candidate dead before touching it. Default to alive. It is alive if any of these finds it:
-   - its file's basename or its exported name as a plain string anywhere in the repo, including `skills/`, `seed-skills/`, `bin/`, `scripts/`, `.github/`, `package.json` and markdown;
+   - its file's basename or its exported name as a plain string anywhere in the repo, including `skills/`, `bin/`, `scripts/`, `.github/`, `package.json` and markdown;
    - a dynamic `import()` or a path built at runtime (`config.ts` paths, route segments);
    - a Next special file or route convention (`page`, `layout`, `route`, `instrumentation`, `proxy`, `opengraph-image`…);
    - an import kept for its side effect.

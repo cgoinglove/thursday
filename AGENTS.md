@@ -107,9 +107,8 @@ public/                   The icon, the call's sounds, voice samples and the int
 guide/                    How the app works for the person using it, which Thursday reads when an answer
                           depends on it (.claude/rules/docs.md). `features/ai/guide.ts` is all the code
                           knows about it and lists every place that reaches it.
-skills/                   Skills shipped with the app (read-only). User skills live in the workspace.
-seed-skills/<seed>/       A seed bot's own kit, copied into that bot when it is made. What ships in both is
-                          in .claude/rules/seeds.md.
+skills/                   Skills shipped with the app (read-only), every bot's alike; what ships is in
+                          .claude/rules/seeds.md. User skills live in the workspace.
 docs/                     how-it-works.md (for users), live-calls.md and thread-rooms.md (contracts).
 ```
 

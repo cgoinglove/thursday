@@ -3,7 +3,6 @@ paths:
   - "features/ai/**"
   - "features/memory/**"
   - "skills/**/SKILL.md"
-  - "seed-skills/**/SKILL.md"
 ---
 
 # What the model sees

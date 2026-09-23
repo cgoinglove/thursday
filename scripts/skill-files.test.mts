@@ -81,7 +81,6 @@ async function load(folders: string[], name: string) {
 }
 
 const shipped = join(APP_DIR, PATHS.skills.default);
-const kits = join(APP_DIR, PATHS.skills.seeds);
 const folders = async (dir: string) =>
   (await readdir(dir, { withFileTypes: true }))
     .filter((entry) => entry.isDirectory())
@@ -92,57 +91,46 @@ const direct = async (skill: string, folder: string) =>
     .filter((entry) => entry.isFile() && !entry.name.startsWith("."))
     .map((entry) => `${folder}/${entry.name}`);
 
-// A bot made from a seed holds the shipped skills and that seed's kit beside them
-const holders: [string, string[]][] = [
-  ["a bot with no kit", [shipped]],
-  ...(await folders(kits)).map((seed): [string, string[]] => [
-    `the ${seed} seed's bot`,
-    [shipped, join(kits, seed)],
-  ]),
-];
+test("a bot is shown each shipped skill's references and scripts", async () => {
+  for (const dir of await folders(shipped)) {
+    const skill = join(shipped, dir);
+    if (!(await direct(skill, ".")).includes("./SKILL.md")) continue;
+    const { name } = (await discoverSkills(sandbox, [shipped])).find(
+      (one) => one.path === skill,
+    ) ?? { name: null };
+    // Not listed on this machine (a macOS-only skill elsewhere): nothing to load
+    if (!name) continue;
 
-for (const [who, held] of holders)
-  test(`${who} is shown each skill's references and scripts`, async () => {
-    const own = held.at(-1) as string;
-    for (const dir of await folders(own)) {
-      const skill = join(own, dir);
-      if (!(await direct(skill, ".")).includes("./SKILL.md")) continue;
-      const { name } = (await discoverSkills(sandbox, [own])).find(
-        (one) => one.path === skill,
-      ) ?? { name: null };
-      // Not listed on this machine (a macOS-only skill elsewhere): nothing to load
-      if (!name) continue;
+    const given = await load([shipped], name);
+    assert.equal(given.skillDirectory, skill, `${name}: the folder it names`);
+    assert.ok(given.content.length > 0, `${name}: instructions`);
+    assert.ok(
+      given.files.includes(join(skill, "SKILL.md")),
+      `${name}: lists SKILL.md`,
+    );
+    // Each file is the path that opens it: a bare name was read as a path from the
+    // workspace and the first read of a skill's own file failed in 3 jobs out of 3
+    assert.ok(
+      given.files.every((path) => path.startsWith(`${skill}/`)),
+      `${name}: every path opens from the skill's folder`,
+    );
+    for (const folder of ["references", "scripts"])
+      for (const path of await direct(skill, folder))
+        assert.ok(
+          given.files.includes(join(skill, path)),
+          `${name}: ${path} is missing from the list a bot gets`,
+        );
 
-      const given = await load(held, name);
-      assert.equal(given.skillDirectory, skill, `${name}: the folder it names`);
-      assert.ok(given.content.length > 0, `${name}: instructions`);
-      assert.ok(
-        given.files.includes(join(skill, "SKILL.md")),
-        `${name}: lists SKILL.md`,
-      );
-      // Each file is the path that opens it: a bare name was read as a path from the
-      // workspace and the first read of a skill's own file failed in 3 jobs out of 3
-      assert.ok(
-        given.files.every((path) => path.startsWith(`${skill}/`)),
-        `${name}: every path opens from the skill's folder`,
-      );
-      for (const folder of ["references", "scripts"])
-        for (const path of await direct(skill, folder))
-          assert.ok(
-            given.files.includes(join(skill, path)),
-            `${name}: ${path} is missing from the list a bot gets`,
-          );
-
-      const { total } = await sandbox.listFiles(skill, { limit: 1 });
-      assert.equal(
-        given.files.length,
-        Math.min(total, SKILL_FILES_LISTED),
-        `${name}: as many as the cap allows`,
-      );
-      assert.equal(
-        given.more !== undefined,
-        total > SKILL_FILES_LISTED,
-        `${name}: a cut list says so`,
-      );
-    }
-  });
+    const { total } = await sandbox.listFiles(skill, { limit: 1 });
+    assert.equal(
+      given.files.length,
+      Math.min(total, SKILL_FILES_LISTED),
+      `${name}: as many as the cap allows`,
+    );
+    assert.equal(
+      given.more !== undefined,
+      total > SKILL_FILES_LISTED,
+      `${name}: a cut list says so`,
+    );
+  }
+});

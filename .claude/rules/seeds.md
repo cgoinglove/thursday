@@ -5,7 +5,6 @@ paths:
   - "features/skills/**"
   - "features/ai/tools/skills.tool.ts"
   - "skills/**"
-  - "seed-skills/**"
   - "scripts/skill-files.test.mts"
 ---
 
@@ -17,6 +16,17 @@ does not say. A `SKILL.md` is model-facing text, so `model.md` › Writing for a
 ## What ships
 
 - `skills/` — skills shipped with the app, read-only; a user's own live in the workspace.
+  **Every skill is every bot's.** A capability is a shipped skill, never one seed's: what only one
+  bot could load is gone when that bot is, never reaches a bot made before an update, and is not in
+  Settings › Skills to switch off. A seed differs by its role. `skills/README.md` says where outside
+  work came from, and which script paths released skills call, which therefore never move.
+  - By role: `browser` (the web) and `computer` (this Mac) act; `media-digest` reads a video, a
+    podcast, an article or a PDF; `data-report`, `daily-brief` and `travel` find out, each with
+    scripts on sources that need no key; `interactive-page` (a document), `design` (a canvas),
+    `picture-book` and the `make_deck` tool make what the app shows; the six marketing skills
+    (`product-marketing`, `copywriting`, `emails`, `launch`, `social`, `seo-audit`) are a trimmed
+    copy of marketingskills (MIT), updated by copying upstream and repeating the changes the README
+    lists; `find-skills` and `skill-creator` are about skills.
   - `interactive-page/` builds a page to read: `quick/` is a stylesheet, a script and ready
     documents that `page.mjs quick` inlines into one hand-written HTML file, with no install and no
     build. A page someone would use rather than read — a calculator, a tool with state — is not
@@ -57,11 +67,9 @@ does not say. A `SKILL.md` is model-facing text, so `model.md` › Writing for a
     the page near the top (`<meta name="generator" content="Thursday">`); the app's own tab looks
     for that and leaves its bar off, since the page carries its name and Export itself.
   - Lint skips `archify`.
-- `seed-skills/<seed>/` — a seed bot's own kit, read-only, copied into `bots/<name>/.agents/skills`
-  when the bot is made and listed to that bot alone, so a kit costs no other bot a line. The folder
-  has the workspace's `.agents/skills` shape, so `npx skills add` run from a bot's folder installs for
-  that bot. A kit copied from outside carries its LICENSE and a README saying what was cut
-  (`marketer/` is a trimmed copy of marketingskills, MIT).
+- A bot's own folder has the workspace's `.agents/skills` shape, so `npx skills add` run from it
+  installs for that bot alone. A copy of a shipped skill kept there is never opened: the shipped one
+  holds the name.
 
 ## Seed prompts
 
@@ -83,11 +91,11 @@ does not say. A `SKILL.md` is model-facing text, so `model.md` › Writing for a
 - **Every seed installs by default and shows in the intro's opening loop**, so a new seed is a
   visible change.
 
-## Kit scripts
+## Skill scripts
 
-- **What a job repeats is a kit script, not a paragraph.** Reading a web app through snapshots costs
+- **What a job repeats is a skill's script, not a paragraph.** Reading a web app through snapshots costs
   tens of thousands of characters a look; a script that fetches the same rows costs a few hundred.
-- **A kit script stands on a public API, a managed tool or the app's own scripts** — never on another
+- **A skill's script stands on a public API, a managed tool or the app's own scripts** — never on another
   site's markup, its private endpoints or a pinned client version, which break quietly the day that
   site changes. What a script cannot get that way is read once through the browser skill or put on
   the user's screen. It fails loudly, never with an empty result.
@@ -95,10 +103,13 @@ does not say. A `SKILL.md` is model-facing text, so `model.md` › Writing for a
   headless one when none is open, and takes `render`, `sheet`, `webimage` and `chart` from the shipped
   skills rather than keeping a copy. It finds shared things through `THURSDAY_SKILLS` and writes
   output under `THURSDAY_ARTIFACTS`. `render` serves on port 0, so concurrent jobs never share one.
-- **A kit script stands alone past that.** The lines that walk up to the workspace folder are copied
-  into each kit on purpose: a kit is copied into a bot's folder, and a shared file is one more thing
-  that has to be there. Leave the copies.
-- **A seed's script is run before it is written.** Do the job by hand in a shell and time the shortest
+- **What a skill makes, it shoots itself** (`shots`, over `render --apart`), and its answer names
+  the pictures. A bot is never sent to the browser to look at its own work: the browser skill is for
+  the web.
+- **A skill's script stands alone past that.** The lines that walk up to the workspace folder are
+  repeated in each skill on purpose: a skill copied into a bot's or the user's folder to change it
+  still runs, and a shared file is one more thing that has to be there. Leave the copies.
+- **A skill's script is run before it is written.** Do the job by hand in a shell and time the shortest
   sequence of commands; the traps show there, not in docs. A slow bot is usually a turn per command,
   not the model: have it batch commands into one bash call. An instruction without a count runs
   away; pin it ("one and only one"). A screen whose state no URL can set takes a snapshot between

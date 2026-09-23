@@ -67,7 +67,7 @@ Open any note in Settings › Memory to see exactly what she knows. To change it
 └── .ai-workspace
     ├── artifacts/    finished work, a folder per bot
     ├── projects/     code and longer-lived projects
-    ├── bots/         each bot's memory and its own kit
+    ├── bots/         each bot's memory and skills of its own
     └── .agents/      skills you installed
 ```
 

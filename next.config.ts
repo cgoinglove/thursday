@@ -36,7 +36,7 @@ const nextConfig: NextConfig = {
   // (skills.discover walks the folder, migrate reads the SQL), so the trace
   // finds the folder but not what is in it.
   outputFileTracingIncludes: {
-    "/*": ["skills/**/*", "seed-skills/**/*", "database/migrations/**/*"],
+    "/*": ["skills/**/*", "database/migrations/**/*"],
   },
 };
 

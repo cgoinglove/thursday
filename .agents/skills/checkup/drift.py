@@ -7,7 +7,7 @@ os.chdir(root)
 code_files = subprocess.check_output(["git", "ls-files"], text=True).split()
 blob = []
 for f in code_files:
-    if re.search(r"\.(ts|tsx|mts|mjs|cjs|js|json|css|sql|sh)$", f) and not f.startswith(("skills/", "seed-skills/")):
+    if re.search(r"\.(ts|tsx|mts|mjs|cjs|js|json|css|sql|sh)$", f) and not f.startswith("skills/"):
         try: blob.append(open(f, errors="ignore").read())
         except OSError: pass
 blob = "\n".join(blob)

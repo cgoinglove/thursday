@@ -2,7 +2,6 @@
 
 import { z } from "zod";
 import { textModelProviderSchema } from "@/features/ai/model.schema";
-import { giveSeedSkills } from "@/features/skills/skills.discover";
 import { removeBotFolder } from "@/features/workspace/workspace";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
@@ -75,9 +74,7 @@ export const createSeedBotsAction = serverAction(async (picks: unknown) => {
       model: pick.model,
       toolIds: [],
     });
-    if (!bot) continue;
-    await giveSeedSkills(seed.name, bot.name);
-    created.push(bot.name);
+    if (bot) created.push(bot.name);
   }
   return { created };
 });

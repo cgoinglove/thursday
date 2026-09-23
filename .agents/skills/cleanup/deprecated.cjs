@@ -10,7 +10,7 @@ const cfg = ts.getParsedCommandLineOfConfigFile(
   { ...ts.sys, onUnRecoverableConfigFileDiagnostic: () => {} },
 );
 const files = cfg.fileNames.filter(
-  (f) => !f.includes("node_modules") && !/\/(skills|seed-skills)\//.test(f),
+  (f) => !f.includes("node_modules") && !/\/skills\//.test(f),
 );
 const host = {
   getScriptFileNames: () => files,

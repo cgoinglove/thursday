@@ -10,9 +10,9 @@ recent threads and its own memory. A bot can be switched off without being delet
 offers the ready-made ones, all switched on; **Ready-made bots**, beside New bot, adds one later.
 
 Every bot has the same kit: a shell on this computer, a real browser of its own or the one the user
-is already signed into, their files, the web, whatever skills and connected services are installed,
-and the other bots. A ready-made bot may also arrive with written methods and scripts of its own for
-its subject, which no other bot sees.
+is already signed into, their files, the web, every skill and connected service that is installed,
+and the other bots. What sets a ready-made bot apart is its role — the jobs that are its own, how it
+judges them, what it keeps — not what it can do.
 
 - **Analyst** finds things out and answers with where they came from: it fetches published series
   and draws them, reads a video's transcript, a podcast, an article or a PDF and answers with key

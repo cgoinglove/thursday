@@ -377,7 +377,7 @@ const REQUIRED = [
   ".next/static",
   "database/migrations",
   "skills/browser/references",
-  // Every kit script that drives a browser imports it (THURSDAY_SKILLS)
+  // Every skill's script that drives a browser imports it (THURSDAY_SKILLS)
   "skills/browser/scripts/session.mjs",
   // What `page.mjs quick`, `canvas.mjs new` and `deck.mjs put` inline; without them each is an error
   "skills/interactive-page/quick/pages/blank.html",
@@ -389,8 +389,6 @@ const REQUIRED = [
   "skills/shell/shell.css",
   "skills/shell/shell.js",
   "skills/shell/theme.js",
-  // Copied into a seed bot when it is made; without it the Marketer starts empty
-  "seed-skills/marketer/product-marketing/SKILL.md",
   // Copied into the workspace at boot (features/ai/guide); without it the call has none to read
   "guide/index.md",
 ];
