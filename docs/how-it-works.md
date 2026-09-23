@@ -73,4 +73,4 @@ Open any note in Settings › Memory to see exactly what she knows. To change it
 
 When you run from source, the same files live in the checkout. The server listens only on `127.0.0.1`, and there is no login — see [SECURITY.md](../SECURITY.md).
 
-For contributors: [live calls](live-calls.md) and [thread rooms](thread-rooms.md) are the engine contracts, and [AGENTS.md](../AGENTS.md) maps the code.
+For contributors: [AGENTS.md](../AGENTS.md) maps the code.

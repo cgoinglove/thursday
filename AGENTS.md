@@ -57,7 +57,7 @@ scripts/             dev, reset, pack (the npm tree), and the test suites (*.tes
 guide/               How the app works, for the person using it; Thursday reads it
                      (features/ai/guide.ts).
 skills/, seed-skills/  Skills shipped with the app and each seed bot's kit.
-docs/                how-it-works.md, and the contracts live-calls.md and thread-rooms.md.
+docs/                how-it-works.md, and the images the READMEs show.
 ```
 
 # Checks
