@@ -1986,3 +1986,53 @@ test("a bot that loads a skill is shown the files that ship with it", async () =
     ),
   );
 });
+
+test("a bot rewrites the line it is picked by, until the user locks it", async () => {
+  const { createSelfTools } = await import("../features/ai/tools/self.tool.ts");
+  const tools = await createSelfTools("Gamma");
+  const describe = tools[T.describe_self];
+  assert.ok(describe?.execute, "a bot with a row may describe itself");
+  const options = { messages: [], toolCallId: "self", context: {} };
+  const answered = await describe.execute(
+    {
+      description: "Plans trips and books them",
+      reason: "Trips keep coming to me",
+    },
+    options,
+  );
+  assert.deepEqual(
+    {
+      was: (answered as { was: string }).was,
+      now: (answered as { now: string }).now,
+    },
+    { was: "Gamma test worker", now: "Plans trips and books them" },
+  );
+  const [row] = await database
+    .select()
+    .from(botTable)
+    .where(eq(botTable.name, "Gamma"));
+  assert.equal(row?.description, "Plans trips and books them");
+
+  // Locked by the user: the tool is not in its set, and a call already made writes nothing
+  await database
+    .update(botTable)
+    .set({ descriptionLocked: true })
+    .where(eq(botTable.name, "Gamma"));
+  assert.deepEqual(Object.keys(await createSelfTools("Gamma")), []);
+  assert.match(
+    String(
+      await describe.execute(
+        { description: "Something else", reason: "No" },
+        options,
+      ),
+    ),
+    /the user's to change/,
+  );
+  // The fallback worker has no row to write
+  assert.deepEqual(Object.keys(await createSelfTools("Nobody")), []);
+
+  await database
+    .update(botTable)
+    .set({ description: "Gamma test worker", descriptionLocked: false })
+    .where(eq(botTable.name, "Gamma"));
+});

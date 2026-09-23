@@ -13,6 +13,8 @@ export type AppEvent =
   | { type: "hello" }
   /** Signal: a thread changed (every write in thread.query and room.query). */
   | { type: "threads" }
+  /** Signal: a bot rewrote its own description (bot.query rewriteBotDescription). */
+  | { type: "bots" }
   /** Signal: a routine was made, changed, removed, or moved on to its next time. */
   | { type: "routines" }
   /** Signal: a note or fact changed. */
@@ -62,6 +64,7 @@ type Signal<E = AppEvent> = E extends AppEvent
  */
 export const SIGNALS: Record<Signal, true> = {
   threads: true,
+  bots: true,
   routines: true,
   memory: true,
   mcp: true,

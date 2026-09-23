@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import {
@@ -122,6 +123,8 @@ type DraftCreate = {
 export function BotSetting() {
   const { data, isLoading, error } = useServerRoute<Bot[]>(queryKey.bot);
   const bots = data ?? [];
+  // A bot that rewrote its own description while this was open (self.tool)
+  useAppEvent({ bots: () => void revalidate(queryKey.bot) });
   // First page of history, not the inbox: the inbox keeps only a few finished threads.
   const { data: history } = useServerRoute<Thread[]>(
     queryKey.threadHistory(null),
@@ -918,6 +921,16 @@ function BotPage({
             The one line {APP_NAME} and the other bots read when they decide who
             gets a job.
           </p>
+          {bot && (
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Switch
+                checked={!bot.descriptionLocked}
+                onCheckedChange={(on) => commit({ descriptionLocked: !on })}
+                aria-label={`${bot.name} may rewrite its description`}
+              />
+              It may rewrite this line when its work changes for good
+            </label>
+          )}
         </Row>
 
         <Row label="Runs on">

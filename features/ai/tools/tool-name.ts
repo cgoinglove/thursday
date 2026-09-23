@@ -38,6 +38,8 @@ export const TOOL_NAMES = {
 
   make_deck: "make_deck",
 
+  describe_self: "describe_self",
+
   end_call: "end_call",
   emote: "emote",
 } as const;

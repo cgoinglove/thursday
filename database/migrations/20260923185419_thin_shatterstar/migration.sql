@@ -1,0 +1,1 @@
+ALTER TABLE `bot` ADD `description_locked` integer DEFAULT false NOT NULL;

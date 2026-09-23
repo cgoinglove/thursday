@@ -9,6 +9,12 @@ a description and a model, and a name cannot be changed later — and a bot's pa
 recent threads and its own memory. A bot can be switched off without being deleted. The first run
 offers the ready-made ones, all switched on; **Ready-made bots**, beside New bot, adds one later.
 
+A bot can rewrite its own description when what it does has changed for good — the user told it
+what it is for, it gained a skill of its own, or the same kind of job keeps coming to it — and it
+says so, and why, in its answer. It is meant to happen rarely. The switch under the description on
+its page, **It may rewrite this line when its work changes for good**, turned off keeps the line
+exactly as the user wrote it.
+
 Every bot has the same kit: a shell on this computer, a real browser of its own or the one the user
 is already signed into, their files, the web, every skill and connected service that is installed,
 and the other bots. What sets a ready-made bot apart is its role — the jobs that are its own, how it

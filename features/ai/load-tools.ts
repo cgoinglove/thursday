@@ -23,6 +23,7 @@ import {
   createCallSearchTool,
   createSearchTool,
 } from "@/features/ai/tools/search.tool";
+import { createSelfTools } from "@/features/ai/tools/self.tool";
 import { createSignInTools } from "@/features/ai/tools/signin.tool";
 import { createSkillTools } from "@/features/ai/tools/skills.tool";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
@@ -464,6 +465,8 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     // Pinned tools come with schemas; the rest sit behind `tool_search`, absent when nothing is left to find (mcp.tool)
     ...(await createMcpTools(run.bot, sandbox)),
     ...createSkillTools({ sandbox, skills, bot: run.bot }),
+    // Its own line in the roster, unless the user keeps it as written (self.tool)
+    ...(await createSelfTools(run.bot)),
     // A deck is typed slides the app draws; its pictures are taken in this job's browser
     // session, apart from any window of it on screen, and shown to a model that sees them
     ...createDeckTools(

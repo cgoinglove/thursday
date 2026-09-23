@@ -1,4 +1,5 @@
 import { eq, inArray, sql } from "drizzle-orm";
+import { appEvents } from "@/app/api/events/app-event.server";
 import { database } from "@/database/db";
 import {
   botMcpToolTable,
@@ -156,6 +157,32 @@ async function findBot(name: string) {
     .from(botTable)
     .where(eq(botTable.name, name));
   return bot ?? null;
+}
+
+/** Whether a bot may rewrite its own description: it has a row and the user has not locked it. */
+export async function mayDescribeItself(name: string): Promise<boolean> {
+  const row = await findBot(name);
+  return Boolean(row && !row.descriptionLocked);
+}
+
+/**
+ * A bot's new description in its own words (`describe_self`), unless the user locked it since.
+ * Returns the line it replaced, or null when nothing was written. Emitted here, since the
+ * screen that lists the bots did not make this change.
+ */
+export async function rewriteBotDescription(
+  name: string,
+  description: string,
+): Promise<string | null> {
+  const row = await findBot(name);
+  if (!row || row.descriptionLocked) return null;
+  if (row.description === description) return row.description;
+  await database
+    .update(botTable)
+    .set({ description })
+    .where(eq(botTable.name, row.name));
+  appEvents.emit({ type: "bots" });
+  return row.description;
 }
 
 /**

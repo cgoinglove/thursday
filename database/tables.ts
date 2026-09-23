@@ -30,6 +30,13 @@ export const botTable = sqliteTable("bot", {
   name: text("name").primaryKey(),
   /** One line, shown in lists and in the prompt's Bots section. */
   description: text("description").notNull(),
+  /**
+   * The user keeps the description as written: the bot's own `describe_self` is left out of
+   * its tools. Off at first, so a bot can say what it has come to do once that has changed.
+   */
+  descriptionLocked: int("description_locked", { mode: "boolean" })
+    .notNull()
+    .default(false),
   /** Appended after the base persona, never replacing it. null means generalist. */
   systemPrompt: text("system_prompt"),
   icon: text("icon", {

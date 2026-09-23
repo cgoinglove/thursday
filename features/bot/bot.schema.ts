@@ -88,6 +88,8 @@ export const COMPACT_AT_MIN = 8_000;
 const BotSchema = z.object({
   name: z.string(),
   description: z.string(),
+  /** The user keeps the description as written; the bot cannot rewrite it (botTable). */
+  descriptionLocked: z.boolean(),
   systemPrompt: z.string().nullish(),
   icon: botIconSchema.nullish(),
   /** Set only when chosen; empty runs on the app default model. */
@@ -128,6 +130,7 @@ export const BotFormSchema = z.object({
   /** Empty takes the app default; a step the model's ladder does not hold is dropped at the run (ai/model runEffort). */
   effort: effortSchema.nullish(),
   disabled: z.boolean().optional(),
+  descriptionLocked: z.boolean().optional(),
   toolIds: z.number().int().array().max(MAX_PINNED_TOOLS).default([]),
 });
 
