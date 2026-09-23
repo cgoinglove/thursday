@@ -1,10 +1,11 @@
 import { createReadStream } from "node:fs";
-import { rename, stat, writeFile } from "node:fs/promises";
+import { rename, rm, stat, writeFile } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { decodePath } from "@/app/api/query-key";
 import { PAGE_SAVE } from "@/config";
 import { mimeOf } from "@/features/workspace/file-kind";
 import { insideWorkspace } from "@/features/workspace/workspace";
+import { logger } from "@/lib/logger";
 import { type RouteContext, serverRoute } from "@/lib/protocol/server-route";
 
 /**
@@ -108,8 +109,15 @@ export const PUT = serverRoute(
     if (body.byteLength > PAGE_SAVE.maxBytes)
       return new Response("Too large to keep", { status: 413 });
     const beside = `${full}.${process.pid}.saving`;
-    await writeFile(beside, body);
-    await rename(beside, full);
+    try {
+      await writeFile(beside, body);
+      await rename(beside, full);
+    } catch (error) {
+      // Thrown, it would reach serverRoute and go out as a 200, which the page reads as saved.
+      logger.error(error);
+      await rm(beside, { force: true });
+      return new Response("Could not write the page", { status: 500 });
+    }
     return new Response(null, { status: 204 });
   },
 );
