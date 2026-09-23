@@ -42,7 +42,9 @@ persistence — and changes with the code. This file holds what every way into T
 - **Who she is is the app's; how a machine reaches her is the browser's.** `LiveSettings` —
   voice, persona, their own words, backend model and effort, web search, backend instructions,
   whether she may read a skill — is one row of the `config` table (`THURSDAY_SETTINGS`,
-  `readLiveSettings`), read by every way in and written whole. The browser keeps only this
+  `readLiveSettings`), read by every way in. The screen sends every field; what is kept is
+  what differs from the defaults, so a default nobody picked — a backend model a release
+  replaces — moves with the app, as a bot's model left on Automatic does. The browser keeps only this
   machine's own: wake phrase, hotkey, captions, call-back, the write line's model and recipient.
 
 ## What she is told

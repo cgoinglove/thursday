@@ -159,9 +159,10 @@ export const openTextCallAction = serverAction(
 );
 
 /**
- * Settings › Thursday, saved whole. The screen holds every field, so there is nothing to
- * merge and no order for two saves to disagree about. Nothing is cached: the next call
- * builds its prompts and its tool set from this (ai/load-tools, prompts/thursday.prompt).
+ * Settings › Thursday, sent whole. The screen holds every field, so there is nothing to
+ * merge and no order for two saves to disagree about; what is kept is what differs from the
+ * defaults (thursday.query). Nothing is cached: the next call builds its prompts and its
+ * tool set from this (ai/load-tools, prompts/thursday.prompt).
  */
 export const setLiveSettingsAction = serverAction(async (settings: unknown) => {
   await writeLiveSettings(LiveSettingsSchema.parse(settings));

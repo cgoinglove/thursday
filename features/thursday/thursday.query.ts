@@ -18,6 +18,7 @@ import {
   callThoughtTable,
 } from "@/database/tables";
 import {
+  LIVE_DEFAULTS,
   type LiveSettings,
   LiveSettingsSchema,
   migrateLiveSettings,
@@ -42,22 +43,33 @@ import {
 export async function readLiveSettings(): Promise<LiveSettings> {
   const stored = asObject(await readConfig(THURSDAY_KEYS.settings));
   const settings = LiveSettingsSchema.parse(migrateLiveSettings(stored));
-  if (stored && "readSkills" in stored) return settings;
+  if (stored) return settings;
   return { ...settings, readSkills: await wasReadingSkills() };
 }
 
 /**
  * Before the settings moved here this switch was a row of its own, and an install that
  * turned it on keeps it on. No browser ever held it, so a browser's copy never carries it.
- * Its row is read, never written again.
+ * Read only while no settings row exists: switched off, the switch is the default and is
+ * not kept, and the old row would switch it back on. Never written again.
  */
 async function wasReadingSkills(): Promise<boolean> {
   return (await readConfig(THURSDAY_KEYS.wasSkills))?.trim() === "on";
 }
 
-/** Replaces them whole: the screen holds every field, so there is nothing to merge. */
+/**
+ * Kept as what differs from the defaults, so a default nobody picked moves with the app
+ * when it changes — a release that replaces the backend model reaches every install that
+ * left it alone, as the bots' model left on Automatic does. The screen sends every field,
+ * so there is nothing to merge.
+ */
 export async function writeLiveSettings(settings: LiveSettings): Promise<void> {
-  await writeConfig(THURSDAY_KEYS.settings, JSON.stringify(settings));
+  const chosen = Object.fromEntries(
+    Object.entries(settings).filter(
+      ([key, value]) => value !== LIVE_DEFAULTS[key as keyof LiveSettings],
+    ),
+  );
+  await writeConfig(THURSDAY_KEYS.settings, JSON.stringify(chosen));
 }
 
 /**

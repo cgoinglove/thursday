@@ -61,7 +61,8 @@ apply from the next call.
 
 Settings are kept in the database, as one JSON row of the `config` table under `THURSDAY_SETTINGS`
 (`thursday.query readLiveSettings`), so a call opened here, a call in writing and a
-phone writing in all run on the same ones. The browser keeps only what is about this
+phone writing in all run on the same ones. The row holds only what differs from the
+defaults, so a changed default reaches every install that left that setting alone. The browser keeps only what is about this
 machine — wake word, shortcut, captions, call-back and the write line's own model
 (`thursday.store`) — and hands over the copy it kept before, once, on the first load
 that finds one. `migrateLiveSettings` upgrades stored values: an OpenAI voice and

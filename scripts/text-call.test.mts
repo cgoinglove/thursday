@@ -67,7 +67,9 @@ mock.module("../lib/live/live.server.ts", {
 
 const { migrateDatabase } = await import("../database/migrate.ts");
 await migrateDatabase();
-const { writeConfig } = await import("../features/config/config.query.ts");
+const { readConfig, writeConfig } = await import(
+  "../features/config/config.query.ts"
+);
 const { LIVE_PROVIDER, LiveSettingsSchema } = await import(
   "../features/ai/live.schema.ts"
 );
@@ -171,7 +173,7 @@ test("the last tab going closes the calls a tab held, never one the server holds
 
 // The settings every entrance reads, and the one path that runs once per install: what a
 // browser kept before they moved here, and the switch that was a row of its own.
-test("the kept settings take a browser's copy once, and read the old skills row until they hold one", async () => {
+test("the kept settings take a browser's copy once, keep only what differs from the defaults, and read the old skills row until a row exists", async () => {
   const { LIVE_DEFAULTS } = await import("../features/ai/live.schema.ts");
   // Nothing kept: the defaults, and the switch as its own row left it
   assert.equal((await readLiveSettings()).persona, LIVE_DEFAULTS.persona);
@@ -204,12 +206,34 @@ test("the kept settings take a browser's copy once, and read the old skills row 
   );
   assert.equal((await readLiveSettings()).persona, "calm");
 
-  // Written whole, so a field left out goes back to its default rather than lingering
+  // Sent whole, so a field left out goes back to its default rather than lingering
   await writeLiveSettings(LiveSettingsSchema.parse({ persona: "hype" }));
   const now = await readLiveSettings();
   assert.equal(now.persona, "hype");
   assert.equal(now.voice, LIVE_DEFAULTS.voice);
   assert.equal(now.stylePrompt, "");
-  // Its own field now, so the row that used to hold it is not read again
+  // Switched off, which is the default: the row it had of its own must not switch it on
   assert.equal(now.readSkills, false);
+
+  // Only what differs from the defaults is kept, so a default nobody picked moves with
+  // the app when it changes — the backend model a release replaces, for one
+  const kept2 = JSON.parse((await readConfig(THURSDAY_KEYS.settings)) ?? "{}");
+  assert.deepEqual(kept2, { persona: "hype" });
+  await writeLiveSettings(
+    LiveSettingsSchema.parse({
+      persona: "hype",
+      backendModel: "gpt-older-luna",
+      reasoningEffort: null,
+    }),
+  );
+  assert.deepEqual(
+    JSON.parse((await readConfig(THURSDAY_KEYS.settings)) ?? "{}"),
+    { persona: "hype", backendModel: "gpt-older-luna", reasoningEffort: null },
+  );
+  // Picking the default again lets go of the old one
+  await writeLiveSettings(LiveSettingsSchema.parse({ persona: "hype" }));
+  assert.equal(
+    (await readLiveSettings()).backendModel,
+    LIVE_DEFAULTS.backendModel,
+  );
 });

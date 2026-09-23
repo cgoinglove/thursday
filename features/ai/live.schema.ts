@@ -82,8 +82,8 @@ export const LiveSettingsSchema = z.object({
   reasoningEffort: effortSchema.nullable().default("low"),
   /**
    * On, so a question about today — weather, a price, a score — is answered on the line
-   * instead of becoming a bot's job. A stored choice, so the default reaches only an
-   * install that has none.
+   * instead of becoming a bot's job. Kept only when it differs from this default
+   * (thursday.query), so a change of default reaches every install that left it alone.
    */
   webSearch: z.boolean().default(true),
   /**

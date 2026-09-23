@@ -112,7 +112,8 @@ Everything here is in **Settings › Thursday**, and changes apply from the next
   the one picked — how she talks, how much she says — which wins wherever the two differ. What to
   call them is not this: said on a call, she keeps it in memory.
 - **Backend**: the model that thinks and uses tools behind the voice, and its **effort** — how
-  hard it thinks (`setup.md`, Models). Under **tools**, **Search the web** is on unless switched
+  hard it thinks (`setup.md`, Models). Left as it came, the model moves to the newer one when an
+  update brings one; a model picked here stays until another is picked. Under **tools**, **Search the web** is on unless switched
   off: a question about today — the weather, a price, a score — is answered on the line instead of
   going to a bot. **Read skills herself** is off to begin with; on, she opens the same skills a bot
   reads, and each one she opens costs the call a page of reading. **instructions** is a box about

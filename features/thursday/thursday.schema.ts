@@ -90,7 +90,7 @@ export const FACE_DEFAULT: ThursdayFace = ThursdayFaceSchema.parse({});
  * it is read back once, as `readSkills`, for an install that set it (thursday.query).
  */
 export const THURSDAY_KEYS = {
-  /** The whole of `LiveSettings` as JSON (ai/live.schema). */
+  /** What of `LiveSettings` differs from its defaults, as JSON (ai/live.schema). */
   settings: "THURSDAY_SETTINGS",
   /** What `readSkills` was, before the settings moved here. Read once, never written. */
   wasSkills: "THURSDAY_SKILLS",
