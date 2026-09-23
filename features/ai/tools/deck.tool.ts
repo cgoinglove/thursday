@@ -3,13 +3,14 @@ import {
   copyFile,
   mkdir,
   mkdtemp,
+  readFile,
   realpath,
   rm,
   stat,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, dirname, extname, join, relative } from "node:path";
+import { basename, dirname, extname, join, relative, sep } from "node:path";
 import { promisify } from "node:util";
 import { type ToolSet, tool } from "ai";
 import z from "zod";
@@ -215,38 +216,57 @@ const nameOf = (said: string) =>
     .replace(/^[-_]+|-+$/g, "")
     .slice(0, 80);
 
-/** A picture the renderer leaves beside a deck, which a picture copied there must not replace. */
-const SHOT = /^slide-\d+\.png$/i;
+/**
+ * A picture the renderer leaves beside a deck — each slide, and all of them on one — which
+ * a picture copied there must not replace.
+ */
+const SHOT = /^(slide-\d+|slides)\.png$/i;
 
 /** A reason the call made nothing, as the one line the model reads. */
 class Refusal extends Error {}
 
-/** The deck file a call names, relative to the workspace, or the line that says why there is none. */
+/** A deck name made one path segment, or the line that says why it cannot be one. */
+function deckName(said: string): string {
+  const name = nameOf(said);
+  if (!NAME.test(name))
+    throw new Refusal(
+      `"${said}" is not a deck name: use letters, numbers, - and _.`,
+    );
+  return name;
+}
+
+/**
+ * The deck file a call names, relative to the workspace, or the line that says why there is
+ * none. A name is a new deck or one of this bot's own; a path reaches a deck anywhere in the
+ * workspace, and one in this bot's own folder where no deck is yet is a new deck there, each
+ * in a folder of its own, since a model gives a path for a new deck as often as a name.
+ */
 async function deckFile(said: string, bot: string): Promise<string> {
-  const path = said.includes("/") || said.endsWith(".html");
-  if (!path) {
-    const name = nameOf(said);
-    if (!NAME.test(name))
-      throw new Refusal(
-        `"${said}" is not a deck name: use letters, numbers, - and _.`,
-      );
-    return `${botArtifacts(bot)}/${name}/${name}.html`;
+  const own = botArtifacts(bot);
+  if (!said.includes("/") && !said.endsWith(".html")) {
+    const name = deckName(said);
+    return `${own}/${name}/${name}.html`;
   }
   const full = await insideWorkspace(said);
   if (!full)
     throw new Refusal(
       `${said} is outside the workspace. Give a deck's path in it.`,
     );
+  // What insideWorkspace answers is the real path, so it is read against the real workspace
+  const root = await realpath(WORKSPACE).catch(() => WORKSPACE);
   const info = await stat(full).catch(() => null);
   const file = info?.isDirectory()
     ? join(full, `${basename(full)}.html`)
     : full;
-  if (!(await stat(file).catch(() => null))?.isFile())
+  if ((await stat(file).catch(() => null))?.isFile())
+    return relative(root, file);
+  const mine = await insideWorkspace(own);
+  if (!mine || !full.startsWith(`${mine}${sep}`))
     throw new Refusal(
-      `There is no deck at ${said}. A path reaches a deck that exists; give a name for a new one.`,
+      `There is no deck at ${said}. A new deck is made in your own folder: give it a name.`,
     );
-  // What insideWorkspace answers is the real path, so it is read against the real workspace
-  return relative(await realpath(WORKSPACE).catch(() => WORKSPACE), file);
+  const name = deckName(basename(full, ".html"));
+  return relative(root, join(dirname(full), name, `${name}.html`));
 }
 
 /**
@@ -360,13 +380,19 @@ async function put(
   }
 }
 
-/** Every slide as a picture beside the deck (deck.mjs shots), and the slides that came out too big. */
+/**
+ * Every slide as a picture beside the deck, all of them on one (deck.mjs shots), and the
+ * slides that came out too big.
+ */
 async function shoot(
   sandbox: Sandbox,
   file: string,
   env: Record<string, string>,
   signal: AbortSignal | undefined,
-): Promise<{ pictures: string[]; cut: number[] } | { failed: string }> {
+): Promise<
+  | { pictures: string[]; sheet: string | null; cut: number[] }
+  | { failed: string }
+> {
   // The file goes in as a variable, never spelled into the command: its name is a model's choice
   const done = await sandbox.exec(`node "$DECK_SCRIPT" shots "$DECK_FILE"`, {
     env: { ...env, DECK_SCRIPT: SCRIPT, DECK_FILE: join(WORKSPACE, file) },
@@ -379,10 +405,12 @@ async function shoot(
     };
   const got = JSON.parse(done.stdout.trim().split("\n").at(-1) ?? "{}") as {
     pictures: string[];
+    sheet: string | null;
     cut: number[];
   };
   return {
     pictures: got.pictures.map((one) => relative(WORKSPACE, one)),
+    sheet: got.sheet ? relative(WORKSPACE, got.sheet) : null,
     cut: got.cut,
   };
 }
@@ -395,11 +423,15 @@ const listed = (numbers: number[]) =>
 /**
  * @param env The job's shell as a bot's scripts see it (workspace.ts jobShellEnv, botShellEnv):
  *   the pictures are drawn in a browser of the job's session, apart from the one on screen.
+ * @param sees Whether the model carries a picture inside a tool result (ai/model
+ *   seesToolImages). When it does, the deck comes back with every slide on one picture, so it
+ *   sees what it made in the answer rather than shooting it again; the row stores the path.
  */
 export const createDeckTools = (
   sandbox: Sandbox,
   bot: string,
   env: Record<string, string>,
+  sees: boolean,
 ): ToolSet => ({
   [TOOL_NAMES.make_deck]: tool({
     description:
@@ -434,13 +466,17 @@ export const createDeckTools = (
         if ("failed" in shots)
           return `${file}\n${count}. The pictures of its slides could not be made (${shots.failed}), so nothing checked that every slide fits. Hand back the deck's path.`;
         const again = `call \`${TOOL_NAMES.make_deck}\` again with revision ${written.revision} and the whole deck`;
+        const pictures = shots.sheet
+          ? `${basename(shots.sheet)} holds every slide, numbered, and each is on its own beside it from slide-01.png`
+          : "Its pictures are beside it, slide-01.png on";
         return [
           file,
-          // The first picture on its own line: the thread row shows it (bot-tool picturesOf)
-          shots.pictures[0] ?? "",
+          // The picture on its own line: the thread row shows it (bot-tool picturesOf), and
+          // toModelOutput hands it to the model
+          shots.sheet ?? shots.pictures[0] ?? "",
           shots.cut.length
-            ? `${count}. ${listed(shots.cut)} not fit even with the type at its smallest: say less there, then ${again}.`
-            : `${count}. Every slide fits. Its pictures are beside it, slide-01.png on. Hand back the deck's path; to change it, ${again}.`,
+            ? `${count}. ${listed(shots.cut)} not fit even with the type at its smallest: say less there, then ${again}. ${pictures}.`
+            : `${count}. Every slide fits. ${pictures}. Hand back the deck's path; to change it, ${again}.`,
         ]
           .filter(Boolean)
           .join("\n");
@@ -448,6 +484,28 @@ export const createDeckTools = (
         if (cause instanceof Refusal) return cause.message;
         throw cause;
       }
+    },
+    toModelOutput: async ({ output }) => {
+      // The deck as it stands, when a change was refused: data, as any tool's object answer
+      if (typeof output !== "string")
+        return { type: "json", value: output as never };
+      const picture = output.split("\n")[1] ?? "";
+      if (!sees || !picture.endsWith(".png"))
+        return { type: "text", value: output };
+      const full = await insideWorkspace(picture);
+      const data = full ? await readFile(full).catch(() => null) : null;
+      if (!data) return { type: "text", value: output };
+      return {
+        type: "content",
+        value: [
+          { type: "text", text: `${output}\n\n${picture}, as an image:` },
+          {
+            type: "file",
+            mediaType: "image/png",
+            data: { type: "data", data: data.toString("base64") },
+          },
+        ],
+      };
     },
   }),
 });

@@ -439,6 +439,8 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
   // A bot works inside a job it did not open: it can pull another bot in but cannot start a job.
   // The runner attaches messaging with the active continuation (bot.run).
   const skills = await loadSkills(sandbox, run.bot);
+  // Whether a picture inside a tool result reaches this model (ai/model seesToolImages)
+  const sees = Boolean(run.model && seesToolImages(run.model.ref));
   return {
     // A bot only reads memory: every write is the call's, and there is no screen to show a note on
     [TOOL_NAMES.memory_recall]: memory[TOOL_NAMES.memory_recall],
@@ -463,13 +465,15 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     ...(await createMcpTools(run.bot, sandbox)),
     ...createSkillTools({ sandbox, skills, bot: run.bot }),
     // A deck is typed slides the app draws; its pictures are taken in this job's browser
-    // session, apart from any window of it on screen
-    ...createDeckTools(sandbox, run.bot, {
-      ...jobShellEnv(run.session),
-      ...botShellEnv(run.bot),
-    }),
-    // Absent for a model a picture would not reach (ai/model seesToolImages)
-    ...(run.model && seesToolImages(run.model.ref) ? createLookTool() : {}),
+    // session, apart from any window of it on screen, and shown to a model that sees them
+    ...createDeckTools(
+      sandbox,
+      run.bot,
+      { ...jobShellEnv(run.session), ...botShellEnv(run.bot) },
+      sees,
+    ),
+    // Absent for a model a picture would not reach
+    ...(sees ? createLookTool() : {}),
     // Sign-ins are the app's to keep and the user's to lend (tools/signin.tool); the state
     // goes into this participant's own browser, the one its shell drives
     ...createSignInTools(sandbox, run.bot, jobShellEnv(run.session)),

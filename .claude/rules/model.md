@@ -59,11 +59,14 @@ features/ai/
   `make_deck`: layouts with fields and character caps, drawn and fitted by `skills/deck`, never
   HTML a model writes. It is the one tool whose schema is large, and it rides every step of every
   bot, so a second of its kind waits for a way to hold a tool back until a job needs it.
-- **A picture reaches a model through `look_at`.** `execute` returns a small record — the path, never
-  the bytes — which is what is stored and drawn, and `toModelOutput` turns it into the picture for
-  the run that asked; a step is stored as what `execute` returned (`bot.run` `storedMessages`). A bot
-  holds it only when its provider carries an image inside a tool result (`seesToolImages`); a call
-  in writing holds it, a spoken call cannot. `generate_image` takes pictures by path the same way.
+- **A picture reaches a model through `look_at`**, and through `make_deck`, which hands back every
+  slide on one picture so a bot sees what it made without shooting it again. `execute` returns
+  the path, never the bytes — which is what is stored and drawn — and `toModelOutput` turns it into
+  the picture for the run that asked; a step is stored as what `execute` returned (`bot.run`
+  `storedMessages`). Only a model whose provider carries an image inside a tool result
+  (`seesToolImages`) is given one: it holds `look_at`, and `make_deck` answers it with the picture.
+  A call in writing holds it, a spoken call cannot. `generate_image` takes pictures by path the
+  same way.
 
 ## Prompts
 

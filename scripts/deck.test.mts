@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { after, test } from "node:test";
 import type { ZodType } from "zod";
 
@@ -20,7 +20,9 @@ const { openWorkspace, WORKSPACE } = await import(
 /** What the shots step answers in place of a browser, which a test has none of. */
 let shots = { exitCode: 0, stdout: '{"pictures":[],"cut":[]}', stderr: "" };
 const sandbox = { ...(await openWorkspace()), exec: async () => shots };
-const tool = createDeckTools(sandbox, "Tester", {})[TOOL_NAMES.make_deck];
+const tool = createDeckTools(sandbox, "Tester", {}, false)[
+  TOOL_NAMES.make_deck
+];
 const schema = tool.inputSchema as ZodType;
 const make = async (input: unknown) =>
   (tool.execute as (input: unknown, options: unknown) => Promise<unknown>)(
@@ -238,5 +240,73 @@ test("slides that do not fit are named back, and a deck without its pictures say
   shots = { exitCode: 1, stdout: "", stderr: "no browser here" };
   const blind = await make({ deck: "blind", title: "B", slides });
   assert.match(String(blind), /could not be made \(no browser here\)/);
+  shots = { exitCode: 0, stdout: '{"pictures":[],"cut":[]}', stderr: "" };
+});
+
+test("a path in the bot's own folder where no deck is yet makes a new one there", async () => {
+  const said = await make({
+    deck: "artifacts/Tester/q4 plan",
+    title: "Q4",
+    slides,
+  });
+  assert.equal(
+    String(said).split("\n")[0],
+    "artifacts/Tester/q4-plan/q4-plan.html",
+  );
+  assert.ok(existsSync(file("q4-plan")));
+  const nested = await make({
+    deck: "artifacts/Tester/decks/intro.html",
+    title: "I",
+    slides,
+  });
+  assert.equal(
+    String(nested).split("\n")[0],
+    "artifacts/Tester/decks/intro/intro.html",
+  );
+  const theirs = await make({
+    deck: "artifacts/Other/theirs",
+    title: "T",
+    slides,
+  });
+  assert.match(
+    String(theirs),
+    /There is no deck at artifacts\/Other\/theirs\. A new deck is made in your own folder/,
+  );
+  assert.ok(!existsSync(join(WORKSPACE, "artifacts", "Other")));
+});
+
+test("every slide on one picture comes back, and reaches a model that sees pictures", async () => {
+  const sheet = join(WORKSPACE, "artifacts", "Tester", "sheet", "slides.png");
+  shots = {
+    exitCode: 0,
+    stdout: JSON.stringify({
+      pictures: [join(dirname(sheet), "slide-01.png")],
+      sheet,
+      cut: [],
+    }),
+    stderr: "",
+  };
+  const said = String(await make({ deck: "sheet", title: "S", slides }));
+  const [, picture, line] = said.split("\n");
+  assert.equal(picture, "artifacts/Tester/sheet/slides.png");
+  assert.match(line, /slides\.png holds every slide, numbered/);
+
+  // One pixel stands in for the picture the renderer draws
+  await writeFile(
+    sheet,
+    Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "base64",
+    ),
+  );
+  const answer = { toolCallId: "t", input: undefined as never, output: said };
+  const seeing = createDeckTools(sandbox, "Tester", {}, true)[
+    TOOL_NAMES.make_deck
+  ];
+  assert.equal((await seeing.toModelOutput?.(answer))?.type, "content");
+  assert.deepEqual(await tool.toModelOutput?.(answer), {
+    type: "text",
+    value: said,
+  });
   shots = { exitCode: 0, stdout: '{"pictures":[],"cut":[]}', stderr: "" };
 });
