@@ -197,7 +197,11 @@ as text for whoever builds it. Opened inside the app, where there is less room, 
 values take the list's place until every board is back (0 or Esc); on a phone they are left out, and
 **Export** still copies the board. The bar at its top names who made it and holds a theme button and
 **Export**: **Print · a board a page**, **This board as a picture**, **Copy this board as an
-instruction**, **Download this file**.
+instruction**, **Download this file**. **Note** on the rail (or **N**) pins a note of their own
+where the canvas is clicked next, sized to read at that zoom: it is dragged anywhere, a double
+click changes its words, and **Delete** takes a picked one away (⌘Z brings it back). Notes are
+saved into the file as they are made, and a bot asked to change the canvas reads them as what
+was said about the options.
 
 Something to present, or to be walked through a step at a time, comes back as a **deck**. Any bot
 can make one: it writes what each slide says and picks its layout — a cover, one claim on its own,

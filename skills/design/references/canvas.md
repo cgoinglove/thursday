@@ -35,7 +35,8 @@ whose job matches, give it the next letter and a place, and change what is on it
 - A `<p class="note title">` over a row names what the row is — a flow, a round, a
   page of the exploration — never one board, whose strip names it. A
   `<p class="note sticky">` is a remark pinned to the surface: a question, what the
-  user said, a thing still to decide.
+  user said, a thing still to decide. One with `data-by="user"` the user pinned there
+  themselves.
 - Write the board's content as plain HTML with inline styles, laid out with flex or
   grid and `gap`, never with margins between siblings. Nothing comes from the network:
   a picture sits beside the canvas file as `<img src="shot.png">`; a font is the

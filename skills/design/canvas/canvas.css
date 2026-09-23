@@ -112,6 +112,9 @@ body.cv-no-layers .cv-layers {
 body[data-tool="hand"] #field {
   cursor: grab;
 }
+body[data-tool="note"] #field {
+  cursor: crosshair;
+}
 #field.cv-dragging {
   cursor: grabbing;
 }
@@ -431,6 +434,32 @@ body[data-tool="hand"] #field {
   background: var(--sh-soft);
   color: var(--sh-ink);
   box-shadow: var(--sh-shadow);
+}
+/* A note the reader pinned: the paper of a sticky note, so it reads as theirs whatever
+   the theme. It moves by dragging, opens for its words with a double click, and a picked
+   one is ringed — the ring in screen pixels at any zoom (`--cv-z`, canvas.js). */
+.note.sticky[data-by="user"] {
+  padding: calc(0.75rem * var(--s, 1)) calc(0.875rem * var(--s, 1));
+  border-color: #e8d587;
+  border-radius: calc(0.5rem * var(--s, 1));
+  background: #fff3bf;
+  color: #3b3110;
+  font-size: calc(0.8125rem * var(--s, 1));
+}
+body[data-tool="select"] .note.sticky {
+  cursor: grab;
+}
+.note.sticky.cv-note-on,
+.note.sticky[contenteditable] {
+  outline: calc(2px / var(--cv-z, 1)) solid var(--sh-brand);
+  outline-offset: calc(2px / var(--cv-z, 1));
+}
+.note.sticky[contenteditable] {
+  cursor: text;
+}
+.note.sticky:empty::before {
+  content: "A note";
+  color: #8a7a3d;
 }
 
 /* A canvas drawn as a file's face: its boards side by side on plain paper, and nothing else. */

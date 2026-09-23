@@ -23,13 +23,15 @@ app draws it at 1024px wide. `S=<skill dir>/scripts`
 4. Hand back the canvas's path and the pictures' paths, and say in words what each
    option explores and which you would lead with.
 
-What the file does that you do not write: a head naming who made it and how many boards,
-a rail (select, move, every board, the list), a list of every board small on the left, and
+What the file does that you do not write: a head naming who made it and how many boards, a
+rail (select, move, pin a note, every board, the list), a list of every board small on the left, and
 when a board is picked its real colours, type and spacing on the right with a button that
 copies it as an instruction; a link from one board to another (`<a href="#next">`) brings
 that board up, so a flow is walked through the way it would be used. Only `put` writes the
 boards: never write the canvas file itself, which takes all of that with it. Boards on one
-canvas can be different sizes — a phone beside a desktop — and there is no editing in the
-app: what changes is the boards, put and shot again. To change a canvas that exists,
-`node $S/canvas.mjs get <name|path> <file>` first and change that file: `put` refuses a
-canvas changed since your last put.
+canvas can be different sizes — a phone beside a desktop. In the app the user can pin notes
+of their own on the canvas, `<p class="note sticky" data-by="user">`: they are the user's
+answer to the options, so read them, and leave them where they are unless the user asks
+otherwise. What changes on the boards is yours, put and shot again. To change a canvas that
+exists, `node $S/canvas.mjs get <name|path> <file>` first and change that file: `put`
+refuses a canvas changed since your last put.

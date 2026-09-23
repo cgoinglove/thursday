@@ -40,8 +40,10 @@ does not say. A `SKILL.md` is model-facing text, so `model.md` › Writing for a
     `deck.mjs`) put on every file they write, through the module they import (`shell/wear.mjs`) —
     the head a page wears, its buttons and menus, the theme, and the page asking the app that shows
     it to keep its edits — by message to the frame, the one door out of the sandbox the page is
-    served in (`data.md`). A kind that edits (the document, the deck) takes Edit, the line that says
-    where keeping stands and Reload from the shell (`shell.edits`), and says only what changed. What a bot writes goes in by `put` (`shell/put.mjs`) between two marks
+    served in (`data.md`). A kind that edits (the document, the deck, a canvas's notes) takes the
+    line that says where keeping stands, Reload and Edit where it has one from the shell
+    (`shell.edits`), and says only what changed. A note the user pins on a canvas is marked
+    `data-by="user"`, so the bot that gets the canvas reads it as their answer. What a bot writes goes in by `put` (`shell/put.mjs`) between two marks
     the page is made with, so the frame is never written over. The start mark keeps a print of the
     last body put or got, and `put` refuses a page whose body is not that one — edited in the app
     or by hand — until `get` has handed the bot the body as it is now. Every put names a new

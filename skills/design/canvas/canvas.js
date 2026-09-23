@@ -3,7 +3,8 @@
 // whether a press picks a board or only moves the surface, the list on the left holds
 // every board small, and the board that is picked shows what it is really made of on the
 // right. It opens fitted, because the app draws this file at 1024px wide and does not
-// scroll it: at 1:1 a canvas of boards would show one corner.
+// scroll it: at 1:1 a canvas of boards would show one corner. The reader can pin notes
+// of their own on it, which the app keeps in the file for the bot to read.
 (() => {
   // Printing wants what the renderer wants: the boards flat, at true size
   addEventListener("beforeprint", () => document.body.classList.add("shot"));
@@ -60,6 +61,8 @@
 
   const draw = () => {
     stage.style.transform = `translate(${x}px, ${y}px) scale(${z})`;
+    // A ring drawn on the surface divides by this to stay the same on screen (canvas.css)
+    stage.style.setProperty("--cv-z", String(z));
     if (out) out.value = `${Math.round(z * 100)}%`;
     dots();
     hover.hidden = true;
@@ -326,14 +329,35 @@
 
   field.addEventListener("pointerdown", (event) => {
     // The surface captures the pointer to pan, which would swallow a press on a
-    // control drawn on it. Anything clickable keeps its own press.
+    // control drawn on it. Anything clickable keeps its own press, and so do the words
+    // of a note being written in.
     if (
       event.target instanceof Element &&
       event.target.closest(
-        "button, a, input, select, textarea, label, summary, .cv-zoom, .cv-hover",
+        "button, a, input, select, textarea, label, summary, [contenteditable], .cv-zoom, .cv-hover",
       )
     )
       return;
+    const note =
+      event.target instanceof Element
+        ? event.target.closest(".note.sticky")
+        : null;
+    if (note && document.body.dataset.tool === "select" && !shell.face) {
+      moving = {
+        note,
+        id: event.pointerId,
+        from: [event.clientX, event.clientY],
+        at: [
+          Number(note.style.getPropertyValue("--x")) || 0,
+          Number(note.style.getPropertyValue("--y")) || 0,
+        ],
+        was: snapshot(),
+        travel: 0,
+      };
+      // Held only once it is a drag: held from the press, the clicks that open it for its
+      // words would land on the surface instead
+      return;
+    }
     field.setPointerCapture(event.pointerId);
     down.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (down.size === 2) pinch = span();
@@ -344,6 +368,25 @@
   });
 
   field.addEventListener("pointermove", (event) => {
+    if (moving && event.pointerId === moving.id) {
+      moving.travel = Math.hypot(
+        event.clientX - moving.from[0],
+        event.clientY - moving.from[1],
+      );
+      if (moving.travel < DRAG) return;
+      if (!field.hasPointerCapture(moving.id))
+        field.setPointerCapture(moving.id);
+      const [nx, ny] = moving.at;
+      moving.note.style.setProperty(
+        "--x",
+        String(Math.round(nx + (event.clientX - moving.from[0]) / z)),
+      );
+      moving.note.style.setProperty(
+        "--y",
+        String(Math.round(ny + (event.clientY - moving.from[1]) / z)),
+      );
+      return;
+    }
     const was = down.get(event.pointerId);
     if (!was) return;
     const now = { x: event.clientX, y: event.clientY };
@@ -373,6 +416,15 @@
   });
 
   const up = (event) => {
+    if (moving && event.pointerId === moving.id) {
+      const { note, travel, was } = moving;
+      moving = null;
+      if (travel >= DRAG) {
+        remember(was);
+        changed();
+      } else pickNote(note);
+      return;
+    }
     // A press on a control drawn on the surface (the zoom, a board's buttons) was never
     // the surface's: letting it go is not a click on empty space, which would unpick
     if (!down.has(event.pointerId)) return;
@@ -381,9 +433,11 @@
     if (down.size) return;
     field.classList.remove("cv-dragging");
     if (!dragging && document.body.dataset.tool === "select") {
+      pickNote(null);
       if (pressed) pick(boards().indexOf(pressed));
       else unpick();
     }
+    if (!dragging && document.body.dataset.tool === "note") pin(event);
     pressed = null;
     dragging = false;
   };
@@ -427,6 +481,161 @@
   );
   field.addEventListener("pointerleave", () => leave(null));
 
+  /* ── notes ───────────────────────────────────────────────────────────────── */
+
+  /*
+   * The reader pins notes of their own: Note on the rail, then a click where one goes.
+   * A note moves by dragging, opens for its words with a double click, and Delete takes
+   * a picked one away. It is a sticky marked as theirs (`data-by="user"`) among what the
+   * bot wrote, so the bot reads it when it next gets the canvas. The app keeps every
+   * change (shell.edits), and ⌘Z takes one back.
+   */
+  const stickies = () => [...stage.querySelectorAll(".note.sticky")];
+  const changed = () => shell.edits.changed();
+
+  /** Where the put marks close: a note goes in before it, among what the bot wrote. */
+  const endMark = () =>
+    [...stage.childNodes].find(
+      (node) =>
+        node.nodeType === Node.COMMENT_NODE && /^ put: end\b/.test(node.data),
+    ) ?? null;
+
+  /** The stickies as the file keeps them, for taking a change back. */
+  const snapshot = () =>
+    stickies()
+      .map((note) => {
+        const copy = note.cloneNode(true);
+        copy.classList.remove("cv-note-on");
+        copy.removeAttribute("contenteditable");
+        return copy.outerHTML;
+      })
+      .join("\n");
+  const past = [];
+  const future = [];
+  const remember = (was = snapshot()) => {
+    past.push(was);
+    if (past.length > 100) past.shift();
+    future.length = 0;
+  };
+  const restore = (html) => {
+    for (const note of stickies()) note.remove();
+    const box = document.createElement("template");
+    box.innerHTML = html;
+    stage.insertBefore(box.content, endMark());
+    noteOn = null;
+    changed();
+  };
+
+  let moving = null; // a note being dragged
+  let noteOn = null; // the note picked, which Delete takes away
+  let fresh = null; // a note just pinned, until the caret leaves it
+  let before = null; // the stickies as a note being written in found them
+
+  const pickNote = (note) => {
+    noteOn?.classList.remove("cv-note-on");
+    noteOn = note;
+    note?.classList.add("cv-note-on");
+  };
+
+  /** A note opened for its words, the caret after them; the view stays where it is. */
+  const writeIn = (note) => {
+    pickNote(null);
+    try {
+      note.contentEditable = "plaintext-only";
+    } catch {
+      note.contentEditable = "true";
+    }
+    note.focus({ preventScroll: true });
+    const range = document.createRange();
+    range.selectNodeContents(note);
+    range.collapse(false);
+    getSelection()?.removeAllRanges();
+    getSelection()?.addRange(range);
+  };
+
+  /**
+   * A note pinned where the surface was pressed, open for its words. It is the size that
+   * reads at the zoom it was written at (`--s`): pinned over a canvas zoomed out to see
+   * every board, it is not a speck.
+   */
+  const pin = (event) => {
+    const box = field.getBoundingClientRect();
+    const scale = Math.min(4, Math.max(1, Math.round(10 / z) / 10));
+    const note = document.createElement("p");
+    note.className = "note sticky";
+    note.dataset.by = "user";
+    note.style.cssText = `--x: ${Math.round((event.clientX - box.left - x) / z)}; --y: ${Math.round((event.clientY - box.top - y) / z)}; --w: ${Math.round(240 * scale)}; --s: ${scale}`;
+    remember();
+    stage.insertBefore(note, endMark());
+    own = true;
+    setTool("select");
+    fresh = note;
+    before = null;
+    writeIn(note);
+  };
+
+  stage.addEventListener("dblclick", (event) => {
+    const note =
+      event.target instanceof Element && event.target.closest(".note.sticky");
+    if (!note || shell.face || note.hasAttribute("contenteditable")) return;
+    event.preventDefault();
+    before = snapshot();
+    writeIn(note);
+  });
+  // Esc closes a note; Enter is a new line in it
+  stage.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const note = event.target.closest?.(".note.sticky");
+    if (!note?.hasAttribute("contenteditable")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    note.blur();
+  });
+  stage.addEventListener("input", (event) => {
+    if (!event.target.closest?.(".note.sticky")) return;
+    if (before !== null) remember(before);
+    before = null;
+    changed();
+  });
+  // Leaving a note closes it; one left with no words goes, and one pinned and left empty
+  // was never there
+  stage.addEventListener("focusout", (event) => {
+    const note = event.target.closest?.(".note.sticky");
+    if (!note?.hasAttribute("contenteditable")) return;
+    note.removeAttribute("contenteditable");
+    before = null;
+    const empty = !note.textContent.trim();
+    if (note === fresh) {
+      fresh = null;
+      if (!empty) return;
+      note.remove();
+      past.pop();
+      return;
+    }
+    if (!empty) return;
+    note.remove();
+    changed();
+  });
+
+  addEventListener("keydown", (event) => {
+    if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+    const on = event.target;
+    if (
+      on instanceof HTMLElement &&
+      on.closest("input, textarea, select, [contenteditable]")
+    )
+      return;
+    const key = event.key.toLowerCase();
+    const again =
+      (key === "z" && event.shiftKey) || (key === "y" && !event.metaKey);
+    if (key !== "z" && !again) return;
+    const from = again ? future : past;
+    if (!from.length) return;
+    event.preventDefault();
+    (again ? past : future).push(snapshot());
+    restore(from.pop());
+  });
+
   addEventListener("keydown", (event) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     const on = event.target;
@@ -435,8 +644,15 @@
       on.closest("input, textarea, select, [contenteditable]")
     )
       return;
-    if (event.key === "0" || event.key === "Escape") fitAll();
-    else if (event.key === "1") zoomAt(1, ...center());
+    if ((event.key === "Delete" || event.key === "Backspace") && noteOn) {
+      remember();
+      noteOn.remove();
+      noteOn = null;
+      changed();
+    } else if (event.key === "0" || event.key === "Escape") {
+      pickNote(null);
+      fitAll();
+    } else if (event.key === "1") zoomAt(1, ...center());
     else if (event.key === "+" || event.key === "=")
       zoomAt(z * 1.25, ...center());
     else if (event.key === "-") zoomAt(z / 1.25, ...center());
@@ -444,6 +660,8 @@
     else if (event.key === "ArrowLeft" || event.key === "ArrowUp") step(-1);
     else if (event.key === "v" || event.key === "V") setTool("select");
     else if (event.key === "h" || event.key === "H") setTool("hand");
+    else if ((event.key === "n" || event.key === "N") && !shell.face)
+      setTool("note");
     else return;
     event.preventDefault();
   });
@@ -676,6 +894,10 @@
     copy.querySelector("body")?.classList.remove("cv-no-layers");
     for (const frame of copy.querySelectorAll(".frame"))
       frame.classList.remove("picked", "cut");
+    for (const note of copy.querySelectorAll(".note.sticky")) {
+      note.classList.remove("cv-note-on");
+      note.removeAttribute("contenteditable");
+    }
     for (const el of copy.querySelectorAll(".swatches")) el.remove();
   };
 
