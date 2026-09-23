@@ -448,7 +448,6 @@ export const ROUTINE = { tickMs: 30_000, max: 12, minHours: 1, runsShown: 5 };
  * of that bot's trade rather than one method among many (.claude/rules/seeds.md). Every other
  * skill a bot finds through its own description.
  */
-export const BROWSER_SKILL = "browser";
 export const DESIGN_SKILL = "design";
 export const PAGE_SKILL = "interactive-page";
 

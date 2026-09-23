@@ -80,9 +80,9 @@ does not say. A `SKILL.md` is model-facing text, so `model.md` › Writing for a
   sign in, pay or ask a question is the tool's and the browser skill's to say. A role holds what only
   it knows: what is this bot's, what it ends as, the judgement only it makes, what it keeps in
   memory. The exceptions are a structural dependency (`requires`) and the skill or tool that is the
-  bot's whole trade — the browser for a bot that reads pages for a living, `design`, the page skill
-  and `make_deck` for the bot that makes what is looked at — named from `config.ts`
-  (`BROWSER_SKILL`, `DESIGN_SKILL`, `PAGE_SKILL`) or `TOOL_NAMES`, never spelled in the prose.
+  bot's whole trade — `design`, the page skill and `make_deck` for the bot that makes what is looked
+  at — named from `config.ts` (`DESIGN_SKILL`, `PAGE_SKILL`) or `TOOL_NAMES`, never spelled in the
+  prose. A role never sends a bot to the browser to check its own work (Skill scripts, below).
 - **A bot's folder is "your own folder"** in a role; a `bots/<name>/…` path breaks when it is renamed.
 - **No outside conventions in a seed** — an external pack's file paths or a new place to keep things.
   A skill that needs such a file handles it.
