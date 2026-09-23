@@ -109,7 +109,7 @@ export function useCallRing({
   /**
    * While it rings: it stops ringing by itself after CALL_BACK.ringMs and stays on
    * the screen as a missed call until the user answers or dismisses it, so stepping
-   * away does not lose it (canvas "Thursday 콜백 알림" B, user 09-17). Esc dismisses.
+   * away does not lose it. Esc dismisses.
    * A thread added to a ring already going does not restart the clock.
    */
   const decline = useCallback(() => {

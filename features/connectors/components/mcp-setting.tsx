@@ -598,7 +598,7 @@ function McpRegister({
   return (
     <SettingDialogContent
       title="Add MCP server"
-      description="Its tools become available to Thursday and every bot."
+      description="Its tools become available to every bot."
       footer={
         <>
           <Button variant="ghost" onClick={onDone}>

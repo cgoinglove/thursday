@@ -56,11 +56,10 @@
  * (`--alpha-*`), which is why it needs no second value for the dark.
  *
  * The steps are OpenAI's, from `@openai/apps-sdk-ui` 0.2.2 (MIT, Copyright 2025
- * OpenAI), and so are the two hues below: the blue is theirs as it is, and what
- * marks a failure sits halfway between their red and their orange, at the same
- * lightness — a plain red beside this blue reads as an alarm, and almost nothing
- * here is one. What this app takes from that system is the arrangement: a role
- * picks a hue and the theme picks only which step of it.
+ * OpenAI), and so is the blue, as it is. What marks a failure is Tailwind's plain
+ * red, the one people already read as an error. What this app takes from that
+ * system is the arrangement: a role picks a hue and the theme picks only which
+ * step of it.
  */
 :root,
 .dark .inverse {
@@ -187,11 +186,10 @@
 }
 
 /*
- * What waits on the user is a warm of its own (the user's pick): an ember, one step deeper in the
- * light theme than the amber this app carried before, because that one measured 3.19:1 on white
- * and small text needs 4.5. It is told from what failed by being brighter and by never being a
- * line of text: the warm is a dot on a face, a count, the pill's own word; red stays an error.
- * Written per theme beside the brand.
+ * What waits on the user is a warm of its own: an ember, at the step each theme needs for small
+ * text to clear 4.5:1. It is told from what failed by hue and by shape: the warm is a dot on a
+ * face, a count, a word with its glyph; red is an error's own words. Written per theme beside the
+ * brand.
  */
 
 @layer base {
@@ -262,10 +260,11 @@
   }
 }
 
-/* The boot curtain (boot.tsx) is opaque and only the client lifts it, so a load
-   whose script never runs — a chunk that did not arrive, a dev server restarted
-   mid-load — is a blank screen with nothing on it to read. This line is drawn on
-   the server and revealed by CSS alone, long after any healthy start. */
+/* A load whose script never runs — a chunk that did not arrive, a dev server
+   restarted mid-load — looks fine and does nothing, since her face is a canvas and
+   every control is the client's. The line that says so (boot.tsx) is drawn on the
+   server, taken away only by the client, and revealed by CSS alone, long after any
+   healthy start. */
 @theme {
   --animate-stalled: stalled 0.5s ease-out 6s forwards;
 

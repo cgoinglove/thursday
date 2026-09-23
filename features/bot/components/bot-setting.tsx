@@ -563,9 +563,9 @@ function SeedPackage({
           Bots you can add
         </h3>
         <p className="mt-1.5 max-w-lg text-[13px] leading-relaxed text-muted-foreground break-keep">
-          Each one is a starting point — rename it, re-prompt it, give it a
-          model of its own. What a bot needs before it can work stands on its
-          row; until then it runs on the app default model.
+          Each one is a starting point — re-prompt it, give it a model of its
+          own. What a bot needs before it can work stands on its row; until then
+          it runs on the app default model.
         </p>
       </div>
 
@@ -602,7 +602,7 @@ function SeedDialog({
   return (
     <SettingDialogContent
       title="Bots you can add"
-      description="Each one is a starting point — rename it, re-prompt it, give it a model of its own. What a bot needs before it can work stands on its row."
+      description="Each one is a starting point — re-prompt it, give it a model of its own. What a bot needs before it can work stands on its row."
       footer={<SeedActions picks={picks} onCancel={() => onDone(null)} />}
     >
       <SeedRows have={have} faces={faces} picks={picks} />

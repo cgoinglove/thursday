@@ -43,8 +43,8 @@ import { clip } from "@/lib/utils";
 
 /**
  * Which tools each runtime is handed; what it is told about them is the prompt's job.
- * Every tool runs on the server, including calls made during a voice session; only `end_call`
- * has no execute (the page hangs up). The split is by time, not capability: anything that
+ * Every tool runs on the server, including calls made during a voice session, except the page's
+ * own: `end_call` and `emote` have no execute (the page hangs up, the page draws the word). The split is by time, not capability: anything that
  * presupposes waiting (MCP, studio, browser) belongs to the bot. Only the call and an edit on
  * the memory screen write to memory: revising, carrying and naming need the user there. A bot reads it.
  * Skills are the one thing that crosses back, and only when asked for: the call reads one itself
@@ -95,7 +95,7 @@ type ToolRun =
       /** The model this run already resolved (bot.run resolveModel); its own native search is what `web_search` uses when no Exa key is set (tools/search.tool). */
       model?: TextModel | null;
     }
-  /** An edit from the memory screen (memory/memory.edit): memory's read and two writes, run as the model calls them. */
+  /** An edit from the memory screen (memory/memory.edit): every memory tool, run as the model calls them. */
   | { target: "memory-edit" };
 
 /**

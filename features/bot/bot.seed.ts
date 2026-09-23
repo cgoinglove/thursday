@@ -29,8 +29,10 @@ import {
  * this bot's, what it ends as, the judgement only this role makes, and what it keeps in
  * memory. It never names its own bot or another one — a bot on the roster can be
  * switched off or deleted — and never a skill, a tool's procedure, or how to sign in or
- * pay: the skill read while doing it says that. The exception is the browser skill, the
- * tool of a bot's trade. Every field stays within the bot form's limits (lib/limits
+ * pay: the skill read while doing it says that. The exception is the skill that is a bot's
+ * whole trade — the browser for one that reads pages for a living, design, slides and the
+ * page skill for the one that makes what is looked at — named from config, never spelled
+ * out (.claude/rules/seeds.md). Every field stays within the bot form's limits (lib/limits
  * COMMON_VALIDATE), or an edit to it cannot be saved.
  *
  * Each description is a line in every prompt that lists the roster, and the one the

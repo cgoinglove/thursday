@@ -1967,9 +1967,12 @@ test("a bot that loads a skill is shown the files that ship with it", async () =
   const loaded = parts.find(
     (part) => part.type === "tool-result" && part.toolName === T.load_skill,
   );
-  assert.deepEqual(loaded.output.value.files, [
-    "LICENSE.txt",
-    "SKILL.md",
-    "scripts/validate.mjs",
-  ]);
+  // Each as the path that opens it, not a name to be joined to the directory
+  const { skillDirectory, files } = loaded.output.value;
+  assert.deepEqual(
+    files,
+    ["LICENSE.txt", "SKILL.md", "scripts/validate.mjs"].map(
+      (file) => `${skillDirectory}/${file}`,
+    ),
+  );
 });

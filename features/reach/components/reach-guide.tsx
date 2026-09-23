@@ -274,8 +274,8 @@ export function ReachGuide() {
       </SettingItems>
       <SettingNote>
         Only the one person you allow can write, and only direct messages are
-        read. For bots to work while no tab is open, switch on Work while the
-        app is closed in Settings › Bots.
+        read. Work started here runs whether or not a tab is open, while
+        Thursday is running on this computer.
       </SettingNote>
     </div>
   );

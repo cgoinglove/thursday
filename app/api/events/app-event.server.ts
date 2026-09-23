@@ -23,9 +23,9 @@ export const appEvents: EventBus<AppEvent> = (pinned.__appEvents ??=
   createEventBus<AppEvent>());
 
 /**
- * Whether a browser is on the stream. The app stops what it is doing when the
- * last one has been gone for BROWSER_GONE_MS; who stops what is wired at boot
- * (instrumentation), not here.
+ * Whether a browser is on the stream. When the last one has been gone for
+ * BROWSER_GONE_MS the calls its tabs held close; work runs on. What reads it is
+ * wired at boot (instrumentation), not here.
  */
 export const presence: Presence = (pinned.__presence ??=
   createPresence(BROWSER_GONE_MS));

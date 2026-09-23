@@ -274,7 +274,7 @@ export const MEDIA_MODEL_PROVIDERS: Record<
     },
   },
   "vercel-ai-gateway": {
-    label: "Vercel AI GateWay",
+    label: "Vercel AI Gateway",
     apiKeyName: "AI_GATEWAY_API_KEY",
     models: {
       image: [
@@ -565,7 +565,7 @@ export const TEXT_MODEL_PROVIDERS: Record<
    * the gateway's own (xAI is `spacexai`); ids are checked against the live list (model.ts liveGatewayIds).
    */
   "vercel-ai-gateway": {
-    label: "Vercel AI GateWay",
+    label: "Vercel AI Gateway",
     apiKeyName: "AI_GATEWAY_API_KEY",
     keysAt:
       "https://vercel.com/docs/ai-gateway/authentication-and-byok/authentication",

@@ -140,7 +140,7 @@ ${backendPrompt.trim()}`
  * Profile and preferences written out whole, the listing, and what goes in. What is worth
  * keeping is the model's call; how a fact is written — dated, replacing — is the tool's schema
  * to say, and so is which tool starts a note. Merging is said here too: left to the `replaces`
- * description alone, facts on one subject piled up beside each other (09-17). Merging loses
+ * description alone, facts on one subject piled up beside each other. Merging loses
  * nothing; deleting does, so `memory_forget` stays for what the user names.
  */
 function memory(

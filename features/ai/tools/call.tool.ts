@@ -9,7 +9,7 @@ import {
 /**
  * The call lives in the page, so these tools have no server-side execute; the
  * page supplies the behaviour (use-thursday). loadTools declares them too so
- * `/api/tool-call` refuses them by name rather than as unknown tools.
+ * `/api/thursday/tool-call` refuses them by name rather than as unknown tools.
  */
 const endCallSpec = {
   description: `End the call.

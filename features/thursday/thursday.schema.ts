@@ -138,8 +138,9 @@ export const CallBackSchema = z.enum(CALL_BACK_MODES);
 export type CallBack = z.infer<typeof CallBackSchema>;
 
 /**
- * Everything a bot finishes rings, because nobody watches a screen for work they handed
- * over. The quieter modes are one setting away, and "off" is what stops the ring entirely.
+ * A bot's question rings, because nobody watches a screen for work they handed over and a
+ * question holds its thread up. Every ending ringing is one setting away, and "off" is what
+ * stops the ring entirely.
  */
 export const CALL_BACK_DEFAULT: CallBack = "waiting";
 

@@ -18,10 +18,10 @@ Useful:
 |---|---|
 | `pnpm dev` | the app, with hot reload — on 4747, or the next free port; afterwards on the port its first run took |
 | `pnpm typecheck` / `pnpm lint` | types and lint |
-| `pnpm test:live` / `pnpm test:bot` / `pnpm test:artifact` | the call, bots, file viewer URLs — offline, providers mocked |
+| `pnpm test:live` / `test:bot` / `test:memory` / `test:reach` / `test:artifact` / `test:skills` | the call, bots, memory tools, the phone and calls in writing, file viewer URLs, shipped skills' files — offline, providers mocked |
 | `pnpm reset` | wipe local data (calls, jobs, memory) and optionally the build |
 | `pnpm build` && `pnpm start` | the production server, as `npx thursday-agent` runs it — on this checkout's data, not `~/.thursday` |
-| `pnpm pack:check` | build the tree npm would publish, into `dist/` |
+| `pnpm pack:check` | assemble the tree npm would publish into `dist/`, from the last build and with no gates |
 
 ## Before you open a pull request
 

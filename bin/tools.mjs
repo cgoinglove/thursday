@@ -1,6 +1,6 @@
 // Where the CLIs the app ships with actually are. Plain JavaScript and no app
-// imports: this runs from `postinstall` and from the published `bin`, on a
-// machine that has neither a build nor a TypeScript loader.
+// imports: this runs from the published `bin`, on a machine that has neither a
+// build nor a TypeScript loader.
 
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";

@@ -17,7 +17,7 @@ import { clip } from "@/lib/utils";
  * writing heads its messages with it. The voice never reads it — handed a list of threads
  * it opened every call on them (15 greetings in 15), and it holds no tool that takes one.
  * Facts only, and no tool name: what to do with the list is the backend prompt's
- * (thursday.prompt Background work). Same rows and same order as `thread` `status`.
+ * (thursday.prompt Background work). Same rows and same order as `thread_status`.
  */
 export async function loadCallStanding(): Promise<string | null> {
   const threads = await listThreadOverview();

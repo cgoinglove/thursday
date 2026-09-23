@@ -75,10 +75,8 @@ export async function loadLivePrompt(options: {
 
 /**
  * The rules for every turn, together right under the persona, where the model weighs most.
- * Ending the call is on the delegation list and nowhere else: the rule that stood above
- * these, stamped IMPORTANT, ran end_call in 4 of the 7 calls that asked, 2 of them in
- * time — a name and a stamp did not make the voice hand a hang-up over (todo 31 measures
- * what does).
+ * Ending the call is on the delegation list and nowhere else: a rule of its own, even one
+ * naming `end_call` and stamped IMPORTANT, did not make the voice hand a hang-up over.
  */
 const always = () => `## Always
 
@@ -87,10 +85,10 @@ ${speaking()}
 ${delegation()}`;
 
 /**
- * The guide's starter lines on listening and interruptions, labels kept as it says. The
- * backchannel line is the one it invites changing: a long turn heard in silence reads as
- * nobody listening. The language is the one being spoken, never the browser's: a first call
- * opened in the browser's language kept an English speaker in Korean.
+ * The guide's starter lines on listening and interruptions, as it writes them: how much
+ * anyone wants to be backchannelled at is how they want to be spoken to, which is theirs to
+ * say and lives in their memory. The language is the one being spoken, never the browser's:
+ * a first call opened in the browser's language kept a caller in the wrong one.
  */
 function speaking(): string {
   return `Backchannel policy: Use moderate backchannels. Acknowledge naturally without competing with the main response.
@@ -102,9 +100,8 @@ Speak the language the user is speaking, whatever language came before; when the
 
 /**
  * The guide's three labels, as it asks: Live decides for itself whether to hand a turn over,
- * and reads that from what the list says the backend can do. Without the list (09-17 to 09-19)
- * it said "yes" to a hang-up, a stop or a routine and handed nothing over: 1 `end_call` in 21
- * calls, then none in 34, where the list had drawn 5 in 7. The list names what can be done,
+ * and reads that from what the list says the backend can do. Without the list it said "yes"
+ * to a hang-up, a stop or a routine and handed nothing over. The list names what can be done,
  * never how: tools, bots and threads stay the backend's. What they say about themselves is
  * its own line: nothing is kept that is not handed over, and it is rarely a request. The voice
  * sees only profile and preferences whole, so "already written" is a rough filter; the backend

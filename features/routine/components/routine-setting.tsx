@@ -72,7 +72,7 @@ import { RoutineMark } from "./routine-mark";
 type Open = string | "new" | null;
 
 const STARTS_NOTE =
-  "Starts while Thursday is running on this computer, with a tab open unless work goes on with the app closed. A time that passed meanwhile starts once, not once for each.";
+  "Starts while Thursday is running on this computer, whether or not a tab is open. A time that passed meanwhile starts once, not once for each.";
 
 export function RoutineSetting() {
   const [open, setOpen] = useState<Open>(null);

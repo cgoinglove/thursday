@@ -49,7 +49,7 @@ Each bot keeps its own memory as files you can open from its page.
 
 - A job runs on the local server, not in the call. Hang up and it keeps going.
 - Every step is saved, so a job that stopped to ask picks up where it left off, and you can read the whole thread.
-- Close the app, and after ten seconds running jobs pause. Open it again and they continue, so nothing spends your keys while you are away. Settings › Bots keeps them running instead, if you would rather they finish with nothing open.
+- Close the app's tab and jobs keep running for as long as Thursday runs on your computer; routines start with nothing open, and a connected phone hears when a job finishes. Quit the server and a running job waits for you to press Continue.
 - A model call that fails is retried once. After that, the job waits for you.
 
 ## Memory

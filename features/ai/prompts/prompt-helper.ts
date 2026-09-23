@@ -19,7 +19,8 @@ import { clip } from "@/lib/utils";
 /**
  * Row-to-line formatters shared by the call prompts (live, thursday) and bot.prompt, plus the tidying check.
  * Nothing here wraps a sentence; headings and paragraphs live in the prompt that says them. The
- * exception is `thursdayIdentity`, the words both call prompts open with.
+ * exceptions are what both call prompts say alike: `thursdayIdentity`, the words they open
+ * with, and `styleLines`, the user's own words on how she talks.
  */
 
 /**
