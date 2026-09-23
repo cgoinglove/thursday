@@ -5,6 +5,7 @@ import { WORKSPACE_VIEW } from "@/config";
 import { FileBody, FileFrame } from "@/features/workspace/components/file-view";
 import { viewKindOf } from "@/features/workspace/file-kind";
 import { insideWorkspace } from "@/features/workspace/workspace";
+import { cn } from "@/lib/utils";
 
 /**
  * Viewer for one workspace file. Text kinds render here; html and pdf go in an
@@ -12,6 +13,13 @@ import { insideWorkspace } from "@/features/workspace/workspace";
  */
 
 export const dynamic = "force-dynamic";
+
+/**
+ * How a page the app's own skills made names itself in its first bytes (skills/shell,
+ * head.html). Such a page wears its own head — who made it, its name, Export — so the
+ * tab is that page alone, with no bar of ours above it.
+ */
+const WEARS_ITS_HEAD = '<meta name="generator" content="Thursday">';
 
 type Params = { params: Promise<{ path: string[] }> };
 
@@ -31,27 +39,35 @@ export default async function ArtifactPage({ params }: Params) {
   if (!info?.isFile()) notFound();
 
   const kind = viewKindOf(rel);
+  const ownHead =
+    kind === "frame" &&
+    ((await readHead(full, 1024))?.includes(WEARS_ITS_HEAD) ?? false);
 
   return (
     <main className="min-h-screen bg-background">
-      <header className="flex h-10 items-center gap-2 border-b border-border/60 px-4">
-        <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-muted-foreground">
-          {rel}
-        </span>
-        <a
-          href={queryKey.file(rel)}
-          download
-          className="shrink-0 font-mono text-[11px] text-muted-foreground hover:text-foreground"
-        >
-          Download
-        </a>
-      </header>
+      {!ownHead && (
+        <header className="flex h-10 items-center gap-2 border-b border-border/60 px-4">
+          <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-muted-foreground">
+            {rel}
+          </span>
+          <a
+            href={queryKey.file(rel)}
+            download
+            className="shrink-0 font-mono text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            Download
+          </a>
+        </header>
+      )}
 
       {kind === "frame" ? (
         // This page is the file and nothing else, so the keyboard is its own
         <FileFrame
           path={rel}
-          className="h-[calc(100vh-2.5rem)] w-full bg-white"
+          className={cn(
+            "w-full bg-white",
+            ownHead ? "h-screen" : "h-[calc(100vh-2.5rem)]",
+          )}
           takeKeys
         />
       ) : kind === "image" ? (

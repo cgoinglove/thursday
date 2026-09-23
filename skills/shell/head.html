@@ -1,5 +1,10 @@
 <!-- The parts of the head every kind has, put in by wear.mjs where a kind's page writes
-     {{shell.who}}, {{shell.theme}}, {{shell.export}} or {{shell.download}}. -->
+     {{shell.meta}}, {{shell.who}}, {{shell.theme}}, {{shell.export}} or {{shell.download}}.
+     The meta names a page the shell dressed. The app's own tab looks for it in a page's
+     first bytes and leaves its bar off (app/artifact), so it stands near the top. -->
+
+<!-- part: meta -->
+<meta name="generator" content="Thursday">
 
 <!-- part: who -->
 <span class="sh-who" data-bot="{{bot}}"><b>{{bot}}</b></span>

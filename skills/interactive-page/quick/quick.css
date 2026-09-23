@@ -249,15 +249,16 @@ body.pg-toc-shut .pg-toc {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-/* Under the title: as of when, by whom, for whom — as chips, on one line */
+/* Under the title: as of when, by whom, for whom — as chips, on one line. A line of
+   words, not a flex row: the editor's caret has no place between a row's pieces. */
 :where(.pg-paper) .byline {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
   margin: 0 0 1.2rem;
   color: var(--muted);
   font-size: 0.85rem;
+  line-height: 2.1;
+}
+:where(.pg-paper) .byline .chip {
+  margin-right: 0.15rem;
 }
 /* The lead: what the reader should take away, in one or two sentences */
 :where(.pg-paper) .lede {
@@ -334,15 +335,16 @@ body.pg-toc-shut .pg-toc {
   padding-left: 0;
   list-style: none;
 }
+/* The box hangs beside the item's first line, and the item stays a line of words */
 :where(.pg-paper) ul.check li {
-  display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
+  position: relative;
+  padding-left: 1.4rem;
 }
 :where(.pg-paper) ul.check input {
+  position: absolute;
+  top: 0.46rem;
+  left: 0;
   margin: 0;
-  flex: none;
-  transform: translateY(0.1em);
   accent-color: var(--accent);
 }
 /* A ticked item steps back, its chips with it */
@@ -579,6 +581,15 @@ body.pg-editing .pg-paper > .pg-hot {
 }
 body.pg-editing .pg-paper a {
   cursor: text;
+}
+/* A chip is one piece in the editor: a press opens its words, ringed while open */
+body.pg-editing .pg-paper .chip {
+  cursor: pointer;
+}
+body.pg-editing .pg-paper .chip[contenteditable="true"] {
+  cursor: text;
+  outline: 2px solid var(--sh-brand);
+  outline-offset: 1px;
 }
 
 @media print {

@@ -173,7 +173,8 @@ the pieces a page is built from — its stylesheets, scripts and fonts — stay 
 ## Books, canvases, decks and pages
 
 A page, a canvas or a deck opened inside the app takes its keys once it has been clicked; before
-that, keys go to the app. Opened in its own tab (↗) it has the whole window and the keyboard.
+that, keys go to the app. Opened in its own tab (↗) it has the whole window and the keyboard, under
+its own top bar.
 
 Asked to explain something simply, **Tutor** makes a picture book: a picture and a line or two a
 page, turned by swiping, the arrow keys, or tapping the right or left of the page. The same book can
@@ -213,10 +214,11 @@ page: a title with the date and who it is by, its contents beside it (the sectio
 marked), chips for dates, people and status, checklists, tables with the pick marked, and the
 sources at the end. It reads on a phone and prints as a document. **Edit** in its top bar makes the
 page editable in place: a paragraph gets a handle and a **+** to put something after it, selected
-words get their formatting over them, and what is changed is saved back into the file as it is
-typed, and at once when the page is left; a box ticked while reading is saved the same way. Closing
-its tab before a change is kept asks first. Opened outside the app the edits are kept as a copy
-downloaded on Done.
+words get their formatting over them, and a chip — a date, a person, a status — moves as one piece:
+pressing it opens its words, and Enter or Esc closes it. What is changed is saved back into the file
+as it is typed, and at once when the page is left; a box ticked while reading is saved the same way.
+Closing its tab before a change is kept asks first. Opened outside the app the edits are kept as a
+copy downloaded on Done.
 
 ## Routines: jobs that start by themselves
 

@@ -31,7 +31,9 @@ does not say. A `SKILL.md` is model-facing text, so `model.md` › Writing for a
     write, through the one module they import (`shell/wear.mjs`) — the head a page wears, its buttons
     and menus, the theme, and the page asking the app that shows it to keep its edits. Its classes and
     custom properties are prefixed `sh-`, since a bot's own stylesheet shares the page, and a kind's
-    defaults for what a bot writes weigh nothing (`:where`), so what the bot writes wins.
+    defaults for what a bot writes weigh nothing (`:where`), so what the bot writes wins. It marks
+    the page near the top (`<meta name="generator" content="Thursday">`); the app's own tab looks
+    for that and leaves its bar off, since the page carries its name and Export itself.
   - Typecheck and lint skip `kit/`, `page/` and `archify`.
 - `seed-skills/<seed>/` — a seed bot's own kit, read-only, copied into `bots/<name>/.agents/skills`
   when the bot is made and listed to that bot alone, so a kit costs no other bot a line. The folder

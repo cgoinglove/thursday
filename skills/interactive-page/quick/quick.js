@@ -162,7 +162,11 @@
         "pg-toc-shut",
         "pg-no-toc",
       );
-    copy.querySelector("#paper")?.removeAttribute("contenteditable");
+    for (const el of copy.querySelectorAll("#paper, #paper [contenteditable]"))
+      el.removeAttribute("contenteditable");
+    // What the browser's own editing leaves behind when it takes a style back off
+    for (const el of copy.querySelectorAll('#paper [style=""]'))
+      el.removeAttribute("style");
     copy.querySelector("#toc")?.replaceChildren();
     copy.querySelector("[data-toc]")?.setAttribute("hidden", "");
     copy.querySelector("#state")?.replaceChildren();
@@ -173,8 +177,6 @@
     }
     for (const el of copy.querySelectorAll(".pg-hot"))
       el.classList.remove("pg-hot");
-    for (const box of copy.querySelectorAll('#paper input[type="checkbox"]'))
-      box.removeAttribute("contenteditable");
     for (const tabs of copy.querySelectorAll(".tabs")) {
       tabs.querySelector('[role="tablist"]')?.remove();
       for (const panel of tabs.querySelectorAll("[role=tabpanel]")) {
@@ -261,13 +263,35 @@
   let block = null; // the block under the handle
   let placed = null; // what the editor itself selected in a block it just made
 
+  let open = null; // the chip whose own words are being written
+
+  /**
+   * A checkbox and a chip are one piece each among the words: the caret passes them and
+   * Backspace takes them whole, and a checkbox stays something to tick. A chip's own
+   * words open with a press (below).
+   */
+  const seal = () => {
+    for (const el of paper.querySelectorAll('input[type="checkbox"], .chip'))
+      if (el !== open) el.contentEditable = "false";
+  };
+
+  /** The open chip is one piece again; one left without words goes. */
+  const shut = () => {
+    const chip = open;
+    open = null;
+    if (!chip?.isConnected) return;
+    chip.contentEditable = "false";
+    if (!chip.textContent.trim()) {
+      chip.remove();
+      changed();
+    }
+  };
+
   const setEditing = (on) => {
     editing = on;
     document.body.classList.toggle("pg-editing", on);
     paper.contentEditable = on ? "true" : "false";
-    // A checkbox stays something to tick while the text around it is being written
-    for (const box of paper.querySelectorAll('input[type="checkbox"]'))
-      box.contentEditable = "false";
+    seal();
     editButton.classList.toggle("sh-on", on);
     editButton.querySelector(".sh-word").textContent = on ? "Done" : "Edit";
     if (on) {
@@ -279,6 +303,7 @@
       );
       return;
     }
+    shut();
     hideAll();
     if (dirty || timer) keep();
     else say("");
@@ -297,8 +322,42 @@
 
   paper.addEventListener("input", () => {
     if (!editing) return;
+    seal(); // a chip pasted in joins the others
     changed();
     contents();
+  });
+
+  // A chip opens where it is pressed, as a field of its own: the browser puts the caret
+  // there, and clearing it stays inside the chip. It closes on a press anywhere else, when
+  // the caret leaves it (selectionchange, below), or on Enter or Esc with the caret just
+  // past it.
+  addEventListener("pointerdown", (event) => {
+    const chip = editing && event.target.closest?.("#paper .chip");
+    if (chip === open) return;
+    shut();
+    if (!chip) return;
+    open = chip;
+    chip.contentEditable = "true";
+  });
+  paper.addEventListener("keydown", (event) => {
+    if (!open || event.isComposing) return; // mid-composition, a key finishes a character
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
+      // All is the chip's words while it is open; the browser would take the whole page
+      event.preventDefault();
+      getSelection().selectAllChildren(open);
+      return;
+    }
+    if (event.key !== "Enter" && event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation(); // one Esc closes the chip and nothing else
+    const chip = open;
+    shut();
+    if (!chip.isConnected) return;
+    const past = document.createRange();
+    past.setStartAfter(chip);
+    const sel = getSelection();
+    sel.removeAllRanges();
+    sel.addRange(past);
   });
 
   /** The block `node` sits in: one of the paper's own children. */
@@ -369,6 +428,7 @@
       else if (how === "down") block.nextElementSibling?.after(block);
       else if (how === "dup") block.after(block.cloneNode(true));
       else if (how === "delete") block.remove();
+      seal();
       hideAll();
       changed();
       contents();
@@ -383,7 +443,7 @@
       ul: "<ul><li>One</li><li>Two</li></ul>",
       ol: "<ol><li>First</li><li>Second</li></ol>",
       check:
-        '<ul class="check"><li><input type="checkbox" contenteditable="false"> To do</li><li><input type="checkbox" contenteditable="false"> To do</li></ul>',
+        '<ul class="check"><li><input type="checkbox"> To do</li><li><input type="checkbox"> To do</li></ul>',
       table:
         "<table><thead><tr><th>Column</th><th>Column</th></tr></thead><tbody><tr><td>Cell</td><td>Cell</td></tr><tr><td>Cell</td><td>Cell</td></tr></tbody></table>",
       note: '<p class="note">A note beside the point.</p>',
@@ -398,6 +458,7 @@
       const made = make(button.dataset.add);
       if (block) block.after(made);
       else paper.append(made);
+      seal();
       hideAll();
       // Its words are selected, so the first key typed replaces them — a selection the
       // editor made, which asks for no formatting
@@ -438,7 +499,10 @@
       else if (how === "link") {
         const href = prompt("Link to");
         if (href) document.execCommand("createLink", false, href);
-      } else if (how === "chip") wrapSelection("span", "chip");
+      } else if (how === "chip") {
+        wrapSelection("span", "chip");
+        seal();
+      }
       changed();
       contents();
     });
@@ -446,6 +510,7 @@
   document.addEventListener("selectionchange", () => {
     if (!editing) return;
     const sel = getSelection();
+    if (open && !open.contains(sel?.anchorNode ?? null)) shut();
     const range = sel?.rangeCount ? sel.getRangeAt(0) : null;
     const mine =
       placed &&
@@ -453,7 +518,17 @@
       range.compareBoundaryPoints(Range.START_TO_START, placed) === 0 &&
       range.compareBoundaryPoints(Range.END_TO_END, placed) === 0;
     if (!mine) placed = null;
-    if (!range || range.collapsed || mine || !paper.contains(sel.anchorNode)) {
+    const at = sel?.anchorNode;
+    const inChip = (at instanceof Element ? at : at?.parentElement)?.closest(
+      ".chip",
+    );
+    if (
+      !range ||
+      range.collapsed ||
+      mine ||
+      inChip ||
+      !paper.contains(sel.anchorNode)
+    ) {
       bubble.hidden = true;
       return;
     }

@@ -36,6 +36,7 @@ export function wear(html) {
     .replace("/* shell.css */", () => read("shell.css"))
     .replace("// shell.theme", () => read("theme.js"))
     .replace("// shell.js", () => read("shell.js"))
+    .replaceAll("{{shell.meta}}", () => part.meta)
     .replaceAll("{{shell.who}}", () => part.who.replaceAll("{{bot}}", bot))
     .replaceAll("{{shell.theme}}", () => part.theme)
     .replaceAll("{{shell.export}}", () => part.export)
