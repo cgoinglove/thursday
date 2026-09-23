@@ -14,6 +14,7 @@ import {
   threadTellSpec,
 } from "@/features/ai/tools/bot.tool";
 import { callTools } from "@/features/ai/tools/call.tool";
+import { createDeckTools } from "@/features/ai/tools/deck.tool";
 import { createLookTool } from "@/features/ai/tools/look.tool";
 import { createMcpTools } from "@/features/ai/tools/mcp.tool";
 import { createMemoryTools } from "@/features/ai/tools/memory.tool";
@@ -461,6 +462,12 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     // Pinned tools come with schemas; the rest sit behind `tool_search`, absent when nothing is left to find (mcp.tool)
     ...(await createMcpTools(run.bot, sandbox)),
     ...createSkillTools({ sandbox, skills, bot: run.bot }),
+    // A deck is typed slides the app draws; its pictures are taken in this job's browser
+    // session, apart from any window of it on screen
+    ...createDeckTools(sandbox, run.bot, {
+      ...jobShellEnv(run.session),
+      ...botShellEnv(run.bot),
+    }),
     // Absent for a model a picture would not reach (ai/model seesToolImages)
     ...(run.model && seesToolImages(run.model.ref) ? createLookTool() : {}),
     // Sign-ins are the app's to keep and the user's to lend (tools/signin.tool); the state

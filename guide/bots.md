@@ -199,15 +199,21 @@ values take the list's place until every board is back (0 or Esc); on a phone th
 **Export**: **Print · a board a page**, **This board as a picture**, **Copy this board as an
 instruction**, **Download this file**.
 
-Something to present, or to be walked through a step at a time, comes back as a **deck**: slides
-shown one at a time, fitted to the window, with every slide small in a strip at the foot — click one
-to jump to it, or fold the strip away. The bar at its top names who made it and holds the arrows and
+Something to present, or to be walked through a step at a time, comes back as a **deck**. Any bot
+can make one: it writes what each slide says and picks its layout — a cover, one claim on its own,
+two to four cards side by side, one big figure, a table, a quote, a picture with a heading, a close
+with what happens next — and one of four palettes (green, blue, terracotta, or gold on black). The
+app draws every slide, so each deck is laid out alike, and a slide that holds more words than fit
+has its type made smaller until they do; one that still does not fit is sent back to the bot to say
+less. Slides are shown one at a time, fitted to the window, with every slide small in a strip at the
+foot — click one to jump to it, or fold the strip away. The bar at its top names who made it and holds the arrows and
 the count, Notes (what is said over the slide), full screen, Present, a theme button and **Export**
 (**Print · one slide a page**, **This slide as a picture**, **Download this file**). The arrow keys,
 space or a tap on the right or left of a slide turn it too, **f** fills the screen and **n** shows
 the notes. Presenting shows the slide alone: the notes never go up on the screen the room sees. It is
 a deck to show on a screen; a copy to hand out prints to PDF, a slide a page. There is no PowerPoint
-file.
+file. A bot asked to change a deck starts from the deck as it is, and a deck made before an update to
+the app takes on its new look the next time a bot changes it.
 
 Something to read — a report, a memo, a comparison, a plan, notes of a meeting — comes back as one
 page: a title with the date and who it is by, its contents beside it (the section being read is

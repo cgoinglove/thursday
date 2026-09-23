@@ -1,0 +1,522 @@
+/* A deck: slides of one exact size, shown one at a time and scaled to the stage. No
+   network, no build. The head and the theme are the shell's (shell.css). The slides are
+   drawn from the deck the file holds (deck.js), one layout each, in the deck's palette:
+   what a slide says is data, and how it looks is here. Everything is named `dk-` or by
+   id. A slide's colours are its palette's whatever the reader's theme is. */
+body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* The stage takes what the head, the notes and the strip leave; the deck is one slide
+   big, scaled as a whole to fit it. */
+#stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--sh-sunk);
+}
+#deck {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(var(--w) * 1px);
+  height: calc(var(--h) * 1px);
+  transform-origin: 0 0;
+  box-shadow: 0 10px 40px -12px rgb(0 0 0 / 35%);
+}
+section[data-slide] {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+/* Only the open slide is drawn. */
+body:not(.shot) section[data-slide]:not(.open) {
+  display: none;
+}
+
+/* A palette is the deck's, set on every slide so a slide's miniature keeps it: a ground,
+   the ink, muted text, a card and a rule, and one accent that is also the ground of the
+   slides where the argument turns. Every text colour clears 4.5:1 on what it sits on. */
+section[data-slide] {
+  --dk-sans:
+    system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo",
+    "Malgun Gothic", sans-serif;
+  --dk-serif:
+    Georgia, "Times New Roman", "Apple SD Gothic Neo", "Malgun Gothic", serif;
+  --dk-paper: #fbfbf8;
+  --dk-card: #ffffff;
+  --dk-ink: #1a1a1a;
+  --dk-muted: #5f666d;
+  --dk-line: #e3e6e4;
+  --dk-accent: #1f4e4a;
+  --dk-on-accent: #fbfbf8;
+  --dk-on-accent-muted: #b9ccc8;
+  --dk-head: var(--dk-serif);
+}
+section[data-slide][data-palette="sea"] {
+  --dk-paper: #f6f8fb;
+  --dk-card: #ffffff;
+  --dk-ink: #0f1b2d;
+  --dk-muted: #556275;
+  --dk-line: #dde3eb;
+  --dk-accent: #1d4f91;
+  --dk-on-accent: #f6f8fb;
+  --dk-on-accent-muted: #bccde6;
+  --dk-head: var(--dk-sans);
+}
+section[data-slide][data-palette="clay"] {
+  --dk-paper: #faf6f1;
+  --dk-card: #ffffff;
+  --dk-ink: #231913;
+  --dk-muted: #6b5f56;
+  --dk-line: #e9dfd4;
+  --dk-accent: #8e3b22;
+  --dk-on-accent: #faf6f1;
+  --dk-on-accent-muted: #e7c4b6;
+}
+section[data-slide][data-palette="ink"] {
+  --dk-paper: #141618;
+  --dk-card: #1c1f22;
+  --dk-ink: #f1efea;
+  --dk-muted: #a4aab0;
+  --dk-line: #2c3035;
+  --dk-accent: #e2b458;
+  --dk-on-accent: #141618;
+  --dk-on-accent-muted: #4a3b1a;
+  --dk-head: var(--dk-sans);
+}
+
+/* Every size that grows with what a slide says is multiplied by `--dk-fit`, which deck.js
+   lowers step by step until the slide holds it. The margins do not move. What every slide
+   is weighs nothing (:where), so a layout's own class says otherwise. */
+:where(section[data-slide]) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: calc(40px * var(--dk-fit, 1));
+  padding: 128px;
+  background: var(--dk-paper);
+  color: var(--dk-ink);
+  font-family: var(--dk-sans);
+  font-size: calc(36px * var(--dk-fit, 1));
+  line-height: 1.4;
+  overflow-wrap: break-word;
+}
+section[data-slide] :is(h1, h2, h3, p, blockquote, table) {
+  margin: 0;
+}
+section[data-slide]:lang(ko) {
+  word-break: keep-all;
+}
+section[data-slide].dk-footed {
+  padding-bottom: 160px;
+}
+.dk-dark {
+  background: var(--dk-accent);
+  color: var(--dk-on-accent);
+}
+.dk-title,
+.dk-claim,
+.dk-head,
+.dk-said {
+  font-family: var(--dk-head);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+.dk-eyebrow {
+  color: var(--dk-accent);
+  font-size: calc(28px * var(--dk-fit, 1));
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.dk-title {
+  max-width: 1400px;
+  font-size: calc(112px * var(--dk-fit, 1));
+  line-height: 1.05;
+}
+.dk-claim {
+  max-width: 1500px;
+  font-size: calc(96px * var(--dk-fit, 1));
+  line-height: 1.1;
+}
+.dk-close .dk-claim {
+  font-size: calc(88px * var(--dk-fit, 1));
+  line-height: 1.15;
+}
+.dk-head {
+  max-width: 1400px;
+  font-size: calc(72px * var(--dk-fit, 1));
+  line-height: 1.1;
+}
+.dk-sub {
+  max-width: 1200px;
+  color: var(--dk-muted);
+}
+.dk-dark .dk-sub,
+.dk-dark .dk-step-l,
+.dk-dark .dk-foot {
+  color: var(--dk-on-accent-muted);
+}
+/* A source or a date: one line pinned in the band under the slide, in the same place on
+   every slide that has one. */
+.dk-foot {
+  position: absolute;
+  left: 128px;
+  right: 128px;
+  bottom: 64px;
+  overflow: hidden;
+  color: var(--dk-muted);
+  font-size: 24px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* A content slide keeps its heading at the top margin, so it never hops between
+   neighbours, and its body in the middle of what is left. */
+.dk-cards,
+.dk-table {
+  justify-content: flex-start;
+  gap: calc(56px * var(--dk-fit, 1));
+}
+.dk-body {
+  display: flex;
+  flex: 1;
+  align-items: center;
+}
+
+.dk-row {
+  display: flex;
+  width: 100%;
+  gap: 32px;
+  align-items: stretch;
+}
+.dk-card {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: calc(16px * var(--dk-fit, 1));
+  min-width: 0;
+  padding: calc(48px * var(--dk-fit, 1));
+  border: 1px solid var(--dk-line);
+  border-radius: 16px;
+  background: var(--dk-card);
+}
+.dk-card .dk-num {
+  color: var(--dk-accent);
+  font-size: calc(28px * var(--dk-fit, 1));
+  font-variant-numeric: tabular-nums;
+}
+.dk-card h3 {
+  font-size: calc(40px * var(--dk-fit, 1));
+  font-weight: 600;
+  line-height: 1.2;
+}
+.dk-card p:not(.dk-num) {
+  color: var(--dk-muted);
+  font-size: calc(28px * var(--dk-fit, 1));
+  line-height: 1.5;
+}
+
+.dk-number {
+  gap: calc(24px * var(--dk-fit, 1));
+}
+.dk-number .dk-label {
+  color: var(--dk-muted);
+}
+/* A figure is set in the sans whatever the headings are: a serif's figures hang below
+   the line, into what is written under them. */
+.dk-figure {
+  color: var(--dk-accent);
+  font-size: calc(300px * var(--dk-fit, 1));
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.dk-number .dk-sub {
+  max-width: 1300px;
+  color: inherit;
+  font-size: calc(40px * var(--dk-fit, 1));
+}
+
+.dk-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: calc(32px * var(--dk-fit, 1));
+  line-height: 1.3;
+}
+.dk-table :is(th, td) {
+  padding: calc(24px * var(--dk-fit, 1)) 16px;
+  border-bottom: 1px solid var(--dk-line);
+  text-align: left;
+  vertical-align: top;
+}
+.dk-table th {
+  border-bottom: 2px solid var(--dk-ink);
+  font-weight: 600;
+}
+.dk-table .dk-fig {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.dk-table .dk-stress {
+  color: var(--dk-accent);
+}
+
+.dk-quote {
+  gap: calc(48px * var(--dk-fit, 1));
+  background: var(--dk-card);
+}
+.dk-said {
+  max-width: 1500px;
+  font-size: calc(72px * var(--dk-fit, 1));
+  line-height: 1.3;
+}
+.dk-by {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dk-who {
+  font-size: calc(32px * var(--dk-fit, 1));
+  font-weight: 600;
+}
+.dk-role {
+  color: var(--dk-muted);
+  font-size: calc(28px * var(--dk-fit, 1));
+}
+
+.dk-image {
+  flex-direction: row;
+  align-items: center;
+  gap: 64px;
+}
+.dk-words {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: calc(32px * var(--dk-fit, 1));
+  min-width: 0;
+}
+.dk-words .dk-sub {
+  line-height: 1.5;
+}
+/* A photo fills its box; a chart or a screenshot must not be cropped, so it sits whole
+   on a card. */
+.dk-pic {
+  flex: none;
+  width: 760px;
+  height: 824px;
+  border-radius: 16px;
+  object-fit: cover;
+}
+.dk-pic.dk-whole {
+  border: 1px solid var(--dk-line);
+  background: var(--dk-card);
+  object-fit: contain;
+}
+.dk-footed .dk-pic {
+  height: 792px;
+}
+
+.dk-close {
+  gap: calc(56px * var(--dk-fit, 1));
+}
+.dk-steps {
+  display: flex;
+  gap: 64px;
+}
+.dk-step {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.dk-step-l {
+  font-size: calc(28px * var(--dk-fit, 1));
+}
+.dk-step-t {
+  line-height: 1.4;
+}
+
+/* What the presenter says over a slide: never on it; the Notes button shows it below. */
+section[data-slide] > aside {
+  display: none;
+}
+
+/* Turning a slide. A slide is shown by `display`, which cannot be animated, so the one
+   arriving fades in over the one that has already gone. Landing on a slide — a reload,
+   the address bar — is no turn (`data-turn` empty). */
+@keyframes dk-fade {
+  from {
+    opacity: 0;
+  }
+}
+#deck > section[data-slide].open {
+  animation: dk-fade 0.26s ease both;
+}
+#deck[data-turn=""] > section[data-slide].open {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  #deck > section[data-slide].open {
+    animation: none;
+  }
+}
+
+/* The notes, under the stage, when they are open. */
+#notes {
+  flex: none;
+  max-height: 34%;
+  overflow: auto;
+  padding: 12px 20px 14px;
+  border-top: 1px solid var(--sh-line);
+  background: var(--sh-paper);
+}
+#notes[hidden] {
+  display: none;
+}
+#notes-text {
+  max-width: 64ch;
+  color: var(--sh-ink-2);
+  font-size: 14px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+#notes-text:empty::before {
+  content: "Nothing is written over this slide.";
+  color: var(--sh-ink-3);
+}
+
+/* The strip: every slide small, the open one ringed. It folds to its header. */
+#strip {
+  flex: none;
+  padding: 8px 10px 10px;
+  border-top: 1px solid var(--sh-line);
+  background: var(--sh-paper);
+}
+.dk-strip-h {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.dk-strip-h .sh-pane-h {
+  margin: 0;
+}
+.dk-strip-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding: 2px 2px 4px;
+}
+#strip.dk-shut .dk-strip-row {
+  display: none;
+}
+#strip.dk-shut [data-strip] svg {
+  transform: rotate(180deg);
+}
+.dk-strip-row button {
+  position: relative;
+  flex: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.dk-strip-row button em {
+  position: absolute;
+  left: 5px;
+  bottom: 5px;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgb(20 20 24 / 72%);
+  color: #fff;
+  font-size: 10px;
+  font-style: normal;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.dk-strip-row button.dk-on .sh-thumb {
+  border-color: var(--sh-brand);
+  box-shadow: 0 0 0 1.5px var(--sh-brand);
+}
+.dk-strip-row button:focus-visible {
+  outline: 0;
+}
+.dk-strip-row button:focus-visible .sh-thumb {
+  outline: 2px solid var(--sh-brand);
+  outline-offset: 1px;
+}
+
+/* Presenting, and a deck drawn as a file's face: the slide alone. The notes are the
+   presenter's, and presenting is what the room sees. */
+:fullscreen .sh-head,
+:fullscreen #strip,
+:fullscreen #notes,
+.sh-face #strip,
+.sh-face #notes {
+  display: none;
+}
+
+/* On a phone the head keeps what turns the deck and presents it: Present fills the
+   screen, so the button that only does that goes, with the rules between groups. */
+@media (max-width: 480px) {
+  .sh-head [data-full],
+  .sh-head .sh-rule {
+    display: none;
+  }
+}
+:fullscreen #stage {
+  background: #000;
+}
+:fullscreen #deck,
+.sh-face #deck {
+  box-shadow: none;
+}
+
+/* Flat: every slide drawn, one under another at true size. It is what the renderer
+   shoots and what a printer prints. A slide grows here instead of clipping, so one that
+   does not fit comes out the wrong size and the renderer refuses it by name. */
+body.shot {
+  display: block;
+  overflow: visible;
+  height: auto;
+  background: #fff;
+}
+body.shot .sh-head,
+body.shot #notes,
+body.shot #strip {
+  display: none;
+}
+body.shot #stage {
+  overflow: visible;
+  background: none;
+}
+body.shot #deck {
+  position: static;
+  height: auto;
+  transform: none;
+  box-shadow: none;
+}
+body.shot section[data-slide] {
+  position: relative;
+  inset: auto;
+  width: calc(var(--w) * 1px);
+  height: auto;
+  min-height: calc(var(--h) * 1px);
+  overflow: visible;
+  break-after: page;
+}
+@page {
+  margin: 0;
+}

@@ -23,21 +23,29 @@ does not say. A `SKILL.md` is model-facing text, so `model.md` › Writing for a
     shipped: writing React and running a build is where a cheap model has the most to get wrong. Charts go
     in by `scripts/chart.mjs`; `scripts/archify` is a trimmed copy of archify (MIT, its README says
     what was cut): update it by copying upstream, never by editing it here.
-  - `design/` (a pan/zoom canvas of boards, each at its own size) and `slides/` (slides of one exact
-    size) are skills of their own because a user asks for them by name. Each is inlined into one
-    HTML file by its own script (`canvas.mjs`, `deck.mjs`), starts from ready parts
-    (`design/boards`, `slides/deck/slides`) and is shot through the browser skill's renderer.
-  - `shell/` is not a skill (no `SKILL.md`): it is what those three scripts put on every file they
-    write, through the module they import (`shell/wear.mjs`) — the head a page wears, its buttons
-    and menus, the theme, and the page asking the app that shows it to keep its edits — by message
-    to the frame, the one door out of the sandbox the page is served in (`data.md`). What a bot
-    writes goes in by `put` (`shell/put.mjs`) between two marks the page is made with, so the frame
-    is never written over. The start mark keeps a print of the last body put or got, and `put`
-    refuses a page whose body is not that one — edited in the app or by hand — until `get` has
-    handed the bot the body as it is now. Every put names a new revision in the head, and the
-    app refuses a save that names an older one (`savePage`), so neither side undoes the other.
-    Each script's `shots` takes its pictures in a headless browser of its own
-    (`render.mjs --apart`), never in the job's, which may be a window on the user's screen. Its classes and
+  - `design/` (a pan/zoom canvas of boards, each at its own size) is a skill of its own because a
+    user asks for it by name. It is inlined into one HTML file by its own script (`canvas.mjs`),
+    starts from ready boards (`design/boards`) and is shot through the browser skill's renderer.
+  - `deck/` is not a skill (no `SKILL.md`): it is what `make_deck` writes (`features/ai/tools/
+    deck.tool`). A deck is typed because how a slide looks — its sizes, a heading that hops, words
+    that run off it — is where a cheap model went wrong, so the model fills a layout's fields and
+    this folder draws them: the file holds the deck as JSON, and its own script draws every slide
+    from it and shrinks the type of one that does not fit (`deck.js`). `deck.mjs` writes the deck
+    into the frame as it ships now, every time, so an update reaches decks made before it, and
+    shoots it. The schema's character caps answer to `deck.css`: a layout changed there moves them.
+  - `shell/` is not a skill (no `SKILL.md`): it is what the three scripts (`page.mjs`, `canvas.mjs`,
+    `deck.mjs`) put on every file they write, through the module they import (`shell/wear.mjs`) —
+    the head a page wears, its buttons and menus, the theme, and the page asking the app that shows
+    it to keep its edits — by message to the frame, the one door out of the sandbox the page is
+    served in (`data.md`). What a bot writes goes in by `put` (`shell/put.mjs`) between two marks
+    the page is made with, so the frame is never written over. The start mark keeps a print of the
+    last body put or got, and `put` refuses a page whose body is not that one — edited in the app
+    or by hand — until `get` has handed the bot the body as it is now. Every put names a new
+    revision in the head, and the app refuses a save that names an older one (`savePage`), so
+    neither side undoes the other. A deck is checked by that revision alone: `make_deck` hands it
+    back with every deck, and a change that names another is answered with the deck as it stands.
+    Each script's `shots` takes its pictures in a headless browser of its own (`render.mjs
+    --apart`), never in the job's, which may be a window on the user's screen. Its classes and
     custom properties are prefixed `sh-`, since a bot's own stylesheet shares the page, and a kind's
     defaults for what a bot writes weigh nothing (`:where`), so what the bot writes wins. It marks
     the page near the top (`<meta name="generator" content="Thursday">`); the app's own tab looks
@@ -55,10 +63,10 @@ does not say. A `SKILL.md` is model-facing text, so `model.md` › Writing for a
   prompt lists every skill with its description, a bundled skill can be switched off, and how to
   sign in, pay or ask a question is the tool's and the browser skill's to say. A role holds what only
   it knows: what is this bot's, what it ends as, the judgement only it makes, what it keeps in
-  memory. The exceptions are a structural dependency (`requires`) and the skill that is the bot's
-  whole trade — the browser for a bot that reads pages for a living, `design`, `slides` and the page
-  skill for the bot that makes what is looked at — named from `config.ts` (`BROWSER_SKILL`,
-  `DESIGN_SKILL`, `SLIDES_SKILL`, `PAGE_SKILL`), never spelled in the prose.
+  memory. The exceptions are a structural dependency (`requires`) and the skill or tool that is the
+  bot's whole trade — the browser for a bot that reads pages for a living, `design`, the page skill
+  and `make_deck` for the bot that makes what is looked at — named from `config.ts`
+  (`BROWSER_SKILL`, `DESIGN_SKILL`, `PAGE_SKILL`) or `TOOL_NAMES`, never spelled in the prose.
 - **A bot's folder is "your own folder"** in a role; a `bots/<name>/…` path breaks when it is renamed.
 - **No outside conventions in a seed** — an external pack's file paths or a new place to keep things.
   A skill that needs such a file handles it.
@@ -93,11 +101,12 @@ does not say. A `SKILL.md` is model-facing text, so `model.md` › Writing for a
 ## Skills
 
 - **A new capability extends an existing skill first** — `interactive-page` for a page, `design` for a
-  board, `slides` for a slide — or a few lines of its description. A good outside skill may come in
-  whole, engine and all.
+  board; a slide is a layout of `make_deck` — or a few lines of its description. A good outside skill
+  may come in whole, engine and all.
 - **A skill's name is the first thing a bot matches a job against.** A kind of result a user asks for
-  by name (a deck, a design) is a skill of its own; a kind nobody names (a chart, a diagram) stays a
-  method inside one. Two ways to make one thing each say in their description which ask is theirs.
+  by name (a design) is a skill of its own, or a tool when its look is the app's to get right (a
+  deck); a kind nobody names (a chart, a diagram) stays a method inside one. Two ways to make one
+  thing each say in their description which ask is theirs.
 - **A description says what, then when** ("Makes X. Use it when …").
 - **A `SKILL.md` holds what the model needs to start and does not already know**; procedures go in
   `references/`, and what it points at sits directly in `references/` and `scripts/`. A bundled

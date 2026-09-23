@@ -13,6 +13,7 @@ const LINES: Record<string, string> = {
   [TOOL_NAMES.web_search]: "Searching the web",
   [TOOL_NAMES.load_skill]: "Reading how to do this",
   [TOOL_NAMES.look_at]: "Looking at the picture",
+  [TOOL_NAMES.make_deck]: "Making the deck",
   [TOOL_NAMES.end_call]: "Ending the call",
   [TOOL_NAMES.routine]: "Checking your routines",
 };
@@ -123,6 +124,10 @@ function fromArgs(
   if (name === TOOL_NAMES.look_at) {
     const path = said(args, "path");
     return path ? `Looking at ${fileName(path)}` : null;
+  }
+  if (name === TOOL_NAMES.make_deck) {
+    const title = said(args, "title");
+    return title ? `Making the deck · ${snippet(title, SAID_MAX)}` : null;
   }
   if (name === TOOL_NAMES.thread_start) {
     const bot = said(args, "bot");

@@ -12,7 +12,7 @@ paths:
 features/ai/
   tools/tool-name.ts        Every tool name a model sees.
   tools/<d>.tool.ts         One subject's tools (memory, bot, workspace, routine, skills, search, look,
-                            studio, signin, mcp, call). Execute calls the domain query; the thread_*
+                            studio, signin, mcp, call, deck). Execute calls the domain query; the thread_*
                             executes are in load-tools, send_message's in bot.run.
   tools/connected.ts        What stands behind tool_search / tool_call: MCP servers and the app's studio.
   load-tools.ts             Which runtime holds which tools: the call, a bot, a memory edit.
@@ -56,6 +56,10 @@ features/ai/
   at a model: a `publicError` becomes that line (`load-tools`).
 - **A tool two runtimes share names no tool in what it returns.** `memory_recall` answers the call and
   a bot, so past `MEMORY_LIMITS.factsPerNote` it says to ask the user what to drop, never how.
+- **What has a look the model keeps getting wrong is a typed tool, and the app draws it.** A deck is
+  `make_deck`: layouts with fields and character caps, drawn and fitted by `skills/deck`, never
+  HTML a model writes. It is the one tool whose schema is large, and it rides every step of every
+  bot, so a second of its kind waits for a way to hold a tool back until a job needs it.
 - **A picture reaches a model through `look_at`.** `execute` returns a small record — the path, never
   the bytes — which is what is stored and drawn, and `toModelOutput` turns it into the picture for
   the run that asked; a step is stored as what `execute` returned (`bot.run` `storedMessages`). A bot

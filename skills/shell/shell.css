@@ -132,6 +132,7 @@ body {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 13.5px;
   font-weight: 500;
 }
@@ -171,6 +172,13 @@ body {
 @media (max-width: 720px) {
   .sh-head .sh-sub,
   .sh-head .sh-word {
+    display: none;
+  }
+}
+/* On a phone the head's tools leave room for one name: the page's, not who made it. */
+@media (max-width: 480px) {
+  .sh-head .sh-who,
+  .sh-head .sh-who + .sh-dot {
     display: none;
   }
 }

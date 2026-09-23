@@ -13,7 +13,6 @@ import {
   type LucideIcon,
   MousePointer2,
   Plus,
-  Presentation,
   Search,
   SquarePen,
   Trash2,
@@ -69,7 +68,6 @@ const SKILL_MARKS: Record<string, LucideIcon> = {
   "find-skills": Search,
   "interactive-page": MousePointer2,
   "skill-creator": SquarePen,
-  slides: Presentation,
 };
 
 const markOf = (skill: SkillSummary) =>

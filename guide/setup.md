@@ -61,9 +61,9 @@ follows this one again.
 
 A skill is a written-down way of doing something that a bot reads before it starts. Some ship with
 the app — the browser, this Mac, finding more skills, building a page or a chart, a design canvas,
-slides, and writing a new skill; the one for this Mac is not listed on other computers. **Settings ›
-Skills** lists them in two groups, **Custom** (the user's own) and **Default** (the ones that ship,
-read-only). There a skill can be switched off, uploaded (a `.md`, `.zip` or `.skill` file), written
+and writing a new skill; the one for this Mac is not listed on other computers. A deck is not a
+skill: every bot can make one. **Settings › Skills** lists them in two groups, **Custom** (the
+user's own) and **Default** (the ones that ship, read-only). There a skill can be switched off, uploaded (a `.md`, `.zip` or `.skill` file), written
 from scratch, or deleted when it is one of their own. Opening a skill shows its files; in one of
 their own, **Edit** on a file writes it back, which is how a typo or a changed step is fixed without
 making the skill again. A bot can also install one from the open registry while it works: for

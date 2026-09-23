@@ -55,26 +55,11 @@
 
     <main id="stage">
       <div id="deck">
-        <!-- One <section data-slide> per slide, in order. Every slide is exactly {{w}}x{{h}}px
-             and nothing reflows: lay it out once, for that size, and keep it inside — a slide
-             that overflows is refused by its number when you shoot it.
-             Copy the slide you need from the skill's deck/slides/ — cover, statement, cards,
-             number, table, quote, image, close — and change the words. Every style is inline
-             (px and hex, no classes): references/deck.md is the whole subset, the height
-             arithmetic and what makes a deck work. Set the ground, the ink and the one accent
-             once and keep them the same on every slide.
-             An <aside> directly inside a slide is what is said over it, shown by the Notes
-             button and never on the slide. Nothing comes from the network: a picture sits
-             beside this file as <img src="photo.jpg">.
-             Write the slides in a file of their own and run `deck.mjs put <name> <file>`: it
-             replaces what stands between the two put marks below and nothing else. Everything
-             outside this <div id="deck"> is the deck's own frame: leave it as it is. -->
+        <!-- The deck is the JSON between the put marks: its title, its theme and its slides.
+             The slides are drawn from it as the page opens (deck.js), so a change is a change
+             to the deck, never to a slide on screen. deck.mjs writes it between the marks and
+             nothing else; everything outside this <div id="deck"> is the deck's own frame. -->
         <!-- put: start -->
-        <section data-slide style="background:#FBFBF8; color:#1A1A1A; font-family:system-ui,sans-serif; padding:128px; display:flex; flex-direction:column; justify-content:center; gap:40px">
-          <h1 style="font-size:112px; font-weight:400; line-height:1.05; max-width:1400px">{{title}}</h1>
-          <p style="font-size:36px; color:#6A7179; max-width:1200px">One line on what this deck is for.</p>
-          <aside>What is said over the first slide.</aside>
-        </section>
         <!-- put: end -->
       </div>
     </main>

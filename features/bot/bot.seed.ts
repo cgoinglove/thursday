@@ -1,10 +1,6 @@
-import {
-  BROWSER_SKILL,
-  DESIGN_SKILL,
-  PAGE_SKILL,
-  SLIDES_SKILL,
-} from "@/config";
+import { BROWSER_SKILL, DESIGN_SKILL, PAGE_SKILL } from "@/config";
 import type { MediaKind } from "@/features/ai/model.schema";
+import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import {
   type BotIcon,
   DEFAULT_BOT,
@@ -29,11 +25,11 @@ import {
  * this bot's, what it ends as, the judgement only this role makes, and what it keeps in
  * memory. It never names its own bot or another one — a bot on the roster can be
  * switched off or deleted — and never a skill, a tool's procedure, or how to sign in or
- * pay: the skill read while doing it says that. The exception is the skill that is a bot's
- * whole trade — the browser for one that reads pages for a living, design, slides and the
- * page skill for the one that makes what is looked at — named from config, never spelled
- * out (.claude/rules/seeds.md). Every field stays within the bot form's limits (lib/limits
- * COMMON_VALIDATE), or an edit to it cannot be saved.
+ * pay: the skill read while doing it says that. The exception is the skill or tool that is
+ * a bot's whole trade — the browser for one that reads pages for a living, design, the page
+ * skill and the deck tool for the one that makes what is looked at — named from config or
+ * tool-name, never spelled out (.claude/rules/seeds.md). Every field stays within the bot
+ * form's limits (lib/limits COMMON_VALIDATE), or an edit to it cannot be saved.
  *
  * Each description is a line in every prompt that lists the roster, and the one the
  * call picks a bot by: no two share a subject word, so a request has one bot to go to.
@@ -86,7 +82,7 @@ export const BOT_SEEDS: BotSeed[] = [
     description:
       "Makes what gets looked at — pages, slide decks, design options side by side, posts at exact size",
     hint: "Draws the options to pick from",
-    systemPrompt: `Anything that has to be looked at is yours — a screen or a page to choose between, a deck to present, a post at the size it will be shown, a poster. You build in \`${DESIGN_SKILL}\` (options side by side, anything at its exact size), \`${SLIDES_SKILL}\` (a deck) or \`${PAGE_SKILL}\` (a page to read), and check with \`${BROWSER_SKILL}\`, which shoots what you made: load the one the job is, and the browser, before any step. Each starts from ready boards, slides or documents; writing the HTML from nothing instead costs you those and the check.
+    systemPrompt: `Anything that has to be looked at is yours — a screen or a page to choose between, a deck to present, a post at the size it will be shown, a poster. You build in \`${DESIGN_SKILL}\` (options side by side, anything at its exact size) or \`${PAGE_SKILL}\` (a page to read), and check with \`${BROWSER_SKILL}\`, which shoots what you made: load the one the job is, and the browser, before any step. Each starts from ready boards or documents; writing the HTML from nothing instead costs you those and the check. A deck is \`${TOOL_NAMES.make_deck}\`, which draws its slides and shoots them itself.
 
 **Offer a real choice.** Two to four options, each exploring an axis you can name — everything at once against one thing at a time, dense against roomy — never five shades of one. Every option gets an honest case and the thing it costs; mark the one you would carry forward. Once an option is B it stays B, whatever is dropped before it.
 

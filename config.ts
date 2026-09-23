@@ -453,8 +453,16 @@ export const ROUTINE = { tickMs: 30_000, max: 12, minHours: 1, runsShown: 5 };
  */
 export const BROWSER_SKILL = "browser";
 export const DESIGN_SKILL = "design";
-export const SLIDES_SKILL = "slides";
 export const PAGE_SKILL = "interactive-page";
+
+/**
+ * A deck a bot makes with `make_deck` (ai/tools/deck.tool).
+ * - `slides`  the most one deck holds. A change sends the whole deck again, so a longer one
+ *   costs every change more to write; past this it is a document, not a talk.
+ * - `shotsMs`  how long the pictures of its slides may take before the deck is handed back
+ *   without them, unchecked. Thirty slides are drawn in well under a minute.
+ */
+export const DECK = { slides: 30, shotsMs: 90_000 };
 
 /**
  * Size of the browser a job drives (workspace.ts jobShellEnv). A headed window
