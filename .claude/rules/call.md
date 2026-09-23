@@ -86,7 +86,9 @@ persistence — and changes with the code. This file holds what every way into T
   (`textCallRunsOn`, one rule for server and screen). A turn that broke is sent again on another
   key only by the button that offers it, never by itself.
 - Open work reaches it between turns as a turn of its own, neither drawn nor kept as the user's
-  words; what either kind of call has told is one set for the page (`toldWork`).
+  words, once nothing has been written for `TEXT_CALL.quietMs`. That wait is its own: the spoken
+  call's `CALL_RELAY.quietMs` is about talking over a voice, and typing is not seen at all. What
+  either kind of call has told is one set for the page (`toldWork`).
 - During a spoken call the line writes to bots only; a file put down then reaches the call as a
   fact (`screenActs`), never as an instruction.
 

@@ -495,8 +495,11 @@ export const CALL_EXEC_TIMEOUT_MS = 15_000;
  *   cheap model circle for that long before the user reads anything.
  * - `model`     what the call row carries where a voice call names its Live model, so a
  *   call kept in writing can be told from one that was spoken.
+ * - `quietMs`  how long nothing has been written, by her or the user, before what bots sent
+ *   goes in as a turn of its own (use-text-call). Typing is not writing: shorter puts an
+ *   update ahead of the reply the user is still typing; longer leaves it waiting.
  */
-export const TEXT_CALL = { maxSteps: 12, model: "text" };
+export const TEXT_CALL = { maxSteps: 12, model: "text", quietMs: 7_000 };
 
 /**
  * How long a shell command that was stopped — its timeout, or its job stopping —

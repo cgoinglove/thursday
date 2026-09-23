@@ -9,7 +9,7 @@ import {
 } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
-import { CALL_RELAY } from "@/config";
+import { CALL_RELAY, TEXT_CALL } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { acceptThreadRelaysAction } from "@/features/bot/bot.action";
 import type { Thread } from "@/features/bot/bot.schema";
@@ -36,7 +36,7 @@ import type { ActivityLine } from "./use-thursday";
  * call taking the screen. She holds no tool that ends it: there is no line to drop.
  *
  * Background work that waits on the user is put to her here as it is on a spoken call
- * (open-work): between turns, once nothing has been written for CALL_RELAY.quietMs, one
+ * (open-work): between turns, once nothing has been written for TEXT_CALL.quietMs, one
  * kind at a time, each item once a call. It goes in as a turn of its own that is neither
  * drawn nor kept as the user's words — a bot's message, under the bracket that says so —
  * and its relay rows are accepted once she has answered it.
@@ -205,7 +205,7 @@ export function useTextCall(): TextCall {
     const tick = setInterval(() => {
       const to = held.current;
       if (!to || busy.current || relaying.current || !inbox.current) return;
-      if (Date.now() - stirred.current < CALL_RELAY.quietMs) return;
+      if (Date.now() - stirred.current < TEXT_CALL.quietMs) return;
       const open = openWork(inbox.current).filter(
         (item) => !toldWork.has(item.key) && !stood.current.has(item.key),
       );
