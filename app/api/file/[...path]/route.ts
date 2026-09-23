@@ -108,7 +108,8 @@ export const PUT = serverRoute(
     const body = Buffer.from(await request.arrayBuffer());
     if (body.byteLength > PAGE_SAVE.maxBytes)
       return new Response("Too large to keep", { status: 413 });
-    const beside = `${full}.${process.pid}.saving`;
+    // One per request: two tabs saving the same page must not write into one file.
+    const beside = `${full}.${crypto.randomUUID()}.saving`;
     try {
       await writeFile(beside, body);
       await rename(beside, full);
