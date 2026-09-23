@@ -85,7 +85,8 @@ docs/                how-it-works.md, and the images the READMEs show.
 # Maps
 
 Each area has a map in `.claude/rules/`: what it is for, the files to open first, and the few rules
-that hold there. Claude Code loads one when it reads a matching file; anything else reads it by hand:
+that hold there. Claude Code attaches one only when its Read tool opens a matching file — a file read
+through `cat`, `sed` or `grep` brings none — so anything else reads the map by hand:
 
 | When you change … | Read |
 |---|---|
