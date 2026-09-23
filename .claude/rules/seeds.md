@@ -28,8 +28,11 @@ does not say. A `SKILL.md` is model-facing text, so `model.md` › Writing for a
     HTML file by its own script (`canvas.mjs`, `deck.mjs`), starts from ready parts
     (`design/boards`, `slides/deck/slides`) and is shot through the browser skill's renderer.
   - `shell/` is not a skill (no `SKILL.md`): it is what those three scripts put on every file they
-    write, through the one module they import (`shell/wear.mjs`) — the head a page wears, its buttons
-    and menus, the theme, and the page asking the app that shows it to keep its edits. Its classes and
+    write, through the module they import (`shell/wear.mjs`) — the head a page wears, its buttons
+    and menus, the theme, and the page asking the app that shows it to keep its edits. What a bot
+    writes goes in by `put` (`shell/put.mjs`) between two marks the page is made with, so the frame
+    is never written over; each script's `shots` takes its pictures in a headless browser of its own
+    (`render.mjs --apart`), never in the job's, which may be a window on the user's screen. Its classes and
     custom properties are prefixed `sh-`, since a bot's own stylesheet shares the page, and a kind's
     defaults for what a bot writes weigh nothing (`:where`), so what the bot writes wins. It marks
     the page near the top (`<meta name="generator" content="Thursday">`); the app's own tab looks

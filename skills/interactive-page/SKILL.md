@@ -40,11 +40,13 @@ caption from the first version, downloaded into the page's folder from the pages
 crossing edge or a clipped label never reaches the user. It is a page of its own; when a
 document needs one, name both files as you hand back.
 
-To look at a page before handing it back, `node $THURSDAY_SKILLS/browser/scripts/render.mjs
-<page.html> --out <dir> --size 1024x1400` leaves a picture of it; a server of your own is
-not needed.
+To look at a page before handing it back, `node $S/page.mjs shots <name|path>` leaves up
+to three pictures of it down the page in `scratch/`, as it opens in the app; a server of
+your own is not needed.
 
 A document wears a head — who made it, its name, Edit, a theme button, Export — and the
 reader can edit it in place: opened in the app it saves back into the file, opened
-elsewhere it keeps a copy. Write inside `<main>` only. A document that has to be sent or
-edited as a Word or PDF file is an office document, which is another method's work.
+elsewhere it keeps a copy. Write its body in a file of your own and `node $S/page.mjs put
+<name|path> <file>`: only `put` writes the body, since writing the file itself takes the head
+with it. A document that has to be sent or edited as a Word or PDF file is an office
+document, which is another method's work.

@@ -1,8 +1,8 @@
 # Writing a canvas
 
 `canvas.mjs new <name>` writes `<name>/<name>.html` in your artifacts folder, already
-styled and already panning. Inside its `<div id="stage">`, one option is one frame and one
-note. Ready boards to copy sit in `boards/` beside this page — `app` (a desktop screen),
+styled and already panning. You write the options in a file of your own — one option is one
+frame and one note — and `put` them into it. Ready boards to copy sit in `boards/` beside this page — `app` (a desktop screen),
 `phone`, `form`, `landing`, `poster`, `post`, `wireframe`, `direction`. Start from the one
 whose job matches, give it the next letter and a place, and change what is on it.
 

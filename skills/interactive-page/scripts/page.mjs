@@ -9,6 +9,9 @@
 //                                   one hand-written HTML file, styled, no kit — from a ready
 //                                   document (quick/pages: report, memo, comparison, plan,
 //                                   notes) or blank
+//   node page.mjs put <name|path> <file>
+//                                   the document's body written in <file>, into that page
+//   node page.mjs shots <name|path> the page as it opens, down to three pictures in scratch/
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -22,8 +25,9 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { notInside, putBetween } from "../../shell/put.mjs";
 import { wear } from "../../shell/wear.mjs";
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -247,8 +251,81 @@ function quickPage(name, ...args) {
     ),
   );
   console.log(
-    `${shown(out)} is ready: one file that opens offline, styled already${kind === "blank" ? "" : `, laid out as a ${kind}`}. Write it in plain HTML from what is there (the comment inside says what each part is for), and hand back this path.`,
+    `${shown(out)} is ready: one file that opens offline, styled already${kind === "blank" ? "" : `, laid out as a ${kind}`}. Write its body in plain HTML in a file of your own from what is there (the comment inside says what each part is for), then run: node ${SCRIPT} put ${name} <that file> && node ${SCRIPT} shots ${name} — and hand back this path.`,
   );
+}
+
+/** A page in the bot's artifacts folder by name, or any page by its path. */
+function pageAt(arg) {
+  if (!arg) throw new Stop("Give a page name, or the path to one.");
+  const file =
+    !arg.includes("/") && !arg.endsWith(".html")
+      ? join(
+          WORKSPACE,
+          process.env.THURSDAY_ARTIFACTS || "artifacts",
+          `${arg}.html`,
+        )
+      : resolve(arg);
+  if (!existsSync(file))
+    throw new Stop(
+      `No page ${shown(file)}. Start one with: node ${SCRIPT} quick <name>, or give the path to one that exists.`,
+    );
+  return file;
+}
+
+/** The body written in `from` in place of the document's own, and nothing else of it touched. */
+function putBody(name, from) {
+  const file = pageAt(name);
+  if (!from || !existsSync(from))
+    throw new Stop(
+      `Give the file the body is written in: node ${SCRIPT} put ${name ?? "<name>"} <file>`,
+    );
+  const body = readFileSync(from, "utf8");
+  const why = notInside(body);
+  if (why) throw new Stop(`${from} ${why}: the document's body alone.`);
+  const html = putBetween(readFileSync(file, "utf8"), body);
+  if (!html)
+    throw new Stop(
+      `${shown(file)} has no place to put a body: only a page made by \`quick\` has one, and one written over whole has lost it. Start a new one (node ${SCRIPT} quick <another name>) and put the body into it.`,
+    );
+  writeFileSync(file, html);
+  console.log(
+    `The body is in ${shown(file)}. Next: node ${SCRIPT} shots ${name}`,
+  );
+}
+
+/**
+ * The page as it opens, at the width the app draws it, as pictures to look at before it is
+ * handed back: down the page, three windows at most. They are for checking, not for the
+ * reader, so they go in scratch/, never beside the page among the finished work.
+ */
+function shotPage(name) {
+  const file = pageAt(name);
+  const out = join(WORKSPACE, "scratch", `${basename(file, ".html")}-shots`);
+  rmSync(out, { recursive: true, force: true });
+  mkdirSync(out, { recursive: true });
+  const skills = process.env.THURSDAY_SKILLS || resolve(SKILL, "..");
+  const done = spawnSync(
+    process.execPath,
+    [
+      join(skills, "browser", "scripts", "render.mjs"),
+      file,
+      "--out",
+      out,
+      "--size",
+      "1024x1400",
+      "--most",
+      "3",
+      "--name",
+      "page",
+      // Never in the job's own browser, which may be a window on their screen
+      "--apart",
+    ],
+    { stdio: "inherit" },
+  );
+  if (done.status !== 0)
+    throw new Stop("Fix what it names above, then run this again.");
+  console.log(`Look at them with look_at, from ${shown(out)}.`);
 }
 
 function addPackages(names) {
@@ -266,9 +343,11 @@ try {
   else if (command === "build") buildPage(rest[0]);
   else if (command === "add") addPackages(rest);
   else if (command === "quick") quickPage(...rest);
+  else if (command === "put") putBody(...rest);
+  else if (command === "shots") shotPage(rest[0]);
   else
     throw new Stop(
-      "Usage: page.mjs quick <name> [--from <kind>] | new <name> | build <name> | add <package>...",
+      "Usage: page.mjs quick <name> [--from <kind>] | put <name|path> <file> | shots <name|path> | new <name> | build <name> | add <package>...",
     );
 } catch (error) {
   if (!(error instanceof Stop)) throw error;

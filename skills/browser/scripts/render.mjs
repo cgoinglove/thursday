@@ -12,19 +12,21 @@
  * lays every slide flat at true size, as it does for printing. `--most n` takes at most
  * n pictures: the first n slides, or, down a file with none, one window at a time at the
  * window's own pixel density, each ending where no line or picture runs across it. The
- * app sends a page to a phone this way (features/reach/pictures).
+ * app sends a page to a phone this way (features/reach/pictures). `--apart` shoots in a
+ * headless browser of its own, closed after, never in the session's: a bot's pictures of
+ * its own work must not appear in a window on the user's screen.
  *
- *   node render.mjs <slides.html> --out <dir> [--size 1080x1350] [--name slide] [--shot] [--most n]
+ *   node render.mjs <slides.html> --out <dir> [--size 1080x1350] [--name slide] [--shot] [--most n] [--apart]
  */
 import { createReadStream, existsSync, mkdirSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { basename, dirname, extname, resolve, sep } from "node:path";
 import { imageSize } from "./image-size.mjs";
-import { fail, inPage, orFail, parseArgs } from "./session.mjs";
+import { fail, inPage, inPageApart, orFail, parseArgs } from "./session.mjs";
 
 const USAGE =
-  "usage: node render.mjs <slides.html> --out <dir> [--size 1080x1350] [--name slide] [--shot] [--most n]";
+  "usage: node render.mjs <slides.html> --out <dir> [--size 1080x1350] [--name slide] [--shot] [--most n] [--apart]";
 const opts = parseArgs();
 const file = opts._[0] && resolve(opts._[0]);
 const [w, h] = String(opts.size ?? "")
@@ -96,7 +98,7 @@ await new Promise((ok) => server.listen(0, "127.0.0.1", ok));
 const url = `http://127.0.0.1:${server.address().port}/${encodeURIComponent(basename(file))}`;
 
 const done = orFail(
-  await inPage(
+  await (opts.apart ? inPageApart : inPage)(
     async (page, { url, w, h, out, name, most }) => {
       const tab = await page.context().newPage();
       try {

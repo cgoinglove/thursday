@@ -386,6 +386,7 @@ const REQUIRED = [
   "skills/design/canvas/canvas.html",
   "skills/slides/deck/deck.html",
   "skills/shell/wear.mjs",
+  "skills/shell/put.mjs",
   "skills/shell/head.html",
   "skills/shell/shell.css",
   "skills/shell/shell.js",

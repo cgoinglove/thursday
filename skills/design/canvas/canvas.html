@@ -74,8 +74,11 @@
                <p class="note sticky"> is a remark pinned to the surface.
                Write a board's content as plain HTML with inline styles. Nothing comes from
                the network: a picture sits beside this file as <img src="shot.png">.
-               Everything outside this <div id="stage"> is the canvas's own frame: leave it as it is. -->
-
+               Write the boards and notes in a file of their own and run `canvas.mjs put <name>
+               <file>`: it replaces what stands between the two put marks below and nothing
+               else. Everything outside this <div id="stage"> is the canvas's own frame: leave
+               it as it is. -->
+          <!-- put: start -->
           <p class="note title" style="--x: 0; --y: -320; --w: 1200">{{title}}</p>
 
           <article class="frame leading" id="A" data-mark="Leading" style="--x: 0; --y: 0; --w: 1280; --h: 800">
@@ -99,6 +102,7 @@
             Why this one, in a sentence.
             What it costs.
           </p>
+          <!-- put: end -->
         </div>
 
         <div class="cv-pick" id="pick" hidden><i></i><i></i><i></i><i></i></div>

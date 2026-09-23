@@ -91,6 +91,24 @@ export function inPage(fn, args = {}, helpers = {}) {
   );
 }
 
+/**
+ * `inPage`, in a browser of its own: headless, opened for this one run and closed after.
+ * For work on the bot's own files, which should never be drawn in the session's browser —
+ * that one may be a window on the user's screen. Its name carries the session's, so the
+ * app closes it with the job's others if a run dies before closing it.
+ */
+export async function inPageApart(fn, args = {}, helpers = {}) {
+  const own = process.env.PLAYWRIGHT_CLI_SESSION;
+  process.env.PLAYWRIGHT_CLI_SESSION = `${own || "default"}-apart`;
+  try {
+    return await inPage(fn, args, helpers);
+  } finally {
+    await cli(["close"]);
+    if (own === undefined) delete process.env.PLAYWRIGHT_CLI_SESSION;
+    else process.env.PLAYWRIGHT_CLI_SESSION = own;
+  }
+}
+
 /** `--name value`, `--name=value` and `--flag`, and the rest as positionals in `_`. */
 export function parseArgs(argv = process.argv.slice(2)) {
   const opts = { _: [] };

@@ -29,12 +29,14 @@ read `snapshot` to continue where you left off; use `open` only if it is closed.
 **Headless is yours; headed is theirs.** A browser opens headless: nobody sees
 it, and the app keeps it for follow-ups until the job's workspace expires.
 `--headed` puts a real window on their screen, and that window outlives the job
-until they close it or cancel or delete the job. Show them the thing itself: the order
-sitting at checkout for them to confirm, the map with the pin dropped, the page
-they asked to watch, a sign-in for them to finish. Open it `--headed`, leave it
-open, and say in your answer that it is on their screen. A window you opened
-headed only to get past a wall and are done with, `close` yourself. Only a job
-they cancel or delete takes its windows with it.
+until they close it or cancel or delete the job. Show them the thing itself: the products
+they asked you to find, the order sitting at checkout for them to confirm, the map with the
+pin dropped, the page they asked to watch, a sign-in for them to finish. Open it `--headed`,
+leave it open, and say in your answer that it is on their screen. A window you opened
+headed only to get past a wall and are done with, `close` yourself. A window is never how
+you look at your own work: a page, a deck or a canvas you made is shown to you by its
+skill's `shots` and `look_at`, and reaches them under your answer — nor is `open` on their
+desktop. Only a job they cancel or delete takes its windows with it.
 
 **A payment is theirs to press.** Take a purchase, a top-up or a subscription
 as far as the last screen before money moves, open it `--headed`, and answer

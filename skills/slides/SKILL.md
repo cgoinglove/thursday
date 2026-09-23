@@ -13,13 +13,13 @@ tap, `f` filling the screen and `n` showing the presenter's notes. `S=<skill dir
 1. `node $S/deck.mjs new <name>` — the deck, styled, every slide 1920×1080 (`--size WxH`
    for another).
 2. Copy a slide from `deck/slides/` for each step — `cover`, `statement`, `cards`,
-   `number`, `table`, `quote`, `image`, `close` — into the deck and change the words.
-   Every style is inline, so the values stay readable by whatever reads the slides next.
-   `references/deck.md` is the subset, the height arithmetic and what makes a deck work;
-   read it before the first slide.
-3. `node $S/deck.mjs shots <name|path>` — every slide as a PNG beside the file; one that
-   overflows is refused by number. A deck another bot handed you is reached by its path,
-   never by name.
+   `number`, `table`, `quote`, `image`, `close` — into a file of your own and change the
+   words. Every style is inline, so the values stay readable by whatever reads the slides
+   next. `references/deck.md` is the subset, the height arithmetic and what makes a deck
+   work; read it before the first slide.
+3. `node $S/deck.mjs put <name|path> <file> && node $S/deck.mjs shots <name|path>` — the
+   slides into the deck, then every slide as a PNG beside it; one that overflows is refused
+   by number. A deck another bot handed you is reached by its path, never by name.
 4. Hand back the deck's path, and in a line what it argues and how many slides it is.
 
 A slide fades in as it is turned to (`data-transition="push"` or `"none"` on a section
@@ -27,5 +27,6 @@ changes that); an `<aside>` inside a slide is what is said over it and never sho
 the Notes button in the deck's head shows it under the stage. The file draws its own frame
 around the slides: a head naming who made it, arrows and a count, notes, full screen,
 Present, a theme button and Export (print, this slide's picture, the file), and a strip of
-every slide small at the foot. Write inside `<div id="deck">` only. Nothing is edited in the app:
-what changes is the file, shot again.
+every slide small at the foot. Only `put` writes the slides: never write the deck file
+itself, which takes that frame with it. Nothing is edited in the app: what changes is the
+slides, put and shot again.

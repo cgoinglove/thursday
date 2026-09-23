@@ -2,7 +2,7 @@
 
 `deck.mjs new <name>` writes `<name>/<name>.html` in your artifacts folder: one file that
 opens offline, turns with the arrow keys, and prints one slide a sheet. You write the slides
-into its `<div id="deck">`, one `<section data-slide>` each, then shoot them.
+in a file of your own, one `<section data-slide>` each, `put` them into it, then shoot them.
 
 Ready slides to copy sit in `deck/slides/` beside this page — `cover`, `statement`, `cards`,
 `number`, `table`, `quote`, `image`, `close`. Start from the one whose job matches, change the

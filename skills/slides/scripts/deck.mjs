@@ -3,6 +3,7 @@
 // one at a time and scaled to the window, and every slide as a picture of its own.
 //
 //   node deck.mjs new <name> [--size WxH]    the deck, styled, to write slides into (1920x1080)
+//   node deck.mjs put <name|path> <file>     the slides written in <file>, into the deck
 //   node deck.mjs shots <name|path>          every slide as a PNG beside it
 import { spawnSync } from "node:child_process";
 import {
@@ -17,6 +18,7 @@ import {
 } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { notInside, putBetween } from "../../shell/put.mjs";
 import { wear } from "../../shell/wear.mjs";
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -102,24 +104,59 @@ function newDeck(name, ...args) {
     ),
   );
   console.log(
-    `${shown(out)} is ready: one file that opens offline, every slide ${size}. Copy a slide from ${join(SKILL, "deck", "slides")} for each step and change the words (the comment inside says how), then run: node ${SCRIPT} shots ${name}`,
+    `${shown(out)} is ready: one file that opens offline, every slide ${size}. Copy a slide from ${join(SKILL, "deck", "slides")} for each step into a file of your own and change the words (the comment inside the deck says how), then run: node ${SCRIPT} put ${name} <that file> && node ${SCRIPT} shots ${name}`,
   );
 }
 
-function shotDeck(name) {
-  const file = sourceFor(name);
+/** A deck that exists, named or pointed at. */
+function deckAt(arg) {
+  const file = sourceFor(arg);
   if (!existsSync(file))
     throw new Stop(
       `No deck ${shown(file)}. Start one with: node ${SCRIPT} new <name>, or give the path to one that exists.`,
     );
-  // The deck says its own size, where `new` wrote it
-  const said = readFileSync(file, "utf8").match(
-    /<body style="--w: (\d+); --h: (\d+)"/,
+  return file;
+}
+
+/** A deck written over whole has lost its frame, and every way of fixing it by hand. */
+const rewritten = (file) =>
+  new Stop(
+    `${shown(file)} has lost the deck around its slides — it was written over whole. Start a new one (node ${SCRIPT} new <another name>) and put the slides into it (node ${SCRIPT} put <that name> <file>): put writes only the slides, never the rest.`,
   );
-  if (!said)
+
+/** The slides in `from` in place of the deck's own, and nothing else of it touched. */
+function putSlides(name, from) {
+  const file = deckAt(name);
+  if (!from || !existsSync(from))
     throw new Stop(
-      `${shown(file)} no longer says its size: keep <body style="--w: …; --h: …"> as it was written.`,
+      `Give the file the slides are written in: node ${SCRIPT} put ${name ?? "<name>"} <file>`,
     );
+  const slides = readFileSync(from, "utf8");
+  const why = notInside(slides);
+  if (why)
+    throw new Stop(
+      `${from} ${why}: the slides alone, one <section data-slide> each.`,
+    );
+  if (!/<section\b[^>]*\bdata-slide\b/.test(slides))
+    throw new Stop(`${from} holds no slide: one <section data-slide> each.`);
+  const html = putBetween(readFileSync(file, "utf8"), slides);
+  if (!html) throw rewritten(file);
+  writeFileSync(file, html);
+  const count = slides.match(/<section\b[^>]*\bdata-slide\b/g).length;
+  console.log(
+    `${count} slide(s) in ${shown(file)}. Next: node ${SCRIPT} shots ${name}`,
+  );
+}
+
+function shotDeck(name) {
+  const file = deckAt(name);
+  const html = readFileSync(file, "utf8");
+  // The deck says its own size on its body, where `new` wrote it, and lays its slides flat
+  // for a picture with its own stylesheet: a deck without both was written over whole
+  const body = /<body\b[^>]*\bstyle="([^"]*)"/.exec(html)?.[1] ?? "";
+  const w = /--w:\s*(\d+)/.exec(body)?.[1];
+  const h = /--h:\s*(\d+)/.exec(body)?.[1];
+  if (!w || !h || !html.includes("body.shot")) throw rewritten(file);
 
   // The renderer shoots every `[data-slide]` at one exact size, and cannot see a slide the
   // deck has scaled to fit the window. So it is given a flat copy — the slides alone, at
@@ -130,10 +167,7 @@ function shotDeck(name) {
   const copy = join(flat, file.slice(dir.length + 1));
   rmSync(flat, { recursive: true, force: true });
   mkdirSync(flat, { recursive: true });
-  writeFileSync(
-    copy,
-    readFileSync(file, "utf8").replace(/<body(?=[\s>])/, '<body class="shot"'),
-  );
+  writeFileSync(copy, html.replace(/<body(?=[\s>])/, '<body class="shot"'));
   for (const entry of readdirSync(dir, { withFileTypes: true }))
     if (entry.isFile() && join(dir, entry.name) !== file)
       copyFileSync(join(dir, entry.name), join(flat, entry.name));
@@ -144,11 +178,13 @@ function shotDeck(name) {
       join(SKILLS, "browser", "scripts", "render.mjs"),
       copy,
       "--size",
-      `${said[1]}x${said[2]}`,
+      `${w}x${h}`,
       "--out",
       dir,
       "--name",
       "slide",
+      // Never in the job's own browser, which may be a window on their screen
+      "--apart",
     ],
     { stdio: "inherit" },
   );
@@ -161,12 +197,12 @@ function shotDeck(name) {
   );
 }
 
-const commands = { new: newDeck, shots: shotDeck };
+const commands = { new: newDeck, put: putSlides, shots: shotDeck };
 const [command, ...rest] = process.argv.slice(2);
 try {
   if (!commands[command])
     throw new Stop(
-      "Usage: deck.mjs new <name> [--size WxH] | shots <name|path>",
+      "Usage: deck.mjs new <name> [--size WxH] | put <name|path> <file> | shots <name|path>",
     );
   commands[command](...rest);
 } catch (error) {

@@ -13,12 +13,13 @@ app draws it at 1024px wide. `S=<skill dir>/scripts`
 
 1. `node $S/canvas.mjs new <name>` — the canvas, styled and panning, with two empty frames.
 2. Copy a board from `boards/` for each option — `app`, `phone`, `form`, `landing`,
-   `poster`, `post`, `wireframe`, `direction` — into the canvas and change what is on it.
-   `references/canvas.md` is the layout, the sizes and what makes a set of options a real
-   choice; read it before the first board.
-3. `node $S/canvas.mjs shots <name|path>` — every board as a PNG beside the file, each at
-   its own size; one that overflows is refused by number. A canvas another bot handed you
-   is reached by its path, never by name.
+   `poster`, `post`, `wireframe`, `direction` — into a file of your own and change what is
+   on it. `references/canvas.md` is the layout, the sizes and what makes a set of options a
+   real choice; read it before the first board.
+3. `node $S/canvas.mjs put <name|path> <file> && node $S/canvas.mjs shots <name|path>` —
+   the boards and notes into the canvas, then every board as a PNG beside it, each at its
+   own size; one that overflows is refused by number. A canvas another bot handed you is
+   reached by its path, never by name.
 4. Hand back the canvas's path and the pictures' paths, and say in words what each
    option explores and which you would lead with.
 
@@ -26,6 +27,7 @@ What the file does that you do not write: a head naming who made it and how many
 a rail (select, move, every board, the list), a list of every board small on the left, and
 when a board is picked its real colours, type and spacing on the right with a button that
 copies it as an instruction; a link from one board to another (`<a href="#next">`) brings
-that board up, so a flow is walked through the way it would be used. Write inside `#stage`
-only. Boards on one canvas can be different sizes — a phone beside a desktop — and there is
-no editing in the app: what changes is the file, shot again.
+that board up, so a flow is walked through the way it would be used. Only `put` writes the
+boards: never write the canvas file itself, which takes all of that with it. Boards on one
+canvas can be different sizes — a phone beside a desktop — and there is no editing in the
+app: what changes is the boards, put and shot again.
