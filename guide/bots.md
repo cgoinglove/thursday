@@ -19,9 +19,6 @@ its subject, which no other bot sees.
   points that link to the moment they are said, makes a news page on the topics the user chose, and
   lays a trip out day by day with the weather, the exchange rate, photos and map links — a booking
   it puts on the user's screen and stops there.
-- **Docs** makes PDFs, invoices, Word, Excel and PowerPoint files, and fills, signs, merges or
-  translates the ones it is given; a deck or a Word file comes with a PDF copy, which is what the app
-  shows.
 - **Designer** makes what gets looked at: two to four ways a screen or a page could look, side by
   side on one canvas, a deck to show on a screen, a post at the size it will be shown.
 - **Tutor** explains anything as a picture book.
@@ -167,8 +164,8 @@ in its folder) and **Delete**. **All files** is the whole folder, for looking ar
 the results, and **Empty scratch** clears the bots' scratch space. A Word file, a spreadsheet, a
 PowerPoint or anything else the app has no reader for shows **Open it**, which opens it in the
 program this computer uses for it; clicked under a message it opens there straight away. Asked on a
-call to show a result like that, she puts up its PDF copy when there is one, or else the thread. Only
-the pieces a page is built from — its stylesheets, scripts and fonts — stay off the shelf.
+call to show a result like that, she puts up the thread it came from. Only the pieces a page is built
+from — its stylesheets, scripts and fonts — stay off the shelf.
 
 ## Books, canvases, decks and pages
 
@@ -209,8 +206,8 @@ the count, Notes (what is said over the slide), full screen, Present, a theme bu
 (**Print · one slide a page**, **This slide as a picture**, **Download this file**). The arrow keys,
 space or a tap on the right or left of a slide turn it too, **f** fills the screen and **n** shows
 the notes. Presenting shows the slide alone: the notes never go up on the screen the room sees. It is
-a deck to show on a screen — one to send or edit as a PowerPoint file is an office document, which
-Docs makes.
+a deck to show on a screen; a copy to hand out prints to PDF, a slide a page. There is no PowerPoint
+file.
 
 Something to read — a report, a memo, a comparison, a plan, notes of a meeting — comes back as one
 page: a title with the date and who it is by, its contents beside it (the section being read is

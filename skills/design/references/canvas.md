@@ -107,8 +107,8 @@ CSS px, 96 to an inch. Give a board the size of the thing it stands for:
   words or fewer, and the five things a reader needs — what, when, where, cost, one way
   to act — grouped tight. Backgrounds may run to the edge; words stay 72px in from it.
   Body type is never under 16px, rules never under 1px, and it must still read in
-  grayscale. A document that flows — a report, a letter — is not a canvas but the
-  documents method's work.
+  grayscale. A document that flows — a report, a letter — is not a canvas: it is a
+  page to read, the page skill's work.
 - **A small change stays small.** Asked to change one word, one colour, one element,
   change that and nothing else on the board. A redesign is asked for in those words.
 - **Not another company's design.** Asked to recreate a distinctive UI that is not the

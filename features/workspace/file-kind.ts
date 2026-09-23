@@ -51,9 +51,9 @@ const TYPE_BY_EXTENSION: Record<string, { kind: FileViewKind; mime: string }> =
     mp4: { kind: "video", mime: "video/mp4" },
     webm: { kind: "video", mime: "video/webm" },
 
-    // What Docs hands back is the file itself, and no browser draws these: the
-    // row opens them in Word, Excel or PowerPoint. Named here for the mime and
-    // so a report naming one gets a chip.
+    // An office file a bot left or someone dropped in: no browser draws these,
+    // so the row opens them in Word, Excel or PowerPoint. Named here for the
+    // mime and so a report naming one gets a chip.
     docx: {
       kind: "none",
       mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

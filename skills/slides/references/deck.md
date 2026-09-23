@@ -61,7 +61,7 @@ not fit, drop the table to 24–28px or split the slide. Nothing shrinks for you
 `padding:128px 128px 160px`, so flow stops short and the budget is **792px**, not 824. Nothing
 else goes into that band. Take the band's exact y from a shot rather than from arithmetic: the
 deck's own stylesheet has a say in where a pinned child lands, and what the browser draws is
-what a picture and a PowerPoint file both get.
+what the picture gets.
 
 ## Width
 
@@ -171,17 +171,6 @@ overflows comes out taller than 1080 and is refused by its number**, and the hea
 names the same slides as `cut`. That is the arithmetic above catching you: fix each
 one and shoot again, two rounds at most. The renderer uses the job's browser, and opens a
 headless one when none is.
-
-## When it has to be a PowerPoint file
-
-The deck itself is what is shown on a screen, and it prints a slide a page. A deck that has to
-be *sent* or *edited* as a `.pptx` is an office document, so it is the `documents` method's
-work: `doc.mjs deck-from <deck.html>` measures every slide in a browser and writes each box to
-the same place in a PowerPoint file — text stays text, a table stays a table, the notes come
-across. Nothing is laid out twice, so what the pictures show is what the file holds.
-
-That method belongs to the bot whose subject is office files. Without it, make the deck, say in
-one line that a PowerPoint copy is a step away, and let whoever asked decide.
 
 ## What to hand back
 

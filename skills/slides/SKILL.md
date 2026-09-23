@@ -1,6 +1,6 @@
 ---
 name: slides
-description: "A deck of slides to present or be walked through a step at a time: one file that opens offline, turns with the arrow keys, fits any screen and prints a slide a page. Built from ready slides — cover, statement, cards, number, table, quote, image, close — with what is said over each kept off it as notes, and every slide also a picture of its own. A PowerPoint file to send or edit is an office document, another method's work."
+description: "A deck of slides to present or be walked through a step at a time: one file that opens offline, turns with the arrow keys, fits any screen and prints a slide a page. Built from ready slides — cover, statement, cards, number, table, quote, image, close — with what is said over each kept off it as notes, and every slide also a picture of its own."
 license: Complete terms in LICENSE.txt
 ---
 

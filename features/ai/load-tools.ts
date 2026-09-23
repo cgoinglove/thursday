@@ -306,8 +306,8 @@ function createThreadTools(callId: string | null | undefined): ToolSet {
         const { opensOnFinish, pathsIn, viewKindOf } = await import(
           "@/features/workspace/file-kind"
         );
-        // Only what the viewer draws: a Word file beside its PDF copy opens as the copy,
-        // and one with nothing drawable opens as the thread, where its files are listed
+        // Only what the viewer draws: a file nothing here draws is passed over, and a
+        // thread with nothing drawable opens as itself, where its files are listed
         const files = (
           await filesOnDisk(pathsIn(one.outcome ?? ""), null)
         ).filter((file) => viewKindOf(file) !== "none");
