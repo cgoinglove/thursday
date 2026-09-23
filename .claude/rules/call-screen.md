@@ -54,7 +54,8 @@ maintainer.
 - **One rule puts a job on one side of the screen, and every count comes off it** (`bot.schema`
   `standOf`): ended is the left corner's; waiting on the user and working are the room's. A job that
   has ended is over whatever its room still holds — an open question left on one is closed at boot
-  (`closeEndedQuestions`).
+  (`closeEndedQuestions`). A stop is read by whoever made it and stays among the inbox's ended few
+  all the same (`listInboxThreads`): the pill sees a job end only by watching it change there.
 - The pill's bubble shows one thing that just happened, over the face of whoever spoke, with the bots
   it reached tucked behind. Clicking the pill opens the room's list, never a thread; the "+" at its
   left end asks for the write line. The card above the pill grows only for what waits on the user (a
@@ -80,6 +81,8 @@ maintainer.
   of tiles.
 - The message box names who it is addressed to (`To <bot>`). Addressed to a bot other than the
   thread's own, it says that bot's answer goes to whoever called it, not to the user.
+- **Stop is a word, never a glyph alone, and never beside Send** (`thread-reply`): on a working row
+  it follows Step in, on a question or a pause it heads the sheet in what the sheet's choices wear.
 - **Step in is for a bot on a step** (its own row running or queued), never for a thread that is
   merely running: a bot idle inside one gets the open composer under a line naming who is working.
   Words stepped in wait where the composer sits, with a loader and a shining line — not the waiting

@@ -58,9 +58,11 @@ rest; the conversation on screen stays whole.
 
 ## Stopping a job
 
-The square **Stop this thread** button, in the thread and on its row in Settings › Threads, stops
-it; the thread shows *Stopped* and the bot's face on it has crossed-out eyes. Writing to it later
-picks it up again. Asking her on a call to stop it does the same.
+**Stop** stops a job. In the thread it stands beside *Step in* while a bot is working, and at the top
+right of a question or a pause; in Settings › Threads it is in the **…** menu on the job's row. The
+thread shows *Stopped*, the bot's face on it has crossed-out eyes, and its face in the pill sinks
+under *stopped · …*. Writing to it later picks it up again. Asking her on a call to stop it does the
+same.
 
 ## What the faces in the corner do
 

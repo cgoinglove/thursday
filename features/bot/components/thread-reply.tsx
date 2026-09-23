@@ -174,24 +174,27 @@ export function ThreadReply({
   };
 
   // Only a job still going can be stopped: a cancel clears the outcome, which on a
-  // finished job is the answer itself.
-  const stopButton =
+  // finished job is the answer itself. It is a word, never a glyph alone, and never beside
+  // Send: on a working row it follows Step in, on a question or a pause it heads the sheet.
+  const stopButton = (onSheet = false) =>
     status === "running" || status === "waiting" ? (
       <Button
         type="button"
-        size="icon-sm"
+        size="sm"
         variant="ghost"
+        loading={stopping}
         disabled={busy}
         onClick={() => stop(thread.id)}
         aria-label="Stop this thread"
-        title="Stop this thread"
-        className="shrink-0 text-muted-foreground/60 hover:text-foreground"
-      >
-        {stopping ? (
-          <Loader2 className="animate-spin" />
-        ) : (
-          <Square className="size-3" />
+        className={cn(
+          "h-7 shrink-0 gap-1.5 rounded-full px-2.5 text-[12px]",
+          // on a sheet it wears what the sheet's own choices wear
+          onSheet &&
+            "bg-background px-3 hover:bg-background/60 dark:hover:bg-background/60",
         )}
+      >
+        {!stopping && <Square className="size-2.5 fill-current" />}
+        Stop
       </Button>
     ) : null;
 
@@ -201,36 +204,39 @@ export function ThreadReply({
     return (
       <Sheet className={className}>
         <SheetHead bot={faceOf(recipientName)} word="Question">
-          {questions.length > 1 && (
-            <span className="ml-auto flex shrink-0 items-center gap-0.5">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Previous question"
-                disabled={busy || questionIndex === 0}
-                onClick={() => setSelected(questions[questionIndex - 1].id)}
-              >
-                <ChevronLeft />
-              </Button>
-              <span
-                className="font-mono text-[10px] text-muted-foreground tabular-nums"
-                aria-live="polite"
-              >
-                {questionIndex + 1} / {questions.length}
+          <span className="ml-auto flex shrink-0 items-center gap-1.5">
+            {questions.length > 1 && (
+              <span className="flex items-center gap-0.5">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Previous question"
+                  disabled={busy || questionIndex === 0}
+                  onClick={() => setSelected(questions[questionIndex - 1].id)}
+                >
+                  <ChevronLeft />
+                </Button>
+                <span
+                  className="font-mono text-[10px] text-muted-foreground tabular-nums"
+                  aria-live="polite"
+                >
+                  {questionIndex + 1} / {questions.length}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Next question"
+                  disabled={busy || questionIndex === questions.length - 1}
+                  onClick={() => setSelected(questions[questionIndex + 1].id)}
+                >
+                  <ChevronRight />
+                </Button>
               </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Next question"
-                disabled={busy || questionIndex === questions.length - 1}
-                onClick={() => setSelected(questions[questionIndex + 1].id)}
-              >
-                <ChevronRight />
-              </Button>
-            </span>
-          )}
+            )}
+            {stopButton(true)}
+          </span>
         </SheetHead>
         {text && (
           <div className="max-h-[min(14rem,30vh)] min-w-0 overflow-y-auto overscroll-contain pr-1.5">
@@ -259,7 +265,6 @@ export function ThreadReply({
             options.length ? "Or write your own answer…" : "Your answer…"
           }
           label={`Answer for ${recipientName}`}
-          trailing={stopButton}
         />
       </Sheet>
     );
@@ -268,7 +273,9 @@ export function ThreadReply({
   if (paused) {
     return (
       <Sheet className={className}>
-        <SheetHead bot={faceOf(thread.bot)} word="Paused" />
+        <SheetHead bot={faceOf(thread.bot)} word="Paused">
+          <span className="ml-auto flex shrink-0">{stopButton(true)}</span>
+        </SheetHead>
         {asking?.question && (
           <FoldedText
             text={asking.question}
@@ -291,7 +298,6 @@ export function ThreadReply({
           busy={busy}
           placeholder="Or put it another way…"
           label={`Message for ${recipientName}`}
-          trailing={stopButton}
         />
       </Sheet>
     );
@@ -359,7 +365,7 @@ export function ThreadReply({
             Step in
           </Button>
           <span className="h-4 w-px shrink-0 bg-border" />
-          {stopButton}
+          {stopButton()}
         </div>
       </div>
     );
@@ -389,7 +395,7 @@ export function ThreadReply({
             )}
           </p>
           <span className="h-4 w-px shrink-0 bg-border" />
-          {stopButton}
+          {stopButton()}
         </div>
       )}
       <DraftComposer

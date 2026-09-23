@@ -226,12 +226,12 @@ export const PATHS = {
 export const PAGE_SIZE = 50;
 
 /**
- * Finished jobs the inbox carries beside everything still running or waiting,
- * and so the endings the room's Now tab keeps whether or not they were read;
- * older ones are under History only. The room in the call screen's corner and
- * the Threads badge read that one list. Unread endings, and endings a call has
- * not relayed, remain regardless of this limit. More keeps older endings in
- * reach at the cost of a larger inbox read.
+ * Ended jobs, done or stopped, the inbox carries beside everything still running
+ * or waiting, read or not, so the room sees each one end (a stop is read by
+ * whoever made it); older ones are under History only. The room in the call
+ * screen's corner and the Threads badge read that one list. Unread endings, and
+ * endings a call has not relayed, remain regardless of this limit. More keeps
+ * older endings in reach at the cost of a larger inbox read.
  */
 export const INBOX_FINISHED = 5;
 

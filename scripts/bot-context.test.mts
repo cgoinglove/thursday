@@ -260,6 +260,16 @@ test("thread overview keeps old open work and the inbox retains unread endings",
     assert.ok(
       !(await listInboxThreads()).some((thread) => thread.id === ids[2]),
     );
+    // A stop is read by whoever made it and still holds its place among the latest endings
+    await database
+      .update(threadTable)
+      .set({ updatedAt: new Date(Date.UTC(2026, 0, 1, 0, 30)) })
+      .where(eq(threadTable.id, ids[2]));
+    assert.ok(
+      (await listInboxThreads()).some(
+        (thread) => thread.id === ids[2] && thread.status === "cancelled",
+      ),
+    );
     // A report no call relayed holds its ending in the inbox; reading it settles that too
     await database.insert(threadRelayTable).values({
       key: `report:${ids[3]}:0`,

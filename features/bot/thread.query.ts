@@ -259,8 +259,8 @@ export async function listInboxThreads(): Promise<Thread[]> {
     database
       .select(threadView)
       .from(threadTable)
-      // A cancel leaves the room's Now at once, so it takes none of these places
-      .where(eq(threadTable.status, "done"))
+      // A stop is seen by whoever stopped it, so only here does the room see it happen
+      .where(inArray(threadTable.status, ["done", "cancelled"]))
       .orderBy(desc(threadTable.updatedAt))
       .limit(INBOX_FINISHED),
     database
