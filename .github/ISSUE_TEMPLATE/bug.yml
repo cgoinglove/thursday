@@ -25,7 +25,7 @@ body:
     attributes:
       label: Models
       description: The call's voice and backend models, and the model the bot ran on.
-      placeholder: gpt-live-1 · backend gpt-5.6-luna · bot on anthropic/claude-sonnet-5
+      placeholder: gpt-live-1 · backend gpt-6-luna · bot on anthropic/claude-sonnet-5
 
   - type: textarea
     id: logs

@@ -1,7 +1,7 @@
 # thursday
 
 A local-first voice agent. GPT-Live 1 ("Thursday") holds the call; a separate Responses backend
-(GPT-5.6 Luna by default) runs the call's tools.
+(GPT-6 Luna by default) runs the call's tools.
 The call only touches what can be answered in a glance (memory, one shell command). Anything that takes time — MCP, skills,
 a browser, minute-long jobs — is delegated to text-model bots that run in the background with a
 shell, a browser and skills; a skill is the one thing that can be handed back to the call

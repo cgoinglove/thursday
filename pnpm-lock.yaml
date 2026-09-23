@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@ai-sdk/anthropic':
-        specifier: ^4.0.58
-        version: 4.0.58(zod@4.6.5)
+        specifier: ^4.0.60
+        version: 4.0.60(zod@4.6.5)
       '@ai-sdk/cerebras':
         specifier: ^3.0.53
         version: 3.0.53(zod@4.6.5)
@@ -39,8 +39,8 @@ importers:
         specifier: ^4.0.48
         version: 4.0.48(zod@4.6.5)
       '@ai-sdk/openai':
-        specifier: ^4.0.71
-        version: 4.0.71(zod@4.6.5)
+        specifier: ^4.0.72
+        version: 4.0.72(zod@4.6.5)
       '@ai-sdk/react':
         specifier: 4.0.109
         version: 4.0.109(react@19.2.8)(zod@4.6.5)
@@ -48,8 +48,8 @@ importers:
         specifier: ^3.0.54
         version: 3.0.54(zod@4.6.5)
       '@ai-sdk/xai':
-        specifier: ^5.0.4
-        version: 5.0.4(zod@4.6.5)
+        specifier: ^5.0.5
+        version: 5.0.5(zod@4.6.5)
       '@base-ui/react':
         specifier: ^1.8.0
         version: 1.8.0(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -165,8 +165,8 @@ importers:
 
 packages:
 
-  '@ai-sdk/anthropic@4.0.58':
-    resolution: {integrity: sha512-vhXKBz7jnIhBlOoj2d0joyHicWISuIxDNha65SLrAnagAkVgulLoZBRLZRazstxlO/BtXU+cDERe1opVKte2OQ==}
+  '@ai-sdk/anthropic@4.0.60':
+    resolution: {integrity: sha512-7Hb10pUnPRLYQxrWC5OtcYEmrOIGmAez6+meKBePxCO09Jjle5Ke+L2mTOonAVkY/7MEafpY7c55F7DJ9yGeNg==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -249,8 +249,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/openai@4.0.71':
-    resolution: {integrity: sha512-w8FuHr1bD/bP/8SIgcaJKUyePE4ke9s7+Ew2ed/9i5mDoFXEfyVUyFX8R0wQ3YfcdMKmTs8ct/f6XJsXsnPVsQ==}
+  '@ai-sdk/openai@4.0.72':
+    resolution: {integrity: sha512-X5dowqxAXPhu72FpspKX7P5nDycvl/Nt0Qi9A5VjdotV1SrJdhH4vOeWVdBootwEC6uY2hYN0SHAuL1fd4cV8Q==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -283,8 +283,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/xai@5.0.4':
-    resolution: {integrity: sha512-Cg3xUB0H6OA4fvcX+uamkZXuzxdjhi7HH15glxpE8boZUijFmfz3YPM3Y/HvQkuCb6D/ixCe7lpcwVjidLhw9w==}
+  '@ai-sdk/xai@5.0.5':
+    resolution: {integrity: sha512-Y4gH49EObyBjohcVpqXEL2LJyMXIPx6mPBS8AID4LNEMOkEzIuj5NA1ny6Bv5aW1aDJOMcx2q1vXVHlTG2sPeA==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -4145,7 +4145,7 @@ packages:
 
 snapshots:
 
-  '@ai-sdk/anthropic@4.0.58(zod@4.6.5)':
+  '@ai-sdk/anthropic@4.0.60(zod@4.6.5)':
     dependencies:
       '@ai-sdk/provider': 4.0.17
       '@ai-sdk/provider-utils': 5.0.45(zod@4.6.5)
@@ -4238,7 +4238,7 @@ snapshots:
       '@ai-sdk/provider-utils': 5.0.45(zod@4.6.5)
       zod: 4.6.5
 
-  '@ai-sdk/openai@4.0.71(zod@4.6.5)':
+  '@ai-sdk/openai@4.0.72(zod@4.6.5)':
     dependencies:
       '@ai-sdk/provider': 4.0.17
       '@ai-sdk/provider-utils': 5.0.45(zod@4.6.5)
@@ -4285,7 +4285,7 @@ snapshots:
       '@ai-sdk/provider-utils': 5.0.45(zod@4.6.5)
       zod: 4.6.5
 
-  '@ai-sdk/xai@5.0.4(zod@4.6.5)':
+  '@ai-sdk/xai@5.0.5(zod@4.6.5)':
     dependencies:
       '@ai-sdk/provider': 4.0.17
       '@ai-sdk/provider-utils': 5.0.45(zod@4.6.5)

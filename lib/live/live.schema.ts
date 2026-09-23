@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const LIVE_MODEL = "gpt-live-1";
-export const LIVE_BACKEND_MODEL = "gpt-5.6-luna";
+export const LIVE_BACKEND_MODEL = "gpt-6-luna";
 
 /** Flat function declaration accepted by Responses delegation. */
 export type ToolManifest = {

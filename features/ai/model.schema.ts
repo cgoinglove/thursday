@@ -434,23 +434,16 @@ export const TEXT_MODEL_PROVIDERS: Record<
     keyLooks: "sk-…",
     suggestModels: [
       {
-        id: "gpt-5.6-luna",
-        label: "5.6 Luna",
+        id: "gpt-6-luna",
+        label: "6 Luna",
         tier: "small",
         context: 1_050_000,
         efforts: ["none", "low", "medium", "high", "xhigh"],
       },
       {
-        id: "gpt-5.6-terra",
-        label: "5.6 Terra",
+        id: "gpt-6-sol",
+        label: "6 Sol",
         tier: "mid",
-        context: 1_050_000,
-        efforts: ["none", "low", "medium", "high", "xhigh"],
-      },
-      {
-        id: "gpt-5.6-sol",
-        label: "5.6 Sol",
-        tier: "large",
         context: 1_050_000,
         efforts: ["none", "low", "medium", "high", "xhigh"],
       },
@@ -465,7 +458,7 @@ export const TEXT_MODEL_PROVIDERS: Record<
   },
   /**
    * The Codex models a ChatGPT plan carries, reached by signing in (ai/chatgpt). Which ones a
-   * plan opens differs — a Free plan lists Luna, Terra and 5.5 — and the backend caps every
+   * plan opens differs — a Free plan lists Luna alone — and the backend caps every
    * window at 272k, whatever the same model takes over the API.
    */
   chatgpt: {
@@ -474,23 +467,16 @@ export const TEXT_MODEL_PROVIDERS: Record<
     signIn: true,
     suggestModels: [
       {
-        id: "gpt-5.6-luna",
-        label: "5.6 Luna",
+        id: "gpt-6-luna",
+        label: "6 Luna",
         tier: "small",
         context: 272_000,
         efforts: ["none", "low", "medium", "high", "xhigh"],
       },
       {
-        id: "gpt-5.6-terra",
-        label: "5.6 Terra",
+        id: "gpt-6-sol",
+        label: "6 Sol",
         tier: "mid",
-        context: 272_000,
-        efforts: ["none", "low", "medium", "high", "xhigh"],
-      },
-      {
-        id: "gpt-5.6-sol",
-        label: "5.6 Sol",
-        tier: "large",
         context: 272_000,
         efforts: ["none", "low", "medium", "high", "xhigh"],
       },
@@ -523,11 +509,11 @@ export const TEXT_MODEL_PROVIDERS: Record<
         efforts: ["none", "low", "medium", "high", "xhigh"],
       },
       {
-        id: "claude-opus-5",
-        label: "Opus 5",
+        id: "claude-opus-5-5",
+        label: "Opus 5.5",
         tier: "large",
         context: 1_000_000,
-        efforts: ["none", "low", "medium", "high", "xhigh"],
+        efforts: ["low", "medium", "high", "xhigh"],
       },
       {
         id: "claude-fable-5-1",
@@ -566,8 +552,8 @@ export const TEXT_MODEL_PROVIDERS: Record<
     keyLooks: "xai-…",
     suggestModels: [
       {
-        id: "grok-4.6",
-        label: "Grok 4.6",
+        id: "grok-4.7",
+        label: "Grok 4.7",
         tier: "large",
         context: 500_000,
         efforts: ["none", "low", "medium", "high", "xhigh"],
@@ -591,15 +577,15 @@ export const TEXT_MODEL_PROVIDERS: Record<
         tier: "small",
       },
       {
-        id: "openai/gpt-5.6-luna",
-        label: "GPT 5.6 Luna",
+        id: "openai/gpt-6-luna",
+        label: "GPT 6 Luna",
         tier: "small",
         context: 1_050_000,
       },
       { id: "zai/glm-5.3", label: "GLM 5.3", tier: "mid" },
       {
-        id: "spacexai/grok-4.6",
-        label: "Grok 4.6",
+        id: "spacexai/grok-4.7",
+        label: "Grok 4.7",
         tier: "mid",
         context: 500_000,
       },
@@ -609,21 +595,15 @@ export const TEXT_MODEL_PROVIDERS: Record<
         tier: "mid",
       },
       {
-        id: "openai/gpt-5.6-terra",
-        label: "GPT 5.6 Terra",
+        id: "openai/gpt-6-sol",
+        label: "GPT 6 Sol",
         tier: "mid",
         context: 1_050_000,
       },
       { id: "moonshotai/kimi-k3", label: "Kimi K3", tier: "mid" },
       {
-        id: "openai/gpt-5.6-sol",
-        label: "GPT 5.6 Sol",
-        tier: "large",
-        context: 1_050_000,
-      },
-      {
-        id: "anthropic/claude-opus-5",
-        label: "Claude Opus 5",
+        id: "anthropic/claude-opus-5.5",
+        label: "Claude Opus 5.5",
         tier: "large",
         context: 1_000_000,
       },

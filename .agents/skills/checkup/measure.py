@@ -8,13 +8,17 @@ import argparse, collections, datetime, glob, json, os, re, statistics, subproce
 
 # $/MTok: input, 5m cache write, 1h cache write, cache read, output
 PRICES = {
+    "claude-opus-5-5": (4, 5, 8, 0.2, 20),
     "claude-opus-5": (5, 6.25, 10, 0.5, 25),
     "claude-fable-5-1": (10, 12.5, 20, 0.25, 50),
     "claude-fable-5": (10, 12.5, 20, 1, 50),
     "claude-sonnet-5": (2, 2.5, 4, 0.2, 10),
     "claude-haiku-4-5-20251001": (1, 1.25, 2, 0.1, 5),
 }
-FAST = {"claude-opus-5": (10, 12.5, 20, 1, 50)}
+FAST = {
+    "claude-opus-5-5": (8, 10, 16, 0.4, 40),
+    "claude-opus-5": (10, 12.5, 20, 1, 50),
+}
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--days", type=int, default=30)

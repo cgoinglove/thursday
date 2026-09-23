@@ -4,7 +4,7 @@ What each part does, so you can guess what will happen before you say it.
 
 ## The call
 
-A call runs on two models: **GPT-Live 1** holds the conversation, and a Responses model (**GPT-5.6 Luna** by default) thinks and uses tools behind it. The voice keeps listening while the backend works.
+A call runs on two models: **GPT-Live 1** holds the conversation, and a Responses model (**GPT-6 Luna** by default) thinks and uses tools behind it. The voice keeps listening while the backend works.
 
 ![One mind goes silent while it works; two minds keep the call going while a bot does the work](images/two-minds.png)
 
