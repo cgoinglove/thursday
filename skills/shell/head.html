@@ -1,10 +1,14 @@
 <!-- The parts of the head every kind has, put in by wear.mjs where a kind's page writes
      {{shell.meta}}, {{shell.who}}, {{shell.theme}}, {{shell.export}} or {{shell.download}}.
-     The meta names a page the shell dressed. The app's own tab looks for it in a page's
-     first bytes and leaves its bar off (app/artifact), so it stands near the top. -->
+     The generator names a page the shell dressed. The app's own tab looks for it in a page's
+     first bytes and leaves its bar off (app/artifact), so it stands near the top. The
+     revision is new on every write, from a bot's put or a reader's save: a save that names
+     one the file no longer holds was made on a page opened before the last write, and is
+     refused (put.mjs, features/workspace savePage). -->
 
 <!-- part: meta -->
 <meta name="generator" content="Thursday">
+<meta name="revision" content="{{revision}}">
 
 <!-- part: who -->
 <span class="sh-who" data-bot="{{bot}}"><b>{{bot}}</b></span>

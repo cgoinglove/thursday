@@ -5,6 +5,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { revision } from "./put.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (file) => readFileSync(join(HERE, file), "utf8").trim();
@@ -36,7 +37,9 @@ export function wear(html) {
     .replace("/* shell.css */", () => read("shell.css"))
     .replace("// shell.theme", () => read("theme.js"))
     .replace("// shell.js", () => read("shell.js"))
-    .replaceAll("{{shell.meta}}", () => part.meta)
+    .replaceAll("{{shell.meta}}", () =>
+      part.meta.replace("{{revision}}", revision()),
+    )
     .replaceAll("{{shell.who}}", () => part.who.replaceAll("{{bot}}", bot))
     .replaceAll("{{shell.theme}}", () => part.theme)
     .replaceAll("{{shell.export}}", () => part.export)

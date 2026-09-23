@@ -4,6 +4,7 @@
 //
 //   node canvas.mjs new <name>                the canvas, styled, to write boards into
 //   node canvas.mjs put <name|path> <file>    the boards written in <file>, into the canvas
+//   node canvas.mjs get <name|path> <file>    the canvas's boards and notes as they are now, into <file>
 //   node canvas.mjs shots <name|path>         every board as a PNG beside it, each at its own size
 import { spawnSync } from "node:child_process";
 import {
@@ -18,7 +19,13 @@ import {
 } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { notInside, putBetween } from "../../shell/put.mjs";
+import {
+  editedSince,
+  getBetween,
+  keep,
+  notInside,
+  putBetween,
+} from "../../shell/put.mjs";
 import { wear } from "../../shell/wear.mjs";
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -133,11 +140,32 @@ function putBoards(name, from) {
     throw new Stop(
       `${from} holds no board: one <article class="frame"> an option.`,
     );
-  const html = putBetween(readFileSync(file, "utf8"), boards);
+  const canvas = readFileSync(file, "utf8");
+  if (editedSince(canvas))
+    throw new Stop(
+      `${shown(file)} was changed since you last put it, and your file would undo that. Get its boards and notes as they are now (node ${SCRIPT} get ${name} <file>), make your change in that file, and put that.`,
+    );
+  const html = putBetween(canvas, boards);
   if (!html) throw rewritten(file);
-  writeFileSync(file, html);
+  keep(file, html);
   console.log(
     `${count} board(s) in ${shown(file)}. Next: node ${SCRIPT} shots ${name}`,
+  );
+}
+
+/** The canvas's boards and notes as they stand in it, into `to`, for a put that keeps what was changed. */
+function getBoards(name, to) {
+  const file = canvasAt(name);
+  if (!to)
+    throw new Stop(
+      `Give the file to write the boards into: node ${SCRIPT} get ${name ?? "<name>"} <file>`,
+    );
+  const got = getBetween(readFileSync(file, "utf8"));
+  if (!got) throw rewritten(file);
+  writeFileSync(to, `${got.content}\n`);
+  keep(file, got.html);
+  console.log(
+    `The boards and notes of ${shown(file)} as they are now are in ${to}. Change them there, then: node ${SCRIPT} put ${name} ${to}`,
   );
 }
 
@@ -228,12 +256,17 @@ async function shotCanvas(name) {
   );
 }
 
-const commands = { new: newCanvas, put: putBoards, shots: shotCanvas };
+const commands = {
+  new: newCanvas,
+  put: putBoards,
+  get: getBoards,
+  shots: shotCanvas,
+};
 const [command, ...rest] = process.argv.slice(2);
 try {
   if (!commands[command])
     throw new Stop(
-      "Usage: canvas.mjs new <name> | put <name|path> <file> | shots <name|path>",
+      "Usage: canvas.mjs new <name> | put <name|path> <file> | get <name|path> <file> | shots <name|path>",
     );
   await commands[command](...rest);
 } catch (error) {

@@ -46,11 +46,21 @@
   };
 
   let reading = ""; // the section the pane marks, kept across a rebuild
+  let drawn = null; // the headings the pane was last drawn from
 
-  /** The contents, in the pane: h2s as the list, each with its h3s under it. */
+  /**
+   * The contents, in the pane: h2s as the list, each with its h3s under it. Drawn again
+   * only when the headings changed: any change to the page while someone types ends the
+   * browser's run of typing, and ⌘Z would then take a word back a letter at a time.
+   */
   const contents = () => {
     address();
     const headings = spine();
+    const now = headings
+      .map((h) => `${h.tagName} ${h.id} ${h.textContent}`)
+      .join("\n");
+    if (now === drawn) return;
+    drawn = now;
     const none = headings.filter((h) => h.tagName === "H2").length < 2;
     document.body.classList.toggle("pg-no-toc", none);
     if (tocButton) tocButton.hidden = none;
@@ -147,10 +157,25 @@
   let dirty = false;
   let timer = 0;
   let saving = 0; // saves on their way to the app
+  let stale = false; // the file was written after this page was opened: nothing more is kept
 
+  // The line's own text changes in place: a node put in its stead while someone types
+  // would end their run of typing, as the pane would (contents)
   const say = (text) => {
-    if (state) state.textContent = text;
+    if (!state) return;
+    const line = state.firstChild;
+    if (line?.nodeType === Node.TEXT_NODE) line.data = text;
+    else state.textContent = text;
   };
+
+  // The marks a bot's put writes between (skills/shell put.mjs), as the page was opened
+  // with them. Clearing the whole paper takes them too; the kept file carries them still.
+  const marks = [...paper.childNodes].filter(
+    (node) =>
+      node.nodeType === Node.COMMENT_NODE &&
+      /^ put: (start|end)\b/.test(node.data),
+  );
+  const [startMark, endMark] = marks.map((node) => node.data);
 
   /** The file as it should be kept: the page without anything the reader's session put on it. */
   shell.clean = (copy) => {
@@ -184,12 +209,41 @@
         panel.removeAttribute("role");
       }
     }
+    copy.querySelector("[data-reload]")?.setAttribute("hidden", "");
+    const kept = copy.querySelector("#paper");
+    const has = (data) =>
+      [...(kept?.childNodes ?? [])].some(
+        (node) => node.nodeType === Node.COMMENT_NODE && node.data === data,
+      );
+    if (kept && startMark && endMark && !(has(startMark) && has(endMark))) {
+      for (const node of [...kept.childNodes])
+        if (node.nodeType === Node.COMMENT_NODE && /^ put: /.test(node.data))
+          node.remove();
+      kept.prepend(document.createComment(startMark));
+      kept.append(document.createComment(endMark));
+    }
+  };
+
+  /**
+   * The file moved on after this page was opened — a bot put new work in, another window
+   * saved — and keeping this copy would undo that. Nothing more is kept: Reload shows the
+   * file as it is now, and Export still downloads this copy.
+   */
+  const reload = document.querySelector("[data-reload]");
+  reload?.addEventListener("click", () => location.reload());
+  const goneStale = () => {
+    stale = true;
+    clearTimeout(timer);
+    timer = 0;
+    say("Changed since it opened · not kept");
+    if (reload) reload.hidden = false;
   };
 
   /** Keeps the page now: into the file when the app holds it, as a copy otherwise. */
   const keep = async () => {
     clearTimeout(timer);
     timer = 0;
+    if (stale) return;
     const text = shell.serialize(shell.clean);
     if (!shell.host.keeps) {
       shell.download(shell.fileName(), text);
@@ -205,7 +259,8 @@
       if (!dirty) say(editing ? "Saved" : "");
     } catch (error) {
       dirty = true;
-      say(`Not saved: ${String(error.message || error).slice(0, 60)}`);
+      if (error.changed) goneStale();
+      else say(`Not saved: ${String(error.message || error).slice(0, 60)}`);
     } finally {
       saving--;
     }
@@ -218,6 +273,7 @@
    */
   const changed = () => {
     dirty = true;
+    if (stale) return;
     if (!shell.host.keeps) {
       if (editing) say("Unsaved · Done keeps a copy");
       return;
@@ -296,6 +352,7 @@
     editButton.querySelector(".sh-word").textContent = on ? "Done" : "Edit";
     if (on) {
       shell.host.ask();
+      if (stale) return;
       say(
         shell.host.keeps
           ? "Editing · saved as you go"
@@ -313,7 +370,7 @@
   editButton.addEventListener("click", () => setEditing(!editing));
   // The app may answer after Edit was pressed: the line under the title catches up
   shell.host.onKeeps(() => {
-    if (editing && !dirty) say("Editing · saved as you go");
+    if (editing && !dirty && !stale) say("Editing · saved as you go");
   });
 
   addEventListener("keydown", (event) => {
@@ -420,19 +477,92 @@
     insertMenu.hidden = true;
   });
 
+  /* ── taking a block's move back ──────────────────────────────────────────── */
+
+  // A block moved, copied, deleted or put in is the editor's doing, not the browser's, so
+  // the browser's own undo knows nothing of it. Each one is kept here as where its node
+  // was and where it went. ⌘Z takes the last one back when the paper stands as that move
+  // left it, which is after the typing done since has been taken back — the browser's
+  // undo and this one walk back through the same history, each in its turn.
+  const done = [];
+  const undone = [];
+
+  /** The paper as it reads, without what the editor puts on it for a moment. */
+  const shape = () => {
+    const copy = paper.cloneNode(true);
+    for (const el of copy.querySelectorAll("*")) {
+      el.classList.remove("pg-hot");
+      if (!el.classList.length) el.removeAttribute("class");
+      el.removeAttribute("contenteditable");
+    }
+    return copy.innerHTML;
+  };
+  const whereIs = (node) =>
+    node.parentNode
+      ? { parent: node.parentNode, next: node.nextSibling }
+      : null;
+  const putAt = (node, at) => {
+    if (!at) node.remove();
+    else at.parent.insertBefore(node, at.next);
+  };
+  const settled = () => {
+    seal();
+    hideAll();
+    changed();
+    contents();
+    spy();
+  };
+
+  /** Does `move` to `node`, and keeps it to be taken back. */
+  const moveBlock = (node, move) => {
+    const before = shape();
+    const from = whereIs(node);
+    move();
+    const to = whereIs(node);
+    settled();
+    done.push({ node, from, to, before, after: shape() });
+    undone.length = 0;
+  };
+
+  addEventListener("keydown", (event) => {
+    if (!editing || !(event.metaKey || event.ctrlKey) || event.altKey) return;
+    const key = event.key.toLowerCase();
+    const again = (key === "z" && event.shiftKey) || key === "y";
+    if (key !== "z" && !again) return;
+    const last = (again ? undone : done).at(-1);
+    if (!last || shape() !== (again ? last.before : last.after)) return;
+    event.preventDefault();
+    (again ? undone : done).pop();
+    (again ? done : undone).push(last);
+    putAt(last.node, again ? last.to : last.from);
+    settled();
+  });
+  paper.addEventListener("input", (event) => {
+    if (!event.inputType?.startsWith("history")) undone.length = 0;
+  });
+
+  /** Where a new block goes when no block is under the handle: last, inside the marks. */
+  const lastPlace = () => {
+    const end = [...paper.childNodes].find(
+      (node) => node.nodeType === Node.COMMENT_NODE && node.data === endMark,
+    );
+    return { parent: paper, next: end ?? null };
+  };
+
   for (const button of blockMenu.querySelectorAll("[data-block]"))
     button.addEventListener("click", () => {
       if (!block) return;
+      const one = block;
       const how = button.dataset.block;
-      if (how === "up") block.previousElementSibling?.before(block);
-      else if (how === "down") block.nextElementSibling?.after(block);
-      else if (how === "dup") block.after(block.cloneNode(true));
-      else if (how === "delete") block.remove();
-      seal();
-      hideAll();
-      changed();
-      contents();
-      spy();
+      if (how === "up" && one.previousElementSibling)
+        moveBlock(one, () => one.previousElementSibling.before(one));
+      else if (how === "down" && one.nextElementSibling)
+        moveBlock(one, () => one.nextElementSibling.after(one));
+      else if (how === "dup") {
+        const copy = one.cloneNode(true);
+        moveBlock(copy, () => one.after(copy));
+      } else if (how === "delete") moveBlock(one, () => one.remove());
+      else hideAll();
     });
 
   /** What the Insert menu makes: each a block to start typing into. */
@@ -456,10 +586,10 @@
   for (const button of insertMenu.querySelectorAll("[data-add]"))
     button.addEventListener("click", () => {
       const made = make(button.dataset.add);
-      if (block) block.after(made);
-      else paper.append(made);
-      seal();
-      hideAll();
+      const after = block;
+      moveBlock(made, () =>
+        after ? after.after(made) : putAt(made, lastPlace()),
+      );
       // Its words are selected, so the first key typed replaces them — a selection the
       // editor made, which asks for no formatting
       if (!made.matches("hr")) {
@@ -469,9 +599,6 @@
         sel.removeAllRanges();
         sel.addRange(placed.cloneRange());
       }
-      changed();
-      contents();
-      spy();
     });
 
   /* Some text picked on the paper gets its formatting just above it. execCommand is the

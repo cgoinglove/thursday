@@ -100,14 +100,21 @@ window.shell = (() => {
    * its frame shows by the time it arrives. Anywhere else nobody answers, and a kind keeps
    * a copy instead. Only a page on the app's own origin talks to it: a file opened from
    * disk, or drawn sandboxed as a face, has no host.
+   *
+   * A save also carries the revision in the page's head: the one it was opened at, then
+   * the one each save came back with. A file written since — a bot's put, another
+   * window's save — names another, and the save fails with `changed` rather than undo it.
+   * Saves go one at a time, so each names the revision the one before it left.
    */
   const host = (() => {
     const parent = window.parent !== window ? window.parent : null;
     const origin = location.origin;
     const reachable = parent && origin && origin !== "null";
+    const revision = document.querySelector('meta[name="revision"]');
     let keeps = false;
     let as = "";
     let next = 0;
+    let line = Promise.resolve();
     const waiting = new Map();
     const heard = new Set();
     addEventListener("message", (event) => {
@@ -127,13 +134,30 @@ window.shell = (() => {
       const one = waiting.get(said.id);
       if (!one) return;
       waiting.delete(said.id);
-      if (said.thursday === "saved") one.ok();
-      else one.fail(new Error(String(said.error || "not saved")));
+      if (said.thursday === "saved") {
+        if (said.revision) revision?.setAttribute("content", said.revision);
+        one.ok();
+        return;
+      }
+      const error = new Error(
+        said.changed
+          ? "changed since it was opened"
+          : String(said.error || "not saved"),
+      );
+      error.changed = said.changed === true;
+      one.fail(error);
     });
     const ask = () => {
       if (reachable) parent.postMessage({ thursday: "hello" }, origin);
     };
     ask();
+    const send = (html) =>
+      new Promise((ok, fail) => {
+        const id = ++next;
+        waiting.set(id, { ok, fail });
+        const base = revision?.getAttribute("content") ?? "";
+        parent.postMessage({ thursday: "save", as, id, html, base }, origin);
+      });
     return {
       get keeps() {
         return keeps;
@@ -145,12 +169,11 @@ window.shell = (() => {
         else heard.add(fn);
       },
       save(html) {
-        return new Promise((ok, fail) => {
-          if (!keeps) return fail(new Error("nothing is keeping this page"));
-          const id = ++next;
-          waiting.set(id, { ok, fail });
-          parent.postMessage({ thursday: "save", as, id, html }, origin);
-        });
+        if (!keeps)
+          return Promise.reject(new Error("nothing is keeping this page"));
+        const done = line.then(() => send(html));
+        line = done.catch(() => {});
+        return done;
       },
     };
   })();

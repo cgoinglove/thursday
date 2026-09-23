@@ -1,4 +1,12 @@
-import { readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
+import {
+  readdir,
+  readFile,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
 import { GIVEN_FILES, PATHS, WORKSPACE_VIEW } from "@/config";
 import { listThreadFolders } from "@/features/bot/thread.query";
@@ -12,6 +20,7 @@ import {
 } from "./workspace";
 import type {
   FileOnDisk,
+  PageSave,
   WorkspaceEntry,
   WorkspaceFolder,
 } from "./workspace.schema";
@@ -139,12 +148,26 @@ export async function deleteWorkspaceFile(rel: string): Promise<void> {
 }
 
 /**
+ * The revision a page names in its head, new on every write (skills/shell head.html and
+ * put.mjs write it too). The first one is the head's: a body cannot reach the head.
+ */
+const REVISION = /<meta name="revision" content="([^"]*)">/;
+
+/**
  * Writes a page a bot made back over itself, as its reader edited it where the app shows
  * it (skills/shell). Only a page that is there already: this keeps edits and never makes
  * a file. No larger than the viewer draws, since a page past that was never on screen to
  * be edited. Written beside the file and moved into place, so it is never half a page.
+ *
+ * `base` is the revision the page was opened at. A file that names another one was written
+ * since — a bot put new work in, another window saved — and keeping this copy would undo
+ * that, so it is refused and the page says so.
  */
-export async function savePage(rel: string, html: string): Promise<void> {
+export async function savePage(
+  rel: string,
+  html: string,
+  base: string,
+): Promise<PageSave> {
   if (!/\.html?$/i.test(rel)) publicError("Only a page keeps its own edits");
   const full = await insideWorkspace(rel);
   if (!full) publicError("Outside the workspace");
@@ -154,15 +177,22 @@ export async function savePage(rel: string, html: string): Promise<void> {
     publicError(
       `Larger than ${Math.round(WORKSPACE_VIEW.elementMax / 1024 / 1024)} MB`,
     );
+  const now = REVISION.exec(await readFile(full, "utf8"))?.[1] ?? "";
+  if (now !== base) return { changed: true };
+  const revision = REVISION.test(html) ? randomBytes(6).toString("hex") : "";
+  const kept = revision
+    ? html.replace(REVISION, `<meta name="revision" content="${revision}">`)
+    : html;
   // One per save: two tabs keeping one page at once must not write into one file
   const beside = `${full}.${crypto.randomUUID()}.saving`;
   try {
-    await writeFile(beside, html);
+    await writeFile(beside, kept);
     await rename(beside, full);
   } catch (error) {
     await rm(beside, { force: true });
     throw error;
   }
+  return { changed: false, revision };
 }
 
 /**

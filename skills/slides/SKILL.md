@@ -29,4 +29,5 @@ around the slides: a head naming who made it, arrows and a count, notes, full sc
 Present, a theme button and Export (print, this slide's picture, the file), and a strip of
 every slide small at the foot. Only `put` writes the slides: never write the deck file
 itself, which takes that frame with it. Nothing is edited in the app: what changes is the
-slides, put and shot again.
+slides, put and shot again. To change a deck that exists, `node $S/deck.mjs get <name|path>
+<file>` first and change that file: `put` refuses a deck changed since your last put.

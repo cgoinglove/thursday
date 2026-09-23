@@ -48,5 +48,7 @@ A document wears a head — who made it, its name, Edit, a theme button, Export 
 reader can edit it in place: opened in the app it saves back into the file, opened
 elsewhere it keeps a copy. Write its body in a file of your own and `node $S/page.mjs put
 <name|path> <file>`: only `put` writes the body, since writing the file itself takes the head
-with it. A document that has to be sent or edited as a Word or PDF file is an office
+with it. To change a document that exists, `node $S/page.mjs get <name|path> <file>` first
+and change that file: the reader may have edited the page since, and `put` refuses to undo
+their edits. A document that has to be sent or edited as a Word or PDF file is an office
 document, which is another method's work.

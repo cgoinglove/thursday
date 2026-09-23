@@ -50,13 +50,15 @@ export const deleteWorkspaceFileAction = serverAction(async (path: string) => {
 /**
  * Keeps a page's own edits in its file. Sent by the frame that shows the page
  * (file-view `FileFrame`), which names the file it opened — never the page itself.
+ * `base` is the revision the page was opened at: one the file has moved past is refused.
  */
 export const savePageAction = serverAction(
-  async (path: string, html: string) => {
+  async (path: string, html: string, base: string) => {
     const target = path.trim();
     if (!target) publicError("Which page?");
     if (typeof html !== "string") publicError("Nothing to keep.");
-    await savePage(target, html);
+    if (typeof base !== "string") publicError("Which revision?");
+    return savePage(target, html, base);
   },
 );
 

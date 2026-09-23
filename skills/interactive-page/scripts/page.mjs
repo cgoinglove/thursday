@@ -11,6 +11,8 @@
 //                                   notes) or blank
 //   node page.mjs put <name|path> <file>
 //                                   the document's body written in <file>, into that page
+//   node page.mjs get <name|path> <file>
+//                                   the document's body as it is now, into <file> to change
 //   node page.mjs shots <name|path> the page as it opens, down to three pictures in scratch/
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -27,7 +29,13 @@ import {
 } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { notInside, putBetween } from "../../shell/put.mjs";
+import {
+  editedSince,
+  getBetween,
+  keep,
+  notInside,
+  putBetween,
+} from "../../shell/put.mjs";
 import { wear } from "../../shell/wear.mjs";
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -283,16 +291,40 @@ function putBody(name, from) {
   const body = readFileSync(from, "utf8");
   const why = notInside(body);
   if (why) throw new Stop(`${from} ${why}: the document's body alone.`);
-  const html = putBetween(readFileSync(file, "utf8"), body);
-  if (!html)
+  const page = readFileSync(file, "utf8");
+  if (editedSince(page))
     throw new Stop(
-      `${shown(file)} has no place to put a body: only a page made by \`quick\` has one, and one written over whole has lost it. Start a new one (node ${SCRIPT} quick <another name>) and put the body into it.`,
+      `${shown(file)} was edited since you last put it — in the app, or by hand — and your file would undo that. Get it as it is now (node ${SCRIPT} get ${name} <file>), make your change in that file, and put that.`,
     );
-  writeFileSync(file, html);
+  const html = putBetween(page, body);
+  if (!html) throw unmarked(file);
+  keep(file, html);
   console.log(
     `The body is in ${shown(file)}. Next: node ${SCRIPT} shots ${name}`,
   );
 }
+
+/** The document's body as it stands in the page, into `to`, for a put that keeps what was edited. */
+function getBody(name, to) {
+  const file = pageAt(name);
+  if (!to)
+    throw new Stop(
+      `Give the file to write the body into: node ${SCRIPT} get ${name ?? "<name>"} <file>`,
+    );
+  const got = getBetween(readFileSync(file, "utf8"));
+  if (!got) throw unmarked(file);
+  writeFileSync(to, `${got.content}\n`);
+  keep(file, got.html);
+  console.log(
+    `The body of ${shown(file)} as it is now is in ${to}. Change it there, then: node ${SCRIPT} put ${name} ${to}`,
+  );
+}
+
+/** A page with no marks has nowhere a body goes. */
+const unmarked = (file) =>
+  new Stop(
+    `${shown(file)} has no place for a body: only a page made by \`quick\` has one, and one written over whole has lost it. Start a new one (node ${SCRIPT} quick <another name>) and put the body into it.`,
+  );
 
 /**
  * The page as it opens, at the width the app draws it, as pictures to look at before it is
@@ -344,10 +376,11 @@ try {
   else if (command === "add") addPackages(rest);
   else if (command === "quick") quickPage(...rest);
   else if (command === "put") putBody(...rest);
+  else if (command === "get") getBody(...rest);
   else if (command === "shots") shotPage(rest[0]);
   else
     throw new Stop(
-      "Usage: page.mjs quick <name> [--from <kind>] | put <name|path> <file> | shots <name|path> | new <name> | build <name> | add <package>...",
+      "Usage: page.mjs quick <name> [--from <kind>] | put <name|path> <file> | get <name|path> <file> | shots <name|path> | new <name> | build <name> | add <package>...",
     );
 } catch (error) {
   if (!(error instanceof Stop)) throw error;

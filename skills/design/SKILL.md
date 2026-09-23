@@ -30,4 +30,6 @@ copies it as an instruction; a link from one board to another (`<a href="#next">
 that board up, so a flow is walked through the way it would be used. Only `put` writes the
 boards: never write the canvas file itself, which takes all of that with it. Boards on one
 canvas can be different sizes — a phone beside a desktop — and there is no editing in the
-app: what changes is the boards, put and shot again.
+app: what changes is the boards, put and shot again. To change a canvas that exists,
+`node $S/canvas.mjs get <name|path> <file>` first and change that file: `put` refuses a
+canvas changed since your last put.

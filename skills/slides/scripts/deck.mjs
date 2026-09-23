@@ -4,6 +4,7 @@
 //
 //   node deck.mjs new <name> [--size WxH]    the deck, styled, to write slides into (1920x1080)
 //   node deck.mjs put <name|path> <file>     the slides written in <file>, into the deck
+//   node deck.mjs get <name|path> <file>     the deck's slides as they are now, into <file>
 //   node deck.mjs shots <name|path>          every slide as a PNG beside it
 import { spawnSync } from "node:child_process";
 import {
@@ -18,7 +19,13 @@ import {
 } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { notInside, putBetween } from "../../shell/put.mjs";
+import {
+  editedSince,
+  getBetween,
+  keep,
+  notInside,
+  putBetween,
+} from "../../shell/put.mjs";
 import { wear } from "../../shell/wear.mjs";
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -139,12 +146,33 @@ function putSlides(name, from) {
     );
   if (!/<section\b[^>]*\bdata-slide\b/.test(slides))
     throw new Stop(`${from} holds no slide: one <section data-slide> each.`);
-  const html = putBetween(readFileSync(file, "utf8"), slides);
+  const deck = readFileSync(file, "utf8");
+  if (editedSince(deck))
+    throw new Stop(
+      `${shown(file)} was changed since you last put it, and your file would undo that. Get its slides as they are now (node ${SCRIPT} get ${name} <file>), make your change in that file, and put that.`,
+    );
+  const html = putBetween(deck, slides);
   if (!html) throw rewritten(file);
-  writeFileSync(file, html);
+  keep(file, html);
   const count = slides.match(/<section\b[^>]*\bdata-slide\b/g).length;
   console.log(
     `${count} slide(s) in ${shown(file)}. Next: node ${SCRIPT} shots ${name}`,
+  );
+}
+
+/** The deck's slides as they stand in it, into `to`, for a put that keeps what was changed. */
+function getSlides(name, to) {
+  const file = deckAt(name);
+  if (!to)
+    throw new Stop(
+      `Give the file to write the slides into: node ${SCRIPT} get ${name ?? "<name>"} <file>`,
+    );
+  const got = getBetween(readFileSync(file, "utf8"));
+  if (!got) throw rewritten(file);
+  writeFileSync(to, `${got.content}\n`);
+  keep(file, got.html);
+  console.log(
+    `The slides of ${shown(file)} as they are now are in ${to}. Change them there, then: node ${SCRIPT} put ${name} ${to}`,
   );
 }
 
@@ -197,12 +225,17 @@ function shotDeck(name) {
   );
 }
 
-const commands = { new: newDeck, put: putSlides, shots: shotDeck };
+const commands = {
+  new: newDeck,
+  put: putSlides,
+  get: getSlides,
+  shots: shotDeck,
+};
 const [command, ...rest] = process.argv.slice(2);
 try {
   if (!commands[command])
     throw new Stop(
-      "Usage: deck.mjs new <name> [--size WxH] | put <name|path> <file> | shots <name|path>",
+      "Usage: deck.mjs new <name> [--size WxH] | put <name|path> <file> | get <name|path> <file> | shots <name|path>",
     );
   commands[command](...rest);
 } catch (error) {

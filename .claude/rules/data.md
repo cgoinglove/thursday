@@ -54,8 +54,9 @@ as the model makes it, a turn of a call in writing). A page a bot wrote that kee
 a fourth: it asks the frame showing it (`FileFrame`), which answers every page it loads with a name
 for the file that page was opened as. A save carries that name back and `savePageAction` writes that
 file, whatever the frame shows by the time it lands — so the page never names a file, and a save sent
-as a frame closes or moves on still lands where it was written. A route that returns a `Response`
-passes through `serverRoute` with no `Result` around it.
+as a frame closes or moves on still lands where it was written. It also carries the revision the page
+names in its head; a file written since names another, and the save is answered `changed`, not
+written. A route that returns a `Response` passes through `serverRoute` with no `Result` around it.
 
 **Errors** — throw `publicError("message")` anywhere for a failure the user should read. The boundary
 (`serverAction` / `serverRoute`) forwards that message and masks everything else (logged). A tool's

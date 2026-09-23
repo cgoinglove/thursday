@@ -40,6 +40,13 @@ export type FileOnDisk = {
   bytes: number;
 };
 
+/**
+ * What keeping a page's edits came to: written, under the revision the page names from
+ * now on, or refused because the file moved on after the page was opened ("" is a page
+ * from before revisions, which names none).
+ */
+export type PageSave = { changed: false; revision: string } | { changed: true };
+
 /** One folder. Its own rows and nothing about the rest of the tree. */
 export type WorkspaceFolder = {
   /** Workspace-relative; "" is the root. */

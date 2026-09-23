@@ -215,10 +215,15 @@ marked), chips for dates, people and status, checklists, tables with the pick ma
 sources at the end. It reads on a phone and prints as a document. **Edit** in its top bar makes the
 page editable in place: a paragraph gets a handle and a **+** to put something after it, selected
 words get their formatting over them, and a chip — a date, a person, a status — moves as one piece:
-pressing it opens its words, and Enter or Esc closes it. What is changed is saved back into the file
-as it is typed, and at once when the page is left; a box ticked while reading is saved the same way.
-Closing its tab before a change is kept asks first. Opened outside the app the edits are kept as a
-copy downloaded on Done.
+pressing it opens its words, and Enter or Esc closes it. ⌘Z takes back a paragraph moved, copied,
+deleted or put in, as it does typing. What is changed is saved back into the file as it is typed,
+and at once when the page is left; a box ticked while reading is saved the same way. Closing its tab
+before a change is kept asks first. If the page changed after it was opened — its bot put new work
+in, or it was saved from another window — nothing more is saved over it: its top bar says **Changed
+since it opened · not kept** and shows **Reload**, which brings the page up as it is now (**Export ›
+Download this file** first keeps the copy on screen). A bot asked to change a page it made starts
+from the page as it is, so what was edited in it stays. Opened outside the app the edits are kept as
+a copy downloaded on Done.
 
 ## Routines: jobs that start by themselves
 

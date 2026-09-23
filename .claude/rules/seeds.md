@@ -31,7 +31,11 @@ does not say. A `SKILL.md` is model-facing text, so `model.md` › Writing for a
     write, through the module they import (`shell/wear.mjs`) — the head a page wears, its buttons
     and menus, the theme, and the page asking the app that shows it to keep its edits. What a bot
     writes goes in by `put` (`shell/put.mjs`) between two marks the page is made with, so the frame
-    is never written over; each script's `shots` takes its pictures in a headless browser of its own
+    is never written over. The start mark keeps a print of the last body put or got, and `put`
+    refuses a page whose body is not that one — edited in the app or by hand — until `get` has
+    handed the bot the body as it is now. Every put names a new revision in the head, and the
+    app refuses a save that names an older one (`savePage`), so neither side undoes the other.
+    Each script's `shots` takes its pictures in a headless browser of its own
     (`render.mjs --apart`), never in the job's, which may be a window on the user's screen. Its classes and
     custom properties are prefixed `sh-`, since a bot's own stylesheet shares the page, and a kind's
     defaults for what a bot writes weigh nothing (`:where`), so what the bot writes wins. It marks

@@ -68,8 +68,12 @@ export function fileTarget(raw: string): FileTarget {
   return viewKindOf(path) === "none" ? { how: "os" } : { how: "dialog", path };
 }
 
-/** How a file was opened: the reader pressed something, or Thursday put it up on a call. */
-type Opening = { path: string; group: string[]; byHer: boolean };
+/**
+ * How a file was opened: the reader pressed something, or Thursday put it up on a call.
+ * `n` counts openings, so a file put up again while it is showing is loaded again — a
+ * page a bot has just rewritten, not the copy already on screen.
+ */
+type Opening = { path: string; group: string[]; byHer: boolean; n: number };
 
 /** Opening a file in the shared dialog; `group` are the files it can be stepped through (one message's images). */
 const OpenInDialog = createContext<
@@ -101,9 +105,10 @@ export function useOpenFile() {
 /** One dialog shared by every link beneath it. */
 export function FileViewer({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState<Opening | null>(null);
+  const openings = useRef(0);
   const show = useCallback(
     (path: string, group: string[] = [], byHer = false) =>
-      setOpen({ path, group, byHer }),
+      setOpen({ path, group, byHer, n: ++openings.current }),
     [],
   );
   return (
@@ -111,6 +116,7 @@ export function FileViewer({ children }: { children: ReactNode }) {
       {children}
       <FileDialog
         path={open?.path ?? null}
+        opening={open?.n ?? 0}
         group={open?.group ?? []}
         kind={open ? viewKindOf(open.path) : "text"}
         byHer={open?.byHer ?? false}
@@ -341,7 +347,8 @@ export function FilePreview({ path, bytes }: { path: string; bytes: number }) {
  * saves carry that name back, so a save still in flight when the frame moves to another
  * file, or closes, lands in the file it was written from. One listener hears every frame
  * for that reason: a dialog closing takes its component away before the save its page
- * sent on the way out has arrived.
+ * sent on the way out has arrived. A save also carries the revision the page was opened
+ * at, and one the file has moved past is answered as `changed`, never written.
  */
 const pages = {
   /** A file → the name its pages are answered with, one per file. */
@@ -376,16 +383,18 @@ async function hearPages(event: MessageEvent) {
   }
   const path = said.thursday === "save" && pages.opened.get(said.as);
   if (!path || typeof said.html !== "string") return;
-  const kept = await savePageAction(path, said.html);
+  const kept = await savePageAction(
+    path,
+    said.html,
+    typeof said.base === "string" ? said.base : "",
+  );
+  const answer = { as: said.as, id: said.id };
   from.postMessage(
-    isResultOk(kept)
-      ? { thursday: "saved", as: said.as, id: said.id }
-      : {
-          thursday: "not-saved",
-          as: said.as,
-          id: said.id,
-          error: kept.message,
-        },
+    !isResultOk(kept)
+      ? { ...answer, thursday: "not-saved", error: kept.message }
+      : kept.data.changed
+        ? { ...answer, thursday: "not-saved", changed: true }
+        : { ...answer, thursday: "saved", revision: kept.data.revision },
     location.origin,
   );
 }
@@ -576,6 +585,7 @@ function useAutoClose(armed: boolean, onClose: () => void) {
 /** A file in a dialog: what the browser draws itself as an element, anything readable fetched from the raw route when opened. */
 function FileDialog({
   path,
+  opening,
   group = [],
   kind,
   byHer,
@@ -584,6 +594,8 @@ function FileDialog({
 }: {
   /** Workspace-relative path; null means closed. */
   path: string | null;
+  /** Which opening this is (`Opening` n): a new one loads the file again. */
+  opening: number;
   /** The files this one sits among, so an image can be stepped through them. */
   group?: string[];
   kind: FileViewKind;
@@ -690,6 +702,7 @@ function FileDialog({
             // A page the reader opened takes the keys; one she put up leaves them to
             // the dialog, whose auto-close waits for a hand the frame would hide
             <FileElement
+              key={opening}
               path={path}
               kind={kind}
               where="dialog"
