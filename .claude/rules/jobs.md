@@ -1,0 +1,59 @@
+---
+checked: 2026-09-24
+paths:
+  - "features/bot/{bot,room,thread}.{action,memory,query,run,runner,schema}.ts"
+  - "features/routine/**"
+  - "features/ai/prompts/bot.prompt.ts"
+  - "features/ai/tools/{bot,routine}.tool.ts"
+  - "app/api/{bot,routine}/**"
+  - "scripts/bot-context.test.mts"
+---
+
+# Bots and jobs
+
+Work handed to a bot runs on the server to its end, call or no call, tab or no tab; when it
+cannot go on it waits for a person, and everything it did stays as rows.
+
+## Start here
+- `features/bot/bot.runner.ts` — start, answer, stop and remove a job; launches turns, retries a
+  break once, parks running jobs at boot and shutdown, clears old ones.
+- `features/bot/room.query.ts` — the room's rows: exchanges, inboxes, questions, relays, and
+  when a thread is done or waiting.
+- `features/bot/bot.run.ts` — one participant's turn: prompt, tools, stream, compaction, resume.
+- `features/bot/thread.query.ts` — thread rows and what the screen and the call read of them.
+- `features/bot/bot.schema.ts` — bot and thread shapes: thread status, `isAppStop`, `standOf`.
+- `features/ai/prompts/bot.prompt.ts` — what a participant reads each turn, and its opening.
+- `features/routine/routine.clock.ts` — what starts a routine.
+- `scripts/bot-context.test.mts` — the real runner, database and prompts, with scripted models.
+
+## How it fits
+A thread is a room with one participant per bot, each with its own transcript
+(`thread_message`); only messages cross between transcripts. Each exchange is a `thread_work`
+row — who called whom, and the row a reply wakes (`parentId`). `send_message` puts words in the
+callee's inbox (`thread_delivery`), and a turn's last words are its return, delivered once
+nothing it called is still open (`finishRoomWork`). `room.query` owns those rows and settles the
+thread; `bot.runner` launches what they queue; `bot.run` runs one turn. What is owed to Thursday
+— a message, a question, the coordinator's report, a stop — is a `thread_relay` row, which the
+call (`features/thursday/open-work.ts`) and a phone (`features/reach`) read and accept.
+
+## Rules
+- Start, answer, stop and remove a job only through `bot.runner`; nothing else calls `runBot` or
+  a `room.query` write that queues, pauses or cancels turns — a turn queued outside it waits
+  until the runner next claims work in that thread, and a stop outside it leaves the live run's
+  tools going.
+- Everything a job says, hears or waits on is a row; the runner keeps in memory only live runs,
+  the thread lock and one-shot asks (`askCompact`) — anything else is lost at a restart, and the
+  screen and the resumed model stop reading the same thing.
+- Bound a room with a `BOT_RUN` limit (`config.ts`) checked where a turn is claimed, a message is
+  sent or a step is taken (`room.query`, `bot.run`) — two bots answering each other stop only at a
+  limit.
+- Nothing about a job waits on a browser: `presence` decides only where news of a job goes (a
+  desktop notice, a phone) — routines and a phone start jobs with no tab open, so a step that waits
+  for a tab never runs for them.
+- News for the call or a phone is a `thread_relay` row, never only an app event — an event
+  reaches only a tab open at that moment, so a phone and the next call miss it.
+
+## Check
+`pnpm test:bot`; a change to how the room routes, waits or resumes gets a case there. To judge
+how bots behave after a change, count the stored turns and tool calls (`thread_message`,
+`thread_work`) of jobs run on a scratch server, not one transcript read by eye.

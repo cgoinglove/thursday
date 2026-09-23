@@ -33,7 +33,7 @@
     "dev": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/dev.mts",
     "build": "next build",
     "start": "node bin/thursday.mjs",
-    "lint": "biome check",
+    "lint": "biome check && node scripts/maps.mts",
     "knip": "knip",
     "test:live": "node --experimental-test-module-mocks --import tsx --test scripts/live-session.test.mts scripts/live-history.test.mts",
     "test:bot": "node --experimental-test-module-mocks --import tsx --test scripts/bot-context.test.mts",

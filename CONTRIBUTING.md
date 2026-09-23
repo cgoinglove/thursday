@@ -25,11 +25,12 @@ Useful:
 
 ## Before you open a pull request
 
-- **Read [CLAUDE.md](CLAUDE.md) first.** It is not a style guide; it is where
-  each kind of code lives and why. A change that lands in the wrong folder is
-  the most common reason a review goes long.
-- `pnpm typecheck`, `pnpm lint` and the three test scripts pass — CI runs them,
-  then `pnpm build`.
+- **Read [AGENTS.md](AGENTS.md) first**, then the map in `.claude/rules/` for
+  the area you change: what the area is for, the files to open first, and the
+  few rules that hold there. A change that lands in the wrong folder is the most
+  common reason a review goes long. A coding agent reads the same files.
+- `pnpm typecheck`, `pnpm lint` and the test suites pass — CI runs them, then
+  `pnpm build`.
 - **Changed a screen? Run the app and look at it.** Screenshots in the PR help.
 - **Changed a prompt or a tool description?** Read the assembled prompt, not the
   diff — the file is a fragment, the prompt is what the model gets.
