@@ -1,7 +1,7 @@
 # Live calls
 
 Thursday uses GPT-Live 1 for voice and Responses delegation for short reasoning and
-tool use. The default backend is GPT-5.6 Luna. Background bots keep their own
+tool use. The default backend is GPT-6 Luna. Background bots keep their own
 models, prompts, durable threads, and execution budgets; the voice settings do not
 change the text or media providers available to them.
 
@@ -23,7 +23,7 @@ delegation is a different integration: its notification contains metadata, not t
 text, so the application would have to reconstruct the request and operate the backend.
 
 The voice and the backend are one assistant. Both prompts open with the same identity
-(`thursdayIdentity`), each followed by its own rule for ending the call, read the same
+(`thursdayIdentity`), read the same
 memory, and neither is told it is part of something else. The voice holds conversation and
 memory only. Under the identity comes the persona (`prompts/persona.ts`): the guide's
 Personality lines, character only, read by whoever talks to the user — the voice here, the
@@ -59,7 +59,7 @@ call opens. Auto reasoning sends no effort.
 Web search adds the `web_search` tool while it is on, which it is by default. Changes
 apply from the next call.
 
-Settings are kept beside the database, as one JSON row under `THURSDAY_SETTINGS`
+Settings are kept in the database, as one JSON row of the `config` table under `THURSDAY_SETTINGS`
 (`thursday.query readLiveSettings`), so a call opened here, a call in writing and a
 phone writing in all run on the same ones. The browser keeps only what is about this
 machine — wake word, shortcut, captions, call-back and the write line's own model
@@ -240,7 +240,7 @@ quiet hang-up below is what ends such a call.
 The page does not close on `end_call` itself: it waits until her voice has been quiet
 for `CALL_END.quietMs`, or `CALL_END.unsaidMs` when nothing was said, never past
 `CALL_END.maxMs`. `end_call` and `emote` (a word of up to eight characters on her face,
-offered only while the face is the ascii orb) are answered by the page, not the tool-call
+drawn only while the face is the ascii orb) are answered by the page, not the tool-call
 route. A call the user did not end — quiet, `end_call`, Live closing the session, a dropped
 connection — leaves the reason in the idle hint until the next call.
 

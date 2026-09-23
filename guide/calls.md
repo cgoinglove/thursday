@@ -5,152 +5,154 @@
 Three ways in, and any of them also answers a call she placed:
 
 - Tap her face.
-- Say the wake phrase, "hey thursday" unless they changed it — once it is switched on: it is
-  off to begin with, because it keeps the microphone open for as long as the tab is.
-- Press the shortcut, `alt+shift+T` unless they changed it — once it is switched on: it
-  is off to begin with too, so no key is held over every page until it is asked for.
+- Say the wake phrase, "hey thursday" unless they changed it. It is off to begin with, because it
+  keeps the microphone open for as long as the tab is. It is heard loosely, in English.
+- Press the shortcut, Alt + Shift + T (⌥⇧T on a Mac) unless they changed it. It is off to begin
+  with too, and works only while the app's tab has focus and nothing is being typed.
 
-She speaks first, with a short greeting. She knows what was said on the last few calls and
-when, and picks one up when the user does; every call is a new one, so she does not open on
-old work or on how the last call ended. A call she places herself opens on why she called. She speaks the language the user speaks and switches when they
-do; the browser's language plays no part, so the very first greeting is in whatever she picks.
+Both are switched on, off or rewritten in **Settings › Thursday › Starting a call**. The first-run
+setup offers the wake phrase too, with a try.
 
-The wake phrase and the shortcut are in **Settings › Thursday › Starting a call**, where
-either can be switched on or off, or rewritten. The first-run setup offers the wake phrase
-too, with a try, and it is where her style is picked the first time — one at a time, with
-her words beside her face.
-
-## Writing to her instead
-
-The **+** at the left end of the pill in the bottom right corner — or the `/` key — opens a
-line at the foot of the screen, and it opens on her. What is sent there starts a call in
-writing: her answers come up beside her face as they do on a spoken call, what she is doing
-shows with them, and the line stays as the way to write back. She has the same memory, the same
-tools and the same bots as on a spoken call; there is no voice and no microphone, and nothing
-is billed by the minute. Files go with the words the way they do to a bot (`bots.md`). Work
-she handed over comes back in writing too: once nothing has been written for a few seconds
-she says what a bot asks or finished during it, and nothing rings while the written call is on. The
-chip at the left of the line still picks a bot, for one message straight to it; after that
-the line is hers again, and **Esc** with a bot picked goes back to her.
-
-A picture handed over in writing is one she can look at herself — a receipt, a screenshot, a
-chart — so "what does this say?" is answered on the spot; on a spoken call she sees only where
-the file was put, and hands it to a bot.
-
-It runs on the GPT Subscription when one is signed in, else on the OpenAI key, and the line
-says which before anything is sent: the small **runs on** button under it. Pressing that
-picks another model for writing to her — any provider that has a key — and the pick is
-remembered by this browser. It is only for calls in writing; the spoken call's model stays
-in **Settings › Thursday**. With nothing to run on it says so and sends nothing — keys are in
-**Settings › API keys**. **Esc** ends it — saying goodbye does not, since there is no
-line for her to drop — and so does starting a spoken call: tapping her face in the middle of
-one ends the written call and places a spoken one. When a turn breaks — a plan's limit, a
-refused key — her face says ERROR and the provider's own words show in red under the line,
-over a blue **Send it again** and the way to **API keys**; writing again tries again too, and
-Esc still ends it. When an OpenAI key is set and was not what broke, the button sends the same
-words again on that key instead; it never switches by itself, since what a turn costs changes
-with what it runs on. Opening a thread in the
-corner does not end it: the line steps out while the corner is open, her answers keep
-arriving beside her face, and the line is back when the corner folds (`bots.md`). The corner
-says so across its top while it is open — *Thursday is still on the line* — and **Back to
-her** there folds it in one press. It is kept with
-the other calls, marked *in writing*, and she reads it back on the next call like any other.
-During a spoken call the line writes to bots only — but a file put down then (dropped on the
-window, pasted, or picked with the paperclip) is one she is told about as it lands: its chip
-says *she knows it is here*, and what to do with it can simply be said. A line left open with
-nothing in it closes when a spoken call picks up; one holding words or files stays.
+She speaks first, with a short greeting, in the language the user speaks, and switches when they
+do; the browser's language plays no part. Every call is a new one: she does not open on old work
+or on how the last call ended. She has the most recent part of her earlier calls — about the last
+twenty turns — and picks a subject up when the user does. Anything older is gone unless she kept
+it in memory (`memory.md`). A call she places herself opens on why she called.
 
 ## What she does on the line, and what goes to a bot
 
-She answers from what she keeps about them, runs a single command on their computer, and
-holds the conversation. Anything that takes more than a few seconds — a browser, a file to
-make, several steps — goes to a bot and comes back while the call carries on. Which bot is
+She answers from what she keeps about them, searches the web, runs a single command on their
+computer, and holds the conversation. Anything that takes more than a few seconds — a browser, a
+file to make, several steps — goes to a bot and comes back while the call carries on. Which bot is
 hers to pick; she says who took it.
+
+While she is working the line under her face says so, and the answer can take a while. The
+microphone stays open the whole time: anything said meanwhile is heard and answered once the work
+is done, so there is no need to repeat it. **Settings › Thursday › While she works › Say the
+answer is coming** puts a small chip beside that line, *answers after this*; it starts off.
 
 ## Ending it
 
-Saying they want to hang up ends the call when she takes it that way, which she does not
-always. Tapping her face ends it for certain, and so does the shortcut. A call with nothing
-said for 40 seconds ends by itself, with a countdown in the last 10 seconds. The line is
-billed by the minute while it is open, silence included.
+Saying they want to hang up ends the call when she takes it that way, which she does not always.
+Tapping her face ends it for certain, and so does the shortcut. A call with nothing said for 40
+seconds ends by itself, counting down on screen in the last 10. The call is billed by the minute
+while it is open, silence included. Work already handed to a bot carries on.
 
-## Where an answer came from
+## Writing to her instead
 
-When she searches the web, the pages she read show under her face while she answers, and
-each opens in a new tab. They stay until the user speaks again, and the call's history
-keeps them under the search.
+The **+** at the left end of the pill in the bottom right corner — or the `/` key — opens a line at
+the foot of the screen. It opens on whoever it was last addressed to: her, the first time. What is
+sent to her there starts a call in writing: her answers come up beside her face as on a spoken
+call, what she is doing shows with them, and the line stays as the way to write back. She has the
+same memory, tools and bots as on a spoken call; there is no voice and no microphone, and nothing is
+billed by the minute.
 
-## Hearing the words
+- **Files** go with the words: the paperclip, a paste, or a drop anywhere on the window — at most 8
+  at a time, 25 MB each. A picture handed over in writing is one she can look at herself — a
+  receipt, a screenshot, a chart — so "what does this say?" is answered on the spot.
+- **Who it goes to**: the chip at the left of the line, or `@` and a name at the start. During a
+  written call a bot picked there gets that one message; after it the line is hers again, and
+  **Esc** with a bot picked goes back to her.
+- **What it runs on**: the GPT Subscription when one is signed in, else the OpenAI key. The small
+  **runs on** button under the line says which before anything is sent, and picks another model
+  for writing to her — any provider with a key. The pick is remembered by this browser and is only
+  for writing; the spoken call's models stay in **Settings › Thursday**. With nothing to run on it
+  says so and sends nothing; keys are in **Settings › API keys**.
+- **When a turn breaks** — a plan's limit, a refused key — her face says ERROR and the provider's
+  own words show in red under the line, over **Send it again** and the way to **API keys**. When an
+  OpenAI key is set and was not what broke, the button reads **Send it again on your OpenAI key**
+  and moves the line onto that key; it never switches by itself, since what a turn costs changes
+  with what it runs on.
+- **Work she handed over** comes back in writing too: once nothing has been written for a few
+  seconds she says what a bot asked or finished, and nothing rings while the written call is on.
+- **Ending it**: **Esc** ends it — saying goodbye does not, since there is no line for her to drop —
+  and so does starting a spoken call. Opening a thread in the corner does not: the line steps out
+  while the corner is open, her answers keep arriving beside her face, and the corner says
+  *Thursday is still on the line* across its top, with **Back to her** to fold it in one press.
 
-**Settings › Thursday › Captions** picks where the words show: under her face, or down the
-two sides of the screen. A narrow window always shows them under her face. What she is
-doing — a search, work handed to a bot, a note she reads or writes — shows as one line under
-her face, and the line names what it is about: which note, which command on this computer,
-which picture. With the words down
-the sides it stands on her side instead, under what she said, the last three steps at a time
-with the older ones fainter, and the steps stay with that answer for the rest of the call:
-clicking an earlier answer of hers brings it back with the steps behind it. What she is
-thinking about stays under her face either way.
+It is kept with the other calls, marked *in writing*, and she reads it back on the next call like
+any other.
 
-While she is working the line says so, and the answer can take a while. The microphone stays
-open the whole time — anything said meanwhile is heard, and she answers it once the work is
-done, so there is no need to repeat it. **Settings › Thursday › While she works** puts a chip
-beside that line saying the answer is coming; it starts off.
+During a spoken call the line writes to bots only — but a file put down then is one she is told
+about as it lands: its chip says *she knows it is here*, and what to do with it can simply be said.
+On a spoken call she sees only where the file was put, and hands it to a bot. A line left open with
+nothing in it closes when a spoken call picks up; one holding words or files stays.
 
-**Settings › Thursday › History** opens the
-calls that were kept,
-one call at a time, and deletes a single call or all of them. A call is kept for three months
-and then goes by itself, so what she reads back is the season behind her, not everything since
-the app was installed.
+## Seeing and hearing the words
+
+**Settings › Thursday › Captions** picks how the words show: **Both sides** (hers on the left,
+theirs on the right, where clicking an earlier line of hers reads it again) or **Her last line**
+(one caption under her face, only what she said). Both sides is where it starts; a narrow window
+always shows her last line.
+
+What she is doing — a search, work handed to a bot, a note she reads or writes, a command — shows
+as a line that names what it is about: which note, which command, which picture. With both sides
+showing it stands under her words, the last three steps with the older ones fainter, and the steps
+stay with that answer for the rest of the call. What she is thinking about stays under her face.
+
+When she searches the web, the pages she read show under her face while she answers, and each
+opens in a new tab.
 
 ## Her voice, her face, her models
 
-- **Face**: a field of characters — plain characters, some emoji or all emoji, and how big and
-  how dense, in Settings › Thursday › Face. At rest it burns like an ember: the middle keeps
-  moving and pieces drift off the edge, and it is never the same twice. Every half-minute or so
-  it gathers itself and opens two eyes, which look around, blink and go — sometimes for a few
-  seconds, sometimes barely at all. Nothing sets that off and nothing stops it; it only happens
-  while she is resting, never while she is speaking or working. It can spell a short word: a
-  hello as the app opens, CALL while she rings, OK as finished work comes in, BYE as a call
-  ends, and whatever she chooses to show. While she works it is a single tail circling.
-- **Voice**: 22 voices in Settings › Thursday › Models. Clicking a name plays it. It is the
-  one setting here that only a spoken call uses.
-- **Models**: the voice runs on GPT-Live; the model that thinks and uses tools behind it is
-  picked in the same card, with how hard it thinks and whether it can search the web. Web
-  search is on unless it is switched off there: a question about today — the weather, a
-  price, a score — is answered on the line instead of going to a bot.
-- **Style**: who she is to you — ten of them, and the only difference is how she talks. The
-  row under the voices shows the one she is on; opening it lists the rest with a line each,
-  and the change takes from the next call. It never changes what she can do. Last in the
-  same list, **Your own** opens a box for saying it in your own words on top of whichever
-  one is picked — how she talks, how much she says, what she leaves out — which wins
-  wherever the two differ. Both hold whether she is speaking or writing, so she is the same
-  one on a call, on the line and from a phone. What to call you is not this: say it on a
-  call and she keeps it, the way she keeps anything else about you. The Backend box is
-  about work: how it should be handed over, what to check first.
+Everything here is in **Settings › Thursday**, and changes apply from the next call.
+
+- **Face**: **Glyphs** picks what she is drawn with — **Characters**, **Sprinkled** (characters
+  with some emoji) or **All emoji**, which is where it starts — and **Size** and **Density** how
+  big and how dense. At rest she burns like an ember: the middle keeps moving and pieces drift off
+  the edge. Every half-minute or so she gathers herself and opens two eyes, which look around,
+  blink and go; that happens only while she is resting. She can spell a short word: a hello as the
+  app opens, CALL while she rings, OK as finished work comes in, BYE as a call ends, and whatever
+  she chooses to show. While she works it is a single tail circling.
+- **Voice**: the voice runs on GPT-Live 1, with 22 voices to pick from; clicking a name plays it.
+  It is the one setting here a written call or a phone does not use.
+- **Style**: who she is to them — ten of them, and the only difference is how she talks. The row
+  shows the one she is on; opening it lists the rest with a line each. It never changes what she
+  can do. Last in the list, **Your own** opens a box for saying it in their own words on top of
+  the one picked — how she talks, how much she says — which wins wherever the two differ. What to
+  call them is not this: said on a call, she keeps it in memory.
+- **Backend**: the model that thinks and uses tools behind the voice, and its **effort** — how
+  hard it thinks (`setup.md`, Models). Under **tools**, **Search the web** is on unless switched
+  off: a question about today — the weather, a price, a score — is answered on the line instead of
+  going to a bot. **Read skills herself** is off to begin with; on, she opens the same skills a bot
+  reads, and each one she opens costs the call a page of reading. **instructions** is a box about
+  how work should be handed over and what to check first.
+
+Voice, style, the backend and its settings belong to the app, so she is the same on every browser
+and from a phone. The face, captions, starting a call and While she works belong to this browser.
 
 ## When work has something to say
 
-While a call is open, a question from a bot, and a result or a progress line that comes in
-during the call, reach the conversation by themselves in a quiet moment, and she says them.
-Work that had already finished before the call opened is not read out: it is on the screen —
-the card, the pill, the thread — and she looks it up when asked.
+While a call is open, a question from a bot, and a result or a progress line that comes in during
+the call, reach the conversation by themselves in a quiet moment, and she says them. Work that had
+already finished before the call opened is not read out: it is on the screen — the card, the pill,
+the thread — and she looks it up when asked.
 
-With no call open, a finished job lands as a card in the bottom left corner, and if Thursday
-is not the window in front, as a notification that brings her forward when pressed (the
-browser asks once, the first time a call is placed). With no Thursday window open at all,
-the computer's own notification says it instead; on a Mac pressing that one opens Script
-Editor rather than the app. **Settings › Thursday › Starting a
-call › She calls you** makes the screen ring instead: "Whenever a job ends" rings for
-results as well as questions — where it starts — "When a job needs me" rings only for a
-question or a stop, and "Never" leaves it to the notification. It is one call however much is waiting: while it rings, the screen says under her
-face whose work it is about and what it asks — with the answers the bot offered, and the
-other work waiting by name — and one round button, Answer. Tapping her face answers too, and
-so does the wake phrase when it is on (the screen says so beside "not now"); Esc is "not now".
-She opens by saying why she called, then tells the rest one by one. A ring
-nobody takes becomes a short missed list in the same place, with Call back, until it is
-called back or cleared with Esc; the work itself stays in the room either way. She cannot
-switch this on herself: when they ask to be
-called back, say where it is. The ring is a soft sound as well as the screen; a browser
-plays no sound on a page nobody has clicked yet, so right after a reload it rings on the
-screen only.
+With no call open, a finished job lands as a card in the bottom left corner, and if the app is not
+the window in front, as a browser notification that brings it forward when pressed (the browser
+asks for permission when a call is placed). With no app tab open at all, the computer's own
+notification says it instead; on a Mac pressing that one opens Script Editor rather than the app.
+
+**Settings › Thursday › Starting a call › She calls you** makes the screen ring instead:
+
+- **When a job needs me** — where it starts — rings when a bot asks something.
+- **Whenever a job ends** rings for every ending as well.
+- **Never** leaves it to the notification.
+
+It needs this tab open. It is one call however much is waiting: while it rings, the screen says
+under her face whose work it is about and what it asks — with the answers the bot offered and the
+other work waiting by name — and one round button, **Answer**. Tapping her face answers too, and so
+does the wake phrase when it is on; **Esc** is "not now". She opens by saying why she called, then
+tells the rest one by one. A ring nobody takes becomes a short missed list in the same place, with
+**Call back**, until it is called back or cleared with Esc; the work itself stays in the room
+either way. She cannot switch this on herself: when they ask to be called back, say where it is.
+The ring is a soft sound as well as the screen; a browser plays no sound on a page nobody has
+clicked yet, so right after a reload it rings on the screen only.
+
+## History
+
+**Settings › Thursday › History** has two tiles. **Call history** is every call that was kept, one
+after another, oldest at the top, each with the jobs it opened and where they stand; a single call
+can be deleted, or all of them with **Delete all**. A call is kept for three months and then goes
+by itself. **Reset history** deletes every call, every job and everything she remembers, for good;
+keys, bots and connectors stay.

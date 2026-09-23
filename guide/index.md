@@ -11,18 +11,19 @@ When a wish needs a setting, say which one and where, rather than agreeing to it
 
 | File | What is in it |
 |---|---|
-| `calls.md` | Calling her or writing to her, what she does herself, how a call ends, the call's own settings |
-| `bots.md` | Bots, the work they take, threads, questions, what they made, routines |
+| `calls.md` | Calling her or writing to her, what she does herself, how a call ends, her voice, face, style and models, call history |
+| `bots.md` | Bots, the work they take, threads, stopping and questions, what they made and where it is kept, routines |
 | `memory.md` | What she keeps about the user, and how they change it |
-| `setup.md` | Keys, models, skills, connected services, where the files live, what it costs |
+| `setup.md` | The first run, the buttons and Settings list, keys, models, skills, connected services, sign-ins, its own window, where the files live, what it costs |
 | `phone.md` | Writing to her from a phone through a chat app: setting it up, who is let in, what reaches the phone |
 | `trouble.md` | A call that will not open, a job that stopped, a bot that cannot do something |
 
 Two things hold everywhere:
 
-- **The screen is one page.** Her face in the middle starts and ends a call; the corner at the
-  top right opens settings; the corner at the bottom right is where handed-over work shows up,
-  and the corner at the bottom left is where finished work waits to be opened.
+- **The screen is one page.** Her face in the middle starts and ends a call; the buttons at the
+  top right open Thursday, Memory, Bots and the rest of Settings; the corner at the bottom right
+  is where handed-over work shows up, and the corner at the bottom left is where finished work
+  waits to be opened.
 - **Work outlives a call.** Anything handed to a bot keeps running after a call ends, with
   or without the app open in a browser tab, for as long as Thursday is running on the
   computer (`bots.md`).
