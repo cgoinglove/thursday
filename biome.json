@@ -16,8 +16,6 @@
       "!database/migrations",
       "!.design",
       "!skills/interactive-page/scripts/archify",
-      "!skills/interactive-page/kit",
-      "!skills/interactive-page/page",
       "!skills/interactive-page/quick/quick.html"
     ]
   },

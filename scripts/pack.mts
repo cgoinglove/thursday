@@ -379,8 +379,6 @@ const REQUIRED = [
   "skills/browser/references",
   // Every kit script that drives a browser imports it (THURSDAY_SKILLS)
   "skills/browser/scripts/session.mjs",
-  // Without its lockfile the page kit installs whatever versions are current that day
-  "skills/interactive-page/kit/package-lock.json",
   // What `page.mjs quick`, `canvas.mjs new` and `deck.mjs new` inline; without them each is an error
   "skills/interactive-page/quick/pages/blank.html",
   "skills/design/canvas/canvas.html",

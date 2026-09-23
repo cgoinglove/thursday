@@ -1,6 +1,6 @@
 ---
 name: interactive-page
-description: "A page to read or to use, as one HTML file: a report, a memo, a comparison, a plan, meeting notes — written from a ready document with a title line, a contents list, chips for dates and status, checklists and sources — or a chart of numbers, a diagram of how something is built or flows, or a tool with controls that keep state. Not a canvas of design options (design) and not a deck (slides)."
+description: "A page to read, as one HTML file: a report, a memo, a comparison, a plan, meeting notes — written from a ready document with a title line, a contents list, chips for dates and status, checklists and sources — with a chart of numbers or a diagram of how something is built or flows. Not a canvas of design options (design) and not a deck (slides)."
 license: Complete terms in LICENSE.txt
 ---
 
@@ -18,7 +18,6 @@ Pick by what they will do with it. `S=<skill dir>/scripts`
 | read a page that fits none of those | quick page | `node $S/page.mjs quick <name>` | the comment inside the file |
 | see numbers | chart, drawn into a document | `node $S/chart.mjs <page.html> <figure id> <data.csv>` | no arguments lists its options |
 | see how something is built or flows | diagram | | `references/diagram.md` |
-| use it — controls that keep state, a calculator | built page | `node $S/page.mjs new <name>` | `references/page.md` |
 
 **Document.** Written by hand from a ready one, already styled: light and dark, phone-width,
 print. The `--from` kinds are shapes, not subjects — a `report` leads with the answer and
@@ -34,7 +33,7 @@ they look — places, stays, food, things to buy — each one gets a photo or tw
 caption from the first version, downloaded into the page's folder from the pages you read.
 
 **Chart.** A cited inline SVG with its rows. Never hand-write chart SVG. A report that stays a
-`.md` takes a `mermaid` block, which the app draws; candlesticks and zoom need a built page.
+`.md` takes a `mermaid` block, which the app draws.
 
 **Diagram.** Drawn by the archify engine, not as a mermaid block: it checks the layout, so a
 crossing edge or a clipped label never reaches the user. It is a page of its own; when a

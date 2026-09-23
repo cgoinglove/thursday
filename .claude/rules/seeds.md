@@ -17,12 +17,12 @@ does not say. A `SKILL.md` is model-facing text, so `model.md` › Writing for a
 ## What ships
 
 - `skills/` — skills shipped with the app, read-only; a user's own live in the workspace.
-  - `interactive-page/` builds a page. `kit/` is the one React kit every page builds on, versions
-    pinned by its `package-lock.json`, which `scripts/page.mjs` installs into the workspace once and
-    again when it changes; `page/` is the new-page template; `quick/` is the other path — a
-    stylesheet, a script and ready documents that `page.mjs quick` inlines into one hand-written
-    HTML file, no kit and no build. `scripts/archify` is a trimmed copy of archify (MIT, its README
-    says what was cut): update it by copying upstream, never by editing it here.
+  - `interactive-page/` builds a page to read: `quick/` is a stylesheet, a script and ready
+    documents that `page.mjs quick` inlines into one hand-written HTML file, with no install and no
+    build. A page someone would use rather than read — a calculator, a tool with state — is not
+    shipped: writing React and running a build is where a cheap model has the most to get wrong. Charts go
+    in by `scripts/chart.mjs`; `scripts/archify` is a trimmed copy of archify (MIT, its README says
+    what was cut): update it by copying upstream, never by editing it here.
   - `design/` (a pan/zoom canvas of boards, each at its own size) and `slides/` (slides of one exact
     size) are skills of their own because a user asks for them by name. Each is inlined into one
     HTML file by its own script (`canvas.mjs`, `deck.mjs`), starts from ready parts
@@ -41,7 +41,7 @@ does not say. A `SKILL.md` is model-facing text, so `model.md` › Writing for a
     defaults for what a bot writes weigh nothing (`:where`), so what the bot writes wins. It marks
     the page near the top (`<meta name="generator" content="Thursday">`); the app's own tab looks
     for that and leaves its bar off, since the page carries its name and Export itself.
-  - Typecheck and lint skip `kit/`, `page/` and `archify`.
+  - Lint skips `archify`.
 - `seed-skills/<seed>/` — a seed bot's own kit, read-only, copied into `bots/<name>/.agents/skills`
   when the bot is made and listed to that bot alone, so a kit costs no other bot a line. The folder
   has the workspace's `.agents/skills` shape, so `npx skills add` run from a bot's folder installs for
