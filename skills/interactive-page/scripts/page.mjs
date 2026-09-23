@@ -28,7 +28,7 @@ import {
   notInside,
   putBetween,
 } from "../../shell/put.mjs";
-import { wear } from "../../shell/wear.mjs";
+import { retitle, wear } from "../../shell/wear.mjs";
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SCRIPT = join(SKILL, "scripts", "page.mjs");
@@ -120,6 +120,23 @@ function pageAt(arg) {
   return file;
 }
 
+/**
+ * What a document calls itself: the words of its first heading, tags taken out. The file
+ * is named for the page before its body is written, and a tab reading the file's name
+ * for a title reads as unfinished.
+ */
+function headingOf(body) {
+  const h1 = /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(body)?.[1] ?? "";
+  return h1
+    .replace(/<[^>]*>/g, "")
+    .replace(
+      /&(amp|lt|gt|quot|#39);/g,
+      (_, e) => ({ amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'" })[e],
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** The body written in `from` in place of the document's own, and nothing else of it touched. */
 function putBody(name, from) {
   const file = pageAt(name);
@@ -135,8 +152,10 @@ function putBody(name, from) {
     throw new Stop(
       `${shown(file)} was edited since you last put it — in the app, or by hand — and your file would undo that. Get it as it is now (node ${SCRIPT} get ${name} <file>), make your change in that file, and put that.`,
     );
-  const html = putBetween(page, body);
-  if (!html) throw unmarked(file);
+  const put = putBetween(page, body);
+  if (!put) throw unmarked(file);
+  const title = headingOf(body);
+  const html = title ? retitle(put, title) : put;
   keep(file, html);
   console.log(
     `The body is in ${shown(file)}. Next: node ${SCRIPT} shots ${name}`,

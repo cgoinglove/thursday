@@ -26,7 +26,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { imageSize } from "../browser/scripts/image-size.mjs";
 import { keep, putBetween } from "../shell/put.mjs";
-import { wear } from "../shell/wear.mjs";
+import { retitle, wear } from "../shell/wear.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // The shipped skills, where the browser skill's renderer takes the pictures
@@ -39,12 +39,6 @@ const SHOT = /^slide-(\d+)\.png$/;
 class Stop extends Error {}
 
 const answer = (value) => console.log(JSON.stringify(value));
-
-const escape = (text) =>
-  String(text).replace(
-    /[&<>"]/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
-  );
 
 /**
  * The deck as it sits in the page: JSON that no `</script>` or `<!--` inside it can end,
@@ -69,15 +63,6 @@ function deckIn(html) {
     return null;
   }
 }
-
-/** The page's own name for itself, in its tab and its head. */
-const retitle = (html, title) =>
-  html
-    .replace(/<title>[^<]*<\/title>/, `<title>${escape(title)}</title>`)
-    .replace(
-      /<span class="sh-title">[^<]*<\/span>/,
-      `<span class="sh-title">${escape(title)}</span>`,
-    );
 
 /** A new deck's frame: the head, the stage, the notes and the strip, with nothing on it yet. */
 function frame() {

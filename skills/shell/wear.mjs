@@ -10,12 +10,21 @@ import { revision } from "./put.mjs";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (file) => readFileSync(join(HERE, file), "utf8").trim();
 
-/** A bot's name as page text: it is whatever the user typed when they named the bot. */
+/** Words as page text: a bot's name is whatever the user typed when they named the bot. */
 const escape = (text) =>
-  text.replace(
+  String(text).replace(
     /[&<>"]/g,
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
   );
+
+/** A page's own name for itself, in its tab and in its head (each kind's `.sh-title`). */
+export const retitle = (html, title) =>
+  html
+    .replace(/<title>[^<]*<\/title>/, `<title>${escape(title)}</title>`)
+    .replace(
+      /<span class="sh-title">[^<]*<\/span>/,
+      `<span class="sh-title">${escape(title)}</span>`,
+    );
 
 /** head.html's `<!-- part: name -->` sections, by name. */
 const parts = () => {
