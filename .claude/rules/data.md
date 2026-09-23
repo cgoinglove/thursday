@@ -48,6 +48,13 @@ client, so parallel work happens inside one action. `useServerAction` returns
 `[execute, isPending, data, error, reset]` and handles the pending state and the toasts; a screen
 that shows a refusal inline passes `errorMessage: false` and `onError`.
 
+**What reaches the app is this computer's own** (`proxy.ts`). A request whose `Host` is not a
+loopback name is refused (DNS rebinding), and so is a write a browser marks as sent from another site
+(`Sec-Fetch-Site`, `Origin`) — a page on any site can post to the port, and a route can start work for
+a bot with a shell. Reads are left alone, since another site gets no answer it can read. A page or a
+drawing a bot wrote is served sandboxed (`app/api/file`): it runs on an origin of its own, reaches
+nothing here, and speaks to the app only through the frame that shows it.
+
 A route is for three cases only: an outside caller hitting a URL (the OAuth callback), work that must
 run in parallel (a call's tool calls), and a response that streams (the SSE route, a memory edit drawn
 as the model makes it, a turn of a call in writing). A page a bot wrote that keeps its own edits is not

@@ -58,7 +58,7 @@
     }
     // The picture the renderer left for this slide, when it did
     if (png) png.href = `slide-${String(open + 1).padStart(2, "0")}.png`;
-    history.replaceState(null, "", `#${open + 1}`);
+    shell.address(`#${open + 1}`);
   };
 
   /**

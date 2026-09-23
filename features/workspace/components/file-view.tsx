@@ -374,11 +374,12 @@ async function hearPages(event: MessageEvent) {
   // A frame's window belongs to its own realm, so it is never `instanceof Window` here
   const from = event.source as Window | null;
   const said = event.data;
-  if (!from || event.origin !== location.origin) return;
+  // A page is served sandboxed (app/api/file), so it speaks from an origin of its own
+  if (!from || event.origin !== "null") return;
   if (typeof said?.thursday !== "string") return;
   if (said.thursday === "hello") {
     const path = pages.showing.get(from);
-    if (path) from.postMessage(hostFor(path), location.origin);
+    if (path) from.postMessage(hostFor(path), "*");
     return;
   }
   const path = said.thursday === "save" && pages.opened.get(said.as);
@@ -395,13 +396,14 @@ async function hearPages(event: MessageEvent) {
       : kept.data.changed
         ? { ...answer, thursday: "not-saved", changed: true }
         : { ...answer, thursday: "saved", revision: kept.data.revision },
-    location.origin,
+    "*",
   );
 }
 
 /**
- * A file the browser fills itself. No sandbox: the html is local and just written
- * by a bot; sandboxing only breaks its forms, fonts and scripts.
+ * A file the browser fills itself. A page arrives sandboxed from the file route, on an
+ * origin of its own, so what it runs cannot reach this app; it speaks to it only through
+ * the messages above, and what it is told carries nothing but the name of its own file.
  *
  * `takeKeys` hands it the keyboard, where nothing else on screen needs the keys: a
  * deck turns with the arrow keys and a canvas walks its boards the same way, and until
@@ -426,7 +428,7 @@ export function FileFrame({
     const page = frame.current?.contentWindow;
     if (!page) return;
     pages.showing.set(page, path);
-    page.postMessage(hostFor(path), location.origin);
+    page.postMessage(hostFor(path), "*");
   }, [path, takeKeys]);
   useEffect(loaded, [loaded]);
   useEffect(() => {
@@ -439,7 +441,8 @@ export function FileFrame({
       ref={frame}
       title={path}
       src={queryKey.file(path)}
-      allow="clipboard-read; clipboard-write; fullscreen; autoplay"
+      // `*`: a page is served sandboxed, so it holds no origin the default (`src`) would match
+      allow="clipboard-read *; clipboard-write *; fullscreen *; autoplay *"
       className={className}
       onLoad={loaded}
     />

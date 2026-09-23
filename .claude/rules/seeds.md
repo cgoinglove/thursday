@@ -29,7 +29,8 @@ does not say. A `SKILL.md` is model-facing text, so `model.md` › Writing for a
     (`design/boards`, `slides/deck/slides`) and is shot through the browser skill's renderer.
   - `shell/` is not a skill (no `SKILL.md`): it is what those three scripts put on every file they
     write, through the module they import (`shell/wear.mjs`) — the head a page wears, its buttons
-    and menus, the theme, and the page asking the app that shows it to keep its edits. What a bot
+    and menus, the theme, and the page asking the app that shows it to keep its edits — by message
+    to the frame, the one door out of the sandbox the page is served in (`data.md`). What a bot
     writes goes in by `put` (`shell/put.mjs`) between two marks the page is made with, so the frame
     is never written over. The start mark keeps a print of the last body put or got, and `put`
     refuses a page whose body is not that one — edited in the app or by hand — until `get` has

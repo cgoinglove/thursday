@@ -15,6 +15,18 @@ import { type RouteContext, serverRoute } from "@/lib/protocol/server-route";
 /** The bot may have just overwritten the file: cache, but revalidate every time. */
 const CACHE_CONTROL = "no-cache";
 
+/**
+ * A page or a drawing a bot wrote runs its own scripts, and a bot writes what it read on the
+ * web. Served on the app's origin it would be the app — reading its screens, calling its
+ * routes. So it goes out sandboxed wherever it is opened, in the viewer's frame or on its own:
+ * an origin of its own that reaches nothing here, with scripts, forms, links out, print and
+ * downloads still working. Its one way back is the frame's postMessage (file-view `FileFrame`),
+ * and only the app may frame it, so no other site shows the user's page inside its own.
+ */
+const SANDBOX =
+  "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads; frame-ancestors 'self'";
+const RUNS_SCRIPTS = /\.(html?|svg)$/i;
+
 /** `bytes=0-499`, `bytes=500-`, `bytes=-500`. Multiple ranges are not accepted. */
 function rangeOf(
   header: string | null,
@@ -51,6 +63,7 @@ export const GET = serverRoute(
       "accept-ranges": "bytes",
       "cache-control": CACHE_CONTROL,
     });
+    if (RUNS_SCRIPTS.test(rel)) headers.set("content-security-policy", SANDBOX);
 
     const since = Date.parse(request.headers.get("if-modified-since") ?? "");
     if (

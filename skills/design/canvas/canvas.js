@@ -205,15 +205,14 @@
     say();
     describePicked();
     const frame = boards()[at];
-    if (frame?.id) history.replaceState(null, "", `#${frame.id}`);
+    if (frame?.id) shell.address(`#${frame.id}`);
   };
 
   const unpick = () => {
     at = -1;
     say();
     describePicked();
-    if (location.hash)
-      history.replaceState(null, "", location.pathname + location.search);
+    if (location.hash) shell.address(location.pathname + location.search);
   };
 
   /**
@@ -639,7 +638,7 @@
           dot.title = colour;
           dot.addEventListener("click", (event) => {
             event.stopPropagation();
-            navigator.clipboard?.writeText(colour).catch(() => {});
+            copy(colour, dot);
           });
           swatches.append(dot);
         }

@@ -7,8 +7,9 @@ window.shell = (() => {
   const root = document.documentElement;
   const face = root.classList.contains("sh-face");
 
-  /* Theme: device → light → dark → device, kept in this browser. The button draws the
-     mode it is in (shell.css); a face is always light and keeps nothing. */
+  /* Theme: device → light → dark → device, kept in this browser where the page may keep
+     anything — the app serves it sandboxed, and there it lasts as long as the page is open.
+     The button draws the mode it is in (shell.css); a face is always light and keeps nothing. */
   const theme = {
     get: () => root.dataset.theme || "",
     set(value) {
@@ -98,8 +99,8 @@ window.shell = (() => {
    * it will keep the page's edits, with a name for the file this page was opened as
    * (`as`); every save carries that name back, and the app keeps it in that file whatever
    * its frame shows by the time it arrives. Anywhere else nobody answers, and a kind keeps
-   * a copy instead. Only a page on the app's own origin talks to it: a file opened from
-   * disk, or drawn sandboxed as a face, has no host.
+   * a copy instead. The app serves this page sandboxed, on an origin of its own, so the
+   * app's origin is learned from its answer and every save goes there alone.
    *
    * A save also carries the revision in the page's head: the one it was opened at, then
    * the one each save came back with. A file written since — a bot's put, another
@@ -108,8 +109,7 @@ window.shell = (() => {
    */
   const host = (() => {
     const parent = window.parent !== window ? window.parent : null;
-    const origin = location.origin;
-    const reachable = parent && origin && origin !== "null";
+    let app = ""; // the app's origin, once it has answered
     const revision = document.querySelector('meta[name="revision"]');
     let keeps = false;
     let as = "";
@@ -118,19 +118,19 @@ window.shell = (() => {
     const waiting = new Map();
     const heard = new Set();
     addEventListener("message", (event) => {
-      if (!reachable || event.source !== parent || event.origin !== origin)
-        return;
+      if (!parent || event.source !== parent) return;
       const said = event.data;
       if (!said || typeof said.thursday !== "string") return;
       if (said.thursday === "host") {
         if (keeps || typeof said.as !== "string") return;
         keeps = true;
         as = said.as;
+        app = event.origin;
         for (const fn of heard) fn();
         return;
       }
-      // An answer meant for another page this frame held before
-      if (said.as !== as) return;
+      // An answer meant for another page this frame held before, or from elsewhere
+      if (event.origin !== app || said.as !== as) return;
       const one = waiting.get(said.id);
       if (!one) return;
       waiting.delete(said.id);
@@ -147,8 +147,9 @@ window.shell = (() => {
       error.changed = said.changed === true;
       one.fail(error);
     });
+    // A hello says nothing: it goes to whoever frames the page, and only the app answers it
     const ask = () => {
-      if (reachable) parent.postMessage({ thursday: "hello" }, origin);
+      if (parent) parent.postMessage({ thursday: "hello" }, "*");
     };
     ask();
     const send = (html) =>
@@ -156,7 +157,7 @@ window.shell = (() => {
         const id = ++next;
         waiting.set(id, { ok, fail });
         const base = revision?.getAttribute("content") ?? "";
-        parent.postMessage({ thursday: "save", as, id, html, base }, origin);
+        parent.postMessage({ thursday: "save", as, id, html, base }, app);
       });
     return {
       get keeps() {
@@ -177,6 +178,17 @@ window.shell = (() => {
       },
     };
   })();
+
+  /**
+   * The address names what is open (`#3`, `#B`), so a link or a reload lands there. A page the
+   * app serves is sandboxed, and there the browser may refuse to change it: the page goes on
+   * without it.
+   */
+  const address = (url) => {
+    try {
+      history.replaceState(null, "", url);
+    } catch {}
+  };
 
   /** Whether a picture sits beside this file: loading it is the only test a file opened from disk allows. */
   const probe = (src) =>
@@ -243,6 +255,7 @@ window.shell = (() => {
     fileName,
     serialize,
     host,
+    address,
     probe,
     thumb,
     say,
