@@ -445,7 +445,7 @@ export const ROUTINE = { tickMs: 30_000, max: 12, minHours: 1, runsShown: 5 };
 
 /**
  * Shipped skills a seed bot claims by name (PATHS.skills.default), because they are the tool
- * of that bot's trade rather than one method among many (.claude/rules/seeds.md). Every other
+ * of that bot's trade rather than one method among many. Every other
  * skill a bot finds through its own description.
  */
 export const DESIGN_SKILL = "design";

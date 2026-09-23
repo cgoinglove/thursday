@@ -85,7 +85,7 @@ const FACT_TEXT = z
  * Memory's writes are three tools with every argument required — a new note
  * with its line, facts under a note that exists, and the line itself — where one
  * tool with optional fields had a cheap model rewriting the line on every write
- * and filling every field it was shown (memory.schema, .claude/rules/model.md).
+ * and filling every field it was shown (memory.schema).
  *
  * @param source Which hand these writes are recorded under. The runtime knows
  * it without being told, so no model ever chooses it (load-tools,

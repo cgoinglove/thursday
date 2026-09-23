@@ -50,12 +50,8 @@ next-env.d.ts
 # the sites the user signed in to (local; sessions that sign in as them)
 /.sign-ins
 # editor agent tooling, not the app's
-# The skills for working on this repo are committed in /.agents/skills, where any
-# agent that reads Agent Skills finds them, and Claude Code reads them through the
-# links in /.claude/skills. A skill only you use stays out through
-# .git/info/exclude, which is never committed.
-/.agents/*
-!/.agents/skills/
+/.agents/
+/.claude/skills/
 /.claude/worktrees/
 .playwright-cli
 .playwright

@@ -76,7 +76,7 @@ const still = () =>
  * whole screen, never takes a click, and does not play when the system asks for less motion.
  * Placed inside the box her face is laid out in; the wave starts at its centre.
  *
- * It used to play once as the screen loaded too. The app opens plainly (rules/ui.md): a round
+ * It used to play once as the screen loaded too. The app opens plainly: a round
  * front crossing the whole window a second after a reload is the most regular thing on the
  * screen, and it landed on top of the hello she is already showing (the user's pick).
  */
