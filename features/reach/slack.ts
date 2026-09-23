@@ -217,34 +217,40 @@ export function createSlack(appToken: string, botToken: string): Channel {
       }).catch(() => {});
     },
 
-    async sendFile(chat, bytes, name) {
-      const form = new URLSearchParams({
-        filename: name,
-        length: String(bytes.byteLength),
-      });
-      const asked = await fetch(`${API}/files.getUploadURLExternal`, {
-        method: "POST",
-        headers: { authorization: `Bearer ${botToken}` },
-        body: form,
-      });
-      const slot = (await asked.json()) as {
-        ok?: boolean;
-        error?: string;
-        upload_url?: string;
-        file_id?: string;
-      };
-      if (!slot.ok || !slot.upload_url || !slot.file_id)
-        throw new Error(
-          `Slack answered ${slot.error ?? asked.status} to the upload`,
-        );
-      await fetch(slot.upload_url, {
-        method: "POST",
-        body: new Blob([bytes as BlobPart]),
-      });
-      await api("files.completeUploadExternal", {
-        files: [{ id: slot.file_id, title: name }],
-        channel_id: chat,
-      });
+    // Each file is uploaded on its own, and one completion posts them all as one message
+    async sendFiles(chat, files) {
+      const uploaded: { id: string; title: string }[] = [];
+      for (const { bytes, name } of files) {
+        const form = new URLSearchParams({
+          filename: name,
+          length: String(bytes.byteLength),
+        });
+        const asked = await fetch(`${API}/files.getUploadURLExternal`, {
+          method: "POST",
+          headers: { authorization: `Bearer ${botToken}` },
+          body: form,
+        });
+        const slot = (await asked.json()) as {
+          ok?: boolean;
+          error?: string;
+          upload_url?: string;
+          file_id?: string;
+        };
+        if (!slot.ok || !slot.upload_url || !slot.file_id)
+          throw new Error(
+            `Slack answered ${slot.error ?? asked.status} to the upload`,
+          );
+        await fetch(slot.upload_url, {
+          method: "POST",
+          body: new Blob([bytes as BlobPart]),
+        });
+        uploaded.push({ id: slot.file_id, title: name });
+      }
+      if (uploaded.length)
+        await api("files.completeUploadExternal", {
+          files: uploaded,
+          channel_id: chat,
+        });
     },
   };
 }

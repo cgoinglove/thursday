@@ -14,6 +14,8 @@ const GATEWAY = "wss://gateway.discord.gg/?v=10&encoding=json";
 const INTENTS = 1 << 12;
 /** Discord's cap on one message. */
 const MAX = 1_900;
+/** Discord's cap on the files one message carries. */
+const FILES_MAX = 10;
 /**
  * The invite that adds this bot to a server, from the application id Discord names in READY.
  * Discord delivers a direct message only between a person and a bot that share a server, so
@@ -225,14 +227,25 @@ export function createDiscord(token: string): Channel {
       }).catch(() => {});
     },
 
-    async sendFile(chat, bytes, name) {
-      const form = new FormData();
-      form.set(
-        "payload_json",
-        JSON.stringify({ attachments: [{ id: 0, filename: name }] }),
-      );
-      form.set("files[0]", new Blob([bytes as BlobPart]), name);
-      await rest("POST", `/channels/${chat}/messages`, form);
+    async sendFiles(chat, files) {
+      // Discord draws a picture from its name, and a message holds FILES_MAX of them
+      for (let at = 0; at < files.length; at += FILES_MAX) {
+        const some = files.slice(at, at + FILES_MAX);
+        const form = new FormData();
+        form.set(
+          "payload_json",
+          JSON.stringify({
+            attachments: some.map((file, id) => ({ id, filename: file.name })),
+          }),
+        );
+        for (const [id, file] of some.entries())
+          form.set(
+            `files[${id}]`,
+            new Blob([file.bytes as BlobPart]),
+            file.name,
+          );
+        await rest("POST", `/channels/${chat}/messages`, form);
+      }
     },
   };
 }

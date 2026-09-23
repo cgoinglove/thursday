@@ -100,6 +100,10 @@ starts a new one, and she reads the last one back like any earlier call.
 - **Files she names in an answer** — a report, an image a bot made — are sent along with it, up to
   three, each under 45 MB, since a phone cannot open a path on the computer. Asking her to show what
   a bot made works the same way: she names the files and they arrive in the chat.
+- **A page** — a report, a deck, a design — arrives as pictures of it, since no chat app opens
+  one: a deck slide by slide, a design board by board, anything else a phone's screen at a time
+  from the top, nine at most. The page itself comes with them, to open on a computer.
+  Drawing them takes a few seconds and needs the browser bots use; without it the page comes alone.
 - **What she did** — noted something down, started work, looked something up — is one short line
   under her answer, in the words the call screen uses.
 - **A bot's question, or work that finished**, comes as the bot wrote it, under a line that says

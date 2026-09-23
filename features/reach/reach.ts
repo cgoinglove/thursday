@@ -39,6 +39,7 @@ import {
   type Incoming,
 } from "./channel";
 import { createDiscord } from "./discord";
+import { picturesOf } from "./pictures";
 import {
   REACH_CHANNELS,
   REACH_KEYS,
@@ -571,7 +572,11 @@ function inParts(text: string): string[] {
   return parts;
 }
 
-/** The files her answer names go with it: a phone cannot open a path on this computer. */
+/**
+ * The files her answer names go with it: a phone cannot open a path on this computer. A
+ * page goes with pictures of it, since no chat opens one (pictures), in one message where
+ * the service takes them together.
+ */
 async function sendFiles(live: Live, person: ReachPerson, text: string) {
   const paths = (await filesOnDisk(pathsIn(text), null)).slice(-REACH.files);
   for (const path of paths) {
@@ -579,12 +584,14 @@ async function sendFiles(live: Live, person: ReachPerson, text: string) {
     const info = full ? await stat(full).catch(() => null) : null;
     if (!full || !info || info.size > REACH.fileBytes) continue;
     await live.channel
-      .sendFile(
-        person.chat,
-        await readFile(full),
-        path.split("/").pop() ?? "file",
-        viewKindOf(path) === "image",
-      )
+      .sendFiles(person.chat, [
+        ...(await picturesOf(full)),
+        {
+          bytes: await readFile(full),
+          name: path.split("/").pop() ?? "file",
+          picture: viewKindOf(path) === "image",
+        },
+      ])
       .catch((cause) =>
         logger.warn(`reach ${live.name}: could not send ${path}`, cause),
       );

@@ -19,7 +19,7 @@ The voice is billed per active minute, silence included; the backend is billed p
 ## Without your voice
 
 - **Writing.** Press `/`, or the + on the pill, and type: a call in writing, with the same memory, tools and bots, no microphone, and nothing billed by the minute. It runs on a ChatGPT sign-in when you have one, else on your OpenAI key, and you can pick another model for it.
-- **From your phone.** Connect Telegram, Discord or Slack in Settings › Phone and write to her there while the app runs on your computer. The app connects out to the chat service; nothing on your computer is opened to the internet. One person is let in per service, and you allow them on the computer's screen.
+- **From your phone.** Connect Telegram, Discord or Slack in Settings › Phone and write to her there while the app runs on your computer. The app connects out to the chat service; nothing on your computer is opened to the internet. One person is let in per service, and you allow them on the computer's screen. A page a bot made — a report, a deck, a design — arrives as pictures you can read in the chat, with the file itself.
 
 ## Bots
 

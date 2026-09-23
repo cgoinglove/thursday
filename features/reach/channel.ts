@@ -31,6 +31,13 @@ export type Incoming =
 
 export type Button = { text: string; data: string };
 
+/** A file of ours. A picture goes as a picture where the service draws one. */
+export type OutgoingFile = {
+  bytes: Uint8Array;
+  name: string;
+  picture: boolean;
+};
+
 export type Channel = {
   /**
    * Connects, reports the bot's own name once known, then hands over what arrives until
@@ -56,13 +63,11 @@ export type Channel = {
   typing(chat: string): Promise<void>;
   /** Takes the buttons off a message once one was pressed, and leaves `text` in its place. */
   settle(chat: string, messageId: string, text: string): Promise<void>;
-  /** A file of ours: a picture as a picture where the service draws one. */
-  sendFile(
-    chat: string,
-    bytes: Uint8Array,
-    name: string,
-    picture: boolean,
-  ): Promise<void>;
+  /**
+   * Files of ours, in as few messages as the service takes them: the pictures together,
+   * drawn as pictures, and the rest as files.
+   */
+  sendFiles(chat: string, files: OutgoingFile[]): Promise<void>;
 };
 
 /** The service answered, and refused: its words are the user's to act on (a wrong token, a missing permission). */

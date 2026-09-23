@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, mock, test } from "node:test";
@@ -23,10 +23,18 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   if (!url.startsWith("https://api.telegram.org/"))
     return realFetch(input, init);
   const method = url.split("/").pop() ?? "";
+  // A form is kept as its fields, a file by its name
   const body =
     typeof init?.body === "string"
       ? (JSON.parse(init.body) as Record<string, unknown>)
-      : {};
+      : init?.body instanceof FormData
+        ? Object.fromEntries(
+            [...init.body].map(([key, value]) => [
+              key,
+              typeof value === "string" ? value : value.name,
+            ]),
+          )
+        : {};
   const answer = (result: unknown) =>
     new Response(JSON.stringify({ ok: true, result }));
   if (method === "getMe") return answer({ username: "test_bot" });
@@ -97,6 +105,19 @@ mock.module("../features/thursday/thursday.text.ts", {
         ],
       };
     },
+  },
+});
+// Drawing a page takes a browser; two pictures stand in for what it draws
+mock.module("../features/reach/pictures.ts", {
+  namedExports: {
+    picturesOf: async (full: string) =>
+      full.endsWith(".html")
+        ? [1, 2].map((n) => ({
+            bytes: new Uint8Array([n]),
+            name: `report-0${n}.png`,
+            picture: true,
+          }))
+        : [],
   },
 });
 const ended: string[] = [];
@@ -540,4 +561,37 @@ test("with a browser watching, only what was started from here comes to the phon
     lastSaid().body.text,
     "Insta finished · From the phone\n\nDone here.",
   );
+});
+
+test("a page she names goes with pictures of it, and any other file as itself", async () => {
+  const { WORKSPACE } = await import("../features/workspace/workspace.ts");
+  const folder = join(WORKSPACE, "artifacts", "Jarvis");
+  await mkdir(folder, { recursive: true });
+  // Her answer's files go oldest first
+  for (const [at, name] of ["report.html", "notes.txt"].entries()) {
+    await writeFile(join(folder, name), name);
+    await utimes(join(folder, name), 1_000 + at, 1_000 + at);
+  }
+  const from = sent.length;
+  inbox.push(
+    message(7, "artifacts/Jarvis/report.html and artifacts/Jarvis/notes.txt"),
+  );
+  await until(
+    () => sent.slice(from).some((one) => one.body.document === "notes.txt"),
+    "the files go",
+  );
+  const files = sent
+    .slice(from)
+    .filter((one) => /^send(MediaGroup|Photo|Document)$/.test(one.method))
+    .map((one) => ({
+      method: one.method,
+      files: Object.entries(one.body)
+        .filter(([key]) => /^(p\d+|photo|document)$/.test(key))
+        .map(([, name]) => name),
+    }));
+  assert.deepEqual(files, [
+    { method: "sendMediaGroup", files: ["report-01.png", "report-02.png"] },
+    { method: "sendDocument", files: ["report.html"] },
+    { method: "sendDocument", files: ["notes.txt"] },
+  ]);
 });

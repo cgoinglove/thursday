@@ -96,6 +96,12 @@ export const CALL_IDLE = {
  * - `chars`  how much goes in one chat message; a longer answer goes as several.
  * - `files`  how many of the files her answer names are sent along with it.
  * - `fileBytes`  the largest file sent; the service refuses more.
+ * - `pictures`  how many pictures of a page go with it (reach/pictures): its first slides or
+ *   boards, or its first screens from the top. With the page itself that is ten files, what
+ *   one Discord message carries and one Telegram album holds; the page has the rest.
+ * - `drawMs`  how long drawing them may take before the page goes without them. Nine slides
+ *   draw in a few seconds; a page that never finishes loading would otherwise hold up
+ *   everything sent after it.
  */
 export const REACH = {
   pollSeconds: 50,
@@ -107,6 +113,8 @@ export const REACH = {
   chars: 3_500,
   files: 3,
   fileBytes: 45 * 1024 * 1024,
+  pictures: 9,
+  drawMs: 60_000,
 };
 
 /**

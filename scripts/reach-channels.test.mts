@@ -33,12 +33,32 @@ const realFetch = globalThis.fetch;
 globalThis.WebSocket = FakeSocket as unknown as typeof WebSocket;
 
 const calls: { url: string; body: unknown }[] = [];
+let uploads = 0;
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
   calls.push({
     url,
-    body: typeof init?.body === "string" ? JSON.parse(init.body) : null,
+    // A form is kept as its fields, a file by its name
+    body:
+      typeof init?.body === "string"
+        ? JSON.parse(init.body)
+        : init?.body instanceof FormData
+          ? Object.fromEntries(
+              [...init.body].map(([key, value]) => [
+                key,
+                typeof value === "string" ? value : value.name,
+              ]),
+            )
+          : null,
   });
+  if (url.endsWith("/files.getUploadURLExternal")) {
+    uploads++;
+    return Response.json({
+      ok: true,
+      upload_url: `https://files.slack.test/${uploads}`,
+      file_id: `F${uploads}`,
+    });
+  }
   if (url.endsWith("/auth.test"))
     return Response.json({ ok: true, user: "thursday" });
   if (url.endsWith("/apps.connections.open"))
@@ -243,4 +263,61 @@ test("slack acknowledges every envelope and hands over only the direct conversat
 
   stop.abort();
   await listening;
+});
+
+const pictures = (count: number) =>
+  Array.from({ length: count }, (_, n) => ({
+    bytes: new Uint8Array([n]),
+    name: `page-${n + 1}.png`,
+    picture: true,
+  }));
+
+test("discord sends files ten to a message, each named as it is", async () => {
+  const from = calls.length;
+  await createDiscord("bot-token").sendFiles("dm1", [
+    ...pictures(11),
+    { bytes: new Uint8Array([1]), name: "page.html", picture: false },
+  ]);
+  const posted = calls.slice(from) as {
+    url: string;
+    body: Record<string, string>;
+  }[];
+  assert.deepEqual(
+    posted.map((call) => call.url),
+    [1, 2].map(() => "https://discord.com/api/v10/channels/dm1/messages"),
+  );
+  const named = posted.map((call) =>
+    (
+      JSON.parse(call.body.payload_json) as {
+        attachments: { id: number; filename: string }[];
+      }
+    ).attachments.map(
+      (attachment) =>
+        `${attachment.filename}=${call.body[`files[${attachment.id}]`]}`,
+    ),
+  );
+  assert.deepEqual(named, [
+    pictures(10).map((file) => `${file.name}=${file.name}`),
+    ["page-11.png=page-11.png", "page.html=page.html"],
+  ]);
+});
+
+test("slack uploads each file and posts them all as one message", async () => {
+  const from = calls.length;
+  await createSlack("xapp-1", "xoxb-1").sendFiles("D1", [
+    ...pictures(2),
+    { bytes: new Uint8Array([1]), name: "page.html", picture: false },
+  ]);
+  const completed = calls
+    .slice(from)
+    .filter((call) => call.url.endsWith("/files.completeUploadExternal"));
+  assert.equal(completed.length, 1, "one message");
+  assert.deepEqual(completed[0].body, {
+    files: [
+      { id: `F${uploads - 2}`, title: "page-1.png" },
+      { id: `F${uploads - 1}`, title: "page-2.png" },
+      { id: `F${uploads}`, title: "page.html" },
+    ],
+    channel_id: "D1",
+  });
 });

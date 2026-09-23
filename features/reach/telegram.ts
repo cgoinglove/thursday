@@ -4,10 +4,12 @@ import { type Channel, ChannelRefusal, type Incoming } from "./channel";
 /**
  * Telegram's Bot API as a reach channel: asked for what was written (a long poll, so
  * nothing calls in), told what to send back. Plain `fetch`; no library earns its place for
- * eight methods.
+ * ten methods.
  */
 
 const API = "https://api.telegram.org";
+/** Telegram's cap on the pictures one album holds. */
+const ALBUM_MAX = 10;
 
 type TelegramUser = {
   id: number;
@@ -213,15 +215,38 @@ export function createTelegram(token: string): Channel {
       }).catch(() => {});
     },
 
-    async sendFile(chat, bytes, name, picture) {
-      const form = new FormData();
-      form.set("chat_id", chat);
-      form.set(
-        picture ? "photo" : "document",
-        new Blob([bytes as BlobPart]),
-        name,
-      );
-      await call(picture ? "sendPhoto" : "sendDocument", form);
+    async sendFiles(chat, files) {
+      const pictures = files.filter((file) => file.picture);
+      // An album holds two to ALBUM_MAX pictures; one alone is a photo of its own
+      for (let at = 0; at < pictures.length; at += ALBUM_MAX) {
+        const some = pictures.slice(at, at + ALBUM_MAX);
+        const form = new FormData();
+        form.set("chat_id", chat);
+        if (some.length === 1) {
+          form.set(
+            "photo",
+            new Blob([some[0].bytes as BlobPart]),
+            some[0].name,
+          );
+          await call("sendPhoto", form);
+          continue;
+        }
+        form.set(
+          "media",
+          JSON.stringify(
+            some.map((_, n) => ({ type: "photo", media: `attach://p${n}` })),
+          ),
+        );
+        for (const [n, file] of some.entries())
+          form.set(`p${n}`, new Blob([file.bytes as BlobPart]), file.name);
+        await call("sendMediaGroup", form);
+      }
+      for (const file of files.filter((one) => !one.picture)) {
+        const form = new FormData();
+        form.set("chat_id", chat);
+        form.set("document", new Blob([file.bytes as BlobPart]), file.name);
+        await call("sendDocument", form);
+      }
     },
   };
 }

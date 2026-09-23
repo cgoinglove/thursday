@@ -108,6 +108,9 @@ persistence — and changes with the code. This file holds what every way into T
   where the user speaks.
 - A phone turn has no `thread_show` (`load-tools` `phone`); what she did goes under her answer
   as one line in `tool-line`'s words.
+- A page she or a bot names goes with pictures of it (`pictures`), drawn by the renderer the bots
+  shoot with (`render.mjs --shot --most`) in a headless session of its own that keeps nothing, so
+  that script's options are a contract with the phone. No browser, and the page goes alone.
 
 `pnpm test:live` covers the session and call history; `pnpm test:reach` covers the phone and the
 call in writing against stubbed services and a scripted model.
