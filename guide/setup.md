@@ -65,8 +65,8 @@ video, a podcast, an article or a PDF; answers built on published numbers, with 
 brief; a trip planned; a document to read; a design canvas; a picture book; six for marketing (a
 product's brief, page copy, email sequences, a launch, social posts, an SEO audit); finding more
 skills; and writing a new one. A deck is not a skill: every bot can make one. **Settings › Skills** lists them in two groups, **Custom** (the
-user's own) and **Default** (the ones that ship, read-only). There a skill can be switched off, uploaded (a `.md`, `.zip` or `.skill` file), written
-from scratch, or deleted when it is one of their own. Opening a skill shows its files; in one of
+user's own) and **Default** (the ones that ship, read-only). There a skill can be switched off (it stays off through an update of the app), uploaded (a `.md`,
+`.zip` or `.skill` file), written from scratch, or deleted when it is one of their own. Opening a skill shows its files; in one of
 their own, **Edit** on a file writes it back, which is how a typo or a changed step is fixed without
 making the skill again. A bot can also install one from the open registry while it works: for
 itself alone unless they asked for every bot to have it. A bot's own skills sit in its own folder

@@ -9,6 +9,7 @@ import {
 import { join, relative, resolve, sep } from "node:path";
 import { parse, stringify } from "yaml";
 import { APP_DIR, DATA_DIR, PATHS } from "@/config";
+import { readConfig, writeConfig } from "@/features/config/config.query";
 import type {
   SkillEntry,
   SkillFrontmatter,
@@ -16,7 +17,11 @@ import type {
   SkillSource,
   SkillSummary,
 } from "@/features/skills/skills.schema";
-import { SkillFrontmatterSchema } from "@/features/skills/skills.schema";
+import {
+  parseSkillsOff,
+  SKILLS_OFF_KEY,
+  SkillFrontmatterSchema,
+} from "@/features/skills/skills.schema";
 import { publicError } from "@/lib/public-error";
 
 /** Skills are folders on disk, so "query" here means the filesystem. Nothing else touches the skill dirs. */
@@ -86,9 +91,27 @@ export function splitFrontmatter(content: string): {
   return { head: match[1] ?? null, body: rest.trim(), rest, fence: match[0] };
 }
 
+/** The OSes a skill names, from `metadata.platforms` or the older top-level list. */
+function platformsOf({ metadata, platforms }: SkillFrontmatter) {
+  const named = metadata?.platforms;
+  if (typeof named === "string") return named.split(/[\s,]+/).filter(Boolean);
+  return platforms;
+}
+
 /** Whether a skill runs on this machine's OS; the list and the prompt both leave out one that does not. */
-export const runsHere = ({ platforms }: SkillFrontmatter) =>
-  !platforms || platforms.includes(process.platform);
+export const runsHere = (frontmatter: SkillFrontmatter) => {
+  const platforms = platformsOf(frontmatter);
+  return !platforms?.length || platforms.includes(process.platform);
+};
+
+/** The names of the skills the user switched off (skills.schema SKILLS_OFF_KEY). */
+export async function readSkillsOff(): Promise<Set<string>> {
+  return parseSkillsOff(await readConfig(SKILLS_OFF_KEY));
+}
+
+/** Off in Settings, or by the line versions before `SKILLS_OFF_KEY` wrote into the file. */
+export const isSkillOff = (frontmatter: SkillFrontmatter, off: Set<string>) =>
+  frontmatter.disabled === true || off.has(frontmatter.name.toLowerCase());
 
 export function parseFrontmatter(content: string): SkillFrontmatter {
   const { head } = splitFrontmatter(content);
@@ -110,18 +133,19 @@ export function parseFrontmatter(content: string): SkillFrontmatter {
   return parsed.data;
 }
 
-/** The top-level `disabled` line in the head; nested keys and block scalars are indented and do not match. */
+/** The top-level `disabled` line older versions wrote; nested keys and block scalars are indented and do not match. */
 const DISABLED_LINE = /^disabled[ \t]*:[^\n]*(\r?\n|$)/m;
 
 /**
- * Adds or removes the `disabled` line in SKILL.md front matter. Only that one
- * line is touched: re-serialising the head would refold long descriptions.
- * Default skills are git-tracked, so disabling one shows in `git status`.
+ * Switches a skill off or on by its name, in the user's config. Nothing is written into the
+ * skill: a shipped one lives in the app folder, which the app never writes (AGENTS.md › The
+ * two roots). Switching on also drops the `disabled` line an older version left in one of the
+ * user's own skills, which would keep it off; a shipped skill never carries one from us.
  */
-export async function setSkillDisabled(
+export async function setSkillOff(
   source: SkillSource,
   dir: string,
-  disabled: boolean,
+  off: boolean,
 ): Promise<void> {
   const file = join(skillDir(source, dir), "SKILL.md");
   let content: string;
@@ -130,27 +154,18 @@ export async function setSkillDisabled(
   } catch {
     publicError("Skill not found");
   }
+  const { name } = parseFrontmatter(content);
+
+  const names = await readSkillsOff();
+  if (off) names.add(name.toLowerCase());
+  else names.delete(name.toLowerCase());
+  await writeConfig(SKILLS_OFF_KEY, JSON.stringify([...names].sort()));
+
+  if (off || source !== "custom") return;
   const { head, rest, fence } = splitFrontmatter(content);
-  if (!head) publicError("This SKILL.md has no frontmatter to write to");
-
-  let parsed: unknown;
-  try {
-    parsed = parse(head);
-  } catch {
-    publicError("SKILL.md frontmatter is not valid YAML");
-  }
-  // Valid YAML is not necessarily a mapping: a bare scalar or an empty block has nowhere to put a key
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    publicError("SKILL.md frontmatter is not a YAML mapping");
-  }
-
+  if (!head || !DISABLED_LINE.test(head)) return;
   const eol = fence.includes("\r\n") ? "\r\n" : "\n";
-  const next = disabled
-    ? DISABLED_LINE.test(head)
-      ? head.replace(DISABLED_LINE, `disabled: true$1`)
-      : `${head.replace(/\s+$/, "")}${eol}disabled: true`
-    : head.replace(DISABLED_LINE, "").replace(/\s+$/, "");
-
+  const next = head.replace(DISABLED_LINE, "").replace(/\s+$/, "");
   await writeFile(file, `---${eol}${next}${eol}---${eol}${rest}`);
 }
 
@@ -178,9 +193,10 @@ async function readSummary(
   }
 }
 
-/** default first, then custom: the agent's priority (skills.discover). */
+/** default first, then custom: the agent's priority (skills.discover). `disabled` is whether it is off. */
 export async function findAllSkills(): Promise<SkillSummary[]> {
   const out: SkillSummary[] = [];
+  const off = await readSkillsOff();
   for (const source of ["default", "custom"] as const) {
     let names: string[] = [];
     try {
@@ -193,7 +209,8 @@ export async function findAllSkills(): Promise<SkillSummary[]> {
     }
     for (const dir of names) {
       const summary = await readSummary(source, dir);
-      if (summary && runsHere(summary)) out.push(summary);
+      if (summary && runsHere(summary))
+        out.push({ ...summary, disabled: isSkillOff(summary, off) });
     }
   }
   return out;

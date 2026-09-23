@@ -4,7 +4,12 @@ import { botFolder, WORKSPACE } from "@/features/workspace/workspace";
 import { logger } from "@/lib/logger";
 import type { Sandbox } from "@/lib/sandbox";
 import { errorToString } from "@/lib/utils";
-import { parseFrontmatter, runsHere } from "./skills.query";
+import {
+  isSkillOff,
+  parseFrontmatter,
+  readSkillsOff,
+  runsHere,
+} from "./skills.query";
 import type { SkillFrontmatter } from "./skills.schema";
 
 /** Skills for the prompt, every skill at once, without failing the session over one bad file. */
@@ -21,10 +26,11 @@ export const ownSkills = (bot: string) =>
  * of one kept in a bot's folder is never the one it opens. A bot's own come next, so its
  * copy of a workspace skill is the one it opens.
  */
-export const loadSkills = (sandbox: Sandbox, bot?: string) =>
+export const loadSkills = async (sandbox: Sandbox, bot?: string) =>
   discoverSkills(
     sandbox,
     bot ? [shipped, ownSkills(bot), custom] : [shipped, custom],
+    await readSkillsOff(),
   );
 
 export interface SkillMetadata {
@@ -33,10 +39,11 @@ export interface SkillMetadata {
   path: string;
 }
 
-/** On a name collision the earlier directory wins. */
+/** On a name collision the earlier directory wins; `off` are the names the user switched off. */
 export async function discoverSkills(
   sandbox: Sandbox,
   directories: string[],
+  off: Set<string> = new Set(),
 ): Promise<SkillMetadata[]> {
   const skills: SkillMetadata[] = [];
   const seenNames = new Set<string>();
@@ -79,8 +86,8 @@ export async function discoverSkills(
       if (seenNames.has(frontmatter.name)) continue;
       seenNames.add(frontmatter.name);
 
-      // A disabled skill still claims its name, so a same-named custom skill cannot replace it
-      if (frontmatter.disabled) continue;
+      // A skill switched off still claims its name, so a same-named custom skill cannot replace it
+      if (isSkillOff(frontmatter, off)) continue;
 
       skills.push({
         name: frontmatter.name,

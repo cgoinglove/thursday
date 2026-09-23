@@ -27,16 +27,48 @@ export const SkillTitleSchema = z
   .min(1, "Skill name is required")
   .max(64, "Skill name is too long");
 
-/** The YAML block at the top of every SKILL.md. `disabled` lives in the file so state travels with the folder. */
+/**
+ * The YAML block at the top of every SKILL.md, as the Agent Skills spec has it: `name`,
+ * `description`, and optionally `license`, `compatibility`, `metadata`, `allowed-tools`.
+ * Whether a skill is switched off is the user's (`SKILLS_OFF_KEY`), never the file's: a
+ * shipped skill sits in the read-only app folder, and a key outside the spec fails the
+ * skill anywhere else it is uploaded.
+ */
 export const SkillFrontmatterSchema = z.object({
   name: SkillTitleSchema,
   description: z.string().trim().min(1, "Description is required"),
-  /** true hides the skill from the list and the prompt; absent means enabled. */
+  /**
+   * The spec's string-to-string map. `platforms` in it lists the `process.platform` values
+   * the skill runs on (`darwin`, or several split by spaces or commas); elsewhere it is not
+   * listed at all. Absent means everywhere.
+   */
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  /** Written by versions before `SKILLS_OFF_KEY`; still read as off. */
   disabled: z.boolean().optional(),
-  /** `process.platform` values it runs on (`darwin`); elsewhere it is not listed at all. Absent means everywhere. */
+  /** The top-level form of `metadata.platforms` a skill made elsewhere may carry; still read. */
   platforms: z.array(z.string()).optional(),
 });
 export type SkillFrontmatter = z.infer<typeof SkillFrontmatterSchema>;
+
+/** The config key holding the names of the skills the user switched off, as a JSON array. */
+export const SKILLS_OFF_KEY = "SKILLS_OFF";
+
+/** The stored list, lowercased; anything unreadable reads as nothing switched off. */
+export function parseSkillsOff(value: string | undefined): Set<string> {
+  if (!value) return new Set();
+  try {
+    const list: unknown = JSON.parse(value);
+    return new Set(
+      Array.isArray(list)
+        ? list
+            .filter((name): name is string => typeof name === "string")
+            .map((name) => name.trim().toLowerCase())
+        : [],
+    );
+  } catch {
+    return new Set();
+  }
+}
 
 /** A hand-typed single-file skill; its name is also the folder it is written to. */
 export const SkillDraftSchema = SkillFrontmatterSchema.extend({

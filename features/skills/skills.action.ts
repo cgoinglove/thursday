@@ -6,7 +6,7 @@ import {
   deleteCustomSkill,
   parseFrontmatter,
   renderSkillMarkdown,
-  setSkillDisabled,
+  setSkillOff,
   skillFolderName,
   writeCustomSkill,
   writeSkillFile,
@@ -103,10 +103,10 @@ export const writeSkillFileAction = serverAction(
   },
 );
 
-/** Both sources. Disabling writes to the skill's SKILL.md; default skills can only be disabled. */
+/** Both sources. Switching off is kept in the user's config, never in the skill's files. */
 export const setSkillDisabledAction = serverAction(
   async (source: unknown, dir: unknown, disabled: unknown) => {
-    await setSkillDisabled(
+    await setSkillOff(
       SkillSourceSchema.parse(source),
       SkillNameSchema.parse(dir),
       z.boolean().parse(disabled),

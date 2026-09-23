@@ -134,3 +134,30 @@ test("a bot is shown each shipped skill's references and scripts", async () => {
     );
   }
 });
+
+test("a skill switched off, or made for another OS, is not listed and still holds its name", async () => {
+  const skill = async (root: string, name: string, head = "") => {
+    await mkdir(join(root, name), { recursive: true });
+    await writeFile(
+      join(root, name, "SKILL.md"),
+      `---\nname: ${name}\ndescription: Does ${name}.\n${head}---\n\nBody.\n`,
+    );
+  };
+  const first = join(home, "off-first");
+  const second = join(home, "off-second");
+  const elsewhere = process.platform === "darwin" ? "linux" : "darwin";
+  await skill(first, "kept");
+  await skill(first, "quiet");
+  await skill(first, "older", "disabled: true\n");
+  await skill(first, "mac-only", `metadata:\n  platforms: ${elsewhere}\n`);
+  await skill(first, "here", `metadata:\n  platforms: ${process.platform}\n`);
+  // The same name in a later folder cannot take the place of one switched off
+  await skill(second, "quiet");
+
+  const listed = await discoverSkills(
+    sandbox,
+    [first, second],
+    new Set(["quiet"]),
+  );
+  assert.deepEqual(listed.map((one) => one.name).sort(), ["here", "kept"]);
+});
