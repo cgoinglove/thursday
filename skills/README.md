@@ -32,7 +32,11 @@ artifact skill holds.
   every version is pinned by the kit's lockfile; the kit is installed once in the workspace and
   shared by every app; recharts and react-markdown are in it.
 - **`interactive-page/scripts/archify`** is a trimmed copy of archify (MIT); its README says what
-  was cut. `skill-creator` carries Apache-2.0 terms in `LICENSE.txt`.
+  was cut.
+- **`find-skills`** is adapted from vercel-labs/skills' find-skills at 7407f38 (MIT, `LICENSE` in
+  the folder), and **`skill-creator`** from Anthropic's skill-creator at anthropics/skills 34040c9
+  (Apache-2.0, `LICENSE.txt`); each ends with a line saying what changed. Both ask who a new skill
+  is for before installing or writing it: only the bot at work, or every bot.
 - **`product-marketing`, `copywriting`, `launch`, `social`, `emails` and `seo-audit`** are a trimmed
   copy of [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) at
   `5b2c0007766c6a1cf1d53fd8fc73e979e0821022` (MIT, `LICENSE` in each folder). Update them by copying

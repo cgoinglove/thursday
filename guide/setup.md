@@ -69,8 +69,9 @@ finding more skills; and writing a new one. **Settings › Skills** lists them i
 user's own) and **Default** (the ones that ship, read-only). There a skill can be switched off (it stays off through an update of the app), uploaded (a `.md`,
 `.zip` or `.skill` file), written from scratch, or deleted when it is one of their own. Opening a skill shows its files; in one of
 their own, **Edit** on a file writes it back, which is how a typo or a changed step is fixed without
-making the skill again. A bot can also install one from the open registry while it works: for
-itself alone unless they asked for every bot to have it. A bot's own skills sit in its own folder
+making the skill again. A bot can also find one in the open registry while it works, or write a
+new one; either way it first asks whether the skill is for that bot alone or for every bot, and
+keeps it to itself when told to decide. A bot's own skills sit in its own folder
 and are not on that screen.
 
 ## Connected services
