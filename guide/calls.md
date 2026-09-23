@@ -63,8 +63,13 @@ billed by the minute.
   OpenAI key is set and was not what broke, the button reads **Send it again on your OpenAI key**
   and moves the line onto that key; it never switches by itself, since what a turn costs changes
   with what it runs on.
-- **Work she handed over** comes back in writing too: once nothing has been written for a few
-  seconds she says what a bot asked or finished, and nothing rings while the written call is on.
+- **Writing again while she is still answering** does not wait: the words show at once, join what
+  she is doing and are read before her next step. Whatever she had no step left to read gets an
+  answer of its own.
+- **Work she handed over** comes back in writing too: the moment a bot asks or finishes she is
+  told and answers it, and nothing rings while the written call is on. After a turn breaks,
+  nothing comes in by itself until one goes through; after a long run of them with nothing from
+  you, the rest waits for your next message.
 - **Ending it**: **Esc** ends it — saying goodbye does not, since there is no line for her to drop —
   and so does starting a spoken call. Opening a thread in the corner does not: the line steps out
   while the corner is open, her answers keep arriving beside her face, and the corner says
@@ -126,7 +131,8 @@ and from a phone. The face, captions, starting a call and While she works belong
 ## When work has something to say
 
 While a call is open, a question from a bot, and a result or a progress line that comes in during
-the call, reach the conversation by themselves in a quiet moment, and she says them. Work that had
+the call, reach the conversation by themselves — on a spoken call in a quiet moment, in writing as
+soon as they come — and she says them. Work that had
 already finished before the call opened is not read out: it is on the screen — the card, the pill,
 the thread — and she looks it up when asked.
 

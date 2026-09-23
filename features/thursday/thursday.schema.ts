@@ -61,6 +61,21 @@ export type TextCallHandshake = {
   standing: string | null;
 };
 
+/**
+ * What reaches a call in writing besides the words of the turn it rides on: words the user
+ * wrote while she was answering (`said`), or a fact the page leaves her for a bot's update.
+ * It goes as a `data-note` part: in the user's message it went out with, or in her answer
+ * where a step read it (thursday.text).
+ */
+export const TextCallNoteSchema = z.object({
+  id: z.string().min(1),
+  text: z.string(),
+  said: z.boolean(),
+});
+export type TextCallNote = z.infer<typeof TextCallNoteSchema>;
+/** The data part a note rides in: `data-note`. */
+export const TEXT_CALL_NOTE = "note";
+
 /** How Thursday's orb is drawn. Browser-only (face.store). */
 export const ThursdayFaceSchema = z.object({
   charset: z.enum(ASCII_CHARSETS).default(ASCII_FACE.charset),
@@ -166,7 +181,7 @@ export type CallMessage = {
   text: string;
   /**
    * Starts a turn of its own rather than joining the words before it: what came in
-   * between was not drawn (a bot's update put to her, `use-text-call` RELAY_TURN).
+   * between was not drawn (a bot's update left to her as a fact, `use-text-call`).
    */
   fresh?: true;
 };

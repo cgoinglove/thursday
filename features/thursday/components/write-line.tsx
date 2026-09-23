@@ -258,7 +258,8 @@ export function WriteLine({
       matches.length ? (was + by + matches.length) % matches.length : 0,
     );
   const [reaching, setReaching] = useState(false);
-  const waiting = starting || reaching || Boolean(toHer && written?.busy);
+  // Words to her while she answers join that answer (use-text-call), so they never wait on it
+  const waiting = starting || reaching;
   const ready =
     Boolean(draft.trim()) &&
     !mention &&

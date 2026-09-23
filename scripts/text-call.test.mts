@@ -3,6 +3,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, mock, test } from "node:test";
+import {
+  readUIMessageStream,
+  simulateReadableStream,
+  type UIMessage,
+} from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 
 // A held turn of a call in writing — the real prompt, tools and rows — over an empty
@@ -17,7 +22,50 @@ const prompts: string[] = [];
 const held: string[][] = [];
 const systems: string[] = [];
 const steps: (() => Record<string, unknown>[])[] = [];
+const usage = {
+  inputTokens: {
+    total: 100,
+    noCache: 100,
+    cacheRead: undefined,
+    cacheWrite: undefined,
+  },
+  outputTokens: { total: 20, text: 20, reasoning: undefined },
+};
 const model = new MockLanguageModelV4({
+  // A page's turn streams: the same script, its words sent as a stream
+  doStream: async ({ prompt }) => {
+    prompts.push(JSON.stringify(prompt));
+    const next = steps.shift();
+    assert.ok(next, "Unexpected step");
+    const content = next();
+    return {
+      stream: simulateReadableStream({
+        initialDelayInMs: null,
+        chunkDelayInMs: null,
+        chunks: [
+          ...content.flatMap((part) =>
+            part.type === "text"
+              ? [
+                  { type: "text-start", id: "text" },
+                  { type: "text-delta", id: "text", delta: part.text },
+                  { type: "text-end", id: "text" },
+                ]
+              : [part],
+          ),
+          {
+            type: "finish",
+            finishReason: {
+              unified: content.some((part) => part.type === "tool-call")
+                ? "tool-calls"
+                : "stop",
+              raw: undefined,
+            },
+            usage,
+          },
+        ] as never[],
+      }),
+    };
+  },
   doGenerate: async ({ prompt, tools }) => {
     prompts.push(JSON.stringify(prompt));
     held.push((tools ?? []).map((tool) => tool.name));
@@ -75,9 +123,8 @@ const { LIVE_PROVIDER, LiveSettingsSchema } = await import(
 );
 await writeConfig(LIVE_PROVIDER.apiKeyName, "sk-test");
 const { TOOL_NAMES } = await import("../features/ai/tools/tool-name.ts");
-const { answerInWriting, openTextCall } = await import(
-  "../features/thursday/thursday.text.ts"
-);
+const { answerInWriting, openTextCall, streamTextCall, tellTextCall } =
+  await import("../features/thursday/thursday.text.ts");
 const {
   isCallOpen,
   listRecentTurns,
@@ -156,6 +203,173 @@ test("what arrives while she works joins the turn between her steps, and keeps i
       ["tool", JSON.stringify({ thread: "all" }).slice(0, 20)],
       ["user", "the OpenAI one"],
       ["assistant", "Nothing has been sta"],
+    ],
+  );
+});
+
+/** A page's turn read to its end: the chunks it streamed, in order. */
+async function pageTurn(body: Record<string, unknown>) {
+  const response = await streamTextCall(body, new AbortController().signal);
+  const sent = await response.text();
+  assert.equal(response.status, 200, sent);
+  return sent
+    .split("\n")
+    .filter((line) => line.startsWith("data: ") && line !== "data: [DONE]")
+    .map((line) => JSON.parse(line.slice(6)) as Record<string, unknown>);
+}
+
+/** Her answer as the page holds it once the stream is over. */
+async function answerOf(chunks: Record<string, unknown>[]): Promise<UIMessage> {
+  let message: UIMessage | undefined;
+  for await (const snapshot of readUIMessageStream({
+    stream: new ReadableStream({
+      start(controller) {
+        for (const chunk of chunks) controller.enqueue(chunk as never);
+        controller.close();
+      },
+    }),
+  }))
+    message = snapshot;
+  assert.ok(message);
+  return message;
+}
+
+const words = (id: string, text: string) => ({
+  id,
+  role: "user" as const,
+  parts: [{ type: "text" as const, text }],
+});
+
+/** One call's rows as the history keeps them: whose, and how they open. */
+const rowsOf = async (callId: string) =>
+  (
+    (await listRecentTurns(200)).find((call) => call.callId === callId)
+      ?.turns ?? []
+  ).map((row) => [row.role, row.text.slice(0, 20)]);
+
+/** What the model was last sent as the user's, in order. */
+const usersSaid = () =>
+  (JSON.parse(prompts.at(-1) ?? "[]") as { role: string; content: unknown }[])
+    .filter((message) => message.role === "user")
+    .map((message) => JSON.stringify(message.content));
+
+test("words written while she answers join before her next step, come back ahead of it, and stay where she read them", async () => {
+  const { callId } = await openTextCall();
+  const from = prompts.length;
+  const note = { id: "note-1", text: "the business account", said: true };
+  steps.push(
+    () => {
+      // Written while her first step runs
+      assert.equal(tellTextCall(callId, "turn-1", note), true);
+      // Another call's answer is not this one's
+      assert.equal(tellTextCall("another-call", "turn-1", note), false);
+      return [
+        {
+          type: "tool-call",
+          toolCallId: "p-1",
+          toolName: TOOL_NAMES.thread_status,
+          input: JSON.stringify({ thread: "all" }),
+        },
+      ];
+    },
+    () => [{ type: "text", text: "Nothing has been started yet." }],
+  );
+  const asked = words("u-1", "check the credit");
+  const chunks = await pageTurn({ callId, turn: "turn-1", messages: [asked] });
+
+  assert.ok(
+    !prompts[from].includes("the business account"),
+    "not before step one",
+  );
+  assert.ok(
+    prompts[from + 1].indexOf("the business account") >
+      prompts[from + 1].indexOf("tool-result"),
+    "after what the tool answered, before her next step",
+  );
+
+  // Told back ahead of the step that read it, never inside the one before
+  const types = chunks.map((chunk) => chunk.type);
+  const second = types.indexOf("start-step", types.indexOf("start-step") + 1);
+  assert.deepEqual(chunks[second - 1], {
+    type: "data-note",
+    id: "note-1",
+    data: note,
+  });
+
+  // Over: what is told now waits for the next turn instead
+  assert.equal(tellTextCall(callId, "turn-1", note), false);
+
+  // Their words are a turn of theirs, in the order they came
+  assert.deepEqual(await rowsOf(callId), [
+    ["user", "check the credit"],
+    ["tool", JSON.stringify({ thread: "all" }).slice(0, 20)],
+    ["user", "the business account"],
+    ["assistant", "Nothing has been sta"],
+  ]);
+
+  // Sent with the next turn, the note sits where she read it: after the tool's answer,
+  // before the words she wrote after it, and it is not kept a second time
+  const answer = await answerOf(chunks);
+  steps.push(() => [{ type: "text", text: "Done." }]);
+  await pageTurn({
+    callId,
+    turn: "turn-2",
+    messages: [asked, answer, words("u-2", "and the other one")],
+  });
+  assert.deepEqual(
+    (JSON.parse(prompts.at(-1) ?? "[]") as { role: string }[])
+      .map((message) => message.role)
+      .filter((role) => role !== "system"),
+    ["user", "assistant", "tool", "user", "assistant", "user"],
+  );
+  assert.deepEqual((await rowsOf(callId)).slice(4), [
+    ["user", "and the other one"],
+    ["assistant", "Done."],
+  ]);
+});
+
+test("a fact for a bot's update goes ahead of the words it waited with, is no turn of its own, and nothing sent again is kept twice", async () => {
+  const { callId } = await openTextCall();
+  const fact = {
+    id: "fact-1",
+    text: '[Jarvis → Thursday, thread "Credits" (t-1), question.]\nSign in to the platform, then say so.',
+    said: false,
+  };
+  const late = {
+    id: "note-2",
+    text: "not that account, the other one",
+    said: true,
+  };
+  const sent = {
+    id: "u-3",
+    role: "user" as const,
+    parts: [
+      { type: "data-note", id: fact.id, data: fact },
+      { type: "data-note", id: late.id, data: late },
+      { type: "text", text: "go ahead now" },
+    ],
+  };
+  steps.push(() => [{ type: "text", text: "Alright." }]);
+  await pageTurn({ callId, turn: "turn-3", messages: [sent] });
+  const order = usersSaid();
+  const at = (text: string) => order.findIndex((one) => one.includes(text));
+  assert.ok(at("Sign in to the platform") >= 0);
+  assert.ok(at("Sign in to the platform") < at("not that account"));
+  assert.ok(at("not that account") < at("go ahead now"));
+  assert.deepEqual(await rowsOf(callId), [
+    ["user", "not that account, th"],
+    ["user", "go ahead now"],
+    ["assistant", "Alright."],
+  ]);
+
+  // Sent again whole, as Send it again does: the same ids, so the same rows
+  steps.push(() => [{ type: "text", text: "Alright." }]);
+  await pageTurn({ callId, turn: "turn-4", messages: [sent] });
+  assert.deepEqual(
+    (await rowsOf(callId)).filter(([role]) => role === "user"),
+    [
+      ["user", "not that account, th"],
+      ["user", "go ahead now"],
     ],
   );
 });

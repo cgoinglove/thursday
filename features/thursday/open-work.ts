@@ -6,16 +6,16 @@ import type { ActivityLine } from "./use-thursday";
 /**
  * Background work that waits on the user, as a call is told about it: the one list both
  * kinds of call read — a spoken call puts it to her voice when the line is quiet
- * (use-thursday), a call in writing puts it to her between turns (use-text-call). It reads
- * the inbox and words each item; the one thing it holds is what has been told already, since
- * that is true of the page rather than of either call.
+ * (use-thursday), a call in writing leaves it to her as a fact the moment it comes
+ * (use-text-call). It reads the inbox and words each item; the one thing it holds is what has
+ * been told already, since that is true of the page rather than of either call.
  */
 
 /**
  * Open work put to her while this page has been open, by item key: each goes in once,
  * whichever kind of call carried it. A key holds its job's last change, so a job that asks
  * or ends again is new work. A call takes a key back out when what it put in never reached
- * the user — her voice never carried it, her written answer failed.
+ * her — her voice never carried it, or the written call ended before a turn carrying it did.
  */
 export const toldWork = new Set<string>();
 

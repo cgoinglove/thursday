@@ -9,6 +9,7 @@ import {
   type ToolSet,
   toUIMessageStream,
   type UIMessage,
+  type UIMessageChunk,
   validateUIMessages,
 } from "ai";
 import { ZodError, z } from "zod";
@@ -36,8 +37,11 @@ import {
   saveTurns,
 } from "./thursday.query";
 import {
+  TEXT_CALL_NOTE,
   TEXT_CALL_PROVIDERS,
   type TextCallHandshake,
+  type TextCallNote,
+  TextCallNoteSchema,
   type TextCallProvider,
   textCallRunsOn,
 } from "./thursday.schema";
@@ -50,7 +54,9 @@ import { toolLine } from "./tool-line";
  * writes holds the conversation and hands it over whole with every turn (what a tool
  * answered is not kept in the rows, so they cannot rebuild it): the page, which is
  * answered as a stream, or the server itself for someone writing from a phone (reach),
- * which is answered whole. Either way each turn is saved as it happens.
+ * which is answered whole. Either way each turn is saved as it happens, and what arrives
+ * while she works — their words, a fact for a bot's update — joins the turn before her
+ * next step, as it does for a bot (bot.run).
  */
 
 /** Which sign-in a call in writing runs on, from what is set. Null when neither is. */
@@ -100,22 +106,67 @@ const BodySchema = z.object({
   standing: z.string().nullish(),
   /** The model picked on the write line; absent, the rule decides (runsOnOf). */
   runsOn: textModelRefSchema.nullish(),
+  /** This answer's own name, new with every request: what the page tells it goes here. */
+  turn: z.string().min(1),
   messages: z.array(z.unknown()).min(1),
 });
+
+type Pinned = {
+  __textCallTurns?: Map<string, { callId: string; notes: TextCallNote[] }>;
+};
+/**
+ * The answers pages are streaming now, by their turn: what a page tells one waits here for
+ * her next step. Pinned to globalThis: the route that streams and the action that tells are
+ * loaded apart.
+ */
+const answering = ((globalThis as Pinned).__textCallTurns ??= new Map());
+
+/**
+ * Puts words or a fact into the answer a page is streaming, read before her next step. What
+ * a step read comes back to the page ahead of that step; anything that does not — too late for
+ * her last step, or refused here (false) once that answer is over or it is not this call's —
+ * the page carries into the next turn.
+ */
+export function tellTextCall(
+  callId: string,
+  turn: string,
+  note: TextCallNote,
+): boolean {
+  const open = answering.get(turn);
+  if (!open || open.callId !== callId) return false;
+  open.notes.push(note);
+  return true;
+}
 
 export async function streamTextCall(
   body: unknown,
   signal: AbortSignal,
 ): Promise<Response> {
   let run: Awaited<ReturnType<typeof prepare>>;
+  let turn: string | null = null;
+  const inbox: TextCallNote[] = [];
+  const close = () => {
+    if (turn) answering.delete(turn);
+  };
   try {
-    run = await prepare(body);
+    const request = BodySchema.parse(body);
+    turn = request.turn;
+    // Open before anything awaits: what is told while it gets ready joins its first step.
+    // Closed however it ends, getting ready included: a page gone then never reads the body
+    answering.set(turn, { callId: request.callId, notes: inbox });
+    signal.addEventListener("abort", close, { once: true });
+    if (signal.aborted) close();
+    run = await prepare(request);
   } catch (cause) {
+    close();
     // Nothing has streamed yet, so this text is what the page shows as the error
     const { status, message } = startError(cause);
     return new Response(message, { status });
   }
 
+  const rows = turnRows(run.callId, run.seq);
+  /** What each step read before it ran, by step: told back to the page ahead of that step. */
+  const took = new Map<number, TextCallNote[]>();
   const result = streamText({
     model: run.model,
     instructions: run.system,
@@ -125,7 +176,44 @@ export async function streamTextCall(
     providerOptions: run.providerOptions,
     stopWhen: stepCountIs(TEXT_CALL.maxSteps),
     abortSignal: signal,
-    onStepEnd: turnRows(run.callId, run.seq).step,
+    prepareStep: async ({ stepNumber, messages: soFar }) => {
+      const notes = inbox.splice(0);
+      if (!notes.length) return undefined;
+      for (const note of notes)
+        if (note.said) await rows.said(note.text, note.id);
+      took.set(stepNumber, notes);
+      // Carried forward by the sdk: from here the steps stack on these
+      return {
+        messages: [
+          ...soFar,
+          ...notes.map((note) => ({
+            role: "user" as const,
+            content: note.text,
+          })),
+        ],
+      };
+    },
+    onStepEnd: rows.step,
+  });
+
+  // A note goes back ahead of the step that read it, never inside one, so it can never
+  // come between a tool call and what the tool answered when the page sends it all again
+  let step = -1;
+  const told = new TransformStream<UIMessageChunk, UIMessageChunk>({
+    transform(chunk, controller) {
+      if (chunk.type === "start-step") {
+        step += 1;
+        for (const note of took.get(step) ?? [])
+          controller.enqueue({
+            type: `data-${TEXT_CALL_NOTE}`,
+            id: note.id,
+            data: note,
+          });
+      }
+      controller.enqueue(chunk);
+    },
+    // Over before the page hears the end: what comes after her last step goes with the next turn
+    flush: close,
   });
   // A provider's refusal is the user's to act on, so it is never masked
   return createUIMessageStreamResponse({
@@ -133,7 +221,7 @@ export async function streamTextCall(
       stream: result.stream,
       tools: run.tools,
       onError: modelErrorToString,
-    }),
+    }).pipeThrough(told),
   });
 }
 
@@ -218,10 +306,9 @@ export async function answerInWriting(input: {
  */
 function turnRows(callId: string, from: number) {
   let seq = from;
-  const said = (text: string) =>
-    saveTurns(callId, [
-      { id: crypto.randomUUID(), role: "user", text, seq: seq++ },
-    ]);
+  // Under the id the page drew it with, so the same words carried again are the same row
+  const said = (text: string, id: string = crypto.randomUUID()) =>
+    saveTurns(callId, [{ id, role: "user", text, seq: seq++ }]);
   const step = async (step: StepResult<ToolSet>) => {
     for (const part of step.content) {
       if (part.type === "tool-call") {
@@ -344,39 +431,91 @@ async function loadRun(
   };
 }
 
-async function prepare(body: unknown) {
-  const { callId, standing, runsOn, messages } = BodySchema.parse(body);
+async function prepare({
+  callId,
+  standing,
+  runsOn,
+  messages,
+}: z.infer<typeof BodySchema>) {
   const [run, ui, seq] = await Promise.all([
     loadRun(callId, runsOn),
-    validateUIMessages({ messages }),
+    validateUIMessages({
+      messages,
+      dataSchemas: { [TEXT_CALL_NOTE]: TextCallNoteSchema },
+    }),
     nextTurnSeq(callId),
   ]);
 
-  // The words just sent are a turn the moment they arrive, answered or not. An update the
-  // page put in for a bot (use-text-call RELAY_TURN) is not the user's words, and like a
-  // relay on a spoken call it is no turn of its own: her answer to it is what is kept
-  const said = ui.at(-1);
-  if (said?.role !== "user") publicError("The last message is not yours.");
-  const relayed =
-    (said.metadata as { relay?: unknown } | undefined)?.relay === true;
-  if (!relayed)
+  // What was just sent is a turn the moment it arrives, answered or not: words they wrote
+  // while she was answering the last turn, then these. A fact for a bot's update is no turn
+  // of its own, as on a spoken call: her answer to it is what is kept
+  const sent = ui.at(-1);
+  if (sent?.role !== "user") publicError("The last message is not yours.");
+  let at = seq;
+  for (const note of notesIn(sent))
+    if (note.said)
+      await saveTurns(callId, [
+        { id: note.id, role: "user", text: note.text, seq: at++ },
+      ]);
+  const words = wordsOf(sent);
+  if (words)
     await saveTurns(callId, [
-      { id: said.id, role: "user", text: wordsOf(said), seq },
+      { id: sent.id, role: "user", text: words, seq: at++ },
     ]);
 
   return {
     ...run,
     callId,
-    seq: relayed ? seq : seq + 1,
+    seq: at,
     messages: [
       ...standingHead(standing),
       // A tool an earlier answer broke off in has no result to send: the model would
       // be refused the whole conversation for it
-      ...(await convertToModelMessages(ui, {
+      ...(await convertToModelMessages(spreadNotes(ui), {
         ignoreIncompleteToolCalls: true,
       })),
     ],
   };
+}
+
+/** The notes a message carries (`data-note` parts), in order. */
+const notesIn = (message: UIMessage): TextCallNote[] =>
+  message.parts.flatMap((part) =>
+    part.type === `data-${TEXT_CALL_NOTE}`
+      ? [(part as { data: TextCallNote }).data]
+      : [],
+  );
+
+/**
+ * Every note as a user message of its own, where it sits: ahead of the words it went out
+ * with, or between the steps of her answer that read it. A data part left in place is
+ * dropped from what the model is sent.
+ */
+function spreadNotes(ui: UIMessage[]): UIMessage[] {
+  return ui.flatMap((message) => {
+    const out: UIMessage[] = [];
+    let parts: UIMessage["parts"] = [];
+    const cut = () => {
+      if (parts.length)
+        out.push({ ...message, id: `${message.id}:${out.length}`, parts });
+      parts = [];
+    };
+    for (const part of message.parts) {
+      if (part.type !== `data-${TEXT_CALL_NOTE}`) {
+        parts.push(part);
+        continue;
+      }
+      cut();
+      const note = (part as { data: TextCallNote }).data;
+      out.push({
+        id: note.id,
+        role: "user",
+        parts: [{ type: "text", text: note.text }],
+      });
+    }
+    cut();
+    return out;
+  });
 }
 
 export const NOTHING_TO_RUN_ON =

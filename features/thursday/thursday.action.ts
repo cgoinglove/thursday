@@ -38,8 +38,9 @@ import {
   CallThoughtSchema,
   CallTurnSchema,
   type TextCallHandshake,
+  TextCallNoteSchema,
 } from "./thursday.schema";
-import { openTextCall } from "./thursday.text";
+import { openTextCall, tellTextCall } from "./thursday.text";
 
 // Server actions run one at a time per client, so the recording actions stay
 // small: a tool call mid-sentence may be queued behind them.
@@ -156,6 +157,20 @@ export const openCallAction = serverAction(
 export const openTextCallAction = serverAction(
   async (runsOn?: unknown): Promise<TextCallHandshake> =>
     openTextCall(textModelRefSchema.nullish().parse(runsOn)),
+);
+
+/**
+ * Words written, or a fact for a bot's update, while she is answering in writing: they join
+ * that answer before her next step (thursday.text). What she did not read by its end — too
+ * late, refused (false), or queued behind another action — the page carries into the next turn.
+ */
+export const tellTextCallAction = serverAction(
+  async (callId: unknown, turn: unknown, note: unknown): Promise<boolean> =>
+    tellTextCall(
+      z.string().min(1).parse(callId),
+      z.string().min(1).parse(turn),
+      TextCallNoteSchema.parse(note),
+    ),
 );
 
 /**
