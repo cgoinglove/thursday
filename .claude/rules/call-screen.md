@@ -105,7 +105,9 @@ maintainer.
   (`markdown` `Picture` too).
 - **Whatever the app can draw opens over it** (`file-view` `FileDialog`); only the ↗ button leaves for
   a tab. A file she put up closes itself after `WORKSPACE_VIEW.autoCloseMs`, and the first pointer
-  move, key or scroll cancels that for good. What the reader opened is never on that clock.
+  move, key or scroll cancels that for good. What the reader opened is never on that clock. What
+  nothing here draws (`viewKindOf` `none`) is never read as text: it opens in the computer's own
+  program (`openFileAction`), and Reveal shows a file picked in its folder (`revealFileAction`).
 - **What has ended stands in the left corner, and nothing else does.** Nothing a job finished opens by
   itself: it lands as a card — the bot, the label, how the answer opens, its files as square faces
   sharing the card's column, the overflow counted on the last. The corner draws

@@ -34,7 +34,7 @@ import type { FileViewKind } from "@/features/workspace/file-kind";
 import {
   deleteWorkspaceFileAction,
   emptyScratchAction,
-  openFileAction,
+  revealFileAction,
 } from "@/features/workspace/workspace.action";
 import type {
   WorkspaceEntry,
@@ -97,7 +97,7 @@ export function WorkspaceSetting() {
     onOk: () => revalidate(queryKey.workspace),
   });
 
-  const [reveal] = useServerAction(openFileAction);
+  const [reveal] = useServerAction(revealFileAction);
 
   const confirmEmptyScratch = async () => {
     const confirmed = await notify.confirm({
@@ -368,7 +368,7 @@ function FilePage({
   onGone: () => void;
 }) {
   const path = file.path;
-  const [reveal] = useServerAction(openFileAction);
+  const [reveal] = useServerAction(revealFileAction);
   const [remove, removing] = useServerAction(deleteWorkspaceFileAction, {
     okMessage: "File deleted",
     onOk: () => {

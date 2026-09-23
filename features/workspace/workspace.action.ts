@@ -10,21 +10,35 @@ import {
 } from "@/features/workspace/workspace.query";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
-import { revealPath } from "@/lib/reveal-path";
+import { openPath, revealPath } from "@/lib/reveal-path";
 import { errorToString } from "@/lib/utils";
 
-/** Opens a workspace file in the machine's default app; relative paths resolve against the workspace. */
+/** Opens a workspace file in the program this computer uses for it; relative paths resolve against the workspace. */
 export const openFileAction = serverAction(async (path: string) => {
-  const target = path.trim();
-  if (!target) publicError("Which file?");
-  const sandbox = await openWorkspace();
-  const full = sandbox.resolve(target);
+  const { target, full } = await onDisk(path);
   try {
-    await revealPath(full);
+    await openPath(full);
   } catch (cause) {
     publicError(`Could not open ${target}: ${errorToString(cause)}`);
   }
 });
+
+/** Shows a workspace file picked in its folder, in the file manager; a folder simply opens. */
+export const revealFileAction = serverAction(async (path: string) => {
+  const { target, full } = await onDisk(path);
+  try {
+    await revealPath(full);
+  } catch (cause) {
+    publicError(`Could not show ${target}: ${errorToString(cause)}`);
+  }
+});
+
+async function onDisk(path: string) {
+  const target = path.trim();
+  if (!target) publicError("Which file?");
+  const sandbox = await openWorkspace();
+  return { target, full: sandbox.resolve(target) };
+}
 
 /** Deletes one file the bots wrote. The path is confined to the workspace by the query. */
 export const deleteWorkspaceFileAction = serverAction(async (path: string) => {

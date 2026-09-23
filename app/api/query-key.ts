@@ -1,7 +1,7 @@
 /**
  * Every endpoint the browser reads. Keys double as SWR cache keys; `revalidate`
- * matches by url prefix, so invalidating `queryKey.memory` also refreshes
- * `queryKey.notePath(path)`. Writes go through server actions, not here.
+ * matches by url prefix, so invalidating `queryKey.memory` also refreshes every
+ * `queryKey.memoryPage` loaded. Writes go through server actions, not here.
  */
 /** Encodes per segment, keeping the path's `/`. */
 const encodePath = (path: string) =>
@@ -25,9 +25,6 @@ export const queryKey = {
     url: "/api/memory",
     query: { offset: offset || null },
   }),
-  /** One note with all facts, by path. Paths contain `/`, so it is a query, not a
-   *  segment: pass the hook null instead of building this key when closed. */
-  notePath: (path: string) => ({ url: "/api/memory", query: { path } }),
 
   /** MCPServerSummary[] with tool counts, no tools */
   mcp: "/api/mcp",
@@ -60,7 +57,6 @@ export const queryKey = {
 
   /** boolean: whether bots keep their own memory (Settings > Bots) */
   botMemory: "/api/bot/memory",
-  /** boolean: whether running jobs carry on with no browser open (Settings > Bots) */
   /** BotMemory: one bot's own memory files, newest first (Settings > Bots) */
   botMemoryFiles: (bot: string) => ({
     url: "/api/bot/memory/files",

@@ -44,7 +44,8 @@ import { clip } from "@/lib/utils";
 /**
  * Which tools each runtime is handed; what it is told about them is the prompt's job.
  * Every tool runs on the server, including calls made during a voice session, except the page's
- * own: `end_call` and `emote` have no execute (the page hangs up, the page draws the word). The split is by time, not capability: anything that
+ * own: `end_call` and `emote` have no execute (the page hangs up, the page draws the word). The
+ * split is by time, not capability: anything that
  * presupposes waiting (MCP, studio, browser) belongs to the bot. Only the call and an edit on
  * the memory screen write to memory: revising, carrying and naming need the user there. A bot reads it.
  * Skills are the one thing that crosses back, and only when asked for: the call reads one itself
@@ -302,10 +303,14 @@ function createThreadTools(callId: string | null | undefined): ToolSet {
         // What it made is what they asked to see: the file itself, in the app's
         // viewer. A thread that left no file opens as itself
         const { filesOnDisk } = await import("@/features/workspace/workspace");
-        const { opensOnFinish, pathsIn } = await import(
+        const { opensOnFinish, pathsIn, viewKindOf } = await import(
           "@/features/workspace/file-kind"
         );
-        const files = await filesOnDisk(pathsIn(one.outcome ?? ""), null);
+        // Only what the viewer draws: a Word file beside its PDF copy opens as the copy,
+        // and one with nothing drawable opens as the thread, where its files are listed
+        const files = (
+          await filesOnDisk(pathsIn(one.outcome ?? ""), null)
+        ).filter((file) => viewKindOf(file) !== "none");
         if (!files.length) {
           // Opened in the room, where reading it is what marks it seen
           appEvents.emit({ type: "showThread", threadId: one.id });

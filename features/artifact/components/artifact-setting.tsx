@@ -32,7 +32,7 @@ import {
 } from "@/features/settings/components/setting-ui";
 import { FileThumb } from "@/features/workspace/components/file-thumb";
 import { FilePreview } from "@/features/workspace/components/file-view";
-import { openFileAction } from "@/features/workspace/workspace.action";
+import { revealFileAction } from "@/features/workspace/workspace.action";
 import { shortAgo } from "@/lib/date-like";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
@@ -65,7 +65,7 @@ export function ArtifactSetting() {
   );
 
   const { data: bots } = useServerRoute<Bot[]>(queryKey.bot);
-  const [reveal] = useServerAction(openFileAction);
+  const [reveal] = useServerAction(revealFileAction);
 
   if (isLoading) return <SettingPanesSkeleton />;
   if (error) return <SettingError message={error.message} />;
@@ -274,7 +274,7 @@ function Reader({
   /** Back to the shelf it was picked from. */
   onShelf: () => void;
 }) {
-  const [reveal] = useServerAction(openFileAction);
+  const [reveal] = useServerAction(revealFileAction);
   const [remove, removing] = useServerAction(deleteArtifactAction, {
     okMessage: "Deleted",
     onOk: () => {

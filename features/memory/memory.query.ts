@@ -94,18 +94,6 @@ export async function createNote(
   return note ?? null;
 }
 
-/** Note by path with all current facts. */
-export async function findNoteByPath(path: string) {
-  const [note] = await database
-    .select()
-    .from(memoryNoteTable)
-    .where(eq(memoryNoteTable.path, path.trim()));
-  if (!note) return null;
-
-  const facts = await latestFacts([note.id]);
-  return { ...note, factCount: facts.length, facts };
-}
-
 export async function updateNote(id: number, patch: { description?: string }) {
   const [note] = await database
     .update(memoryNoteTable)

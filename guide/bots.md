@@ -162,11 +162,13 @@ a key or scrolling anywhere in it stops the count for good. Nothing opened by ha
 clock.
 
 **Settings › Files** keeps all of them. **Finished** is one shelf per bot (**Everyone**, each bot,
-**Unsorted**), each file with **Open in a new tab**, **Reveal in the file manager** and **Delete**.
-**All files** is the whole folder, for looking around rather than for the results, and **Empty
-scratch** clears the bots' scratch space. A Word file, a spreadsheet, a PowerPoint or anything else
-the app has no reader for opens in the program this computer uses for it. Only the pieces a page is
-built from — its stylesheets, scripts and fonts — stay off the shelf.
+**Unsorted**), each file with **Open in a new tab**, **Reveal in the file manager** (the file picked
+in its folder) and **Delete**. **All files** is the whole folder, for looking around rather than for
+the results, and **Empty scratch** clears the bots' scratch space. A Word file, a spreadsheet, a
+PowerPoint or anything else the app has no reader for shows **Open it**, which opens it in the
+program this computer uses for it; clicked under a message it opens there straight away. Asked on a
+call to show a result like that, she puts up its PDF copy when there is one, or else the thread. Only
+the pieces a page is built from — its stylesheets, scripts and fonts — stay off the shelf.
 
 ## Books, canvases, decks and pages
 

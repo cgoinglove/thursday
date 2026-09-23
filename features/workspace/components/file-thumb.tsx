@@ -75,7 +75,7 @@ export function faceOf(path: string, bytes?: number): Face {
  * A file's own face, filling whatever box it is given: the image itself, a page in
  * miniature, the head of a text, or the file's glyph. One drawing for the three
  * places a file shows before it is opened — under a message, in the corner where
- * finished work lands, on the Artifacts shelf.
+ * finished work lands, on the Files shelf.
  *
  * A page is the page: the viewer's own iframe at desktop width, scaled down, so it
  * is never a stale picture and needs nothing on the server. It cannot be touched,

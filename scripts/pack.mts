@@ -39,9 +39,10 @@ if (process.argv.includes("--refuse-root")) {
 rmSync(DIST, { recursive: true, force: true });
 
 /**
- * The same gates CI runs, in the order that fails fastest. `next build` type
- * checks on its own, but nothing else lints — without this, a local
- * `pnpm release` would publish what a pull request could not merge.
+ * What CI checks before a merge, less the test suites and knip: lint, types and
+ * the build, in the order that fails fastest. `next build` type checks on its
+ * own, but nothing else lints — without this, a local `pnpm release` would
+ * publish what a pull request could not merge.
  */
 if (!process.argv.includes("--no-build")) {
   for (const [what, argv] of [

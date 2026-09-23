@@ -96,7 +96,7 @@ import {
 import { viewKindOf } from "@/features/workspace/file-kind";
 import {
   deleteWorkspaceFileAction,
-  openFileAction,
+  revealFileAction,
 } from "@/features/workspace/workspace.action";
 import { useObjectState } from "@/hooks/use-object-state";
 import { type DateLike, shortAgo, whenOf } from "@/lib/date-like";
@@ -1066,7 +1066,7 @@ function Memory({ bot }: { bot: string }) {
   const key = queryKey.botMemoryFiles(bot);
   const { data, isLoading } = useServerRoute<BotMemory>(key);
   const [open, setOpen] = useState<string | null>(null);
-  const [reveal] = useServerAction(openFileAction);
+  const [reveal] = useServerAction(revealFileAction);
   const [remove, removing] = useServerAction(deleteWorkspaceFileAction, {
     okMessage: "File deleted",
     onOk: () => {

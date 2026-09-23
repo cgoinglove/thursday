@@ -7,7 +7,7 @@ import { insideWorkspace } from "@/features/workspace/workspace";
 import { type RouteContext, serverRoute } from "@/lib/protocol/server-route";
 
 /**
- * Raw workspace file, the one GET without a JSON envelope (serverRoute passes a
+ * Raw workspace file, served without a JSON envelope (serverRoute passes a
  * Response through). insideWorkspace confines the path: outside is 403, not 404.
  * Streams with ETag and Range so large media and video seeking work.
  */

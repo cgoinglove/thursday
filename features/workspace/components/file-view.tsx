@@ -33,6 +33,7 @@ import {
 } from "@/features/workspace/file-kind";
 import {
   openFileAction,
+  revealFileAction,
   savePageAction,
 } from "@/features/workspace/workspace.action";
 import { isResultOk } from "@/lib/protocol/result";
@@ -294,14 +295,17 @@ function shortOf(res: Response): number | null {
 
 /**
  * One file drawn where it sits (the Workspace section). Kinds the browser fills
- * itself are elements; text kinds fetch and go through `FileBody`.
+ * itself are elements; text kinds fetch and go through `FileBody`; what nothing
+ * here draws opens in the computer's own program.
  */
 export function FilePreview({ path, bytes }: { path: string; bytes: number }) {
   const kind = viewKindOf(path);
-  // Only text kinds are fetched; the rest are elements the browser fills itself.
+  // Only text kinds are fetched; the rest are elements, or not drawn at all.
   const { content, failure, truncated } = useFileText(
-    DRAWS_ITSELF.has(kind) ? null : path,
+    DRAWS_ITSELF.has(kind) || kind === "none" ? null : path,
   );
+
+  if (kind === "none") return <OwnProgram path={path} />;
 
   // An `<img>` decodes whole and a huge page cannot be scrolled, and neither
   // says so — it just stops. Audio and video are absent: those stream.
@@ -454,9 +458,24 @@ function FileElement({
   );
 }
 
+/** Nothing here draws it — a Word file, a spreadsheet, a deck: it opens where it can be read. */
+function OwnProgram({ path }: { path: string }) {
+  const [open, opening] = useServerAction(openFileAction);
+  return (
+    <div className="space-y-4 p-8">
+      <p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
+        Nothing here can draw this file. It opens in its own program.
+      </p>
+      <Button variant="outline" loading={opening} onClick={() => open(path)}>
+        Open it
+      </Button>
+    </div>
+  );
+}
+
 /** Past `elementMax`: the preview says what it is instead of taking the tab down with it. */
 function TooBig({ path, bytes }: { path: string; bytes: number }) {
-  const [reveal, revealing] = useServerAction(openFileAction);
+  const [reveal, revealing] = useServerAction(revealFileAction);
   return (
     <div className="space-y-4 p-8">
       <p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
