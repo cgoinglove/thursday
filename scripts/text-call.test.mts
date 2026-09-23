@@ -192,6 +192,8 @@ test("the kept settings take a browser's copy once, and read the old skills row 
   assert.equal(kept.voice, "cedar");
   assert.equal(kept.persona, "calm");
   assert.equal(kept.stylePrompt, "Quieter.");
+  // No browser ever held the switch, so it comes from the row it had of its own
+  assert.equal(kept.readSkills, true);
   // Not a field of theirs, so it never reaches the row
   assert.equal("captionView" in kept, false);
 

@@ -43,10 +43,16 @@ export async function readLiveSettings(): Promise<LiveSettings> {
   const stored = asObject(await readConfig(THURSDAY_KEYS.settings));
   const settings = LiveSettingsSchema.parse(migrateLiveSettings(stored));
   if (stored && "readSkills" in stored) return settings;
-  // Before the settings moved here this switch was a row of its own, and an install
-  // that turned it on keeps it on. Its row is read, never written again
-  const was = await readConfig(THURSDAY_KEYS.wasSkills);
-  return { ...settings, readSkills: was?.trim() === "on" };
+  return { ...settings, readSkills: await wasReadingSkills() };
+}
+
+/**
+ * Before the settings moved here this switch was a row of its own, and an install that
+ * turned it on keeps it on. No browser ever held it, so a browser's copy never carries it.
+ * Its row is read, never written again.
+ */
+async function wasReadingSkills(): Promise<boolean> {
+  return (await readConfig(THURSDAY_KEYS.wasSkills))?.trim() === "on";
 }
 
 /** Replaces them whole: the screen holds every field, so there is nothing to merge. */
@@ -64,9 +70,10 @@ export async function writeLiveSettings(settings: LiveSettings): Promise<void> {
  */
 export async function seedLiveSettings(carried: unknown): Promise<boolean> {
   if (await readConfig(THURSDAY_KEYS.settings)) return false;
-  await writeLiveSettings(
-    LiveSettingsSchema.parse(migrateLiveSettings(carried)),
-  );
+  await writeLiveSettings({
+    ...LiveSettingsSchema.parse(migrateLiveSettings(carried)),
+    readSkills: await wasReadingSkills(),
+  });
   return true;
 }
 
