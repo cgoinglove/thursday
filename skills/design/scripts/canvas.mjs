@@ -213,6 +213,8 @@ async function shotCanvas(name) {
       copyFileSync(join(dir, entry.name), join(flat, entry.name));
 
   const scripts = join(SKILLS, "browser", "scripts");
+  const sheet = join(dir, "boards.png");
+  rmSync(sheet, { force: true });
   const done = spawnSync(
     process.execPath,
     // Never in the job's own browser, which may be a window on their screen
@@ -224,6 +226,8 @@ async function shotCanvas(name) {
       "--name",
       "board",
       "--apart",
+      "--sheet",
+      sheet,
     ],
     { stdio: "inherit" },
   );
@@ -252,7 +256,7 @@ async function shotCanvas(name) {
       `${wrong.join("; ")}. What is on it does not fit it: cut, tighten or split it, then run this again.`,
     );
   console.log(
-    `The boards are pictures in ${shown(dir)}. Hand back the canvas and every board picture, so both are in front of whoever chooses.`,
+    `The boards are pictures in ${shown(dir)}, and ${shown(sheet)} holds all of them for one look. Hand back the canvas and every board picture, so both are in front of whoever chooses.`,
   );
 }
 

@@ -37,17 +37,15 @@ first is the cover, asking the question the book answers.
    the file whole loses them.
 4. Look at it once when a page carries a picture you did not draw — a photo you
    downloaded, a generated one — or when a page may not fit. A book drawn in SVG
-   alone needs no browser at all; hand it back and skip to 5. To look, one bash call:
+   alone needs no browser at all; hand it back and skip to 5. To look:
 
    ```bash
-   node "$THURSDAY_SKILLS/browser/scripts/render.mjs" <book path> --size 960x540 --out <scratch>/pages && \
-   node "$THURSDAY_SKILLS/browser/scripts/sheet.mjs" --out <scratch>/book.png --cols 4 <scratch>/pages/*.png
+   node <skill dir>/scripts/book.mjs shots <name>
    ```
 
-   That is every page as one picture for a single `look_at`. It opens a tab of
-   its own in this job's browser — a headless one when the job has none open —
-   and closes it again, so no page you left open is touched. Fix what it shows,
-   then stop.
+   That is every page, numbered, on one picture for a single `look_at`, drawn in
+   a headless browser of its own, never in this job's. Fix what it shows, then
+   stop.
 5. Hand back the path. The user turns pages with a swipe, the arrow keys or a
    tap on the right or left of a page, and `#3` in the address opens page 3.
 

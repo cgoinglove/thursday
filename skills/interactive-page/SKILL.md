@@ -1,6 +1,6 @@
 ---
 name: interactive-page
-description: "A page to read, as one HTML file: a report, a memo, a comparison, a plan, meeting notes — written from a ready document with a title line, a contents list, chips for dates and status, checklists and sources — with a chart of numbers or a diagram of how something is built or flows. Not a canvas of design options (design) and not a deck (slides)."
+description: "A page to read, as one HTML file: a report, a memo, a comparison, a plan, meeting notes — written from a ready document with a title line, a contents list, chips for dates and status, checklists and sources — with a chart of numbers or a diagram of how something is built or flows. Not a canvas of design options (design), not a deck (make_deck) and not a picture book (picture-book)."
 license: Complete terms in LICENSE.txt
 ---
 

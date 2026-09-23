@@ -14,9 +14,10 @@
  * window's own pixel density, each ending where no line or picture runs across it. The
  * app sends a page to a phone this way (features/reach/pictures). `--apart` shoots in a
  * headless browser of its own, closed after, never in the session's: a bot's pictures of
- * its own work must not appear in a window on the user's screen.
+ * its own work must not appear in a window on the user's screen. `--sheet <file.png>` also
+ * lays every picture it took on one image, numbered, so all of them are seen in one look.
  *
- *   node render.mjs <slides.html> --out <dir> [--size 1080x1350] [--name slide] [--shot] [--most n] [--apart]
+ *   node render.mjs <slides.html> --out <dir> [--size 1080x1350] [--name slide] [--shot] [--most n] [--apart] [--sheet <file.png>]
  */
 import { createReadStream, existsSync, mkdirSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -26,7 +27,7 @@ import { imageSize } from "./image-size.mjs";
 import { fail, inPage, inPageApart, orFail, parseArgs } from "./session.mjs";
 
 const USAGE =
-  "usage: node render.mjs <slides.html> --out <dir> [--size 1080x1350] [--name slide] [--shot] [--most n] [--apart]";
+  "usage: node render.mjs <slides.html> --out <dir> [--size 1080x1350] [--name slide] [--shot] [--most n] [--apart] [--sheet <file.png>]";
 const opts = parseArgs();
 const file = opts._[0] && resolve(opts._[0]);
 const [w, h] = String(opts.size ?? "")
@@ -37,6 +38,7 @@ if (
   !file ||
   !opts.out ||
   (opts.size !== undefined && !(w && h)) ||
+  opts.sheet === true ||
   !(Number.isInteger(most) && most >= 0)
 )
   fail(USAGE);
@@ -44,6 +46,8 @@ if (!existsSync(file)) fail(`No such file: ${file}`);
 const out = resolve(opts.out);
 mkdirSync(out, { recursive: true });
 const name = opts.name ?? "slide";
+const sheet = opts.sheet ? resolve(opts.sheet) : "";
+if (sheet) mkdirSync(dirname(sheet), { recursive: true });
 
 /** The file as its shot mode draws it: `shot` on <body>, beside any class it already has. */
 const asShot = (html) =>
@@ -99,7 +103,7 @@ const url = `http://127.0.0.1:${server.address().port}/${encodeURIComponent(base
 
 const done = orFail(
   await (opts.apart ? inPageApart : inPage)(
-    async (page, { url, w, h, out, name, most }) => {
+    async (page, { url, w, h, out, name, most, sheet }) => {
       const tab = await page.context().newPage();
       try {
         // Slides of their own size lay out the same in any window; the viewport only
@@ -124,9 +128,10 @@ const done = orFail(
         const n = await slides.count();
         const files = [];
         const pad = (i) => String(i + 1).padStart(2, "0");
+        const taken = [];
         if (n === 0 && !most) {
           const path = `${out}/${name}-01.png`;
-          await tab.screenshot({ path, scale: "css" });
+          taken.push(await tab.screenshot({ path, scale: "css" }));
           files.push(path);
         }
         if (n === 0 && most) {
@@ -176,31 +181,50 @@ const done = orFail(
           );
           for (let i = 1; i < cuts.length; i++) {
             const path = `${out}/${name}-${pad(i - 1)}.png`;
-            await tab.screenshot({
-              path,
-              fullPage: true,
-              scale: "device",
-              clip: {
-                x: 0,
-                y: cuts[i - 1],
-                width,
-                height: cuts[i] - cuts[i - 1],
-              },
-            });
+            taken.push(
+              await tab.screenshot({
+                path,
+                fullPage: true,
+                scale: "device",
+                clip: {
+                  x: 0,
+                  y: cuts[i - 1],
+                  width,
+                  height: cuts[i] - cuts[i - 1],
+                },
+              }),
+            );
             files.push(path);
           }
         }
         for (let i = 0; i < (most ? Math.min(n, most) : n); i++) {
           const path = `${out}/${name}-${pad(i)}.png`;
-          await slides.nth(i).screenshot({ path, scale: "css" });
+          taken.push(await slides.nth(i).screenshot({ path, scale: "css" }));
           files.push(path);
+        }
+        if (sheet && taken.length) {
+          // Every picture at most 480 wide and 600 tall, four to a row, each under its number
+          const cells = taken
+            .map(
+              (png, i) =>
+                `<figure><figcaption>${i + 1}</figcaption><img src="data:image/png;base64,${png.toString("base64")}"></figure>`,
+            )
+            .join("");
+          await tab.setViewportSize({ width: 2048, height: 800 });
+          await tab.setContent(
+            `<!doctype html><style>body{margin:0;background:#e8e8e8}#sheet{display:inline-grid;grid-template-columns:repeat(${Math.min(4, taken.length)},480px);gap:24px 16px;padding:16px;align-items:start}figure{margin:0}figcaption{font:600 18px/1.4 system-ui,sans-serif;color:#1b1b1b;padding-bottom:6px}img{display:block;max-width:480px;max-height:600px;background:#fff;box-shadow:0 0 0 1px #0002}</style><div id="sheet">${cells}</div>`,
+          );
+          await tab.evaluate(() =>
+            Promise.all([...document.images].map((i) => i.decode())),
+          );
+          await tab.locator("#sheet").screenshot({ path: sheet });
         }
         return { files, broken, windows: n === 0 && most > 0 };
       } finally {
         await tab.close();
       }
     },
-    { url, w, h, out, name, most },
+    { url, w, h, out, name, most, sheet },
   ),
 );
 server.close();
@@ -226,3 +250,5 @@ console.log(
     ? `${done.files.length} window(s) down the page in ${out}`
     : `${done.files.length} slide(s)${w ? ` at ${w}x${h}` : ""} in ${out}`,
 );
+if (sheet && done.files.length)
+  console.log(`All of them on one picture: ${sheet}`);

@@ -61,7 +61,9 @@ does not say. A `SKILL.md` is model-facing text, so `model.md` › Writing for a
     neither side undoes the other. A deck is checked by that revision alone: `make_deck` hands it
     back with every deck, and a change that names another is answered with the deck as it stands.
     Each script's `shots` takes its pictures in a headless browser of its own (`render.mjs
-    --apart`), never in the job's, which may be a window on the user's screen. Its classes and
+    --apart`), never in the job's, which may be a window on the user's screen, and a deck, a canvas
+    and a picture book also lay all of them on one picture (`--sheet`), so a bot sees everything it
+    made in one look. A document's head and tab read its first heading, which `put` sets. Its classes and
     custom properties are prefixed `sh-`, since a bot's own stylesheet shares the page, and a kind's
     defaults for what a bot writes weigh nothing (`:where`), so what the bot writes wins. It marks
     the page near the top (`<meta name="generator" content="Thursday">`); the app's own tab looks

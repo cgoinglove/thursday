@@ -2,9 +2,17 @@
 // A picture book: one HTML file in a folder of its own, printed and read aloud.
 //
 //   node book.mjs new <name>                               the book, styled, to write pages into
+//   node book.mjs shots <name>                             every page as a picture, and all on one, in scratch/
 //   node book.mjs pdf <name>                               the book as a PDF, one page a sheet
 //   node book.mjs video <name> <audio>... [--size WxH]     the book as an mp4, one audio file per page
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bookPdf } from "./book-pdf.mjs";
@@ -12,6 +20,7 @@ import { bookVideo } from "./book-video.mjs";
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SCRIPT = join(SKILL, "scripts", "book.mjs");
+const SKILLS = process.env.THURSDAY_SKILLS || resolve(SKILL, "..");
 const NAME = /^[\p{L}\p{N}][\p{L}\p{N}_-]{0,79}$/u;
 
 /** The app's workspace: the nearest folder above holding its fence and a `projects` folder. */
@@ -78,6 +87,42 @@ function newBook(name) {
   );
 }
 
+/**
+ * Every page as a picture at the size a screen shows it, and all of them on one, in
+ * scratch/: a look at the book, never part of it, so never in the book's own folder.
+ */
+function shotBook(name) {
+  const book = openBook(name);
+  const out = join(WORKSPACE, "scratch", `${name}-shots`);
+  const sheet = join(out, "book.png");
+  rmSync(out, { recursive: true, force: true });
+  const done = spawnSync(
+    process.execPath,
+    [
+      join(SKILLS, "browser", "scripts", "render.mjs"),
+      book,
+      "--size",
+      "960x540",
+      "--out",
+      out,
+      "--name",
+      "page",
+      // Never in the job's own browser, which may be a window on their screen
+      "--apart",
+      "--sheet",
+      sheet,
+    ],
+    { encoding: "utf8" },
+  );
+  const said = `${done.stdout}${done.stderr}`.trim();
+  if (done.status !== 0 || !existsSync(sheet))
+    throw new Stop(said.split("\n").at(-1) || "No pictures were made.");
+  const broken = /^Pictures that did not load.*$/m.exec(said);
+  console.log(
+    `${broken ? `${broken[0]}\n` : ""}Every page is on ${shown(sheet)}: look at it with look_at. One page alone is ${shown(out)}/page-01.png on.`,
+  );
+}
+
 function videoBook(name, args) {
   const book = openBook(name);
   const at = args.indexOf("--size");
@@ -98,12 +143,13 @@ function videoBook(name, args) {
 const [command, ...rest] = process.argv.slice(2);
 try {
   if (command === "new") newBook(rest[0]);
+  else if (command === "shots") shotBook(rest[0]);
   else if (command === "pdf")
     await bookPdf({ book: openBook(rest[0]), shown }, Stop);
   else if (command === "video") videoBook(rest[0], rest.slice(1));
   else
     throw new Stop(
-      "Usage: book.mjs new <name> | pdf <name> | video <name> <audio>... [--size WxH]",
+      "Usage: book.mjs new <name> | shots <name> | pdf <name> | video <name> <audio>... [--size WxH]",
     );
 } catch (error) {
   if (!(error instanceof Stop)) throw error;

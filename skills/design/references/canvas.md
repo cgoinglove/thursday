@@ -127,7 +127,7 @@ where no name of yours reaches it, so it is shot by its path — the file, or th
 holding it — and its pictures land beside it, where whoever chooses will look.
 
 Every board becomes `board-01.png`, `board-02.png` … beside the canvas, in the order they
-appear, each at its own size. They are what goes in front of whoever chooses — the canvas
+appear, each at its own size, and `boards.png` holds all of them, numbered, for one `look_at`. They are what goes in front of whoever chooses — the canvas
 is one live face in a thread, the pictures are four. The renderer uses the job's browser,
 and opens a headless one when none is.
 

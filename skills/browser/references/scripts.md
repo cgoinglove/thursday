@@ -9,20 +9,15 @@ folder is also `$THURSDAY_SKILLS/browser/scripts`, which is how a skill's own sc
 
 ```bash
 S=<skill dir>/scripts
-# Each [data-slide] of an HTML file (or the whole viewport) as a PNG: of exactly --size,
-# or, without it, of the size each one is drawn at
-node $S/render.mjs <slides.html> --out <dir> [--size 1080x1350] [--name slide]
 # A page's own picture (og:image), with --all its large pictures too, and the credit line
 node $S/webimage.mjs <page url> --out <dir> [--all] [--min 600]
 # Many pictures, urls or files, on one labelled image to look at once
 node $S/sheet.mjs --out sheet.png <image url | file>... [--cols 4]
 ```
 
-`render` serves the file's folder on a port the system picks, so pictures and fonts beside it
-load and two jobs rendering at once never meet. Given `--size` it fails when a slide comes
-out at another size; without it, it prints each slide's size for you to judge. Either way it
-names any picture that did not load. `webimage` and `sheet` fetch through the
-browser, so a site that refuses `curl` still answers and a picture behind a sign-in loads.
+Both fetch through the browser, so a site that refuses `curl` still answers and a picture
+behind a sign-in loads. What you made yourself — a deck, a canvas, a document, a picture book —
+is shot by its own skill, never here.
 
 ## A script of your own
 

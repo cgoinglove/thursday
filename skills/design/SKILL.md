@@ -18,7 +18,8 @@ app draws it at 1024px wide. `S=<skill dir>/scripts`
    real choice; read it before the first board.
 3. `node $S/canvas.mjs put <name|path> <file> && node $S/canvas.mjs shots <name|path>` —
    the boards and notes into the canvas, then every board as a PNG beside it, each at its
-   own size; one that overflows is refused by number. A canvas another bot handed you is
+   own size, and `boards.png` with all of them for one look; one that overflows is refused
+   by number. A canvas another bot handed you is
    reached by its path, never by name.
 4. Hand back the canvas's path and the pictures' paths, and say in words what each
    option explores and which you would lead with.

@@ -186,7 +186,7 @@ forward outlined. Drag to move it, pinch or hold ⌘ and scroll to zoom; the arr
 options up one at a time, and 0 fits it all back in the window. Boards on one canvas can be different
 sizes — a phone beside a desktop screen, a poster beside a post — and a button on one board can lead
 to the next, so a flow of screens is walked through the way it would be used. Every option is also a
-picture of its own. It designs from what is already there — a codebase, a brand, a page it was shown
+picture of its own, and one picture holds them all. It designs from what is already there — a codebase, a brand, a page it was shown
 — and it cannot see the app's own screens as they are today: give it a screenshot when the options
 should sit beside one. Any bot can lay options out this way when a choice is what was asked for.
 
@@ -209,7 +209,7 @@ two to four cards side by side, one big figure, a table, a quote, a picture with
 with what happens next — and one of four palettes (green, blue, terracotta, or gold on black). The
 app draws every slide, so each deck is laid out alike, and a slide that holds more words than fit
 has its type made smaller until they do; one that still does not fit is sent back to the bot to say
-less. Slides are shown one at a time, fitted to the window, with every slide small in a strip at the
+less. Beside the deck sit a picture of every slide and one of all of them together. Slides are shown one at a time, fitted to the window, with every slide small in a strip at the
 foot — click one to jump to it, or fold the strip away. The bar at its top names who made it and holds the arrows and
 the count, Notes (what is said over the slide), full screen, Present, a theme button and **Export**
 (**Print · one slide a page**, **This slide as a picture**, **Download this file**). The arrow keys,

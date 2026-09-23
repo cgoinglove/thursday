@@ -34,8 +34,8 @@ they asked you to find, the order sitting at checkout for them to confirm, the m
 pin dropped, the page they asked to watch, a sign-in for them to finish. Open it `--headed`,
 leave it open, and say in your answer that it is on their screen. A window you opened
 headed only to get past a wall and are done with, `close` yourself. A window is never how
-you look at your own work: a page, a deck or a canvas you made is shown to you by its
-skill's `shots` and `look_at`, and reaches them under your answer — nor is `open` on their
+you look at your own work: a page, a deck, a canvas or a picture book you made is shown to
+you by its skill's `shots` and `look_at`, and reaches them under your answer — nor is `open` on their
 desktop. Only a job they cancel or delete takes its windows with it.
 
 **A payment is theirs to press.** Take a purchase, a top-up or a subscription
@@ -122,10 +122,7 @@ when the job is about another.
 `--raw eval "JSON.stringify([...document.images].filter(i => i.naturalWidth > 200).map(i => i.currentSrc))"`.
 
 **Local HTML.** `file:` URLs are refused, and a fixed port lets two jobs
-capture each other's pages. For a picture of it,
-`node <skill dir>/scripts/render.mjs <file.html> --out <dir> [--size 1280x800]`
-serves its folder on a free port for the run and saves each `[data-slide]`
-(else the viewport) as a PNG — of exactly `--size`, or of its own size without it. To open or print it:
+capture each other's pages. To open or print one:
 `python3 -u -m http.server 0 --bind 127.0.0.1 --directory <dir> > <scratch>/serve.log 2>&1 &`,
 read the port from that log, `goto http://127.0.0.1:<port>/<file>.html`;
 `pdf --filename=out.pdf` prints it. Kill the server when done.

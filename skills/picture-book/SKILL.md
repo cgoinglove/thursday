@@ -7,9 +7,9 @@ description: "Explains anything as a picture book: one picture and at most two s
 
 ```bash
 node <skill dir>/scripts/book.mjs new <name>                            # the book, in a folder of its own under artifacts
+node <skill dir>/scripts/book.mjs shots <name>                          # every page on one picture, to look at
 node <skill dir>/scripts/book.mjs pdf <name>                            # the same book as a PDF, one page a sheet
 node <skill dir>/scripts/book.mjs video <name> <audio>... [--size WxH]  # it read aloud, one audio file per page
-node "$THURSDAY_SKILLS/browser/scripts/render.mjs" <book> --size 960x540 --out <dir>   # every page as a picture, to look at
 ```
 
 The book's own file holds its style and page turning: add pages inside `<main>`

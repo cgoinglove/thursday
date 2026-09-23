@@ -35,6 +35,8 @@ const SKILLS = process.env.THURSDAY_SKILLS || resolve(HERE, "..");
 const W = 1920;
 const H = 1080;
 const SHOT = /^slide-(\d+)\.png$/;
+/** Every slide on one picture, beside the deck, for one look. */
+const SHEET = "slides.png";
 
 class Stop extends Error {}
 
@@ -112,8 +114,10 @@ function shotDeck(file) {
 
   // Pictures of the slides the deck held before: fewer slides now leave some behind
   const dir = dirname(file);
+  const sheet = join(dir, SHEET);
   for (const name of readdirSync(dir))
     if (SHOT.test(name)) rmSync(join(dir, name), { force: true });
+  rmSync(sheet, { force: true });
 
   // The renderer shoots every `[data-slide]` at one exact size, and cannot see a slide the
   // deck has scaled to fit the window. So it is given a flat copy — the slides alone, at
@@ -141,6 +145,8 @@ function shotDeck(file) {
       "slide",
       // Never in the job's own browser, which may be a window on their screen
       "--apart",
+      "--sheet",
+      sheet,
     ],
     { encoding: "utf8" },
   );
@@ -161,7 +167,11 @@ function shotDeck(file) {
       ? []
       : [Number(SHOT.exec(name)[1])];
   });
-  answer({ pictures: pictures.map((name) => join(dir, name)), cut });
+  answer({
+    pictures: pictures.map((name) => join(dir, name)),
+    sheet: existsSync(sheet) ? sheet : null,
+    cut,
+  });
 }
 
 const commands = { put: putDeck, shots: shotDeck };
