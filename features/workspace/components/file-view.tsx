@@ -335,6 +335,62 @@ export function FilePreview({ path, bytes }: { path: string; bytes: number }) {
 }
 
 /**
+ * A page a bot wrote wears a head that can edit it (skills/shell) and asks the frame
+ * showing it to keep what changed. The frame names the file; the page never does. Each
+ * page the frame loads is answered with a name for the file it was opened as, and its
+ * saves carry that name back, so a save still in flight when the frame moves to another
+ * file, or closes, lands in the file it was written from. One listener hears every frame
+ * for that reason: a dialog closing takes its component away before the save its page
+ * sent on the way out has arrived.
+ */
+const pages = {
+  /** A file → the name its pages are answered with, one per file. */
+  named: new Map<string, string>(),
+  /** A name → the file it stands for. */
+  opened: new Map<string, string>(),
+  /** A frame's window → the file it shows now. */
+  showing: new WeakMap<Window, string>(),
+  listening: false,
+};
+
+const hostFor = (path: string) => {
+  let as = pages.named.get(path);
+  if (!as) {
+    as = crypto.randomUUID();
+    pages.named.set(path, as);
+    pages.opened.set(as, path);
+  }
+  return { thursday: "host", as };
+};
+
+async function hearPages(event: MessageEvent) {
+  // A frame's window belongs to its own realm, so it is never `instanceof Window` here
+  const from = event.source as Window | null;
+  const said = event.data;
+  if (!from || event.origin !== location.origin) return;
+  if (typeof said?.thursday !== "string") return;
+  if (said.thursday === "hello") {
+    const path = pages.showing.get(from);
+    if (path) from.postMessage(hostFor(path), location.origin);
+    return;
+  }
+  const path = said.thursday === "save" && pages.opened.get(said.as);
+  if (!path || typeof said.html !== "string") return;
+  const kept = await savePageAction(path, said.html);
+  from.postMessage(
+    isResultOk(kept)
+      ? { thursday: "saved", as: said.as, id: said.id }
+      : {
+          thursday: "not-saved",
+          as: said.as,
+          id: said.id,
+          error: kept.message,
+        },
+    location.origin,
+  );
+}
+
+/**
  * A file the browser fills itself. No sandbox: the html is local and just written
  * by a bot; sandboxing only breaks its forms, fonts and scripts.
  *
@@ -343,11 +399,8 @@ export function FilePreview({ path, bytes }: { path: string; bytes: number }) {
  * the frame holds focus those keys go to the page around it. The element takes it, not
  * `contentWindow` — focusing the window inside leaves this page's body holding the
  * focus — both as this mounts and when the frame loads, since a page rendered by the
- * server has loaded before React listens and one opened in a dialog loads after.
- *
- * A page a bot wrote wears a head that can edit it (skills/shell) and asks the page
- * around it to keep what changed. This answers its own frame only, and keeps what that
- * frame sends in the one file it opened, whatever the page inside says.
+ * server has loaded before React listens and one opened in a dialog loads after. The
+ * page is told it has a host at both moments too (`pages`, above).
  */
 export function FileFrame({
   path,
@@ -359,36 +412,19 @@ export function FileFrame({
   takeKeys?: boolean;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
-  const tell = useCallback(
-    (said: object) =>
-      frame.current?.contentWindow?.postMessage(said, location.origin),
-    [],
-  );
   const loaded = useCallback(() => {
     if (takeKeys) frame.current?.focus();
-    tell({ thursday: "host" });
-  }, [takeKeys, tell]);
+    const page = frame.current?.contentWindow;
+    if (!page) return;
+    pages.showing.set(page, path);
+    page.postMessage(hostFor(path), location.origin);
+  }, [path, takeKeys]);
   useEffect(loaded, [loaded]);
   useEffect(() => {
-    const hear = async (event: MessageEvent) => {
-      if (
-        event.source !== frame.current?.contentWindow ||
-        event.origin !== location.origin
-      )
-        return;
-      const said = event.data;
-      if (said?.thursday === "hello") tell({ thursday: "host" });
-      if (said?.thursday !== "save" || typeof said.html !== "string") return;
-      const kept = await savePageAction(path, said.html);
-      tell(
-        isResultOk(kept)
-          ? { thursday: "saved", id: said.id }
-          : { thursday: "not-saved", id: said.id, error: kept.message },
-      );
-    };
-    window.addEventListener("message", hear);
-    return () => window.removeEventListener("message", hear);
-  }, [path, tell]);
+    if (pages.listening) return;
+    pages.listening = true;
+    window.addEventListener("message", hearPages);
+  }, []);
   return (
     <iframe
       ref={frame}

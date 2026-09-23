@@ -95,16 +95,18 @@ window.shell = (() => {
 
   /**
    * The app, when it is the one showing this page. It frames the page and, asked, says
-   * it will keep the page's edits — and keeps them only in the file it opened, whatever
-   * the page sends. Anywhere else nobody answers, and a kind keeps a copy instead. Only
-   * a page on the app's own origin talks to it: a file opened from disk, or drawn
-   * sandboxed as a face, has no host.
+   * it will keep the page's edits, with a name for the file this page was opened as
+   * (`as`); every save carries that name back, and the app keeps it in that file whatever
+   * its frame shows by the time it arrives. Anywhere else nobody answers, and a kind keeps
+   * a copy instead. Only a page on the app's own origin talks to it: a file opened from
+   * disk, or drawn sandboxed as a face, has no host.
    */
   const host = (() => {
     const parent = window.parent !== window ? window.parent : null;
     const origin = location.origin;
     const reachable = parent && origin && origin !== "null";
     let keeps = false;
+    let as = "";
     let next = 0;
     const waiting = new Map();
     const heard = new Set();
@@ -114,11 +116,14 @@ window.shell = (() => {
       const said = event.data;
       if (!said || typeof said.thursday !== "string") return;
       if (said.thursday === "host") {
-        if (keeps) return;
+        if (keeps || typeof said.as !== "string") return;
         keeps = true;
+        as = said.as;
         for (const fn of heard) fn();
         return;
       }
+      // An answer meant for another page this frame held before
+      if (said.as !== as) return;
       const one = waiting.get(said.id);
       if (!one) return;
       waiting.delete(said.id);
@@ -144,7 +149,7 @@ window.shell = (() => {
           if (!keeps) return fail(new Error("nothing is keeping this page"));
           const id = ++next;
           waiting.set(id, { ok, fail });
-          parent.postMessage({ thursday: "save", id, html }, origin);
+          parent.postMessage({ thursday: "save", as, id, html }, origin);
         });
       },
     };

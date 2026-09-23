@@ -51,8 +51,11 @@ that shows a refusal inline passes `errorMessage: false` and `onError`.
 A route is for three cases only: an outside caller hitting a URL (the OAuth callback), work that must
 run in parallel (a call's tool calls), and a response that streams (the SSE route, a memory edit drawn
 as the model makes it, a turn of a call in writing). A page a bot wrote that keeps its own edits is not
-a fourth: it asks the frame showing it (`FileFrame`), and the frame calls `savePageAction` for the one
-file it opened. A route that returns a `Response` passes through `serverRoute` with no `Result` around it.
+a fourth: it asks the frame showing it (`FileFrame`), which answers every page it loads with a name
+for the file that page was opened as. A save carries that name back and `savePageAction` writes that
+file, whatever the frame shows by the time it lands — so the page never names a file, and a save sent
+as a frame closes or moves on still lands where it was written. A route that returns a `Response`
+passes through `serverRoute` with no `Result` around it.
 
 **Errors** — throw `publicError("message")` anywhere for a failure the user should read. The boundary
 (`serverAction` / `serverRoute`) forwards that message and masks everything else (logged). A tool's

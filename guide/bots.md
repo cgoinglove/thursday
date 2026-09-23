@@ -214,8 +214,9 @@ marked), chips for dates, people and status, checklists, tables with the pick ma
 sources at the end. It reads on a phone and prints as a document. **Edit** in its top bar makes the
 page editable in place: a paragraph gets a handle and a **+** to put something after it, selected
 words get their formatting over them, and what is changed is saved back into the file as it is
-typed; a box ticked while reading is saved the same way. Opened outside the app the edits are kept
-as a copy downloaded on Done.
+typed, and at once when the page is left; a box ticked while reading is saved the same way. Closing
+its tab before a change is kept asks first. Opened outside the app the edits are kept as a copy
+downloaded on Done.
 
 ## Routines: jobs that start by themselves
 

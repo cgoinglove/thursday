@@ -146,6 +146,7 @@
   let editing = false;
   let dirty = false;
   let timer = 0;
+  let saving = 0; // saves on their way to the app
 
   const say = (text) => {
     if (state) state.textContent = text;
@@ -196,12 +197,15 @@
     }
     dirty = false;
     say("Saving…");
+    saving++;
     try {
       await shell.host.save(text);
       if (!dirty) say(editing ? "Saved" : "");
     } catch (error) {
       dirty = true;
       say(`Not saved: ${String(error.message || error).slice(0, 60)}`);
+    } finally {
+      saving--;
     }
   };
 
@@ -235,6 +239,20 @@
       event.preventDefault();
       keep();
     }
+  });
+
+  // Leaving the page keeps what waits at once rather than a moment later: a dialog closed
+  // just after the last key takes the frame with it, and the pointer on its way to the
+  // close button leaves the page first. A tab closing on words not yet kept asks first; a
+  // tick while reading a file from disk was never going to be kept.
+  const leaving = () => {
+    if (timer) keep();
+  };
+  addEventListener("blur", leaving);
+  document.documentElement.addEventListener("pointerleave", leaving);
+  addEventListener("beforeunload", (event) => {
+    if (saving || (dirty && (editing || shell.host.keeps)))
+      event.preventDefault();
   });
 
   /* ── the editor ──────────────────────────────────────────────────────────── */
