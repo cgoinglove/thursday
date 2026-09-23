@@ -396,6 +396,9 @@ const REQUIRED = [
   "skills/artifact/runtime/shell/shell.css",
   "skills/artifact/runtime/shell/shell.js",
   "skills/artifact/runtime/shell/theme.js",
+  // A ready-made bot's own skills, read where they ship (skills.discover seedSkills)
+  "seed-skills/marketer/marketing/SKILL.md",
+  "seed-skills/retired.json",
   // Copied into the workspace at boot (features/ai/guide); without it the call has none to read
   "guide/index.md",
 ];

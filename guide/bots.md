@@ -12,7 +12,9 @@ offers the ready-made ones, all switched on; **Ready-made bots**, beside New bot
 Every bot has the same kit: a shell on this computer, a real browser of its own or the one the user
 is already signed into, their files, the web, every skill and connected service that is installed,
 and the other bots. What sets a ready-made bot apart is its role — the jobs that are its own, how it
-judges them, what it keeps — not what it can do.
+judges them, what it keeps — and, for one whose trade needs a method no other bot does, a skill of
+its own: Marketer's for marketing. A bot can also gain skills of its own as it works, when it finds
+or writes one and the user keeps it to that bot.
 
 - **Analyst** finds things out and answers with where they came from: it fetches published series
   and draws them, reads a video's transcript, a podcast, an article or a PDF and answers with key
@@ -22,7 +24,8 @@ judges them, what it keeps — not what it can do.
 - **Designer** makes what gets looked at: two to four ways a screen or a page could look, side by
   side on one canvas, a deck to show on a screen, a post at the size it will be shown.
 - **Tutor** explains anything as a picture book.
-- **Marketer** keeps one brief per product in its memory and works from it.
+- **Marketer** keeps one brief per product in its memory and works from it, with a marketing skill
+  no other bot carries: positioning, page copy, a launch plan, social posts, emails, an SEO audit.
 - **Jarvis** takes whatever nobody else is for — orders, bookings, forms, the web, this computer.
 
 A bot keeps its own memory — what a job taught it, how the user asked it to work — in its own

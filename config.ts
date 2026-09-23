@@ -222,6 +222,10 @@ export const PATHS = {
     // Inside a skill, what its scripts draw with — a page's shell, a deck's drawing — and a
     // bot never opens: `load_skill` leaves it out of the files it lists
     runtime: "runtime",
+    // A ready-made bot's own skills, shipped with the app beside `default`:
+    // `seed-skills/<the bot's name, lowercased>/`, listed to the bot of that name alone and read
+    // where they ship, never copied, so an update of the app reaches them
+    seeds: "seed-skills",
   },
 };
 

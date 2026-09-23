@@ -176,3 +176,36 @@ test("a skill folded into another opens the one it is in now, and a runtime fold
     "what the scripts draw with is not a bot's to open",
   );
 });
+
+test("a ready-made bot's kit is listed to that bot alone, and an old copy left unchanged in its folder is not", async () => {
+  const { createHash } = await import("node:crypto");
+  const { seedSkills } = await import("../features/skills/skills.discover.ts");
+  const kit = seedSkills("Marketer");
+  assert.ok(kit, "a seed's name names a kit folder");
+  assert.equal(seedSkills("../etc"), null, "a name that is no folder has none");
+
+  const own = join(home, "marketer-own");
+  const copy = "---\nname: social\ndescription: Old social.\n---\n\nOld.\n";
+  await mkdir(join(own, "social"), { recursive: true });
+  await writeFile(join(own, "social", "SKILL.md"), copy);
+  await mkdir(join(own, "changed"), { recursive: true });
+  await writeFile(
+    join(own, "changed", "SKILL.md"),
+    "---\nname: changed\ndescription: Mine now.\n---\n\nEdited.\n",
+  );
+  const retired = new Map([
+    ["social", new Set([createHash("sha256").update(copy).digest("hex")])],
+    ["changed", new Set(["not this one"])],
+  ]);
+
+  const names = (
+    await discoverSkills(sandbox, [shipped, kit, own], new Set(), retired)
+  ).map((one) => one.name);
+  assert.ok(names.includes("marketing"), "the kit's skill is listed");
+  assert.ok(!names.includes("social"), "an unchanged old copy is not");
+  assert.ok(names.includes("changed"), "a copy the user changed still is");
+  const others = (await discoverSkills(sandbox, [shipped])).map(
+    (one) => one.name,
+  );
+  assert.ok(!others.includes("marketing"), "no other bot sees the kit");
+});

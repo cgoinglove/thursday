@@ -2,7 +2,10 @@
 
 A skill is a folder with a `SKILL.md`. Its name and description are listed to every bot, and to
 the call when Settings › Thursday › Read skills is on; its body is read when a bot loads it.
-Settings › Skills lists them and switches one off.
+Settings › Skills lists them and switches one off. A method only one ready-made bot's trade needs
+ships beside this folder instead, in `seed-skills/<that bot's name>/`, listed to that bot alone
+and read where it ships; `seed-skills/retired.json` names the copies older versions made in a
+bot's folder, which are not listed while they are unchanged.
 
 What the user keeps and looks at — a document, a canvas, a picture book, a deck — is one skill,
 `artifact`, the way Claude's own Docs, Design and Slides are one kind of thing with a runtime
@@ -37,10 +40,12 @@ artifact skill holds.
   the folder), and **`skill-creator`** from Anthropic's skill-creator at anthropics/skills 34040c9
   (Apache-2.0, `LICENSE.txt`); each ends with a line saying what changed. Both ask who a new skill
   is for before installing or writing it: only the bot at work, or every bot.
-- **`product-marketing`, `copywriting`, `launch`, `social`, `emails` and `seo-audit`** are a trimmed
-  copy of [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) at
-  `5b2c0007766c6a1cf1d53fd8fc73e979e0821022` (MIT, `LICENSE` in each folder). Update them by copying
-  upstream again and repeating the changes below, not by editing them here.
+- **`seed-skills/marketer/marketing`** is a trimmed copy of six skills of
+  [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) —
+  `product-marketing`, `copywriting`, `launch`, `social`, `emails` and `seo-audit` — at
+  `5b2c0007766c6a1cf1d53fd8fc73e979e0821022` (MIT, `LICENSE` in the folder), merged into one skill
+  that ships for the Marketer alone. Update it by copying upstream again and repeating the changes
+  below, not by editing it here.
 - **`data-report`**'s report forms borrow their shape from answer-first business writing and from
   the report outlines in [anthropics/financial-services](https://github.com/anthropics/financial-services)
   and [anthropics/knowledge-work-plugins](https://github.com/anthropics/knowledge-work-plugins)
@@ -56,9 +61,14 @@ artifact skill holds.
 
 ### Marketing: what was cut or changed from upstream
 
-- **Descriptions** rewritten to two sentences: what the skill is, in under 90 characters that stand
-  alone, then when to use it. Every bot's prompt carries each in full on every step. `social` says
-  "plan the calendar" rather than "schedule": nothing here posts on a schedule.
+- **Six skills merged into one, for one bot.** Every bot paid for six marketing descriptions on
+  every step, and one bot uses them. `SKILL.md` holds what every job shares — the product brief
+  first, one question, every claim grounded, untrusted pages, the thing itself as the end — and a
+  table of which reference to read for which job. Each skill's body is `references/<skill>.md`
+  and its own references `references/<skill>-<file>.md`, one level deep, each linked from
+  `SKILL.md`; the five "check for product marketing context" paragraphs are that first basic.
+  The description says what the six do, in under 90 characters first. `social` says "plan the
+  calendar" rather than "schedule": nothing here posts on a schedule.
 - **The product brief** moved from `.agents/product-marketing.md` to `memory/product-<product>.md`
   in the bot's own folder, one file per product, its first line naming the product. The workspace
   root is not writable by a bot, one person may market more than one thing, and a file in the

@@ -2,6 +2,7 @@
 checked: 2026-09-24
 paths:
   - "skills/**"
+  - "seed-skills/**"
   - "features/skills/**"
   - "features/artifact/**"
   - "features/bot/{bot.seed,seed-bots}.ts"
@@ -18,7 +19,7 @@ the user opens what they made in the app and edits a page, a deck or a canvas th
 
 ## Start here
 - `skills/README.md` — which folders are not skills, the script paths promised, outside copies.
-- `features/skills/skills.discover.ts` — where skills are found, and which one holds a name.
+- `features/skills/skills.discover.ts` — where skills are found, which one holds a name, a ready-made bot's kit, the old copies left unlisted.
 - `features/ai/tools/skills.tool.ts` — `load_skill`: a skill's instructions and files.
 - `skills/artifact/SKILL.md` — what the user keeps (document, canvas, picture book, deck) as one skill, its `runtime/` behind it.
 - `skills/artifact/runtime/shell/put.mjs` — how a bot writes into a page a skill made; the revision saves check.
@@ -34,7 +35,8 @@ default, and `make_deck` runs `deck.mjs` itself. All dress their one HTML file i
 skill's `runtime/shell`, which `load_skill` never lists (`PATHS.skills.runtime`). The app
 lists finished work from the folders, serves it through `app/api/file`, and frames a page in
 `FileFrame` (`features/workspace/components/file-view.tsx`), which hands a reader's edits to
-`savePage` (`features/workspace/workspace.query.ts`).
+`savePage` (`features/workspace/workspace.query.ts`). A seed's own skills are read in place from
+`seed-skills/<name>/`; older copies in bots' folders stay, unlisted (`seed-skills/retired.json`).
 
 ## Rules
 - **A skill's script stands on a public API, a managed tool or the app's own scripts**, never on

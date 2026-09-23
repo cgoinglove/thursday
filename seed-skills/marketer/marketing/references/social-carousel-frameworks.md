@@ -4,6 +4,17 @@ Five slide-by-slide narrative architectures for carousels — Instagram carousel
 
 A carousel is not a blog post chopped into squares. It's a swipe-through with two jobs per slide: deliver one idea, and make the next swipe irresistible. These frameworks encode structures that show up repeatedly in high-performing carousels; treat them as starting structures to adapt, not rigid formulas — and expect to validate against your own analytics.
 
+## Contents
+- Picking a Framework
+- Framework A: Value-Stack (4–14 slides)
+- Framework B: Problem-Proof (6–10 slides)
+- Framework C: Hack List (6–10 slides)
+- Framework D: Rant Callout (4–8 slides)
+- Framework E: Demo Walkthrough (5–11 slides)
+- Platform Notes
+- Production Checklist
+- Measuring What Worked
+
 ## Picking a Framework
 
 | Your content is... | Use | Why |
@@ -138,4 +149,4 @@ The "watch it work" carousel for product or workflow content. Show the finished 
 
 ## Measuring What Worked
 
-Judge carousels on **saves and completion**, not likes — saves signal reference value (the algorithmic win for carousels), and where per-slide analytics exist (Instagram professional insights, LinkedIn document analytics, or third-party tools), drop-off position tells you which slide broke the swipe chain. When a carousel underperforms, the fix is usually slide 1 (didn't stop the scroll) or the framework choice (list content forced into a rant structure), not the middle slides. Track per-framework performance and double down on the two that fit your audience — see [reverse-engineering.md](reverse-engineering.md) for the analysis workflow.
+Judge carousels on **saves and completion**, not likes — saves signal reference value (the algorithmic win for carousels), and where per-slide analytics exist (Instagram professional insights, LinkedIn document analytics, or third-party tools), drop-off position tells you which slide broke the swipe chain. When a carousel underperforms, the fix is usually slide 1 (didn't stop the scroll) or the framework choice (list content forced into a rant structure), not the middle slides. Track per-framework performance and double down on the two that fit your audience — see [references/social-reverse-engineering.md](social-reverse-engineering.md) for the analysis workflow.

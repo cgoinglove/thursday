@@ -36,8 +36,10 @@ import {
  *
  * The list is flat and grows, and every seed is offered alike: a key saved outside the
  * intro installs them all (seed-bots), the intro's opening loop shows every face, and the
- * intro and Settings › Bots offer every seed, all ticked. A seed brings no skills of its
- * own: every skill ships to every bot (skills/), so a seed is its role and nothing more.
+ * intro and Settings › Bots offer every seed, all ticked. Skills ship to every bot (skills/);
+ * a seed brings its own only for a method its trade alone needs, which every other bot would
+ * pay for on every step: `seed-skills/<its name>/`, read where it ships (skills.discover
+ * seedSkills) and never copied, so an update reaches it.
  */
 export type BotSeed = {
   name: string;

@@ -1,20 +1,24 @@
----
-name: copywriting
-description: "Write or rewrite the copy for a page: headline, sections and calls to action. Use for a homepage, landing, pricing, feature or about page, new or being rewritten."
-metadata:
-  version: 2.0.2
----
-
 # Copywriting
 
 You are an expert conversion copywriter. Your goal is to write marketing copy that is clear, compelling, and drives action.
 
+## Contents
+- Before Writing (page purpose, audience, product/offer, context)
+- Copywriting Principles
+- Writing Style Rules
+- Best Practices
+- Page Structure Framework (above the fold, core sections)
+- CTA Copy Guidelines
+- Page-Specific Guidance (homepage, landing page, pricing page, feature page, about page)
+- Voice and Tone
+- Output Format
+- Related References
+
 ## Before Writing
 
-**Check for product marketing context first:**
-If `memory/product-<product>.md` in your own folder holds this product's brief (the **product-marketing** skill writes it; look in `memory/` yourself, since your memory is listed to you only while the user keeps bot memory on), read that file before asking questions. Use that context and only ask for information not already covered or specific to this task.
+Start from the product brief (SKILL.md › basics).
 
-Gather this context — fill it from the page as it stands, the brief and the request, then ask what only the user knows in one question with the four headings below as its parts:
+Gather this context — fill it from the page as it stands, the product brief and the request, then ask what only the user knows in one question with the four headings below as its parts:
 
 ### 1. Page Purpose
 - What type of page? (homepage, landing page, pricing, feature, about)
@@ -43,7 +47,7 @@ Gather this context — fill it from the page as it stands, the brief and the re
 ### Clarity Over Cleverness
 If you have to choose between clear and creative, choose clear. Clarity is not just tidier — it converts: clearer positioning and copy is associated with +81% conversions, a 38% shorter sales cycle, 28% lower CAC, and 175% more referrals. When a reader has to decode your line, you've lost them.
 
-**For message-market fit tools** — the "Now you can" test, the Human Action Model (discomfort → vision → path), the Perception Gap, and the clarity metrics: See [references/copy-frameworks.md](references/copy-frameworks.md#clarity--message-market-fit)
+**For message-market fit tools** — the "Now you can" test, the Human Action Model (discomfort → vision → path), the Perception Gap, and the clarity metrics: See [references/copywriting-copy-frameworks.md](copywriting-copy-frameworks.md#clarity--message-market-fit)
 
 ### Benefits Over Features
 Features: What it does. Benefits: What that means for the customer.
@@ -118,11 +122,11 @@ Puns and wit make copy memorable—but only if it fits the brand and doesn't und
 - "Never {unpleasant event} again"
 - "{Question highlighting main pain point}"
 
-**For comprehensive headline formulas**: See [references/copy-frameworks.md](references/copy-frameworks.md)
+**For comprehensive headline formulas**: See [references/copywriting-copy-frameworks.md](copywriting-copy-frameworks.md)
 
-**Structure the hero as a transformation** — current discomfort → better vision → path to action (the Human Action Model), then run every headline through the "Now you can" test. See [references/copy-frameworks.md](references/copy-frameworks.md#clarity--message-market-fit)
+**Structure the hero as a transformation** — current discomfort → better vision → path to action (the Human Action Model), then run every headline through the "Now you can" test. See [references/copywriting-copy-frameworks.md](copywriting-copy-frameworks.md#clarity--message-market-fit)
 
-**For natural transition phrases**: See [references/natural-transitions.md](references/natural-transitions.md)
+**For natural transition phrases**: See [references/copywriting-natural-transitions.md](copywriting-natural-transitions.md)
 
 **Subheadline**
 - Expands on headline
@@ -144,7 +148,7 @@ Puns and wit make copy memorable—but only if it fits the brand and doesn't und
 | Objection Handling | FAQ, comparisons, guarantees |
 | Final CTA | Recap value, repeat CTA, risk reversal |
 
-**For detailed section types and page templates**: See [references/copy-frameworks.md](references/copy-frameworks.md)
+**For detailed section types and page templates**: See [references/copywriting-copy-frameworks.md](copywriting-copy-frameworks.md)
 
 ---
 
@@ -245,6 +249,6 @@ For headlines and CTAs, provide 2-3 options:
 
 ---
 
-## Related Skills
+## Related References
 
-- **emails**: For email copywriting
+- [references/emails.md](emails.md): For email copywriting

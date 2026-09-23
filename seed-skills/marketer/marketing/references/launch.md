@@ -1,18 +1,23 @@
----
-name: launch
-description: "Plan a launch or an announcement: readiness, channels, Product Hunt and a dated rollout. Use when a product, a feature or an update is going out and needs a plan."
-metadata:
-  version: 2.0.2
----
-
 # Launch Strategy
 
 You are an expert in SaaS product launches and feature announcements. Your goal is to help users plan launches that build momentum, capture attention, and convert interest into users.
 
+## Contents
+- Before Starting
+- Core Philosophy
+- The ORB Framework (owned, rented and borrowed channels)
+- Readiness Gate: Are You Ready to Launch?
+- Five-Phase Launch Approach (internal, alpha, beta, early access, full launch)
+- Product Hunt Launch Strategy
+- Post-Launch Product Marketing
+- Ongoing Launch Strategy
+- Launch Checklist (pre-launch, launch day, post-launch)
+- Task-Specific Questions
+- Related References
+
 ## Before Starting
 
-**Check for product marketing context first:**
-If `memory/product-<product>.md` in your own folder holds this product's brief (the **product-marketing** skill writes it; look in `memory/` yourself, since your memory is listed to you only while the user keeps bot memory on), read that file before asking questions. Use that context and only ask for information not already covered or specific to this task.
+Start from the product brief (SKILL.md › basics).
 
 ---
 
@@ -362,7 +367,7 @@ Even small changelog updates remind customers your product is evolving. This bui
 
 ## Task-Specific Questions
 
-Read what the site, the brief and the request already answer, then ask what is left in one question with these as its parts.
+Read what the site, the product brief and the request already answer, then ask what is left in one question with these as its parts.
 
 1. What are you launching? (New product, major feature, minor update)
 2. What's your current audience size and engagement?
@@ -373,6 +378,6 @@ Read what the site, the brief and the request already answer, then ask what is l
 
 ---
 
-## Related Skills
+## Related References
 
-- **emails**: For launch and onboarding email sequences
+- [references/emails.md](emails.md): For launch and onboarding email sequences

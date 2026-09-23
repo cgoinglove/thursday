@@ -4,6 +4,17 @@ Quick reference for hashtag limits, character counts, and visible text threshold
 
 ---
 
+## Contents
+- Instagram
+- Facebook
+- TikTok
+- LinkedIn
+- Twitter/X
+- YouTube
+- Pinterest
+- Threads (Meta)
+- Usage Tips
+
 ## Instagram
 
 | Element | Limit |

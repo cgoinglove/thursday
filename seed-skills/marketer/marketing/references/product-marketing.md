@@ -1,31 +1,31 @@
----
-name: product-marketing
-description: "The product brief every other marketing skill reads first. Use before other marketing work on a product that has no brief yet, or when its positioning changes."
-metadata:
-  version: 2.1.0
----
+# Product Brief
 
-# Product Marketing Context
+You help users create and maintain a product brief. This captures foundational positioning and messaging information that other marketing jobs reference, so users don't repeat themselves.
 
-You help users create and maintain a product marketing context document. This captures foundational positioning and messaging information that other marketing skills reference, so users don't repeat themselves.
+The brief is one file of your memory, `memory/product-<product>.md` in your own folder, one per product: the same person may market more than one thing. Its first line is what a memory listing shows while the user keeps bot memory on, so a later job sees it is there without looking; Step 1 looks in the folder either way. Like any memory file it stays within the memory's size limit.
 
-The document is one file of your memory, `memory/product-<product>.md` in your own folder, one per product: the same person may market more than one thing. Its first line is what a memory listing shows while the user keeps bot memory on, so a later job sees it is there without looking; Step 1 looks in the folder either way. Like any memory file it stays within the memory's size limit.
+## Contents
+- Workflow (Step 1: check for an existing brief, Step 2: gather information)
+- Sections to Capture (product overview, target audience, personas, problems and pain points, competitive landscape, differentiation, objections and anti-personas, switching dynamics, customer language, brand voice, proof points, goals)
+- Step 3: Create the Brief
+- Step 4: Confirm, Version, and Save
+- Tips
 
 ## Workflow
 
-### Step 1: Check for Existing Context
+### Step 1: Check for an Existing Brief
 
 First, check whether your memory (`memory/` in your own folder) already holds a brief for this product.
 
 **If it exists:**
-- Read it and summarize what's captured — note its current **Document version** and the last few **Changelog** entries so the user sees where the doc stands and what's changed recently
+- Read it and summarize what's captured — note its current **Document version** and the last few **Changelog** entries so the user sees where the brief stands and what's changed recently
 - Ask which sections they want to update
 - Only gather info for those sections
-- On any substantive save, bump the version and add a changelog entry (see Step 4). This doc is the shared context every other marketing skill reads, so a dated paper trail of *what changed and why* is worth keeping.
+- On any substantive save, bump the version and add a changelog entry (see Step 4). This brief is what every other marketing job starts from, so a dated paper trail of *what changed and why* is worth keeping.
 
 **If it doesn't exist, offer two options:**
 
-1. **Auto-draft from what exists** (recommended): You'll study what is already public (their website, landing and store pages, profiles, a README, anything they point you to) and draft a V1 of the context document. The user then reviews, corrects, and fills gaps. This is faster than starting from scratch.
+1. **Auto-draft from what exists** (recommended): You'll study what is already public (their website, landing and store pages, profiles, a README, anything they point you to) and draft a V1 of the brief. The user then reviews, corrects, and fills gaps. This is faster than starting from scratch.
 
 2. **Start from scratch**: when nothing about the product is public, gather the sections in one round of questions.
 
@@ -127,7 +127,7 @@ The JTBD Four Forces:
 
 ---
 
-## Step 3: Create the Document
+## Step 3: Create the Brief
 
 After gathering information, create `memory/product-<product>.md` in your own folder with this structure:
 
@@ -224,23 +224,23 @@ After gathering information, create `memory/product-<product>.md` in your own fo
 
 ## Changelog
 *Newest first. One line per revision: what changed and why.*
-- v1 ([date]) — Initial context.
+- v1 ([date]) — Initial brief.
 ```
 
 ---
 
 ## Step 4: Confirm, Version, and Save
 
-- Show the completed document
+- Show the completed brief
 - Ask if anything needs adjustment
-- **Set the version and changelog** — this is the paper trail for a doc every other skill reads:
-  - **New document:** set `Document version: v1` and a single Changelog entry — `- v1 ([today]) — Initial context.`
-  - **Updating an existing document:** increment the version (v2 → v3 …), update `Last updated` to today, and **prepend a new Changelog entry** at the top of the list (newest first) summarizing *what changed and why* in one line. Never rewrite or reorder past entries.
-  - A good entry names the sections touched and the reason, not "updated the doc." Examples:
+- **Set the version and changelog** — this is the paper trail for a brief every other marketing job reads:
+  - **New brief:** set `Document version: v1` and a single Changelog entry — `- v1 ([today]) — Initial brief.`
+  - **Updating an existing brief:** increment the version (v2 → v3 …), update `Last updated` to today, and **prepend a new Changelog entry** at the top of the list (newest first) summarizing *what changed and why* in one line. Never rewrite or reorder past entries.
+  - A good entry names the sections touched and the reason, not "updated the brief." Examples:
     - `- v3 (2026-07-16) — Repositioned from "email tool" to "deliverability platform"; added RevOps to the ICP.`
     - `- v2 (2026-06-02) — Rewrote value prop and objections after 5 customer interviews; added competitor Acme.`
   - Use today's date in ISO form (YYYY-MM-DD) for the entry and `Last updated`.
-  - **Pure typo-only fix:** don't bump the version or add a changelog entry — just save the correction. Every other change bumps the version and gets an entry. When the change is a real repositioning, say so plainly — downstream skills will now generate against the new context.
+  - **Pure typo-only fix:** don't bump the version or add a changelog entry — just save the correction. Every other change bumps the version and gets an entry. When the change is a real repositioning, say so plainly — downstream jobs will now generate against the new brief.
 - Save to `memory/product-<product>.md` in your own folder
 - Tell them the rest of the marketing work starts from this brief, and that the Changelog at the bottom tracks how the positioning evolves.
 

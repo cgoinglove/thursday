@@ -133,7 +133,7 @@ Tweet 7: [Your key takeaway]
 Caption: [Expand on the topic, add context, include CTA]
 ```
 
-This is the generic shape. For five full slide-by-slide narrative architectures (Value-Stack, Problem-Proof, Hack List, Rant Callout, Demo Walkthrough) with selection guidance and per-slide copy slots, see [carousel-frameworks.md](carousel-frameworks.md).
+This is the generic shape. For five full slide-by-slide narrative architectures (Value-Stack, Problem-Proof, Hack List, Rant Callout, Demo Walkthrough) with selection guidance and per-slide copy slots, see [references/social-carousel-frameworks.md](social-carousel-frameworks.md).
 
 ### The Reel Script
 ```

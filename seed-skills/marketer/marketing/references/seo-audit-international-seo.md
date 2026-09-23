@@ -1,8 +1,15 @@
 # International SEO: Evidence & Sources
 
-Detailed evidence backing the International SEO & Localization section of the SEO Audit skill. Organized by topic with source URLs and key quotes.
+Detailed evidence backing the International SEO & Localization section of [references/seo-audit.md](seo-audit.md). Organized by topic with source URLs and key quotes.
 
 ---
+
+## Contents
+- Hreflang (placement methods, reciprocal requirement, x-default, language and region codes, hreflang at scale, Google vs Bing)
+- Canonicalization & i18n (self-referencing canonicals, canonical overrides hreflang, near-duplicate regional variants, pagination across locales)
+- International Sitemaps (structure, size limits, submission, Next.js caveat)
+- URL Structure (strategies compared, default language, content negotiation and IP redirects, trailing slash consistency, Search Console geotargeting, framework locale modes)
+- Content Quality Across Locales (auto-translated content, thin locale pages, helpful content system impact, partial translation, crawl budget, locale-specific signals)
 
 ## Hreflang
 

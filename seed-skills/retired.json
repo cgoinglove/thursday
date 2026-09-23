@@ -1,0 +1,46 @@
+{
+  "about": "Skills the app once copied into a ready-made bot's own folder and ships there no more. A copy whose SKILL.md is byte for byte one of these (sha256) is not listed to the bot; a copy the user changed still is. Nothing is deleted.",
+  "sha256": {
+    "copywriting": [
+      "2cfab2a9cc0114891cdb3629b4d1272c0f214cd3cf679e44b21ba4619643e3a2",
+      "79e2e3c231d6b11c6aef35b8d0d2570fb6daedd639c0e7394bb9a5f5a30915ef",
+      "fbd176958d94ec4d37eba9220836ba150dbfc4356325d9d91968054114cf8410"
+    ],
+    "emails": [
+      "0a4941203f78ad955a1af905c2da4fb0412fb2ca89285b1f45d0072296682b3c",
+      "3d132142e3458f242471822135d29922395d9604c8caa237b89e7cb3608bd31a",
+      "7e694c119341d4d5c1d286470ab93fb8ee3936334973e3ac15c5e2d8e21ea175"
+    ],
+    "launch": [
+      "0fe3b494178040ba06a5d42e78387b83fe879770c20bea49cb583a51f23648e6",
+      "174b258d7f160c4aeac51482270759f3089bc616baa53842c6e2dec663d5b900",
+      "46ba4747693f4d394872b9989c3c6dee660626a3f33a33a87c768c4a466c82d9"
+    ],
+    "product-marketing": [
+      "1df49e0dcbc7edc138ce48c4d88079a2e8182201cc7d89340a8f9d5a87900a3d",
+      "9d628a08b8f3a8808566bad2f1f74252c60acf1106fbc2c5f9b488a30afee48e",
+      "b6287cde27d91cd15ca483560d09bc2fdc399f0b3a077001821944e1856b13ba"
+    ],
+    "seo-audit": [
+      "4e10ed97a32d8a308913b8e9076fa21234d8d3078f240c8e6babe31adc9c4789",
+      "61f739974b5bb489c0d4906fa1d2f5adb9210f8c1b4dc8e169c48a9e12ac21e8",
+      "6ba98857583a7e97a6872f82069f06c4c5d66907a1480cf4762dd90ee0c1bda6"
+    ],
+    "social": [
+      "08aaf0f62a7b3de6a46326758c39be12d7cd7ab070376bb12caf016d3c0f8018",
+      "729ccb732b68be0c459219347c0eef73558a1377178b622580fffbe553944627",
+      "937a82dfb8f535504f741b37ceb8a10e9c9f38785154dfeb236b993782a9a25a"
+    ],
+    "picture-book": [
+      "20f872adfdb122ea6c0fd050da4495353892cd156938f68c4e7c8e5f1a6665ef",
+      "30dc601af0ca8dbe4b202bbb088523d16295a043ff0690ded30a0638f82d07d1",
+      "59ef0d47aef317f0f2b84589b0ae038a50781ce9f82fe3654cc06b293b9c60ac",
+      "76b441084285ef55a2a3b60730205d3778202ba4d82c3389ffa64e8c94b1eefd"
+    ],
+    "design-canvas": [
+      "4eae9b6f1915b392df5e25ee49be656f3c83cdfb5f183a12dc0ef509be0f7563",
+      "5e187e4e12a4a2b79724419c6ffc3de4a7e0a183b9dab0ad3b7ad31f0641cd28",
+      "a65fa1deaef926899327b9f079a4bd193ec86c798006aadd0b3cea286093f943"
+    ]
+  }
+}

@@ -1,20 +1,28 @@
----
-name: social
-description: "Write social posts and plan the calendar they go out on. Use for LinkedIn, X, Instagram, TikTok and Facebook — pillars, hooks, carousels and short-video scripts, new or repurposed."
-metadata:
-  version: 2.2.0
----
-
 # Social Content
 
 You are an expert social media strategist. Your goal is to help create engaging content that builds audience, drives engagement, and supports business goals.
 
+## Contents
+- Before Creating Content (goals, audience, brand voice, resources)
+- Platform Quick Reference
+- Content Pillars Framework
+- Hook Formulas
+- Content Repurposing System (blog post, podcast/video, webinar/live event, newsletter, repurposing workflow)
+- Content Calendar Structure
+- Engagement Strategy
+- Analytics & Optimization
+- Content Ideas by Situation
+- Scheduling Best Practices
+- Reverse Engineering Viral Content
+- Short-Form Video (platform specs, the 3-second rule, video structures, captions and subtitles, content ideas by type, common mistakes)
+- Task-Specific Questions
+- Related References
+
 ## Before Creating Content
 
-**Check for product marketing context first:**
-If `memory/product-<product>.md` in your own folder holds this product's brief (the **product-marketing** skill writes it; look in `memory/` yourself, since your memory is listed to you only while the user keeps bot memory on), read that file before asking questions. Use that context and only ask for information not already covered or specific to this task.
+Start from the product brief (SKILL.md › basics).
 
-Gather this context — fill it from the brief, the accounts as they stand and the request, then ask what only the user knows, from here and from Task-Specific Questions below, in one question with these as its parts:
+Gather this context — fill it from the product brief, the accounts as they stand and the request, then ask what only the user knows, from here and from Task-Specific Questions below, in one question with these as its parts:
 
 ### 1. Goals
 - What's the primary objective? (Brand awareness, leads, traffic, community)
@@ -48,9 +56,9 @@ Gather this context — fill it from the brief, the accounts as they stand and t
 | TikTok | Brand awareness, younger audiences | 1-4x/day | Short-form video |
 | Facebook | Communities, local businesses | 1-2x/day | Groups, native video |
 
-**For detailed platform strategies**: See [references/platforms.md](references/platforms.md)
+**For detailed platform strategies**: See [references/social-platforms.md](social-platforms.md)
 
-**For hashtag limits and character counts**: See [references/platform-limits.md](references/platform-limits.md)
+**For hashtag limits and character counts**: See [references/social-platform-limits.md](social-platform-limits.md)
 
 ---
 
@@ -103,9 +111,9 @@ The first line determines whether anyone reads the rest.
 - "[Common advice] is wrong. Here's why:"
 - "I stopped [common practice] and [positive result]."
 
-**For post templates and more hooks**: See [references/post-templates.md](references/post-templates.md)
+**For post templates and more hooks**: See [references/social-post-templates.md](social-post-templates.md)
 
-**For carousels** (Instagram carousels, LinkedIn document posts): See [references/carousel-frameworks.md](references/carousel-frameworks.md) — five slide-by-slide narrative architectures (Value-Stack, Problem-Proof, Hack List, Rant Callout, Demo Walkthrough) with framework selection guidance, per-slide copy slots, platform notes, and a production checklist. Pick the framework before writing slides.
+**For carousels** (Instagram carousels, LinkedIn document posts): See [references/social-carousel-frameworks.md](social-carousel-frameworks.md) — five slide-by-slide narrative architectures (Value-Stack, Problem-Proof, Hack List, Rant Callout, Demo Walkthrough) with framework selection guidance, per-slide copy slots, platform notes, and a production checklist. Pick the framework before writing slides.
 
 ---
 
@@ -307,7 +315,7 @@ Instead of guessing, analyze what's working for top creators in your niche:
 5. **Layer your voice** — Apply patterns with authenticity
 6. **Convert** — Bridge attention to business results
 
-**For the complete framework**: See [references/reverse-engineering.md](references/reverse-engineering.md)
+**For the complete framework**: See [references/social-reverse-engineering.md](social-reverse-engineering.md)
 
 ---
 
@@ -388,7 +396,7 @@ Tools: CapCut (free), Descript, Captions.ai, Premiere Pro
 5. **No CTA** — tell viewers what to do
 6. **Ignoring comments** — engagement in first hour matters
 
-**For video hook formulas and scripting templates**: See [references/short-form-video.md](references/short-form-video.md)
+**For video hook formulas and scripting templates**: See [references/social-short-form-video.md](social-short-form-video.md)
 
 ---
 
@@ -405,8 +413,8 @@ Parts of that one question, not a second round.
 
 ---
 
-## Related Skills
+## Related References
 
-- **copywriting**: For longer-form content that feeds social
-- **launch**: For coordinating social with launches
-- **emails**: For nurturing social audience via email
+- [references/copywriting.md](copywriting.md): For longer-form content that feeds social
+- [references/launch.md](launch.md): For coordinating social with launches
+- [references/emails.md](emails.md): For nurturing social audience via email

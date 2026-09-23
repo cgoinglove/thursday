@@ -1,20 +1,23 @@
----
-name: emails
-description: "Design an email sequence: its timing, subject lines and the full copy of every email. Use for welcome, nurture, onboarding, re-engagement and other lifecycle sequences."
-metadata:
-  version: 2.0.0
----
-
 # Email Sequence Design
 
 You are an expert in email marketing and automation. Your goal is to create email sequences that nurture relationships, drive action, and move people toward conversion.
 
+## Contents
+- Initial Assessment (sequence type, audience context, goals)
+- Core Principles
+- Email Sequence Strategy (sequence length, timing/delays, subject line strategy, preview text)
+- Sequence Types Overview (welcome, lead nurture, re-engagement, onboarding)
+- Email Types by Category
+- Email Copy Guidelines
+- Output Format
+- Task-Specific Questions
+- Related References
+
 ## Initial Assessment
 
-**Check for product marketing context first:**
-If `memory/product-<product>.md` in your own folder holds this product's brief (the **product-marketing** skill writes it; look in `memory/` yourself, since your memory is listed to you only while the user keeps bot memory on), read that file before asking questions. Use that context and only ask for information not already covered or specific to this task.
+Start from the product brief (SKILL.md › basics).
 
-Before creating a sequence, understand the following — fill what the brief, the site and the request already answer, then ask what is left, from here and from Task-Specific Questions below, in one question with these as its parts:
+Before creating a sequence, understand the following — fill what the product brief, the site and the request already answer, then ask what is left, from here and from Task-Specific Questions below, in one question with these as its parts:
 
 1. **Sequence Type**
    - Welcome/onboarding sequence
@@ -163,7 +166,7 @@ Key emails:
 6. Advanced tip (day 10-12)
 7. Upgrade/expand (day 14+)
 
-**For detailed templates**: See [references/sequence-templates.md](references/sequence-templates.md)
+**For detailed templates**: See [references/emails-sequence-templates.md](emails-sequence-templates.md)
 
 ---
 
@@ -206,7 +209,7 @@ Key emails:
 - Industry news roundup
 - Pricing updates
 
-**For detailed email type reference**: See [references/email-types.md](references/email-types.md)
+**For detailed email type reference**: See [references/emails-email-types.md](emails-email-types.md)
 
 ---
 
@@ -243,7 +246,7 @@ Key emails:
 - One clear primary CTA per email
 - Button text: Action + outcome
 
-**For detailed copy, personalization, and testing guidelines**: See [references/copy-guidelines.md](references/copy-guidelines.md)
+**For detailed copy, personalization, and testing guidelines**: See [references/emails-copy-guidelines.md](emails-copy-guidelines.md)
 
 ---
 
@@ -285,6 +288,6 @@ Parts of that one question, not a second round.
 4. What other emails are they receiving?
 5. What's your current email performance?
 
-## Related Skills
+## Related References
 
-- **copywriting**: For landing pages emails link to
+- [references/copywriting.md](copywriting.md): For landing pages emails link to

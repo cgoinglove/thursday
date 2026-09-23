@@ -4,6 +4,15 @@ Detailed reference for creating short-form video content on TikTok, Instagram Re
 
 ---
 
+## Contents
+- Video Hook Library (curiosity, value, story and controversial hooks)
+- Scripting Template
+- Additional Video Structures (story arc, POV/skit)
+- Visual Patterns
+- Audio Strategy
+- Posting Strategy
+- Analytics & Iteration
+
 ## Video Hook Library
 
 ### Curiosity Hooks (Best for engagement)

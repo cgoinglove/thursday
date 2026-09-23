@@ -68,6 +68,7 @@ scripts/             dev, reset, pack (the npm tree), and the test suites (*.tes
 guide/               How the app works, for the person using it; Thursday reads it
                      (features/ai/guide.ts).
 skills/              Skills shipped with the app, read-only; every bot can load them.
+seed-skills/         A ready-made bot's own skills, read-only, listed to the bot of that name alone.
 docs/                how-it-works.md, and the images the READMEs show.
 ```
 
