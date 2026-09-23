@@ -97,7 +97,18 @@ export function bookVideo({ book, voices, size, workspace, shown }, Stop) {
   try {
     const drawn = spawnSync(
       process.execPath,
-      [RENDER, book, "--size", size, "--out", frames, "--name", "page"],
+      // Never in the job's own browser, which may be a window on their screen
+      [
+        RENDER,
+        book,
+        "--size",
+        size,
+        "--out",
+        frames,
+        "--name",
+        "page",
+        "--apart",
+      ],
       { encoding: "utf8" },
     );
     const said = `${drawn.stdout}${drawn.stderr}`.trim();

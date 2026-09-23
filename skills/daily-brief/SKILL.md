@@ -41,8 +41,8 @@ node $S/page.mjs <scratch>/brief.json --look <scratch>/look
 - **A brief is remade, not added to.** Run the whole thing again the same day and today's own page
   does not count as already told, so the same stories come up again and `page.mjs` writes over it.
 - **The browser opens itself where a step needs it.** A Google News link does not hold the
-  publisher's address, so `story.mjs` follows the chosen stories' links in this job's browser, and
-  `--look` renders the page there. Nothing else in the kit needs one.
+  publisher's address, so `story.mjs` follows the chosen stories' links in this job's browser;
+  `--look` renders the page in a headless one of its own. Nothing else here needs one.
 
 `references/brief.md` is the format: what `brief.json` holds, how to choose, how to write a
 summary and the spoken version. `references/preferences.md` is what to keep about the user and

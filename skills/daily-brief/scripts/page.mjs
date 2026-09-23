@@ -304,8 +304,8 @@ ${topicHtml}
 });
 
 /**
- * The page at phone width as one PNG, through the browser skill's render, which rides this
- * job's browser session and opens a headless browser itself when none is.
+ * The page at phone width as one PNG, through the browser skill's render, in a headless
+ * browser of its own: never the job's, which may be a window on the user's screen.
  */
 function look(page, dir) {
   const render = join(
@@ -320,7 +320,17 @@ function look(page, dir) {
     );
   const got = spawnSync(
     "node",
-    [render, page, "--size", "430x2400", "--out", dir, "--name", "look"],
+    [
+      render,
+      page,
+      "--size",
+      "430x2400",
+      "--out",
+      dir,
+      "--name",
+      "look",
+      "--apart",
+    ],
     { encoding: "utf8" },
   );
   if (got.status !== 0)
