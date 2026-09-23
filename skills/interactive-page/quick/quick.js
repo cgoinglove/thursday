@@ -11,6 +11,7 @@
   const editButton = document.querySelector("[data-edit]");
   const grip = document.getElementById("grip");
   const bubble = document.getElementById("bubble");
+  const tableBar = document.getElementById("table-bar");
   const blockMenu = document.getElementById("block-menu");
   const insertMenu = document.getElementById("insert-menu");
   if (!paper) return;
@@ -189,7 +190,13 @@
       el.removeAttribute("style");
     copy.querySelector("#toc")?.replaceChildren();
     copy.querySelector("[data-toc]")?.setAttribute("hidden", "");
-    for (const id of ["grip", "bubble", "block-menu", "insert-menu"]) {
+    for (const id of [
+      "grip",
+      "bubble",
+      "table-bar",
+      "block-menu",
+      "insert-menu",
+    ]) {
       const el = copy.querySelector(`#${id}`);
       el?.setAttribute("hidden", "");
       el?.removeAttribute("style");
@@ -504,8 +511,10 @@
   const hideAll = () => {
     grip.hidden = true;
     bubble.hidden = true;
+    if (tableBar) tableBar.hidden = true;
     blockMenu.hidden = true;
     insertMenu.hidden = true;
+    closeSlash();
     for (const el of paper.querySelectorAll(".pg-hot"))
       el.classList.remove("pg-hot");
     block = null;
@@ -541,10 +550,15 @@
       openMenu(insertMenu, event.currentTarget),
     );
   addEventListener("pointerdown", (event) => {
-    if (event.target.closest("#grip, #block-menu, #insert-menu, #bubble"))
+    if (
+      event.target.closest(
+        "#grip, #block-menu, #insert-menu, #bubble, #table-bar",
+      )
+    )
       return;
     blockMenu.hidden = true;
     insertMenu.hidden = true;
+    closeSlash();
   });
 
   /* ── taking a block's move back ──────────────────────────────────────────── */
@@ -594,6 +608,37 @@
     undone.length = 0;
   };
 
+  /** Where the caret stands in `node`: its cell when `node` is a table, else only that it is there. */
+  const spotIn = (node) => {
+    const cell = caretIn()?.closest("td, th");
+    if (!caretIn() || !node.contains(caretIn())) return null;
+    if (!cell || !node.contains(cell)) return { end: true };
+    return { r: [...node.rows].indexOf(cell.closest("tr")), c: cell.cellIndex };
+  };
+  /** The caret into `node` at `spot`: the same cell, or the nearest there is; else its end. */
+  const caretTo = (node, spot) => {
+    if (!spot) return;
+    const rows = node.rows ? [...node.rows] : [];
+    const row = rows[Math.min(spot.r ?? 0, rows.length - 1)];
+    const into = spot.end
+      ? node
+      : (row?.cells[Math.min(spot.c, row.cells.length - 1)] ?? node);
+    const range = document.createRange();
+    range.selectNodeContents(into);
+    range.collapse(false);
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+  };
+
+  /** Puts `fresh` where `old` stands — a table with a column more — and keeps it to be taken back. */
+  const swapBlock = (old, fresh) => {
+    const before = shape();
+    old.replaceWith(fresh);
+    settled();
+    done.push({ node: fresh, old, before, after: shape() });
+    undone.length = 0;
+  };
+
   addEventListener("keydown", (event) => {
     if (!shell.edits.on || !(event.metaKey || event.ctrlKey) || event.altKey)
       return;
@@ -605,6 +650,15 @@
     event.preventDefault();
     (again ? undone : done).pop();
     (again ? done : undone).push(last);
+    if (last.old) {
+      const [gone, back] = again
+        ? [last.old, last.node]
+        : [last.node, last.old];
+      const spot = spotIn(gone);
+      gone.replaceWith(back);
+      settled();
+      return caretTo(back, spot);
+    }
     putAt(last.node, again ? last.to : last.from);
     settled();
   });
@@ -654,23 +708,267 @@
     box.innerHTML = html;
     return box.content.firstElementChild;
   };
-  for (const button of insertMenu.querySelectorAll("[data-add]"))
-    button.addEventListener("click", () => {
-      const made = make(button.dataset.add);
+  /**
+   * Puts a new block in: after the block under the handle, or last — or, when it was asked
+   * for with `/`, in place of the paragraph the `/` was typed in.
+   */
+  const insert = (kind) => {
+    const made = make(kind);
+    const asked = slash;
+    closeSlash();
+    if (asked) swapBlock(asked, made);
+    else {
       const after = block;
       moveBlock(made, () =>
         after ? after.after(made) : putAt(made, lastPlace()),
       );
-      // Its words are selected, so the first key typed replaces them — a selection the
-      // editor made, which asks for no formatting
-      if (!made.matches("hr")) {
-        placed = document.createRange();
-        placed.selectNodeContents(made.querySelector("li, td, th") ?? made);
-        const sel = getSelection();
-        sel.removeAllRanges();
-        sel.addRange(placed.cloneRange());
+    }
+    // Its words are selected, so the first key typed replaces them — a selection the
+    // editor made, which asks for no formatting
+    if (!made.matches("hr")) {
+      placed = document.createRange();
+      placed.selectNodeContents(made.querySelector("li, td, th") ?? made);
+      const sel = getSelection();
+      sel.removeAllRanges();
+      sel.addRange(placed.cloneRange());
+    }
+  };
+  for (const button of insertMenu.querySelectorAll("[data-add]"))
+    button.addEventListener("click", () => insert(button.dataset.add));
+
+  /*
+   * `/` in an empty paragraph opens the Insert menu where it was typed. What is typed after
+   * it narrows the menu to what it names — "/tab", "/list" — the arrows walk what is left,
+   * Enter puts the one picked in the paragraph's place, and Esc, or words that name
+   * nothing, leave the paragraph as it is.
+   */
+  let slash = null;
+  let line = null; // where the `/` was typed, on the page
+  /** Under the line, or over it when the window has no room below: at the line either way. */
+  const placeSlash = () => {
+    place(insertMenu, line.left, line.bottom + 6);
+    if (insertMenu.getBoundingClientRect().bottom > innerHeight)
+      place(insertMenu, line.left, line.top - insertMenu.offsetHeight - 6);
+  };
+  const offered = () =>
+    [...insertMenu.querySelectorAll("[data-add]")].filter((one) => !one.hidden);
+  const pick = (one) => {
+    for (const item of insertMenu.querySelectorAll("[data-add]"))
+      item.classList.toggle("pg-picked", item === one);
+  };
+  function closeSlash() {
+    if (!slash) return;
+    slash = null;
+    insertMenu.hidden = true;
+    for (const item of insertMenu.querySelectorAll("[data-add]")) {
+      item.hidden = false;
+      item.classList.remove("pg-picked");
+    }
+  }
+  paper.addEventListener("input", (event) => {
+    if (!shell.edits.on) return;
+    const here = caretIn()?.closest("#paper > p");
+    if (!slash) {
+      if (
+        event.inputType !== "insertText" ||
+        event.data !== "/" ||
+        !here ||
+        here.className ||
+        here.textContent !== "/"
+      )
+        return;
+      slash = here;
+      block = here;
+      const range = getSelection().getRangeAt(0);
+      const box = range.getBoundingClientRect().height
+        ? range.getBoundingClientRect()
+        : here.getBoundingClientRect();
+      line = {
+        left: box.left + scrollX,
+        top: box.top + scrollY,
+        bottom: box.bottom + scrollY,
+      };
+      blockMenu.hidden = true;
+      bubble.hidden = true;
+      placeSlash();
+      pick(offered()[0]);
+      return;
+    }
+    if (here !== slash || !slash.textContent.startsWith("/"))
+      return closeSlash();
+    const asked = slash.textContent.slice(1).trim().toLowerCase();
+    for (const item of insertMenu.querySelectorAll("[data-add]"))
+      item.hidden = !(
+        item.textContent.toLowerCase().includes(asked) ||
+        item.dataset.add.startsWith(asked)
+      );
+    const left = offered();
+    if (!left.length) return closeSlash();
+    pick(left[0]);
+    placeSlash();
+  });
+  paper.addEventListener(
+    "keydown",
+    (event) => {
+      if (!slash || event.isComposing) return;
+      const left = offered();
+      const at = left.findIndex((one) => one.classList.contains("pg-picked"));
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const step = event.key === "ArrowDown" ? 1 : -1;
+        pick(left[(at + step + left.length) % left.length]);
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        event.stopPropagation();
+        const one = left[Math.max(0, at)];
+        if (one) insert(one.dataset.add);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        closeSlash();
       }
+    },
+    true,
+  );
+
+  /*
+   * What a paragraph starts with turns it into what it names, as the space after it is
+   * typed: `#` a heading, `##` a smaller one, `-` or `*` a list, `1.` a numbered list,
+   * `[]` a checklist, `>` a note. The paragraph is swapped for the block with the rest of
+   * its words, so ⌘Z gives back the paragraph as it was typed.
+   */
+  const SHORTHAND = [
+    [/^#$/, "h2"],
+    [/^##$/, "h3"],
+    [/^[-*]$/, "ul"],
+    [/^1[.)]$/, "ol"],
+    [/^\[ ?\]$/, "check"],
+    [/^>$/, "note"],
+  ];
+  paper.addEventListener("input", (event) => {
+    if (
+      !shell.edits.on ||
+      event.inputType !== "insertText" ||
+      event.data !== " "
+    )
+      return;
+    const sel = getSelection();
+    const here = caretIn()?.closest("#paper > p");
+    if (!here || here.className || !sel?.isCollapsed) return;
+    const typed = document.createRange();
+    typed.setStart(here, 0);
+    typed.setEnd(sel.anchorNode, sel.anchorOffset);
+    // A space typed at the end of a line is written as a no-break one
+    const mark = typed.toString().replace(/\u00a0/g, " ");
+    if (!mark.endsWith(" ")) return;
+    const kind = SHORTHAND.find(([rule]) => rule.test(mark.slice(0, -1)))?.[1];
+    if (!kind) return;
+    const rest = document.createRange();
+    rest.setStart(sel.anchorNode, sel.anchorOffset);
+    rest.setEnd(here, here.childNodes.length);
+    const words = rest.cloneContents();
+    const made = document.createElement(
+      kind === "note" ? "p" : kind === "check" ? "ul" : kind,
+    );
+    let into = made;
+    if (kind === "note") made.className = "note";
+    if (kind === "ul" || kind === "ol" || kind === "check") {
+      into = made.appendChild(document.createElement("li"));
+      if (kind === "check") {
+        made.className = "check";
+        const box = into.appendChild(document.createElement("input"));
+        box.type = "checkbox";
+        into.append(" ");
+      }
+    }
+    into.append(words);
+    // An empty block still has a line for the caret
+    if (!into.textContent.trim() && !into.querySelector("br"))
+      into.append(document.createElement("br"));
+    swapBlock(here, made);
+    const caret = document.createRange();
+    const first = [...into.childNodes].find(
+      (node) => !(node instanceof HTMLInputElement),
+    );
+    // In a checklist the words start after the box and its space
+    if (kind === "check") caret.setStart(into.childNodes[1], 1);
+    else if (first) caret.setStartBefore(first);
+    else caret.setStart(into, 0);
+    caret.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(caret);
+  });
+
+  /*
+   * With the caret in a table, a bar over it adds a row under the caret's or a column
+   * after it, and deletes either. The table is changed as a copy put in its place, so
+   * ⌘Z takes a whole change back.
+   */
+  const cellIn = () => (shell.edits.on ? caretIn()?.closest("td, th") : null);
+  const tableChange = (how) => {
+    const cell = cellIn();
+    const table = cell?.closest("table");
+    if (!table) return;
+    const row = cell.closest("tr");
+    const rows = [...table.rows];
+    const r = rows.indexOf(row);
+    const c = cell.cellIndex;
+    const fresh = table.cloneNode(true);
+    const copies = [...fresh.rows];
+    const blank = (like, inHead) => {
+      const one = document.createElement(inHead ? "th" : "td");
+      if (like?.className) one.className = like.className;
+      return one;
+    };
+    let to = { r, c };
+    if (how === "row") {
+      const body = fresh.tBodies[0] ?? fresh.createTBody();
+      const next = document.createElement("tr");
+      for (let i = 0; i < row.cells.length; i++)
+        next.append(blank(null, false));
+      if (row.closest("thead")) body.prepend(next);
+      else copies[r].after(next);
+      to = { r: r + 1, c };
+    } else if (how === "column") {
+      for (const one of copies)
+        one.cells[Math.min(c, one.cells.length - 1)].after(
+          blank(null, Boolean(one.closest("thead"))),
+        );
+      to = { r, c: c + 1 };
+    } else if (how === "drop-row") {
+      const body = row.closest("tbody");
+      if (!body || body.rows.length < 2) return;
+      copies[r].remove();
+      to = { r: Math.min(r, fresh.rows.length - 1), c };
+    } else if (how === "drop-column") {
+      if (row.cells.length < 2) return;
+      for (const one of copies) one.cells[c]?.remove();
+      to = { r, c: Math.max(0, c - 1) };
+    }
+    swapBlock(table, fresh);
+    const into = fresh.rows[to.r]?.cells[to.c];
+    if (into) selectAll(into);
+  };
+  for (const button of tableBar?.querySelectorAll("[data-table]") ?? [])
+    button.addEventListener("mousedown", (event) => {
+      event.preventDefault(); // the caret stays in its cell
+      tableChange(button.dataset.table);
     });
+  document.addEventListener("selectionchange", () => {
+    if (!tableBar) return;
+    const table = cellIn()?.closest("table");
+    if (!table) {
+      tableBar.hidden = true;
+      return;
+    }
+    tableBar.hidden = false;
+    const box = table.getBoundingClientRect();
+    place(
+      tableBar,
+      box.right + scrollX - tableBar.offsetWidth,
+      box.top + scrollY - tableBar.offsetHeight - 8,
+    );
+  });
 
   /* Some text picked on the paper gets its formatting just above it. execCommand is the
      browser's own editing, and the only one that keeps the undo stack whole. */

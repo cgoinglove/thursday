@@ -574,6 +574,10 @@ body.pg-editing .pg-paper > .pg-hot {
   right: auto;
   min-width: 180px;
 }
+/* What Enter takes in the menu a `/` opened */
+.pg-popover .sh-item.pg-picked {
+  background: var(--sh-soft);
+}
 .pg-grip[hidden],
 .pg-bubble[hidden],
 .pg-popover[hidden] {
