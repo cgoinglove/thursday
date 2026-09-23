@@ -17,6 +17,7 @@ import {
 } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { wear } from "../../shell/wear.mjs";
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SCRIPT = join(SKILL, "scripts", "deck.mjs");
@@ -38,17 +39,6 @@ const WORKSPACE = findWorkspace();
 // The shipped skills, where the browser skill's renderer takes the pictures: named in a
 // bot's shell, and otherwise the folder this skill itself sits in beside it
 const SKILLS = process.env.THURSDAY_SKILLS || resolve(SKILL, "..");
-/** The shell every kind wears (shell/ beside the skills): its stylesheet, its script. */
-const shell = (file) =>
-  readFileSync(join(SKILLS, "shell", file), "utf8").trim();
-
-/** Whose folder this is written into: `artifacts/<bot>` names the bot, or nobody. */
-const botName = () => {
-  const dir = process.env.THURSDAY_ARTIFACTS || "";
-  const name = dir.replace(/\/+$/, "").split("/").pop() ?? "";
-  return name && name !== "artifacts" ? name : "";
-};
-
 /** A path as the reader should type it: short from the workspace, whole from outside it. */
 const shown = (path) => {
   const near = relative(WORKSPACE, path);
@@ -100,18 +90,16 @@ function newDeck(name, ...args) {
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(
     out,
-    part("html")
-      .replaceAll("{{title}}", name)
-      .replaceAll("{{w}}", w)
-      .replaceAll("{{h}}", h)
-      .replaceAll("{{bot}}", botName())
-      // A printed page is one slide: `@page` takes no custom property, so it is written in
-      .replace("/* page size */", `@page { size: ${w}px ${h}px; }`)
-      .replace("/* shell.css */", () => shell("shell.css"))
-      .replace("// shell.theme", () => shell("theme.js"))
-      .replace("/* deck.css */", () => part("css"))
-      .replace("// shell.js", () => shell("shell.js"))
-      .replace("// deck.js", () => part("js")),
+    wear(
+      part("html")
+        .replaceAll("{{title}}", name)
+        .replaceAll("{{w}}", w)
+        .replaceAll("{{h}}", h)
+        // A printed page is one slide: `@page` takes no custom property, so it is written in
+        .replace("/* page size */", `@page { size: ${w}px ${h}px; }`)
+        .replace("/* deck.css */", () => part("css"))
+        .replace("// deck.js", () => part("js")),
+    ),
   );
   console.log(
     `${shown(out)} is ready: one file that opens offline, every slide ${size}. Copy a slide from ${join(SKILL, "deck", "slides")} for each step and change the words (the comment inside says how), then run: node ${SCRIPT} shots ${name}`,

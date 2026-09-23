@@ -66,8 +66,8 @@ changes with the code. This file holds what the runner and its neighbours keep.
 - **Where a bot may write is enforced** (`writeRefusal`): its own `artifacts/<bot>`, `projects`,
   `scratch`, `bots` and `.agents`. The workspace root and the app's folder are refused.
 - **The server sets a shell's environment; a model never types it** (`jobShellEnv`, `botShellEnv`:
-  the browser session, `THURSDAY_ARTIFACTS`, `THURSDAY_SKILLS`, and the browser boot downloads,
-  `ensureBrowser`). Left to itself the browser CLI launches the user's own Chrome, which many
+  the browser session, `THURSDAY_BOT`, `THURSDAY_ARTIFACTS`, `THURSDAY_SKILLS`, and the browser boot
+  downloads, `ensureBrowser`). Left to itself the browser CLI launches the user's own Chrome, which many
   machines lack and which on macOS takes the links the user opens.
 - Browser sessions are named by thread and bot, and the workspace is marked as the browser CLI's
   own (`.playwright`), so what they keep on disk is this app's alone: a cancel closes the windows,

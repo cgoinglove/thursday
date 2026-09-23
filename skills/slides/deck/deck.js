@@ -23,7 +23,8 @@
 
   const w = Number(getComputedStyle(document.body).getPropertyValue("--w"));
   const h = Number(getComputedStyle(document.body).getPropertyValue("--h"));
-  const PAD = 20;
+  // Room around the slide on the stage; a face is the slide edge to edge
+  const PAD = shell.face ? 0 : 20;
   let open = 0;
 
   /** The slide as large as the stage takes it, centred. */
@@ -52,13 +53,25 @@
       notesText.textContent =
         slides[open].querySelector(":scope > aside")?.textContent.trim() ?? "";
     for (const [n, button] of [...thumbs.children].entries()) {
-      button.classList.toggle("sh-on", n === open);
-      if (n === open)
-        button.scrollIntoView({ block: "nearest", inline: "nearest" });
+      button.classList.toggle("dk-on", n === open);
+      if (n === open) reveal(button);
     }
     // The picture the renderer left for this slide, when it did
     if (png) png.href = `slide-${String(open + 1).padStart(2, "0")}.png`;
     history.replaceState(null, "", `#${open + 1}`);
+  };
+
+  /**
+   * The strip scrolls to the open slide, and nothing else does: scrollIntoView would
+   * move every scrolling box around the page as well, the app's own window among them,
+   * when this deck is drawn inside it.
+   */
+  const reveal = (button) => {
+    const row = thumbs.getBoundingClientRect();
+    const box = button.getBoundingClientRect();
+    if (box.left < row.left) thumbs.scrollLeft -= row.left - box.left + 12;
+    else if (box.right > row.right)
+      thumbs.scrollLeft += box.right - row.right + 12;
   };
 
   const toHash = () => {
@@ -72,7 +85,6 @@
       .querySelector("[data-notes]")
       ?.classList.toggle("sh-on", !notes.hidden);
     go(open);
-    fit();
   };
 
   const fill = () =>
@@ -126,35 +138,43 @@
   document.querySelector("[data-present]")?.addEventListener("click", () => {
     if (!document.fullscreenElement) fill();
   });
-  document.querySelector("[data-strip]")?.addEventListener("click", () => {
-    strip.classList.toggle("shut");
-    fit();
+  document.querySelector("[data-strip]")?.addEventListener("click", (event) => {
+    const shut = strip.classList.toggle("dk-shut");
+    event.currentTarget.setAttribute("aria-expanded", String(!shut));
+    event.currentTarget.setAttribute(
+      "aria-label",
+      shut ? "Show the slides" : "Fold the slides away",
+    );
   });
   of.textContent = String(slides.length);
   document.getElementById("strip-count").textContent = String(slides.length);
 
   /**
    * Every slide, small, in the strip: the slides themselves scaled down, so the strip is
-   * always what the deck is now. Built once; a slide edited by hand shows on reload.
+   * always what the deck is now. Built once; a slide edited by hand shows on reload. A
+   * face has no strip, and no export to offer.
    */
-  slides.forEach((slide, n) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.setAttribute("aria-label", `Slide ${n + 1}`);
-    const copy = shell.thumb(slide, 150, w, h);
-    copy.firstChild.firstChild.classList.add("open");
-    button.append(copy);
-    const num = document.createElement("em");
-    num.textContent = String(n + 1);
-    button.append(num);
-    button.addEventListener("click", () => go(n));
-    thumbs.append(button);
-  });
+  if (!shell.face) {
+    const tall = 84;
+    const wide = Math.min(150, Math.round((tall * w) / h));
+    slides.forEach((slide, n) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.setAttribute("aria-label", `Slide ${n + 1}`);
+      const { box, copy } = shell.thumb(slide, wide, tall, w, h);
+      copy.classList.add("open");
+      const num = document.createElement("em");
+      num.textContent = String(n + 1);
+      button.append(box, num);
+      button.addEventListener("click", () => go(n));
+      thumbs.append(button);
+    });
 
-  // A slide with nothing in a picture beside it has no picture to export
-  shell.probe("slide-01.png").then((there) => {
-    if (png) png.hidden = !there;
-  });
+    // The renderer leaves slide-01.png and on beside the deck; without them there is no picture to give
+    shell.probe("slide-01.png").then((there) => {
+      if (png) png.hidden = !there;
+    });
+  }
 
   /**
    * A slide clips what does not fit, and nothing else on screen says so. Every slide is

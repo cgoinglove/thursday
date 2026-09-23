@@ -1,11 +1,13 @@
 // What a document does for itself once it is written: an address on every heading, its
 // contents in the pane beside it, its tabs — and, when the reader asks, an editor: the
-// page becomes editable in place, a block gets a handle, a selection gets its formatting,
-// and what was changed is saved back to the file when the app is holding it, or kept as
-// a copy when it is not. Nothing here is content: a page runs this and shows no change.
+// paper becomes editable in place, a block gets a handle, a selection gets its
+// formatting. What changes is kept by the app when the app is showing the page (the
+// shell asks it), and as a downloaded copy when nothing is. Nothing here is content: a
+// page runs this and shows no change.
 (() => {
   const paper = document.getElementById("paper");
-  const outline = document.getElementById("outline");
+  const toc = document.getElementById("toc");
+  const tocButton = document.querySelector("[data-toc]");
   const state = document.getElementById("state");
   const editButton = document.querySelector("[data-edit]");
   const grip = document.getElementById("grip");
@@ -23,47 +25,46 @@
       .replace(/[^\p{L}\p{N}]+/gu, "-")
       .replace(/^-|-$/g, "");
 
-  const headings = () =>
+  /** The document's spine: headings in a tab panel, a card or a note are not on it. */
+  const spine = () =>
     [...paper.querySelectorAll("h2, h3")].filter(
       (heading) => !heading.closest(".tabs, .card, .note, nav"),
     );
 
+  /** Every heading an address of its own; one that already has one keeps it. */
   const address = () => {
     const taken = new Set();
     for (const heading of paper.querySelectorAll("h2, h3")) {
       if (!heading.id || taken.has(heading.id)) {
-        let id = slug(heading.textContent) || "section";
-        for (let n = 2; taken.has(id); n++)
-          id = `${slug(heading.textContent)}-${n}`;
+        const base = slug(heading.textContent) || "section";
+        let id = base;
+        for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
         heading.id = id;
       }
       taken.add(heading.id);
     }
   };
 
-  /**
-   * The contents, in the pane: h2s as the list, each with its h3s under it. Headings
-   * inside a tab panel or a card are left out — they are not the document's spine.
-   * A page with fewer than two sections has no spine to show, and the pane stays shut.
-   */
+  let reading = ""; // the section the pane marks, kept across a rebuild
+
+  /** The contents, in the pane: h2s as the list, each with its h3s under it. */
   const contents = () => {
     address();
-    outline.replaceChildren();
-    const spine = headings();
-    document.body.classList.toggle(
-      "sh-no-toc",
-      spine.filter((h) => h.tagName === "H2").length < 2,
-    );
+    const headings = spine();
+    const none = headings.filter((h) => h.tagName === "H2").length < 2;
+    document.body.classList.toggle("pg-no-toc", none);
+    if (tocButton) tocButton.hidden = none;
     const head = document.createElement("p");
     head.className = "sh-pane-h";
     head.textContent = "On this page";
     const list = document.createElement("ol");
     let last = null;
-    for (const heading of spine) {
+    for (const heading of headings) {
       const item = document.createElement("li");
       const link = document.createElement("a");
       link.href = `#${heading.id}`;
       link.textContent = heading.textContent;
+      link.classList.toggle("pg-on", heading.id === reading);
       item.append(link);
       if (heading.tagName === "H2") {
         list.append(item);
@@ -74,8 +75,8 @@
         last.append(sub);
       }
     }
-    outline.append(head, list);
-    // An old page carried its own contents box; the pane is that box now
+    toc.replaceChildren(head, list);
+    // A page written before the pane carried its own contents box; the pane is that box now
     for (const old of paper.querySelectorAll("nav.contents")) old.remove();
   };
 
@@ -84,22 +85,31 @@
     (entries) => {
       const seen = entries.filter((e) => e.isIntersecting).map((e) => e.target);
       if (!seen.length) return;
-      const top = seen.sort((a, b) => a.offsetTop - b.offsetTop)[0];
-      for (const link of outline.querySelectorAll("a"))
+      reading = seen.sort((a, b) => a.offsetTop - b.offsetTop)[0].id;
+      for (const link of toc.querySelectorAll("a"))
         link.classList.toggle(
-          "sh-on",
-          link.getAttribute("href") === `#${top.id}`,
+          "pg-on",
+          link.getAttribute("href") === `#${reading}`,
         );
     },
     { rootMargin: "-10% 0px -70% 0px" },
   );
   const spy = () => {
     watch.disconnect();
-    for (const heading of headings()) watch.observe(heading);
+    for (const heading of spine()) watch.observe(heading);
   };
 
-  document.querySelector("[data-outline]")?.addEventListener("click", () => {
-    document.body.classList.toggle("sh-toc-open");
+  // The button puts the pane away on a wide screen, where it stands open, and brings it
+  // over the page on a narrow one, where it is away
+  const narrow = matchMedia("(max-width: 900px)");
+  tocButton?.addEventListener("click", () => {
+    document.body.classList.toggle(
+      narrow.matches ? "pg-toc-open" : "pg-toc-shut",
+    );
+  });
+  toc.addEventListener("click", (event) => {
+    if (narrow.matches && event.target.closest("a"))
+      document.body.classList.remove("pg-toc-open");
   });
 
   // Tabs: a `.tabs` block whose children are <section data-tab="Name">. One is shown at
@@ -109,12 +119,12 @@
     if (panels.length < 2) continue;
     const bar = document.createElement("div");
     bar.setAttribute("role", "tablist");
-    const pick = (n) => {
+    bar.contentEditable = "false";
+    const pick = (n) =>
       panels.forEach((panel, i) => {
         panel.hidden = i !== n;
         bar.children[i].setAttribute("aria-selected", String(i === n));
       });
-    };
     panels.forEach((panel, i) => {
       const tab = document.createElement("button");
       tab.type = "button";
@@ -131,37 +141,39 @@
   contents();
   spy();
 
-  /* ── the editor ──────────────────────────────────────────────────────────── */
+  /* ── keeping it ──────────────────────────────────────────────────────────── */
 
-  if (!editButton) return;
   let editing = false;
   let dirty = false;
-  let block = null; // the block under the handle
+  let timer = 0;
 
-  // The app serves this file from its file route; there it can also take it back
-  const inApp =
-    location.pathname.startsWith("/api/file/") &&
-    location.protocol.startsWith("http");
-
-  const setState = (text) => {
+  const say = (text) => {
     if (state) state.textContent = text;
   };
 
-  /** The file as it should be kept: the page without the editor on it. */
+  /** The file as it should be kept: the page without anything the reader's session put on it. */
   shell.clean = (copy) => {
     copy
       .querySelector("body")
-      ?.classList.remove("sh-editing", "sh-toc-open", "sh-no-toc");
+      ?.classList.remove(
+        "pg-editing",
+        "pg-toc-open",
+        "pg-toc-shut",
+        "pg-no-toc",
+      );
     copy.querySelector("#paper")?.removeAttribute("contenteditable");
-    copy.querySelector("#outline")?.replaceChildren();
+    copy.querySelector("#toc")?.replaceChildren();
+    copy.querySelector("[data-toc]")?.setAttribute("hidden", "");
+    copy.querySelector("#state")?.replaceChildren();
     for (const id of ["grip", "bubble", "block-menu", "insert-menu"]) {
       const el = copy.querySelector(`#${id}`);
       el?.setAttribute("hidden", "");
       el?.removeAttribute("style");
     }
-    copy.querySelector("#state")?.replaceChildren();
-    for (const el of copy.querySelectorAll(".sh-hot"))
-      el.classList.remove("sh-hot");
+    for (const el of copy.querySelectorAll(".pg-hot"))
+      el.classList.remove("pg-hot");
+    for (const box of copy.querySelectorAll('#paper input[type="checkbox"]'))
+      box.removeAttribute("contenteditable");
     for (const tabs of copy.querySelectorAll(".tabs")) {
       tabs.querySelector('[role="tablist"]')?.remove();
       for (const panel of tabs.querySelectorAll("[role=tabpanel]")) {
@@ -171,85 +183,117 @@
     }
   };
 
-  let saving = null;
-  const save = async () => {
+  /** Keeps the page now: into the file when the app holds it, as a copy otherwise. */
+  const keep = async () => {
+    clearTimeout(timer);
+    timer = 0;
     const text = shell.serialize(shell.clean);
-    if (!inApp) {
+    if (!shell.host.keeps) {
       shell.download(shell.fileName(), text);
       dirty = false;
-      setState("Copy downloaded");
+      say("Copy downloaded");
       return;
     }
-    setState("Saving…");
+    dirty = false;
+    say("Saving…");
     try {
-      const res = await fetch(location.pathname, {
-        method: "PUT",
-        headers: { "content-type": "text/html; charset=utf-8" },
-        body: text,
-      });
-      if (!res.ok) throw new Error(await res.text());
-      dirty = false;
-      setState("Saved · just now");
+      await shell.host.save(text);
+      if (!dirty) say(editing ? "Saved" : "");
     } catch (error) {
-      setState(`Not saved: ${String(error.message || error).slice(0, 60)}`);
+      dirty = true;
+      say(`Not saved: ${String(error.message || error).slice(0, 60)}`);
     }
   };
-  const saveSoon = () => {
+
+  /**
+   * Something on the page changed. The app keeps it a moment later, when it is holding
+   * the page; nothing else is kept until Done, which downloads the copy — so a checkbox
+   * ticked while reading a file opened from disk costs nothing.
+   */
+  const changed = () => {
     dirty = true;
-    if (!inApp) {
-      setState("Unsaved changes");
+    if (!shell.host.keeps) {
+      if (editing) say("Unsaved · Done keeps a copy");
       return;
     }
-    setState("Unsaved…");
-    clearTimeout(saving);
-    saving = setTimeout(save, 1200);
+    say("Unsaved…");
+    clearTimeout(timer);
+    timer = setTimeout(keep, 1200);
   };
+
+  // A tick is a change like any other: the box's state is written onto it, since only
+  // what is in the markup survives into the file
+  paper.addEventListener("change", (event) => {
+    const box = event.target;
+    if (!(box instanceof HTMLInputElement) || box.type !== "checkbox") return;
+    box.toggleAttribute("checked", box.checked);
+    changed();
+  });
+
+  addEventListener("keydown", (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === "s" && editing) {
+      event.preventDefault();
+      keep();
+    }
+  });
+
+  /* ── the editor ──────────────────────────────────────────────────────────── */
+
+  if (!editButton) return;
+  let block = null; // the block under the handle
+  let placed = null; // what the editor itself selected in a block it just made
 
   const setEditing = (on) => {
     editing = on;
-    document.body.classList.toggle("sh-editing", on);
+    document.body.classList.toggle("pg-editing", on);
     paper.contentEditable = on ? "true" : "false";
+    // A checkbox stays something to tick while the text around it is being written
+    for (const box of paper.querySelectorAll('input[type="checkbox"]'))
+      box.contentEditable = "false";
     editButton.classList.toggle("sh-on", on);
     editButton.querySelector(".sh-word").textContent = on ? "Done" : "Edit";
-    if (!on) {
-      hideAll();
-      if (dirty) save();
-      else setState("");
-      contents();
-      spy();
-    } else
-      setState(
-        inApp ? "Editing · saves as you go" : "Editing · Done keeps a copy",
+    if (on) {
+      shell.host.ask();
+      say(
+        shell.host.keeps
+          ? "Editing · saved as you go"
+          : "Editing · Done keeps a copy",
       );
+      return;
+    }
+    hideAll();
+    if (dirty || timer) keep();
+    else say("");
+    contents();
+    spy();
   };
   editButton.addEventListener("click", () => setEditing(!editing));
+  // The app may answer after Edit was pressed: the line under the title catches up
+  shell.host.onKeeps(() => {
+    if (editing && !dirty) say("Editing · saved as you go");
+  });
 
   addEventListener("keydown", (event) => {
-    if ((event.metaKey || event.ctrlKey) && event.key === "s") {
-      if (!editing) return;
-      event.preventDefault();
-      clearTimeout(saving);
-      save();
-    } else if (event.key === "Escape" && editing) {
-      hideAll();
-    }
+    if (event.key === "Escape" && editing) hideAll();
   });
 
   paper.addEventListener("input", () => {
     if (!editing) return;
-    saveSoon();
+    changed();
     contents();
   });
 
-  /* Blocks: the paper's own children. A block under the pointer gets the handle. */
+  /** The block `node` sits in: one of the paper's own children. */
   const blockOf = (node) => {
     const el = node instanceof Element ? node : node?.parentElement;
     return el?.closest("#paper > *") ?? null;
   };
 
+  /** Puts a floating piece at page coordinates, kept inside the window's width. */
   const place = (el, x, y) => {
     el.hidden = false;
-    el.style.left = `${Math.max(4, x)}px`;
+    const most = document.documentElement.clientWidth - el.offsetWidth - 4;
+    el.style.left = `${Math.max(4, Math.min(x, most))}px`;
     el.style.top = `${Math.max(4, y)}px`;
   };
 
@@ -258,34 +302,40 @@
     bubble.hidden = true;
     blockMenu.hidden = true;
     insertMenu.hidden = true;
-    for (const el of paper.querySelectorAll(".sh-hot"))
-      el.classList.remove("sh-hot");
+    for (const el of paper.querySelectorAll(".pg-hot"))
+      el.classList.remove("pg-hot");
+    block = null;
   };
 
   paper.addEventListener("pointermove", (event) => {
     if (!editing || !blockMenu.hidden || !insertMenu.hidden) return;
     const here = blockOf(event.target);
     if (!here || here === block) return;
-    for (const el of paper.querySelectorAll(".sh-hot"))
-      el.classList.remove("sh-hot");
+    for (const el of paper.querySelectorAll(".pg-hot"))
+      el.classList.remove("pg-hot");
     block = here;
-    block.classList.add("sh-hot");
+    block.classList.add("pg-hot");
     const box = block.getBoundingClientRect();
-    place(grip, box.left - 62, box.top + scrollY - 2);
+    place(grip, box.left + scrollX - 64, box.top + scrollY - 2);
   });
 
   const openMenu = (menu, near) => {
     const box = near.getBoundingClientRect();
-    hideAll();
-    if (block) block.classList.add("sh-hot");
-    place(menu, box.left, box.bottom + scrollY + 4);
+    blockMenu.hidden = true;
+    insertMenu.hidden = true;
+    bubble.hidden = true;
+    place(menu, box.left + scrollX, box.bottom + scrollY + 4);
   };
   grip
     .querySelector("[data-block-menu]")
-    .addEventListener("click", (e) => openMenu(blockMenu, e.currentTarget));
+    .addEventListener("click", (event) =>
+      openMenu(blockMenu, event.currentTarget),
+    );
   grip
     .querySelector("[data-insert-menu]")
-    .addEventListener("click", (e) => openMenu(insertMenu, e.currentTarget));
+    .addEventListener("click", (event) =>
+      openMenu(insertMenu, event.currentTarget),
+    );
   addEventListener("pointerdown", (event) => {
     if (event.target.closest("#grip, #block-menu, #insert-menu, #bubble"))
       return;
@@ -300,16 +350,14 @@
       if (how === "up") block.previousElementSibling?.before(block);
       else if (how === "down") block.nextElementSibling?.after(block);
       else if (how === "dup") block.after(block.cloneNode(true));
-      else if (how === "delete") {
-        block.remove();
-        block = null;
-      }
+      else if (how === "delete") block.remove();
       hideAll();
-      saveSoon();
+      changed();
       contents();
+      spy();
     });
 
-  /** What the Insert menu makes, each a block a person can start typing into. */
+  /** What the Insert menu makes: each a block to start typing into. */
   const make = (kind) => {
     const html = {
       h2: "<h2>Heading</h2>",
@@ -317,7 +365,7 @@
       ul: "<ul><li>One</li><li>Two</li></ul>",
       ol: "<ol><li>First</li><li>Second</li></ol>",
       check:
-        '<ul class="check"><li><input type="checkbox"> To do</li><li><input type="checkbox"> To do</li></ul>',
+        '<ul class="check"><li><input type="checkbox" contenteditable="false"> To do</li><li><input type="checkbox" contenteditable="false"> To do</li></ul>',
       table:
         "<table><thead><tr><th>Column</th><th>Column</th></tr></thead><tbody><tr><td>Cell</td><td>Cell</td></tr><tr><td>Cell</td><td>Cell</td></tr></tbody></table>",
       note: '<p class="note">A note beside the point.</p>',
@@ -333,17 +381,22 @@
       if (block) block.after(made);
       else paper.append(made);
       hideAll();
-      const range = document.createRange();
-      range.selectNodeContents(made.matches("hr") ? paper : made);
-      range.collapse(false);
-      const sel = getSelection();
-      sel.removeAllRanges();
-      sel.addRange(range);
-      saveSoon();
+      // Its words are selected, so the first key typed replaces them — a selection the
+      // editor made, which asks for no formatting
+      if (!made.matches("hr")) {
+        placed = document.createRange();
+        placed.selectNodeContents(made.querySelector("li, td, th") ?? made);
+        const sel = getSelection();
+        sel.removeAllRanges();
+        sel.addRange(placed.cloneRange());
+      }
+      changed();
       contents();
+      spy();
     });
 
-  /* Selection: some text picked in the paper gets its formatting above it. */
+  /* Some text picked on the paper gets its formatting just above it. execCommand is the
+     browser's own editing, and the only one that keeps the undo stack whole. */
   const wrapSelection = (tag, className) => {
     const sel = getSelection();
     if (!sel?.rangeCount || sel.isCollapsed) return;
@@ -359,7 +412,7 @@
   };
   for (const button of bubble.querySelectorAll("[data-fmt]"))
     button.addEventListener("mousedown", (event) => {
-      event.preventDefault(); // keeps the selection
+      event.preventDefault(); // the selection stays where it is
       const how = button.dataset.fmt;
       if (how === "bold" || how === "italic") document.execCommand(how);
       else if (how === "h2" || how === "p")
@@ -368,34 +421,31 @@
         const href = prompt("Link to");
         if (href) document.execCommand("createLink", false, href);
       } else if (how === "chip") wrapSelection("span", "chip");
-      saveSoon();
+      changed();
       contents();
     });
 
   document.addEventListener("selectionchange", () => {
     if (!editing) return;
     const sel = getSelection();
-    if (
-      !sel?.rangeCount ||
-      sel.isCollapsed ||
-      !paper.contains(sel.anchorNode)
-    ) {
+    const range = sel?.rangeCount ? sel.getRangeAt(0) : null;
+    const mine =
+      placed &&
+      range &&
+      range.compareBoundaryPoints(Range.START_TO_START, placed) === 0 &&
+      range.compareBoundaryPoints(Range.END_TO_END, placed) === 0;
+    if (!mine) placed = null;
+    if (!range || range.collapsed || mine || !paper.contains(sel.anchorNode)) {
       bubble.hidden = true;
       return;
     }
-    const box = sel.getRangeAt(0).getBoundingClientRect();
+    const box = range.getBoundingClientRect();
     if (!box.width) return;
+    bubble.hidden = false;
     place(
       bubble,
-      box.left + box.width / 2 - bubble.offsetWidth / 2,
-      box.top + scrollY - 40,
+      box.left + scrollX + box.width / 2 - bubble.offsetWidth / 2,
+      box.top + scrollY - bubble.offsetHeight - 8,
     );
-  });
-
-  addEventListener("scroll", () => {
-    if (editing) {
-      grip.hidden = true;
-      bubble.hidden = true;
-    }
   });
 })();

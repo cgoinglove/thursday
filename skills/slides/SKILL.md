@@ -27,5 +27,5 @@ changes that); an `<aside>` inside a slide is what is said over it and never sho
 the Notes button in the deck's head shows it under the stage. The file draws its own frame
 around the slides: a head naming who made it, arrows and a count, notes, full screen,
 Present, a theme button and Export (print, this slide's picture, the file), and a strip of
-every slide small at the foot. Write inside `<main>` only. Nothing is edited in the app:
+every slide small at the foot. Write inside `<div id="deck">` only. Nothing is edited in the app:
 what changes is the file, shot again.

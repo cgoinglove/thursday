@@ -6,6 +6,7 @@ import {
   deleteWorkspaceFile,
   emptyScratch,
   keepGivenFiles,
+  savePage,
 } from "@/features/workspace/workspace.query";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
@@ -31,6 +32,19 @@ export const deleteWorkspaceFileAction = serverAction(async (path: string) => {
   if (!target) publicError("Which file?");
   await deleteWorkspaceFile(target);
 });
+
+/**
+ * Keeps a page's own edits in its file. Sent by the frame that shows the page
+ * (file-view `FileFrame`), which names the file it opened — never the page itself.
+ */
+export const savePageAction = serverAction(
+  async (path: string, html: string) => {
+    const target = path.trim();
+    if (!target) publicError("Which page?");
+    if (typeof html !== "string") publicError("Nothing to keep.");
+    await savePage(target, html);
+  },
+);
 
 /** Empties `scratch/` — the one folder the bots are told is disposable. */
 export const emptyScratchAction = serverAction(async () => {

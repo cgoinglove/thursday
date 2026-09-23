@@ -24,6 +24,7 @@ import {
 } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { wear } from "../../shell/wear.mjs";
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const TEMPLATE = join(SKILL, "kit");
@@ -43,18 +44,6 @@ function findWorkspace() {
 }
 
 const WORKSPACE = findWorkspace();
-// The shipped skills: named in a bot's shell, and otherwise the folder this skill sits in
-const SKILLS = process.env.THURSDAY_SKILLS || resolve(SKILL, "..");
-/** The shell every kind wears (shell/ beside the skills): its stylesheet, its script. */
-const shell = (file) =>
-  readFileSync(join(SKILLS, "shell", file), "utf8").trim();
-
-/** Whose folder this is written into: `artifacts/<bot>` names the bot, or nobody. */
-const botName = () => {
-  const dir = process.env.THURSDAY_ARTIFACTS || "";
-  const name = dir.replace(/\/+$/, "").split("/").pop() ?? "";
-  return name && name !== "artifacts" ? name : "";
-};
 const KIT = join(WORKSPACE, "projects", ".page-kit");
 const LOCK = `${KIT}.lock`;
 const STAMP = join(KIT, ".kit.json");
@@ -249,15 +238,13 @@ function quickPage(name, ...args) {
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(
     out,
-    part("quick.html")
-      .replace("{{body}}", () => part(join("pages", `${kind}.html`)))
-      .replace("/* shell.css */", () => shell("shell.css"))
-      .replace("// shell.theme", () => shell("theme.js"))
-      .replace("{{css}}", () => part("quick.css"))
-      .replace("// shell.js", () => shell("shell.js"))
-      .replace("{{js}}", () => part("quick.js"))
-      .replaceAll("{{title}}", name)
-      .replaceAll("{{bot}}", botName()),
+    wear(
+      part("quick.html")
+        .replace("{{body}}", () => part(join("pages", `${kind}.html`)))
+        .replace("{{css}}", () => part("quick.css"))
+        .replace("{{js}}", () => part("quick.js"))
+        .replaceAll("{{title}}", name),
+    ),
   );
   console.log(
     `${shown(out)} is ready: one file that opens offline, styled already${kind === "blank" ? "" : `, laid out as a ${kind}`}. Write it in plain HTML from what is there (the comment inside says what each part is for), and hand back this path.`,

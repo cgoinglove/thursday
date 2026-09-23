@@ -384,6 +384,8 @@ const REQUIRED = [
   "skills/interactive-page/quick/pages/blank.html",
   "skills/design/canvas/canvas.html",
   "skills/slides/deck/deck.html",
+  "skills/shell/wear.mjs",
+  "skills/shell/head.html",
   "skills/shell/shell.css",
   "skills/shell/shell.js",
   "skills/shell/theme.js",

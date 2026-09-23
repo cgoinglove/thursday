@@ -260,13 +260,6 @@ export const WORKSPACE_VIEW = {
 };
 
 /**
- * A page saving itself back over the file route (app/api/file PUT): the most it may
- * be. A document is text and a canvas a few pictures written in, so this holds
- * anything a bot writes; past it the save is refused and the page says so.
- */
-export const PAGE_SAVE = { maxBytes: 32 * 1024 * 1024 };
-
-/**
  * A file's face before it is opened (workspace file-thumb): a page in miniature, the
  * head of a text.
  * - `pageWidth`  the width an html page is laid out at before it is scaled into its

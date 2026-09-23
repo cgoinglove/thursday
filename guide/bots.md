@@ -194,7 +194,7 @@ Where the canvas has room — in its own tab — it shows a list of its boards o
 tools: pick, move around, every board, the list. Clicking a board picks it and shows what it is made
 of on the right: its size, colours, type, corners and spacing, with a button that copies all of it
 as text for whoever builds it. The bar at its top names who made it and holds a theme button and
-**Export**: **Print · every board**, **This board as a picture**, **Copy this board as an
+**Export**: **Print · a board a page**, **This board as a picture**, **Copy this board as an
 instruction**, **Download this file**.
 
 Something to present, or to be walked through a step at a time, comes back as a **deck**: slides
@@ -212,7 +212,8 @@ marked), chips for dates, people and status, checklists, tables with the pick ma
 sources at the end. It reads on a phone and prints as a document. **Edit** in its top bar makes the
 page editable in place: a paragraph gets a handle and a **+** to put something after it, selected
 words get their formatting over them, and what is changed is saved back into the file as it is
-typed. Opened outside the app the same edits are kept as a copy downloaded on Done.
+typed; a box ticked while reading is saved the same way. Opened outside the app the edits are kept
+as a copy downloaded on Done.
 
 ## Routines: jobs that start by themselves
 

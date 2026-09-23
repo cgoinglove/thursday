@@ -1,68 +1,71 @@
 /* The shell a bot's page wears when it is opened: one head for a deck, a document and a
-   canvas, the buttons and menus on it, and the theme under all of it. Inlined into each
-   file by the skill's own script (`deck.mjs new`, `page.mjs quick`, `canvas.mjs new`), so
-   the file still opens alone. The look is the app's own: its radius, a border that is the
-   ink at low opacity, a picked thing in the one brand blue, black for what is pressed. */
+   canvas, the buttons and menus on it, and the theme under all of it. Put on each file
+   by the skill's own script (shell/wear.mjs), so the file still opens alone. The look is
+   the app's own: its radius, a border that is the ink at low opacity, a picked thing in
+   the one brand blue, black for what is pressed.
 
-/* Theme. The device decides unless the reader picked one (the ◐ button, kept in the
-   browser). The legacy names each kind's stylesheet grew up with alias the same tokens. */
+   Everything here is named `sh-` — classes and custom properties alike — because the
+   page is shared with what a bot writes into it, and a bot that names its own `--ink` or
+   `.rule` must neither restyle the head nor be restyled by it. */
+
+/* Theme. The device decides unless the reader picked one (the theme button, kept in the
+   browser); `data-theme` on <html> is set before the first paint (shell/theme.js). The
+   values are the app's own (app/globals.css): its grey ladder read from either end, its
+   blue, its red, a border that is the ink at 10%, muted text that clears 4.5:1. */
 :root {
   color-scheme: light dark;
-  --paper: #fff;
-  --ink: #18181b;
-  --ink-2: #52525b;
-  --ink-3: #8b8b95;
-  --line: rgb(0 0 0 / 10%);
-  --soft: #f7f7f8;
-  --sunk: #ededf0;
-  --brand: #2563eb;
-  --brand-soft: #eaf1fe;
-  --bad: #dc2626;
-  --good: #15803d;
-  --warn: #b45309;
-  --radius: 0.625rem;
-  --head: 48px;
-  --shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 10px 30px -14px rgb(0 0 0 / 30%);
-  --bg: var(--paper);
-  --fg: var(--ink);
-  --muted: var(--ink-3);
-  --accent: var(--brand);
-  --field: var(--sunk);
-  --dot: #d4d4d8;
+  --sh-paper: #ffffff;
+  --sh-ink: #0d0d0d;
+  --sh-ink-2: #4f4f4f;
+  --sh-ink-3: #767676;
+  --sh-line: rgb(13 13 13 / 10%);
+  --sh-soft: #f9f9f9;
+  --sh-sunk: #ededed;
+  --sh-brand: #0169cc;
+  --sh-bad: #dc2626;
+  --sh-good: #15803d;
+  --sh-warn: #b45309;
+  --sh-dot: #cdcdcd;
+  --sh-shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 10px 30px -14px rgb(0 0 0 / 30%);
+  --sh-brand-soft: color-mix(in srgb, var(--sh-brand) 9%, var(--sh-paper));
+  --sh-radius: 0.625rem;
+  --sh-head: 48px;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #121316;
-    --ink: #ececf0;
-    --ink-2: #b1b1bb;
-    --ink-3: #7b7b87;
-    --line: rgb(255 255 255 / 11%);
-    --soft: #191a1e;
-    --sunk: #232429;
-    --brand: #7aa2f7;
-    --brand-soft: #1b2740;
-    --bad: #ef4444;
-    --good: #4ade80;
-    --warn: #fbbf24;
-    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 10px 30px -14px rgb(0 0 0 / 70%);
-    --dot: #33353b;
+    --sh-paper: #0d0d0d;
+    --sh-ink: #ffffff;
+    --sh-ink-2: #b9b9b9;
+    --sh-ink-3: #9f9f9f;
+    --sh-line: rgb(255 255 255 / 10%);
+    --sh-soft: #131313;
+    --sh-sunk: #1c1c1c;
+    --sh-brand: #0a84ff;
+    --sh-bad: #ef4444;
+    --sh-good: #4ade80;
+    --sh-warn: #fbbf24;
+    --sh-dot: #393939;
+    --sh-shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 10px 30px -14px rgb(0 0 0 / 70%);
   }
 }
 :root[data-theme="dark"] {
-  --paper: #121316;
-  --ink: #ececf0;
-  --ink-2: #b1b1bb;
-  --ink-3: #7b7b87;
-  --line: rgb(255 255 255 / 11%);
-  --soft: #191a1e;
-  --sunk: #232429;
-  --brand: #7aa2f7;
-  --brand-soft: #1b2740;
-  --bad: #ef4444;
-  --good: #4ade80;
-  --warn: #fbbf24;
-  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 10px 30px -14px rgb(0 0 0 / 70%);
-  --dot: #33353b;
+  color-scheme: dark;
+  --sh-paper: #0d0d0d;
+  --sh-ink: #ffffff;
+  --sh-ink-2: #b9b9b9;
+  --sh-ink-3: #9f9f9f;
+  --sh-line: rgb(255 255 255 / 10%);
+  --sh-soft: #131313;
+  --sh-sunk: #1c1c1c;
+  --sh-brand: #0a84ff;
+  --sh-bad: #ef4444;
+  --sh-good: #4ade80;
+  --sh-warn: #fbbf24;
+  --sh-dot: #393939;
+  --sh-shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 10px 30px -14px rgb(0 0 0 / 70%);
 }
 
 * {
@@ -74,8 +77,8 @@ body {
 }
 body {
   margin: 0;
-  background: var(--paper);
-  color: var(--ink);
+  background: var(--sh-paper);
+  color: var(--sh-ink);
   font:
     14px / 1.5 ui-sans-serif,
     system-ui,
@@ -89,68 +92,73 @@ body {
 }
 
 /* The head: who made it, what it is, what it can do, the theme, export. The kind's own
-   controls go in .sh-tools; the two every kind has close the row, so they are always in the
-   same corner whatever was opened. */
+   controls go in .sh-tools; the two every kind has close the row, so they are always in
+   the same corner whatever was opened. It stays at the top of a page that scrolls. */
 .sh-head {
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 5;
   flex: none;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  height: var(--head);
+  height: var(--sh-head);
   padding: 0 0.625rem 0 0.875rem;
-  border-bottom: 1px solid var(--line);
-  background: var(--paper);
+  border-bottom: 1px solid var(--sh-line);
+  background: var(--sh-paper);
+  color: var(--sh-ink);
+  font-size: 13px;
+  line-height: 1.5;
   white-space: nowrap;
 }
-.sh-head .sh-who {
+.sh-who {
   display: flex;
   align-items: center;
   gap: 0.4375rem;
-  font-size: 13px;
   font-weight: 600;
 }
-.sh-head .sh-who[data-bot=""] {
+.sh-who[data-bot=""],
+.sh-who[data-bot=""] + .sh-dot {
   display: none;
 }
-.sh-head .sh-who + .sh-dot {
+.sh-dot {
+  flex: none;
   width: 3px;
   height: 3px;
   border-radius: 999px;
-  background: var(--ink-3);
+  background: var(--sh-ink-3);
 }
-.sh-head .sh-who[data-bot=""] + .sh-dot {
-  display: none;
-}
-.sh-head .sh-title {
+.sh-title {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 13.5px;
   font-weight: 500;
 }
-.sh-head .sh-sub {
+.sh-sub {
   flex: none;
-  color: var(--ink-3);
+  color: var(--sh-ink-3);
   font-size: 11.5px;
 }
-.sh-head .sh-gap {
+.sh-sub:empty {
+  display: none;
+}
+.sh-gap {
   flex: 1;
 }
-.sh-head .sh-tools {
+.sh-tools {
   display: flex;
   align-items: center;
   gap: 0.25rem;
 }
-.sh-head .sh-count {
+.sh-count {
   padding: 0 0.25rem;
-  color: var(--ink-3);
+  color: var(--sh-ink-3);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
-.sh-head .sh-count b {
-  color: var(--ink);
+.sh-count b {
+  color: var(--sh-ink);
   font-weight: 600;
 }
 .sh-rule {
@@ -158,17 +166,17 @@ body {
   width: 1px;
   height: 18px;
   margin: 0 0.125rem;
-  background: var(--line);
+  background: var(--sh-line);
 }
 @media (max-width: 720px) {
   .sh-head .sh-sub,
-  .sh-head .sh-b .sh-word {
+  .sh-head .sh-word {
     display: none;
   }
 }
 
-/* A button: ghost unless it says otherwise. `outline` has an edge, `solid` is black,
-   `on` is what is picked, `icon` is square. */
+/* A button: ghost unless it says otherwise. `sh-outline` has an edge, `sh-on` is what is
+   picked, `sh-icon` is square, `sh-sm` is the small one. */
 .sh-b {
   display: inline-flex;
   align-items: center;
@@ -176,30 +184,32 @@ body {
   gap: 0.375rem;
   height: 32px;
   min-width: 32px;
+  margin: 0;
   padding: 0 0.5rem;
   border: 1px solid transparent;
-  border-radius: calc(var(--radius) * 0.8);
+  border-radius: calc(var(--sh-radius) * 0.8);
   background: transparent;
-  color: var(--ink-2);
+  color: var(--sh-ink-2);
   font: inherit;
   font-size: 12.5px;
   font-weight: 500;
   line-height: 1;
+  text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
 }
 .sh-b:hover {
-  background: var(--soft);
-  color: var(--ink);
+  background: var(--sh-soft);
+  color: var(--sh-ink);
 }
 .sh-b:focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--sh-brand);
   outline-offset: 1px;
 }
 .sh-b.sh-icon {
-  padding: 0;
   width: 32px;
+  padding: 0;
 }
 .sh-b.sh-sm {
   height: 28px;
@@ -210,29 +220,24 @@ body {
   width: 28px;
 }
 .sh-b.sh-outline {
-  border-color: var(--line);
-  background: var(--paper);
-  color: var(--ink);
+  border-color: var(--sh-line);
+  background: var(--sh-paper);
+  color: var(--sh-ink);
 }
 .sh-b.sh-outline:hover {
-  background: var(--soft);
-}
-.sh-b.sh-solid {
-  border-color: var(--ink);
-  background: var(--ink);
-  color: var(--paper);
-}
-.sh-b.sh-solid:hover {
-  opacity: 0.9;
+  background: var(--sh-soft);
 }
 .sh-b.sh-on {
-  border-color: var(--brand);
-  background: var(--brand-soft);
-  color: var(--brand);
+  border-color: var(--sh-brand);
+  background: var(--sh-brand-soft);
+  color: var(--sh-brand);
 }
 .sh-b[disabled] {
   opacity: 0.4;
   cursor: default;
+}
+.sh-b[hidden] {
+  display: none;
 }
 .sh-b svg {
   flex: none;
@@ -245,8 +250,18 @@ body {
   stroke-linejoin: round;
 }
 
+/* The theme button draws the mode it is in: the device, light, dark. */
+.sh-theme svg {
+  display: none;
+}
+:root:not([data-theme]) .sh-theme .sh-mode-device,
+:root[data-theme="light"] .sh-theme .sh-mode-light,
+:root[data-theme="dark"] .sh-theme .sh-mode-dark {
+  display: block;
+}
+
 /* A menu: a <details> whose summary is a button and whose list drops under it. The
-   page's own rules for details and lists reach in here, so the box is said again. */
+   page's own rules for details and lists may reach in here, so the box is said again. */
 .sh-menu {
   position: relative;
   margin: 0;
@@ -256,8 +271,6 @@ body {
 }
 .sh-menu > summary {
   margin: 0;
-}
-.sh-menu > summary {
   list-style: none;
 }
 .sh-menu > summary::-webkit-details-marker {
@@ -270,80 +283,70 @@ body {
   opacity: 0.7;
 }
 .sh-menu[open] > summary {
-  background: var(--soft);
+  background: var(--sh-soft);
 }
-.sh-menu .sh-list {
+.sh-list {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
   z-index: 20;
   min-width: 200px;
+  margin: 0;
   padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--paper);
-  box-shadow: var(--shadow);
-}
-.sh-menu .sh-list.left {
-  right: auto;
-  left: 0;
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-radius);
+  background: var(--sh-paper);
+  color: var(--sh-ink);
+  box-shadow: var(--sh-shadow);
 }
 .sh-item {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   width: 100%;
+  margin: 0;
   padding: 0.4375rem 0.5rem;
   border: 0;
-  border-radius: calc(var(--radius) * 0.6);
+  border-radius: calc(var(--sh-radius) * 0.6);
   background: transparent;
-  color: var(--ink);
+  color: var(--sh-ink);
   font: inherit;
   font-size: 13px;
+  line-height: 1.4;
   text-align: left;
   text-decoration: none;
   cursor: pointer;
 }
-.sh-item:hover {
-  background: var(--soft);
+.sh-item:hover,
+.sh-item:focus-visible {
+  background: var(--sh-soft);
+  outline: 0;
 }
 .sh-item[hidden] {
   display: none;
 }
 .sh-item small {
   margin-left: auto;
-  color: var(--ink-3);
+  color: var(--sh-ink-3);
   font-size: 11px;
 }
-.sh-item svg {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: currentcolor;
-  stroke-width: 1.75;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.sh-item[disabled] {
-  opacity: 0.4;
-  cursor: default;
-}
-.sh-menu .sh-sep {
+.sh-sep {
   height: 1px;
   margin: 4px 0;
-  background: var(--line);
+  background: var(--sh-line);
 }
 
 /* A side pane and the small heading each starts with. */
 .sh-pane {
   flex: none;
-  border-right: 1px solid var(--line);
-  background: var(--soft);
+  border-right: 1px solid var(--sh-line);
+  background: var(--sh-soft);
+  color: var(--sh-ink);
   overflow: auto;
 }
 .sh-pane.sh-right {
   border-right: 0;
-  border-left: 1px solid var(--line);
+  border-left: 1px solid var(--sh-line);
 }
 .sh-pane-h {
   display: flex;
@@ -352,9 +355,11 @@ body {
   gap: 0.375rem;
   margin: 0 0 0.5rem;
   padding: 0 0.375rem;
-  color: var(--ink-3);
+  /* Not the muted grey: that clears 4.5:1 on white paper only, and a pane is tinted */
+  color: var(--sh-ink-2);
   font-size: 11px;
   font-weight: 600;
+  line-height: 1.5;
   letter-spacing: 0.03em;
 }
 .sh-pane-h em {
@@ -362,28 +367,33 @@ body {
   font-weight: 400;
 }
 
-/* A miniature of a slide or a board: the thing itself, cloned and scaled to a width. */
+/* A miniature of a slide or a board: the thing itself, cloned and scaled into a box. */
 .sh-thumb {
   position: relative;
+  display: block;
+  flex: none;
   overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: calc(var(--radius) * 0.7);
-  background: var(--paper);
+  border: 1px solid var(--sh-line);
+  border-radius: calc(var(--sh-radius) * 0.7);
+  background: var(--sh-sunk);
 }
-.sh-thumb > .sh-thumb-stage {
-  position: relative;
+.sh-thumb-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
   transform-origin: 0 0;
   pointer-events: none;
 }
-.sh-thumb > .sh-thumb-stage * {
+.sh-thumb-stage * {
   animation: none !important;
 }
 
 /* A word that says something failed, as the app says it: red, and only there. */
-.sh-badge.sh-bad {
+.sh-badge {
   padding: 1px 8px;
   border-radius: 999px;
-  background: var(--bad);
+  background: var(--sh-bad);
   color: #fff;
   font-size: 11px;
   font-weight: 500;
@@ -392,22 +402,34 @@ body {
   display: none;
 }
 
-/* Paper is paper: printing is always light, and the shell is not on it. */
+/* A page drawn as its own face, in a file's tile (`?face`, shell/theme.js): what it holds
+   and nothing of the frame it is opened in. Each kind hides its own parts too. */
+.sh-face .sh-head,
+.sh-face .sh-pane {
+  display: none !important;
+}
+
+/* Paper is paper: printing is always light, and the shell is not on it. The selectors
+   match the dark ones exactly, so being later is what wins. */
 @media print {
   :root,
+  :root:not([data-theme="light"]),
   :root[data-theme="dark"] {
-    --paper: #fff;
-    --ink: #18181b;
-    --ink-2: #52525b;
-    --ink-3: #8b8b95;
-    --line: rgb(0 0 0 / 10%);
-    --soft: #f7f7f8;
-    --sunk: #ededf0;
+    --sh-paper: #ffffff;
+    --sh-ink: #0d0d0d;
+    --sh-ink-2: #4f4f4f;
+    --sh-ink-3: #767676;
+    --sh-line: rgb(13 13 13 / 10%);
+    --sh-soft: #f9f9f9;
+    --sh-sunk: #ededed;
+    --sh-brand: #0169cc;
+    --sh-good: #15803d;
+    --sh-warn: #b45309;
+    --sh-bad: #dc2626;
   }
   .sh-head,
   .sh-pane,
-  .sh-menu,
-  .sh-thumb {
+  .sh-menu {
     display: none !important;
   }
 }

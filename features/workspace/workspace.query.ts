@@ -1,4 +1,4 @@
-import { readdir, rm, stat } from "node:fs/promises";
+import { readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { GIVEN_FILES, PATHS, WORKSPACE_VIEW } from "@/config";
 import { listThreadFolders } from "@/features/bot/thread.query";
@@ -136,6 +136,33 @@ export async function deleteWorkspaceFile(rel: string): Promise<void> {
   if (!info) publicError("File not found");
   if (!info.isFile()) publicError("That is a folder, not a file");
   await rm(full);
+}
+
+/**
+ * Writes a page a bot made back over itself, as its reader edited it where the app shows
+ * it (skills/shell). Only a page that is there already: this keeps edits and never makes
+ * a file. No larger than the viewer draws, since a page past that was never on screen to
+ * be edited. Written beside the file and moved into place, so it is never half a page.
+ */
+export async function savePage(rel: string, html: string): Promise<void> {
+  if (!/\.html?$/i.test(rel)) publicError("Only a page keeps its own edits");
+  const full = await insideWorkspace(rel);
+  if (!full) publicError("Outside the workspace");
+  const info = await stat(full).catch(() => null);
+  if (!info?.isFile()) publicError("File not found");
+  if (Buffer.byteLength(html) > WORKSPACE_VIEW.elementMax)
+    publicError(
+      `Larger than ${Math.round(WORKSPACE_VIEW.elementMax / 1024 / 1024)} MB`,
+    );
+  // One per save: two tabs keeping one page at once must not write into one file
+  const beside = `${full}.${crypto.randomUUID()}.saving`;
+  try {
+    await writeFile(beside, html);
+    await rename(beside, full);
+  } catch (error) {
+    await rm(beside, { force: true });
+    throw error;
+  }
 }
 
 /**

@@ -1,10 +1,13 @@
 // The canvas under the shell's head: the surface pans and zooms (drag or wheel to move,
-// pinch or cmd-wheel to zoom about the pointer, +/-/0/1 from the keyboard), the rail
-// picks whether a press selects a board or only moves the surface, the list on the left
-// holds every board small, and the board that is picked shows what it is really made of
-// on the right. It opens fitted, because the app draws this file at 1024px wide and does
-// not scroll it: at 1:1 a canvas of boards would show one corner.
+// pinch or cmd-wheel to zoom about the pointer, +/-/0/1 from the keyboard), the rail picks
+// whether a press picks a board or only moves the surface, the list on the left holds
+// every board small, and the board that is picked shows what it is really made of on the
+// right. It opens fitted, because the app draws this file at 1024px wide and does not
+// scroll it: at 1:1 a canvas of boards would show one corner.
 (() => {
+  // Printing wants what the renderer wants: the boards flat, at true size
+  addEventListener("beforeprint", () => document.body.classList.add("shot"));
+  addEventListener("afterprint", () => document.body.classList.remove("shot"));
   // The renderer opens a flat copy of this file with the boards alone at true size.
   if (document.body.classList.contains("shot")) return;
 
@@ -12,12 +15,14 @@
   const stage = document.getElementById("stage");
   const out = document.getElementById("at");
   const hover = document.getElementById("hover");
+  const ring = document.getElementById("pick");
   const spec = document.getElementById("spec");
   const layers = document.getElementById("layer-list");
   const png = document.getElementById("png");
   const MIN = 0.05;
   const MAX = 4;
-  const PAD = 48;
+  const PAD = shell.face ? 16 : 48;
+  const DRAG = 4; // px a press travels before it is a drag and not a pick
 
   let z = 1;
   let x = 0;
@@ -25,16 +30,20 @@
   let own = false; // the view is the reader's once they move it; resizing stops refitting
   let pictures = false; // whether the renderer left board-NN.png beside this file
 
-  const boards = () => [...document.querySelectorAll(".frame")];
+  const boards = () => [...stage.querySelectorAll(".frame")];
+  /** A board's name, as its strip said it before the canvas added anything to the strip. */
+  const names = new WeakMap();
   const nameOf = (frame) =>
-    frame.dataset.name ||
+    names.get(frame) ||
     frame.querySelector("h2")?.textContent?.trim() ||
-    `board ${boards().indexOf(frame) + 1}`;
+    `Board ${boards().indexOf(frame) + 1}`;
   const sizeOf = (frame) => ({
     w: Number(frame.style.getPropertyValue("--w")) || frame.offsetWidth,
     h: Number(frame.style.getPropertyValue("--h")) || 0,
   });
   const pictureOf = (n) => `board-${String(n + 1).padStart(2, "0")}.png`;
+
+  /* ── the view ────────────────────────────────────────────────────────────── */
 
   /**
    * The surface's dots, drawn on the field rather than the stage so they never scale
@@ -54,12 +63,17 @@
     if (out) out.value = `${Math.round(z * 100)}%`;
     dots();
     hover.hidden = true;
+    hovered = null;
+    placeRing();
   };
 
-  /** What the boards and notes cover, in surface px. */
+  /** What the boards — and, opened, their notes — cover, in surface px. */
   const bounds = () => {
     const box = { l: Infinity, t: Infinity, r: -Infinity, b: -Infinity };
-    for (const el of document.querySelectorAll(".frame, .note")) {
+    // A face shows the boards alone, so only they are fitted
+    for (const el of stage.querySelectorAll(
+      shell.face ? ".frame" : ".frame, .note",
+    )) {
       const l = Number(el.style.getPropertyValue("--x")) || 0;
       const t = Number(el.style.getPropertyValue("--y")) || 0;
       box.l = Math.min(box.l, l);
@@ -67,16 +81,15 @@
       box.r = Math.max(box.r, l + el.offsetWidth);
       box.b = Math.max(box.b, t + el.offsetHeight);
     }
-    if (box.l === Infinity) return null;
-    return box;
+    return box.l === Infinity ? null : box;
   };
 
   const clamp = (n) => Math.min(MAX, Math.max(MIN, n));
-  const room = () => ({ w: field.clientWidth, h: field.clientHeight });
 
   /** A box of the surface as large as the field takes it, centred. */
   const frameIn = (l, t, w, h) => {
-    const { w: fw, h: fh } = room();
+    const fw = field.clientWidth;
+    const fh = field.clientHeight;
     z = clamp(Math.min((fw - PAD * 2) / w, (fh - PAD * 2) / h, 1));
     x = (fw - w * z) / 2 - l * z;
     y = (fh - h * z) / 2 - t * z;
@@ -85,8 +98,7 @@
 
   const fit = () => {
     const box = bounds();
-    if (!box) return;
-    frameIn(box.l, box.t, box.r - box.l, box.b - box.t);
+    if (box) frameIn(box.l, box.t, box.r - box.l, box.b - box.t);
   };
 
   /** Zoom to `next`, keeping the surface point under (cx, cy) where it is. */
@@ -110,6 +122,23 @@
 
   let at = -1;
 
+  /** The ring over the picked board, in screen px: thin at any zoom, never inside the board. */
+  const placeRing = () => {
+    const frame = boards()[at];
+    const board = frame?.querySelector(".board");
+    if (!board) {
+      ring.hidden = true;
+      return;
+    }
+    const box = board.getBoundingClientRect();
+    const fieldBox = field.getBoundingClientRect();
+    ring.hidden = false;
+    ring.style.left = `${box.left - fieldBox.left - 2}px`;
+    ring.style.top = `${box.top - fieldBox.top - 2}px`;
+    ring.style.width = `${box.width + 4}px`;
+    ring.style.height = `${box.height + 4}px`;
+  };
+
   const say = () => {
     const seat = document.getElementById("seat");
     if (!seat) return;
@@ -118,19 +147,22 @@
       at < 0 || !all[at] ? "" : `${nameOf(all[at])} · ${at + 1}/${all.length}`;
   };
 
-  /** The picked board's values, in the pane on the right, and in the export menu. */
+  /** The picked board's values, in the pane on the right and in the export menu. */
   const describePicked = () => {
     const all = boards();
     const frame = all[at];
     for (const [n, row] of [...layers.children].entries())
-      row.classList.toggle("sh-on", n === at);
+      row.classList.toggle("cv-on", n === at);
     for (const one of all) one.classList.toggle("picked", one === frame);
-    const copies = document.querySelectorAll("[data-copy-spec]");
+    placeRing();
+    for (const button of document.querySelectorAll(".sh-list [data-copy-spec]"))
+      button.hidden = !frame;
+    if (png) {
+      png.hidden = !frame || !pictures;
+      if (frame) png.href = pictureOf(at);
+    }
     if (!frame) {
       spec.hidden = true;
-      if (png) png.hidden = true;
-      for (const button of copies)
-        if (button.closest(".sh-list")) button.hidden = true;
       return;
     }
     const read = readSpec(frame);
@@ -163,14 +195,12 @@
     if (read.radii.length) row("Radius", `${read.radii.join(" · ")} px`);
     if (read.gaps.length) row("Gaps", `${read.gaps.join(" · ")} px`);
     spec.hidden = false;
-    if (png) {
-      png.href = pictureOf(at);
-      png.hidden = !pictures;
-    }
-    for (const button of copies) button.hidden = false;
   };
 
   const pick = (n) => {
+    // A pick holds the view where it is: the pane it opens takes width from the field,
+    // and a refit then would move the board out from under the pointer that picked it
+    own = true;
     at = n;
     say();
     describePicked();
@@ -182,7 +212,8 @@
     at = -1;
     say();
     describePicked();
-    if (location.hash) history.replaceState(null, "", location.pathname);
+    if (location.hash)
+      history.replaceState(null, "", location.pathname + location.search);
   };
 
   /**
@@ -196,12 +227,15 @@
     if (!all.length) return;
     const to = (n + all.length) % all.length;
     const frame = all[to];
-    const l = Number(frame.style.getPropertyValue("--x")) || 0;
-    const t = Number(frame.style.getPropertyValue("--y")) || 0;
     own = true;
     // Picked first: the pane that opens on the right takes room the fit must know about
     pick(to);
-    frameIn(l, t, frame.offsetWidth, frame.offsetHeight);
+    frameIn(
+      Number(frame.style.getPropertyValue("--x")) || 0,
+      Number(frame.style.getPropertyValue("--y")) || 0,
+      frame.offsetWidth,
+      frame.offsetHeight,
+    );
   };
 
   const step = (by) => show(at < 0 ? (by > 0 ? 0 : -1) : at + by);
@@ -230,9 +264,12 @@
   for (const button of document.querySelectorAll("[data-tool]"))
     button.addEventListener("click", () => setTool(button.dataset.tool));
   setTool("select");
-  document.querySelector("[data-layers]")?.addEventListener("click", () => {
-    document.body.classList.toggle("no-layers");
-    if (!own) fit();
+
+  const listButton = document.querySelector("[data-layers]");
+  listButton?.addEventListener("click", () => {
+    const off = document.body.classList.toggle("cv-no-layers");
+    listButton.classList.toggle("sh-on", !off);
+    listButton.setAttribute("aria-pressed", String(!off));
   });
 
   /* ── the surface ─────────────────────────────────────────────────────────── */
@@ -272,11 +309,12 @@
     { passive: false },
   );
 
-  // Drag to pan; two fingers to pinch. Pointer events cover mouse, pen and touch. A
-  // press that never moved is a pick, when the tool is the arrow.
+  // Drag to pan; two fingers to pinch. Pointer events cover mouse, pen and touch. A press
+  // that never became a drag is a pick, when the tool is the arrow.
   const down = new Map();
   let pinch = 0;
-  let moved = 0;
+  let travel = 0;
+  let dragging = false;
   let pressed = null;
   const span = () => {
     const [a, b] = [...down.values()];
@@ -300,10 +338,10 @@
     field.setPointerCapture(event.pointerId);
     down.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (down.size === 2) pinch = span();
-    moved = 0;
+    travel = 0;
+    dragging = false;
     pressed =
       event.target instanceof Element ? event.target.closest(".frame") : null;
-    field.classList.add("dragging");
   });
 
   field.addEventListener("pointermove", (event) => {
@@ -311,8 +349,6 @@
     if (!was) return;
     const now = { x: event.clientX, y: event.clientY };
     down.set(event.pointerId, now);
-    moved += Math.hypot(now.x - was.x, now.y - was.y);
-    own = true;
     if (down.size === 2) {
       const wide = span();
       if (pinch > 0) {
@@ -323,73 +359,81 @@
       pinch = wide;
       return;
     }
+    travel += Math.hypot(now.x - was.x, now.y - was.y);
+    // A press does not move the surface until it is plainly a drag, so a click on a
+    // board never nudges the view and never takes it over from the fit
+    if (!dragging && travel < DRAG) return;
+    if (!dragging) {
+      dragging = true;
+      field.classList.add("cv-dragging");
+    }
+    own = true;
     x += now.x - was.x;
     y += now.y - was.y;
     draw();
   });
 
   const up = (event) => {
+    // A press on a control drawn on the surface (the zoom, a board's buttons) was never
+    // the surface's: letting it go is not a click on empty space, which would unpick
+    if (!down.has(event.pointerId)) return;
     down.delete(event.pointerId);
     if (down.size < 2) pinch = 0;
-    if (down.size === 0) {
-      field.classList.remove("dragging");
-      if (moved < 4 && document.body.dataset.tool === "select") {
-        if (pressed) pick(boards().indexOf(pressed));
-        else unpick();
-      }
-      pressed = null;
+    if (down.size) return;
+    field.classList.remove("cv-dragging");
+    if (!dragging && document.body.dataset.tool === "select") {
+      if (pressed) pick(boards().indexOf(pressed));
+      else unpick();
     }
+    pressed = null;
+    dragging = false;
   };
   field.addEventListener("pointerup", up);
   field.addEventListener("pointercancel", up);
 
-  /* Over a board: open it alone, or its picture. Placed over the board's corner as the
-     field sees it, and gone as the surface moves. */
+  /* Over a board: open it alone, or its picture — over the board's corner as the field
+     sees it, and gone as soon as the surface moves. */
   let hovered = null;
   stage.addEventListener("pointerover", (event) => {
-    if (down.size) return;
+    if (down.size || shell.face) return;
     const frame =
       event.target instanceof Element && event.target.closest(".frame");
     if (!frame || frame === hovered) return;
     hovered = frame;
-    const board = frame.querySelector(".board") ?? frame;
-    const box = board.getBoundingClientRect();
-    const fieldBox = field.getBoundingClientRect();
-    hover.hidden = false;
-    hover.style.left = `${Math.min(box.right - fieldBox.left - hover.offsetWidth - 6, fieldBox.width - hover.offsetWidth - 6)}px`;
-    hover.style.top = `${Math.max(6, box.top - fieldBox.top + 6)}px`;
     const n = boards().indexOf(frame);
     const picture = hover.querySelector("[data-hover=png]");
     picture.href = pictureOf(n);
     picture.hidden = !pictures;
     hover.querySelector("[data-hover=open]").onclick = () => show(n);
+    // Placed once what it holds is known, so its own width is the one it will have
+    hover.hidden = false;
+    const box = (
+      frame.querySelector(".board") ?? frame
+    ).getBoundingClientRect();
+    const fieldBox = field.getBoundingClientRect();
+    hover.style.left = `${Math.max(6, Math.min(box.right - fieldBox.left, fieldBox.width) - hover.offsetWidth - 6)}px`;
+    hover.style.top = `${Math.max(6, box.top - fieldBox.top + 6)}px`;
   });
-  field.addEventListener("pointerleave", () => {
-    hovered = null;
-    hover.hidden = true;
-  });
-  stage.addEventListener("pointerout", (event) => {
-    const to =
-      event.relatedTarget instanceof Element ? event.relatedTarget : null;
+  const leave = (to) => {
     if (to && (to.closest(".frame") === hovered || to.closest(".cv-hover")))
       return;
     hovered = null;
     hover.hidden = true;
-  });
-  hover.addEventListener("pointerleave", (event) => {
-    const to =
-      event.relatedTarget instanceof Element ? event.relatedTarget : null;
-    if (to && to.closest(".frame") === hovered) return;
-    hovered = null;
-    hover.hidden = true;
-  });
+  };
+  stage.addEventListener("pointerout", (event) =>
+    leave(event.relatedTarget instanceof Element ? event.relatedTarget : null),
+  );
+  hover.addEventListener("pointerleave", (event) =>
+    leave(event.relatedTarget instanceof Element ? event.relatedTarget : null),
+  );
+  field.addEventListener("pointerleave", () => leave(null));
 
   addEventListener("keydown", (event) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     const on = event.target;
     if (
       on instanceof HTMLElement &&
-      on.closest("input, textarea, [contenteditable]")
+      on.closest("input, textarea, select, [contenteditable]")
     )
       return;
     if (event.key === "0" || event.key === "Escape") fitAll();
@@ -405,36 +449,42 @@
     event.preventDefault();
   });
 
-  for (const button of document.querySelectorAll("[data-zoom]")) {
+  for (const button of document.querySelectorAll("[data-zoom]"))
     button.addEventListener("click", () => {
       const how = button.dataset.zoom;
       if (how === "fit") fitAll();
       else zoomAt(z * (how === "in" ? 1.25 : 0.8), ...center());
     });
-  }
 
+  // The field changes size with the window and with the panes beside it: refit while the
+  // view is still the canvas's, and keep the ring on its board either way
   new ResizeObserver(() => {
-    if (!own) fit();
+    if (own) placeRing();
+    else fit();
   }).observe(field);
 
   /**
    * A board clips what does not fit, and its picture comes out the right size either
    * way, so overflow is the one mistake nothing else reports. Count it here, where it
    * is drawn: whoever opens the canvas sees which board is cut before anyone chooses.
+   * Only the boards on the surface: the list holds copies of them.
    */
   const checkFit = () => {
     let cut = 0;
-    for (const board of document.querySelectorAll(".board")) {
+    for (const frame of boards()) {
+      const board = frame.querySelector(":scope > .board");
+      if (!board) continue;
       const over =
         board.scrollWidth > board.clientWidth + 1 ||
         board.scrollHeight > board.clientHeight + 1;
-      board.parentElement?.classList.toggle("cut", over);
+      frame.classList.toggle("cut", over);
       if (over) cut++;
     }
-    const say = document.getElementById("cut");
-    if (say) {
-      say.hidden = cut === 0;
-      say.textContent = cut === 1 ? "1 board is cut" : `${cut} boards are cut`;
+    const badge = document.getElementById("cut");
+    if (badge) {
+      badge.hidden = cut === 0;
+      badge.textContent =
+        cut === 1 ? "1 board is cut" : `${cut} boards are cut`;
     }
   };
 
@@ -461,7 +511,7 @@
   const px = (value) => Math.round(Number.parseFloat(value) || 0);
 
   const readSpec = (frame) => {
-    const board = frame.querySelector(".board");
+    const board = frame.querySelector(":scope > .board");
     if (!board) return null;
     const colours = new Map();
     const families = new Map();
@@ -515,7 +565,7 @@
 
   /** The chosen board as an instruction: what it is, what it costs, and its values. */
   const specText = (frame, read) => {
-    const note = [...document.querySelectorAll(".note")].find(
+    const note = [...stage.querySelectorAll(".note")].find(
       (one) =>
         Number(one.style.getPropertyValue("--x")) ===
         Number(frame.style.getPropertyValue("--x")),
@@ -558,26 +608,28 @@
       document.execCommand("copy");
       box.remove();
     }
-    shell.say(button.querySelector("span") ?? button, "Copied");
+    shell.say(button.querySelector("span"), "Copied");
   };
   for (const button of document.querySelectorAll("[data-copy-spec]"))
     button.addEventListener("click", () => {
       const frame = boards()[at];
       if (frame) copy(specText(frame, readSpec(frame)), button);
-      button.closest("details")?.removeAttribute("open");
     });
 
-  /** The swatches on each name strip, and the list of boards: added here, so a board's markup stays the design. */
+  /**
+   * The swatches on each name strip, and the list of boards — added here, so a board's
+   * markup stays the design. A face has neither.
+   */
   const describe = () => {
     const all = boards();
     document.getElementById("boards-count").textContent = String(all.length);
-    layers.replaceChildren();
-    all.forEach((frame, n) => {
-      const strip = frame.querySelector("h2");
+    if (shell.face) return;
+    const rows = all.map((frame, n) => {
+      const strip = frame.querySelector(":scope > h2");
+      if (strip && !names.has(frame))
+        names.set(frame, strip.textContent.trim());
       const read = readSpec(frame);
       if (strip && read && !strip.querySelector(".swatches")) {
-        // Kept before anything is added to the strip, so the name stays the name
-        frame.dataset.name = strip.textContent.trim();
         const swatches = document.createElement("span");
         swatches.className = "swatches";
         for (const colour of read.colours.slice(0, 8)) {
@@ -592,19 +644,23 @@
         }
         strip.append(swatches);
       }
-      const row = document.createElement("a");
-      const board = frame.querySelector(".board");
+      const row = document.createElement("button");
+      row.type = "button";
+      const board = frame.querySelector(":scope > .board");
       const size = sizeOf(frame);
       if (board && size.w && size.h)
-        row.append(shell.thumb(board, 44, size.w, size.h));
+        row.append(shell.thumb(board, 44, 28, size.w, size.h).box);
       const name = document.createElement("span");
+      name.className = "cv-name";
       name.textContent = nameOf(frame);
       const dims = document.createElement("em");
+      dims.className = "cv-dims";
       dims.textContent = `${size.w}×${size.h}`;
       row.append(name, dims);
       row.addEventListener("click", () => show(n));
-      layers.append(row);
+      return row;
     });
+    layers.replaceChildren(...rows);
   };
 
   // What the file keeps of itself: the boards as written, never the reader's view
@@ -612,11 +668,13 @@
     copy.querySelector("#layer-list")?.replaceChildren();
     copy.querySelector("#spec")?.setAttribute("hidden", "");
     copy.querySelector("#hover")?.setAttribute("hidden", "");
-    copy.querySelector("#stage")?.removeAttribute("style");
-    copy.querySelector("#field")?.removeAttribute("style");
+    copy.querySelector("#pick")?.setAttribute("hidden", "");
+    for (const id of ["stage", "field", "pick", "hover"])
+      copy.querySelector(`#${id}`)?.removeAttribute("style");
     copy.querySelector("body")?.removeAttribute("data-tool");
-    for (const frame of copy.querySelectorAll(".frame.picked"))
-      frame.classList.remove("picked");
+    copy.querySelector("body")?.classList.remove("cv-no-layers");
+    for (const frame of copy.querySelectorAll(".frame"))
+      frame.classList.remove("picked", "cut");
     for (const el of copy.querySelectorAll(".swatches")) el.remove();
   };
 
@@ -627,12 +685,14 @@
   describe();
   open();
   checkFit();
-  shell.probe(pictureOf(0)).then((there) => {
-    pictures = there;
-    if (at >= 0) describePicked();
-  });
+  if (!shell.face)
+    shell.probe(pictureOf(0)).then((there) => {
+      pictures = there;
+      describePicked();
+    });
   document.fonts?.ready.then(() => {
-    if (!own) fit();
+    if (own) placeRing();
+    else fit();
     checkFit();
   });
 })();

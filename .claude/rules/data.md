@@ -48,12 +48,11 @@ client, so parallel work happens inside one action. `useServerAction` returns
 `[execute, isPending, data, error, reset]` and handles the pending state and the toasts; a screen
 that shows a refusal inline passes `errorMessage: false` and `onError`.
 
-A route is for four cases only: an outside caller hitting a URL (the OAuth callback), work that must
-run in parallel (a call's tool calls), a response that streams (the SSE route, a memory edit drawn as
-the model makes it, a turn of a call in writing), and a page a bot wrote saving itself back (`PUT` on
-the file route, an existing `.html` inside the workspace, up to `PAGE_SAVE.maxBytes`): its editor runs
-inside the frame that route served it into, where no action can be reached. A route that returns a
-`Response` passes through `serverRoute` with no `Result` around it.
+A route is for three cases only: an outside caller hitting a URL (the OAuth callback), work that must
+run in parallel (a call's tool calls), and a response that streams (the SSE route, a memory edit drawn
+as the model makes it, a turn of a call in writing). A page a bot wrote that keeps its own edits is not
+a fourth: it asks the frame showing it (`FileFrame`), and the frame calls `savePageAction` for the one
+file it opened. A route that returns a `Response` passes through `serverRoute` with no `Result` around it.
 
 **Errors** — throw `publicError("message")` anywhere for a failure the user should read. The boundary
 (`serverAction` / `serverRoute`) forwards that message and masks everything else (logged). A tool's

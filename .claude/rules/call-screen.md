@@ -98,7 +98,9 @@ maintainer.
 - **One piece draws a file's face wherever one appears** (`file-thumb`): under a message, in the
   corner, on the Files shelf. What has a face (an image, an html page in miniature, the head of a
   text) is a tile; anything else a row with its kind and size, a missing path struck through. A face
-  is a step darker in the dark and wears a hairline. A tile is served at `FILE_THUMB.imageWidth`; a
+  is a step darker in the dark and wears a hairline. A page's face is its content alone: the tile
+  asks for it as one (`queryKey.fileFace`), and a page a bot wrote leaves off the head and panes it
+  wears when opened (skills/shell). A tile is served at `FILE_THUMB.imageWidth`; a
   picture opened to be looked at is served whole. Every picture waits until it is on screen
   (`markdown` `Picture` too).
 - **Whatever the app can draw opens over it** (`file-view` `FileDialog`); only the ↗ button leaves for

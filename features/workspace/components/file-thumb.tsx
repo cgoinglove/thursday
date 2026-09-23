@@ -121,8 +121,9 @@ export function FileThumb({
   }
   if (face === "page") {
     return (
-      // A page is drawn on white whatever the theme, as it is when opened — a step
-      // down in the dark, where white paper is otherwise the brightest thing on screen
+      // A page is drawn on white whatever the theme — a step down in the dark, where
+      // white paper is otherwise the brightest thing on screen — and as its content
+      // alone: one a bot wrote wears a head and panes when opened, never in a tile
       <Shrunk
         width={FILE_THUMB.pageWidth}
         className={cn("bg-white dark:brightness-[0.82]", className)}
@@ -130,7 +131,7 @@ export function FileThumb({
         {(height) => (
           <iframe
             title=""
-            src={queryKey.file(path)}
+            src={queryKey.fileFace(path)}
             sandbox="allow-scripts"
             loading="lazy"
             tabIndex={-1}

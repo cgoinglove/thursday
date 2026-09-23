@@ -31,7 +31,11 @@ import {
   viewKindOf,
   workspaceRelative,
 } from "@/features/workspace/file-kind";
-import { openFileAction } from "@/features/workspace/workspace.action";
+import {
+  openFileAction,
+  savePageAction,
+} from "@/features/workspace/workspace.action";
+import { isResultOk } from "@/lib/protocol/result";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { cn, errorToString, formatBytes } from "@/lib/utils";
 
@@ -330,16 +334,16 @@ export function FilePreview({ path, bytes }: { path: string; bytes: number }) {
  * A file the browser fills itself. No sandbox: the html is local and just written
  * by a bot; sandboxing only breaks its forms, fonts and scripts.
  *
- * `takeKeys` hands it the keyboard once it has loaded, for the page that shows
- * nothing else: a deck turns with the arrow keys and a canvas walks its boards the
- * same way, and until the frame holds focus those keys go to the page around it —
- * the first arrow did nothing at all until the deck itself had been clicked.
- * Beside a thread it is left alone, where the keyboard is the write line's.
+ * `takeKeys` hands it the keyboard, where nothing else on screen needs the keys: a
+ * deck turns with the arrow keys and a canvas walks its boards the same way, and until
+ * the frame holds focus those keys go to the page around it. The element takes it, not
+ * `contentWindow` — focusing the window inside leaves this page's body holding the
+ * focus — both as this mounts and when the frame loads, since a page rendered by the
+ * server has loaded before React listens and one opened in a dialog loads after.
  *
- * The element is what takes it, not `contentWindow`: focusing the window inside
- * leaves the document's focus on the page's own body and the keys still miss.
- * It is taken as this mounts rather than on the frame's `load`, which on a page
- * rendered by the server has already fired by the time React is listening.
+ * A page a bot wrote wears a head that can edit it (skills/shell) and asks the page
+ * around it to keep what changed. This answers its own frame only, and keeps what that
+ * frame sends in the one file it opened, whatever the page inside says.
  */
 export function FileFrame({
   path,
@@ -351,9 +355,36 @@ export function FileFrame({
   takeKeys?: boolean;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
-  useEffect(() => {
+  const tell = useCallback(
+    (said: object) =>
+      frame.current?.contentWindow?.postMessage(said, location.origin),
+    [],
+  );
+  const loaded = useCallback(() => {
     if (takeKeys) frame.current?.focus();
-  }, [takeKeys]);
+    tell({ thursday: "host" });
+  }, [takeKeys, tell]);
+  useEffect(loaded, [loaded]);
+  useEffect(() => {
+    const hear = async (event: MessageEvent) => {
+      if (
+        event.source !== frame.current?.contentWindow ||
+        event.origin !== location.origin
+      )
+        return;
+      const said = event.data;
+      if (said?.thursday === "hello") tell({ thursday: "host" });
+      if (said?.thursday !== "save" || typeof said.html !== "string") return;
+      const kept = await savePageAction(path, said.html);
+      tell(
+        isResultOk(kept)
+          ? { thursday: "saved", id: said.id }
+          : { thursday: "not-saved", id: said.id, error: kept.message },
+      );
+    };
+    window.addEventListener("message", hear);
+    return () => window.removeEventListener("message", hear);
+  }, [path, tell]);
   return (
     <iframe
       ref={frame}
@@ -361,6 +392,7 @@ export function FileFrame({
       src={queryKey.file(path)}
       allow="clipboard-read; clipboard-write; fullscreen; autoplay"
       className={className}
+      onLoad={loaded}
     />
   );
 }
@@ -374,13 +406,21 @@ function FileElement({
   path,
   kind,
   where,
+  takeKeys,
 }: {
   path: string;
   kind: FileViewKind;
   where: "dialog" | "preview";
+  takeKeys?: boolean;
 }) {
   if (kind === "frame") {
-    return <FileFrame path={path} className="h-full w-full bg-white" />;
+    return (
+      <FileFrame
+        path={path}
+        className="h-full w-full bg-white"
+        takeKeys={takeKeys}
+      />
+    );
   }
   if (kind === "image") {
     return (
@@ -592,7 +632,14 @@ function FileDialog({
           )}
         >
           {element && path ? (
-            <FileElement path={path} kind={kind} where="dialog" />
+            // A page the reader opened takes the keys; one she put up leaves them to
+            // the dialog, whose auto-close waits for a hand the frame would hide
+            <FileElement
+              path={path}
+              kind={kind}
+              where="dialog"
+              takeKeys={!byHer}
+            />
           ) : failure ? (
             <p className="p-5 font-mono text-xs text-destructive">{failure}</p>
           ) : content === null ? (

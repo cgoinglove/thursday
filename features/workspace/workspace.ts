@@ -210,6 +210,8 @@ export const jobShellEnv = (
  * What a bot's scripts find in its shell rather than a model typing the path.
  */
 export const botShellEnv = (bot: string): Record<string, string> => ({
+  // Who is writing: the head a page wears when it is opened names them (skills/shell)
+  THURSDAY_BOT: bot,
   // Where a script delivers a file (skills/interactive-page scripts/page.mjs)
   THURSDAY_ARTIFACTS: botArtifacts(bot),
   // The shipped skills: a kit script in a bot's folder imports the shared ones from here

@@ -131,7 +131,7 @@ is one live face in a thread, the pictures are four. The renderer uses the job's
 and opens a headless one when none is.
 
 **A board whose content overflows comes out taller than its size and is refused by its
-number**; the canvas marks the same board `cut` in its strip and its bar. Cut, tighten or
+number**; the canvas marks the same board `cut` on its name strip and in its head. Cut, tighten or
 split it and shoot again, two rounds at most.
 
 ## The values a board is made of

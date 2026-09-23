@@ -1,77 +1,104 @@
-/* The quick page's whole look: plain HTML reads well with no class at all, and a few
-   classes lay out what a report needs. No network, no build, light and dark. */
-/* The page: the contents in a pane on the left, the paper in the middle at a reading
-   width. The head and the theme are the shell's (shell.css). */
+/* A document: a page a bot writes to be read. Its contents stand in a pane beside it and
+   the paper in the middle at a reading width. Every rule for what is written on the
+   paper is held to it by :where(.pg-paper), which weighs nothing: the shell's head and
+   menus are never styled as prose, and whatever a bot writes for its own page wins over
+   these defaults. The head and the theme are the shell's (shell.css); the document's own
+   frame is named `pg-`. No network, no build, light and dark, phone width, print. */
+
+/* The document's own words for its colours, which the theme turns with the shell's.
+   Muted text is mixed from the ink so it clears 4.5:1 on the paper and on a tint. */
+:root {
+  --bg: var(--sh-paper);
+  --fg: var(--sh-ink);
+  --muted: color-mix(in srgb, var(--sh-ink) 58%, var(--sh-paper));
+  --line: var(--sh-line);
+  --soft: var(--sh-soft);
+  --accent: var(--sh-brand);
+  --good: var(--sh-good);
+  --warn: var(--sh-warn);
+  --bad: var(--sh-bad);
+}
+
 body {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
   height: auto;
+  min-height: 100%;
 }
-.sh-page {
+.pg-page {
   flex: 1;
   display: flex;
   align-items: flex-start;
 }
-.sh-toc {
+
+/* The contents, drawn from the headings (quick.js), marking the section being read. The
+   reader can put them away; a page with fewer than two sections has none to show. */
+.pg-toc {
   position: sticky;
-  top: var(--head);
+  top: var(--sh-head);
   width: 212px;
-  max-height: calc(100vh - var(--head));
+  /* The whole height under the head, as a pane is, however short the list */
+  height: calc(100vh - var(--sh-head));
   padding: 1rem 0.75rem;
   font-size: 13px;
+  line-height: 1.5;
 }
-.sh-toc ol {
+.pg-toc ol {
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.sh-toc ol ol {
+.pg-toc ol ol {
   padding-left: 0.75rem;
   font-size: 12px;
 }
-.sh-toc a {
+.pg-toc a {
   display: block;
   padding: 0.3125rem 0.5rem;
-  border-radius: calc(var(--radius) * 0.6);
-  color: var(--ink-2);
+  border-radius: calc(var(--sh-radius) * 0.6);
+  color: var(--sh-ink-2);
   text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sh-toc a:hover {
-  background: var(--sunk);
-  color: var(--ink);
+.pg-toc a:hover {
+  background: var(--sh-sunk);
+  color: var(--sh-ink);
 }
-.sh-toc a.sh-on {
-  background: var(--brand-soft);
-  color: var(--brand);
+.pg-toc a.pg-on {
+  background: var(--sh-brand-soft);
+  color: var(--sh-brand);
   font-weight: 500;
 }
-body.sh-no-toc .sh-toc {
+body.pg-no-toc .pg-toc,
+body.pg-toc-shut .pg-toc {
   display: none;
 }
+/* Narrow, the contents open over the page when asked for, and are away otherwise */
 @media (max-width: 900px) {
-  .sh-toc {
+  .pg-toc {
     display: none;
   }
-  body.sh-toc-open:not(.sh-no-toc) .sh-toc {
+  body.pg-toc-open:not(.pg-no-toc) .pg-toc {
     display: block;
     position: fixed;
     z-index: 4;
-    top: var(--head);
+    top: var(--sh-head);
     left: 0;
     bottom: 0;
-    box-shadow: var(--shadow);
+    height: auto;
+    box-shadow: var(--sh-shadow);
   }
 }
-.sh-paper {
+
+.pg-paper {
   flex: 1;
   min-width: 0;
   max-width: 46rem;
   margin: 0 auto;
   padding: 2.5rem 1.5rem 6rem;
+  color: var(--fg);
   font:
     16px / 1.7 ui-sans-serif,
     system-ui,
@@ -81,90 +108,94 @@ body.sh-no-toc .sh-toc {
     "Noto Sans KR",
     sans-serif;
 }
-.sh-paper:focus {
+.pg-paper:focus {
   outline: 0;
 }
-h2:target,
-h3:target {
-  scroll-margin-top: calc(var(--head) + 1rem);
+/* A heading jumped to from the contents lands under the head, not behind it */
+:where(.pg-paper) :is(h2, h3) {
+  scroll-margin-top: calc(var(--sh-head) + 1rem);
 }
-h1 {
+.sh-face .pg-paper {
+  padding-top: 1.75rem;
+}
+
+:where(.pg-paper) h1 {
   margin: 0 0 0.4rem;
   font-size: 2rem;
   line-height: 1.2;
   letter-spacing: -0.02em;
 }
-h2 {
+:where(.pg-paper) h2 {
   margin: 2.6rem 0 0.7rem;
   font-size: 1.3rem;
   line-height: 1.3;
   letter-spacing: -0.01em;
 }
-h3 {
+:where(.pg-paper) h3 {
   margin: 1.8rem 0 0.4rem;
   font-size: 1.05rem;
 }
-p,
-ul,
-ol,
-table,
-figure,
-blockquote,
-pre {
+:where(.pg-paper) p,
+:where(.pg-paper) ul,
+:where(.pg-paper) ol,
+:where(.pg-paper) table,
+:where(.pg-paper) figure,
+:where(.pg-paper) blockquote,
+:where(.pg-paper) pre {
   margin: 0 0 1rem;
 }
-ul,
-ol {
+:where(.pg-paper) ul,
+:where(.pg-paper) ol {
   padding-left: 1.3rem;
 }
-li + li {
+:where(.pg-paper) li + li {
   margin-top: 0.25rem;
 }
-a {
+:where(.pg-paper) a {
   color: var(--accent);
   text-underline-offset: 3px;
 }
-small,
-.muted {
+:where(.pg-paper) small,
+:where(.pg-paper) .muted {
   color: var(--muted);
 }
-small {
+:where(.pg-paper) small {
   font-size: 0.85rem;
 }
-hr {
+:where(.pg-paper) hr {
   margin: 2.4rem 0;
   border: 0;
   border-top: 1px solid var(--line);
 }
-img,
-svg,
-video {
+:where(.pg-paper) img,
+:where(.pg-paper) svg,
+:where(.pg-paper) video {
   max-width: 100%;
   height: auto;
   border-radius: 0.6rem;
 }
-figcaption {
+:where(.pg-paper) figcaption {
   margin-top: 0.4rem;
   font-size: 0.85rem;
   color: var(--muted);
 }
-blockquote {
+:where(.pg-paper) blockquote {
   padding: 0.1rem 0 0.1rem 1rem;
   border-left: 3px solid var(--line);
   color: var(--muted);
 }
-code,
-pre,
-.num {
+:where(.pg-paper) code,
+:where(.pg-paper) pre,
+:where(.pg-paper) .num {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
-code {
+:where(.pg-paper) code {
   padding: 0.1em 0.35em;
   border-radius: 0.3rem;
   background: var(--soft);
   font-size: 0.88em;
 }
-pre {
+:where(.pg-paper) pre {
   overflow-x: auto;
   padding: 1rem;
   border-radius: 0.6rem;
@@ -172,45 +203,45 @@ pre {
   font-size: 0.85rem;
   line-height: 1.55;
 }
-pre code {
+:where(.pg-paper) pre code {
   padding: 0;
   background: none;
 }
 
 /* A table scrolls inside its wrapper on a phone: <div class="scroll"><table>…</table></div> */
-.scroll {
+:where(.pg-paper) .scroll {
   overflow-x: auto;
 }
-table {
+:where(.pg-paper) table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.93rem;
 }
-th,
-td {
+:where(.pg-paper) th,
+:where(.pg-paper) td {
   padding: 0.55rem 0.7rem;
   text-align: left;
   vertical-align: top;
   border-bottom: 1px solid var(--line);
 }
-th {
+:where(.pg-paper) th {
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--muted);
   white-space: nowrap;
 }
-td.num,
-th.num {
+:where(.pg-paper) td.num,
+:where(.pg-paper) th.num {
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-tr.best td {
+:where(.pg-paper) tr.best td {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 /* Over the title, what kind of document this is: Report, Memo, Notes */
-.kicker {
+:where(.pg-paper) .kicker {
   margin: 0 0 0.5rem;
   color: var(--accent);
   font-size: 0.78rem;
@@ -219,7 +250,7 @@ tr.best td {
   text-transform: uppercase;
 }
 /* Under the title: as of when, by whom, for whom — as chips, on one line */
-.byline {
+:where(.pg-paper) .byline {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -229,19 +260,19 @@ tr.best td {
   font-size: 0.85rem;
 }
 /* The lead: what the reader should take away, in one or two sentences */
-.lede {
+:where(.pg-paper) .lede {
   margin-bottom: 2rem;
   font-size: 1.1rem;
   color: var(--muted);
 }
 
-/* A chip: a fact that stands on its own — a date, a person, a status. .date and .sh-who
+/* A chip: a fact that stands on its own — a date, a person, a status. .date and .who
    carry a glyph; .status reads as a setting someone can change, with a tone from
-   .good .warn .sh-bad */
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
+   .good .warn .bad */
+:where(.pg-paper) .chip {
+  /* Not inline-flex: in a page being edited, a caret put beside a flex box lands at
+     the start of its words, so what is typed after a chip went in front of it */
+  display: inline-block;
   padding: 0.1rem 0.6rem;
   border: 1px solid var(--line);
   border-radius: 99px;
@@ -253,70 +284,75 @@ tr.best td {
   white-space: nowrap;
   vertical-align: 0.1em;
 }
-.chip.date::before,
-.chip.sh-who::before {
+:where(.pg-paper) .chip.date::before,
+:where(.pg-paper) .chip.who::before {
   content: "";
+  display: inline-block;
   width: 0.85em;
   height: 0.85em;
-  flex: none;
+  margin-right: 0.3rem;
+  vertical-align: -0.1em;
   background: currentColor;
   opacity: 0.7;
   mask: center / contain no-repeat;
 }
-.chip.date::before {
+:where(.pg-paper) .chip.date::before {
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E");
 }
-.chip.sh-who::before {
+:where(.pg-paper) .chip.who::before {
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M4 21a8 8 0 0 1 16 0'/%3E%3C/svg%3E");
 }
-.chip.status::after {
+:where(.pg-paper) .chip.status::after {
   content: "";
+  display: inline-block;
   width: 0.4em;
   height: 0.4em;
-  margin-left: 0.1rem;
+  margin-left: 0.45rem;
   border-right: 1.5px solid currentColor;
   border-bottom: 1.5px solid currentColor;
   transform: translateY(-0.15em) rotate(45deg);
   opacity: 0.6;
 }
-.chip.good,
-.chip.warn,
-.chip.sh-bad {
+:where(.pg-paper) .chip.good,
+:where(.pg-paper) .chip.warn,
+:where(.pg-paper) .chip.bad {
   color: inherit;
   border-color: transparent;
 }
-.chip.good {
+:where(.pg-paper) .chip.good {
   background: color-mix(in srgb, var(--good) 14%, transparent);
 }
-.chip.warn {
+:where(.pg-paper) .chip.warn {
   background: color-mix(in srgb, var(--warn) 16%, transparent);
 }
-.chip.sh-bad {
+:where(.pg-paper) .chip.bad {
   background: color-mix(in srgb, var(--bad) 12%, transparent);
 }
 
 /* A checklist: <ul class="check"><li><input type="checkbox" checked> done</li> */
-ul.check {
+:where(.pg-paper) ul.check {
   padding-left: 0;
   list-style: none;
 }
-ul.check li {
+:where(.pg-paper) ul.check li {
   display: flex;
   align-items: baseline;
   gap: 0.6rem;
 }
-ul.check input {
+:where(.pg-paper) ul.check input {
   margin: 0;
   flex: none;
   transform: translateY(0.1em);
   accent-color: var(--accent);
 }
-ul.check input:checked + * {
+/* A ticked item steps back, its chips with it */
+:where(.pg-paper) ul.check li:has(> input:checked),
+:where(.pg-paper) ul.check li:has(> input:checked) .chip {
   color: var(--muted);
 }
 
 /* A section not written yet, or a fact still to come: what stands where it will go */
-.pending {
+:where(.pg-paper) .pending {
   margin: 0 0 1rem;
   padding: 0.9rem 1.1rem;
   border: 1px dashed var(--line);
@@ -326,19 +362,19 @@ ul.check input:checked + * {
 }
 
 /* Sources at the end: <ol class="sources"><li><a href>…</a> · read 23 Sep</li> */
-ol.sources {
+:where(.pg-paper) ol.sources {
   padding-left: 1.3rem;
   color: var(--muted);
   font-size: 0.85rem;
 }
-ol.sources li + li {
+:where(.pg-paper) ol.sources li + li {
   margin-top: 0.15rem;
 }
 /* A footnote: <sup><a href="#fn1">1</a></sup> in the text, <ol class="footnotes"> at the end */
-sup {
+:where(.pg-paper) sup {
   line-height: 0;
 }
-ol.footnotes {
+:where(.pg-paper) ol.footnotes {
   margin-top: 2.4rem;
   padding: 1rem 0 0 1.3rem;
   border-top: 1px solid var(--line);
@@ -347,16 +383,16 @@ ol.footnotes {
 }
 
 /* Tabs: <div class="tabs"><section data-tab="This week">…</section><section data-tab="Sources">…</section></div> */
-.tabs {
+:where(.pg-paper) .tabs {
   margin-bottom: 1rem;
 }
-.tabs [role="tablist"] {
+:where(.pg-paper) .tabs [role="tablist"] {
   display: flex;
   gap: 0.25rem;
   margin-bottom: 1rem;
   border-bottom: 1px solid var(--line);
 }
-.tabs [role="tab"] {
+:where(.pg-paper) .tabs [role="tab"] {
   padding: 0.5rem 0.9rem;
   border: 0;
   border-bottom: 2px solid transparent;
@@ -367,100 +403,100 @@ ol.footnotes {
   font-weight: 600;
   cursor: pointer;
 }
-.tabs [role="tab"][aria-selected="true"] {
+:where(.pg-paper) .tabs [role="tab"][aria-selected="true"] {
   color: var(--fg);
   border-bottom-color: var(--fg);
 }
-.tabs [role="tab"]:focus-visible {
+:where(.pg-paper) .tabs [role="tab"]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
   border-radius: 0.3rem;
 }
-.tabs [role="tabpanel"] > :first-child {
+:where(.pg-paper) .tabs [role="tabpanel"] > :first-child {
   margin-top: 0;
 }
 
 /* Two columns that stack on a phone: <div class="cols"> */
-.cols {
+:where(.pg-paper) .cols {
   display: grid;
   gap: 1.5rem;
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
   margin-bottom: 1rem;
 }
 /* Kept on one printed page, and a new printed page */
-.keep {
+:where(.pg-paper) .keep {
   break-inside: avoid;
 }
-.break {
+:where(.pg-paper) .break {
   break-before: page;
 }
 
 /* Side by side, stacking on a phone: <div class="grid">…</div>; .grid.three for three */
-.grid {
+:where(.pg-paper) .grid {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   margin-bottom: 1rem;
 }
-.grid.three {
+:where(.pg-paper) .grid.three {
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
 }
-.card {
+:where(.pg-paper) .card {
   padding: 1.1rem 1.2rem;
   border: 1px solid var(--line);
   border-radius: 0.8rem;
 }
-.card > :last-child {
+:where(.pg-paper) .card > :last-child {
   margin-bottom: 0;
 }
 
 /* One number that matters, with what it is under it */
-.stat {
+:where(.pg-paper) .stat {
   font-size: 2rem;
   font-weight: 650;
   line-height: 1.15;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
-.stat + small {
+:where(.pg-paper) .stat + small {
   display: block;
   margin-top: 0.2rem;
 }
 
-/* A note set apart; .good .sh-bad .warn tint it */
-.note {
+/* A note set apart; .good .bad .warn tint it */
+:where(.pg-paper) .note {
   padding: 0.9rem 1.1rem;
   border-radius: 0.7rem;
   background: var(--soft);
 }
-.note > :last-child {
+:where(.pg-paper) .note > :last-child {
   margin-bottom: 0;
 }
-.good {
+:where(.pg-paper) .good {
   color: var(--good);
 }
-.sh-bad {
+:where(.pg-paper) .bad {
   color: var(--bad);
 }
-.warn {
+:where(.pg-paper) .warn {
   color: var(--warn);
 }
-.note.good,
-.note.sh-bad,
-.note.warn {
+:where(.pg-paper) .note.good,
+:where(.pg-paper) .note.bad,
+:where(.pg-paper) .note.warn {
   color: inherit;
   border-left: 3px solid currentColor;
 }
-.note.good {
+:where(.pg-paper) .note.good {
   border-color: var(--good);
 }
-.note.sh-bad {
+:where(.pg-paper) .note.bad {
   border-color: var(--bad);
 }
-.note.warn {
+:where(.pg-paper) .note.warn {
   border-color: var(--warn);
 }
-.tag {
+:where(.pg-paper) .tag {
   display: inline-block;
   padding: 0.05rem 0.5rem;
   border-radius: 99px;
@@ -471,7 +507,7 @@ ol.footnotes {
 }
 
 /* A bar for one value out of a whole: <div class="bar" style="--at: 62%"></div> */
-.bar {
+:where(.pg-paper) .bar {
   margin-bottom: 1rem;
   height: 0.5rem;
   border-radius: 99px;
@@ -482,94 +518,92 @@ ol.footnotes {
   );
 }
 
-details {
+:where(.pg-paper) details {
   margin-bottom: 1rem;
   border: 1px solid var(--line);
   border-radius: 0.7rem;
   padding: 0.7rem 1rem;
 }
-summary {
+:where(.pg-paper) summary {
   cursor: pointer;
   font-weight: 600;
 }
-details[open] > summary {
+:where(.pg-paper) details[open] > summary {
   margin-bottom: 0.6rem;
 }
+
 /* Editing: a block under the pointer, its handle in the gutter, the formatting that
-   floats over a selection, and the two small menus. All of it outside the paper, so
-   none of it is ever saved with it. */
-body.sh-editing .sh-paper > .sh-hot {
-  box-shadow: 0 0 0 6px var(--soft);
+   floats over a selection, and the two small menus. All of it stands outside the paper,
+   so none of it is ever kept with it (quick.js cleans what is kept). */
+body.pg-editing .pg-paper > .pg-hot {
   border-radius: 4px;
-  background: var(--soft);
+  background: var(--sh-soft);
+  box-shadow: 0 0 0 6px var(--sh-soft);
 }
-#grip {
+.pg-grip,
+.pg-bubble,
+.pg-popover {
   position: absolute;
+  z-index: 7;
+}
+.pg-grip {
   z-index: 6;
   display: flex;
   gap: 2px;
 }
-#grip[hidden] {
-  display: none;
+.pg-grip .sh-b {
+  color: var(--sh-ink-3);
 }
-#grip .sh-b {
-  color: var(--ink-3);
-}
-.sh-bubble {
-  position: absolute;
-  z-index: 7;
+.pg-bubble {
   display: flex;
   align-items: center;
   gap: 2px;
   padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--paper);
-  box-shadow: var(--shadow);
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-radius);
+  background: var(--sh-paper);
+  box-shadow: var(--sh-shadow);
 }
-.sh-bubble[hidden] {
-  display: none;
-}
-.sh-bubble .sh-rule {
+.pg-bubble .sh-rule {
   height: 16px;
 }
-.sh-popover {
-  position: absolute;
-  z-index: 7;
+.pg-popover {
+  top: auto;
+  right: auto;
   min-width: 180px;
-  padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--paper);
-  box-shadow: var(--shadow);
 }
-.sh-popover[hidden] {
+.pg-grip[hidden],
+.pg-bubble[hidden],
+.pg-popover[hidden] {
   display: none;
 }
-body.sh-editing .sh-paper a {
+body.pg-editing .pg-paper a {
   cursor: text;
 }
 
 @media print {
-  .sh-paper {
+  body {
+    display: block;
+  }
+  .pg-paper {
     max-width: none;
     padding: 0;
   }
-  a {
+  :where(.pg-paper) a {
     color: inherit;
   }
-  #grip,
-  .sh-bubble,
-  .sh-popover,
-  .tabs [role="tablist"] {
+  .pg-grip,
+  .pg-bubble,
+  .pg-popover,
+  :where(.pg-paper) .tabs [role="tablist"] {
     display: none;
   }
   /* Every tab, one under another, headed by its name: nothing is lost on paper */
-  .tabs [role="tabpanel"] {
+  :where(.pg-paper) .tabs [role="tabpanel"] {
     display: block !important;
     margin-bottom: 1.5rem;
   }
-  .tabs [role="tabpanel"]::before {
+  :where(.pg-paper) .tabs [role="tabpanel"]::before {
     content: attr(data-tab);
     display: block;
     margin-bottom: 0.5rem;
@@ -579,13 +613,10 @@ body.sh-editing .sh-paper a {
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
-  h2,
-  h3,
-  .keep {
+  :where(.pg-paper) :is(h2, h3, .keep) {
     break-inside: avoid;
   }
-  h2,
-  h3 {
+  :where(.pg-paper) :is(h2, h3) {
     break-after: avoid;
   }
 }

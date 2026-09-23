@@ -1,7 +1,8 @@
-/* A canvas of options: boards pinned on one pan/zoom surface, a note beside each.
-   No network, no build, light and dark. The look follows the app's pages. */
-/* The canvas sits under the shell's head: a rail of tools, the list of boards, the
-   surface, and the values of the board that is picked. The theme is the shell's. */
+/* A canvas of options: boards pinned on one pan/zoom surface, a note beside each, under
+   the shell's head (shell.css). A rail of tools on the left, the list of boards beside
+   it, the surface, and the values of the board that is picked on the right. The theme
+   turns the frame around the boards, never a board: an option's colours are what is
+   being chosen. The canvas's own frame is named `cv-` or by id. */
 body {
   display: flex;
   flex-direction: column;
@@ -12,6 +13,8 @@ body {
   min-height: 0;
   display: flex;
 }
+
+/* The rail: pick or move, every board, the list. */
 .cv-rail {
   flex: none;
   display: flex;
@@ -20,55 +23,64 @@ body {
   gap: 0.25rem;
   width: 44px;
   padding: 10px 0;
-  border-right: 1px solid var(--line);
-  background: var(--soft);
+  border-right: 1px solid var(--sh-line);
+  background: var(--sh-soft);
 }
 .cv-rail .sh-rule {
   width: 20px;
   height: 1px;
   margin: 0.25rem 0;
 }
+
+/* The list: every board small, its name and its size, the picked one marked. */
 .cv-layers {
   width: 236px;
   padding: 14px 10px;
 }
-body.no-layers .cv-layers {
+body.cv-no-layers .cv-layers {
   display: none;
 }
-.cv-layers a {
+.cv-layers button {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  width: 100%;
+  margin: 0;
   padding: 0.3125rem 0.375rem;
-  border-radius: calc(var(--radius) * 0.7);
-  color: var(--ink);
+  border: 0;
+  border-radius: calc(var(--sh-radius) * 0.7);
+  background: none;
+  color: var(--sh-ink);
+  font: inherit;
   font-size: 12.5px;
-  text-decoration: none;
+  line-height: 1.4;
+  text-align: left;
   cursor: pointer;
 }
-.cv-layers a:hover {
-  background: var(--sunk);
+.cv-layers button:hover {
+  background: var(--sh-sunk);
 }
-.cv-layers a.sh-on {
-  background: var(--brand-soft);
+.cv-layers button:focus-visible {
+  outline: 2px solid var(--sh-brand);
+  outline-offset: -2px;
 }
-.cv-layers a.sh-on span {
-  color: var(--brand);
+.cv-layers button.cv-on {
+  background: var(--sh-brand-soft);
+}
+.cv-layers button.cv-on .cv-name {
+  color: var(--sh-brand);
   font-weight: 500;
 }
-.cv-layers a .sh-thumb {
-  flex: none;
-}
-.cv-layers a span {
+.cv-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.cv-layers a em {
+.cv-dims {
   flex: none;
-  color: var(--ink-3);
+  color: var(--sh-ink-2);
   font-size: 10.5px;
   font-style: normal;
   font-variant-numeric: tabular-nums;
@@ -79,12 +91,29 @@ body.no-layers .cv-layers {
   }
 }
 
-/* The surface. Panning moves it; zooming scales it about the pointer. */
+/* The surface. Panning moves it; zooming scales it about the pointer. Its dots are drawn
+   on the field rather than the stage, so they never scale into blobs: the step is set
+   from the zoom in canvas.js, which is what makes zooming feel like moving over a surface
+   instead of resizing a picture. */
 #field {
   position: relative;
   flex: 1;
   min-width: 0;
   overflow: hidden;
+  cursor: default;
+  touch-action: none;
+  background-color: var(--sh-paper);
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    var(--sh-dot) 1px,
+    transparent 0
+  );
+}
+body[data-tool="hand"] #field {
+  cursor: grab;
+}
+#field.cv-dragging {
+  cursor: grabbing;
 }
 #stage {
   position: absolute;
@@ -93,26 +122,8 @@ body.no-layers .cv-layers {
   will-change: transform;
   user-select: none;
 }
-/* The surface itself: dots so that dragging reads as moving over something, not as
-   sliding a picture. The step is set from the zoom in canvas.js, never by scaling
-   this layer, or the dots would smear at every zoom but 100%. */
-#field {
-  cursor: default;
-  touch-action: none;
-  background-image: radial-gradient(
-    circle at 1px 1px,
-    var(--dot) 1px,
-    transparent 0
-  );
-}
-body[data-tool="hand"] #field {
-  cursor: grab;
-}
-#field.dragging {
-  cursor: grabbing;
-}
 
-/* The zoom, where the hand that moves the surface already is. */
+/* The zoom, in the corner where the hand that moves the surface already is. */
 .cv-zoom {
   position: absolute;
   right: 14px;
@@ -122,42 +133,81 @@ body[data-tool="hand"] #field {
   align-items: center;
   gap: 0.125rem;
   padding: 2px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--sh-line);
   border-radius: 999px;
-  background: var(--paper);
-  box-shadow: var(--shadow);
+  background: var(--sh-paper);
+  box-shadow: var(--sh-shadow);
 }
 .cv-zoom output {
   min-width: 42px;
   text-align: center;
-  color: var(--ink-2);
+  color: var(--sh-ink-2);
   font-size: 11.5px;
   font-variant-numeric: tabular-nums;
 }
 
-/* Over the board the pointer is on: open it alone, its picture. */
+/* Over the board the pointer is on: open it alone, or its picture. */
 .cv-hover {
   position: absolute;
   z-index: 3;
   display: flex;
   gap: 2px;
   padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: calc(var(--radius) * 0.9);
-  background: var(--paper);
-  box-shadow: var(--shadow);
+  border: 1px solid var(--sh-line);
+  border-radius: calc(var(--sh-radius) * 0.9);
+  background: var(--sh-paper);
+  box-shadow: var(--sh-shadow);
 }
-.cv-hover[hidden] {
+.cv-hover[hidden],
+.cv-hover [hidden] {
   display: none;
 }
-.cv-hover a[hidden] {
+
+/* The board that is picked: a ring and four corners drawn over the surface at the size
+   of the screen, not of the board — so they stay thin at any zoom, and nothing is ever
+   put inside a board, whose content is the design and whose size is checked. */
+.cv-pick {
+  position: absolute;
+  z-index: 2;
+  border: 2px solid var(--sh-brand);
+  border-radius: 3px;
+  pointer-events: none;
+}
+.cv-pick[hidden] {
   display: none;
+}
+.cv-pick i {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid var(--sh-brand);
+  border-radius: 2px;
+  background: var(--sh-paper);
+}
+.cv-pick i:nth-child(1) {
+  top: -5px;
+  left: -5px;
+}
+.cv-pick i:nth-child(2) {
+  top: -5px;
+  right: -5px;
+}
+.cv-pick i:nth-child(3) {
+  bottom: -5px;
+  left: -5px;
+}
+.cv-pick i:nth-child(4) {
+  bottom: -5px;
+  right: -5px;
 }
 
 /* The picked board's values, read off the page. */
 .cv-spec {
   width: 248px;
   padding: 14px;
+}
+.cv-spec[hidden] {
+  display: none;
 }
 .cv-spec dl {
   display: grid;
@@ -166,7 +216,7 @@ body[data-tool="hand"] #field {
   margin: 0 0 0.875rem;
 }
 .cv-spec dt {
-  color: var(--ink-3);
+  color: var(--sh-ink-2);
   font-size: 11.5px;
 }
 .cv-spec dd {
@@ -175,7 +225,7 @@ body[data-tool="hand"] #field {
   align-items: center;
   gap: 0.25rem 0.375rem;
   margin: 0;
-  color: var(--ink);
+  color: var(--sh-ink);
   font-size: 11.5px;
   font-variant-numeric: tabular-nums;
 }
@@ -183,9 +233,8 @@ body[data-tool="hand"] #field {
   display: inline-block;
   width: 11px;
   height: 11px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--sh-line);
   border-radius: 3px;
-  vertical-align: middle;
 }
 .cv-spec .sh-b {
   width: 100%;
@@ -210,6 +259,7 @@ body[data-tool="hand"] #field {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  color: var(--sh-ink);
   font-size: 0.8125rem;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -219,11 +269,14 @@ body[data-tool="hand"] #field {
 .frame > h2 small {
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--muted);
+  color: var(--sh-ink-3);
   font-weight: 400;
 }
-/* The values the board really paints, and the same board as text to paste. Both are
-   read off the page after it is drawn, so neither can disagree with the design. */
+.frame.picked > h2 {
+  color: var(--sh-brand);
+}
+/* The colours the board really paints, read off the page after it is drawn, so they
+   cannot disagree with the design. A dot copies its own. */
 .swatches {
   display: flex;
   flex: none;
@@ -233,7 +286,7 @@ body[data-tool="hand"] #field {
 .swatches i {
   width: 10px;
   height: 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--sh-line);
   border-radius: 999px;
   cursor: copy;
 }
@@ -245,10 +298,21 @@ body[data-tool="hand"] #field {
   width: calc(var(--w) * 1px);
   height: calc(var(--h) * 1px);
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1px solid var(--sh-line);
   border-radius: 0.75rem;
-  background: var(--bg);
-  box-shadow: var(--shadow);
+  box-shadow: var(--sh-shadow);
+  /* What a board is before it says otherwise — the design's own ground and type, which
+     no theme turns. Anything the board sets inline wins. */
+  background: #fff;
+  color: #18181b;
+  font:
+    14px / 1.6 ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    "Apple SD Gothic Neo",
+    "Noto Sans KR",
+    sans-serif;
 }
 /* A board's content starts from nothing: no default margin on a heading, a paragraph or
    a list, no space between table cells, no box around a fieldset. What is on a board is
@@ -291,70 +355,32 @@ body[data-tool="hand"] #field {
 }
 /* A board whose content does not fit it. Red is failure, as everywhere in the app. */
 .frame.cut > .board {
-  border-color: var(--bad);
+  border-color: var(--sh-bad);
 }
 .frame.cut > h2::before {
   content: "cut";
   padding: 0 0.375rem;
   border-radius: 999px;
-  background: var(--bad);
-  color: var(--bg);
+  background: var(--sh-bad);
+  color: #fff;
   font-size: 0.6875rem;
   font-weight: 500;
 }
 
-/* The board that is picked: ringed, with the corners a Figma frame has, its name in the
-   brand colour. Picking is how its values come up on the right. */
-.frame.picked > h2 {
-  color: var(--brand);
-}
-.frame.picked > .board {
-  outline: 2px solid var(--brand);
-  outline-offset: 0;
-}
-.frame.picked::before,
-.frame.picked::after,
-.frame.picked > .board::before,
-.frame.picked > .board::after {
-  content: "";
-  position: absolute;
-  z-index: 1;
-  width: 8px;
-  height: 8px;
-  border: 1.5px solid var(--brand);
-  border-radius: 2px;
-  background: var(--paper);
-}
-.frame.picked::before {
-  left: -4px;
-  top: calc(1.75rem - 4px);
-}
-.frame.picked::after {
-  right: -4px;
-  top: calc(1.75rem - 4px);
-}
-.frame.picked > .board::before {
-  left: -4px;
-  bottom: -4px;
-}
-.frame.picked > .board::after {
-  right: -4px;
-  bottom: -4px;
-}
-
-/* The one being carried forward. Blue is what is picked, as everywhere in the app. */
+/* The one being carried forward, marked by the bot. The brand blue, as everything
+   picked is in the app. */
 .frame.leading > .board {
-  border-color: var(--accent);
+  border-color: var(--sh-brand);
   box-shadow:
-    0 0 0 1px var(--accent),
-    var(--shadow);
+    0 0 0 1px var(--sh-brand),
+    var(--sh-shadow);
 }
 .frame.leading > h2::after {
   content: attr(data-mark);
   padding: 0 0.375rem;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--sh-brand);
   border-radius: 999px;
-  color: var(--accent);
+  color: var(--sh-brand);
   font-size: 0.6875rem;
   font-weight: 500;
 }
@@ -368,20 +394,20 @@ body[data-tool="hand"] #field {
   margin: 0;
   white-space: pre-wrap;
   user-select: text;
-  color: var(--muted);
+  color: var(--sh-ink-2);
   font-size: 0.8125rem;
   line-height: 1.7;
 }
 .note strong {
   display: block;
-  color: var(--fg);
+  color: var(--sh-ink);
   font-size: 0.875rem;
   font-weight: 600;
 }
 /* A title over a row of boards — a flow, a round, a page of the exploration — never
    over one, whose name strip already names it. */
 .note.title {
-  color: var(--fg);
+  color: var(--sh-ink);
   font-size: 2.5rem;
   font-weight: 700;
   line-height: 1.15;
@@ -392,27 +418,38 @@ body[data-tool="hand"] #field {
 .note.sticky {
   width: calc(var(--w, 240) * 1px);
   padding: 0.75rem 0.875rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--sh-line);
   border-radius: 0.5rem;
-  background: var(--soft);
-  color: var(--fg);
-  box-shadow: var(--shadow);
+  background: var(--sh-soft);
+  color: var(--sh-ink);
+  box-shadow: var(--sh-shadow);
 }
 
-/* Shot mode: the boards alone, laid out in a column at true size, for the renderer. */
-body.shot {
-  overflow: visible;
-  background: var(--bg);
+/* A canvas drawn as a file's face: its boards side by side on plain paper, and nothing else. */
+.sh-face .cv-rail,
+.sh-face .cv-zoom,
+.sh-face .note,
+.sh-face .frame > h2 {
+  display: none;
 }
+.sh-face #field {
+  background-image: none;
+}
+
+/* Flat: the boards alone, one under another at true size — what the renderer shoots,
+   and what a printer prints, a board a page (canvas.js turns it on before printing). */
 body.shot {
   display: block;
   height: auto;
+  overflow: visible;
+  background: #fff;
 }
 body.shot .sh-head,
 body.shot .cv-rail,
 body.shot .cv-layers,
 body.shot .cv-zoom,
 body.shot .cv-hover,
+body.shot .cv-pick,
 body.shot .cv-spec,
 body.shot .note,
 body.shot .frame > h2 {
@@ -427,7 +464,7 @@ body.shot #field {
   overflow: visible;
   transform: none;
   /* The surface's dots belong to the canvas, never to a board's picture */
-  background-image: none;
+  background: none;
 }
 body.shot .frame {
   position: static;
@@ -442,4 +479,16 @@ body.shot .frame > .board {
   border: 0;
   border-radius: 0;
   box-shadow: none;
+}
+/* On paper each board keeps its name above it, and has a page to itself; the printer
+   fits a wide one to the page. */
+@media print {
+  body.shot .frame > h2 {
+    display: flex;
+    color: #18181b;
+  }
+  body.shot .frame {
+    break-after: page;
+    break-inside: avoid;
+  }
 }
