@@ -136,7 +136,9 @@ function start() {
       THURSDAY_TOOL_PATH: toolPath().join(":"),
       PORT: port,
       // This machine only. A voice agent with a shell is not a thing to expose.
-      HOSTNAME: process.env.HOSTNAME || "127.0.0.1",
+      // Never inherited: Docker exports HOSTNAME as the container and some
+      // distributions as the machine's name, and server.js binds to it.
+      HOSTNAME: "127.0.0.1",
       NODE_ENV: "production",
       // The server parks running jobs on a stop before it exits (instrumentation);
       // without this, Next exits on the signal first

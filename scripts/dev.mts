@@ -30,12 +30,13 @@ const port = String(
   await freePort(asked, process.env.THURSDAY_HOME?.trim() || process.cwd()),
 );
 const next = createRequire(import.meta.url).resolve("next/dist/bin/next");
-// This machine only, as `thursday` does; `-H` still opens it on purpose
+// This machine only, as `thursday` does, whatever HOSTNAME the shell exports;
+// `-H` still opens it on purpose
 const hostname = rest.some(
   (arg) => arg === "-H" || arg.startsWith("--hostname"),
 )
   ? []
-  : ["--hostname", process.env.HOSTNAME || "127.0.0.1"];
+  : ["--hostname", "127.0.0.1"];
 
 let child: ChildProcess;
 /** Started again once a database the server could not migrate is removed. */
