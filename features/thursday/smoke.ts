@@ -8,8 +8,21 @@
 import { smoothstep } from "./ascii.const";
 import { fbm, type Wind, warp } from "./field";
 
-/** A place on the field: from her centre, in reference units. */
-type Spot = { dx: number; dy: number; dist: number };
+/**
+ * A place on the field, from her centre in reference units, read three ways: where her grain is
+ * (dx, dy: on her head as it is turned), where her outline is (px, py, and dist from her centre:
+ * in her head's own plane), and where her smoke is (sx, sy: trailing her head). Left out, the last
+ * two are the place itself, as they are while she holds still (expressions.ts moves them).
+ */
+export type Spot = {
+  dx: number;
+  dy: number;
+  dist: number;
+  px?: number;
+  py?: number;
+  sx?: number;
+  sy?: number;
+};
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const mix = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -146,6 +159,8 @@ const SIGH_STIR_REACH = 0.54;
 export type Smoke = {
   /** How much of a face she is — her eyes open — eased, 0..1. */
   face: number;
+  /** How much of her haze and plume is held back this frame, 0..1 (expressions.ts). */
+  hush: number;
   /** How far she has gone dim after shutting her eyes, 0..1. */
   dim: number;
   /** The plume's numbers this frame, between REST and OPEN by `face`. */
@@ -183,6 +198,7 @@ export type Smoke = {
 export function createSmoke(): Smoke {
   const s: Smoke = {
     face: 0,
+    hush: 0,
     dim: 0,
     ink: 0,
     reach: 0,
@@ -226,7 +242,7 @@ function sighAt(tau: number, seed: number) {
 /**
  * Once a frame. `open` is how open her eyes are and not closing (0..1), `dim` how far into
  * shutting them she is, `sinceLids` seconds since her lids started to part (below 0 while they
- * are not up).
+ * are not up), and `sighs` whether she wakes with the sigh this time.
  */
 export function stepSmoke(
   s: Smoke,
@@ -235,9 +251,10 @@ export function stepSmoke(
   open: number,
   dim: number,
   sinceLids: number,
+  sighs = true,
 ) {
   const S = s.sigh;
-  if (sinceLids >= 0 && sinceLids < 0.3 && !S.live) {
+  if (sighs && sinceLids >= 0 && sinceLids < 0.3 && !S.live) {
     S.live = true;
     S.t0 = t - sinceLids;
     S.dir =
@@ -309,7 +326,8 @@ function sighOn(s: Smoke, angle: number) {
 }
 
 function plumeAt(
-  p: Spot,
+  x: number,
+  y: number,
   t: number,
   R: number,
   dist: number,
@@ -322,8 +340,8 @@ function plumeAt(
   // leaned: further downwind the further out, so a filament leaves her straight and bends on its
   // way; measured from her centre, which is what keeps it rooted in her
   const push = PLUME_LEAN * w.g * dist;
-  const lx = p.dx - w.x * push;
-  const ly = p.dy - w.y * push;
+  const lx = x - w.x * push;
+  const ly = y - w.y * push;
   const len = Math.hypot(lx, ly) || 1;
   const la = Math.atan2(ly, lx);
   const fan = s.few / (1 + dist * PLUME_SPREAD);
@@ -348,8 +366,7 @@ function plumeAt(
   // the patches lift a strand by a fifth at most, so one that cannot clear its bar even then is
   // left without reading them
   if (n * 1.2 <= bar) return 0;
-  const patched =
-    n * (0.8 + 0.4 * warp(p.dx * 0.02 + 3, p.dy * 0.02, t * 0.3, 2));
+  const patched = n * (0.8 + 0.4 * warp(x * 0.02 + 3, y * 0.02, t * 0.3, 2));
   let strand = (Math.max(0, patched - bar) * PLUME_GAIN) ** s.hard;
   if (strand <= 0) return 0;
   strand *= 1 + PLUME_GUSH * byWay(s.ways.gush, la) + SIGH_STIR * stir;
@@ -372,24 +389,30 @@ export function restValue(
   s: Smoke,
   w: Wind,
 ) {
-  let dist = p.dist;
-  const pull = BODY_DRAG * w.g * Math.min(1, dist / R) ** 2 * R;
-  dist = Math.hypot(p.dx - w.x * pull, p.dy - w.y * pull);
+  const px = p.px ?? p.dx;
+  const py = p.py ?? p.dy;
+  const sx = p.sx ?? p.dx;
+  const sy = p.sy ?? p.dy;
+  const pull = BODY_DRAG * w.g * Math.min(1, p.dist / R) ** 2 * R;
+  const dist = Math.hypot(px - w.x * pull, py - w.y * pull);
   const body = 1 - smoothstep(R * BODY_FULL, R, dist);
   let value = body > 0 ? (herLight(p.dx, p.dy, t) + lift) * body : 0;
   if (s.dim > 0.002) value *= 1 - SLEEP_DIM * s.dim;
-  if (s.haze > 0 && dist < R * HAZE_TO) {
+  // her haze and her plume are where her smoke is, and a piece of hers can hold them back
+  const held = 1 - s.hush;
+  const sd = Math.hypot(sx - w.x * pull, sy - w.y * pull);
+  if (s.haze > 0 && held > 0 && sd < R * HAZE_TO) {
     const most =
       s.haze *
+      held *
       (1 - SLEEP_SMOKE * 0.6 * s.dim) *
-      (1 - smoothstep(R * HAZE_FROM, R * HAZE_TO, dist)) *
+      (1 - smoothstep(R * HAZE_FROM, R * HAZE_TO, sd)) *
       scale;
     // its patches are 1.55 of `most` at the brightest, so a haze that cannot pass her even then
     // is left without reading them
     if (most * 1.55 > value) {
       const haze =
-        most *
-        (0.45 + 1.1 * warp(p.dx * 0.012 + 11, p.dy * 0.012, t * 0.15, 2));
+        most * (0.45 + 1.1 * warp(sx * 0.012 + 11, sy * 0.012, t * 0.15, 2));
       if (haze > value) value = haze;
     }
   }
@@ -398,9 +421,9 @@ export function restValue(
   const cap =
     PLUME_TOP +
     Math.max(0, PLUME_STRENGTH * s.ink - PLUME_TOP) *
-      smoothstep(R * 0.92, R * 1.14, dist);
-  if (cap * scale > value) {
-    const plume = plumeAt(p, t, R, dist, scale, s, w, cap);
+      smoothstep(R * 0.92, R * 1.14, sd);
+  if (held > 0 && cap * scale * held > value) {
+    const plume = plumeAt(sx, sy, t, R, sd, scale, s, w, cap) * held;
     if (plume > value) value = plume;
   }
   // Arriving and leaving happen in patches on her own noise, never as one disc changing
@@ -420,7 +443,7 @@ export function sighValue(p: Spot, t: number, R: number, s: Smoke) {
   const T = (t - S.t0) * SIGH_PACE;
   const d = p.dist / R - SIGH_ROOT;
   if (d <= 0) return 0;
-  let th = Math.atan2(p.dy, p.dx) - S.dir;
+  let th = Math.atan2(p.py ?? p.dy, p.px ?? p.dx) - S.dir;
   th -= Math.round(th / (Math.PI * 2)) * Math.PI * 2;
   if (
     Math.abs(th) >

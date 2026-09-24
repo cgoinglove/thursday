@@ -1,6 +1,6 @@
 // Her eyes. One file, because the whole feature is here: the shape, what it does while it is up,
-// and the test a renderer asks per cell. The call's orb and the intro's art both use it, and it can
-// come out again by deleting this and the three lines that call it.
+// and the test a renderer asks per cell. The call's orb uses it, and it can come out again by
+// deleting this and the lines there that call it.
 //
 // The shape is the bot faces' own (features/bot/components/bot-mark: eyeLen 51, eyeWidth 38,
 // eyeBend -1, eyeTaper 0.35, eyeTilt -90 so the length runs up the face, eyeGap 88, eyeY 100
@@ -73,6 +73,10 @@ export type EyeState = {
    * bottom, puts the lids' meeting below the middle, as a falling-asleep eye closes.
    */
   fall?: number;
+  /** Each lid on its own, left then right, on top of `lid`: a wink is one of them. */
+  lids?: readonly [number, number];
+  /** How much larger the lens is than the face wears it. */
+  size?: number;
 };
 
 /**
@@ -80,9 +84,10 @@ export type EyeState = {
  * because a face that does the same thing every time is a loop, and a loop stops being seen once
  * it has been learned. Blinks stay quick; nothing else is — a face that keeps darting reads as
  * nervous rather than as alive. `seen` leaves out the peek, which shuts again before anyone has
- * seen her awake: for a face whose waking is the point of the moment.
+ * seen her awake: for a face whose waking is the point of the moment. Asked to last `atLeast`
+ * seconds, it goes on looking at you and blinking now and then, rather than staring.
  */
-export function eyeScript(seed: number, seen = false): EyeScript {
+export function eyeScript(seed: number, seen = false, atLeast = 0): EyeScript {
   const r = (k: number) => ihash(seed, k * 7 + 3, 1);
   const side = r(3) < 0.5 ? -1 : 1;
   // A lean she may take once she is looking at you. Never on the way up: an eye that arrives
@@ -168,6 +173,16 @@ export function eyeScript(seed: number, seen = false): EyeScript {
 
   let total = 0;
   for (const beat of beats) total += beat.ms;
+  for (let k = 20; total < atLeast; k += 2) {
+    const ms = 2.6 + r(k) * 1.8;
+    beats.push({
+      ms,
+      tilt: 0,
+      gaze: home,
+      blink: r(k + 1) < 0.7 ? [0.4, 0.62] : undefined,
+    });
+    total += ms;
+  }
   return { beats, total };
 }
 
@@ -220,8 +235,10 @@ export function inEye(
   if (held <= 0.03 || state.lid <= 0.02) return false;
   // where the pair sits is the mark's own layout; only the lens is scaled up from it
   const k = bodyRadius / EYE.radius;
-  const ks = k * fit.size;
+  const ks = k * fit.size * (state.size ?? 1);
   for (const side of [-1, 1]) {
+    const lid = state.lid * (state.lids ? state.lids[side < 0 ? 0 : 1] : 1);
+    if (lid <= 0.02) continue;
     const ex =
       dx - (side * (EYE.gap / 2) * k * fit.gap + state.gaze[0] * bodyRadius);
     const ey =
@@ -236,7 +253,7 @@ export function inEye(
     const py = ex * sin + ey * cos;
     const along = -py;
     const across = px;
-    const len = EYE.len * ks * state.lid;
+    const len = EYE.len * ks * lid;
     const p = (along + len / 2) / len;
     if (p <= 0 || p >= 1) continue;
     const spine = 2 * (1 - p) * p * -EYE.bend * ks;

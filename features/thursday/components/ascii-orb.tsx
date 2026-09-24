@@ -16,6 +16,18 @@ import {
   smoothstep,
 } from "../ascii.const";
 import {
+  busy,
+  createExpression,
+  facing,
+  type Grid,
+  PIECE_SETS,
+  type Plan,
+  pieceAt,
+  planOpening,
+  sighs,
+  stepExpression,
+} from "../expressions";
+import {
   type EyeFit,
   type EyeScript,
   type EyeState,
@@ -29,6 +41,7 @@ import {
   createSmoke,
   restValue,
   type Smoke,
+  type Spot,
   sighValue,
   stepSmoke,
 } from "../smoke";
@@ -87,7 +100,7 @@ const emojiFont = (px: number, level: number, top: number) =>
   GLYPH_FONT(px * (0.5 + emojiWeight(level, top) * 0.5));
 
 /**
- * Every emoji she can show — her own and the washes' — drawn once at every size she draws them,
+ * Every emoji she can show — her own, the washes' and her pieces' — drawn once at every size she draws them,
  * and wiped, before her first frame. The browser shapes a colour emoji the first time it meets it
  * at a size, and that is most of a frame: met in her first frame, it stalls her arrival, and met
  * when a wash first brings its set in, it stalls her then. A sheet copied from would spare the
@@ -96,7 +109,8 @@ const emojiFont = (px: number, level: number, top: number) =>
 function warmEmoji(ctx: CanvasRenderingContext2D, px: number, cells: Cell[]) {
   if (cells.length === 0) return;
   const glyphs = new Set<string>(EMOJI_POOL);
-  for (const set of WASH_SETS) for (const glyph of set.emoji) glyphs.add(glyph);
+  for (const set of SETS)
+    for (const glyph of set.emoji ?? []) glyphs.add(glyph);
   const top = RAMP.length - 1;
   const fonts = [GLYPH_FONT(px)];
   for (let lv = 1; lv <= top; lv++) fonts.push(emojiFont(px, lv, top));
@@ -376,11 +390,14 @@ export const CHURN_ASCII = 0.4;
 export const CHURN_EMOJI = 0.264;
 
 /**
- * Her eyes open about this often, times a factor between 0.55 and 1.45 drawn fresh each time, and
- * the script they run is drawn too (eyes.ts). Nothing about it is meant to be learnable: a face
- * that does the same thing on a beat stops being seen once the beat has been counted. Seconds.
+ * Between one opening of her eyes and the next she rests about this long, times a factor between
+ * 0.55 and 1.45 drawn fresh each time, and each time how she wakes and what she does is the next
+ * version in her deck (expressions.ts) with a script drawn for her eyes (eyes.ts). Nothing about
+ * it is meant to be learnable: a face that does the same thing on a beat stops being seen once the
+ * beat has been counted. An opening lasts about EYES_AWAKE, times 0.75 to 1.25. Seconds.
  */
-const EYES_APART = 26;
+const EYES_APART = 17;
+const EYES_AWAKE = 11;
 /** How long the body takes to close around them, and to let go again. */
 const EYES_IN = 1.25;
 const EYES_OUT = 1.5;
@@ -411,13 +428,23 @@ const WASH_LINGER = 0.3;
 const WASH_LINGER_MORE = 0.9;
 
 /**
- * Waking (`waking`): how long after she mounts her eyes start to open — at once, so that the
- * moment she is her own size is the moment she looks — and when the one wash that goes through
- * her starts and how long it sits. Seconds.
+ * How long after she mounts her eyes start to open — at once, so that the moment she is her own
+ * size is the moment she looks — and, waking (`waking`), when the one wash that goes through her
+ * starts and how long it sits. Seconds.
  */
 const WAKE_LOOK = 0.15;
 const WAKE_WASH = 1;
 const WAKE_WASH_FOR = 2.9;
+
+/**
+ * The glyph sets a cell can be drawn from: the washes' (wash.ts), then what her pieces give off
+ * (expressions.ts), whose pool is PIECE_POOL past theirs. A set with no emoji is drawn in hers.
+ */
+const SETS: readonly {
+  ascii: readonly string[];
+  emoji: readonly string[] | null;
+}[] = [...WASH_SETS, ...PIECE_SETS];
+const PIECE_POOL = WASH_SETS.length;
 
 /**
  * How she wears her eyes (eyes.ts): the bot faces' own layout, with a lens a tenth larger,
@@ -692,6 +719,7 @@ function wordValue(cell: Cell, t: number, age: number, hold: number) {
  */
 function fieldValue(
   cell: Cell,
+  spot: Spot,
   t: number,
   errAge: number,
   wordAge: number,
@@ -704,7 +732,7 @@ function fieldValue(
   let value =
     f.scale > 0.02
       ? restValue(
-          cell,
+          spot,
           t,
           f.lift,
           IDLE_R * REST_GROW * f.scale,
@@ -805,12 +833,15 @@ export function AsciiOrb({
   } | null>(null);
   /** Grid pitch in reference units, for laying a word onto cells that already exist */
   const pitchRef = useRef({ cw: 1, ch: 1 });
-  /** When she next looks up, and the script she will run when she does */
+  /** When she next looks up, the script she will run when she does, and what she does meanwhile */
   const lookRef = useRef<{
     script: EyeScript | null;
     from: number;
     until: number;
+    plan?: Plan | null;
   }>({ script: null, from: 0, until: 0 });
+  /** Her cells, and which of them is at each place of the grid, for what her pieces lay on her */
+  const gridRef = useRef<Grid | null>(null);
   /** Whether she came in waking; the loop reads it once, as she mounts */
   const wakingRef = useRef(waking);
 
@@ -837,6 +868,7 @@ export function AsciiOrb({
     const cells: Cell[] = [];
     const cols = Math.ceil(size / cw);
     const rows = Math.ceil(size / ch);
+    const at = new Int32Array(cols * rows).fill(-1);
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -850,6 +882,7 @@ export function AsciiOrb({
         const letter = letterAt(ERROR_ROWS, dx, dy, cwN, chN, errScale);
         if (letter < 0 && dist > FIELD_R) continue;
 
+        at[r * cols + c] = cells.length;
         cells.push({
           // glyphs sit at the cell center, in actual px
           x: x + cw / 2,
@@ -872,6 +905,16 @@ export function AsciiOrb({
     }
 
     cellsRef.current = cells;
+    gridRef.current = {
+      cells,
+      cols,
+      rows,
+      cw: cwN,
+      ch: chN,
+      half: DESIGN / 2,
+      at,
+      field: FIELD_R,
+    };
     // a word showing while the grid changes is laid onto the new cells
     if (wordRef.current) layWord(cells, cwN, chN, wordRef.current.text);
 
@@ -921,6 +964,7 @@ export function AsciiOrb({
     return () => {
       ctx?.clearRect(0, 0, size, size);
       cellsRef.current = [];
+      gridRef.current = null;
       bucketsRef.current = null;
     };
   }, [fontSize, density, size]);
@@ -941,8 +985,8 @@ export function AsciiOrb({
     modeRef.current = { mode, start: performance.now() * 0.001 };
   }, [mode]);
 
-  // a new word starts from its first letter, in place of one still showing; the one that comes
-  // with her (the hello as the app opens) starts when she does, lighting in like any other
+  // a new word starts from its first letter, in place of one still showing; one already up as
+  // she mounts (CALL, when the app opens on a ring) starts when she does, lighting in like any other
   useEffect(() => {
     if (!word) return;
     // A word is said as it comes. One handed back later — the goodbye still held when a
@@ -971,6 +1015,9 @@ export function AsciiOrb({
     let raf = 0;
     const follower = createVoiceFollower();
     const smoke = createSmoke();
+    const expr = createExpression();
+    /** Where she is read at the cell being drawn (smoke.ts Spot); one, reused cell to cell */
+    const spot: Spot = { dx: 0, dy: 0, dist: 0, px: 0, py: 0, sx: 0, sy: 0 };
     const murmur = new Array<number>(SPECTRUM_BANDS).fill(0);
 
     let lastT = performance.now() * 0.001;
@@ -978,12 +1025,10 @@ export function AsciiOrb({
     let clock = 0;
     /** Seconds ERROR has been showing (errorValue) */
     let errAge = 0;
-    // Waking, her first look is now rather than half a minute from now, and one wash is set
+    // Waking, her first look is one set for her — a script that looks at you, with the sigh — and
+    // one wash goes through her
     const wake = wakingRef.current
-      ? {
-          slot: wakingSlot((Math.random() * 4000) | 0),
-          end: WAKE_WASH + WAKE_WASH_FOR,
-        }
+      ? { slot: wakingSlot((Math.random() * 4000) | 0) }
       : null;
     if (wake) {
       const script = eyeScript((Math.random() * 1e6) | 0, true);
@@ -1001,7 +1046,8 @@ export function AsciiOrb({
       lastT = t;
       const ctx = ctxRef.current;
       const bk = bucketsRef.current;
-      if (!ctx || !bk) {
+      const grid = gridRef.current;
+      if (!ctx || !bk || !grid) {
         raf = requestAnimationFrame(draw);
         return;
       }
@@ -1131,13 +1177,27 @@ export function AsciiOrb({
       let eyesOpen = 0;
       let asleep = 0;
       let sinceLids = -1;
+      // the opening under way, and seconds since her lids started to part in it (below 0 before)
+      let plan: Plan | null = null;
+      let lidsAt = -1;
       if (restful > 0.4 && !solidError && !solidWord) {
         const look = lookRef.current;
         if (clock > look.until) {
-          // when she next looks up is noise, and so is which of the scripts she runs
-          look.script = eyeScript((clock * 1000) | 0);
-          look.from = clock + EYES_APART * (0.55 + Math.random() * 0.9);
-          look.until = look.from + EYES_IN + look.script.total + EYES_OUT;
+          // Her first look is as she arrives; after that, when she next looks up is noise. How she
+          // wakes and what she does is the next version in her deck, and the script her eyes run
+          // is drawn for as long as that takes.
+          const first = look.until === 0;
+          const next = planOpening(expr, EYES_AWAKE);
+          look.plan = next;
+          look.script = eyeScript((clock * 1000) | 0, false, next.open);
+          look.from =
+            clock +
+            (first ? WAKE_LOOK : EYES_APART * (0.55 + Math.random() * 0.9));
+          look.until =
+            look.from +
+            EYES_IN +
+            Math.max(look.script.total, next.open) +
+            EYES_OUT;
         }
         const age = clock - look.from;
         const span = look.until - look.from;
@@ -1166,16 +1226,48 @@ export function AsciiOrb({
           eyesOpen = eyesHeld * (1 - sleep) * settled;
           asleep = smoothstep(0.1, 0.9, sleep) * settled;
           if (settled > 0.5) sinceLids = age - upAt;
+          plan = look.plan ?? null;
+          lidsAt = age - upAt;
         }
       }
-      stepSmoke(smoke, t, dt, eyesOpen, asleep, sinceLids);
       const restR = IDLE_R * REST_GROW * Math.max(0.02, f.scale);
+      // what she does in this opening: her head's pose, her eyes' part in it, what she gives off
+      eyes = stepExpression(expr, grid, t, dt, plan, lidsAt, eyes, restR);
+      smoke.hush = expr.doing.hush;
+      // an opening with no plan is a look set up for her (`waking`), and wakes with the sigh
+      stepSmoke(
+        smoke,
+        t,
+        dt,
+        eyesOpen,
+        asleep,
+        sinceLids,
+        plan === null || sighs(plan),
+      );
+      const moved = expr.moved;
+      const pieces = busy(expr);
 
       const all = cellsRef.current;
       for (let ci = 0; ci < all.length; ci++) {
         const cell = all[ci];
+        // where she is read here: her grain on her head as it is turned, her outline in its own
+        // plane, her smoke where it trails her head
+        if (moved) {
+          spot.dx = expr.hx[ci];
+          spot.dy = expr.hy[ci];
+          spot.px = expr.px[ci];
+          spot.py = expr.py[ci];
+          spot.dist = expr.pd[ci];
+          spot.sx = expr.sx[ci];
+          spot.sy = expr.sy[ci];
+        } else {
+          spot.dx = spot.px = spot.sx = cell.dx;
+          spot.dy = spot.py = spot.sy = cell.dy;
+          spot.dist = cell.dist;
+        }
         let v = fieldValue(
           cell,
+          spot,
           t,
           errAge,
           wordAge,
@@ -1187,7 +1279,7 @@ export function AsciiOrb({
         );
         // the sigh she lets out as her eyes open, over whatever is there
         if (smoke.sigh.live) {
-          const sigh = sighValue(cell, t, restR, smoke) * f.scale;
+          const sigh = sighValue(spot, t, restR, smoke) * f.scale;
           if (sigh > v) v = sigh;
         }
 
@@ -1195,6 +1287,17 @@ export function AsciiOrb({
           (solidError && cell.letter >= 0) ||
           (solidWord && cell.word >= 0)
         );
+        // what her pieces lay on her here: a crust of dust, or what she has given off, in front
+        let piece = 0;
+        let pieceFor = 0;
+        let covered = false;
+        if (pieces && plain) {
+          const hit = pieceAt(expr, grid, ci, v, t, restR, f.scale);
+          v = hit.v;
+          piece = hit.kind;
+          pieceFor = hit.hold;
+          covered = hit.covers;
+        }
         if (plain) {
           // per-cell brightness response breaks concentric rings; multiplicative, so empty (0) stays
           // empty. Narrow on purpose: a wider spread sends more cells to the top rung and more to
@@ -1217,21 +1320,29 @@ export function AsciiOrb({
           }
         }
 
-        // the wash, and the moment a cell holds its set after the wash has left it; waking, the
-        // one set for her until it is over
-        const washed = !plain
-          ? 0
-          : wake && clock < wake.end
-            ? washOnce(
-                cell.dx,
-                cell.dy,
-                clock,
-                WAKE_WASH,
-                WAKE_WASH_FOR,
-                wake.slot,
-              )
-            : washAt(cell.dx, cell.dy, clock, WASH_APART, WASH_HOLD);
-        if (washed) {
+        // The wash, and the moment a cell holds its set after the wash has left it. The first
+        // wash's place is the same on every mount (its noise is fixed), so it is not drawn: she
+        // opens on her waking alone, or, waking, the one set for her takes that place. What her
+        // pieces lay on her comes in their own set.
+        const washed =
+          !plain || piece
+            ? 0
+            : clock < WASH_APART
+              ? wake
+                ? washOnce(
+                    cell.dx,
+                    cell.dy,
+                    clock,
+                    WAKE_WASH,
+                    WAKE_WASH_FOR,
+                    wake.slot,
+                  )
+                : 0
+              : washAt(cell.dx, cell.dy, clock, WASH_APART, WASH_HOLD);
+        if (piece) {
+          bk.pool[ci] = PIECE_POOL + piece;
+          bk.poolFor[ci] = pieceFor;
+        } else if (washed) {
           bk.pool[ci] = washed;
           bk.poolFor[ci] = WASH_LINGER + cell.grain * WASH_LINGER_MORE;
         } else if (bk.poolFor[ci] > 0) {
@@ -1242,11 +1353,21 @@ export function AsciiOrb({
         }
 
         // An eye is a hole, and it drops its trail rather than fading: a hole that goes out over
-        // the tail time reads as neither open nor shut.
+        // the tail time reads as neither open nor shut. Turned, it is read on her head where it
+        // faces you, and thick dust over it covers it.
         const hole =
           eyesHeld > 0.03 &&
           eyes !== null &&
-          inEye(cell.dx, cell.dy, restR, eyesHeld, eyes, EYE_FIT);
+          !covered &&
+          facing(expr, ci, restR) &&
+          inEye(
+            moved ? expr.hx[ci] : cell.dx,
+            moved ? expr.hy[ci] : cell.dy,
+            restR,
+            eyesHeld,
+            eyes,
+            EYE_FIT,
+          );
         if (hole) {
           bk.fast[ci] = 0;
           bk.slow[ci] = 0;
@@ -1292,9 +1413,9 @@ export function AsciiOrb({
 
         // A washed cell keeps its brightness and its bucket — only where its glyph comes from
         // changes, so it is drawn at the same weight as everything around it.
-        const set = bk.pool[ci] ? WASH_SETS[bk.pool[ci] - 1] : null;
+        const set = bk.pool[ci] ? SETS[bk.pool[ci] - 1] : null;
         if (showEmoji) {
-          const bag = set ? set.emoji : EMOJI_POOL;
+          const bag = set?.emoji ?? EMOJI_POOL;
           bk.glyph[ci] = bag[((pick % bag.length) + bag.length) % bag.length];
           bk.emoji[level][bk.emojiN[level]++] = ci;
         } else {

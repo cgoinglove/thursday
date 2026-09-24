@@ -36,7 +36,7 @@ import { createOutbox, type Outbox } from "@/lib/queue";
 import { errorToString } from "@/lib/utils";
 import { FACE_WORD_MAX, undrawable } from "./ascii.const";
 import { callSignal, useCallHeld } from "./call-signal";
-import { finished, goodbye, greeting } from "./face-words";
+import { finished, goodbye } from "./face-words";
 import { openWork, stoodBefore, toldWork } from "./open-work";
 import { screenActLine } from "./screen-act";
 import {
@@ -172,8 +172,6 @@ export function useThursday(
   const [thinkingTitle, setThinkingTitle] = useState<string | null>(null);
   /** The word `emote` last put on the face. */
   const [faceWord, setFaceWord] = useState<FaceWord | null>(null);
-  // She says hello as the app opens (an effect: the word depends on the clock)
-  useEffect(() => setFaceWord(greeting()), []);
   /** The same value where callbacks can read it, and the timer that ends it. */
   const thinking = useRef<number | null>(null);
   const thinkTail = useRef<ReturnType<typeof setTimeout> | null>(null);
