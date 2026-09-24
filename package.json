@@ -63,7 +63,7 @@
     "@ai-sdk/mcp": "^2.0.54",
     "@ai-sdk/mistral": "^4.0.48",
     "@ai-sdk/openai": "^4.0.72",
-    "@ai-sdk/react": "4.0.109",
+    "@ai-sdk/react": "4.0.110",
     "@ai-sdk/togetherai": "^3.0.54",
     "@ai-sdk/xai": "^5.0.5",
     "@base-ui/react": "^1.8.0",
