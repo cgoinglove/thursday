@@ -25,6 +25,7 @@ user and what has finished.
 - `features/workspace/components/artifact-view.tsx` — the left corner of finished jobs; `file-thumb.tsx` and `file-view.tsx` beside it draw and open a file.
 - `features/thursday/components/face.tsx` — her face, the call's status mapped onto `ascii-orb.tsx`; a bot's face is `features/bot/components/bot-mark.tsx`.
 - `features/intro/components/intro.tsx` — the first run, drawn over the call screen; `features/intro/intro-voice.ts` holds what she says aloud there.
+- `features/intro/components/echoes.tsx` — the first run's opening: her larger sizes stepping down to her own on the intro's face box, before her real face comes in `waking`.
 
 ## How it fits
 `use-thursday` (a spoken call) and `use-text-call` (a call in writing) hold the call's state, and

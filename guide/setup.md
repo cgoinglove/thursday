@@ -2,8 +2,10 @@
 
 ## The first run
 
-The first time the app opens it walks through six steps on the call screen itself: a voice key, the
-microphone, which bots come along, what they think with, her style, and the first call. She talks
+The first time the app opens, she comes in larger than the screen and steps down to her own size,
+and opens her eyes there; when the system is set to reduce motion, she is simply there. Then it walks
+through six steps on the call screen itself: a voice key, the microphone, which bots come along, what
+they think with, her style, and the first call. She talks
 through it in a recorded voice, in English, and says so first; her real voice starts with the first
 call. The speaker button at the top right mutes the recording, and stays muted the next time. Every
 step can be passed and done later from the screens below. With a key the last button is **Call

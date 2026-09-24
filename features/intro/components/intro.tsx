@@ -40,6 +40,7 @@ import {
   type ConfigStatus,
   DEFAULT_MODEL_KEY,
 } from "@/features/config/config.const";
+import { Echoes } from "@/features/intro/components/echoes";
 import { type IntroLine, useIntroVoice } from "@/features/intro/intro-voice";
 import { callSignal } from "@/features/thursday/call-signal";
 import { Face } from "@/features/thursday/components/face";
@@ -69,10 +70,11 @@ import { cn, WAITING_INK } from "@/lib/utils";
  * The first run, laid over the call screen (app/page) and drawn as the call screen:
  * her face in the same place, her words down its left as captions are, and on its
  * right — where the caller's words go — the caller's turn: a key, the microphone, who
- * works for them, what those think with. It opens on the app's one loop played silently
- * in place, and its last button is the first call. No step holds anyone: every one can
- * be passed at once and done later from the screen it belongs to. It shows until a call
- * has been placed here (app/page `firstRun`), or whenever `?intro` asks.
+ * works for them, what those think with. It opens on her coming down to her own size
+ * (echoes.tsx), then on the app's one loop played silently in place, and its last button
+ * is the first call. No step holds anyone: every one can be passed at once and done later
+ * from the screen it belongs to. It shows until a call has been placed here (app/page
+ * `firstRun`), or whenever `?intro` asks.
  */
 
 const STEPS = ["key", "mic", "bots", "models", "style", "call"] as const;
@@ -98,6 +100,12 @@ const SAYS = {
 
 /** Must match the `duration-700` below. */
 const FADE_MS = 700;
+
+/**
+ * Where the opening stands: her larger sizes stepping down, her face in its place, the first
+ * screen up while the last crumbs go, and over.
+ */
+type Opening = "echoes" | "her" | "hello" | "over";
 
 export function Intro({
   /** A voice key already exists (as the server saw it). */
@@ -127,8 +135,14 @@ export function Intro({
     // every bot comes along unless it is switched off here
     Object.fromEntries(BOT_SEEDS.map((seed) => [seed.name, true])),
   );
+  const [opening, setOpening] = useState<Opening>("echoes");
+  // her face comes in on the opening's last beat, and the first screen after it
+  const herIn = opening !== "echoes";
+  const helloIn = opening === "hello" || opening === "over";
+  /** The box her face stands in, which the opening is laid on. */
+  const faceBox = useRef<HTMLDivElement>(null);
   const mic = useMic(step === "mic" && !gone);
-  const demo = useDemo(step === "hello" && shown && !gone);
+  const demo = useDemo(step === "hello" && shown && !gone && helloIn);
 
   // The call under the intro keeps its wake word and hotkey off until it is gone
   const up = shown && !gone;
@@ -196,34 +210,49 @@ export function Intro({
         gone && "pointer-events-none opacity-0",
       )}
     >
+      {opening !== "over" && (
+        <Echoes
+          anchor={faceBox}
+          charset={look.charset}
+          onArrive={() => setOpening("her")}
+          onHello={() => setOpening("hello")}
+          onDone={() => setOpening("over")}
+        />
+      )}
+
       {/* Her recorded voice, and the way to switch it off */}
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={voice.toggle}
-                aria-label={voice.muted ? "Let her speak" : "Mute her"}
-                aria-pressed={voice.muted}
-                className="absolute top-5 right-5 z-10 text-muted-foreground hover:text-foreground"
-              />
-            }
-          >
-            {voice.muted ? <VolumeX /> : <Volume2 />}
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            {voice.muted ? "Let her speak" : "Mute her voice"}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      {helloIn && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={voice.toggle}
+                  aria-label={voice.muted ? "Let her speak" : "Mute her"}
+                  aria-pressed={voice.muted}
+                  className="absolute top-5 right-5 z-10 text-muted-foreground hover:text-foreground"
+                />
+              }
+            >
+              {voice.muted ? <VolumeX /> : <Volume2 />}
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {voice.muted ? "Let her speak" : "Mute her voice"}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
 
       {/* The call screen's own column, so nothing moves when the intro lifts */}
       <div className="flex h-full flex-col items-center justify-center gap-5 pt-[7vh]">
         {/* The call screen's face box and `--face-bleed`: the canvas draws past the box, and
             what stands beside her stands past the canvas */}
-        <div className="relative w-[min(20rem,52vw,37.5vh)] [--face-bleed:19.5%]">
+        <div
+          ref={faceBox}
+          className="relative w-[min(20rem,52vw,37.5vh)] [--face-bleed:19.5%]"
+        >
           <button
             type="button"
             disabled={!last || !keyed}
@@ -235,14 +264,20 @@ export function Intro({
               step !== "hello" && !keyed && "opacity-35",
             )}
           >
-            <Face
-              look={look}
-              status={status}
-              failed={false}
-              word={word}
-              getSpectrum={step === "hello" ? demo.voice : voice.spectrum}
-              className="-m-(--face-bleed) w-[calc(100%+2*var(--face-bleed))] max-w-none"
-            />
+            {herIn ? (
+              <Face
+                look={look}
+                status={status}
+                failed={false}
+                word={word}
+                getSpectrum={step === "hello" ? demo.voice : voice.spectrum}
+                waking
+                className="-m-(--face-bleed) w-[calc(100%+2*var(--face-bleed))] max-w-none"
+              />
+            ) : (
+              // her box, kept its size while the opening plays in it
+              <div className="aspect-square w-full" />
+            )}
           </button>
 
           <SideCaptions
@@ -288,10 +323,12 @@ export function Intro({
               under the button keep theirs: her face and the button stand still from step to step */}
           <div className="flex h-14 items-center gap-2 text-[13px] text-muted-foreground">
             {step === "hello" ? (
-              <p className="max-w-130 animate-in text-[20px] leading-[1.5] text-balance text-foreground duration-700 fill-mode-backwards fade-in slide-in-from-bottom-2">
-                Just talk to her. She gets it done on this computer, and tells
-                you when it is ready.
-              </p>
+              helloIn && (
+                <p className="max-w-130 animate-in text-[20px] leading-[1.5] text-balance text-foreground duration-700 fill-mode-backwards fade-in slide-in-from-bottom-2">
+                  Just talk to her. She gets it done on this computer, and tells
+                  you when it is ready.
+                </p>
+              )
             ) : step === "mic" && mic.on ? (
               <Ear live getMicSpectrum={mic.spectrum} />
             ) : !keyed ? (
@@ -304,36 +341,47 @@ export function Intro({
             ) : null}
           </div>
 
-          <Button
-            variant="brand"
-            onClick={() => {
-              if (step === "hello") {
-                // Inside this click, so the browser lets her be heard from here on
-                voice.say("hello", keyed ? "awake" : "key");
-                setStep("key");
-              } else if (last) leave(keyed);
-              else setStep(STEPS[at + 1]);
-            }}
-            // on the first screen it follows her line up, once
-            className={cn(
-              "h-12 px-7 pl-8 text-[15px]",
-              step === "hello" &&
-                "animate-in delay-300 duration-700 fill-mode-backwards fade-in slide-in-from-bottom-2",
-            )}
-          >
-            {step === "hello"
-              ? "Start"
-              : last
-                ? keyed
-                  ? "Call her"
-                  : "Look around"
-                : "Continue"}
-            <ChevronRight />
-          </Button>
+          {/* the first screen's rows keep their heights while the opening plays, so she is
+              laid out where she will stand */}
+          {step === "hello" && !helloIn ? (
+            <div className="h-12" />
+          ) : (
+            <Button
+              variant="brand"
+              onClick={() => {
+                if (step === "hello") {
+                  // Inside this click, so the browser lets her be heard from here on
+                  voice.say("hello", keyed ? "awake" : "key");
+                  setStep("key");
+                } else if (last) leave(keyed);
+                else setStep(STEPS[at + 1]);
+              }}
+              // on the first screen it follows her line up, once
+              className={cn(
+                "h-12 px-7 pl-8 text-[15px]",
+                step === "hello" &&
+                  "animate-in delay-300 duration-700 fill-mode-backwards fade-in slide-in-from-bottom-2",
+              )}
+            >
+              {step === "hello"
+                ? "Start"
+                : last
+                  ? keyed
+                    ? "Call her"
+                    : "Look around"
+                  : "Continue"}
+              <ChevronRight />
+            </Button>
+          )}
 
           <p className="h-4 font-mono text-[11px] text-muted-foreground/70">
             {step === "hello"
-              ? "two minutes · every step can wait"
+              ? helloIn && (
+                  // it comes up after the button, as the first screen's last line
+                  <span className="block animate-in delay-500 duration-700 fill-mode-backwards fade-in">
+                    two minutes · every step can wait
+                  </span>
+                )
               : step === "key" && !keyed
                 ? "no key is fine — it can go in from the call screen"
                 : step === "mic" && !mic.on
@@ -346,7 +394,7 @@ export function Intro({
       </div>
 
       {step === "hello" ? (
-        <DemoCorners stage={demo.stage} icons={icons} />
+        helloIn && <DemoCorners stage={demo.stage} icons={icons} />
       ) : (
         // Three columns, so the dots stand still whatever the words either side of them say;
         // a short window brings the row down rather than letting the column reach it
