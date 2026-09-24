@@ -15,8 +15,7 @@ node $S/webimage.mjs <page url> --out <dir> [--all] [--min 600]
 node $S/sheet.mjs --out sheet.png <image url | file>... [--cols 4]
 ```
 
-Both fetch through the browser, so a site that refuses `curl` still answers and a picture
-behind a sign-in loads. What you made yourself — a deck, a canvas, a document, a picture book —
+Both fetch through the browser session, so a picture behind its sign-in loads. What you made yourself — a deck, a canvas, a document, a picture book —
 is shot by its own skill, never here.
 
 ## A script of your own
@@ -48,5 +47,3 @@ What crosses is source text, run in a bare VM beside the browser — not Node, n
 - Files are written by your script from what comes back, not inside the function
   (`page.screenshot({ path })` is the exception: the browser writes it).
 - Code over 64 KB goes through a file; `runCode` does that itself.
-- A page that forces Trusted Types (Gmail) refuses an HTML string: parse fetched HTML with
-  `DOMParser` through a policy it allows.

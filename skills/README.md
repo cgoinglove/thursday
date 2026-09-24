@@ -16,7 +16,7 @@ list a `runtime/` folder: a bot never opens it. `make_deck` draws with `artifact
 
 Scripts reach one another through `$THURSDAY_SKILLS`, which names this folder in a bot's shell. A
 path under it is a promise to every skill a user or a bot installed: `browser/scripts/session.mjs`,
-`render.mjs`, `webimage.mjs`, `sheet.mjs` and `image-size.mjs`, and
+`serve.mjs`, `render.mjs`, `webimage.mjs`, `sheet.mjs` and `image-size.mjs`, and
 `interactive-page/scripts/chart.mjs` and `page.mjs`, stay where they are. `browser/scripts/render.mjs`
 and `interactive-page/scripts/page.mjs` now only run the camera and the document script the
 artifact skill holds.

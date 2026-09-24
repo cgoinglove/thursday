@@ -48,12 +48,14 @@ A site that will want a session before it shows you anything — a shop, a
 console, a dashboard, an account page — starts `--headed --persistent` rather
 than finding out headless and starting over.
 
-**Blocked, not broken.** A 403, an "access denied" page, a wall about automated
-traffic is refusing the headless browser, not the job. `close`, then
-`open <url> --headed --persistent` — a real window carrying a profile gets past
-most of it, and is worth trying before you conclude anything about the site.
-Still refused after that, the wall is real: say so in your report, with the url
-and whatever you did bring back.
+**A wall is the site's answer.** A 403, an "access denied" page, a check for
+automated traffic or a captcha is the site saying no to a bot, and getting round
+it is not yours to do: no other browser, profile or disguise, no waiting it out.
+Take what the job needs from where it is published otherwise — another source,
+the site's own API, a search. When only that page will do and it is one they
+would open themselves — the shop they named, their bank — open it `--headed` for
+them and ask, as a sign-in below: a person may pass where a bot may not.
+Otherwise say in your report which url refused you, and bring back what you have.
 
 **A sign-in is a fork, not a wall.** Three ways through, and which one fits is
 yours to read off the job:
@@ -113,19 +115,20 @@ with `&&`. What a click brings in is not there on the very next read: wait for
 its text in the same command, `--raw run-code "async page => { await page.waitForFunction(t => document.body.innerText.includes(t), '<text>'); }"`
 — `getByText(…).waitFor()` times out when the first match is hidden.
 
-**Search and locale.** Google and DuckDuckGo show a headless browser a robot
-check: find urls with a web search tool when you have one, or search on Bing.
-Pages answer in this machine's language and currency; put the country in the url
-when the job is about another.
+**Search and locale.** A search engine's results page is for people, and most
+refuse a browser a script drives. Find urls with the `web_search` tool; without
+one, search where the answer lives — the site's own search box, Wikipedia — and
+say in your report that you had no web search. Pages answer in this machine's
+language and currency; put the country in the url when the job is about another.
 
 **Pictures for a document** come off the page, never from memory:
 `--raw eval "JSON.stringify([...document.images].filter(i => i.naturalWidth > 200).map(i => i.currentSrc))"`.
 
 **Local HTML.** `file:` URLs are refused, and a fixed port lets two jobs
 capture each other's pages. To open or print one:
-`python3 -u -m http.server 0 --bind 127.0.0.1 --directory <dir> > <scratch>/serve.log 2>&1 &`,
-read the port from that log, `goto http://127.0.0.1:<port>/<file>.html`;
-`pdf --filename=out.pdf` prints it. Kill the server when done.
+`node <skill dir>/scripts/serve.mjs <dir> > <scratch>/serve.log 2>&1 &`, read the
+address from that log, `goto <address><file>.html`; `pdf --filename=out.pdf`
+prints it, in a headless browser. Kill the server when done.
 
 **Scripts in `<skill dir>/scripts`**: `sheet.mjs` puts many pictures on one
 image for a single `look_at`, `webimage.mjs` saves a page's own picture with

@@ -2,8 +2,8 @@
 /**
  * Saves the picture a web page shares itself with (og:image, else twitter:image),
  * and with --all the large pictures in its body too, through the session's browser
- * so a site that refuses curl still answers. Prints each file with its size and
- * the credit line to put on the slide.
+ * so a picture behind its sign-in loads. Prints each file with its size and the
+ * credit line to put on the slide.
  *
  *   node webimage.mjs <page url> --out <dir> [--all] [--min 600]
  */
@@ -24,33 +24,54 @@ const got = orFail(
     async (page, { url, all, min }) => {
       const res = await page.request.get(url, { timeout: 30000 });
       const html = await res.text();
-      const meta = (key) => {
-        const tag = html.match(
-          new RegExp(`<meta[^>]+(?:property|name)=["']${key}["'][^>]*>`, "i"),
-        )?.[0];
-        return tag?.match(/content=["']([^"']+)["']/i)?.[1] ?? null;
-      };
-      const decode = (s) => s?.replace(/&amp;/g, "&").replace(/&#x2F;/g, "/");
-      // The VM has no URL class
-      const origin = url.match(/^https?:\/\/[^/]+/)[0];
-      const absolute = (src) =>
-        src.startsWith("//")
-          ? `https:${src}`
-          : src.startsWith("/")
-            ? origin + src
-            : src;
-      const site =
-        decode(meta("og:site_name")) ?? origin.replace(/^https?:\/\//, "");
-      const title =
-        decode(meta("og:title")) ?? html.match(/<title>([^<]*)/i)?.[1] ?? "";
-      const wanted = [decode(meta("og:image")) ?? decode(meta("twitter:image"))]
-        .filter(Boolean)
-        .map((src) => ({ src: absolute(src), alt: "og:image" }));
-      if (all) {
-        const tab = await page.context().newPage();
-        try {
-          await tab.goto(url, { waitUntil: "load", timeout: 45000 });
-          await tab.waitForTimeout(1500);
+      // Read as a document in a tab of its own, blank: none of the page's scripts run, and
+      // no policy of the session's page stands between it and a string of HTML
+      const tab = await page.context().newPage();
+      const wanted = [];
+      let site;
+      let title;
+      try {
+        const read = await tab.evaluate(
+          ([html, base]) => {
+            const doc = new DOMParser().parseFromString(html, "text/html");
+            const meta = (key) =>
+              doc
+                .querySelector(`meta[property="${key}"], meta[name="${key}"]`)
+                ?.getAttribute("content")
+                ?.trim() || null;
+            const absolute = (src) => {
+              try {
+                return new URL(src, base).href;
+              } catch {
+                return null;
+              }
+            };
+            return {
+              site: meta("og:site_name") ?? new URL(base).host,
+              title: meta("og:title") ?? doc.title,
+              image: [meta("og:image"), meta("twitter:image")]
+                .map((src) => src && absolute(src))
+                .find(Boolean),
+            };
+          },
+          [html, url],
+        );
+        site = read.site;
+        title = read.title;
+        if (read.image) wanted.push({ src: read.image, alt: "og:image" });
+        if (all) {
+          await tab.goto(url, {
+            waitUntil: "domcontentloaded",
+            timeout: 45000,
+          });
+          // Pictures still arriving after the load, up to a slow page's worth of waiting
+          await tab
+            .waitForFunction(
+              () => [...document.images].every((i) => i.complete),
+              null,
+              { timeout: 10000 },
+            )
+            .catch(() => {});
           const found = await tab.evaluate(
             (min) =>
               [...document.images]
@@ -60,9 +81,9 @@ const got = orFail(
           );
           for (const f of found)
             if (!wanted.some((w) => w.src === f.src)) wanted.push(f);
-        } finally {
-          await tab.close();
         }
+      } finally {
+        await tab.close();
       }
       const files = [];
       for (const w of wanted.slice(0, 8)) {

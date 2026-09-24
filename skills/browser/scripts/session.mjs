@@ -134,14 +134,6 @@ export function fail(message) {
 
 /** A page-side answer `{ error }` stops the script with that message. */
 export function orFail(result) {
-  if (result && typeof result === "object" && result.error) {
-    // Chromium prints only headless: a job whose browser is a window on the user's
-    // screen closes it, and the next run opens a headless one by itself
-    if (/only supported for Headless/i.test(result.error))
-      fail(
-        "A PDF is printed by a headless browser, and this job's is a window on the user's screen: `playwright-cli close`, then run this again.",
-      );
-    fail(result.error);
-  }
+  if (result && typeof result === "object" && result.error) fail(result.error);
   return result;
 }

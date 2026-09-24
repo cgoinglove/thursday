@@ -1,46 +1,8 @@
-// A picture book printed: the book's folder served on a port the system picks, and
-// the page printed through the job's browser, one book page to a sheet.
-import { createReadStream, existsSync, statSync } from "node:fs";
-import { createServer } from "node:http";
-import { basename, dirname, extname, join, resolve, sep } from "node:path";
-
-const TYPES = {
-  ".html": "text/html; charset=utf-8",
-  ".css": "text/css",
-  ".js": "text/javascript",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".webp": "image/webp",
-  ".gif": "image/gif",
-  ".svg": "image/svg+xml",
-};
-
-/** Serves the book's folder on a free port; resolves to the book's url and a stop. */
-async function serve(root) {
-  const server = createServer((req, res) => {
-    const path = resolve(
-      root,
-      `.${decodeURIComponent(new URL(req.url, "http://x").pathname)}`,
-    );
-    if (
-      !path.startsWith(root + sep) ||
-      !existsSync(path) ||
-      statSync(path).isDirectory()
-    ) {
-      res.writeHead(404).end();
-      return;
-    }
-    res.writeHead(200, {
-      "content-type":
-        TYPES[extname(path).toLowerCase()] ?? "application/octet-stream",
-    });
-    createReadStream(path).pipe(res);
-  });
-  // Port 0: the system picks a free one, so two jobs printing at once never meet
-  await new Promise((ok) => server.listen(0, "127.0.0.1", ok));
-  return { port: server.address().port, close: () => server.close() };
-}
+// A picture book printed: the book's folder served on a port the system picks, and the
+// page printed in a headless browser of its own, one book page to a sheet.
+import { statSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 /**
  * Prints `book` (an .html picture book) to `<book>.pdf` beside it: the page's own
@@ -51,16 +13,21 @@ export async function bookPdf({ book, shown }, Stop) {
     throw new Stop(
       "THURSDAY_SKILLS is not set: run this from a bot's shell, where it names the shipped skills.",
     );
-  // The shipped browser skill's session, which opens a headless browser when the job has none
-  const { inPage, orFail } = await import(
-    join(process.env.THURSDAY_SKILLS, "browser", "scripts", "session.mjs")
+  // The shipped browser skill: a browser of its own, since only a headless one prints and
+  // the job's may be a window on the user's screen
+  const scripts = join(process.env.THURSDAY_SKILLS, "browser", "scripts");
+  const { inPageApart, orFail } = await import(
+    pathToFileURL(join(scripts, "session.mjs")).href
+  );
+  const { serveFolder } = await import(
+    pathToFileURL(join(scripts, "serve.mjs")).href
   );
   const out = book.replace(/\.html$/, ".pdf");
-  const server = await serve(dirname(book));
+  const server = await serveFolder(dirname(book));
   let done;
   try {
     done = orFail(
-      await inPage(
+      await inPageApart(
         async (page, a) => {
           const tab = await page.context().newPage();
           try {
@@ -89,10 +56,7 @@ export async function bookPdf({ book, shown }, Stop) {
             await tab.close();
           }
         },
-        {
-          url: `http://127.0.0.1:${server.port}/${encodeURIComponent(basename(book))}`,
-          out,
-        },
+        { url: server.url(basename(book)), out },
       ),
     );
   } finally {
