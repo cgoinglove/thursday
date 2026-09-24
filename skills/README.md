@@ -97,8 +97,9 @@ artifact skill holds.
   than a second round.
 - **Collecting posts.** `social`'s reverse-engineering step asked for 500-1000+ posts through Apify
   or Phantom Buster. It reads what the browser can reach instead — the latest 20-30 posts on each of
-  10-20 accounts — and writes down how many posts, how many accounts and what period, which the
-  checklist asks for too. The method after collection is unchanged.
+  3-5 accounts chosen with the user, or posts the user pastes — and writes down how many posts, how
+  many accounts and what period, which the checklist asks for too. The method after collection is
+  unchanged.
 - **Named services are sites, not tools.** `launch` keeps SparkToro, Listen Notes and Navattic as
   pages to open and search, or as a step for the user where an account is needed.
 - Not taken: `evals/` folders, and the `ads`, `ad-creative` and `competitor-profiling` skills,

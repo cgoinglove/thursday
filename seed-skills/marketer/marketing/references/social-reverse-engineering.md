@@ -9,9 +9,12 @@ Instead of guessing what works, systematically analyze top-performing content in
 
 ## The 6-Step Framework
 
-### 1. NICHE ID — Find Top Creators
+### 1. NICHE ID — Agree on a Few Creators
 
-Identify 10-20 creators in your space who consistently get high engagement:
+Three to five creators in your space who consistently get high engagement, chosen with the user:
+the ones they name, or candidates you found and they picked. A few read closely beat a crowd
+skimmed, and going through profile after profile is what a platform takes for a bot. Posts the
+user pastes, or exports from accounts of their own, count the same and need no browsing.
 
 **Selection criteria:**
 - Posting consistently (3+ times/week)
@@ -27,7 +30,7 @@ Identify 10-20 creators in your space who consistently get high engagement:
 
 ### 2. COLLECT — Read What You Can Reach
 
-Gather posts from those creators with the browser skill: open each public profile, read the recent posts off the snapshot, move to the next. You hold no scraper and no data API, so sample instead of sweeping — the latest 20-30 posts on each of 10-20 accounts is a sample the patterns below can rest on. Write down how many posts you read, from how many accounts, over what period, and carry those three numbers into every finding.
+Gather posts from those creators with the browser skill: open each public profile, read the recent posts off the snapshot, move to the next. You hold no scraper and no data API, so sample instead of sweeping — the latest 20-30 posts on each of those accounts, or what the user pasted, is a small sample: say so beside every pattern. Write down how many posts you read, from how many accounts, over what period, and carry those three numbers into every finding.
 
 A profile that wants a sign-in is the browser skill's fork (a kept sign-in, their own browser, or a window they sign into). One that stays walled is left out of the sample and named as left out.
 
@@ -180,7 +183,7 @@ Bridge from engagement to business results:
 
 ## Reverse Engineering Checklist
 
-- [ ] Identified 10-20 top creators in niche
+- [ ] Agreed on 3-5 creators with the user, or took the posts they pasted
 - [ ] Read the posts you could reach, with the count, the accounts and the period written down
 - [ ] Ranked by engagement rate
 - [ ] Documented top 10 hook patterns

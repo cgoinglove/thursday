@@ -308,7 +308,7 @@ Extract "content atoms" — self-contained moments from any long-form content th
 
 Instead of guessing, analyze what's working for top creators in your niche:
 
-1. **Find creators** — 10-20 accounts with high engagement
+1. **Find creators** — 3-5 accounts with high engagement, chosen with the user, or posts they paste
 2. **Collect data** — read the recent posts the browser can reach on each account, and say how many you read
 3. **Analyze patterns** — Hooks, formats, CTAs that work
 4. **Codify playbook** — Document repeatable patterns

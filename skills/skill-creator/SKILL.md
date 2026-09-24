@@ -62,7 +62,7 @@ Every bot reads every skill's full description on every step; the call reads at 
 
 ### Scripts
 
-Node is guaranteed (the app runs on it); Python and anything else may be missing. Write a bundled script for Node, or have the skill check for what its script needs before it runs it. `load_skill` lists at most 50 of a skill's files along with its body; keep the tree small enough to be listed whole.
+Node is guaranteed (the app runs on it); Python and anything else may be missing. Write a bundled script for Node, or have the skill check for what its script needs before it runs it. `load_skill` lists a skill's files along with its body, up to a limit, and past it only says how many more there are; keep the tree small enough to be listed whole.
 
 ### Before you report
 
