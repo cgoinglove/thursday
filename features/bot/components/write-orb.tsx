@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -86,13 +86,24 @@ const SHEETS = [
 
 /**
  * Pixels across the buffer. The button is 28px, and smoke has no edge to lose, so the browser
- * scales this up rather than the paint running at device resolution: 0.52ms a frame, which at
- * 30fps is a sixtieth of one core.
+ * scales this up rather than the paint running at device resolution: about half a millisecond a
+ * frame, which at 30fps is a sixtieth of one core.
  */
 const BUFFER = 48;
 
+/*
+ * It arrives and goes by fading, and by nothing else (the user's pick). Four other ways in were
+ * built and turned down: smoke rising from the floor, a puff opening out of the middle, and a
+ * sweep blowing in with the wind all draw the round shape at some single moment, which reads as
+ * canned; and letting smoke escape past the rim, which at this size has three pixels to escape
+ * into — too few to read as anything, enough to lose the shape.
+ */
+
 /** Thirty a second is enough for weather, and leaves the rest of the frame to the call. */
 const FRAME_MS = 33;
+
+/** How long it takes to fade in, and out again. */
+const FADE_MS = 200;
 
 const clamp = (value: number, low: number, high: number) =>
   value < low ? low : value > high ? high : value;
@@ -134,8 +145,34 @@ function tone(level: number, out: [number, number, number]) {
   out[2] = from[2] + (to[2] - from[2]) * part;
 }
 
-export function WriteOrb({ className }: { className?: string }) {
+/**
+ * `on` is the line being up. The orb outlives it by `BLOOM_MS` so it has time to draw back into
+ * the button rather than vanishing: a swap with no going-away is what made `/` read as a cut.
+ */
+export function WriteOrb({
+  on,
+  className,
+}: {
+  on: boolean;
+  className?: string;
+}) {
   const held = useRef<HTMLCanvasElement>(null);
+  const [alive, setAlive] = useState(on);
+
+  // `alive` is whether it is in the tree, `shown` whether it has faded up. Two of them because a
+  // transition needs a frame at nothing before it can run to something, and because it has to
+  // stay in the tree long enough to fade out again.
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (on) {
+      setAlive(true);
+      const up = requestAnimationFrame(() => setShown(true));
+      return () => cancelAnimationFrame(up);
+    }
+    setShown(false);
+    const leaving = setTimeout(() => setAlive(false), FADE_MS);
+    return () => clearTimeout(leaving);
+  }, [on]);
 
   useEffect(() => {
     const canvas = held.current;
@@ -218,19 +255,21 @@ export function WriteOrb({ className }: { className?: string }) {
           pixels[p] = colour[0] + (INK[0] - colour[0]) * round;
           pixels[p + 1] = colour[1] + (INK[1] - colour[1]) * round;
           pixels[p + 2] = colour[2] + (INK[2] - colour[2]) * round;
-          pixels[p + 3] = 255;
+          // The circle is cut here rather than left to the button's `overflow-hidden`, which
+          // does not reach a canvas of its own layer.
+          pixels[p + 3] = 255 * (1 - fade(0.94, 1.0, radius));
         }
       }
       context.putImageData(image, 0, 0);
     };
 
+    const started = performance.now();
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       draw(6);
       return;
     }
     let frame = 0;
     let last = 0;
-    const started = performance.now();
     const tick = (now: number) => {
       frame = requestAnimationFrame(tick);
       if (now - last < FRAME_MS) return;
@@ -239,13 +278,19 @@ export function WriteOrb({ className }: { className?: string }) {
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [alive]);
+
+  if (!alive) return null;
 
   return (
     <canvas
       ref={held}
       aria-hidden
-      className={cn("absolute inset-0 size-full", className)}
+      className={cn(
+        "pointer-events-none absolute inset-0 size-full transition-opacity duration-200",
+        shown ? "opacity-100" : "opacity-0",
+        className,
+      )}
     />
   );
 }

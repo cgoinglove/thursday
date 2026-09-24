@@ -86,6 +86,9 @@ const LAST_TO = "thursday.write.to";
 
 const mentionOf = (draft: string) => /^@(\S*)$/.exec(draft.split(/\s/, 1)[0]);
 
+/** How long the line takes to go, so it can be watched leaving. */
+const LEAVE_MS = 200;
+
 export function WriteLine({
   written,
   onCall = false,
@@ -327,7 +330,19 @@ export function WriteLine({
     return () => writeLine.waits(false);
   }, [waits]);
 
-  if (!up) return null;
+  const [standing, setStanding] = useState(up);
+  useEffect(() => {
+    if (up) {
+      setStanding(true);
+      return;
+    }
+    const leaving = setTimeout(() => setStanding(false), LEAVE_MS);
+    return () => clearTimeout(leaving);
+  }, [up]);
+
+  // The line outlives `up` by as long as it takes to go: without that it is there and then it
+  // is not, which is what made the key read as a switch rather than as something opening.
+  if (!standing) return null;
 
   return (
     <>
@@ -344,7 +359,14 @@ export function WriteLine({
           itself and the two ends of this row take equal tracks, so the line stands under
           her face whatever the pill is saying (thursday CallFoot). */}
       <div className="col-start-2 row-start-1 flex min-w-0 items-end justify-center">
-        <div className="pointer-events-auto flex w-160 max-w-full animate-in flex-col gap-2 fade-in slide-in-from-bottom-2 duration-200">
+        <div
+          className={cn(
+            "flex w-160 max-w-full flex-col gap-2",
+            up
+              ? "pointer-events-auto animate-in duration-200 fade-in slide-in-from-bottom-2"
+              : "pointer-events-none animate-out duration-200 fade-out fill-mode-forwards slide-out-to-bottom-2",
+          )}
+        >
           <div className="flex flex-col gap-2 rounded-[26px] bg-background p-2 shadow-[0_22px_44px_-20px_rgb(0_0_0/0.22)] ring-1 ring-border">
             {(given.files.length > 0 || dragging) && (
               <GivenFiles

@@ -194,30 +194,22 @@ function SideColumn({
   // Heights as laid out, before any transform: text grows while it is said, and
   // receding clamps a turn to four lines
   const [heights, setHeights] = useState<Record<string, number>>({});
-  // Widths too: what stands under her level words is as wide as they are
-  const [widths, setWidths] = useState<Record<string, number>>({});
   const watch = useRef<ResizeObserver | null>(null);
   useEffect(() => () => watch.current?.disconnect(), []);
   const measure = useCallback((node: HTMLDivElement | null) => {
     if (!node) return;
-    const sizes =
-      (read: (box: HTMLElement) => number) =>
-      (was: Record<string, number>, entries: ResizeObserverEntry[]) => {
+    watch.current ??= new ResizeObserver((entries) => {
+      setHeights((was) => {
         let next = was;
         for (const entry of entries) {
           const box = entry.target as HTMLElement;
           const id = box.dataset.turn;
-          if (!id || was[id] === read(box)) continue;
+          if (!id || was[id] === box.offsetHeight) continue;
           if (next === was) next = { ...was };
-          next[id] = read(box);
+          next[id] = box.offsetHeight;
         }
         return next;
-      };
-    const tall = sizes((box) => box.offsetHeight);
-    const wide = sizes((box) => box.offsetWidth);
-    watch.current ??= new ResizeObserver((entries) => {
-      setHeights((was) => tall(was, entries));
-      setWidths((was) => wide(was, entries));
+      });
     });
     watch.current.observe(node);
     return () => watch.current?.unobserve(node);
@@ -343,16 +335,10 @@ function SideColumn({
         <div
           ref={measure}
           data-turn={UNDER}
-          style={{
-            transform: `translateY(${(underTop ?? 0).toFixed(1)}px)`,
-            // under her words it takes their width, so its lines start where they do;
-            // before she has said any, the side's
-            width: at < turns.length ? widths[turns[at].id] : undefined,
-          }}
-          className={cn(
-            "absolute top-0 flex w-full transition-transform duration-[520ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-            mine ? "left-0 justify-start" : "right-0 justify-end",
-          )}
+          style={{ transform: `translateY(${(underTop ?? 0).toFixed(1)}px)` }}
+          // the side's whole width, never the level turn's: a line of work reads to
+          // its end however short the words it stands under turn out to be
+          className="absolute inset-x-0 top-0 transition-transform duration-[520ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
         >
           {below}
         </div>

@@ -296,16 +296,6 @@ const WORD_LINGER = 0.9;
 /** A word given this soon after she mounts came with her (ms). */
 const BORN_WITH_MS = 600;
 /**
- * She starts once the page has settled: begun while it is still loading, her arrival plays
- * through its long tasks and stutters. Settled is SETTLE_FRAMES frames in a row, each under
- * SETTLE_GAP_MS apart — about a quarter of a second with nothing long in it, since the page's
- * last scripts and its last render can come a few frames apart. A machine that never manages
- * that still gets her by SETTLE_AT_MOST_MS.
- */
-const SETTLE_FRAMES = 15;
-const SETTLE_GAP_MS = 24;
-const SETTLE_AT_MOST_MS = 2500;
-/**
  * The widest and tallest a word is drawn, as shares of the box. Wider than her body, as ERROR
  * is: fitted to the body alone, a seven-letter word came out at the smallest size and was
  * hard to read.
@@ -965,9 +955,6 @@ export function AsciiOrb({
     const murmur = new Array<number>(SPECTRUM_BANDS).fill(0);
 
     let lastT = performance.now() * 0.001;
-    /** Whether she has started, and the smooth frames seen while she waits for the page to settle */
-    let started = false;
-    let smooth = 0;
     /** Glyph clock: seconds the loop has run, so a backgrounded tab resumes where it left off */
     let clock = 0;
     /** Seconds ERROR has been showing (errorValue) */
@@ -975,21 +962,6 @@ export function AsciiOrb({
 
     const draw = (nowMs: number) => {
       const t = nowMs * 0.001;
-      if (!started) {
-        smooth = (t - lastT) * 1000 < SETTLE_GAP_MS ? smooth + 1 : 0;
-        lastT = t;
-        if (
-          smooth < SETTLE_FRAMES &&
-          nowMs - bornAt.current < SETTLE_AT_MOST_MS
-        ) {
-          raf = requestAnimationFrame(draw);
-          return;
-        }
-        started = true;
-        // a word that came with her starts with her, not while she waited
-        const waiting = wordRef.current;
-        if (waiting) waiting.start = t;
-      }
       // a backgrounded tab can deliver seconds in one frame; clamp so phases do not jump
       const dt = Math.min(0.05, Math.max(0, t - lastT));
       lastT = t;

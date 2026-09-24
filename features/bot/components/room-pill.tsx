@@ -684,7 +684,7 @@ export function CrewRow({
               aria-label="Write to Thursday or a bot"
               aria-pressed={writing}
               className={cn(
-                "relative grid size-7 shrink-0 place-items-center overflow-hidden rounded-full outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+                "relative grid size-7 shrink-0 place-items-center overflow-hidden rounded-full outline-none transition-[background-color,box-shadow] duration-300 focus-visible:ring-3 focus-visible:ring-ring/50",
                 // While the line it opens stands above, the button is the line: smoke turning
                 // over in the glass (write-orb), lifted a little off the pill. It keeps its box
                 // either way, so the pill is the same pill, and pressing it again puts the
@@ -696,7 +696,13 @@ export function CrewRow({
             />
           }
         >
-          {writing ? <WriteOrb /> : <Plus className="size-3.5" />}
+          <WriteOrb on={Boolean(writing)} />
+          <Plus
+            className={cn(
+              "size-3.5 transition-opacity duration-200",
+              writing ? "opacity-0" : "opacity-100",
+            )}
+          />
         </TooltipTrigger>
         <TooltipContent>
           Write to Thursday or a bot
