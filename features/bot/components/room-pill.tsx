@@ -567,8 +567,7 @@ export function Chip({
 }) {
   // A grown card is the room's width, and with the line up the rail leaves the pill half
   // of what is beside it (thursday CallFoot): the card would open narrower than it closes.
-  // It stays a pill instead — its words are untouched, and the dot on a face still says
-  // who is waiting.
+  // It stays a pill instead, and its rows stand on the line itself (write-line).
   const lineUp = useWriteLineUp();
   const grown = rows.length > 0 && !lineUp;
 

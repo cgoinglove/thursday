@@ -24,6 +24,7 @@ import {
 import { startThreadAction } from "@/features/bot/bot.action";
 import { type Bot, DEFAULT_BOT } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
+import { ThreadRow, useWaitingRows } from "@/features/bot/components/room-list";
 import { ROOM_THURSDAY } from "@/features/bot/room.schema";
 import {
   type BotRef,
@@ -330,6 +331,9 @@ export function WriteLine({
     return () => writeLine.waits(false);
   }, [waits]);
 
+  /** Questions the pill would grow to show, which the line leaves it no room for (room-pill Chip). */
+  const asking = useWaitingRows();
+
   const [standing, setStanding] = useState(up);
   useEffect(() => {
     if (up) {
@@ -367,6 +371,27 @@ export function WriteLine({
               : "pointer-events-none animate-out duration-200 fade-out fill-mode-forwards slide-out-to-bottom-2",
           )}
         >
+          {/* What waits on an answer stands on the line while it is up: the pill beside it has
+              no room to open, and this is where the user is already looking. Its buttons answer
+              the bot that asked; a row opens its thread, and the line steps aside for it */}
+          {asking.length > 0 && (
+            <div className="rounded-3xl bg-background/78 p-1.5 shadow-sm shadow-black/3 ring-1 ring-border/50 backdrop-blur-md">
+              <p className="px-3 pt-1 pb-1 font-mono text-[10px] tracking-wide text-muted-foreground">
+                {asking.length} {asking.length === 1 ? "needs" : "need"} a reply
+              </p>
+              {/* about two questions, the rest a scroll away: the count above says how many */}
+              <div className="max-h-[30vh] overflow-y-auto">
+                {asking.map((thread) => (
+                  <ThreadRow
+                    key={thread.id}
+                    thread={thread}
+                    lines={2}
+                    onPick={() => roomOpens.open(thread.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex flex-col gap-2 rounded-[26px] bg-background p-2 shadow-[0_22px_44px_-20px_rgb(0_0_0/0.22)] ring-1 ring-border">
             {(given.files.length > 0 || dragging) && (
               <GivenFiles

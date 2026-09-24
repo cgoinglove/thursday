@@ -25,7 +25,6 @@ import {
   threadFromRow,
   useBotThreads,
   useCallWaits,
-  useRingingThreads,
   useSeenOnDetail,
   writeLine,
 } from "../thread.store";
@@ -39,6 +38,7 @@ import {
   RoomTab,
   ThreadList,
   ThreadLoading,
+  useWaitingRows,
 } from "./room-list";
 import {
   Chip,
@@ -67,8 +67,8 @@ import {
  */
 export const BotRoom = memo(function BotRoom() {
   const threads = useBotThreads();
-  /** On the call-back card, so the pill does not ask for them a second time. */
-  const rung = useRingingThreads();
+  /** What the pill grows to ask, when the write line leaves it room (room-list). */
+  const waiting = useWaitingRows();
   const { data: bots } = useServerRoute<Bot[]>(queryKey.bot);
   const [open, setOpen] = useState(false);
   /** Open thread; null shows the list. */
@@ -389,9 +389,7 @@ export const BotRoom = memo(function BotRoom() {
           playing={playing}
           // What waits on the user and nothing else: a finished job's result is the left
           // corner's card (artifact-view), and one notice is enough
-          rows={newest.filter(
-            (thread) => !rung.includes(thread.id) && needsYou(thread),
-          )}
+          rows={waiting}
           count={threads.length}
           busy={busy}
           pending={pending}

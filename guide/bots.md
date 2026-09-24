@@ -142,7 +142,8 @@ is working. Words sent there start that bot again at once, while the other one c
 - **A question** pauses that bot until it is answered. It shows where the message box is, with
   buttons when there are choices to pick from; several questions in one thread page through one at
   a time. Other bots keep working. The card above the pill says how many need a reply, and each can
-  be answered right there.
+  be answered right there. While the line at the foot is open — writing to her included — the pill
+  has no room for that card, so the same questions stand just above the line, with the same buttons.
 - **A stop** — a model that broke twice, a provider that refused, the app restarting, a job that
   reached its step limit — pauses the thread instead of failing it. It shows as *Paused*, and
   **Continue** picks it back up where it left off.

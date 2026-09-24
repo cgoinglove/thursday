@@ -30,7 +30,12 @@ import { RoutineMark } from "@/features/routine/components/routine-mark";
 import { type DateLike, shortAgo, toDate } from "@/lib/date-like";
 import { type ServerPages } from "@/lib/protocol/use-server-pages";
 import { cn, plainText, WAITING_INK } from "@/lib/utils";
-import { lastSaid, type ThreadView } from "../thread.store";
+import {
+  lastSaid,
+  type ThreadView,
+  useBotThreads,
+  useRingingThreads,
+} from "../thread.store";
 import { FoldButton, TAB } from "./room-conversation";
 
 /** The room open on its lists: what is happening now, and the history behind it. Split out of bot-room by subject; see it for the room as a whole. */
@@ -44,6 +49,23 @@ export const needsYou = needsThreadReply;
  */
 export const isUnread = (thread: { status: string; seen: boolean }) =>
   thread.status === "done" && !thread.seen;
+
+/**
+ * What waits on the user's answer, newest first: the rows the folded pill grows, and the
+ * write line holds while it is up and the pill has no room to. A job the call-back rings
+ * for is on its card instead, and one notice is enough.
+ */
+export function useWaitingRows(): ThreadView[] {
+  const threads = useBotThreads();
+  const rung = useRingingThreads();
+  return useMemo(
+    () =>
+      [...threads]
+        .reverse()
+        .filter((thread) => !rung.includes(thread.id) && needsYou(thread)),
+    [threads, rung],
+  );
+}
 
 /** The room's two lists. */
 export type RoomTab = "now" | "history";
@@ -316,9 +338,12 @@ export function ThreadList({
 export function ThreadRow({
   thread,
   onPick,
+  lines = 1,
 }: {
   thread: ThreadView;
   onPick: () => void;
+  /** Lines its second row may take: two where it has the write line's width, so a question keeps its end. */
+  lines?: 1 | 2;
 }) {
   const attention = needsYou(thread);
   // secondLine runs plainText over the whole answer. Every sync rebuilds each ThreadView
@@ -403,7 +428,12 @@ export function ThreadRow({
               {shortAgo(thread.updatedAt)}
             </span>
           </span>
-          <span className="mt-px flex h-4 items-center gap-1.5">
+          <span
+            className={cn(
+              "mt-px flex items-center gap-1.5",
+              lines === 1 && "h-4",
+            )}
+          >
             {thread.status === "working" && (
               <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground/70" />
             )}
@@ -418,14 +448,16 @@ export function ThreadRow({
                 tone={question ? "reading" : undefined}
                 // The shine brings its own ink; only the placeholder's italic carries over.
                 className={cn(
-                  "min-w-0 flex-1 truncate text-[12px] leading-4",
+                  "min-w-0 flex-1 text-[12px] leading-4",
+                  lines === 1 ? "truncate" : "line-clamp-2",
                   line.tone.includes("italic") && "italic",
                 )}
               />
             ) : (
               <span
                 className={cn(
-                  "min-w-0 flex-1 truncate text-[12px] leading-4",
+                  "min-w-0 flex-1 text-[12px] leading-4",
+                  lines === 1 ? "truncate" : "line-clamp-2",
                   line.tone,
                 )}
               >
