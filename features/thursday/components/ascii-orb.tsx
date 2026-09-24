@@ -406,6 +406,12 @@ const EYES_OPEN = 0.38;
 const EYES_SHUT = 1.35;
 const EYES_FILL = 0.3;
 /**
+ * How long her eyes take to shut when something else takes the face in the middle of an opening —
+ * a call connecting, her voice, a word. They shut as she falls asleep, only this quickly: gone at
+ * once, an open eye is a hole that switches off.
+ */
+const EYES_CUT = 0.4;
+/**
  * How she shuts them: falling asleep, not switched off. The lid falls quickly and then creeps the
  * last of the way (what is left of it goes as a power above 1 of what is left of the time), her
  * gaze lowers by EYES_SLEEP_DOWN of her radius, and EYES_LID_FALL of what the eye loses comes off
@@ -839,6 +845,8 @@ export function AsciiOrb({
     from: number;
     until: number;
     plan?: Plan | null;
+    /** When something else took the face in the middle of this opening (the loop's clock) */
+    cut?: number;
   }>({ script: null, from: 0, until: 0 });
   /** Her cells, and which of them is at each place of the grid, for what her pieces lay on her */
   const gridRef = useRef<Grid | null>(null);
@@ -1180,25 +1188,39 @@ export function AsciiOrb({
       // the opening under way, and seconds since her lids started to part in it (below 0 before)
       let plan: Plan | null = null;
       let lidsAt = -1;
-      if (restful > 0.4 && !solidError && !solidWord) {
-        const look = lookRef.current;
-        if (clock > look.until) {
-          // Her first look is as she arrives; after that, when she next looks up is noise. How she
-          // wakes and what she does is the next version in her deck, and the script her eyes run
-          // is drawn for as long as that takes.
-          const first = look.until === 0;
-          const next = planOpening(expr, EYES_AWAKE);
-          look.plan = next;
-          look.script = eyeScript((clock * 1000) | 0, false, next.open);
-          look.from =
-            clock +
-            (first ? WAKE_LOOK : EYES_APART * (0.55 + Math.random() * 0.9));
-          look.until =
-            look.from +
-            EYES_IN +
-            Math.max(look.script.total, next.open) +
-            EYES_OUT;
-        }
+      const look = lookRef.current;
+      const resting = restful > 0.4 && !solidError && !solidWord;
+      // how much of her is still resting, which what she has given off goes with (expressions.ts)
+      const calm =
+        smoothstep(0.4, 0.75, restful) * (1 - smoothstep(0, 0.5, f.word));
+      // Something else taking the face in the middle of an opening does not drop it: she falls
+      // asleep there and then, in EYES_CUT, and what she was doing stops.
+      if (
+        !resting &&
+        look.cut === undefined &&
+        look.script &&
+        clock > look.from &&
+        clock < look.until
+      )
+        look.cut = clock;
+      if (resting && look.cut === undefined && clock > look.until) {
+        // Her first look is as she arrives; after that, when she next looks up is noise. How she
+        // wakes and what she does is the next version in her deck, and the script her eyes run
+        // is drawn for as long as that takes.
+        const first = look.until === 0;
+        const next = planOpening(expr, EYES_AWAKE);
+        look.plan = next;
+        look.script = eyeScript((clock * 1000) | 0, false, next.open);
+        look.from =
+          clock +
+          (first ? WAKE_LOOK : EYES_APART * (0.55 + Math.random() * 0.9));
+        look.until =
+          look.from +
+          EYES_IN +
+          Math.max(look.script.total, next.open) +
+          EYES_OUT;
+      }
+      if (resting || look.cut !== undefined) {
         const age = clock - look.from;
         const span = look.until - look.from;
         if (look.script && age > 0) {
@@ -1209,7 +1231,13 @@ export function AsciiOrb({
           // still there, but only for the third of a second the lid is moving.
           const upAt = EYES_IN * 0.6;
           const closeAt = span - EYES_OUT - 0.3;
-          const sleep = clamp01((age - closeAt) / EYES_SHUT);
+          const sleep =
+            look.cut === undefined
+              ? clamp01((age - closeAt) / EYES_SHUT)
+              : Math.max(
+                  clamp01((age - closeAt) / EYES_SHUT),
+                  clamp01((clock - look.cut) / EYES_CUT),
+                );
           eyesHeld = smoothstep(upAt, upAt + EYES_FILL, age);
           const state = eyeState(look.script, Math.max(0, age - EYES_IN * 0.7));
           const opened = state.lid * smoothstep(upAt, upAt + EYES_OPEN, age);
@@ -1226,13 +1254,21 @@ export function AsciiOrb({
           eyesOpen = eyesHeld * (1 - sleep) * settled;
           asleep = smoothstep(0.1, 0.9, sleep) * settled;
           if (settled > 0.5) sinceLids = age - upAt;
-          plan = look.plan ?? null;
-          lidsAt = age - upAt;
+          if (look.cut === undefined) {
+            plan = look.plan ?? null;
+            lidsAt = age - upAt;
+          } else if (sleep >= 1) {
+            // shut: the opening is over, and the next comes once she is resting again
+            look.until = clock;
+            look.cut = undefined;
+            eyes = null;
+            eyesHeld = 0;
+          }
         }
       }
       const restR = IDLE_R * REST_GROW * Math.max(0.02, f.scale);
       // what she does in this opening: her head's pose, her eyes' part in it, what she gives off
-      eyes = stepExpression(expr, grid, t, dt, plan, lidsAt, eyes, restR);
+      eyes = stepExpression(expr, grid, t, dt, plan, lidsAt, eyes, restR, calm);
       smoke.hush = expr.doing.hush;
       // an opening with no plan is a look set up for her (`waking`), and wakes with the sigh
       stepSmoke(
@@ -1358,6 +1394,7 @@ export function AsciiOrb({
         const hole =
           eyesHeld > 0.03 &&
           eyes !== null &&
+          plain &&
           !covered &&
           facing(expr, ci, restR) &&
           inEye(

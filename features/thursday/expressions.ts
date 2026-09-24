@@ -95,6 +95,13 @@ export const PIECE_SETS: readonly {
 const DRIFT_YAW = 0.08;
 /** Her smoke follows her head this late (s). */
 const SMOKE_LAG = 0.12;
+/**
+ * With nothing to do her head comes back slowly (HEAD_SETTLE, a time constant in seconds), so a
+ * head sunk into sleep settles rather than springs; cut short by something else taking the face,
+ * it comes back quicker (HEAD_CUT), along with the rest of her.
+ */
+const HEAD_SETTLE = 0.6;
+const HEAD_CUT = 0.3;
 
 /**
  * Waking under dust: a crust over her face (CRUST_*), and a few hard shakes of her head, smaller
@@ -477,6 +484,8 @@ export type Expression = {
   /** What she has given off, and per cell how thick it is there, the thickest puff's, its kind, and how long the cell keeps it. */
   parts: Part[];
   live: boolean;
+  /** How much of her is resting this frame (0..1): what she has given off is as thick as that. */
+  calm: number;
   thick: Float32Array;
   top: Float32Array;
   kind: Int8Array;
@@ -511,6 +520,7 @@ export function createExpression(): Expression {
     crustedNow: 0,
     parts: [],
     live: false,
+    calm: 1,
     thick: none,
     top: none,
     kind: new Int8Array(0),
@@ -643,8 +653,10 @@ const still = (q: Pose) =>
 
 /**
  * Once a frame, before her cells. `plan` is the opening running now (null for none), `u` seconds
- * since her lids started to part (below 0 before), `eyes` the eyes as their script has them and
- * `R` her radius now. Returns the eyes with the pieces' lids, size and gaze on them.
+ * since her lids started to part (below 0 before), `eyes` the eyes as their script has them, `R`
+ * her radius now, and `calm` how much of her is resting: as another mode or a word takes the face,
+ * what she has given off thins out with it and is gone, and her head hurries back. Returns the eyes
+ * with the pieces' lids, size and gaze on them.
  */
 export function stepExpression(
   e: Expression,
@@ -655,8 +667,10 @@ export function stepExpression(
   u: number,
   eyes: EyeState | null,
   R: number,
+  calm: number,
 ): EyeState | null {
   fit(e, grid.cells.length);
+  e.calm = calm;
   e.crusted = e.crustedNow;
   e.crustedNow = 0;
 
@@ -722,7 +736,7 @@ export function stepExpression(
   // sunk into sleep settles rather than springs; a spin comes back the short way round
   const hp = e.head;
   const wasYaw = hp.yaw;
-  const back = pose === POSE0 ? 0.6 : 0.045;
+  const back = pose !== POSE0 ? 0.045 : calm < 0.99 ? HEAD_CUT : HEAD_SETTLE;
   hp.spin =
     pose.spin +
     Math.atan2(Math.sin(hp.spin - pose.spin), Math.cos(hp.spin - pose.spin));
@@ -979,6 +993,8 @@ function curlAt(x: number, y: number, t: number) {
 function partsStep(e: Expression, grid: Grid, t: number, dt: number) {
   const P = e.parts;
   if (!P.length && !e.live) return;
+  // gone with her calm, it does not come back when she settles again
+  if (e.calm < 0.02) P.length = 0;
   e.thick.fill(0);
   e.top.fill(0);
   e.keep.fill(0);
@@ -1012,7 +1028,10 @@ function partsStep(e: Expression, grid: Grid, t: number, dt: number) {
     p.x += (p.vx + cx) * dt;
     p.y += (p.vy + cy) * dt;
     const a =
-      p.a * (1 - (p.age / p.life) ** p.fadeP) * smoothstep(0, 0.06, p.age);
+      p.a *
+      (1 - (p.age / p.life) ** p.fadeP) *
+      smoothstep(0, 0.06, p.age) *
+      e.calm;
     const r = p.r0 + (p.r1 - p.r0) * (1 - Math.exp(-p.age / p.grow));
     // laid all along the way it went this frame, so a fast one is a streak and never a hop
     const n = Math.min(
