@@ -14,23 +14,31 @@ chain the ones a step needs with `&&` in one bash call.
 | `fx.mjs <amount> <FROM> <TO[,TO…]>` | The amount at today's rate, with the rate's date and where it came from |
 | `itinerary.mjs <trip.json> [--name <file>]` | The trip as one page in your `artifacts/` folder: a photo and a map link per stop, costs added up. Uses the browser only for a `"photo"` page url |
 
-**Flights and stays have no script, on purpose.** Nothing here stands on another site's markup,
-because a search page moves without notice and a wrong price is worse than none. Build a search
-url instead, and either read that page once through the `browser` skill or open it on the user's
-screen. Unlike Google search, Google Travel answers a headless browser:
+**Flights come from a published search; the rest from a page on the user's screen.** Nothing
+here reads another site by script: a search page moves without notice, and a wrong price is worse
+than none.
+
+- **With Kiwi connected** — `search-flight` on the `kiwi` server, among your own tools or under
+  `## Connected tools` in your prompt — flights are that tool (`tool_search` it for the exact
+  inputs): places or airport codes, dates and the party in, and for each flight its price, both
+  legs' times and stops, and its booking link.
+- **Without it, and for a stay**, the results are the user's to choose from, so the search opens
+  on their screen — `--headed`, the `browser` skill — and you read it there. Say in your answer
+  that connecting Kiwi in Settings › Connectors finds flights without a window. Google's search
+  pages take the trip in their address:
 
 ```
-https://www.google.com/travel/flights?q=Flights to FUK from ICN on 2026-10-15 through 2026-10-18 for 2 adults&curr=USD&hl=en
-https://www.google.com/travel/search?q=hotels in Hakata, Fukuoka&checkin=2026-10-15&checkout=2026-10-18&hl=en
+https://www.google.com/travel/flights?q=Flights to LIS from LHR on 2026-11-12 through 2026-11-15 for 2 adults&curr=USD&hl=en
+https://www.google.com/travel/search?q=hotels in Alfama, Lisbon&checkin=2026-11-12&checkout=2026-11-15&hl=en
 ```
 
-Percent-encode the `q` before passing it to a command. What those urls carry, and what they do not:
+Percent-encode the `q` before passing it to a command. What those pages carry, and what they do not:
 
-- **The flights `q` is a sentence, and it takes one extra at most.**
+- **The flights `q` is a sentence:**
   `Flights to <TO> from <FROM> on <depart>[ through <return>][ for N adults[ and M children]]`,
-  with airport codes or city names, plus at most one of `nonstop`, `in business`, `one way`. Two
-  of those together and Google parses none of it and serves the Flights front page — which is the
-  tell: check the page names your route and your dates before you read a price off it.
+  with airport codes or city names. Anything more — nonstop, the cabin, one way — is set on the
+  page. A `q` it did not follow opens the Flights front page, so check the page names your route
+  and your dates before you read a price off it.
 - **Google Hotels prices are in the machine's currency**, whatever `curr=` or `gl=` says — its
   footer names the address it read that from — and the number on a result row is one night.
   Convert with `fx.mjs` before comparing against a budget, and name the currency you read.

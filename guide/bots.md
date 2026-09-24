@@ -30,7 +30,9 @@ or writes one and the user keeps it to that bot.
   PDF — handed back short, every point linked to the moment it is said.
 - **Concierge** takes trips and errands as far as they go: a trip laid out day by day with the
   weather, the exchange rate, photos and map links, flights and stays found and compared, a booking,
-  an order or a form taken up to the step that pays — which it leaves on the user's screen.
+  an order or a form taken up to the step that pays — which it leaves on the user's screen. With
+  Kiwi connected (Settings › Connectors) it finds flights without a window; otherwise the flight and
+  stay searches open on the user's screen, where they can see what it chose from.
 - **Designer** makes what gets looked at: two to four ways a screen or a page could look, side by
   side on one canvas, a deck to show on a screen, a post at the size it will be shown.
 - **Tutor** explains anything as a picture book.

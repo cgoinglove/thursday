@@ -2,12 +2,12 @@
 
 ## The link is read, never built
 
-Once both legs are chosen, Google Flights is sitting on
-`https://www.google.com/travel/flights/booking?tfs=…`; a stay's own page is the stays url with
-`&qs=…` appended. That url is the booking link: read it off the browser
-(`playwright-cli --raw eval "location.href"`). Never assemble a `tfs=` or a `qs=` by hand, and
-never hand back a link you did not land on. It is what goes in the itinerary page's
-`flights.link` and `stay.link`, and what you open for the user.
+A flight from `kiwi` carries its booking link. On a search page, once both legs are chosen the
+page moves to the flight's booking page, and a stay's own page is a click from the list: the
+address the window is on then is the link — read it off (`playwright-cli --raw eval
+"location.href"`). Never assemble one by hand, and never hand back a link you did not land on or
+get. It is what goes in the itinerary page's `flights.link` and `stay.link`, and what you open for
+the user.
 
 ## Which seller
 
@@ -18,7 +18,7 @@ often the reason for the difference.
 
 ## Which price
 
-The seller charges in its own currency, and the page shows both (`$609` beside `₩827,200`). Say
+The seller charges in its own currency, and the page shows both (`$312` beside `€288`). Say
 the one that will actually be charged, and use `fx.mjs` for the one the user thinks in. The price
 can move between the search and the seller's page: if the seller shows another number, that is the
 price, and say so rather than repeating the search's.

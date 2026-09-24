@@ -7,7 +7,7 @@
  *
  *   node itinerary.mjs <trip.json> [--name <file name>]
  *
- * A photo is `"wiki": "<Wikipedia title>"` (another language as "ja:大濠公園"),
+ * A photo is `"wiki": "<Wikipedia title>"` (another language as "pt:Mosteiro dos Jerónimos"),
  * `"photo": "<web page url>"` (its own picture, through the browser skill's webimage.mjs),
  * or `"photo": "<local image path>"` (relative to the JSON file).
  */
@@ -494,7 +494,7 @@ console.log(
 );
 if (missing.length)
   console.log(
-    `No photo for: ${missing.join("; ")}. Give those a "wiki" title that exists — a place abroad often has one only in its own language's Wikipedia ("ko:경포대", "ja:大濠公園") — or a "photo" page url, or leave them without one.`,
+    `No photo for: ${missing.join("; ")}. Give those a "wiki" title that exists — a place abroad often has one only in its own language's Wikipedia ("pt:Mosteiro dos Jerónimos", "de:Kölner Dom") — or a "photo" page url, or leave them without one.`,
   );
 if (!lang.startsWith("en") && !trip.labels)
   console.log(

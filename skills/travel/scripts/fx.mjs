@@ -5,7 +5,7 @@
  * Frankfurter; a currency the ECB does not quote (TWD, VND, AED …) comes from
  * ExchangeRate-API's open feed. No key.
  *
- *   node fx.mjs <amount> <FROM> <TO[,TO…]>        node fx.mjs 150 USD JPY,KRW
+ *   node fx.mjs <amount> <FROM> <TO[,TO…]>        node fx.mjs 150 USD EUR,JPY
  */
 import { fail, getJson, parseArgs } from "./lib.mjs";
 
@@ -14,7 +14,7 @@ const [amountArg, fromArg, toArg] = opts._;
 const amount = Number(String(amountArg ?? "").replace(/,/g, ""));
 if (!Number.isFinite(amount) || !fromArg || !toArg)
   fail(
-    "usage: node fx.mjs <amount> <FROM> <TO[,TO…]>   e.g. node fx.mjs 150 USD JPY,KRW",
+    "usage: node fx.mjs <amount> <FROM> <TO[,TO…]>   e.g. node fx.mjs 150 USD EUR,JPY",
   );
 const from = fromArg.toUpperCase();
 const targets = toArg

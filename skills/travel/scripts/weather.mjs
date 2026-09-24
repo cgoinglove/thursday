@@ -7,7 +7,7 @@
  *
  *   node weather.mjs "<place>[, <country code>]" <from YYYY-MM-DD> [<to YYYY-MM-DD>] [--f]
  *
- * "Fukuoka, JP" picks Japan's Fukuoka when a name exists in several countries. --f prints °F.
+ * "Victoria, CA" picks Canada's Victoria when a name exists in several countries. --f prints °F.
  */
 import {
   addDays,
@@ -74,7 +74,7 @@ const places = (found.results ?? []).filter(
 );
 if (!places.length)
   fail(
-    `No place called "${where}". Try the city's English name, or the nearest city, with its country code ("Gangneung, KR").`,
+    `No place called "${where}". Try the city's English name, or the nearest city, with its country code ("Cork, IE").`,
   );
 const place = places.sort(
   (a, b) => (b.population ?? 0) - (a.population ?? 0),
