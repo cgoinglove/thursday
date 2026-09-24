@@ -31,6 +31,8 @@ type FaceProps = {
   getSpectrum?: () => ArrayLike<number>;
   /** Appearance: the glyphs, their size, how tightly they pack. */
   look: ThursdayFace;
+  /** She comes in waking (ascii-orb `waking`): the first run's opening brings her in this way. */
+  waking?: boolean;
   className?: string;
 };
 
@@ -59,6 +61,7 @@ function OrbFace({
   size,
   getSpectrum,
   look,
+  waking,
   className,
 }: FaceProps) {
   const dark = useResolvedTheme() === "dark";
@@ -72,6 +75,7 @@ function OrbFace({
       charset={look.charset}
       fontSize={look.fontSize}
       density={look.density}
+      waking={waking}
       className={className}
     />
   );

@@ -79,9 +79,10 @@ export type EyeState = {
  * One of five scripts, drawn from `seed`, with every length jittered on top. Five rather than one
  * because a face that does the same thing every time is a loop, and a loop stops being seen once
  * it has been learned. Blinks stay quick; nothing else is — a face that keeps darting reads as
- * nervous rather than as alive.
+ * nervous rather than as alive. `seen` leaves out the peek, which shuts again before anyone has
+ * seen her awake: for a face whose waking is the point of the moment.
  */
-export function eyeScript(seed: number): EyeScript {
+export function eyeScript(seed: number, seen = false): EyeScript {
   const r = (k: number) => ihash(seed, k * 7 + 3, 1);
   const side = r(3) < 0.5 ? -1 : 1;
   // A lean she may take once she is looking at you. Never on the way up: an eye that arrives
@@ -98,7 +99,7 @@ export function eyeScript(seed: number): EyeScript {
   });
 
   let beats: Beat[];
-  switch ((r(1) * 5) | 0) {
+  switch (seen ? [0, 2, 3, 4][(r(1) * 4) | 0] : (r(1) * 5) | 0) {
     case 0:
       // the long one: open, look at you, blink, one look away, back
       beats = [

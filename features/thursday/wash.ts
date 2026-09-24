@@ -1,6 +1,6 @@
 // Now and then part of her face is briefly made of something else. One file, because the whole
 // feature is here — which sets she washes to, when it happens, and the test a renderer asks per
-// cell — and it comes out again by deleting this and the four lines that call it.
+// cell — and it comes out again by deleting this and the lines in ascii-orb that call it.
 //
 // It is not a band crossing her and it is not a change of colour: the glyphs themselves change,
 // in a patch that spreads. It starts at a few points, grows out of them behind a front made of
@@ -57,6 +57,37 @@ export function washAt(
   const start = slot * every + 0.6 + ihash(slot, 11, 5) * every * 0.45;
   // most sit a few seconds, and now and then one stays a long while
   const dur = hold * (0.6 + 3.4 * ihash(slot, 17, 9) ** 2);
+  return washOnce(dx, dy, t, start, dur, slot);
+}
+
+/**
+ * A slot, from `from` on, whose wash is one patch of moons or of water that grows quickly: the
+ * wash that goes through her as she wakes on the first run, where a patch reads as passing
+ * through her and more of them read as her turning into something else.
+ */
+export function wakingSlot(from: number) {
+  let slot = from;
+  for (let tries = 0; tries < 400; tries++, slot++) {
+    const set = 1 + (slot % WASH_SETS.length);
+    if (
+      ihash(slot, 19, 7) < 0.25 &&
+      (set === 2 || set === 3) &&
+      ihash(slot, 3, 2) < 0.35
+    )
+      break;
+  }
+  return slot;
+}
+
+/** One wash, drawn from `slot`, that starts at `start` and sits `dur` seconds; the test is washAt's. */
+export function washOnce(
+  dx: number,
+  dy: number,
+  t: number,
+  start: number,
+  dur: number,
+  slot: number,
+) {
   const age = t - start;
   if (age < 0 || age > dur) return 0;
   const grow = smoothstep(0, 1.7 + ihash(slot, 3, 2) * 2.6, age);

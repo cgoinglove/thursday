@@ -33,7 +33,7 @@ import {
   stepSmoke,
 } from "../smoke";
 import type { FaceWord } from "../thursday.schema";
-import { WASH_SETS, washAt } from "../wash";
+import { WASH_SETS, wakingSlot, washAt, washOnce } from "../wash";
 
 export type AsciiOrbMode =
   | "idle"
@@ -71,10 +71,15 @@ type AsciiOrbProps = {
    * shading reads the same on light and dark backgrounds. Changes ease in.
    */
   color?: [number, number, number];
+  /**
+   * She comes in waking, as the first run brings her: her eyes open as she arrives, on a script
+   * that looks at you, and a wash goes through her a moment later. Read once, as she mounts.
+   */
+  waking?: boolean;
 };
 
 /** Her glyphs, at the size the user set. */
-const GLYPH_FONT = (px: number) =>
+export const GLYPH_FONT = (px: number) =>
   `700 ${px}px ui-monospace,SFMono-Regular,Menlo,monospace`;
 
 /** The same, for an emoji standing at one rung of the ramp rather than at the top of it. */
@@ -133,7 +138,7 @@ function spell(text: string) {
 const ERROR_ROWS = spell("ERROR");
 
 /** Reference size the tuning constants assume; coordinates are normalized to it. */
-const DESIGN = 680;
+export const DESIGN = 680;
 /** Radius (reference units) within which cells exist. Must stay under DESIGN/2 or the canvas clips it. */
 const FIELD_R = 328;
 
@@ -240,6 +245,8 @@ const IDLE_R = 170;
  * one, which starts from IDLE_R.
  */
 const REST_GROW = 1.08;
+/** Her radius at rest, reference units: what the first run's echoes of her are drawn as multiples of. */
+export const REST_R = IDLE_R * REST_GROW;
 
 /**
  * Connecting: crumbs travel in from the edge of the field to the resting body.
@@ -352,7 +359,7 @@ function letterAt(
  * a single constant either smears everything or nothing. The tail is short and light: her smoke
  * already leaves its own trail, and a long one on top of it reads as ink. Seconds.
  */
-const TRAIL_FAST = 0.085;
+export const TRAIL_FAST = 0.085;
 const TRAIL_SLOW = 0.8;
 /** What the long clock is worth beside the short one. */
 const TRAIL_WEIGHT = 0.52;
@@ -365,8 +372,8 @@ const TRAIL_WEIGHT = 0.52;
  * while she speaks. The wave that leaves her face keeps the faster rate (ascii.const CHAR_RATE):
  * it is over in two seconds and has no shape to hold.
  */
-const CHURN_ASCII = 0.4;
-const CHURN_EMOJI = 0.264;
+export const CHURN_ASCII = 0.4;
+export const CHURN_EMOJI = 0.264;
 
 /**
  * Her eyes open about this often, times a factor between 0.55 and 1.45 drawn fresh each time, and
@@ -402,6 +409,15 @@ const WASH_APART = 42;
 const WASH_HOLD = 3.2;
 const WASH_LINGER = 0.3;
 const WASH_LINGER_MORE = 0.9;
+
+/**
+ * Waking (`waking`): how long after she mounts her eyes start to open — at once, so that the
+ * moment she is her own size is the moment she looks — and when the one wash that goes through
+ * her starts and how long it sits. Seconds.
+ */
+const WAKE_LOOK = 0.15;
+const WAKE_WASH = 1;
+const WAKE_WASH_FOR = 2.9;
 
 /**
  * How she wears her eyes (eyes.ts): the bot faces' own layout, with a lens a tenth larger,
@@ -716,6 +732,7 @@ export function AsciiOrb({
   color = DEFAULT_COLOR,
   getSpectrum,
   word = null,
+  waking = false,
 }: AsciiOrbProps) {
   const hostRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -794,6 +811,8 @@ export function AsciiOrb({
     from: number;
     until: number;
   }>({ script: null, from: 0, until: 0 });
+  /** Whether she came in waking; the loop reads it once, as she mounts */
+  const wakingRef = useRef(waking);
 
   // grid is rebuilt only when size or density changes
   useEffect(() => {
@@ -959,6 +978,21 @@ export function AsciiOrb({
     let clock = 0;
     /** Seconds ERROR has been showing (errorValue) */
     let errAge = 0;
+    // Waking, her first look is now rather than half a minute from now, and one wash is set
+    const wake = wakingRef.current
+      ? {
+          slot: wakingSlot((Math.random() * 4000) | 0),
+          end: WAKE_WASH + WAKE_WASH_FOR,
+        }
+      : null;
+    if (wake) {
+      const script = eyeScript((Math.random() * 1e6) | 0, true);
+      lookRef.current = {
+        script,
+        from: WAKE_LOOK,
+        until: WAKE_LOOK + EYES_IN + script.total + EYES_OUT,
+      };
+    }
 
     const draw = (nowMs: number) => {
       const t = nowMs * 0.001;
@@ -1183,10 +1217,20 @@ export function AsciiOrb({
           }
         }
 
-        // the wash, and the moment a cell holds its set after the wash has left it
-        const washed = plain
-          ? washAt(cell.dx, cell.dy, clock, WASH_APART, WASH_HOLD)
-          : 0;
+        // the wash, and the moment a cell holds its set after the wash has left it; waking, the
+        // one set for her until it is over
+        const washed = !plain
+          ? 0
+          : wake && clock < wake.end
+            ? washOnce(
+                cell.dx,
+                cell.dy,
+                clock,
+                WAKE_WASH,
+                WAKE_WASH_FOR,
+                wake.slot,
+              )
+            : washAt(cell.dx, cell.dy, clock, WASH_APART, WASH_HOLD);
         if (washed) {
           bk.pool[ci] = washed;
           bk.poolFor[ci] = WASH_LINGER + cell.grain * WASH_LINGER_MORE;
