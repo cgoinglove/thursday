@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Draws a CSV into a page as one figure: an inline SVG chart, its source, and the rows
 // behind it with a CSV download. The page is a document (the artifact skill's document.mjs)
-// or any HTML file; the figure takes the place of the element with the given id,
-// or goes before </body> when there is none. Run it again and the same figure is replaced.
+// or any HTML file; the figure takes the place of the element with the given id, or ends
+// the document's body (before </body> on any other page) when there is none. Run it again
+// and the same figure is replaced.
 //
 //   node chart.mjs <page.html> <id> <data.csv> [options]
 //
@@ -25,7 +26,14 @@
 //
 // The figure carries no words of its own beyond what it is given, so it reads the same
 // in any language: the site's name, a date, "CSV".
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import {
+  END,
+  editedSince,
+  getBetween,
+  keep,
+  restamp,
+} from "../../artifact/runtime/shell/put.mjs";
 
 class Stop extends Error {}
 
@@ -522,7 +530,7 @@ function main() {
     throw new Stop(`"${id}" is not an id: letters, numbers, - and _ only.`);
   if (!existsSync(pagePath))
     throw new Stop(
-      `No page at ${pagePath}. Start one first: \`page.mjs quick\` beside this script, or any HTML file.`,
+      `No page at ${pagePath}. Put a document first (the artifact skill's document.mjs), or give any HTML file.`,
     );
   const locale = typeof flags.locale === "string" ? flags.locale : "en";
   const fmt = formatter(locale, flags);
@@ -703,6 +711,8 @@ ${sourceLine}
 </figure>`;
 
   let html = readFileSync(pagePath, "utf8");
+  // Whether the reader changed the document since the bot last put or got it (put.mjs)
+  const edited = editedSince(html);
   const existing = new RegExp(
     `<(figure|div|section|p)\\b[^>]*\\bid=["']${id}["'][^>]*>[\\s\\S]*?</\\1>`,
   );
@@ -711,6 +721,8 @@ ${sourceLine}
   );
   if (existing.test(html)) html = html.replace(existing, () => figure);
   else if (selfClosed.test(html)) html = html.replace(selfClosed, () => figure);
+  else if (html.includes(END))
+    html = html.replace(END, () => `${figure}\n${END}`);
   else if (html.includes("</body>"))
     html = html.replace("</body>", () => `${figure}\n</body>`);
   else html += `\n${figure}\n`;
@@ -723,7 +735,11 @@ ${sourceLine}
   html = html.includes("</body>")
     ? html.replace("</body>", () => `${SCRIPT}\n</body>`)
     : html + SCRIPT;
-  writeFileSync(pagePath, html);
+  // The figure is the bot's own writing, so a document keeps it as part of what the bot
+  // put: its next put goes through, unless the reader's edits came first and it must get
+  // them. A new revision turns away a save from the page open in the app before this.
+  if (!edited) html = getBetween(html)?.html ?? html;
+  keep(pagePath, restamp(html));
 
   const drawn = series.map((s) => {
     const vals = s.values.filter((v) => v !== null);

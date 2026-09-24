@@ -781,13 +781,27 @@
     };
   };
 
+  /**
+   * A board's own note: the plain one in the gutter above it, the nearest when rows stack
+   * (canvas.md). A row's title and a pinned remark start at the same --x, and are not it.
+   */
+  const noteOf = (frame) => {
+    const spot = (el, key) => Number(el.style.getPropertyValue(key)) || 0;
+    const x = spot(frame, "--x");
+    const right = x + sizeOf(frame).w;
+    return [...stage.querySelectorAll(".note:not(.title):not(.sticky)")]
+      .filter(
+        (note) =>
+          spot(note, "--x") >= x &&
+          spot(note, "--x") < right &&
+          spot(note, "--y") < spot(frame, "--y"),
+      )
+      .sort((a, b) => spot(b, "--y") - spot(a, "--y"))[0];
+  };
+
   /** The chosen board as an instruction: what it is, what it costs, and its values. */
   const specText = (frame, read) => {
-    const note = [...stage.querySelectorAll(".note")].find(
-      (one) =>
-        Number(one.style.getPropertyValue("--x")) ===
-        Number(frame.style.getPropertyValue("--x")),
-    );
+    const note = noteOf(frame);
     const list = (label, values, join = " · ") =>
       values.length ? `**${label}** ${values.join(join)}\n` : "";
     return (

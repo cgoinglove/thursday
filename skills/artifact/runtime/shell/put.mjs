@@ -1,6 +1,6 @@
 // What a bot writes into a page one of the three scripts made (deck.mjs, canvas.mjs,
-// page.mjs `put`): the slides, the boards or the document's body, set between the marks
-// the page was written with. Only that part is ever replaced, so the frame around it —
+// document.mjs `put`), or a chart chart.mjs draws into one: the slides, the boards or the
+// document's body, set between the marks the page was written with. Only that part is ever replaced, so the frame around it —
 // the head, the tools, the script — cannot be lost by writing the page whole.
 //
 // The app keeps a page too: a reader's edits are saved into the same file. So the start
@@ -13,7 +13,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { renameSync, rmSync, writeFileSync } from "node:fs";
 
 const START = /<!-- put: start(?: ([0-9a-f]{12}))? -->/;
-const END = "<!-- put: end -->";
+export const END = "<!-- put: end -->";
 const GENERATOR = '<meta name="generator" content="Thursday">';
 const REVISION = /<meta name="revision" content="[^"]*">/;
 
@@ -25,7 +25,7 @@ const print = (body) =>
 export const revision = () => randomBytes(6).toString("hex");
 
 /** `html` naming a new revision in its head; a page from before revisions is given one. */
-function restamp(html) {
+export function restamp(html) {
   const meta = `<meta name="revision" content="${revision()}">`;
   if (REVISION.test(html)) return html.replace(REVISION, meta);
   return html.includes(GENERATOR)

@@ -99,6 +99,63 @@ test("a save from a page opened before the file's last write is refused, and one
   );
 });
 
+test("a chart drawn into a document is part of what the bot put, and a page opened before it cannot save over it", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const rel = "artifacts/Tester/chart.html";
+  const file = join(WORKSPACE, rel);
+  await mkdir(join(WORKSPACE, "artifacts", "Tester"), { recursive: true });
+  const put = putBetween(
+    page("<p>Template</p>"),
+    '<p>Rent</p>\n<figure id="rent"></figure>',
+  );
+  await writeFile(file, put);
+  const csv = join(home, "rent.csv");
+  await writeFile(
+    csv,
+    "# source: https://example.org/rent\nyear,rent\n2023,80\n2024,85\n",
+  );
+  const chart = join(
+    import.meta.dirname,
+    "..",
+    "skills",
+    "interactive-page",
+    "scripts",
+    "chart.mjs",
+  );
+  const draw = (id: string) =>
+    execFileSync(process.execPath, [chart, file, id, csv]);
+
+  draw("rent");
+  const drawn = await readFile(file, "utf8");
+  assert.ok(drawn.includes('<figure id="rent" class="chart">'));
+  assert.equal(editedSince(drawn), false, "the bot's next put goes through");
+  assert.notEqual(revisionOf(drawn), revisionOf(put));
+  assert.deepEqual(
+    await savePage(
+      rel,
+      put.replace("Rent", "Rent, ticked"),
+      revisionOf(put) ?? "",
+    ),
+    { changed: true },
+  );
+
+  // A figure with no place of its own ends the document's body, inside the marks
+  draw("more");
+  const more = await readFile(file, "utf8");
+  assert.ok(
+    /<figure id="more" class="chart">[\s\S]*<\/figure>\n<!-- put: end -->/.test(
+      more,
+    ),
+  );
+
+  // Drawn over the reader's edits, it keeps them and still asks the bot to get them first
+  await writeFile(file, more.replace("<p>Rent</p>", "<p>Rent, edited</p>"));
+  draw("rent");
+  const over = await readFile(file, "utf8");
+  assert.ok(over.includes("<p>Rent, edited</p>"));
+  assert.equal(editedSince(over), true);
+});
+
 test("a page from before revisions keeps its edits as it did", async () => {
   const rel = "artifacts/Tester/older.html";
   const file = join(WORKSPACE, rel);
