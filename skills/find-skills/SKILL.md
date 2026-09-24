@@ -1,6 +1,6 @@
 ---
 name: find-skills
-description: "Finds and installs agent skills from the open skills registry. Use when the user asks for a skill or for something that might exist as one, or a job needs a specialized method no listed skill covers."
+description: "Finds and installs skills from the open skills registry. Use it when a job needs a specialized method no listed skill covers, or the user asks for a skill."
 ---
 
 # Find Skills

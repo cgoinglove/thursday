@@ -1,6 +1,6 @@
 ---
 name: interactive-page
-description: "A page or small app someone uses, as one offline HTML file. Use it for a tool, a calculator, a tracker, a React app with screens and state, numbers to explore, or a diagram of how something is built or flows — whenever the result is used rather than only read. Not a document, deck, canvas or picture book (artifact)."
+description: "Builds a page or small app someone uses, as one offline HTML file. Use it for a tool, a calculator, a tracker, a React app, numbers to explore or a diagram; a page only read is a document (artifact)."
 license: Complete terms in LICENSE.txt
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: computer
-description: "This Mac itself — its apps, its windows, what is on screen, the clipboard. Reach for it when the job is in an app rather than a browser: read a window as text, click, type, open or focus an app, walk a menu."
+description: "Operates this Mac itself: its apps, windows, screen and clipboard. Use it when the job is in an app rather than a browser."
 metadata:
   platforms: darwin
 ---

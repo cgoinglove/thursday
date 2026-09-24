@@ -1,6 +1,6 @@
 ---
 name: marketing
-description: "Plans and writes a product's marketing, starting from its product brief. Use when the job is positioning or the product brief, page copy, a launch plan, social posts and their calendar, an email sequence, or an SEO audit of a site."
+description: "Plans and writes a product's marketing, starting from its product brief. Use it for positioning, page copy, a launch plan, social posts, email sequences or an SEO audit."
 license: MIT (see LICENSE)
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: browser
-description: "A real browser from the shell: open, read, click, fill, sign in, download, print. Reach for it for anything on the web or in a browser — a page to read, a form, a checkout to leave on the user's screen, their own Chrome, a local HTML file to print — and read it before the first browser command of a job."
+description: "Drives a real browser from the shell: open, read, click, fill, sign in, download. Use it before the first browser command of any web job: a page, a form, a checkout, a sign-in, their own Chrome."
 ---
 
 # The browser

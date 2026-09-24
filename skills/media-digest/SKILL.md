@@ -1,6 +1,6 @@
 ---
 name: media-digest
-description: "Anything long — a video, podcast, talk, article or PDF — read and handed back short. Reach for it when the user points at a link or a file and asks what is in it, wants the moments that matter as a page or as audio, or asks which videos on a topic are worth watching."
+description: "Reads anything long — a video, podcast, talk, article or PDF — and hands it back short. Use it when the user points at one and asks what is in it, or which videos on a topic are worth watching."
 ---
 
 # Media digest

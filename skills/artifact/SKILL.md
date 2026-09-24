@@ -1,6 +1,6 @@
 ---
 name: artifact
-description: "Makes what the user keeps and looks at: a document, a canvas, a picture book, a deck. Use it for a report, memo, comparison, plan or meeting notes to read; screens, pages, posters or posts to choose between or see at their real size; one thing explained simply as pages to swipe, a PDF or a video read aloud; and slides with make_deck. Not a tool or app they use (interactive-page)."
+description: "Makes what the user keeps and looks at: a document, a canvas, a picture book, a deck. Use it for a report or memo, options or a mockup at real size, an explanation in pictures, or slides; a tool they use is interactive-page."
 license: Complete terms in LICENSE.txt
 ---
 

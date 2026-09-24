@@ -1,6 +1,6 @@
 ---
 name: travel
-description: "Plans a trip: flights and stays from Google, weather, currency, one offline page. Use it for any travel question — a fare, a forecast, what something costs abroad, or a whole trip planned day by day."
+description: "Plans trips: flights and stays, weather, currency, and a day-by-day itinerary page. Use it for any travel question — a fare, a forecast, a cost abroad — or a whole trip."
 ---
 
 # Travel

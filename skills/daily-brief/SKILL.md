@@ -1,6 +1,6 @@
 ---
 name: daily-brief
-description: "Builds a daily news brief: today's stories, weather and markets on one phone-first page. Use it whenever the user asks for their brief, or a routine opens a thread for one."
+description: "Builds the daily news brief: today's stories, weather and markets on one phone-first page. Use it when the user asks for their brief, or a routine opens one."
 ---
 
 # Daily brief

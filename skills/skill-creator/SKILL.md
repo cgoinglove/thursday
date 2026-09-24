@@ -1,6 +1,6 @@
 ---
 name: skill-creator
-description: "Creates new skills and improves existing ones by testing them on real prompts. Use when the user wants a repeatable way of working written down, an existing skill fixed or made to trigger better, or says to do something that way from now on, even without the word skill."
+description: "Creates new skills and improves existing ones. Use it when the user wants a repeatable way of working written down, or a skill fixed or made to trigger better, even without the word skill."
 ---
 
 # Skill Creator

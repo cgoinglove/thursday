@@ -1,6 +1,6 @@
 ---
 name: data-report
-description: "Answers and reports built on real numbers, taken from where they are published. Use it when the answer turns on numbers — a cost, a market size, a trend, a company, which to pick, buy or wait: it holds the form each question wants, and a script that fetches a published series into a CSV the app's chart script draws."
+description: "Answers questions that turn on real numbers, taken from where they are published. Use it for a cost, a trend, a market size, a company, or which to pick, buy or wait, with a chart when it helps."
 ---
 
 # Data report
