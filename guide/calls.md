@@ -59,8 +59,10 @@ billed by the minute.
   for writing; the spoken call's models stay in **Settings › Thursday**. With nothing to run on it
   says so and sends nothing; keys are in **Settings › API keys**.
 - **When a turn breaks** — a plan's limit, a refused key — her face says ERROR and the provider's
-  own words show in red under the line, over **Send it again** and the way to **API keys**. When an
-  OpenAI key is set and was not what broke, the button reads **Send it again on your OpenAI key**
+  own words show in red under the line, over **Send it again** and the way to **API keys**. Sent
+  again on the same model, she keeps what she had already done — a job handed over before it broke
+  is not handed over twice — and goes on from there; moved onto another, she answers afresh. When
+  an OpenAI key is set and was not what broke, the button reads **Send it again on your OpenAI key**
   and moves the line onto that key; it never switches by itself, since what a turn costs changes
   with what it runs on.
 - **Writing again while she is still answering** does not wait: the words show at once, join what
@@ -132,9 +134,10 @@ and from a phone. The face, captions, starting a call and While she works belong
 
 While a call is open, a question from a bot, and a result or a progress line that comes in during
 the call, reach the conversation by themselves — on a spoken call in a quiet moment, in writing as
-soon as they come — and she says them. Work that had
-already finished before the call opened is not read out: it is on the screen — the card, the pill,
-the thread — and she looks it up when asked.
+soon as they come — and she says them. Work that had already finished before the call opened is
+not read out: it is on the screen — the card, the pill, the thread — and she looks it up when asked.
+What is done on screen while a call is open — a bot answered, a job stopped — she is told of, spoken
+or in writing, so she does not ask it again.
 
 With no call open, a finished job lands as a card in the bottom left corner, and if the app is not
 the window in front, as a browser notification that brings it forward when pressed (the browser

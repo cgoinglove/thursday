@@ -14,11 +14,13 @@ import { TEXT_CALL } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { acceptThreadRelaysAction } from "@/features/bot/bot.action";
 import type { Thread } from "@/features/bot/bot.schema";
+import { screenActs } from "@/features/bot/thread.store";
 import { unwrapResult } from "@/lib/protocol/result";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { plainText } from "@/lib/utils";
 import { openWork, stoodBefore, toldWork } from "./open-work";
+import { screenActLine } from "./screen-act";
 import {
   endCallAction,
   openTextCallAction,
@@ -47,9 +49,12 @@ import type { ActivityLine } from "./use-thursday";
  * came after her last step starts the next turn at once. What bots send is left to her as a
  * fact the moment the inbox has it: into the answer she is writing, or as a turn of its own
  * when she is not writing one — never after a turn that broke, which keeps its error and its
- * Send it again, and at most TEXT_CALL.autoTurns in a row with no word from the user. Both go
- * as notes (`data-note` parts): words drawn as the user's, facts not drawn at all, and a
- * fact's relay rows accepted once a turn that carried it has finished.
+ * Send it again, and at most TEXT_CALL.autoTurns in a row with no word from the user. What
+ * the user does on screen is a fact as well, and waits for her next step without starting
+ * one. All go as notes (`data-note` parts): words drawn as the user's, facts not drawn at
+ * all, and a bot's relay rows accepted once a turn that carried its fact has finished. Send
+ * it again keeps what the broken answer finished — a tool it ran is not run twice — and
+ * does the rest again.
  */
 
 const transport = new DefaultChatTransport({ api: queryKey.textCall });
@@ -73,7 +78,7 @@ export type TextCall = {
   error: string | null;
   /** Sends words to her, opening the call with the first. Resolves once they are on their way. */
   say: (words: string) => Promise<void>;
-  /** Asks again for the answer that did not come, on whatever is picked now. */
+  /** Asks again for the answer that broke, on whatever is picked now: what it finished stays. */
   again: () => void;
   end: () => void;
 };
@@ -145,8 +150,13 @@ export function useTextCall(): TextCall {
   /** The last turn broke: nothing goes in by itself until one goes through. */
   const broke = useRef(error);
   broke.current = error;
+  /** What the last turn went out on, so Send it again knows whether the pick moved since. */
+  const sentOn = useRef("");
 
-  /** One turn: what waited, then the words, under a new name the answer is told by. */
+  /**
+   * One turn, under a new name the answer is told by: what waited, then the words, as a
+   * message of theirs — or, with nothing to send, carrying on from where the conversation is.
+   */
   const send = useCallback(
     (words: string | null) => {
       const to = held.current;
@@ -155,22 +165,20 @@ export function useTextCall(): TextCall {
       hold([]);
       const name = crypto.randomUUID();
       turn.current = name;
-      void sendMessage(
-        {
-          parts: [
-            ...carried.map(notePart),
-            ...(words ? [{ type: "text" as const, text: words }] : []),
-          ],
+      const on = runsOn();
+      sentOn.current = JSON.stringify(on ?? null);
+      const parts = [
+        ...carried.map(notePart),
+        ...(words ? [{ type: "text" as const, text: words }] : []),
+      ];
+      void sendMessage(parts.length ? { parts } : undefined, {
+        body: {
+          callId: to.callId,
+          standing: to.standing,
+          runsOn: on,
+          turn: name,
         },
-        {
-          body: {
-            callId: to.callId,
-            standing: to.standing,
-            runsOn: runsOn(),
-            turn: name,
-          },
-        },
-      );
+      });
     },
     [sendMessage, hold],
   );
@@ -217,6 +225,21 @@ export function useTextCall(): TextCall {
     [hold],
   );
 
+  // What the user did on screen reaches her as a fact, as on a spoken call: into the answer
+  // she is writing, or with the next turn. It starts no turn of its own
+  useEffect(
+    () =>
+      screenActs.subscribe((act) => {
+        if (held.current)
+          tell({
+            id: crypto.randomUUID(),
+            text: screenActLine(act),
+            said: false,
+          });
+      }),
+    [tell],
+  );
+
   const say = useCallback(
     async (words: string) => {
       let to = held.current;
@@ -238,34 +261,40 @@ export function useTextCall(): TextCall {
   );
 
   const again = useCallback(() => {
-    const to = held.current;
     const all = chat.current;
-    const at = all.findLastIndex((message) => message.role === "user");
-    const asked = all[at];
-    if (!to || !asked) return;
-    // What her broken answer had read goes back in with the words it was answering, so
-    // nothing is saved twice (turns are kept under their ids) and nothing is lost
-    const read = notesIn(all.slice(at + 1));
-    const carried = pending.current;
-    hold([]);
-    const name = crypto.randomUUID();
-    turn.current = name;
+    const last = all.at(-1);
+    if (!held.current || !last) return;
+    if (last.role === "assistant") {
+      // What the broken answer finished stays, so no tool it ran runs twice: she carries on
+      // after the last one, and the notes it had read past there go in again. Moved to
+      // another model, it is asked afresh: what a provider keeps on a finished part is its
+      // own, and another cannot read it back
+      const moved = sentOn.current !== JSON.stringify(runsOn() ?? null);
+      const through = moved
+        ? -1
+        : last.parts.findLastIndex(
+            (part) =>
+              isToolUIPart(part) &&
+              !part.providerExecuted &&
+              (part.state === "output-available" ||
+                part.state === "output-error"),
+          );
+      hold([
+        ...notesIn([{ ...last, parts: last.parts.slice(through + 1) }]),
+        ...pending.current,
+      ]);
+      setMessages(
+        through < 0
+          ? all.slice(0, -1)
+          : [
+              ...all.slice(0, -1),
+              { ...last, parts: last.parts.slice(0, through + 1) },
+            ],
+      );
+    }
     clearError();
-    void sendMessage(
-      {
-        messageId: asked.id,
-        parts: [...asked.parts, ...[...read, ...carried].map(notePart)],
-      },
-      {
-        body: {
-          callId: to.callId,
-          standing: to.standing,
-          runsOn: runsOn(),
-          turn: name,
-        },
-      },
-    );
-  }, [sendMessage, clearError, hold]);
+    send(null);
+  }, [send, setMessages, clearError, hold]);
 
   // The inbox, the same read the spoken call makes (one request between them)
   const { data: threads } = useServerRoute<Thread[]>(queryKey.threads);

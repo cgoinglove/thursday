@@ -38,6 +38,7 @@ import { FACE_WORD_MAX, undrawable } from "./ascii.const";
 import { callSignal, useCallHeld } from "./call-signal";
 import { finished, goodbye, greeting } from "./face-words";
 import { openWork, stoodBefore, toldWork } from "./open-work";
+import { screenActLine } from "./screen-act";
 import {
   endCallAction,
   openCallAction,
@@ -553,19 +554,11 @@ export function useThursday(
   const ring = useCallRing({ threads, resting: status === "idle", writing });
   const { answered, settle } = ring;
 
-  // The user acted on screen: she may have just read that question and must not ask again,
-  // and a file put down is one she can be asked about. Facts, never what to do with them
+  // The user acted on screen: context she need not say (screen-act)
   useEffect(
     () =>
       screenActs.subscribe((act) => {
-        if (!calling.current) return;
-        outbox.send(
-          act.kind === "answered"
-            ? `The user sent a message on screen to ${act.recipient ?? "the coordinator"} in thread "${act.label}" (${act.id})${act.replyTo ? `, replying to ${act.replyTo}` : ""}: ${act.answer}. It has reached that participant.`
-            : act.kind === "stopped"
-              ? `The user stopped thread "${act.label}" on screen. It is no longer running.`
-              : `The user put ${act.paths.length === 1 ? "a file" : `${act.paths.length} files`} down on screen, kept on this computer at ${act.paths.join(", ")}.`,
-        );
+        if (calling.current) outbox.send(screenActLine(act));
       }),
     [outbox],
   );
@@ -642,6 +635,9 @@ export function useThursday(
       calling.current = false;
       opening.current = false;
       if (call) void endCallAction(call);
+      // What she did not voice goes in again on the page's next call, as after a hang-up
+      for (const key of unvoiced.current) told.current.delete(key);
+      unvoiced.current.clear();
       working.current?.abort();
       working.current = null;
       // clear timers so nothing sets state on an unmounted tree

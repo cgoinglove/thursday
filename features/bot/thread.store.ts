@@ -307,7 +307,7 @@ export function lastSaid(thread: ThreadView): Chatter | null {
  * never relayed (bot.runner cancelThread marks it seen), and a file put down is nowhere
  * in the conversation until somebody says so.
  */
-type ScreenAct =
+export type ScreenAct =
   /** Answered a waiting thread, interjected into a running one, or continued a finished one. */
   | {
       kind: "answered";

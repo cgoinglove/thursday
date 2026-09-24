@@ -446,22 +446,29 @@ async function prepare({
     nextTurnSeq(callId),
   ]);
 
-  // What was just sent is a turn the moment it arrives, answered or not: words they wrote
-  // while she was answering the last turn, then these. A fact for a bot's update is no turn
-  // of its own, as on a spoken call: her answer to it is what is kept
-  const sent = ui.at(-1);
-  if (sent?.role !== "user") publicError("The last message is not yours.");
+  // What was just sent is a turn the moment it arrives, answered or not: each message of
+  // theirs since her last answer — a turn that broke leaves one nobody answered — with the
+  // words they wrote while she was answering before it. Kept under the ids the page drew them
+  // with, so what is sent again is the same row. A fact for a bot's update is no turn of its
+  // own, as on a spoken call: her answer to it is what is kept. An answer that broke comes
+  // back last when it is sent again, and she carries on from what it finished
+  const last = ui.at(-1)?.role;
+  if (last !== "user" && last !== "assistant")
+    publicError("The conversation must end with your words or hers.");
   let at = seq;
-  for (const note of notesIn(sent))
-    if (note.said)
+  const answered = ui.findLastIndex((message) => message.role === "assistant");
+  for (const sent of ui.slice(answered + 1)) {
+    for (const note of notesIn(sent))
+      if (note.said)
+        await saveTurns(callId, [
+          { id: note.id, role: "user", text: note.text, seq: at++ },
+        ]);
+    const words = wordsOf(sent);
+    if (words)
       await saveTurns(callId, [
-        { id: note.id, role: "user", text: note.text, seq: at++ },
+        { id: sent.id, role: "user", text: words, seq: at++ },
       ]);
-  const words = wordsOf(sent);
-  if (words)
-    await saveTurns(callId, [
-      { id: sent.id, role: "user", text: words, seq: at++ },
-    ]);
+  }
 
   return {
     ...run,

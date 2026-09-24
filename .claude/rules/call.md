@@ -3,7 +3,7 @@ checked: 2026-09-24
 paths:
   - "features/thursday/thursday.*.ts"
   - "features/thursday/use-*.ts"
-  - "features/thursday/{open-work,tool-call,call-signal}.ts"
+  - "features/thursday/{open-work,screen-act,tool-call,call-signal}.ts"
   - "hooks/use-wake-word.ts"
   - "features/reach/**"
   - "lib/live/**"

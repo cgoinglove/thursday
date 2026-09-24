@@ -104,7 +104,11 @@ const realModel = await import("../features/ai/model.ts");
 mock.module("../features/ai/model.ts", {
   namedExports: {
     ...realModel,
-    getTextModel: async (ref: unknown) => ({ ref, model, searchTools: null }),
+    getTextModel: async (ref: { model?: string }) => {
+      // A pick that cannot be run: refused before anything of the turn is kept
+      if (ref.model === "refused") throw new Error("No key for that model.");
+      return { ref, model, searchTools: null };
+    },
   },
 });
 const realLive = await import("../lib/live/live.server.ts");
@@ -372,6 +376,76 @@ test("a fact for a bot's update goes ahead of the words it waited with, is no tu
       ["user", "go ahead now"],
     ],
   );
+});
+
+test("an answer that broke carries on from the last tool it finished: nothing runs twice, and nothing is kept twice", async () => {
+  const { callId } = await openTextCall();
+  steps.push(
+    () => [
+      {
+        type: "tool-call",
+        toolCallId: "b-1",
+        toolName: TOOL_NAMES.thread_status,
+        input: JSON.stringify({ thread: "all" }),
+      },
+    ],
+    () => {
+      throw new Error("The plan's limit was reached.");
+    },
+  );
+  const asked = words("u-4", "is anything running?");
+  const chunks = await pageTurn({ callId, turn: "turn-5", messages: [asked] });
+  assert.ok(chunks.some((chunk) => chunk.type === "error"));
+  const broken = await answerOf(chunks);
+  // As Send it again leaves it: up to the last tool the answer finished
+  const through = broken.parts.findLastIndex(
+    (part) => part.type.startsWith("tool-") && "output" in part,
+  );
+  assert.ok(through >= 0);
+  const kept = { ...broken, parts: broken.parts.slice(0, through + 1) };
+
+  const from = prompts.length;
+  steps.push(() => [{ type: "text", text: "Nothing is running yet." }]);
+  await pageTurn({ callId, turn: "turn-6", messages: [asked, kept] });
+  // One step, on from what the tool answered: the tool is not asked again
+  assert.equal(prompts.length, from + 1);
+  assert.equal(
+    (JSON.parse(prompts[from]) as { role: string }[]).at(-1)?.role,
+    "tool",
+  );
+  assert.deepEqual(await rowsOf(callId), [
+    ["user", "is anything running?"],
+    ["tool", JSON.stringify({ thread: "all" }).slice(0, 20)],
+    ["assistant", "Nothing is running y"],
+  ]);
+});
+
+test("words a broken turn never kept are kept with the next turn, once", async () => {
+  const { callId } = await openTextCall();
+  const first = words("u-5", "what time is it in Lisbon?");
+  const refused = await streamTextCall(
+    {
+      callId,
+      turn: "turn-7",
+      runsOn: { provider: "openai", model: "refused" },
+      messages: [first],
+    },
+    new AbortController().signal,
+  );
+  assert.equal(refused.status, 500);
+  assert.deepEqual(await rowsOf(callId), []);
+
+  steps.push(() => [{ type: "text", text: "Both, then." }]);
+  await pageTurn({
+    callId,
+    turn: "turn-8",
+    messages: [first, words("u-6", "and in Seoul")],
+  });
+  assert.deepEqual(await rowsOf(callId), [
+    ["user", "what time is it in L"],
+    ["user", "and in Seoul"],
+    ["assistant", "Both, then."],
+  ]);
 });
 
 test("the last tab going closes the calls a tab held, never one the server holds for a phone", async () => {
