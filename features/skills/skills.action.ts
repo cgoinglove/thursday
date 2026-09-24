@@ -2,6 +2,7 @@
 
 import { unzipSync } from "fflate";
 import { z } from "zod";
+import { SKILL_FILES } from "@/config";
 import {
   deleteCustomSkill,
   parseFrontmatter,
@@ -32,8 +33,6 @@ export const createSkillAction = serverAction(async (draft: unknown) => {
   return skill;
 });
 
-const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
-
 /**
  * A lone `.md`, or a `.zip` / `.skill` archive containing a SKILL.md. The
  * folder holding SKILL.md becomes the skill root; the skill's folder is named
@@ -42,8 +41,10 @@ const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 export const uploadSkillAction = serverAction(async (upload: unknown) => {
   const { fileName, base64 } = SkillUploadSchema.parse(upload);
   const bytes = Buffer.from(base64, "base64");
-  if (bytes.byteLength > MAX_UPLOAD_BYTES) {
-    publicError("File is larger than 20 MB");
+  if (bytes.byteLength > SKILL_FILES.uploadBytes) {
+    publicError(
+      `File is larger than ${Math.round(SKILL_FILES.uploadBytes / 1024 / 1024)} MB`,
+    );
   }
 
   const lower = fileName.toLowerCase();

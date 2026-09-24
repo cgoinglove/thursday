@@ -471,6 +471,19 @@ export const SKILLS_FOLDED: Record<string, string> = {
 };
 
 /**
+ * Settings › Skills (features/skills).
+ * - `uploadBytes`  the largest `.md`, `.zip` or `.skill` it takes. Raising it lets a skill with
+ *                  bigger files in; the file crosses as base64, a third larger, in one server
+ *                  action under next.config's bodySizeLimit.
+ * - `inlineBytes`  the largest file it shows, and writes back, as text; one past it is listed
+ *                  as a file a bot still reads from disk.
+ */
+export const SKILL_FILES = {
+  uploadBytes: 20 * 1024 * 1024,
+  inlineBytes: 512 * 1024,
+};
+
+/**
  * A deck a bot makes with `make_deck` (ai/tools/deck.tool).
  * - `slides`  the most one deck holds. A change sends the whole deck again, so a longer one
  *   costs every change more to write; past this it is a document, not a talk.

@@ -62,9 +62,9 @@ import { cn, formatBytes } from "@/lib/utils";
 
 /** Marks for the skills that ship with the app; custom skills get the generic mark. */
 const SKILL_MARKS: Record<string, LucideIcon> = {
+  artifact: Frame,
   browser: Globe,
   computer: AppWindow,
-  design: Frame,
   "find-skills": Search,
   "interactive-page": MousePointer2,
   "skill-creator": SquarePen,
@@ -209,6 +209,7 @@ function SkillRow({ skill }: { skill: SkillSummary }) {
             variant="ghost"
             loading={removing}
             onClick={confirmRemove}
+            aria-label={`Delete ${skill.name}`}
             className="shrink-0 text-muted-foreground"
           >
             <Trash2 />
@@ -414,12 +415,18 @@ function DirList({
 /**
  * Front matter is not markdown (`---` would read as a setext heading underline) and it is
  * not for this reader either: it is what a model is shown. Only the description is worth a
- * line here — the name is already the dialog's title and the file's own first heading.
+ * line here, as the server read it from the YAML — the name is already the dialog's title
+ * and the file's own first heading.
  */
-function SkillMarkdown({ content }: { content: string }) {
+function SkillMarkdown({
+  content,
+  description,
+}: {
+  content: string;
+  description?: string;
+}) {
   const front = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/.exec(content);
-  const head = front?.[1].trim();
-  const said = head && /^description:[ \t]*(.+)$/m.exec(head)?.[1].trim();
+  const said = description?.trim();
   const body = front ? content.slice(front[0].length) : content;
 
   return (
@@ -533,7 +540,7 @@ function FileView({
           Not a text file — a bot can still read it from disk.
         </p>
       ) : name.toLowerCase().endsWith(".md") ? (
-        <SkillMarkdown content={data.content} />
+        <SkillMarkdown content={data.content} description={data.description} />
       ) : (
         <pre className="overflow-x-auto px-5 py-4 font-mono text-[13px] leading-relaxed whitespace-pre text-foreground/90">
           {data.content}

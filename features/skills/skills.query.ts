@@ -6,9 +6,9 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { join, relative, resolve, sep } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { parse, stringify } from "yaml";
-import { APP_DIR, DATA_DIR, PATHS } from "@/config";
+import { APP_DIR, DATA_DIR, PATHS, SKILL_FILES } from "@/config";
 import { readConfig, writeConfig } from "@/features/config/config.query";
 import type {
   SkillEntry,
@@ -34,9 +34,6 @@ const ROOTS: Record<SkillSource, string> = {
 };
 
 const HIDDEN = new Set([".DS_Store", "__MACOSX"]);
-
-/** Above this a file is an asset, not shown inline. */
-const MAX_INLINE_BYTES = 512 * 1024;
 
 /** Resolves a skill folder under its root; `..`, absolute paths and anything outside are refused alike. */
 function skillDir(source: SkillSource, dir: string) {
@@ -69,9 +66,8 @@ export function skillFolderName(name: string) {
 function insideSkill(base: string, path: string) {
   const full = resolve(base, path);
   const rel = relative(base, full);
-  if (rel.startsWith("..") || resolve(full) !== full) {
-    publicError("File not found");
-  }
+  // Another drive on Windows comes back absolute
+  if (rel.startsWith("..") || isAbsolute(rel)) publicError("File not found");
   return full;
 }
 
@@ -230,6 +226,15 @@ export async function findAllSkills(): Promise<SkillSummary[]> {
   return out;
 }
 
+/** A SKILL.md's description as its YAML says it; none when the head does not parse. */
+function describedAs(content: string) {
+  try {
+    return parseFrontmatter(content).description;
+  } catch {
+    return undefined;
+  }
+}
+
 /** The folder listing or file text at `path` inside a skill. */
 export async function readSkillNode(
   source: SkillSource,
@@ -267,16 +272,20 @@ export async function readSkillNode(
     return { kind: "dir", entries: rows };
   }
 
-  if (info.size > MAX_INLINE_BYTES) {
+  if (info.size > SKILL_FILES.inlineBytes) {
     return { kind: "file", content: null, size: info.size };
   }
   const bytes = await readFile(full);
   // A NUL byte in the first 1KB marks binary
   const binary = bytes.subarray(0, 1024).includes(0);
+  const content = binary ? null : bytes.toString("utf-8");
   return {
     kind: "file",
-    content: binary ? null : bytes.toString("utf-8"),
+    content,
     size: info.size,
+    ...(content !== null && full === join(base, "SKILL.md")
+      ? { description: describedAs(content) }
+      : {}),
   };
 }
 
@@ -333,7 +342,7 @@ export async function writeSkillFile(
   const full = insideSkill(base, path);
   const info = await stat(full).catch(() => null);
   if (!info?.isFile()) publicError("File not found");
-  if (Buffer.byteLength(content) > MAX_INLINE_BYTES) {
+  if (Buffer.byteLength(content) > SKILL_FILES.inlineBytes) {
     publicError("That is larger than this screen can write back");
   }
   // SKILL.md is what the list and every prompt read: a head that no longer

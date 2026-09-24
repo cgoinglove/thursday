@@ -91,10 +91,18 @@ export type SkillEntry = {
   size?: number;
 };
 
-/** A path inside a skill: a folder listing or a file's text. Binary files come back with `content: null`. */
+/**
+ * A path inside a skill: a folder listing or a file's text. Binary files come back with
+ * `content: null`; the skill's own SKILL.md with its description, read from its head.
+ */
 export type SkillNode =
   | { kind: "dir"; entries: SkillEntry[] }
-  | { kind: "file"; content: string | null; size: number };
+  | {
+      kind: "file";
+      content: string | null;
+      size: number;
+      description?: string;
+    };
 
 /** Server action args travel as JSON, so file bytes go as base64. */
 export const SkillUploadSchema = z.object({
