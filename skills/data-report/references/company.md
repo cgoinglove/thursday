@@ -6,12 +6,14 @@ How a company is doing, or how its latest results went, in the terms investors a
 
 - The latest quarter and the same quarter a year earlier: revenue, operating income, net income,
   margin; the full-year figures for context. From the company's own filing or results release —
-  a US filer through `fetch.mjs sec`, a Korean one from its DART filing or IR page.
+  a US filer through `fetch.mjs sec`, one listed elsewhere from its regulator's filing system or
+  its IR page.
 - What management said it expects next (guidance), in their words, with the date.
 - Consensus estimates, only from a page that shows them, with that page's name and date; the
   beat or miss is actual against that.
-- The share price reaction: `fetch.mjs yahoo`, the close before the release against the close
-  after, and against the market index over the same days.
+- The share price reaction: the close before the release against the close after, from the
+  exchange's page or a quote site's historical prices (`sources.md`), and against the market index
+  over the same days (`fetch.mjs fred` for one FRED carries).
 - Valuation when asked: price ÷ earnings per share over the last four quarters, with both inputs.
 
 ## Final text

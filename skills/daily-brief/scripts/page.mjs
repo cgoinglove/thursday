@@ -258,6 +258,7 @@ ${source(s)}
     title: s.title,
     headline: s.headline,
     url: s.url,
+    links: s.links ?? [],
   }));
 
   const html = `<!doctype html>

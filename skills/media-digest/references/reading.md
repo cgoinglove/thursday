@@ -36,7 +36,9 @@ last twenty minutes.
 
 1. `yt.mjs search` with the topic as people title videos, `--within` for "recent", and
    `--length long` for talks and podcasts; a second search in another wording or language
-   when the first is thin. Rows show views a day, which says more than views for new videos.
+   when the first is thin. The filters narrow what a search by relevance found, so for what
+   is new put the year or the event in the words too. Rows show views a day, which says more
+   than views for new videos.
 2. Pick the three to five that look best from the rows, then
    `yt.mjs transcript <id> <id> <id> --out <scratch>` in one call, and read the first part of
    each (`part.mjs <file> 1`, one call each, sent together) to judge: is it about the topic, does it say something, who is

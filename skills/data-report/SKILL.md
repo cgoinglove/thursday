@@ -32,7 +32,7 @@ S=<this skill's folder>/scripts
 # A series into CSV, with its source written into the file. It prints the rows' shape and both ends.
 node $S/fetch.mjs fred DGS10,MORTGAGE30US --from 2020 \
   --label "10-year Treasury,30-year mortgage" --out <scratch>/rates.csv
-node $S/fetch.mjs yahoo 005930.KS,^KS11 --from 2025-01 --interval 1wk --label Samsung,KOSPI --out <scratch>/px.csv
+node $S/fetch.mjs fred SP500,NASDAQCOM --from 2025-01 --label "S&P 500,Nasdaq" --out <scratch>/px.csv
 ```
 
 A `--label` names the columns in the order you asked for them, so give one for every column or
@@ -54,15 +54,16 @@ scripts ship with the app:
 node "$THURSDAY_SKILLS/artifact/scripts/document.mjs" put <page> <scratch>/<page>.md
 C="$THURSDAY_SKILLS/interactive-page/scripts/chart.mjs"
 node $C "$THURSDAY_ARTIFACTS/<page>.html" rates <scratch>/rates.csv \
-  --title "Mortgage rates followed the 10-year down" --unit "%" --mark "2024-09=First Fed cut" --locale ko
+  --title "Mortgage rates followed the 10-year down" --unit "%" --mark "2024-09=First Fed cut"
 node $C "$THURSDAY_ARTIFACTS/<page>.html" px <scratch>/px.csv --index --title "…"
 ```
 
 Each figure carries its source link, the fetch date and the rows behind it with a CSV download, so
 the page needs no separate data section. A line for dates, bars for categories (largest first,
 `--highlight` the one that matters, named exactly as the row is); `--index` when series in different
-units are compared; `--mark` for each dated event the text explains, inside the range drawn. Run it
-again to replace a figure, and after every later put. `node $C` with no arguments lists every
+units are compared; `--mark` for each dated event the text explains, inside the range drawn;
+`--locale` with the reader's language tag (`de`, `ja`, `pt-BR`) writes numbers and dates their way.
+Run it again to replace a figure, and after every later put. `node $C` with no arguments lists every
 option.
 
 A table a form asks for — the comparison matrix, a results table, the driver rows — is a Markdown

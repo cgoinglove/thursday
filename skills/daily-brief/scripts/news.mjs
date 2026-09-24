@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
  * Candidates for a brief: every topic searched on Google News (and any publisher feeds),
- * kept to the freshness window, the same story from several outlets folded into one line,
- * and anything already in a recent brief dropped. Writes them all to --out and prints the
- * best few a topic, one line each, for choosing.
+ * kept to the freshness window, copies of one story under one title folded into one line,
+ * and the very articles a recent brief carried left out. Writes them all to --out and
+ * prints the first few a topic in the source's own order, one line each, then what the
+ * recent briefs told, for choosing: which stories are the same news is the reader's call.
  *
  *   node news.mjs "<label>=<query>"... --out cand.json [--lang en] [--country US]
  *     [--hours 30] [--per 8] [--feed "<label>=<rss url>"]... [--avoid a.com,b.com] [--prefer c.com]
@@ -19,7 +20,6 @@ import { join, resolve } from "node:path";
 import {
   ago,
   artifactsDir,
-  CLOSED,
   decode,
   get,
   host,
@@ -35,35 +35,17 @@ import {
 const USAGE =
   'usage: node news.mjs "<label>=<query>"... --out cand.json [--lang en] [--country US] [--hours 30] [--per 8] [--feed "<label>=<rss url>"]... [--avoid a.com] [--prefer b.com]';
 
-// Two titles this alike are one story told twice (Dice over character pairs)
-const SAME_STORY = 0.6;
 // Briefs this recent are what "already told" means
 const SEEN_DAYS = 4;
 // Stories a topic keeps in the file: the ones printed and the next few, for spares
 const KEEP = 15;
 
-const words = (text) =>
-  text
+/** A title as its copies share it — a wire story run by many outlets — whatever its case and marks. */
+const sameTitle = (title = "") =>
+  title
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim()
-    .split(" ")
-    .filter(Boolean);
-/** A title's character pairs, less the words every result shares because they were searched for. */
-const pairs = (title, searched = new Set()) => {
-  const s = words(title)
-    .filter((w) => !searched.has(w))
-    .join(" ");
-  const out = new Set();
-  for (let i = 0; i < s.length - 1; i++) out.add(s.slice(i, i + 2));
-  return out;
-};
-const alike = (a, b) => {
-  if (!a.size || !b.size) return 0;
-  let both = 0;
-  for (const p of a) if (b.has(p)) both++;
-  return (2 * both) / (a.size + b.size);
-};
+    .trim();
 
 /** Items of an RSS or Atom feed, as { title, link, published, source, sourceUrl, summary }. */
 function readFeed(xml, fallbackSource) {
@@ -118,11 +100,11 @@ function today() {
 }
 
 /**
- * Titles already told in the bot's recent briefs, read off the pages themselves. Today's
- * own brief is not one of them: a second run the same day remakes it, over the same news,
- * and `page.mjs` writes it to the same file.
+ * What the bot's recent briefs told, read off the pages themselves. Today's own brief is
+ * not one of them: a second run the same day remakes it, over the same news, and
+ * `page.mjs` writes it to the same file.
  */
-function seenTitles() {
+function toldLately() {
   const dir = artifactsDir();
   if (!existsSync(dir)) return [];
   const since = Date.now() - SEEN_DAYS * 86_400_000;
@@ -194,16 +176,11 @@ run(async () => {
       `No source answered: ${broken.map((s) => `${s.label} ${s.error}`).join("; ")}`,
     );
 
-  const searched = new Set(
-    sources
-      .filter((s) => !s.feed)
-      .flatMap((s) => words(s.query))
-      .filter((w) => w !== "or"),
-  );
-  const told = seenTitles().map((t) => ({
-    ...t,
-    pairs: pairs(t.title, searched),
-  }));
+  // The very article, by its link or its title; the same news told again in another is
+  // left for the reader of the list, who has the briefs' headlines under it
+  const told = toldLately();
+  const toldLinks = new Set(told.flatMap((t) => t.links ?? []));
+  const toldTitles = new Set(told.map((t) => sameTitle(t.title)));
   const kept = [];
   let old = 0;
   let avoided = 0;
@@ -211,7 +188,7 @@ run(async () => {
   const topics = fetched.map((s, t) => {
     const letter = String.fromCharCode(97 + (t % 26));
     const stories = [];
-    for (const [rank, item] of (s.items ?? []).entries()) {
+    for (const item of s.items ?? []) {
       const published = safeIso(item.published);
       if (!item.title || !item.link) continue;
       if (published && now - Date.parse(published) > hours * 3_600_000) {
@@ -222,38 +199,25 @@ run(async () => {
         avoided++;
         continue;
       }
-      const p = pairs(item.title, searched);
-      if (told.some((x) => alike(p, x.pairs) >= SAME_STORY)) {
+      const key = sameTitle(item.title);
+      if (toldLinks.has(item.link) || toldTitles.has(key)) {
         repeat++;
         continue;
       }
       const outlet = { ...item, published };
-      // The same story under another topic or from another outlet joins the first telling
-      const same = kept.find((k) => alike(p, k.pairs) >= SAME_STORY);
+      // Another outlet's copy, under this topic or another, joins the first telling
+      const same = kept.find((k) => k.key === key);
       if (same) {
         same.outlets.push(outlet);
         if (same.topic !== s.label && !same.alsoIn.includes(s.label))
           same.alsoIn.push(s.label);
         continue;
       }
-      const story = {
-        topic: s.label,
-        rank,
-        pairs: p,
-        outlets: [outlet],
-        alsoIn: [],
-      };
+      const story = { topic: s.label, key, outlets: [outlet], alsoIn: [] };
       kept.push(story);
       stories.push(story);
     }
-    // Google's order is relevance; more outlets and a preferred one lift a story, and one
-    // nobody can read sinks to the bottom
-    const score = (x) =>
-      x.rank -
-      3 * (x.outlets.length - 1) -
-      (x.outlets.some((o) => onDomain(o.sourceUrl, prefer)) ? 6 : 0) +
-      (x.outlets.every((o) => onDomain(o.sourceUrl, CLOSED)) ? 100 : 0);
-    stories.sort((a, b) => score(a) - score(b));
+    // In the source's own order: Google's is its relevance, a feed's is its newest first
     stories.forEach((x, i) => {
       x.id = `${letter}${i + 1}`;
     });
@@ -268,11 +232,10 @@ run(async () => {
 
   const out = resolve(String(opts.out));
   const shape = (x) => {
-    // A preferred outlet leads, a closed one comes last; otherwise the first to carry it
-    const rank = (o) =>
-      onDomain(o.sourceUrl, prefer) ? 0 : onDomain(o.sourceUrl, CLOSED) ? 2 : 1;
+    // An outlet the user prefers leads; otherwise the first to carry it
+    const preferred = (o) => onDomain(o.sourceUrl, prefer);
     const outlets = [...x.outlets]
-      .sort((a, b) => rank(a) - rank(b))
+      .sort((a, b) => Number(preferred(b)) - Number(preferred(a)))
       .slice(0, 4);
     return {
       id: x.id,
@@ -287,7 +250,7 @@ run(async () => {
           .sort()
           .at(-1) ?? null,
       summary: outlets.find((o) => o.summary)?.summary ?? "",
-      closed: outlets.every((o) => onDomain(o.sourceUrl, CLOSED)),
+      preferred: preferred(outlets[0]),
       count: x.outlets.length,
       outlets: outlets.map(({ title, link, source, sourceUrl, published }) => ({
         title,
@@ -319,15 +282,24 @@ run(async () => {
     );
     for (const x of shown.map(shape)) {
       const more = x.count > 1 ? ` +${x.count - 1}` : "";
-      const closed = x.closed ? " [closed: cannot be read]" : "";
+      const liked = x.preferred ? " [preferred]" : "";
       const also = x.alsoIn.length ? ` (also ${x.alsoIn.join(", ")})` : "";
       console.log(
-        `${x.id}  ${x.published ? ago(x.published, now) : "?"}  ${x.source}${more}${closed}${also}  ${x.title.slice(0, 130)}`,
+        `${x.id}  ${x.published ? ago(x.published, now) : "?"}  ${x.source}${more}${liked}${also}  ${x.title.slice(0, 130)}`,
       );
       if (x.summary) console.log(`     ${x.summary.slice(0, 160)}`);
     }
   }
+  if (told.length) {
+    console.log(
+      `\n## Told in the last ${SEEN_DAYS} days — the same news in another article is only worth a place if it moved on`,
+    );
+    for (const t of told)
+      console.log(
+        `${t.brief.slice(6, 16)}  ${(t.headline || t.title || "").slice(0, 110)}`,
+      );
+  }
   console.log(
-    `\n${out}: ${kept.length} stories, the best ${KEEP} a topic kept. Left out: ${old} older than ${hours}h, ${avoided} from avoided sites, ${repeat} already in a brief of the last ${SEEN_DAYS} days — today's own brief does not count, so running this again today offers the same stories again.`,
+    `\n${out}: ${kept.length} stories, the first ${KEEP} a topic kept. Left out: ${old} older than ${hours}h, ${avoided} from avoided sites, ${repeat} a brief of the last ${SEEN_DAYS} days already carried — today's own brief does not count, so running this again today offers the same stories again.`,
   );
 });

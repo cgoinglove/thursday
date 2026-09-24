@@ -16,7 +16,7 @@ S=<this skill's folder>/scripts
 node $S/news.mjs "AI=AI OR OpenAI OR Anthropic" "Startups=startup funding" \
   --lang en --country US --hours 30 --out <scratch>/cand.json [--avoid a.com] [--prefer b.com]
 node $S/glance.mjs --weather "<their city>" \
-  --markets "S&P 500:^GSPC,EUR/USD:EURUSD=X,BTC-USD" --out <scratch>/glance.json
+  --markets "S&P 500:SP500,EUR/USD,Bitcoin:CBBTCUSD" --out <scratch>/glance.json
 # Read, one call: the stories you chose, from their publishers, photos saved
 node $S/story.mjs <scratch>/cand.json a1 a4 b2 c1 c3 --out <scratch>/stories
 # Their words, one call a file: story.mjs prints the `cat` line for each
@@ -34,10 +34,11 @@ node $S/page.mjs <scratch>/brief.json --look <scratch>/look
   writes it into `text-<n>.md` files that each fit one read, and prints the `cat` line for each.
   Those files are the only source for a summary. Choose by reading the list yourself — never with a
   script that scores it.
-- **A story `news.mjs` did not print is not in the brief**, and one already in a brief of the last
-  four days is left out before you see it. One marked `[closed: cannot be read]` is from a publisher
-  that refuses to be read: pick another outlet's story on the same news. A story `story.mjs` prints
-  as `NO TEXT` was refused too: drop it for one of your spares; with `NO PICTURE`, keep it or swap it.
+- **A story `news.mjs` did not print is not in the brief.** The very article a brief of the last
+  four days carried is left out before you see it; the same news in another article is yours to
+  judge, against the headlines those briefs told, printed under the list. A story `story.mjs` prints
+  as `NO TEXT` was refused by its publisher: drop it for one of your spares; with `NO PICTURE`, keep
+  it or swap it.
 - **A brief is remade, not added to.** Run the whole thing again the same day and today's own page
   does not count as already told, so the same stories come up again and `page.mjs` writes over it.
 - **The browser opens itself where a step needs it.** A Google News link does not hold the

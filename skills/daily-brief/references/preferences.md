@@ -18,10 +18,10 @@ en, US (page in English)
 Lead and 5
 
 ## Glance
-Weather: Lisbon. Markets: S&P 500:^GSPC, Nasdaq:^IXIC, EUR/USD:EURUSD=X
+Weather: Lisbon. Markets: S&P 500:SP500, Nasdaq:NASDAQCOM, EUR/USD
 
 ## Sources
-Prefer: techcrunch.com, reuters.com
+Prefer: techcrunch.com, apnews.com
 Avoid: coindesk.com
 
 ## Audio
@@ -31,7 +31,7 @@ No
 07:30 every day (a routine the user set up with Thursday)
 
 ## Feedback
-- 2026-09-21: "less crypto" — dropped crypto from AI, BTC-USD from the glance.
+- 2026-09-21: "less crypto" — dropped crypto from AI, Bitcoin from the glance.
 ```
 
 - **Topics are queries.** When the user says "less crypto", "more about chips" or "not so
@@ -41,6 +41,8 @@ No
 - **A source they complain about goes under Avoid**, one they praise under Prefer; both are
   domains, passed as `--avoid` and `--prefer`.
 - Fix what proved wrong rather than add beside it. The file stays one screen long.
+- **Markets written as Yahoo symbols** (`^GSPC`, `EURUSD=X`, `BTC-USD`) are from an older glance:
+  `glance.mjs` names what each one is now; write those into the file before the next brief.
 
 ## The first brief
 

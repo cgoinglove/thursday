@@ -10,7 +10,7 @@ lines; the text itself goes to a file. Chain them with `&&` in one bash call.
 
 ```bash
 S=<this skill's dir>/scripts
-node $S/yt.mjs transcript <url|id>... --out <scratch> [--lang ko]   # <id>.txt + <id>.json per video
+node $S/yt.mjs transcript <url|id>... --out <scratch> [--lang de]   # <id>.txt + <id>.json per video
 node $S/yt.mjs search "<query>" [--within hour|day|week|month|year] [--length short|medium|long] [--sort relevance|views|date] [--max 20] --out <scratch>/rows.json
 node $S/text.mjs <article url | pdf url | file.pdf> --out <scratch>/<name>.txt
 node $S/part.mjs <file> <n>                                         # part n of a long file, one read

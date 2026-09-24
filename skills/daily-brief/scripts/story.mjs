@@ -46,11 +46,13 @@ const oneLine = (text, max) => {
 
 // A kit script reaches the shipped skills through the folder a bot's shell names
 const SKILLS = process.env.THURSDAY_SKILLS;
-const shipped = (path) => pathToFileURL(join(SKILLS ?? ".", path)).href;
-
-const { imageSize } = await import(
-  shipped("browser/scripts/image-size.mjs")
-).catch(() => ({ imageSize: () => null }));
+const shipped = (path) => {
+  if (!SKILLS)
+    throw new Stop(
+      "THURSDAY_SKILLS is not set, so the browser skill cannot be found: run this from a bot's shell in the app.",
+    );
+  return import(pathToFileURL(join(SKILLS, path)).href);
+};
 
 const isGoogle = (url) => /^https?:\/\/news\.google\.com\//i.test(url);
 
@@ -62,11 +64,7 @@ const isGoogle = (url) => /^https?:\/\/news\.google\.com\//i.test(url);
  * `{ url } | { error }` per link.
  */
 async function resolveGoogle(links) {
-  if (!SKILLS)
-    throw new Stop(
-      "THURSDAY_SKILLS is not set, so the browser skill cannot be found: run this from a bot's shell in the app.",
-    );
-  const { inPage } = await import(shipped("browser/scripts/session.mjs"));
+  const { inPage } = await shipped("browser/scripts/session.mjs");
   const found = await inPage(
     async (page, { links }) => {
       const stillGoogle = (url) =>
@@ -80,12 +78,14 @@ async function resolveGoogle(links) {
               waitUntil: "domcontentloaded",
               timeout: 30000,
             });
-            let url = tab.url();
-            // The page navigates to the publisher on its own; 15s is a slow phone's worth
-            for (let i = 0; i < 30 && stillGoogle(url); i++) {
-              await tab.waitForTimeout(500);
-              url = tab.url();
-            }
+            // The page moves on to the publisher by itself; 15s is a slow phone's worth
+            await tab
+              .waitForURL((at) => !stillGoogle(at.href), {
+                waitUntil: "commit",
+                timeout: 15000,
+              })
+              .catch(() => {});
+            const url = tab.url();
             out[link] = stillGoogle(url)
               ? { error: "Google News stayed on its own page" }
               : { url };
@@ -114,9 +114,8 @@ function leadOf(html) {
   let size = 0;
   for (const m of body.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)) {
     const text = plain(m[1]);
-    // Bylines, captions and cookie lines are short; a paragraph of the story is not
-    if (text.length < 60 || /cookie|subscribe|newsletter|©/i.test(text))
-      continue;
+    // Bylines, captions and buttons are short; a paragraph of the story is not
+    if (text.length < 60) continue;
     paras.push(text);
     size += text.length;
     if (size > LEAD_CHARS) break;
@@ -139,7 +138,7 @@ const EXT = {
   "image/avif": "avif",
 };
 
-async function savePicture(src, referer, file) {
+async function savePicture(src, referer, file, imageSize) {
   const res = await get(src, { headers: { referer, accept: "image/*" } });
   if (!res.ok) return null;
   const type = (res.headers.get("content-type") ?? "").split(";")[0];
@@ -152,7 +151,7 @@ async function savePicture(src, referer, file) {
 }
 
 /** One outlet's page, at the address its link resolved to; `refused` sends the next outlet. */
-async function readOutlet(url, outlet, story, out) {
+async function readOutlet(url, outlet, story, out, imageSize) {
   const res = await get(url);
   if (!res.ok)
     return { refused: `${host(url)} answered ${res.status || res.error}` };
@@ -172,7 +171,7 @@ async function readOutlet(url, outlet, story, out) {
   const site = meta(html, "og:site_name") ?? outlet.source ?? host(pageUrl);
   const title = meta(html, "og:title") ?? outlet.title;
   const image = src
-    ? await savePicture(src, pageUrl, join(out, story.id))
+    ? await savePicture(src, pageUrl, join(out, story.id), imageSize)
     : null;
   return {
     url: meta(html, "og:url")?.startsWith("http")
@@ -237,6 +236,7 @@ run(async () => {
     );
   const out = resolve(String(opts.out));
   mkdirSync(out, { recursive: true });
+  const { imageSize } = await shipped("browser/scripts/image-size.mjs");
 
   const reading = ids.map((id) => ({
     story: all.find((s) => s.id === id),
@@ -269,7 +269,7 @@ run(async () => {
       if (isGoogle(outlet.link)) followed++;
       let got;
       try {
-        got = await readOutlet(at.url, outlet, r.story, out);
+        got = await readOutlet(at.url, outlet, r.story, out, imageSize);
       } catch (error) {
         got = { refused: `${outlet.source}: ${error.message}` };
       }
@@ -296,6 +296,8 @@ run(async () => {
     url: text?.url ?? story.outlets[0].link,
     published: text?.published ?? story.published,
     outlets: story.count ?? story.outlets.length,
+    // How news.mjs knows this very article again tomorrow (page.mjs keeps them)
+    links: story.outlets.map((o) => o.link),
     description: text?.description ?? "",
     lead: text?.lead ?? "",
     image,

@@ -1,11 +1,11 @@
-// What the brief's scripts share: arguments, fetching like a browser, reading HTML
+// What the brief's scripts share: arguments, fetching, reading HTML
 // and feeds without a parser, and where the bot's finished work goes.
 import { existsSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 
-// A browser's own words: several publishers answer a bare client with 403
-const UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36";
+// Says what it is: a publisher that turns a script away has said no, and the brief takes
+// another outlet rather than pass for a browser
+const UA = "thursday-agent daily-brief";
 
 export class Stop extends Error {}
 
@@ -50,7 +50,7 @@ export const list = (value) =>
     .map((v) => v.trim())
     .filter(Boolean);
 
-/** GET with a browser's headers and a deadline; resolves to the response, never throws. */
+/** GET with a deadline; resolves to the response, never throws. */
 export async function get(url, { timeout = 15000, lang, headers } = {}) {
   try {
     return await fetch(url, {
@@ -119,20 +119,6 @@ export const host = (url) =>
     .split(/[/?#]/)[0]
     .replace(/^www\./, "")
     .toLowerCase();
-
-/**
- * Publishers that answer a script (and a headless browser) with 401 or 403, measured: their
- * stories can be listed but not read, so another outlet's telling goes first.
- */
-export const CLOSED = [
-  "reuters.com",
-  "nytimes.com",
-  "wsj.com",
-  "bloomberg.com",
-  "ft.com",
-  "theinformation.com",
-  "economist.com",
-];
 
 /** Whether a url's host is one of `domains` or under one. */
 export const onDomain = (url, domains) =>

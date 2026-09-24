@@ -1,18 +1,25 @@
 #!/usr/bin/env node
 /**
- * What a brief shows at a glance, fetched rather than typed: the day's weather for a
- * place (Open-Meteo) and the last price and daily move of markets, currencies and coins
- * (Yahoo Finance). No key for either. Writes --out for page.mjs and prints one line each.
+ * What a brief shows at a glance, fetched rather than typed: the day's weather for a place
+ * (Open-Meteo), the last close and daily move of markets (FRED's published series: indices,
+ * coins, rates, oil) and currency pairs (the ECB's reference rates, through frankfurter.dev).
+ * No key for any. Writes --out for page.mjs and prints one line each.
  *
- *   node glance.mjs --out glance.json [--weather "<place>"] [--markets "<label>:<symbol>,…"]
+ *   node glance.mjs --out glance.json [--weather "<place>"] [--markets "<label>:<id>,…"]
  *     [--lang en] [--units c|f]
+ *
+ * A market is a FRED series id (SP500, NASDAQCOM, DJIA, NIKKEI225, CBBTCUSD, DGS10) or a
+ * pair of currency codes (EUR/USD); "<label>:" before it names it on the page.
  */
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { get, list, parseArgs, run, Stop } from "./lib.mjs";
 
 const USAGE =
-  'usage: node glance.mjs --out glance.json [--weather "Lisbon"] [--markets "S&P 500:^GSPC,EUR/USD:EURUSD=X,BTC-USD"] [--lang en] [--units c|f]';
+  'usage: node glance.mjs --out glance.json [--weather "Lisbon"] [--markets "S&P 500:SP500,EUR/USD,Bitcoin:CBBTCUSD"] [--lang en] [--units c|f]';
+
+// Days asked for, so a weekend and a holiday still leave two closes to compare
+const LOOKBACK_DAYS = 14;
 
 // WMO weather codes, folded into the few a picture tells apart
 const SKY = [
@@ -27,14 +34,8 @@ const SKY = [
 const skyOf = (code) =>
   SKY.find(([codes]) => codes.includes(code))?.[1] ?? "cloudy";
 
-// Yahoo answers a browser's user agent without its cookies with 429; an honest one passes
-const HEADERS = {
-  accept: "application/json",
-  "user-agent": "thursday-agent daily-brief",
-};
-
 async function json(url) {
-  const res = await get(url, { headers: HEADERS });
+  const res = await get(url, { headers: { accept: "application/json" } });
   if (!res.ok)
     throw new Error(`${url.split("?")[0]} answered ${res.status || res.error}`);
   return res.json();
@@ -67,44 +68,83 @@ async function weather(place, lang, units) {
   };
 }
 
-/**
- * A market's last price and daily move. The chart address is the one finance.yahoo.com
- * draws its own pages from, not a published API: it takes no key, and it can rate-limit,
- * change shape or go away without notice. Yahoo's own word for a symbol it does not know
- * comes back in `chart.error`, which is why the body is read whatever the status is.
- */
+const daysAgo = (n) =>
+  new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+
+/** The last two closes of a series, oldest first, as [date, value] pairs. */
+const lastTwo = (rows) => {
+  const two = rows.filter(([, v]) => Number.isFinite(v)).slice(-2);
+  if (two.length < 2) throw new Error("fewer than two closes in two weeks");
+  return two;
+};
+
+/** A pair's last two ECB reference rates: units of the quote for one of the base. */
+async function pair(base, quote) {
+  const data = await json(
+    `https://api.frankfurter.dev/v1/${daysAgo(LOOKBACK_DAYS)}..?base=${base}&symbols=${quote}`,
+  );
+  return {
+    rows: lastTwo(
+      Object.entries(data.rates ?? {}).map(([date, r]) => [date, r[quote]]),
+    ),
+    currency: quote,
+    source: "ECB via frankfurter.dev",
+  };
+}
+
+/** A FRED series' last two observations, from the CSV its own page offers for download. */
+async function fred(id) {
+  const res = await get(
+    `https://fred.stlouisfed.org/graph/fredgraph.csv?id=${encodeURIComponent(id)}&cosd=${daysAgo(LOOKBACK_DAYS)}`,
+  );
+  const text = res.ok ? await res.text() : "";
+  if (!text.startsWith("observation_date"))
+    throw new Error(
+      res.status === 404
+        ? `FRED has no series "${id}": find its id on fred.stlouisfed.org`
+        : `FRED answered ${res.status || res.error}`,
+    );
+  return {
+    rows: lastTwo(
+      text
+        .trim()
+        .split("\n")
+        .slice(1)
+        .map((line) => line.split(","))
+        .map(([date, v]) => [date, v === "." || !v ? Number.NaN : Number(v)]),
+    ),
+    currency: "",
+    source: "FRED",
+  };
+}
+
+// A market as the glance took it before: a Yahoo symbol, said plainly rather than looked up
+const NOT_AN_ID =
+  "is not a FRED series id or a currency pair. The glance reads FRED and the ECB, not Yahoo: ^GSPC is SP500, ^IXIC NASDAQCOM, ^DJI DJIA, ^N225 NIKKEI225, BTC-USD CBBTCUSD, ETH-USD CBETHUSD, ^TNX DGS10, EURUSD=X EUR/USD. An index FRED does not carry, or one company's shares, has no place in the glance";
+
+/** A market's last close and its move on the one before. */
 async function market(spec) {
   const at = spec.indexOf(":");
-  const [label, symbol] =
-    at > 0 ? [spec.slice(0, at), spec.slice(at + 1)] : [null, spec];
-  const res = await get(
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d`,
-    { headers: HEADERS },
-  );
-  const body = res.json ? await res.json().catch(() => null) : null;
-  const said = body?.chart?.error;
-  if (said)
-    throw new Error(
-      `Yahoo Finance answers "${said.description ?? said.code}" for ${symbol}: look the symbol up on finance.yahoo.com`,
-    );
-  const r = body?.chart?.result?.[0];
-  if (!r)
-    throw new Error(
-      `no numbers for ${symbol}: Yahoo's chart endpoint answered ${res.status || res.error} and it is the site's own, not a published API — it rate-limits and changes without notice. Leave the markets out today, or take them from somewhere else`,
-    );
-  const closes = (r.indicators?.quote?.[0]?.close ?? []).filter(
-    (c) => c != null,
-  );
-  const price = r.meta.regularMarketPrice ?? closes.at(-1);
-  const prev = closes.length > 1 ? closes.at(-2) : r.meta.chartPreviousClose;
+  const [label, id] =
+    at > 0
+      ? [spec.slice(0, at).trim(), spec.slice(at + 1).trim()]
+      : [null, spec];
+  const currencies = id.toUpperCase().match(/^([A-Z]{3})\/([A-Z]{3})$/);
+  if (!currencies && !/^[A-Za-z0-9_]+$/.test(id))
+    throw new Error(`"${id}" ${NOT_AN_ID}`);
+  const got = currencies
+    ? await pair(currencies[1], currencies[2])
+    : await fred(id.toUpperCase());
+  const [[, prev], [date, price]] = got.rows;
   return {
-    label: label ?? r.meta.shortName ?? symbol,
-    symbol,
+    label: label ?? id,
+    symbol: id,
     price,
     change: price - prev,
     pct: ((price - prev) / prev) * 100,
-    currency: r.meta.currency ?? "",
-    at: new Date(r.meta.regularMarketTime * 1000).toISOString(),
+    currency: got.currency,
+    at: date,
+    source: got.source,
   };
 }
 
@@ -134,7 +174,7 @@ run(async () => {
     );
   for (const m of glance.markets)
     console.log(
-      `${m.label} (${m.symbol}): ${m.price.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${m.currency}, ${m.pct >= 0 ? "+" : ""}${m.pct.toFixed(2)}% on the day before, as of ${m.at.slice(0, 16)}Z`,
+      `${m.label} (${m.symbol}): ${m.price.toLocaleString("en-US", { maximumFractionDigits: 4 })}${m.currency ? ` ${m.currency}` : ""}, ${m.pct >= 0 ? "+" : ""}${m.pct.toFixed(2)}% on the close before, as of the close on ${m.at} (${m.source})`,
     );
   for (const f of failed) console.log(`Not fetched — ${f}`);
   console.log(out);

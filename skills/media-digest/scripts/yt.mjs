@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 // YouTube through yt-dlp: a video's transcript with timestamps and what it is, and search.
 //
-//   node yt.mjs transcript <url|id>... --out <dir> [--lang ko]
+//   node yt.mjs transcript <url|id>... --out <dir> [--lang de]
 //       Per video, <dir>/<id>.txt (the transcript: `[m:ss] text` lines under `## Part N`
 //       headers, each part one read) and <dir>/<id>.json (title, channel, date, length,
 //       views, chapters, captions, thumbnail, parts). Prints a few lines each.
 //       --lang prefers captions in that language; otherwise the language spoken.
 //   node yt.mjs search "<query>" [--within hour|day|week|month|year]
 //       [--length short|medium|long] [--sort relevance|views|date] [--max 20] [--out rows.json]
-//       Video rows, most relevant first: id, length, views, age, channel, title.
-//       Shorts, channels and playlists are left out. short < 4 min, long > 20 min.
+//       Video rows, most relevant first: id, length, views, age, channel, title. YouTube is
+//       searched by relevance alone; --within, --length and --sort work on the rows that
+//       search finds, so a narrowed one reads four times --max and keeps the ones that
+//       pass — the newest or most viewed of those, not of all YouTube. Shorts, channels and
+//       playlists are left out. short < 4 min, long > 20 min.
 import { spawnSync } from "node:child_process";
 import {
   mkdirSync,
@@ -223,7 +226,7 @@ function transcript(bin, id, { dir, lang }) {
     views: Number(info.view_count ?? 0),
     live: Boolean(info.is_live || info.was_live),
     category: info.categories?.[0] ?? null,
-    thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+    thumbnail: info.thumbnail ?? null,
     description: String(info.description ?? "").slice(0, 2000),
     chapters: (info.chapters ?? [])
       .filter((c) => c?.title)
@@ -285,34 +288,35 @@ function transcript(bin, id, { dir, lang }) {
   return head.join("\n");
 }
 
-/**
- * The results page's own filter, `sp`: a small protobuf of sort order and filters, base64,
- * which yt-dlp's search-url extractor passes through. Null when nothing is filtered, and
- * the plain `ytsearch` entry is used instead.
- */
-function filterParam({ within, length, sort }) {
-  const WITHIN = { hour: 1, day: 2, week: 3, month: 4, year: 5 };
-  const LENGTH = { short: 1, long: 2, medium: 3 };
-  const SORT = { relevance: 0, date: 2, views: 3 };
-  for (const [name, value, table] of [
-    ["within", within, WITHIN],
-    ["length", length, LENGTH],
-    ["sort", sort, SORT],
+// What a search can be narrowed by. yt-dlp's search is YouTube's by relevance; the rest is
+// read off the rows it returns, so a narrowed search asks for more rows than it keeps
+const WITHIN_DAYS = { hour: 1 / 24, day: 1, week: 7, month: 31, year: 366 };
+const LENGTHS = {
+  short: [0, 240],
+  medium: [240, 1200],
+  long: [1200, Infinity],
+};
+const SORTS = ["relevance", "date", "views"];
+const WIDER = 4;
+
+/** Each flag checked against what it can be, before anything is fetched. */
+function checkFilters({ within, length, sort }) {
+  for (const [name, value, allowed] of [
+    ["within", within, Object.keys(WITHIN_DAYS)],
+    ["length", length, Object.keys(LENGTHS)],
+    ["sort", sort, SORTS],
   ])
-    if (value && !(value in table))
-      throw new Stop(`--${name} is one of ${Object.keys(table).join(", ")}.`);
-  if (!within && !length && !SORT[sort]) return null;
-  const filters = [0x10, 1]; // type: video
-  if (within) filters.push(0x08, WITHIN[within]);
-  if (length) filters.push(0x18, LENGTH[length]);
-  const bytes = [
-    ...(SORT[sort] ? [0x08, SORT[sort]] : []),
-    0x12,
-    filters.length,
-    ...filters,
-  ];
-  return encodeURIComponent(Buffer.from(bytes).toString("base64"));
+    if (value && !allowed.includes(value))
+      throw new Stop(`--${name} is one of ${allowed.join(", ")}.`);
 }
+
+/** The largest picture yt-dlp lists for a row, or its one thumbnail. */
+const biggest = (e) =>
+  [...(e.thumbnails ?? [])]
+    .filter((t) => t?.url)
+    .sort((a, b) => (b.width ?? 0) - (a.width ?? 0))[0]?.url ??
+  e.thumbnail ??
+  null;
 
 /** Days since a row was posted → "2 weeks ago", the way the results page says it. */
 function ago(days) {
@@ -333,19 +337,19 @@ async function search(query, flags) {
   const max = Number(flags.max ?? 20);
   if (!Number.isInteger(max) || max < 1)
     throw new Stop("--max is how many rows to keep, a whole number.");
-  const sp = filterParam(flags);
+  checkFilters(flags);
+  const narrowed = Boolean(
+    flags.within || flags.length || (flags.sort && flags.sort !== "relevance"),
+  );
+  const ask = narrowed ? Math.min(max * WIDER, 100) : max;
   const bin = await ytDlp();
   const done = ytRun(bin, [
     "--flat-playlist",
     "--dump-single-json",
-    "--playlist-end",
-    String(max),
     // A search row carries "2 weeks ago", not a date; this turns it into one, which is what views a day needs
     "--extractor-args",
     "youtubetab:approximate_date",
-    sp
-      ? `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&sp=${sp}`
-      : `ytsearch${max}:${query}`,
+    `ytsearch${ask}:${query}`,
   ]);
   if (done.status !== 0 || !done.stdout.trim())
     throw new Stop(`yt-dlp could not search YouTube:\n${tail(done.stderr)}`);
@@ -358,35 +362,43 @@ async function search(query, flags) {
     );
   }
   const now = Date.now() / 1000;
-  const kept = (data.entries ?? [])
-    .filter(
-      (e) =>
-        e?.id &&
-        e.duration != null &&
-        !String(e.url ?? "").includes("/shorts/"),
-    )
-    .slice(0, max)
-    .map((e) => {
-      const at = typeof e.timestamp === "number" ? e.timestamp : null;
-      const days = at ? Math.max((now - at) / 86400, 1) : null;
-      const views = Number(e.view_count ?? 0);
-      return {
-        id: e.id,
-        url: `https://www.youtube.com/watch?v=${e.id}`,
-        title: e.title ?? "",
-        channel: e.channel ?? e.uploader ?? "",
-        length: clock(Number(e.duration)),
-        views,
-        date: at ? new Date(at * 1000).toISOString().slice(0, 10) : null,
-        age: days ? ago(days) : "date unknown",
-        perDay: days ? Math.round(views / days) : null,
-        thumbnail: `https://i.ytimg.com/vi/${e.id}/hqdefault.jpg`,
-        snippet: oneLine(e.description ?? "", 160),
-      };
-    });
+  const [shortest, longest] = LENGTHS[flags.length] ?? [0, Infinity];
+  const since = flags.within ? now - WITHIN_DAYS[flags.within] * 86400 : null;
+  const rows = (data.entries ?? []).filter(
+    (e) =>
+      e?.id &&
+      e.duration != null &&
+      !String(e.url ?? "").includes("/shorts/") &&
+      e.duration >= shortest &&
+      e.duration < longest &&
+      (since == null ||
+        (typeof e.timestamp === "number" && e.timestamp >= since)),
+  );
+  if (flags.sort === "views")
+    rows.sort((a, b) => (b.view_count ?? 0) - (a.view_count ?? 0));
+  if (flags.sort === "date")
+    rows.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+  const kept = rows.slice(0, max).map((e) => {
+    const at = typeof e.timestamp === "number" ? e.timestamp : null;
+    const days = at ? Math.max((now - at) / 86400, 1) : null;
+    const views = Number(e.view_count ?? 0);
+    return {
+      id: e.id,
+      url: `https://www.youtube.com/watch?v=${e.id}`,
+      title: e.title ?? "",
+      channel: e.channel ?? e.uploader ?? "",
+      length: clock(Number(e.duration)),
+      views,
+      date: at ? new Date(at * 1000).toISOString().slice(0, 10) : null,
+      age: days ? ago(days) : "date unknown",
+      perDay: days ? Math.round(views / days) : null,
+      thumbnail: biggest(e),
+      snippet: oneLine(e.description ?? "", 160),
+    };
+  });
   if (!kept.length)
     throw new Stop(
-      `No video rows for "${query}"${flags.within ? `, past ${flags.within}` : ""}: either nothing matches, or YouTube changed its results page. Try it with fewer filters, or search in the browser.`,
+      `No video rows for "${query}"${flags.within ? `, past ${flags.within}` : ""}${flags.length ? `, ${flags.length}` : ""} among the ${ask} results yt-dlp read: nothing matches, or fewer filters would, or words that name what is new would.`,
     );
   if (flags.out) {
     const out = resolve(flags.out);

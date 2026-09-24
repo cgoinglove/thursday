@@ -167,8 +167,8 @@ export function readingLine(file, index) {
   return `${chars} chars in ${index.length} parts of ≤${PART_CHARS.toLocaleString("en")} chars: node ${shown(join(here(import.meta.url), "part.mjs"))} ${shown(file)} <1-${index.length}>`;
 }
 
-const AGENT =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
+// Says what it is: a site that turns a script away has said no, and the job says so
+const AGENT = "thursday-agent media-digest";
 
 export async function download(url, file) {
   const res = await fetch(url, { headers: { "user-agent": AGENT } });

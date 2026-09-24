@@ -52,7 +52,8 @@ field but `title` may be left out.
   the page and still opens the source at that second. Five to seven, unless asked for a
   number. The page draws them on a line across the video's length.
 - `videos` is a watch list, one `pick` at most; the rows from `yt.mjs search --out` carry
-  every field but `why` and `pick`. `[m:ss]` inside a video's `why` links into that video.
+  every field but `why` and `pick`, their picture among them — a row written by hand has
+  none. `[m:ss]` inside a video's `why` links into that video.
 - Headings default to "Key points", "In their words", "Videos" and "Chapters"; for a page
   in another language set `pointsHeading`, `quotesHeading`, `videosHeading`,
   `chaptersHeading` and `note` in it.

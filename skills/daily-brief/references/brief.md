@@ -17,9 +17,11 @@ One `news.mjs` call holds every topic, and `glance.mjs` rides in the same bash c
   another country is still searched in the reader's edition, by its name in that language.
 - `--hours` is the freshness window: 30 for a daily brief, so yesterday morning's story is
   still in; 72 after a weekend. Publisher feeds come in with `--feed "<label>=<rss url>"`.
-- The glance takes Yahoo Finance symbols: `^GSPC` S&P 500, `^IXIC` Nasdaq, `^FTSE` FTSE 100,
-  `^N225` Nikkei, `EURUSD=X` a currency pair, `BTC-USD`, `AAPL` or `005930.KS` one listing
-  anywhere. `Label:symbol` names one; the weather wants a city's name.
+- The glance takes FRED series ids and currency pairs, each the last close against the one before:
+  `SP500`, `NASDAQCOM`, `DJIA`, `NIKKEI225`, `CBBTCUSD` Bitcoin, `DGS10` the 10-year Treasury,
+  `DCOILWTICO` oil, and `EUR/USD` for a pair of the ECB's currencies. `Label:id` names one; the
+  weather wants a city's name. An index FRED does not carry, or one company's shares, is not in the
+  glance: a story that turns on it gives the number, from the article.
 
 ## Choose
 
@@ -27,8 +29,8 @@ Read the printed list and pick the stories yourself, then pass their ids to `sto
 order the page will show them, lead first. Every topic the user chose gets at least one story.
 
 - **One story, one line.** Several candidates on the same news with different headlines (the
-  script folds only near-identical titles): keep the one with the most outlets (`+6`) or
-  from a preferred source.
+  script folds only copies under one title): keep the one with the most outlets (`+6`) or
+  from a preferred source (`[preferred]`).
 - **News, not noise.** Leave out listicles, stock-pick columns, opinion, press releases
   dressed as news, "how to" pieces and anything the user said they are tired of. A number of
   outlets is a signal of weight; a single small site is worth a place only when it has

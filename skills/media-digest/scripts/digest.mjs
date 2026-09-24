@@ -7,6 +7,7 @@
 // The JSON's fields are in references/page.md. Run it again to replace the page.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   artifactsDir,
   clock,
@@ -40,13 +41,6 @@ async function inline(url) {
   } catch {
     return null;
   }
-}
-
-async function thumbnail(id, size = "maxresdefault") {
-  // maxres is missing on older videos, and YouTube answers with a grey 120px stand-in
-  const big = await inline(`https://i.ytimg.com/vi/${id}/${size}.jpg`);
-  if (big && big.length > 6000) return big;
-  return inline(`https://i.ytimg.com/vi/${id}/hqdefault.jpg`);
 }
 
 /** Where a time or a page lands: the video at that second, the file at that page. */
@@ -112,6 +106,7 @@ function readSource(value, base) {
       views: meta.views,
       chapters: meta.chapters,
       captions: meta.captions,
+      thumbnail: meta.thumbnail,
     };
   }
   const id = value.url?.match(
@@ -158,9 +153,8 @@ async function watchList(videos) {
   const cards = await Promise.all(
     videos.map(async (v) => {
       const id = v.id ?? v.url?.match(/v=([\w-]{11})/)?.[1];
-      const pic = id
-        ? await inline(`https://i.ytimg.com/vi/${id}/mqdefault.jpg`)
-        : null;
+      // The picture yt-dlp listed for the row (yt.mjs search); a row written by hand has none
+      const pic = v.thumbnail ? await inline(v.thumbnail) : null;
       const url =
         v.url ?? (id ? `https://www.youtube.com/watch?v=${id}` : null);
       const link = linker({ id, url });
@@ -239,7 +233,7 @@ details.chapters li{display:flex;gap:.7rem;align-items:baseline;padding:.2rem 0}
 .video .facts{margin-bottom:.5rem}
 .pick-tag{border-color:var(--accent);color:var(--accent);font-weight:600}
 footer{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--line);color:var(--muted);font-size:.82rem}
-@media (max-width:30rem){body{padding:1.5rem 1rem 4rem}ol.points>li{padding-left:2.3rem}}
+@media (max-width:30rem){ol.points>li{padding-left:2.3rem}}
 @media print{.timeline,.listen{display:none}}
 `;
 
@@ -259,14 +253,17 @@ async function build(file, name) {
     throw new Stop(
       "THURSDAY_SKILLS is not set: run this from a bot's shell in the app.",
     );
-  const quickCss = join(skills, "interactive-page", "quick", "quick.css");
-  if (!existsSync(quickCss))
+  // Dressed as a document is: the artifact skill's shell and its reading styles
+  const quickCss = join(skills, "artifact", "runtime", "document", "quick.css");
+  const wearAt = join(skills, "artifact", "runtime", "shell", "wear.mjs");
+  if (!existsSync(quickCss) || !existsSync(wearAt))
     throw new Stop(
-      `No quick.css at ${quickCss}: the interactive-page skill is not in the shipped skills folder.`,
+      `No document styles under ${join(skills, "artifact")}: the artifact skill is not in the shipped skills folder.`,
     );
+  const { wear } = await import(pathToFileURL(wearAt).href);
 
-  const pic = source.id
-    ? await thumbnail(source.id)
+  const pic = source.thumbnail
+    ? await inline(source.thumbnail)
     : source.image
       ? await inline(source.image)
       : null;
@@ -346,25 +343,36 @@ ${pic ? `<a class="pic" href="${esc(source.url ?? "#")}"><img src="${pic}" alt="
       : null);
   if (note) html.push(`<footer>${prose(note, link)}</footer>`);
 
-  const page = `<!doctype html>
+  const page = wear(`<!doctype html>
 <html lang="${esc(d.lang ?? "en")}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(d.title)}</title>
+<script>
+// shell.theme
+</script>
 <style>
+/* shell.css */
 ${readFileSync(quickCss, "utf8").trim()}
 ${CSS.trim()}
 </style>
 </head>
 <body>
+<div class="pg-page">
+<main class="pg-paper">
 ${html.join("\n")}
+</main>
+</div>
 </body>
 </html>
-`;
+`);
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, page);
-  const missing = source.id && !pic ? " The thumbnail did not load." : "";
+  const missing =
+    (source.thumbnail || source.image) && !pic
+      ? " The source's picture did not load."
+      : "";
   return `${shown(out)} (${Math.round(page.length / 1024)} KB, one file).${missing} Hand back this path.`;
 }
 

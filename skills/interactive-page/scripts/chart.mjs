@@ -19,7 +19,7 @@
 //   --keep-order         bars in the CSV's order instead of largest first
 //   --source "<url or text>"    when the CSV has no `# source:` line
 //   --note "<text>"      one line under the chart: an estimate, a gap, a break in the series
-//   --locale ko          how numbers and dates are written (a BCP 47 tag)
+//   --locale de          how numbers and dates are written: the reader's language tag
 //
 // An unknown --kind, a bound that is not a date, a --highlight naming no row and a --mark
 // outside the range drawn all stop, rather than draw something quietly wrong.

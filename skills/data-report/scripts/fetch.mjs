@@ -5,18 +5,17 @@
 //
 //   node fetch.mjs fred <ID[,ID…]>                       FRED series (US and much of the OECD)
 //   node fetch.mjs worldbank <ISO2[,ISO2…]> <INDICATOR>  World Bank, one column per country, yearly
-//   node fetch.mjs yahoo <TICKER[,TICKER…]>              daily/weekly/monthly close (--interval 1d|1wk|1mo)
 //   node fetch.mjs fx <BASE> <QUOTE[,QUOTE…]>            ECB rates via frankfurter.dev, business days
 //   node fetch.mjs sec <TICKER> <CONCEPT[,CONCEPT…]>     US filers' reported figures (--quarterly)
 //   node fetch.mjs sec <TICKER> --find <word>            which concepts a company reports
-//   node fetch.mjs pageviews <ARTICLE[,ARTICLE…]>        Wikipedia monthly views (--wiki en|ko|…)
+//   node fetch.mjs pageviews <ARTICLE[,ARTICLE…]>        Wikipedia monthly views (--wiki en|de|…)
 //
 // Every command takes --out <file.csv> (required, except --find), --from and --to
 // (YYYY, YYYY-MM or YYYY-MM-DD) and --label <name[,name…]> to rename the columns — one
 // name per column, in the order you asked for them.
-// Without --from: yahoo and fx start on 1 January last year, pageviews on 1 January the
-// year before that and stop at the last whole month; fred, worldbank and sec give the
-// whole published series.
+// Without --from: fx starts on 1 January last year, pageviews on 1 January the year before
+// that and stops at the last whole month; fred, worldbank and sec give the whole published
+// series.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
@@ -134,33 +133,6 @@ const cell = (value) =>
 
 // ── Sources ────────────────────────────────────────────────────────────────
 
-/**
- * What a FRED series measures. The CSV download carries the id alone, so without this a
- * chart's legend reads `DGS10` and nothing says whether it is a percent or an index,
- * monthly or daily, seasonally adjusted or not. One call for every id; keyed by the id it
- * answers with, never by position.
- */
-async function fredMeta(ids) {
-  const found = new Map();
-  // A FRED graph carries twelve lines and this endpoint is the graph's: it answers for the
-  // first twelve ids and drops the rest, so it is asked in twelves
-  for (let at = 0; at < ids.length; at += 12) {
-    const batch = ids.slice(at, at + 12).map(encodeURIComponent);
-    try {
-      const data = await get(
-        `https://fred.stlouisfed.org/graph/api/series/?id=${batch.join(",")}`,
-      );
-      for (const entry of data?.chart_series ?? [])
-        for (const object of Object.values(entry.series_objects ?? {}))
-          if (object?.series_id)
-            found.set(object.series_id.toUpperCase(), object);
-    } catch {
-      // What a series measures is not the series: the numbers still arrive without it
-    }
-  }
-  return found;
-}
-
 async function fred([ids], { from, to }) {
   if (!ids)
     throw new Stop(
@@ -185,29 +157,12 @@ async function fred([ids], { from, to }) {
     series.set(id, values);
   }
   const ids_ = list(ids);
-  const meta = await fredMeta(ids_);
-  const unknown = ids_.filter((id) => !meta.has(id.toUpperCase()));
-  if (unknown.length)
-    console.error(
-      `FRED did not say what ${unknown.join(", ")} measures. Read the series page before drawing it: https://fred.stlouisfed.org/series/${unknown[0]}`,
-    );
   return {
     series,
-    title: ids_
-      .map((id) => {
-        const one = meta.get(id.toUpperCase());
-        if (!one) return id;
-        const said = [one.frequency, one.season].filter(Boolean).join(", ");
-        return `${one.title} [${id}]${said ? `, ${said.toLowerCase()}` : ""}`;
-      })
-      .join("; "),
-    unit: [
-      ...new Set(
-        ids_
-          .map((id) => meta.get(id.toUpperCase())?.units_short)
-          .filter(Boolean),
-      ),
-    ].join(", "),
+    title: `${ids_.join(", ")} on FRED`,
+    // The download names a series by its id alone; what it measures is on its page. Said
+    // to the bot, not written as the file's note, which a chart prints under itself
+    said: `FRED's download says only ${ids_.join(", ")}: what each measures, in what unit and how often, is on its page (${ids_.map((id) => `https://fred.stlouisfed.org/series/${id}`).join(" ")}) — read it before you name a column or a chart`,
     source: ids_
       .map((id) => `https://fred.stlouisfed.org/series/${id}`)
       .join(" "),
@@ -218,7 +173,7 @@ async function fred([ids], { from, to }) {
 async function worldbank([countries, indicator], { from, to }) {
   if (!countries || !indicator)
     throw new Stop(
-      "Name countries and an indicator: fetch.mjs worldbank KR,JP NY.GDP.MKTP.CD --out gdp.csv",
+      "Name countries and an indicator: fetch.mjs worldbank DE,JP NY.GDP.MKTP.CD --out gdp.csv",
     );
   const wanted = list(countries);
   const codes = wanted.join(";");
@@ -272,78 +227,10 @@ async function worldbank([countries, indicator], { from, to }) {
   };
 }
 
-async function yahoo([tickers], { from, to, flags }) {
-  if (!tickers)
-    throw new Stop(
-      "Name the ticker: fetch.mjs yahoo AAPL,005930.KS --out prices.csv",
-    );
-  const interval = flags.interval ?? "1d";
-  if (!["1d", "1wk", "1mo"].includes(interval))
-    throw new Stop(
-      `--interval "${interval}" is not one of Yahoo's: 1d, 1wk or 1mo.`,
-    );
-  const start = Math.floor(
-    Date.parse(from ?? day(String(new Date().getUTCFullYear() - 1))) / 1000,
-  );
-  const end = Math.floor(
-    (to ? Date.parse(to) + 86_400_000 : Date.now()) / 1000,
-  );
-  const series = new Map();
-  const names = [];
-  const apis = [];
-  const units = new Set();
-  for (const ticker of list(tickers)) {
-    const api = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?period1=${start}&period2=${end}&interval=${interval}&events=split,div`;
-    apis.push(api);
-    let data;
-    try {
-      data = await get(api);
-    } catch (error) {
-      // This endpoint is Yahoo's own chart, not a published API: it blocks and rate-limits
-      // without notice, which is not the same as the ticker being wrong
-      throw new Stop(
-        `Yahoo's unofficial endpoint refused this; it is not a published API and can block or rate-limit at any time. ${error.message}\nTake the closes from the exchange's own page or the company's IR page and write them into a CSV (references/sources.md).`,
-      );
-    }
-    const result = data?.chart?.result?.[0];
-    if (!result?.timestamp)
-      throw new Stop(
-        `Yahoo has no prices for "${ticker}" (${data?.chart?.error?.description ?? "no rows"}). A Korean listing ends in .KS (KOSPI) or .KQ (KOSDAQ); an index starts with ^.`,
-      );
-    const meta = result.meta;
-    const close =
-      result.indicators.adjclose?.[0]?.adjclose ??
-      result.indicators.quote[0].close;
-    const values = new Map();
-    result.timestamp.forEach((t, i) => {
-      if (close[i] === null || close[i] === undefined) return;
-      const date = new Date((t + (meta.gmtoffset ?? 0)) * 1000)
-        .toISOString()
-        .slice(0, 10);
-      values.set(date, String(+close[i].toFixed(4)));
-    });
-    series.set(ticker, values);
-    names.push(`${ticker} (${meta.longName ?? meta.shortName ?? ticker})`);
-    if (meta.currency) units.add(meta.currency);
-  }
-  return {
-    series,
-    title: `${names.join(", ")}, ${interval === "1d" ? "daily" : interval === "1wk" ? "weekly" : "monthly"} close adjusted for splits and dividends`,
-    unit: [...units].join(", "),
-    source: list(tickers)
-      .map(
-        (t) =>
-          `https://finance.yahoo.com/quote/${encodeURIComponent(t)}/history`,
-      )
-      .join(" "),
-    api: apis.join(" "),
-  };
-}
-
 async function fx([base, quotes], { from, to }) {
   if (!base || !quotes)
     throw new Stop(
-      "Name the currencies: fetch.mjs fx USD KRW,JPY --out fx.csv",
+      "Name the currencies: fetch.mjs fx USD EUR,JPY --out fx.csv",
     );
   const baseCode = base.toUpperCase();
   const wanted = list(quotes).map((q) => q.toUpperCase());
@@ -584,7 +471,7 @@ async function pageviews([articles], { from, to, flags }) {
   };
 }
 
-const SOURCES = { fred, worldbank, yahoo, fx, sec, pageviews };
+const SOURCES = { fred, worldbank, fx, sec, pageviews };
 
 // ── Main ───────────────────────────────────────────────────────────────────
 
@@ -637,6 +524,7 @@ async function main() {
     `Wrote ${flags.out}: ${rows.length} rows × ${names.length} series, ${rows[0][0]} → ${rows.at(-1)[0]}${missing ? `, ${missing} empty cells (no value published)` : ""}.`,
     `${got.title}${got.unit ? ` [${got.unit}]` : ""}`,
     ...(got.note ? [`Note: ${got.note}`] : []),
+    ...(got.said ? [got.said] : []),
     `first: ${header
       .slice(1)
       .map(
