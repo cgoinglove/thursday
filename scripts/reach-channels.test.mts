@@ -36,8 +36,24 @@ const calls: { url: string; body: unknown }[] = [];
 let uploads = 0;
 /** How many sends to turn away as too many, each with a wait of no time at all. */
 let limited = 0;
+/** What Telegram answers a photo with, when set: 400 refuses the picture, 502 is Telegram unwell. */
+let photoStatus = 0;
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
+  if (photoStatus && url.endsWith("/sendPhoto")) {
+    calls.push({ url, body: "refused" });
+    return Response.json(
+      {
+        ok: false,
+        error_code: photoStatus,
+        description:
+          photoStatus === 400
+            ? "Bad Request: PHOTO_INVALID_DIMENSIONS"
+            : "Bad Gateway",
+      },
+      { status: photoStatus },
+    );
+  }
   if (limited > 0 && /sendMessage$|\/channels\/[^/]+\/messages$/.test(url)) {
     limited--;
     calls.push({ url, body: "limited" });
@@ -488,4 +504,21 @@ test("the app's own lines are words in every service, whatever they hold", () =>
   assert.deepEqual(chatPieces({ plain }, "slack", 4_000), [
     "report_final_*v2*.md &lt;draft&gt; &amp; more",
   ]);
+});
+
+test("telegram sends a picture it refuses as a photo as a file, and any other failure is said", async () => {
+  const telegram = createTelegram("123:token");
+  const picture = [
+    { bytes: new Uint8Array([1]), name: "tall.png", picture: true },
+  ];
+  photoStatus = 400;
+  const from = calls.length;
+  await telegram.sendFiles("7", picture);
+  assert.deepEqual(
+    calls.slice(from).map((call) => call.url.split("/").pop()),
+    ["sendPhoto", "sendDocument"],
+  );
+  photoStatus = 502;
+  await assert.rejects(telegram.sendFiles("7", picture), /Bad Gateway/);
+  photoStatus = 0;
 });

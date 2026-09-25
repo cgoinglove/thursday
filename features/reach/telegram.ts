@@ -35,6 +35,15 @@ type TelegramUser = {
 
 type TelegramFile = { file_id: string; file_size?: number };
 
+/** Telegram answered, and said no: its words, and the status it answered in. */
+class TelegramError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 type TelegramMessage = {
   message_id: number;
   from?: TelegramUser;
@@ -102,7 +111,7 @@ export function createTelegram(token: string): Channel {
         throw new ChannelRefusal(
           `Telegram said “${why}”: this token was revoked or mistyped. Get it again from @BotFather and paste it here.`,
         );
-      throw new Error(why);
+      throw new TelegramError(why, response.status);
     }
   }
 
@@ -295,9 +304,13 @@ export function createTelegram(token: string): Channel {
       const documents = files.filter((file) => !file.picture);
       for (let at = 0; at < pictures.length; at += ALBUM_MAX) {
         const some = pictures.slice(at, at + ALBUM_MAX);
-        // A picture Telegram will not draw (too long, too narrow) still goes, as a file,
-        // and so does whatever came after it
-        await sendPictures(chat, some).catch(() => documents.unshift(...some));
+        // A picture Telegram refuses to draw as a photo (past its size, too long or too narrow:
+        // a 400) still goes, as a file; anything else is a failure, and is said as one
+        await sendPictures(chat, some).catch((cause: unknown) => {
+          if (!(cause instanceof TelegramError && cause.status === 400))
+            throw cause;
+          documents.unshift(...some);
+        });
       }
       for (const file of documents) {
         const form = new FormData();
