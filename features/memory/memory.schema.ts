@@ -113,11 +113,12 @@ const MEMORY_PATH_RE = new RegExp(
 export const isMemoryPath = (path: string) => MEMORY_PATH_RE.test(path);
 
 /**
- * Notes that stay listed with zero facts. Their listing line is the app's, not
- * a model's: memory.query ensureRootNotes resets it at boot and no tool renames
- * one (ai/tools/memory.tool), so the line cannot drift with whoever wrote last.
+ * Notes that stay listed with zero facts: the root notes. Their listing line is
+ * the app's, not a model's: memory.query ensureRootNotes resets it at boot and
+ * no tool renames one (ai/tools/memory.tool), so the line cannot drift with
+ * whoever wrote last.
  */
-export const MEMORY_ALWAYS_LISTED: string[] = ["profile", "preferences"];
+export const MEMORY_ALWAYS_LISTED: string[] = MEMORY_ROOT_NOTES;
 
 export const isAlwaysListed = (path: string) =>
   MEMORY_ALWAYS_LISTED.includes(path);
@@ -131,7 +132,7 @@ export type MemorySection = "you" | (typeof MEMORY_SECTIONS)[number] | "other";
 
 /** How the screen groups notes; derived from MEMORY_PATHS. */
 export function sectionOf(path: string): MemorySection {
-  if (path === "profile" || path === "preferences") return "you";
+  if (isAlwaysListed(path)) return "you";
   const head = path.slice(0, path.indexOf("/"));
   return (MEMORY_SECTIONS as readonly string[]).includes(head)
     ? (head as (typeof MEMORY_SECTIONS)[number])
