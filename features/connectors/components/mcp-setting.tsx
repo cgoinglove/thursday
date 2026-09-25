@@ -786,6 +786,7 @@ function PairRows({
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Remove this row"
               onClick={() =>
                 onChange(pairs.filter((row) => row.id !== pair.id))
               }
