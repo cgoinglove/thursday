@@ -6,7 +6,7 @@ import { publicError } from "@/lib/public-error";
 export const GET = serverRoute(
   async (_request, { params }: RouteContext<{ name: string }>) => {
     const { name } = await params;
-    const server = await findServerDetail(decodeURIComponent(name));
+    const server = await findServerDetail(name);
     if (!server) publicError("Server not found");
     return server;
   },
