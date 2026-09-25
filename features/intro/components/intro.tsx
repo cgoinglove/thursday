@@ -163,7 +163,8 @@ export function Intro({
     [step, keyed, mic.on],
   );
   const turns = step === "hello" ? demo.turns : said;
-  const focus = useTurnFocus(turns, true);
+  // Only while it is up: mounted on every page load, its ↓ took the key from every call after
+  const focus = useTurnFocus(turns, up);
   // Her latest line is also a clip (intro-voice); every id `herTurns` gives is one
   const voice = useIntroVoice(
     gone ? null : ((said.at(-1)?.id as IntroLine | undefined) ?? null),
@@ -204,6 +205,9 @@ export function Intro({
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Getting started"
       className={cn(
         "fixed inset-0 z-40 bg-background transition-opacity duration-700",
         gone && "pointer-events-none opacity-0",

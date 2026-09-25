@@ -624,7 +624,10 @@ function DraftComposer({
       <Textarea
         value={draft}
         rows={1}
-        disabled={busy}
+        // Read-only rather than disabled while it sends: a disabled box drops the focus, and
+        // the next line had to be clicked back into after every send
+        readOnly={busy}
+        aria-busy={busy}
         autoFocus={autoFocus}
         onChange={(event) => write(event.target.value)}
         onPaste={(event) => {

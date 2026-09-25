@@ -198,7 +198,9 @@ function CallScreen({
   // the first-run intro lies over the call screen and draws a face of its own
   const covered = useCallHeld();
   return (
-    <div className="relative flex h-full flex-col">
+    // Out of reach while the intro lies over it: a Tab or a click past the intro reached her
+    // face here and placed a real call (call-signal holds only the wake word and the hotkey)
+    <div className="relative flex h-full flex-col" inert={covered}>
       <div className="absolute top-5 right-5 z-10 flex flex-col items-end gap-3">
         <SettingsCorner />
         <InstallNudge
