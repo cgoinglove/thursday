@@ -66,11 +66,10 @@ const POSE0: Pose = {
 };
 
 /**
- * What the pieces do besides her pose, written fresh every frame: `hush` holds her smoke back,
- * `crust` is the dust she wakes under, `turn` carries the smoke round her after her head (rad) and
- * `twist` winds it tighter near her.
+ * What the pieces do besides her pose, written fresh every frame: `hush` holds her smoke back, and
+ * `crust` is the dust she wakes under.
  */
-type Doing = { hush: number; crust: number; turn: number; twist: number };
+type Doing = { hush: number; crust: number };
 
 /** What she gives off is one of these, and is drawn in the matching set of PIECE_SETS. */
 const SMOKE = 1;
@@ -299,7 +298,8 @@ const PIECES = {
   },
 
   // she has her back to you, and comes round to face you as she wakes: her eyes come round the
-  // side of her already opening, and her smoke is dragged round after her
+  // side of her already opening. Her head turns, not the smoke round her: wound round with her, the
+  // whole field swirled, and it read as the space turning rather than her
   turn: {
     wake: true,
     len: 1.8,
@@ -318,19 +318,12 @@ const PIECES = {
         lidR: lid,
       };
     },
-    fx(u, m, o) {
-      if (u < -0.8 || u > 2) return;
-      const on = smoothstep(-0.6, 0.2, u) * (1 - smoothstep(1, 1.9, u));
-      o.turn += (m ? -1 : 1) * 0.8 * on * smoothstep(-0.6, 0.95, u);
-      o.twist = Math.max(o.twist, 0.7 * on);
-    },
   },
 
-  // she wakes on a long pull — her smoke drawn in, her eyes half shut, her head back a little — and
-  // lets it out slowly, a great deal of it: a thick cloud poured down from under her face that
-  // rolls out along the round edge of her space, up both sides, and fills it, hanging a long while
+  // a long pull — her smoke drawn in, her eyes half shut, her head back a little — let out slowly,
+  // a great deal of it: a thick cloud poured down from under her face that rolls out along the
+  // round edge of her space, up both sides, and fills it, hanging a long while
   vape: {
-    wake: true,
     len: 6.6,
     pose(u) {
       const pull = bump(u, 0.2, 1.7);
@@ -411,7 +404,7 @@ const PIECES = {
   },
 
   // a wind-up, then her whole head goes round once on a slant — her face goes over and behind and
-  // comes back up the other side, her smoke dragged round after it — and she comes out of it dizzy
+  // comes back up the other side — and she comes out of it dizzy
   spin: {
     len: 3,
     pose(u, m) {
@@ -433,13 +426,6 @@ const PIECES = {
         lidL: lid,
         lidR: lid,
       };
-    },
-    fx(u, m, o) {
-      if (u < 0 || u > 3.2) return;
-      // the smoke round her goes some of the way round with her, wound tighter near her, and lets go
-      const on = smoothstep(0.3, 1.2, u) * (1 - smoothstep(1.8, 3.1, u));
-      o.turn += (m ? -1 : 1) * 0.9 * on * smoothstep(0.3, 1.75, u);
-      o.twist = Math.max(o.twist, 0.9 * on);
     },
   },
 } satisfies Record<string, Piece>;
@@ -499,8 +485,8 @@ export function createExpression(): Expression {
     lastWake: null,
     head: { ...POSE0 },
     smoke: { ...POSE0 },
-    want: { hush: 0, crust: 0, turn: 0, twist: 0 },
-    doing: { hush: 0, crust: 0, turn: 0, twist: 0 },
+    want: { hush: 0, crust: 0 },
+    doing: { hush: 0, crust: 0 },
     yawSlow: 0,
     yawV: 0,
     moved: false,
@@ -678,8 +664,6 @@ export function stepExpression(
   const o = e.want;
   o.hush = 0;
   o.crust = 0;
-  o.turn = 0;
-  o.twist = 0;
   if (plan && u > -1) {
     const p = { ...POSE0 };
     let any = false;
@@ -719,17 +703,10 @@ export function stepExpression(
     if (any) pose = p;
   }
 
-  // what the pieces do, eased so nothing snaps; the smoke's turn comes back the short way round
+  // what the pieces do, eased so nothing snaps
   const d = e.doing;
   d.hush = ease(d.hush, o.hush, 0.15, dt);
   d.crust = ease(d.crust, o.crust, 0.1, dt);
-  d.twist = ease(d.twist, o.twist, 0.2, dt);
-  d.turn = ease(
-    o.turn + Math.atan2(Math.sin(d.turn - o.turn), Math.cos(d.turn - o.turn)),
-    o.turn,
-    0.08,
-    dt,
-  );
   e.crust = d.crust;
 
   // her head follows its pose closely, but once nothing is running it comes back slowly, so a head
@@ -761,10 +738,9 @@ export function stepExpression(
   sp.sx += (hp.sx - sp.sx) * k;
   sp.sy += (hp.sy - sp.sy) * k;
 
-  const wound = Math.abs(d.turn) + d.twist > 1e-3;
-  e.moved = !(still(hp) && still(sp)) || wound;
+  e.moved = !(still(hp) && still(sp));
   e.turned = Math.abs(hp.yaw) + Math.abs(hp.pitch) + Math.abs(hp.spin) > 1e-4;
-  if (e.moved) lay(e, grid, R, wound);
+  if (e.moved) lay(e, grid, R);
   partsStep(e, grid, t, dt);
 
   if (!eyes || pose === POSE0) return eyes;
@@ -780,9 +756,9 @@ export function stepExpression(
  * Every cell in her head's frame and her smoke's. Her head: a turn, a nod or a spin is read on a
  * ball — what shows at a point of her face is what the turn brought round to it, from behind her
  * too (hz below 0) — so her eyes and her grain slide round her while her outline (pd, in her own
- * plane) stays round. Her smoke: carried round after her head, wound tighter near her.
+ * plane) stays round. Her smoke: where her head was a beat ago, leaning as it leaned, never turned.
  */
-function lay(e: Expression, grid: Grid, R: number, wound: boolean) {
+function lay(e: Expression, grid: Grid, R: number) {
   const cells = grid.cells;
   const hp = e.head;
   {
@@ -813,7 +789,6 @@ function lay(e: Expression, grid: Grid, R: number, wound: boolean) {
     }
   }
   const sp = e.smoke;
-  const d = e.doing;
   const c = Math.cos(sp.rot);
   const s = Math.sin(sp.rot);
   const ox = sp.x * R;
@@ -821,19 +796,8 @@ function lay(e: Expression, grid: Grid, R: number, wound: boolean) {
   for (let i = 0; i < cells.length; i++) {
     const qx = cells[i].dx - ox;
     const qy = cells[i].dy - oy;
-    let lx = (qx * c + qy * s) / sp.sx;
-    let ly = (-qx * s + qy * c) / sp.sy;
-    if (wound) {
-      const r = Math.hypot(lx, ly) || 1;
-      const phi = d.turn + d.twist * Math.log(Math.max(r, R * 0.6) / R);
-      const cp = Math.cos(phi);
-      const sn = Math.sin(phi);
-      const rx = lx * cp - ly * sn;
-      ly = lx * sn + ly * cp;
-      lx = rx;
-    }
-    e.sx[i] = lx;
-    e.sy[i] = ly;
+    e.sx[i] = (qx * c + qy * s) / sp.sx;
+    e.sy[i] = (-qx * s + qy * c) / sp.sy;
   }
 }
 
