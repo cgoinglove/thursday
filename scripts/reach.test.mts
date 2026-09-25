@@ -341,8 +341,9 @@ const thread = (
 });
 const lastSaid = () =>
   sent.findLast((one) => one.method === "sendMessage") as Sent;
-/** A look at the inbox runs a moment after the event (reach looks once for a burst). */
-const looked = () => new Promise((resolve) => setTimeout(resolve, 2_300));
+/** A look at the inbox runs a moment after the event (reach looks once for a burst, REACH.lookMs). */
+const looked = () =>
+  new Promise((resolve) => setTimeout(resolve, REACH.lookMs + 300));
 
 test("a bot's question goes to the phone as the bot wrote it, and a button answers the bot", async () => {
   threads = [
@@ -595,6 +596,7 @@ test("past its size the conversation is cut deep, from where they speak", async 
 
 test("a conversation that never had a turn is not left open", async () => {
   // The line is given up first, so the refused turn is a new conversation's first
+  const was = REACH.idleMs;
   REACH.idleMs = 0;
   refuse = true;
   inbox.push(message(7, "hello again"));
@@ -603,7 +605,7 @@ test("a conversation that never had a turn is not left open", async () => {
     "the refusal reaches them as it was said",
   );
   await until(() => ended.includes(`call-${calls}`), "and its call is closed");
-  REACH.idleMs = 10 * 60_000;
+  REACH.idleMs = was;
 });
 
 test("a conversation is kept while work it started is still running", async () => {
@@ -611,6 +613,7 @@ test("a conversation is kept while work it started is still running", async () =
   await until(() => saidTo(7).at(-1) === "Heard: start the post", "answered");
   const line = calls;
   jobs = [{ id: "thread-3", callId: `call-${line}`, status: "running" }];
+  const was = REACH.idleMs;
   REACH.idleMs = 0;
   inbox.push(message(7, "anything yet?"));
   await until(() => saidTo(7).at(-1) === "Heard: anything yet?", "answered");
@@ -620,7 +623,7 @@ test("a conversation is kept while work it started is still running", async () =
   inbox.push(message(7, "and now?"));
   await until(() => saidTo(7).at(-1) === "Heard: and now?", "answered");
   assert.equal(calls, line + 1, "quiet with nothing running: a new call");
-  REACH.idleMs = 10 * 60_000;
+  REACH.idleMs = was;
 });
 
 test("with a browser watching, only what was started from here comes to the phone", async () => {

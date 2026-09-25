@@ -143,6 +143,10 @@ export const CALL_IDLE = {
  * - `drawMs`  how long drawing them may take before the page goes without them. Nine slides
  *   draw in a few seconds; a page that never finishes loading would otherwise hold up
  *   everything sent after it.
+ * - `lookMs`  how long a change to the threads waits before open work is looked for, so the
+ *   changes after it in the same burst are one look: a working bot changes threads many times
+ *   a second. Longer holds a bot's question or ending that much longer before the phone gets
+ *   it; shorter reads the inbox more often while bots work.
  */
 export const REACH = {
   pollSeconds: 50,
@@ -159,6 +163,7 @@ export const REACH = {
   held: 5,
   pictures: 9,
   drawMs: 60_000,
+  lookMs: 2_000,
 };
 
 /**

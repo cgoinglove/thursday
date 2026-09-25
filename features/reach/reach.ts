@@ -781,8 +781,8 @@ async function whereTo(): Promise<{ live: Live; person: ReachPerson } | null> {
 /** When this server came up. What changed before it had the server before it. */
 const UP_SINCE = Date.now() - process.uptime() * 1000;
 
-/** One look for a burst: a working bot changes threads many times a second. */
-function lookSoon(ms = 2_000) {
+/** One look for a burst (REACH.lookMs): a working bot changes threads many times a second. */
+function lookSoon(ms = REACH.lookMs) {
   state.looking ??= setTimeout(() => {
     state.looking = null;
     void lookForOpenWork().catch((cause) =>
