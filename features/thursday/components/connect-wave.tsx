@@ -168,8 +168,10 @@ export function ConnectWave({
     element.width = w;
     element.height = h;
     const ctx = element.getContext("2d");
-    const emojis = emoji.current ?? sheet(EMOJI_POOL);
-    if (!ctx || !emojis) return;
+    // An ascii face draws no emoji, so it needs no sheet, least of all one drawn now
+    const emojis =
+      charset === "ascii" ? null : (emoji.current ?? sheet(EMOJI_POOL));
+    if (!ctx || (charset !== "ascii" && !emojis)) return;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.font = FONT;
@@ -212,7 +214,7 @@ export function ConnectWave({
         const level = Math.round(v * top);
         if (level < 1) continue;
         const turn = Math.floor(t * rate + c.seed * 10);
-        if (emojiAt(c, level)) {
+        if (emojis && emojiAt(c, level)) {
           // emoji keep their own colour, so only alpha varies, as on her face
           ctx.globalAlpha = emojiAlpha(level, top, charset === "emojiOnly");
           const at = Math.floor(hash(c.seed * 97, turn) * EMOJI_POOL.length);
