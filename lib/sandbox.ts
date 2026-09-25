@@ -1,7 +1,18 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve as pathResolve, relative, sep } from "node:path";
 import { EXEC_KILL_GRACE_MS, EXEC_TIMEOUT_MS } from "@/config";
+
+/**
+ * The shell a command runs in: bash where the machine has it, which is what the tool says
+ * it runs (ai/tools/workspace.tool). Left to `shell: true`, Node takes /bin/sh, which is dash
+ * on Debian and Ubuntu, and a command written for bash failed there. Null means sh alone.
+ */
+export const BASH =
+  ["/bin/bash", "/usr/bin/bash", "/usr/local/bin/bash"].find((path) =>
+    existsSync(path),
+  ) ?? null;
 
 export type ExecResult = { stdout: string; stderr: string; exitCode: number };
 
@@ -175,11 +186,11 @@ export const createSandBox = ({
         const base = shellEnv();
         if (extraPath) base.PATH = `${base.PATH ?? ""}:${extraPath}`;
         const child = spawn(command, {
-          shell: true,
+          shell: BASH ?? true,
           cwd: c ? res(c) : cwd,
           env: { ...base, ...env },
-          // Own process group: with `shell: true` the real work is a child of
-          // /bin/sh, and signalling only the shell leaves it running
+          // Own process group: the real work is a child of the shell, and
+          // signalling only the shell leaves it running
           detached: true,
         });
         let stdout = "",

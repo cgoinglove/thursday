@@ -5,7 +5,7 @@ import { EXEC_TIMEOUT_MS } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { holdBotMemory, keepBotMemory } from "@/features/bot/bot.memory";
 import { writeRefusal } from "@/features/workspace/workspace";
-import type { Sandbox } from "@/lib/sandbox";
+import { BASH, type Sandbox } from "@/lib/sandbox";
 
 /**
  * Shell access, plus `write_file` for bots: multi-line files through a
@@ -50,7 +50,9 @@ export const createWorkspaceTools = (
   };
 
   const bash = tool({
-    description: "Run a bash command.",
+    description: BASH
+      ? "Run a bash command."
+      : "Run a command in sh: this machine has no bash, so bash-only syntax fails.",
     inputSchema: z.object({
       command: z.string(),
       description: z
