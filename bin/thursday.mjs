@@ -89,7 +89,7 @@ if (argv[0] === "autostart") {
 
 const port = String(await freePort(asked, home));
 const url = `http://localhost:${port}`;
-/** Where config.ts DB_FILE_NAME puts the database under the home. */
+/** Where config.ts DB_PATH puts the database under the home. */
 const database = join(home, "local.db");
 
 /**

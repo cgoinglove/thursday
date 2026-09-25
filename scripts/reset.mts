@@ -10,12 +10,10 @@ import { createInterface, emitKeypressEvents } from "node:readline";
 // node:sqlite is built into Node 22.13+.
 import { DatabaseSync } from "node:sqlite";
 // config.ts has no dependencies; folder names must match what the app uses.
-import { DATA_DIR, DB_FILE_NAME, PATHS } from "../config.ts";
+import { DATA_DIR, DB_PATH, PATHS } from "../config.ts";
 
 /** The checkout; the build lives here. */
 const ROOT = join(import.meta.dirname, "..");
-/** libsql spells it `file:/…/local.db`; on disk it is the part after the scheme. */
-const DB_PATH = DB_FILE_NAME.replace(/^file:/, "");
 /** Display name for the list. */
 const DB_FILE = relative(ROOT, DB_PATH) || DB_PATH;
 

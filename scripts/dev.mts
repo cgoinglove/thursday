@@ -12,7 +12,7 @@ import {
 } from "../bin/database.mjs";
 import { freePort } from "../bin/port.mjs";
 // config.ts has no dependencies; the database is the one the server opens.
-import { DB_FILE_NAME } from "../config.ts";
+import { DATA_DIR, DB_PATH } from "../config.ts";
 
 const args = process.argv.slice(2);
 /** Taken out of the arguments, so Next is only ever handed a port already checked. */
@@ -26,9 +26,7 @@ for (let at = 0; at < args.length; at++) {
 }
 
 // The data folder of a checkout is the checkout (config DATA_DIR)
-const port = String(
-  await freePort(asked, process.env.THURSDAY_HOME?.trim() || process.cwd()),
-);
+const port = String(await freePort(asked, DATA_DIR));
 const next = createRequire(import.meta.url).resolve("next/dist/bin/next");
 // This machine only, as `thursday` does, whatever HOSTNAME the shell exports;
 // `-H` still opens it on purpose
@@ -48,8 +46,10 @@ function start() {
     { stdio: "inherit", env: { ...process.env, PORT: port } },
   );
   child.on("exit", async (code) => {
-    const dbPath = DB_FILE_NAME.replace(/^file:/, "");
-    if (code === MIGRATION_FAILED_EXIT && (await askToSetDatabaseAside(dbPath)))
+    if (
+      code === MIGRATION_FAILED_EXIT &&
+      (await askToSetDatabaseAside(DB_PATH))
+    )
       return start();
     process.exit(code ?? 0);
   });

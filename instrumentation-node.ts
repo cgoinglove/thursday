@@ -1,12 +1,6 @@
 export async function boot() {
-  const {
-    APP_DIR,
-    APP_NAME,
-    DATA_DIR,
-    DB_FILE_NAME,
-    HISTORY_KEEP,
-    WORKSPACE_KEEP,
-  } = await import("@/config");
+  const { APP_DIR, APP_NAME, DATA_DIR, DB_PATH, HISTORY_KEEP, WORKSPACE_KEEP } =
+    await import("@/config");
   const { logger } = await import("@/lib/logger");
 
   // Nothing can run on a database this build cannot migrate, and nothing can
@@ -14,12 +8,11 @@ export async function boot() {
   // both starters answer by offering to set it aside (bin/database.mjs).
   const { migrateDatabase } = await import("@/database/migrate");
   await migrateDatabase().catch((cause) => {
-    const path = DB_FILE_NAME.replace(/^file:/, "");
-    logger.error(`Cannot migrate ${path}`);
+    logger.error(`Cannot migrate ${DB_PATH}`);
     console.error(
       `  ${cause instanceof Error ? cause.message : cause}\n` +
         "  Starting over gives an empty one. API keys, bots, connectors, calls, threads and memory go with it; the workspace and skills stay.\n" +
-        `  The old ${path} is moved aside as .corrupt-<time> rather than removed, so a file damaged by a crash or a full disk can still be opened.\n`,
+        `  The old ${DB_PATH} is moved aside as .corrupt-<time> rather than removed, so a file damaged by a crash or a full disk can still be opened.\n`,
     );
     process.exit(65);
   });

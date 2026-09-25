@@ -2,11 +2,8 @@ import { chmodSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { type Client, createClient, type Transaction } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
-import { DB_FILE_NAME } from "@/config";
+import { DB_FILE_NAME, DB_PATH } from "@/config";
 import { PromiseChain } from "@/lib/utils";
-
-/** libsql spells it `file:/…/local.db`; on disk it is the part after the scheme. */
-const DB_PATH = DB_FILE_NAME.replace(/^file:/, "");
 
 // The data root may not exist yet — a first `npx thursday-agent` points DATA_DIR
 // at a home folder nobody has made. SQLite will not create the folder, only the

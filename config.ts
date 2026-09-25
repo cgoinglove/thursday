@@ -220,8 +220,11 @@ export const APP_URL =
   process.env.THURSDAY_URL?.trim() ||
   `http://localhost:${process.env.PORT?.trim() || 3000}`;
 
-/** libsql URL. Absolute because the process may not run inside DATA_DIR. */
-export const DB_FILE_NAME = `file:${DATA_DIR}/local.db`;
+/** The database file. Absolute because the process may not run inside DATA_DIR. */
+export const DB_PATH = `${DATA_DIR}/local.db`;
+
+/** libsql URL of DB_PATH. */
+export const DB_FILE_NAME = `file:${DB_PATH}`;
 
 /**
  * Relative paths; readers join them with the root that owns them (APP_DIR for
