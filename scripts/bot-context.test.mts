@@ -2452,3 +2452,37 @@ test("the Skills screen lists each bot's own — its kit and what it found or wr
     if (made) await deleteBot("Marketer");
   }
 });
+
+test("a deleted bot's finished work stays a shelf under its name, sets and all", async () => {
+  const { readShelf, deleteArtifact } = await import(
+    "../features/artifact/artifact.query.ts"
+  );
+  const { WORKSPACE, removeBotFolder } = await import(
+    "../features/workspace/workspace.ts"
+  );
+  const { createBot, deleteBot } = await import("../features/bot/bot.query.ts");
+  await createBot({ name: "Tutor", description: "Explains", toolIds: [] });
+  const shelf = join(WORKSPACE, "artifacts", "Tutor");
+  await mkdir(join(shelf, "book-1"), { recursive: true });
+  await writeFile(join(shelf, "note.html"), "<p>note</p>");
+  await writeFile(join(shelf, "book-1", "book-1.html"), "<p>book</p>");
+  await writeFile(join(shelf, ".DS_Store"), "");
+  try {
+    await deleteBot("Tutor");
+    await removeBotFolder("Tutor");
+    const { entries } = await readShelf(50);
+    const tutor = entries
+      .filter((entry) => entry.bot === "Tutor")
+      .map((entry) => `${entry.kind} ${entry.name}`)
+      .sort();
+    // Both of its things, each a row of its own, and nothing hidden among them
+    assert.deepEqual(tutor, ["file note.html", "set book-1"]);
+    // Its whole folder is not one artifact to delete, as a live bot's is not
+    await assert.rejects(
+      deleteArtifact("artifacts/Tutor"),
+      /a bot's whole folder/,
+    );
+  } finally {
+    await rm(shelf, { recursive: true, force: true });
+  }
+});

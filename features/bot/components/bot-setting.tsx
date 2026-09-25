@@ -872,7 +872,8 @@ function BotPage({
     if (!bot) return;
     const confirmed = await notify.confirm({
       title: `Delete ${bot.name}?`,
-      description: "Thursday can no longer hand work to it.",
+      description:
+        "Thursday can no longer hand work to it. What it finished stays in Settings › Files, under its name.",
       okText: "Delete",
       destructive: true,
     });

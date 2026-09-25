@@ -1,5 +1,5 @@
 import type { Dirent } from "node:fs";
-import { readdir, rm, stat } from "node:fs/promises";
+import { readdir, readFile, rm, stat } from "node:fs/promises";
 import { basename, join, relative, sep } from "node:path";
 import { ARTIFACT_VIEW, PATHS } from "@/config";
 import { listBotNames } from "@/features/bot/bot.query";
@@ -11,6 +11,7 @@ import {
 import {
   ARTIFACTS,
   botFolderName,
+  DELETED_BOT_MARK,
   insideWorkspace,
 } from "@/features/workspace/workspace";
 import { publicError } from "@/lib/public-error";
@@ -126,6 +127,21 @@ async function botsByFolder(): Promise<Map<string, string>> {
 }
 
 /**
+ * The bot a top-level folder was, when that bot was deleted (workspace removeBotFolder):
+ * its folder is still a shelf of its work, not one set of the files at its top.
+ */
+async function deletedBotOf(dir: string): Promise<string | null> {
+  try {
+    const { bot } = JSON.parse(
+      await readFile(join(dir, DELETED_BOT_MARK), "utf8"),
+    ) as { bot?: unknown };
+    return typeof bot === "string" && bot.trim() ? bot : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The menu: every bot's entries and the loose ones, newest first. A bot's
  * folder is not a row of its own; its entries are, each carrying the bot.
  */
@@ -139,12 +155,12 @@ export async function readShelf(
 
   const rows = await Promise.all(
     listing.map(async (entry) => {
+      const dir = join(ARTIFACTS, entry.name);
       const bot = entry.isDirectory()
-        ? bots.get(entry.name.toLowerCase())
-        : undefined;
+        ? (bots.get(entry.name.toLowerCase()) ?? (await deletedBotOf(dir)))
+        : null;
       if (!bot) return [await entryAt(ARTIFACTS, PATHS.artifacts, entry, null)];
 
-      const dir = join(ARTIFACTS, entry.name);
       const base = `${PATHS.artifacts}/${entry.name}`;
       const inside = await readdir(dir, { withFileTypes: true }).catch(
         () => [],
@@ -205,10 +221,14 @@ export async function deleteArtifact(path: string): Promise<void> {
   const info = await stat(full).catch(() => null);
   if (!info) publicError("Not found");
   if (info.isDirectory()) {
-    const inside = relative(ARTIFACTS, full);
+    // From artifacts/ resolved as `full` was: under a symlinked data folder the path as
+    // configured is not a prefix of the real one, and every bot's folder would pass
+    const root = await insideWorkspace(PATHS.artifacts);
+    const inside = relative(root ?? ARTIFACTS, full);
     if (
       !inside.includes(sep) &&
-      (await botsByFolder()).has(inside.toLowerCase())
+      ((await botsByFolder()).has(inside.toLowerCase()) ||
+        (await deletedBotOf(full)))
     )
       publicError("That is a bot's whole folder, not one artifact");
     await rm(full, { recursive: true });

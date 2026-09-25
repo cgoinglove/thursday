@@ -99,9 +99,12 @@ export const isListedFolder = (name: string): boolean =>
  */
 const UNLISTED_EXTENSIONS = new Set(["css", "js", "woff2"]);
 
-/** Whether a screen lists a file — the file half of `isListedFolder`. */
+/**
+ * Whether a screen lists a file — the file half of `isListedFolder`. A hidden one is
+ * machinery too: Finder's `.DS_Store`, the mark a deleted bot's folder keeps.
+ */
 export const isListedFile = (name: string): boolean =>
-  !UNLISTED_EXTENSIONS.has(extensionOf(name));
+  !name.startsWith(".") && !UNLISTED_EXTENSIONS.has(extensionOf(name));
 
 /** Content-type for the file route; unknown types download. */
 export const mimeOf = (path: string): string =>

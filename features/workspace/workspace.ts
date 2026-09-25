@@ -593,4 +593,22 @@ export async function removeBotFolder(bot: string): Promise<void> {
   await rm(join(WORKSPACE, folder), { recursive: true, force: true }).catch(
     (cause) => logger.warn(`bot folder ${folder}: ${String(cause)}`),
   );
+  // Its finished work keeps saying whose it was: with no bot of that name left, the shelf
+  // would read the folder as one set of the files at its top (features/artifact)
+  const finished = join(WORKSPACE, botArtifacts(bot));
+  if (existsSync(finished))
+    await writeFile(
+      join(finished, DELETED_BOT_MARK),
+      `${JSON.stringify({ bot })}\n`,
+    ).catch((cause) =>
+      logger.warn(
+        `${botArtifacts(bot)}: not marked as ${bot}'s — ${String(cause)}`,
+      ),
+    );
 }
+
+/**
+ * Left in `artifacts/<bot>/` when its bot is deleted (removeBotFolder): the bot's name, so
+ * Settings › Files still shows that folder as its shelf. A dotfile, so no list shows it.
+ */
+export const DELETED_BOT_MARK = ".deleted-bot.json";

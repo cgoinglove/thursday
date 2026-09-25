@@ -6,7 +6,8 @@ A bot is a text model with a name, one sentence about what it is for, and a face
 how a job finds its bot. The roster is **Settings › Bots**. **New bot** makes one — it needs a name,
 a description and a model, and a name cannot be changed later — and a bot's page holds what it
 **Runs on** and its **Effort**, when it **Compacts at**, its **Tools**, its own **Prompt**, its
-recent threads and its own memory. A bot can be switched off without being deleted. The first run
+recent threads and its own memory. A bot can be switched off without being deleted. Deleting one keeps what it finished: **Settings ›
+Files** still shows it under that bot's name. The first run
 offers the ready-made ones, all switched on; **Ready-made bots**, beside New bot, adds one later.
 There can be at most 14 bots, switched-off ones included: at 14 the roster says "14 is the most" in
 place of New bot, and one has to be deleted before another is made. When fewer places are left than
