@@ -27,7 +27,6 @@ import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { EXA_API_KEY } from "@/features/config/config.const";
 import { readConfig } from "@/features/config/config.query";
 import { acceptedReasoning, wantedReasoning } from "@/lib/live/live.server";
-import { logger } from "@/lib/logger";
 import { startError } from "@/lib/protocol/to-result";
 import { publicError } from "@/lib/public-error";
 import {
