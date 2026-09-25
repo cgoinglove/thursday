@@ -5,8 +5,8 @@ https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/data
 Copyright (C) The Android Open Source Project.
 Licensed under the Apache License, Version 2.0; the full text follows.
 
-  start_voice.ogg  NFCSuccess.ogg, unchanged
-  end_voice.ogg    NFCTransferComplete.ogg, 6 dB louder, re-encoded as Opus
+  start_voice.ogg  NFCSuccess.ogg, 1.2 dB quieter, re-encoded as Opus
+  end_voice.ogg    NFCTransferComplete.ogg, 4.8 dB louder, re-encoded as Opus
   ring.ogg         NFCInitiated.ogg, 2.2 dB quieter, re-encoded as Opus
 
 
