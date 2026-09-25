@@ -210,7 +210,7 @@ without one the video asks for it and stops.
 
 Asked how something should look, **Designer** hands back a canvas: the ways it could go, side by
 side on one surface, each with a note on what it is for and what it costs, and the one it would carry
-forward outlined. Drag to move it, pinch or hold ⌘ and scroll to zoom; the arrow keys bring the
+forward outlined and marked with a word over it, such as "Leading". Drag to move it, pinch or hold ⌘ and scroll to zoom; the arrow keys bring the
 options up one at a time, and 0 fits it all back in the window. Boards on one canvas can be different
 sizes — a phone beside a desktop screen, a poster beside a post — and a button on one board can lead
 to the next, so a flow of screens is walked through the way it would be used. Every option is also a

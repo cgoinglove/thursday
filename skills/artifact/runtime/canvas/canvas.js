@@ -906,14 +906,24 @@
       copy.querySelector(`#${id}`)?.removeAttribute("style");
     copy.querySelector("body")?.removeAttribute("data-tool");
     copy.querySelector("body")?.classList.remove("cv-no-layers");
-    for (const frame of copy.querySelectorAll(".frame"))
+    for (const frame of copy.querySelectorAll(".frame")) {
       frame.classList.remove("picked", "cut");
+      frame.querySelector(":scope > h2")?.removeAttribute("data-mark");
+    }
     for (const note of copy.querySelectorAll(".note.sticky")) {
       note.classList.remove("cv-note-on");
       note.removeAttribute("contenteditable");
     }
     for (const el of copy.querySelectorAll(".swatches")) el.remove();
   };
+
+  // The word a leading board is marked with (its data-mark) shown on its strip, which is
+  // where the stylesheet can read it; the file keeps it on the board alone (shell.clean)
+  for (const frame of boards()) {
+    const strip = frame.querySelector(":scope > h2");
+    if (frame.classList.contains("leading") && frame.dataset.mark && strip)
+      strip.dataset.mark = frame.dataset.mark;
+  }
 
   // Opens on the board the address names, else fitted to the whole canvas. Fonts change
   // how tall a note is, and the fit is measured from that.

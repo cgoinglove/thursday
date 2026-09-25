@@ -379,7 +379,7 @@ body[data-tool="note"] #field {
     0 0 0 1px var(--sh-brand),
     var(--sh-shadow);
 }
-.frame.leading > h2::after {
+.frame.leading > h2[data-mark]::after {
   content: attr(data-mark);
   padding: 0 0.375rem;
   border: 1px solid var(--sh-brand);
