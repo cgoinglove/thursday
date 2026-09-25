@@ -323,10 +323,15 @@ parts.push(
 );
 
 const costs = Array.isArray(trip.costs) ? trip.costs : [];
-const total = costs.reduce(
-  (s, c) => s + (typeof c.amount === "number" ? c.amount : 0),
-  0,
-);
+// The costs are added up, so each is a number: a range or a word would leave the total
+// counting it as nothing, and the page would state a total that is wrong
+costs.forEach((c, i) => {
+  if (typeof c.amount !== "number" || !Number.isFinite(c.amount))
+    fail(
+      `costs[${i}].amount is ${JSON.stringify(c.amount)}: the costs are added up, so each is a number in the trip's currency, the price you read. Leave out a cost you could not read, say so in "notes", and build again.`,
+    );
+});
+const total = costs.reduce((s, c) => s + c.amount, 0);
 const people = Number(trip.travelers ?? 0);
 const facts = [
   ...(trip.facts ?? []).map((f) => [f.value, f.label]),

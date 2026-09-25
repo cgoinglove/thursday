@@ -73,6 +73,8 @@ Words on the page are yours, in the user's language: set `lang` and `labels` whe
   also shown at the top. A range is a string (`"$30–50"`) and is left out of the total.
 - `stay.price` is one night's price; the stay's total is worked out from `nights`.
 - `facts` are the three or four numbers someone checks first: dates, flight time, weather.
+- Each `costs` amount is a number in `currency`, the price you read: the page adds them up. A cost
+  you could not read is left out and said in `notes`, never given as a guess or a range.
 - A leg of `flights.legs` may carry its own `price` when the two halves were bought apart;
   `flights.note` is a line under the panel, for what the price depends on.
 - A stop's `linkText` names its link, in place of the site's host.
