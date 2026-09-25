@@ -1598,7 +1598,8 @@ function ToolPicker({
   selected: number[];
   onChange: (toolIds: number[]) => void;
 }) {
-  const { data: tools = [] } = useServerRoute<McpToolPick[]>(queryKey.mcpTools);
+  const { data: loaded } = useServerRoute<McpToolPick[]>(queryKey.mcpTools);
+  const tools = loaded ?? [];
   const [open, setOpen] = useState(false);
 
   const full = selected.length >= MAX_PINNED_TOOLS;
@@ -1616,6 +1617,9 @@ function ToolPicker({
         : [...selected, id],
     );
 
+  // Nothing is said until the list has come: read as empty meanwhile, "connect a server
+  // first" flashed on every bot page with servers connected
+  if (!loaded) return null;
   if (tools.length === 0) {
     return (
       <p className="pt-1.5 text-xs text-muted-foreground">
