@@ -57,16 +57,7 @@ export function setTheme(next: Theme) {
 
 /** Whether the page is drawing dark right now, `system` resolved. */
 export function useIsDark(): boolean {
-  const theme = useTheme();
-  const [systemDark, setSystemDark] = useState(false);
-  useEffect(() => {
-    const query = window.matchMedia("(prefers-color-scheme: dark)");
-    const read = () => setSystemDark(query.matches);
-    read();
-    query.addEventListener("change", read);
-    return () => query.removeEventListener("change", read);
-  }, []);
-  return theme === "system" ? systemDark : theme === "dark";
+  return useResolvedTheme() === "dark";
 }
 
 export function useTheme(): Theme {
