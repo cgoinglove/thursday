@@ -47,7 +47,8 @@ first is the cover, asking the question the book answers.
    node <skill dir>/scripts/book.mjs put <name> <scratch>/pages.html --lang <the book's language, e.g. ko>
    ```
 
-   It checks each page and puts them all into the book, in place of what it held; a
+   A book is named by its folder under your artifacts, or given by its path — the way
+   to reach one another job made. It checks each page and puts them all into the book, in place of what it held; a
    page it cannot take stops it, named, and nothing is written: fix that page in
    your file and put again. To change the book later, change your file and put it again.
 4. Look at it once when a page carries a picture you did not draw — a photo you

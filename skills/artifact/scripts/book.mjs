@@ -2,10 +2,11 @@
 // A picture book: one HTML file in a folder of its own, printed and read aloud.
 //
 //   node book.mjs new <name>                               the book, styled, to write pages into
+//   (a book after `new` is its name — its folder under your artifacts — or its path)
 //   node book.mjs put <name> <pages.html> [--lang ko]      the pages written in <pages.html> put
 //                                                          into the book, checked first
-//   node book.mjs shots <name>                             every page as a picture, and all on one, in scratch/
-//   node book.mjs pdf <name>                               the book as a PDF, one page a sheet
+//   node book.mjs shots <name | path>                      every page as a picture, and all on one, in scratch/
+//   node book.mjs pdf <name | path>                        the book as a PDF, one page a sheet
 //   node book.mjs video <name> <audio>... [--size WxH]     the book as an mp4, one audio file per page
 import { spawnSync } from "node:child_process";
 import {
@@ -15,7 +16,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { markSvg } from "../runtime/shell/wear.mjs";
 import {
@@ -44,12 +45,24 @@ function bookFile(name) {
   return join(ARTIFACTS, name, `${name}.html`);
 }
 
+/**
+ * A book named, or pointed at by its folder or its file — a book another job made, or one
+ * the path names as it was handed back. A path is taken as given; a name is looked for in
+ * your own folder.
+ */
+function bookAt(arg) {
+  if (!arg || !/[/\\]|\.html$/i.test(arg)) return bookFile(arg);
+  const path = resolve(arg);
+  if (/\.html$/i.test(path)) return path;
+  return join(path, `${basename(path)}.html`);
+}
+
 /** An existing book, or how to start one. */
 function openBook(name) {
-  const book = bookFile(name);
+  const book = bookAt(name);
   if (!existsSync(book))
     throw new Stop(
-      `No book ${shown(book)}. Start it with: node ${SCRIPT} new ${name}`,
+      `No book ${shown(book)}. A book is given by its name (its folder under your artifacts) or by its path; to start one: node ${SCRIPT} new <name>`,
     );
   return book;
 }
@@ -212,7 +225,7 @@ function putPages(name, from, args) {
  */
 function shotBook(name) {
   const book = writtenBook(name);
-  const out = join(WORKSPACE, "scratch", `${name}-shots`);
+  const out = join(WORKSPACE, "scratch", `${basename(book, ".html")}-shots`);
   const sheet = join(out, "book.png");
   rmSync(out, { recursive: true, force: true });
   const done = spawnSync(

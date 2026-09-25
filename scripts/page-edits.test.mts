@@ -735,4 +735,13 @@ test("a book's pages go in through put, checked, and a book with none is not sho
   await writeFile(pages, `${page}\n${cover}`);
   assert.match(book("put", "water", pages).stderr, /Page 1 is the cover/);
   assert.equal(await readFile(file, "utf8"), now);
+
+  // A book is also given by its path, as another job handed it back
+  await writeFile(pages, `${cover}\n${page}\n${quiz}`);
+  const byPath = book("put", join("artifacts", "water"), pages);
+  assert.equal(byPath.status, 0, byPath.stderr);
+  assert.match(
+    book("shots", "artifacts/nowhere").stderr,
+    /given by its name .* or by its path/,
+  );
 });
