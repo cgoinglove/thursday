@@ -34,6 +34,10 @@ import {
  * Each description is a line in every prompt that lists the roster, and the one the
  * call picks a bot by: no two share a subject word, so a request has one bot to go to.
  *
+ * Both are copied into a bot's row when it is installed. Rewriting either here moves the old
+ * one's hash into bot.seed.retired in the same commit (the bot test checks it), so installs
+ * that never touched the words take the new ones at their next start.
+ *
  * The list is flat and grows, and every seed is offered alike: a key saved outside the
  * intro installs them all (seed-bots), the intro's opening loop shows every face, and the
  * intro and Settings › Bots offer every seed, all ticked. Skills ship to every bot (skills/);

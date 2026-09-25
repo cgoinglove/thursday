@@ -29,6 +29,15 @@ export async function boot() {
   const { ensureRootNotes } = await import("@/features/memory/memory.query");
   await ensureRootNotes();
 
+  // A ready-made bot whose words the user never changed takes what its seed says now
+  const { refreshSeedWords } = await import("@/features/bot/bot.query");
+  await refreshSeedWords()
+    .then((moved) => {
+      if (moved)
+        logger.info(`${moved} ready-made bot(s) took their seed's new words`);
+    })
+    .catch((cause) => logger.error("refresh seed words", cause));
+
   // Before a call can ask for it (features/ai/guide).
   const { installGuide } = await import("@/features/ai/guide");
   await installGuide().catch((cause) => logger.error("install guide", cause));

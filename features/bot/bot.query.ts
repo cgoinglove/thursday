@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { count, eq, inArray, sql } from "drizzle-orm";
 import { appEvents } from "@/app/api/events/app-event.server";
 import { BOT_ROSTER } from "@/config";
@@ -23,6 +24,8 @@ import {
   type PinnedTool,
   pickedModel,
 } from "./bot.schema";
+import { findBotSeed } from "./bot.seed";
+import { SEED_WORDS } from "./bot.seed.retired";
 
 // Bots are keyed by name throughout: it is the primary key and what `delegate` receives.
 
@@ -296,4 +299,43 @@ export async function deleteBot(name: string) {
     .where(eq(botTable.name, name))
     .returning({ name: botTable.name });
   return removed.length > 0;
+}
+
+const shaOf = (text: string) =>
+  createHash("sha256").update(text.trim()).digest("hex");
+
+/**
+ * A ready-made bot's words the user never changed move to what its seed says now (D7). Its
+ * role and roster line are copied into its row when it is installed, so a seed rewritten in a
+ * release reached nobody who already had it. A row moves only when its words are, exactly,
+ * ones an earlier version of the seed wrote (bot.seed.retired); anything else is the user's
+ * and stays. Run at boot; returns how many bots moved.
+ */
+export async function refreshSeedWords(): Promise<number> {
+  const rows = await database.select().from(botTable);
+  const before = SEED_WORDS.before as {
+    roles: Record<string, readonly string[]>;
+    descriptions: Record<string, readonly string[]>;
+  };
+  let moved = 0;
+  for (const row of rows) {
+    const seed = findBotSeed(row.name);
+    if (!seed) continue;
+    const role =
+      row.systemPrompt !== null &&
+      before.roles[row.name]?.includes(shaOf(row.systemPrompt));
+    const description = before.descriptions[row.name]?.includes(
+      shaOf(row.description),
+    );
+    if (!role && !description) continue;
+    await database
+      .update(botTable)
+      .set({
+        ...(role ? { systemPrompt: seed.systemPrompt } : {}),
+        ...(description ? { description: seed.description } : {}),
+      })
+      .where(eq(botTable.name, row.name));
+    moved++;
+  }
+  return moved;
 }

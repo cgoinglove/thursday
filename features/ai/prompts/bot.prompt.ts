@@ -24,6 +24,7 @@ import {
   type ThreadSpeaker,
   workHandle,
 } from "@/features/bot/bot.schema";
+import { findBotSeed } from "@/features/bot/bot.seed";
 import { listBotWork } from "@/features/bot/thread.query";
 import { findPinnedTools } from "@/features/connectors/mcp.query";
 import type { McpToolRef } from "@/features/connectors/mcp.schema";
@@ -113,7 +114,7 @@ export async function loadBotPrompt(
     roster(peers),
     collaboration(name, seat),
     // Last, so it is the closest thing to the work and outranks the rest
-    ownerInstruction(persona),
+    ownerInstruction(name, persona),
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -154,18 +155,27 @@ function identity(name: string, me: JobBot | null, seat?: Seat | null): string {
 }
 
 /**
- * What the owner wrote about this bot in settings. Carries the sentence that
- * settles a conflict: everything above is the app's default, and a bot whose
- * own instructions lose to a default is not the bot the owner configured.
+ * The bot's own instructions, last. Carries the sentence that settles a conflict: everything
+ * above is the app's default, and a bot whose own instructions lose to a default is not the bot
+ * it was set up to be. A ready-made bot's role, while nobody has changed it, is the app's words
+ * and is said as such (D7): told they were the owner's, the model gave the app's wording the
+ * weight of a person's wish.
  */
-const ownerInstruction = (persona?: string | null) =>
-  persona?.trim()
-    ? `## Owner's instructions
+const ownerInstruction = (name: string, persona?: string | null) => {
+  const role = persona?.trim();
+  if (!role) return "";
+  return findBotSeed(name)?.systemPrompt.trim() === role
+    ? `## Your role
+
+What this bot is for, as the app sets it up. Where it and anything above disagree, it wins.
+
+${role}`
+    : `## Owner's instructions
 
 Written by the person this bot works for. Where these and anything above disagree, these win.
 
-${persona.trim()}`
-    : "";
+${role}`;
+};
 
 /**
  * Thursday's memory, which a bot only reads (load-tools). The listing alone: the

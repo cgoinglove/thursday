@@ -1800,6 +1800,63 @@ test("a model on the plan asks for the web as Codex asks that endpoint", async (
   }
 });
 
+test("the record of the ready-made bots' words says what bot.seed says today", async () => {
+  const { createHash } = await import("node:crypto");
+  const { BOT_SEEDS } = await import("../features/bot/bot.seed.ts");
+  const { SEED_WORDS } = await import("../features/bot/bot.seed.retired.ts");
+  const sha = (text: string) =>
+    createHash("sha256").update(text.trim()).digest("hex");
+  // A seed changed without its old words moved into `before` leaves every install that
+  // never touched it on the old ones
+  for (const seed of BOT_SEEDS) {
+    const now = (
+      SEED_WORDS.now as Record<string, { role: string; description: string }>
+    )[seed.name];
+    assert.ok(now, `${seed.name} is not in bot.seed.retired`);
+    assert.equal(sha(seed.systemPrompt), now.role, `${seed.name}'s role`);
+    assert.equal(sha(seed.description), now.description, `${seed.name}'s line`);
+  }
+});
+
+test("a ready-made bot nobody changed takes its seed's new words, and one they changed keeps theirs", async () => {
+  const { createBot, deleteBot, refreshSeedWords } = await import(
+    "../features/bot/bot.query.ts"
+  );
+  const findBot = async (name: string) =>
+    (await database.select().from(botTable).where(eq(botTable.name, name)))[0];
+  const { findBotSeed } = await import("../features/bot/bot.seed.ts");
+  const tutor = findBotSeed("Tutor")!;
+  // The Tutor's role as the seed wrote it until 09-26
+  const old = tutor.systemPrompt.replace(
+    "as a page to swipe through. A PDF or a video that reads itself aloud is made from the same book when they ask for one; a request that does not say is a page to swipe through, not a question.",
+    "as a page to swipe through, a PDF, or a video that reads itself aloud. When the request does not say which, ask once, with those three as the options.",
+  );
+  assert.notEqual(old, tutor.systemPrompt);
+  await createBot({
+    name: "Tutor",
+    description: tutor.description,
+    systemPrompt: old,
+  });
+  const concierge = findBotSeed("Concierge")!;
+  const theirs = `${concierge.systemPrompt}\n\nAlways book window seats.`;
+  await createBot({
+    name: "Concierge",
+    description: "My trips",
+    systemPrompt: theirs,
+  });
+  try {
+    assert.equal(await refreshSeedWords(), 1);
+    assert.equal((await findBot("Tutor"))?.systemPrompt, tutor.systemPrompt);
+    assert.equal((await findBot("Concierge"))?.systemPrompt, theirs);
+    assert.equal((await findBot("Concierge"))?.description, "My trips");
+    // Nothing moves twice
+    assert.equal(await refreshSeedWords(), 0);
+  } finally {
+    await deleteBot("Tutor");
+    await deleteBot("Concierge");
+  }
+});
+
 test("a bot saved without its tools keeps them pinned, and a deleted Jarvis takes no work beside other bots", async () => {
   const { BotFormSchema } = await import("../features/bot/bot.schema.ts");
   const { findJobBot } = await import("../features/bot/bot.query.ts");
