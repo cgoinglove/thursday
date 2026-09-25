@@ -364,7 +364,7 @@ test("a bot's question goes to the phone as the bot wrote it, and a button answe
             id: "q-1",
             bot: "Insta",
             text: "Which **topic**?",
-            options: ["Rates", "Isudo"],
+            options: ["Rates", "Travel"],
           },
         ],
       },
@@ -395,7 +395,7 @@ test("a bot's question goes to the phone as the bot wrote it, and a button answe
   ).inline_keyboard;
   assert.deepEqual(
     keyboard.map((row) => row[0].text),
-    ["Rates", "Isudo"],
+    ["Rates", "Travel"],
   );
 
   inbox.push({
@@ -412,7 +412,7 @@ test("a bot's question goes to the phone as the bot wrote it, and a button answe
     },
   });
   await until(() => answered.length === 1, "the bot is answered");
-  assert.deepEqual(answered[0], ["thread-1", "Isudo", "user", "Insta"]);
+  assert.deepEqual(answered[0], ["thread-1", "Travel", "user", "Insta"]);
 
   // Told once: the same question coming round again is not news
   const count = sent.length;
@@ -435,7 +435,7 @@ test("she is left the fact, and reads it ahead of what is written next", async (
   );
   assert.ok(
     read.some((text) =>
-      /answered Insta's question from their phone at \d{4}-\d{2}-\d{2} .*: Isudo/.test(
+      /answered Insta's question from their phone at \d{4}-\d{2}-\d{2} .*: Travel/.test(
         text,
       ),
     ),
