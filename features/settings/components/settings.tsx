@@ -36,6 +36,7 @@ import { ModelsBadge } from "@/features/config/components/models-badge";
 import { McpBadge } from "@/features/connectors/components/mcp-badge";
 import { McpMark } from "@/features/connectors/components/mcp-mark";
 import { MemoryMark } from "@/features/memory/components/memory-mark";
+import { ReachBadge } from "@/features/reach/components/reach-badge";
 import { RoutineMark } from "@/features/routine/components/routine-mark";
 import { SkillsMark } from "@/features/skills/components/skills-mark";
 import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
@@ -289,6 +290,7 @@ export const SECTIONS: readonly {
     hint: "Write to Thursday from a chat app",
     icon: Smartphone,
     Component: PhoneSetting,
+    Badge: ReachBadge,
   },
 ];
 

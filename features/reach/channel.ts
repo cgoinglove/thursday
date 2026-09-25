@@ -24,6 +24,8 @@ export type Incoming =
       chat: string;
       /** Who wrote, as the service names them. */
       name: string;
+      /** The name the service gives them that nobody else holds (an @username), where it has one. */
+      handle: string | null;
       words: string;
       files: IncomingFile[];
       /** It carried something reach cannot read yet (a voice note, a video). */
@@ -86,7 +88,14 @@ export type Channel = {
 };
 
 /** The service answered, and refused: its words are the user's to act on (a wrong token, a missing permission). */
-export class ChannelRefusal extends Error {}
+export class ChannelRefusal extends Error {
+  /** Which of the service's tokens it turned away, in the order its maker takes them (REACH_KEYS). */
+  readonly token: number;
+  constructor(message: string, token = 0) {
+    super(message);
+    this.token = token;
+  }
+}
 
 /**
  * Waits out a service's "too many requests" for as long as it says, so an answer that goes as

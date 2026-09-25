@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import type { ModelMessage } from "ai";
 import { appEvents, presence } from "@/app/api/events/app-event.server";
@@ -46,6 +47,7 @@ import {
   REACH_CHANNELS,
   REACH_KEYS,
   REACH_LABEL,
+  type ReachAsking,
   type ReachChannelName,
   type ReachPerson,
   type ReachStatus,
@@ -98,7 +100,9 @@ type Live = {
   /** Where to go to reach this bot, as the service named it (`channel.ts`). */
   link: string | null;
   problem: string | null;
-  asking: ReachPerson | null;
+  /** The key whose token the service turned away: listening has stopped until a key changes. */
+  refused: string | null;
+  asking: ReachAsking | null;
   line: Line | null;
   /** The calls its conversations were kept as: a thread started from one comes back here. */
   calls: Set<string>;
@@ -170,6 +174,7 @@ export async function readReachStatus(): Promise<ReachStatus> {
         link: live.link,
         allowed: await readPerson(live.name),
         asking: live.asking,
+        refused: live.refused,
         problem: live.problem,
       })),
     ),
@@ -210,6 +215,7 @@ export async function startReach(fresh?: ReachChannelName): Promise<void> {
       bot: null,
       link: null,
       problem: null,
+      refused: null,
       asking: null,
       line: null,
       calls: new Set(),
@@ -263,10 +269,14 @@ async function listen(live: Live) {
     } catch (cause) {
       if (signal.aborted) return;
       const why = cause instanceof Error ? cause.message : String(cause);
-      // A token the service turns away is the user's to fix; asking again would not change it
+      // A token the service turns away is the user's to fix; asking again would not change it.
+      // Which token is kept, so the screen opens the step that holds it
       if (cause instanceof ChannelRefusal) {
         logger.warn(`reach ${live.name}: ${why}`);
-        return trouble(why);
+        const keys = REACH_KEYS[live.name];
+        live.refused = keys[cause.token] ?? keys[0];
+        live.problem = why;
+        return changed();
       }
       // No network, the service down, a second listener on the token: said, and tried again
       trouble(why);
@@ -297,15 +307,25 @@ async function take(live: Live, incoming: Incoming) {
     if (live.asking && live.asking.chat !== incoming.chat) {
       await channel.say(
         incoming.chat,
-        "Someone else is already waiting to be let in here.",
+        "Someone else is already waiting to be let in here. If that is not you, press Not them on the computer, then write again.",
       );
       return;
     }
-    live.asking = { chat: incoming.chat, name: incoming.name };
+    // A display name is anyone's to pick, so the screen shows a code this phone alone was
+    // sent: the user lets in the phone in their hand, not a name. Writing again changes neither
+    live.asking ??= {
+      chat: incoming.chat,
+      name: incoming.name,
+      handle: incoming.handle,
+      said: incoming.words,
+      code: randomInt(10 ** REACH.codeDigits)
+        .toString()
+        .padStart(REACH.codeDigits, "0"),
+    };
     changed();
     await channel.say(
       incoming.chat,
-      "Almost there. Open Thursday on your computer and press Allow, then write again.",
+      `Almost there. Thursday is asking on your computer whether to let you in. Press Allow there only if it shows ${live.asking.code}.`,
     );
     return;
   }
@@ -390,11 +410,14 @@ const megabytes = (bytes: number) => `${Math.ceil(bytes / (1024 * 1024))} MB`;
 export async function allowReach(
   name: ReachChannelName,
   chat: string,
+  code: string,
 ): Promise<void> {
   const live = state.live.get(name);
-  const asking = live?.asking;
-  if (!live || !asking || asking.chat !== chat) return;
-  await writeConfig(reachPersonKey(name), JSON.stringify(asking));
+  // The ask the screen showed, code and all: a dialog left from an earlier ask lets nobody in
+  const asking = isAsking(live, chat, code);
+  if (!live || !asking) return;
+  const person: ReachPerson = { chat: asking.chat, name: asking.name };
+  await writeConfig(reachPersonKey(name), JSON.stringify(person));
   live.asking = null;
   changed();
   await live.channel
@@ -402,12 +425,20 @@ export async function allowReach(
     .catch((cause) => logger.warn(`reach ${name}: could not say so`, cause));
 }
 
-/** Turns away whoever is asking; they may ask again. */
-export function declineReach(name: ReachChannelName): void {
+/** Turns away whoever is asking, if they are still the one asked about; they may ask again. */
+export function declineReach(
+  name: ReachChannelName,
+  chat: string,
+  code: string,
+): void {
   const live = state.live.get(name);
-  if (live) live.asking = null;
+  if (!live || !isAsking(live, chat, code)) return;
+  live.asking = null;
   changed();
 }
+
+const isAsking = (live: Live | undefined, chat: string, code: string) =>
+  live?.asking?.chat === chat && live.asking.code === code ? live.asking : null;
 
 /** Nobody may write through that service any more; the bot stays, so the next to write asks to be let in. */
 export async function forgetReach(name: ReachChannelName): Promise<void> {

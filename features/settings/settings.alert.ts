@@ -5,6 +5,7 @@ import { useThreadAlert } from "@/features/bot/components/thread-badge";
 import { useConfigAlert } from "@/features/config/components/config-badge";
 import { useModelsAlert } from "@/features/config/components/models-badge";
 import { useMcpAlert } from "@/features/connectors/components/mcp-badge";
+import { useReachAlert } from "@/features/reach/components/reach-badge";
 import type { SettingSectionId } from "./settings.store";
 
 /**
@@ -36,5 +37,6 @@ export function useSectionAlerts(): Partial<
   const mcp = useMcpAlert();
   const keys = useConfigAlert();
   const models = useModelsAlert();
-  return { bot, threads, mcp, keys, models };
+  const phone = useReachAlert();
+  return { bot, threads, mcp, keys, models, phone };
 }

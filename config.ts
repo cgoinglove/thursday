@@ -105,6 +105,9 @@ export const CALL_IDLE = {
  *   answer's last pieces sooner.
  * - `rateWaitMs`  the longest one such wait. A service asking for more is refused rather than
  *   waited on: a turn that waits holds up everything written after it.
+ * - `codeDigits`  how long the code is that someone asking to be let in is sent, and the
+ *   screen's Allow shows beside their name. Longer is harder to guess at a glance; shorter is
+ *   quicker to compare.
  * - `pictures`  how many pictures of a page go with it (reach/pictures): its first slides or
  *   boards, or its first screens from the top. With the page itself that is ten files, what
  *   one Discord message carries and one Telegram album holds; the page has the rest.
@@ -124,6 +127,7 @@ export const REACH = {
   fileBytes: 45 * 1024 * 1024,
   rateRetries: 3,
   rateWaitMs: 30_000,
+  codeDigits: 4,
   pictures: 9,
   drawMs: 60_000,
 };

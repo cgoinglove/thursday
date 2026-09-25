@@ -7,9 +7,11 @@ to set up. More than one can be on: work started from one comes back to it, and 
 to the one they last wrote from.
 
 **Settings › Phone** lists the three chat apps, one line each. A folded line says where it stands —
-*Not set*, *1 of 2 tokens in*, *Connecting…*, *Listening as …, waiting for your first message*, or
-*Listening as … . … is let in.* Opening a line shows its four steps, each marked as it is done. The
-tokens are pasted in the steps that ask for them; there is no separate list of keys.
+*Not set*, *1 of 2 tokens in*, *Connecting…*, *Listening as …, waiting for your first message*,
+*Listening as … . … is let in.*, *Reconnecting…* while the connection comes back, or *Stopped — …
+turned the token away* in red. Opening a line shows its four steps, each marked as it is done; once
+someone is let in, all four are. The tokens are pasted in the steps that ask for them; there is no
+separate list of keys.
 
 ## Setting it up: Telegram
 
@@ -19,10 +21,12 @@ tokens are pasted in the steps that ask for them; there is no separate list of k
    listening.
 3. Step 3 shows a **square picture of the bot's address**. Point the phone's camera at it — that
    opens the chat with the new bot — and write anything. (The address is a button too, for a
-   computer that has Telegram on it.) The bot answers *Almost there. Open Thursday on your computer
-   and press Allow, then write again.*
-4. On the computer a question appears: **Let … reach Thursday from a phone?** Press **Allow**. The
-   bot says *You are in*, and from then on what is written there reaches her.
+   computer that has Telegram on it.) The bot answers with a four-digit code: *Almost there.
+   Thursday is asking on your computer whether to let you in. Press Allow there only if it shows
+   4821.*
+4. On the computer a question appears: **Let … reach Thursday from a phone?**, with the name
+   Telegram gives them, what they wrote, and a code. Press **Allow** only if it is the code on your
+   phone. The bot says *You are in*; from then on what is written there reaches her.
 
 ## Setting it up: Discord
 
@@ -33,8 +37,9 @@ tokens are pasted in the steps that ask for them; there is no separate list of k
    invite, made for them: **Add the bot to a server** opens it, or the phone's camera can read its
    square picture. It asks which server and adds the bot with no permissions in it; a private
    server made for this is fine.
-4. Write to the bot directly (a direct message, not in the server), then press **Allow** on the
-   computer. Only direct messages are read; nothing said in a server is.
+4. Write to the bot directly (a direct message, not in the server). The bot sends a code, and the
+   question on the computer shows one: press **Allow** if they are the same. Only direct messages
+   are read; nothing said in a server is.
 
 ## Setting it up: Slack
 
@@ -67,15 +72,19 @@ Slack takes an app of their own and two tokens.
 3. **Install App** to the workspace. The **Bot User OAuth Token** starts with `xoxb-`: that is the
    **bot token**. Each token is pasted in the step that asks for it, in **Settings › Phone ›
    Slack**; it connects once both are there.
-4. In Slack, open the app under **Apps** and write in its **Messages** tab, then press **Allow** on
-   the computer. Slack shows no "typing…" for an app, so an answer simply arrives.
+4. In Slack, open the app under **Apps** and write in its **Messages** tab. The app sends a code,
+   and the question on the computer shows one: press **Allow** if they are the same. Slack shows no
+   "typing…" for an app, so an answer simply arrives.
 
 ## Who is let in
 
 One person can be let in through each service. Whoever is let in can talk to her from there, and
 through her start work on the computer — so the question is asked on the computer's screen, never
-on the phone, and **Not them** turns the person away. Anyone else who writes is told this Thursday
-already answers someone else.
+on the phone. A name in a chat app is anyone's to pick, so the question carries the code that
+phone was sent: whoever holds the phone showing it is the one being let in. The question opens by
+itself, over whatever is being typed, so a key pressed as it opens lands on **Not them**, which
+turns the person away. While someone waits to be let in, anyone else who writes is told so; once
+someone is let in, anyone else is told this Thursday already answers someone else.
 
 **Change the token**, under the step that took it, offers **Replace** and **Remove**: removing stops
 that service, and a new token starts over, since nobody is let in to a new bot yet. **Let them go**,
@@ -134,8 +143,14 @@ on the computer: a machine that is off or asleep does nothing until it is back.
 
 ## When it does not answer
 
-- The app's own line in **Settings › Phone** shows, in red, what the service said when it refuses a
-  token — a wrong one, or on Slack a permission the app was made without.
+- A service that turns a token away — a wrong one, one revoked or reset since, or on Slack a
+  permission the app was made without — stops: its line in **Settings › Phone** says *Stopped — …
+  turned the token away* in red, the step holding that token opens with what the service said and
+  where to get a new one, and **Phone** in the settings list, like **Settings** on the call screen,
+  carries a red dot. Nothing written from the phone reaches her until the token is replaced, and a
+  new token starts over: the person is let in again.
+- While the line is down — no network, the service unwell — the app's line says *Reconnecting…*
+  with why, and it tries again by itself.
 - The computer is asleep or the app is not running: on Telegram, messages wait and are answered
   when it is back; on Discord and Slack, what was written meanwhile is not seen.
 - "No key" or a plan's limit is said in the chat in the provider's own words, as on the computer

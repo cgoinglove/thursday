@@ -45,9 +45,9 @@ import {
  * Settings › Phone, whole: one row per chat app, the one being connected open on its steps.
  * The steps are the state — each is done, waiting on the user, or not yet — so nothing says
  * twice where the user has got to, and a service that needs nothing is a single line. The
- * server knows only three things about a service (its keys, whether it connected, who is let
- * in); `stepStates` turns those into the steps' faces. The guide (`guide/phone.md`) tells
- * Thursday the same, manifest included.
+ * server knows only three things about a service (its keys, whether it connected or turned a
+ * token away, who is let in); `stepStates` turns those into the steps' faces. The guide
+ * (`guide/phone.md`) tells Thursday the same, manifest included.
  */
 
 const SITE: Record<ReachChannelName, string> = {
@@ -125,7 +125,8 @@ const STEPS: Record<ReachChannelName, Step[]> = {
     {
       body: (
         <>
-          A question appears on this computer. Press <B>Allow</B>.
+          A question with a code appears on this computer. Press <B>Allow</B> if
+          your phone shows the same code.
         </>
       ),
     },
@@ -163,8 +164,9 @@ const STEPS: Record<ReachChannelName, Step[]> = {
     {
       body: (
         <>
-          <B>Send the bot a direct message</B> (not in the server), then press{" "}
-          <B>Allow</B> here.
+          <B>Send the bot a direct message</B> (not in the server). A question
+          with a code appears here: press <B>Allow</B> if your phone shows the
+          same code.
         </>
       ),
     },
@@ -201,7 +203,8 @@ const STEPS: Record<ReachChannelName, Step[]> = {
       body: (
         <>
           In Slack, open the app under <B>Apps</B> and write in its{" "}
-          <B>Messages</B> tab, then press <B>Allow</B> here.
+          <B>Messages</B> tab. A question with a code appears here: press{" "}
+          <B>Allow</B> if Slack shows the same code.
         </>
       ),
     },
@@ -213,28 +216,34 @@ type StepState = "flat" | "now" | "done" | "later";
 
 /**
  * The steps' faces from the only facts the server has. Before every key is in, the first
- * empty field is what waits on the user and what follows it is not yet; once they are all in,
- * everything up to the last field is behind them and what follows waits on the phone.
+ * field still wanting a token — empty, or holding one the service turned away — is what
+ * waits on the user and what follows it is not yet; once they are all in, everything up to
+ * the last field is behind them and what follows waits on the phone, until someone is let in
+ * and nothing waits at all.
  */
 function stepStates(
   steps: Step[],
   isSet: (key: string) => boolean,
-  connected: boolean,
+  facts: { connected: boolean; allowed: boolean; refused: string | null },
 ): StepState[] {
   const keyAt = steps.map((step) =>
     step.slot && "key" in step.slot ? step.slot.key : null,
   );
-  const firstEmpty = keyAt.findIndex((key) => key && !isSet(key));
+  const wants = (key: string) => !isSet(key) || key === facts.refused;
+  const firstEmpty = keyAt.findIndex((key) => key && wants(key));
   const lastKey = keyAt.reduce((last, key, at) => (key ? at : last), -1);
   return steps.map((_, at) => {
     const key = keyAt[at];
-    if (key) return isSet(key) ? "done" : at === firstEmpty ? "now" : "later";
+    if (key) return !wants(key) ? "done" : at === firstEmpty ? "now" : "later";
     // A step with no field of its own is read from the fields around it: one before the
-    // first empty field still has to be done, one after it is not yet
-    if (firstEmpty >= 0) return at < firstEmpty ? "flat" : "later";
+    // first empty field still has to be done — unless a token came of it, turned away
+    // since — and one after it is not yet
+    if (firstEmpty >= 0)
+      return at < firstEmpty ? (facts.refused ? "done" : "flat") : "later";
+    if (facts.allowed) return "done";
     // Every field is in: the rest happens on the phone, and the app only learns of it
     // when someone writes, so those steps wait on the user rather than on us
-    return at < lastKey ? "done" : connected ? "now" : "flat";
+    return at < lastKey ? "done" : facts.connected ? "now" : "flat";
   });
 }
 
@@ -249,12 +258,14 @@ export function ReachGuide() {
   const keyed = (name: ReachChannelName) => REACH_KEYS[name].every(isSet);
   const letIn = (name: ReachChannelName) => Boolean(statusOf(name)?.allowed);
 
-  // The app opens on what is unfinished: a service part-way through, else the first one
-  // when nobody is let in anywhere. With one working and nothing half-done, none opens.
+  // The app opens on what is unfinished: a service that stopped (the nav's dot led here),
+  // else one part-way through, else the first one when nobody is let in anywhere. With one
+  // working and nothing half-done, none opens.
+  const stopped = REACH_CHANNELS.find((name) => statusOf(name)?.refused);
   const started = REACH_CHANNELS.find((name) => keyed(name) && !letIn(name));
   const none = !REACH_CHANNELS.some(letIn);
   const [open, setOpen] = useState<ReachChannelName | null>(
-    started ?? (none ? REACH_CHANNELS[0] : null),
+    stopped ?? started ?? (none ? REACH_CHANNELS[0] : null),
   );
 
   return (
@@ -298,9 +309,14 @@ function Channel({
   onOpen: () => void;
 }) {
   const steps = STEPS[name];
-  const states = stepStates(steps, isSet, Boolean(status?.bot));
+  const refused = status?.refused ?? null;
+  const states = stepStates(steps, isSet, {
+    connected: Boolean(status?.bot),
+    allowed: Boolean(status?.allowed),
+    refused,
+  });
   // It is listening and nobody has written yet: the last step is where that waits
-  const waiting = Boolean(status?.bot) && !status?.allowed;
+  const waiting = Boolean(status?.bot) && !status?.allowed && !refused;
 
   return (
     <div>
@@ -343,12 +359,23 @@ function Channel({
                 set={
                   step.slot && "key" in step.slot ? isSet(step.slot.key) : false
                 }
+                refused={
+                  step.slot && "key" in step.slot && step.slot.key === refused
+                    ? (status?.problem ?? "")
+                    : null
+                }
                 link={status?.link ?? null}
                 waiting={waiting && at === steps.length - 1}
               />
             ))}
           </ol>
-          {status?.allowed && <LetGo name={name} who={status.allowed.name} />}
+          {status?.allowed && (
+            <LetGo
+              name={name}
+              who={status.allowed.name}
+              stopped={Boolean(refused)}
+            />
+          )}
         </div>
       )}
     </div>
@@ -372,15 +399,27 @@ function ChannelWords({
         {tokensIn ? `${tokensIn} of ${tokens} tokens in` : "Not set"}
       </span>
     );
+  // Stopped for good until a token changes: said in red whoever is let in, since nothing
+  // written from the phone reaches her
+  if (status?.refused)
+    return (
+      <span className={cn(small, "text-destructive")}>
+        Stopped — {REACH_LABEL[status.name]} turned the token away
+      </span>
+    );
+  // Trouble it is trying again after, and may come back from by itself: a wait, not a failure
+  if (status?.problem)
+    return (
+      <ShinyText
+        text={`${status.bot ? "Reconnecting" : "Connecting"}… ${status.problem}`}
+        className={cn(small, "align-middle")}
+      />
+    );
   if (status?.allowed)
     return (
       <span className={cn(small, "text-muted-foreground")}>
         Listening as {status.bot}. {status.allowed.name} is let in.
       </span>
-    );
-  if (status?.problem && !status.bot)
-    return (
-      <span className={cn(small, "text-destructive")}>{status.problem}</span>
     );
   if (!status?.bot)
     return (
@@ -400,6 +439,7 @@ function Row({
   step,
   state,
   set,
+  refused,
   link,
   waiting,
 }: {
@@ -408,6 +448,8 @@ function Row({
   state: StepState;
   /** Key steps only: whether the token is already stored. */
   set: boolean;
+  /** Key steps only: what the service said when it turned this step's token away. */
+  refused: string | null;
   /** Where the service says this bot is, once it has connected. */
   link: string | null;
   /** This is the step the first message from the phone is being waited for in. */
@@ -431,6 +473,7 @@ function Row({
           slot={step.slot}
           state={state}
           set={set}
+          refused={refused}
           link={link}
           waiting={waiting}
         />
@@ -463,18 +506,21 @@ function Bullet({ n, state }: { n: number; state: StepState }) {
 
 /**
  * The one thing to do in this step, under the step's words. A step behind holds only its
- * field, so a token can still be replaced or taken out; one ahead holds nothing at all.
+ * field, so a token can still be replaced or taken out, and the way to the bot, so the chat
+ * can still be opened; one ahead holds nothing at all.
  */
 function Doing({
   slot,
   state,
   set,
+  refused,
   link,
   waiting,
 }: {
   slot?: Slot;
   state: StepState;
   set: boolean;
+  refused: string | null;
   link: string | null;
   waiting: boolean;
 }) {
@@ -483,8 +529,19 @@ function Doing({
   );
   if (state === "later") return null;
   if (slot && "key" in slot)
-    return <KeyField configKey={slot.key} looks={slot.looks} set={set} />;
-  if (state === "done") return null;
+    return (
+      <KeyField
+        configKey={slot.key}
+        looks={slot.looks}
+        set={set}
+        refused={refused}
+      />
+    );
+  // Behind them: the picture for a camera has done its work, the address stays
+  if (state === "done")
+    return slot && "says" in slot && link ? (
+      <OutLink href={link}>{slot.does ?? bare(link)}</OutLink>
+    ) : null;
   if (!slot) return held || null;
   if ("open" in slot) return <OutLink href={slot.open}>{slot.label}</OutLink>;
   if ("manifest" in slot) return <CopyManifest />;
@@ -509,7 +566,7 @@ function Scan({
   does?: string;
 }) {
   const { size, data } = encode(link);
-  const shown = link.replace(/^https:\/\//, "");
+  const shown = bare(link);
   return (
     <div className="flex flex-wrap items-center gap-4">
       <div className="rounded-lg bg-white p-2.5">
@@ -543,6 +600,9 @@ function Scan({
   );
 }
 
+/** An address as a label reads it: the scheme says nothing a person needs. */
+const bare = (link: string) => link.replace(/^https:\/\//, "");
+
 /** A way out to the service, drawn as a button and heard as the link it is. */
 function OutLink({ href, children }: { href: string; children: ReactNode }) {
   return (
@@ -561,16 +621,19 @@ function OutLink({ href, children }: { href: string; children: ReactNode }) {
 
 /**
  * Set, replace or remove one token without leaving the step it belongs to. A token that is
- * in stays a line until the user asks to change it: the value itself is never shown.
+ * in stays a line until the user asks to change it: the value itself is never shown. One the
+ * service turned away stands open instead, with what the service said under it.
  */
 function KeyField({
   configKey,
   looks,
   set,
+  refused,
 }: {
   configKey: string;
   looks: string;
   set: boolean;
+  refused: string | null;
 }) {
   const [value, setValue] = useState("");
   const [editing, setEditing] = useState(false);
@@ -586,7 +649,7 @@ function KeyField({
   });
 
   // A step already behind stays quiet: one muted way back in, and nothing else
-  if (set && !editing)
+  if (set && !editing && refused === null)
     return (
       <Button
         size="xs"
@@ -599,50 +662,60 @@ function KeyField({
     );
 
   return (
-    <form
-      className="flex flex-wrap items-center gap-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void save(configKey, value).catch(() => {});
-      }}
-    >
-      <Input
-        value={value}
-        onChange={(event) => setValue(event.target.value)}
-        placeholder={looks}
-        aria-label="Token"
-        // A token is a key to the bot: kept out of sight, as every key field keeps its value
-        type="password"
-        autoComplete="off"
-        spellCheck={false}
-        className="w-72 font-mono"
-      />
-      <Button
-        type="submit"
-        size="sm"
-        loading={saving}
-        disabled={value.trim().length < 8}
+    <>
+      <form
+        className="flex flex-wrap items-center gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save(configKey, value).catch(() => {});
+        }}
       >
-        {set ? "Replace" : "Save"}
-      </Button>
-      {set && (
-        <>
-          <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
-            Cancel
-          </Button>
-          {/* set apart from what saves, at the far end and in red */}
-          <Button
-            size="sm"
-            variant="ghost"
-            loading={removing}
-            onClick={() => void remove(configKey).catch(() => {})}
-            className="ml-auto text-destructive hover:text-destructive"
-          >
-            Remove
-          </Button>
-        </>
-      )}
-    </form>
+        <Input
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          placeholder={looks}
+          aria-label="Token"
+          // A token is a key to the bot: kept out of sight, as every key field keeps its value
+          type="password"
+          autoComplete="off"
+          spellCheck={false}
+          className="w-72 font-mono"
+        />
+        <Button
+          type="submit"
+          size="sm"
+          loading={saving}
+          disabled={value.trim().length < 8}
+        >
+          {set ? "Replace" : "Save"}
+        </Button>
+        {set && (
+          <>
+            {/* A refused token has nothing to go back to: the step waits on a new one */}
+            {refused === null && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setEditing(false)}
+              >
+                Cancel
+              </Button>
+            )}
+            {/* set apart from what saves, at the far end and in red */}
+            <Button
+              size="sm"
+              variant="ghost"
+              loading={removing}
+              onClick={() => void remove(configKey).catch(() => {})}
+              className="ml-auto text-destructive hover:text-destructive"
+            >
+              Remove
+            </Button>
+          </>
+        )}
+      </form>
+      {refused && <p className="max-w-xl text-destructive">{refused}</p>}
+    </>
   );
 }
 
@@ -665,14 +738,27 @@ function CopyManifest() {
   );
 }
 
-/** Under the steps of a service someone is let in through: the way to let them go. */
-function LetGo({ name, who }: { name: ReachChannelName; who: string }) {
+/**
+ * Under the steps of a service someone is let in through: the way to let them go. While the
+ * service is stopped they are let in and still cannot write, and the line says only the first.
+ */
+function LetGo({
+  name,
+  who,
+  stopped,
+}: {
+  name: ReachChannelName;
+  who: string;
+  stopped: boolean;
+}) {
   const [forget, forgetting] = useServerAction(forgetReachAction, {
     onOk: () => revalidate(queryKey.reach),
   });
   return (
     <div className="flex flex-wrap items-center gap-2 pt-3 pl-8 text-[13px] text-muted-foreground">
-      <span>{who} can write from a phone.</span>
+      <span>
+        {stopped ? `${who} is let in.` : `${who} can write from a phone.`}
+      </span>
       <Button
         size="sm"
         variant="outline"

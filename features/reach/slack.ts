@@ -59,6 +59,9 @@ export function createSlack(appToken: string, botToken: string): Channel {
           "content-type": "application/json; charset=utf-8",
         },
         body: JSON.stringify(body),
+      }).catch((cause: unknown) => {
+        // A line that is down says where it could not go, not "fetch failed"
+        throw new Error(`Could not reach ${new URL(API).host}`, { cause });
       });
       // Slack names the wait in a header, in seconds
       const after = response.headers.get("retry-after");
@@ -72,27 +75,44 @@ export function createSlack(appToken: string, botToken: string): Channel {
         | null;
       if (said?.ok) return said;
       const code = said?.error ?? `http_${response.status}`;
-      const why =
+      if (!REFUSED.has(code))
+        throw new Error(`Slack answered ${code} to ${method}`);
+      // The app token opens the socket and the bot token does the rest, so which one a
+      // refusal names is known here, and the screen opens that step (REACH_KEYS order)
+      const app = token === appToken;
+      const needed = said?.needed ?? "a scope";
+      throw new ChannelRefusal(
         code === "missing_scope"
-          ? `Slack says the app lacks a permission (${said?.needed ?? "a scope"}) — make it from the manifest in the guide.`
-          : `Slack answered ${code} to ${method}`;
-      throw REFUSED.has(code) ? new ChannelRefusal(why) : new Error(why);
+          ? app
+            ? `Slack says this app-level token lacks ${needed} — generate one with it under Basic Information › App-Level Tokens and paste it here.`
+            : `Slack says the app lacks a permission (${needed}) — make it from the manifest in the guide.`
+          : app
+            ? `Slack turned the app-level token away (${code}). Generate a new one under Basic Information › App-Level Tokens and paste it here.`
+            : `Slack turned the bot token away (${code}). Copy the Bot User OAuth Token again from Install App and paste it here.`,
+        app ? 0 : 1,
+      );
     }
   }
 
-  /** A person's name as Slack shows it; their id when the app may not read it. */
-  const names = new Map<string, string>();
-  async function nameOf(user: string): Promise<string> {
-    const known = names.get(user);
+  /**
+   * A person as Slack shows them, and their handle; their id alone when the app may not read
+   * it.
+   */
+  const people = new Map<string, { name: string; handle: string | null }>();
+  async function whoIs(user: string) {
+    const known = people.get(user);
     if (known) return known;
-    const name = await api<{ user?: { real_name?: string; name?: string } }>(
+    const who = await api<{ user?: { real_name?: string; name?: string } }>(
       "users.info",
       { user },
     )
-      .then((said) => said.user?.real_name || said.user?.name || user)
-      .catch(() => user);
-    names.set(user, name);
-    return name;
+      .then((said) => ({
+        name: said.user?.real_name || said.user?.name || user,
+        handle: said.user?.name ? `@${said.user.name}` : null,
+      }))
+      .catch(() => ({ name: user, handle: null }));
+    people.set(user, who);
+    return who;
   }
 
   async function read(
@@ -104,10 +124,12 @@ export function createSlack(appToken: string, botToken: string): Channel {
       const plain = !event.subtype || event.subtype === "file_share";
       if (event.type !== "message" || event.channel_type !== "im") return null;
       if (!plain || event.bot_id || !event.user || !event.channel) return null;
+      const who = await whoIs(event.user);
       return {
         kind: "message",
         chat: event.channel,
-        name: await nameOf(event.user),
+        name: who.name,
+        handle: who.handle,
         words: (event.text ?? "").trim(),
         files: (event.files ?? []).flatMap((file) => {
           const url = file.url_private_download;

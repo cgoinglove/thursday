@@ -17,6 +17,8 @@ const sent: Sent[] = [];
 /** Updates waiting to be handed to the next `getUpdates`. */
 const inbox: unknown[] = [];
 let updateId = 1;
+/** Telegram turns the token away, as it does one revoked in BotFather. */
+let turnedAway = false;
 const realFetch = globalThis.fetch;
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
@@ -37,7 +39,17 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
         : {};
   const answer = (result: unknown) =>
     new Response(JSON.stringify({ ok: true, result }));
-  if (method === "getMe") return answer({ username: "test_bot" });
+  if (method === "getMe")
+    return turnedAway
+      ? new Response(
+          JSON.stringify({
+            ok: false,
+            error_code: 401,
+            description: "Unauthorized",
+          }),
+          { status: 401 },
+        )
+      : answer({ username: "test_bot" });
   if (method === "getUpdates") {
     // A short wait in place of the long poll, so the loop neither spins nor holds the test
     await new Promise((resolve) => setTimeout(resolve, 5));
@@ -197,25 +209,65 @@ after(async () => {
   setTimeout(() => process.exit(process.exitCode ?? 0), 50).unref();
 });
 
-test("someone who is not let in is asked about on screen, and nothing is answered", async () => {
+/** The code the screen shows beside whoever asks, from the status the screen reads. */
+const askingCode = async () =>
+  (await reach.readReachStatus()).channels[0].asking?.code ?? "";
+
+test("someone who is not let in is asked about on screen with a code their phone is sent, and nothing is answered", async () => {
   inbox.push(message(7, "hello"));
   await until(() => saidTo(7).length === 1, "they are told where to be let in");
-  assert.match(saidTo(7)[0], /press Allow/);
   const [status] = (await reach.readReachStatus()).channels;
   assert.equal(status.name, "telegram");
   assert.equal(status.bot, "@test_bot");
-  assert.deepEqual(status.asking, { chat: "7", name: "Sam" });
   assert.equal(status.allowed, null);
+  const code = status.asking?.code ?? "";
+  assert.match(code, /^\d{4}$/);
+  assert.deepEqual(status.asking, {
+    chat: "7",
+    name: "Sam",
+    handle: null,
+    said: "hello",
+    code,
+  });
+  // The phone reads the same code the screen shows
+  assert.equal(
+    saidTo(7)[0],
+    `Almost there. Thursday is asking on your computer whether to let you in. Press Allow there only if it shows ${code}.`,
+  );
+
+  // Writing again changes nothing: one ask, one code, the first words
+  inbox.push(message(7, "hello?"));
+  await until(() => saidTo(7).length === 2, "they are told again");
+  assert.ok(saidTo(7)[1].endsWith(`${code}.`));
+  assert.equal(
+    (await reach.readReachStatus()).channels[0].asking?.said,
+    "hello",
+  );
+
+  // Someone else is kept waiting, and told what the one asking can do about them
+  inbox.push(message(8, "me too", "Pat"));
+  await until(() => saidTo(8).length === 1, "the second is told to wait");
+  assert.match(saidTo(8)[0], /already waiting.*press Not them/);
+  assert.equal((await reach.readReachStatus()).channels[0].asking?.chat, "7");
   assert.equal(turns.length, 0);
 });
 
-test("once allowed, what they write is a turn of one conversation", async () => {
-  await reach.allowReach("telegram", "7");
+test("once allowed with the code shown, what they write is a turn of one conversation", async () => {
+  const code = await askingCode();
+  // A dialog left from another ask carries another code, and lets nobody in
+  await reach.allowReach("telegram", "7", code === "0000" ? "1111" : "0000");
+  assert.equal((await reach.readReachStatus()).channels[0].allowed, null);
+
+  const before = saidTo(7).length;
+  await reach.allowReach("telegram", "7", code);
   assert.deepEqual((await reach.readReachStatus()).channels[0].allowed, {
     chat: "7",
     name: "Sam",
   });
-  await until(() => saidTo(7).length === 2, "they are told they are in");
+  await until(
+    () => saidTo(7).length === before + 1,
+    "they are told they are in",
+  );
 
   inbox.push(message(7, "what is on today?"));
   await until(() => turns.length === 1, "her backend is asked");
@@ -224,9 +276,9 @@ test("once allowed, what they write is a turn of one conversation", async () => 
     { words, said, carried },
     { words: "what is on today?", said: "what is on today?", carried: 1 },
   );
-  await until(() => saidTo(7).length === 3, "her answer goes back");
+  await until(() => saidTo(7).length === before + 2, "her answer goes back");
   // Markdown is for a screen; a chat gets the words
-  assert.equal(saidTo(7)[2], "Heard: what is on today?");
+  assert.equal(saidTo(7).at(-1), "Heard: what is on today?");
 
   inbox.push(message(7, "and tomorrow?"));
   await until(() => turns.length === 2, "the next turn");
@@ -703,4 +755,22 @@ test("a file past what goes to the service stays, and a picture past what it dra
     ["sendDocument"],
     "Telegram draws photos up to 10 MB",
   );
+});
+
+test("a token the service turns away stops that service, names its key, and says what to do", async () => {
+  turnedAway = true;
+  await writeConfig(TELEGRAM_TOKEN_KEY, "456:revoked-token");
+  await reach.startReach("telegram");
+  let [status] = (await reach.readReachStatus()).channels;
+  for (let tries = 0; tries < 200 && !status.refused; tries++) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    [status] = (await reach.readReachStatus()).channels;
+  }
+  turnedAway = false;
+  assert.equal(status.refused, TELEGRAM_TOKEN_KEY);
+  assert.equal(
+    status.problem,
+    "Telegram said “Unauthorized”: this token was revoked or mistyped. Get it again from @BotFather and paste it here.",
+  );
+  assert.equal(status.bot, null);
 });

@@ -84,7 +84,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   if (url.endsWith("/apps.connections.open"))
     return Response.json({ ok: true, url: "wss://slack.test/socket" });
   if (url.endsWith("/users.info"))
-    return Response.json({ ok: true, user: { real_name: "Sam" } });
+    return Response.json({ ok: true, user: { real_name: "Sam", name: "sam" } });
   return Response.json({ ok: true, id: "m1" });
 }) as typeof fetch;
 
@@ -180,6 +180,8 @@ test("discord identifies after hello, hands over a direct message, leaves a serv
         kind: "message",
         chat: "dm1",
         name: "Sam",
+        // The name shown can be anyone's; the username is this person's alone
+        handle: "@sam",
         words: "hello",
         files: undefined,
         unreadable: false,
@@ -258,6 +260,7 @@ test("slack acknowledges every envelope and hands over only the direct conversat
         kind: "message",
         chat: "D1",
         name: "Sam",
+        handle: "@sam",
         words: "hi",
         files: undefined,
         unreadable: false,

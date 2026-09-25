@@ -84,7 +84,7 @@ export const notify = {
   },
   /**
    * `destructive` also moves the initial focus to the cancel button, so Enter
-   * cannot confirm an irreversible action.
+   * cannot confirm an irreversible action; `cautious` does the same without the red.
    */
   confirm: (
     confirm: Alert & {
@@ -92,12 +92,29 @@ export const notify = {
       cancelText?: ReactNode;
       /** Irreversible action: red button, focus starts on cancel. */
       destructive?: boolean;
+      /**
+       * Something granted that is not seen being used — a dialog that opens by itself must
+       * not be answered by a key already on its way: focus starts on cancel.
+       */
+      cautious?: boolean;
+      /** What the question is about, between its words and its answers. */
+      body?: ReactNode;
+      /** Settled somewhere else: the dialog closes, answering `false`. */
+      signal?: AbortSignal;
     },
   ) => {
     return new Promise<boolean>((resolve) => {
+      if (confirm.signal?.aborted) {
+        resolve(false);
+        return;
+      }
       const container = createContainer();
       const root = createRoot(container);
+      let closed = false;
       const close = () => {
+        if (closed) return;
+        closed = true;
+        confirm.signal?.removeEventListener("abort", taken);
         root.unmount();
         container.remove();
       };
@@ -109,6 +126,10 @@ export const notify = {
         resolve(false);
         close();
       };
+      // Out of whatever the caller was doing when it aborted: a root is not unmounted mid-render
+      const taken = () => queueMicrotask(cancel);
+      confirm.signal?.addEventListener("abort", taken, { once: true });
+      const guarded = Boolean(confirm.destructive || confirm.cautious);
 
       function Component() {
         return (
@@ -118,18 +139,15 @@ export const notify = {
                 <DialogTitle>{confirm.title}</DialogTitle>
                 <DialogDescription>{confirm.description}</DialogDescription>
               </DialogHeader>
+              {confirm.body}
               <DialogFooter>
-                <Button
-                  variant={"ghost"}
-                  onClick={cancel}
-                  autoFocus={confirm.destructive}
-                >
+                <Button variant={"ghost"} onClick={cancel} autoFocus={guarded}>
                   {confirm.cancelText || "Never mind"}
                 </Button>
                 <Button
                   variant={confirm.destructive ? "destructive" : "secondary"}
                   onClick={ok}
-                  autoFocus={!confirm.destructive}
+                  autoFocus={!guarded}
                 >
                   {confirm.okText || "OK"}
                 </Button>

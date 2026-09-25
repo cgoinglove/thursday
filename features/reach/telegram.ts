@@ -75,6 +75,9 @@ export function createTelegram(token: string): Channel {
               headers: { "content-type": "application/json" },
               body: JSON.stringify(body ?? {}),
             }),
+      }).catch((cause: unknown) => {
+        // A line that is down says where it could not go, not "fetch failed"
+        throw new Error(`Could not reach ${new URL(API).host}`, { cause });
       });
       const said = (await response.json().catch(() => null)) as {
         ok?: boolean;
@@ -90,7 +93,11 @@ export function createTelegram(token: string): Channel {
         continue;
       const why = said?.description ?? `Telegram answered ${response.status}`;
       // 401 is the token itself; everything else may pass
-      throw response.status === 401 ? new ChannelRefusal(why) : new Error(why);
+      if (response.status === 401)
+        throw new ChannelRefusal(
+          `Telegram said “${why}”: this token was revoked or mistyped. Get it again from @BotFather and paste it here.`,
+        );
+      throw new Error(why);
     }
   }
 
@@ -160,6 +167,7 @@ export function createTelegram(token: string): Channel {
       kind: "message",
       chat: String(message.chat.id),
       name: nameOf(message.from),
+      handle: message.from.username ? `@${message.from.username}` : null,
       words: (message.text ?? message.caption ?? "").trim(),
       files: sent
         ? [

@@ -37,7 +37,7 @@ const invite = (application?: string) =>
 
 /** Close codes that mean the token or what it asked for is refused, not that the line dropped. */
 const REFUSED: Record<number, string> = {
-  4004: "Discord did not take the bot token.",
+  4004: "Discord did not take the bot token: it was reset or mistyped. Reset it on the application's Bot page and paste the new one here.",
   4013: "Discord refused the intents this bot asked for.",
   4014: "Discord refused an intent this bot is not allowed — check the bot's page.",
 };
@@ -86,6 +86,9 @@ export function createDiscord(token: string): Channel {
           ...(form || !body ? {} : { "content-type": "application/json" }),
         },
         body: form ? body : body ? JSON.stringify(body) : undefined,
+      }).catch((cause: unknown) => {
+        // A line that is down says where it could not go, not "fetch failed"
+        throw new Error(`Could not reach ${new URL(REST).host}`, { cause });
       });
       if (response.ok)
         return (response.status === 204 ? null : await response.json()) as T;
@@ -128,6 +131,8 @@ export function createDiscord(token: string): Channel {
         kind: "message",
         chat: message.channel_id,
         name: message.author.global_name || message.author.username,
+        // A username is one of a kind on Discord; the name shown beside it is not
+        handle: `@${message.author.username}`,
         words: message.content.trim(),
         files: (message.attachments ?? []).map((file) => ({
           name: file.filename,
