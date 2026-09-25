@@ -10,7 +10,9 @@ has already said which: a provider's own words are shown as they came, never hid
 - **She cannot be heard** on a call that opened by itself (she called back): the browser holds the
   sound until the page is touched. A tap anywhere lets it through.
 - **She does not hear them**: the browser asks for the microphone on the first call. If that was
-  refused, it is allowed again from the site's settings in the address bar.
+  refused, it is allowed again from the site's settings in the address bar. The first run's
+  microphone step says which it was: not allowed, no microphone found, one that would not start
+  (another app may be using it), or the browser's own words for anything else.
 - **The call ended by itself**: the line under her face says why — *40s of quiet* (nothing was said
   for 40 seconds; the last 10 count down on screen), *Thursday hung up*, *Live closed the call*, or
   *the connection dropped*. Work already handed to a bot is not affected.

@@ -542,12 +542,44 @@ function KeyTurn({ keyed, onSaved }: { keyed: boolean; onSaved: () => void }) {
 
 type MicState = ReturnType<typeof useMic>;
 
+/** Why the microphone did not open: what happened, then what to do about it. */
+type MicFailure = { what: string; next: string };
+
+/**
+ * Read off the name `getUserMedia` rejects with; a failure it does not name keeps the
+ * browser's own words, since a guess at its cause would send them to the wrong setting.
+ */
+function micFailure(error: unknown): MicFailure {
+  const name = error instanceof DOMException ? error.name : "";
+  if (name === "NotAllowedError")
+    return {
+      what: "This page is not allowed the microphone yet.",
+      next: "The icon at the left of the address bar opens the site's settings: set Microphone to Allow and come back. Or just go on.",
+    };
+  if (name === "NotFoundError")
+    return {
+      what: "No microphone was found.",
+      next: "Plug one in or switch it on, then turn it on here again. Or just go on.",
+    };
+  if (name === "NotReadableError")
+    return {
+      what: "The microphone would not start.",
+      next: "Another app may be using it: close that app and turn it on here again. Or just go on.",
+    };
+  const said =
+    (error instanceof Error && error.message) || name || String(error);
+  return {
+    what: "The microphone did not open.",
+    next: `The browser said "${said}". Or just go on.`,
+  };
+}
+
 /**
  * The microphone on the intro: opened by its button and nothing else, heard through the
  * call's own tap so her face moves as it does on a call, and released as the step is left.
  */
 function useMic(active: boolean) {
-  const [state, setState] = useState<"off" | "on" | "blocked">("off");
+  const [state, setState] = useState<"off" | "on" | MicFailure>("off");
   /** It opened once: the browser will not ask again, whatever the step. */
   const [allowed, setAllowed] = useState(false);
   const [label, setLabel] = useState("");
@@ -575,15 +607,15 @@ function useMic(active: boolean) {
       setLabel(heard.getAudioTracks()[0]?.label ?? "");
       setState("on");
       setAllowed(true);
-    } catch {
-      setState("blocked");
+    } catch (error) {
+      setState(micFailure(error));
     }
   }, []);
 
   const spectrum = useCallback(() => tap.current?.readMic() ?? [], []);
   return {
     on: state === "on",
-    blocked: state === "blocked",
+    failed: typeof state === "object" ? state : null,
     allowed,
     label,
     turnOn,
@@ -615,15 +647,12 @@ function MicTurn({ mic }: { mic: MicState }) {
           <Mic className="" />
           Turn it on
         </Button>
-        {mic.blocked ? (
+        {mic.failed ? (
           <>
             <p className={cn("text-[13px] leading-normal", WAITING_INK)}>
-              This page is not allowed the microphone yet.
+              {mic.failed.what}
             </p>
-            <Fine>
-              The icon at the left of the address bar opens the site's settings:
-              set Microphone to Allow and come back. Or just go on.
-            </Fine>
+            <Fine>{mic.failed.next}</Fine>
           </>
         ) : (
           <Fine>
