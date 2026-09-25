@@ -103,7 +103,7 @@ const { createDiscord } = await import("../features/reach/discord.ts");
 const { createSlack } = await import("../features/reach/slack.ts");
 const { createTelegram } = await import("../features/reach/telegram.ts");
 const { ChannelRefusal } = await import("../features/reach/channel.ts");
-const { asChat, inPieces } = await import("../features/reach/chat-text.ts");
+const { chatPieces, inPieces } = await import("../features/reach/chat-text.ts");
 
 test("discord identifies after hello, hands over a direct message, leaves a server's alone, and acknowledges a press", async () => {
   const stop = new AbortController();
@@ -394,14 +394,14 @@ test("discord drops a line whose beat went unanswered, to be dialled again", asy
 test("a service's too-many-requests is waited out, and the message still goes", async () => {
   limited = 1;
   const from = calls.length;
-  await createTelegram("123:token").say("7", "hello");
+  await createTelegram("123:token").say("7", { plain: "hello" });
   const telegram = calls.slice(from).map((call) => call.body);
   assert.equal(telegram.length, 2, "asked twice");
   assert.equal(telegram[0], "limited");
 
   limited = 1;
   const next = calls.length;
-  await createDiscord("bot-token").say("dm1", "hello");
+  await createDiscord("bot-token").say("dm1", { plain: "hello" });
   assert.equal(calls.length - next, 2, "Discord too");
 });
 
@@ -420,11 +420,72 @@ test("a long answer is cut where the reading breaks", () => {
   assert.ok(tail.startsWith("😀"));
 });
 
-test("an answer keeps its code as written and loses only the prose's marks", () => {
-  assert.equal(
-    asChat(
-      "## Steps\n\n- **Install** it:\n\n```bash\n# once\nnpm i -g thing\n- not a list\n```\n\nThen run `**not bold**`.",
-    ),
-    "Steps\n\n• Install it:\n\n# once\nnpm i -g thing\n- not a list\n\nThen run **not bold**.",
-  );
+test("her words are drawn in each service's own marks", () => {
+  const markdown =
+    "## Posted\n\n- **Post:** [the carousel](https://example.com/p/1), `4:5`\n- the file [report](artifacts/Jarvis/report.html)\n\nAT&amp;T < 3 & *so*";
+  const drawn = (marks: "telegram" | "discord" | "slack" | "plain") =>
+    chatPieces({ markdown }, marks, 4_000);
+  assert.deepEqual(drawn("telegram"), [
+    '<b>Posted</b>\n\n• <b>Post:</b> <a href="https://example.com/p/1">the carousel</a>, <code>4:5</code>\n• the file report\n\nAT&amp;T &lt; 3 &amp; <i>so</i>',
+  ]);
+  assert.deepEqual(drawn("discord"), [
+    "## Posted\n\n- **Post:** [the carousel](https://example.com/p/1), `4:5`\n- the file report\n\nAT&T < 3 & *so*",
+  ]);
+  assert.deepEqual(drawn("slack"), [
+    "*Posted*\n\n• *Post:* <https://example.com/p/1|the carousel>, `4:5`\n• the file report\n\nAT&amp;T &lt; 3 &amp; _so_",
+  ]);
+  // A path is words on a phone: the file itself goes along with the answer
+  assert.deepEqual(drawn("plain"), [
+    "Posted\n\n• Post: the carousel https://example.com/p/1, 4:5\n• the file report\n\nAT&T < 3 & so",
+  ]);
+});
+
+test("code reaches every service as written", () => {
+  const markdown =
+    "Run:\n\n```bash\n# once\nnpm i -g thing\n- not a list\n```\n\nThen `**not bold**`.";
+  assert.deepEqual(chatPieces({ markdown }, "telegram", 4_000), [
+    'Run:\n\n<pre><code class="language-bash"># once\nnpm i -g thing\n- not a list</code></pre>\n\nThen <code>**not bold**</code>.',
+  ]);
+  assert.deepEqual(chatPieces({ markdown }, "discord", 4_000), [
+    "Run:\n\n```bash\n# once\nnpm i -g thing\n- not a list\n```\n\nThen `**not bold**`.",
+  ]);
+  assert.deepEqual(chatPieces({ markdown }, "plain", 4_000), [
+    "Run:\n\n# once\nnpm i -g thing\n- not a list\n\nThen **not bold**.",
+  ]);
+});
+
+test("a long answer is cut between blocks, a code block closed and opened around each cut, and no mark cut open", () => {
+  const code = Array.from({ length: 30 }, (_, n) => `line ${n}`).join("\n");
+  const markdown = `**First** part.\n\n\`\`\`\n${code}\n\`\`\`\n\n${"word ".repeat(80).trim()}`;
+  const pieces = chatPieces({ markdown }, "telegram", 120);
+  for (const piece of pieces) {
+    assert.ok(piece.length <= 120, `${piece.length}: ${piece}`);
+    for (const tag of ["b", "pre"])
+      assert.equal(
+        piece.split(`<${tag}>`).length,
+        piece.split(`</${tag}>`).length,
+        `every <${tag}> closes in its own piece: ${piece}`,
+      );
+  }
+  assert.equal(pieces[0], "<b>First</b> part.");
+  // The code comes back whole, line for line, across the pieces it was cut into
+  const lines = [
+    ...pieces.join("\n").matchAll(/<pre>([\s\S]*?)<\/pre>/g),
+  ].flatMap((found) => found[1].split("\n"));
+  assert.deepEqual(lines, code.split("\n"));
+  // A paragraph longer than a piece goes as its words
+  assert.equal(pieces.join(" ").match(/\bword\b/g)?.length, 80);
+});
+
+test("the app's own lines are words in every service, whatever they hold", () => {
+  const plain = "report_final_*v2*.md <draft> & more";
+  assert.deepEqual(chatPieces({ plain }, "telegram", 4_000), [
+    "report_final_*v2*.md &lt;draft&gt; &amp; more",
+  ]);
+  assert.deepEqual(chatPieces({ plain }, "discord", 4_000), [
+    "report\\_final\\_\\*v2\\*.md <draft\\> & more",
+  ]);
+  assert.deepEqual(chatPieces({ plain }, "slack", 4_000), [
+    "report_final_*v2*.md &lt;draft&gt; &amp; more",
+  ]);
 });

@@ -130,6 +130,9 @@ starts a new one, and she reads the last one back like any earlier call.
   Drawing them takes a few seconds and needs the browser bots use; without it the page comes alone.
 - **What she did** — noted something down, started work, looked something up — is one short line
   under her answer, in the words the call screen uses.
+- **How her words look**: bold, lists, links and code arrive the way each chat app draws them. A
+  table arrives as rows and a heading as a bold line, since a chat has neither, and a long answer
+  comes as several messages, each cut where a paragraph or a code block ends.
 - **A bot's question, or work that finished**, comes as the bot wrote it, under a line that says
   whose it is and which thread — `Jarvis finished · Credit check` — with the files it names. She
   does not say it again, and she knows it went. Work started from the phone comes back to the phone

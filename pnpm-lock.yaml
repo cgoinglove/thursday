@@ -95,6 +95,9 @@ importers:
       lucide-react:
         specifier: ^1.48.0
         version: 1.48.0(react@19.2.8)
+      marked:
+        specifier: ^17.0.6
+        version: 17.0.6
       next:
         specifier: 16.3.4
         version: 16.3.4(@babel/core@7.29.7)(@types/node@26.6.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

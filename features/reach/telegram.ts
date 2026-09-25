@@ -6,6 +6,7 @@ import {
   type OutgoingFile,
   waitOut,
 } from "./channel";
+import { chatPieces } from "./chat-text";
 
 /**
  * Telegram's Bot API as a reach channel: asked for what was written (a long poll, so
@@ -16,6 +17,8 @@ import {
 const API = "https://api.telegram.org";
 /** Telegram's cap on the pictures one album holds. */
 const ALBUM_MAX = 10;
+/** Telegram's cap on one message is 4096 characters as it counts them, marks aside; this leaves room. */
+const MAX = 4_000;
 /**
  * Telegram's caps, in the megabytes it states them in: what a bot may download (past it,
  * Telegram only says "file is too big"), send, and send as a photo.
@@ -37,6 +40,8 @@ type TelegramMessage = {
   from?: TelegramUser;
   chat: { id: number; type: string };
   text?: string;
+  /** What in `text` was bold, a link, code: the marks Telegram drew it with. */
+  entities?: unknown[];
   caption?: string;
   /** The same picture at several sizes, smallest first. */
   photo?: (TelegramFile & { width: number })[];
@@ -141,6 +146,7 @@ export function createTelegram(token: string): Channel {
           ? {
               id: String(pressed.message.message_id),
               text: pressed.message.text,
+              keep: pressed.message.entities,
             }
           : null,
       };
@@ -248,20 +254,23 @@ export function createTelegram(token: string): Channel {
     },
 
     async say(chat, text, buttons) {
-      await call("sendMessage", {
-        chat_id: chat,
-        text,
-        link_preview_options: { is_disabled: true },
-        ...(buttons?.length
-          ? {
-              reply_markup: {
-                inline_keyboard: buttons.map((button) => [
-                  { text: button.text, callback_data: button.data },
-                ]),
-              },
-            }
-          : {}),
-      });
+      const pieces = chatPieces(text, "telegram", MAX);
+      for (const [at, piece] of pieces.entries())
+        await call("sendMessage", {
+          chat_id: chat,
+          text: piece,
+          parse_mode: "HTML",
+          link_preview_options: { is_disabled: true },
+          ...(buttons?.length && at === pieces.length - 1
+            ? {
+                reply_markup: {
+                  inline_keyboard: buttons.map((button) => [
+                    { text: button.text, callback_data: button.data },
+                  ]),
+                },
+              }
+            : {}),
+        });
     },
 
     async typing(chat) {
@@ -270,11 +279,13 @@ export function createTelegram(token: string): Channel {
       );
     },
 
-    async settle(chat, messageId, text) {
+    async settle(chat, under, answer) {
+      // Its words as Telegram gave them back, with the marks they carried, and the answer after
       await call("editMessageText", {
         chat_id: chat,
-        message_id: Number(messageId),
-        text,
+        message_id: Number(under.id),
+        text: `${under.text}\n\n→ ${answer}`,
+        entities: under.keep,
         link_preview_options: { is_disabled: true },
       }).catch(() => {});
     },

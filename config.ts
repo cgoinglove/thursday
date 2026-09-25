@@ -94,7 +94,6 @@ export const CALL_IDLE = {
  *   purpose: a conversation that loses one message a turn opens differently every turn, and
  *   the provider's prompt cache never matches.
  * - `oldChars`  the most an older message keeps. The turn just answered is never cut.
- * - `chars`  how much goes in one chat message; a longer answer goes as several.
  * - `files`  how many of the files her answer names are sent along with it. The rest are named
  *   in the chat as left on this computer.
  * - `fileBytes`  the largest file taken from a chat or sent to one, since each is held in
@@ -125,7 +124,6 @@ export const REACH = {
   messages: 40,
   trimTo: 30,
   oldChars: 1_000,
-  chars: 3_500,
   files: 3,
   fileBytes: 45 * 1024 * 1024,
   rateRetries: 3,

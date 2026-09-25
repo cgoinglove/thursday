@@ -4,7 +4,7 @@ import {
   type Incoming,
   waitOut,
 } from "./channel";
-import { inPieces } from "./chat-text";
+import { chatPieces } from "./chat-text";
 import { runSocket } from "./socket";
 
 /**
@@ -20,6 +20,8 @@ const GATEWAY = "wss://gateway.discord.gg/?v=10&encoding=json";
 const INTENTS = 1 << 12;
 /** Discord's cap on one message. */
 const MAX = 1_900;
+/** A message flag: links go without the card Discord draws under each. */
+const SUPPRESS_EMBEDS = 1 << 2;
 /** Discord's cap on the files one message carries. */
 const FILES_MAX = 10;
 /** Discord's default cap on each file: a direct message is in no server a boost could raise it for. */
@@ -256,10 +258,13 @@ export function createDiscord(token: string): Channel {
     },
 
     async say(chat, text, buttons) {
-      const pieces = inPieces(text, MAX);
+      const pieces = chatPieces(text, "discord", MAX);
       for (const [at, piece] of pieces.entries())
         await rest("POST", `/channels/${chat}/messages`, {
           content: piece,
+          // No card under every link, and no one pinged by a name in her words
+          flags: SUPPRESS_EMBEDS,
+          allowed_mentions: { parse: [] },
           ...(buttons?.length && at === pieces.length - 1
             ? { components: rows(buttons) }
             : {}),
@@ -270,9 +275,11 @@ export function createDiscord(token: string): Channel {
       await rest("POST", `/channels/${chat}/typing`).catch(() => {});
     },
 
-    async settle(chat, messageId, text) {
-      await rest("PATCH", `/channels/${chat}/messages/${messageId}`, {
-        content: text.slice(0, MAX),
+    async settle(chat, under, answer) {
+      // Its words are the marks it was sent in, so they are drawn as they were
+      const after = `\n\n→ ${chatPieces({ plain: answer }, "discord", MAX)[0]}`;
+      await rest("PATCH", `/channels/${chat}/messages/${under.id}`, {
+        content: `${under.text.slice(0, MAX - after.length)}${after}`,
         components: [],
       }).catch(() => {});
     },

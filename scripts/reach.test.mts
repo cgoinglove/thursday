@@ -193,13 +193,21 @@ const until = async (what: () => boolean, label: string) => {
     await new Promise((resolve) => setTimeout(resolve, 10));
   assert.ok(what(), label);
 };
+/** A message as the phone shows it: Telegram draws its HTML, and the words are what is left. */
+const shown = (text: unknown) =>
+  String(text)
+    .replace(/<[^>]+>/g, "")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&amp;", "&");
 const saidTo = (chat: number) =>
   sent
     .filter(
       (one) =>
         one.method === "sendMessage" && one.body.chat_id === String(chat),
     )
-    .map((one) => String(one.body.text));
+    .map((one) => shown(one.body.text));
 
 await writeConfig(TELEGRAM_TOKEN_KEY, "123:test-token");
 await reach.startReach();
@@ -371,10 +379,13 @@ test("a bot's question goes to the phone as the bot wrote it, and a button answe
     "no turn of hers is spent saying it again",
   );
   assert.equal(
-    lastSaid().body.text,
+    shown(lastSaid().body.text),
     "Insta asks · Today's post\n\nWhich topic?",
-    "whose it is and which thread, then the words without their marks",
+    "whose it is and which thread, then the words",
   );
+  // Drawn in Telegram's own marks, the bot's bold kept
+  assert.equal(lastSaid().body.parse_mode, "HTML");
+  assert.match(String(lastSaid().body.text), /Which <b>topic<\/b>\?/);
 
   const keyboard = (
     lastSaid().body.reply_markup as {
@@ -446,8 +457,13 @@ test("an ending keeps its lines, takes its link along, and is seen once delivere
   assert.deepEqual(seen[0], ["thread-2"]);
   assert.equal(turns.length, before);
   assert.equal(
-    lastSaid().body.text,
-    "Insta finished · First post\n\nPosted\n\n• Post: the carousel https://example.com/p/1\n• Six slides, 4:5\n\nNothing else was changed.",
+    shown(lastSaid().body.text),
+    "Insta finished · First post\n\nPosted\n\n• Post: the carousel\n• Six slides, 4:5\n\nNothing else was changed.",
+  );
+  // The link is one the phone opens, under its own words
+  assert.match(
+    String(lastSaid().body.text),
+    /<b>Post:<\/b> <a href="https:\/\/example\.com\/p\/1">the carousel<\/a>/,
   );
 });
 
@@ -620,7 +636,7 @@ test("with a browser watching, only what was started from here comes to the phon
   await looked();
   assert.deepEqual(seen.slice(count), [["thread-5"]]);
   assert.equal(
-    lastSaid().body.text,
+    shown(lastSaid().body.text),
     "Insta finished · From the phone\n\nDone here.",
   );
 });

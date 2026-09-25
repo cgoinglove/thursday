@@ -1,4 +1,5 @@
 import { REACH } from "@/config";
+import type { ChatText } from "./chat-text";
 
 /**
  * What reach needs from a chat service, and nothing more: hear one person, answer them, put
@@ -37,8 +38,14 @@ export type Incoming =
       /** The pressed button's own `data`, as it was sent. */
       data: string;
       /** The message the buttons were under, to be settled once the press is taken. */
-      under: { id: string; text: string } | null;
+      under: Pressed | null;
     };
+
+/**
+ * A message a button was pressed under, as the service handed it back: its words, and `keep`,
+ * whatever the service needs to draw it again as it was, which reach passes back untouched.
+ */
+export type Pressed = { id: string; text: string; keep?: unknown };
 
 export type Button = { text: string; data: string };
 
@@ -71,12 +78,15 @@ export type Channel = {
     },
     signal: AbortSignal,
   ): Promise<void>;
-  /** One message, at most `REACH.chars` long; `buttons` go under it, one to a row. */
-  say(chat: string, text: string, buttons?: Button[]): Promise<void>;
+  /**
+   * A text drawn in the service's own marks (chat-text), in as many messages as its length
+   * takes; `buttons` go under the last, one to a row.
+   */
+  say(chat: string, text: ChatText, buttons?: Button[]): Promise<void>;
   /** "typing…", for a few seconds. */
   typing(chat: string): Promise<void>;
-  /** Takes the buttons off a message once one was pressed, and leaves `text` in its place. */
-  settle(chat: string, messageId: string, text: string): Promise<void>;
+  /** Takes the buttons off a message once one was pressed, and writes the answer under it. */
+  settle(chat: string, under: Pressed, answer: string): Promise<void>;
   /**
    * Files of ours, in as few messages as the service takes them: the pictures together,
    * drawn as pictures, and the rest as files.

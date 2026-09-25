@@ -4,7 +4,7 @@ import {
   type Incoming,
   waitOut,
 } from "./channel";
-import { inPieces } from "./chat-text";
+import { chatPieces } from "./chat-text";
 import { runSocket } from "./socket";
 
 /**
@@ -229,19 +229,20 @@ export function createSlack(appToken: string, botToken: string): Channel {
     },
 
     async say(chat, text, buttons) {
-      const pieces = inPieces(text, MAX);
+      const pieces = chatPieces(text, "slack", MAX);
       for (const [at, piece] of pieces.entries()) {
         const last = buttons?.length && at === pieces.length - 1;
         await api("chat.postMessage", {
           channel: chat,
           text: piece,
           unfurl_links: false,
+          unfurl_media: false,
           ...(last
             ? {
                 blocks: [
                   {
                     type: "section",
-                    text: { type: "plain_text", text: piece },
+                    text: { type: "mrkdwn", text: piece },
                   },
                   {
                     type: "actions",
@@ -265,11 +266,13 @@ export function createSlack(appToken: string, botToken: string): Channel {
     // Slack gives an app no way to say it is typing
     async typing() {},
 
-    async settle(chat, messageId, text) {
+    async settle(chat, under, answer) {
+      // Its words are the mrkdwn it was sent in, so they are drawn as they were
+      const after = `\n\n→ ${chatPieces({ plain: answer }, "slack", MAX)[0]}`;
       await api("chat.update", {
         channel: chat,
-        ts: messageId,
-        text: text.slice(0, MAX),
+        ts: under.id,
+        text: `${under.text.slice(0, MAX - after.length)}${after}`,
         blocks: [],
       }).catch(() => {});
     },

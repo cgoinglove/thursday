@@ -34,13 +34,13 @@ import { toDate } from "@/lib/date-like";
 import { logger } from "@/lib/logger";
 import { isPublicError } from "@/lib/public-error";
 import {
-  type Button,
   type Channel,
   ChannelRefusal,
   type Incoming,
   type IncomingFile,
+  type Pressed,
 } from "./channel";
-import { asChat, inPieces } from "./chat-text";
+import { literal } from "./chat-text";
 import { createDiscord } from "./discord";
 import { picturesOf } from "./pictures";
 import {
@@ -362,10 +362,9 @@ async function take(live: Live, incoming: Incoming) {
   }
   if (person?.chat === incoming.chat) return written(live, person, incoming);
   if (person)
-    return live.channel.say(
-      incoming.chat,
-      "This Thursday already answers someone else.",
-    );
+    return live.channel.say(incoming.chat, {
+      plain: "This Thursday already answers someone else.",
+    });
   return ask(live, incoming);
 }
 
@@ -379,10 +378,10 @@ async function ask(live: Live, incoming: Written) {
   // One at a time: overwriting would drop the first person without a word, and
   // put a name on the screen's Allow that is not the one who asked for it.
   if (live.asking && live.asking.chat !== incoming.chat)
-    return live.channel.say(
-      incoming.chat,
-      "Someone else is already waiting to be let in here. If that is not you, press Not them on the computer, then write again.",
-    );
+    return live.channel.say(incoming.chat, {
+      plain:
+        "Someone else is already waiting to be let in here. If that is not you, press Not them on the computer, then write again.",
+    });
   if (live.held.length < REACH.held) live.held.push(incoming);
   if (live.asking) return;
   live.asking = {
@@ -395,10 +394,9 @@ async function ask(live: Live, incoming: Written) {
       .padStart(REACH.codeDigits, "0"),
   };
   changed();
-  await live.channel.say(
-    incoming.chat,
-    `Almost there. Thursday is asking on your computer whether to let you in. Press Allow there only if it shows ${live.asking.code}, and she answers what you wrote.`,
-  );
+  await live.channel.say(incoming.chat, {
+    plain: `Almost there. Thursday is asking on your computer whether to let you in. Press Allow there only if it shows ${live.asking.code}, and she answers what you wrote.`,
+  });
 }
 
 /** What someone let in wrote, for her. */
@@ -419,22 +417,21 @@ async function wordsOf(live: Live, incoming: Written): Promise<string | null> {
   const { kept, lost } = await takeFiles(live, incoming.files);
   if (lost.length)
     await channel
-      .say(
-        incoming.chat,
-        lost
+      .say(incoming.chat, {
+        plain: lost
           .map(({ name, why }) => `${name} did not come through: ${why}.`)
           .join("\n"),
-      )
+      })
       .catch((cause) =>
         logger.warn(`reach ${live.name}: could not say so`, cause),
       );
   const words = [incoming.words, ...kept].filter(Boolean).join("\n");
   if (!words) {
     if (incoming.unreadable && !lost.length)
-      await channel.say(
-        incoming.chat,
-        "I can read words, pictures and files here — not voice or video yet. Write it instead.",
-      );
+      await channel.say(incoming.chat, {
+        plain:
+          "I can read words, pictures and files here — not voice or video yet. Write it instead.",
+      });
     return null;
   }
   if (lost.length)
@@ -505,12 +502,11 @@ export async function allowReach(
   changed();
   const held = live.held.splice(0);
   await live.channel
-    .say(
-      chat,
-      held.length
+    .say(chat, {
+      plain: held.length
         ? "You are in. Thursday answers what you wrote."
         : "You are in. Write here and Thursday answers.",
-    )
+    })
     .catch((cause) => logger.warn(`reach ${name}: could not say so`, cause));
   // What they wrote while they waited was all written before she could answer, so it is
   // answered as one turn, in the order it was written
@@ -649,13 +645,15 @@ async function answer(live: Live, person: ReachPerson, words: string) {
     line.lastAt = Date.now();
 
     // What she did goes under what she said, in the call screen's words: a chat has no
-    // activity line, and a turn she ended without a word still shows that much
+    // activity line, and a turn she ended without a word still shows that much. Her words
+    // are markdown, drawn in the service's own marks; the line is words, whatever it holds
     const did = [...new Set(result.did)].join(" · ");
-    await sayAll(
-      live,
-      person,
-      [asChat(result.text), did && `— ${did}`].filter(Boolean).join("\n\n"),
-    );
+    await channel.say(person.chat, {
+      markdown:
+        [result.text, did && `— ${literal(did)}`]
+          .filter(Boolean)
+          .join("\n\n") || "…",
+    });
     await sendFiles(live, person, result.text);
   } catch (cause) {
     live.notes.unshift(...facts);
@@ -667,7 +665,7 @@ async function answer(live: Live, person: ReachPerson, words: string) {
       ? cause.message
       : modelErrorToString(cause);
     logger.warn(`reach ${live.name}: ${why}`);
-    await channel.say(person.chat, why).catch(() => {});
+    await channel.say(person.chat, { plain: why }).catch(() => {});
   } finally {
     clearInterval(typing);
   }
@@ -704,22 +702,6 @@ function carried(messages: ModelMessage[]): ModelMessage[] {
       at >= kept.length - REACH.trimTo && message.role === "user",
   );
   return from > 0 ? kept.slice(from) : kept;
-}
-
-/** A text in chat-sized pieces, `buttons` under the last. */
-async function sayAll(
-  live: Live,
-  person: ReachPerson,
-  text: string,
-  buttons?: Button[],
-) {
-  const parts = inPieces(text || "…", REACH.chars);
-  for (const [at, part] of parts.entries())
-    await live.channel.say(
-      person.chat,
-      part,
-      at === parts.length - 1 ? buttons : undefined,
-    );
 }
 
 /**
@@ -767,13 +749,12 @@ async function sendFiles(live: Live, person: ReachPerson, text: string) {
   }
   if (!left.length) return;
   await live.channel
-    .say(
-      person.chat,
-      [
+    .say(person.chat, {
+      plain: [
         "Not sent — still on this computer:",
         ...left.map(({ name, why }) => `• ${name}: ${why}`),
       ].join("\n"),
-    )
+    })
     .catch((cause) =>
       logger.warn(`reach ${live.name}: could not say so`, cause),
     );
@@ -908,10 +889,12 @@ async function tell(
   });
 
   try {
-    await sayAll(
-      live,
-      person,
-      `${item.show.line} · ${item.show.name}\n\n${asChat(item.text) || "…"}`,
+    // Whose it is and which thread, as words, over what the bot wrote, in its own marks
+    await live.channel.say(
+      person.chat,
+      {
+        markdown: `${literal(`${item.show.line} · ${item.show.name}`)}\n\n${item.text || "…"}`,
+      },
       buttons,
     );
   } catch (cause) {
@@ -934,35 +917,30 @@ async function choose(
   live: Live,
   person: ReachPerson,
   data: string,
-  under: { id: string; text: string } | null,
+  under: Pressed | null,
 ) {
   const choice = state.choices.get(data);
   if (!choice) {
-    await live.channel.say(
-      person.chat,
-      "That question is no longer open here. Write your answer instead.",
-    );
+    await live.channel.say(person.chat, {
+      plain: "That question is no longer open here. Write your answer instead.",
+    });
     return;
   }
   for (const [key, one] of state.choices)
     if (one.question === choice.question) state.choices.delete(key);
   try {
     await answerThread(choice.threadId, choice.answer, "user", choice.bot);
-    if (under)
-      await live.channel.settle(
-        person.chat,
-        under.id,
-        `${under.text}\n\n→ ${choice.answer}`,
-      );
+    if (under) await live.channel.settle(person.chat, under, choice.answer);
     // She is told, as she is when a question is answered on screen: a fact, not a turn
     live.notes.push({
       text: `[The user answered ${choice.bot}'s question from their phone at ${clockNow()}: ${choice.answer}. It has reached ${choice.bot}.]`,
       said: false,
     });
   } catch (cause) {
-    await live.channel.say(
-      person.chat,
-      isPublicError(cause) ? cause.message : "That answer did not get through.",
-    );
+    await live.channel.say(person.chat, {
+      plain: isPublicError(cause)
+        ? cause.message
+        : "That answer did not get through.",
+    });
   }
 }
