@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { THEME_STORAGE_KEY, THEMES, type Theme } from "@/lib/theme";
 
 /**
@@ -55,9 +55,21 @@ export function setTheme(next: Theme) {
   announce();
 }
 
-/** Whether the page is drawing dark right now, `system` resolved. */
+// The boot script sets `dark` on <html> before hydration (app/layout), and applyTheme keeps it
+// since, so the class is right on a client mount, where a media-query effect would first say light
+const subscribeToDark = (onChange: () => void) => {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+  return () => observer.disconnect();
+};
+const drawsDark = () => document.documentElement.classList.contains("dark");
+
+/** Whether the page is drawing dark right now, `system` resolved: the `dark` class on `<html>`. */
 export function useIsDark(): boolean {
-  return useResolvedTheme() === "dark";
+  return useSyncExternalStore(subscribeToDark, drawsDark, () => false);
 }
 
 export function useTheme(): Theme {
@@ -81,21 +93,6 @@ export function useTheme(): Theme {
     // Server snapshot; hydration swaps in the stored value.
     () => "system",
   );
-}
-
-/** Resolved theme; follows the OS while the setting is "system". */
-export function useResolvedTheme(): "light" | "dark" {
-  const current = useTheme();
-  const [systemDark, setSystemDark] = useState(false);
-  useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const follow = () => setSystemDark(media.matches);
-    follow();
-    media.addEventListener("change", follow);
-    return () => media.removeEventListener("change", follow);
-  }, []);
-  if (current !== "system") return current;
-  return systemDark ? "dark" : "light";
 }
 
 /** Re-applies "system" when the OS theme changes. Mount once, in the layout. */

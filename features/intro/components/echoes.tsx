@@ -24,7 +24,7 @@ import type { AsciiCharset } from "@/features/thursday/face.const";
 import { windAt } from "@/features/thursday/field";
 import { createSmoke, restValue, stepSmoke } from "@/features/thursday/smoke";
 import { WASH_SETS } from "@/features/thursday/wash";
-import { useResolvedTheme } from "@/hooks/use-theme";
+import { useIsDark } from "@/hooks/use-theme";
 
 /**
  * The sizes she comes down through before her own, largest first: how many of her radii across,
@@ -212,7 +212,7 @@ export function Echoes({
   onDone: () => void;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const dark = useResolvedTheme() === "dark";
+  const dark = useIsDark();
   // the loop starts once; what may change under it comes through refs
   const live = useRef({ charset, dark, onArrive, onHello, onDone });
   live.current = { charset, dark, onArrive, onHello, onDone };

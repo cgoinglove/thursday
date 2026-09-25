@@ -6,7 +6,7 @@ import {
   type AsciiOrbMode,
 } from "@/features/thursday/components/ascii-orb";
 import type { CallStatus, FaceWord } from "@/features/thursday/thursday.schema";
-import { useResolvedTheme } from "@/hooks/use-theme";
+import { useIsDark } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
 
 /**
@@ -57,7 +57,7 @@ function OrbFace({
   waking,
   className,
 }: FaceProps) {
-  const dark = useResolvedTheme() === "dark";
+  const dark = useIsDark();
   return (
     <AsciiOrb
       mode={failed ? "error" : ORB_MODE[status]}

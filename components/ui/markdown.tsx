@@ -10,9 +10,9 @@ import {
   isValidElement,
   memo,
   type ReactElement,
-  useSyncExternalStore,
 } from "react";
 import { Streamdown } from "streamdown";
+import { useIsDark } from "@/hooks/use-theme";
 
 const defaultProps: ComponentProps<typeof Streamdown> = {
   plugins: {
@@ -41,18 +41,6 @@ const MERMAID_THEME = {
   },
   dark: { config: { theme: "dark" } },
 } as const;
-
-// The boot script sets `dark` on <html> before hydration (lib/theme), so the class
-// is right on a client mount, where a media-query effect would first say light
-const subscribeToTheme = (onChange: () => void) => {
-  const observer = new MutationObserver(onChange);
-  observer.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ["class"],
-  });
-  return () => observer.disconnect();
-};
-const isDark = () => document.documentElement.classList.contains("dark");
 
 type HastChild = { type?: string; tagName?: string };
 
@@ -94,9 +82,7 @@ function Picture({
 }
 
 function PureMarkdown(props: ComponentProps<typeof Streamdown>) {
-  const theme = useSyncExternalStore(subscribeToTheme, isDark, () => false)
-    ? "dark"
-    : "light";
+  const theme = useIsDark() ? "dark" : "light";
   return (
     // Streamdown's memo ignores a changed `mermaid` prop, so a new theme remounts it
     <Streamdown
