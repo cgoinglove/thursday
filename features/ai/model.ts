@@ -267,10 +267,29 @@ type CatalogRow = {
   type?: string | null;
   tags?: string[] | null;
   deprecated_at?: number | null;
-  pricing?: Record<string, unknown> | null;
+  pricing?: CatalogPricing | null;
   context_window?: number | null;
   /** How this model's reasoning can be set: a named ladder, a budget in tokens, or an on/off. */
   reasoning_options?: { type?: string; values?: string[] }[] | null;
+};
+
+/**
+ * A row's prices as the gateway sends them, dollar amounts as strings, each field only where the
+ * model is billed that way; only the fields `priceOfGatewayModel` reads are named.
+ */
+type CatalogPricing = {
+  input?: string | null;
+  output?: string | null;
+  transcription_duration_cost_per_second?: string | null;
+  realtime_session_duration_cost_per_second?: string | null;
+  speech_input_character_cost?: string | null;
+  video_duration_pricing?:
+    | { cost_per_second?: string; resolution?: string }[]
+    | null;
+  image?: string | null;
+  image_dimension_quality_pricing?: unknown;
+  input_tiers?: unknown;
+  varies_by_provider?: boolean | null;
 };
 
 /**
@@ -299,7 +318,7 @@ function per1M(value: unknown): number | null {
  * where tokens do price it, anything that qualifies them rides along as a note.
  */
 function priceOfGatewayModel(row: CatalogRow): GatewayPrice {
-  const pricing = (row.pricing ?? {}) as Record<string, any>;
+  const pricing: CatalogPricing = row.pricing ?? {};
   const tokensIn = per1M(pricing.input);
   const out = per1M(pricing.output);
 
@@ -316,11 +335,12 @@ function priceOfGatewayModel(row: CatalogRow): GatewayPrice {
   const videoClip = Array.isArray(pricing.video_duration_pricing)
     ? pricing.video_duration_pricing[0]
     : null;
-  if (videoClip)
+  // A clip that names no price says nothing a note could show ("$undefined/s")
+  if (videoClip?.cost_per_second)
     return {
       in: null,
       out: null,
-      note: `$${videoClip.cost_per_second}/s ${videoClip.resolution}`,
+      note: `$${videoClip.cost_per_second}/s ${videoClip.resolution ?? ""}`.trimEnd(),
       free: false,
     };
 
