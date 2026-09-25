@@ -3,6 +3,8 @@
 // the build and at the user's home (config.ts APP_DIR / DATA_DIR), then boots
 // the standalone server. Plain JavaScript: this runs before anything is built.
 
+// First, so an older Node is told what it needs before anything else is evaluated
+import "./node-check.mjs";
 import { spawn } from "node:child_process";
 import {
   existsSync,
@@ -15,6 +17,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { askToSetDatabaseAside, MIGRATION_FAILED_EXIT } from "./database.mjs";
+import { holdFolder, refuseSecond } from "./lock.mjs";
 import { freePort } from "./port.mjs";
 import { ROOT, toolPath } from "./tools.mjs";
 
@@ -87,8 +90,11 @@ if (argv[0] === "autostart") {
   process.exit(0);
 }
 
+// Before a port is picked: a second server on this folder would take the next one
+refuseSecond(home);
 const port = String(await freePort(asked, home));
 const url = `http://localhost:${port}`;
+holdFolder(home, url);
 /** Where config.ts DB_PATH puts the database under the home. */
 const database = join(home, "local.db");
 
@@ -179,7 +185,8 @@ start();
  * request to try again.
  */
 let stopping = false;
-for (const signal of ["SIGINT", "SIGTERM"]) {
+// A terminal closed under it is a stop too (SIGHUP), and the server parks its work for it
+for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
   process.on(signal, () => {
     if (stopping) {
       child.kill("SIGKILL");

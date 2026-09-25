@@ -443,8 +443,36 @@ if (missing.length) die(`Missing from the build: ${missing.join(", ")}`);
  */
 const FORBIDDEN = [".env", ".env.local", ".npmrc", ".playwright-cli", "dist"];
 
-const leaked = FORBIDDEN.filter((path) => existsSync(join(DIST, path)));
-if (leaked.length) die(`Refusing to pack — ${leaked.join(", ")} in dist/`);
+/**
+ * Anywhere in the tree, by name: what holds a key, a session or someone's data. Checked at
+ * the top alone, a `.env` or a database the tracer copied a folder down was never looked
+ * at. The registry's packages are left out; they came from the registry.
+ */
+const PRIVATE = [
+  /^\.env(\..+)?$/,
+  /\.local\./,
+  /\.db(-wal|-shm)?$/,
+  /^\.npmrc$/,
+  /^\.(sign-ins|ai-workspace|playwright-cli)$/,
+];
+const privateIn = (dir: string, at = ""): string[] =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = at ? `${at}/${entry.name}` : entry.name;
+    if (entry.name === "node_modules") return [];
+    if (
+      entry.name !== ".env.example" &&
+      PRIVATE.some((rx) => rx.test(entry.name))
+    )
+      return [path];
+    return entry.isDirectory() ? privateIn(join(dir, entry.name), path) : [];
+  });
+
+const leaked = [
+  ...FORBIDDEN.filter((path) => existsSync(join(DIST, path))),
+  ...privateIn(DIST),
+];
+if (leaked.length)
+  die(`Refusing to pack — ${[...new Set(leaked)].join(", ")} in dist/`);
 
 const size = spawnSync("du", ["-sh", DIST], { encoding: "utf8" })
   .stdout?.split("\t")[0]

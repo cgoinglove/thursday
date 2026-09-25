@@ -34,13 +34,35 @@ export async function askToSetDatabaseAside(dbPath) {
   rl.close();
   if (!/^y/i.test(answer.trim())) return false;
   const aside = `${dbPath}.corrupt-${Date.now()}`;
-  // WAL mode keeps two sidecars next to the file; each goes with it.
-  for (const suffix of ["", "-wal", "-shm"]) {
+  // WAL mode keeps two sidecars next to the file; each goes with it. The sidecars go first
+  // and the file last: a file moved without its log would leave the log beside a new, empty
+  // database. A move that fails puts back what went and says so — it said "Moved" and
+  // started again before, whatever happened.
+  const moved = [];
+  let failed = null;
+  for (const suffix of ["-wal", "-shm", ""]) {
     try {
       renameSync(`${dbPath}${suffix}`, `${aside}${suffix}`);
-    } catch {
-      // A sidecar SQLite had not written, or the main file is already gone
+      moved.push(suffix);
+    } catch (error) {
+      // One SQLite had not written, or the file is already gone
+      if (error?.code === "ENOENT") continue;
+      failed = `${dbPath}${suffix}: ${error?.message ?? error}`;
+      break;
     }
+  }
+  if (failed) {
+    for (const suffix of moved) {
+      try {
+        renameSync(`${aside}${suffix}`, `${dbPath}${suffix}`);
+      } catch {
+        // Left where it went; the message below names both places
+      }
+    }
+    console.error(
+      `\n  Could not move it (${failed}).\n  Nothing else was changed: move it aside by hand, then start again.\n`,
+    );
+    return false;
   }
   console.log(`  Moved to ${aside}. Starting again.\n`);
   return true;

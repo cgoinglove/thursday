@@ -46,7 +46,10 @@ const job = ({
        leave the installed window looking at an address nothing answers on. -->
   <key>ProgramArguments</key>
   <array>
-    <string>${xml(process.execPath)}</string>
+    <!-- Node by name on the PATH below, not by the file it was: a Homebrew or version
+         manager upgrade removes that file, and the app stopped starting at login -->
+    <string>/usr/bin/env</string>
+    <string>node</string>
     <string>${xml(cli)}</string>
     <string>--home</string>
     <string>${xml(home)}</string>

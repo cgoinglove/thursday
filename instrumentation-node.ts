@@ -108,9 +108,12 @@ export async function boot() {
   if (process.env.NEXT_MANUAL_SIG_HANDLE) {
     const { checkpoint } = await import("@/database/db");
     let stopping = false;
+    // SIGHUP is a terminal closed under it: left to its default, the server died on the spot
+    // and skipped both
     for (const [signal, code] of [
       ["SIGINT", 130],
       ["SIGTERM", 143],
+      ["SIGHUP", 129],
     ] as const) {
       process.on(signal, () => {
         if (stopping) return;

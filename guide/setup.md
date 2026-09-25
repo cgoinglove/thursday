@@ -165,6 +165,12 @@ settings, because a browser keeps settings per address. Starting it once with `-
 moves it to that address for good; if that port is taken, it says so and stops. `thursday --help`
 lists the rest: `--home` for another data folder, `--no-open` to start without opening a browser.
 
+One data folder is served by one app at a time: started again while it runs — a second `npx`, or
+one beside the one that starts at login — it says the address of the one running and stops, rather
+than serving the same calls, jobs and phone twice. It needs Node 22.18 or newer and says so on an
+older one. Closing the terminal it runs in stops it the way Ctrl+C does: jobs that were running
+are paused, to be picked up again.
+
 ## Where the files are
 
 Everything is on this computer, in one folder: `.thursday` in their home folder when the app was

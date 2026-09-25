@@ -10,6 +10,7 @@ import {
   askToSetDatabaseAside,
   MIGRATION_FAILED_EXIT,
 } from "../bin/database.mjs";
+import { holdFolder, refuseSecond } from "../bin/lock.mjs";
 import { freePort } from "../bin/port.mjs";
 // config.ts has no dependencies; the database is the one the server opens.
 import { DATA_DIR, DB_PATH } from "../config.ts";
@@ -25,8 +26,10 @@ for (let at = 0; at < args.length; at++) {
   else rest.push(arg);
 }
 
-// The data folder of a checkout is the checkout (config DATA_DIR)
+// The data folder of a checkout is the checkout (config DATA_DIR); one server to it
+refuseSecond(DATA_DIR);
 const port = String(await freePort(asked, DATA_DIR));
+holdFolder(DATA_DIR, `http://localhost:${port}`);
 const next = createRequire(import.meta.url).resolve("next/dist/bin/next");
 // This machine only, as `thursday` does, whatever HOSTNAME the shell exports;
 // `-H` still opens it on purpose
