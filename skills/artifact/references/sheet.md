@@ -60,7 +60,8 @@ Both land in `artifacts/<name>/`: hand back the page and the `.xlsx`.
   write it.
 - **A summary of rows in the same workbook is a formula over them** — `SUMIF`, `COUNTIF`,
   `AVERAGEIF` on the other sheet, as in "By client" above; by month, a first-of-month date in a
-  `yyyy-mm` column and `=SUMIFS(Sales!E:E,Sales!A:A,">="&A{r},Sales!A:A,"<="&EOMONTH(A{r},0))` —
+  `yyyy-mm` column and `=SUMIFS(Sales!E:E,Sales!A:A,">="&A{r},Sales!A:A,"<"&EOMONTH(A{r},0)+1)` (before the next
+  month's first day, so a month's last evening counts) —
   so it follows when a row changes; a number you worked out and typed in does not.
 - **`totals`** adds a last row, bold, the first column holding `label`: `sum`, `average`,
   `count`, `min` or `max` for the columns named. It counts only the rows a filter shows, in
@@ -75,6 +76,22 @@ Both land in `artifacts/<name>/`: hand back the page and the `.xlsx`.
   with a filter on it; widths fit the text unless a column gives `width` in characters.
 - **Nothing invented**: a figure you do not have is an empty cell, and a note in your answer says
   which.
+
+## Receipts, and a bank's export
+
+- **Receipts and invoices** they hand you — photos or PDFs — are one sheet, a row each: the date
+  (a `yyyy-mm-dd` column), where, what for (a category, the same words each time), the amount,
+  and the file's name. Look at each one: a photo with `look_at`, a PDF's text with
+  `node $THURSDAY_SKILLS/media-digest/scripts/text.mjs <file.pdf> --out <scratch>/<n>.txt`. A
+  figure you cannot read is an empty cell, named in your answer, never a guess. `totals` sums
+  the amounts; a second sheet by category is `SUMIF` over them, by month `SUMIFS`. Their files
+  stay where they are, as they are named.
+- **A bank's or a card's export** is the CSV they downloaded; never sign in to their bank for it.
+  `read <file.csv>` prints its lines numbered — when it says the file is not UTF-8, run it again
+  with the `--encoding` it names. Then `read <file.csv> --header <the line naming the columns>
+  --json <scratch>/<name>.json` writes the table under that line, dates as dates and amounts as
+  numbers. Add a column there — a category for each row — and `put <name>` that file; a budget by
+  month and category is a second sheet of `SUMIFS` over it.
 
 ## Their own .xlsx, and changes
 

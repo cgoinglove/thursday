@@ -279,7 +279,9 @@ taken out shows #REF!. A formula that cannot be read stays in the cell to be put
 keeps each change a moment later into the page and the Excel file both. If the file was changed in
 Excel since the page drew it, nothing is saved over it: the top bar says **Changed since it opened
 · not kept**, and **Reload** shows the file as it is now. A bot asked to change the sheet reads the
-file first when it was changed there. A bot also reads an Excel file handed to it —
+file first when it was changed there. Receipts and invoices — photos or PDFs — come back as a
+sheet of what was spent, by category and month; so does a bank's or a card's export, the CSV
+downloaded from it in any encoding (a bot never signs in to a bank). A bot also reads an Excel file handed to it —
 "what is in this spreadsheet?" — and can show it the same way; an old .xls has to be saved as .xlsx
 first.
 

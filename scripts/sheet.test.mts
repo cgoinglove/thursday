@@ -432,12 +432,13 @@ test("a column of dates holds Excel's dates, summed by month with SUMIFS, and re
         {
           name: "Orders",
           columns: [
-            { name: "Date", format: "yyyy-mm-dd" },
+            { name: "Date", format: "yyyy-mm-dd hh:mm" },
             { name: "Amount", format: "#,##0;[Red]-#,##0" },
           ],
           rows: [
             ["2026-07-03", 10],
-            ["2026-07-31", -4],
+            // A month's last evening is still that month
+            ["2026-07-31 18:30", -4],
             ["2026-08-01", 40],
             ["not yet", 1],
           ],
@@ -449,7 +450,7 @@ test("a column of dates holds Excel's dates, summed by month with SUMIFS, and re
             {
               name: "Total",
               formula:
-                '=SUMIFS(Orders!B:B,Orders!A:A,">="&A{r},Orders!A:A,"<="&EOMONTH(A{r},0))',
+                '=SUMIFS(Orders!B:B,Orders!A:A,">="&A{r},Orders!A:A,"<"&EOMONTH(A{r},0)+1)',
             },
           ],
           rows: [["2026-07-01"], ["2026-08-01"]],
@@ -468,7 +469,7 @@ test("a column of dates holds Excel's dates, summed by month with SUMIFS, and re
     "not yet",
     "text that is no date stays text",
   );
-  assert.equal(back[0].formats[0], "yyyy-mm-dd");
+  assert.equal(back[0].formats[0], "yyyy-mm-dd hh:mm");
   assert.deepEqual(
     back[1].rows.slice(1).map((row: { v: unknown }[]) => row[1].v),
     [6, 40],
@@ -480,6 +481,54 @@ test("a column of dates holds Excel's dates, summed by month with SUMIFS, and re
   );
   assert.deepEqual(described.sheets[0].rows[0], ["2026-07-03", 10]);
   assert.deepEqual(described.sheets[1].rows[1], ["2026-08-01", null]);
+});
+
+test("a bank's export in another encoding is refused until named, and read from the line naming its columns", async () => {
+  const csv = join(home, "bank.csv");
+  const text =
+    '조회계좌,123-456\n\n거래일자,적요,출금액,입금액\n2026.07.03 12:10,카페,"5,500",\n2026.07.05 09:00,급여,,"3,200,000"\n2026.08.11 18:30,환불,(1200),\n';
+  // EUC-KR by hand: the Korean words here, and ASCII as it is
+  const { execFileSync } = await import("node:child_process");
+  await writeFile(
+    csv,
+    execFileSync("iconv", ["-f", "utf-8", "-t", "euc-kr"], { input: text }),
+  );
+  const refused = run("read", csv);
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /not written in UTF-8[\s\S]*--encoding euc-kr/);
+  const lines = run("read", csv, "--encoding", "euc-kr");
+  assert.match(lines.stdout, /^3\t거래일자\t적요\t출금액\t입금액$/m);
+  const out = join(home, "bank.json");
+  const json = run(
+    "read",
+    csv,
+    "--encoding",
+    "euc-kr",
+    "--header",
+    "3",
+    "--json",
+    out,
+  );
+  assert.equal(json.status, 0, json.stderr);
+  const spec = JSON.parse(await readFile(out, "utf8"));
+  assert.deepEqual(spec.sheets[0].columns[0], {
+    name: "거래일자",
+    format: "yyyy-mm-dd hh:mm",
+  });
+  assert.deepEqual(spec.sheets[0].rows, [
+    ["2026-07-03 12:10", "카페", 5500, null],
+    ["2026-07-05 09:00", "급여", null, 3200000],
+    ["2026-08-11 18:30", "환불", -1200, null],
+  ]);
+  assert.equal(run("put", "bank", out).status, 0);
+  const back = readXlsx(
+    await readFile(join(home, "artifacts", "bank", "bank.xlsx")),
+  ).sheets[0];
+  assert.equal(back.formats[0], "yyyy-mm-dd hh:mm");
+  assert.equal(
+    formatValue(back.rows[1][0].v, back.formats[0]),
+    "2026-07-03 12:10",
+  );
 });
 
 test("a CSV becomes one sheet, grouped numbers read as numbers; an old .xls is refused", async () => {

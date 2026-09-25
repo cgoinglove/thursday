@@ -7,10 +7,13 @@
 //   node spreadsheet.mjs put <name> <book.json | data.csv> [--title "…"] [--over]
 //        write the workbook from a JSON description (references/sheet.md), or one sheet from
 //        a CSV whose first line names the columns
-//   node spreadsheet.mjs read <name | file.xlsx> [--rows 20] [--csv <folder>] [--json <file>]
+//   node spreadsheet.mjs read <name | file.xlsx | file.csv> [--rows 20] [--csv <folder>] [--json <file>]
 //        what a workbook holds: each sheet's size, its first rows and its formulas; --csv
 //        writes every sheet as a CSV there, for chart.mjs or a script; --json writes the
-//        whole workbook as put takes it — formats, formulas and totals kept — to change and put
+//        whole workbook as put takes it — formats, formulas and totals kept — to change and put;
+//        a CSV — a bank's export — prints its lines numbered, and with --json the table under
+//        the line --header names (1 unless said), its dates as dates
+//   --encoding <euc-kr | shift_jis | gbk | windows-1252 | …>  a CSV not written in UTF-8
 //   node spreadsheet.mjs view <name | file.xlsx> [--name <name>]
 //        the page drawn again from the .xlsx as it is now (after it was changed in Excel), or
 //        a page for someone's .xlsx: it is copied into your folder beside its page
@@ -44,6 +47,7 @@ import {
   isDateFormat,
   isoOf,
   serialOf,
+  valueOf,
 } from "../runtime/sheet/format.mjs";
 import {
   asColumnFormula,
@@ -262,13 +266,37 @@ function fromDescription(spec) {
   return { title: spec.title, sheets };
 }
 
-/** One sheet from a CSV: its first line the columns, numbers written as numbers. */
-function fromCsv(text, name) {
+/**
+ * A CSV file's text: UTF-8, or the encoding it is said to be in. A file that is not UTF-8 and
+ * says nothing stops, since read as UTF-8 its words would come out as noise.
+ */
+function csvText(file, flags = {}) {
+  const bytes = readFileSync(file);
+  if (typeof flags.encoding === "string") {
+    try {
+      return new TextDecoder(flags.encoding).decode(bytes);
+    } catch {
+      throw new Stop(
+        `"${flags.encoding}" is not an encoding this reads: euc-kr, shift_jis, gbk, big5, windows-1252, iso-8859-1, utf-16le are.`,
+      );
+    }
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw new Stop(
+      `${shown(file)} is not written in UTF-8. Say what it is written in and run this again with it: --encoding euc-kr (Korean), shift_jis (Japanese), gbk or big5 (Chinese), windows-1252 (Western European).`,
+    );
+  }
+}
+
+/** A CSV's lines as cells, as written: quotes undone, nothing typed yet. */
+function csvRows(text) {
   const rows = [];
   let row = [];
   let field = "";
   let quoted = false;
-  const body = text.replace(/^﻿/, "");
+  const body = text.replace(/^\uFEFF/, "");
   for (let i = 0; i < body.length; i++) {
     const ch = body[i];
     if (quoted) {
@@ -293,26 +321,66 @@ function fromCsv(text, name) {
     row.push(field);
     rows.push(row);
   }
-  const lines = rows.filter(
-    (one) => one.some((cell) => cell.trim()) && !/^#/.test(one[0] ?? ""),
-  );
-  if (lines.length < 1) throw new Stop("The CSV has no lines.");
-  const [header, ...data] = lines;
-  const number = (cell) => {
-    const t = cell.trim();
-    if (/^-?\d+(\.\d+)?$/.test(t) || /^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(t))
-      return Number(t.replaceAll(",", ""));
-    return t === "" ? null : cell;
+  return rows;
+}
+
+/**
+ * One sheet from a CSV's lines: the line at `at` names the columns, the lines under it are the
+ * rows. A number is a number (1,234 · -5 · (1,200)); a column whose every value is a date
+ * (2026-07-03, 2026.07.03, 2026/07/03 14:05) is a column of dates, as Excel reads one.
+ */
+function describeCsv(rows, at, name) {
+  const header = rows[at] ?? [];
+  const data = rows
+    .slice(at + 1)
+    .filter((one) => one.some((cell) => cell.trim()));
+  const width = Math.max(header.length, ...data.map((one) => one.length));
+  const typed = (cell) => {
+    const value = valueOf(cell ?? "", null);
+    return typeof value === "boolean" ? String(cell).trim() : value;
   };
+  const columns = Array.from({ length: width }, (_, c) => {
+    const values = data.map((one) => (one[c] ?? "").trim()).filter(Boolean);
+    const dated =
+      values.length > 0 && values.every((v) => serialOf(v) !== null);
+    return {
+      name: (header[c] ?? "").trim() || colName(c),
+      ...(dated
+        ? {
+            format: values.some((v) => /\d:\d/.test(v))
+              ? "yyyy-mm-dd hh:mm"
+              : "yyyy-mm-dd",
+          }
+        : {}),
+      dated,
+    };
+  });
   return {
     sheets: [
       {
         name: name.slice(0, 31),
-        columns: header.map((cell, c) => ({ name: cell.trim() || colName(c) })),
-        rows: data.map((one) => header.map((_, c) => number(one[c] ?? ""))),
+        columns: columns.map(({ dated, ...column }) => column),
+        rows: data.map((one) =>
+          columns.map((column, c) => {
+            const cell = (one[c] ?? "").trim();
+            if (!cell) return null;
+            // A date as put takes one: written YYYY-MM-DD, its time after it
+            if (column.dated) return isoOf(serialOf(cell));
+            return typed(cell);
+          }),
+        ),
       },
     ],
   };
+}
+
+/** One sheet from a CSV: its first line the columns (lines starting # are notes, left out). */
+function fromCsv(text, name) {
+  const rows = csvRows(text).filter(
+    (one) => one.some((cell) => cell.trim()) && !/^#/.test(one[0] ?? ""),
+  );
+  if (rows.length < 1) throw new Stop("The CSV has no lines.");
+  return describeCsv(rows, 0, name);
 }
 
 /** Sheets of cells: header, rows, totals row; formulas worked out. */
@@ -461,7 +529,7 @@ function put(name, from, flags) {
   filesFor(name);
   let model;
   if (extname(from).toLowerCase() === ".csv")
-    model = fromCsv(readFileSync(from, "utf8"), name);
+    model = fromCsv(csvText(from, flags), name);
   else {
     let spec;
     try {
@@ -567,7 +635,50 @@ const text = (v, format) =>
             : "FALSE"
           : String(v);
 
+/**
+ * A CSV as it is written — a bank's export often has lines about the account over the table —
+ * its lines numbered, so the one naming the columns can be given as --header.
+ */
+function readCsv(arg, flags) {
+  const file = resolve(arg);
+  if (!existsSync(file)) throw new Stop(`No file ${arg}.`);
+  const rows = csvRows(csvText(file, flags));
+  const most = Math.max(1, Number(flags.rows) || 20);
+  const header = flags.header === undefined ? 1 : Number(flags.header);
+  if (!Number.isInteger(header) || header < 1 || header > rows.length)
+    throw new Stop(
+      `--header is the number of the line naming the columns, 1 to ${rows.length}.`,
+    );
+  const out = [`${shown(file)}: ${rows.length} lines.`];
+  rows
+    .slice(0, most)
+    .forEach((row, i) => out.push(`${i + 1}\t${row.join("\t")}`));
+  if (rows.length > most) out.push(`… ${rows.length - most} more lines`);
+  if (typeof flags.json === "string") {
+    const name =
+      basename(file, extname(file))
+        .replace(/[^\p{L}\p{N}_-]+/gu, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 31) || "Sheet1";
+    const spec = describeCsv(rows, header - 1, name);
+    const lines = [];
+    for (const sheet of spec.sheets)
+      sheet.rows = sheet.rows.map((row) => `\u0000${lines.push(row) - 1}`);
+    writeFileSync(
+      flags.json,
+      `${JSON.stringify(spec, null, 2).replace(/"\\u0000(\d+)"/g, (_, n) =>
+        JSON.stringify(lines[Number(n)]),
+      )}\n`,
+    );
+    out.push(
+      `Wrote ${shown(resolve(flags.json))}: line ${header} as the columns, the ${spec.sheets[0].rows.length} lines under it as rows${spec.sheets[0].columns.some((c) => c.format) ? ", dates as dates" : ""}. Change it there and put it: node ${SCRIPT} put <name> ${flags.json}`,
+    );
+  }
+  console.log(out.join("\n"));
+}
+
 function read(arg, flags) {
+  if (/\.csv$/i.test(arg ?? "")) return readCsv(arg, flags);
   const { file } = workbookAt(arg, flags);
   const { sheets, unworked } = readBook(file);
   const most = Math.max(1, Number(flags.rows) || 20);

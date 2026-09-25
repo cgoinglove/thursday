@@ -20,6 +20,11 @@ collect, what the final text holds, and when a page earns its place.
 | Where is it cheapest to buy X right now? | `price-check.md` |
 | Should I buy / sign / switch — or wait? | `decision.md` |
 
+Their own figures, to keep and go on with — a ledger or a budget, receipts, a bank's or a card's
+export, a list they add to — are not a form here: they are a sheet, a real .xlsx (the `artifact`
+skill, `references/sheet.md`), totals and summaries by formula, with a page only when they also
+ask for one.
+
 Every form opens with the answer and its two or three numbers; a reader who stops after the first
 lines has what they asked for. A title says the finding ("Rent rose faster than pay"), not the topic.
 
