@@ -21,7 +21,7 @@ import type {
   ArtifactShelf,
 } from "@/features/artifact/artifact.schema";
 import type { Bot } from "@/features/bot/bot.schema";
-import { BotMark } from "@/features/bot/components/bot-mark";
+import { BotMark, markOf } from "@/features/bot/components/bot-mark";
 import {
   PICKED_ROW,
   SettingError,
@@ -199,17 +199,6 @@ function groupByBot(
     groups.set(entry.bot, rows);
   }
   return [...groups].map(([bot, rows]) => ({ bot, rows }));
-}
-
-/** Icon from the bot list; the row only carries the name. A bot that is gone draws its seed alone. */
-function markOf(name: string, bots?: Bot[]) {
-  const icon = bots?.find((bot) => bot.name === name)?.icon;
-  return {
-    color: icon?.color,
-    shape: icon?.shape,
-    outline: icon?.outline,
-    paint: icon?.paint,
-  };
 }
 
 /** `4 results · 34 files`, and what is not on screen. Counts rows, so it is free. */

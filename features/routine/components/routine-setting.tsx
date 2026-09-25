@@ -37,7 +37,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ROUTINE } from "@/config";
 import type { Bot } from "@/features/bot/bot.schema";
-import { BotMark } from "@/features/bot/components/bot-mark";
+import { BotMark, markOf } from "@/features/bot/components/bot-mark";
 import { roomOpens } from "@/features/bot/thread.store";
 import {
   SettingError,
@@ -143,16 +143,6 @@ export function RoutineSetting() {
     </>
   );
 }
-
-const markOf = (name: string, bots?: Bot[]) => {
-  const icon = bots?.find((bot) => bot.name === name)?.icon;
-  return {
-    color: icon?.color,
-    shape: icon?.shape,
-    outline: icon?.outline,
-    paint: icon?.paint,
-  };
-};
 
 /**
  * What a routine's second line says. Amber only where it waits on the user: its last run

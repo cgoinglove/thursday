@@ -79,7 +79,7 @@ import {
   type BotSeed,
   rollSeedIcons,
 } from "@/features/bot/bot.seed";
-import { BotMark } from "@/features/bot/components/bot-mark";
+import { BotMark, iconProps } from "@/features/bot/components/bot-mark";
 import { MarkPalette } from "@/features/bot/components/mark-palette";
 import {
   type ConfigStatus,
@@ -739,13 +739,7 @@ function SeedInvite({
  * roster will show. An unpicked colour stays empty and means the theme ink.
  */
 function markProps(name: string, icon?: BotIcon | null) {
-  return {
-    seed: name || "bot",
-    color: icon?.color,
-    shape: icon?.shape,
-    outline: icon?.outline,
-    paint: icon?.paint,
-  };
+  return { seed: name || "bot", ...iconProps(icon) };
 }
 
 /**

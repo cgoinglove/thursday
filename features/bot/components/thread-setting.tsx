@@ -41,7 +41,7 @@ import {
   type Thread,
   type ThreadLine,
 } from "@/features/bot/bot.schema";
-import { BotMark } from "@/features/bot/components/bot-mark";
+import { BotMark, markOf } from "@/features/bot/components/bot-mark";
 import { BotRoster } from "@/features/bot/components/bot-roster";
 import { toolIcon } from "@/features/bot/components/bot-tool";
 import {
@@ -563,17 +563,6 @@ function ThreadSheet({
       </Dialog>
     </>
   );
-}
-
-/** Icon from the bot list; the row only carries the name. */
-function markOf(name: string, bots?: Bot[]) {
-  const icon = bots?.find((bot) => bot.name === name)?.icon;
-  return {
-    color: icon?.color,
-    shape: icon?.shape,
-    outline: icon?.outline,
-    paint: icon?.paint,
-  };
 }
 
 /**

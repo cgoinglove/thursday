@@ -17,7 +17,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { notify } from "@/components/ui/notify";
 import { SiteIcon } from "@/components/ui/site-icon";
 import type { Bot } from "@/features/bot/bot.schema";
-import { BotMark } from "@/features/bot/components/bot-mark";
+import { BotMark, markOf } from "@/features/bot/components/bot-mark";
 import {
   SettingError,
   SettingItems,
@@ -263,14 +263,3 @@ function OwnChrome() {
     </div>
   );
 }
-
-const markOf = (name: string, bots?: Bot[]) => {
-  const icon = bots?.find((bot) => bot.name === name)?.icon;
-  return {
-    color: icon?.color,
-    shape: icon?.shape,
-    outline: icon?.outline,
-    paint: icon?.paint,
-    notify: false,
-  };
-};

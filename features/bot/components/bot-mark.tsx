@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useRef } from "react";
 import { useIsDark } from "@/hooks/use-theme";
 import { createVoiceFollower, SPECTRUM_BANDS } from "@/lib/live/live.tap";
 import { cn } from "@/lib/utils";
+import type { Bot, BotIcon } from "../bot.schema";
 import {
   MARK_PAINTS,
   type MarkPaint,
@@ -1015,6 +1016,24 @@ type BotMarkProps = {
   options?: Partial<MarkOptions>;
   className?: string;
 };
+
+/**
+ * A bot's stored `icon` as the props above: all of it, so the mark reads as that bot wherever it
+ * is drawn. The seed is the caller's to give, since it is the bot's name.
+ */
+export const iconProps = (icon?: BotIcon | null) => ({
+  color: icon?.color,
+  shape: icon?.shape,
+  outline: icon?.outline,
+  paint: icon?.paint,
+});
+
+/**
+ * `iconProps` of the bot called `name` in `bots`, for a row that carries only the name. A bot
+ * that is gone draws its seed alone.
+ */
+export const markOf = (name: string, bots?: Bot[]) =>
+  iconProps(bots?.find((bot) => bot.name === name)?.icon);
 
 /** Cheap string hash so a name or id can seed the mark. */
 function hashSeed(seed: number | string): number {
