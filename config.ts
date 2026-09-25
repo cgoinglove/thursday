@@ -581,6 +581,14 @@ export const STUDIO_SERVER = "studio";
 export const CONNECTED_TOOL_TIMEOUT_MS = 10 * 60_000;
 
 /**
+ * How many files of one job's own folder are read when its files are listed
+ * (features/workspace filesOnDisk, what bot.run names as the job's files). A folder of
+ * generated files past it is not a list anyone reads; raising it lists more of one and
+ * reads more of the disk each time.
+ */
+export const JOB_FOLDER_WALK = 500;
+
+/**
  * How long what jobs leave behind stays before the app clears it by itself
  * (bot.runner sweepJobFiles). Deleting a job clears its folder at once.
  * - `forMs`  one age for all of it: a job's scratch folder, counted from when

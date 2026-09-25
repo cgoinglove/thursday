@@ -15,6 +15,7 @@ import {
   APP_DIR,
   BROWSER_VIEWPORT,
   DATA_DIR,
+  JOB_FOLDER_WALK,
   PATHS,
   TOOL_OUTPUT,
   WORKSPACE_KEEP,
@@ -496,9 +497,6 @@ export async function openWorkspace(): Promise<Sandbox> {
     toolPath: TOOL_PATH,
   });
 }
-
-/** Files read off one job's folder at most; a folder of generated files is not a list anyone reads. */
-const JOB_FOLDER_WALK = 500;
 
 /**
  * What of a job's files is on disk: the paths it gave `write_file` that still exist,
