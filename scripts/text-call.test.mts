@@ -476,12 +476,15 @@ test("the kept settings take a browser's copy once, keep only what differs from 
     persona: "calm",
     voicePrompt: "Quieter.",
     captionView: "sides",
+    backendModel: "gpt-5.6-luna",
   };
   assert.equal(await seedLiveSettings(carried), true);
   const kept = await readLiveSettings();
   assert.equal(kept.voice, "cedar");
   assert.equal(kept.persona, "calm");
   assert.equal(kept.stylePrompt, "Quieter.");
+  // The backend its browser defaulted to, which nobody picked, follows the app's
+  assert.equal(kept.backendModel, LIVE_DEFAULTS.backendModel);
   // No browser ever held the switch, so it comes from the row it had of its own
   assert.equal(kept.readSkills, true);
   // Not a field of theirs, so it never reaches the row
@@ -520,6 +523,16 @@ test("the kept settings take a browser's copy once, keep only what differs from 
   );
   // Picking the default again lets go of the old one
   await writeLiveSettings(LiveSettingsSchema.parse({ persona: "hype" }));
+  assert.equal(
+    (await readLiveSettings()).backendModel,
+    LIVE_DEFAULTS.backendModel,
+  );
+
+  // A row already seeded with a browser's default backend reads as unpicked too
+  await writeConfig(
+    THURSDAY_KEYS.settings,
+    JSON.stringify({ persona: "hype", backendModel: "gpt-5.6-luna" }),
+  );
   assert.equal(
     (await readLiveSettings()).backendModel,
     LIVE_DEFAULTS.backendModel,

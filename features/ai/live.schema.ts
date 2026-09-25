@@ -98,6 +98,13 @@ export type LiveSettings = z.infer<typeof LiveSettingsSchema>;
 export const LIVE_DEFAULTS = LiveSettingsSchema.parse({});
 
 /**
+ * The backend a browser's copy of the settings names when nobody picked one: a
+ * browser kept every field, the default of its day included. Read as unpicked, so
+ * that copy follows the app's default instead of holding the one it was made with.
+ */
+const BROWSER_COPY_BACKEND = "gpt-5.6-luna";
+
+/**
  * Settings stored before Live-only, or hand-edited, into valid ones. An OpenAI
  * voice and backend model carry over; a Grok voice does not, since its names
  * mean nothing to Live. The one shared instruction goes into both new fields so
@@ -120,12 +127,14 @@ export function migrateLiveSettings(value: unknown): Record<string, unknown> {
     .safeParse(model);
   const openai =
     legacy.success && legacy.data.provider === "openai" ? legacy.data : null;
+  const backendModel = stored.backendModel ?? openai?.backendModel;
 
   const candidate: Record<keyof LiveSettings, unknown> = {
     voice: stored.voice ?? openai?.voice,
     persona: stored.persona,
     stylePrompt: stored.stylePrompt ?? stored.voicePrompt ?? systemPrompt,
-    backendModel: stored.backendModel ?? openai?.backendModel,
+    backendModel:
+      backendModel === BROWSER_COPY_BACKEND ? undefined : backendModel,
     backendPrompt: stored.backendPrompt ?? systemPrompt,
     reasoningEffort: stored.reasoningEffort,
     webSearch: stored.webSearch,
