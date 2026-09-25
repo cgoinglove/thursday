@@ -29,6 +29,9 @@ now only run the chart, the document script and the camera the artifact skill ho
   what changed. Beyond it and the three below, `artifact` is this app's own.
 - **`artifact/runtime/vendor/marked.mjs`** is marked 16.4.2 (MIT, `marked.LICENSE.md` beside it),
   unchanged: it turns a document's Markdown into its body.
+- **`artifact/runtime/vendor/fflate.mjs`** is fflate 0.8.3 (MIT, `fflate.LICENSE.md` beside it),
+  its ES module build unchanged: it zips and unzips a sheet's .xlsx (`runtime/sheet/xlsx.mjs`),
+  which is otherwise written and read here, with no spreadsheet library.
 - **`artifact`'s app kit** (`runtime/app`, `scripts/app.mjs`) follows Anthropic's
   `web-artifacts-builder` (Apache-2.0, `artifact/LICENSE.txt`): React, TypeScript, Tailwind
   CSS and shadcn/ui, bundled into one HTML file. Changed from it: vite with vite-plugin-singlefile

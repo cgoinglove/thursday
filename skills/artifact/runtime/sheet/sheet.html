@@ -1,0 +1,73 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {{shell.meta}}
+    <meta name="sheet-xlsx" content="{{xlsx.hash}}" />
+    <title>{{title}}</title>
+    <script>
+      // shell.theme
+    </script>
+    <style>
+      /* shell.css */
+      /* sheet.css */
+    </style>
+  </head>
+  <body>
+    <header class="sh-head">
+      {{shell.who}}
+      <span class="sh-title">{{title}}</span>
+      <span class="sh-sub" id="size"></span>
+      <span class="sh-gap"></span>
+      {{shell.theme}}
+      <details class="sh-menu">
+        {{shell.export}}
+        <div class="sh-list">
+          <a class="sh-item" id="xlsx" href="{{xlsx.file}}" target="_blank" download>Excel file<small>.xlsx</small></a>
+          <button type="button" class="sh-item" data-csv>This sheet as CSV<small>.csv</small></button>
+          <button type="button" class="sh-item" data-copy-sheet>Copy this sheet<small>to paste</small></button>
+          <button type="button" class="sh-item" data-export="print">Print<small>PDF</small></button>
+          {{shell.download}}
+        </div>
+      </details>
+    </header>
+
+    <div class="ss-bar">
+      <span class="ss-ref" id="ref"></span>
+      <span class="ss-fx" aria-hidden="true">fx</span>
+      <output class="ss-formula" id="formula"></output>
+    </div>
+    <div class="ss-grid" id="grid" tabindex="0" aria-label="Cells">
+      <table id="table"></table>
+      <p class="ss-more" id="more" hidden></p>
+    </div>
+    <footer class="ss-foot">
+      <div class="ss-tabs" id="tabs" role="tablist"></div>
+      <span class="ss-gap"></span>
+      <output class="ss-stat" id="stat"></output>
+    </footer>
+
+    <div class="ss-menu" id="menu" role="dialog" aria-label="Sort and filter" hidden>
+      <button type="button" data-sort="up">Sort ascending</button>
+      <button type="button" data-sort="down">Sort descending</button>
+      <button type="button" data-sort="none">Rows as written</button>
+      <hr />
+      <input type="search" id="find" placeholder="Find a value" aria-label="Find a value" />
+      <div class="ss-picks" id="picks"></div>
+      <div class="ss-menu-foot">
+        <button type="button" data-pick="all">Show all</button>
+      </div>
+    </div>
+
+    <!-- The workbook the .xlsx beside this page holds, as spreadsheet.mjs read it -->
+    <script type="application/json" id="sheet-data">null</script>
+    <script>
+      // shell.js
+    </script>
+    <script>
+      // format.mjs
+      // sheet.js
+    </script>
+  </body>
+</html>

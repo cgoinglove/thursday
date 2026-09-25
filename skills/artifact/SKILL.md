@@ -1,6 +1,6 @@
 ---
 name: artifact
-description: "Makes what the user keeps or uses: a document, canvas, picture book, deck, page or app. Use it for a report or memo, options or a mockup at real size, an explanation in pictures, slides, a tool such as a calculator or a tracker, numbers as a chart, or a diagram of how something is built."
+description: "Makes what the user keeps or uses: a document, canvas, picture book, deck, sheet, page or app. Use it for a report or memo, options or a mockup at real size, an explanation in pictures, slides, an Excel sheet or reading one, a tool such as a calculator or a tracker, numbers as a chart, or a diagram of how something is built."
 license: Complete terms in LICENSE.txt
 ---
 
@@ -35,6 +35,7 @@ document.
 
 | They will | Kind | Start | Read first |
 |---|---|---|---|
+| keep working on numbers — a ledger, a budget, a list of clients, results by month; or read an .xlsx they gave you | sheet | `node $S/spreadsheet.mjs put <name> <book.json or data.csv>` | `references/sheet.md` |
 | use a small tool — a calculator, a converter, a checklist that remembers | page | one HTML file you write whole, its `<style>` and `<script>` inside it | `references/app.md` |
 | use an app — screens, state that builds up, forms, charts that respond | app | `node $S/app.mjs new <name>`, write it in React, `build` it | `references/app.md` |
 | see how something is built or flows — a system, a process, calls in order | diagram | the archify engine in `$S/archify` | `references/diagram.md` |

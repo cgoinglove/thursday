@@ -40,7 +40,7 @@
     "test:memory": "node --import tsx --test scripts/memory-tools.test.mts",
     "test:reach": "node --experimental-test-module-mocks --import tsx --test scripts/reach.test.mts scripts/reach-channels.test.mts scripts/text-call.test.mts",
     "test:artifact": "node --import tsx --test scripts/artifact-paths.test.mts scripts/proxy.test.mts",
-    "test:skills": "node --import tsx --test scripts/skill-files.test.mts scripts/page-edits.test.mts scripts/deck.test.mts",
+    "test:skills": "node --import tsx --test scripts/skill-files.test.mts scripts/page-edits.test.mts scripts/deck.test.mts scripts/sheet.test.mts",
     "format": "biome format --write",
     "reset": "node scripts/reset.mts",
     "typecheck": "next typegen && tsc --noEmit",

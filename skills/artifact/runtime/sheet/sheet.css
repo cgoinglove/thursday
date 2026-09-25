@@ -1,0 +1,366 @@
+/* A sheet: the grid fills the window under the page's head, with a formula line over it and
+   the sheets' tabs and the picked cells' sum under it. Colours are the shell's, so it reads in
+   light and dark alike. */
+html,
+body {
+  height: 100%;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  overflow: hidden;
+  background: var(--sh-paper);
+  color: var(--sh-ink);
+  font-family: var(--sh-font);
+}
+
+.ss-bar {
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  height: 32px;
+  border-bottom: 1px solid var(--sh-line);
+  font-size: 13px;
+}
+.ss-ref {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  border-right: 1px solid var(--sh-line);
+  color: var(--sh-ink-2);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ss-fx {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  color: var(--sh-ink-3);
+  font-family: Georgia, serif;
+  font-style: italic;
+}
+.ss-formula {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ss-grid {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  outline: none;
+}
+.ss-grid table {
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  font-size: 13px;
+}
+.ss-grid :is(th, td) {
+  height: 26px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border-right: 1px solid var(--sh-line);
+  border-bottom: 1px solid var(--sh-line);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: cell;
+  user-select: none;
+}
+.ss-grid td {
+  background: var(--sh-paper);
+}
+.ss-grid td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ss-grid td.err {
+  color: var(--sh-bad);
+}
+/* Column letters and row numbers stay in view; the header row stays under the letters */
+.ss-grid thead th {
+  position: sticky;
+  z-index: 2;
+  background: var(--sh-soft);
+}
+.ss-grid .ss-letters th {
+  top: 0;
+  color: var(--sh-ink-3);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+}
+.ss-grid .ss-names th {
+  top: 26px;
+  color: var(--sh-ink);
+  font-weight: 650;
+  text-align: left;
+}
+.ss-grid .ss-names th.num {
+  text-align: right;
+}
+.ss-grid .ss-row {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 48px;
+  padding: 0;
+  background: var(--sh-soft);
+  color: var(--sh-ink-3);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+}
+.ss-grid thead .ss-row {
+  z-index: 3;
+  text-align: center;
+}
+.ss-grid tfoot td,
+.ss-grid tfoot th {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  border-top: 1px solid var(--sh-ink-3);
+  background: var(--sh-soft);
+  font-weight: 650;
+}
+.ss-grid tfoot .ss-row {
+  z-index: 3;
+}
+/* The column's own button: sort and filter */
+.ss-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ss-names th.num .ss-name {
+  flex-direction: row-reverse;
+}
+.ss-name span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ss-col {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin: 0 -4px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--sh-ink-3);
+  cursor: pointer;
+}
+.ss-col:hover,
+.ss-col[aria-expanded="true"] {
+  background: var(--sh-sunk);
+  color: var(--sh-ink);
+}
+.ss-col.on {
+  color: var(--sh-brand);
+}
+.ss-col svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* What is picked: a wash over the range, a ring on the cell the formula line shows */
+.ss-grid .in {
+  background: var(--sh-brand-soft);
+}
+.ss-grid .at {
+  box-shadow: inset 0 0 0 2px var(--sh-brand);
+}
+.ss-grid .ss-row.in,
+.ss-grid .ss-letters th.in {
+  background: color-mix(in srgb, var(--sh-brand) 16%, var(--sh-soft));
+  color: var(--sh-brand);
+}
+.ss-more {
+  margin: 0;
+  padding: 10px 14px;
+  color: var(--sh-ink-3);
+  font-size: 12px;
+}
+
+.ss-foot {
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  height: 36px;
+  border-top: 1px solid var(--sh-line);
+  background: var(--sh-soft);
+  font-size: 13px;
+}
+.ss-tabs {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+}
+.ss-tabs button {
+  flex: none;
+  padding: 0 16px;
+  border: 0;
+  border-right: 1px solid var(--sh-line);
+  background: transparent;
+  color: var(--sh-ink-2);
+  font: inherit;
+  cursor: pointer;
+}
+.ss-tabs button[aria-selected="true"] {
+  background: var(--sh-paper);
+  color: var(--sh-ink);
+  font-weight: 650;
+  box-shadow: inset 0 -2px 0 var(--sh-ink);
+}
+.ss-gap {
+  flex: 1;
+}
+.ss-stat {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 14px;
+  color: var(--sh-ink-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ss-stat b {
+  color: var(--sh-ink);
+  font-weight: 650;
+}
+
+.ss-menu {
+  position: fixed;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  width: 240px;
+  max-height: min(420px, 70vh);
+  padding: 6px;
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-radius);
+  background: var(--sh-paper);
+  box-shadow: var(--sh-shadow);
+  font-size: 13px;
+}
+.ss-menu[hidden] {
+  display: none;
+}
+.ss-menu > button,
+.ss-menu-foot button {
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sh-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ss-menu > button:hover,
+.ss-menu-foot button:hover {
+  background: var(--sh-sunk);
+}
+.ss-menu > button.on {
+  color: var(--sh-brand);
+  font-weight: 650;
+}
+.ss-menu hr {
+  width: 100%;
+  margin: 6px 0;
+  border: 0;
+  border-top: 1px solid var(--sh-line);
+}
+.ss-menu input[type="search"] {
+  box-sizing: border-box;
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--sh-line);
+  border-radius: 6px;
+  background: var(--sh-paper);
+  color: var(--sh-ink);
+  font: inherit;
+}
+.ss-picks {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 6px;
+  overflow-y: auto;
+}
+.ss-picks label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.ss-picks label:hover {
+  background: var(--sh-sunk);
+}
+.ss-picks span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ss-picks small {
+  color: var(--sh-ink-3);
+}
+.ss-menu-foot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--sh-line);
+}
+
+@media print {
+  @page {
+    size: landscape;
+    margin: 12mm;
+  }
+  html,
+  body {
+    height: auto;
+    overflow: visible;
+  }
+  .sh-head,
+  .ss-bar,
+  .ss-foot,
+  .ss-menu,
+  .ss-letters,
+  .ss-row,
+  .ss-col {
+    display: none !important;
+  }
+  .ss-grid {
+    overflow: visible;
+  }
+  .ss-grid :is(th, td) {
+    position: static !important;
+  }
+}

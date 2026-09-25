@@ -257,6 +257,19 @@ the top bar says **Changed since it opened · not kept** and shows **Reload**. A
 deck starts from the deck as it is, with what was edited in it, and a deck made before an update to
 the app takes on its new look the next time a bot changes it.
 
+Numbers to keep working on — a ledger, a budget, a list of clients, results by month — come back
+as a **sheet**: a real Excel file (.xlsx) and a page beside it that shows it in the app. The file
+opens in Excel, Numbers or Google Sheets (uploaded to Drive), with its formulas, number formats, a
+frozen header with a filter, and a totals row. The page has a tab for each sheet, the formula or
+value of the cell picked over the grid, and the sum, average and count of the cells picked at its
+foot; the arrow keys move, Shift widens the pick, and ⌘C copies it to paste into any spreadsheet.
+The button on a column's heading sorts it or keeps only the values ticked, which the totals follow;
+that is a view and changes nothing in the file. **Export** has the Excel file, the sheet as CSV,
+the sheet copied, and print. The page does not edit cells: change the file in Excel, or ask the bot,
+which reads the file first when it was changed there. A bot also reads an Excel file handed to it —
+"what is in this spreadsheet?" — and can show it the same way; an old .xls has to be saved as .xlsx
+first.
+
 Something to read — a report, a memo, a comparison, a plan, notes of a meeting — comes back as one
 page: a title with the date, who it is by and how long it takes to read, its contents beside it (the
 section being read is marked), chips for dates, people and status, checklists, tables with the pick
