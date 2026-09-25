@@ -1,5 +1,5 @@
 ---
-checked: 2026-09-24
+checked: 2026-09-25
 paths:
   - "features/workspace/*.ts"
   - "lib/sandbox.ts"
@@ -41,16 +41,18 @@ Settings › Sign-ins or `signin-ask.tsx` in its question lets it in.
 - A second browser a job opens is named `<its session>-<suffix>`, as `inPageApart` in
   `skills/browser/scripts/session.mjs` does — cancel, delete and the sweep find a thread's browsers
   and profiles by that prefix, and never one under another name.
-- Change `@playwright/cli`'s version or range in `package.json` only after the browser check below —
-  each install of the published package resolves that range itself (`scripts/pack.mts`), and this
-  area leans on the CLI's variable names, `list --json`, the `.playwright` marker and how it names
-  its daemon folder, where a change fails quietly as windows left open and profiles piling up.
+- `@playwright/cli` is pinned to one version in `package.json`; move it only after the browser check
+  below, then `pnpm install --lockfile-only` — each install of the published package resolves that
+  entry itself (`scripts/pack.mts`), and this area leans on the CLI's variable names, `list --json`,
+  the `.playwright` marker and how it names its daemon folder, where a change fails quietly as
+  windows left open and profiles piling up.
 
 ## Check
 `pnpm test:bot` runs bots' shells against a stand-in `playwright-cli`, so it proves nothing about the
 real browser or a sign-in. To see them, on a scratch app (AGENTS.md › Running the app; its command
 skips the browser download, so the browser must already be in Playwright's cache) have a bot open a
 page `--headed`: cancelling the job closes the window and keeps its profile in the CLI's daemon
-folder (`forgetBrowserData` says where), and deleting the job then removes the thread's entries
+folder (`browserDataFolder` says where; `open --persistent` without `--headed` keeps one with no
+window), and deleting the job then removes the thread's entries
 there. A sign-in kept there lands in the scratch home's `.sign-ins`. `playwright-cli attach` drives
 the real Chrome of whoever runs it, scratch app or not.

@@ -57,7 +57,7 @@ importers:
         specifier: ^0.18.0
         version: 0.18.0
       '@playwright/cli':
-        specifier: ^0.1.21
+        specifier: 0.1.21
         version: 0.1.21
       '@streamdown/cjk':
         specifier: ^1.0.3

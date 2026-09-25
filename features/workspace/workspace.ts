@@ -338,19 +338,7 @@ async function forgetBrowserData(
   threadId: string,
   open: string[],
 ): Promise<void> {
-  const cache =
-    process.platform === "darwin"
-      ? join(homedir(), "Library", "Caches")
-      : process.platform === "win32"
-        ? process.env.LOCALAPPDATA || join(homedir(), "AppData", "Local")
-        : process.env.XDG_CACHE_HOME || join(homedir(), ".cache");
-  const marked = await realpath(WORKSPACE).catch(() => WORKSPACE);
-  const folder = join(
-    cache,
-    "ms-playwright",
-    "daemon",
-    createHash("sha1").update(marked).digest("hex").slice(0, 16),
-  );
+  const folder = await browserDataFolder();
   const session = jobShellEnv(threadId).PLAYWRIGHT_CLI_SESSION;
   const entries = await readdir(folder).catch(() => []);
   for (const entry of entries) {
@@ -376,6 +364,23 @@ async function forgetBrowserData(
   }
 }
 
+/** Where the CLI keeps this workspace's sessions and profiles, named as its 0.1.x names it. */
+async function browserDataFolder(): Promise<string> {
+  const cache =
+    process.platform === "darwin"
+      ? join(homedir(), "Library", "Caches")
+      : process.platform === "win32"
+        ? process.env.LOCALAPPDATA || join(homedir(), "AppData", "Local")
+        : process.env.XDG_CACHE_HOME || join(homedir(), ".cache");
+  const marked = await realpath(WORKSPACE).catch(() => WORKSPACE);
+  return join(
+    cache,
+    "ms-playwright",
+    "daemon",
+    createHash("sha1").update(marked).digest("hex").slice(0, 16),
+  );
+}
+
 /** Closes the thread's browsers and answers with the sessions it left running. */
 async function closeBrowsers(
   threadId: string,
@@ -398,6 +403,13 @@ async function closeBrowsers(
           b.name.startsWith(`${env.PLAYWRIGHT_CLI_SESSION}-`),
       ) ?? [];
   } catch {}
+  // A running session always has its entry in the CLI's folder: none there means the CLI
+  // names it otherwise now, and a removed thread would leave its profiles on disk unseen
+  const folder = sessions.length ? await browserDataFolder() : "";
+  if (folder && !existsSync(folder))
+    logger.warn(
+      `playwright-cli keeps this workspace's browsers somewhere other than ${folder}: removing a thread will leave its browser profiles on disk`,
+    );
   const left: string[] = [];
   for (const session of sessions) {
     if (session.attached || (!visible && session.headed !== false)) {
