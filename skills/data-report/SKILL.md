@@ -69,7 +69,9 @@ node $C "$THURSDAY_ARTIFACTS/<page>.html" px <scratch>/px.csv --index --title "â
 
 Each figure carries its source link, the fetch date and the rows behind it with a CSV download, so
 the page needs no separate data section. A line for dates, bars for categories (largest first,
-`--highlight` the one that matters, named exactly as the row is); `--index` when series in different
+`--highlight` the one that matters, named exactly as the row is); `--kind column` for a value per
+period, `--kind donut` for one whole split in five parts or fewer, `--kind stacked` for what each
+row is made of (`--share` to compare the make-up rather than the size); `--index` when series in different
 units are compared; `--mark` for each dated event the text explains, inside the range drawn;
 `--locale` with the reader's language tag (`de`, `ja`, `pt-BR`) writes numbers and dates their way.
 Run it again to replace a figure, and after every later put. `node $C` with no arguments lists every

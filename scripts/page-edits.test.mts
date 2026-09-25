@@ -458,3 +458,70 @@ test("a chart drawn as a picture stands alone: its title and source on it, no pa
   assert.ok(!svg.includes('class="hover"'));
   assert.equal(svg.match(/class="chart-svg"/g)?.length, 1);
 });
+
+test("upright bars, a donut and stacked bars draw their parts, and each stops on what it cannot show", async () => {
+  const { execFileSync, spawnSync } = await import("node:child_process");
+  const chart = join(
+    import.meta.dirname,
+    "..",
+    "skills",
+    "artifact",
+    "scripts",
+    "chart.mjs",
+  );
+  const csv = async (name: string, text: string) => {
+    const path = join(home, `${name}.csv`);
+    await writeFile(path, text);
+    return path;
+  };
+  const draw = (out: string, from: string, ...flags: string[]) =>
+    execFileSync(process.execPath, [chart, out, from, ...flags], {
+      encoding: "utf8",
+    });
+  const refused = (from: string, ...flags: string[]) =>
+    spawnSync(process.execPath, [chart, join(home, "no.svg"), from, ...flags], {
+      encoding: "utf8",
+    }).stderr;
+
+  const months = await csv("months", "month,sold\nJan,120\nFeb,135\nMar,128\n");
+  const columns = join(home, "columns.svg");
+  draw(columns, months, "--kind", "column", "--highlight", "Mar");
+  const upright = await readFile(columns, "utf8");
+  // In the rows' own order, the picked one in the accent and the rest quiet
+  const bars = [
+    ...upright.matchAll(/<rect class="bar (\w+)"[^>]*><title>(\w+):/g),
+  ];
+  assert.deepEqual(
+    bars.map((bar) => `${bar[2]} ${bar[1]}`),
+    ["Jan quiet", "Feb quiet", "Mar c1"],
+  );
+
+  const shares = await csv("shares", "item,n\nA,30\nB,50\nC,20\n");
+  const ring = join(home, "ring.svg");
+  draw(ring, shares, "--kind", "donut", "--locale", "en");
+  const donut = await readFile(ring, "utf8");
+  assert.equal(donut.match(/class="slice /g)?.length, 3);
+  // Largest first, and the ring's middle names it
+  assert.match(donut, />50%<\/text><text class="tick"[^>]*>B</);
+
+  const parts = await csv("parts", "day,a,b\nMon,1,3\nTue,2,2\n");
+  const stack = join(home, "stack.svg");
+  draw(stack, parts, "--kind", "stacked", "--share", "--locale", "en");
+  const stacked = await readFile(stack, "utf8");
+  assert.match(stacked, /Mon — a: 25%/);
+  assert.match(stacked, /Tue — b: 50%/);
+
+  const six = await csv(
+    "six",
+    `item,n\n${["A", "B", "C", "D", "E", "F"].map((x, i) => `${x},${i + 1}`).join("\n")}\n`,
+  );
+  assert.match(refused(six, "--kind", "donut"), /five parts or fewer/);
+  const minus = await csv("minus", "day,a,b\nMon,1,-3\n");
+  assert.match(refused(minus, "--kind", "stacked"), /negative part/);
+  assert.match(
+    refused(months, "--kind", "stacked"),
+    /two or more value columns/,
+  );
+  assert.match(refused(months, "--kind", "column", "--share"), /--share/);
+  assert.match(refused(months, "--kind", "pie"), /is not a kind/);
+});

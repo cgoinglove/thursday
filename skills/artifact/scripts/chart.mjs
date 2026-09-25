@@ -11,7 +11,11 @@
 //                        light card that reads on any ground: a deck's image slide (fit
 //                        whole), a board, a post
 //
-//   --kind line|bar      line when the first column is dates, bar otherwise
+//   --kind line|bar|column|donut|stacked
+//                        line when the first column is dates, bar otherwise. column: upright
+//                        bars in the CSV's order, for periods. donut: one column's shares,
+//                        five rows at most. stacked: two or more columns as parts of one bar
+//                        a row, in the CSV's order
 //   --title "<text>"     what the chart shows (default: the CSV's `# title:`)
 //   --columns a,b        which value columns to draw (default: all)
 //   --from / --to        a date range to draw, YYYY[-MM[-DD]] or YYYY-Qn. Each bound takes
@@ -19,14 +23,16 @@
 //   --index              rebase every line to 100 at its first shared date
 //   --mark "2025-03=Rate cut"   a dated event line, on a line chart; repeat for more
 //   --unit "%"  --prefix "$"    around every number shown
-//   --highlight "<label>"       the one bar in the accent color; the rest go quiet (bars only)
-//   --keep-order         bars in the CSV's order instead of largest first
+//   --highlight "<label>"       the one bar or slice in the accent color; the rest go quiet
+//   --keep-order         bars and slices in the CSV's order instead of largest first
+//   --share              a stacked bar as each part's share of its row, every row 100%
 //   --source "<url or text>"    when the CSV has no `# source:` line
 //   --note "<text>"      one line under the chart: an estimate, a gap, a break in the series
 //   --locale de          how numbers and dates are written: the reader's language tag
 //
-// An unknown --kind, a bound that is not a date, a --highlight naming no row and a --mark
-// outside the range drawn all stop, rather than draw something quietly wrong.
+// An unknown --kind, a bound that is not a date, a --highlight naming no row, a --mark
+// outside the range drawn, a donut of more than five parts or of a negative one, and a
+// negative part in a stacked bar all stop, rather than draw something quietly wrong.
 //
 // The figure carries no words of its own beyond what it is given, so it reads the same
 // in any language: the site's name, a date, "CSV".
@@ -456,6 +462,174 @@ function barChart({ labels, series, fmt, highlight, size }) {
   };
 }
 
+/** A legend for several columns, as the bars draw it: a swatch and a name each. */
+function legendRow(series, size, x0 = 0) {
+  return series.map((s, n) => {
+    const x = x0 + n * (size.W < 500 ? 110 : 130);
+    return `<rect class="bar c${(n % 6) + 1}" x="${x}" y="4" width="12" height="12" rx="2"/><text class="tick" x="${x + 18}" y="14">${esc(cut(s.name, size.nameChars + 2))}</text>`;
+  });
+}
+
+/** Upright bars, one group a row in the CSV's order: periods read left to right. */
+function columnChart({ labels, series, fmt, highlight, size }) {
+  const { W } = size;
+  const per = series.length;
+  const legend = per > 1 ? 26 : 0;
+  const H = (W < 500 ? 220 : 280) + legend;
+  const all = series.flatMap((s) => s.values).filter((v) => v !== null);
+  const lo = Math.min(0, ...all);
+  const hi = Math.max(0, ...all);
+  const top = legend + 20;
+  const bottom = 26 + (lo < 0 ? 16 : 0);
+  const slot = (W - 8) / labels.length;
+  const group = slot * 0.72;
+  const barW = group / per;
+  const py = (v) => top + (1 - (v - lo) / (hi - lo || 1)) * (H - top - bottom);
+  const chars = Math.max(3, Math.floor(slot / (FONT * 0.62)));
+  const parts = per > 1 ? legendRow(series, size) : [];
+  labels.forEach((label, g) => {
+    const x0 = 4 + g * slot + (slot - group) / 2;
+    const quiet = highlight && label !== highlight;
+    series.forEach((s, n) => {
+      const v = s.values[g];
+      if (v === null) return;
+      const [y1, y2] = [py(Math.max(0, v)), py(Math.min(0, v))];
+      const color = quiet
+        ? "quiet"
+        : highlight && per === 1
+          ? "c1"
+          : `c${(n % 6) + 1}`;
+      const x = x0 + n * barW;
+      parts.push(
+        `<rect class="bar ${color}" x="${x + 1}" y="${y1}" width="${Math.max(1, barW - 2)}" height="${Math.max(1, y2 - y1)}" rx="3"><title>${esc(label)}${per > 1 ? ` — ${esc(s.name)}` : ""}: ${esc(fmt.label(v))}</title></rect>`,
+      );
+      // A value over its bar where it fits the bar's width
+      if (textWidth(fmt.label(v), 11) <= barW + 6)
+        parts.push(
+          `<text class="value${quiet ? " quiet-text" : ""}" x="${x + barW / 2}" y="${v < 0 ? y2 + 14 : y1 - 6}" text-anchor="middle" font-size="11">${esc(fmt.label(v))}</text>`,
+        );
+    });
+    parts.push(
+      `<text class="label${quiet ? " quiet-text" : ""}" x="${4 + g * slot + slot / 2}" y="${H - 8}" text-anchor="middle">${esc(cut(label, chars))}<title>${esc(label)}</title></text>`,
+    );
+  });
+  parts.push(
+    `<line class="${lo < 0 ? "zero" : "grid"}" x1="4" x2="${W - 4}" y1="${py(0)}" y2="${py(0)}"/>`,
+  );
+  return {
+    svg: `<svg class="chart-svg ${W < 500 ? "narrow" : "wide"}" viewBox="0 0 ${W} ${H}" role="img">${parts.join("")}</svg>`,
+    axis: null,
+  };
+}
+
+/** One column's rows as shares of their whole, around a ring, the largest first. */
+function donutChart({ labels, series, highlight, size, locale }) {
+  const { W } = size;
+  const values = series[0].values.map((v) => v ?? 0);
+  const total = values.reduce((sum, v) => sum + v, 0) || 1;
+  const pct = new Intl.NumberFormat(locale, {
+    style: "percent",
+    maximumFractionDigits: 0,
+  });
+  const narrow = W < 500;
+  const R = narrow ? 62 : 84;
+  const ring = narrow ? 24 : 30;
+  const c = R + ring / 2 + 4;
+  const rows = labels.length;
+  const H = Math.max(c * 2, rows * 26 + 8);
+  const cy = H / 2;
+  const lead = highlight ? labels.indexOf(highlight) : 0;
+  const parts = [];
+  let at = 0;
+  values.forEach((v, i) => {
+    const share = (v / total) * 100;
+    const quiet = highlight && i !== lead;
+    const color = quiet ? "quiet" : highlight ? "c1" : `c${(i % 6) + 1}`;
+    // pathLength 100: the dash is the share itself, a hair of gap between slices
+    const len = Math.max(0, share - (rows > 1 ? 0.6 : 0));
+    parts.push(
+      `<circle class="slice ${color}" cx="${c}" cy="${cy}" r="${R}" pathLength="100" stroke-width="${ring}" stroke-dasharray="${len.toFixed(2)} ${(100 - len).toFixed(2)}" stroke-dashoffset="${(-at).toFixed(2)}" transform="rotate(-90 ${c} ${cy})"><title>${esc(labels[i])}: ${pct.format(v / total)}</title></circle>`,
+    );
+    at += share;
+  });
+  parts.push(
+    `<text class="label" x="${c}" y="${cy + 6}" text-anchor="middle" font-size="${narrow ? 22 : 28}" font-weight="700">${pct.format(values[lead] / total)}</text>`,
+    `<text class="tick" x="${c}" y="${cy + (narrow ? 24 : 28)}" text-anchor="middle">${esc(cut(labels[lead], narrow ? 10 : 14))}</text>`,
+  );
+  const lx = c * 2 + (narrow ? 16 : 32);
+  labels.forEach((label, i) => {
+    const y = cy - (rows * 26) / 2 + i * 26 + 17;
+    const quiet = highlight && i !== lead;
+    const color = quiet ? "quiet" : highlight ? "c1" : `c${(i % 6) + 1}`;
+    parts.push(
+      `<rect class="bar ${color}" x="${lx}" y="${y - 10}" width="12" height="12" rx="2"/>`,
+      `<text class="label${quiet ? " quiet-text" : ""}" x="${lx + 20}" y="${y}">${esc(cut(label, size.labelChars))}<title>${esc(label)}</title></text>`,
+      `<text class="value" x="${W - 4}" y="${y}" text-anchor="end">${pct.format(values[i] / total)}</text>`,
+    );
+  });
+  return {
+    svg: `<svg class="chart-svg ${narrow ? "narrow" : "wide"}" viewBox="0 0 ${W} ${H}" role="img">${parts.join("")}</svg>`,
+    axis: null,
+  };
+}
+
+/** Each row one bar made of its columns' parts; `share` makes every row its parts of 100%. */
+function stackedChart({ labels, series, fmt, share, size, locale }) {
+  const { W } = size;
+  const pct = new Intl.NumberFormat(locale, {
+    style: "percent",
+    maximumFractionDigits: 0,
+  });
+  const barH = 26;
+  const gap = 12;
+  const legend = 26;
+  const H = legend + labels.length * (barH + gap) + 4;
+  const totals = labels.map((_, g) =>
+    series.reduce((sum, s) => sum + (s.values[g] ?? 0), 0),
+  );
+  const shownLabel = (l) => cut(l, size.labelChars);
+  const left = Math.min(
+    W < 500 ? 110 : 200,
+    Math.max(...labels.map((l) => textWidth(shownLabel(l), FONT))) + 14,
+  );
+  const valueRoom = share
+    ? 8
+    : Math.max(...totals.map((v) => textWidth(fmt.label(v), FONT))) + 12;
+  const span = W - left - valueRoom;
+  const most = share ? 1 : Math.max(...totals) || 1;
+  const parts = legendRow(series, size, W < 500 ? 0 : left);
+  labels.forEach((label, g) => {
+    const y = legend + g * (barH + gap);
+    const whole = totals[g] || 1;
+    parts.push(
+      `<text class="label" x="${left - 10}" y="${y + barH / 2 + 4}" text-anchor="end">${esc(shownLabel(label))}<title>${esc(label)}</title></text>`,
+    );
+    let x = left;
+    series.forEach((s, n) => {
+      const v = s.values[g] ?? 0;
+      const w = ((share ? v / whole : v) / most) * span;
+      if (w <= 0) return;
+      const said = share ? pct.format(v / whole) : fmt.label(v);
+      parts.push(
+        `<rect class="bar c${(n % 6) + 1}" x="${x}" y="${y}" width="${w}" height="${barH}"><title>${esc(label)} — ${esc(s.name)}: ${esc(said)}</title></rect>`,
+      );
+      if (textWidth(said, 11) + 10 <= w)
+        parts.push(
+          `<text class="part" x="${x + 6}" y="${y + barH / 2 + 4}" font-size="11">${esc(said)}</text>`,
+        );
+      x += w;
+    });
+    if (!share)
+      parts.push(
+        `<text class="value" x="${x + 6}" y="${y + barH / 2 + 4}">${esc(fmt.label(totals[g]))}</text>`,
+      );
+  });
+  return {
+    svg: `<svg class="chart-svg ${W < 500 ? "narrow" : "wide"}" viewBox="0 0 ${W} ${H}" role="img">${parts.join("")}</svg>`,
+    axis: null,
+  };
+}
+
 // ── The page ───────────────────────────────────────────────────────────────
 
 const STYLE = `<style id="chart-style">
@@ -475,6 +649,7 @@ const STYLE = `<style id="chart-style">
 .chart-svg .c1{--c:#2563eb}.chart-svg .c2{--c:#d97706}.chart-svg .c3{--c:#059669}.chart-svg .c4{--c:#db2777}.chart-svg .c5{--c:#7c3aed}.chart-svg .c6{--c:#64748b}
 .chart-svg .quiet{--c:color-mix(in srgb,var(--muted,#71717a) 45%,transparent)}
 .chart-svg .line{stroke:var(--c)}.chart-svg .dot,.chart-svg .bar{fill:var(--c)}.chart-svg .end{fill:var(--c)}
+.chart-svg .slice{fill:none;stroke:var(--c)}.chart-svg .part{fill:#fff;font-weight:600}
 .chart-svg .hover line{stroke:var(--muted,#71717a)}
 .chart-svg .hover rect{fill:var(--bg,#fff);stroke:var(--line,#e4e4e7)}
 .chart-svg .hover text{fill:var(--fg,#18181b);font-size:12px}
@@ -619,8 +794,11 @@ function main() {
   });
   const dated = rows.every((r) => toTime(r[0]) !== null);
   const kind = flags.kind ?? (dated ? "line" : "bar");
-  if (kind !== "line" && kind !== "bar")
-    throw new Stop(`"${flags.kind}" is not a kind: --kind line or --kind bar.`);
+  const KINDS = ["line", "bar", "column", "donut", "stacked"];
+  if (!KINDS.includes(kind))
+    throw new Stop(
+      `"${flags.kind}" is not a kind: --kind ${KINDS.join(", ")}.`,
+    );
   if (kind === "line" && !dated)
     throw new Stop(
       "A line needs dates in the first column (YYYY, YYYY-MM, YYYY-MM-DD or YYYY-Qn); draw categories with --kind bar.",
@@ -655,9 +833,9 @@ function main() {
   if (highlight !== undefined) {
     if (typeof highlight !== "string")
       throw new Stop('--highlight needs a row: --highlight "<label>".');
-    if (kind !== "bar")
+    if (kind === "line" || kind === "stacked")
       throw new Stop(
-        "--highlight picks out one bar; a line chart has none. Drop it, or draw --kind bar.",
+        `--highlight picks out one bar or slice; a ${kind} chart has none. Drop it, or draw --kind bar.`,
       );
     if (!body.some((r) => r[0] === highlight))
       throw new Stop(
@@ -675,6 +853,37 @@ function main() {
   }));
   if (series.every((s) => s.values.every((v) => v === null)))
     throw new Stop(`No numbers in ${wanted.join(", ")}.`);
+  const negative = series.some((s) =>
+    s.values.some((v) => v !== null && v < 0),
+  );
+  if (kind === "donut") {
+    if (series.length !== 1)
+      throw new Stop(
+        `A donut shows one column's shares; this draws ${series.length}. Pick one with --columns, or draw --kind stacked.`,
+      );
+    if (body.length > 5)
+      throw new Stop(
+        `A donut reads at five parts or fewer; this has ${body.length}. Draw --kind bar, or put the smallest together in one row.`,
+      );
+    if (negative)
+      throw new Stop(
+        "A donut's parts are shares of a whole, and a negative one is no share. Draw --kind bar.",
+      );
+  }
+  if (flags.share && kind !== "stacked")
+    throw new Stop(
+      "--share draws each row of a stacked bar as 100%; drop it, or draw --kind stacked.",
+    );
+  if (kind === "stacked") {
+    if (series.length < 2)
+      throw new Stop(
+        "A stacked bar needs two or more value columns, the parts of each row. Draw --kind bar.",
+      );
+    if (negative)
+      throw new Stop(
+        "A stacked bar cannot hold a negative part: the parts would overlap. Draw --kind column.",
+      );
+  }
 
   let chart;
   let lineDraw;
@@ -725,14 +934,21 @@ function main() {
     chart = both(lineDraw);
   } else {
     let order = body.map((_, i) => i);
-    if (!flags["keep-order"])
+    // Bars and slices largest first; columns and stacked bars keep the rows' own order
+    if ((kind === "bar" || kind === "donut") && !flags["keep-order"])
       order.sort(
         (a, b) =>
           (series[0].values[b] ?? -Infinity) -
           (series[0].values[a] ?? -Infinity),
       );
+    const drawer = {
+      bar: barChart,
+      column: columnChart,
+      donut: donutChart,
+      stacked: stackedChart,
+    }[kind];
     barDraw = (size) =>
-      barChart({
+      drawer({
         labels: order.map((i) => body[i][0]),
         series: series.map((s) => ({
           ...s,
@@ -740,6 +956,8 @@ function main() {
         })),
         fmt,
         highlight: highlight ?? null,
+        share: Boolean(flags.share),
+        locale,
         size,
       });
     chart = both(barDraw);
