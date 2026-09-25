@@ -174,6 +174,42 @@ test("a chart drawn into a document is part of what the bot put, and a page open
   assert.match(said, /^Drew .* as #rent\./);
 });
 
+test("a chart drawn where a placeholder holds one of its own kind replaces all of it", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const rel = "artifacts/Tester/nested.html";
+  const file = join(WORKSPACE, rel);
+  await mkdir(join(WORKSPACE, "artifacts", "Tester"), { recursive: true });
+  await writeFile(
+    file,
+    putBetween(
+      page("<p>Before</p>"),
+      '<p>Before</p>\n<div id="rent"><div class="note">placeholder</div><p>inside</p></div>\n<p>After</p>',
+    ),
+  );
+  const csv = join(home, "nested.csv");
+  await writeFile(
+    csv,
+    "# source: https://example.org\nyear,rent\n2023,80\n2024,85\n",
+  );
+  const chart = join(
+    import.meta.dirname,
+    "..",
+    "skills",
+    "artifact",
+    "scripts",
+    "chart.mjs",
+  );
+  execFileSync(process.execPath, [chart, file, "rent", csv], { stdio: "pipe" });
+
+  const drawn = await readFile(file, "utf8");
+  // The first close inside it once ended the match, and left the rest after the chart
+  assert.ok(
+    !drawn.includes("<p>inside</p>"),
+    "the whole placeholder is replaced",
+  );
+  assert.match(drawn, /<\/figure>\s*<p>After<\/p>/);
+});
+
 test("a page from before revisions keeps its edits as it did", async () => {
   const rel = "artifacts/Tester/older.html";
   const file = join(WORKSPACE, rel);

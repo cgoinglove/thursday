@@ -713,9 +713,7 @@ ${sourceLine}
   let html = readFileSync(pagePath, "utf8");
   // Whether the reader changed the document since the bot last put or got it (put.mjs)
   const edited = editedSince(html);
-  const existing = new RegExp(
-    `<(figure|div|section|p)\\b[^>]*\\bid=["']${id}["'][^>]*>[\\s\\S]*?</\\1>`,
-  );
+  const span = elementSpan(html, id);
   const selfClosed = new RegExp(
     `<(figure|div|section|p)\\b[^>]*\\bid=["']${id}["'][^>]*/>`,
   );
@@ -724,7 +722,7 @@ ${sourceLine}
   const waiting = [
     ...html.matchAll(/<figure\b[^>]*\bid=["']([\w-]+)["'][^>]*>\s*<\/figure>/g),
   ].map((match) => match[1]);
-  if (existing.test(html)) html = html.replace(existing, () => figure);
+  if (span) html = html.slice(0, span[0]) + figure + html.slice(span[1]);
   else if (selfClosed.test(html)) html = html.replace(selfClosed, () => figure);
   else if (waiting.length)
     throw new Stop(
@@ -756,6 +754,32 @@ ${sourceLine}
   });
   console.log(
     `Drew "${title}" (${kind}, ${body.length} rows) into ${pagePath} as #${id}. ${kind === "line" ? `First → last: ${drawn.join("; ")}.` : ""}`.trim(),
+  );
+}
+
+/**
+ * Where the element holding `id` starts and ends in the page: its opening tag, then every tag
+ * of its own name after it counted in and out until its own close. Stopping at the first
+ * close instead cut a placeholder holding one of its kind short, and left the rest of it
+ * after the chart.
+ */
+function elementSpan(html, id) {
+  const safe = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const found = new RegExp(
+    `<(figure|div|section|p)\\b[^>]*\\bid=["']${safe}["'][^>]*>`,
+    "i",
+  ).exec(html);
+  if (!found || found[0].endsWith("/>")) return null;
+  const tags = new RegExp(`<(/?)${found[1]}\\b[^>]*>`, "gi");
+  tags.lastIndex = found.index + found[0].length;
+  let depth = 1;
+  for (let tag = tags.exec(html); tag; tag = tags.exec(html)) {
+    if (tag[0].endsWith("/>")) continue;
+    depth += tag[1] ? -1 : 1;
+    if (!depth) return [found.index, tag.index + tag[0].length];
+  }
+  throw new Stop(
+    `The <${found[1]} id="${id}"> in the page is never closed: close it, then draw again.`,
   );
 }
 
