@@ -1989,6 +1989,51 @@ test("an answer written in several blocks is one result, the whole of the outcom
   assert.ok(!lines.some((line) => line.kind === "say"));
 });
 
+test("a search's page keeps its whole address in the glance; only its title is clipped", async () => {
+  plans.set("Alpha", [() => text("Looked it up.")]);
+  const id = await startThread({
+    bot: "Alpha",
+    request: "Look it up",
+    label: "Long page",
+    from: "user",
+  });
+  await waitFor(id, "done");
+  const work = (await listRoomWork(id))[0];
+  const url = `https://example.com/${"deep/".repeat(12)}page?ref=${"x".repeat(40)}`;
+  // An address longer than the glance itself leaves no room for a title, and stays whole
+  const endless = `https://example.net/${"x".repeat(240)}`;
+  const title = "A page whose title runs on ".repeat(6).trim();
+  await upsertMessage(id, (await lastSeq(id)) + 1, {
+    bot: "Alpha",
+    parent: work.id,
+    role: "tool",
+    content: [
+      {
+        type: "tool-result",
+        toolCallId: "long-page",
+        toolName: T.web_search,
+        output: {
+          type: "text",
+          value: `What the pages say.\n\nSources:\n${title} — ${url} · 2026-01-02\nShort — https://example.org/a\nEndless — ${endless}`,
+        },
+      },
+    ],
+  });
+  const glance = (await findThreadView(id))!.lines.find(
+    (line) => line.kind === "tool-result" && line.callId === "long-page",
+  );
+  assert.ok(glance?.kind === "tool-result");
+  const [long, short, over] = glance.results.map((part) =>
+    part.type === "text" ? part.text : "",
+  );
+  assert.ok(long.endsWith(` — ${url} · 2026-01-02`));
+  assert.ok(long.startsWith("A page whose title"));
+  assert.ok(long.includes("…"));
+  assert.equal(short, "Short — https://example.org/a");
+  assert.equal(over, endless);
+  assert.equal(glance.more, true);
+});
+
 test("a bot that loads a skill is shown the files that ship with it", async () => {
   plans.set("Alpha", [
     () => call(T.load_skill, { name: "skill-creator" }),

@@ -1003,6 +1003,27 @@ function linesOf(message: StoredMessage, addressee: string): ThreadLine[] {
 /** How a search names a page it read (search.tool): `title — url`, its date after it at most. */
 const PAGE_HEAD = /https?:\/\/\S+(?: · \d{4}-\d{2}-\d{2})?\s*$/;
 
+/** What stands between a page's title and its address (search.tool). */
+const PAGE_SEP = " — ";
+
+/**
+ * A page line clipped to the glance's width by its title alone: the address after it is
+ * the link its row opens (bot-tool pagesOf), and an address cut short is a link to nowhere.
+ */
+function clipPage(line: string): string {
+  const flat = line.replace(/\s+/g, " ").trim();
+  const head = PAGE_HEAD.exec(flat);
+  if (!head || flat.length <= RESULT_LINE_MAX)
+    return clip(flat, RESULT_LINE_MAX);
+  const address = head[0].trim();
+  // Read off as pagesOf reads it back
+  const title = flat.slice(0, head.index).replace(/[\s—-]+$/, "");
+  const room = RESULT_LINE_MAX - address.length - PAGE_SEP.length;
+  return title && room > 1
+    ? `${clip(title, room)}${PAGE_SEP}${address}`
+    : address;
+}
+
 /**
  * List line for one tool result: a glance of text lines, each clipped, and whether
  * the output holds more. Asks for one line past the glance to know. Called for tool
@@ -1034,7 +1055,7 @@ function resultLine(
     // Images stay out of the list: a screenshot is fetched with the full output
     results: glance.map((text) => ({
       type: "text" as const,
-      text: clip(text, RESULT_LINE_MAX),
+      text: pages.length ? clipPage(text) : clip(text, RESULT_LINE_MAX),
     })),
     more:
       lines.length > glance.length ||
