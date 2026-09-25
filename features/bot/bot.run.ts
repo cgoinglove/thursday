@@ -295,8 +295,8 @@ export async function runBot(
       sent = size;
       let next = messages;
       // The opening survives every compaction, so past it and one summary there is nothing to compact
-      const asked = options.compactNow?.() ?? false;
-      if ((size > budget || asked) && messages.length > 2) {
+      const compactAsked = options.compactNow?.() ?? false;
+      if ((size > budget || compactAsked) && messages.length > 2) {
         // One long call that sends nothing until it is done, and bounds itself
         quiet.hold();
         const summary = await compact(model.model, agentTools, messages, {
