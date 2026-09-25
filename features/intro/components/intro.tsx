@@ -28,7 +28,7 @@ import {
 } from "@/features/ai/model.schema";
 import { PERSONAS } from "@/features/ai/prompts/persona";
 import type { BotIcon } from "@/features/bot/bot.schema";
-import { BOT_SEEDS, type BotSeed } from "@/features/bot/bot.seed";
+import { BOT_SEEDS, type BotSeed, ERRANDS_BOT } from "@/features/bot/bot.seed";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { installSeedBots } from "@/features/bot/seed-bots";
 import { AccountsSetup } from "@/features/config/components/config-setting";
@@ -896,19 +896,23 @@ function Ready({ mic, bots }: { mic: boolean; bots: number }) {
 /* ── the opening: the app's one loop, played silently where it really happens ── */
 
 const DEMO_MS = 16_000;
+/**
+ * Read by a stranger anywhere as their first sight of the app, so it names no place they
+ * leave from and no currency.
+ */
 const DEMO = {
   ask: "Find me flights to Osaka in October.",
-  onIt: "On it. Concierge is looking. Keep talking, I will say when it is back.",
-  back: "Concierge is back. From ₩296,000, out of Incheon. The page is on your screen.",
+  onIt: `On it. ${ERRANDS_BOT} is looking. Keep talking, I will say when it is back.`,
+  back: `${ERRANDS_BOT} is back. The Tuesday morning flight is the pick. The page is on your screen.`,
 } as const;
 
 /** What lands in the corner at the end of the loop: words alone, so nothing is read off disk. */
 const DEMO_LANDED: Finished = {
   threadId: "demo",
   label: "Osaka flights, October",
-  bot: "Concierge",
+  bot: ERRANDS_BOT,
   words:
-    "Three fares from ₩296,000 out of Incheon. The Tuesday morning one is the pick: direct, and the cheapest by a little.",
+    "Three fares compared. The Tuesday morning one is the pick: direct, and the cheapest by a little.",
   paths: [],
 };
 
@@ -977,7 +981,7 @@ function DemoCorners({ stage, icons }: { stage: DemoStage; icons: BotIcon[] }) {
               seed={seed.name}
               {...icons[index]}
               state={
-                stage === "working" && seed.name === "Concierge"
+                stage === "working" && seed.name === ERRANDS_BOT
                   ? "thinking"
                   : "idle"
               }
@@ -988,9 +992,9 @@ function DemoCorners({ stage, icons }: { stage: DemoStage; icons: BotIcon[] }) {
         </span>
         <span className="w-40 truncate text-left text-[13px] text-muted-foreground">
           {stage === "working"
-            ? "Concierge · reading fares"
+            ? `${ERRANDS_BOT} · reading fares`
             : stage === "landed"
-              ? "Concierge finished"
+              ? `${ERRANDS_BOT} finished`
               : "Need a hand?"}
         </span>
       </div>

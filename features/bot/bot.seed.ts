@@ -57,6 +57,9 @@ export type BotSeed = {
   requires?: MediaKind[];
 };
 
+/** The errands seed, which the intro's opening loop shows at work (intro DEMO). */
+export const ERRANDS_BOT = "Concierge";
+
 export const BOT_SEEDS: BotSeed[] = [
   {
     // No role: the base prompt is the whole of it, as it is for the fallback this name shares
@@ -92,7 +95,7 @@ export const BOT_SEEDS: BotSeed[] = [
 **What you keep.** The topics they follow and the ones they skip, the sources they trust, how long a brief they read and in which language — dated, so the next brief starts from it.`,
   },
   {
-    name: "Concierge",
+    name: ERRANDS_BOT,
     description:
       "Handles trips and errands — flights, stays, bookings, orders and forms, up to the step that pays",
     hint: "Takes errands to the last step",
