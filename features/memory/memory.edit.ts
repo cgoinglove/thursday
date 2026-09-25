@@ -17,8 +17,8 @@ import { isPublicError } from "@/lib/public-error";
 
 /**
  * Editing memory from its own screen: one request, one streamed run. The model
- * gets memory's two writes, which run as it calls them, and the page draws each
- * call as it arrives. Nothing about the exchange is kept — the page holds the
+ * gets memory's own read and writes (load-tools, memory-edit), which run as it
+ * calls them, and the page draws each call as it arrives. Nothing about the exchange is kept — the page holds the
  * messages and drops them — so what lasts is only what the tools wrote.
  */
 
