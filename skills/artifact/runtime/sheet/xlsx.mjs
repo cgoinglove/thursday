@@ -3,9 +3,9 @@
 // its rows and a totals row; numbers, text, booleans and formulas with the value each holds;
 // the header bold and frozen with a filter on it, column widths, number formats. Read: every
 // sheet's cells, the value Excel last stored for each formula and the formula when it is
-// written out, dates as YYYY-MM-DD, column widths and number formats.
+// written out, dates as Excel's day numbers with their format, column widths and number formats.
 import { strFromU8, strToU8, unzipSync, zipSync } from "../vendor/fflate.mjs";
-import { xlsxFormat } from "./format.mjs";
+import { checkFormat, xlsxFormat } from "./format.mjs";
 import { colIndex, colName } from "./formula.mjs";
 
 const xml = (text) =>
@@ -176,12 +176,29 @@ const texts = (inside) =>
     .map((m) => unxml(m[1]))
     .join("");
 
-const BUILTIN_DATES = new Set([
-  14, 15, 16, 17, 22, 27, 30, 36, 45, 46, 47, 50, 57,
-]);
-/** An Excel date number as YYYY-MM-DD (the 1900 date system). */
-const dateOf = (serial) =>
-  new Date(Math.round((serial - 25569) * 86400000)).toISOString().slice(0, 10);
+/**
+ * Excel's own date and time formats by their number, as codes this sheet draws: the ones that
+ * follow the reader's locale in Excel are written the one way everywhere.
+ */
+const BUILTIN_DATES = {
+  14: "yyyy-mm-dd",
+  15: "d-mmm-yy",
+  16: "d-mmm",
+  17: "mmm-yy",
+  18: "h:mm AM/PM",
+  19: "h:mm:ss AM/PM",
+  20: "h:mm",
+  21: "h:mm:ss",
+  22: "yyyy-mm-dd h:mm",
+  27: "yyyy-mm-dd",
+  30: "yyyy-mm-dd",
+  36: "yyyy-mm-dd",
+  45: "mm:ss",
+  46: "h:mm:ss",
+  47: "mm:ss",
+  50: "yyyy-mm-dd",
+  57: "yyyy-mm-dd",
+};
 
 /**
  * An .xlsx read back: `{ sheets: [{ name, rows, widths, formats }] }`, `rows` of `{ v, f }` with
@@ -224,19 +241,27 @@ export function readXlsx(bytes) {
     Number(attr(m[0], "numFmtId") ?? 0),
   );
   const isDate = (id) =>
-    BUILTIN_DATES.has(id) ||
-    /[yd]/i.test(
+    id in BUILTIN_DATES ||
+    /[ydh]/i.test(
       (codes.get(id) ?? "")
         .replace(/"[^"]*"/g, "")
         .replace(/\[[^\]]*\]/g, "")
         .replace(/\\./g, ""),
     );
-  const codeOf = (id) =>
-    ({ 1: "0", 2: "0.00", 3: "#,##0", 4: "#,##0.00", 9: "0%", 10: "0.00%" })[
-      id
-    ] ??
-    codes.get(id) ??
-    null;
+  // A date's own code when the sheet draws it, else a date all the same: never a bare number
+  const codeOf = (id) => {
+    const code =
+      BUILTIN_DATES[id] ??
+      { 1: "0", 2: "0.00", 3: "#,##0", 4: "#,##0.00", 9: "0%", 10: "0.00%" }[
+        id
+      ] ??
+      codes.get(id) ??
+      null;
+    if (!isDate(id) || (code && !checkFormat(code))) return code;
+    // Hours counted past a day ([h]:mm) are a length of time, not a date: left a number
+    if (/\[[hms]+\]/i.test(code ?? "")) return null;
+    return /h/i.test(code ?? "") ? "yyyy-mm-dd hh:mm" : "yyyy-mm-dd";
+  };
 
   const sheets = [...workbook.matchAll(/<sheet\b[^>]*>/g)].map((m) => {
     const name = attr(m[0], "name");
@@ -265,8 +290,7 @@ export function readXlsx(bytes) {
       else if (type === "e")
         v = raw === undefined ? null : { error: unxml(raw) };
       else if (raw !== undefined) {
-        const n = Number(raw);
-        v = isDate(styleId) ? dateOf(n) : n;
+        v = Number(raw);
       }
       rows[r] ??= [];
       rows[r][c] = { v, ...(f ? { f: `=${unxml(f)}` } : {}) };

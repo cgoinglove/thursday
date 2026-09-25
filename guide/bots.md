@@ -269,8 +269,10 @@ the sheet copied, and print. **Edit** changes the sheet itself, no Excel needed:
 or double-click it (F2 too), write a formula starting with `=` in the cell or the formula line,
 rename a column on its heading, paste cells copied from any spreadsheet, and Delete clears the cells
 picked. The tools beside the formula line put a row under the one picked (its formulas carried
-down) or a column beside it, take out the rows or columns picked, set how a column's numbers read,
-and undo (⌘Z) or redo. Formulas elsewhere move as Excel moves them, and one that points at a cell
+down) or a column beside it, take out the rows or columns picked, set how a column's values read —
+grouped, with decimals, a percent, negatives in red, or dates — and undo (⌘Z) or redo. In a column
+of dates, a date typed as 2026-07-02 is a real date in Excel too, and dates written as text there
+become dates when the column is made one. Formulas elsewhere move as Excel moves them, and one that points at a cell
 taken out shows #REF!. A formula that cannot be read stays in the cell to be put right. The app
 keeps each change a moment later into the page and the Excel file both. If the file was changed in
 Excel since the page drew it, nothing is saved over it: the top bar says **Changed since it opened

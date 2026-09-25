@@ -62,7 +62,8 @@ function sectionsOf(code) {
 function literal(text) {
   let out = "";
   let raw = "";
-  const re = /"([^"]*)"|\\(.)|\[\$([^\]-]*)(?:-[0-9A-Fa-f]+)?\]|_(.)|\*(.)|([^"\\[_*])/gsy;
+  const re =
+    /"([^"]*)"|\\(.)|\[\$([^\]-]*)(?:-[0-9A-Fa-f]+)?\]|_(.)|\*(.)|([^"\\[_*])/gsy;
   let m;
   let at = 0;
   while (at < text.length) {
@@ -198,7 +199,10 @@ export function xlsxFormat(code) {
           one.date
             .map((token) =>
               token.t
-                ? token.t.replace(/n/g, "m").replace("am/pm", "AM/PM").replace("a/p", "A/P")
+                ? token.t
+                    .replace(/n/g, "m")
+                    .replace("am/pm", "AM/PM")
+                    .replace("a/p", "A/P")
                 : /^[-/.,: ]$/.test(token.lit)
                   ? token.lit
                   : quote(token.lit),
@@ -279,8 +283,7 @@ export function formatValue(value, code) {
     return Number.isInteger(value)
       ? String(value)
       : String(Number(value.toPrecision(10)));
-  if (section.date)
-    return value < 0 ? "#NUM!" : dateText(value, section.date);
+  if (section.date) return value < 0 ? "#NUM!" : dateText(value, section.date);
   if (!section.core) return section.prefix;
   const n = section.percent ? value * 100 : value;
   const text = Math.abs(n).toLocaleString("en-US", {
@@ -309,7 +312,9 @@ export function serialOf(text) {
       String(text).trim(),
     );
   if (!m) return null;
-  const [y, mo, d, h = 0, mi = 0, s = 0] = m.slice(1).map((x) => Number(x ?? 0));
+  const [y, mo, d, h = 0, mi = 0, s = 0] = m
+    .slice(1)
+    .map((x) => Number(x ?? 0));
   const at = Date.UTC(y, mo - 1, d, h, mi, s);
   const check = new Date(at);
   if (check.getUTCMonth() !== mo - 1 || check.getUTCDate() !== d || h > 23)

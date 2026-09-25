@@ -38,7 +38,13 @@ import {
 } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { checkFormat, formatValue } from "../runtime/sheet/format.mjs";
+import {
+  checkFormat,
+  formatValue,
+  isDateFormat,
+  isoOf,
+  serialOf,
+} from "../runtime/sheet/format.mjs";
 import {
   asColumnFormula,
   colName,
@@ -219,6 +225,9 @@ function fromDescription(spec) {
           return { v: null };
         if (typeof given === "number" || typeof given === "boolean")
           return { v: given };
+        // A date column holds dates: "2026-07-02" is that day, as Excel stores it
+        if (column.format !== undefined && isDateFormat(String(column.format)))
+          return { v: serialOf(given) ?? String(given) };
         return { v: String(given) };
       });
     });
@@ -544,16 +553,19 @@ function readBook(file) {
   return book;
 }
 
-const text = (v) =>
+/** A value as text; a date, in a column written as dates, as YYYY-MM-DD. */
+const text = (v, format) =>
   v === null || v === undefined
     ? ""
-    : typeof v === "object"
-      ? v.error
-      : typeof v === "boolean"
-        ? v
-          ? "TRUE"
-          : "FALSE"
-        : String(v);
+    : typeof v === "number" && format && isDateFormat(format)
+      ? isoOf(v)
+      : typeof v === "object"
+        ? v.error
+        : typeof v === "boolean"
+          ? v
+            ? "TRUE"
+            : "FALSE"
+          : String(v);
 
 function read(arg, flags) {
   const { file } = workbookAt(arg, flags);
@@ -572,8 +584,11 @@ function read(arg, flags) {
       "",
       `## ${sheet.name} — ${Math.max(0, sheet.rows.length - 1)} rows under a header, ${width} columns (A–${colName(Math.max(0, width - 1))})`,
     );
-    for (const row of sheet.rows.slice(0, most + 1))
-      out.push(row.map((cell) => text(cell.v)).join("\t"));
+    const cellText = (cell, r, c) =>
+      text(cell.v, r > 0 ? sheet.formats[c] : null);
+    sheet.rows.slice(0, most + 1).forEach((row, r) => {
+      out.push(row.map((cell, c) => cellText(cell, r, c)).join("\t"));
+    });
     if (sheet.rows.length > most + 1)
       out.push(`… ${sheet.rows.length - most - 1} more rows`);
     const formulas = [];
@@ -612,10 +627,10 @@ function read(arg, flags) {
         `${sheet.name.replace(/[\\/:*?"<>|]+/g, "-")}.csv`,
       );
       const csv = sheet.rows
-        .map((row) =>
+        .map((row, r) =>
           row
-            .map((cell) => {
-              const t = text(cell.v);
+            .map((cell, c) => {
+              const t = text(cell.v, r > 0 ? sheet.formats[c] : null);
               return /[",\n]/.test(t) ? `"${t.replaceAll('"', '""')}"` : t;
             })
             .join(","),
@@ -721,9 +736,13 @@ function describe(drawn, title) {
           ? template
           : null;
       });
-      const value = (cell) => {
+      const value = (cell, c) => {
         const v = cell?.v ?? null;
-        return v !== null && typeof v === "object" ? null : v;
+        if (v !== null && typeof v === "object") return null;
+        const format = sheet.columns[c].format;
+        return typeof v === "number" && format && isDateFormat(format)
+          ? isoOf(v)
+          : v;
       };
       return {
         name: sheet.name,
@@ -734,7 +753,7 @@ function describe(drawn, title) {
         })),
         rows: rows.map((row) =>
           Array.from({ length: width }, (_, c) =>
-            formulas[c] ? null : row[c]?.f ? { f: row[c].f } : value(row[c]),
+            formulas[c] ? null : row[c]?.f ? { f: row[c].f } : value(row[c], c),
           ),
         ),
         ...(sheet.totalsSpec

@@ -27,9 +27,8 @@ const SCRIPT = join(
 const { workOut, parse, moveRefs, fillDown } = await import(
   join(RUNTIME, "formula.mjs")
 );
-const { formatValue, checkFormat, xlsxFormat, valueOf } = await import(
-  join(RUNTIME, "format.mjs")
-);
+const { formatValue, formatColor, checkFormat, xlsxFormat, valueOf, serialOf } =
+  await import(join(RUNTIME, "format.mjs"));
 const { readXlsx, writeXlsx } = await import(join(RUNTIME, "xlsx.mjs"));
 const { strFromU8, unzipSync, zipSync, strToU8 } = await import(
   join(RUNTIME, "..", "vendor", "fflate.mjs")
@@ -209,7 +208,27 @@ test("number formats read as Excel shows them, and one the sheet cannot draw is 
   assert.equal(formatValue(1 / 3, undefined), "0.3333333333");
   assert.equal(formatValue({ error: "#DIV/0!" }, "#,##0"), "#DIV/0!");
   assert.equal(xlsxFormat("₩#,##0"), '"₩"#,##0');
-  assert.match(checkFormat("yyyy-mm") ?? "", /not a number format/);
+  // Another way for negatives and zero after a ;, in a colour, and Excel's spacing kept
+  assert.equal(formatValue(-1500, "#,##0;[Red](#,##0)"), "(1,500)");
+  assert.equal(formatColor(-1500, "#,##0;[Red](#,##0)"), "Red");
+  assert.equal(formatColor(1500, "#,##0;[Red](#,##0)"), null);
+  assert.equal(formatValue(0, '#,##0;(#,##0);"-"'), "-");
+  assert.equal(xlsxFormat("#,##0_);[Red](#,##0)"), "#,##0_);[Red](#,##0)");
+  assert.equal(formatValue(1234, "[$₩-412]#,##0"), "₩1,234");
+  // Dates are Excel's day numbers
+  const day = serialOf("2026-07-02");
+  assert.equal(day, 46205);
+  assert.equal(formatValue(day, "yyyy-mm-dd"), "2026-07-02");
+  assert.equal(formatValue(day, 'yyyy"년" m"월" d"일"'), "2026년 7월 2일");
+  assert.equal(formatValue(day, "ddd, d mmm yyyy"), "Thu, 2 Jul 2026");
+  assert.equal(
+    formatValue(serialOf("2026-07-02 14:05") ?? 0, "yyyy-mm-dd h:mm AM/PM"),
+    "2026-07-02 2:05 PM",
+  );
+  assert.equal(serialOf("2026-02-30"), null);
+  assert.equal(valueOf("2026-07-02", "yyyy-mm-dd"), day);
+  assert.equal(valueOf("(1,200)", "#,##0;(#,##0)"), -1200);
+  assert.match(checkFormat("[h]:mm") ?? "", /not a format this sheet draws/);
   assert.equal(checkFormat('#,##0"원"'), null);
 });
 
@@ -278,8 +297,14 @@ test("another program's .xlsx is read: shared strings, rich text, dates, a sheet
   );
   assert.deepEqual(
     sheet.rows[2].map((cell: { v: unknown }) => cell.v),
-    ["Bold", "2026-07-01", "2026-07-02"],
+    ["Bold", 46204, 46205],
   );
+  // Dates stay dates: their own format when the sheet draws it, Excel's built-in one as ISO
+  assert.deepEqual(sheet.formats.slice(1), [
+    "[Red]yyyy\\-mm\\-dd",
+    "yyyy-mm-dd",
+  ]);
+  assert.equal(formatValue(46204, sheet.formats[1]), "2026-07-01");
 });
 
 test("put writes the .xlsx and its page, refuses one changed since, and reads and views it again", async () => {
@@ -379,6 +404,65 @@ test("put writes the .xlsx and its page, refuses one changed since, and reads an
   });
 });
 
+test("a column of dates holds Excel's dates, summed by month with SUMIFS, and reads back as written", async () => {
+  const book = join(home, "dated.json");
+  await writeFile(
+    book,
+    JSON.stringify({
+      sheets: [
+        {
+          name: "Orders",
+          columns: [
+            { name: "Date", format: "yyyy-mm-dd" },
+            { name: "Amount", format: "#,##0;[Red]-#,##0" },
+          ],
+          rows: [
+            ["2026-07-03", 10],
+            ["2026-07-31", -4],
+            ["2026-08-01", 40],
+            ["not yet", 1],
+          ],
+        },
+        {
+          name: "By month",
+          columns: [
+            { name: "Month", format: "yyyy-mm" },
+            {
+              name: "Total",
+              formula:
+                '=SUMIFS(Orders!B:B,Orders!A:A,">="&A{r},Orders!A:A,"<="&EOMONTH(A{r},0))',
+            },
+          ],
+          rows: [["2026-07-01"], ["2026-08-01"]],
+        },
+      ],
+    }),
+  );
+  const made = run("put", "dated", book);
+  assert.equal(made.status, 0, made.stderr);
+  const back = readXlsx(
+    await readFile(join(home, "artifacts", "dated", "dated.xlsx")),
+  ).sheets;
+  assert.deepEqual(back[0].rows[1][0], { v: 46206 });
+  assert.equal(
+    back[0].rows[4][0].v,
+    "not yet",
+    "text that is no date stays text",
+  );
+  assert.equal(back[0].formats[0], "yyyy-mm-dd");
+  assert.deepEqual(
+    back[1].rows.slice(1).map((row: { v: unknown }[]) => row[1].v),
+    [6, 40],
+  );
+  const read = run("read", "dated", "--json", join(home, "dated-back.json"));
+  assert.match(read.stdout, /2026-07-03\t10/);
+  const described = JSON.parse(
+    await readFile(join(home, "dated-back.json"), "utf8"),
+  );
+  assert.deepEqual(described.sheets[0].rows[0], ["2026-07-03", 10]);
+  assert.deepEqual(described.sheets[1].rows[1], ["2026-08-01", null]);
+});
+
 test("a CSV becomes one sheet, grouped numbers read as numbers; an old .xls is refused", async () => {
   const csv = join(home, "d.csv");
   await writeFile(csv, 'Item,Qty\nPaper,"1,200"\n"Toner, black",12\n');
@@ -410,8 +494,8 @@ test("a description the sheet cannot write stops, saying what to change", async 
   });
   assert.match(await stops(one({ name: "a/b" })), /not one Excel takes/);
   assert.match(
-    await stops(one({ columns: [{ name: "x", format: "yyyy" }] })),
-    /not a number format/,
+    await stops(one({ columns: [{ name: "x", format: "[h]:mm" }] })),
+    /not a format this sheet draws/,
   );
   assert.match(
     await stops(one({ columns: [{ name: "x", formula: "=1" }], rows: [[5]] })),

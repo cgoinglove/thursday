@@ -38,7 +38,23 @@
   };
   const isNumber = (v) => typeof v === "number";
   const shown = (v, column) => formatValue(v, column?.format);
-  const plain = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+  // A format's colour in the shell's own, so it reads in light and dark alike
+  const COLORS = {
+    Red: "var(--sh-bad)",
+    Green: "var(--sh-good)",
+    Blue: "var(--sh-brand)",
+    Black: "var(--sh-ink)",
+  };
+  const paintColor = (el, v, code) => {
+    const color = formatColor(v, code);
+    if (color) el.style.color = COLORS[color];
+  };
+  /** A value as it is copied or typed: a date, in a column of dates, as YYYY-MM-DD. */
+  const plain = (v, column) =>
+    isNumber(v) && isDateFormat(column?.format) ? isoOf(v) : v;
+  const figure = new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: 2,
+  });
 
   // Each sheet's view: its sort, its filters, the cells picked
   const views = book.sheets.map(() => ({
@@ -179,15 +195,15 @@
       columns.forEach((column, c) => {
         const v = rows[i][c]?.v ?? null;
         const error = v !== null && typeof v === "object";
-        tr.append(
-          cell(
-            "td",
-            shown(v, column),
-            error ? "err" : isNumber(v) ? "num" : "",
-            r,
-            c,
-          ),
+        const td = cell(
+          "td",
+          shown(v, column),
+          error ? "err" : isNumber(v) ? "num" : "",
+          r,
+          c,
         );
+        paintColor(td, v, column.format);
+        tr.append(td);
       });
       body.append(tr);
     });
@@ -200,15 +216,15 @@
       columns.forEach((column, c) => {
         const fn = totals.cells[c];
         const v = fn ? total(fn, c, list) : c === 0 ? totals.label : null;
-        tr.append(
-          cell(
-            "td",
-            fn ? shown(v, fn === "count" ? null : column) : (v ?? ""),
-            fn ? "num" : "",
-            "T",
-            c,
-          ),
+        const td = cell(
+          "td",
+          fn ? shown(v, fn === "count" ? null : column) : (v ?? ""),
+          fn ? "num" : "",
+          "T",
+          c,
         );
+        if (fn && fn !== "count") paintColor(td, v, column.format);
+        tr.append(td);
       });
       foot.append(tr);
       table.append(foot);
@@ -247,6 +263,9 @@
     r === -1
       ? sheet().columns[c].name
       : (sheet().rows[list[r]]?.[c]?.v ?? null);
+  /** The value at a picked position as it is copied: a date as YYYY-MM-DD. */
+  const plainAt = (r, c) =>
+    r === -1 ? valueAt(r, c) : plain(valueAt(r, c), sheet().columns[c]);
 
   const paint = () => {
     const p = view().pick;
@@ -276,7 +295,7 @@
     const excelRow = p.r1 === -1 ? 1 : list[p.r1] + 2;
     ref.textContent = `${colName(p.c1)}${excelRow}`;
     const picked = p.r1 === -1 ? null : sheet().rows[list[p.r1]]?.[p.c1];
-    const v = valueAt(p.r1, p.c1);
+    const v = plainAt(p.r1, p.c1);
     formula.value =
       picked?.f ??
       (v === null
@@ -309,8 +328,8 @@
       };
       if (numbers.length) {
         const sum = Number(numbers.reduce((s, n) => s + n, 0).toPrecision(15));
-        part("Sum", plain.format(sum));
-        part("Average", plain.format(sum / numbers.length));
+        part("Sum", figure.format(sum));
+        part("Average", figure.format(sum / numbers.length));
       }
       part("Count", filled.toLocaleString());
     }
@@ -438,7 +457,7 @@
       for (let r = Math.min(p.r1, p.r2); r <= Math.max(p.r1, p.r2); r++) {
         const row = [];
         for (let c = Math.min(p.c1, p.c2); c <= Math.max(p.c1, p.c2); c++)
-          row.push(valueAt(r, c));
+          row.push(plainAt(r, c));
         out.push(row);
       }
       copy(tsv(out));
@@ -592,7 +611,9 @@
     const all = rows.map((_, i) => i);
     const out = [
       columns.map((column) => column.name),
-      ...rows.map((row) => columns.map((_, c) => row[c]?.v ?? null)),
+      ...rows.map((row) =>
+        columns.map((column, c) => plain(row[c]?.v ?? null, column)),
+      ),
     ];
     if (totals)
       out.push(
@@ -765,6 +786,7 @@
     if (v === null) return "";
     if (typeof v === "object") return v.error;
     if (typeof v === "boolean") return v ? "TRUE" : "FALSE";
+    if (isNumber(v) && isDateFormat(sheet().columns[c].format)) return isoOf(v);
     if (isNumber(v) && /%/.test(sheet().columns[c].format ?? ""))
       return `${Number((v * 100).toPrecision(12))}%`;
     return String(v);
@@ -944,7 +966,13 @@
     let option = [...formatPick.options].find((one) => one.value === code);
     if (!option) {
       formatPick.querySelector("[data-own]")?.remove();
-      option = new Option(formatValue(1234.5, code), code);
+      option = new Option(
+        formatValue(
+          isDateFormat(code) ? serialOf("2026-07-02") : -1234.5,
+          code,
+        ),
+        code,
+      );
       option.dataset.own = "";
       formatPick.append(option);
     }
@@ -954,7 +982,20 @@
     const { left, right } = picked();
     const code = formatPick.value === "General" ? null : formatPick.value;
     change(() => {
-      for (let c = left; c <= right; c++) sheet().columns[c].format = code;
+      for (let c = left; c <= right; c++) {
+        sheet().columns[c].format = code;
+        // Made a column of dates: the dates written in it as text become dates
+        if (!isDateFormat(code)) continue;
+        for (const row of sheet().rows) {
+          const v = row[c]?.v;
+          if (
+            typeof v === "string" &&
+            row[c].f === undefined &&
+            serialOf(v) !== null
+          )
+            row[c] = { v: serialOf(v) };
+        }
+      }
     });
     focusGrid();
   });

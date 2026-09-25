@@ -21,7 +21,7 @@ Both land in `artifacts/<name>/`: hand back the page and the `.xlsx`.
     {
       "name": "Sales",
       "columns": [
-        { "name": "Date" },
+        { "name": "Date", "format": "yyyy-mm-dd" },
         { "name": "Client" },
         { "name": "Qty", "format": "#,##0" },
         { "name": "Price", "format": "\"$\"#,##0.00" },
@@ -46,24 +46,31 @@ Both land in `artifacts/<name>/`: hand back the page and the `.xlsx`.
 ```
 
 - **A row is a list of cells, one a column.** A number is a number (`32000`, never `"32,000"`),
-  text is text, an empty cell `null`. Dates are text as `YYYY-MM-DD`, which sorts right.
+  text is text, an empty cell `null`. A date is written `"2026-07-02"` (`"2026-07-02 14:30"` with
+  a time) in a column whose `format` is a date's; there it is a date in Excel too — it sorts,
+  filters by month and works with `DATE`, `YEAR`, `MONTH`, `EOMONTH` and `SUMIFS` by range. In a
+  column without one it stays text.
 - **A column worked out from others has a `formula`**, `{r}` standing for the row's own number;
   its cells in `rows` are `null`. One cell of its own is `{ "f": "=…" }`. Formulas are Excel's,
   and the file keeps them, so Excel works them out again when the user changes a number. What is
   worked out here for the page: `+ - * / ^ & %`, comparisons, `SUM AVERAGE MIN MAX COUNT COUNTA
-  SUBTOTAL SUMIF COUNTIF AVERAGEIF ROUND ABS IF IFERROR AND OR NOT CONCAT`, and another sheet's
+  SUBTOTAL SUMIF COUNTIF AVERAGEIF SUMIFS COUNTIFS AVERAGEIFS ROUND ABS IF IFERROR AND OR NOT
+  CONCAT DATE YEAR MONTH DAY EOMONTH TODAY`, and another sheet's
   cells as `Sheet!B2` (`'Two words'!B:B`). Anything else stops: work the value out yourself and
   write it.
 - **A summary of rows in the same workbook is a formula over them** — `SUMIF`, `COUNTIF`,
-  `AVERAGEIF` on the other sheet, as in "By client" above — so it follows when a row changes; a
-  number you worked out and typed in does not.
+  `AVERAGEIF` on the other sheet, as in "By client" above; by month, a first-of-month date in a
+  `yyyy-mm` column and `=SUMIFS(Sales!E:E,Sales!A:A,">="&A{r},Sales!A:A,"<="&EOMONTH(A{r},0))` —
+  so it follows when a row changes; a number you worked out and typed in does not.
 - **`totals`** adds a last row, bold, the first column holding `label`: `sum`, `average`,
   `count`, `min` or `max` for the columns named. It counts only the rows a filter shows, in
   Excel and in the page alike.
 - **`format`** is how a column's numbers read, as an Excel code: `#,##0`, `#,##0.00`, `0`,
   `0.0%` (a share: `0.25` reads `25.0%`), and a sign or a word before or after in quotes —
-  `"$"#,##0.00`, `#,##0"원"`, `"€"#,##0`. The currency is the user's, from what they said or what
-  the numbers are in; never assume one.
+  `"$"#,##0.00`, `#,##0"원"`, `"€"#,##0`. A second part after `;` is for negatives and a third for
+  zero, in `[Red]` if it helps: `#,##0;[Red]-#,##0`, `#,##0;(#,##0);"-"`. Dates: `yyyy-mm-dd`,
+  `yyyy-mm`, `d mmm yyyy`, `yyyy"년" m"월" d"일"`, `yyyy-mm-dd hh:mm`. The currency and the way a
+  date reads are the user's, from what they said or what they wrote; never assume one.
 - **A sheet's `name`** is at most 31 characters, none of `[ ] : * ? / \`. Header row 1 is frozen
   with a filter on it; widths fit the text unless a column gives `width` in characters.
 - **Nothing invented**: a figure you do not have is an empty cell, and a note in your answer says

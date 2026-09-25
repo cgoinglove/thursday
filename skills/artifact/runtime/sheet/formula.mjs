@@ -40,6 +40,9 @@ export const FUNCTIONS = [
   "SUMIF",
   "COUNTIF",
   "AVERAGEIF",
+  "SUMIFS",
+  "COUNTIFS",
+  "AVERAGEIFS",
   "ROUND",
   "ABS",
   "IF",
@@ -48,7 +51,18 @@ export const FUNCTIONS = [
   "OR",
   "NOT",
   "CONCAT",
+  "DATE",
+  "YEAR",
+  "MONTH",
+  "DAY",
+  "EOMONTH",
+  "TODAY",
 ];
+
+/** Days from 1970-01-01 to Excel's day 0 (the 1900 date system). */
+const DAY_ZERO = 25569;
+const dayOf = (serial) => new Date(Math.floor(serial - DAY_ZERO) * 86400000);
+const serialAt = (y, m, d) => Date.UTC(y, m, d) / 86400000 + DAY_ZERO;
 
 const isError = (v) => v !== null && typeof v === "object" && "error" in v;
 const error = (code) => ({ error: code });
@@ -381,6 +395,49 @@ export function workOut(sheets, { problems } = {}) {
       : error("#DIV/0!");
   };
 
+  /** SUMIFS, COUNTIFS, AVERAGEIFS: every range and its criterion must hold. */
+  const conditionals = (name, args, from) => {
+    const counting = name === "COUNTIFS";
+    const pairs = counting ? args : args.slice(1);
+    if (pairs.length < 2 || pairs.length % 2)
+      throw new FormulaError(
+        `${name} needs ${counting ? "" : "a range to add up, then "}ranges each with a criterion`,
+      );
+    const ranges = [];
+    for (let i = 0; i < pairs.length; i += 2) {
+      if (pairs[i].k !== "ref")
+        throw new FormulaError(`${name} needs a range before each criterion`);
+      ranges.push({
+        cells: grid(pairs[i], from).flat(),
+        test: criterion(evaluate(pairs[i + 1], from)),
+      });
+    }
+    if (!counting && args[0].k !== "ref")
+      throw new FormulaError(`${name} needs a range first`);
+    const target = counting ? ranges[0].cells : grid(args[0], from).flat();
+    if (ranges.some((one) => one.cells.length !== target.length))
+      return error("#VALUE!");
+    const picked = target.filter((_, i) =>
+      ranges.every((one) => one.test(one.cells[i])),
+    );
+    if (counting) return picked.length;
+    const nums = picked.filter((v) => typeof v === "number");
+    if (name === "SUMIFS") return clean(nums.reduce((s, n) => s + n, 0));
+    return nums.length
+      ? clean(nums.reduce((s, n) => s + n, 0) / nums.length)
+      : error("#DIV/0!");
+  };
+  /** The numbers a function is given, or the first error among them. */
+  const numbersOf = (list, from) => {
+    const out = [];
+    for (const arg of list) {
+      const n = toNumber(evaluate(arg, from));
+      if (isError(n)) return n;
+      out.push(n);
+    }
+    return out;
+  };
+
   function evaluate(node, from) {
     if (node.k === "val") return node.v;
     if (node.k === "ref") {
@@ -446,6 +503,44 @@ export function workOut(sheets, { problems } = {}) {
     if (["SUMIF", "COUNTIF", "AVERAGEIF"].includes(name)) {
       need(2);
       return conditional(name, args, from);
+    }
+    if (["SUMIFS", "COUNTIFS", "AVERAGEIFS"].includes(name))
+      return conditionals(name, args, from);
+    if (name === "TODAY") {
+      const now = new Date();
+      return serialAt(now.getFullYear(), now.getMonth(), now.getDate());
+    }
+    if (name === "DATE") {
+      need(3);
+      const got = numbersOf(args.slice(0, 3), from);
+      if (isError(got)) return got;
+      const [y, m, d] = got.map(Math.trunc);
+      const serial = serialAt(y < 1900 ? y + 1900 : y, m - 1, d);
+      return serial < 1 ? error("#NUM!") : serial;
+    }
+    if (["YEAR", "MONTH", "DAY"].includes(name)) {
+      need(1);
+      const got = numbersOf(args.slice(0, 1), from);
+      if (isError(got)) return got;
+      if (got[0] < 0) return error("#NUM!");
+      const at = dayOf(got[0]);
+      return name === "YEAR"
+        ? at.getUTCFullYear()
+        : name === "MONTH"
+          ? at.getUTCMonth() + 1
+          : at.getUTCDate();
+    }
+    if (name === "EOMONTH") {
+      need(2);
+      const got = numbersOf(args.slice(0, 2), from);
+      if (isError(got)) return got;
+      if (got[0] < 0) return error("#NUM!");
+      const at = dayOf(got[0]);
+      return serialAt(
+        at.getUTCFullYear(),
+        at.getUTCMonth() + Math.trunc(got[1]) + 1,
+        0,
+      );
     }
     if (name === "ROUND") {
       need(1);
