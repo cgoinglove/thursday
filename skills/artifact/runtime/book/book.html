@@ -9,13 +9,14 @@
     </style>
   </head>
   <body>
-    <!-- One <section class="page"> per page, in reading order, all inside <main>: one picture and
+    <!-- `book.mjs put` writes the pages into <main>, from a file of the bot's own.
+         One <section class="page"> per page, in reading order: one picture and
          at most two short lines. data-say is the sentence read aloud over that page when the book
          becomes a video. The picture is an <img src="name.jpg"> beside this file (a real one names
          its source in a <figcaption>) or an inline <svg viewBox="…"> filled with var(--ink)
          var(--paper) var(--blue) var(--sky) var(--yellow) var(--green) var(--red) var(--purple),
-         which follow light and dark. <mark> a new word on the page that shows it. Set lang above
-         to the book's language. -->
+         which follow light and dark. <mark> a new word on the page that shows it. put --lang
+         sets lang above to the book's language. -->
     <!-- Who made the book, as they looked then; the page turning sets it on the cover -->
     {{maker}}
     <main>

@@ -648,3 +648,91 @@ test("upright bars, a donut and stacked bars draw their parts, and each stops on
   assert.match(refused(months, "--kind", "column", "--share"), /--share/);
   assert.match(refused(months, "--kind", "pie"), /is not a kind/);
 });
+
+test("a book's pages go in through put, checked, and a book with none is not shot", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const script = join(
+    import.meta.dirname,
+    "..",
+    "skills",
+    "artifact",
+    "scripts",
+    "book.mjs",
+  );
+  const dir = join(home, "book-work");
+  await mkdir(dir, { recursive: true });
+  const book = (...args: string[]) =>
+    spawnSync(process.execPath, [script, ...args], {
+      cwd: dir,
+      encoding: "utf8",
+      env: { ...process.env, THURSDAY_ARTIFACTS: "", THURSDAY_BOT: "Tutor" },
+    });
+  assert.equal(book("new", "water").status, 0);
+  const file = join(dir, "artifacts", "water", "water.html");
+  const made = await readFile(file, "utf8");
+
+  // Nothing written into it yet: no pictures of an empty book are taken as done
+  const empty = book("shots", "water");
+  assert.equal(empty.status, 1);
+  assert.match(empty.stderr, /has no pages written into it yet/);
+
+  const cover =
+    '<section class="page cover" data-say="Where does rain come from?"><figure><svg viewBox="0 0 8 4"><circle cx="4" cy="2" r="1"/></svg></figure><h1>A drop of water</h1></section>';
+  const page =
+    '<section class="page" data-say="The sun warms the sea."><figure><svg viewBox="0 0 8 4"></svg></figure><p>The sun warms the sea.</p></section>';
+  const quiz =
+    '<section class="page quiz" data-say="What does warm water become?"><h2>What does warm water become?</h2><ol class="choices"><li><button type="button" data-right>Vapour</button></li><li><button type="button">Stone</button></li></ol><p class="answer">Warmed, it rises as vapour.</p></section>';
+  const pages = join(dir, "pages.html");
+  await writeFile(pages, `<!-- mine -->\n${cover}\n${page}\n${quiz}\n`);
+  const put = book("put", "water", pages, "--lang", "en");
+  assert.equal(put.status, 0, put.stderr);
+  assert.match(put.stdout, /Put 3 pages/);
+  const now = await readFile(file, "utf8");
+  assert.match(now, /<html lang="en">/);
+  assert.ok(now.includes(quiz), "the quiz page is in the book");
+  assert.ok(
+    !now.includes('data-say=""'),
+    "the empty page it was made with is gone",
+  );
+  // Who made it and the page turning stay as `new` wrote them
+  const outsideMain = (html: string) =>
+    html.slice(0, html.lastIndexOf("<main>", html.lastIndexOf("</main>")));
+  assert.equal(
+    outsideMain(now).replace(/<html[^>]*>/, ""),
+    outsideMain(made).replace(/<html[^>]*>/, ""),
+  );
+
+  // A page it cannot take stops the put, named, and the book is left as it was
+  for (const [wrong, said] of [
+    [
+      page.replace(' data-say="The sun warms the sea."', ""),
+      /Page 2 has no data-say/,
+    ],
+    [page.replace("</svg>", ""), /Page 2: an <svg> in it is not closed/],
+    [
+      page.replace('<figure><svg viewBox="0 0 8 4"></svg></figure>', ""),
+      /Page 2 has no picture/,
+    ],
+    [page.replace("</p>", "</p><p>b</p><p>c</p>"), /Page 2 has 3 lines/],
+    [
+      page.replace('<svg viewBox="0 0 8 4"></svg>', '<img src="gone.png">'),
+      /gone\.png is not in/,
+    ],
+  ] as const) {
+    await writeFile(pages, `${cover}\n${wrong}\n${quiz}`);
+    const refused = book("put", "water", pages);
+    assert.equal(refused.status, 1);
+    assert.match(refused.stderr, said);
+  }
+  await writeFile(
+    pages,
+    `${cover}\n${page}\n${quiz.replace(" data-right", "")}`,
+  );
+  assert.match(
+    book("put", "water", pages).stderr,
+    /exactly one choice's <button> has data-right/,
+  );
+  await writeFile(pages, `${page}\n${cover}`);
+  assert.match(book("put", "water", pages).stderr, /Page 1 is the cover/);
+  assert.equal(await readFile(file, "utf8"), now);
+});

@@ -4,7 +4,8 @@ Anything explained the way a children's picture book explains it: each page is
 one picture with at most two short lines under it, in simple words. One HTML
 file is the book, and the same file is printed to a PDF or read aloud into a
 video, so the three never disagree. The book's own file holds its style and page
-turning: add pages inside `<main>` and never rewrite the file whole.
+turning: write the pages in a file of your own and `put` them in; never edit or
+rewrite the book's file.
 
 ## Contents
 - The two rules
@@ -37,12 +38,18 @@ first is the cover, asking the question the book answers.
 2. Write the whole story before any picture: one row per page, its picture, its
    line or two, and `data-say`, the sentence read over it in a video — a little
    fuller than the lines, spoken the way a person would read the page aloud.
-3. Make the pictures (below), then write each page as the comment in the file
-   shows: `<section class="page" data-say="…">`, a `<figure>`, one or two `<p>`.
-   The cover is `<section class="page cover">` with an `<h1>`. Set `lang` to the
-   book's language. Add the pages inside `<main>` and leave the rest of the file
-   alone: its head already carries the style and the page turning, and rewriting
-   the file whole loses them.
+3. Make the pictures (below), then write every page, in order, in a file of your
+   own (`<scratch>/pages.html`): `<section class="page" data-say="…">`, a `<figure>`
+   holding the picture, one or two `<p>`. The first is the cover,
+   `<section class="page cover" data-say="…">` with its picture and an `<h1>`. Then:
+
+   ```bash
+   node <skill dir>/scripts/book.mjs put <name> <scratch>/pages.html --lang <the book's language, e.g. ko>
+   ```
+
+   It checks each page and puts them all into the book, in place of what it held; a
+   page it cannot take stops it, named, and nothing is written: fix that page in
+   your file and put again. To change the book later, change your file and put it again.
 4. Look at it once when a page carries a picture you did not draw — a photo you
    downloaded, a generated one — or when a page may not fit. A book drawn in SVG
    alone needs no browser at all; hand it back and skip to 5. To look:
@@ -58,6 +65,7 @@ first is the cover, asking the question the book answers.
    `<section class="page quiz" data-say="the question, read aloud">` with an `<h2>` question, an
    `<ol class="choices">` of two to four `<li><button>` picks, each a picture (inline `<svg>`) and
    a word or two, `data-right` on the one that is right, and a `<p class="answer">` that says why.
+   It goes in your pages file like any page.
    The reader taps a pick and the page marks it and shows the answer; a PDF prints the answer.
    Ask only what the pages showed.
 6. Hand back the path. The user turns pages with a swipe, the arrow keys or a
