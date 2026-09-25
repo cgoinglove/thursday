@@ -13,7 +13,9 @@
 //        whole workbook as put takes it — formats, formulas and totals kept — to change and put;
 //        a CSV — a bank's export — prints its lines numbered, and with --json the table under
 //        the line --header names (1 unless said), its dates as dates
-//   --encoding <euc-kr | shift_jis | gbk | windows-1252 | …>  a CSV not written in UTF-8
+//   A CSV, to read or to put: --encoding <euc-kr | shift_jis | gbk | windows-1252 | utf-16le …>
+//   when it is not UTF-8; --header <line> and --until <line> where its table starts and ends;
+//   --dates dmy | mdy when it writes a day or a month before the year
 //   node spreadsheet.mjs view <name | file.xlsx> [--name <name>]
 //        the page drawn again from the .xlsx as it is now (after it was changed in Excel), or
 //        a page for someone's .xlsx: it is copied into your folder beside its page
@@ -47,7 +49,6 @@ import {
   isDateFormat,
   isoOf,
   serialOf,
-  valueOf,
 } from "../runtime/sheet/format.mjs";
 import {
   asColumnFormula,
@@ -272,20 +273,28 @@ function fromDescription(spec) {
  */
 function csvText(file, flags = {}) {
   const bytes = readFileSync(file);
-  if (typeof flags.encoding === "string") {
+  const decode = (encoding) => {
     try {
-      return new TextDecoder(flags.encoding).decode(bytes);
-    } catch {
+      return new TextDecoder(encoding, { fatal: true }).decode(bytes);
+    } catch (failed) {
+      if (failed instanceof RangeError)
+        throw new Stop(
+          `"${encoding}" is not an encoding this reads: euc-kr, shift_jis, gbk, big5, windows-1252, iso-8859-1, utf-16le, utf-16be are.`,
+        );
       throw new Stop(
-        `"${flags.encoding}" is not an encoding this reads: euc-kr, shift_jis, gbk, big5, windows-1252, iso-8859-1, utf-16le are.`,
+        `${shown(file)} is not written in ${encoding}: some of its bytes are not ${encoding} text. Try the next likely one.`,
       );
     }
-  }
+  };
+  if (typeof flags.encoding === "string") return decode(flags.encoding);
+  // A file that says what it is in its first bytes (a byte-order mark) is read as that
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) return decode("utf-16le");
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) return decode("utf-16be");
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {
     throw new Stop(
-      `${shown(file)} is not written in UTF-8. Say what it is written in and run this again with it: --encoding euc-kr (Korean), shift_jis (Japanese), gbk or big5 (Chinese), windows-1252 (Western European).`,
+      `${shown(file)} is not written in UTF-8. Run this again with the encoding it is in — --encoding euc-kr (Korean), shift_jis (Japanese), gbk or big5 (Chinese), windows-1252 (Western European), utf-16le — and look at its lines: words that do not read right mean another one.`,
     );
   }
 }
@@ -324,63 +333,145 @@ function csvRows(text) {
   return rows;
 }
 
-/**
- * One sheet from a CSV's lines: the line at `at` names the columns, the lines under it are the
- * rows. A number is a number (1,234 · -5 · (1,200)); a column whose every value is a date
- * (2026-07-03, 2026.07.03, 2026/07/03 14:05) is a column of dates, as Excel reads one.
- */
-function describeCsv(rows, at, name) {
-  const header = rows[at] ?? [];
-  const data = rows
-    .slice(at + 1)
-    .filter((one) => one.some((cell) => cell.trim()));
-  const width = Math.max(header.length, ...data.map((one) => one.length));
-  const typed = (cell) => {
-    const value = valueOf(cell ?? "", null);
-    return typeof value === "boolean" ? String(cell).trim() : value;
+/** A CSV cell as a number when it is written as one — 1234, 1,234.5, -5, (1,200) — else null. */
+function csvNumber(cell) {
+  const minus = /^\((.*)\)$/.exec(cell);
+  const bare = minus ? minus[1].trim() : cell;
+  if (!/^-?(\d+|\d{1,3}(,\d{3})+)(\.\d+)?$/.test(bare)) return null;
+  const n = Number(bare.replaceAll(",", ""));
+  return minus ? -n : n;
+}
+
+/** Where a CSV's table is: `--header` (a line number, as read prints them), else its first
+ * line that holds something and is not a note (#); `--until` its last line. */
+function csvTable(rows, flags) {
+  const line = (key) => {
+    if (flags[key] === undefined) return null;
+    if (typeof flags[key] !== "string" || !/^\d+$/.test(flags[key]))
+      throw new Stop(`--${key} takes a line number, as read prints them.`);
+    const n = Number(flags[key]);
+    if (n < 1 || n > rows.length)
+      throw new Stop(`--${key} is a line from 1 to ${rows.length}.`);
+    return n - 1;
   };
-  const columns = Array.from({ length: width }, (_, c) => {
-    const values = data.map((one) => (one[c] ?? "").trim()).filter(Boolean);
-    const dated =
-      values.length > 0 && values.every((v) => serialOf(v) !== null);
-    return {
-      name: (header[c] ?? "").trim() || colName(c),
-      ...(dated
-        ? {
-            format: values.some((v) => /\d:\d/.test(v))
-              ? "yyyy-mm-dd hh:mm"
-              : "yyyy-mm-dd",
-          }
-        : {}),
-      dated,
-    };
-  });
+  const blank = (one) => !one.some((cell) => cell.trim());
+  const note = (one) => /^#/.test(one[0] ?? "");
+  let header = line("header");
+  if (header === null) {
+    header = rows.findIndex((one) => !blank(one) && !note(one));
+    if (header === -1) throw new Stop("The CSV has no lines.");
+  }
+  const until = line("until") ?? rows.length - 1;
+  if (until <= header)
+    throw new Stop("--until is a line under the one naming the columns.");
+  const dates = flags.dates ?? "ymd";
+  if (!["ymd", "dmy", "mdy"].includes(dates))
+    throw new Stop(
+      "--dates says how the file writes a day: ymd (2026-07-03), dmy (03.07.2026) or mdy (07/03/2026).",
+    );
   return {
-    sheets: [
-      {
-        name: name.slice(0, 31),
-        columns: columns.map(({ dated, ...column }) => column),
-        rows: data.map((one) =>
-          columns.map((column, c) => {
-            const cell = (one[c] ?? "").trim();
-            if (!cell) return null;
-            // A date as put takes one: written YYYY-MM-DD, its time after it
-            if (column.dated) return isoOf(serialOf(cell));
-            return typed(cell);
-          }),
-        ),
-      },
-    ],
+    header,
+    dates,
+    body: rows
+      .map((cells, i) => ({ cells, line: i + 1 }))
+      .slice(header + 1, until + 1)
+      .filter(({ cells }) => !blank(cells) && !note(cells)),
   };
 }
 
-/** One sheet from a CSV: its first line the columns (lines starting # are notes, left out). */
-function fromCsv(text, name) {
-  const rows = csvRows(text).filter(
-    (one) => one.some((cell) => cell.trim()) && !/^#/.test(one[0] ?? ""),
-  );
-  if (rows.length < 1) throw new Stop("The CSV has no lines.");
-  return describeCsv(rows, 0, name);
+/**
+ * One sheet from a CSV's lines, as `csvTable` finds its table: a number is a number, and a
+ * column whose every value is a date, written as `--dates` says, is a column of dates. A
+ * column that almost is — a line under it that is not a date, or dates written day or month
+ * first with no --dates — stays text, and a note says which line or what to give.
+ */
+function describeCsv(rows, flags, name) {
+  const { header, dates, body } = csvTable(rows, flags);
+  let width = rows[header].length;
+  for (const { cells } of body) width = Math.max(width, cells.length);
+  const notes = [];
+  const columns = [];
+  const values = [];
+  for (let c = 0; c < width; c++) {
+    const name = (rows[header][c] ?? "").trim() || colName(c);
+    const cells = body.map(({ cells: one }) => (one[c] ?? "").trim());
+    const serials = cells.map((cell) => (cell ? serialOf(cell, dates) : null));
+    const filled = cells.filter(Boolean).length;
+    const dated = serials.filter((v) => v !== null).length;
+    const isDates = filled > 0 && dated === filled;
+    if (!isDates && dated > 0 && dated >= filled / 2) {
+      const off = body
+        .map(({ line }, r) => ({
+          line,
+          cell: cells[r],
+          bad: cells[r] && serials[r] === null,
+        }))
+        .filter((one) => one.bad)
+        .slice(0, 3)
+        .map(({ line, cell }) => `line ${line} ("${cell}")`);
+      notes.push(
+        `Column ${colName(c)} (${name}) is dates but for ${off.join(", ")}, so it stays text. A line under the table — a total — is left out with --until <its last line>.`,
+      );
+    }
+    if (
+      !dated &&
+      dates === "ymd" &&
+      filled &&
+      cells
+        .filter(Boolean)
+        .every((cell) => /^\d{1,2}[-/.]\d{1,2}[-/.]\d{4}/.test(cell))
+    )
+      notes.push(
+        `Column ${colName(c)} (${name}) writes its dates day or month first, which the file does not say; it stays text. Give --dates dmy (03.07.2026) or --dates mdy (07/03/2026), as the bank's country writes them.`,
+      );
+    const timed = cells.some(
+      (cell, r) => serials[r] !== null && /\d:\d/.test(cell),
+    );
+    const seconds = cells.some(
+      (cell, r) => serials[r] !== null && /\d:\d\d:\d/.test(cell),
+    );
+    columns.push({
+      name,
+      ...(isDates
+        ? {
+            format: seconds
+              ? "yyyy-mm-dd hh:mm:ss"
+              : timed
+                ? "yyyy-mm-dd hh:mm"
+                : "yyyy-mm-dd",
+          }
+        : {}),
+    });
+    values.push(
+      cells.map((cell, r) => {
+        if (!cell) return null;
+        // A date as put takes one: written YYYY-MM-DD, its time after it
+        if (isDates) return isoOf(serials[r]);
+        return csvNumber(cell) ?? cell;
+      }),
+    );
+  }
+  return {
+    notes,
+    header: header + 1,
+    spec: {
+      sheets: [
+        {
+          name: name.slice(0, 31),
+          columns,
+          rows: body.map((_, r) => columns.map((__, c) => values[c][r])),
+        },
+      ],
+    },
+  };
+}
+
+/** One sheet from a CSV, its table found as `read` finds it. */
+function fromCsv(text, name, flags = {}) {
+  const rows = csvRows(text);
+  if (!rows.some((one) => one.some((cell) => cell.trim())))
+    throw new Stop("The CSV has no lines.");
+  return describeCsv(rows, flags, name);
 }
 
 /** Sheets of cells: header, rows, totals row; formulas worked out. */
@@ -528,9 +619,12 @@ function put(name, from, flags) {
     );
   filesFor(name);
   let model;
-  if (extname(from).toLowerCase() === ".csv")
-    model = fromCsv(csvText(from, flags), name);
-  else {
+  let notes = [];
+  if (extname(from).toLowerCase() === ".csv") {
+    const made = fromCsv(csvText(from, flags), name, flags);
+    model = made.spec;
+    notes = made.notes;
+  } else {
     let spec;
     try {
       spec = JSON.parse(readFileSync(from, "utf8"));
@@ -549,6 +643,7 @@ function put(name, from, flags) {
         `${s.name} ${s.cells.length - 1 - (s.totals === null ? 0 : 1)} rows`,
     )
     .join(", ");
+  for (const line of notes) console.log(line);
   console.log(
     `Wrote ${shown(xlsx)} (${rows}) and its page ${shown(pagePath)}. Hand back both paths: the page opens in the app, the .xlsx in Excel. To see it: node ${SCRIPT} shots ${name}`,
   );
@@ -565,10 +660,7 @@ function workbookAt(arg, flags = {}) {
     const name =
       typeof flags.name === "string"
         ? flags.name
-        : basename(file, extname(file))
-            .replace(/[^\p{L}\p{N}_-]+/gu, "-")
-            .replace(/^-+|-+$/g, "")
-            .slice(0, 80) || "sheet";
+        : nameFromFile(file, 80, "sheet");
     return { file, name };
   }
   if (/\.xls$/i.test(arg))
@@ -635,6 +727,29 @@ const text = (v, format) =>
             : "FALSE"
           : String(v);
 
+/** How many rows `read` prints: --rows, 20 unless said. */
+const mostRows = (flags) => Math.max(1, Number(flags.rows) || 20);
+
+/** A name from a file's name, as a sheet or a workbook may take it. */
+const nameFromFile = (file, most, fallback) =>
+  basename(file, extname(file))
+    .replace(/[^\p{L}\p{N}_-]+/gu, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, most) || fallback;
+
+/** A workbook's description written as put takes it, a row on each line so the rows read as a table. */
+function writeSpec(path, spec) {
+  const rows = [];
+  for (const sheet of spec.sheets)
+    sheet.rows = sheet.rows.map((row) => `\u0000${rows.push(row) - 1}`);
+  writeFileSync(
+    path,
+    `${JSON.stringify(spec, null, 2).replace(/"\\u0000(\d+)"/g, (_, n) =>
+      JSON.stringify(rows[Number(n)]),
+    )}\n`,
+  );
+}
+
 /**
  * A CSV as it is written — a bank's export often has lines about the account over the table —
  * its lines numbered, so the one naming the columns can be given as --header.
@@ -643,37 +758,29 @@ function readCsv(arg, flags) {
   const file = resolve(arg);
   if (!existsSync(file)) throw new Stop(`No file ${arg}.`);
   const rows = csvRows(csvText(file, flags));
-  const most = Math.max(1, Number(flags.rows) || 20);
-  const header = flags.header === undefined ? 1 : Number(flags.header);
-  if (!Number.isInteger(header) || header < 1 || header > rows.length)
-    throw new Stop(
-      `--header is the number of the line naming the columns, 1 to ${rows.length}.`,
-    );
+  if (!rows.some((one) => one.some((cell) => cell.trim())))
+    throw new Stop(`${shown(file)} has no lines.`);
+  const most = mostRows(flags);
   const out = [`${shown(file)}: ${rows.length} lines.`];
   rows
     .slice(0, most)
     .forEach((row, i) => out.push(`${i + 1}\t${row.join("\t")}`));
   if (rows.length > most) out.push(`… ${rows.length - most} more lines`);
+  const { notes, header, spec } = describeCsv(
+    rows,
+    flags,
+    nameFromFile(file, 31, "Sheet1"),
+  );
+  out.push(...notes);
   if (typeof flags.json === "string") {
-    const name =
-      basename(file, extname(file))
-        .replace(/[^\p{L}\p{N}_-]+/gu, "-")
-        .replace(/^-+|-+$/g, "")
-        .slice(0, 31) || "Sheet1";
-    const spec = describeCsv(rows, header - 1, name);
-    const lines = [];
-    for (const sheet of spec.sheets)
-      sheet.rows = sheet.rows.map((row) => `\u0000${lines.push(row) - 1}`);
-    writeFileSync(
-      flags.json,
-      `${JSON.stringify(spec, null, 2).replace(/"\\u0000(\d+)"/g, (_, n) =>
-        JSON.stringify(lines[Number(n)]),
-      )}\n`,
-    );
+    writeSpec(flags.json, spec);
     out.push(
       `Wrote ${shown(resolve(flags.json))}: line ${header} as the columns, the ${spec.sheets[0].rows.length} lines under it as rows${spec.sheets[0].columns.some((c) => c.format) ? ", dates as dates" : ""}. Change it there and put it: node ${SCRIPT} put <name> ${flags.json}`,
     );
-  }
+  } else
+    out.push(
+      `Line ${header} names the columns (--header <line> for another); --json <file> writes the table under it as put takes it.`,
+    );
   console.log(out.join("\n"));
 }
 
@@ -681,7 +788,7 @@ function read(arg, flags) {
   if (/\.csv$/i.test(arg ?? "")) return readCsv(arg, flags);
   const { file } = workbookAt(arg, flags);
   const { sheets, unworked } = readBook(file);
-  const most = Math.max(1, Number(flags.rows) || 20);
+  const most = mostRows(flags);
   const out = [
     `${shown(file)}: ${sheets.length} sheet${sheets.length === 1 ? "" : "s"}.`,
   ];
@@ -715,17 +822,7 @@ function read(arg, flags) {
   }
   if (typeof flags.json === "string") {
     const pagePath = /\.xlsx$/i.test(arg) ? null : filesFor(arg).page;
-    // A row on one line, so the rows read as a table
-    const spec = describe(fromXlsx(sheets), titleOf(pagePath));
-    const rows = [];
-    for (const sheet of spec.sheets)
-      sheet.rows = sheet.rows.map((row) => `\u0000${rows.push(row) - 1}`);
-    writeFileSync(
-      flags.json,
-      `${JSON.stringify(spec, null, 2).replace(/"\\u0000(\d+)"/g, (_, n) =>
-        JSON.stringify(rows[Number(n)]),
-      )}\n`,
-    );
+    writeSpec(flags.json, describe(fromXlsx(sheets), titleOf(pagePath)));
     out.push(
       `Wrote ${shown(resolve(flags.json))}: the whole workbook as put takes it. Change it there and put it back${pagePath ? ` (node ${SCRIPT} put ${arg} ${flags.json} --over)` : ""}; a column worked out by one formula has it as its "formula".`,
     );

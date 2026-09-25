@@ -84,14 +84,19 @@ Both land in `artifacts/<name>/`: hand back the page and the `.xlsx`.
   and the file's name. Look at each one: a photo with `look_at`, a PDF's text with
   `node $THURSDAY_SKILLS/media-digest/scripts/text.mjs <file.pdf> --out <scratch>/<n>.txt`. A
   figure you cannot read is an empty cell, named in your answer, never a guess. `totals` sums
-  the amounts; a second sheet by category is `SUMIF` over them, by month `SUMIFS`. Their files
-  stay where they are, as they are named.
+  the amounts; a second sheet by category is `SUMIF` over them, by month `SUMIFS`. Amounts in
+  more than one currency get a currency column and are summed a currency at a time (`SUMIFS` by
+  currency, no `totals` across them) — won and dollars are never added. Their files stay where
+  they are, as they are named.
 - **A bank's or a card's export** is the CSV they downloaded; never sign in to their bank for it.
-  `read <file.csv>` prints its lines numbered — when it says the file is not UTF-8, run it again
-  with the `--encoding` it names. Then `read <file.csv> --header <the line naming the columns>
-  --json <scratch>/<name>.json` writes the table under that line, dates as dates and amounts as
-  numbers. Add a column there — a category for each row — and `put <name>` that file; a budget by
-  month and category is a second sheet of `SUMIFS` over it.
+  `read <file.csv>` prints its lines numbered and says which line it takes as the columns. When
+  it says the file is not UTF-8, give the likeliest `--encoding` for where the bank is; if its
+  words then do not read right, try the next. It also says what it could not take: a total under
+  the table (leave it out with `--until <the table's last line>`), or dates written day or month
+  first (`--dates dmy` for 03.07.2026, `--dates mdy` for 07/03/2026 — as the bank's country
+  writes them). Then add `--json <scratch>/<name>.json`: the table as put takes it, dates as
+  dates, amounts as numbers. Add a column there — a category for each row — and `put <name>`
+  that file; a budget by month and category is a second sheet of `SUMIFS` over it.
 
 ## Their own .xlsx, and changes
 

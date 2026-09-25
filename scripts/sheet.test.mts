@@ -578,6 +578,105 @@ for (const bank of BANK_EXPORTS)
     );
   });
 
+test("a CSV's table is read as written: its numbers, its encoding, the line naming its columns, and dates that almost are", async () => {
+  const csv = async (file: string, text: string | Buffer) => {
+    const path = join(home, file);
+    await writeFile(path, text);
+    return path;
+  };
+  const table = async (path: string, ...flags: string[]) => {
+    const out = `${path}.json`;
+    const done = run("read", path, ...flags, "--json", out);
+    assert.equal(done.status, 0, done.stderr);
+    return { said: done.stdout, spec: JSON.parse(await readFile(out, "utf8")) };
+  };
+
+  // A number is a number as a CSV writes one; a share or a part number stays as written
+  const kinds = await table(
+    await csv(
+      "kinds.csv",
+      'code,share,amount\n1E5,12%,"(1,200)"\n7,3%,"1,234.5"\n',
+    ),
+  );
+  assert.deepEqual(kinds.spec.sheets[0].rows, [
+    ["1E5", "12%", -1200],
+    [7, "3%", 1234.5],
+  ]);
+
+  // A long one does not break reading it
+  const long = await csv(
+    "long.csv",
+    `n\n${Array.from({ length: 150_000 }, (_, i) => i).join("\n")}\n`,
+  );
+  assert.equal(run("put", "long", long).status, 0);
+
+  // An encoding named wrong stops rather than write noise; a byte-order mark says UTF-16 itself
+  const korean = await csv("korean.csv", Buffer.from("b0c5b7a12c310a", "hex"));
+  const wrong = run("read", korean, "--encoding", "utf-8");
+  assert.equal(wrong.status, 1);
+  assert.match(wrong.stderr, /is not written in utf-8/);
+  const utf16 = await csv(
+    "utf16.csv",
+    Buffer.concat([
+      Buffer.from([0xff, 0xfe]),
+      Buffer.from("date,amt\n2026-07-01,5\n", "utf16le"),
+    ]),
+  );
+  assert.match(run("read", utf16).stdout, /^1\tdate\tamt$/m);
+
+  // A total under the table keeps its column text, says which line, and --until leaves it out
+  const totalled = await csv(
+    "total.csv",
+    "date,amt\n2026-07-01,5\n2026-07-02,6\nTotal,11\n",
+  );
+  const told = await table(totalled);
+  assert.match(
+    told.said,
+    /Column A \(date\) is dates but for line 4 \("Total"\)/,
+  );
+  assert.equal(told.spec.sheets[0].columns[0].format, undefined);
+  const cut = await table(totalled, "--until", "3");
+  assert.equal(cut.spec.sheets[0].columns[0].format, "yyyy-mm-dd");
+  assert.equal(cut.spec.sheets[0].rows.length, 2);
+
+  // Day or month first is the file's to say, never guessed; seconds are kept in view
+  const european = await csv(
+    "eu.csv",
+    "date,amt\n03.07.2026 12:10:05,5\n04.07.2026 09:00:00,6\n",
+  );
+  assert.match(
+    (await table(european)).said,
+    /Give --dates dmy .* or --dates mdy/,
+  );
+  const dmy = await table(european, "--dates", "dmy");
+  assert.deepEqual(dmy.spec.sheets[0].columns[0], {
+    name: "date",
+    format: "yyyy-mm-dd hh:mm:ss",
+  });
+  assert.equal(dmy.spec.sheets[0].rows[0][0], "2026-07-03 12:10:05");
+
+  // A note over the table: read and put find the same line naming the columns
+  const noted = await csv(
+    "noted.csv",
+    "# exported 2026-07-03\ndate,amt\n2026-07-01,5\n",
+  );
+  const found = await table(noted);
+  assert.match(found.said, /line 2 as the columns/);
+  assert.equal(found.spec.sheets[0].columns[0].name, "date");
+  assert.equal(run("put", "noted", noted).status, 0);
+  const back = readXlsx(
+    await readFile(join(home, "artifacts", "noted", "noted.xlsx")),
+  ).sheets[0];
+  assert.equal(back.rows[0][0].v, "date");
+
+  // --header is a line number, and a file with nothing in it says so
+  assert.match(
+    run("read", noted, "--header").stderr,
+    /--header takes a line number/,
+  );
+  assert.match(run("read", await csv("empty.csv", "")).stderr, /has no lines/);
+});
+
 test("a CSV becomes one sheet, grouped numbers read as numbers; an old .xls is refused", async () => {
   const csv = join(home, "d.csv");
   await writeFile(csv, 'Item,Qty\nPaper,"1,200"\n"Toner, black",12\n');

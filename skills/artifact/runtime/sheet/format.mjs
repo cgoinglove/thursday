@@ -305,16 +305,23 @@ export function formatColor(value, code) {
   return sectionFor(parts, value).section.color ?? null;
 }
 
-/** A date written YYYY-MM-DD, with hh:mm or hh:mm:ss after it, as Excel's day number; else null. */
-export function serialOf(text) {
-  const m =
-    /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(
-      String(text).trim(),
-    );
+/**
+ * A date as Excel's day number, or null. Written year first (2026-07-03, 2026.07.03,
+ * 2026/07/03) unless `order` says the day or the month comes first (`dmy`: 03.07.2026,
+ * `mdy`: 07/03/2026) — which of those a file means is for whoever knows the file to say,
+ * never guessed here. A time may follow: hh:mm or hh:mm:ss.
+ */
+export function serialOf(text, order = "ymd") {
+  const time = String.raw`(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$`;
+  const m = new RegExp(
+    order === "ymd"
+      ? String.raw`^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})` + time
+      : String.raw`^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})` + time,
+  ).exec(String(text).trim());
   if (!m) return null;
-  const [y, mo, d, h = 0, mi = 0, s = 0] = m
-    .slice(1)
-    .map((x) => Number(x ?? 0));
+  const [a, b, c, h = 0, mi = 0, s = 0] = m.slice(1).map((x) => Number(x ?? 0));
+  const [y, mo, d] =
+    order === "ymd" ? [a, b, c] : order === "dmy" ? [c, b, a] : [c, a, b];
   const at = Date.UTC(y, mo - 1, d, h, mi, s);
   const check = new Date(at);
   if (check.getUTCMonth() !== mo - 1 || check.getUTCDate() !== d || h > 23)
