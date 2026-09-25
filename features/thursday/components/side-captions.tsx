@@ -8,10 +8,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { Letters } from "@/components/ui/letters";
 import type { CallMessage } from "@/features/thursday/thursday.schema";
 import { windowKey } from "@/hooks/use-hotkey";
 import { cn } from "@/lib/utils";
+import { CaptionWords } from "./caption-words";
 
 /**
  * Side captions (Captions › sides): the conversation beside the face, hers on
@@ -302,7 +302,7 @@ function SideColumn({
             <p
               ref={level ? scrollRef : undefined}
               className={cn(
-                "break-keep text-pretty opacity-(--ink) transition-opacity duration-[520ms] motion-reduce:transition-none",
+                "break-keep text-pretty whitespace-pre-line opacity-(--ink) transition-opacity duration-[520ms] motion-reduce:transition-none",
                 !level && "line-clamp-4",
                 level && "overflow-y-auto overscroll-contain scrollbar-none",
                 pickable && "group-hover/turn:opacity-(--lift)",
@@ -322,11 +322,10 @@ function SideColumn({
                 />
               )}
               {/* Each side's latest turn keeps its letters wherever it sits, so going back and returning never draws it again */}
-              {k === turns.length - 1 && !whole ? (
-                <Letters text={turn.text} />
-              ) : (
-                turn.text
-              )}
+              <CaptionWords
+                text={turn.text}
+                animate={k === turns.length - 1 && !whole}
+              />
             </p>
           </div>
         );

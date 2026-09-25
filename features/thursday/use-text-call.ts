@@ -18,7 +18,7 @@ import { screenActs } from "@/features/bot/thread.store";
 import { unwrapResult } from "@/lib/protocol/result";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
-import { plainText } from "@/lib/utils";
+import { captionText } from "@/lib/utils";
 import { openWork, stoodBefore, toldWork } from "./open-work";
 import { screenActLine } from "./screen-act";
 import {
@@ -420,7 +420,7 @@ export function useTextCall(): TextCall {
         draw(
           `${message.id}:${piece++}`,
           role,
-          role === "assistant" ? plainText(said) : said,
+          role === "assistant" ? captionText(said) : said,
         );
       };
       for (const part of message.parts) {

@@ -474,6 +474,25 @@ export const roomOpens = {
   },
 };
 
+const fileAsks = new Set<(path: string) => void>();
+
+/**
+ * Asks the left corner to open a file from elsewhere on the screen — one named in her
+ * words — over the call, as its own cards open theirs. False when no corner is up.
+ */
+export const fileOpens = {
+  open(path: string): boolean {
+    for (const listener of fileAsks) listener(path);
+    return fileAsks.size > 0;
+  },
+  subscribe(listener: (path: string) => void) {
+    fileAsks.add(listener);
+    return () => {
+      fileAsks.delete(listener);
+    };
+  },
+};
+
 const acted = new Set<(act: ScreenAct) => void>();
 
 export const screenActs = {

@@ -13,6 +13,7 @@ import { shortenPaths } from "@/features/bot/components/attachments";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import {
   botThreads,
+  fileOpens,
   roomOpens,
   type ThreadView,
   useBotThreads,
@@ -165,6 +166,14 @@ function Notice() {
   const { data: bots } = useServerRoute<Bot[]>(queryKey.bot);
   const threads = useBotThreads();
   const openFile = useOpenFile();
+  // A file named elsewhere on the screen (her words) opens here, as the cards' own do
+  useEffect(
+    () =>
+      fileOpens.subscribe((path) => {
+        openFile(path);
+      }),
+    [openFile],
+  );
 
   useAppEvent({
     // Asked for on a call (`thread` `open`): the file opens, where a finished job

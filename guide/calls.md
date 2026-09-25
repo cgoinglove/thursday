@@ -47,6 +47,8 @@ call, what she is doing shows with them, and the line stays as the way to write 
 same memory, tools and bots as on a spoken call; there is no voice and no microphone, and nothing is
 billed by the minute.
 
+- **Her answers keep their shape**: a list or a table comes a line at a time, and what she names is
+  a link — a file opens over the call as a card's does, a page on the web in a new tab.
 - **Files** go with the words: the paperclip, a paste, or a drop anywhere on the window — at most 8
   at a time, 25 MB each. A picture handed over in writing is one she can look at herself — a
   receipt, a screenshot, a chart — so "what does this say?" is answered on the spot.

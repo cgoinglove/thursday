@@ -77,6 +77,7 @@ import { useHotkeyLabel } from "@/hooks/use-hotkey";
 import { RING_CYCLE_MS } from "@/lib/live/ring";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, plainText } from "@/lib/utils";
+import { CaptionWords } from "./caption-words";
 import { ConnectWave } from "./connect-wave";
 import { Face } from "./face";
 import {
@@ -557,9 +558,9 @@ function Flow({
         lineHeight: CAPTION_LEADING,
         transform: `translateY(-${at * CAPTION_LEADING}em)`,
       }}
-      className="break-keep transition-transform duration-200"
+      className="break-keep whitespace-pre-line transition-transform duration-200"
     >
-      {fadeIn ? <Letters text={text} /> : text}
+      <CaptionWords text={text} animate={fadeIn} />
     </p>
   );
 

@@ -70,6 +70,53 @@ export function plainText(markdown: string): string {
     .trim();
 }
 
+/** A link as written in Markdown: `[label](href)`. */
+export const MARKDOWN_LINK = /\[([^\]\n]+)\]\(([^)\s]+)\)/g;
+
+/**
+ * Markdown as a caption: the marks go as in `plainText`, but the lines a list or a table is
+ * made of stay lines (a table row as its cells with " · " between, its rule dropped) and a
+ * link keeps its `[label](href)` for the caption to draw as one. Emphasis is taken off around
+ * links, never inside them: a file name's underscores are part of where it leads.
+ */
+export function captionText(markdown: string): string {
+  const links: string[] = [];
+  const bare = markdown
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(MARKDOWN_LINK, (_, label: string, href: string) => {
+      links.push(`[${label.replace(/[*_`]/g, "")}](${href})`);
+      return `\uE000${links.length - 1}\uE000`;
+    });
+  const lines: string[] = [];
+  for (const raw of bare.split("\n")) {
+    let line = raw.trim();
+    if (!line) continue;
+    // A table's rule, the row under its head, or a rule across the page
+    if (/^\|?[\s:|-]+\|[\s:|-]*$|^[-*_]{3,}$/.test(line)) continue;
+    if (/\|.*\|/.test(line))
+      line = line
+        .replace(/^\||\|$/g, "")
+        .split("|")
+        .map((cell) => cell.trim())
+        .filter(Boolean)
+        .join(" · ");
+    line = line
+      .replace(/^#{1,6}\s+/, "")
+      .replace(/^>\s?/, "")
+      .replace(/^[-*+]\s+/, "• ")
+      .replace(/`([^`]*)`/g, "$1")
+      .replace(/(\*\*|__)(\S(?:.*?\S)?)\1/g, "$2")
+      // Only a mark that opens and closes on a word: snake_case keeps its underscores
+      .replace(/(^|[^\w*])([*_])(\S(?:[^*_\n]*?\S)?)\2(?![\w*])/g, "$1$3")
+      .replace(/\s+/g, " ");
+    lines.push(line);
+  }
+  return lines
+    .join("\n")
+    .replace(/\uE000(\d+)\uE000/g, (_, at: string) => links[Number(at)] ?? "");
+}
+
 export const isFunction = <
   T extends (...args: any[]) => any = (...args: any[]) => any,
 >(
