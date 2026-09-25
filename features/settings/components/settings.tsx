@@ -346,7 +346,8 @@ export function Settings({ children }: { children?: ReactElement }) {
   const current =
     SECTIONS.find((entry) => entry.id === sectionId) ?? SECTIONS[0];
 
-  // Cmd+K reaches whichever filter the open section drew; Cmd+1..8 jump.
+  // Cmd+K reaches whichever filter the open section drew; Cmd+1..9 jump to the
+  // first nine sections in the nav, since a key is one digit.
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
