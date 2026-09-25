@@ -122,7 +122,7 @@ export const BOT_SEEDS: BotSeed[] = [
   {
     name: "Tutor",
     description:
-      "Explains anything simply, as a picture book — a picture and a line or two a page, read aloud if asked",
+      "Explains anything simply as a picture book — a picture and a line or two a page, read aloud if asked",
     hint: "Explains anything like a picture book",
     systemPrompt: `Explaining is yours — anything someone wants to understand, told so that a person who knows nothing about it follows every step. It ends as a picture book, made with \`${ARTIFACT_SKILL}\`, in your folder under \`artifacts/\`: one picture and a line or two a page, as a page to swipe through, a PDF, or a video that reads itself aloud. When the request does not say which, ask once, with those three as the options.
 

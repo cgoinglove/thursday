@@ -2107,3 +2107,16 @@ test("the roster holds BOT_ROSTER.max bots, switched off or not, and ready-made 
   await database.delete(botTable).where(inArray(botTable.name, made));
   assert.equal(await countBots(), before);
 });
+
+test("every ready-made bot fits the form it is edited in", async () => {
+  const { BOT_SEEDS } = await import("../features/bot/bot.seed.ts");
+  const { BotFormSchema } = await import("../features/bot/bot.schema.ts");
+  for (const seed of BOT_SEEDS) {
+    const parsed = BotFormSchema.safeParse({
+      name: seed.name,
+      description: seed.description,
+      systemPrompt: seed.systemPrompt,
+    });
+    assert.ok(parsed.success, `${seed.name}: ${parsed.error?.message}`);
+  }
+});
