@@ -34,8 +34,7 @@ export type MCPPreset = MCPServerForm & {
  * with OAuth and ask nothing up front; a few want a token pasted into the
  * header (GitHub, whose server skips OAuth discovery; Home Assistant, whose
  * URL is also the user's own), and flight search and the docs servers need
- * no account at all. Everyday services come first, developer tools after;
- * two stdio entries at the end drive a browser.
+ * no account at all. Everyday services come first, developer tools after.
  */
 export const MCP_PRESETS: MCPPreset[] = [
   {
