@@ -839,15 +839,13 @@ function fromJson(raw: string): Draft {
   return { value: { name: entry[0], config: entry[1] }, error: "" };
 }
 
-/** How often to check whether the OAuth popup closed, and when to give up. */
-const OAUTH_POLL_MS = 700;
-const OAUTH_WATCH_MS = 5 * 60_000;
-
 /** Reports a connect outcome; shared by register and reconnect. */
 function reportConnect(summary: ConnectSummary) {
   if (summary.status === "auth_required" && summary.authorizationUrl) {
-    // A popup: the callback page closes it when authorization finishes
-    const popup = window.open(
+    // A popup: the callback page closes it when authorization finishes. What the callback
+    // writes raises the mcp signal, and the call screen that holds Settings re-reads the list
+    // and an open server dialog on it (use-thursday)
+    window.open(
       summary.authorizationUrl,
       "thursday-oauth",
       "popup,width=520,height=720",
@@ -856,17 +854,6 @@ function reportConnect(summary: ConnectSummary) {
       title: `${summary.name} needs authorization`,
       description: "Approve access in the window that just opened",
     });
-
-    // The callback happens in that window; its closing is the only signal here.
-    // The deadline keeps a forgotten popup from polling for the life of the tab
-    const deadline = Date.now() + OAUTH_WATCH_MS;
-    const timer = setInterval(() => {
-      const closed = !popup || popup.closed;
-      if (!closed && Date.now() < deadline) return;
-      clearInterval(timer);
-      // Prefix match also refreshes an open `mcpServer(name)` dialog
-      if (closed) revalidate(queryKey.mcp);
-    }, OAUTH_POLL_MS);
     return;
   }
 
