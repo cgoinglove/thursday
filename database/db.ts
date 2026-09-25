@@ -141,7 +141,15 @@ function oneAtATime(inner: Client): Client {
     });
 
   return {
-    ...inner,
+    // Handed through by name: the libsql client is a class, so a spread copies
+    // `closed` as a frozen `false` and drops `close`, `sync` and `reconnect`
+    get closed() {
+      return inner.closed;
+    },
+    protocol: inner.protocol,
+    close: () => inner.close(),
+    sync: () => inner.sync(),
+    reconnect: () => inner.reconnect(),
     execute: (...args: Parameters<Client["execute"]>) =>
       lane(() => inner.execute(...args)),
     batch: (...args: Parameters<Client["batch"]>) =>
