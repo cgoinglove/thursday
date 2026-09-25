@@ -165,6 +165,9 @@ function createThreadTools(callId: string | null | undefined): ToolSet {
         });
         return {
           threadId: id,
+          // Named apart as well, for the page to tell her voice who has it (open-work startedOf)
+          bot: found.name,
+          label,
           // The label is the handle: without it in front of her, a follow-up
           // becomes a second thread instead of a word to the one running
           note: `${found.name} has "${label}". Its updates reach the conversation on their own. Anything further about this work — a correction, the next step once it finishes — is \`${TOOL_NAMES.thread_tell}\` with "${label}"; a question it asks is answered with \`${TOOL_NAMES.thread_answer}\`.`,

@@ -1285,3 +1285,64 @@ test("with an Exa key the call searches through Exa and hands the pages back apa
     configMock.restore();
   }
 });
+
+test("a finished job reaches her voice as words to say: a link is its name, a picture and table marks are left out", async () => {
+  const { openWork, startedLine, startedOf } = await import(
+    "../features/thursday/open-work.ts"
+  );
+  const thread = {
+    id: "t-1",
+    label: "Gyeongju trip",
+    bot: "Concierge",
+    status: "done",
+    seen: false,
+    updatedAt: new Date().toISOString(),
+    outcome:
+      "Here is the plan: [the itinerary](/api/file?path=artifacts/Concierge/gyeongju.html).\n\n![map](/api/file?path=artifacts/Concierge/map.png)\n\n| Day | Where |\n|---|---|\n| 1 | Bulguksa |\n\n- **Bring** a light jacket.",
+    ask: null,
+    room: { relays: [], questions: [] },
+  };
+  const [ending] = openWork([thread] as never);
+  const said = ending.line.split("\n").slice(1).join("\n");
+  assert.match(said, /the itinerary/);
+  assert.match(said, /1 · Bulguksa/);
+  assert.match(said, /Bring a light jacket/);
+  assert.doesNotMatch(said, /\/api\/file|map\.png|\||\*\*/);
+
+  // Who took a job, told to her voice the moment it starts: from the result, never guessed
+  assert.deepEqual(
+    startedOf(
+      JSON.stringify({ threadId: "t-2", bot: "Analyst", label: "Budget" }),
+    ),
+    { bot: "Analyst", label: "Budget" },
+  );
+  assert.equal(startedOf("There is no bot called Anna."), null);
+  assert.equal(
+    startedLine({ bot: "Analyst", label: "Budget" }),
+    'Analyst took "Budget" and is working on it now.',
+  );
+});
+
+test("a handoff Live ends with a top-level error stops counting as work, and counts again if it goes on", async () => {
+  const { activities } = await connect();
+  nested({ type: "response.created", response: { id: "r-err" } });
+  await tick();
+  assert.equal(activities.at(-1)?.working, true);
+  wire.on.event({
+    type: "error",
+    error: { message: "Responses handoff incomplete." },
+  });
+  await tick();
+  assert.equal(activities.at(-1)?.working, false);
+  // More of it after all: working again, until its own end
+  nested({
+    type: "response.output_text.delta",
+    response_id: "r-err",
+    delta: "Still here.",
+  });
+  await tick();
+  assert.equal(activities.at(-1)?.working, true);
+  nested({ type: "response.completed", response: { id: "r-err" } });
+  await tick();
+  assert.equal(activities.at(-1)?.working, false);
+});

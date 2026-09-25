@@ -225,7 +225,17 @@ type BackendResponse = {
   calls: Map<string, Promise<void>>;
   terminal: boolean;
   continued: boolean;
+  /** Taken for ended by a top-level error that named no end for it; lifted if it goes on. */
+  stale?: boolean;
 };
+
+/** The events that end a backend response. */
+const TERMINAL_EVENTS = [
+  "response.completed",
+  "response.failed",
+  "response.incomplete",
+  "response.cancelled",
+];
 
 /** Full-duplex speech and a separate Responses tool loop share one Live connection. */
 export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
@@ -456,6 +466,15 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
         on.warn(message);
         if (pendingAppend && event.error?.client_event_id === pendingAppend)
           settleAppend(false);
+        // Live can end a handoff with this error and no terminal event for its response:
+        // counted open, "working" stayed on for the rest of the call and held the quiet clock
+        // and every update back. One that ran no tool counts as ended until more of it comes.
+        for (const response of responses.values())
+          if (!response.terminal && !response.calls.size) {
+            response.terminal = true;
+            response.stale = true;
+          }
+        activity();
         break;
       }
       case "response.event": {
@@ -480,6 +499,11 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
         if (!response) {
           response = { calls: new Map(), terminal: false, continued: false };
           responses.set(id, response);
+        }
+        // Heard from again after an error took it for ended: it is still going
+        if (response.stale && !TERMINAL_EVENTS.includes(nested.type)) {
+          response.stale = false;
+          response.terminal = false;
         }
         if (nested.type === "response.reasoning_summary_text.done") {
           on.reasoning?.({
@@ -579,15 +603,9 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
           response.calls.set(item.call_id, running);
           void continueResponse(response);
         }
-        if (
-          [
-            "response.completed",
-            "response.failed",
-            "response.incomplete",
-            "response.cancelled",
-          ].includes(nested.type)
-        ) {
+        if (TERMINAL_EVENTS.includes(nested.type)) {
           response.terminal = true;
+          response.stale = false;
           if (nested.type === "response.completed") {
             salvaging = false;
             logger.debug("Live backend usage", {

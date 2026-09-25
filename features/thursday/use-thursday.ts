@@ -46,7 +46,13 @@ import { errorToString } from "@/lib/utils";
 import { FACE_WORD_MAX, undrawable } from "./ascii.const";
 import { callSignal, useCallHeld } from "./call-signal";
 import { finished, goodbye } from "./face-words";
-import { openWork, stoodBefore, toldWork } from "./open-work";
+import {
+  openWork,
+  startedLine,
+  startedOf,
+  stoodBefore,
+  toldWork,
+} from "./open-work";
 import { screenActLine } from "./screen-act";
 import {
   endCallAction,
@@ -575,6 +581,9 @@ export function useThursday(
       outbox.clear();
       working.current?.abort();
       working.current = null;
+      // An update still being read when the line goes down was not heard to its end: it is not
+      // counted as told, so its rows are not accepted and the next call has it again
+      reading.current.spoke = false;
       doneReading();
       if (linger.current) clearTimeout(linger.current);
       // a pending face timer must not fire after the call
@@ -669,7 +678,9 @@ export function useThursday(
       setIdleLeft(
         left <= CALL_IDLE.warnMs ? Math.max(0, Math.ceil(left / 1000)) : null,
       );
-      if (left <= 0) void hangUp("quiet");
+      // An update she is reading goes on to its end first (CALL_RELAY.readMs at most): hung up
+      // mid-sentence, the rest of it was lost
+      if (left <= 0 && !reading.current.on) void hangUp("quiet");
     }, 1000);
     return () => clearInterval(tick);
   }, [onCall, hangUp]);
@@ -827,6 +838,9 @@ export function useThursday(
                 stop.signal,
               );
               nameTool(call, output);
+              const started =
+                call.name === TOOL_NAMES.thread_start ? startedOf(output) : null;
+              if (started) outbox.send(startedLine(started));
               if (searching)
                 kept = keepSearch({
                   id: call.id,

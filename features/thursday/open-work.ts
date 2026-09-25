@@ -1,6 +1,7 @@
 import { CALL_RELAY } from "@/config";
 import { isAppStop, type Thread } from "@/features/bot/bot.schema";
 import { toDate } from "@/lib/date-like";
+import { captionText, MARKDOWN_LINK } from "@/lib/utils";
 import type { ActivityLine } from "./use-thursday";
 
 /**
@@ -32,6 +33,32 @@ export const stoodBefore = (threads: Thread[]): Set<string> =>
       .filter((item) => item.kind !== "question")
       .map((item) => item.key),
   );
+
+/** The bot and label a `thread_start` handed back, when it started a thread (load-tools). */
+export function startedOf(
+  output: string,
+): { bot: string; label: string } | null {
+  try {
+    const { threadId, bot, label } = JSON.parse(output) as Record<
+      string,
+      unknown
+    >;
+    return typeof threadId === "string" &&
+      typeof bot === "string" &&
+      typeof label === "string"
+      ? { bot, label }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Work just handed over, as a fact she holds before the backend's answer reaches her voice:
+ * asked "who has it?" in that gap, she said she was doing it herself.
+ */
+export const startedLine = ({ bot, label }: { bot: string; label: string }) =>
+  `${bot} took "${label}" and is working on it now.`;
 
 /** One piece of background work waiting on the user, as the relay clock puts it to her. */
 export type OpenWork = {
@@ -67,12 +94,17 @@ const OPEN_RANK = {
 
 /**
  * What of a bot's message goes into the call. A message is written for the screen
- * — captions, sources, file lists — and she reads an update aloud: past
- * CALL_RELAY.chars it is cut at a paragraph or a sentence, and the cut says where
- * the rest is, as a fact.
+ * — captions, sources, file lists — and she reads an update aloud, so it goes in as words to
+ * say: a link as its name, a picture left out, a table row as its cells. Sent as the screen
+ * has it, the addresses and table marks were half of what reached her and filled the
+ * 480-byte pieces an update is appended in. Past CALL_RELAY.chars it is cut at a paragraph
+ * or a sentence, and the cut says where the rest is, as a fact.
  */
 function spoken(text: string): string {
-  const whole = text.trim();
+  const whole = captionText(text.replace(/!\[[^\]]*\]\([^)]*\)/g, " "))
+    .replace(MARKDOWN_LINK, "$1")
+    .replace(/^• /gm, "")
+    .trim();
   if (whole.length <= CALL_RELAY.chars) return whole;
   const head = whole.slice(0, CALL_RELAY.chars);
   const at = Math.max(
