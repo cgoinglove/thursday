@@ -941,24 +941,38 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
       ],
     },
   });
+  let spoken = true;
   const callMock = mock.module("../features/thursday/thursday.query.ts", {
     namedExports: {
-      listRecentTurns: async () => [
-        {
-          callId: "c1",
-          startedAt: new Date("2026-09-13T10:00:00Z"),
-          turns: [
-            { role: "user", tool: null, text: "Book the dentist.", seq: 1 },
-            {
-              role: "tool",
-              tool: "thread_start",
-              text: '{"bot":"Scout"}',
-              seq: 2,
-            },
-            { role: "assistant", tool: null, text: "Scout has it.", seq: 3 },
-          ],
-        },
-      ],
+      listRecentTurns: async () =>
+        spoken
+          ? [
+              {
+                callId: "c1",
+                startedAt: new Date("2026-09-13T10:00:00Z"),
+                turns: [
+                  {
+                    role: "user",
+                    tool: null,
+                    text: "Book the dentist.",
+                    seq: 1,
+                  },
+                  {
+                    role: "tool",
+                    tool: "thread_start",
+                    text: '{"bot":"Scout"}',
+                    seq: 2,
+                  },
+                  {
+                    role: "assistant",
+                    tool: null,
+                    text: "Scout has it.",
+                    seq: 3,
+                  },
+                ],
+              },
+            ]
+          : [],
       readCallSkillsOn: async () => false,
     },
   });
@@ -1099,6 +1113,14 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     samFacts = 2;
 
     profileFacts = 0;
+    // A profile still empty after earlier calls: told to introduce herself over them, she
+    // waited for the user to speak, so she greets as on any call and still learns who they are
+    const unnamed = await loadLivePrompt({});
+    assert.match(unnamed.text, /## First call/);
+    assert.match(unnamed.text, /## Earlier calls/);
+    assert.match(unnamed.opening, /^The call has just started\. It is /);
+
+    spoken = false;
     const first = await loadLivePrompt({});
     assert.match(first.text, /## First call/);
     // The one call that opens with nothing: she says who she is, then learns who they are

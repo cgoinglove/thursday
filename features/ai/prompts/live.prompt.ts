@@ -45,6 +45,7 @@ export async function loadLivePrompt(options: {
 
   const first = !open.notes.find((note) => note.path === "profile")?.facts
     .length;
+  const earlier = earlierCalls(calls);
 
   const text = [
     thursdayIdentity(),
@@ -52,7 +53,7 @@ export async function loadLivePrompt(options: {
     always(),
     known(open.notes, index),
     first ? firstCall() : "",
-    earlierCalls(calls),
+    earlier,
     styleLines(options.stylePrompt),
   ]
     .filter(Boolean)
@@ -62,10 +63,12 @@ export async function loadLivePrompt(options: {
   return {
     text,
     // A prompt line alone does not make Live speak first; only an opening does.
-    // A call-back's opening holds no bot text: the update itself follows as commentary
+    // A call-back's opening holds no bot text: the update itself follows as commentary.
+    // Introducing herself is for a user never spoken to: with a profile still empty but
+    // earlier calls read to her, that opening left her silent until the user spoke
     opening: options.calledBack
       ? "You placed this call because background work has something for the user; it comes in next. Speak first: greet them in one line and say that is why you called."
-      : first
+      : first && !earlier
         ? "Open the call now: say who you are and what you are here to do for them, in a line or two, then ask what to call them. Then stop and listen."
         : // The hour is a fact of the moment, so it rides on the opening and not in the prompt.
           // One thing about them, never work: the threads are what opened every call before
