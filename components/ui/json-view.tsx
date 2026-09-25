@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useState } from "react";
+import { type KeyboardEvent, memo, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export type JsonValue =
@@ -42,7 +42,7 @@ const JsonView = memo(
     );
 
     return (
-      <div className=" text-sm transition-all duration-300">
+      <div className="text-sm">
         <JsonNode
           data={normalizedData as JsonValue}
           name={name}
@@ -55,6 +55,26 @@ const JsonView = memo(
 );
 
 JsonView.displayName = "JsonView";
+
+/**
+ * A fold drawn as text rather than a button (a <pre> may not sit in a <button>) still
+ * takes focus, and Enter or Space presses it as they would a button.
+ */
+const toggleProps = (expanded: boolean, toggle: () => void) => ({
+  role: "button" as const,
+  tabIndex: 0,
+  "aria-expanded": expanded,
+  onClick: toggle,
+  onKeyDown: (event: KeyboardEvent) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    toggle();
+  },
+});
+
+/** Only on keyboard focus, as the app's buttons draw it. */
+const TOGGLE_FOCUS =
+  "outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
 
 interface JsonNodeProps {
   data: JsonValue;
@@ -114,24 +134,27 @@ const JsonNode = memo(
       return (
         <div className="flex flex-col">
           <div
-            className="flex items-center mr-1 rounded cursor-pointer group hover:bg-input/30"
-            onClick={() => setIsExpanded(!isExpanded)}
+            className={cn(
+              "flex items-center mr-1 rounded cursor-pointer group hover:bg-input/30",
+              TOGGLE_FOCUS,
+            )}
+            {...toggleProps(isExpanded, () => setIsExpanded(!isExpanded))}
           >
             {name && (
-              <span className="mr-1 text-muted-foreground  hover:text-foreground">
+              <span className="mr-1 text-muted-foreground hover:text-foreground">
                 {name}:
               </span>
             )}
             {isExpanded ? (
-              <span className="text-muted-foreground  group-hover:text-foreground">
+              <span className="text-muted-foreground group-hover:text-foreground">
                 {symbolMap.open}
               </span>
             ) : (
               <>
-                <span className="text-muted-foreground  group-hover:text-foreground">
+                <span className="text-muted-foreground group-hover:text-foreground">
                   {symbolMap.collapsed}
                 </span>
-                <span className="ml-1 text-muted-foreground  group-hover:text-foreground">
+                <span className="ml-1 text-muted-foreground group-hover:text-foreground">
                   {itemCount} {itemCount === 1 ? "item" : "items"}
                 </span>
               </>
@@ -187,7 +210,7 @@ const JsonNode = memo(
       return (
         <div className="flex mr-1 rounded group hover:bg-input/30">
           {name && (
-            <span className="mr-1 text-muted-foreground  hover:text-foreground">
+            <span className="mr-1 text-muted-foreground hover:text-foreground">
               {name}:
             </span>
           )}
@@ -195,8 +218,9 @@ const JsonNode = memo(
             className={cn(
               typeStyleMap.string,
               "cursor-pointer group-hover:text-foreground",
+              TOGGLE_FOCUS,
             )}
-            onClick={() => setIsExpanded(!isExpanded)}
+            {...toggleProps(isExpanded, () => setIsExpanded(!isExpanded))}
             title={isExpanded ? "Click to collapse" : "Click to expand"}
           >
             {isExpanded ? `"${value}"` : `"${value.slice(0, maxLength)}..."`}
