@@ -4,10 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 
-// Nothing here writes, but the imports resolve the data folder: keep it off anyone's own
+// The imports resolve the data folder, and a skill switched off is read from its database:
+// an empty one of its own, migrated, so no test reads or writes anyone's
 const home = await mkdtemp(join(tmpdir(), "thursday-skill-files-"));
 process.env.THURSDAY_HOME = home;
 after(() => rm(home, { recursive: true, force: true }));
+const { migrateDatabase } = await import("../database/migrate.ts");
+await migrateDatabase();
 
 const { APP_DIR, PATHS, SKILL_FILES_LISTED } = await import("../config.ts");
 const { createSandBox } = await import("../lib/sandbox.ts");
@@ -401,4 +404,31 @@ test("a long recording's transcripts join with the times the transcribe tool wro
     refused.stdout + refused.stderr,
     /timeline in a shape this script does not read/,
   );
+});
+
+test("a skill switched off is not listed to a bot, and its name is still held", async () => {
+  const { setSkillOff, readSkillsOff } = await import(
+    "../features/skills/skills.query.ts"
+  );
+  const shipped = join(APP_DIR, PATHS.skills.default);
+  // A skill of the same name elsewhere cannot stand in for the one switched off
+  const copies = join(home, "copies");
+  await mkdir(join(copies, "media-digest"), { recursive: true });
+  await writeFile(
+    join(copies, "media-digest", "SKILL.md"),
+    "---\nname: media-digest\ndescription: A copy. Use it.\n---\n",
+  );
+  const names = async () =>
+    (
+      await discoverSkills(sandbox, [shipped, copies], await readSkillsOff())
+    ).map((skill) => skill.name);
+
+  await setSkillOff("default", "media-digest", true);
+  try {
+    assert.ok(!(await names()).includes("media-digest"));
+    assert.ok((await names()).includes("data-report"));
+  } finally {
+    await setSkillOff("default", "media-digest", false);
+  }
+  assert.ok((await names()).includes("media-digest"));
 });
