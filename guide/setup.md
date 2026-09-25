@@ -192,7 +192,9 @@ can be missing the last thing that was said; stopping the app folds that file ba
 another computer is the same folder put in the same place there. If the app ever cannot open the
 database, the terminal it was started in asks whether to set it aside and start over; yes moves it
 next to the new one with `.corrupt-` and a number in its name, and nothing is thrown away. Started by
-autostart it cannot ask, so it does not come up until it is started once from a terminal.
+autostart it cannot ask, so it does not come up until it is started once from a terminal. Data a
+newer version of the app has opened is not offered to be set aside: an older one — an autostart left
+behind while `npx` runs the latest — says so and stops, and the newer one opens it as it was.
 
 ## What it costs
 

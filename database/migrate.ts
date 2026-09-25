@@ -8,6 +8,13 @@ import { database } from "./db";
 const MIGRATIONS_TABLE = "__drizzle_migrations";
 
 /**
+ * The database was last opened by a newer build: it records a migration made after the
+ * newest this one ships (their names start with when they were made). Nothing is wrong with
+ * it, so it is not one to set aside — boot says so and exits with its own code (bin/database).
+ */
+export class NewerDatabase extends Error {}
+
+/**
  * A migration name recorded in the database that this build no longer ships is
  * data from before a release squashed its lineage into a fresh-looking first
  * migration (`CREATE TABLE IF NOT EXISTS`, run again). The table already exists
@@ -26,8 +33,17 @@ async function assertMigratable(migrationsFolder: string): Promise<void> {
     sql`select name from ${sql.identifier(MIGRATIONS_TABLE)}`,
   );
   const stale = rows.find((row) => row.name && !known.has(row.name));
-  if (!stale) return;
+  if (!stale?.name) return;
 
+  // An autostart left on an older version and an `npx` of a newer one share a data folder
+  const newest = [...known]
+    .filter((name) => /^\d{14}_/.test(name))
+    .sort()
+    .at(-1);
+  if (newest && stale.name.slice(0, 14) > newest.slice(0, 14))
+    throw new NewerDatabase(
+      `It was last opened by a newer Thursday (it records "${stale.name}", made after this build's newest).`,
+    );
   throw new Error(
     `It records migration "${stale.name}", which this build no longer ships.`,
   );

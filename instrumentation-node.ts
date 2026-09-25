@@ -6,8 +6,16 @@ export async function boot() {
   // Nothing can run on a database this build cannot migrate, and nothing can
   // remove it while this process holds it: say why, then exit with the code
   // both starters answer by offering to set it aside (bin/database.mjs).
-  const { migrateDatabase } = await import("@/database/migrate");
+  const { migrateDatabase, NewerDatabase } = await import("@/database/migrate");
   await migrateDatabase().catch((cause) => {
+    // Healthy data a newer version wrote: nothing to set aside. The starters offer the
+    // set-aside on MIGRATION_FAILED_EXIT (65) alone (bin/database), so this code is let be
+    if (cause instanceof NewerDatabase) {
+      console.error(
+        `  ${cause.message}\n  Nothing was changed. Start the newer one (npx thursday-agent@latest), or update this one, and it opens as it was.\n`,
+      );
+      process.exit(66);
+    }
     logger.error(`Cannot migrate ${DB_PATH}`);
     console.error(
       `  ${cause instanceof Error ? cause.message : cause}\n` +
