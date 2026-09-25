@@ -69,8 +69,9 @@ function makePage(name, ...args) {
   if (existsSync(out))
     throw new Stop(`${shown(out)} already exists. Edit it there.`);
   const part = (path) => readFileSync(join(quick, path), "utf8").trim();
-  // A ready document is dated: today, so a date left as it came is at least the right one
-  const today = new Date().toLocaleDateString("en-GB", {
+  // A ready document is dated: today, so a date left as it came is at least the right one,
+  // written as this computer writes dates
+  const today = new Date().toLocaleDateString(undefined, {
     day: "numeric",
     month: "long",
     year: "numeric",
