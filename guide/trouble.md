@@ -73,3 +73,9 @@ Deleting a single call, thread or note is on its own screen. **Settings › Thur
 Reset history** deletes every call, every job and everything she remembers, for good; keys, bots and
 connectors stay. Wiping everything, keys included, is removing the data folder (`setup.md` says
 where).
+
+## Still stuck
+
+**Ask on Discord**, under community at the end of the Settings list, opens the app's community: a
+question there is answered by people who use and build the app. A bug that happens again the same
+way goes to **GitHub**, just below it, under Issues, with the steps that bring it back.

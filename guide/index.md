@@ -16,7 +16,7 @@ When a wish needs a setting, say which one and where, rather than agreeing to it
 | `memory.md` | What she keeps about the user, and how they change it |
 | `setup.md` | The first run, the buttons and Settings list, keys, models, skills, connected services, sign-ins, its own window, where the files live, what it costs |
 | `phone.md` | Writing to her from a phone through a chat app: setting it up, who is let in, what reaches the phone |
-| `trouble.md` | A call that will not open, a job that stopped, a bot that cannot do something |
+| `trouble.md` | A call that will not open, a job that stopped, a bot that cannot do something, where to ask when nothing here answers |
 
 Two things hold everywhere:
 

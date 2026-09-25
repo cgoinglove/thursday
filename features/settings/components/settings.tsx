@@ -45,6 +45,7 @@ import { setTheme, useTheme } from "@/hooks/use-theme";
 import { THEMES, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { type SettingSectionId, useSettingsStore } from "../settings.store";
+import { CommunityLinks } from "./community-links";
 import { InstallButton } from "./install-app";
 import {
   SettingColumn,
@@ -177,6 +178,10 @@ const FilesSection = () => <Tabbed tabs={FILE_TABS} />;
 
 /** Adding a section is one entry here plus an id in settings.store. */
 const GROUPS = ["call", "work", "app"] as const;
+
+/** The small mono word over each group in the nav, the community links' included. */
+const GROUP_LABEL =
+  "px-3 pt-3 pb-1 font-mono text-[10px] text-muted-foreground/60";
 
 type SettingGroup = (typeof GROUPS)[number];
 
@@ -380,6 +385,7 @@ export function Settings({ children }: { children?: ReactElement }) {
         <DialogTitle className="sr-only">Settings</DialogTitle>
 
         <div className="flex h-full min-h-0">
+          {/* scrolls in a short window, where its foot would otherwise be cut off under the dialog's edge */}
           <nav
             aria-label="Settings sections"
             onKeyDown={(event) => {
@@ -397,13 +403,11 @@ export function Settings({ children }: { children?: ReactElement }) {
                 .querySelector<HTMLButtonElement>(`[data-section="${next}"]`)
                 ?.focus();
             }}
-            className="flex w-52 shrink-0 flex-col gap-0.5 border-r border-border/60 bg-muted/30 p-3"
+            className="flex w-52 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border/60 bg-muted/30 p-3"
           >
             {GROUPS.map((group) => (
               <Fragment key={group}>
-                <span className="px-3 pt-3 pb-1 font-mono text-[10px] text-muted-foreground/60">
-                  {group}
-                </span>
+                <span className={GROUP_LABEL}>{group}</span>
                 {SECTIONS.filter((item) => item.group === group).map((item) => (
                   <Button
                     key={item.id}
@@ -428,6 +432,10 @@ export function Settings({ children }: { children?: ReactElement }) {
                 ))}
               </Fragment>
             ))}
+
+            {/* a group of its own, in the nav's grammar, so the foot keeps Install alone */}
+            <span className={GROUP_LABEL}>community</span>
+            <CommunityLinks />
 
             <div className="mt-auto flex flex-col gap-2 pt-3">
               <InstallButton />
