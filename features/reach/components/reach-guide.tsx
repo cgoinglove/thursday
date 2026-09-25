@@ -671,7 +671,7 @@ function KeyField({
         className="flex flex-wrap items-center gap-2"
         onSubmit={(event) => {
           event.preventDefault();
-          void save(configKey, value).catch(() => {});
+          void save(configKey, value);
         }}
       >
         <Input
@@ -710,7 +710,7 @@ function KeyField({
               size="sm"
               variant="ghost"
               loading={removing}
-              onClick={() => void remove(configKey).catch(() => {})}
+              onClick={() => void remove(configKey)}
               className="ml-auto text-destructive hover:text-destructive"
             >
               Remove
@@ -767,7 +767,7 @@ function LetGo({
         size="sm"
         variant="outline"
         loading={forgetting}
-        onClick={() => void forget(name).catch(() => {})}
+        onClick={() => void forget(name)}
       >
         Let them go
       </Button>

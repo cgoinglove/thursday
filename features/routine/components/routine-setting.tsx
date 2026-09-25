@@ -422,7 +422,7 @@ function RoutineSheet({
 
   /** One field of a routine that exists, written when it differs from what is kept. */
   const commit = (next: Partial<RoutineInput> & { enabled?: boolean }) => {
-    if (saved) void update(saved.id, next).catch(() => {});
+    if (saved) void update(saved.id, next);
   };
   const commitSchedule = (next: Partial<Draft>) => {
     patch(next);
@@ -529,7 +529,7 @@ function RoutineSheet({
                       <Switch
                         checked={saved.enabled}
                         onCheckedChange={(enabled) =>
-                          void update(saved.id, { enabled }).catch(() => {})
+                          void update(saved.id, { enabled })
                         }
                         aria-label={`${saved.label} on or off`}
                         className="mr-1 shrink-0"
@@ -844,7 +844,7 @@ function RoutineSheet({
                       title={
                         lastOpen ? "Its last run is still open" : undefined
                       }
-                      onClick={() => void runNow(saved.id).catch(() => {})}
+                      onClick={() => void runNow(saved.id)}
                     >
                       <Play />
                       Run now
@@ -854,9 +854,7 @@ function RoutineSheet({
                       size="sm"
                       loading={creating}
                       disabled={!input}
-                      onClick={() =>
-                        input && void create(input).catch(() => {})
-                      }
+                      onClick={() => input && void create(input)}
                     >
                       Create
                     </Button>

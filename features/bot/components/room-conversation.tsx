@@ -155,7 +155,7 @@ function Context({ thread }: { thread: ThreadView }) {
     <button
       type="button"
       disabled={asking || asked}
-      onClick={() => void compact(thread.id, thread.bot.name).catch(() => {})}
+      onClick={() => void compact(thread.id, thread.bot.name)}
       title={
         asked
           ? "It summarizes itself at its next step"

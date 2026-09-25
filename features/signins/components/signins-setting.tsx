@@ -132,7 +132,7 @@ function Row({ signIn, bots }: { signIn: SignIn; bots?: Bot[] }) {
       okText: "Sign out",
       destructive: true,
     });
-    if (ok) void remove(signIn.site).catch(() => {});
+    if (ok) void remove(signIn.site);
   };
 
   return (
@@ -181,9 +181,7 @@ function Row({ signIn, bots }: { signIn: SignIn; bots?: Bot[] }) {
               type="button"
               disabled={setting}
               aria-label={`${name} may no longer use it`}
-              onClick={() =>
-                void setBot(signIn.site, name, false).catch(() => {})
-              }
+              onClick={() => void setBot(signIn.site, name, false)}
               className="grid size-5 place-items-center rounded-full text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <X className="size-3" />
@@ -210,9 +208,7 @@ function Row({ signIn, bots }: { signIn: SignIn; bots?: Bot[] }) {
               variant="secondary"
               className="h-5 rounded-full px-2 text-[11px]"
               disabled={setting}
-              onClick={() =>
-                void setBot(signIn.site, name, true).catch(() => {})
-              }
+              onClick={() => void setBot(signIn.site, name, true)}
             >
               Allow
             </Button>
