@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.14.1](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.14.0...thursday-agent-v0.14.1) (2026-09-25)
+
+
+### Fixes
+
+* **call:** a backend a browser's copy named by default follows the app's default ([a88124c](https://github.com/cgoinglove/thursday/commit/a88124c20e0e32be592b15a526d2ad9976bc2d5e))
+* **call:** a profile left empty after earlier calls opens with a greeting, not a silence ([a96054a](https://github.com/cgoinglove/thursday/commit/a96054ad8da9358cc56e102bfbdbce72ed268341))
+* **call:** an answer offered on the ringing screen answers the bot ([bedcc48](https://github.com/cgoinglove/thursday/commit/bedcc487a7536048419b3c268d73f186f77e0d6b))
+* **call:** an opening cut short by a call or her voice winds down instead of being dropped ([7b449e7](https://github.com/cgoinglove/thursday/commit/7b449e75b05639b217c275ce2cad55496324fdd8))
+* **call:** her answers in writing keep their lines, and what she names opens ([f136a9f](https://github.com/cgoinglove/thursday/commit/f136a9fbfb6e379097b4246fe95c7e25e71bf3ae))
+* **cli:** the server listens on 127.0.0.1 whatever HOSTNAME the environment exports ([45dbf7c](https://github.com/cgoinglove/thursday/commit/45dbf7cc9b7017d6a055cd149fec52f20c91e334))
+* **files:** finished work opens and deletes under a data folder reached through a symlink ([6dab2e5](https://github.com/cgoinglove/thursday/commit/6dab2e53958a8cd96c4bc645881cfddbebca5af8))
+* **files:** thumbnails load again: the image optimizer's own request passes the host check ([ea361f0](https://github.com/cgoinglove/thursday/commit/ea361f0d9322ba4e03d16f4ea332d4751caaafc3))
+* **intro:** the style step is said aloud too ([68b8165](https://github.com/cgoinglove/thursday/commit/68b8165900d08b497a85c692591a216e7a14a348))
+* **models:** a gateway model is asked what it sees by the provider behind the gateway's name ([b7a5732](https://github.com/cgoinglove/thursday/commit/b7a573205e91e7684174f2b6a9ae9b7dc67862ca))
+* **reach:** letting someone in takes the code their phone was sent, and a stopped service says so ([31a383b](https://github.com/cgoinglove/thursday/commit/31a383b3257733c1ef9984a5e1fa13e75e85b6c0))
+* **reach:** what fails between a phone and the app is said, and a dead line is dialled again ([b3fc0ba](https://github.com/cgoinglove/thursday/commit/b3fc0baf3f1a4f68c05aa870e01402f0a364618b))
+* **skills:** a chart drawn into a document is kept as the bot's own put, and a board copies its own note ([8b7199e](https://github.com/cgoinglove/thursday/commit/8b7199eb1a984661a16d0602322944e5356752b6))
+* **skills:** a chart drawn under an id no empty figure waits for is turned away ([5c3407e](https://github.com/cgoinglove/thursday/commit/5c3407e18f08a781634b72952c86e79ad201e3a5))
+* **skills:** a social study reads a few accounts chosen with the user, and small leftovers go ([07ce2aa](https://github.com/cgoinglove/thursday/commit/07ce2aa903745810878c29b5d9b1f7672e9a67a0))
+* **skills:** a trip's flights come from Kiwi when it is connected, and its searches open on the user's screen ([899515e](https://github.com/cgoinglove/thursday/commit/899515e7fef9e9fcde24333948b060ec9f661973))
+* **skills:** a wall is the site's answer, and local pages are served by the skill's own script ([3055df0](https://github.com/cgoinglove/thursday/commit/3055df04905f3d8b2b5bc779bd3e5967e306a91a))
+* **skills:** on Linux a browser missing its system libraries is named, and how to install them ([c3d41bc](https://github.com/cgoinglove/thursday/commit/c3d41bcf871aaf8b6538256fa87d186ac6031f28))
+* **skills:** Settings › Skills shows a description as its YAML says it, and names its delete button ([60b9ee6](https://github.com/cgoinglove/thursday/commit/60b9ee6c4a95ba5bdedc803256723540d121c95a))
+* **skills:** the analyst skills stand on published sources and leave choosing to the bot ([77bf1a4](https://github.com/cgoinglove/thursday/commit/77bf1a40a3f94753d91f8bafe169715532247a4f))
+* **text-call:** look_at is held only by a model a picture in a tool result reaches ([176615d](https://github.com/cgoinglove/thursday/commit/176615d818009d4f561aafe2d90201f1fa77922c))
+
+
+### Docs
+
+* **maps:** a dialog that opens by itself to grant something starts on cancel ([b458a4a](https://github.com/cgoinglove/thursday/commit/b458a4a4375d5a6712d845b0ad099a5843483077))
+
 ## [0.14.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.13.0...thursday-agent-v0.14.0) (2026-09-24)
 
 
