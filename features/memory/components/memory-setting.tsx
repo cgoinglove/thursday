@@ -630,7 +630,12 @@ function MemoryCreate({ onDone }: { onDone: () => void }) {
               id="note-summary"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              onKeyDown={(event) => event.key === "Enter" && submit()}
+              onKeyDown={(event) => {
+                // During IME composition Enter confirms the character, not the note
+                if (event.nativeEvent.isComposing || event.keyCode === 229)
+                  return;
+                if (event.key === "Enter") submit();
+              }}
               placeholder="One line Thursday sees in her list"
               maxLength={MEMORY_LIMITS.descriptionChars}
               required
