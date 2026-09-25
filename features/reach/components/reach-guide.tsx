@@ -135,8 +135,11 @@ const STEPS: Record<ReachChannelName, Step[]> = {
     {
       body: (
         <>
-          At <B>discord.com/developers</B>, make a <B>New Application</B>. On
-          its <B>Bot</B> page press <B>Reset Token</B> and copy it.
+          At <B>discord.com/developers</B>, make a <B>New Application</B>. So
+          nobody else can add it to a server, set <B>Install Link</B> to{" "}
+          <B>None</B> on its <B>Installation</B> page and turn off{" "}
+          <B>Public Bot</B> on its <B>Bot</B> page. There, press{" "}
+          <B>Reset Token</B> and copy it.
         </>
       ),
       slot: {
@@ -164,9 +167,10 @@ const STEPS: Record<ReachChannelName, Step[]> = {
     {
       body: (
         <>
-          <B>Send the bot a direct message</B> (not in the server). A question
-          with a code appears here: press <B>Allow</B> if your phone shows the
-          same code.
+          <B>Send the bot a direct message</B>, not in the server: on a phone,
+          tap the bot in the server's member list, then <B>Message</B>. A
+          question with a code appears here: press <B>Allow</B> if your phone
+          shows the same code.
         </>
       ),
     },

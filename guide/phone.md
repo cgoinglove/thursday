@@ -32,15 +32,19 @@ separate list of keys.
 ## Setting it up: Discord
 
 1. At **discord.com/developers/applications** (**Open discord.com/developers**), make a New
-   Application, open its **Bot** page, press **Reset Token** and copy the token.
+   Application. So nobody else can add the bot to a server of theirs, set **Install Link** to
+   **None** on its **Installation** page, then turn off **Public Bot** on its **Bot** page —
+   Discord refuses the second while an install link is set. On the **Bot** page, press **Reset
+   Token** and copy the token. The invite in step 3 still works for its owner.
 2. Paste it in step 2 of **Discord**, in **Settings › Phone**.
 3. A Discord bot can only be written to by someone who shares a server with it. Step 3 has the
    invite, made for them: **Add the bot to a server** opens it, or the phone's camera can read its
    square picture. It asks which server and adds the bot with no permissions in it; a private
    server made for this is fine.
-4. Write to the bot directly (a direct message, not in the server). The bot sends a code, and the
-   question on the computer shows one: press **Allow** if they are the same. Only direct messages
-   are read; nothing said in a server is.
+4. Write to the bot directly — a direct message, not in the server. On a phone, open the server,
+   tap the bot in its member list, then **Message**. The bot sends a code, and the question on the
+   computer shows one: press **Allow** if they are the same. Only direct messages are read;
+   nothing said in a server is.
 
 ## Setting it up: Slack
 
