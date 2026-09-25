@@ -3,10 +3,13 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { viteSingleFile } from "vite-plugin-singlefile";
 
-// One page per build, named by PAGE (scripts/page.mjs sets it). Each page keeps its
-// own output and cache, so two pages can build at once.
+// One page per build, named by PAGE (the artifact skill's scripts/app.mjs sets it). Each
+// page keeps its own output and cache, so two pages can build at once.
 const page = process.env.PAGE;
-if (!page) throw new Error("PAGE is not set: build with scripts/page.mjs");
+if (!page)
+  throw new Error(
+    "PAGE is not set: build with the artifact skill's scripts/app.mjs build <name>",
+  );
 const root = path.resolve(__dirname, "pages", page);
 
 export default defineConfig({
