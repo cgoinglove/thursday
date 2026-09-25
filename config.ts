@@ -828,6 +828,15 @@ export const FAVICON = {
 export const GATEWAY_LOW_CREDIT = 1;
 
 /**
+ * How long the gateway's model catalog is believed once read (ai/model readGatewayCatalog), one
+ * copy for the whole app: the model field's shelf, and a gateway model's context window and
+ * effort steps when a run starts. A model list does not change inside a call. Longer shows a
+ * model the gateway added, or drops one it retired, that much later; shorter asks the gateway
+ * again more often.
+ */
+export const GATEWAY_CATALOG_MS = 10 * 60_000;
+
+/**
  * Signing in to ChatGPT (features/ai/chatgpt), whose plan runs bots in place of an API key.
  * - `waitMs`  how long the app listens for the sign-in page's answer. Past it the port is
  *            let go and signing in starts over from Config; shorter frees it sooner when

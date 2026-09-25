@@ -21,7 +21,7 @@ import {
   type ToolSet,
   type TranscriptionModel,
 } from "ai";
-import { GATEWAY_LOW_CREDIT } from "@/config";
+import { GATEWAY_CATALOG_MS, GATEWAY_LOW_CREDIT } from "@/config";
 import {
   DEFAULT_EFFORT_KEY,
   DEFAULT_MODEL_KEY,
@@ -248,9 +248,6 @@ function buildTextModel(ref: TextModelRef, apiKey: string): TextModel {
   }
 }
 
-/** How long the gateway catalog is believed; a model list does not change inside a call. */
-const CATALOG_TTL = 10 * 60_000;
-
 /** One shelf for the app: the listing is the same for everyone, key or no key. */
 let catalogCache: { at: number; models: GatewayModel[] } | null = null;
 
@@ -353,7 +350,7 @@ function priceOfGatewayModel(row: CatalogRow): GatewayPrice {
  * filters and sorts on plain fields. The gateway is the only provider that can be asked.
  */
 export async function readGatewayCatalog(): Promise<GatewayModel[]> {
-  if (catalogCache && Date.now() - catalogCache.at < CATALOG_TTL)
+  if (catalogCache && Date.now() - catalogCache.at < GATEWAY_CATALOG_MS)
     return catalogCache.models;
 
   const response = await fetch(GATEWAY_CATALOG_URL, {
