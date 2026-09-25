@@ -1,5 +1,6 @@
 import { jsonSchema, type ToolSet, tool } from "ai";
 import * as z from "zod";
+import { TOOL_SEARCH_SCHEMAS } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { findPinnedTools } from "@/features/connectors/mcp.query";
 import { botArtifacts } from "@/features/workspace/workspace";
@@ -17,9 +18,6 @@ import {
  * studio (config STUDIO_SERVER); where a tool lives is connected.ts's question.
  */
 
-/** Definitions returned per search; schemas are large. */
-const MAX_SCHEMAS = 8;
-
 const mcpToolSpec = {
   [TOOL_NAMES.tool_search]: {
     // What it is, not when to reach for it: the Connected tools chapter says
@@ -35,7 +33,7 @@ const mcpToolSpec = {
         .string()
         .array()
         .describe(
-          `Tool names listed under that server. Only the ones you may actually call — schemas are large, and at most ${MAX_SCHEMAS} come back.`,
+          `Tool names listed under that server. Only the ones you may actually call — schemas are large, and at most ${TOOL_SEARCH_SCHEMAS} come back.`,
         ),
     }),
   },
@@ -143,7 +141,7 @@ const searchPair = (sandbox: Sandbox, artifacts: string): ToolSet => ({
       const asked = [
         ...new Set(tools.map((name) => name.trim()).filter(Boolean)),
       ];
-      const wanted = asked.slice(0, MAX_SCHEMAS);
+      const wanted = asked.slice(0, TOOL_SEARCH_SCHEMAS);
       const found = await findConnectedSchemas(server.trim(), wanted);
 
       if (!found.length) return { tools: [], note: await whatExists(server) };
@@ -152,11 +150,11 @@ const searchPair = (sandbox: Sandbox, artifacts: string): ToolSet => ({
       const missing = wanted.filter(
         (name) => !found.some((entry) => entry.name === name),
       );
-      const trimmed = asked.slice(MAX_SCHEMAS);
+      const trimmed = asked.slice(TOOL_SEARCH_SCHEMAS);
       const notes = [
         missing.length ? `Not on "${server}": ${missing.join(", ")}.` : "",
         trimmed.length
-          ? `Only ${MAX_SCHEMAS} at a time — ask again for: ${trimmed.join(", ")}.`
+          ? `Only ${TOOL_SEARCH_SCHEMAS} at a time — ask again for: ${trimmed.join(", ")}.`
           : "",
       ].filter(Boolean);
 

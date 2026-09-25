@@ -644,6 +644,14 @@ export const STUDIO_SERVER = "studio";
 export const CONNECTED_TOOL_TIMEOUT_MS = 10 * 60_000;
 
 /**
+ * How many tool definitions one `tool_search` returns (features/ai/tools/mcp.tool); a bot is
+ * told the number in the tool's schema, and the answer names the rest to be asked for again. A
+ * schema is large and rides in the run from then on: more loads a server's tools in fewer steps
+ * and costs every later step more; fewer takes more steps to reach the same tools.
+ */
+export const TOOL_SEARCH_SCHEMAS = 8;
+
+/**
  * How many files of one job's own folder are read when its files are listed
  * (features/workspace filesOnDisk, what bot.run names as the job's files). A folder of
  * generated files past it is not a list anyone reads; raising it lists more of one and
@@ -826,7 +834,10 @@ export const SKILL_FILES_LISTED = 50;
  */
 export const PROMPT_CROWDED = { bots: 10, skills: 20 };
 
-/** Max chars for one listing line in a prompt. */
+/**
+ * Max chars for one listing line a model reads, in a prompt or in a tool's answer. Longer is
+ * paid for wherever the line is carried; shorter leaves more of it to be asked for whole.
+ */
 export const PROMPT_LINE = {
   /** First sentence of a skill description; bots get the full text. */
   skill: 90,
@@ -836,6 +847,12 @@ export const PROMPT_LINE = {
   jobOutcome: 160,
   /** The first line a file in a bot's own memory is listed by (config BOT_MEMORY_LIMITS). */
   botMemory: 100,
+  /** A thread's question or ending in `thread_status`'s list of them all; one named alone comes back whole. */
+  threadStatus: 200,
+  /** What a routine asks for, as the `routine` tool returns one. */
+  routineRequest: 300,
+  /** How a routine's last run ended, as the `routine` tool returns one; the run's thread holds the rest. */
+  routineOutcome: 200,
 };
 
 /**

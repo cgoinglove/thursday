@@ -1,6 +1,6 @@
 import { asSchema, type ToolSet, tool } from "ai";
 import { formatDistanceToNowStrict } from "date-fns";
-import { CALL_EXEC_TIMEOUT_MS, IS_DEV } from "@/config";
+import { CALL_EXEC_TIMEOUT_MS, IS_DEV, PROMPT_LINE } from "@/config";
 import { seesToolImages, type TextModel } from "@/features/ai/model";
 import type { TextModelRef } from "@/features/ai/model.schema";
 import { clockNow } from "@/features/ai/prompts/prompt-helper";
@@ -272,7 +272,7 @@ function createThreadTools(callId: string | null | undefined): ToolSet {
             participants: thread.room.participants,
             questions: thread.room.questions.map((question) => ({
               ...question,
-              text: clip(question.text, 200),
+              text: clip(question.text, PROMPT_LINE.threadStatus),
             })),
             since: since(thread.updatedAt),
             ...(thread.ask
@@ -282,7 +282,7 @@ function createThreadTools(callId: string | null | undefined): ToolSet {
               ? { now: threadActivity(thread.lines) }
               : {}),
             ...(thread.outcome && thread.status !== "waiting"
-              ? { outcome: clip(thread.outcome, 200) }
+              ? { outcome: clip(thread.outcome, PROMPT_LINE.threadStatus) }
               : {}),
           })),
         };

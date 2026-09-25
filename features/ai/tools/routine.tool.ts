@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import * as z from "zod";
-import { ROUTINE } from "@/config";
+import { PROMPT_LINE, ROUTINE } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { listJobBots } from "@/features/bot/bot.query";
 import {
@@ -113,14 +113,16 @@ function told(routine: Routine) {
     when: scheduleText(routine.schedule),
     enabled: routine.enabled,
     ...(routine.enabled ? { next: whenOf(toDate(routine.nextRunAt)) } : {}),
-    request: clip(routine.request, 300),
+    request: clip(routine.request, PROMPT_LINE.routineRequest),
     ...(last
       ? {
           lastRun: {
             thread: last.id,
             status: last.status,
             at: whenOf(toDate(last.updatedAt)),
-            ...(last.outcome ? { outcome: clip(last.outcome, 200) } : {}),
+            ...(last.outcome
+              ? { outcome: clip(last.outcome, PROMPT_LINE.routineOutcome) }
+              : {}),
           },
         }
       : {}),
