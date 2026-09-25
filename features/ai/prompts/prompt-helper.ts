@@ -14,7 +14,7 @@ import { searchOf, startedLabel } from "@/features/thursday/tool-line";
 import { toDate } from "@/lib/date-like";
 import { logger } from "@/lib/logger";
 import { estimateTokens, sectionTokens } from "@/lib/tokens";
-import { clip } from "@/lib/utils";
+import { clip, hostOf } from "@/lib/utils";
 
 /**
  * Row-to-line formatters shared by the call prompts (live, thursday) and bot.prompt, plus the tidying check.
@@ -236,13 +236,7 @@ function turnLine(turn: RecentCall["turns"][number], call: RecentCall): string {
   if (searched) {
     const sites = [
       ...new Set(
-        searched.sources.flatMap((source) => {
-          try {
-            return [new URL(source.url).hostname.replace(/^www\./, "")];
-          } catch {
-            return [];
-          }
-        }),
+        searched.sources.flatMap((source) => hostOf(source.url) ?? []),
       ),
     ];
     return `you → ${turn.tool} "${clip(searched.query ?? "", PROMPT_LINE.toolArgs)}"${sites.length ? ` — ${sites.join(", ")}` : ""}`;

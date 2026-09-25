@@ -1,7 +1,7 @@
 "use client";
 
-import { hostOf, SiteIcon } from "@/components/ui/site-icon";
-import { cn } from "@/lib/utils";
+import { SiteIcon } from "@/components/ui/site-icon";
+import { cn, hostOf } from "@/lib/utils";
 
 /** A page a search read: where it is, and what it is called when that is known. */
 export type SourcePage = { url: string; title?: string };

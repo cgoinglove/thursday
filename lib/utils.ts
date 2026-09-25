@@ -55,6 +55,15 @@ export function formatBytes(size: number): string {
   return `${value.toFixed(value < 10 ? 1 : 0)} ${units[at]}`;
 }
 
+/** `https://www.tenki.jp/…` → `tenki.jp`; null for a URL that does not parse. */
+export function hostOf(url: string): string | null {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
 /** Markdown as plain text for a one-line preview: strips headings, emphasis, code, links and table rules. */
 export function plainText(markdown: string): string {
   return markdown

@@ -29,7 +29,7 @@ import Image from "next/image";
 import { type ComponentType, type ReactNode, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { ShinyText } from "@/components/ui/shiny-text";
-import { hostOf, SiteIcon } from "@/components/ui/site-icon";
+import { SiteIcon } from "@/components/ui/site-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SourceChips, type SourcePage } from "@/components/ui/source-chips";
 import { STUDIO_SERVER } from "@/config";
@@ -43,7 +43,7 @@ import { SkillsMark } from "@/features/skills/components/skills-mark";
 import { FileThumb } from "@/features/workspace/components/file-thumb";
 import { FileLink } from "@/features/workspace/components/file-view";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
-import { cn } from "@/lib/utils";
+import { cn, hostOf } from "@/lib/utils";
 import type { ToolUse } from "../thread.store";
 
 /*
