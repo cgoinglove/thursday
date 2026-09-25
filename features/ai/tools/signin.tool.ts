@@ -1,5 +1,6 @@
 import { type ToolSet, tool } from "ai";
 import z from "zod";
+import { BROWSER_CLI } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import {
   borrowSignIn,
@@ -8,6 +9,10 @@ import {
   sessionWindow,
 } from "@/features/signins/signins.query";
 import { siteOf } from "@/features/signins/signins.schema";
+import {
+  browserStateFile,
+  saveBrowserState,
+} from "@/features/workspace/workspace";
 import type { Sandbox } from "@/lib/sandbox";
 
 /**
@@ -22,9 +27,6 @@ const SITE = z
   .string()
   .describe("The site's address, like instagram.com. No path, no https://.");
 
-/** Where the state file stands for the length of one CLI command. */
-const passing = () => `.playwright-cli/state-${crypto.randomUUID()}.json`;
-
 export function createSignInTools(
   sandbox: Sandbox,
   bot: string,
@@ -32,7 +34,10 @@ export function createSignInTools(
   env: Record<string, string>,
 ): ToolSet {
   const cli = async (command: string) => {
-    const ran = await sandbox.exec(command, { env, timeoutMs: 30_000 });
+    const ran = await sandbox.exec(command, {
+      env,
+      timeoutMs: BROWSER_CLI.loadMs,
+    });
     return ran.exitCode === 0
       ? null
       : (ran.stderr || ran.stdout).trim().slice(0, 300) ||
@@ -48,7 +53,7 @@ export function createSignInTools(
     if (!(await sessionWindow(sandbox, env).catch(() => false))) return "";
     const at = await sandbox.exec(
       `playwright-cli --raw run-code "async page => page.url()"`,
-      { env, timeoutMs: 15_000 },
+      { env, timeoutMs: BROWSER_CLI.readMs },
     );
     let url = "";
     try {
@@ -83,7 +88,7 @@ export function createSignInTools(
         if (found.kind === "ask")
           return `The user keeps a ${found.signIn.site} sign-in (${found.signIn.account}) and has not let you use it. Ask them, as a question, whether you may; they allow it on screen. Call again once they have said yes.`;
 
-        const path = passing();
+        const path = browserStateFile();
         await sandbox.writeFile(path, JSON.stringify(found.state));
         const failed = await cli(`playwright-cli state-load ${path}`).finally(
           () => sandbox.exec(`rm -f ${path}`),
@@ -114,10 +119,8 @@ export function createSignInTools(
       execute: async ({ site, account, keepWindow }) => {
         if ((await sessionBrowser(sandbox, env)) === "theirs")
           return "You are working in their own Chrome: it stays signed in as them by itself, and nothing is kept from it.";
-        const path = passing();
-        const failed = await cli(
-          `mkdir -p .playwright-cli && playwright-cli state-save ${path}`,
-        );
+        const path = browserStateFile();
+        const failed = await cli(saveBrowserState(path));
         if (failed) {
           await sandbox.exec(`rm -f ${path}`);
           return `The browser's state could not be read: ${failed}. Nothing was kept.`;

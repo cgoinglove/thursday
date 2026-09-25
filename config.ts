@@ -614,6 +614,19 @@ export const DECK = { slides: 30, shotsMs: 90_000 };
 export const BROWSER_VIEWPORT = "700x700";
 
 /**
+ * How long the app waits on a browser command it sends itself, not a bot's own
+ * (workspace, signins.query, ai/tools/signin.tool).
+ * - `readMs`  one that only asks — `list`, the page's address — or closes a job's
+ *   browsers when it is cancelled, deleted or swept. A list runs before a sign-in is
+ *   lent, kept or renewed too, so a browser that hangs holds each of those this long.
+ * - `loadMs`  each step of lending or keeping a sign-in: `state-load`, `state-save`, and
+ *   the `close`, `open` and `goto` that take its window away. Shorter fails a slow
+ *   machine part way through a sign-in; longer holds the bot's step this long when the
+ *   browser hangs.
+ */
+export const BROWSER_CLI = { readMs: 15_000, loadMs: 30_000 };
+
+/**
  * How long one shell command may run before it is killed (lib/sandbox). Nothing
  * is watching it, so a command that stops to ask never gets an answer; the
  * number is said in the shell guide a bot reads (ai/tools/workspace.tool).

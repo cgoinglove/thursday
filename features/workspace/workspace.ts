@@ -13,6 +13,7 @@ import { homedir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import {
   APP_DIR,
+  BROWSER_CLI,
   BROWSER_VIEWPORT,
   DATA_DIR,
   JOB_FOLDER_WALK,
@@ -59,6 +60,17 @@ const WRITABLE = new Set([...BOT_FOLDERS, ".agents"]);
 
 /** Where playwright-cli drops a snapshot after every command. Its name, not ours. */
 const BROWSER_DIR = ".playwright-cli";
+
+/**
+ * A file in the CLI's folder that holds a browser's state (its sign-ins) for the length of
+ * one command: the CLI reads and writes state only by path (signins.query, ai/tools/signin.tool).
+ */
+export const browserStateFile = () =>
+  `${BROWSER_DIR}/state-${crypto.randomUUID()}.json`;
+
+/** The command that saves a browser's state to `path`, making the folder no command may have made yet. */
+export const saveBrowserState = (path: string) =>
+  `mkdir -p ${BROWSER_DIR} && playwright-cli state-save ${path}`;
 
 /**
  * playwright-cli looks upward for the nearest folder of this name and keeps its sessions
@@ -299,7 +311,29 @@ export async function pruneJobFiles(): Promise<void> {
   await pruneOutputFiles();
 }
 
-type ListedBrowser = { name: string; headed?: boolean; attached?: boolean };
+export type ListedBrowser = {
+  name: string;
+  headed?: boolean;
+  attached?: boolean;
+};
+
+/**
+ * The browsers `list --json` names for `env`. A CLI that printed nothing lists none; one that
+ * printed anything but its JSON throws, and each caller decides what that means.
+ */
+export async function listBrowsers(
+  sandbox: Sandbox,
+  env: Record<string, string>,
+): Promise<ListedBrowser[]> {
+  const listed = await sandbox.exec("playwright-cli list --json", {
+    env,
+    timeoutMs: BROWSER_CLI.readMs,
+  });
+  const { browsers } = JSON.parse(listed.stdout || "{}") as {
+    browsers?: ListedBrowser[];
+  };
+  return browsers ?? [];
+}
 
 /**
  * An expired job's workspace closes browsers nobody can see. Headless is the bot's
@@ -388,21 +422,16 @@ async function closeBrowsers(
 ): Promise<string[]> {
   const sandbox = await openWorkspace();
   const env = jobShellEnv(threadId);
-  const listed = await sandbox
-    .exec("playwright-cli list --json", { env, timeoutMs: 15_000 })
-    .catch(() => null);
-  let sessions: ListedBrowser[] = [];
-  try {
-    const { browsers } = JSON.parse(listed?.stdout ?? "") as {
-      browsers?: ListedBrowser[];
-    };
-    sessions =
-      browsers?.filter(
+  // A list that cannot be read closes nothing (closeHiddenBrowser)
+  const sessions = await listBrowsers(sandbox, env)
+    .then((browsers) =>
+      browsers.filter(
         (b) =>
           b.name === env.PLAYWRIGHT_CLI_SESSION ||
           b.name.startsWith(`${env.PLAYWRIGHT_CLI_SESSION}-`),
-      ) ?? [];
-  } catch {}
+      ),
+    )
+    .catch((): ListedBrowser[] => []);
   // A running session always has its entry in the CLI's folder: none there means the CLI
   // names it otherwise now, and a removed thread would leave its profiles on disk unseen
   const folder = sessions.length ? await browserDataFolder() : "";
@@ -419,7 +448,7 @@ async function closeBrowsers(
     await sandbox
       .exec("playwright-cli close", {
         env: { ...env, PLAYWRIGHT_CLI_SESSION: session.name },
-        timeoutMs: 15_000,
+        timeoutMs: BROWSER_CLI.readMs,
       })
       .catch(() => {});
   }

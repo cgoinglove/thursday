@@ -1,10 +1,14 @@
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { appEvents } from "@/app/api/events/app-event.server";
-import { DATA_DIR, PATHS } from "@/config";
+import { BROWSER_CLI, DATA_DIR, PATHS } from "@/config";
 import {
+  browserStateFile,
   jobShellEnv,
+  type ListedBrowser,
+  listBrowsers,
   openWorkspace,
+  saveBrowserState,
   WORKSPACE,
 } from "@/features/workspace/workspace";
 import { logger } from "@/lib/logger";
@@ -121,21 +125,13 @@ export async function borrowSignIn(
   return { kind: "state", signIn: record(used), state: kept.state };
 }
 
-type ListedBrowser = { name: string; attached?: boolean; headed?: boolean };
-
 /** A participant's session as the browser CLI lists it, or null when it has none open. */
 async function listedBrowser(
   sandbox: Sandbox,
   env: Record<string, string>,
 ): Promise<ListedBrowser | null> {
-  const listed = await sandbox.exec("playwright-cli list --json", {
-    env,
-    timeoutMs: 15_000,
-  });
-  const { browsers } = JSON.parse(listed.stdout || "{}") as {
-    browsers?: ListedBrowser[];
-  };
-  return browsers?.find((b) => b.name === env.PLAYWRIGHT_CLI_SESSION) ?? null;
+  const browsers = await listBrowsers(sandbox, env);
+  return browsers.find((b) => b.name === env.PLAYWRIGHT_CLI_SESSION) ?? null;
 }
 
 /**
@@ -182,13 +178,13 @@ export async function renewSignIns(session: string): Promise<void> {
   const env = jobShellEnv(session);
   if ((await sessionBrowser(sandbox, env)) !== "own") return;
 
-  const path = `.playwright-cli/state-${crypto.randomUUID()}.json`;
+  const path = browserStateFile();
   let now: Map<string, Cookie>;
   try {
-    const saved = await sandbox.exec(
-      `mkdir -p .playwright-cli && playwright-cli state-save ${path}`,
-      { env, timeoutMs: 30_000 },
-    );
+    const saved = await sandbox.exec(saveBrowserState(path), {
+      env,
+      timeoutMs: BROWSER_CLI.loadMs,
+    });
     if (saved.exitCode !== 0) return;
     const state = JSON.parse(await sandbox.readFile(path, "utf-8")) as State;
     now = new Map((state.cookies ?? []).map((c) => [cookieKey(c), c]));
