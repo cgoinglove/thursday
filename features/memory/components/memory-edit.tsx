@@ -1,7 +1,13 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, getToolName, isToolUIPart } from "ai";
+import {
+  type DeepPartial,
+  DefaultChatTransport,
+  getToolName,
+  type InferUITools,
+  isToolUIPart,
+} from "ai";
 import {
   ArrowUp,
   BookOpen,
@@ -20,6 +26,7 @@ import { ShinyText } from "@/components/ui/shiny-text";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import { ProviderIcon } from "@/features/ai/components/provider-icon";
 import type { TextModelProviderId } from "@/features/ai/model.schema";
+import type { createMemoryTools } from "@/features/ai/tools/memory.tool";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import type { MemoryNote } from "@/features/memory/memory.schema";
 import { cn } from "@/lib/utils";
@@ -210,33 +217,36 @@ type Change = {
   lines: { before?: string; after?: string }[];
 };
 
+/** Memory's tools as an edit runs them: a field renamed in memory.tool no longer compiles here. */
+type MemoryTools = InferUITools<ReturnType<typeof createMemoryTools>>;
+
+/** A call's arguments as far as they have arrived. */
+type Arriving<Name extends keyof MemoryTools> = DeepPartial<
+  MemoryTools[Name]["input"]
+>;
+
 /** What a call does, read off its arguments — still arriving while it streams — and the facts the screen has shown. */
 function describe(
   name: string,
   input: unknown,
   known: Map<number, KnownFact>,
 ): Change {
-  const args = (input ?? {}) as {
-    path?: string;
-    factIds?: (number | null | undefined)[] | null;
-    description?: string | null;
-    facts?: ({ text?: string; replaces?: number | null } | null)[] | null;
-  };
-  const path = args.path ?? "";
-
   if (name === TOOL_NAMES.memory_recall) {
-    return { kind: "Opened", path, lines: [] };
+    const args = (input ?? {}) as Arriving<"memory_recall">;
+    return { kind: "Opened", path: args.path ?? "", lines: [] };
   }
 
   if (name === TOOL_NAMES.memory_describe) {
+    const args = (input ?? {}) as Arriving<"memory_describe">;
     return {
       kind: "Rename",
-      path,
+      path: args.path ?? "",
       lines: args.description ? [{ after: `“${args.description}”` }] : [],
     };
   }
 
   if (name === TOOL_NAMES.memory_forget) {
+    const args = (input ?? {}) as Arriving<"memory_forget">;
     const ids = (args.factIds ?? []).filter((id) => id != null);
     const facts = ids.map((id) => known.get(id));
     return {
@@ -248,7 +258,11 @@ function describe(
     };
   }
 
-  // A new note's line leads its first facts; a fact replacing one the screen has shown reads as the change
+  // A new note's line leads its first facts; a fact replacing one the screen has shown reads as the change.
+  // Remember's facts are create's with `replaces` beside the text
+  const args = (input ?? {}) as Arriving<"memory_remember"> &
+    Pick<Arriving<"memory_create">, "description">;
+  const path = args.path ?? "";
   const facts = (args.facts ?? []).filter((fact) => fact != null);
   const lines: Change["lines"] = facts.map((fact) =>
     fact.replaces != null
