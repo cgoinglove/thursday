@@ -6,7 +6,8 @@
  *   node serve.mjs <dir>     prints the folder's address, and serves until it is stopped
  *
  * A script imports `serveFolder(dir)` instead: it resolves to the port, the address of a
- * file in the folder, and a close.
+ * file in the folder, and a close. `{ instead: { [path]: text } }` serves that text in place
+ * of the file on disk, which is how render.mjs shows a page in its shot mode without a copy.
  */
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
@@ -26,14 +27,20 @@ const TYPES = {
   ".gif": "image/gif",
   ".svg": "image/svg+xml",
   ".woff2": "font/woff2",
+  ".woff": "font/woff",
+  ".ttf": "font/ttf",
+  ".otf": "font/otf",
   ".mp3": "audio/mpeg",
   ".mp4": "video/mp4",
   ".pdf": "application/pdf",
 };
 
 /** Serves `dir` on 127.0.0.1; nothing outside it is ever answered. */
-export async function serveFolder(dir) {
+export async function serveFolder(dir, { instead = {} } = {}) {
   const root = resolve(dir);
+  const given = new Map(
+    Object.entries(instead).map(([path, text]) => [resolve(root, path), text]),
+  );
   const server = createServer((req, res) => {
     let path;
     try {
@@ -59,7 +66,8 @@ export async function serveFolder(dir) {
       "content-type":
         TYPES[extname(path).toLowerCase()] ?? "application/octet-stream",
     });
-    createReadStream(path).pipe(res);
+    if (given.has(path)) res.end(given.get(path));
+    else createReadStream(path).pipe(res);
   });
   // Port 0: the system picks a free one
   await new Promise((ok) => server.listen(0, "127.0.0.1", ok));

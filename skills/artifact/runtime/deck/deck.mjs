@@ -14,18 +14,16 @@
 //       slides that came out taller or wider than a slide, which is what does not fit.
 import { spawnSync } from "node:child_process";
 import {
-  copyFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
   rmSync,
-  writeFileSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { imageSize } from "../../../browser/scripts/image-size.mjs";
-import { keep, putBetween } from "../shell/put.mjs";
+import { getBetween, keep, putBetween } from "../shell/put.mjs";
 import { retitle, wear } from "../shell/wear.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -109,7 +107,7 @@ function putDeck(file, from, ...args) {
 function shotDeck(file) {
   if (!file || !existsSync(file)) throw new Stop(`No deck at ${file}.`);
   const html = readFileSync(file, "utf8");
-  if (!html.includes("body.shot"))
+  if (!getBetween(html))
     throw new Stop(`${file} is not a deck this can shoot.`);
 
   // Pictures of the slides the deck held before: fewer slides now leave some behind
@@ -120,23 +118,14 @@ function shotDeck(file) {
   rmSync(sheet, { force: true });
 
   // The renderer shoots every `[data-slide]` at one exact size, and cannot see a slide the
-  // deck has scaled to fit the window. So it is given a flat copy — the slides alone, at
-  // true size — in a dot-folder the app's screens do not list, with whatever sits beside
-  // the deck, since a picture a slide shows sits beside it.
-  const flat = join(dir, ".shots");
-  const copy = join(flat, file.slice(dir.length + 1));
-  rmSync(flat, { recursive: true, force: true });
-  mkdirSync(flat, { recursive: true });
-  writeFileSync(copy, html.replace(/<body(?=[\s>])/, '<body class="shot"'));
-  for (const entry of readdirSync(dir, { withFileTypes: true }))
-    if (entry.isFile() && join(dir, entry.name) !== file)
-      copyFileSync(join(dir, entry.name), join(flat, entry.name));
-
+  // deck has scaled to fit the window: --shot serves it with the slides alone, at true size,
+  // from its own folder, where a picture a slide shows sits
   const done = spawnSync(
     process.execPath,
     [
       join(SKILLS, "artifact", "runtime", "render.mjs"),
-      copy,
+      file,
+      "--shot",
       "--size",
       `${W}x${H}`,
       "--out",
@@ -150,7 +139,6 @@ function shotDeck(file) {
     ],
     { encoding: "utf8" },
   );
-  rmSync(flat, { recursive: true, force: true });
 
   // What came out says what did not fit: a slide that overflows comes out taller
   const pictures = readdirSync(dir)

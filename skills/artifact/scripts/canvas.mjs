@@ -8,10 +8,8 @@
 //   node canvas.mjs shots <name|path>         every board as a PNG beside it, each at its own size
 import { spawnSync } from "node:child_process";
 import {
-  copyFileSync,
   existsSync,
   mkdirSync,
-  readdirSync,
   readFileSync,
   rmSync,
   statSync,
@@ -166,29 +164,18 @@ function boardSizes(html) {
 async function shotCanvas(name) {
   const file = canvasAt(name);
   const html = readFileSync(file, "utf8");
-  // The canvas lays its boards flat for a picture with its own stylesheet: one without it
-  // was written over whole
-  if (!html.includes("body.shot")) throw rewritten(file);
+  // A canvas written over whole has lost the stylesheet that lays its boards flat for a picture
+  if (!getBetween(html)) throw rewritten(file);
   const sizes = boardSizes(html);
   if (!sizes.length)
     throw new Stop(
       `${shown(file)} holds no board: a board is one <article class="frame"> with a <div class="board" data-slide> inside.`,
     );
 
-  // The renderer shoots every `[data-slide]` at the size it is drawn, and cannot see a
-  // board the canvas has scaled to fit the window. So it is given a flat copy — the boards
-  // alone, at true size — in a dot-folder the app's screens do not list, with whatever
-  // sits beside the canvas, since a picture a board points at sits beside it.
+  // The renderer shoots every `[data-slide]` at the size it is drawn, and cannot see a board
+  // the canvas has scaled to fit the window: --shot serves it with the boards alone, at true
+  // size, from its own folder, where the pictures a board points at sit
   const dir = dirname(file);
-  const flat = join(dir, ".shots");
-  const copy = join(flat, file.slice(dir.length + 1));
-  rmSync(flat, { recursive: true, force: true });
-  mkdirSync(flat, { recursive: true });
-  writeFileSync(copy, html.replace(/<body(?=[\s>])/, '<body class="shot"'));
-  for (const entry of readdirSync(dir, { withFileTypes: true }))
-    if (entry.isFile() && join(dir, entry.name) !== file)
-      copyFileSync(join(dir, entry.name), join(flat, entry.name));
-
   const sheet = join(dir, "boards.png");
   rmSync(sheet, { force: true });
   const done = spawnSync(
@@ -196,7 +183,8 @@ async function shotCanvas(name) {
     // Never in the job's own browser, which may be a window on their screen
     [
       join(SKILLS, "artifact", "runtime", "render.mjs"),
-      copy,
+      file,
+      "--shot",
       "--out",
       dir,
       "--name",
@@ -207,12 +195,11 @@ async function shotCanvas(name) {
     ],
     { stdio: "inherit" },
   );
-  rmSync(flat, { recursive: true, force: true });
   // The renderer has already named what went wrong — a picture that did not load, no browser
   if (done.status !== 0)
     throw new Stop("Fix what it names above, then run this again.");
 
-  // A board that overflows grows in the flat copy instead of clipping, so its picture comes
+  // A board that overflows grows in shot mode instead of clipping, so its picture comes
   // out taller than the size it was written at. Named here by board, as the canvas itself
   // marks it `cut`.
   const { imageSize } = await import(

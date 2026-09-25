@@ -19,11 +19,11 @@
  *
  *   node render.mjs <slides.html> --out <dir> [--size 1080x1350] [--name slide] [--shot] [--most n] [--apart] [--sheet <file.png>]
  */
-import { createReadStream, existsSync, mkdirSync, statSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { createServer } from "node:http";
-import { basename, dirname, extname, resolve, sep } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import { imageSize } from "../../browser/scripts/image-size.mjs";
+import { serveFolder } from "../../browser/scripts/serve.mjs";
 import {
   fail,
   inPage,
@@ -63,49 +63,11 @@ const asShot = (html) =>
       : `<body class="shot"${attrs}>`,
   );
 
-const TYPES = {
-  ".html": "text/html; charset=utf-8",
-  ".css": "text/css",
-  ".js": "text/javascript",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".webp": "image/webp",
-  ".gif": "image/gif",
-  ".svg": "image/svg+xml",
-  ".woff2": "font/woff2",
-  ".woff": "font/woff",
-  ".ttf": "font/ttf",
-  ".otf": "font/otf",
-};
-const root = dirname(file);
-// Port 0: the system picks a free one, so two jobs rendering at once never meet
-const server = createServer((req, res) => {
-  const path = resolve(
-    root,
-    `.${decodeURIComponent(new URL(req.url, "http://x").pathname)}`,
-  );
-  if (
-    !path.startsWith(root + sep) ||
-    !existsSync(path) ||
-    statSync(path).isDirectory()
-  ) {
-    res.writeHead(404).end();
-    return;
-  }
-  res.writeHead(200, {
-    "content-type":
-      TYPES[extname(path).toLowerCase()] ?? "application/octet-stream",
-  });
-  if (opts.shot && path === file)
-    readFile(path, "utf8").then(
-      (html) => res.end(asShot(html)),
-      () => res.end(),
-    );
-  else createReadStream(path).pipe(res);
+// The file's folder, so pictures beside it load; in shot mode the file itself as that draws it
+const served = await serveFolder(dirname(file), {
+  instead: opts.shot ? { [file]: asShot(await readFile(file, "utf8")) } : {},
 });
-await new Promise((ok) => server.listen(0, "127.0.0.1", ok));
-const url = `http://127.0.0.1:${server.address().port}/${encodeURIComponent(basename(file))}`;
+const url = served.url(basename(file));
 
 const done = orFail(
   await (opts.apart ? inPageApart : inPage)(
@@ -233,7 +195,7 @@ const done = orFail(
     { url, w, h, out, name, most, sheet },
   ),
 );
-server.close();
+served.close();
 
 let wrong = 0;
 for (const path of done.files) {
