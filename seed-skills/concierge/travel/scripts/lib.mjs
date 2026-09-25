@@ -21,10 +21,11 @@ export function parseArgs(argv = process.argv.slice(2)) {
   return opts;
 }
 
-export const money = (amount, code) =>
+/** An amount as the page's language writes it: "€1,234" in English, "1.234 €" in German. */
+export const money = (amount, code, lang) =>
   amount == null
     ? "?"
-    : new Intl.NumberFormat("en-US", {
+    : new Intl.NumberFormat(lang, {
         style: "currency",
         currency: code,
         maximumFractionDigits: 0,

@@ -95,7 +95,7 @@ const out = join(
   `${name}.html`,
 );
 
-const cur = String(trip.currency ?? "USD").toUpperCase();
+const cur = trip.currency ? String(trip.currency).toUpperCase() : null;
 const lang = String(trip.lang ?? "en");
 const place = String(trip.place ?? "");
 const L = {
@@ -134,7 +134,15 @@ const fmtDay = (iso, withWeekday = true) => {
     timeZone: "UTC",
   });
 };
-const cost = (v) => (typeof v === "number" ? money(v, cur) : esc(v));
+/** An amount in the trip's currency. The JSON names it: a price with none would be read as whatever the reader thinks in. */
+const inCurrency = (amount) => {
+  if (!cur)
+    fail(
+      'The trip has prices but no "currency": add the one they are in (an ISO code such as "EUR") and build again.',
+    );
+  return money(amount, cur, lang);
+};
+const cost = (v) => (typeof v === "number" ? inCurrency(v) : esc(v));
 const mapsSearch = (q) =>
   `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 const mapQuery = (s) => s.map ?? [s.name, place].filter(Boolean).join(", ");
@@ -325,9 +333,9 @@ const facts = [
   ...(costs.length
     ? [
         [
-          money(total, cur),
+          inCurrency(total),
           people > 1
-            ? `${L.total} · ${money(total / people, cur)} ${L.perPerson}`
+            ? `${L.total} · ${inCurrency(total / people)} ${L.perPerson}`
             : L.total,
           "total",
         ],
@@ -375,7 +383,7 @@ if (trip.stay) {
       ? `<span class="price">${cost(s.price)}</span> / ${esc(L.night)}`
       : "",
     nights && typeof s.price === "number"
-      ? `${money(s.price * nights, cur)} · ${nights} ${esc(nights > 1 ? L.nights : L.night)}`
+      ? `${inCurrency(s.price * nights)} · ${nights} ${esc(nights > 1 ? L.nights : L.night)}`
       : "",
     s.rating ? `★ ${esc(s.rating)}` : "",
   ].filter(Boolean);
@@ -444,9 +452,9 @@ if (costs.length) {
   parts.push(
     `<h2>${esc(L.costs)}</h2><section class="panel"><table><tbody>${rows}<tr class="total"><td>${esc(L.total)}${
       people > 1
-        ? `<small>${money(total / people, cur)} ${esc(L.perPerson)}</small>`
+        ? `<small>${inCurrency(total / people)} ${esc(L.perPerson)}</small>`
         : ""
-    }</td><td class="num">${money(total, cur)}</td></tr></tbody></table>${trip.fx ? `<div class="fx">${esc(trip.fx)}</div>` : ""}</section>`,
+    }</td><td class="num">${inCurrency(total)}</td></tr></tbody></table>${trip.fx ? `<div class="fx">${esc(trip.fx)}</div>` : ""}</section>`,
   );
 }
 

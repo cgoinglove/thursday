@@ -1,7 +1,8 @@
 # The itinerary's JSON
 
 `itinerary.mjs` reads one JSON file and writes the page. Only `title` and `days` (each with
-`stops`, each with a `name`) are required; every section appears when its field is there.
+`stops`, each with a `name`) are required, and `currency` once any price is there; every section
+appears when its field is there.
 Words on the page are yours, in the user's language: set `lang` and `labels` when it is not English.
 
 ```json
