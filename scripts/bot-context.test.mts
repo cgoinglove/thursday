@@ -2036,3 +2036,49 @@ test("a bot rewrites the line it is picked by, until the user locks it", async (
     .set({ description: "Gamma test worker", descriptionLocked: false })
     .where(eq(botTable.name, "Gamma"));
 });
+
+test("the roster holds BOT_ROSTER.max bots, switched off or not, and ready-made ones stop there", async () => {
+  const { BOT_ROSTER } = await import("../config.ts");
+  const { countBots, createBot } = await import("../features/bot/bot.query.ts");
+  const { createSeedBotsAction } = await import(
+    "../features/bot/bot.action.ts"
+  );
+  const { BOT_SEEDS } = await import("../features/bot/bot.seed.ts");
+  const { unwrapResult } = await import("../lib/protocol/result.ts");
+  const { inArray } = await import("drizzle-orm");
+  const before = await countBots();
+  const made: string[] = [];
+  const form = (name: string) => ({
+    name,
+    description: "Fills the roster",
+    toolIds: [],
+  });
+  for (let at = before; at < BOT_ROSTER.max - 2; at++) {
+    const bot = await createBot(form(`Filler${at}`));
+    assert.ok(bot);
+    made.push(bot.name);
+  }
+  // One off still counts: it is a switch away from the roster
+  await database
+    .update(botTable)
+    .set({ disabled: true })
+    .where(eq(botTable.name, made[0]));
+
+  // Two places left: the seeds fill them in list order and the rest are left out
+  const { created } = unwrapResult(
+    await createSeedBotsAction(BOT_SEEDS.map((seed) => ({ name: seed.name }))),
+  );
+  assert.deepEqual(
+    created,
+    BOT_SEEDS.slice(0, 2).map((seed) => seed.name),
+  );
+  made.push(...created);
+  assert.equal(await countBots(), BOT_ROSTER.max);
+  await assert.rejects(
+    createBot(form("OneTooMany")),
+    new RegExp(`already ${BOT_ROSTER.max} bots`),
+  );
+
+  await database.delete(botTable).where(inArray(botTable.name, made));
+  assert.equal(await countBots(), before);
+});

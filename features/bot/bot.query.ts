@@ -1,5 +1,6 @@
-import { eq, inArray, sql } from "drizzle-orm";
+import { count, eq, inArray, sql } from "drizzle-orm";
 import { appEvents } from "@/app/api/events/app-event.server";
+import { BOT_ROSTER } from "@/config";
 import { database } from "@/database/db";
 import {
   botMcpToolTable,
@@ -10,6 +11,7 @@ import {
 import type { Effort, TextModelProviderId } from "@/features/ai/model.schema";
 import { readConfig, writeConfig } from "@/features/config/config.query";
 import { botFolderName } from "@/features/workspace/workspace";
+import { publicError } from "@/lib/public-error";
 import {
   BOT_MEMORY_KEY,
   type BotForm,
@@ -185,6 +187,12 @@ export async function rewriteBotDescription(
   return row.description;
 }
 
+/** Rows on the roster, switched off or not: what BOT_ROSTER.max counts. */
+export async function countBots(): Promise<number> {
+  const [{ total }] = await database.select({ total: count() }).from(botTable);
+  return total;
+}
+
 /**
  * Every name that has folders in the workspace: the rows, switched off or not,
  * and DEFAULT_BOT, which works without one.
@@ -197,13 +205,17 @@ export async function listBotNames(): Promise<string[]> {
 /**
  * Returns null when the name is taken: two bots with one name would be a coin
  * toss at delegate time, and two whose names give one folder would share their
- * memory and artifacts (workspace.ts botFolderName).
+ * memory and artifacts (workspace.ts botFolderName). Refused past BOT_ROSTER.max.
  */
 export async function createBot(form: BotForm) {
   const folder = botFolderName(form.name).toLowerCase();
   const rows = await database.select({ name: botTable.name }).from(botTable);
   if (rows.some((row) => botFolderName(row.name).toLowerCase() === folder))
     return null;
+  if (rows.length >= BOT_ROSTER.max)
+    publicError(
+      `There are already ${BOT_ROSTER.max} bots. Delete one to make another.`,
+    );
 
   const { toolIds, ...values } = pickedModel(form);
   const [bot] = await database.insert(botTable).values(values).returning();

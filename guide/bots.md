@@ -8,6 +8,9 @@ a description and a model, and a name cannot be changed later — and a bot's pa
 **Runs on** and its **Effort**, when it **Compacts at**, its **Tools**, its own **Prompt**, its
 recent threads and its own memory. A bot can be switched off without being deleted. The first run
 offers the ready-made ones, all switched on; **Ready-made bots**, beside New bot, adds one later.
+There can be at most 14 bots, switched-off ones included: at 14 the roster says "14 is the most" in
+place of New bot, and one has to be deleted before another is made. When fewer places are left than
+ready-made bots on offer, only as many as fit are ticked; unticking one lets another be picked.
 
 A bot can rewrite its own description when what it does has changed for good — the user told it
 what it is for, it gained a skill of its own, or the same kind of job keeps coming to it — and it

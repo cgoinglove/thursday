@@ -415,6 +415,15 @@ export const BOT_RUN = {
 };
 
 /**
+ * How many bots can exist, switched off or not: an off bot is one switch from the roster.
+ * Past it, making one is refused with the number, and ready-made bots are added only as far
+ * as it goes. Every bot that is on is a line in every prompt and one more for Thursday to
+ * choose between (PROMPT_CROWDED says so first); higher lets the roster outgrow what a call
+ * picks from well.
+ */
+export const BOT_ROSTER = { max: 14 };
+
+/**
  * How much a bot's own memory (`bots/<name>/memory/`, features/bot/bot.memory) holds. Its
  * prompt lists every file by its first line, paid on every step of every job that bot runs,
  * and a job that opens a file reads all of it. A `bash` or `write_file` that leaves more files,

@@ -1,11 +1,13 @@
 "use server";
 
 import { z } from "zod";
+import { BOT_ROSTER } from "@/config";
 import { textModelProviderSchema } from "@/features/ai/model.schema";
 import { removeBotFolder } from "@/features/workspace/workspace";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
 import {
+  countBots,
   createBot,
   deleteBot,
   findJobBot,
@@ -48,12 +50,15 @@ const SeedPickSchema = z.object({
 });
 
 /**
- * Creates seed bots (bot.seed). A taken name is skipped, not an error.
+ * Creates seed bots (bot.seed). A taken name is skipped, not an error, and seeds past
+ * BOT_ROSTER.max are left out in list order: a key saved on the call screen offers every
+ * seed to a roster that may already be nearly full.
  * No model is resolved here: a half pick (provider or id alone) is emptied by
  * `createBot` and the bot runs on the app default at run time.
  */
 export const createSeedBotsAction = serverAction(async (picks: unknown) => {
   const wanted = SeedPickSchema.array().max(20).parse(picks);
+  const room = BOT_ROSTER.max - (await countBots());
 
   // Seeds carry no face of their own (bot.seed); one roll covers the whole batch
   // so bots made together never come out looking alike. Read by the seed's own
@@ -63,6 +68,7 @@ export const createSeedBotsAction = serverAction(async (picks: unknown) => {
 
   const created: string[] = [];
   for (const pick of wanted) {
+    if (created.length >= room) break;
     const seed = findBotSeed(pick.name);
     if (!seed) continue;
     const bot = await createBot({

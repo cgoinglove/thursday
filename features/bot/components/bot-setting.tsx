@@ -40,7 +40,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { APP_NAME, BOT_RUN, PROMPT_CROWDED } from "@/config";
+import { APP_NAME, BOT_ROSTER, BOT_RUN, PROMPT_CROWDED } from "@/config";
 import { EffortSwitch } from "@/features/ai/components/effort-switch";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import {
@@ -164,31 +164,38 @@ export function BotSetting() {
       left={
         <div className="flex flex-col py-2">
           {/* The two ways to get a bot, on one line and apart from the roster
-              under it: a seed is not a bot you have */}
-          <div className="mx-2 mb-1 flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setPicked(NEW)}
-              className={cn(
-                "flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
-                drafting
-                  ? PICKED_ROW
-                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-              )}
-            >
-              <Plus className="size-3.5 shrink-0" />
-              New bot
-            </button>
+              under it: a seed is not a bot you have. At the ceiling the line
+              says so in their place, since neither could make one */}
+          {bots.length >= BOT_ROSTER.max ? (
+            <p className="mx-2 mb-1 px-2 py-1.5 font-mono text-[11px] leading-5 text-muted-foreground">
+              {bots.length} bots · {BOT_ROSTER.max} is the most
+            </p>
+          ) : (
+            <div className="mx-2 mb-1 flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setPicked(NEW)}
+                className={cn(
+                  "flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
+                  drafting
+                    ? PICKED_ROW
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                )}
+              >
+                <Plus className="size-3.5 shrink-0" />
+                New bot
+              </button>
 
-            {bots.length > 0 && missing.length > 0 && (
-              <SeedInvite
-                missing={missing}
-                faces={faces}
-                have={have}
-                onDone={(name) => setPicked(name)}
-              />
-            )}
-          </div>
+              {bots.length > 0 && missing.length > 0 && (
+                <SeedInvite
+                  missing={missing}
+                  faces={faces}
+                  have={have}
+                  onDone={(name) => setPicked(name)}
+                />
+              )}
+            </div>
+          )}
 
           {bots.map((bot) => (
             <RosterRow
@@ -379,14 +386,23 @@ function unmetLine(
  * ticked already, because the set is the recommendation and unticking is the
  * decision; one already on the roster is locked on and says so, since `createBot`
  * would only answer "already exists", which is an error about something this
- * screen already knows. One call creates all of them.
+ * screen already knows. Near BOT_ROSTER.max only as many as fit start ticked, in
+ * list order, and the rest wait until one is unticked. One call creates all of them.
  */
 function useSeedPicks(
   have: Set<string>,
   faces: BotIcon[],
   onDone: (name: string | null) => void,
 ) {
-  const [off, setOff] = useState<Set<string>>(new Set());
+  const room = Math.max(0, BOT_ROSTER.max - have.size);
+  const [off, setOff] = useState<Set<string>>(
+    () =>
+      new Set(
+        BOT_SEEDS.filter((seed) => !have.has(seed.name))
+          .slice(room)
+          .map((seed) => seed.name),
+      ),
+  );
   const [add, adding] = useServerAction(createSeedBotsAction, {
     onOk: (made) => {
       revalidate(queryKey.bot);
@@ -401,18 +417,35 @@ function useSeedPicks(
   // its size goes negative the moment a bot nobody seeded is on it.
   const addable = BOT_SEEDS.filter((seed) => !have.has(seed.name));
   const wanted = addable.filter((seed) => !off.has(seed.name));
+  const limited = room < addable.length;
+  const full = wanted.length >= room;
+  const fit = `${room} more ${room === 1 ? "fits" : "fit"}`;
 
   return {
     isSet,
     adding,
     addable,
     wanted,
+    /** Fewer places are left than seeds on offer (BOT_ROSTER.max). */
+    limited,
+    /** What Add will do, said before the click; near the ceiling, how many fit. */
+    note: limited
+      ? full
+        ? `${fit} · untick one to pick another`
+        : `${wanted.length} ticked · ${fit}`
+      : wanted.length === 0
+        ? "nothing ticked"
+        : `${wanted.length} of ${addable.length} ticked`,
     ticked: (seed: BotSeed) => have.has(seed.name) || !off.has(seed.name),
+    /** Unticked while every place left is taken: it can be ticked once another is not. */
+    blocked: (seed: BotSeed) =>
+      !have.has(seed.name) && off.has(seed.name) && full,
     toggle: (name: string) =>
       setOff((was) => {
         const next = new Set(was);
-        if (next.has(name)) next.delete(name);
-        else next.add(name);
+        // Off is the unticked set: ticking one takes a place, unticking gives it back
+        if (!next.has(name)) next.add(name);
+        else if (!full) next.delete(name);
         return next;
       }),
     submit: () =>
@@ -440,13 +473,14 @@ function SeedRows({
       {BOT_SEEDS.map((seed, at) => {
         const owned = have.has(seed.name);
         const on = picks.ticked(seed);
+        const blocked = picks.blocked(seed);
         const needs = unmetLine(seed, picks.isSet);
         return (
           <div
             key={seed.name}
             className={cn(
               "rounded-xl ring-1 transition-colors",
-              owned
+              owned || blocked
                 ? "opacity-45 ring-border/60"
                 : on
                   ? cn(PICKED_ROW, "ring-brand")
@@ -455,7 +489,7 @@ function SeedRows({
           >
             <button
               type="button"
-              disabled={owned || picks.adding}
+              disabled={owned || blocked || picks.adding}
               aria-pressed={on}
               onClick={() => picks.toggle(seed.name)}
               className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-default"
@@ -580,9 +614,7 @@ function SeedPackage({
 
       <div className="mt-auto flex items-center gap-3 border-t border-border/60 px-8 py-4">
         <span className="flex-1 font-mono text-[11px] text-muted-foreground">
-          {picks.wanted.length === 0
-            ? "nothing ticked"
-            : `${picks.wanted.length} of ${picks.addable.length} ticked`}
+          {picks.note}
         </span>
         <SeedActions picks={picks} onCancel={() => onDone(null)} />
       </div>
@@ -606,7 +638,17 @@ function SeedDialog({
     <SettingDialogContent
       title="Bots you can add"
       description="Each one is a starting point — re-prompt it, give it a model of its own. What a bot needs before it can work stands on its row."
-      footer={<SeedActions picks={picks} onCancel={() => onDone(null)} />}
+      footer={
+        <>
+          {/* Only near the ceiling: otherwise Add's own label says what it does */}
+          {picks.limited && (
+            <span className="flex-1 self-center font-mono text-[11px] text-muted-foreground">
+              {picks.note}
+            </span>
+          )}
+          <SeedActions picks={picks} onCancel={() => onDone(null)} />
+        </>
+      }
     >
       <SeedRows have={have} faces={faces} picks={picks} />
     </SettingDialogContent>
