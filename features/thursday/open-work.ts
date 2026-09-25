@@ -87,6 +87,9 @@ function spoken(text: string): string {
   return `${kept}\n[The message goes on; the rest is in its thread on screen.]`;
 }
 
+/** A bot's question as an item key: whoever pairs an item with its question builds the key here (reach). */
+export const questionKey = (questionId: string) => `question:${questionId}`;
+
 /**
  * Everything in the inbox still waiting on the user, most pressing first:
  * questions, then jobs stopped or finished and not yet seen, then
@@ -115,7 +118,7 @@ export function openWork(threads: Thread[]): OpenWork[] {
         : "";
       items.push({
         rank: OPEN_RANK.question,
-        key: `question:${question.id}`,
+        key: questionKey(question.id),
         kind: "question",
         line: `${bracket(question.bot, "question")}\n${spoken(question.text)}${options}`,
         relayIds: relays

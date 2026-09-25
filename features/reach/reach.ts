@@ -19,7 +19,11 @@ import {
   removeConfig,
   writeConfig,
 } from "@/features/config/config.query";
-import { type OpenWork, openWork } from "@/features/thursday/open-work";
+import {
+  type OpenWork,
+  openWork,
+  questionKey,
+} from "@/features/thursday/open-work";
 import { endCall, isCallOpen } from "@/features/thursday/thursday.query";
 import {
   answerInWriting,
@@ -816,7 +820,7 @@ async function lookForOpenWork() {
   for (const key of state.told.keys())
     if (!keys.has(key)) state.told.delete(key);
   for (const [data, choice] of state.choices)
-    if (!keys.has(`question:${choice.question}`)) state.choices.delete(data);
+    if (!keys.has(questionKey(choice.question))) state.choices.delete(data);
 
   const fresh = open.filter((item) => !state.told.has(item.key));
   if (!fresh.length) return;
@@ -875,7 +879,7 @@ async function tell(
   const { live, person } = to;
   // A question's own options answer the bot directly, without a turn of hers in between
   const question = thread.room.questions.find(
-    (one) => `question:${one.id}` === item.key,
+    (one) => questionKey(one.id) === item.key,
   );
   const buttons = (question?.options ?? []).map((option, at) => {
     const data = `${question?.id.slice(0, 40)}:${at}`;
