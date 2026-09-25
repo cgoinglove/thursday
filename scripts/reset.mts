@@ -170,6 +170,34 @@ const GROUPS: Group[] = [
   ),
 ];
 
+/**
+ * The processes that have this data folder's database open: a server running on it, which
+ * would keep a handle to a deleted database and write on into what is wiped. Asked of lsof
+ * by path, so a server on another data folder, or another project's, is not one of them.
+ * Nothing is stopped from here; an Error when lsof could not be asked.
+ */
+function holders(): string[] | Error {
+  const paths = [DB_PATH, `${DB_PATH}-wal`, `${DB_PATH}-shm`].filter(
+    existsSync,
+  );
+  if (!paths.length) return [];
+  // Exits 1 when nothing has them open: an empty list, not a failure
+  const found = spawnSync("lsof", ["-t", ...paths], { encoding: "utf8" });
+  if (found.error) return found.error;
+  const pids = new Set(
+    found.stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean),
+  );
+  return [...pids].map((pid) => {
+    const command = spawnSync("ps", ["-o", "command=", "-p", pid], {
+      encoding: "utf8",
+    }).stdout?.trim();
+    return `${pid}  ${command || "?"}`;
+  });
+}
+
 const present = GROUPS.filter((group) => group.live());
 for (const group of present) group.size = group.measure() || "—";
 
@@ -177,6 +205,19 @@ if (!present.length) {
   console.log("\nNothing to wipe.\n");
   process.exit(0);
 }
+
+const held = holders();
+if (held instanceof Error) {
+  console.log(
+    `\n  Could not ask what has ${DB_FILE} open (lsof: ${held.message}).\n  Stop any Thursday server on this data folder before wiping.`,
+  );
+} else if (held.length) {
+  console.error(
+    `\n  ${DB_FILE} is open in a running server:\n\n${held.map((line) => `    ${line}`).join("\n")}\n\n  Stop it, then run this again. One that starts with your Mac comes back\n  by itself until: thursday autostart --off\n`,
+  );
+  process.exit(1);
+}
+
 if (!process.stdin.isTTY) {
   console.error("Run this from a terminal — someone has to choose.");
   process.exit(1);
@@ -244,15 +285,6 @@ const ask = (question: string): Promise<string> =>
     });
   });
 
-/** Runs a command quietly. */
-const hush = (cmd: string, args: string[]) =>
-  spawnSync(cmd, args, { stdio: "ignore" });
-
-// A running server would keep a handle to the deleted database.
-function stopEverything() {
-  hush("pkill", ["-f", "next dev"]);
-}
-
 const chosen = await choose();
 if (!chosen?.length) {
   console.log("Cancelled.\n");
@@ -267,7 +299,6 @@ if (!/^y/i.test(await ask("  Sure? [y/N] "))) {
 }
 
 console.log();
-stopEverything();
 // The picks are independent: one group failing is not a reason to skip the rest.
 let failed = false;
 for (const group of groups) {
