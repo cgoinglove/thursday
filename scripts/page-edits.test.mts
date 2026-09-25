@@ -123,7 +123,11 @@ test("a chart drawn into a document is part of what the bot put, and a page open
     "chart.mjs",
   );
   const draw = (id: string) =>
-    execFileSync(process.execPath, [chart, file, id, csv]);
+    execFileSync(process.execPath, [chart, file, id, csv], { stdio: "pipe" });
+
+  // An id the empty figure does not wait for is turned away, not drawn at the end
+  assert.throws(() => draw("rates"), /empty figures wait for "rent"/);
+  assert.equal(await readFile(file, "utf8"), put);
 
   draw("rent");
   const drawn = await readFile(file, "utf8");

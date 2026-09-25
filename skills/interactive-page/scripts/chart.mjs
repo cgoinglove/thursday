@@ -719,8 +719,17 @@ ${sourceLine}
   const selfClosed = new RegExp(
     `<(figure|div|section|p)\\b[^>]*\\bid=["']${id}["'][^>]*/>`,
   );
+  // An empty figure still waiting under another id is where this chart was meant to go: a
+  // mismatched id would leave that place blank and put the chart at the end of the page
+  const waiting = [
+    ...html.matchAll(/<figure\b[^>]*\bid=["']([\w-]+)["'][^>]*>\s*<\/figure>/g),
+  ].map((match) => match[1]);
   if (existing.test(html)) html = html.replace(existing, () => figure);
   else if (selfClosed.test(html)) html = html.replace(selfClosed, () => figure);
+  else if (waiting.length)
+    throw new Stop(
+      `The page has no element with id "${id}", and its empty figures wait for ${waiting.map((one) => `"${one}"`).join(", ")}. Draw into one of those ids, or fill them first.`,
+    );
   else if (html.includes(END))
     html = html.replace(END, () => `${figure}\n${END}`);
   else if (html.includes("</body>"))
