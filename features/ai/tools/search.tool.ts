@@ -134,7 +134,9 @@ async function askSearcher(
     ),
   ].slice(0, SEARCH.sources);
 
-  // Its pages stay in the text: only a bot searches this way, and no screen draws them apart
+  // Its pages stay in the text, a `title — url` line each: only a bot searches this way, its
+  // tool answers with text alone, and a step's row reads the pages back out of those lines
+  // (thread.query PAGE_HEAD, bot-tool pagesOf)
   return {
     text: [text.trim(), urls.length ? `Sources:\n${urls.join("\n")}` : ""]
       .filter(Boolean)

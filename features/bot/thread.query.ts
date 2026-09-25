@@ -1000,14 +1000,14 @@ function linesOf(message: StoredMessage, addressee: string): ThreadLine[] {
   return [];
 }
 
+/** How a search names a page it read (search.tool): `title — url`, its date after it at most. */
+const PAGE_HEAD = /https?:\/\/\S+(?: · \d{4}-\d{2}-\d{2})?\s*$/;
+
 /**
  * List line for one tool result: a glance of text lines, each clipped, and whether
  * the output holds more. Asks for one line past the glance to know. Called for tool
  * rows and, for provider-run tools, assistant rows.
  */
-/** How a search names a page it read (search.tool): `title — url`, its date after it at most. */
-const PAGE_HEAD = /https?:\/\/\S+(?: · \d{4}-\d{2}-\d{2})?\s*$/;
-
 function resultLine(
   base: Omit<ThreadLine, "id" | "kind">,
   id: string,
