@@ -430,14 +430,19 @@ class McpManager {
 }
 
 /**
- * A blocked registration endpoint surfaces as "HTTP 403: Invalid OAuth error response". Such a
- * server wants an OAuth app registered by hand, which this app does not take: say so.
+ * A server that refuses dynamic client registration wants an OAuth app registered by hand,
+ * which this app does not take: say so. The refusal comes back from the SDK as "Invalid OAuth
+ * error response" — "HTTP 403: " in front only when it could read the status, which
+ * @ai-sdk/mcp 2.0.57 loses (it prints the body as "[object Response]") — and before a client
+ * is kept, registration is the one step that can answer so.
  */
 function describeConnectFailure(error: unknown, row: StoredMcpServer): string {
   const message = errorToString(error);
-  const blockedRegistration =
-    /\b40[13]\b/.test(message) && /OAuth|register/i.test(message);
-  if (blockedRegistration && isRemoteConfig(row.config))
+  const refused =
+    isRemoteConfig(row.config) &&
+    !row.oauth?.clientInformation &&
+    /Invalid OAuth error response/.test(message);
+  if (refused)
     return "This server does not let an app register itself for sign-in, so it cannot be connected here.";
   return message;
 }
