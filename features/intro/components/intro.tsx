@@ -449,7 +449,8 @@ export function Intro({
 
 /** Her lines so far on the way through the steps, so the earlier ones recede as captions do. */
 function herTurns(step: Step, keyed: boolean, heard: boolean): Turn[] {
-  const line = (id: string, text: string): Turn => ({
+  // Each id is also the clip she says it with, so a line with no recording does not compile
+  const line = (id: IntroLine, text: string): Turn => ({
     id,
     role: "assistant",
     text,
