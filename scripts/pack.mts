@@ -380,7 +380,7 @@ const REQUIRED = [
   // Every skill's script that drives a browser imports it (THURSDAY_SKILLS)
   "skills/browser/scripts/session.mjs",
   // Without its lockfile the page kit installs whatever versions are current that day
-  "skills/interactive-page/runtime/kit/package-lock.json",
+  "skills/artifact/runtime/app/kit/package-lock.json",
   // What `document.mjs new`, `canvas.mjs new`, `book.mjs new` and `deck.mjs put` inline, and
   // what turns a document's Markdown into its body; without them each is an error
   "skills/artifact/runtime/document/pages/blank.html",

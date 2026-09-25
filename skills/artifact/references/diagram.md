@@ -58,8 +58,8 @@ holds as `$THURSDAY_ARTIFACTS`.
    ```
 
    A non-zero exit means no new page was written, whatever else was printed.
-   Hand back the path. To look at it yourself, use the `browser` skill and serve
-   the folder as SKILL.md describes.
+   Hand back the path. To look at it yourself, `node <skill dir>/scripts/document.mjs
+   shots <its path>` shoots it as it opens, for `look_at`.
 
 ## Writing the spec
 

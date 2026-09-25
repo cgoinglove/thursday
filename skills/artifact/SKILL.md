@@ -1,15 +1,18 @@
 ---
 name: artifact
-description: "Makes what the user keeps and looks at: a document, a canvas, a picture book, a deck. Use it for a report or memo, options or a mockup at real size, an explanation in pictures, or slides; a tool they use is interactive-page."
+description: "Makes what the user keeps or uses: a document, canvas, picture book, deck, page or app. Use it for a report or memo, options or a mockup at real size, an explanation in pictures, slides, a tool such as a calculator or a tracker, numbers as a chart, or a diagram of how something is built."
 license: Complete terms in LICENSE.txt
 ---
 
 # Artifact
 
-What the user keeps and looks at, drawn by the app from what you write. You write the content;
-the app does the rest — the layout, the type, light and dark, a head that names it with Edit and
-Export, and the pictures. Every kind is one file in your folder under `artifacts/` that opens with
-no network, and its path is what you hand back. `S=<skill dir>/scripts`
+What the user keeps, looks at or uses. Every kind is one file in your folder under `artifacts/`
+that opens with no network, and its path is what you hand back. `S=<skill dir>/scripts`
+
+## To keep and look at
+
+Drawn by the app from what you write. You write the content; the app does the rest — the layout,
+the type, light and dark, a head that names it with Edit and Export, and the pictures.
 
 | They will | Kind | Start | Read first |
 |---|---|---|---|
@@ -18,18 +21,35 @@ no network, and its path is what you hand back. `S=<skill dir>/scripts`
 | understand one thing simply — a picture and a line or two a page, to swipe, as a PDF or read aloud | picture book | `node $S/book.mjs new <name>` | `references/book.md` |
 | watch it presented | deck | the `make_deck` tool | `references/deck.md` |
 
-A page they use rather than read — a calculator, a tracker, a small app — is `interactive-page`.
-A few paragraphs that answer a question stay your final text; a kind here is for what they will
-keep, share or come back to.
-
-## For every kind
-
 - **Write the content, never the file around it.** Each script makes its file and puts what you
   wrote into it; a file you write whole yourself loses its head, its editing and its check.
 - **A name is yours, a path is anyone's.** A name reaches only your own folder; a document, canvas
   or book another bot handed you is reached by its path.
 - **Change what exists by getting it first.** The user may have edited it in the app since you
   made it. `get` it into a file, change that, `put` it back: `put` refuses to undo their edits.
+
+## To use
+
+Built whole by you, with no head from the app and no Edit: a page someone reads and edits is a
+document.
+
+| They will | Kind | Start | Read first |
+|---|---|---|---|
+| use a small tool — a calculator, a converter, a checklist that remembers | page | one HTML file you write whole, its `<style>` and `<script>` inside it | `references/app.md` |
+| use an app — screens, state that builds up, forms, charts that respond | app | `node $S/app.mjs new <name>`, write it in React, `build` it | `references/app.md` |
+| see how something is built or flows — a system, a process, calls in order | diagram | the archify engine in `$S/archify` | `references/diagram.md` |
+
+## Charts
+
+Numbers they should see are a chart, drawn into the document, page or book that carries them:
+`node $S/chart.mjs <file.html> <figure id> <data.csv>` (no arguments lists its options). Never
+hand-write chart SVG.
+
+A few paragraphs that answer a question stay your final text; a kind here is for what they will
+keep, share, use or come back to.
+
+## For every kind
+
 - **Nothing invented.** A figure, a price, a quote or a date you were not given is a visible blank,
   `[PRICE]`, for them to fill — never a plausible one.
 - **Pictures come off the pages you read.** `node $THURSDAY_SKILLS/browser/scripts/webimage.mjs
@@ -37,6 +57,8 @@ keep, share or come back to.
 - **Look once where the look is the work.** A canvas and a picture book come back as one picture
   of every board or page (`shots`, then `look_at`): fix what it refuses or marks as cut, two
   rounds at most. A document and a deck are drawn by the app from what you wrote, so they go
-  back without a second look.
+  back without a second look. A page, an app or a diagram is looked at only when asked, with
+  `node $S/document.mjs shots <its path>`: an app's build and a diagram's check already name
+  what is broken.
 - **Hand back** the file's path — a canvas or a book with its pictures' paths — and say in a line
   or two what it holds and what you would do next with it.

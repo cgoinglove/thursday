@@ -1,5 +1,5 @@
 ---
-checked: 2026-09-24
+checked: 2026-09-25
 paths:
   - "skills/**"
   - "seed-skills/**"
@@ -21,7 +21,7 @@ the user opens what they made in the app and edits a page, a deck or a canvas th
 - `skills/README.md` — which folders are not skills, the script paths promised, outside copies.
 - `features/skills/skills.discover.ts` — where skills are found, which one holds a name, a ready-made bot's kit, the old copies left unlisted.
 - `features/ai/tools/skills.tool.ts` — `load_skill`: a skill's instructions and files.
-- `skills/artifact/SKILL.md` — what the user keeps (document, canvas, picture book, deck) as one skill, its `runtime/` behind it.
+- `skills/artifact/SKILL.md` — what the user keeps or uses (document, canvas, picture book, deck, page, app, chart, diagram) as one skill, its `runtime/` behind it.
 - `skills/artifact/runtime/shell/put.mjs` — how a bot writes into a page a skill made; the revision saves check.
 - `features/ai/tools/deck.tool.ts` — `make_deck`: typed slides that `skills/artifact/runtime/deck` draws.
 - `features/bot/bot.seed.ts` — the seed bots' roles, and what a role may name.

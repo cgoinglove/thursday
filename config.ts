@@ -481,7 +481,6 @@ export const ROUTINE = { tickMs: 30_000, max: 12, minHours: 1, runsShown: 5 };
  * skill a bot finds through its own description.
  */
 export const ARTIFACT_SKILL = "artifact";
-export const PAGE_SKILL = "interactive-page";
 /** The Marketer's own, shipped in `seed-skills/marketer/` (PATHS.skills.seeds). */
 export const MARKETING_SKILL = "marketing";
 
@@ -493,6 +492,7 @@ export const MARKETING_SKILL = "marketing";
 export const SKILLS_FOLDED: Record<string, string> = {
   design: ARTIFACT_SKILL,
   "picture-book": ARTIFACT_SKILL,
+  "interactive-page": ARTIFACT_SKILL,
 };
 
 /**

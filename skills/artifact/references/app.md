@@ -1,9 +1,15 @@
-# Building a page
+# A page or an app someone uses
 
-A page someone uses rather than reads: controls that keep state, a calculator, charts that
-respond, a small app.
+Something used rather than read: controls that keep state, a calculator, charts that respond, a
+small app. Pick the smallest that does the job. One screen of controls is a **page**: one HTML
+file you write whole in your folder under `artifacts/` (`$THURSDAY_ARTIFACTS`), its HTML, a
+`<style>` and a `<script>` inside it. More than one screen, or state that builds up, is an
+**app** on the kit below. Either way it is one file, readable on a phone, working without the
+network, and designed for its job (Design, below).
 
-Every page is built on one kit: React 18, TypeScript, Tailwind CSS 3, shadcn/ui
+## An app
+
+Every app is built on one kit: React 18, TypeScript, Tailwind CSS 3, shadcn/ui
 (its components are in the kit's `src/components/ui`), recharts for charts and
 react-markdown with remark-gfm for text. It is installed once in the workspace and
 shared by every page after it. The script is in this skill's directory (the path
@@ -27,11 +33,12 @@ every page can import it from then on. Keep what one page needs in its own
 folder rather than in the kit's `src/`: an app update replaces those shared files.
 
 Build it, and a build that fails names what to fix. Look at it only when asked: testing
-upfront adds latency between the request and the finished file.
+upfront adds latency between the request and the finished file. Asked, `node <skill
+dir>/scripts/document.mjs shots <its path>` shoots it as it opens, for `look_at`.
 
 ## Design
 
-The page is a tool someone opens to use, and what it looks like comes from the
+A page or an app is a tool someone opens to use, and what it looks like comes from the
 job it was built for — a rate calculator, a reading list and a test report
 should not arrive as the same page in three colors. Before the first component,
 settle four things in a line each: the palette (4-6 values), the type, the
@@ -53,10 +60,11 @@ Cut what claims nothing.
 Some looks are defaults rather than decisions, and they turn up whatever the
 page is about: everything chopped into identical rounded cards under the same
 soft shadow, a tracked-out capital label above every heading, meta lines joined
-with middle dots, an arrow glued to the end of button text, a gradient standing
-in for a background, one centered column all the way down. None of them are
-wrong — they are what gets produced when nothing was chosen. If the user asked
-for one of them, that settles it: their words win over this list.
+with middle dots, an arrow glued to the end of button text, a purple gradient
+standing in for a background, one centered column all the way down, the Inter
+font. None of them are wrong — they are what gets produced when nothing was
+chosen. If the user asked for one of them, that settles it: their words win over
+this list.
 
 Motion answers an action — opening, expanding, confirming — and shows what
 changed. Entrance animations on every section are the default look. Honor

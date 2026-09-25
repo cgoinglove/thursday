@@ -62,11 +62,11 @@ A page that fits none starts from nothing: a `# ` title, then the page.
   answer.
 - **A chart of numbers**: leave `<figure id="rent"></figure>` in the Markdown where it goes, put
   the document, then draw it:
-  `node $THURSDAY_SKILLS/interactive-page/scripts/chart.mjs <the document's file> rent <data.csv>`
+  `node $THURSDAY_SKILLS/artifact/scripts/chart.mjs <the document's file> rent <data.csv>`
   (no arguments lists its options). Put again later and the figure is empty: draw it again.
   Never write chart SVG by hand.
-- **How something is built or flows** is a diagram, drawn by `interactive-page` as a page of its
-  own; name both files when you hand them back.
+- **How something is built or flows** is a diagram, a page of its own (`references/diagram.md`);
+  name both files when you hand them back.
 
 ## Changing it
 

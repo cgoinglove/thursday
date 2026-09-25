@@ -52,7 +52,7 @@ scripts ship with the app:
 
 ```bash
 node "$THURSDAY_SKILLS/artifact/scripts/document.mjs" put <page> <scratch>/<page>.md
-C="$THURSDAY_SKILLS/interactive-page/scripts/chart.mjs"
+C="$THURSDAY_SKILLS/artifact/scripts/chart.mjs"
 node $C "$THURSDAY_ARTIFACTS/<page>.html" rates <scratch>/rates.csv \
   --title "Mortgage rates followed the 10-year down" --unit "%" --mark "2024-09=First Fed cut"
 node $C "$THURSDAY_ARTIFACTS/<page>.html" px <scratch>/px.csv --index --title "…"

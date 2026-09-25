@@ -7,35 +7,36 @@ ships beside this folder instead, in `seed-skills/<that bot's name>/`, listed to
 and read where it ships; `seed-skills/retired.json` names the copies older versions made in a
 bot's folder, which are not listed while they are unchanged.
 
-What the user keeps and looks at — a document, a canvas, a picture book, a deck — is one skill,
-`artifact`, the way Claude's own Docs, Design and Slides are one kind of thing with a runtime
-behind them: a bot writes the content, and what draws it is the skill's `runtime/` folder — the
-shell every page wears (its head, its theme, how an edit is kept, how a bot writes into it), the
-document, canvas, book and deck drawings, and the camera that shoots them. `load_skill` does not
-list a `runtime/` folder: a bot never opens it. `make_deck` draws with `artifact/runtime/deck`.
+What the user keeps, looks at or uses — a document, a canvas, a picture book, a deck, a page or
+a small app, with its charts and diagrams — is one skill, `artifact`, the way Claude's own Docs,
+Design and Slides are one kind of thing with a runtime behind them: a bot writes the content, and
+what draws it is the skill's `runtime/` folder — the shell every page wears (its head, its theme,
+how an edit is kept, how a bot writes into it), the document, canvas, book and deck drawings, the
+kit an app is built on, and the camera that shoots them. `load_skill` does not list a `runtime/`
+folder: a bot never opens it. `make_deck` draws with `artifact/runtime/deck`.
 
 Scripts reach one another through `$THURSDAY_SKILLS`, which names this folder in a bot's shell. A
 path under it is a promise to every skill a user or a bot installed: `browser/scripts/session.mjs`,
-`serve.mjs`, `render.mjs`, `webimage.mjs`, `sheet.mjs` and `image-size.mjs`, and
-`interactive-page/scripts/chart.mjs` and `page.mjs`, stay where they are. `browser/scripts/render.mjs`
-and `interactive-page/scripts/page.mjs` now only run the camera and the document script the
-artifact skill holds.
+`serve.mjs`, `render.mjs`, `webimage.mjs`, `sheet.mjs` and `image-size.mjs`, `artifact/scripts/chart.mjs`,
+and `interactive-page/scripts/chart.mjs` and `page.mjs`, stay where they are. `interactive-page/`
+is not a skill since it was folded into `artifact`: its two scripts, like `browser/scripts/render.mjs`,
+now only run the chart, the document script and the camera the artifact skill holds.
 
 ## Where outside work came from
 
 - **`artifact/references/craft.md`** is adapted from Anthropic's `frontend-design` skill
   (anthropics/skills at 34040c9, Apache-2.0, terms in `artifact/LICENSE.txt`); the file's head says
-  what changed. The rest of `artifact` is this app's own.
+  what changed. Beyond it and the three below, `artifact` is this app's own.
 - **`artifact/runtime/vendor/marked.mjs`** is marked 16.4.2 (MIT, `marked.LICENSE.md` beside it),
   unchanged: it turns a document's Markdown into its body.
-- **`interactive-page`'s app kit** (`runtime/kit`, `runtime/page`, `scripts/app.mjs`) follows Anthropic's
-  `web-artifacts-builder` (Apache-2.0, `interactive-page/LICENSE.txt`): React, TypeScript, Tailwind
+- **`artifact`'s app kit** (`runtime/app`, `scripts/app.mjs`) follows Anthropic's
+  `web-artifacts-builder` (Apache-2.0, `artifact/LICENSE.txt`): React, TypeScript, Tailwind
   CSS and shadcn/ui, bundled into one HTML file. Changed from it: vite with vite-plugin-singlefile
   builds it instead of Parcel, which could not resolve Radix's `development` export condition;
   every version is pinned by the kit's lockfile; the kit is installed once in the workspace and
   shared by every app; recharts and react-markdown are in it.
-- **`interactive-page/scripts/archify`** is a trimmed copy of archify (MIT); its README says what
-  was cut.
+- **`artifact/scripts/archify`** is a trimmed copy of archify (MIT); its README says what was
+  cut.
 - **`find-skills`** is adapted from vercel-labs/skills' find-skills at 7407f38 (MIT, `LICENSE` in
   the folder), and **`skill-creator`** from Anthropic's skill-creator at anthropics/skills 34040c9
   (Apache-2.0, `LICENSE.txt`); each ends with a line saying what changed. Both have the bot at

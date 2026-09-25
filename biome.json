@@ -15,8 +15,8 @@
       "!build",
       "!database/migrations",
       "!.design",
-      "!skills/interactive-page/scripts/archify",
-      "!skills/interactive-page/runtime",
+      "!skills/artifact/scripts/archify",
+      "!skills/artifact/runtime/app",
       "!skills/artifact/runtime/document/quick.html",
       "!skills/artifact/runtime/vendor"
     ]

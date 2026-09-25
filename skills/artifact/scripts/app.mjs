@@ -25,8 +25,8 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const TEMPLATE = join(SKILL, "runtime", "kit");
-const PAGE_TEMPLATE = join(SKILL, "runtime", "page");
+const TEMPLATE = join(SKILL, "runtime", "app", "kit");
+const PAGE_TEMPLATE = join(SKILL, "runtime", "app", "page");
 const SCRIPT = join(SKILL, "scripts", "app.mjs");
 
 /** The app's workspace: the nearest folder above holding its fence and a `projects` folder. */

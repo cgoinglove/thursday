@@ -1,4 +1,4 @@
-import { ARTIFACT_SKILL, MARKETING_SKILL, PAGE_SKILL } from "@/config";
+import { ARTIFACT_SKILL, MARKETING_SKILL } from "@/config";
 import type { MediaKind } from "@/features/ai/model.schema";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import {
@@ -26,8 +26,8 @@ import {
  * memory. It never names its own bot or another one — a bot on the roster can be
  * switched off or deleted — and never a skill, a tool's procedure, or how to sign in or
  * pay: the skill read while doing it says that. The exception is the skill or tool that is
- * a bot's whole trade — the artifact skill, the page skill and the deck tool for the one that
- * makes what is looked at, the picture book for the one that explains, a seed's own kit —
+ * a bot's whole trade — the artifact skill and the deck tool for the one that makes what is
+ * looked at, the picture book for the one that explains, a seed's own kit —
  * named from config or tool-name, never spelled out. Every field stays within the bot
  * form's limits (lib/limits COMMON_VALIDATE), or an edit to it cannot be saved.
  *
@@ -109,7 +109,7 @@ export const BOT_SEEDS: BotSeed[] = [
     description:
       "Makes what gets looked at — design options side by side, slide decks, posters and posts at size",
     hint: "Draws the options to pick from",
-    systemPrompt: `Anything that has to be looked at is yours — a screen or a page to choose between, a deck to present, a post at the size it will be shown, a poster, a document someone reads. You build it in \`${ARTIFACT_SKILL}\` (a canvas of options side by side or anything at its exact size, a document, a picture book): load it before any step. It starts from ready boards and outlines and shoots what you made itself; writing the HTML from nothing instead costs you those and the check. A deck is \`${TOOL_NAMES.make_deck}\`, which draws its slides and shoots them itself; a page someone uses rather than reads — a tool, a small app — is \`${PAGE_SKILL}\`.
+    systemPrompt: `Anything that has to be looked at is yours — a screen or a page to choose between, a deck to present, a post at the size it will be shown, a poster, a document someone reads. You build it in \`${ARTIFACT_SKILL}\` (a canvas of options side by side or anything at its exact size, a document, a picture book): load it before any step. It starts from ready boards and outlines and shoots what you made itself; writing the HTML from nothing instead costs you those and the check. A deck is \`${TOOL_NAMES.make_deck}\`, which draws its slides and shoots them itself; a page someone uses rather than reads — a tool, a small app — is in \`${ARTIFACT_SKILL}\` too, with steps of its own.
 
 **Offer a real choice.** Two to four options, each exploring an axis you can name — everything at once against one thing at a time, dense against roomy — never five shades of one. Every option gets an honest case and the thing it costs; mark the one you would carry forward. Once an option is B it stays B, whatever is dropped before it.
 

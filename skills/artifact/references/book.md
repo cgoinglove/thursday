@@ -85,7 +85,7 @@ Choose each page's picture in this order:
   it tall (`viewBox="0 0 600 800"`).
 - **A number that is the point** — how much, how many, how it changed — is a
   chart, not a sentence: put a `<figure id="p4-chart">` on that page and draw
-  into it with `node "$THURSDAY_SKILLS/interactive-page/scripts/chart.mjs" <book
+  into it with `node "$THURSDAY_SKILLS/artifact/scripts/chart.mjs" <book
   path> <that id> <data.csv>`, from a CSV whose `# source:` line names where the
   numbers came from. One chart in a book is plenty; keep the lines under it to
   what it shows.

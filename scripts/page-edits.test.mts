@@ -118,7 +118,7 @@ test("a chart drawn into a document is part of what the bot put, and a page open
     import.meta.dirname,
     "..",
     "skills",
-    "interactive-page",
+    "artifact",
     "scripts",
     "chart.mjs",
   );
@@ -158,6 +158,20 @@ test("a chart drawn into a document is part of what the bot put, and a page open
   const over = await readFile(file, "utf8");
   assert.ok(over.includes("<p>Rent, edited</p>"));
   assert.equal(editedSince(over), true);
+
+  // The path skills installed before the page skill was folded into artifact still draws
+  const before = join(
+    import.meta.dirname,
+    "..",
+    "skills",
+    "interactive-page",
+    "scripts",
+    "chart.mjs",
+  );
+  const said = execFileSync(process.execPath, [before, file, "rent", csv], {
+    stdio: "pipe",
+  }).toString();
+  assert.match(said, /^Drew .* as #rent\./);
 });
 
 test("a page from before revisions keeps its edits as it did", async () => {

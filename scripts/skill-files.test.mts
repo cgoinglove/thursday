@@ -166,15 +166,20 @@ test("a skill switched off, or made for another OS, is not listed and still hold
 });
 
 test("a skill folded into another opens the one it is in now, and a runtime folder is never listed", async () => {
-  const given = (await load([shipped], "design")) as Awaited<
-    ReturnType<typeof load>
-  > & { note?: string };
-  assert.equal(given.skillDirectory, join(shipped, "artifact"));
-  assert.match(given.note ?? "", /'design' is part of 'artifact'/);
-  assert.ok(
-    given.files.every((path) => !path.includes("/runtime/")),
-    "what the scripts draw with is not a bot's to open",
-  );
+  for (const old of ["design", "interactive-page"]) {
+    const given = (await load([shipped], old)) as Awaited<
+      ReturnType<typeof load>
+    > & { note?: string };
+    assert.equal(given.skillDirectory, join(shipped, "artifact"));
+    assert.match(
+      given.note ?? "",
+      new RegExp(`'${old}' is part of 'artifact'`),
+    );
+    assert.ok(
+      given.files.every((path) => !path.includes("/runtime/")),
+      "what the scripts draw with is not a bot's to open",
+    );
+  }
 });
 
 test("a ready-made bot's kit is listed to that bot alone, and an old copy left unchanged in its folder is not", async () => {

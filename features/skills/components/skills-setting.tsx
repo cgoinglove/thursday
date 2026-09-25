@@ -11,7 +11,6 @@ import {
   Frame,
   Globe,
   type LucideIcon,
-  MousePointer2,
   Plus,
   Search,
   SquarePen,
@@ -66,7 +65,6 @@ const SKILL_MARKS: Record<string, LucideIcon> = {
   browser: Globe,
   computer: AppWindow,
   "find-skills": Search,
-  "interactive-page": MousePointer2,
   "skill-creator": SquarePen,
 };
 

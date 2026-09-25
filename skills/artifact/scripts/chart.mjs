@@ -33,7 +33,7 @@ import {
   getBetween,
   keep,
   restamp,
-} from "../../artifact/runtime/shell/put.mjs";
+} from "../runtime/shell/put.mjs";
 
 class Stop extends Error {}
 
