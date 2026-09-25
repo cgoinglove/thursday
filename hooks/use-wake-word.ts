@@ -32,9 +32,8 @@ type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 
 /**
  * The recognizer's language. English keeps one spelling to compare against
- * regardless of the speaker's accent. `normalize` keeps every script, but what
- * this recognizer writes down is English, so a phrase written in another script
- * is only matched once it listens in that script's language.
+ * regardless of the speaker's accent, and `normalize` keeps only a-z and 0-9:
+ * a phrase written in another script has no words left to match.
  */
 const WAKE_LANG = "en-US";
 
@@ -54,16 +53,11 @@ const FATAL: Record<string, string> = {
   "language-not-supported": "This browser cannot listen in that language",
 };
 
-/**
- * Case and punctuation vary per recognizer; word boundaries do not. Letters, the
- * marks that belong to them and digits are kept in every script, in one Unicode
- * form, so a phrase typed in Hangul or kana still has its words to compare.
- */
+/** Case and punctuation vary per recognizer; word boundaries do not. */
 const normalize = (text: string) =>
   text
-    .normalize("NFC")
     .toLowerCase()
-    .replace(/[^\p{L}\p{M}\p{N}\s]/gu, "")
+    .replace(/[^a-z0-9 ]/g, "")
     .split(/\s+/)
     .filter(Boolean);
 

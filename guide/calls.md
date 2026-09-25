@@ -6,7 +6,8 @@ Three ways in, and any of them also answers a call she placed:
 
 - Tap her face.
 - Say the wake phrase, "hey thursday" unless they changed it. It is off to begin with, because it
-  keeps the microphone open for as long as the tab is. It is heard loosely, in English.
+  keeps the microphone open for as long as the tab is. It is heard loosely, in English, so it is
+  written in English words; a phrase in another language is not saved.
 - Press the shortcut, Alt + Shift + T (⌥⇧T on a Mac) unless they changed it. It is off to begin
   with too, and works only while the app's tab has focus and nothing is being typed.
 

@@ -53,6 +53,7 @@ import {
   CallBackSchema,
   type CaptionView,
   type Hotkey,
+  isEnglishPhrase,
   WAKE_PHRASE,
   type Wake,
 } from "@/features/thursday/thursday.schema";
@@ -838,12 +839,13 @@ function WakeWord({
   value: Wake;
   onChange: (wake: Wake) => void;
 }) {
-  // too short keeps the old phrase rather than losing it (use-draft)
+  // too short, or not English, keeps the old phrase rather than losing it (use-draft)
   const draft = useDraft(
     value.phrase,
     (phrase) => onChange({ ...value, phrase }),
-    { min: WAKE_PHRASE.min },
+    { min: WAKE_PHRASE.min, accepts: isEnglishPhrase },
   );
+  const english = isEnglishPhrase(draft.value) || !draft.value.trim();
 
   // the schema cannot require two words (one word parses fine and then wakes all day), so warn while typing
   const terse = draft.value.trim().split(/\s+/).length < 2;
@@ -871,9 +873,11 @@ function WakeWord({
       <SettingNote>
         {!value.enabled
           ? "Between calls, the browser listens for it and picks up."
-          : terse
-            ? "One word will wake her by accident — say hello first."
-            : "Heard loosely, in English. Near misses count."}
+          : !english
+            ? "English words only — she listens for it in English."
+            : terse
+              ? "One word will wake her by accident — say hello first."
+              : "Heard loosely, in English. Near misses count."}
       </SettingNote>
     </div>
   );

@@ -4,13 +4,16 @@ import { composing } from "@/hooks/use-hotkey";
 
 /**
  * Draft for a one-line input, committed on blur. Enter blurs (one commit path);
- * a draft shorter than `min` reverts to `value`; an outside change to `value`
- * resets the draft.
+ * a draft shorter than `min`, or one `accepts` turns down, reverts to `value`; an
+ * outside change to `value` resets the draft.
  */
 export function useDraft(
   value: string,
   onCommit: (next: string) => void | Promise<void>,
-  { min = 1 }: { min?: number } = {},
+  {
+    min = 1,
+    accepts = () => true,
+  }: { min?: number; accepts?: (next: string) => boolean } = {},
 ) {
   const [draft, setDraft] = useState(value);
   // Sync during render; an effect would show the stale draft for a frame.
@@ -22,7 +25,7 @@ export function useDraft(
 
   const commit = () => {
     const next = draft.trim();
-    if (next.length < min) return setDraft(value);
+    if (next.length < min || !accepts(next)) return setDraft(value);
     setDraft(next);
     if (next !== value) void onCommit(next);
   };

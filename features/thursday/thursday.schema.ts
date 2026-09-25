@@ -109,6 +109,14 @@ export const THURSDAY_KEYS = {
 
 export const WAKE_PHRASE = { min: 3, max: 32 };
 
+/**
+ * A wake phrase is English words: the recognizer listens in English (use-wake-word
+ * WAKE_LANG), so a phrase in another script is never heard. Checked where it is typed,
+ * not in `WakeSchema`, so a phrase saved before still loads.
+ */
+export const isEnglishPhrase = (phrase: string) =>
+  /^[a-z0-9\s'.,!?-]+$/i.test(phrase.trim()) && /[a-z]/i.test(phrase);
+
 export const WakeSchema = z.object({
   enabled: z.boolean(),
   /** Matched loosely by use-wake-word, so two words beat one common word. */
