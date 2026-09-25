@@ -20,7 +20,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { ASCII_FACE, COMMON_VALIDATE } from "@/config";
+import { ASCII_FACE, COMMON_VALIDATE, KEY_MIN } from "@/config";
 import { EffortSwitch } from "@/features/ai/components/effort-switch";
 import {
   LIVE_BACKEND_MODELS,
@@ -30,7 +30,7 @@ import {
 } from "@/features/ai/live.schema";
 import type { AiProvider } from "@/features/ai/model.schema";
 import { DEFAULT_PERSONA, PERSONAS } from "@/features/ai/prompts/persona";
-import { KEY_MIN, KeyInput } from "@/features/config/components/voice-key";
+import { KeyInput } from "@/features/config/components/voice-key";
 import { setConfigAction } from "@/features/config/config.action";
 import {
   PICKED_ROW,

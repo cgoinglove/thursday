@@ -15,6 +15,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ShinyText } from "@/components/ui/shiny-text";
 import { SiteIcon } from "@/components/ui/site-icon";
+import { KEY_MIN } from "@/config";
 import {
   removeConfigAction,
   setConfigAction,
@@ -689,7 +690,7 @@ function KeyField({
           type="submit"
           size="sm"
           loading={saving}
-          disabled={value.trim().length < 8}
+          disabled={value.trim().length < KEY_MIN}
         >
           {set ? "Replace" : "Save"}
         </Button>

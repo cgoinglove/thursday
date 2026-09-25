@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/popover";
 import { SiteIcon } from "@/components/ui/site-icon";
 import { Skeleton } from "@/components/ui/skeleton";
+import { KEY_MIN } from "@/config";
 import { ChatGptSignIn } from "@/features/ai/components/chatgpt-sign-in";
 import { EffortSwitch } from "@/features/ai/components/effort-switch";
 import { ModelPicker } from "@/features/ai/components/model-picker";
@@ -832,7 +833,7 @@ function ConfigDialog({
           </Button>
           <Button
             loading={saving}
-            disabled={value.trim().length < 8}
+            disabled={value.trim().length < KEY_MIN}
             onClick={() => save(entry.key, value)}
           >
             {set ? "Replace" : "Save"}
@@ -845,7 +846,7 @@ function ConfigDialog({
           value={value}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && value.trim().length >= 8)
+            if (event.key === "Enter" && value.trim().length >= KEY_MIN)
               save(entry.key, value);
           }}
           // what a key looks like says more than the setting's name, which is above

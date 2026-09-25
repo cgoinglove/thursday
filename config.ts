@@ -830,6 +830,15 @@ export const FAVICON = {
 };
 
 /**
+ * A pasted key or token shorter than this many characters is not taken: every field that
+ * saves one keeps its save off below it, the voice-key fields do not save it on leaving,
+ * and the save itself refuses it (config.action). It keeps a stray keystroke or a half
+ * paste from being stored as a key; raising it also refuses a real key or token shorter
+ * than it.
+ */
+export const KEY_MIN = 8;
+
+/**
  * At or under this many dollars left on the gateway key, its row in Settings › Models & keys
  * turns amber (ai/model readGatewayCredits): a video clip or a long job can spend
  * that before it finishes. Raising it warns sooner; 0 warns only once nothing is left.

@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { KEY_MIN } from "@/config";
 import { startChatGptSignIn } from "@/features/ai/chatgpt";
 import { LIVE_PROVIDER } from "@/features/ai/live.schema";
 import { REACH_KEYS } from "@/features/reach/reach.schema";
@@ -28,7 +29,7 @@ export const setConfigAction = serverAction(
       if (!acceptsChoice(entry, parsed.value)) {
         publicError("That is not one of the options.");
       }
-    } else if (parsed.value.length < 8) {
+    } else if (parsed.value.length < KEY_MIN) {
       publicError("That does not look like a key");
     }
     // The key a call cannot open without is asked about before it is kept: a wrong one

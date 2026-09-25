@@ -10,6 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { KEY_MIN } from "@/config";
 import { setConfigAction } from "@/features/config/config.action";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
@@ -325,7 +326,7 @@ function AskForKey({
       <Button
         variant="outline"
         loading={saving}
-        disabled={value.trim().length < 8}
+        disabled={value.trim().length < KEY_MIN}
         onClick={() => save(provider.apiKeyName, value)}
       >
         Save key
