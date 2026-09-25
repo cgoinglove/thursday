@@ -56,7 +56,7 @@ import { cn, formatBytes } from "@/lib/utils";
  * a folder's size is every file under it and this screen opens on a click.
  */
 
-/** Every kind `viewKindOf` returns; the section is the only place a kind is drawn. */
+/** A row's glyph for every kind `viewKindOf` returns. */
 const KIND_ICONS: Record<FileViewKind, typeof File> = {
   markdown: FileText,
   csv: Sheet,
