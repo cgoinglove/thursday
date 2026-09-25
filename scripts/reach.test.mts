@@ -217,7 +217,8 @@ after(async () => {
   await reach.startReach().catch(() => {});
   globalThis.fetch = realFetch;
   await rm(home, { recursive: true, force: true });
-  // The poll loop and the database handle would hold the process open
+  // A stopped listener sits out its REACH.retryMs wait, and a look a thread change asked for
+  // waits REACH.lookMs: either would hold the process open for seconds after the last test
   setTimeout(() => process.exit(process.exitCode ?? 0), 50).unref();
 });
 

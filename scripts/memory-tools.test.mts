@@ -22,7 +22,6 @@ await ensureRootNotes();
 
 after(async () => {
   await rm(home, { recursive: true, force: true });
-  setTimeout(() => process.exit(process.exitCode ?? 0), 50).unref();
 });
 
 const hand = createMemoryTools("call", null);

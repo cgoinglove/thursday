@@ -143,7 +143,6 @@ const { THURSDAY_KEYS } = await import(
 
 after(async () => {
   await rm(home, { recursive: true, force: true });
-  setTimeout(() => process.exit(process.exitCode ?? 0), 50).unref();
 });
 
 test("what arrives while she works joins the turn between her steps, and keeps its place", async () => {
