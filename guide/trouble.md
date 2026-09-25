@@ -46,7 +46,10 @@ A job never fails for good; it pauses and waits.
 - **Make an image, a video, a voice, or transcribe**: no model is picked for that kind. **Settings ›
   Models** has one slot for each, under Studio.
 - **Open a web page**: the bots' browser is downloaded in the background the first time the app
-  starts, a few hundred megabytes. Until that finishes, a bot cannot browse.
+  starts, a few hundred megabytes. Until that finishes, a bot cannot browse. On Linux it also needs
+  system libraries that a desktop usually has and a server or a container may not; without them it
+  closes as soon as it opens. `npx playwright install-deps chromium`, run once with administrator
+  rights, installs them.
 - **Use this Mac's apps and windows**: macOS has to allow it. The bot says which two permissions are
   missing, Screen Recording and Accessibility, and only the user can grant them in System Settings.
 - **Sign in or pay**: by design. The bot opens the page and waits for them. A sign-in is kept for

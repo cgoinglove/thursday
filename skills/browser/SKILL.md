@@ -154,6 +154,11 @@ playwright-cli install-browser chromium
 It downloads ~280 MB and prints nothing when the build is already there. If it
 fails, say so and stop — do not fall back to a browser you found on the machine.
 
+On Linux, `open` failing because the browser closed before any page, with an
+empty browser log, is missing system libraries rather than a missing download.
+Installing them needs administrator rights: tell the user to run
+`npx playwright install-deps chromium` once, and stop.
+
 ## Commands
 
 ```bash
