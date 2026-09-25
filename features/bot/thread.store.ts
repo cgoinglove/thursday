@@ -252,11 +252,26 @@ export function threadFromRow(row: Thread, bots?: Bot[]): ThreadView {
     if (before?.kind === "tool") lines[at] = { ...line, steppedIn: true };
   });
 
-  // The answer is the last text said, and the row's outcome says which
+  // The answer is the job's own bot's last step: a thread is done only when that step ended
+  // in words (room.query finishRoomWork), and those words are every text block the step
+  // wrote, joined as bot.run joins them for the outcome. Read off the step, so an answer in
+  // several blocks is still one answer with its copy.
   if (row.status === "done") {
     const last = lines.at(-1);
-    if (last && last.kind === "say" && last.text === row.outcome) {
-      lines[lines.length - 1] = { ...last, kind: "result" };
+    if (last && last.kind === "say" && last.bot.name === owner.name) {
+      let from = lines.length - 1;
+      while (
+        from > 0 &&
+        lines[from - 1].kind === "say" &&
+        messageOf(lines[from - 1]) === messageOf(last)
+      )
+        from -= 1;
+      const said = lines.splice(from);
+      lines.push({
+        ...said[0],
+        kind: "result",
+        text: said.map((line) => line.text).join("\n\n"),
+      });
     }
   }
 

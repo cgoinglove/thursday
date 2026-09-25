@@ -1961,6 +1961,34 @@ test("answer drafts remain separate for two questions from the same bot", async 
   assert.equal(threadDrafts.get("draft-room", "Alpha"), "A general message");
 });
 
+test("an answer written in several blocks is one result, the whole of the outcome", async () => {
+  const { threadFromRow } = await import("../features/bot/thread.store.ts");
+  const block = (id: string, value: string) => [
+    { type: "text-start", id },
+    { type: "text-delta", id, delta: value },
+    { type: "text-end", id },
+  ];
+  plans.set("Alpha", [
+    () => [...block("one", "The first part."), ...block("two", "The second.")],
+  ]);
+  const id = await startThread({
+    bot: "Alpha",
+    request: "Answer in two blocks",
+    label: "Two blocks",
+    from: "user",
+  });
+  const done = await waitFor(id, "done");
+  assert.equal(done.outcome, "The first part.\n\nThe second.");
+  const lines = threadFromRow((await findThreadView(id))!).lines;
+  const results = lines.filter((line) => line.kind === "result");
+  assert.deepEqual(
+    results.map((line) => line.text),
+    [done.outcome],
+  );
+  assert.equal(lines.at(-1)?.kind, "result");
+  assert.ok(!lines.some((line) => line.kind === "say"));
+});
+
 test("a bot that loads a skill is shown the files that ship with it", async () => {
   plans.set("Alpha", [
     () => call(T.load_skill, { name: "skill-creator" }),
