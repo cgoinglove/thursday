@@ -1,4 +1,5 @@
 import z from "zod";
+import { COMMON_VALIDATE } from "@/config";
 import {
   type Effort,
   effortSchema,
@@ -6,7 +7,6 @@ import {
   textModelProviderSchema,
 } from "@/features/ai/model.schema";
 import { DateLikeSchema } from "@/lib/date-like";
-import { COMMON_VALIDATE } from "@/lib/limits";
 import { clip } from "@/lib/utils";
 import {
   MARK_PAINT_IDS,

@@ -469,6 +469,26 @@ export const BOT_RUN = {
 export const BOT_ROSTER = { max: 14 };
 
 /**
+ * The longest, in characters, a few things the user or a model writes and the app keeps. The
+ * screen's fields stop at it, and a save past it is refused, whoever wrote it.
+ * - `name`  a bot's name: what Thursday calls it when she hands it work. It cannot be renamed.
+ * - `description`  what a bot is for, as the user wrote it: a line in every prompt that lists
+ *   the roster, and the one the call picks a bot by.
+ * - `shortDescription`  the line a bot may write about itself (`describe_self`), which the
+ *   roster reads after that description.
+ * - `prompt`  a bot's own instructions, and each of Thursday's two (Settings › Thursday).
+ * Longer lets more in, and all of it is paid for in every prompt that carries it. A ready-made
+ * bot's fields stay within these (bot.seed, checked by test:bot): lowering one past a seed's
+ * makes that field one its page cannot save.
+ */
+export const COMMON_VALIDATE = {
+  name: { max: 16 },
+  shortDescription: { max: 60 },
+  description: { max: 100 },
+  prompt: { max: 4000 },
+};
+
+/**
  * How much a bot's own memory (`bots/<name>/memory/`, features/bot/bot.memory) holds. Its
  * prompt lists every file by its first line, paid on every step of every job that bot runs,
  * and a job that opens a file reads all of it. A `bash` or `write_file` that leaves more files,

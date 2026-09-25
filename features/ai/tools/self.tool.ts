@@ -1,8 +1,8 @@
 import { type ToolSet, tool } from "ai";
 import z from "zod";
+import { COMMON_VALIDATE } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { ownLineOf, writeOwnLine } from "@/features/bot/bot.query";
-import { COMMON_VALIDATE } from "@/lib/limits";
 
 /**
  * A bot's own line: a few words the roster reads after the description the user wrote (bot.schema

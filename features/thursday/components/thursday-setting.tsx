@@ -20,7 +20,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { ASCII_FACE } from "@/config";
+import { ASCII_FACE, COMMON_VALIDATE } from "@/config";
 import { EffortSwitch } from "@/features/ai/components/effort-switch";
 import {
   LIVE_BACKEND_MODELS,
@@ -77,7 +77,6 @@ import {
   isCombo,
   useHotkeyLabel,
 } from "@/hooks/use-hotkey";
-import { COMMON_VALIDATE } from "@/lib/limits";
 import { LIVE_MODEL } from "@/lib/live/live.schema";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";

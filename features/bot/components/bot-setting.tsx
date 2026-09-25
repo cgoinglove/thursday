@@ -40,7 +40,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { APP_NAME, BOT_ROSTER, BOT_RUN, PROMPT_CROWDED } from "@/config";
+import {
+  APP_NAME,
+  BOT_ROSTER,
+  BOT_RUN,
+  COMMON_VALIDATE,
+  PROMPT_CROWDED,
+} from "@/config";
 import { EffortSwitch } from "@/features/ai/components/effort-switch";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import {
@@ -102,7 +108,6 @@ import {
 } from "@/features/workspace/workspace.action";
 import { useObjectState } from "@/hooks/use-object-state";
 import { type DateLike, shortAgo, whenOf } from "@/lib/date-like";
-import { COMMON_VALIDATE } from "@/lib/limits";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, formatCount, WAITING_INK } from "@/lib/utils";

@@ -29,7 +29,7 @@ import {
  * a bot's whole trade — the artifact skill and the deck tool for the one that makes what is
  * looked at, the picture book for the one that explains, a seed's own kit —
  * named from config or tool-name, never spelled out. Every field stays within the bot
- * form's limits (lib/limits COMMON_VALIDATE), or an edit to it cannot be saved.
+ * form's limits (config COMMON_VALIDATE), or an edit to it cannot be saved.
  *
  * Each description is a line in every prompt that lists the roster, and the one the
  * call picks a bot by: no two share a subject word, so a request has one bot to go to.

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { COMMON_VALIDATE } from "@/lib/limits";
+import { COMMON_VALIDATE } from "@/config";
 import { LIVE_BACKEND_MODEL } from "@/lib/live/live.schema";
 import { effortSchema, TEXT_MODEL_PROVIDERS } from "./model.schema";
 import { DEFAULT_PERSONA } from "./prompts/persona";
