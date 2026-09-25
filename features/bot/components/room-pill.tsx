@@ -878,8 +878,6 @@ function Crew({
         // Past CREW_MAX the row stops growing. Only idle bots are ever behind it —
         // anyone moving sorted to the front — so the tail says there are more and not
         // how many (the user's pick): a count nobody can act on is a number to read.
-        // Brand, but tinted rather than filled: filled brand is what waits on the user,
-        // and nothing here does.
         <span
           className="ml-2 flex h-[18px] shrink-0 items-center rounded-full bg-brand/10 px-2 font-mono text-[10.5px] leading-none font-medium text-brand"
           title={`${more} more`}
