@@ -92,8 +92,6 @@ class StoreOAuthProvider implements OAuthClientProvider {
     private oauth: MCPOAuthData,
     private readonly callbackUrl: string,
     private readonly clientName: string,
-    /** A hand-registered client, for servers that will not do DCR. */
-    private readonly staticClient?: OAuthClientInformation,
   ) {}
 
   get redirectUrl() {
@@ -116,13 +114,8 @@ class StoreOAuthProvider implements OAuthClientProvider {
     await this.store.saveOAuth(this.serverName, this.oauth);
   }
 
-  // Config beats the stored blob: fixing a client id in the form has to take
-  // effect without hand-clearing the credentials.
   clientInformation() {
-    return (
-      this.staticClient ??
-      (this.oauth.clientInformation as OAuthClientInformation | undefined)
-    );
+    return this.oauth.clientInformation as OAuthClientInformation | undefined;
   }
   async saveClientInformation(info: OAuthClientInformation) {
     await this.persist({ clientInformation: info });
@@ -377,19 +370,12 @@ class McpManager {
   }
 
   private providerFor(row: StoredMcpServer): StoreOAuthProvider {
-    const configured = isRemoteConfig(row.config)
-      ? row.config.oauthClient
-      : undefined;
     return new StoreOAuthProvider(
       this.store,
       row.name,
       row.oauth ?? {},
       this.callbackUrl,
       this.clientName,
-      configured && {
-        client_id: configured.clientId,
-        client_secret: configured.clientSecret,
-      },
     );
   }
 
@@ -443,18 +429,16 @@ class McpManager {
   }
 }
 
-/** A blocked registration endpoint surfaces as "HTTP 403: Invalid OAuth error response"; name the fix. */
+/**
+ * A blocked registration endpoint surfaces as "HTTP 403: Invalid OAuth error response". Such a
+ * server wants an OAuth app registered by hand, which this app does not take: say so.
+ */
 function describeConnectFailure(error: unknown, row: StoredMcpServer): string {
   const message = errorToString(error);
   const blockedRegistration =
     /\b40[13]\b/.test(message) && /OAuth|register/i.test(message);
-  if (
-    blockedRegistration &&
-    isRemoteConfig(row.config) &&
-    !row.config.oauthClient
-  ) {
-    return "This server does not allow automatic client registration. Register an OAuth app with the provider and add its client ID and secret.";
-  }
+  if (blockedRegistration && isRemoteConfig(row.config))
+    return "This server does not let an app register itself for sign-in, so it cannot be connected here.";
   return message;
 }
 

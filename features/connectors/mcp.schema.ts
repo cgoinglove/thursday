@@ -6,13 +6,6 @@ import { DateLikeSchema } from "@/lib/date-like";
 export const MCPRemoteConfigSchema = z.object({
   url: z.url(),
   headers: z.record(z.string(), z.string()).optional(),
-  /** A hand-registered OAuth client, for servers that refuse dynamic registration (403 at DCR). Skips DCR when set. */
-  oauthClient: z
-    .object({
-      clientId: z.string().min(1),
-      clientSecret: z.string().optional(),
-    })
-    .optional(),
 });
 
 export const MCPStdioConfigSchema = z.object({

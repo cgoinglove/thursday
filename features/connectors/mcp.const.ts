@@ -103,12 +103,6 @@ export const MCP_PRESETS: MCPPreset[] = [
     config: { url: "https://mcp.fireflies.ai/mcp" },
   },
   {
-    name: "figma",
-    icon: "figma.com",
-    description: "Design files and components",
-    config: { url: "https://mcp.figma.com/mcp" },
-  },
-  {
     name: "asana",
     icon: "asana.com",
     description: "Tasks, projects, and portfolios",

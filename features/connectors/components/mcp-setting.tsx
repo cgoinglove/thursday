@@ -486,25 +486,12 @@ function McpRegister({
     name: initial?.name ?? "",
     url: remote?.url ?? "",
     headers: toPairs(remote?.headers),
-    clientId: remote?.oauthClient?.clientId ?? "",
-    clientSecret: remote?.oauthClient?.clientSecret ?? "",
     command: stdio?.command ?? "",
     args: (stdio?.args ?? []).join(" "),
     env: toPairs(stdio?.env),
     raw: "",
   });
-  const {
-    mode,
-    name,
-    url,
-    headers,
-    clientId,
-    clientSecret,
-    command,
-    args,
-    env,
-    raw,
-  } = fields;
+  const { mode, name, url, headers, command, args, env, raw } = fields;
 
   const [register, busy] = useServerAction(registerServerAction, {
     ...CONNECT_OPTIONS,
@@ -517,25 +504,15 @@ function McpRegister({
 
   const draft: Draft = useMemo(() => {
     if (mode === "json") return fromJson(raw);
-    if (mode === "http")
-      return fromRemoteFields(url, headers, clientId, clientSecret);
+    if (mode === "http") return fromRemoteFields(url, headers);
     return fromStdioFields(command, args, env);
-  }, [mode, raw, url, headers, clientId, clientSecret, command, args, env]);
+  }, [mode, raw, url, headers, command, args, env]);
 
   // Errors wait until typing settles; JSON mid-keystroke is always broken
   const signature =
     mode === "json"
       ? raw
-      : JSON.stringify([
-          mode,
-          url,
-          headers,
-          clientId,
-          clientSecret,
-          command,
-          args,
-          env,
-        ]);
+      : JSON.stringify([mode, url, headers, command, args, env]);
   const [settled, setSettled] = useState(signature);
   useEffect(() => {
     const timer = setTimeout(() => setSettled(signature), 700);
@@ -563,8 +540,6 @@ function McpRegister({
         mode: next,
         url: config.url,
         headers: toPairs(config.headers),
-        clientId: config.oauthClient?.clientId ?? "",
-        clientSecret: config.oauthClient?.clientSecret ?? "",
       });
     }
     if (next === "stdio" && !isRemoteConfig(config)) {
@@ -677,34 +652,6 @@ function McpRegister({
                 keyPlaceholder="Authorization"
                 valuePlaceholder="Bearer sk-..."
               />
-              {/* A few servers need it (Figma); folded, it is one line the rest can pass */}
-              <details className="group space-y-3">
-                <summary className="flex w-fit cursor-pointer list-none items-center gap-1 rounded-sm text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
-                  Advanced: OAuth client
-                  <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" />
-                </summary>
-                <div className="flex gap-2">
-                  <Input
-                    value={clientId}
-                    onChange={(e) => patch({ clientId: e.target.value })}
-                    placeholder="Client ID"
-                    spellCheck={false}
-                    className="font-mono text-xs"
-                  />
-                  <Input
-                    value={clientSecret}
-                    onChange={(e) => patch({ clientSecret: e.target.value })}
-                    placeholder="Client secret"
-                    spellCheck={false}
-                    type="password"
-                    className="font-mono text-xs"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Only for servers that refuse to register clients on their own,
-                  like Figma. Leave empty and one is created during sign-in.
-                </p>
-              </details>
             </TabsContent>
 
             <TabsContent value="stdio" className="space-y-6">
@@ -824,18 +771,10 @@ const toRecord = (pairs: Pair[]) => {
   return Object.fromEntries(filled.map((p) => [p.key.trim(), p.value]));
 };
 
-function fromRemoteFields(
-  url: string,
-  headers: Pair[],
-  clientId: string,
-  clientSecret: string,
-): Draft {
+function fromRemoteFields(url: string, headers: Pair[]): Draft {
   const result = MCPRemoteConfigSchema.safeParse({
     url: url.trim(),
     headers: toRecord(headers),
-    oauthClient: clientId.trim()
-      ? { clientId: clientId.trim(), clientSecret: clientSecret.trim() }
-      : undefined,
   });
   if (result.success)
     return { value: { name: null, config: result.data }, error: "" };
