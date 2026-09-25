@@ -52,6 +52,7 @@ import {
   worstAlert,
 } from "@/features/settings/settings.alert";
 import { openSettings } from "@/features/settings/settings.store";
+import { useCallHeld } from "@/features/thursday/call-signal";
 import { silentVoice } from "@/features/thursday/silent-voice";
 import {
   type CallMessage,
@@ -194,6 +195,8 @@ function CallScreen({
     (lastRole === "user" && status === "listening" && !writing);
   const calling = ringing !== null && ringing.missedAt === null;
   const ringWord = useRingWord(calling);
+  // the first-run intro lies over the call screen and draws a face of its own
+  const covered = useCallHeld();
   return (
     <div className="relative flex h-full flex-col">
       <div className="absolute top-5 right-5 z-10 flex flex-col items-end gap-3">
@@ -245,6 +248,7 @@ function CallScreen({
                 failed={failed}
                 word={ringWord ?? faceWord}
                 getSpectrum={getSpectrum}
+                covered={covered}
                 className="-m-(--face-bleed) w-[calc(100%+2*var(--face-bleed))] max-w-none"
               />
             </span>

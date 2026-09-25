@@ -82,9 +82,18 @@ function OrbFace({
 export const Face = memo(function Face({
   // a face without a call is between calls (previews)
   status = "idle",
+  covered = false,
   className,
   ...rest
-}: Omit<FaceProps, "size" | "status"> & { status?: CallStatus }) {
+}: Omit<FaceProps, "size" | "status"> & {
+  status?: CallStatus;
+  /**
+   * Something is drawn over her (the first-run intro, call-signal): she is not drawn meanwhile,
+   * since nothing of her would show and two faces a frame is the heaviest the app draws. She
+   * arrives again as it lifts.
+   */
+  covered?: boolean;
+}) {
   const box = useRef<HTMLDivElement>(null);
   const [px, setPx] = useState<number | null>(null);
   const [shown, setShown] = useState(false);
@@ -117,7 +126,9 @@ export const Face = memo(function Face({
         className,
       )}
     >
-      {px !== null && <OrbFace {...rest} status={status} size={px} />}
+      {px !== null && !covered && (
+        <OrbFace {...rest} status={status} size={px} />
+      )}
     </div>
   );
 });
