@@ -947,9 +947,14 @@ export const PROMPT_LINE = {
  *            orb: a finer grain, and more to draw on every frame.
  * - `density`  cells per glyph pitch. Above 1 packs them tighter; below leaves
  *            air between them.
+ * - `fps`    the most times a second she is drawn. Every frame costs the same,
+ *            so her share of the page's time moves with it; uncapped, a 120 Hz
+ *            display draws her twice as often as a 60 Hz one. Her motion runs on
+ *            time, not frames, so a lower cap draws the same motion less often.
  */
 export const ASCII_FACE = {
   charset: "emojiOnly",
   fontSize: 8,
   density: 1.4,
+  fps: 30,
 } as const;

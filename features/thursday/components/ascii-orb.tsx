@@ -89,7 +89,15 @@ type AsciiOrbProps = {
    * that looks at you, and a wash goes through her a moment later. Read once, as she mounts.
    */
   waking?: boolean;
+  /** The most frames a second she is drawn (config ASCII_FACE `fps`). */
+  fps?: number;
 };
+
+/**
+ * Slack on the frame cap (ms): a frame that comes this close to when her next one is due draws,
+ * or a 60 Hz display capped at 30 would now and then wait a frame too long.
+ */
+const CAP_SLACK_MS = 1000 / 240;
 
 /** Her glyphs, at the size the user set. */
 export const GLYPH_FONT = (px: number) =>
@@ -767,6 +775,7 @@ export function AsciiOrb({
   getSpectrum,
   word = null,
   waking = false,
+  fps = ASCII_FACE.fps,
 }: AsciiOrbProps) {
   const hostRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -798,6 +807,8 @@ export function AsciiOrb({
   // the loop mounts once with no deps, so the latest getter comes through a ref
   const specRef = useRef(getSpectrum);
   specRef.current = getSpectrum;
+  const fpsRef = useRef(fps);
+  fpsRef.current = fps;
 
   const voiceRef = useRef<Voice>({
     phrase: 0,
@@ -1047,7 +1058,14 @@ export function AsciiOrb({
       };
     }
 
+    let drawnAt = Number.NEGATIVE_INFINITY;
     const draw = (nowMs: number) => {
+      // a frame that comes before her next one is due is let go
+      if (nowMs - drawnAt < 1000 / fpsRef.current - CAP_SLACK_MS) {
+        raf = requestAnimationFrame(draw);
+        return;
+      }
+      drawnAt = nowMs;
       const t = nowMs * 0.001;
       // a backgrounded tab can deliver seconds in one frame; clamp so phases do not jump
       const dt = Math.min(0.05, Math.max(0, t - lastT));
@@ -1080,6 +1098,9 @@ export function AsciiOrb({
       // size, syllables and lobes from the voice, once per frame; each band is
       // read inside its own range, or a voice's narrow loud spectrum pins the rim
       const voice = voiceRef.current;
+      // The spring and the eases below were tuned as steps of a 60 Hz frame: a frame that stands
+      // for two of those takes two steps, so the frame cap moves her at the same speed
+      const steps = Math.max(1, Math.round(dt * 60));
       const heard = follower.read(live, dt);
       voice.phrase = heard.phrase;
       if (heard.onset > 0) {
@@ -1088,8 +1109,10 @@ export function AsciiOrb({
         if (voice.rings.length > MAX_RINGS) voice.rings.shift();
       }
       // a spring with a period of about 1s; kick it on syllables instead of driving position, or 60fps noise becomes jitter
-      voice.bobVel += -voice.bob * 0.012 - voice.bobVel * 0.09;
-      voice.bob += voice.bobVel;
+      for (let step = 0; step < steps; step++) {
+        voice.bobVel += -voice.bob * 0.012 - voice.bobVel * 0.09;
+        voice.bob += voice.bobVel;
+      }
 
       clock += dt;
 
@@ -1106,7 +1129,9 @@ export function AsciiOrb({
         // a random factor that changes about once per second, so lobes keep moving through a held vowel
         const wander = 0.7 + hash(((t * 0.9) | 0) + i * 31, i) * 0.6;
         // different time constants per harmonic, or the star only scales
-        voice.amp[i] += (energy * wander - voice.amp[i]) * (0.05 + i * 0.02);
+        voice.amp[i] +=
+          (energy * wander - voice.amp[i]) *
+          (1 - (1 - (0.05 + i * 0.02)) ** steps);
         // own speed, alternating direction, so no standing wave forms
         voice.phase[i] += dt * (0.9 + i * 0.5) * (i % 2 ? -1 : 1);
       }
@@ -1470,7 +1495,8 @@ export function AsciiOrb({
       // ease the drawn color toward the target each frame
       const col = colorRef.current;
       for (let i = 0; i < 3; i++) {
-        col.cur[i] += (col.target[i] - col.cur[i]) * COLOR_EASE;
+        col.cur[i] +=
+          (col.target[i] - col.cur[i]) * (1 - (1 - COLOR_EASE) ** steps);
       }
 
       // Brightness is alpha, not color: darkening toward black only disappears on a dark background and inverts on a light one
