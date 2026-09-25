@@ -48,6 +48,13 @@ export type RelayKind = z.infer<typeof RelayKindSchema>;
 export const ROOM_THURSDAY = "Thursday";
 
 /**
+ * The speaker the user's own words to a job are stored under (`thread_delivery.speaker`,
+ * bot.runner answerThread), read back as theirs when the bot is handed them (room.query
+ * deliveryText). Rows already hold it, so it does not change on its own.
+ */
+export const ROOM_USER = "The user";
+
+/**
  * What a participant reads after why its turn broke off (room.query breakNote).
  * The screen draws only the why (thread.query linesOf).
  */

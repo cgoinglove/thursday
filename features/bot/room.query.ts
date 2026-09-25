@@ -15,7 +15,12 @@ import {
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { publicError } from "@/lib/public-error";
 import { THREAD_CONTINUE, tagSpeaker } from "./bot.schema";
-import { RESUME_CHECK, ROOM_THURSDAY, RoomMessageSchema } from "./room.schema";
+import {
+  RESUME_CHECK,
+  ROOM_THURSDAY,
+  ROOM_USER,
+  RoomMessageSchema,
+} from "./room.schema";
 import type { ThreadMessageInput } from "./thread.query";
 
 type Tx = Parameters<Parameters<typeof database.transaction>[0]>[0];
@@ -432,7 +437,7 @@ export async function consumeRoomInbox(run: RoomWork): Promise<string[]> {
 
 function deliveryText(row: typeof delivery.$inferSelect) {
   return row.visible
-    ? tagSpeaker(row.speaker === "The user" ? "user" : "thursday", row.text)
+    ? tagSpeaker(row.speaker === ROOM_USER ? "user" : "thursday", row.text)
     : `${row.speaker}:\n\n${row.text}`;
 }
 

@@ -51,7 +51,7 @@ import {
   settleRoom,
   tellRoom,
 } from "./room.query";
-import { ROOM_THURSDAY } from "./room.schema";
+import { ROOM_THURSDAY, ROOM_USER } from "./room.schema";
 import {
   addThreadUsage,
   deleteMessages,
@@ -145,7 +145,7 @@ export async function answerThread(
         told = await tellRoom(
           id,
           "Continue from the saved conversation.",
-          from === "user" ? "The user" : ROOM_THURSDAY,
+          from === "user" ? ROOM_USER : ROOM_THURSDAY,
           recipient,
           undefined,
           false,
@@ -154,7 +154,7 @@ export async function answerThread(
       told = await tellRoom(
         id,
         answer,
-        from === "user" ? "The user" : ROOM_THURSDAY,
+        from === "user" ? ROOM_USER : ROOM_THURSDAY,
         recipient,
         replyTo,
       );
