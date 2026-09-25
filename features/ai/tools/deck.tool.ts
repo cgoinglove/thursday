@@ -14,7 +14,7 @@ import { basename, dirname, extname, join, relative, sep } from "node:path";
 import { promisify } from "node:util";
 import { type ToolSet, tool } from "ai";
 import z from "zod";
-import { APP_DIR, DECK, PATHS } from "@/config";
+import { APP_DIR, DECK, LOOK, PATHS } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { viewKindOf } from "@/features/workspace/file-kind";
 import {
@@ -501,7 +501,10 @@ export const createDeckTools = (
         return { type: "text", value: output };
       const full = await insideWorkspace(picture);
       const data = full ? await readFile(full).catch(() => null) : null;
-      if (!data) return { type: "text", value: output };
+      // Past what one look takes, the picture would sink the next request whole: the slides
+      // stay in the file, and the words above already say which did not fit
+      if (!data || data.byteLength > LOOK.maxBytes)
+        return { type: "text", value: output };
       return {
         type: "content",
         value: [
