@@ -434,7 +434,9 @@ class McpManager {
  * which this app does not take: say so. The refusal comes back from the SDK as "Invalid OAuth
  * error response" — "HTTP 403: " in front only when it could read the status, which
  * @ai-sdk/mcp 2.0.57 loses (it prints the body as "[object Response]") — and before a client
- * is kept, registration is the one step that can answer so.
+ * is kept, registration is the one step that can answer so. What came back follows that
+ * sentence as it came: the sentence is read off the connection's state, not off the answer,
+ * and a server that says more than no says it there.
  */
 function describeConnectFailure(error: unknown, row: StoredMcpServer): string {
   const message = errorToString(error);
@@ -443,7 +445,7 @@ function describeConnectFailure(error: unknown, row: StoredMcpServer): string {
     !row.oauth?.clientInformation &&
     /Invalid OAuth error response/.test(message);
   if (refused)
-    return "This server does not let an app register itself for sign-in, so it cannot be connected here.";
+    return `This server does not let an app register itself for sign-in, so it cannot be connected here. It answered: ${message}`;
   return message;
 }
 

@@ -60,7 +60,9 @@ A job never fails for good; it pauses and waits.
   their own keys. A bot on anything else — the GPT Subscription and the Gateway included — opens
   pages instead. A search key (Exa) in **Settings › API keys** gives every bot search.
 - **Reach a connected service**: a server that needs signing in again turns red in **Settings ›
-  Connectors**; **Reconnect** there signs in again.
+  Connectors**; **Reconnect** there signs in again. A server that does not let an app register
+  itself for sign-in cannot be connected here at all: its error says so, then what the server
+  answered.
 - **Take a file**: at most 8 files go with one message, 25 MB each.
 
 ## Starting over
