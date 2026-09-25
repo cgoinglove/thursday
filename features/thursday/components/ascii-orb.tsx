@@ -89,8 +89,6 @@ type AsciiOrbProps = {
    * that looks at you, and a wash goes through her a moment later. Read once, as she mounts.
    */
   waking?: boolean;
-  /** The most frames a second she is drawn (config ASCII_FACE `fps`). */
-  fps?: number;
 };
 
 /**
@@ -775,7 +773,6 @@ export function AsciiOrb({
   getSpectrum,
   word = null,
   waking = false,
-  fps = ASCII_FACE.fps,
 }: AsciiOrbProps) {
   const hostRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -807,8 +804,6 @@ export function AsciiOrb({
   // the loop mounts once with no deps, so the latest getter comes through a ref
   const specRef = useRef(getSpectrum);
   specRef.current = getSpectrum;
-  const fpsRef = useRef(fps);
-  fpsRef.current = fps;
 
   const voiceRef = useRef<Voice>({
     phrase: 0,
@@ -1060,8 +1055,8 @@ export function AsciiOrb({
 
     let drawnAt = Number.NEGATIVE_INFINITY;
     const draw = (nowMs: number) => {
-      // a frame that comes before her next one is due is let go
-      if (nowMs - drawnAt < 1000 / fpsRef.current - CAP_SLACK_MS) {
+      // a frame that comes before her next one is due is let go (config ASCII_FACE `fps`)
+      if (nowMs - drawnAt < 1000 / ASCII_FACE.fps - CAP_SLACK_MS) {
         raf = requestAnimationFrame(draw);
         return;
       }
