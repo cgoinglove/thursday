@@ -41,6 +41,11 @@ Settings › Sign-ins or `signin-ask.tsx` in its question lets it in.
 - A second browser a job opens is named `<its session>-<suffix>`, as `inPageApart` in
   `skills/browser/scripts/session.mjs` does — cancel, delete and the sweep find a thread's browsers
   and profiles by that prefix, and never one under another name.
+- A variable the app sets to run itself (`bin/thursday.mjs`, a server it starts) is matched by
+  `APP_OWN` in `lib/sandbox.ts` — unmatched, every bot's project reads it as its own: Thursday's
+  port, production mode, Next's config.
+- A kept sign-in is replaced only by a bot on its list and renewed only from a browser the app
+  lent it to (`keepSignIn`, `holdSignIn`) — every shell can read the vault, so the tools are its lock.
 - `@playwright/cli` is pinned to one version in `package.json`; move it only after the browser check
   below, then `pnpm install --lockfile-only` — each install of the published package resolves that
   entry itself (`scripts/pack.mts`), and this area leans on the CLI's variable names, `list --json`,

@@ -82,16 +82,30 @@ export async function* walkFiles(dir: string): AsyncGenerator<string> {
 }
 
 /**
- * Environment for every shell the agent runs: nobody watches it, so no pager
- * may stall it, and secrets do not travel to children. playwright-cli runs
- * from here too and needs only a working PATH.
+ * What the app set in its own environment to run — the CLI (`bin/thursday.mjs`), `pnpm dev`,
+ * Next's server, the package manager that started it — rather than the user. A bot's own
+ * project reads these as its own: `npm install` skips devDependencies under NODE_ENV, `next`
+ * takes Thursday's config from `__NEXT_PRIVATE_STANDALONE_CONFIG`, and a server binds to
+ * Thursday's PORT beside it. What the bot is meant to have is laid over again
+ * (`jobShellEnv`, `botShellEnv`).
+ */
+const APP_OWN =
+  /^(PORT|HOSTNAME|NODE_ENV|INIT_CWD|NEXT_MANUAL_SIG_HANDLE)$|^_*NEXT_|^TURBOPACK|^npm_|^THURSDAY_/i;
+
+/**
+ * Environment for every shell the agent runs: the user's own, less the app's (APP_OWN) and
+ * less secrets, which do not travel to children. Nobody watches it, so no pager may stall it.
+ * playwright-cli runs from here too and needs only a working PATH.
  */
 function shellEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
 
   // A compromised npm dependency would read keys straight out of process.env
   for (const name of Object.keys(env)) {
-    if (/KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|_AUTH/i.test(name)) {
+    if (
+      APP_OWN.test(name) ||
+      /KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|_AUTH/i.test(name)
+    ) {
       delete env[name];
     }
   }

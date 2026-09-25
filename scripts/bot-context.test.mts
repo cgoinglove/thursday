@@ -14,17 +14,23 @@ process.env.THURSDAY_TOOL_PATH = join(home, "tools");
 process.env.PATH = `${join(home, "tools")}:${process.env.PATH}`;
 await mkdir(join(home, "tools"));
 const browserCli = join(home, "tools", "playwright-cli");
+// The fixtures' folder is written into the stand-in: a bot's shell does not carry the app's
+// THURSDAY_* variables (lib/sandbox APP_OWN)
 await writeFile(
   browserCli,
   `#!/usr/bin/env node
 const fs = require("node:fs");
 const path = require("node:path");
-const root = process.env.THURSDAY_HOME;
+const root = ${JSON.stringify(home)};
 if (process.argv[2] === "list") {
   const fixture = path.join(root, "browsers.json");
   console.log(fs.existsSync(fixture) ? fs.readFileSync(fixture, "utf8") : '{"browsers":[]}');
 } else if (process.argv[2] === "close") {
   fs.appendFileSync(path.join(root, "closed.txt"), process.env.PLAYWRIGHT_CLI_SESSION + "\\n");
+} else if (process.argv[2] === "state-save") {
+  const fixture = path.join(root, "state.json");
+  if (!fs.existsSync(fixture)) process.exit(1);
+  fs.copyFileSync(fixture, process.argv[3]);
 }
 `,
 );
@@ -2118,5 +2124,136 @@ test("every ready-made bot fits the form it is edited in", async () => {
       systemPrompt: seed.systemPrompt,
     });
     assert.ok(parsed.success, `${seed.name}: ${parsed.error?.message}`);
+  }
+});
+
+test("a bot's shell has the user's environment, not what the app set to run itself", async () => {
+  const { createSandBox } = await import("../lib/sandbox.ts");
+  const set = {
+    // The app's own: the CLI, Next's server, the package manager that started it
+    PORT: "4747",
+    HOSTNAME: "127.0.0.1",
+    NODE_ENV: "production",
+    NEXT_MANUAL_SIG_HANDLE: "true",
+    __NEXT_PRIVATE_STANDALONE_CONFIG: "{}",
+    npm_lifecycle_event: "npx",
+    THURSDAY_URL: "http://localhost:4747",
+    // A secret
+    SOME_API_KEY: "sk-test",
+    // The user's own tools
+    MY_TOOLCHAIN_HOME: "/opt/tools",
+  };
+  const before = Object.fromEntries(
+    Object.keys(set).map((name) => [name, process.env[name]]),
+  );
+  Object.assign(process.env, set);
+  try {
+    const shell = createSandBox({
+      workingDirectory: home,
+      spill: { dir: "spill", max: 8000, head: 5500, tail: 1500 },
+    });
+    const { stdout } = await shell.exec("env", {
+      env: { THURSDAY_BOT: "Jarvis" },
+    });
+    const seen = new Set(stdout.split("\n").map((line) => line.split("=")[0]));
+    for (const name of [
+      "PORT",
+      "HOSTNAME",
+      "NODE_ENV",
+      "NEXT_MANUAL_SIG_HANDLE",
+      "__NEXT_PRIVATE_STANDALONE_CONFIG",
+      "npm_lifecycle_event",
+      "THURSDAY_URL",
+      "SOME_API_KEY",
+    ])
+      assert.ok(!seen.has(name), `${name} reached the shell`);
+    // What is meant for the bot is laid back over it, and the user's own stays
+    assert.ok(seen.has("THURSDAY_BOT"));
+    assert.ok(seen.has("MY_TOOLCHAIN_HOME"));
+    assert.ok(seen.has("PATH"));
+  } finally {
+    for (const [name, value] of Object.entries(before)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
+});
+
+test("a kept sign-in is renewed only from a browser holding it for a bot allowed it, and never kept over by another bot", async () => {
+  const { keepSignIn, holdSignIn, renewSignIns, borrowSignIn, removeSignIn } =
+    await import("../features/signins/signins.query.ts");
+  const { jobShellEnv } = await import("../features/workspace/workspace.ts");
+  const cookie = (value: string) => ({
+    name: "PHPSESSID",
+    domain: "shop.example",
+    path: "/",
+    value,
+  });
+  const stored = async (bot: string) => {
+    const got = await borrowSignIn("shop.example", bot);
+    return got.kind === "state"
+      ? (got.state as { cookies: { value: string }[] }).cookies[0].value
+      : got.kind;
+  };
+  // A browser the CLI lists as a participant's own, holding these cookies
+  const browser = async (session: string, value: string) => {
+    const name = jobShellEnv(session).PLAYWRIGHT_CLI_SESSION;
+    await writeFile(
+      join(home, "browsers.json"),
+      JSON.stringify({ browsers: [{ name, headed: false }] }),
+    );
+    await writeFile(
+      join(home, "state.json"),
+      JSON.stringify({ cookies: [cookie(value)] }),
+    );
+    return name;
+  };
+
+  try {
+    const kept = await keepSignIn({
+      site: "shop.example",
+      account: "a@example.com",
+      bot: "Keeper",
+      state: { cookies: [cookie("signed-in")] },
+    });
+    assert.equal(kept.kind, "kept");
+
+    // Another bot keeping the same site is refused and asks; the kept session stays
+    const other = await keepSignIn({
+      site: "shop.example",
+      account: "someone-else",
+      bot: "Visitor",
+      state: { cookies: [cookie("theirs")] },
+    });
+    assert.equal(other.kind, "taken");
+    assert.deepEqual(other.signIn.asking, ["Visitor"]);
+    assert.equal(await stored("Keeper"), "signed-in");
+
+    // A browser that only visited the site holds a visitor's cookie under the same name
+    await browser("job-visit", "anonymous");
+    await renewSignIns("job-visit");
+    assert.equal(await stored("Keeper"), "signed-in");
+
+    // One holding it for a bot the user has not let in renews nothing either
+    holdSignIn(
+      await browser("job-visitor", "anonymous"),
+      "Visitor",
+      "shop.example",
+    );
+    await renewSignIns("job-visitor");
+    assert.equal(await stored("Keeper"), "signed-in");
+
+    // The browser it was lent to, for the bot allowed it, renews it
+    holdSignIn(
+      await browser("job-keeper", "rotated"),
+      "Keeper",
+      "shop.example",
+    );
+    await renewSignIns("job-keeper");
+    assert.equal(await stored("Keeper"), "rotated");
+  } finally {
+    await removeSignIn("shop.example");
+    await rm(join(home, "browsers.json"), { force: true });
+    await rm(join(home, "state.json"), { force: true });
   }
 });

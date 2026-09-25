@@ -108,7 +108,9 @@ site's session, never a password, on this machine and outside the folder the bot
 
 - The bot that asked for the sign-in may use it. Another bot that needs the same one asks first: its
   question carries a button to let it in, and the list shows *… asks* with **Allow**. The **×** on a
-  bot's name in the list takes that back.
+  bot's name in the list takes that back. A bot that has not been let in cannot replace what is
+  kept either: if they sign in to the same site for it, that sign-in lasts for its job only, and it
+  asks — to use the kept one, or for them to sign out of it here so the new one can be kept.
 - Some sites — Google is one — do not accept a sign-in carried from one browser to another: the bot
   is signed out again on its next job however often they sign in. For those a bot works in a tab of
   their own Chrome instead, signed in as they already are. That needs the **Playwright Extension**

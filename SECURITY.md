@@ -37,13 +37,35 @@ What the app does to keep that narrow:
   never a password: one file a site in `.sign-ins/` under the data folder,
   outside the bots' workspace. The `sign_in_use` tool lends it only to the bots
   on its list — the one that kept it, and those you let in under Settings ›
-  Sign-ins or when one asks — and signing out removes the file
-  (`features/signins/signins.query.ts`). That check is on the tool, not the
+  Sign-ins or when one asks. Only those bots can replace it (`sign_in_keep`
+  refuses any other and puts it on the asking list), and what a browser holds
+  after a bot's turn refreshes only a sign-in the app lent that browser, for a
+  bot still on the list. Signing out removes the file
+  (`features/signins/signins.query.ts`). These checks are on the tools, not the
   file: a bot's shell runs as you and can read it. A kept session signs every
   later job of those bots in as you.
+- **From a phone, one person, let in at the computer.** Settings › Phone
+  connects the app out to Telegram, Discord or Slack; nothing on the computer
+  is opened to the internet. Each service lets in one person, and only once
+  someone at the computer presses Allow on the code that person's phone was
+  sent (`features/reach/reach.ts`). What that cannot cover: whoever holds that
+  chat account can start work on this computer, shell and all — a stolen
+  account is that too. Messages and the files sent with them pass through the
+  chat service, and its bot tokens are kept in the local database with your
+  keys.
+- **Work goes on with nobody watching.** A job keeps running after its tab
+  closes, a routine starts at its time with nothing open, and `thursday
+  autostart` (macOS) starts the server at login. Such a job has the same shell,
+  browser and sign-ins as one you watch; what it asks waits for an answer, and
+  what it finishes is told by the computer's notification and, with a phone
+  connected, there.
 
 What it does not do: sandbox the shell, sign what a bot downloads, or review the
-skills you install. A skill is code you chose to trust.
+skills and servers you add. A skill is code you chose to trust, and so is a
+connected MCP server: a skill's scripts run in a bot's shell, and a server gets
+whatever a bot sends its tools. Nor does it tell the accounts on this computer
+apart: it listens on `127.0.0.1` without a login, so anyone else signed in to
+the same machine can reach it.
 
 ## Reporting a vulnerability
 

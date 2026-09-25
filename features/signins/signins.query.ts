@@ -77,14 +77,26 @@ export async function listSignIns(): Promise<SignIn[]> {
     .sort((a, b) => a.site.localeCompare(b.site));
 }
 
-/** Keeps what `bot`'s browser holds for `site`. The bot that kept it may borrow it; whoever could before still can. */
+/**
+ * Keeps what `bot`'s browser holds for `site`. The bot that kept it may borrow it; whoever
+ * could before still can. A site already kept is replaced only by a bot the user let use it:
+ * any other would swap every allowed bot onto the account it signed in with, and put itself
+ * on the list without the user — it goes on the asking list instead, as `borrowSignIn` does.
+ */
 export async function keepSignIn(input: {
   site: string;
   account: string;
   bot: string;
   state: unknown;
-}): Promise<SignIn> {
+}): Promise<{ kind: "kept" | "taken"; signIn: SignIn }> {
   const before = await readFor(input.site);
+  if (before && !before.bots.includes(input.bot)) {
+    const asked = before.asking.includes(input.bot)
+      ? before
+      : { ...before, asking: [...before.asking, input.bot] };
+    if (asked !== before) await write(asked);
+    return { kind: "taken", signIn: record(asked) };
+  }
   const site = before?.site ?? siteOf(input.site);
   const kept: Kept = {
     site,
@@ -96,7 +108,23 @@ export async function keepSignIn(input: {
     state: input.state,
   };
   await write(kept);
-  return record(kept);
+  return { kind: "kept", signIn: record(kept) };
+}
+
+/**
+ * The kept sign-ins each browser holds because the app put them there (`sign_in_use`) or took
+ * them from it (`sign_in_keep`), by its CLI session, with the bot it is for. Renewal reads
+ * back these alone: a browser that only visited a site holds a visitor's cookies under the
+ * same names (a shop's PHPSESSID, a CSRF token), and copied back they would sign every bot
+ * out. Kept in memory: after a restart nothing is renewed until a sign-in is loaded again.
+ */
+const holding = new Map<string, { bot: string; sites: Set<string> }>();
+
+/** Notes that `session`'s browser now holds `site`'s kept sign-in, for `bot`. */
+export function holdSignIn(session: string, bot: string, site: string) {
+  const held = holding.get(session);
+  if (held && held.bot === bot) held.sites.add(site);
+  else holding.set(session, { bot, sites: new Set([site]) });
 }
 
 /**
@@ -165,18 +193,24 @@ const cookieKey = (cookie: Cookie) =>
 /**
  * A site renews its session cookies while the session is used, and the copy kept here goes
  * stale: lent again, it can be refused, or end the session it was copied from. So after a
- * bot's turn its browser's cookies go back into every kept sign-in — only the ones a sign-in
- * already holds (same name, domain and path), so a browser that signed out, or never signed
- * in, changes nothing. `session` is the participant's (workspace botBrowserSession); one
- * attached to the user's own Chrome is theirs and is not read.
+ * bot's turn its browser's cookies go back into the kept sign-ins that browser holds
+ * (`holdSignIn`) and its bot may still use — only the cookies a sign-in already holds (same
+ * name, domain and path), so a browser that signed out changes nothing. `session` is the
+ * participant's (workspace botBrowserSession); one attached to the user's own Chrome is
+ * theirs and is not read.
  */
 export async function renewSignIns(session: string): Promise<void> {
-  const names = await readdir(VAULT).catch(() => [] as string[]);
-  if (!names.some((name) => name.endsWith(".json"))) return;
+  const env = jobShellEnv(session);
+  const key = env.PLAYWRIGHT_CLI_SESSION ?? session;
+  const held = holding.get(key);
+  if (!held?.sites.size) return;
 
   const sandbox = await openWorkspace();
-  const env = jobShellEnv(session);
-  if ((await sessionBrowser(sandbox, env)) !== "own") return;
+  if ((await sessionBrowser(sandbox, env)) !== "own") {
+    // Closed, or theirs now: what it held went with it
+    holding.delete(key);
+    return;
+  }
 
   const path = browserStateFile();
   let now: Map<string, Cookie>;
@@ -192,11 +226,10 @@ export async function renewSignIns(session: string): Promise<void> {
     await sandbox.exec(`rm -f ${path}`);
   }
 
-  for (const name of names) {
-    if (!name.endsWith(".json")) continue;
-    const kept = await read(decodeURIComponent(name.slice(0, -5)));
+  for (const site of held.sites) {
+    const kept = await read(site);
     const state = kept?.state as State | undefined;
-    if (!kept || !state?.cookies) continue;
+    if (!kept || !state?.cookies || !kept.bots.includes(held.bot)) continue;
     let renewed = false;
     const cookies = state.cookies.map((cookie) => {
       const fresh = now.get(cookieKey(cookie));
@@ -246,9 +279,13 @@ export async function adoptKeptSessions(): Promise<void> {
         const account = (
           await readFile(join(folder, "account.txt"), "utf8").catch(() => "")
         ).trim();
-        await keepSignIn({ site, account, bot, state });
+        const kept = await keepSignIn({ site, account, bot, state });
         await rm(path);
-        logger.info(`sign-ins: took in ${bot}'s ${site}`);
+        logger.info(
+          kept.kind === "kept"
+            ? `sign-ins: took in ${bot}'s ${site}`
+            : `sign-ins: ${site} is kept for another bot already; ${bot}'s old copy was removed and ${bot} is asking for it`,
+        );
       } catch (cause) {
         logger.warn(`sign-ins: could not take in ${path}`, cause);
       }
