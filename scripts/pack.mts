@@ -106,6 +106,34 @@ for (const entry of readdirSync(DIST)) {
     rmSync(join(DIST, entry), { recursive: true, force: true });
 }
 
+/**
+ * The checkout's own sources and tool configs arrive the same way, through the trace of the
+ * boot code (`instrumentation.js.nft.json`): a read joined from APP_DIR — the guide, the
+ * skills — is one the tracer cannot narrow, so it takes the whole checkout, and the
+ * route-keyed `outputFileTracingExcludes` does not reach that trace. What runs is the build:
+ * nothing reads these at run time (the guide, skills, seed-skills, migrations and public are
+ * what is read, and stay). The README's images load from GitHub (.claude/rules/docs.md), and
+ * the type packages are for an editor.
+ */
+const UNREAD = [
+  "app",
+  "components",
+  "docs",
+  "features",
+  "hooks",
+  "lib",
+  "scripts",
+  "biome.json",
+  "components.json",
+  "knip.json",
+  "release-please-config.json",
+  "skills-lock.json",
+  "tsconfig.json",
+  "node_modules/@types",
+];
+for (const path of UNREAD)
+  rmSync(join(DIST, path), { recursive: true, force: true });
+
 for (const file of ["bin", "guide", "README.md", "LICENSE"]) {
   const from = join(ROOT, file);
   if (existsSync(from))
