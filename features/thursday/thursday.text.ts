@@ -26,7 +26,7 @@ import { loadThursdayPrompt } from "@/features/ai/prompts/thursday.prompt";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { EXA_API_KEY } from "@/features/config/config.const";
 import { readConfig } from "@/features/config/config.query";
-import { acceptedReasoning } from "@/lib/live/live.server";
+import { acceptedReasoning, wantedReasoning } from "@/lib/live/live.server";
 import { logger } from "@/lib/logger";
 import { isPublicError, publicError } from "@/lib/public-error";
 import {
@@ -413,9 +413,7 @@ async function loadRun(
           model: ref.model,
           effort: settings.reasoningEffort,
         })
-      : settings.reasoningEffort === "none"
-        ? { effort: "none" }
-        : { effort: settings.reasoningEffort ?? undefined, summary: "auto" };
+      : wantedReasoning(settings.reasoningEffort);
 
   return {
     model: model.model,

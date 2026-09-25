@@ -21,6 +21,17 @@ type BackendReasoning = { effort?: string; summary?: "auto" };
 const reasoningTaken = new Map<string, BackendReasoning | null>();
 
 /**
+ * The reasoning settings a chosen effort asks for, before any model is asked: the effort,
+ * and a summary kept with the call (call_thought), none of either for `none`. A null effort
+ * leaves it to the model and still asks for the summary.
+ */
+export function wantedReasoning(effort: string | null): BackendReasoning {
+  return effort === "none"
+    ? { effort }
+    : { ...(effort ? { effort } : {}), summary: "auto" };
+}
+
+/**
  * The reasoning settings to hand the backend: the chosen effort, and a summary kept with
  * the call (call_thought), none of either for `none`. Live opens the call with any of
  * them and fails the first delegated response when the model refuses one, so the model
@@ -40,10 +51,7 @@ export async function acceptedReasoning(options: {
   const known = reasoningTaken.get(pair);
   if (known !== undefined) return known;
 
-  const wanted: BackendReasoning =
-    effort === "none"
-      ? { effort }
-      : { ...(effort ? { effort } : {}), summary: "auto" };
+  const wanted = wantedReasoning(effort);
   for (;;) {
     const response = await fetch(
       "https://api.openai.com/v1/responses/input_tokens",
