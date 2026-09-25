@@ -116,9 +116,14 @@ export async function keepSignIn(input: {
  * them from it (`sign_in_keep`), by its CLI session, with the bot it is for. Renewal reads
  * back these alone: a browser that only visited a site holds a visitor's cookies under the
  * same names (a shop's PHPSESSID, a CSRF token), and copied back they would sign every bot
- * out. Kept in memory: after a restart nothing is renewed until a sign-in is loaded again.
+ * out. Kept in memory, pinned to globalThis so the tool that notes and the run that renews
+ * share one map across a dev reload; after a restart nothing is renewed until a sign-in is
+ * loaded again.
  */
-const holding = new Map<string, { bot: string; sites: Set<string> }>();
+type Held = Map<string, { bot: string; sites: Set<string> }>;
+const holding: Held = ((
+  globalThis as typeof globalThis & { __signInsHeld?: Held }
+).__signInsHeld ??= new Map());
 
 /** Notes that `session`'s browser now holds `site`'s kept sign-in, for `bot`. */
 export function holdSignIn(session: string, bot: string, site: string) {
