@@ -14,6 +14,9 @@
 //                                   the body as it is now, as HTML, into <file> to change
 //   node document.mjs shots <name|path>
 //                                   the page as it opens, down to three pictures in scratch/
+//   node document.mjs docx <name|path>
+//                                   the page as a Word file beside it (<name>.docx), edits
+//                                   and all, as Export › Word file makes it
 import { spawnSync } from "node:child_process";
 import {
   existsSync,
@@ -83,7 +86,7 @@ function makePage(name, ...args) {
       part("quick.html")
         .replace("{{body}}", () => part(join("pages", `${kind}.html`)))
         .replace("{{css}}", () => part("quick.css"))
-        .replace("{{js}}", () => part("quick.js"))
+        .replace("{{js}}", () => `${part("quick.js")}\n${part("docx.js")}`)
         .replaceAll("{{title}}", name)
         .replaceAll("{{today}}", today),
     ),
@@ -218,15 +221,39 @@ function shotPage(name) {
   console.log(`Look at them with look_at, from ${shown(out)}.`);
 }
 
+/** The page as a Word file beside it, made by the page's own converter in a headless browser. */
+function wordFile(name) {
+  const file = pageAt(name);
+  const out = join(dirname(file), `${basename(file, ".html")}.docx`);
+  const skills = process.env.THURSDAY_SKILLS || resolve(SKILL, "..");
+  const done = spawnSync(
+    process.execPath,
+    [
+      join(skills, "artifact", "runtime", "document", "word.mjs"),
+      file,
+      "--out",
+      out,
+    ],
+    { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] },
+  );
+  if (done.status !== 0)
+    throw new Stop("Fix what it names above, then run this again.");
+  const { missed } = JSON.parse(done.stdout.trim().split("\n").at(-1));
+  console.log(
+    `Wrote ${shown(out)}: the document as a Word file. Hand back its path beside the page's.${missed.length ? ` Pictures that could not be put in, each written in as its words: ${missed.join("; ")}.` : ""}`,
+  );
+}
+
 const [command, ...rest] = process.argv.slice(2);
 try {
   if (command === "new" || command === "quick") newPage(...rest);
   else if (command === "put") putBody(...rest);
   else if (command === "get") getBody(...rest);
   else if (command === "shots") shotPage(rest[0]);
+  else if (command === "docx") wordFile(rest[0]);
   else
     throw new Stop(
-      "Usage: document.mjs new <name> [--from <kind>] | put <name|path> <file.md|file.html> | get <name|path> <file> | shots <name|path>",
+      "Usage: document.mjs new <name> [--from <kind>] | put <name|path> <file.md|file.html> | get <name|path> <file> | shots <name|path> | docx <name|path>",
     );
 } catch (error) {
   if (!(error instanceof Stop)) throw error;

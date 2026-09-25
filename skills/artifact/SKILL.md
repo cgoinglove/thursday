@@ -16,7 +16,7 @@ the type, light and dark, a head that names it with Edit and Export, and the pic
 
 | They will | Kind | Start | Read first |
 |---|---|---|---|
-| read it — a report, a memo, options compared, a plan, notes of a meeting, research with its photos | document | write Markdown, then `node $S/document.mjs put <name> <file.md>` | `references/document.md` |
+| read it — a report, a memo, options compared, a plan, notes of a meeting, research with its photos; or a Word file of it | document | write Markdown, then `node $S/document.mjs put <name> <file.md>`; a .docx: `document.mjs docx <name>` | `references/document.md` |
 | choose between ways something could look, or see it at its real size — an app or phone screen, a landing page, a poster, a post | canvas | `node $S/canvas.mjs new <name>` | `references/canvas.md`, then `references/craft.md` |
 | understand one thing simply — a picture and a line or two a page, to swipe, as a PDF or read aloud | picture book | `node $S/book.mjs new <name>` | `references/book.md` |
 | watch it presented | deck | the `make_deck` tool | `references/deck.md` |

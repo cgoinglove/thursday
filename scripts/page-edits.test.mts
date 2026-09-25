@@ -413,6 +413,9 @@ test("a document written in Markdown is put in the document's own markup, and ma
     '<input type="checkbox" checked> Checked',
     "<figcaption>Mapo, as the listing shows it</figcaption>",
     '<figure id="rent"></figure>',
+    // It carries its own Word converter, which its Export and `document.mjs docx` both run
+    "data-docx>Word file<small>.docx</small>",
+    "window.shell.docx = async () =>",
   ])
     assert.ok(html.includes(piece), `the page holds ${piece}`);
   assert.ok(!html.includes("the outline's guidance"), "comments are dropped");

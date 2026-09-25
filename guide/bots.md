@@ -289,7 +289,10 @@ section being read is marked), chips for dates, people and status, checklists, t
 marked, and the sources at the end. Pressing a table's heading puts the rows in that column's order,
 up, down, then back as written; that order is only for reading and is never saved. A small number
 beside a sentence is where it comes from: pointing at it shows the source, and the full list is at
-the end. It reads on a phone and prints as a document. **Edit** in its top bar makes the
+the end. It reads on a phone and prints as a document, and **Export › Word file** saves it as a
+.docx — the page as it is now, edits included, with its headings, lists, tables, notes, pictures
+and charts — to send or submit, no Word needed to make it; a bot asked for a Word file hands one
+back beside the page. **Edit** in its top bar makes the
 page editable in place: a paragraph gets a handle and a **+** to put something after it, selected
 words get their formatting over them, and a chip — a date, a person, a status — moves as one piece:
 pressing it opens its words, and Enter or Esc closes it. Typing `/` on an empty line opens the same

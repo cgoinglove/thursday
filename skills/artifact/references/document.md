@@ -72,6 +72,10 @@ A page that fits none starts from nothing: a `# ` title, then the page.
   Never write chart SVG by hand.
 - **How something is built or flows** is a diagram, a page of its own (`references/diagram.md`);
   name both files when you hand them back.
+- **A Word file** — when they need a .docx to send or submit — is the document as it is, edits
+  and all: `node $THURSDAY_SKILLS/artifact/scripts/document.mjs docx <name>` writes `<name>.docx`
+  beside the page. Run it after the last `put` or chart, and hand back both paths. The reader has
+  the same in the page's Export.
 
 ## Changing it
 
