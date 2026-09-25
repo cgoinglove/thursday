@@ -229,8 +229,8 @@ export const endCallAction = serverAction(
  * Deletes a call and its turns; the next call's prompt no longer includes it.
  * The query refuses a call still in progress.
  */
-export const deleteCallAction = serverAction(async (callId: string) => {
-  if (!(await deleteCall(callId))) {
+export const deleteCallAction = serverAction(async (callId: unknown) => {
+  if (!(await deleteCall(z.string().min(1).parse(callId)))) {
     publicError("That call is still on the line — hang up first.");
   }
 });
