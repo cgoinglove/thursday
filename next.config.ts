@@ -25,6 +25,9 @@ const nextConfig: NextConfig = {
   // Files handed over from the write line travel as one server action: config.ts
   // GIVEN_FILES (8 files of 25 MB) plus room for the multipart framing
   experimental: { serverActions: { bodySizeLimit: "201mb" } },
+  // Finished work is the workspace folder `artifacts/`, and the viewer's URL is `/artifact/`
+  // and a workspace path (queryKey.fileView): a link that put the workspace path at the site
+  // root (`/artifacts/…`) opens the same file in the viewer rather than a 404
   redirects: async () => [
     {
       source: "/artifacts/:path+",
