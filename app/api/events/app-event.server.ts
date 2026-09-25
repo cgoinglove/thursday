@@ -1,4 +1,4 @@
-import { BROWSER_GONE_MS } from "@/config";
+import { BROWSER_GONE_MS, SIGNAL_PACE_MS } from "@/config";
 import { createEventBus, type EventBus } from "@/lib/protocol/events";
 import {
   createEventStream,
@@ -31,16 +31,16 @@ export const presence: Presence = (pinned.__presence ??=
   createPresence(BROWSER_GONE_MS));
 
 /**
- * A signal goes out at once and then at most every 150ms; data events pass
- * through. A bot at work raises one per row it writes, several in the same
- * millisecond at the end of a step — the pacing is what keeps that from being
- * one read of the inbox each, and the leading edge is what keeps a single
- * change from waiting on it.
+ * A signal goes out at once and then at most every SIGNAL_PACE_MS; data
+ * events pass through. A bot at work raises one per row it writes, several in
+ * the same millisecond at the end of a step — the pacing is what keeps that
+ * from being one read of the inbox each, and the leading edge is what keeps a
+ * single change from waiting on it.
  */
 export const appEventStream: EventStream<AppEvent> =
   (pinned.__appEventStream ??= createEventStream(appEvents, {
     coalesce: {
-      ms: 150,
+      ms: SIGNAL_PACE_MS,
       keyOf: (event) => (isSignal(event) ? event.type : null),
     },
     onWatchers: presence.track,

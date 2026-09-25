@@ -674,6 +674,16 @@ export const RECENT_CALL = { rows: 20, tokens: 600 };
 export const BROWSER_GONE_MS = 10_000;
 
 /**
+ * How often one kind of signal goes down the event stream (app/api/events): the first at once,
+ * then at most one per this long, ending on the latest; data events are not held. A bot at work
+ * raises one per row it writes, several in the same millisecond at the end of a step, and each
+ * one the browser gets is a read of what it names — measured, twenty `threads` signals 50ms
+ * apart go out as eight. Shorter reads the inbox more often while bots work; longer leaves the
+ * screen further behind them.
+ */
+export const SIGNAL_PACE_MS = 150;
+
+/**
  * Size of one assembled prompt (tokens) past which the log names the chapter
  * carrying it. Not a cap — every chapter is there because something needs it —
  * but growth is in the listings (memory, skills, connected tools, bots), which
