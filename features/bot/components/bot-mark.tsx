@@ -1203,10 +1203,6 @@ export function BotMark({
       dy: number;
     } | null = null;
     let nextBeat = performance.now() + 1500 + Math.random() * 3000;
-    // A machine asked to hold still gets none of the gestures a mark makes on its own, as the
-    // crew's motion stops for it (app/globals.css). Read at each pick, so a change of the
-    // setting holds from the next beat on.
-    const still = window.matchMedia("(prefers-reduced-motion: reduce)");
     /** The element this mark keeps a box for in `boxes`, while its eyes follow the pointer. */
     let followed: SVGSVGElement | null = null;
 
@@ -1275,7 +1271,7 @@ export function BotMark({
       // Pick the next beat and read this frame's values from it.
       const beatScale = shape.dwell;
 
-      if (c.idle && !still.matches && !beat && now >= nextBeat) {
+      if (c.idle && !beat && now >= nextBeat) {
         const key = pickBeat(st);
         const spec = BEATS[key];
         const dir = Math.floor(Math.random() * 8) * (Math.PI / 4);
