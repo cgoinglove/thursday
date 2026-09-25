@@ -1,8 +1,6 @@
 import z from "zod";
-import { ASCII_FACE } from "@/config";
 import { TEXT_MODEL_PROVIDERS } from "@/features/ai/model.schema";
 import type { ThreadStatus } from "@/features/bot/bot.schema";
-import { ASCII_CHARSETS } from "@/features/thursday/face.const";
 import type { DateLike } from "@/lib/date-like";
 import { LiveFragmentSchema } from "@/lib/live/live.schema";
 
@@ -75,26 +73,6 @@ export const TextCallNoteSchema = z.object({
 export type TextCallNote = z.infer<typeof TextCallNoteSchema>;
 /** The data part a note rides in: `data-note`. */
 export const TEXT_CALL_NOTE = "note";
-
-/** How Thursday's orb is drawn. Browser-only (face.store). */
-export const ThursdayFaceSchema = z.object({
-  charset: z.enum(ASCII_CHARSETS).default(ASCII_FACE.charset),
-  /** Glyph size in px. */
-  fontSize: z
-    .number()
-    .min(ASCII_FACE.fontSize.min)
-    .max(ASCII_FACE.fontSize.max)
-    .default(ASCII_FACE.fontSize.default),
-  density: z
-    .number()
-    .min(ASCII_FACE.density.min)
-    .max(ASCII_FACE.density.max)
-    .default(ASCII_FACE.density.default),
-});
-
-export type ThursdayFace = z.infer<typeof ThursdayFaceSchema>;
-
-export const FACE_DEFAULT: ThursdayFace = ThursdayFaceSchema.parse({});
 
 /**
  * Config keys (features/config config.query) the call's settings live under. Who she

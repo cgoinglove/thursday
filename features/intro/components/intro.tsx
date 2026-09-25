@@ -20,6 +20,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ASCII_FACE } from "@/config";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import {
   parseTextModel,
@@ -50,7 +51,6 @@ import {
   useTurnFocus,
 } from "@/features/thursday/components/side-captions";
 import { Ear } from "@/features/thursday/components/thursday";
-import { useThursdayFace } from "@/features/thursday/face.store";
 import { awake } from "@/features/thursday/face-words";
 import { silentVoice } from "@/features/thursday/silent-voice";
 import type { CallStatus, FaceWord } from "@/features/thursday/thursday.schema";
@@ -124,7 +124,6 @@ export function Intro({
 }) {
   const shown = firstRun || forced;
   const router = useRouter();
-  const look = useThursdayFace();
   const [step, setStep] = useState<Step>("hello");
   const [gone, setGone] = useState(false);
   /** After the fade; then the element is removed entirely. */
@@ -213,7 +212,7 @@ export function Intro({
       {opening !== "over" && (
         <Echoes
           anchor={faceBox}
-          charset={look.charset}
+          charset={ASCII_FACE.charset}
           onArrive={() => setOpening("her")}
           onHello={() => setOpening("hello")}
           onDone={() => setOpening("over")}
@@ -266,7 +265,6 @@ export function Intro({
           >
             {herIn ? (
               <Face
-                look={look}
                 status={status}
                 failed={false}
                 word={word}

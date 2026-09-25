@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ASCII_FACE } from "@/config";
 import { EMOJI_POOL, hash, RAMP } from "../ascii.const";
-import { useThursdayFace } from "../face.store";
+import type { AsciiCharset } from "../face.const";
 
 /**
  * Thursday wherever she is small: the room, a thread, the call log, the
@@ -24,6 +25,8 @@ export const THURSDAY_SEED = "thursday";
 const GLYPH = 4;
 /** The air a bot mark leaves in its own box (BotMark draws 240 of 276); without it she reads a size larger beside one. */
 const INSET = 240 / 276;
+/** Her glyphs (config ASCII_FACE): anything but ascii draws her mark in emoji. */
+const CHARSET: AsciiCharset = ASCII_FACE.charset;
 /** How long a cell keeps a glyph. */
 const FLIP_MS = 620;
 /** Steps through EMOJI_POOL per flip. The pool runs in colour bands, so a stride past one changes the colour. */
@@ -125,8 +128,7 @@ export function ThursdayMark({
   size?: number;
   className?: string;
 }) {
-  const face = useThursdayFace();
-  const emoji = face.charset !== "ascii";
+  const emoji = CHARSET !== "ascii";
   const { cells, font } = layoutOf(size);
   // first frame is t=0 so server and client render the same picture
   const [t, setT] = useState(0);

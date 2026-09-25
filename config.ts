@@ -915,9 +915,7 @@ export const PROMPT_LINE = {
 };
 
 /**
- * Thursday's ascii face until a browser keeps one of its own (features/thursday
- * face.store holds the pick in localStorage; Settings › Thursday changes it).
- * The ranges bound both what is stored and the settings sliders.
+ * Thursday's ascii face, the one everybody sees: nothing in the app changes it.
  * - `charset`  `ascii` draws characters only, `emoji` sprinkles emoji in,
  *            `emojiOnly` draws nothing else. Emoji cost more to draw per frame.
  * - `fontSize`  glyph size in px. Smaller glyphs pack more cells into the same
@@ -927,6 +925,6 @@ export const PROMPT_LINE = {
  */
 export const ASCII_FACE = {
   charset: "emojiOnly",
-  fontSize: { default: 8, min: 4, max: 16 },
-  density: { default: 1.4, min: 0.6, max: 2 },
+  fontSize: 8,
+  density: 1.4,
 } as const;

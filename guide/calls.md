@@ -104,11 +104,10 @@ opens in a new tab.
 
 ## Her voice, her face, her models
 
-Everything here is in **Settings › Thursday**, and changes apply from the next call.
+Everything here but her face is in **Settings › Thursday**, and changes apply from the next call.
 
-- **Face**: **Glyphs** picks what she is drawn with — **Characters**, **Sprinkled** (characters
-  with some emoji) or **All emoji**, which is where it starts — and **Size** and **Density** how
-  big and how dense. At rest she is a face of smoke: it keeps moving inside her and drifts off her
+- **Face**: she is drawn in emoji, and she looks the same for everyone: no setting changes her
+  face. At rest she is a face of smoke: it keeps moving inside her and drifts off her
   edge on a wind that comes and goes. She opens her eyes as the app opens and again every
   twenty seconds or so, waking one of four ways — a sigh of smoke, shaking off a crust of dust,
   turning round to face you, or a long breath of smoke that fills the space around her — and
@@ -134,7 +133,7 @@ Everything here is in **Settings › Thursday**, and changes apply from the next
   how work should be handed over and what to check first.
 
 Voice, style, the backend and its settings belong to the app, so she is the same on every browser
-and from a phone. The face, captions, starting a call and While she works belong to this browser.
+and from a phone. Captions, starting a call and While she works belong to this browser.
 
 ## When work has something to say
 

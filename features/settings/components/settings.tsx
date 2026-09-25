@@ -194,7 +194,7 @@ export const SECTIONS: readonly {
     id: "thursday",
     label: "Thursday",
     group: "call",
-    hint: "Her face, models, and how a call starts",
+    hint: "Captions, models, and how a call starts",
     icon: ThursdayMark,
     Component: ThursdaySetting,
   },

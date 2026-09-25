@@ -17,10 +17,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { ASCII_FACE, COMMON_VALIDATE, KEY_MIN } from "@/config";
+import { COMMON_VALIDATE, KEY_MIN } from "@/config";
 import { EffortSwitch } from "@/features/ai/components/effort-switch";
 import {
   LIVE_BACKEND_MODELS,
@@ -43,17 +42,8 @@ import {
 } from "@/features/settings/components/setting-ui";
 import type { SkillSummary } from "@/features/skills/skills.schema";
 import { CallHistoryRow } from "@/features/thursday/components/call-log";
-import { Face } from "@/features/thursday/components/face";
 import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
 import { VoicePicker } from "@/features/thursday/components/voice-picker";
-import {
-  ASCII_CHARSETS,
-  type AsciiCharset,
-} from "@/features/thursday/face.const";
-import {
-  setThursdayFace,
-  useThursdayFace,
-} from "@/features/thursday/face.store";
 import { resetHistoryAction } from "@/features/thursday/thursday.action";
 import {
   CALL_BACK_LABEL,
@@ -63,7 +53,6 @@ import {
   CallBackSchema,
   type CaptionView,
   type Hotkey,
-  type ThursdayFace,
   WAKE_PHRASE,
   type Wake,
 } from "@/features/thursday/thursday.schema";
@@ -83,10 +72,11 @@ import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
 
 /**
- * Settings for the call: face, captions, the two models, how a call starts, and
- * its history. Who she is and what she may do is the app's, kept where a call reads it
- * (use-live-settings); how this machine talks to her — captions, her face, the wake
- * phrase, the hotkey — stays in the browser (thursday.store, face.store).
+ * Settings for the call: captions, the two models, how a call starts, and its
+ * history. Her face is not among them: it is drawn one way for everyone (config
+ * ASCII_FACE). Who she is and what she may do is the app's, kept where a call reads it
+ * (use-live-settings); how this machine talks to her — captions, the wake phrase, the
+ * hotkey — stays in the browser (thursday.store).
  */
 export function ThursdaySetting() {
   // This machine's own: no waiting, no revalidation
@@ -100,7 +90,6 @@ export function ThursdaySetting() {
     isLoading,
     error,
   } = useServerRoute<AiProvider[]>(queryKey.llmModel);
-  const face = useThursdayFace();
 
   if (isLoading || !settings) return <SettingSkeleton rows={4} />;
   if (error) return <SettingError message={error.message} />;
@@ -118,8 +107,6 @@ export function ThursdaySetting() {
         </SettingRailNote>
       }
     >
-      <FacePicker value={face} onChange={setThursdayFace} />
-
       <Captions
         value={thursday.captionView}
         onChange={(captionView) => patch({ captionView })}
@@ -128,12 +115,7 @@ export function ThursdaySetting() {
       {/* Off by default; the whole feature is features/thursday/work-chip */}
       <WorkChipSetting />
 
-      <ModelsSetting
-        value={settings}
-        face={face}
-        hasKey={hasKey}
-        onChange={change}
-      />
+      <ModelsSetting value={settings} hasKey={hasKey} onChange={change} />
 
       {/* Every way a call starts other than pressing her face, read at once */}
       <SettingGroup label="Starting a call">
@@ -206,13 +188,10 @@ function TileHead({
  */
 function ModelsSetting({
   value,
-  face,
   hasKey,
   onChange,
 }: {
   value: LiveSettings;
-  /** The picker plays a sample through her own face. */
-  face: ThursdayFace;
   hasKey: boolean;
   onChange: (change: Partial<LiveSettings>) => void;
 }) {
@@ -242,7 +221,6 @@ function ModelsSetting({
           <ModelBlock label="voice">
             <VoicePicker
               voice={value.voice}
-              face={face}
               onChange={(voice) =>
                 onChange({ voice: voice.trim() || LIVE_DEFAULTS.voice })
               }
@@ -711,115 +689,6 @@ function ResetHistory() {
         Reset
       </Button>
     </div>
-  );
-}
-
-/**
- * Face picker with a live preview on top. Color applies to both faces; the
- * rest belongs to one face and shows only while that face is on.
- */
-function FacePicker({
-  value,
-  onChange,
-}: {
-  value: ThursdayFace;
-  onChange: (face: ThursdayFace) => void;
-}) {
-  const patch = (change: Partial<ThursdayFace>) =>
-    onChange({ ...value, ...change });
-
-  return (
-    <SettingGroup label="Face">
-      {/* No panel or border: the face is drawn in theme ink, and a panel behind it reads as a picture on a card */}
-      <div className="space-y-5 py-2">
-        {/* Same layout as the call screen: face above, one line below */}
-        <div className="flex flex-col items-center gap-4 pt-2">
-          <Face look={value} className="w-44" />
-        </div>
-
-        <Row label="Glyphs">
-          <Segmented
-            aria-label="Glyphs"
-            options={ASCII_CHARSETS.map((charset) => ({
-              value: charset,
-              label: CHARSET_LABEL[charset],
-            }))}
-            value={value.charset}
-            onChange={(charset) => patch({ charset })}
-          />
-        </Row>
-
-        <Row label="Size">
-          <Slider
-            min={ASCII_FACE.fontSize.min}
-            max={ASCII_FACE.fontSize.max}
-            step={1}
-            value={value.fontSize}
-            format={(n) => `${n}px`}
-            onChange={(fontSize) => patch({ fontSize })}
-          />
-        </Row>
-
-        <Row label="Density">
-          <Slider
-            min={ASCII_FACE.density.min}
-            max={ASCII_FACE.density.max}
-            step={0.1}
-            value={value.density}
-            format={(n) => `${n.toFixed(1)}x`}
-            onChange={(density) => patch({ density })}
-          />
-        </Row>
-      </div>
-    </SettingGroup>
-  );
-}
-
-/** "emojiOnly" is the orb's name; the screen shows a friendlier one. */
-const CHARSET_LABEL: Record<AsciiCharset, string> = {
-  ascii: "Characters",
-  emoji: "Sprinkled",
-  emojiOnly: "All emoji",
-};
-
-/** One knob per row, with a label slot. */
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="w-16 shrink-0 font-mono text-[11px] text-muted-foreground">
-        {label}
-      </span>
-      {children}
-    </div>
-  );
-}
-
-function Slider({
-  value,
-  onChange,
-  format,
-  ...range
-}: {
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  format: (value: number) => string;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <span className="flex min-w-0 flex-1 items-center gap-3">
-      <input
-        type="range"
-        {...range}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="min-w-0 flex-1 accent-brand"
-      />
-      <span className="w-10 shrink-0 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
-        {format(value)}
-      </span>
-    </span>
   );
 }
 

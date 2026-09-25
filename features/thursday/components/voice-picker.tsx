@@ -12,7 +12,6 @@ import {
   voiceSamplePath,
 } from "@/features/ai/live.schema";
 import { Face } from "@/features/thursday/components/face";
-import type { ThursdayFace } from "@/features/thursday/thursday.schema";
 import { createClipTap, SPECTRUM_BANDS } from "@/lib/live/live.tap";
 import { cn, errorToString } from "@/lib/utils";
 
@@ -27,12 +26,10 @@ const SILENT = new Array<number>(SPECTRUM_BANDS).fill(0);
 
 export function VoicePicker({
   voice,
-  face,
   onChange,
 }: {
   /** The saved voice: what the next call opens with. */
   voice: string;
-  face: ThursdayFace;
   onChange: (voice: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -193,7 +190,6 @@ export function VoicePicker({
         <div className="grid gap-4 @md:grid-cols-[11rem_minmax(0,1fr)]">
           <div className="flex flex-col items-center gap-2">
             <Face
-              look={face}
               status={playing ? "speaking" : "idle"}
               getSpectrum={spectrum}
               className="w-44"

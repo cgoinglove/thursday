@@ -5,11 +5,7 @@ import {
   AsciiOrb,
   type AsciiOrbMode,
 } from "@/features/thursday/components/ascii-orb";
-import type {
-  CallStatus,
-  FaceWord,
-  ThursdayFace,
-} from "@/features/thursday/thursday.schema";
+import type { CallStatus, FaceWord } from "@/features/thursday/thursday.schema";
 import { useResolvedTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
 
@@ -29,8 +25,6 @@ type FaceProps = {
   size: number;
   /** Audio bands, read once per animation frame, not through state. */
   getSpectrum?: () => ArrayLike<number>;
-  /** Appearance: the glyphs, their size, how tightly they pack. */
-  look: ThursdayFace;
   /** She comes in waking (ascii-orb `waking`): the first run's opening brings her in this way. */
   waking?: boolean;
   className?: string;
@@ -60,7 +54,6 @@ function OrbFace({
   word,
   size,
   getSpectrum,
-  look,
   waking,
   className,
 }: FaceProps) {
@@ -72,9 +65,6 @@ function OrbFace({
       size={size}
       color={dark ? ORB_DARK : ORB_LIGHT}
       getSpectrum={getSpectrum}
-      charset={look.charset}
-      fontSize={look.fontSize}
-      density={look.density}
       waking={waking}
       className={className}
     />
@@ -85,13 +75,11 @@ function OrbFace({
  * The face at the size of its box, measured because the canvas face needs real
  * pixels. It is not drawn at all until the box has been measured: the orb builds
  * a grid per size, and building one for a guess and then again for the real width
- * throws away the first one's trails in front of the user. Fades in: the chosen
- * face arrives after hydration, so the first frame is always the default and must
- * not be shown. memo: the call screen re-renders per transcript fragment; the
+ * throws away the first one's trails in front of the user. Fades in from the frame
+ * after it mounts. memo: the call screen re-renders per transcript fragment; the
  * face's props are stable references.
  */
 export const Face = memo(function Face({
-  look,
   // a face without a call is between calls (previews)
   status = "idle",
   className,
@@ -114,7 +102,7 @@ export const Face = memo(function Face({
   }, []);
 
   useEffect(() => {
-    // one frame later on purpose: the store corrects itself during hydration
+    // one frame later: the fade runs only from a frame already drawn at opacity 0
     const frame = requestAnimationFrame(() => setShown(true));
     return () => cancelAnimationFrame(frame);
   }, []);
@@ -129,9 +117,7 @@ export const Face = memo(function Face({
         className,
       )}
     >
-      {px !== null && (
-        <OrbFace {...rest} look={look} status={status} size={px} />
-      )}
+      {px !== null && <OrbFace {...rest} status={status} size={px} />}
     </div>
   );
 });

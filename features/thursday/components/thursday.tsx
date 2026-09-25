@@ -33,7 +33,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { CALL_IDLE, CALL_LINE } from "@/config";
+import { ASCII_FACE, CALL_IDLE, CALL_LINE } from "@/config";
 import { LIVE_DEFAULTS, LIVE_PROVIDER } from "@/features/ai/live.schema";
 import { TEXT_MODEL_PROVIDERS } from "@/features/ai/model.schema";
 import { type Bot, DEFAULT_BOT } from "@/features/bot/bot.schema";
@@ -52,15 +52,12 @@ import {
   worstAlert,
 } from "@/features/settings/settings.alert";
 import { openSettings } from "@/features/settings/settings.store";
-import { useThursdayFace } from "@/features/thursday/face.store";
 import { silentVoice } from "@/features/thursday/silent-voice";
 import {
   type CallMessage,
   type CallStatus,
   type CaptionView,
-  FACE_DEFAULT,
   type FaceWord,
-  type ThursdayFace,
   textCallRunsOn,
 } from "@/features/thursday/thursday.schema";
 import { useThursdayStore } from "@/features/thursday/thursday.store";
@@ -128,8 +125,6 @@ type CallScreenProps = {
   /** The user's own mic bands, for the listening meter. */
   getMicSpectrum?: () => ArrayLike<number>;
   captionView?: CaptionView;
-  /** Chosen in Settings > Thursday, kept in the browser. */
-  face?: ThursdayFace;
   /** A speech key exists. Without one the screen stays but sleeps. */
   callable?: boolean;
   /**
@@ -158,7 +153,6 @@ function CallScreen({
   getSpectrum,
   getMicSpectrum,
   captionView = "sides",
-  face = FACE_DEFAULT,
   callable = true,
   written = null,
 }: CallScreenProps) {
@@ -248,7 +242,6 @@ function CallScreen({
             {/* Ringing: she says it in her own letters (useRingWord) */}
             <span className="block">
               <Face
-                look={face}
                 status={status}
                 failed={failed}
                 word={ringWord ?? faceWord}
@@ -257,7 +250,7 @@ function CallScreen({
               />
             </span>
           </button>
-          <ConnectWave status={status} charset={face.charset} />
+          <ConnectWave status={status} charset={ASCII_FACE.charset} />
 
           {sided && (
             <SideCaptions
@@ -1723,7 +1716,6 @@ export function Thursday({
   // one entry point per line: the wake phrase if any, else the hotkey
   const hotkeyLabel = useHotkeyLabel(hotkey);
   // a preference, not a fact about the model (thursday.store)
-  const face = useThursdayFace();
   const captionView = useThursdayStore((state) => state.captionView);
 
   /**
@@ -1812,7 +1804,6 @@ export function Thursday({
         // her words arrive without a voice: the face moves to one nobody hears
         getSpectrum={writing ? silentVoice : getSpectrum}
         getMicSpectrum={getMicSpectrum}
-        face={face}
         captionView={captionView}
         callable={callable}
         // a spoken call has the line to itself; what is typed then goes to a bot
