@@ -15,12 +15,16 @@ const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
 const READS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 export function proxy(request: NextRequest) {
-  const host = request.headers.get("host") ?? "";
+  const sent = request.headers.get("host");
+  const host = sent ?? "";
   let name = "";
   try {
     name = new URL(`http://${host}`).hostname;
   } catch {}
-  if (!LOOPBACK.has(name))
+  // A browser always names a host, so a request without one comes from this server itself:
+  // Next's image optimizer asks for /api/file in-process with no headers at all, and turned
+  // away it draws every thumbnail as a broken image
+  if (sent !== null && !LOOPBACK.has(name))
     return new NextResponse("This app answers only this computer.", {
       status: 421,
     });

@@ -38,6 +38,12 @@ test("a request under any name but this computer's is refused", () => {
     "http://[::1]:3000/",
   ])
     assert.ok(passes(proxy(request(url))), url);
+  // Next's image optimizer fetches a thumbnail in-process, naming no host at all
+  const inside = new NextRequest(
+    "http://127.0.0.1:3000/api/file/artifacts/Tester/board.png",
+  );
+  assert.equal(inside.headers.get("host"), null);
+  assert.ok(passes(proxy(inside)));
 });
 
 test("a write another site sends is refused, and the app's own and a local tool's go through", () => {
