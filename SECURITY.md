@@ -28,12 +28,19 @@ What the app does to keep that narrow:
   Do not put it on `0.0.0.0` and expect it to hold: there is no authentication,
   because there is no second user.
 - **A sign-in is asked for, and a payment is yours to press.** A bot signs in
-  with a session it kept, the Chrome you already use, or a window where you sign
-  in yourself. Credentials you gave it are used only after it asks. A purchase is
-  taken to the last screen and left open on yours. It never guesses a secret or
-  goes looking for one (`skills/browser/SKILL.md`). These are instructions in a
-  skill, not code: the app cannot stop a model that ignores them. A session it
-  keeps (`bots/<name>/.auth/`) signs every later job in as you.
+  with a sign-in the app keeps, the Chrome you already use, or a window where you
+  sign in yourself. A purchase is taken to the last screen and left open on
+  yours. It never guesses a secret or goes looking for one
+  (`skills/browser/SKILL.md`). These are instructions in a skill, not code: the
+  app cannot stop a model that ignores them.
+- **A kept sign-in is lent, not handed around.** The app keeps a site's session,
+  never a password: one file a site in `.sign-ins/` under the data folder,
+  outside the bots' workspace. The `sign_in_use` tool lends it only to the bots
+  on its list — the one that kept it, and those you let in under Settings ›
+  Sign-ins or when one asks — and signing out removes the file
+  (`features/signins/signins.query.ts`). That check is on the tool, not the
+  file: a bot's shell runs as you and can read it. A kept session signs every
+  later job of those bots in as you.
 
 What it does not do: sandbox the shell, sign what a bot downloads, or review the
 skills you install. A skill is code you chose to trust.
