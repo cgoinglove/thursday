@@ -40,6 +40,7 @@ import { type Bot, DEFAULT_BOT } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { BotRoom } from "@/features/bot/components/bot-room";
 import { toolIcon } from "@/features/bot/components/bot-tool";
+import { useAnswerThread } from "@/features/bot/components/thread-reply";
 import { installSeedBots } from "@/features/bot/seed-bots";
 import { GetKeyLink, VoiceKeys } from "@/features/config/components/voice-key";
 import { type ConfigStatus, isConfigSet } from "@/features/config/config.const";
@@ -1189,7 +1190,8 @@ const KEY_CAP =
 /**
  * A call she places, under her face where her words would be. One call for everything
  * that waits: the first thread is shown whole — who, what it says, the answers the bot
- * offered — and the rest by name; answering tells them one by one. One round button
+ * offered, any of which answers it there without a call — and the rest by name;
+ * answering tells them one by one. One round button
  * takes it (her face does too), and declining is the small key under it. Rung out, the
  * same place holds a missed list until it is called back or cleared. No amber: the
  * screen already means it waits on them.
@@ -1223,6 +1225,8 @@ function Incoming({
     );
   };
   const { first, others, missedAt } = ringing;
+  const [answer, answering] = useAnswerThread();
+  const [sending, setSending] = useState<string | null>(null);
 
   if (missedAt !== null) {
     const all = [first, ...others];
@@ -1294,15 +1298,30 @@ function Incoming({
         {plainText(first.text)}
       </p>
       {first.options.length > 0 && (
-        // What they will be asked to choose between, to read before picking up
+        // A pick answers the bot where it rings, as it does in the room, with no call to
+        // place: the ring moves on to what else waits once this thread stops waiting
         <span className="flex max-w-full flex-wrap justify-center gap-1.5">
           {first.options.map((option) => (
-            <span
+            <Button
               key={option}
-              className="flex h-7 max-w-60 items-center truncate rounded-full px-3 text-[12.5px] text-muted-foreground ring-1 ring-border"
+              size="sm"
+              variant="secondary"
+              loading={sending === option}
+              disabled={answering}
+              onClick={async () => {
+                setSending(option);
+                await answer(
+                  first,
+                  option,
+                  first.bot,
+                  first.questionId ?? undefined,
+                );
+                setSending(null);
+              }}
+              className="h-7 max-w-60 rounded-full px-3 text-[12.5px]"
             >
-              {option}
-            </span>
+              <span className="truncate">{option}</span>
+            </Button>
           ))}
         </span>
       )}

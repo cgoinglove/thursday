@@ -21,6 +21,8 @@ export type Rung = {
   text: string;
   /** The answers the bot offered with its question. */
   options: string[];
+  /** The question they answer, so a pick goes to it and not the thread at large. */
+  questionId: string | null;
 };
 
 /** A call-back ringing: one call for everything that waits, told one by one once it is answered. */
@@ -155,6 +157,7 @@ export function useCallRing({
             thread.ask?.question ??
             thread.label,
           options: question?.options ?? [],
+          questionId: question?.id ?? null,
         },
       ];
     });

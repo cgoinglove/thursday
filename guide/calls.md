@@ -158,7 +158,9 @@ notification says it instead; on a Mac pressing that one opens Script Editor rat
 
 It needs this tab open. It is one call however much is waiting: while it rings, the screen says
 under her face whose work it is about and what it asks — with the answers the bot offered and the
-other work waiting by name — and one round button, **Answer**. Tapping her face answers too, and so
+other work waiting by name — and one round button, **Answer**. Pressing one of those answers
+answers the bot there and then, with no call, and the ring moves on to whatever else waits.
+Tapping her face answers too, and so
 does the wake phrase when it is on; **Esc** is "not now". She opens by saying why she called, then
 tells the rest one by one. A ring nobody takes becomes a short missed list in the same place, with
 **Call back**, until it is called back or cleared with Esc; the work itself stays in the room
