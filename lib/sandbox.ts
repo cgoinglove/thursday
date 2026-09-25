@@ -140,7 +140,7 @@ export const createSandBox = ({
       await writeFile(full, content);
     },
 
-    readdir: (p, opts) => readdir(res(p), opts) as any,
+    readdir: (p, opts) => readdir(res(p), opts),
 
     fold: (text, name = "output") => foldLong(text, name, cwd, spill),
 
