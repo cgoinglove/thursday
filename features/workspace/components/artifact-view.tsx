@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import {
 } from "@/features/bot/thread.store";
 import { FileThumb } from "@/features/workspace/components/file-thumb";
 import { leadFirst, pathsIn, viewKindOf } from "@/features/workspace/file-kind";
+import type { FileOnDisk } from "@/features/workspace/workspace.schema";
 import { toDate } from "@/lib/date-like";
 import { unwrapResult } from "@/lib/protocol/result";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
@@ -59,6 +60,8 @@ export type Finished = {
   words: string;
   /** Workspace-relative, the one worth reading first at the head (bot.runner); empty for an answer in words alone. */
   paths: string[];
+  /** Read off the answer's words after a reload (cardOf), so `paths` is what it names, not yet held against the disk. */
+  unchecked?: boolean;
 };
 
 /** Tailwind writes its columns out, so a count picks one rather than building the class. */
@@ -151,7 +154,34 @@ function cardOf(thread: ThreadView): Finished {
     bot: thread.bot.name,
     words: plainText(thread.outcome ?? "").slice(0, FINISHED_NOTICE.words),
     paths: leadFirst(pathsIn(thread.outcome ?? "")),
+    unchecked: true,
   };
+}
+
+/**
+ * A card read off its row names what the answer names, some of which may never have been
+ * written or be gone since. The live notice carries only what is on disk (bot.runner
+ * filesOnDisk), so this one stands once the disk has said which of its files are there, led
+ * again by a page to read among those.
+ */
+function OnDisk({
+  row,
+  children,
+}: {
+  row: Finished;
+  children: (row: Finished) => ReactNode;
+}) {
+  const named = row.unchecked && row.paths.length > 0;
+  const { data: found } = useServerRoute<FileOnDisk[]>(
+    named ? queryKey.workspaceFiles(row.paths) : null,
+  );
+  if (!named) return children(row);
+  if (!found) return null;
+  const there = new Set(found.map((file) => file.path));
+  return children({
+    ...row,
+    paths: leadFirst(row.paths.filter((path) => there.has(path))),
+  });
 }
 
 function Notice() {
@@ -277,41 +307,47 @@ function Notice() {
           The padding is room for the cards' rings and shadows, which a scroll box would
           clip, and the negative margin puts their edge back on the rail. */}
       <div className="pointer-events-auto absolute bottom-0 left-0 -m-2 flex max-h-[80vh] w-82 max-w-full flex-col-reverse gap-2 overflow-y-auto p-2 scrollbar-none">
-        {shown.map((row) => (
-          <FinishedCard
-            key={row.threadId}
-            row={row}
-            bot={bots?.find((one) => one.name === row.bot)}
-            onOpen={(path) => {
-              if (path) {
-                openFile(
-                  path,
-                  row.paths.filter((one) => viewKindOf(one) === "image"),
-                );
-                read([row.threadId]);
-              } else {
-                // the room marks a thread seen as it opens it
-                roomOpens.open(row.threadId);
-                drop(row.threadId);
-              }
-            }}
-            onClose={() => drop(row.threadId)}
-          />
+        {shown.map((named) => (
+          <OnDisk key={named.threadId} row={named}>
+            {(row) => (
+              <FinishedCard
+                row={row}
+                bot={bots?.find((one) => one.name === row.bot)}
+                onOpen={(path) => {
+                  if (path) {
+                    openFile(
+                      path,
+                      row.paths.filter((one) => viewKindOf(one) === "image"),
+                    );
+                    read([row.threadId]);
+                  } else {
+                    // the room marks a thread seen as it opens it
+                    roomOpens.open(row.threadId);
+                    drop(row.threadId);
+                  }
+                }}
+                onClose={() => drop(row.threadId)}
+              />
+            )}
+          </OnDisk>
         ))}
         {/* Everything else it holds is a line: whose it is, what it was, and the faces of what
             it left. A pile of edges said there were more and nothing about them. */}
-        {listed.map((row) => (
-          <FinishedRow
-            key={row.threadId}
-            row={row}
-            bot={bots?.find((one) => one.name === row.bot)}
-            onOpen={() => {
-              // the room marks a thread seen as it opens it
-              roomOpens.open(row.threadId);
-              drop(row.threadId);
-            }}
-            onClose={() => drop(row.threadId)}
-          />
+        {listed.map((named) => (
+          <OnDisk key={named.threadId} row={named}>
+            {(row) => (
+              <FinishedRow
+                row={row}
+                bot={bots?.find((one) => one.name === row.bot)}
+                onOpen={() => {
+                  // the room marks a thread seen as it opens it
+                  roomOpens.open(row.threadId);
+                  drop(row.threadId);
+                }}
+                onClose={() => drop(row.threadId)}
+              />
+            )}
+          </OnDisk>
         ))}
         {rows.length > 1 && (
           <p className="flex shrink-0 items-center gap-2 px-1.5 font-mono text-[10px] text-muted-foreground">
