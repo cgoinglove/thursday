@@ -57,3 +57,38 @@ export function formatValue(value, code) {
   const shown = `${parts.prefix}${text}${parts.percent ? "%" : ""}${parts.suffix}`;
   return n < 0 && Number(text.replace(/,/g, "")) !== 0 ? `-${shown}` : shown;
 }
+
+/**
+ * What someone typed into a cell of a column written in `code`: a number when it reads as one
+ * — with the format's words or sign around it, grouping commas, a minus or a % — TRUE or FALSE,
+ * empty for nothing, and otherwise the text as typed.
+ */
+export function valueOf(text, code) {
+  const typed = String(text).trim();
+  if (typed === "") return null;
+  if (/^(TRUE|FALSE)$/i.test(typed)) return typed.toUpperCase() === "TRUE";
+  const parts = parseFormat(code) ?? { general: true };
+  let rest = typed;
+  let negative = false;
+  const minus = () => {
+    if (!negative && rest.startsWith("-")) {
+      negative = true;
+      rest = rest.slice(1).trim();
+    }
+  };
+  minus();
+  if (parts.prefix && rest.startsWith(parts.prefix))
+    rest = rest.slice(parts.prefix.length).trim();
+  minus();
+  if (parts.suffix && rest.endsWith(parts.suffix))
+    rest = rest.slice(0, -parts.suffix.length).trim();
+  const percent = rest.endsWith("%");
+  if (percent) rest = rest.slice(0, -1).trim();
+  if (
+    !/\d/.test(rest) ||
+    !/^(?:\d{1,3}(?:,\d{3})+|\d+)?(?:\.\d*)?(?:[eE][+-]?\d+)?$/.test(rest)
+  )
+    return typed;
+  const n = Number(rest.replaceAll(",", "")) * (negative ? -1 : 1);
+  return percent ? Number((n / 100).toPrecision(15)) : n;
+}

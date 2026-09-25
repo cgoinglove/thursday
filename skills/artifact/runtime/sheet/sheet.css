@@ -42,14 +42,18 @@ body {
   font-style: italic;
 }
 .ss-formula {
-  display: flex;
-  align-items: center;
+  flex: 1;
   min-width: 0;
-  overflow: hidden;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--sh-ink);
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 12.5px;
-  white-space: nowrap;
   text-overflow: ellipsis;
+  outline: none;
 }
 
 .ss-grid {
@@ -362,5 +366,94 @@ body {
   }
   .ss-grid :is(th, td) {
     position: static !important;
+  }
+}
+
+/* Editing: the formula line takes typing, the tools sit at its end, and a cell being typed
+   in has a box of its own over it */
+.ss-formula:not([readonly]):focus {
+  box-shadow: inset 0 -2px 0 var(--sh-brand);
+}
+.ss-tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+  border-left: 1px solid var(--sh-line);
+}
+.ss-tools[hidden] {
+  display: none;
+}
+/* On a narrow screen the tools have a row of their own under the formula line */
+@media (max-width: 720px) {
+  .ss-bar {
+    flex-wrap: wrap;
+    height: auto;
+  }
+  .ss-bar > :not(.ss-tools) {
+    height: 32px;
+  }
+  .ss-tools {
+    order: 1;
+    width: 100%;
+    height: 34px;
+    overflow-x: auto;
+    border-top: 1px solid var(--sh-line);
+    border-left: 0;
+  }
+}
+.ss-format {
+  height: 26px;
+  margin: 0 2px;
+  padding: 0 4px;
+  border: 1px solid var(--sh-line);
+  border-radius: calc(var(--sh-radius) * 0.6);
+  background: var(--sh-paper);
+  color: var(--sh-ink);
+  font: inherit;
+  font-size: 12px;
+}
+.ss-edit {
+  position: absolute;
+  z-index: 4;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 7px;
+  border: 2px solid var(--sh-brand);
+  background: var(--sh-paper);
+  color: var(--sh-ink);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  opacity: 0;
+  pointer-events: none;
+}
+.ss-edit.open {
+  opacity: 1;
+  pointer-events: auto;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+}
+.ss-grid.editing td,
+.ss-grid.editing .ss-names th {
+  cursor: text;
+}
+.ss-note {
+  min-width: 0;
+  line-height: 36px;
+  overflow: hidden;
+  margin-right: 12px;
+  color: var(--sh-ink-3);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ss-note.bad {
+  color: var(--sh-bad);
+}
+@media print {
+  .ss-tools,
+  .ss-edit {
+    display: none;
   }
 }

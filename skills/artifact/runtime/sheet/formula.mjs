@@ -5,8 +5,14 @@
 // Coordinates are Excel's: row 1 is the header, column A the first; a value is a number, a
 // string, a boolean, null (empty) or { error: "#DIV/0!" }.
 
-/** A formula this file cannot work out, said so the bot can fix it. */
-export class FormulaError extends Error {}
+/** A formula this file cannot work out, said so the bot can fix it; `code` is what a cell
+ * shows instead when the book is worked out leniently (an edit in the page). */
+export class FormulaError extends Error {
+  constructor(message, code = "#NAME?") {
+    super(message);
+    this.code = code;
+  }
+}
 
 /** `A`, `B`, … `Z`, `AA`: a column's letters from its index, counted from 0. */
 export const colName = (index) => {
@@ -56,6 +62,7 @@ const PATTERNS = [
   ["num", /^(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/],
   ["fn", /^([A-Za-z][A-Za-z0-9.]*)\s*\(/],
   ["bool", /^(TRUE|FALSE)\b/i],
+  ["err", /^(#REF!|#DIV\/0!|#N\/A|#VALUE!|#NAME\?|#NUM!|#NULL!)/],
   [
     "ref",
     new RegExp(
@@ -98,6 +105,7 @@ function tokenize(text) {
     else if (kind === "fn") tokens.push({ t: "fn", v: m[1].toUpperCase() });
     else if (kind === "bool")
       tokens.push({ t: "bool", v: m[1].toUpperCase() === "TRUE" });
+    else if (kind === "err") tokens.push({ t: "err", v: m[1] });
     else if (kind === "ref") {
       const sheet = m[1]?.replaceAll("''", "'") ?? m[2] ?? null;
       const a = part(m[3]);
@@ -135,6 +143,7 @@ export function parse(formula) {
     if (token.t === "num") return { k: "val", v: token.v };
     if (token.t === "str") return { k: "val", v: token.v };
     if (token.t === "bool") return { k: "val", v: token.v };
+    if (token.t === "err") return { k: "val", v: error(token.v) };
     if (token.t === "ref") return { k: "ref", ...token };
     if (token.t === "(") {
       const inner = comparison();
@@ -260,9 +269,10 @@ function criterion(raw) {
  * Every formula in a workbook worked out. `sheets` is a list of `{ name, cells }`, `cells` rows
  * of `{ v }` or `{ f }` (a formula, `=` or not) with row 0 the header. Each formula cell gets its
  * `v`. A formula that cannot be read, names a sheet or function that is not there, or refers to
- * itself throws a FormulaError naming the cell.
+ * itself throws a FormulaError naming the cell — or, given a `problems` list, holds that error's
+ * code (`#NAME?`, `#REF!`, …) and adds the message to the list, as a cell in Excel would.
  */
-export function workOut(sheets) {
+export function workOut(sheets, { problems } = {}) {
   const byName = new Map(sheets.map((s) => [s.name.toLowerCase(), s]));
   const trees = new Map();
   const state = new Map(); // "sheet|r|c" → "busy" | "done"
@@ -270,7 +280,7 @@ export function workOut(sheets) {
   const sheetOf = (name, from) => {
     if (!name) return from;
     const found = byName.get(name.toLowerCase());
-    if (!found) throw new FormulaError(`there is no sheet "${name}"`);
+    if (!found) throw new FormulaError(`there is no sheet "${name}"`, "#REF!");
     return found;
   };
   const value = (sheet, r, c) => {
@@ -282,6 +292,7 @@ export function workOut(sheets) {
     if (state.get(key) === "busy")
       throw new FormulaError(
         `${sheet.name}!${colName(c)}${r + 1} refers to itself`,
+        "#VALUE!",
       );
     state.set(key, "busy");
     try {
@@ -293,14 +304,16 @@ export function workOut(sheets) {
       const out = evaluate(tree, sheet);
       cell.v = Array.isArray(out) ? error("#VALUE!") : out;
     } catch (failed) {
-      if (
-        failed instanceof FormulaError &&
-        !failed.message.startsWith(`${sheet.name}!`)
-      )
-        throw new FormulaError(
-          `${sheet.name}!${colName(c)}${r + 1} (${cell.f}): ${failed.message}`,
-        );
-      throw failed;
+      if (!(failed instanceof FormulaError)) throw failed;
+      const named = failed.message.startsWith(`${sheet.name}!`)
+        ? failed
+        : new FormulaError(
+            `${sheet.name}!${colName(c)}${r + 1} (${cell.f}): ${failed.message}`,
+            failed.code,
+          );
+      if (!problems) throw named;
+      problems.push(named.message);
+      cell.v = error(named.code);
     }
     state.set(key, "done");
     return cell.v;
@@ -490,4 +503,121 @@ export function workOut(sheets) {
       for (let c = 0; c < (sheet.cells[r]?.length ?? 0); c++)
         if (sheet.cells[r][c]?.f !== undefined) value(sheet, r, c);
   return sheets;
+}
+
+// ── changing a formula as the sheet around it changes ──────────────────────
+
+const PIECE = /^\$?([A-Za-z]{1,3})(\$?)(\d*)$/;
+
+/** A formula with each reference in it handed to `change`, which returns the new text or null
+ * to keep it; text in quotes, functions and the rest are kept as written. */
+function rewrite(formula, change) {
+  const text = String(formula);
+  const lead = text.startsWith("=") ? "=" : "";
+  let rest = text.slice(lead.length);
+  let out = lead;
+  while (rest) {
+    let hit = null;
+    for (const [kind, re] of PATTERNS) {
+      const m = re.exec(rest);
+      if (m) {
+        hit = { kind, m };
+        break;
+      }
+    }
+    if (!hit) return out + rest;
+    const { kind, m } = hit;
+    rest = rest.slice(m[0].length);
+    if (kind !== "ref") {
+      out += m[0];
+      continue;
+    }
+    const sheet = m[1]?.replaceAll("''", "'") ?? m[2] ?? null;
+    const prefix = m[0].slice(
+      0,
+      m[0].length - m[3].length - (m[4] ? m[4].length + 1 : 0),
+    );
+    const read = (piece) => {
+      const [, letters, dollar, digits] = PIECE.exec(piece);
+      return {
+        colAbs: piece.startsWith("$"),
+        c: colIndex(letters),
+        rowAbs: dollar === "$",
+        r: digits ? Number(digits) - 1 : null,
+      };
+    };
+    const a = read(m[3]);
+    const b = m[4] ? read(m[4]) : null;
+    const changed = change({ sheet, a, b });
+    out +=
+      changed === null
+        ? m[0]
+        : changed === "#REF!"
+          ? "#REF!"
+          : prefix + changed;
+  }
+  return out;
+}
+
+const write = (p) =>
+  `${p.colAbs ? "$" : ""}${colName(p.c)}${p.r === null ? "" : `${p.rowAbs ? "$" : ""}${p.r + 1}`}`;
+const both = (a, b) => (b ? `${write(a)}:${write(b)}` : write(a));
+
+/**
+ * A formula on sheet `on` after `count` rows (axis "r") or columns ("c") of sheet `target` are
+ * put in before index `at` (count > 0) or taken out from `at` (count < 0), counted from 0 as
+ * Excel does it: a reference past them moves, a range across them grows or shrinks, and a
+ * reference to a cell taken out becomes #REF!.
+ */
+export function moveRefs(formula, { on, target, axis, at, count }) {
+  const mine = (sheet) => (sheet ?? on).toLowerCase() === target.toLowerCase();
+  const key = axis === "r" ? "r" : "c";
+  return rewrite(formula, ({ sheet, a, b }) => {
+    if (!mine(sheet)) return null;
+    if (a[key] === null) return null; // a whole column moves no row, a whole row no column
+    const shift = (n) => (n >= at ? n + count : n);
+    if (count > 0) {
+      const next = { ...a, [key]: shift(a[key]) };
+      const end = b && { ...b, [key]: shift(b[key]) };
+      return both(next, end);
+    }
+    const gone = (n) => n >= at && n < at - count;
+    const after = (n) => (n >= at - count ? n + count : n);
+    if (!b)
+      return gone(a[key]) ? "#REF!" : both({ ...a, [key]: after(a[key]) });
+    let [lo, hi] = [Math.min(a[key], b[key]), Math.max(a[key], b[key])];
+    if (gone(lo) && gone(hi)) return "#REF!";
+    if (gone(lo)) lo = at;
+    else lo = after(lo);
+    hi = gone(hi) ? at - 1 : after(hi);
+    return both({ ...a, [key]: lo }, { ...b, [key]: hi });
+  });
+}
+
+/** A formula copied `rows` rows down (up when negative): each row not fixed with `$` moves. */
+export function fillDown(formula, rows) {
+  return rewrite(formula, ({ a, b }) => {
+    const move = (p) =>
+      p.r === null || p.rowAbs ? p : { ...p, r: p.r + rows };
+    const [x, y] = [move(a), b && move(b)];
+    if (x.r < 0 || (y && y.r < 0)) return "#REF!";
+    return both(x, y);
+  });
+}
+
+/**
+ * A formula written in Excel row `row` as a column's formula: `{r}` wherever a reference names
+ * that row without `$`. Null when one names another row without `$`, which `{r}` cannot say.
+ */
+export function asColumnFormula(formula, row) {
+  let fits = true;
+  const one = (p) => {
+    if (p.r === null || p.rowAbs) return write(p);
+    if (p.r !== row - 1) fits = false;
+    return `${p.colAbs ? "$" : ""}${colName(p.c)}{r}`;
+  };
+  const out = rewrite(formula, ({ a, b }) =>
+    b ? `${one(a)}:${one(b)}` : one(a),
+  );
+  return fits ? out : null;
 }

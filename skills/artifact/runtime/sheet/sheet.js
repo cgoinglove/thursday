@@ -1,8 +1,10 @@
 // What a sheet does in the page: its tabs, cells picked with the mouse or the arrow keys (the
 // formula line shows the one the ring is on, the foot the sum of the rest), a column sorted or
 // filtered from its heading, the totals worked out again over the rows in view, and the sheet
-// copied or saved as CSV. Nothing here changes the workbook: sorting and filtering are a view,
-// and the .xlsx beside the page is the file.
+// copied or saved as CSV. Sorting and filtering are a view. Edit changes the workbook itself:
+// cells, the header's names, rows and columns put in or taken out with the formulas moved as
+// Excel moves them, all worked out again here (formula.mjs), and kept by the app into the page
+// and the .xlsx beside it (spreadsheet.mjs sync).
 (() => {
   const source = document.getElementById("sheet-data");
   let book = null;
@@ -22,6 +24,9 @@
   const menu = document.getElementById("menu");
   const find = document.getElementById("find");
   const picks = document.getElementById("picks");
+  const tools = document.getElementById("tools");
+  const formatPick = document.getElementById("format");
+  const note = document.getElementById("note");
 
   /** The most rows drawn at once; the .xlsx holds the rest. */
   const MOST = 10000;
@@ -119,11 +124,16 @@
     widths.append(
       Object.assign(document.createElement("col"), { style: "width:48px" }),
     );
+    let wide = 48;
     for (const column of columns) {
       const col = document.createElement("col");
-      col.style.width = `${Math.round(Math.max(4, column.width) * 7.2 + 18)}px`;
+      const px = Math.round(Math.max(4, column.width) * 7.2 + 18);
+      col.style.width = `${px}px`;
+      wide += px;
       widths.append(col);
     }
+    // Its whole width, so a narrow window scrolls it rather than squeezing every column
+    table.style.width = `${wide}px`;
 
     const head = document.createElement("thead");
     const letters = document.createElement("tr");
@@ -267,7 +277,7 @@
     ref.textContent = `${colName(p.c1)}${excelRow}`;
     const picked = p.r1 === -1 ? null : sheet().rows[list[p.r1]]?.[p.c1];
     const v = valueAt(p.r1, p.c1);
-    formula.textContent =
+    formula.value =
       picked?.f ??
       (v === null
         ? ""
@@ -304,6 +314,10 @@
       }
       part("Count", filled.toLocaleString());
     }
+    if (editing && !typing) {
+      place();
+      drawFormat();
+    }
   };
 
   const pickTo = (r, c, extend) => {
@@ -312,6 +326,7 @@
       extend ? { ...p, r2: r, c2: c } : { r1: r, c1: c, r2: r, c2: c },
     );
     paint();
+    closeNote();
     const target = table.querySelector(
       `[data-r="${view().pick.r2}"][data-c="${view().pick.c2}"]`,
     );
@@ -324,7 +339,10 @@
     const el = event.target.closest("[data-r]");
     if (!el || el.dataset.r === "T") return;
     const { r, c } = el.dataset;
-    grid.focus({ preventScroll: true });
+    if (typing) finish(true);
+    // The grid would take the focus after this, from the editor that types into the cell
+    event.preventDefault();
+    focusGrid();
     if (r === "L") {
       // A column letter picks the whole column
       const last = Math.min(list.length, MOST) - 1;
@@ -617,13 +635,563 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 
-  // The page as a file again: without the grid this session drew
+  /* ── editing ────────────────────────────────────────────────────────────── */
+
+  /** How each totals function is written into the .xlsx (spreadsheet.mjs TOTALS). */
+  const TOTALS = { sum: 109, average: 101, count: 102, max: 104, min: 105 };
+  /** How many changes Undo goes back through. */
+  const UNDO_MOST = 100;
+  const edits = window.shell?.edits;
+  let editing = false;
+  let typing = false; // the cell editor is open over a cell
+  let typingAt = null; // { s, r, c } the cell it is open over, r in view (-1 the header)
+  const undone = [];
+  const redone = [];
+
+  const editor = document.createElement("input");
+  editor.className = "ss-edit";
+  editor.spellcheck = false;
+  editor.autocomplete = "off";
+  editor.setAttribute("aria-label", "Cell");
+  grid.append(editor);
+
+  const say = (text, bad) => {
+    note.textContent = text;
+    note.classList.toggle("bad", Boolean(bad));
+  };
+  function closeNote() {
+    if (!note.classList.contains("bad")) say("");
+  }
+  function focusGrid() {
+    (editing ? editor : grid).focus({ preventScroll: true });
+  }
+
+  /** The whole book worked out again, as the .xlsx will hold it, and the columns' kind with it. */
+  const recompute = () => {
+    const sheets = book.sheets.map((one) => {
+      const cells = [
+        one.columns.map((column) => ({ v: column.name })),
+        ...one.rows.map((row) =>
+          one.columns.map((_, c) => {
+            const x = row[c] ?? { v: null };
+            return x.f !== undefined ? { f: x.f } : { v: x.v ?? null };
+          }),
+        ),
+      ];
+      if (one.totals) {
+        const last = Math.max(2, one.rows.length + 1);
+        cells.push(
+          one.columns.map((_, c) => {
+            const fn = one.totals.cells[c];
+            if (fn)
+              return {
+                f: `=SUBTOTAL(${TOTALS[fn]},${colName(c)}2:${colName(c)}${last})`,
+              };
+            return { v: c === 0 ? one.totals.label : null };
+          }),
+        );
+      }
+      return { name: one.name, cells };
+    });
+    const problems = [];
+    Formula.workOut(sheets, { problems });
+    sheets.forEach((worked, s) => {
+      const one = book.sheets[s];
+      one.rows = worked.cells
+        .slice(1, 1 + one.rows.length)
+        .map((row) =>
+          row.map((x) =>
+            x.f !== undefined ? { v: x.v ?? null, f: x.f } : { v: x.v ?? null },
+          ),
+        );
+      one.columns.forEach((column, c) => {
+        const values = one.rows
+          .map((row) => row[c]?.v ?? null)
+          .filter((v) => v !== null);
+        column.num =
+          values.length > 0 &&
+          values.filter(isNumber).length >= values.length / 2;
+      });
+    });
+    return problems;
+  };
+
+  /** One change: kept for Undo, worked out, drawn, and handed to the app to keep. */
+  const change = (fn, { resets } = {}) => {
+    const before = JSON.stringify(book.sheets);
+    const refused = fn();
+    if (refused) {
+      say(refused, true);
+      return false;
+    }
+    undone.push(before);
+    if (undone.length > UNDO_MOST) undone.shift();
+    redone.length = 0;
+    settle(resets);
+    return true;
+  };
+  const settle = (resets) => {
+    const problems = recompute();
+    // A sort or filter names columns by their place, which a column put in or taken out moves
+    if (resets) {
+      view().sort = null;
+      view().filters.clear();
+    }
+    draw();
+    view().pick = clampPick(view().pick);
+    paint();
+    say(
+      problems.length
+        ? `${problems[0]}${problems.length > 1 ? ` (+${problems.length - 1} more)` : ""}`
+        : "",
+      problems.length > 0,
+    );
+    edits?.changed();
+  };
+  const back = (from, to) => {
+    if (!from.length) return;
+    to.push(JSON.stringify(book.sheets));
+    book.sheets = JSON.parse(from.pop());
+    settle(true);
+  };
+
+  /** A cell's text to edit: its formula, or its value as typed. */
+  const rawAt = (r, c) => {
+    if (r === -1) return sheet().columns[c].name;
+    const x = sheet().rows[list[r]]?.[c];
+    if (!x) return "";
+    if (x.f !== undefined) return x.f;
+    const v = x.v ?? null;
+    if (v === null) return "";
+    if (typeof v === "object") return v.error;
+    if (typeof v === "boolean") return v ? "TRUE" : "FALSE";
+    if (isNumber(v) && /%/.test(sheet().columns[c].format ?? ""))
+      return `${Number((v * 100).toPrecision(12))}%`;
+    return String(v);
+  };
+
+  /** What `text` puts in a cell, or why it cannot: a formula has to read. */
+  const cellFrom = (text, column) => {
+    const typed = String(text);
+    if (typed.startsWith("=") && typed.trim().length > 1) {
+      try {
+        Formula.parse(typed.trim());
+      } catch (failed) {
+        return { refused: `${typed.trim()}: ${failed.message}` };
+      }
+      return { cell: { v: null, f: typed.trim() } };
+    }
+    return { cell: { v: valueOf(typed, column.format) } };
+  };
+
+  /** A column's name set, unless it is empty or another column has it. */
+  const rename = (c, text) => {
+    const name = String(text).trim();
+    if (!name) return "A column needs a name.";
+    const taken = sheet().columns.some(
+      (column, i) =>
+        i !== c && column.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (taken) return `Another column is named "${name}".`;
+    sheet().columns[c].name = name;
+    return null;
+  };
+
+  /** Text put into the cell at (r, c) in view; a row past the last is a new one. */
+  const putAt = (r, c, text) => {
+    if (r === -1) return rename(c, text);
+    const { cell: made, refused } = cellFrom(text, sheet().columns[c]);
+    if (refused) return refused;
+    while (r >= list.length) {
+      addRow(sheet().rows.length);
+      list.push(sheet().rows.length - 1);
+    }
+    sheet().rows[list[r]][c] = made;
+    return null;
+  };
+
+  /** Every formula in the book moved as rows or columns of the sheet named move. */
+  const moveAll = (axis, at, count) => {
+    const target = sheet().name;
+    for (const one of book.sheets)
+      for (const row of one.rows)
+        for (const x of row)
+          if (x?.f !== undefined)
+            x.f = Formula.moveRefs(x.f, {
+              on: one.name,
+              target,
+              axis,
+              at,
+              count,
+            });
+  };
+
+  /**
+   * A row put in at `i` (a row's index in the sheet), the formulas moved round it; a column
+   * the row next to it works out by formula is worked out the same way in the new one.
+   */
+  const addRow = (i) => {
+    const { rows, columns } = sheet();
+    moveAll("r", i + 1, 1);
+    const [near, step] = i > 0 ? [rows[i - 1], 1] : [rows[i], -1];
+    rows.splice(
+      i,
+      0,
+      columns.map((_, c) =>
+        near?.[c]?.f !== undefined
+          ? { v: null, f: Formula.fillDown(near[c].f, step) }
+          : { v: null },
+      ),
+    );
+  };
+
+  const picked = () => {
+    const p = view().pick;
+    return {
+      top: Math.min(p.r1, p.r2),
+      bottom: Math.max(p.r1, p.r2),
+      left: Math.min(p.c1, p.c2),
+      right: Math.max(p.c1, p.c2),
+    };
+  };
+
+  const act = {
+    row() {
+      const { bottom } = picked();
+      const i = bottom === -1 ? 0 : list[bottom] + 1;
+      const done = change(() => addRow(i));
+      if (done) {
+        const r = list.indexOf(i);
+        if (r !== -1) pickTo(r, view().pick.c1);
+      }
+    },
+    unrow() {
+      const { top, bottom } = picked();
+      const gone = [];
+      for (let r = Math.max(0, top); r <= bottom; r++) gone.push(list[r]);
+      if (!gone.length) return say("Pick the rows to take out.", true);
+      change(() => {
+        for (const i of gone.sort((a, b) => b - a)) {
+          moveAll("r", i + 1, -1);
+          sheet().rows.splice(i, 1);
+        }
+      });
+    },
+    col() {
+      const c = picked().right + 1;
+      let n = sheet().columns.length + 1;
+      const names = new Set(
+        sheet().columns.map((one) => one.name.toLowerCase()),
+      );
+      while (names.has(`column ${n}`.toLowerCase())) n++;
+      const done = change(
+        () => {
+          moveAll("c", c, 1);
+          const { columns, rows, totals } = sheet();
+          columns.splice(c, 0, {
+            name: `Column ${n}`,
+            format: null,
+            num: false,
+            width: 12,
+          });
+          for (const row of rows) row.splice(c, 0, { v: null });
+          totals?.cells.splice(c, 0, null);
+        },
+        { resets: true },
+      );
+      if (done) {
+        pickTo(-1, c);
+        openEditor(rawAt(-1, c));
+        // Its made-up name picked, so the first key names it
+        editor.select();
+      }
+    },
+    uncol() {
+      const { left, right } = picked();
+      const { columns, totals } = sheet();
+      if (right - left + 1 >= columns.length)
+        return say("A sheet keeps one column at least.", true);
+      if (left === 0 && totals?.cells[right + 1])
+        return say(
+          "The first column holds the totals' label, and the next one is totalled.",
+          true,
+        );
+      change(
+        () => {
+          for (let c = right; c >= left; c--) {
+            moveAll("c", c, -1);
+            sheet().columns.splice(c, 1);
+            for (const row of sheet().rows) row.splice(c, 1);
+            totals?.cells.splice(c, 1);
+          }
+        },
+        { resets: true },
+      );
+    },
+    undo: () => back(undone, redone),
+    redo: () => back(redone, undone),
+  };
+  tools.addEventListener("click", (event) => {
+    const what = event.target.closest("[data-do]")?.dataset.do;
+    if (!what) return;
+    if (typing) finish(true);
+    act[what]();
+    focusGrid();
+  });
+
+  const drawFormat = () => {
+    const code = sheet().columns[view().pick.c1]?.format || "General";
+    let option = [...formatPick.options].find((one) => one.value === code);
+    if (!option) {
+      formatPick.querySelector("[data-own]")?.remove();
+      option = new Option(formatValue(1234.5, code), code);
+      option.dataset.own = "";
+      formatPick.append(option);
+    }
+    formatPick.value = code;
+  };
+  formatPick.addEventListener("change", () => {
+    const { left, right } = picked();
+    const code = formatPick.value === "General" ? null : formatPick.value;
+    change(() => {
+      for (let c = left; c <= right; c++) sheet().columns[c].format = code;
+    });
+    focusGrid();
+  });
+
+  /** The editor over the ring's cell, drawn where the cell is, or out of the way when closed. */
+  const place = () => {
+    if (!editing) return;
+    const at = typingAt ?? { r: view().pick.r1, c: view().pick.c1 };
+    const td = table.querySelector(`[data-r="${at.r}"][data-c="${at.c}"]`);
+    if (!td) return;
+    const g = grid.getBoundingClientRect();
+    const b = td.getBoundingClientRect();
+    editor.style.left = `${b.left - g.left + grid.scrollLeft}px`;
+    editor.style.top = `${b.top - g.top + grid.scrollTop}px`;
+    editor.style.width = `${Math.max(b.width, 80)}px`;
+    editor.style.height = `${b.height}px`;
+  };
+
+  /** The editor opened on the ring's cell, holding `text` (null keeps what was just typed). */
+  function openEditor(text) {
+    const p = view().pick;
+    if (p.r1 === -1 && sheet().columns[p.c1] === undefined) return;
+    typing = true;
+    typingAt = { s: at, r: p.r1, c: p.c1 };
+    if (text !== null) editor.value = text;
+    editor.classList.add("open");
+    place();
+    editor.focus({ preventScroll: true });
+    formula.value = editor.value;
+  }
+  /** The editor closed: what it holds kept, or let go. False when it could not be kept. */
+  function finish(keep) {
+    if (!typing) return true;
+    const where = typingAt;
+    const text = editor.value;
+    typing = false;
+    typingAt = null;
+    editor.classList.remove("open");
+    editor.value = "";
+    if (keep && where.s === at && text !== rawAt(where.r, where.c)) {
+      const done = change(() => putAt(where.r, where.c, text));
+      if (!done) {
+        // Back to what was being typed, so a formula that does not read is put right, not lost
+        typing = true;
+        typingAt = where;
+        editor.value = text;
+        editor.classList.add("open");
+        place();
+        editor.focus({ preventScroll: true });
+        return false;
+      }
+    } else paint();
+    return true;
+  }
+
+  const clearPicked = () => {
+    const { top, bottom, left, right } = picked();
+    change(() => {
+      for (let r = Math.max(0, top); r <= bottom; r++)
+        for (let c = left; c <= right; c++)
+          sheet().rows[list[r]][c] = { v: null };
+    });
+  };
+
+  /** Tab-separated text read into rows of cells, as a spreadsheet copies them. */
+  const readTsv = (text) => {
+    const rows = [[]];
+    let cellText = "";
+    let quoted = false;
+    const body = text.replace(/\r\n?/g, "\n").replace(/\n$/, "");
+    for (let i = 0; i < body.length; i++) {
+      const ch = body[i];
+      if (quoted) {
+        if (ch === '"' && body[i + 1] === '"') {
+          cellText += '"';
+          i++;
+        } else if (ch === '"') quoted = false;
+        else cellText += ch;
+      } else if (ch === '"' && cellText === "") quoted = true;
+      else if (ch === "\t") {
+        rows.at(-1).push(cellText);
+        cellText = "";
+      } else if (ch === "\n") {
+        rows.at(-1).push(cellText);
+        cellText = "";
+        rows.push([]);
+      } else cellText += ch;
+    }
+    rows.at(-1).push(cellText);
+    return rows;
+  };
+  editor.addEventListener("paste", (event) => {
+    if (typing) return;
+    event.preventDefault();
+    const rows = readTsv(event.clipboardData?.getData("text/plain") ?? "");
+    const { top, left } = picked();
+    const width = sheet().columns.length;
+    let cut = 0;
+    const done = change(() => {
+      for (let i = 0; i < rows.length; i++)
+        for (let j = 0; j < rows[i].length; j++) {
+          if (left + j >= width) {
+            cut = Math.max(cut, left + j - width + 1);
+            continue;
+          }
+          const refused = putAt(top + i, left + j, rows[i][j]);
+          if (refused) return refused;
+        }
+    });
+    if (done && cut)
+      say(
+        `${cut} column${cut > 1 ? "s" : ""} past the last were left out; add columns first.`,
+        true,
+      );
+  });
+
+  editor.addEventListener("keydown", (event) => {
+    if (event.isComposing || event.keyCode === 229) return;
+    const mod = event.metaKey || event.ctrlKey;
+    if (typing) {
+      event.stopPropagation();
+      if (event.key === "Enter" || event.key === "Tab") {
+        event.preventDefault();
+        const { r, c } = typingAt;
+        if (!finish(true)) return;
+        const back = event.shiftKey ? -1 : 1;
+        if (event.key === "Enter") pickTo(r + back, c);
+        else pickTo(r, c + back);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        finish(false);
+      }
+      return;
+    }
+    const p = view().pick;
+    if (mod && event.key.toLowerCase() === "z") {
+      event.preventDefault();
+      act[event.shiftKey ? "redo" : "undo"]();
+    } else if (mod && event.key.toLowerCase() === "y") {
+      event.preventDefault();
+      act.redo();
+    } else if (event.key === "F2") {
+      event.preventDefault();
+      openEditor(rawAt(p.r1, p.c1));
+    } else if (event.key === "Enter" || event.key === "Tab") {
+      event.preventDefault();
+      const back = event.shiftKey ? -1 : 1;
+      if (event.key === "Enter") pickTo(p.r1 + back, p.c1);
+      else pickTo(p.r1, p.c1 + back);
+    } else if (event.key === "Delete" || event.key === "Backspace") {
+      event.preventDefault();
+      clearPicked();
+    }
+    // The rest reaches the grid: arrows, copy, select all
+  });
+  // A key that types opens the editor with what it typed, a word being composed too
+  editor.addEventListener("input", () => {
+    if (!typing) openEditor(null);
+    else formula.value = editor.value;
+  });
+  editor.addEventListener("compositionstart", () => {
+    if (!typing) openEditor(null);
+  });
+  editor.addEventListener("blur", () => {
+    if (!typing) return;
+    // The formula line takes over what was being typed
+    requestAnimationFrame(() => {
+      if (typing && document.activeElement !== formula) finish(true);
+    });
+  });
+  table.addEventListener("dblclick", (event) => {
+    if (!editing) return;
+    const el = event.target.closest("[data-r]");
+    if (!el || ["L", "T"].includes(el.dataset.r) || Number(el.dataset.c) === -1)
+      return;
+    openEditor(rawAt(Number(el.dataset.r), Number(el.dataset.c)));
+  });
+
+  // The formula line edits the ring's cell as well
+  formula.addEventListener("focus", () => {
+    if (!editing || typing) return;
+    openEditor(rawAt(view().pick.r1, view().pick.c1));
+    formula.focus();
+  });
+  formula.addEventListener("input", () => {
+    if (typing) editor.value = formula.value;
+  });
+  formula.addEventListener("keydown", (event) => {
+    if (!typing || event.isComposing) return;
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const { r, c } = typingAt;
+      if (finish(true)) pickTo(r + 1, c);
+      focusGrid();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      finish(false);
+      focusGrid();
+    }
+  });
+  formula.addEventListener("blur", () => {
+    requestAnimationFrame(() => {
+      if (typing && document.activeElement !== editor) finish(true);
+    });
+  });
+
+  edits?.onToggle((on) => {
+    if (!on) finish(true);
+    editing = on;
+    tools.hidden = !on;
+    formula.readOnly = !on;
+    grid.classList.toggle("editing", on);
+    editor.hidden = !on;
+    if (on) {
+      drawFormat();
+      place();
+    }
+    focusGrid();
+  });
+  editor.hidden = true;
+
+  // The page as a file again: without the grid this session drew, the workbook as it now is
   window.shell.clean = (copy) => {
+    const data = copy.querySelector("#sheet-data");
+    if (data)
+      data.textContent = JSON.stringify(book).replaceAll("<", "\\u003c");
+    copy.querySelector(".ss-edit")?.remove();
+    copy.querySelector("#tools")?.setAttribute("hidden", "");
+    copy.querySelector("#formula")?.setAttribute("readonly", "");
+    copy.querySelector("#grid")?.classList.remove("editing");
+    copy.querySelector("#note")?.replaceChildren();
     copy.querySelector("#table")?.replaceChildren();
+    copy.querySelector("#table")?.removeAttribute("style");
     copy.querySelector("#tabs")?.replaceChildren();
     copy.querySelector("#stat")?.replaceChildren();
     copy.querySelector("#menu")?.setAttribute("hidden", "");
-    for (const id of ["ref", "formula", "size"]) {
+    for (const id of ["ref", "size"]) {
       const el = copy.querySelector(`#${id}`);
       if (el) el.textContent = "";
     }

@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import {
   readdir,
@@ -8,7 +9,8 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
-import { GIVEN_FILES, PATHS, WORKSPACE_VIEW } from "@/config";
+import { promisify } from "node:util";
+import { APP_DIR, GIVEN_FILES, PATHS, WORKSPACE_VIEW } from "@/config";
 import { listThreadFolders } from "@/features/bot/thread.query";
 import { publicError } from "@/lib/public-error";
 import { isListedFile, isListedFolder, viewKindOf } from "./file-kind";
@@ -153,6 +155,38 @@ export async function deleteWorkspaceFile(rel: string): Promise<void> {
  */
 const REVISION = /<meta name="revision" content="([^"]*)">/;
 
+/** A sheet's page names the .xlsx it shows (skills/artifact/runtime/sheet/sheet.html). */
+const SHEET = /<meta name="sheet-xlsx" content="[0-9a-f]*"/;
+const SHEET_SCRIPT = join(
+  APP_DIR,
+  PATHS.skills.default,
+  "artifact",
+  "scripts",
+  "spreadsheet.mjs",
+);
+const run = promisify(execFile);
+
+/**
+ * The .xlsx beside a sheet's page written from the page as it was edited, and the page made to
+ * name it (spreadsheet.mjs sync). False when the .xlsx was changed since the page drew it — in
+ * Excel, or by a bot — which the page is told as it is told of a page written since.
+ */
+async function syncSheet(edited: string, page: string): Promise<boolean> {
+  return run(process.execPath, [SHEET_SCRIPT, "sync", edited, "--page", page], {
+    env: { NODE_ENV: process.env.NODE_ENV, PATH: process.env.PATH ?? "" },
+    maxBuffer: 4 * 1024 * 1024,
+  }).then(
+    () => true,
+    (failed: { code?: number; stderr?: string }) => {
+      if (failed.code === 3) return false;
+      publicError(
+        failed.stderr?.trim().split("\n").at(-1) ||
+          "The Excel file could not be written.",
+      );
+    },
+  );
+}
+
 /**
  * Writes a page a bot made back over itself, as its reader edited it where the app shows
  * it (skills/artifact/runtime/shell). Only a page that is there already: this keeps edits and never makes
@@ -177,7 +211,8 @@ export async function savePage(
     publicError(
       `Larger than ${Math.round(WORKSPACE_VIEW.elementMax / 1024 / 1024)} MB`,
     );
-  const now = REVISION.exec(await readFile(full, "utf8"))?.[1] ?? "";
+  const onDisk = await readFile(full, "utf8");
+  const now = REVISION.exec(onDisk)?.[1] ?? "";
   if (now !== base) return { changed: true };
   const revision = REVISION.test(html) ? randomBytes(6).toString("hex") : "";
   const kept = revision
@@ -187,6 +222,10 @@ export async function savePage(
   const beside = `${full}.${crypto.randomUUID()}.saving`;
   try {
     await writeFile(beside, kept);
+    if (SHEET.test(onDisk) && !(await syncSheet(beside, full))) {
+      await rm(beside, { force: true });
+      return { changed: true };
+    }
     await rename(beside, full);
   } catch (error) {
     await rm(beside, { force: true });

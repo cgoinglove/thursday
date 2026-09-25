@@ -7,14 +7,20 @@
 //   node spreadsheet.mjs put <name> <book.json | data.csv> [--title "…"] [--over]
 //        write the workbook from a JSON description (references/sheet.md), or one sheet from
 //        a CSV whose first line names the columns
-//   node spreadsheet.mjs read <name | file.xlsx> [--rows 20] [--csv <folder>]
+//   node spreadsheet.mjs read <name | file.xlsx> [--rows 20] [--csv <folder>] [--json <file>]
 //        what a workbook holds: each sheet's size, its first rows and its formulas; --csv
-//        writes every sheet as a CSV there, for chart.mjs or a script
+//        writes every sheet as a CSV there, for chart.mjs or a script; --json writes the
+//        whole workbook as put takes it — formats, formulas and totals kept — to change and put
 //   node spreadsheet.mjs view <name | file.xlsx> [--name <name>]
 //        the page drawn again from the .xlsx as it is now (after it was changed in Excel), or
 //        a page for someone's .xlsx: it is copied into your folder beside its page
 //   node spreadsheet.mjs shots <name>
 //        the page as it opens, as a picture to look at
+//   node spreadsheet.mjs sync <edited.html> --page <page.html>
+//        the app's side of an edit made in the page: the .xlsx beside <page.html> written from
+//        the workbook <edited.html> holds, and <edited.html> made to name it (workspace.query
+//        savePage runs this before the edited page takes the old one's place); exit 3 when
+//        the .xlsx was changed since the page drew it
 //
 // A formula this sheet cannot work out, a number format it does not draw, a sheet name Excel
 // refuses and a workbook changed in Excel since it was written all stop, rather than write
@@ -26,6 +32,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -33,12 +40,14 @@ import { basename, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkFormat, formatValue } from "../runtime/sheet/format.mjs";
 import {
+  asColumnFormula,
   colName,
   FormulaError,
   FUNCTIONS,
   workOut,
 } from "../runtime/sheet/formula.mjs";
 import { readXlsx, sheetRef, writeXlsx } from "../runtime/sheet/xlsx.mjs";
+import { revision } from "../runtime/shell/put.mjs";
 import { wear } from "../runtime/shell/wear.mjs";
 import {
   ARTIFACTS,
@@ -108,6 +117,16 @@ const drawnHash = (page) =>
         readFileSync(page, "utf8"),
       )?.[1] ?? null)
     : null;
+
+/** Whether the page was drawn from the user's own change — an edit in the app, or the file
+ * changed in Excel — rather than from a bot's put: a put over it would undo that change. */
+const userChanged = (page) =>
+  existsSync(page) &&
+  /<meta name="sheet-xlsx" content="[0-9a-f]*" data-edited/.test(
+    readFileSync(page, "utf8"),
+  );
+const EDITED = (hash) =>
+  `<meta name="sheet-xlsx" content="${hash}" data-edited`;
 
 /** A width for a column in Excel's characters: its longest text, a Korean or Chinese one counted twice. */
 const widthOf = (texts) => {
@@ -288,7 +307,7 @@ function fromCsv(text, name) {
 }
 
 /** Sheets of cells: header, rows, totals row; formulas worked out. */
-function build(model) {
+function build(model, problems) {
   const sheets = model.sheets.map((sheet) => {
     const header = sheet.columns.map((column) => ({ v: column.name }));
     const cells = [header, ...sheet.data];
@@ -314,7 +333,7 @@ function build(model) {
     };
   });
   try {
-    workOut(sheets);
+    workOut(sheets, { problems });
   } catch (failed) {
     if (failed instanceof FormulaError)
       throw new Stop(`A formula cannot be worked out — ${failed.message}.`);
@@ -391,6 +410,12 @@ function page({ title, sheets, xlsxName, hash }) {
           `<script type="application/json" id="sheet-data">${JSON.stringify(data).replaceAll("<", "\\u003c")}</script>`,
       )
       .replace("/* sheet.css */", () => part("sheet.css"))
+      // The formula engine, whole, so an edit made in the page is worked out as the file will be
+      .replace(
+        "// formula.mjs",
+        () =>
+          `const Formula = (() => {\n${part("formula.mjs").replace(/^export /gm, "")}\nreturn { workOut, moveRefs, fillDown, parse, FormulaError, colName };\n})();`,
+      )
       .replace("// format.mjs", () =>
         part("format.mjs").replace(/^export /gm, ""),
       )
@@ -403,9 +428,9 @@ function write(name, sheets, title, over) {
   const { folder, xlsx, page: pagePath } = filesFor(name);
   if (existsSync(xlsx) && !over) {
     const kept = drawnHash(pagePath);
-    if (kept !== hashOf(readFileSync(xlsx)))
+    if (kept !== hashOf(readFileSync(xlsx)) || userChanged(pagePath))
       throw new Stop(
-        `${shown(xlsx)} was changed after it was last written — in Excel, or by hand. Read it first (node ${SCRIPT} read ${name}), make your change from what it holds now, then put again with --over.`,
+        `${shown(xlsx)} was changed after it was last written — in Excel, in the app, or by hand. Read it first (node ${SCRIPT} read ${name}), make your change from what it holds now, then put again with --over.`,
       );
   }
   const bytes = writeXlsx({ sheets });
@@ -562,6 +587,23 @@ function read(arg, flags) {
         `Formulas (${formulas.length}): ${formulas.slice(0, 12).join("; ")}${formulas.length > 12 ? "; …" : ""}`,
       );
   }
+  if (typeof flags.json === "string") {
+    const pagePath = /\.xlsx$/i.test(arg) ? null : filesFor(arg).page;
+    // A row on one line, so the rows read as a table
+    const spec = describe(fromXlsx(sheets), titleOf(pagePath));
+    const rows = [];
+    for (const sheet of spec.sheets)
+      sheet.rows = sheet.rows.map((row) => `\u0000${rows.push(row) - 1}`);
+    writeFileSync(
+      flags.json,
+      `${JSON.stringify(spec, null, 2).replace(/"\\u0000(\d+)"/g, (_, n) =>
+        JSON.stringify(rows[Number(n)]),
+      )}\n`,
+    );
+    out.push(
+      `Wrote ${shown(resolve(flags.json))}: the whole workbook as put takes it. Change it there and put it back${pagePath ? ` (node ${SCRIPT} put ${arg} ${flags.json} --over)` : ""}; a column worked out by one formula has it as its "formula".`,
+    );
+  }
   if (typeof flags.csv === "string") {
     mkdirSync(flags.csv, { recursive: true });
     for (const sheet of sheets) {
@@ -644,6 +686,74 @@ function fromXlsx(sheets) {
   });
 }
 
+/** The title a sheet's page carries, or null. */
+function titleOf(pagePath) {
+  if (!pagePath || !existsSync(pagePath)) return null;
+  try {
+    return (
+      JSON.parse(DATA.exec(readFileSync(pagePath, "utf8"))?.[1] ?? "null")
+        ?.title ?? null
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A workbook read back as the description put takes (references/sheet.md): a column whose
+ * every row holds one formula filled down has it as its `formula`, other formulas stay in their
+ * cells, and the totals row is `totals` again. An error Excel saved in a cell is left empty.
+ */
+function describe(drawn, title) {
+  return {
+    ...(title ? { title } : {}),
+    sheets: drawn.map((sheet) => {
+      const end = sheet.totals ?? sheet.cells.length;
+      const rows = sheet.cells.slice(1, end);
+      const width = sheet.columns.length;
+      const formulas = sheet.columns.map((_, c) => {
+        if (!rows.length || !rows.every((row) => row[c]?.f)) return null;
+        const template = asColumnFormula(rows[0][c].f, 2);
+        return template &&
+          rows.every(
+            (row, i) => template.replaceAll("{r}", String(i + 2)) === row[c].f,
+          )
+          ? template
+          : null;
+      });
+      const value = (cell) => {
+        const v = cell?.v ?? null;
+        return v !== null && typeof v === "object" ? null : v;
+      };
+      return {
+        name: sheet.name,
+        columns: sheet.columns.map((column, c) => ({
+          name: column.name,
+          ...(column.format ? { format: column.format } : {}),
+          ...(formulas[c] ? { formula: formulas[c] } : {}),
+        })),
+        rows: rows.map((row) =>
+          Array.from({ length: width }, (_, c) =>
+            formulas[c] ? null : row[c]?.f ? { f: row[c].f } : value(row[c]),
+          ),
+        ),
+        ...(sheet.totalsSpec
+          ? {
+              totals: {
+                label: sheet.totalsSpec.label,
+                ...Object.fromEntries(
+                  sheet.totalsSpec.cells
+                    .map((fn, c) => [sheet.columns[c]?.name, fn])
+                    .filter(([, fn]) => fn),
+                ),
+              },
+            }
+          : {}),
+      };
+    }),
+  };
+}
+
 function view(arg, flags) {
   const { file, name } = workbookAt(arg, flags);
   const { sheets, unworked } = readBook(file);
@@ -661,7 +771,8 @@ function view(arg, flags) {
     copyFileSync(file, xlsx);
   }
   const hash = hashOf(readFileSync(xlsx));
-  const title = typeof flags.title === "string" ? flags.title : name;
+  const title =
+    typeof flags.title === "string" ? flags.title : (titleOf(pagePath) ?? name);
   writeFileSync(
     pagePath,
     page({ title, sheets: drawn, xlsxName: basename(xlsx), hash }),
@@ -669,6 +780,115 @@ function view(arg, flags) {
   console.log(
     `Drew ${shown(pagePath)} from ${shown(xlsx)}. Hand back the page; the .xlsx stays the file.${unworked ? ` Formulas saved without their values show empty: ${unworked}.` : ""}`,
   );
+}
+
+// ── an edit made in the page ───────────────────────────────────────────────
+
+const DATA =
+  /<script type="application\/json" id="sheet-data">([\s\S]*?)<\/script>/;
+
+/** A file written beside itself and moved into place, so it is never half written. */
+function writeAtomic(file, content) {
+  const beside = `${file}.${process.pid}.saving`;
+  writeFileSync(beside, content);
+  try {
+    renameSync(beside, file);
+  } catch (failed) {
+    rmSync(beside, { force: true });
+    throw failed;
+  }
+}
+
+/** A sheet's page holding `sheets` and naming the .xlsx they are in, its head left as it is. */
+function withBook(html, sheets, xlsx, hash) {
+  // Drawn from what the user changed: a bot's next put reads it first (userChanged)
+  let title = basename(xlsx, ".xlsx");
+  try {
+    title = JSON.parse(DATA.exec(html)?.[1] ?? "null")?.title || title;
+  } catch {}
+  const fresh = page({ title, sheets, xlsxName: basename(xlsx), hash });
+  return html
+    .replace(
+      /<meta name="sheet-xlsx" content="[0-9a-f]*"( data-edited)?/,
+      EDITED(hash),
+    )
+    .replace(DATA, () => DATA.exec(fresh)[0]);
+}
+
+/**
+ * The workbook a page edited in the app holds, written into the .xlsx beside the page it
+ * replaces. A formula that no longer works out keeps its error code in its cell, as Excel shows
+ * it, rather than stop the save. The .xlsx changed since the page drew it — in Excel — stops.
+ */
+function sync(edited, flags) {
+  const pagePath = typeof flags.page === "string" ? resolve(flags.page) : null;
+  if (!edited || !existsSync(edited) || !pagePath || !existsSync(pagePath))
+    throw new Stop(`Give the edited page and --page <page.html>.`);
+  const xlsx = join(
+    dirname(pagePath),
+    `${basename(pagePath, extname(pagePath))}.xlsx`,
+  );
+  // Changed since the page drew it: the page is drawn again from the file, under a new
+  // revision, and exit 3 has the app tell the open page as it does of a page written since —
+  // its Reload then shows the file as it is, not the page the edit came from
+  if (existsSync(xlsx) && drawnHash(pagePath) !== hashOf(readFileSync(xlsx))) {
+    const bytes = readFileSync(xlsx);
+    const { sheets, unworked } = readBook(xlsx);
+    const now = readFileSync(pagePath, "utf8");
+    writeAtomic(
+      pagePath,
+      withBook(now, fromXlsx(sheets), xlsx, hashOf(bytes)).replace(
+        /<meta name="revision" content="[^"]*">/,
+        `<meta name="revision" content="${revision()}">`,
+      ),
+    );
+    console.error(
+      `${shown(xlsx)} was changed after this page drew it — in Excel, or by a bot.${unworked ? ` Formulas saved without their values show empty: ${unworked}.` : ""}`,
+    );
+    process.exitCode = 3;
+    return;
+  }
+  const html = readFileSync(edited, "utf8");
+  let data;
+  try {
+    data = JSON.parse(DATA.exec(html)?.[1] ?? "null");
+  } catch {
+    data = null;
+  }
+  if (!data || !Array.isArray(data.sheets))
+    throw new Stop("The page holds no workbook to keep.");
+  const described = fromDescription({
+    title: data.title,
+    sheets: data.sheets.map((sheet) => ({
+      name: sheet?.name,
+      columns: (sheet?.columns ?? []).map((column) => ({
+        name: column?.name,
+        format: column?.format ?? undefined,
+        width: typeof column?.width === "number" ? column.width : undefined,
+      })),
+      rows: (sheet?.rows ?? []).map((row) =>
+        (Array.isArray(row) ? row : []).map((cell) =>
+          typeof cell?.f === "string" ? { f: cell.f } : (cell?.v ?? null),
+        ),
+      ),
+      totals: sheet?.totals
+        ? {
+            label: sheet.totals.label,
+            ...Object.fromEntries(
+              (sheet.totals.cells ?? [])
+                .map((fn, c) => [sheet.columns?.[c]?.name, fn])
+                .filter(([, fn]) => fn),
+            ),
+          }
+        : undefined,
+    })),
+  });
+  const sheets = build(described, []);
+  const bytes = writeXlsx({ sheets });
+  writeAtomic(xlsx, bytes);
+  // The edited page keeps its own head and shell; only what the .xlsx now holds is new
+  writeFileSync(edited, withBook(html, sheets, xlsx, hashOf(bytes)));
+  console.log(`Wrote ${shown(xlsx)}.`);
 }
 
 function shots(name) {
@@ -706,6 +926,7 @@ try {
   else if (command === "read") read(rest[0], flags);
   else if (command === "view") view(rest[0], flags);
   else if (command === "shots") shots(rest[0]);
+  else if (command === "sync") sync(rest[0], flags);
   else
     throw new Stop(
       `${usage()}\nFunctions a formula may use: ${FUNCTIONS.join(", ")}. A cell elsewhere: ${sheetRef("Other sheet")}!B2.`,

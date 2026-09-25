@@ -210,6 +210,126 @@ test("a chart drawn where a placeholder holds one of its own kind replaces all o
   assert.match(drawn, /<\/figure>\s*<p>After<\/p>/);
 });
 
+test("a sheet edited in the app writes its .xlsx too, and not over one changed in Excel since", async () => {
+  const { execFileSync, spawnSync } = await import("node:child_process");
+  const runtime = join(
+    import.meta.dirname,
+    "..",
+    "skills",
+    "artifact",
+    "runtime",
+  );
+  const { readXlsx } = await import(join(runtime, "sheet", "xlsx.mjs"));
+  const { unzipSync, zipSync, strToU8, strFromU8 } = await import(
+    join(runtime, "vendor", "fflate.mjs")
+  );
+  const book = join(home, "sheet.json");
+  await writeFile(
+    book,
+    JSON.stringify({
+      sheets: [
+        {
+          name: "Sales",
+          columns: [
+            { name: "Client" },
+            { name: "Qty" },
+            { name: "Price" },
+            { name: "Amount", formula: "=B{r}*C{r}" },
+          ],
+          rows: [
+            ["Hanbit", 2, 10, null],
+            ["Gaon", 3, 20, null],
+          ],
+          totals: { label: "Total", Amount: "sum" },
+        },
+      ],
+    }),
+  );
+  execFileSync(
+    process.execPath,
+    ["skills/artifact/scripts/spreadsheet.mjs", "put", "ledger", book],
+    {
+      env: {
+        ...process.env,
+        THURSDAY_ARTIFACTS: join(WORKSPACE, "artifacts", "Tester"),
+      },
+    },
+  );
+  const rel = "artifacts/Tester/ledger/ledger.html";
+  const file = join(WORKSPACE, rel);
+  const xlsx = join(WORKSPACE, "artifacts", "Tester", "ledger", "ledger.xlsx");
+  const opened = await readFile(file, "utf8");
+  const drawn = (html: string) =>
+    /<meta name="sheet-xlsx" content="([0-9a-f]*)"/.exec(html)?.[1];
+
+  // The page as its script leaves it after an edit: a row put in, its formula filled down
+  const data =
+    /<script type="application\/json" id="sheet-data">([\s\S]*?)<\/script>/;
+  const edit = (html: string) => {
+    const sheet = JSON.parse(data.exec(html)?.[1] ?? "null");
+    sheet.sheets[0].rows.push([
+      { v: "Miru" },
+      { v: 4 },
+      { v: 5 },
+      { v: null, f: "=B4*C4" },
+    ]);
+    return html.replace(
+      data,
+      () =>
+        `<script type="application/json" id="sheet-data">${JSON.stringify(sheet)}</script>`,
+    );
+  };
+  const saved = await savePage(rel, edit(opened), revisionOf(opened) ?? "");
+  assert.ok(!saved.changed);
+  const rows = readXlsx(await readFile(xlsx)).sheets[0].rows;
+  assert.deepEqual(
+    rows[3].map((cell: { v: unknown }) => cell.v),
+    ["Miru", 4, 5, 20],
+  );
+  assert.deepEqual(rows[4][3], { v: 100, f: "=SUBTOTAL(109,D2:D4)" });
+  const now = await readFile(file, "utf8");
+  assert.notEqual(drawn(now), drawn(opened));
+  assert.match(now, /"f":"=B4\*C4"/);
+  // A bot's put from what it wrote before would undo the edit: it stops until the bot reads it
+  const put = spawnSync(
+    process.execPath,
+    ["skills/artifact/scripts/spreadsheet.mjs", "put", "ledger", book],
+    {
+      env: {
+        ...process.env,
+        THURSDAY_ARTIFACTS: join(WORKSPACE, "artifacts", "Tester"),
+      },
+      encoding: "utf8",
+    },
+  );
+  assert.equal(put.status, 1);
+  assert.match(
+    put.stderr,
+    /changed after it was last written — in Excel, in the app/,
+  );
+
+  // Changed in Excel after the page drew it: the save stops, the file stays Excel's, and the
+  // page is drawn again from it, so Reload shows it as it is
+  const files = unzipSync(await readFile(xlsx));
+  const sheetXml = strFromU8(files["xl/worksheets/sheet1.xml"]);
+  files["xl/worksheets/sheet1.xml"] = strToU8(
+    sheetXml.replace(">Hanbit<", ">Changed in Excel<"),
+  );
+  const excel = zipSync(files);
+  await writeFile(xlsx, excel);
+  assert.deepEqual(await savePage(rel, edit(now), revisionOf(now) ?? ""), {
+    changed: true,
+  });
+  assert.deepEqual(new Uint8Array(await readFile(xlsx)), excel);
+  const redrawn = await readFile(file, "utf8");
+  assert.match(redrawn, /"v":"Changed in Excel"/);
+  assert.notEqual(revisionOf(redrawn), revisionOf(now));
+  assert.notEqual(drawn(redrawn), drawn(now));
+  // Opened again, it saves
+  const again = await savePage(rel, edit(redrawn), revisionOf(redrawn) ?? "");
+  assert.ok(!again.changed);
+});
+
 test("a page from before revisions keeps its edits as it did", async () => {
   const rel = "artifacts/Tester/older.html";
   const file = join(WORKSPACE, rel);

@@ -24,8 +24,10 @@ const SCRIPT = join(
   "scripts",
   "spreadsheet.mjs",
 );
-const { workOut, parse } = await import(join(RUNTIME, "formula.mjs"));
-const { formatValue, checkFormat, xlsxFormat } = await import(
+const { workOut, parse, moveRefs, fillDown } = await import(
+  join(RUNTIME, "formula.mjs")
+);
+const { formatValue, checkFormat, xlsxFormat, valueOf } = await import(
   join(RUNTIME, "format.mjs")
 );
 const { readXlsx, writeXlsx } = await import(join(RUNTIME, "xlsx.mjs"));
@@ -121,6 +123,81 @@ test("a formula the sheet cannot work out stops, naming the cell and why", () =>
   assert.match(stops("=A1+1"), /refers to itself/);
   assert.match(stops("=Nope!B2"), /no sheet "Nope"/);
   assert.match(stops("=(1+2"), /not closed/);
+});
+
+test("a formula moves as rows or columns go in or out, and fills down as Excel copies it", () => {
+  const on = "Sales";
+  const move = (formula: string, axis: string, at: number, count: number) =>
+    moveRefs(formula, { on, target: "Sales", axis, at, count });
+  // A row put in before row 3: what is past it moves, a range across it grows
+  assert.equal(move("=C3*D3", "r", 2, 1), "=C4*D4");
+  assert.equal(move("=C2*$D$2", "r", 2, 1), "=C2*$D$2");
+  assert.equal(move("=SUM(C2:C9)", "r", 4, 2), "=SUM(C2:C11)");
+  // Rows 4 and 5 taken out: a cell in them is gone, a range across them shrinks
+  assert.equal(move("=SUM(C2:C9)", "r", 3, -2), "=SUM(C2:C7)");
+  assert.equal(move("=C4+C8", "r", 3, -2), "=#REF!+C6");
+  assert.equal(move("=SUM(C4:C5)", "r", 3, -2), "=SUM(#REF!)");
+  // A column put in before C: whole columns move, text in quotes and other sheets stay
+  assert.equal(
+    move('=SUMIF(Sales!B:B,A2,Sales!E:E)&"B2"', "c", 2, 1),
+    '=SUMIF(Sales!B:B,A2,Sales!F:F)&"B2"',
+  );
+  assert.equal(move("='Two words'!C2+C2", "c", 2, 1), "='Two words'!C2+D2");
+  // Another sheet's formula moves only what it names of this one
+  assert.equal(
+    moveRefs("=Sales!C3+C3", {
+      on: "Sum",
+      target: "Sales",
+      axis: "r",
+      at: 2,
+      count: 1,
+    }),
+    "=Sales!C4+C3",
+  );
+  assert.equal(fillDown("=C2*$D$2+SUM(C:C)", 3), "=C5*$D$2+SUM(C:C)");
+  assert.equal(fillDown("=C2", -2), "=#REF!");
+});
+
+test("worked out for an edit, a formula that cannot be holds Excel's error and says why", () => {
+  const sheets = [
+    {
+      name: "A",
+      cells: [
+        [v("x")],
+        [f("=A3")],
+        [f("=A2")],
+        [f("=Gone!A1")],
+        [f("=#REF!+1")],
+        [f("=IFERROR(#N/A,7)")],
+      ],
+    },
+  ];
+  const problems: string[] = [];
+  workOut(sheets, { problems });
+  const got = sheets[0].cells.map((row) => (row[0] as { v: unknown }).v);
+  assert.deepEqual(got.slice(1), [
+    { error: "#VALUE!" },
+    { error: "#VALUE!" },
+    { error: "#REF!" },
+    { error: "#REF!" },
+    7,
+  ]);
+  assert.equal(problems.length, 2);
+  assert.match(problems[1], /A!A4 \(=Gone!A1\): there is no sheet "Gone"/);
+});
+
+test("what is typed into a cell reads as its column writes numbers", () => {
+  assert.equal(valueOf("1,234.5"), 1234.5);
+  assert.equal(valueOf("$1,200", '"$"#,##0.00'), 1200);
+  assert.equal(valueOf("-$5", '"$"#,##0'), -5);
+  assert.equal(valueOf("12,000원", '#,##0"원"'), 12000);
+  assert.equal(valueOf("25%", "0.0%"), 0.25);
+  assert.equal(valueOf("true"), true);
+  assert.equal(valueOf(" "), null);
+  // Text stays text: a date, a code with a comma in the wrong place, a word
+  assert.equal(valueOf("2026-07-02"), "2026-07-02");
+  assert.equal(valueOf("1,23"), "1,23");
+  assert.equal(valueOf("Hanbit"), "Hanbit");
 });
 
 test("number formats read as Excel shows them, and one the sheet cannot draw is named", () => {
@@ -274,6 +351,32 @@ test("put writes the .xlsx and its page, refuses one changed since, and reads an
   assert.match(read.stdout, /Hanbit\t40\t32000\t1280000/);
   assert.match(read.stdout, /Formulas \(4\): D2 =B2\*C2/);
   assert.equal(run("view", "q3").status, 0);
+
+  // Read back as put takes it: the column formula, formats and totals as they were written
+  const again = join(home, "again.json");
+  assert.equal(run("read", "q3", "--json", again).status, 0);
+  const described = JSON.parse(await readFile(again, "utf8"));
+  assert.equal(described.title, "Q3 sales");
+  assert.deepEqual(described.sheets[0].columns[3], {
+    name: "Amount",
+    format: '#,##0"원"',
+    formula: "=B{r}*C{r}",
+  });
+  assert.deepEqual(described.sheets[0].rows[0], ["Hanbit", 40, 32000, null]);
+  assert.deepEqual(described.sheets[0].totals, {
+    label: "Total",
+    Qty: "sum",
+    Amount: "sum",
+  });
+  assert.equal(
+    described.sheets[1].columns[1].formula,
+    "=SUMIF(Sales!A:A,A{r},Sales!D:D)",
+  );
+  assert.equal(run("put", "q3", again, "--over").status, 0);
+  assert.deepEqual(readXlsx(await readFile(xlsx)).sheets[0].rows[3][3], {
+    v: 3014000,
+    f: "=SUBTOTAL(109,D2:D3)",
+  });
 });
 
 test("a CSV becomes one sheet, grouped numbers read as numbers; an old .xls is refused", async () => {

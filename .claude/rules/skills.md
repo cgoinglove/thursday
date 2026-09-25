@@ -48,8 +48,8 @@ lists finished work from the folders, serves it through `app/api/file`, and fram
 - **A contract between `skills/` and the app changes on both sides in one commit**: `render.mjs`'s
   options and `features/reach/pictures.ts`; the last line of `deck.mjs shots` and `deck.tool.ts`;
   the shell's generator meta, `?face` and frame messages and `app/artifact`, `file-thumb.tsx`,
-  `FileFrame` — the suites mock `pictures.ts`, stub `shots` and frame no page, so a break goes
-  unseen.
+  `FileFrame`; `spreadsheet.mjs sync` (its exit 3) and `savePage` — the suites mock `pictures.ts`,
+  stub `shots` and frame no page, so a break goes unseen.
 - **A seed's text is copied into its bot when the bot is made** — a role change never reaches a
   bot already installed, so what every bot must get goes in a skill or the base prompt.
 - **A new capability extends an existing skill, or `make_deck`, before it is a skill of its

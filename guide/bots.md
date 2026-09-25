@@ -265,8 +265,17 @@ value of the cell picked over the grid, and the sum, average and count of the ce
 foot; the arrow keys move, Shift widens the pick, and ⌘C copies it to paste into any spreadsheet.
 The button on a column's heading sorts it or keeps only the values ticked, which the totals follow;
 that is a view and changes nothing in the file. **Export** has the Excel file, the sheet as CSV,
-the sheet copied, and print. The page does not edit cells: change the file in Excel, or ask the bot,
-which reads the file first when it was changed there. A bot also reads an Excel file handed to it —
+the sheet copied, and print. **Edit** changes the sheet itself, no Excel needed: type over a cell
+or double-click it (F2 too), write a formula starting with `=` in the cell or the formula line,
+rename a column on its heading, paste cells copied from any spreadsheet, and Delete clears the cells
+picked. The tools beside the formula line put a row under the one picked (its formulas carried
+down) or a column beside it, take out the rows or columns picked, set how a column's numbers read,
+and undo (⌘Z) or redo. Formulas elsewhere move as Excel moves them, and one that points at a cell
+taken out shows #REF!. A formula that cannot be read stays in the cell to be put right. The app
+keeps each change a moment later into the page and the Excel file both. If the file was changed in
+Excel since the page drew it, nothing is saved over it: the top bar says **Changed since it opened
+· not kept**, and **Reload** shows the file as it is now. A bot asked to change the sheet reads the
+file first when it was changed there. A bot also reads an Excel file handed to it —
 "what is in this spreadsheet?" — and can show it the same way; an old .xls has to be saved as .xlsx
 first.
 

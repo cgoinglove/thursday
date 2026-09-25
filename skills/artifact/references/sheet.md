@@ -54,6 +54,9 @@ Both land in `artifacts/<name>/`: hand back the page and the `.xlsx`.
   SUBTOTAL SUMIF COUNTIF AVERAGEIF ROUND ABS IF IFERROR AND OR NOT CONCAT`, and another sheet's
   cells as `Sheet!B2` (`'Two words'!B:B`). Anything else stops: work the value out yourself and
   write it.
+- **A summary of rows in the same workbook is a formula over them** — `SUMIF`, `COUNTIF`,
+  `AVERAGEIF` on the other sheet, as in "By client" above — so it follows when a row changes; a
+  number you worked out and typed in does not.
 - **`totals`** adds a last row, bold, the first column holding `label`: `sum`, `average`,
   `count`, `min` or `max` for the columns named. It counts only the rows a filter shows, in
   Excel and in the page alike.
@@ -74,9 +77,8 @@ Both land in `artifacts/<name>/`: hand back the page and the `.xlsx`.
   as `.xlsx` first.
 - **Showing theirs in the app**: `view <file.xlsx> [--name <name>]` copies it into your folder
   with a page beside it.
-- **Changing a sheet** is `put` again with the whole workbook. When the `.xlsx` was changed since
-  you wrote it — they worked on it in Excel — `put` stops: `read` it, make your change from what
-  it holds now, and `put --over`. After they changed it, `view <name>` draws the page again from
-  the file as it is.
-- The page sorts and filters as a view and never changes the file; the user edits in Excel or
-  asks you.
+- **Changing a sheet**: `read <name> --json <scratch>/<name>.json` writes the workbook as it is now
+  — the user's changes in Excel or with **Edit** in the app, formats, formulas, totals — in the
+  form above. Change that file and `put <name> <it> --over`. Writing it again from what you wrote
+  before undoes their changes, which is why a `put` without `--over` stops once they changed it.
+  After they changed it in Excel, `view <name>` draws the page again from the file as it is.
