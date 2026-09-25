@@ -13,10 +13,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* Neither Geist has Hangul. Noto Sans KR follows both, or Korean inside a mono
-     label falls to whatever the OS has. */
-  --font-sans: var(--font-geist-sans), var(--font-noto-kr);
-  --font-mono: var(--font-geist-mono), var(--font-noto-kr);
+  /* Neither Geist has CJK. The generic family ends each stack, so Hangul, kana and
+     Han fall to the OS's font for the reader's language, not one country's. */
+  --font-sans: var(--font-geist-sans), sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
   --font-heading: var(--font-sans);
   --color-ring: var(--ring);
   --color-input: var(--input);

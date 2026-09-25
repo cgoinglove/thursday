@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Noto_Sans_KR } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { ThemeSync } from "@/components/ui/theme-sync";
@@ -17,15 +17,6 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-/** Geist has no Hangul; Noto Sans KR follows it in the font stack. */
-const notoKr = Noto_Sans_KR({
-  variable: "--font-noto-kr",
-  // `subsets` only controls preloading. Hangul still loads via unicode-range
-  // @font-face blocks; "korean" is not an accepted subset name for this font.
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-});
-
 export const metadata: Metadata = {
   title: APP_NAME,
   description: `The "${APP_NAME}" is a voice agent that can help you with your daily tasks.`,
@@ -36,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${notoKr.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="h-screen w-full flex flex-col">
         <Script id="theme-boot" strategy="beforeInteractive">
