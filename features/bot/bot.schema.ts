@@ -320,8 +320,7 @@ export const untagSpeaker = (text: string): string => {
 
 /**
  * What a waiting thread waits on: a bot's question (`messageId`, the asker `bot`)
- * or a stop the app made, which offers only Continue. `auto` is a stop the app
- * picks back up by itself (browser absence).
+ * or a stop the app made, which offers only Continue.
  */
 export type ThreadPending = {
   options: string[];
@@ -330,7 +329,7 @@ export type ThreadPending = {
 };
 
 /**
- * True when the app stopped the job (step cap, closed browser, restart, idle room)
+ * True when the app stopped the job (step cap, restart, idle room)
  * rather than a bot asking something. Why it stopped is in the outcome text; every
  * list calls it waiting on you, because the answer is the same click. A question
  * carries its message id, so a bot offering Continue as a choice is still asking.

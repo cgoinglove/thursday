@@ -1304,9 +1304,8 @@ const underItsRow = (content: string) =>
   content.replace(/^---\n[\s\S]*?\n---\n/, "").replace(/^\s*#[^\n]*\n?/, "");
 
 /**
- * What the roster's pick is, and the two settings that are the whole set's rather than
- * any bot's: whether bots keep their own memory, and whether their work goes on once
- * every tab is closed.
+ * What the roster's pick is, and the setting that is the whole set's rather than any
+ * bot's: whether bots keep their own memory.
  */
 function BotRail({
   bot,

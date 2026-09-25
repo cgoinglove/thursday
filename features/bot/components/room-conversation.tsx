@@ -1145,7 +1145,7 @@ function CopyReport({ text }: { text: string }) {
 
 /**
  * Where the app stopped the run (room.query pauseRoom, a break the runner retries): a failed model call, a
- * restart, a closed browser. Muted and in the bot's work, since the bot goes on
+ * restart. Muted and in the bot's work, since the bot goes on
  * from here. The same reason in a row is one line with a count; opening it lists
  * each stop by the time it happened.
  */
