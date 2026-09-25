@@ -10,6 +10,7 @@ import {
 } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
+import { toast } from "@/components/ui/toast";
 import { CALL_LINE, TEXT_CALL } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { acceptThreadRelaysAction } from "@/features/bot/bot.action";
@@ -18,7 +19,7 @@ import { screenActs } from "@/features/bot/thread.store";
 import { unwrapResult } from "@/lib/protocol/result";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
-import { captionText } from "@/lib/utils";
+import { captionText, errorToString } from "@/lib/utils";
 import { openWork, stoodBefore, toldWork } from "./open-work";
 import { screenActLine } from "./screen-act";
 import {
@@ -380,7 +381,13 @@ export function useTextCall(): TextCall {
     if (rows.length)
       void acceptThreadRelaysAction(rows)
         .then(unwrapResult)
-        .catch(() => {});
+        .catch((cause) =>
+          toast.add({
+            type: "error",
+            title: "Could not record relay delivery",
+            description: errorToString(cause),
+          }),
+        );
     // Written after her last step: the next turn, at once
     if (pending.current.some((note) => note.said)) return send(null);
     wake();
