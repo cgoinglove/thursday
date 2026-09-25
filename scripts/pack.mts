@@ -392,6 +392,7 @@ const REQUIRED = [
   "skills/artifact/runtime/render.mjs",
   "skills/artifact/runtime/shell/wear.mjs",
   "skills/artifact/runtime/shell/put.mjs",
+  "skills/artifact/runtime/shell/workspace.mjs",
   "skills/artifact/runtime/shell/head.html",
   "skills/artifact/runtime/shell/shell.css",
   "skills/artifact/runtime/shell/shell.js",

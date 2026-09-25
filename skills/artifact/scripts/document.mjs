@@ -23,7 +23,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { documentBody } from "../runtime/document/markdown.mjs";
 import {
@@ -34,28 +34,17 @@ import {
   putBetween,
 } from "../runtime/shell/put.mjs";
 import { retitle, wear } from "../runtime/shell/wear.mjs";
+import {
+  ARTIFACTS,
+  NAME,
+  Stop,
+  shown,
+  WORKSPACE,
+} from "../runtime/shell/workspace.mjs";
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SCRIPT = join(SKILL, "scripts", "document.mjs");
 
-/** The app's workspace: the nearest folder above holding its fence and a `projects` folder. */
-function findWorkspace() {
-  for (let dir = process.cwd(); ; dir = dirname(dir)) {
-    if (
-      existsSync(join(dir, "pnpm-workspace.yaml")) &&
-      existsSync(join(dir, "projects"))
-    )
-      return dir;
-    if (dir === dirname(dir)) return process.cwd();
-  }
-}
-
-const WORKSPACE = findWorkspace();
-const shown = (path) => relative(WORKSPACE, path) || ".";
-
-class Stop extends Error {}
-
-const NAME = /^[\p{L}\p{N}][\p{L}\p{N}_-]{0,79}$/u;
 /**
  * A page with nothing to build: one HTML file in the bot's artifacts folder, the quick
  * stylesheet and script inlined, its body a ready document (`--from`) or blank until a
@@ -76,11 +65,7 @@ function makePage(name, ...args) {
     throw new Stop(
       `No ready document "${kind}": --from takes one of ${kinds.filter((k) => k !== "blank").join(", ")}.`,
     );
-  const out = join(
-    WORKSPACE,
-    process.env.THURSDAY_ARTIFACTS || "artifacts",
-    `${name}.html`,
-  );
+  const out = join(ARTIFACTS, `${name}.html`);
   if (existsSync(out))
     throw new Stop(`${shown(out)} already exists. Edit it there.`);
   const part = (path) => readFileSync(join(quick, path), "utf8").trim();
@@ -117,11 +102,7 @@ function pageAt(arg) {
   if (!arg) throw new Stop("Give a page name, or the path to one.");
   const file =
     !arg.includes("/") && !arg.endsWith(".html")
-      ? join(
-          WORKSPACE,
-          process.env.THURSDAY_ARTIFACTS || "artifacts",
-          `${arg}.html`,
-        )
+      ? join(ARTIFACTS, `${arg}.html`)
       : resolve(arg);
   if (!existsSync(file))
     throw new Stop(
@@ -158,15 +139,7 @@ function putBody(name, from) {
       `Give the file the body is written in: node ${SCRIPT} put ${name ?? "<name>"} <file.md>`,
     );
   const fresh =
-    name &&
-    NAME.test(name) &&
-    !existsSync(
-      join(
-        WORKSPACE,
-        process.env.THURSDAY_ARTIFACTS || "artifacts",
-        `${name}.html`,
-      ),
-    );
+    name && NAME.test(name) && !existsSync(join(ARTIFACTS, `${name}.html`));
   if (fresh) makePage(name);
   const file = pageAt(name);
   const written = readFileSync(from, "utf8");

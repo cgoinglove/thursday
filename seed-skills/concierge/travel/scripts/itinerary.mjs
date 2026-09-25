@@ -89,9 +89,9 @@ function findWorkspace() {
   }
 }
 const WORKSPACE = findWorkspace();
+// From the workspace or whole: joined, a whole path landed nested inside the workspace
 const out = join(
-  WORKSPACE,
-  process.env.THURSDAY_ARTIFACTS || "artifacts",
+  resolve(WORKSPACE, process.env.THURSDAY_ARTIFACTS || "artifacts"),
   `${name}.html`,
 );
 

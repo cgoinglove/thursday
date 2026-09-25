@@ -1,7 +1,7 @@
 // What the brief's scripts share: arguments, fetching, reading HTML
 // and feeds without a parser, and where the bot's finished work goes.
 import { existsSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 
 // Says what it is: a publisher that turns a script away has said no, and the brief takes
 // another outlet rather than pass for a browser
@@ -140,9 +140,9 @@ export function workspace() {
   }
 }
 
-/** The bot's folder under `artifacts/`, where the finished brief goes. */
+/** The bot's folder under `artifacts/`, where the finished brief goes: from the workspace or whole. */
 export const artifactsDir = () =>
-  join(workspace(), process.env.THURSDAY_ARTIFACTS || "artifacts");
+  resolve(workspace(), process.env.THURSDAY_ARTIFACTS || "artifacts");
 
 export const shown = (path) => relative(workspace(), path) || ".";
 

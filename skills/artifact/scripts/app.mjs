@@ -23,32 +23,23 @@ import {
 } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  ARTIFACTS,
+  NAME,
+  Stop,
+  shown,
+  WORKSPACE,
+} from "../runtime/shell/workspace.mjs";
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const TEMPLATE = join(SKILL, "runtime", "app", "kit");
 const PAGE_TEMPLATE = join(SKILL, "runtime", "app", "page");
 const SCRIPT = join(SKILL, "scripts", "app.mjs");
 
-/** The app's workspace: the nearest folder above holding its fence and a `projects` folder. */
-function findWorkspace() {
-  for (let dir = process.cwd(); ; dir = dirname(dir)) {
-    if (
-      existsSync(join(dir, "pnpm-workspace.yaml")) &&
-      existsSync(join(dir, "projects"))
-    )
-      return dir;
-    if (dir === dirname(dir)) return process.cwd();
-  }
-}
-
-const WORKSPACE = findWorkspace();
 const KIT = join(WORKSPACE, "projects", ".page-kit");
 const LOCK = `${KIT}.lock`;
 const STAMP = join(KIT, ".kit.json");
 const VITE = join(KIT, "node_modules", "vite", "bin", "vite.js");
-const shown = (path) => relative(WORKSPACE, path) || ".";
-
-class Stop extends Error {}
 
 function run(command, args, env) {
   const done = spawnSync(command, args, {
@@ -159,7 +150,6 @@ function ensureKit() {
   });
 }
 
-const NAME = /^[\p{L}\p{N}][\p{L}\p{N}_-]{0,79}$/u;
 function pageDir(name) {
   if (!name || !NAME.test(name))
     throw new Stop(
@@ -195,11 +185,7 @@ function buildPage(name) {
       `The build of "${name}" failed; fix what it names and build again.`,
     );
 
-  const out = join(
-    WORKSPACE,
-    process.env.THURSDAY_ARTIFACTS || "artifacts",
-    `${name}.html`,
-  );
+  const out = join(ARTIFACTS, `${name}.html`);
   mkdirSync(dirname(out), { recursive: true });
   copyFileSync(join(dir, "dist", "index.html"), out);
   const kb = Math.round(statSync(out).size / 1024);

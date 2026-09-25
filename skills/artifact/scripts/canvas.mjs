@@ -17,7 +17,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   editedSince,
@@ -27,35 +27,14 @@ import {
   putBetween,
 } from "../runtime/shell/put.mjs";
 import { wear } from "../runtime/shell/wear.mjs";
+import { ARTIFACTS, NAME, Stop, shown } from "../runtime/shell/workspace.mjs";
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SCRIPT = join(SKILL, "scripts", "canvas.mjs");
-const NAME = /^[\p{L}\p{N}][\p{L}\p{N}_-]{0,79}$/u;
 
-/** The app's workspace: the nearest folder above holding its fence and a `projects` folder. */
-function findWorkspace() {
-  for (let dir = process.cwd(); ; dir = dirname(dir)) {
-    if (
-      existsSync(join(dir, "pnpm-workspace.yaml")) &&
-      existsSync(join(dir, "projects"))
-    )
-      return dir;
-    if (dir === dirname(dir)) return process.cwd();
-  }
-}
-
-const WORKSPACE = findWorkspace();
 // The shipped skills, where the browser skill's renderer takes the pictures: named in a
 // bot's shell, and otherwise the folder this skill itself sits in beside it
 const SKILLS = process.env.THURSDAY_SKILLS || resolve(SKILL, "..");
-/** A path as the reader should type it: short from the workspace, whole from outside it. */
-const shown = (path) => {
-  const near = relative(WORKSPACE, path);
-  if (!near) return ".";
-  return near.startsWith("..") ? path : near;
-};
-
-class Stop extends Error {}
 
 /** `<name>/<name>.html` in the bot's artifacts folder: the canvas, with its pictures beside it. */
 function fileFor(name) {
@@ -63,12 +42,7 @@ function fileFor(name) {
     throw new Stop(
       `${name ? `"${name}" is not` : "Give"} a canvas name: letters, numbers, - and _ only.`,
     );
-  return join(
-    WORKSPACE,
-    process.env.THURSDAY_ARTIFACTS || "artifacts",
-    name,
-    `${name}.html`,
-  );
+  return join(ARTIFACTS, name, `${name}.html`);
 }
 
 /**

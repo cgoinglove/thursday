@@ -13,32 +13,21 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  ARTIFACTS,
+  NAME,
+  Stop,
+  shown,
+  WORKSPACE,
+} from "../runtime/shell/workspace.mjs";
 import { bookPdf } from "./book-pdf.mjs";
 import { bookVideo } from "./book-video.mjs";
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SCRIPT = join(SKILL, "scripts", "book.mjs");
 const SKILLS = process.env.THURSDAY_SKILLS || resolve(SKILL, "..");
-const NAME = /^[\p{L}\p{N}][\p{L}\p{N}_-]{0,79}$/u;
-
-/** The app's workspace: the nearest folder above holding its fence and a `projects` folder. */
-function findWorkspace() {
-  for (let dir = process.cwd(); ; dir = dirname(dir)) {
-    if (
-      existsSync(join(dir, "pnpm-workspace.yaml")) &&
-      existsSync(join(dir, "projects"))
-    )
-      return dir;
-    if (dir === dirname(dir)) return process.cwd();
-  }
-}
-
-const WORKSPACE = findWorkspace();
-const shown = (path) => relative(WORKSPACE, path) || ".";
-
-class Stop extends Error {}
 
 /**
  * Where a book lives: a folder of its own under the bot's artifacts, holding the
@@ -49,12 +38,7 @@ function bookFile(name) {
     throw new Stop(
       `${name ? `"${name}" is not` : "Give"} a book name: letters, numbers, - and _ only.`,
     );
-  return join(
-    WORKSPACE,
-    process.env.THURSDAY_ARTIFACTS || "artifacts",
-    name,
-    `${name}.html`,
-  );
+  return join(ARTIFACTS, name, `${name}.html`);
 }
 
 /** An existing book, or how to start one. */
