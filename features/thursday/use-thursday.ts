@@ -13,6 +13,7 @@ import {
   CALL_RELAY,
   INBOX_POLL_MS,
 } from "@/config";
+import { LIVE_DEFAULTS } from "@/features/ai/live.schema";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { acceptThreadRelaysAction } from "@/features/bot/bot.action";
 import type { Bot, Thread } from "@/features/bot/bot.schema";
@@ -721,7 +722,10 @@ export function useThursday(
         opening: null as string | null,
         standing: null as string | null,
         /** The set this call's manifest was built from (thursday.schema `opened`). */
-        opened: { webSearch: true, readSkills: false },
+        opened: {
+          webSearch: LIVE_DEFAULTS.webSearch,
+          readSkills: LIVE_DEFAULTS.readSkills,
+        },
       };
 
       // one turn per id; the session reports display groups one at a time

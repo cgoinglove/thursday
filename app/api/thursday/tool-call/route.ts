@@ -1,5 +1,6 @@
 import { asSchema } from "ai";
 import z from "zod";
+import { LIVE_DEFAULTS } from "@/features/ai/live.schema";
 import { loadTools } from "@/features/ai/load-tools";
 import { modelErrorToString } from "@/features/ai/model";
 import { serverRoute } from "@/lib/protocol/server-route";
@@ -18,8 +19,8 @@ const ToolCallSchema = z.object({
   /** The call this came from; `delegate` attaches the job to it. */
   callId: z.string().nullish(),
   /** What the call's manifest was built from, so this set is the one it listed. */
-  webSearch: z.boolean().default(true),
-  readSkills: z.boolean().default(false),
+  webSearch: z.boolean().default(LIVE_DEFAULTS.webSearch),
+  readSkills: z.boolean().default(LIVE_DEFAULTS.readSkills),
   name: z.string().min(1),
   input: z.unknown().optional(),
 });
