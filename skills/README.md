@@ -38,8 +38,9 @@ artifact skill holds.
   was cut.
 - **`find-skills`** is adapted from vercel-labs/skills' find-skills at 7407f38 (MIT, `LICENSE` in
   the folder), and **`skill-creator`** from Anthropic's skill-creator at anthropics/skills 34040c9
-  (Apache-2.0, `LICENSE.txt`); each ends with a line saying what changed. Both ask who a new skill
-  is for before installing or writing it: only the bot at work, or every bot.
+  (Apache-2.0, `LICENSE.txt`); each ends with a line saying what changed. Both have the bot at
+  work decide who a new skill is for, itself or every bot, and find-skills asks the user before it
+  installs one.
 - **`seed-skills/marketer/marketing`** is a trimmed copy of six skills of
   [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) —
   `product-marketing`, `copywriting`, `launch`, `social`, `emails` and `seo-audit` — at

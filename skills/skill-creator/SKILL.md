@@ -31,18 +31,20 @@ This section replaces the parts of Anthropic's original that run only in Claude'
 
 ### Who does the writing
 
-**If you are Thursday**, on a call, the interview is yours, out loud (one question per turn, no lists read aloud), and it includes who the skill is for: one bot, or every bot. Then hand the whole brief with `thread_start` to the bot it is for, or to any bot when it is for every bot. The bot cannot hear the call, so the request carries every answer, who the skill is for, and that the skill is validated before it is reported. Writing and testing a skill takes minutes, which is a bot's work.
+**If you are Thursday**, on a call, the interview is yours, out loud (one question per turn, no lists read aloud). Then hand the whole brief with `thread_start` to the bot whose work the skill is for, or to any bot when it serves every bot's work. The bot cannot hear the call, so the request carries every answer, anything the user said about who should have the skill, and that the skill is validated before it is reported. Writing and testing a skill takes minutes, which is a bot's work.
 
 **If you are a bot**, the brief is in your hands. The user is not at your screen: what you need from them goes to Thursday with `send_message`, kind `question` (clearly, with the context to answer, and short options when they help), and your turn ends there until the answer brings you back. So ask what only the user knows in one question with parts, not an interview, and never ask what the brief or the conversation already answers.
 
 ### Who it is for, and where it goes
 
-Before you write a new skill, unless the request already says who it is for, send Thursday one question: what the skill is and why this job needs it, with the options "Only this bot" and "Every bot". Wait for the answer. If the user left it to you ("up to you", "decide yourself"), it is for this bot only. If they asked for it for everyone, it is for every bot.
+Before you write a new skill, decide who it is for. This is yours to decide, not a question for the user; the request decides it when it says.
 
-- **Only this bot:** `<your own folder>/.agents/skills/<name>/` (the Environment names your own folder). Listed to you alone.
-- **Every bot:** `.agents/skills/<name>/` at the workspace root, where your shell starts. Listed to every bot, and to the call.
+- **Only this bot:** `<your own folder>/.agents/skills/<name>/` (the Environment names your own folder). Listed to you alone. Pick it when the skill serves your own line of work, and when you are unsure.
+- **Every bot:** `.agents/skills/<name>/` at the workspace root, where your shell starts. Listed to every bot, and to the call. Pick it when any bot would follow the skill whatever its work (how the user wants a kind of file made, a service or a tool they use in every kind of job), or when the user said it is for everyone.
 
-The shipped skills in `$THURSDAY_SKILLS` come with the app and are read-only: never write there. When two skills share a name, the shipped one wins and the other is not listed at all, and a bot's own skill wins over an every-bot skill of the same name. To change a shipped skill, copy its folder into one of the two places above under a new name and edit the copy. That is a new skill, so ask who it is for.
+Narrow comes first because a skill's description is read by every bot that has it on every step, and a method from one line of work is noise in the others. A skill kept to one bot moves to the workspace root later with one `mv`.
+
+The shipped skills in `$THURSDAY_SKILLS` come with the app and are read-only: never write there. When two skills share a name, the shipped one wins and the other is not listed at all, and a bot's own skill wins over an every-bot skill of the same name. To change a shipped skill, copy its folder into one of the two places above under a new name and edit the copy. That is a new skill, so decide who it is for as above.
 
 To improve a skill the user already has, edit it where it is and keep its name and its folder's name: they are what the user's earlier requests and other skills refer to. `write_file` replaces a whole file, so read the file first.
 
@@ -72,7 +74,7 @@ node $THURSDAY_SKILLS/skill-creator/scripts/validate.mjs <the skill's folder>
 
 It checks what fails silently: frontmatter the app cannot parse, keys outside the spec, a name that does not match its folder, a name another skill already holds. A folder that does not pass is a skill the app skips or another app refuses, without telling anyone, which looks exactly like one that was never written. Fix it and run it again until it passes.
 
-Then report the path, who the skill is for, and the description you settled on: to the user that line is the whole skill, because it is what makes it trigger. `load_skill` finds the skill by its exact name at once; the skill lists show it from the next turn or call.
+Then report the path, who the skill is for and why, and the description you settled on: to the user that line is the whole skill, because it is what makes it trigger. `load_skill` finds the skill by its exact name at once; the skill lists show it from the next turn or call.
 
 ## Communicating with the user
 

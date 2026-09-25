@@ -1,13 +1,13 @@
 ---
 name: find-skills
-description: "Finds and installs skills from the open skills registry. Use it when a job needs a specialized method no listed skill covers, or the user asks for a skill."
+description: "Finds skills in the open skills registry and installs the one the user agrees to. Use it when a job needs a specialized method no listed skill covers, or the user asks for a skill."
 ---
 
 # Find Skills
 
-This skill helps you discover and install skills from the open agent skills ecosystem. Here you install the one the job needs and use it; the user decides only who gets it.
+This skill helps you discover and install skills from the open agent skills ecosystem. Here you find the one the job needs, decide who gets it, ask the user before installing it, and use it.
 
-If you are Thursday: installing is a bot's work. While you are talking, ask who the skill is for, one bot or every bot, then hand it with `thread_start` to that bot (or to any bot, for every bot) with the answer in the request.
+If you are Thursday: finding and installing is a bot's work. Hand it with `thread_start` to the bot whose work the skill is for, or to any bot, with anything the user said about who should have it; that bot asks the user before it installs anything.
 
 ## When to Use This Skill
 
@@ -29,10 +29,10 @@ The Skills CLI (`npx skills`) is the package manager for the open agent skills e
 **Key commands:**
 
 - `npx skills find [query] [--owner <owner>]` - Search for skills by keyword, optionally scoped to a GitHub owner
-- `npx skills add <package> -a universal -y` - Install a skill from GitHub or other sources (Step 6 says from which folder)
+- `npx skills add <package> -a universal -y` - Install a skill from GitHub or other sources (Step 7 says from which folder)
 - `npx skills add <owner/repo> --list` - List the skills a repository holds, without installing any
 
-To update an installed skill, run its `add` command again from the same folder; it replaces the copy there. Not `npx skills update`: it reinstalls without `-a universal`, which can spread links into other agents' folders (Step 6).
+To update an installed skill, when the user asked for it or said yes as Step 6 asks, run its `add` command again from the same folder; it replaces the copy there. Not `npx skills update`: it reinstalls without `-a universal`, which can spread links into other agents' folders (Step 7).
 
 **Browse skills at:** https://skills.sh/
 
@@ -79,32 +79,41 @@ Each result prints as `<owner/repo@skill>` with its install count, and under it 
 3. **What it needs to work.** Most vendor skills wrap that vendor's CLI and want an API key. Read its `SKILL.md` before you build a plan on top of it — a skill you cannot authenticate is no use in this job.
 4. **Its license.** Open the `LICENSE` in its folder. A license that allows use only inside one company's own product is not one to install here — Anthropic's `docx`, `pptx`, `xlsx` and `pdf` skills are licensed that way, while its other skills are Apache-2.0.
 
-Pick the one that fits best. The user decides who gets it, not which one.
+Pick the one that fits best.
 
-### Step 5: Ask Who It Is For
+### Step 5: Decide Who Gets It
 
-Unless the request already says who the skill is for, ask before installing. Send Thursday one `send_message` with kind `question`: what the skill is and why this job needs it, with the options "Only this bot" and "Every bot". Then end your turn. The user is not at your screen; their answer brings you back.
+This is yours to decide; the request decides it when it says.
+
+- **Only this bot:** installed in your own folder (the Environment names it), listed to you alone. Pick it when the skill serves your own line of work, and when you are unsure.
+- **Every bot:** installed at the workspace root, listed to every bot and to the call. Pick it when any bot would use the skill whatever its work (a file format, a service or a tool the user meets in every kind of job), or when the user said it is for everyone.
+
+Narrow comes first because a skill's description is read by every bot that has it on every step, and a stranger's skill runs wherever it is loaded. A skill kept to one bot moves to the workspace root later with one `mv`.
+
+### Step 6: Ask Before Installing
+
+An installed skill is someone else's instructions and scripts, run with your permissions on the user's computer, and public registries have carried skills that steal keys or install malware. So the user says yes to each install. Unless the user named this exact skill and asked for it to be installed, send Thursday one `send_message` with kind `question` before you install anything: what the skill does and why this job needs it, who published it, its license, what its audits found, what it needs to run (a key, a CLI), and who you decided gets it and why, with the options "Install" and "Don't install". Then end your turn. The user is not at your screen; their answer brings you back.
 
 Example question:
 
 ```
-To lay the slides out in a set of ready themes, I'd like to install "theme-factory" from anthropics/skills (Apache-2.0), Anthropic's own skill for applying a theme to a deck or a page. Who should have it?
-Options: Only this bot · Every bot
+To lay the slides out in a set of ready themes, I'd like to install "theme-factory" from anthropics/skills: Anthropic's own skill for applying a theme to a deck or a page. Apache-2.0, its three audits pass, and it needs no key. I'd keep it to myself, since only deck work uses it. Install it?
+Options: Install · Don't install
 ```
 
-If the user left it to you ("up to you", "decide yourself"), it is for this bot only. If they asked for it for everyone, it is for every bot. If the answer is something else, such as not now or a different skill, do that instead.
+A yes installs it where the question said; an answer that names the other place ("for every bot") installs it there. A no, or anything else such as not now or a different skill, is what you do instead; without the skill, the job goes on with what you have, and the report says what you would have installed.
 
-### Step 6: Install It and Use It
+### Step 7: Install It and Use It
 
-Install where the answer says, with `-a universal -y` either way:
+Install where Step 5 and the answer put it, with `-a universal -y` either way:
 
-- **Only this bot:** from your own folder (the Environment names it). Listed to you alone.
+- **Only this bot:** from your own folder.
 
   ```bash
   (cd <your own folder> && npx skills add <owner/repo@skill> -a universal -y)
   ```
 
-- **Every bot:** from the workspace root, where your shell starts. Listed to every bot, and to the call.
+- **Every bot:** from the workspace root, where your shell starts.
 
   ```bash
   npx skills add <owner/repo@skill> -a universal -y
@@ -112,7 +121,7 @@ Install where the answer says, with `-a universal -y` either way:
 
 `-a universal` installs into `.agents/skills/` under the folder the command runs from, which is where this app reads skills. Without it, `add -y` also links the skill into other agents' folders, such as `.claude/skills` when Claude Code is on this machine, which this app never reads. `-y` skips the confirmation prompts. Never `-g`: that installs into this machine's user directory, where this app never looks, so the command reports success and the skill is nowhere.
 
-Load it as soon as it is installed: `load_skill` with the installed name finds it on disk, though your Skills list was read before the install; the list shows it from your next turn. Use it for the job, and name it in your report: what you installed, from where, and for whom.
+Load it as soon as it is installed: `load_skill` with the installed name finds it on disk, though your Skills list was read before the install; the list shows it from your next turn. Use it for the job, and name it in your report: what you installed, from where, and who has it and why.
 
 ## Common Skill Categories
 
@@ -144,4 +153,4 @@ If no relevant skills exist:
 
 ---
 
-Adapted from vercel-labs/skills find-skills (MIT) at 7407f38: a bot here looks at the makers' own skills rather than the leaderboard, judges a skill by publisher, repository and audits rather than installs, asks who it is for, installs it with `-a universal` into this app's skill folders rather than globally, and uses it rather than suggesting it to the user.
+Adapted from vercel-labs/skills find-skills (MIT) at 7407f38: a bot here looks at the makers' own skills rather than the leaderboard, judges a skill by publisher, repository and audits rather than installs, decides who gets it, asks the user before installing, installs it with `-a universal` into this app's skill folders rather than globally, and uses it rather than suggesting it to the user.

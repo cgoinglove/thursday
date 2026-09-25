@@ -73,9 +73,10 @@ user's own) and **Default** (the ones that ship, read-only). There a skill can b
 `.zip` or `.skill` file), written from scratch, or deleted when it is one of their own. Opening a skill shows its files; in one of
 their own, **Edit** on a file writes it back, which is how a typo or a changed step is fixed without
 making the skill again. A bot can also find one in the open registry while it works, or write a
-new one; either way it first asks whether the skill is for that bot alone or for every bot, and
-keeps it to itself when told to decide. A bot's own skills sit in its own folder
-and are not on that screen.
+new one. Before it installs one from the registry it asks, saying who published it, its license
+and what its security checks found. Either way it decides whether the skill is for itself alone
+or for every bot: to itself unless any bot would use it or the user said everyone, and its report
+says which. A bot's own skills sit in its own folder and are not on that screen.
 
 ## Connected services
 
