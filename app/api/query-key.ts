@@ -69,9 +69,10 @@ export const queryKey = {
   /**
    * Inbox: Thread[] newest first, everything running or asking plus the most
    * recent finished few. Read by use-thursday only; the `threads` signal
-   * triggers revalidation, with a 30s poll as fallback. Only what can still
-   * move carries its lines — an ended thread's are read with `thread` below,
-   * since this list is re-read every time anything changes.
+   * triggers revalidation, with a poll (config INBOX_POLL_MS) as fallback.
+   * Only what can still move carries its lines — an ended thread's are read
+   * with `thread` below, since this list is re-read every time anything
+   * changes.
    */
   threads: "/api/bot/thread",
   /**

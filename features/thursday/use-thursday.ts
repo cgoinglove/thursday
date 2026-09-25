@@ -9,7 +9,9 @@ import {
   CALL_ENDED_MS,
   CALL_IDLE,
   CALL_LINE,
+  CALL_PAGE,
   CALL_RELAY,
+  INBOX_POLL_MS,
 } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { acceptThreadRelaysAction } from "@/features/bot/bot.action";
@@ -96,15 +98,6 @@ const FACE_SETTLE_MS = 600;
  * enough for the orb to spell its ERROR out. The toast carries the reason.
  */
 const FAILED_FACE_MS = 6000;
-
-/** Scrollback for the side-by-side layout; the call view shows at most three. */
-const KEEP_MESSAGES = 24;
-
-/** Safety net only; the event stream revalidates threads as they change. */
-const THREAD_POLL_FALLBACK_MS = 30_000;
-
-/** Failed saves of one kind before the call stops saving that kind and says so, once. */
-const SAVE_FAILURE_LIMIT = 3;
 
 /**
  * What the activity line draws: a tool the model is using, or a relay. `line` is
@@ -503,7 +496,7 @@ export function useThursday(
 
   // Inbox, with or without a call. Revalidated on server events; polling is the safety net
   const { data: threads } = useServerRoute<Thread[]>(queryKey.threads, {
-    refreshInterval: THREAD_POLL_FALLBACK_MS,
+    refreshInterval: INBOX_POLL_MS,
   });
   /** Whether the stream has said hello once; a later one is a reconnect. */
   const greeted = useRef(false);
@@ -925,7 +918,7 @@ export function useThursday(
               setMessages(
                 [...turns.values()]
                   .sort((a, b) => a.seq - b.seq)
-                  .slice(-KEEP_MESSAGES),
+                  .slice(-CALL_PAGE.scrollback),
               );
             }
             if (turn.done) {
@@ -1213,18 +1206,18 @@ function spokenWords(text: string) {
   return /[\p{L}\p{N}]/u.test(words) ? words : "";
 }
 
-/** Fire-and-forget save; after SAVE_FAILURE_LIMIT failures of this kind it stops and says so once. */
+/** Fire-and-forget save; after CALL_PAGE.saveFailures failures of this kind it stops and says so once. */
 function persist(
   saving: { failures: number },
   save: () => Promise<Result<unknown>>,
   stopped = "This call is not being saved",
 ) {
-  if (saving.failures >= SAVE_FAILURE_LIMIT) return;
+  if (saving.failures >= CALL_PAGE.saveFailures) return;
   void save()
     .then((result) => unwrapResult(result))
     .catch((cause) => {
       saving.failures += 1;
-      if (saving.failures !== SAVE_FAILURE_LIMIT) return;
+      if (saving.failures !== CALL_PAGE.saveFailures) return;
       toast.add({
         type: "warning",
         title: stopped,

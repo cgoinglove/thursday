@@ -80,6 +80,17 @@ export const CALL_LINE = {
 };
 
 /**
+ * What the page of a spoken call keeps (useThursday).
+ * - `scrollback`  turns of the call held for the side-by-side layout; the call view draws at
+ *   most three of them. The call's row keeps every turn whatever this is: more lets the side
+ *   scroll further back in a long call, fewer drops older turns from it sooner.
+ * - `saveFailures`  saves of one kind (turns, thoughts) that may fail before the call stops
+ *   saving that kind and says so, once. Higher rides out more failures before the warning;
+ *   lower stops sooner, and what the call says after that is not kept.
+ */
+export const CALL_PAGE = { scrollback: 24, saveFailures: 3 };
+
+/**
  * When a quiet call ends itself (useThursday).
  * - `hangUpMs`  how long the user has said nothing and she has neither spoken nor worked
  *   before the page hangs up, with no goodbye. Updates she voices on her own (CALL_RELAY) do
@@ -273,6 +284,14 @@ export const PAGE_SIZE = 50;
  * older endings in reach at the cost of a larger inbox read.
  */
 export const INBOX_FINISHED = 5;
+
+/**
+ * How often the page reads the thread inbox again on its own (useThursday), besides the
+ * `threads` signal the event stream sends for every change and the full read a reconnected
+ * stream makes. A safety net only: shorter reads the inbox more often for nothing while the
+ * stream is healthy; longer leaves a change whose signal was missed off the screen longer.
+ */
+export const INBOX_POLL_MS = 30_000;
 
 /** Jobs returned to the call: prioritize open work, then fill with recent endings. */
 export const THREAD_STATUS_LIMIT = 10;
