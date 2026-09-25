@@ -441,12 +441,15 @@ export async function compactBudget(
   chosen?: number | null,
 ): Promise<number> {
   if (chosen && chosen > 0) return chosen;
-  // Never worth failing a run over: an unreachable catalog is a fallback, not an error
-  const catalog =
-    ref.provider === "vercel-ai-gateway"
-      ? await readGatewayCatalog().catch(() => [])
-      : [];
+  const catalog = await runCatalog(ref);
   return compactAtFor(contextWindowOf(ref.provider, ref.model, catalog));
+}
+
+/** The gateway's shelf for a run on the gateway; empty for any other provider. */
+async function runCatalog(ref: TextModelRef): Promise<GatewayModel[]> {
+  if (ref.provider !== "vercel-ai-gateway") return [];
+  // Never worth failing a run over: an unreachable catalog is a fallback, not an error
+  return await readGatewayCatalog().catch(() => []);
 }
 
 /**
@@ -464,11 +467,7 @@ export async function runEffort(
   const wanted =
     chosen ?? effortSchema.safeParse(await readConfig(DEFAULT_EFFORT_KEY)).data;
   if (!wanted) return undefined;
-  // Never worth failing a run over: an unreachable catalog is a fallback, not an error
-  const catalog =
-    ref.provider === "vercel-ai-gateway"
-      ? await readGatewayCatalog().catch(() => [])
-      : [];
+  const catalog = await runCatalog(ref);
   return effortsOf(ref.provider, ref.model, catalog)?.includes(wanted)
     ? wanted
     : undefined;
