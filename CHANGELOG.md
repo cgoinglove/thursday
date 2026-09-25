@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.17.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.16.0...thursday-agent-v0.17.0) (2026-09-25)
+
+
+### Features
+
+* **call:** she is drawn in Apple's emoji on Apple devices and in letters everywhere else ([7e40389](https://github.com/cgoinglove/thursday/commit/7e4038929d50800e2da258a8453ec379437caf07))
+* **intro:** add sound management for intro sequence and mute functionality ([94d3956](https://github.com/cgoinglove/thursday/commit/94d3956ff2e3c222c5077be0463ab21bfb278897))
+* **skills:** a deck has dates along a line, two sides compared and figures side by side, numbers its slides and names its maker on the cover ([7b8cef0](https://github.com/cgoinglove/thursday/commit/7b8cef0d1a84d9d0c84a0becc54521fa9b122aa2))
+* **skills:** a document saves as a Word file ([1d33d13](https://github.com/cgoinglove/thursday/commit/1d33d137279f7323415e7c07ab7261fa56d0df4c))
+* **skills:** a page carries the face of the bot that made it, and a document sorts its columns and shows a footnote where it is cited ([a1f6e9d](https://github.com/cgoinglove/thursday/commit/a1f6e9def3cef00f9a982dd2a2956f070adbefb2))
+* **skills:** a picture book names the bot that drew it on its cover and can end on a quiz ([c2ad5d4](https://github.com/cgoinglove/thursday/commit/c2ad5d4392ae36d8e054c091b47e164cf45cca51))
+* **skills:** a sheet — a real .xlsx with its formulas, and a page that shows it in the app ([6b04b59](https://github.com/cgoinglove/thursday/commit/6b04b592f3f540c46ab4f1d8052b125c6e401037))
+* **skills:** a sheet edits in the app and writes its .xlsx, no Excel needed ([1cc4f83](https://github.com/cgoinglove/thursday/commit/1cc4f8345747d3a3f8fd8c757d154cdb4c2a7ecf))
+* **skills:** a sheet holds real dates, and negatives and zero read their own way ([02e4f1c](https://github.com/cgoinglove/thursday/commit/02e4f1cd398baf0bc6b0a97206fff69c7880e05c))
+* **skills:** a sheet shows what a formula uses ([8984f79](https://github.com/cgoinglove/thursday/commit/8984f79df8c8d703414be98e9842b0ce07ebf605))
+* **skills:** charts draw upright columns, a donut and stacked bars ([63e095a](https://github.com/cgoinglove/thursday/commit/63e095ae1a2a7768cf45679b0046c11996a6dc29))
+* **skills:** receipts and a bank's export become a sheet ([afa78c3](https://github.com/cgoinglove/thursday/commit/afa78c3e71160b41fd6f827a0cb06a1511c1d6d9))
+
+
+### Fixes
+
+* **skills:** a canvas's leading board shows the word it is marked with ([11b5ff2](https://github.com/cgoinglove/thursday/commit/11b5ff2eae2531cda8e259375cbd9306ce1a6a17))
+* **skills:** a picture book's pages go in through put, and an empty book is not shot ([dfc99a3](https://github.com/cgoinglove/thursday/commit/dfc99a367528ac002becf6f2a4a9a0d42dad55ac))
+
+
+### Performance
+
+* **intro:** the call screen does not draw her face under the intro ([4fd2d20](https://github.com/cgoinglove/thursday/commit/4fd2d20a16e4467abe99fef8083caaf9b795f32f))
+
+
+### Under the hood
+
+* **call:** her face is drawn in emoji alone; the letter and mixed glyph sets are gone ([4ec0a8c](https://github.com/cgoinglove/thursday/commit/4ec0a8c26ff5b9709bdca74527eac932b650fd84))
+
+
+### Docs
+
+* **readme:** the hero and the top link open the launch film, the real-call demo beside it ([095c1b0](https://github.com/cgoinglove/thursday/commit/095c1b0e985d6097ecee5a14c1716cf69ac1737a))
+* **readme:** the section pictures are scenes from the launch film ([ab6a9b9](https://github.com/cgoinglove/thursday/commit/ab6a9b908566c6bc60f6d1a318a83778881f680c))
+
 ## [0.16.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.15.0...thursday-agent-v0.16.0) (2026-09-25)
 
 
