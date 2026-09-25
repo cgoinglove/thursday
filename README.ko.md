@@ -14,6 +14,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/cgoinglove/thursday/ci.yml?style=flat-square&label=ci)](https://github.com/cgoinglove/thursday/actions/workflows/ci.yml)
 [![MIT](https://img.shields.io/badge/license-MIT-111?style=flat-square)](LICENSE)
 [![node](https://img.shields.io/node/v/thursday-agent?style=flat-square&color=111)](https://nodejs.org)
+[![discord](https://img.shields.io/badge/discord-join-111?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/Qmysdh9Fy8)
 
 [English](README.md) · [한국어](README.ko.md) · [▶ 90초 데모 보기](https://youtu.be/V7fBDY3cYRU)
 
@@ -123,6 +124,7 @@ pnpm 10 이상이 필요합니다.
 
 **[어떻게 돌아가나](docs/how-it-works.md)** · [기여하기](CONTRIBUTING.md) · [보안](SECURITY.md) · [MIT](LICENSE)
 
-돌려 보셨나요? [막힌 곳을 알려 주세요](https://github.com/cgoinglove/thursday/issues/new). 그 목록이 곧 로드맵입니다.
+돌려 보셨나요? [막힌 곳을 알려 주세요](https://github.com/cgoinglove/thursday/issues/new). 그 목록이 곧 로드맵입니다.<br>
+궁금한 게 있으면 [Discord에서 물어보세요](https://discord.gg/Qmysdh9Fy8).
 
 </div>

@@ -14,6 +14,7 @@ Runs on your computer, on your own OpenAI key. You talk; bots take the slow work
 [![CI](https://img.shields.io/github/actions/workflow/status/cgoinglove/thursday/ci.yml?style=flat-square&label=ci)](https://github.com/cgoinglove/thursday/actions/workflows/ci.yml)
 [![MIT](https://img.shields.io/badge/license-MIT-111?style=flat-square)](LICENSE)
 [![node](https://img.shields.io/node/v/thursday-agent?style=flat-square&color=111)](https://nodejs.org)
+[![discord](https://img.shields.io/badge/discord-join-111?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/Qmysdh9Fy8)
 
 [English](README.md) · [한국어](README.ko.md) · [▶ Watch the 90-second demo](https://youtu.be/V7fBDY3cYRU)
 
@@ -123,6 +124,7 @@ Everyone wanted Friday. This is Thursday.
 
 **[How it works](docs/how-it-works.md)** · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [MIT](LICENSE)
 
-Ran it? [Tell me where it stopped](https://github.com/cgoinglove/thursday/issues/new): that list is the roadmap.
+Ran it? [Tell me where it stopped](https://github.com/cgoinglove/thursday/issues/new): that list is the roadmap.<br>
+A question? [Ask on Discord](https://discord.gg/Qmysdh9Fy8).
 
 </div>
