@@ -200,7 +200,9 @@ that, keys go to the app. Opened in its own tab (↗) it has the whole window an
 its own top bar.
 
 Asked to explain something simply, **Tutor** makes a picture book: a picture and a line or two a
-page, turned by swiping, the arrow keys, or tapping the right or left of the page. The same book can
+page, turned by swiping, the arrow keys, or tapping the right or left of the page. Its cover names
+the bot that drew it, and a book that teaches something to remember may end on a quiz: tapping a
+pick marks it right or not and shows the answer. The same book can
 be a PDF, or a video that reads itself aloud (landscape, or portrait when asked); when the request
 does not say which, it asks first. It remembers what the user already knows and how they liked being
 taught. Drawn pictures need an image model in **Settings › Models**, and the video a speech model;

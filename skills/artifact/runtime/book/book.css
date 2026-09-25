@@ -152,6 +152,77 @@ body {
 .page.cover::after {
   content: none;
 }
+/* Who made the book, small under its title */
+.page.cover > .maker {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin: 0;
+  color: var(--muted);
+  font-size: max(0.9rem, 2.2vmin);
+  font-weight: 600;
+}
+.maker .sh-mark {
+  width: 1.4em;
+  height: 1.4em;
+}
+
+/* A quiz: the question, two to four picks side by side, and the answer once one is picked */
+.page.quiz > h2 {
+  flex: none;
+  max-width: 26ch;
+  margin: 0;
+  font-size: max(1.5rem, 5vmin);
+  line-height: 1.2;
+  text-wrap: balance;
+}
+.page.quiz .choices {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2.4vmin;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.page.quiz .choices button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.4vmin;
+  min-width: 18vmin;
+  min-height: 44px;
+  padding: 2.4vmin 3vmin;
+  border: 2px solid color-mix(in srgb, var(--fg) 14%, transparent);
+  border-radius: 2.4vmin;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: max(1.05rem, 3.2vmin);
+  font-weight: 650;
+  cursor: pointer;
+}
+.page.quiz .choices button svg,
+.page.quiz .choices button img {
+  width: 16vmin;
+  height: 12vmin;
+  object-fit: contain;
+}
+.page.quiz[data-answered] .choices button[data-right] {
+  border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 14%, var(--bg));
+}
+.page.quiz[data-answered="wrong"] .choices button[aria-pressed="true"] {
+  border-color: var(--red);
+}
+.page.quiz .answer {
+  visibility: hidden;
+  font-size: max(1.05rem, 3.2vmin);
+  font-weight: 600;
+}
+.page.quiz[data-answered] .answer {
+  visibility: visible;
+}
 
 /* A tall frame (a phone, a vertical video): keep the words above the player's buttons */
 @media (max-aspect-ratio: 9 / 16) {
@@ -177,5 +248,9 @@ body {
   }
   .page mark {
     print-color-adjust: exact;
+  }
+  /* On paper there is nothing to press: the answer is printed */
+  .page.quiz .answer {
+    visibility: visible;
   }
 }

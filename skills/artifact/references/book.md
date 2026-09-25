@@ -54,7 +54,13 @@ first is the cover, asking the question the book answers.
    That is every page, numbered, on one picture for a single `look_at`, drawn in
    a headless browser of its own, never in this job's. Fix what it shows, then
    stop.
-5. Hand back the path. The user turns pages with a swipe, the arrow keys or a
+5. When the book teaches something to remember, its last page may ask about it: a quiz page is
+   `<section class="page quiz" data-say="the question, read aloud">` with an `<h2>` question, an
+   `<ol class="choices">` of two to four `<li><button>` picks, each a picture (inline `<svg>`) and
+   a word or two, `data-right` on the one that is right, and a `<p class="answer">` that says why.
+   The reader taps a pick and the page marks it and shows the answer; a PDF prints the answer.
+   Ask only what the pages showed.
+6. Hand back the path. The user turns pages with a swipe, the arrow keys or a
    tap on the right or left of a page, and `#3` in the address opens page 3.
 
 ## Pictures

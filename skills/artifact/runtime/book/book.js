@@ -2,6 +2,27 @@
 // page, and the address (#3) naming the page open, so a link or a reload lands there.
 (() => {
   const pages = [...document.querySelectorAll(".page")];
+
+  // Who made it, on the cover: kept outside the pages, so a cover written anew still has it
+  const maker = document.querySelector("body > .maker");
+  const cover = document.querySelector(".page.cover");
+  if (maker && cover) {
+    cover.append(maker);
+    maker.hidden = false;
+  }
+
+  // A quiz page: a pick is marked right or not, and the answer shows under it
+  for (const quiz of document.querySelectorAll(".page.quiz"))
+    quiz.addEventListener("click", (event) => {
+      const pick = event.target.closest(".choices button");
+      if (!pick) return;
+      for (const one of quiz.querySelectorAll(".choices button"))
+        one.removeAttribute("aria-pressed");
+      pick.setAttribute("aria-pressed", "true");
+      quiz.dataset.answered = pick.hasAttribute("data-right")
+        ? "right"
+        : "wrong";
+    });
   // The video renderer takes one frame from each [data-slide]
   for (const page of pages) page.dataset.slide = "";
 

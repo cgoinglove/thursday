@@ -15,6 +15,7 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { markSvg } from "../runtime/shell/wear.mjs";
 import {
   ARTIFACTS,
   NAME,
@@ -51,6 +52,17 @@ function openBook(name) {
   return book;
 }
 
+/** Who is making the book, with their face (shell wear.mjs markSvg); nothing outside a bot's job. */
+function maker() {
+  const bot = process.env.THURSDAY_BOT?.trim();
+  if (!bot) return "";
+  const name = bot.replace(
+    /[&<>"]/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
+  );
+  return `<p class="maker" hidden>${markSvg(24)}${name}</p>`;
+}
+
 /** One HTML file with its stylesheet and page turning inlined, which the web, print and the video all read. */
 function newBook(name) {
   const out = bookFile(name);
@@ -63,6 +75,7 @@ function newBook(name) {
     out,
     part("book.html")
       .replaceAll("{{title}}", name)
+      .replace("{{maker}}", () => maker())
       .replace("/* book.css */", () => part("book.css"))
       .replace("// book.js", () => part("book.js")),
   );
