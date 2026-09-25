@@ -806,9 +806,14 @@ const FLOOR = 3;
  * breathes. They are keyed on the gesture, so a second event on one face starts
  * over rather than landing mid-way through the first.
  */
-/** What a face says when the pointer rests on it: the same state its dot and lift already show. */
-function tipOf(face: CrewFace): string {
-  if (face.standIn) return "No bots yet";
+/**
+ * What a face says when the pointer rests on it: the same state its dot and lift already show.
+ * A stand-in speaks only for a crew of stand-ins; beside real bots it is no bot, and has
+ * nothing true to say.
+ */
+function tipOf(face: CrewFace, crew: CrewFace[]): string | null {
+  if (face.standIn)
+    return crew.every((one) => one.standIn) ? "No bots yet" : null;
   if (face.waiting) return "Waiting on you";
   if (face.word) return face.word;
   if (face.unread) return "Left you a result";
@@ -830,6 +835,21 @@ function Crew({
   return (
     <span className="flex min-w-0 shrink items-center">
       {crew.map((face, index) => {
+        const tip = tipOf(face, crew);
+        const body = (
+          <span
+            // The lift is the face's alone, so an awake face does not swell its bubble.
+            className={cn(
+              "flex transition-transform duration-500 ease-out",
+              face.awake && "-translate-y-0.5 scale-110",
+            )}
+          >
+            <CrewBody
+              face={face}
+              motion={motionOf(playing.get(face.name), index)}
+            />
+          </span>
+        );
         return (
           <Fragment key={face.name}>
             <span
@@ -844,20 +864,14 @@ function Crew({
               )}
               style={{ zIndex: crew.length - index }}
             >
-              <BotTip bot={face.name} icon={face.icon} line={tipOf(face)}>
-                <span
-                  // The lift is the face's alone, so an awake face does not swell its bubble.
-                  className={cn(
-                    "flex transition-transform duration-500 ease-out",
-                    face.awake && "-translate-y-0.5 scale-110",
-                  )}
-                >
-                  <CrewBody
-                    face={face}
-                    motion={motionOf(playing.get(face.name), index)}
-                  />
-                </span>
-              </BotTip>
+              {tip === null ? (
+                // The span a tip's trigger would be, so the face sits where it does with one
+                <span>{body}</span>
+              ) : (
+                <BotTip bot={face.name} icon={face.icon} line={tip}>
+                  {body}
+                </BotTip>
+              )}
               {bubble?.at === face.name && <HandoffBubble handoff={bubble} />}
             </span>
             {face.word && (
