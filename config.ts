@@ -95,8 +95,16 @@ export const CALL_IDLE = {
  *   the provider's prompt cache never matches.
  * - `oldChars`  the most an older message keeps. The turn just answered is never cut.
  * - `chars`  how much goes in one chat message; a longer answer goes as several.
- * - `files`  how many of the files her answer names are sent along with it.
- * - `fileBytes`  the largest file sent; the service refuses more.
+ * - `files`  how many of the files her answer names are sent along with it. The rest are named
+ *   in the chat as left on this computer.
+ * - `fileBytes`  the largest file taken from a chat or sent to one, since each is held in
+ *   memory whole. A service that takes less says so itself (its channel's `limits`); a file
+ *   past either is named in the chat instead.
+ * - `rateRetries`  how many times one request waits out a service's "too many requests"
+ *   before its refusal stands. Higher rides out a longer burst; lower gives up on a long
+ *   answer's last pieces sooner.
+ * - `rateWaitMs`  the longest one such wait. A service asking for more is refused rather than
+ *   waited on: a turn that waits holds up everything written after it.
  * - `pictures`  how many pictures of a page go with it (reach/pictures): its first slides or
  *   boards, or its first screens from the top. With the page itself that is ten files, what
  *   one Discord message carries and one Telegram album holds; the page has the rest.
@@ -114,6 +122,8 @@ export const REACH = {
   chars: 3_500,
   files: 3,
   fileBytes: 45 * 1024 * 1024,
+  rateRetries: 3,
+  rateWaitMs: 30_000,
   pictures: 9,
   drawMs: 60_000,
 };

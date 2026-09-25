@@ -97,9 +97,15 @@ starts a new one, and she reads the last one back like any earlier call.
 - **Pictures and files** sent to the bot are kept on the computer, in the workspace's `inbox`
   folder, and she is told where. A picture she can look at herself — "what does this receipt say?"
   — and any file can be handed on: "give this to Analyst". Voice messages and videos are not read.
-- **Files she names in an answer** — a report, an image a bot made — are sent along with it, up to
-  three, each under 45 MB, since a phone cannot open a path on the computer. Asking her to show what
-  a bot made works the same way: she names the files and they arrive in the chat.
+  A file that does not come through — Telegram hands a bot files up to 20 MB, and the app takes up
+  to 45 MB from any chat app — is named in the chat with why, and what was written with it is
+  still answered.
+- **Files she names in an answer** — a report, an image a bot made — are sent along with it, the
+  newest three, since a phone cannot open a path on the computer. What does not go — a fourth, or
+  one past what the chat app takes (Telegram 50 MB, with pictures over 10 MB sent as files; Discord
+  20 MB; any app 45 MB) — is listed in the chat under *Not sent — still on this computer*, with
+  why. Asking her to show what a bot made works the same way: she names the files and they arrive
+  in the chat.
 - **A page** — a report, a deck, a design — arrives as pictures of it, since no chat app opens
   one: a deck slide by slide, a design board by board, anything else a phone's screen at a time
   from the top, nine at most. The page itself comes with them, to open on a computer.

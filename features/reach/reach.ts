@@ -37,12 +37,15 @@ import {
   type Channel,
   ChannelRefusal,
   type Incoming,
+  type IncomingFile,
 } from "./channel";
+import { asChat, inPieces } from "./chat-text";
 import { createDiscord } from "./discord";
 import { picturesOf } from "./pictures";
 import {
   REACH_CHANNELS,
   REACH_KEYS,
+  REACH_LABEL,
   type ReachChannelName,
   type ReachPerson,
   type ReachStatus,
@@ -308,23 +311,80 @@ async function take(live: Live, incoming: Incoming) {
   }
 
   state.last = live.name;
-  // What it brought is kept in the workspace and named by path, as the write line names it
-  const kept = incoming.files.length
-    ? await keepGivenFiles(
-        await Promise.all(incoming.files.map((file) => file.fetch())),
+  // What it brought is kept in the workspace and named by path, as the write line names it.
+  // A file that did not come through is said at once, and what was written with it still
+  // goes to her, with the fact, so she answers it without reading a file that is not there
+  const { kept, lost } = await takeFiles(live, incoming.files);
+  if (lost.length)
+    await channel
+      .say(
+        incoming.chat,
+        lost
+          .map(({ name, why }) => `${name} did not come through: ${why}.`)
+          .join("\n"),
       )
-    : [];
+      .catch((cause) =>
+        logger.warn(`reach ${live.name}: could not say so`, cause),
+      );
   const words = [incoming.words, ...kept].filter(Boolean).join("\n");
   if (!words) {
-    if (incoming.unreadable)
+    if (incoming.unreadable && !lost.length)
       await channel.say(
         incoming.chat,
         "I can read words, pictures and files here — not voice or video yet. Write it instead.",
       );
     return;
   }
+  if (lost.length)
+    live.notes.push({
+      text: `[Sent from their phone with what follows, and lost on the way: ${lost.map(({ name, why }) => `${name} (${why})`).join("; ")}. They have been told.]`,
+      said: false,
+    });
   hear(live, person, words);
 }
+
+type Lost = { name: string; why: string };
+
+/**
+ * What they sent, kept in the workspace, and what was not, each with why: past what the
+ * service hands a bot or REACH.fileBytes, or lost on the way.
+ */
+async function takeFiles(
+  live: Live,
+  files: IncomingFile[],
+): Promise<{ kept: string[]; lost: Lost[] }> {
+  const most = Math.min(live.channel.limits.take, REACH.fileBytes);
+  const lost: Lost[] = [];
+  const wanted = files.filter((file) => {
+    if (!file.size || file.size <= most) return true;
+    lost.push({
+      name: file.name,
+      why: `it is ${megabytes(file.size)}, and the most taken from ${REACH_LABEL[live.name]} is ${megabytes(most)}`,
+    });
+    return false;
+  });
+  const fetched = await Promise.allSettled(wanted.map((file) => file.fetch()));
+  const arrived: File[] = [];
+  for (const [at, one] of fetched.entries())
+    if (one.status === "fulfilled") arrived.push(one.value);
+    else lost.push({ name: wanted[at].name, why: reasonOf(one.reason) });
+  if (!arrived.length) return { kept: [], lost };
+  try {
+    return { kept: await keepGivenFiles(arrived), lost };
+  } catch (cause) {
+    const why = reasonOf(cause);
+    return {
+      kept: [],
+      lost: [...lost, ...arrived.map((file) => ({ name: file.name, why }))],
+    };
+  }
+}
+
+const reasonOf = (cause: unknown) =>
+  cause instanceof Error ? cause.message : String(cause);
+
+/** A size as a chat says it: whole megabytes, rounded up so a file just past a cap never reads as under it. */
+const megabytes = (bytes: number) => `${Math.ceil(bytes / (1024 * 1024))} MB`;
 
 /** Lets in whoever is asking through that service. The screen's Allow (reach.action). */
 export async function allowReach(
@@ -513,34 +573,6 @@ function carried(messages: ModelMessage[]): ModelMessage[] {
   return from > 0 ? kept.slice(from) : kept;
 }
 
-/**
- * Markdown as a chat shows it: the marks go and the lines stay. None of the three draws
- * markdown from a bot the same way, and a report run into one line cannot be read. A web
- * address stays, since a phone can open it; a path is a file that goes along (sendFiles).
- */
-function asChat(markdown: string): string {
-  return markdown
-    .replace(/```[^\n]*\n?([\s\S]*?)```/g, "$1")
-    .replace(/`([^`]*)`/g, "$1")
-    .replace(/!?\[([^\]]*)\]\(([^)]*)\)/g, (_, text: string, to: string) =>
-      /^https?:/.test(to) && to !== text ? `${text} ${to}`.trim() : text,
-    )
-    .replace(/^\s*\|?[\s:|-]+\|\s*$/gm, "")
-    .replace(/^\s*\|(.*)\|\s*$/gm, (_, row: string) =>
-      row
-        .split("|")
-        .map((cell) => cell.trim())
-        .join(" · "),
-    )
-    .replace(/^\s{0,3}(#{1,6}\s+|>\s?)/gm, "")
-    .replace(/^(\s*)[-*+]\s+/gm, "$1• ")
-    .replace(/\*\*(?=\S)(.+?)(?<=\S)\*\*/g, "$1")
-    .replace(/(?<![\w*])\*(?=\S)(.+?)(?<=\S)\*(?![\w*])/g, "$1")
-    .replace(/[ \t]+$/gm, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
 /** A text in chat-sized pieces, `buttons` under the last. */
 async function sayAll(
   live: Live,
@@ -548,7 +580,7 @@ async function sayAll(
   text: string,
   buttons?: Button[],
 ) {
-  const parts = inParts(text || "…");
+  const parts = inPieces(text || "…", REACH.chars);
   for (const [at, part] of parts.entries())
     await live.channel.say(
       person.chat,
@@ -557,45 +589,65 @@ async function sayAll(
     );
 }
 
-/** An answer in chat-sized pieces, cut at a paragraph or a line where one is near. */
-function inParts(text: string): string[] {
-  const parts: string[] = [];
-  let rest = text;
-  while (rest.length > REACH.chars) {
-    const head = rest.slice(0, REACH.chars);
-    const at = Math.max(head.lastIndexOf("\n\n"), head.lastIndexOf("\n"));
-    const cut = at > REACH.chars / 2 ? at : REACH.chars;
-    parts.push(rest.slice(0, cut).trim());
-    rest = rest.slice(cut).trim();
-  }
-  if (rest) parts.push(rest);
-  return parts;
-}
-
 /**
  * The files her answer names go with it: a phone cannot open a path on this computer. A
  * page goes with pictures of it, since no chat opens one (pictures), in one message where
- * the service takes them together.
+ * the service takes them together. The newest REACH.files go; what does not — past that
+ * count, past what the service or REACH.fileBytes takes, or refused on the way — is named in
+ * the chat as still on this computer, and she is left the fact.
  */
 async function sendFiles(live: Live, person: ReachPerson, text: string) {
-  const paths = (await filesOnDisk(pathsIn(text), null)).slice(-REACH.files);
-  for (const path of paths) {
+  const named = await filesOnDisk(pathsIn(text), null);
+  const left: Lost[] = named
+    .slice(0, Math.max(named.length - REACH.files, 0))
+    .map((path) => ({
+      name: path,
+      why: `only ${REACH.files} files go with one answer`,
+    }));
+  const { limits } = live.channel;
+  const most = Math.min(limits.file, REACH.fileBytes);
+  for (const path of named.slice(-REACH.files)) {
     const full = await insideWorkspace(path);
     const info = full ? await stat(full).catch(() => null) : null;
-    if (!full || !info || info.size > REACH.fileBytes) continue;
-    await live.channel
-      .sendFiles(person.chat, [
+    if (!full || !info) continue;
+    if (info.size > most) {
+      left.push({
+        name: path,
+        why: `it is ${megabytes(info.size)}, and the most that goes to ${REACH_LABEL[live.name]} is ${megabytes(most)}`,
+      });
+      continue;
+    }
+    try {
+      await live.channel.sendFiles(person.chat, [
         ...(await picturesOf(full)),
         {
           bytes: await readFile(full),
           name: path.split("/").pop() ?? "file",
-          picture: viewKindOf(path) === "image",
+          // One past what the service draws still goes, as a file
+          picture: viewKindOf(path) === "image" && info.size <= limits.picture,
         },
-      ])
-      .catch((cause) =>
-        logger.warn(`reach ${live.name}: could not send ${path}`, cause),
-      );
+      ]);
+    } catch (cause) {
+      logger.warn(`reach ${live.name}: could not send ${path}`, cause);
+      left.push({ name: path, why: reasonOf(cause) });
+    }
   }
+  if (!left.length) return;
+  await live.channel
+    .say(
+      person.chat,
+      [
+        "Not sent — still on this computer:",
+        ...left.map(({ name, why }) => `• ${name}: ${why}`),
+      ].join("\n"),
+    )
+    .catch((cause) =>
+      logger.warn(`reach ${live.name}: could not say so`, cause),
+    );
+  live.notes.push({
+    text: `[Named in what went to their phone, and not sent: ${left.map(({ name, why }) => `${name} (${why})`).join("; ")}. They have been told.]`,
+    said: false,
+  });
 }
 
 /** The service open work goes to: where they last wrote from, else the first that has someone let in. */

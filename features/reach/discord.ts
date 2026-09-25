@@ -1,5 +1,11 @@
-import { type Channel, ChannelRefusal, type Incoming } from "./channel";
-import { inPieces, runSocket } from "./socket";
+import {
+  type Channel,
+  ChannelRefusal,
+  type Incoming,
+  waitOut,
+} from "./channel";
+import { inPieces } from "./chat-text";
+import { runSocket } from "./socket";
 
 /**
  * Discord as a reach channel: the Gateway socket hands over direct messages and button
@@ -16,6 +22,8 @@ const INTENTS = 1 << 12;
 const MAX = 1_900;
 /** Discord's cap on the files one message carries. */
 const FILES_MAX = 10;
+/** Discord's default cap on each file: a direct message is in no server a boost could raise it for. */
+const FILE_BYTES = 20 * 1024 * 1024;
 /**
  * The invite that adds this bot to a server, from the application id Discord names in READY.
  * Discord delivers a direct message only between a person and a bot that share a server, so
@@ -46,7 +54,12 @@ type DiscordMessage = {
   guild_id?: string;
   author: DiscordUser;
   content: string;
-  attachments?: { filename: string; url: string; content_type?: string }[];
+  attachments?: {
+    filename: string;
+    url: string;
+    size?: number;
+    content_type?: string;
+  }[];
 };
 type DiscordInteraction = {
   id: string;
@@ -65,21 +78,29 @@ export function createDiscord(token: string): Channel {
     body?: Record<string, unknown> | FormData,
   ): Promise<T> {
     const form = body instanceof FormData;
-    const response = await fetch(`${REST}${path}`, {
-      method,
-      headers: {
-        authorization: `Bot ${token}`,
-        ...(form || !body ? {} : { "content-type": "application/json" }),
-      },
-      body: form ? body : body ? JSON.stringify(body) : undefined,
-    });
-    if (response.ok)
-      return (response.status === 204 ? null : await response.json()) as T;
-    const said = (await response.json().catch(() => null)) as {
-      message?: string;
-    } | null;
-    const why = said?.message ?? `Discord answered ${response.status}`;
-    throw response.status === 401 ? new ChannelRefusal(why) : new Error(why);
+    for (let attempt = 0; ; attempt++) {
+      const response = await fetch(`${REST}${path}`, {
+        method,
+        headers: {
+          authorization: `Bot ${token}`,
+          ...(form || !body ? {} : { "content-type": "application/json" }),
+        },
+        body: form ? body : body ? JSON.stringify(body) : undefined,
+      });
+      if (response.ok)
+        return (response.status === 204 ? null : await response.json()) as T;
+      const said = (await response.json().catch(() => null)) as {
+        message?: string;
+        retry_after?: number;
+      } | null;
+      if (
+        response.status === 429 &&
+        (await waitOut(said?.retry_after, attempt))
+      )
+        continue;
+      const why = said?.message ?? `Discord answered ${response.status}`;
+      throw response.status === 401 ? new ChannelRefusal(why) : new Error(why);
+    }
   }
 
   const rows = (buttons: { text: string; data: string }[]) => {
@@ -110,6 +131,7 @@ export function createDiscord(token: string): Channel {
         words: message.content.trim(),
         files: (message.attachments ?? []).map((file) => ({
           name: file.filename,
+          size: file.size,
           fetch: async () => {
             const response = await fetch(file.url);
             if (!response.ok)
@@ -148,14 +170,19 @@ export function createDiscord(token: string): Channel {
   }
 
   return {
+    // What someone sends is handed over whole, whatever it weighs
+    limits: { take: Infinity, file: FILE_BYTES, picture: FILE_BYTES },
+
     async listen(on, signal) {
       let sequence: number | null = null;
       let beat: ReturnType<typeof setInterval> | undefined;
+      /** Discord answered the last beat (op 11). */
+      let answered = true;
       try {
         const closed = await runSocket(
           GATEWAY,
           {
-            message(frame, send) {
+            message(frame, send, close) {
               const { op, d, s, t } = frame as {
                 op: number;
                 d: unknown;
@@ -164,10 +191,18 @@ export function createDiscord(token: string): Channel {
               };
               if (s !== null) sequence = s;
               if (op === 10) {
-                // HELLO: beat at the pace it names, then say who we are
+                // HELLO: beat at the pace it names, then say who we are. A beat left
+                // unanswered is a line that died without saying so (a laptop that slept, a
+                // network that changed): it is dropped and dialled again, as Discord asks,
+                // rather than listened to while nothing comes down it
                 const every = (d as { heartbeat_interval: number })
                   .heartbeat_interval;
-                beat = setInterval(() => send({ op: 1, d: sequence }), every);
+                beat = setInterval(() => {
+                  if (!answered)
+                    return close(4000, "Discord stopped answering");
+                  answered = false;
+                  send({ op: 1, d: sequence });
+                }, every);
                 send({
                   op: 2,
                   d: {
@@ -181,6 +216,10 @@ export function createDiscord(token: string): Channel {
                   },
                 });
               } else if (op === 1) send({ op: 1, d: sequence });
+              else if (op === 11) answered = true;
+              // RECONNECT, INVALID SESSION: this session is over, and a new one is dialled
+              else if (op === 7 || op === 9)
+                close(4000, "Discord asked for a new connection");
               else if (op === 0 && t === "READY") {
                 const ready = d as {
                   user: DiscordUser;
@@ -199,7 +238,9 @@ export function createDiscord(token: string): Channel {
         if (refused) throw new ChannelRefusal(refused);
         // A reconnect it asked for, an invalid session, a dropped line: reach connects again
         if (!signal.aborted)
-          throw new Error(`Discord closed the connection (${closed.code})`);
+          throw new Error(
+            closed.reason || `Discord closed the connection (${closed.code})`,
+          );
       } finally {
         clearInterval(beat);
       }

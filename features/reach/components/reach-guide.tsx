@@ -11,7 +11,7 @@ import { type ReactNode, useState } from "react";
 import { encode } from "uqr";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ShinyText } from "@/components/ui/shiny-text";
 import { SiteIcon } from "@/components/ui/site-icon";
@@ -486,17 +486,7 @@ function Doing({
     return <KeyField configKey={slot.key} looks={slot.looks} set={set} />;
   if (state === "done") return null;
   if (!slot) return held || null;
-  if ("open" in slot)
-    return (
-      <Button
-        size="sm"
-        variant="outline"
-        render={<a href={slot.open} target="_blank" rel="noreferrer" />}
-      >
-        <ExternalLink />
-        {slot.label}
-      </Button>
-    );
+  if ("open" in slot) return <OutLink href={slot.open}>{slot.label}</OutLink>;
   if ("manifest" in slot) return <CopyManifest />;
   // The service has not named its address yet: the words alone are the step
   if (!link) return held || null;
@@ -547,16 +537,25 @@ function Scan({
       </div>
       <div className="space-y-2">
         <p className="text-muted-foreground">{says}</p>
-        <Button
-          size="sm"
-          variant="outline"
-          render={<a href={link} target="_blank" rel="noreferrer" />}
-        >
-          <ExternalLink />
-          {does ?? shown}
-        </Button>
+        <OutLink href={link}>{does ?? shown}</OutLink>
       </div>
     </div>
+  );
+}
+
+/** A way out to the service, drawn as a button and heard as the link it is. */
+function OutLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      // Merged as Button merges them: a variant's border has to beat the base's transparent one
+      className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+    >
+      <ExternalLink />
+      {children}
+    </a>
   );
 }
 
@@ -612,6 +611,8 @@ function KeyField({
         onChange={(event) => setValue(event.target.value)}
         placeholder={looks}
         aria-label="Token"
+        // A token is a key to the bot: kept out of sight, as every key field keeps its value
+        type="password"
         autoComplete="off"
         spellCheck={false}
         className="w-72 font-mono"

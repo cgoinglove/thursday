@@ -34,8 +34,28 @@ globalThis.WebSocket = FakeSocket as unknown as typeof WebSocket;
 
 const calls: { url: string; body: unknown }[] = [];
 let uploads = 0;
+/** How many sends to turn away as too many, each with a wait of no time at all. */
+let limited = 0;
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
+  if (limited > 0 && /sendMessage$|\/channels\/[^/]+\/messages$/.test(url)) {
+    limited--;
+    calls.push({ url, body: "limited" });
+    return url.includes("telegram")
+      ? Response.json(
+          {
+            ok: false,
+            error_code: 429,
+            description: "Too Many Requests: retry after 0",
+            parameters: { retry_after: 0 },
+          },
+          { status: 429 },
+        )
+      : Response.json(
+          { message: "You are being rate limited.", retry_after: 0 },
+          { status: 429 },
+        );
+  }
   calls.push({
     url,
     // A form is kept as its fields, a file by its name
@@ -76,7 +96,9 @@ after(() => {
 const tick = () => new Promise((resolve) => setTimeout(resolve, 5));
 const { createDiscord } = await import("../features/reach/discord.ts");
 const { createSlack } = await import("../features/reach/slack.ts");
+const { createTelegram } = await import("../features/reach/telegram.ts");
 const { ChannelRefusal } = await import("../features/reach/channel.ts");
+const { asChat, inPieces } = await import("../features/reach/chat-text.ts");
 
 test("discord identifies after hello, hands over a direct message, leaves a server's alone, and acknowledges a press", async () => {
   const stop = new AbortController();
@@ -320,4 +342,68 @@ test("slack uploads each file and posts them all as one message", async () => {
     ],
     channel_id: "D1",
   });
+});
+
+test("discord drops a line whose beat went unanswered, to be dialled again", async () => {
+  const stop = new AbortController();
+  const listening = createDiscord("bot-token").listen(
+    { ready: () => {}, incoming: () => {} },
+    stop.signal,
+  );
+  await tick();
+  const socket = FakeSocket.last;
+  socket.receive({ op: 10, d: { heartbeat_interval: 10 }, s: null, t: null });
+  // The first beat goes out, nothing answers it, and the next finds it unanswered
+  const dropped = await listening.then(
+    () => null,
+    (cause: unknown) => cause,
+  );
+  assert.ok(
+    socket.sent.some((frame) => frame.op === 1),
+    "a beat went out",
+  );
+  assert.ok(dropped instanceof Error, "the line is given up");
+  assert.ok(
+    !(dropped instanceof ChannelRefusal),
+    "as trouble worth another try, not a refused token",
+  );
+  assert.equal(dropped.message, "Discord stopped answering");
+});
+
+test("a service's too-many-requests is waited out, and the message still goes", async () => {
+  limited = 1;
+  const from = calls.length;
+  await createTelegram("123:token").say("7", "hello");
+  const telegram = calls.slice(from).map((call) => call.body);
+  assert.equal(telegram.length, 2, "asked twice");
+  assert.equal(telegram[0], "limited");
+
+  limited = 1;
+  const next = calls.length;
+  await createDiscord("bot-token").say("dm1", "hello");
+  assert.equal(calls.length - next, 2, "Discord too");
+});
+
+test("a long answer is cut where the reading breaks", () => {
+  // A paragraph in the back half wins over a line after it
+  const paragraph = `${"x".repeat(700)}\n\n${"y".repeat(60)}\n${"z".repeat(400)}`;
+  assert.equal(inPieces(paragraph, 1_000)[0], "x".repeat(700));
+  // With no break at all, a space; never mid-word while one is near
+  const words = `${"word ".repeat(300)}`.trim();
+  const [first] = inPieces(words, 1_000);
+  assert.ok(first.endsWith("word"), first.slice(-12));
+  // Cut hard only when it must, and never between the halves of one character
+  const emoji = `${"a".repeat(999)}😀${"b".repeat(10)}`;
+  const [head, tail] = inPieces(emoji, 1_000);
+  assert.equal(head, "a".repeat(999));
+  assert.ok(tail.startsWith("😀"));
+});
+
+test("an answer keeps its code as written and loses only the prose's marks", () => {
+  assert.equal(
+    asChat(
+      "## Steps\n\n- **Install** it:\n\n```bash\n# once\nnpm i -g thing\n- not a list\n```\n\nThen run `**not bold**`.",
+    ),
+    "Steps\n\n• Install it:\n\n# once\nnpm i -g thing\n- not a list\n\nThen run **not bold**.",
+  );
 });

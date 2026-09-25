@@ -1,5 +1,11 @@
-import { type Channel, ChannelRefusal, type Incoming } from "./channel";
-import { inPieces, runSocket } from "./socket";
+import {
+  type Channel,
+  ChannelRefusal,
+  type Incoming,
+  waitOut,
+} from "./channel";
+import { inPieces } from "./chat-text";
+import { runSocket } from "./socket";
 
 /**
  * Slack as a reach channel, in Socket Mode: the app-level token opens a socket Slack sends
@@ -11,6 +17,8 @@ import { inPieces, runSocket } from "./socket";
 const API = "https://slack.com/api";
 /** Slack's cap on the text of one section block. */
 const MAX = 2_900;
+/** Slack's cap on one uploaded file. */
+const FILE_BYTES = 1024 * 1024 * 1024;
 /** Answers that mean a token is wrong or lacks what it needs, not that Slack is unwell. */
 const REFUSED = new Set([
   "invalid_auth",
@@ -29,7 +37,12 @@ type SlackEvent = {
   user?: string;
   bot_id?: string;
   text?: string;
-  files?: { name?: string; mimetype?: string; url_private_download?: string }[];
+  files?: {
+    name?: string;
+    size?: number;
+    mimetype?: string;
+    url_private_download?: string;
+  }[];
 };
 
 export function createSlack(appToken: string, botToken: string): Channel {
@@ -38,24 +51,33 @@ export function createSlack(appToken: string, botToken: string): Channel {
     body: Record<string, unknown>,
     token = botToken,
   ): Promise<T> {
-    const response = await fetch(`${API}/${method}`, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${token}`,
-        "content-type": "application/json; charset=utf-8",
-      },
-      body: JSON.stringify(body),
-    });
-    const said = (await response.json().catch(() => null)) as
-      | ({ ok?: boolean; error?: string; needed?: string } & T)
-      | null;
-    if (said?.ok) return said;
-    const code = said?.error ?? `http_${response.status}`;
-    const why =
-      code === "missing_scope"
-        ? `Slack says the app lacks a permission (${said?.needed ?? "a scope"}) — make it from the manifest in the guide.`
-        : `Slack answered ${code} to ${method}`;
-    throw REFUSED.has(code) ? new ChannelRefusal(why) : new Error(why);
+    for (let attempt = 0; ; attempt++) {
+      const response = await fetch(`${API}/${method}`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json; charset=utf-8",
+        },
+        body: JSON.stringify(body),
+      });
+      // Slack names the wait in a header, in seconds
+      const after = response.headers.get("retry-after");
+      if (
+        response.status === 429 &&
+        (await waitOut(after === null ? null : Number(after), attempt))
+      )
+        continue;
+      const said = (await response.json().catch(() => null)) as
+        | ({ ok?: boolean; error?: string; needed?: string } & T)
+        | null;
+      if (said?.ok) return said;
+      const code = said?.error ?? `http_${response.status}`;
+      const why =
+        code === "missing_scope"
+          ? `Slack says the app lacks a permission (${said?.needed ?? "a scope"}) — make it from the manifest in the guide.`
+          : `Slack answered ${code} to ${method}`;
+      throw REFUSED.has(code) ? new ChannelRefusal(why) : new Error(why);
+    }
   }
 
   /** A person's name as Slack shows it; their id when the app may not read it. */
@@ -94,6 +116,7 @@ export function createSlack(appToken: string, botToken: string): Channel {
           return [
             {
               name,
+              size: file.size,
               fetch: async () => {
                 const response = await fetch(url, {
                   headers: { authorization: `Bearer ${botToken}` },
@@ -133,6 +156,9 @@ export function createSlack(appToken: string, botToken: string): Channel {
   }
 
   return {
+    // What someone sends is handed over whole, whatever it weighs
+    limits: { take: Infinity, file: FILE_BYTES, picture: FILE_BYTES },
+
     async listen(on, signal) {
       const me = await api<{ user?: string }>("auth.test", {});
       const { url } = await api<{ url: string }>(
@@ -240,10 +266,13 @@ export function createSlack(appToken: string, botToken: string): Channel {
           throw new Error(
             `Slack answered ${slot.error ?? asked.status} to the upload`,
           );
-        await fetch(slot.upload_url, {
+        const put = await fetch(slot.upload_url, {
           method: "POST",
           body: new Blob([bytes as BlobPart]),
         });
+        // Completed anyway, it would post a file with nothing in it
+        if (!put.ok)
+          throw new Error(`Slack answered ${put.status} to the upload`);
         uploaded.push({ id: slot.file_id, title: name });
       }
       if (uploaded.length)

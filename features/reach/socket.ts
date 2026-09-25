@@ -6,8 +6,15 @@
 export function runSocket(
   url: string,
   on: {
-    /** Every frame, parsed. `send` writes one back on the same socket. */
-    message(data: unknown, send: (data: unknown) => void): void;
+    /**
+     * Every frame, parsed. `send` writes one back on the same socket; `close` ends it from
+     * this side, for a line that has gone quiet without saying so.
+     */
+    message(
+      data: unknown,
+      send: (data: unknown) => void,
+      close: (code: number, reason: string) => void,
+    ): void;
   },
   signal: AbortSignal,
 ): Promise<{ code: number; reason: string }> {
@@ -17,39 +24,40 @@ export function runSocket(
       if (socket.readyState === WebSocket.OPEN)
         socket.send(JSON.stringify(data));
     };
-    const abort = () => socket.close(1000);
+    // Ended from this side, it is over at once: a dead line never answers the close
+    // handshake, and waiting for it would leave reach waiting with it
+    let over = false;
+    const end = (closed: { code: number; reason: string }) => {
+      if (over) return;
+      over = true;
+      signal.removeEventListener("abort", abort);
+      resolve(closed);
+    };
+    // Settled first, so the reason given here is the one reported, whatever the close says
+    const close = (code: number, reason: string) => {
+      end({ code, reason });
+      socket.close(code, reason);
+    };
+    const abort = () => close(1000, "");
     signal.addEventListener("abort", abort, { once: true });
 
     socket.addEventListener("message", (event) => {
       try {
-        on.message(JSON.parse(String(event.data)), send);
+        on.message(JSON.parse(String(event.data)), send, close);
       } catch {
         // A frame that is not JSON is nothing reach reads
       }
     });
     socket.addEventListener("error", () => {
       // `close` follows and carries the code; an error before `open` has none
-      if (socket.readyState !== WebSocket.OPEN)
+      if (socket.readyState !== WebSocket.OPEN && !over) {
+        over = true;
+        signal.removeEventListener("abort", abort);
         reject(new Error(`Could not connect to ${new URL(url).host}`));
+      }
     });
-    socket.addEventListener("close", (event) => {
-      signal.removeEventListener("abort", abort);
-      resolve({ code: event.code, reason: event.reason });
-    });
+    socket.addEventListener("close", (event) =>
+      end({ code: event.code, reason: event.reason }),
+    );
   });
-}
-
-/** A long answer in pieces a service takes, cut at a paragraph or a line where one is near. */
-export function inPieces(text: string, max: number): string[] {
-  const pieces: string[] = [];
-  let rest = text;
-  while (rest.length > max) {
-    const head = rest.slice(0, max);
-    const at = Math.max(head.lastIndexOf("\n\n"), head.lastIndexOf("\n"));
-    const cut = at > max / 2 ? at : max;
-    pieces.push(rest.slice(0, cut).trim());
-    rest = rest.slice(cut).trim();
-  }
-  if (rest) pieces.push(rest);
-  return pieces;
 }

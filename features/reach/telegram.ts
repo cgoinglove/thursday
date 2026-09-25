@@ -1,5 +1,11 @@
 import { REACH } from "@/config";
-import { type Channel, ChannelRefusal, type Incoming } from "./channel";
+import {
+  type Channel,
+  ChannelRefusal,
+  type Incoming,
+  type OutgoingFile,
+  waitOut,
+} from "./channel";
 
 /**
  * Telegram's Bot API as a reach channel: asked for what was written (a long poll, so
@@ -10,6 +16,12 @@ import { type Channel, ChannelRefusal, type Incoming } from "./channel";
 const API = "https://api.telegram.org";
 /** Telegram's cap on the pictures one album holds. */
 const ALBUM_MAX = 10;
+/**
+ * Telegram's caps, in the megabytes it states them in: what a bot may download (past it,
+ * Telegram only says "file is too big"), send, and send as a photo.
+ */
+const MB = 1024 * 1024;
+const LIMITS = { take: 20 * MB, file: 50 * MB, picture: 10 * MB };
 
 type TelegramUser = {
   id: number;
@@ -53,25 +65,33 @@ export function createTelegram(token: string): Channel {
     signal?: AbortSignal,
   ): Promise<T> {
     const form = body instanceof FormData;
-    const response = await fetch(`${API}/bot${token}/${method}`, {
-      method: "POST",
-      signal,
-      ...(form
-        ? { body }
-        : {
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify(body ?? {}),
-          }),
-    });
-    const said = (await response.json().catch(() => null)) as {
-      ok?: boolean;
-      result?: T;
-      description?: string;
-    } | null;
-    if (said?.ok) return said.result as T;
-    const why = said?.description ?? `Telegram answered ${response.status}`;
-    // 401 is the token itself; everything else may pass
-    throw response.status === 401 ? new ChannelRefusal(why) : new Error(why);
+    for (let attempt = 0; ; attempt++) {
+      const response = await fetch(`${API}/bot${token}/${method}`, {
+        method: "POST",
+        signal,
+        ...(form
+          ? { body }
+          : {
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify(body ?? {}),
+            }),
+      });
+      const said = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        result?: T;
+        description?: string;
+        parameters?: { retry_after?: number };
+      } | null;
+      if (said?.ok) return said.result as T;
+      if (
+        response.status === 429 &&
+        (await waitOut(said?.parameters?.retry_after, attempt))
+      )
+        continue;
+      const why = said?.description ?? `Telegram answered ${response.status}`;
+      // 401 is the token itself; everything else may pass
+      throw response.status === 401 ? new ChannelRefusal(why) : new Error(why);
+    }
   }
 
   const nameOf = (user?: TelegramUser) =>
@@ -126,9 +146,15 @@ export function createTelegram(token: string): Channel {
           id: message.document.file_id,
           name: message.document.file_name ?? "file",
           type: message.document.mime_type,
+          size: message.document.file_size,
         }
       : photo
-        ? { id: photo.file_id, name: `photo-${message.message_id}`, type: "" }
+        ? {
+            id: photo.file_id,
+            name: `photo-${message.message_id}`,
+            type: "",
+            size: photo.file_size,
+          }
         : null;
     return {
       kind: "message",
@@ -139,6 +165,7 @@ export function createTelegram(token: string): Channel {
         ? [
             {
               name: sent.name,
+              size: sent.size,
               fetch: () => fetchFile(sent.id, sent.name, sent.type),
             },
           ]
@@ -147,7 +174,36 @@ export function createTelegram(token: string): Channel {
     };
   }
 
+  /**
+   * Past the last update handed over. Kept across connections: asked from 0 again, Telegram
+   * hands back whatever it was not yet told was read, and a message would be answered twice.
+   */
+  let offset = 0;
+
+  /** Pictures as one photo or one album, whichever the count makes them. */
+  async function sendPictures(chat: string, some: OutgoingFile[]) {
+    const form = new FormData();
+    form.set("chat_id", chat);
+    // An album holds two to ALBUM_MAX pictures; one alone is a photo of its own
+    if (some.length === 1) {
+      form.set("photo", new Blob([some[0].bytes as BlobPart]), some[0].name);
+      await call("sendPhoto", form);
+      return;
+    }
+    form.set(
+      "media",
+      JSON.stringify(
+        some.map((_, n) => ({ type: "photo", media: `attach://p${n}` })),
+      ),
+    );
+    for (const [n, file] of some.entries())
+      form.set(`p${n}`, new Blob([file.bytes as BlobPart]), file.name);
+    await call("sendMediaGroup", form);
+  }
+
   return {
+    limits: LIMITS,
+
     async listen(on, signal) {
       const me = await call<{ username?: string; first_name?: string }>(
         "getMe",
@@ -160,7 +216,6 @@ export function createTelegram(token: string): Channel {
         me.username ? `https://t.me/${me.username}` : null,
       );
 
-      let offset = 0;
       while (!signal.aborted) {
         const updates = await call<TelegramUpdate[]>(
           "getUpdates",
@@ -217,31 +272,14 @@ export function createTelegram(token: string): Channel {
 
     async sendFiles(chat, files) {
       const pictures = files.filter((file) => file.picture);
-      // An album holds two to ALBUM_MAX pictures; one alone is a photo of its own
+      const documents = files.filter((file) => !file.picture);
       for (let at = 0; at < pictures.length; at += ALBUM_MAX) {
         const some = pictures.slice(at, at + ALBUM_MAX);
-        const form = new FormData();
-        form.set("chat_id", chat);
-        if (some.length === 1) {
-          form.set(
-            "photo",
-            new Blob([some[0].bytes as BlobPart]),
-            some[0].name,
-          );
-          await call("sendPhoto", form);
-          continue;
-        }
-        form.set(
-          "media",
-          JSON.stringify(
-            some.map((_, n) => ({ type: "photo", media: `attach://p${n}` })),
-          ),
-        );
-        for (const [n, file] of some.entries())
-          form.set(`p${n}`, new Blob([file.bytes as BlobPart]), file.name);
-        await call("sendMediaGroup", form);
+        // A picture Telegram will not draw (too long, too narrow) still goes, as a file,
+        // and so does whatever came after it
+        await sendPictures(chat, some).catch(() => documents.unshift(...some));
       }
-      for (const file of files.filter((one) => !one.picture)) {
+      for (const file of documents) {
         const form = new FormData();
         form.set("chat_id", chat);
         form.set("document", new Blob([file.bytes as BlobPart]), file.name);

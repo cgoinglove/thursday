@@ -595,3 +595,112 @@ test("a page she names goes with pictures of it, and any other file as itself", 
     { method: "sendDocument", files: ["notes.txt"] },
   ]);
 });
+
+test("a file that does not come through is said at once, and what was written with it still reaches her", async () => {
+  const from = sent.length;
+  inbox.push({
+    update_id: updateId++,
+    message: {
+      message_id: updateId,
+      from: { id: 7, first_name: "Sam" },
+      chat: { id: 7, type: "private" },
+      caption: "what does this say?",
+      document: {
+        file_id: "big",
+        file_name: "scan.pdf",
+        file_size: 25 * 1024 * 1024,
+      },
+    },
+  });
+  await until(
+    () => turns.at(-1)?.words === "what does this say?",
+    "her turn still comes",
+  );
+  // Said before her turn starts, and so ahead of anything she answers
+  const toSam = sent
+    .slice(from)
+    .filter((one) => one.method === "sendMessage")
+    .map((one) => String(one.body.text));
+  assert.equal(
+    toSam[0],
+    "scan.pdf did not come through: it is 25 MB, and the most taken from Telegram is 20 MB.",
+  );
+  assert.ok(
+    sent.slice(from).every((one) => one.method !== "getFile"),
+    "past Telegram's limit it is not even asked for",
+  );
+  assert.ok(
+    turns
+      .at(-1)
+      ?.messages.some((one) =>
+        /lost on the way: scan\.pdf .*They have been told/.test(
+          String(one.content),
+        ),
+      ),
+    "and she knows it is not there",
+  );
+});
+
+const jarvis = async () => {
+  const { WORKSPACE } = await import("../features/workspace/workspace.ts");
+  const folder = join(WORKSPACE, "artifacts", "Jarvis");
+  await mkdir(folder, { recursive: true });
+  return folder;
+};
+const notSent = (from: number) =>
+  sent
+    .slice(from)
+    .map((one) => String(one.body.text ?? ""))
+    .find((text) => text.startsWith("Not sent"));
+
+test("past the files one answer carries, the newest go and the chat names the rest", async () => {
+  const folder = await jarvis();
+  const names = ["one.txt", "two.txt", "three.txt", "four.txt"];
+  for (const [at, name] of names.entries()) {
+    await writeFile(join(folder, name), name);
+    await utimes(join(folder, name), 2_000 + at, 2_000 + at);
+  }
+  const from = sent.length;
+  inbox.push(
+    message(7, names.map((name) => `artifacts/Jarvis/${name}`).join(" and ")),
+  );
+  await until(() => Boolean(notSent(from)), "the chat says what stayed");
+  assert.deepEqual(
+    sent
+      .slice(from)
+      .filter((one) => one.method === "sendDocument")
+      .map((one) => one.body.document),
+    ["two.txt", "three.txt", "four.txt"],
+  );
+  assert.equal(
+    notSent(from),
+    "Not sent — still on this computer:\n• artifacts/Jarvis/one.txt: only 3 files go with one answer",
+  );
+});
+
+test("a file past what goes to the service stays, and a picture past what it draws goes as a file", async () => {
+  const folder = await jarvis();
+  const was = REACH.fileBytes;
+  REACH.fileBytes = 12 * 1024 * 1024;
+  await writeFile(join(folder, "film.mp4"), new Uint8Array(13 * 1024 * 1024));
+  await writeFile(join(folder, "poster.png"), new Uint8Array(11 * 1024 * 1024));
+  const from = sent.length;
+  inbox.push(
+    message(7, "artifacts/Jarvis/film.mp4 artifacts/Jarvis/poster.png"),
+  );
+  await until(() => Boolean(notSent(from)), "the chat says what stayed");
+  REACH.fileBytes = was;
+  assert.equal(
+    notSent(from),
+    "Not sent — still on this computer:\n• artifacts/Jarvis/film.mp4: it is 13 MB, and the most that goes to Telegram is 12 MB",
+  );
+  const poster = sent
+    .slice(from)
+    .filter((one) => /^send(Photo|Document)$/.test(one.method))
+    .map((one) => one.method);
+  assert.deepEqual(
+    poster,
+    ["sendDocument"],
+    "Telegram draws photos up to 10 MB",
+  );
+});

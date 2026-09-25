@@ -1,3 +1,5 @@
+import { REACH } from "@/config";
+
 /**
  * What reach needs from a chat service, and nothing more: hear one person, answer them, put
  * buttons under a question. Each service is one file that returns this (telegram, discord,
@@ -5,8 +7,15 @@
  * connects outward — a long poll or a socket the app opens — so nothing calls in.
  */
 
-/** A file someone sent, fetched only when it is wanted. */
-export type IncomingFile = { name: string; fetch(): Promise<File> };
+/**
+ * A file someone sent, fetched only when it is wanted. `size` is what the service says it
+ * weighs, where it says, so one past `limits.take` is never asked for.
+ */
+export type IncomingFile = {
+  name: string;
+  size?: number;
+  fetch(): Promise<File>;
+};
 
 export type Incoming =
   | {
@@ -68,7 +77,29 @@ export type Channel = {
    * drawn as pictures, and the rest as files.
    */
   sendFiles(chat: string, files: OutgoingFile[]): Promise<void>;
+  /**
+   * In bytes: the largest file the service hands a bot (`take`), the largest of ours it takes
+   * (`file`), and the largest it draws as a picture (`picture`). A picture past `picture` goes
+   * as a file; a file past either of the others is named in the chat instead.
+   */
+  limits: { take: number; file: number; picture: number };
 };
 
 /** The service answered, and refused: its words are the user's to act on (a wrong token, a missing permission). */
 export class ChannelRefusal extends Error {}
+
+/**
+ * Waits out a service's "too many requests" for as long as it says, so an answer that goes as
+ * several messages is not cut off halfway. False when it names no wait, asks for longer than
+ * REACH.rateWaitMs, or has asked REACH.rateRetries times already: its refusal then stands.
+ */
+export async function waitOut(
+  seconds: number | null | undefined,
+  attempt: number,
+): Promise<boolean> {
+  if (seconds == null || !Number.isFinite(seconds)) return false;
+  const ms = Math.max(0, seconds * 1000);
+  if (attempt >= REACH.rateRetries || ms > REACH.rateWaitMs) return false;
+  await new Promise((resolve) => setTimeout(resolve, ms));
+  return true;
+}
