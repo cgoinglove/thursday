@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { WAKE_TOLERANCE } from "@/config";
 
 /**
  * Wake-word listener built on the browser's Web Speech API (no realtime socket
@@ -30,17 +31,11 @@ type SpeechRecognitionLike = {
 type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 
 /**
- * Default recognizer language. English keeps one spelling to compare against
- * regardless of the speaker's accent; callers with a non-English name pass
- * `lang` and `phrases` together.
+ * The recognizer's language. English keeps one spelling to compare against
+ * regardless of the speaker's accent, and `normalize` keeps only a-z and 0-9:
+ * a phrase written in another script has no words left to match.
  */
 const WAKE_LANG = "en-US";
-
-/**
- * Allowed edit distance per word as a fraction of its length ("hey" = 1 edit,
- * "thursday" = 3). Lower misses accents; higher lets ordinary speech wake.
- */
-const WAKE_TOLERANCE = 0.34;
 
 /** Alternatives per result; the second-ranked guess is often the right one. */
 const ALTERNATIVES = 3;
@@ -144,11 +139,8 @@ type WakeOptions = {
   enabled: boolean;
   /** Receives the raw transcript that matched. */
   onWake: (heard: string) => void;
-  /** Phrases to listen for, matched fuzzily. */
+  /** Phrases to listen for, matched fuzzily (WAKE_TOLERANCE). */
   phrases: readonly string[];
-  lang?: string;
-  /** See WAKE_TOLERANCE. */
-  tolerance?: number;
   /** Unrecoverable failures only (denied or missing microphone). */
   onError?: (reason: string) => void;
 };
@@ -157,14 +149,12 @@ export function useWakeWord({
   enabled,
   onWake,
   phrases,
-  lang = WAKE_LANG,
-  tolerance = WAKE_TOLERANCE,
   onError,
 }: WakeOptions) {
   // Read at result time so re-renders and phrase changes do not restart the
-  // recognizer; only `lang` must be set before start.
-  const latest = useRef({ onWake, onError, phrases, tolerance });
-  latest.current = { onWake, onError, phrases, tolerance };
+  // recognizer.
+  const latest = useRef({ onWake, onError, phrases });
+  latest.current = { onWake, onError, phrases };
 
   useEffect(() => {
     if (!enabled) return;
@@ -187,7 +177,7 @@ export function useWakeWord({
     let restart: ReturnType<typeof setTimeout> | null = null;
     let delay = RESTART_MS;
 
-    recognition.lang = lang;
+    recognition.lang = WAKE_LANG;
     // Interim results are enough; waiting for isFinal loses a beat.
     recognition.continuous = true;
     recognition.interimResults = true;
@@ -207,7 +197,7 @@ export function useWakeWord({
       if (!alive || !armed) return;
       delay = RESTART_MS;
 
-      const { phrases, tolerance, onWake } = latest.current;
+      const { phrases, onWake } = latest.current;
       const targets = phrases.map(normalize).filter((words) => words.length);
 
       // Results before resultIndex are final and already seen.
@@ -216,7 +206,9 @@ export function useWakeWord({
         for (let rank = 0; rank < result.length; rank++) {
           const heard = result[rank].transcript;
           const words = normalize(heard);
-          if (!targets.some((target) => contains(words, target, tolerance))) {
+          if (
+            !targets.some((target) => contains(words, target, WAKE_TOLERANCE))
+          ) {
             continue;
           }
 
@@ -258,5 +250,5 @@ export function useWakeWord({
       recognition.onend = null;
       recognition.abort();
     };
-  }, [enabled, lang]);
+  }, [enabled]);
 }

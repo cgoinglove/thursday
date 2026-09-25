@@ -200,6 +200,13 @@ export const CALL_END = {
 };
 
 /**
+ * How far a heard word may be from a word of the wake phrase and still count (use-wake-word),
+ * as edits per letter of the wanted word ("hey" = 1 edit, "thursday" = 3; never below one).
+ * Lower misses accents; higher lets ordinary speech wake her.
+ */
+export const WAKE_TOLERANCE = 0.34;
+
+/**
  * The app's own files (build, migrations, shipped skills). `THURSDAY_APP_DIR`
  * overrides; defaults to the cwd.
  */
