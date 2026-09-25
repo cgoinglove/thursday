@@ -37,11 +37,17 @@ import type {
  * The absolute path, fenced to `artifacts/`. The fence is on the resolved path,
  * never on the string that was asked for: `insideWorkspace` normalizes `..`
  * away, so "artifacts/../scratch/x" passes any prefix test while opening a file
- * somewhere else entirely.
+ * somewhere else entirely. What it answers is the real path, so the fence is
+ * `artifacts/` resolved the same way: under a symlinked data folder (macOS's
+ * `/var` and `/tmp` are both links) the path as configured refuses every file.
  */
 async function insideArtifacts(path: string): Promise<string> {
-  const full = await insideWorkspace(path);
-  if (!full?.startsWith(ARTIFACTS + sep)) publicError("Not an artifact");
+  const [full, root] = await Promise.all([
+    insideWorkspace(path),
+    insideWorkspace(PATHS.artifacts),
+  ]);
+  if (!full || !root || !full.startsWith(root + sep))
+    publicError("Not an artifact");
   return full;
 }
 
