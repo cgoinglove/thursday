@@ -194,6 +194,14 @@ const STATE_LOOK: Record<ThreadViewStatus, string> = {
   cancelled: "text-muted-foreground",
 };
 
+/** The word for each, a stopped job called what the list and guide/bots.md call it. */
+const STATE_WORD: Record<ThreadViewStatus, string> = {
+  working: "working",
+  waiting: "waiting",
+  done: "done",
+  cancelled: "stopped",
+};
+
 function State({ thread }: { thread: ThreadView }) {
   const look =
     thread.status === "done" && thread.seen
@@ -203,7 +211,7 @@ function State({ thread }: { thread: ThreadView }) {
   if (thread.status === "working") {
     return (
       <ShinyText
-        text="working"
+        text={STATE_WORD.working}
         speed={2.2}
         className="shrink-0 font-mono text-[10px]"
       />
@@ -217,7 +225,7 @@ function State({ thread }: { thread: ThreadView }) {
         look,
       )}
     >
-      {thread.status}
+      {STATE_WORD[thread.status]}
     </span>
   );
 }
