@@ -598,10 +598,15 @@ export const SKILLS_FOLDED: Record<string, string> = {
  *                  next.config's bodySizeLimit.
  * - `inlineBytes`  the largest file it shows, and writes back, as text; one past it is listed
  *                  as a file a bot still reads from disk.
+ * - `unpackedBytes`, `archiveEntries`  what an uploaded archive may hold once opened. It is
+ *                  opened in the server's memory, so a few megabytes that unpack to gigabytes
+ *                  would stall every job with it; raising them lets bigger kits in.
  */
 export const SKILL_FILES = {
   uploadBytes: 20 * 1024 * 1024,
   inlineBytes: 512 * 1024,
+  unpackedBytes: 100 * 1024 * 1024,
+  archiveEntries: 1_000,
 };
 
 /**

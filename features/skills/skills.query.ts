@@ -2,6 +2,7 @@ import {
   mkdir,
   readdir,
   readFile,
+  realpath,
   rm,
   stat,
   writeFile,
@@ -69,6 +70,21 @@ function insideSkill(base: string, path: string) {
   // Another drive on Windows comes back absolute
   if (rel.startsWith("..") || isAbsolute(rel)) publicError("File not found");
   return full;
+}
+
+/**
+ * Where `full` really is, refused when a link inside the skill leads out of it: this screen
+ * reads and writes a skill's own files, and a link in a downloaded one is not a way to the
+ * rest of the disk. The skill's own folder may itself be a link (an installer's shared copy).
+ */
+async function stillInside(base: string, full: string): Promise<string> {
+  const [root, target] = await Promise.all([
+    realpath(base),
+    realpath(full),
+  ]).catch(() => publicError("File not found"));
+  const rel = relative(root, target);
+  if (rel.startsWith("..") || isAbsolute(rel)) publicError("File not found");
+  return target;
 }
 
 /**
@@ -242,7 +258,8 @@ export async function readSkillNode(
   path = "",
 ): Promise<SkillNode> {
   const base = skillDir(source, dir);
-  const full = insideSkill(base, path);
+  const asked = insideSkill(base, path);
+  const full = await stillInside(base, asked);
 
   let info: Awaited<ReturnType<typeof stat>>;
   try {
@@ -283,7 +300,7 @@ export async function readSkillNode(
     kind: "file",
     content,
     size: info.size,
-    ...(content !== null && full === join(base, "SKILL.md")
+    ...(content !== null && asked === join(base, "SKILL.md")
       ? { description: describedAs(content) }
       : {}),
   };
@@ -339,7 +356,7 @@ export async function writeSkillFile(
   content: string,
 ) {
   const base = skillDir("custom", dir);
-  const full = insideSkill(base, path);
+  const full = await stillInside(base, insideSkill(base, path));
   const info = await stat(full).catch(() => null);
   if (!info?.isFile()) publicError("File not found");
   if (Buffer.byteLength(content) > SKILL_FILES.inlineBytes) {

@@ -223,3 +223,122 @@ test("a ready-made bot's kit is listed to that bot alone, and an old copy left u
   assert.ok(its.includes("travel"), "the Concierge's kit holds travel");
   assert.ok(!others.includes("travel"), "no other bot sees travel");
 });
+
+test("a skill's file is read and written only where it really is inside the skill", async () => {
+  const { readSkillNode, writeSkillFile } = await import(
+    "../features/skills/skills.query.ts"
+  );
+  const { symlink } = await import("node:fs/promises");
+  const root = join(home, PATHS.skills.custom.replace(`${home}/`, ""));
+  const skill = join(root, "linky");
+  await mkdir(join(skill, "references"), { recursive: true });
+  await writeFile(
+    join(skill, "SKILL.md"),
+    "---\nname: linky\ndescription: Does one thing. Use it for that.\n---\nBody\n",
+  );
+  await writeFile(join(skill, "references", "notes.md"), "notes");
+  const outside = join(home, "outside.md");
+  await writeFile(outside, "not the skill's");
+  await symlink(outside, join(skill, "leak.md"));
+  await symlink(join(skill, "references"), join(skill, "refs"));
+
+  const read = await readSkillNode("custom", "linky", "SKILL.md");
+  assert.equal(
+    read.kind === "file" && read.description,
+    "Does one thing. Use it for that.",
+  );
+  // A link that stays inside the skill still opens
+  const inside = await readSkillNode("custom", "linky", "refs/notes.md");
+  assert.equal(inside.kind === "file" && inside.content, "notes");
+  // One that leads out is not there, for reading or for writing
+  await assert.rejects(
+    readSkillNode("custom", "linky", "leak.md"),
+    /File not found/,
+  );
+  await assert.rejects(
+    writeSkillFile("linky", "leak.md", "changed"),
+    /File not found/,
+  );
+  const { readFile } = await import("node:fs/promises");
+  assert.equal(await readFile(outside, "utf8"), "not the skill's");
+
+  // A skill folder that is itself a link, as an installer's shared copy is, reads as usual
+  const shared = join(home, "shared-copy");
+  await mkdir(shared, { recursive: true });
+  await writeFile(
+    join(shared, "SKILL.md"),
+    "---\nname: shared\ndescription: Shared. Use it.\n---\n",
+  );
+  await symlink(shared, join(root, "shared"));
+  const viaLink = await readSkillNode("custom", "shared", "SKILL.md");
+  assert.equal(
+    viaLink.kind === "file" && viaLink.description,
+    "Shared. Use it.",
+  );
+});
+
+test("an uploaded archive is refused when it would unpack past the caps, before it is unpacked", async () => {
+  const { zipSync, strToU8 } = await import("fflate");
+  const { SKILL_FILES } = await import("../config.ts");
+  const { uploadSkillAction } = await import(
+    "../features/skills/skills.action.ts"
+  );
+  const head = strToU8(
+    "---\nname: packed\ndescription: Packed. Use it.\n---\n",
+  );
+  const send = (name: string, bytes: Uint8Array) => {
+    const form = new FormData();
+    form.append("file", new File([new Uint8Array(bytes)], name));
+    return uploadSkillAction(form) as Promise<{
+      $ok: boolean;
+      message?: string;
+    }>;
+  };
+
+  // Many small files: over the count
+  const many: Record<string, Uint8Array> = { "packed/SKILL.md": head };
+  for (let i = 0; i < SKILL_FILES.archiveEntries; i++)
+    many[`packed/f${i}.txt`] = strToU8("x");
+  const tooMany = await send("many.zip", zipSync(many));
+  assert.equal(tooMany.$ok, false);
+  assert.match(tooMany.message ?? "", /unpacks to more than/);
+
+  // An entry that declares it unpacks past the size — the declared size is what the unpacker
+  // allocates — is refused, and nothing is written. The zip's central directory says it: a
+  // record per entry (signature 0x02014b50), its uncompressed size 24 bytes in.
+  const bomb = zipSync({
+    "bomb/SKILL.md": head,
+    "bomb/zeros.bin": new Uint8Array(1024),
+  });
+  const view = new DataView(bomb.buffer, bomb.byteOffset, bomb.byteLength);
+  const records: number[] = [];
+  for (let at = 0; at < bomb.byteLength - 4; at++)
+    if (view.getUint32(at, true) === 0x02014b50) records.push(at);
+  assert.equal(records.length, 2);
+  view.setUint32(records[1] + 24, SKILL_FILES.unpackedBytes + 1, true);
+  const refused = await send("bomb.zip", bomb);
+  assert.equal(refused.$ok, false);
+  assert.match(refused.message ?? "", /unpacks to more than/);
+  await assert.rejects(
+    readdir(join(home, PATHS.skills.custom.replace(`${home}/`, ""), "packed")),
+  );
+
+  // Under both, it lands with its folder
+  const fine = await send(
+    "fine.zip",
+    zipSync({
+      "packed/SKILL.md": head,
+      "packed/references/a.md": strToU8("a"),
+    }),
+  );
+  assert.equal(fine.$ok, true);
+  assert.deepEqual(
+    (
+      await readdir(
+        join(home, PATHS.skills.custom.replace(`${home}/`, ""), "packed"),
+        { recursive: true },
+      )
+    ).sort(),
+    ["SKILL.md", "references", "references/a.md"],
+  );
+});

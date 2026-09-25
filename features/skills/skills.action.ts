@@ -56,10 +56,29 @@ export const uploadSkillAction = serverAction(async (form: unknown) => {
     files.set("SKILL.md", bytes);
   } else if (lower.endsWith(".zip") || lower.endsWith(".skill")) {
     let archive: Record<string, Uint8Array>;
+    // Each entry is weighed by the size it declares before it is unpacked into a buffer of
+    // that size, so the sum stops an archive that would unpack past what the server can hold
+    let entries = 0;
+    let unpacked = 0;
+    let tooBig = false;
     try {
-      archive = unzipSync(new Uint8Array(bytes));
+      archive = unzipSync(new Uint8Array(bytes), {
+        filter: (entry) => {
+          entries += 1;
+          unpacked += entry.originalSize;
+          tooBig =
+            entries > SKILL_FILES.archiveEntries ||
+            unpacked > SKILL_FILES.unpackedBytes;
+          if (tooBig) throw new Error("archive too big");
+          return true;
+        },
+      });
     } catch {
-      publicError("The archive could not be opened");
+      publicError(
+        tooBig
+          ? `The archive unpacks to more than ${Math.round(SKILL_FILES.unpackedBytes / 1024 / 1024)} MB or ${SKILL_FILES.archiveEntries} files`
+          : "The archive could not be opened",
+      );
     }
 
     // The shallowest SKILL.md marks the skill root
