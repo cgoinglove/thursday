@@ -4,7 +4,10 @@ import { useEffect, useRef } from "react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { notify } from "@/components/ui/notify";
+import { toast } from "@/components/ui/toast";
+import { unwrapResult } from "@/lib/protocol/result";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
+import { errorToString } from "@/lib/utils";
 import { allowReachAction, declineReachAction } from "../reach.action";
 import { REACH_LABEL, type ReachStatus } from "../reach.schema";
 
@@ -71,7 +74,19 @@ export function ReachAsk() {
       .then((ok) => {
         // Closed from here because it was settled elsewhere: nothing is answered twice
         if (close.signal.aborted) return;
-        return ok ? allowReachAction(name, ask) : declineReachAction(name, ask);
+        return (
+          ok ? allowReachAction(name, ask) : declineReachAction(name, ask)
+        )
+          .then(unwrapResult)
+          .catch((cause) =>
+            toast.add({
+              type: "error",
+              title: ok
+                ? `Could not let ${asking.name} in`
+                : `Could not turn ${asking.name} away`,
+              description: errorToString(cause),
+            }),
+          );
       });
   }, [key, asking, name]);
 
