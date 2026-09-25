@@ -971,6 +971,28 @@ function bindPointer() {
   );
 }
 
+/**
+ * The boxes of the marks whose eyes follow the pointer, all read on the first read of a frame.
+ * Every mark writes its shape each frame, so a mark reading its own box after another mark's
+ * write lays the page out again: one layout per mark per frame, where one pass lays it out once.
+ */
+const boxes = new Map<SVGSVGElement, DOMRect>();
+let boxesAt = -1;
+
+function boxOf(svg: SVGSVGElement, frame: number) {
+  if (frame !== boxesAt) {
+    boxesAt = frame;
+    for (const each of boxes.keys())
+      boxes.set(each, each.getBoundingClientRect());
+  }
+  let box = boxes.get(svg);
+  if (!box) {
+    box = svg.getBoundingClientRect();
+    boxes.set(svg, box);
+  }
+  return box;
+}
+
 type BotMarkProps = {
   /** Pixel size of the square the mark is drawn in. */
   size?: number;
@@ -1166,11 +1188,20 @@ export function BotMark({
       dy: number;
     } | null = null;
     let nextBeat = performance.now() + 1500 + Math.random() * 3000;
+    /** The element this mark keeps a box for in `boxes`, while its eyes follow the pointer. */
+    let followed: SVGSVGElement | null = null;
 
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick);
       const { cfg: c, state: st } = live.current;
       const t = (now / 1000) * c.speed;
+
+      // Read before anything below writes (boxOf).
+      const svg =
+        c.follow && pointer.live && eyesRef.current ? svgRef.current : null;
+      if (followed && followed !== svg) boxes.delete(followed);
+      followed = svg;
+      const box = svg ? boxOf(svg, now) : null;
 
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
@@ -1344,22 +1375,19 @@ export function BotMark({
       if (eyesRef.current) {
         let tgx = 0;
         let tgy = 0;
-        if (c.follow && pointer.live && svgRef.current) {
-          const r = svgRef.current.getBoundingClientRect();
-          if (r.width > 0) {
-            tgx =
-              clamp(
-                (pointer.x - (r.left + r.width / 2)) / (r.width * 1.5),
-                -1,
-                1,
-              ) * c.gazeRange;
-            tgy =
-              clamp(
-                (pointer.y - (r.top + r.height / 2)) / (r.height * 1.5),
-                -1,
-                1,
-              ) * c.gazeRange;
-          }
+        if (box && box.width > 0) {
+          tgx =
+            clamp(
+              (pointer.x - (box.left + box.width / 2)) / (box.width * 1.5),
+              -1,
+              1,
+            ) * c.gazeRange;
+          tgy =
+            clamp(
+              (pointer.y - (box.top + box.height / 2)) / (box.height * 1.5),
+              -1,
+              1,
+            ) * c.gazeRange;
         }
         gx += (tgx - gx) * 0.12;
         gy += (tgy - gy) * 0.12;
@@ -1419,7 +1447,10 @@ export function BotMark({
     };
 
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      if (followed) boxes.delete(followed);
+    };
   }, []);
 
   const nAngle = (cfg.notifyAngle * Math.PI) / 180;
