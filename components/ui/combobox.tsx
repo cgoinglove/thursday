@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
  *
  * Typing is a draft, not a value: `onChange` fires when a suggestion is pressed, or
  * when the typed text is saved, never on a keystroke. Callers save on `onChange`, and
- * half a model id would otherwise be saved on the way to a whole one.
+ * half a value would otherwise be saved on the way to a whole one.
  */
 
 export type ComboboxOption = {
@@ -140,7 +140,7 @@ export function Combobox({
             )}
 
             <Autocomplete.Empty className="px-2 py-2 font-mono text-[11px] text-muted-foreground empty:hidden">
-              {loading ? "Loading models…" : empty}
+              {loading ? "Loading…" : empty}
             </Autocomplete.Empty>
 
             <Autocomplete.List className="max-h-64 overflow-y-auto outline-none">
