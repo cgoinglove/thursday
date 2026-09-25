@@ -12,7 +12,7 @@ import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/notify";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ARTIFACT_VIEW } from "@/config";
+import { ARTIFACT_VIEW, PATHS } from "@/config";
 import { deleteArtifactAction } from "@/features/artifact/artifact.action";
 import type {
   Artifact,
@@ -98,7 +98,7 @@ export function ArtifactSetting() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => reveal("artifacts")}
+            onClick={() => reveal(PATHS.artifacts)}
           >
             <FolderOpen />
             Reveal folder

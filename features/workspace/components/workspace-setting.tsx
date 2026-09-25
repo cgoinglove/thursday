@@ -102,8 +102,7 @@ export function WorkspaceSetting() {
   const confirmEmptyScratch = async () => {
     const confirmed = await notify.confirm({
       title: "Empty scratch?",
-      description:
-        "Everything under scratch/ is deleted for good. artifacts/ and projects/ are untouched.",
+      description: `Everything under ${PATHS.scratch}/ is deleted for good. ${PATHS.artifacts}/ and ${PATHS.projects}/ are untouched.`,
       okText: "Empty",
       destructive: true,
     });
@@ -146,7 +145,7 @@ export function WorkspaceSetting() {
             {/* This folder, not the tree: the section never reads below the row it draws. */}
             <span className="font-mono">
               <span className="font-medium text-foreground">
-                {`.ai-workspace${dir ? `/${dir}` : ""}`}
+                {`${PATHS.workspace}${dir ? `/${dir}` : ""}`}
               </span>
               {` · ${countLine(entries, total)}`}
             </span>
@@ -338,7 +337,7 @@ function Nothing({
         <p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
           Nothing here yet. What a bot writes during a call lands in{" "}
           <span className="font-mono text-[13px] text-foreground">
-            artifacts/
+            {PATHS.artifacts}/
           </span>{" "}
           — a page, a table, a picture — and shows up here to open.
         </p>
