@@ -3,12 +3,12 @@
 import { type ComponentProps, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
+import { CHATGPT_SIGN_IN } from "@/config";
 import { startChatGptSignInAction } from "@/features/config/config.action";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 
-/** How often to look whether the sign-in window was closed, and how long to keep looking: as long as the server listens for its answer. */
+/** How often to look whether the sign-in window was closed. It is looked for as long as the server listens for its answer (config CHATGPT_SIGN_IN.waitMs). */
 const WINDOW_POLL_MS = 700;
-const WINDOW_WATCH_MS = 10 * 60_000;
 
 /**
  * Opens ChatGPT's sign-in in a window of its own. The answer lands on the server, which keeps it
@@ -45,7 +45,7 @@ export function ChatGptSignIn({
       }
       setWaiting(true);
       stopWatching();
-      const deadline = Date.now() + WINDOW_WATCH_MS;
+      const deadline = Date.now() + CHATGPT_SIGN_IN.waitMs;
       watch.current = setInterval(() => {
         if (!popup.closed && Date.now() < deadline) return;
         stopWatching();
