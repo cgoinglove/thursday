@@ -151,7 +151,7 @@ export const MEDIA_MODEL_PROVIDERS: Record<
   }
 > = {
   openai: {
-    label: "Open AI",
+    label: "OpenAI",
     apiKeyName: "OPENAI_API_KEY",
     models: {
       image: [
@@ -430,7 +430,7 @@ export const TEXT_MODEL_PROVIDERS: Record<
   }
 > = {
   openai: {
-    label: "Open AI",
+    label: "OpenAI",
     apiKeyName: "OPENAI_API_KEY",
     keysAt: "https://platform.openai.com/api-keys",
     keyLooks: "sk-…",
@@ -894,6 +894,14 @@ export const TEXT_MODEL_PROVIDER_LIST = (
  * A provider as the settings screen sees it: what it is called, whether a key
  * is set, and a few model names worth suggesting.
  */
+/**
+ * What a bot with no model of its own runs on now, as its run resolves it (ai/model
+ * resolveDefaultModel), or why nothing can: one answer for the run and for the screen.
+ */
+export type AutomaticModel =
+  | { ref: TextModelRef; problem: null }
+  | { ref: null; problem: string };
+
 export type AiProvider = {
   id: TextModelProviderId;
   label: string;

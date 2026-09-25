@@ -34,6 +34,7 @@ import { ModelPicker } from "@/features/ai/components/model-picker";
 import { ProviderIcon } from "@/features/ai/components/provider-icon";
 import {
   type AiProvider,
+  type AutomaticModel,
   effortSchema,
   type GatewayCredits,
   type MediaKind,
@@ -188,7 +189,6 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
                     value={valueOf(entry.key)}
                     effort={effortEntryOf(group, entry.key)}
                     effortValue={valueOf(DEFAULT_EFFORT_KEY)}
-                    isSet={isSet}
                   />
                 ) : (
                   <KeyRow
@@ -560,6 +560,20 @@ function KeyMark({ entry }: { entry: ConfigEntry }) {
   );
 }
 
+/** "Automatic · GPT Subscription · 6 Luna", or why nothing runs; nothing while it is asked. */
+function automaticLabel(
+  automatic: AutomaticModel | undefined,
+  choices: ConfigChoice[],
+): string {
+  if (!automatic) return "Automatic";
+  if (!automatic.ref) return automatic.problem;
+  const { provider, model } = automatic.ref;
+  const named = choices.find(
+    (choice) => choice.value === `${provider}/${model}`,
+  );
+  return `Automatic · ${named?.label ?? model}`;
+}
+
 /**
  * A choice, not a secret: a studio kind, or the bots' default, picked where it stands with
  * the picker bots use — its list opens over the row, not a dialog around one field. Unset is
@@ -574,7 +588,6 @@ function ChoiceRow({
   value,
   effort,
   effortValue,
-  isSet,
 }: {
   entry: ConfigEntry;
   choices: ConfigChoice[];
@@ -582,19 +595,27 @@ function ChoiceRow({
   /** The entry that sets how hard this model thinks, drawn inside this row (config.const `effortOf`). */
   effort?: ConfigEntry;
   effortValue?: string;
-  isSet: (key: string) => boolean;
 }) {
   const ref = entry.text ? parseTextModel(value) : parseMediaModel(value);
-  const usable = choices.filter((choice) => isSet(choice.needs));
+  // Unpicked, the bots' default is what the server resolves, named here from its own answer
+  const { data: automatic } = useServerRoute<AutomaticModel>(
+    entry.text && !value && queryKey.automaticModel,
+  );
   // A text model is what a bot thinks with, so it wears the bots mark; Cpu here was the memory glyph (memory-mark).
   const Mark = entry.kind ? KIND_MARKS[entry.kind] : BotsMark;
   // The row redraws with the pick — the model, its effort, the auto/off badge — so nothing
   // is said about it; only a failure is (rules/ui notifications).
   const [save] = useServerAction(setConfigAction, {
-    onOk: () => revalidate(queryKey.config),
+    onOk: () => {
+      revalidate(queryKey.config);
+      revalidate(queryKey.automaticModel);
+    },
   });
   const [clear] = useServerAction(removeConfigAction, {
-    onOk: () => revalidate(queryKey.config),
+    onOk: () => {
+      revalidate(queryKey.config);
+      revalidate(queryKey.automaticModel);
+    },
   });
 
   return (
@@ -627,7 +648,7 @@ function ChoiceRow({
               unset={
                 entry.kind
                   ? "Not offered to bots until you pick one"
-                  : (usable[0]?.label ?? "No key for any of these yet")
+                  : automaticLabel(automatic, choices)
               }
               onChange={(next) =>
                 save(entry.key, `${next.provider}/${next.model.trim()}`)

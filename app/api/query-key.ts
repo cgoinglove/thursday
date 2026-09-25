@@ -177,6 +177,11 @@ export const queryKey = {
 
   /** Providers this app can call and whether each key is set */
   llmModel: "/api/llm-model",
+  /**
+   * AutomaticModel: what a bot with no model picked runs on now. Under `llmModel`, so a key
+   * saved or a sign-in re-reads it.
+   */
+  automaticModel: "/api/llm-model/automatic",
   /** Models reachable with the AI Gateway key; gateway only */
   modelCatalog: "/api/llm-model/catalog",
   /**

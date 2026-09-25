@@ -41,7 +41,7 @@ const AUTH_CLAIM = "https://api.openai.com/auth";
 const ORIGINATOR = "thursday";
 
 const { apiKeyName: SIGN_IN_KEY, label: LABEL } = TEXT_MODEL_PROVIDERS.chatgpt;
-const NOT_SIGNED_IN = `${LABEL} is not signed in — sign in from Config.`;
+const NOT_SIGNED_IN = `${LABEL} is not signed in — sign in from Settings › API keys.`;
 
 /** What a sign-in leaves in config. Tokens: it never reaches the browser. */
 const SignInSchema = z.object({
@@ -189,7 +189,7 @@ async function answerCallback(
       status: 400,
       title: "Sign-in failed",
       detail:
-        "This is not the sign-in that was started. Start again from Config.",
+        "This is not the sign-in that was started. Start again from Settings › API keys.",
       last: false,
     };
   }
@@ -327,7 +327,7 @@ async function currentSignIn(): Promise<SignIn> {
       return renewed;
     } catch (cause) {
       publicError(
-        `Could not renew the ${LABEL} sign-in (${errorToString(cause)}). If it keeps failing, sign in again from Config.`,
+        `Could not renew the ${LABEL} sign-in (${errorToString(cause)}). If it keeps failing, sign in again from Settings › API keys.`,
       );
     }
   });
@@ -447,12 +447,23 @@ export function chatGptModel(modelId: string): LanguageModel {
             promptCacheKey,
             ...params.providerOptions?.openai,
             store: false,
+            // The search goes as Codex sends it here, without the sources the sdk asks for
+            // beside it: that request is the one this backend is known to take (chatGptSearch)
+            includeWebSearchSources: false,
           },
         },
       }),
     },
   });
 }
+
+/**
+ * OpenAI's hosted search for a model on the plan: the sdk sends it as `{"type":"web_search"}`,
+ * the tool Codex itself puts on this endpoint when its search is on (codex-rs
+ * core/src/openai_tools.rs, `WebSearch {}` under `#[serde(rename = "web_search")]`).
+ */
+export const chatGptSearch = () =>
+  createOpenAI({ apiKey: "signed-in" }).tools.webSearch();
 
 type CodexBody = {
   input?: { role?: string; content?: string | { text?: string }[] }[];

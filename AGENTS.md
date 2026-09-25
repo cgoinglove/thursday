@@ -21,9 +21,9 @@ This is a public MIT repository (`github.com/cgoinglove/thursday`, published to 
   `git add -f` one.
 - **No heuristic does the model's job.** No phrase matching, per-language word lists or timers that
   guess intent.
-- **Nothing is forced to work.** No copy of another site's markup or private endpoint, no branch
-  that only makes the example at hand pass, no retry, fallback or empty result that hides a
-  failure. What cannot be done cleanly is said, not forced.
+- **Nothing is forced to work.** No copy of another site's markup, no endpoint its owner does not
+  document for that use, no branch that only makes the example at hand pass, no retry, fallback
+  or empty result that hides a failure. What cannot be done cleanly is said, not forced.
 - **Each thing a diff changes stands on something you can name** — a case you reproduced, a
   measurement, code or a document you can quote, what you were asked — and the commit or pull
   request says which. A guess is not one.

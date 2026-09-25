@@ -41,17 +41,20 @@ the far left.
 
 A search key (Exa) is optional. With it, calls and bots both search through Exa, which is cheaper
 per search and comes with free credits every month. Without it, a call uses OpenAI's own search and
-a bot its model's own — which only OpenAI, Claude, Gemini and xAI have, and only on their own keys.
-A bot running through the GPT Subscription, the Gateway or any other provider has no search of its
-own, so it opens pages in its browser instead.
+a bot its model's own — which the GPT Subscription has, and OpenAI, Claude, Gemini and xAI on their
+own keys. A bot running through the Gateway or any other provider has no search of its own, so it
+opens pages in its browser instead.
 
 ## Models
 
 **Settings › Models** has two groups. **Bots** holds the **Default model** — the one a bot uses when
 its own page says nothing; a small one is quick and costs little, and is the place to start — and
-its **Default effort**. Left unset it shows *auto* and runs on the first provider with a key: its
-**small** model on Open AI and the GPT Subscription, the one the call's backend starts on too, and
-its **mid** one elsewhere. The
+its **Default effort**. Left unset it shows *auto* and names the model bots run on now: the GPT
+Subscription's when you are signed in, since the plan is already paid for, else OpenAI's, else xAI's,
+else the first provider with a key — the **small** model on OpenAI and the GPT Subscription, the one
+the call's backend starts on too, and the **mid** one elsewhere. A default picked here whose key is
+later removed is not swapped for another provider: bots stop and say so until it is back or another
+is picked. The
 first run's model step sets this same one, and **App default** at the top of a bot's model list puts
 that bot back on it. **Studio** holds the **Image model**, **Video model**, **Speech model** and
 **Transcription model**. A kind with no model picked simply is not there — a bot that needs it says

@@ -31,7 +31,7 @@ import { readConfig } from "@/features/config/config.query";
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
 import { clip, errorToString } from "@/lib/utils";
-import { chatGptModel } from "./chatgpt";
+import { chatGptModel, chatGptSearch } from "./chatgpt";
 import {
   canMakeKind,
   compactAtFor,
@@ -197,8 +197,13 @@ function buildTextModel(ref: TextModelRef, apiKey: string): TextModel {
       };
     }
     case "chatgpt":
-      // Signs every request with the stored sign-in itself (ai/chatgpt), so no key is passed
-      return { ref, model: chatGptModel(ref.model), searchTools: null };
+      // Signs every request with the stored sign-in itself (ai/chatgpt), so no key is passed.
+      // Without a search of its own a bot on the plan scraped result pages and was turned away
+      return {
+        ref,
+        model: chatGptModel(ref.model),
+        searchTools: { search: chatGptSearch() },
+      };
     case "anthropic": {
       const anthropic = createAnthropic({ apiKey });
       return {
@@ -527,8 +532,8 @@ export async function getTextModel(ref: TextModelRef): Promise<TextModel> {
   if (!apiKey) {
     publicError(
       signIn
-        ? `${label} is not signed in — sign in from Config.`
-        : `No ${label} key — add one in Config.`,
+        ? `${label} is not signed in — sign in from Settings › API keys.`
+        : `No ${label} key — add one in Settings › API keys.`,
     );
   }
   return buildTextModel(ref, apiKey);
@@ -536,11 +541,17 @@ export async function getTextModel(ref: TextModelRef): Promise<TextModel> {
 
 /**
  * The model when nobody picked one; a bot with no model asks here on every run (bot.run
- * resolveModel). Order: the named provider, then the default set in Settings > Models, then
- * OpenAI and xAI, then any provider with a key.
+ * resolveModel), and Settings › Models names what it answers (api/llm-model/automatic). Order:
+ * the named provider, then the default set in Settings > Models, then the GPT Subscription,
+ * OpenAI and xAI, then any provider with a key. The plan comes before a key, as a call in
+ * writing already has it (thursday.text): the user pays for it either way, and a key bills.
+ * A default picked in Settings whose key is gone stops the run and says so rather than moving
+ * to another provider, which would bill one nobody chose.
  */
 export async function resolveDefaultModel(
   providerId?: string,
+  /** Asked by the screen to name it, not by a run: nothing to log. */
+  { quiet = false }: { quiet?: boolean } = {},
 ): Promise<TextModelRef> {
   const workhorse = async (provider: {
     id: TextModelProviderId;
@@ -555,7 +566,7 @@ export async function resolveDefaultModel(
   const named = providerId
     ? TEXT_MODEL_PROVIDER_LIST.find((v) => v.id === providerId)
     : undefined;
-  const preferred = (["openai", "xai"] as const).map((id) => ({
+  const preferred = (["chatgpt", "openai", "xai"] as const).map((id) => ({
     ...TEXT_MODEL_PROVIDERS[id],
     id,
   }));
@@ -565,15 +576,19 @@ export async function resolveDefaultModel(
     if (model) return { provider: named.id, model };
   }
 
-  // What the user set in Settings > Models; only honoured while its key is set
+  // What the user set in Settings > Models
   const chosen = parseTextModel(
     (await readConfig(DEFAULT_MODEL_KEY)) ?? undefined,
   );
-  if (
-    chosen &&
-    (await readConfig(TEXT_MODEL_PROVIDERS[chosen.provider].apiKeyName))
-  )
-    return chosen;
+  if (chosen) {
+    const { label, apiKeyName, signIn } = TEXT_MODEL_PROVIDERS[chosen.provider];
+    if (await readConfig(apiKeyName)) return chosen;
+    publicError(
+      signIn
+        ? `The default model is ${chosen.model} on ${label}, which is signed out — sign in again, or pick another in Settings › Models.`
+        : `The default model is ${chosen.model}, and there is no ${label} key any more — add it in Settings › API keys, or pick another in Settings › Models.`,
+    );
+  }
 
   for (const provider of [...preferred, ...TEXT_MODEL_PROVIDER_LIST]) {
     if (!(await readConfig(provider.apiKeyName))) continue;
@@ -581,11 +596,12 @@ export async function resolveDefaultModel(
     if (model) {
       // Nobody picked this, so say which one answered — a run that behaves
       // oddly on a fresh install is usually running on a model nobody chose
-      logger.info(`no model set, falling back to ${provider.id}/${model}`);
+      if (!quiet)
+        logger.info(`no model set, falling back to ${provider.id}/${model}`);
       return { provider: provider.id, model };
     }
   }
-  publicError("No model key is set — add one in Config");
+  publicError("No model key is set — add one in Settings › API keys.");
 }
 
 /** The sdk declares this one but does not export it — read off the function that takes it. */

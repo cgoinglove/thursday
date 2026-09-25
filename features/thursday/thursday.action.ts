@@ -84,7 +84,9 @@ export const openCallAction = serverAction(
     const offer = z.string().min(1).max(SDP_MAX_LENGTH).parse(sdp);
     const apiKey = await readConfig(LIVE_PROVIDER.apiKeyName);
     if (!apiKey) {
-      publicError(`No ${LIVE_PROVIDER.label} key — add one in Config.`);
+      publicError(
+        `No ${LIVE_PROVIDER.label} key — add one in Settings › API keys.`,
+      );
     }
 
     const rang = z.boolean().default(false).parse(calledBack);

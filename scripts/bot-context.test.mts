@@ -1709,6 +1709,97 @@ test("a once-only routine waits out an open run, and the schedule it has, sent a
   for (const run of runs) await deleteThread(run.id);
 });
 
+test("with nobody picking, a bot runs on the plan before a key, and a picked default whose key is gone stops the run", async () => {
+  const { resolveDefaultModel } = realModel;
+  const { TEXT_MODEL_PROVIDERS } = await import(
+    "../features/ai/model.schema.ts"
+  );
+  const { writeConfig, removeConfig } = await import(
+    "../features/config/config.query.ts"
+  );
+  const { DEFAULT_MODEL_KEY } = await import(
+    "../features/config/config.const.ts"
+  );
+  const plan = TEXT_MODEL_PROVIDERS.chatgpt.apiKeyName;
+  const key = TEXT_MODEL_PROVIDERS.openai.apiKeyName;
+  const xai = TEXT_MODEL_PROVIDERS.xai.apiKeyName;
+  // `.env` wins over a row (readConfig): what this machine exports stays out of it
+  const exported = Object.fromEntries(
+    [plan, key, xai].map((name) => [name, process.env[name]]),
+  );
+  for (const name of [plan, key, xai]) delete process.env[name];
+  await writeConfig(key, "sk-test");
+  await writeConfig(plan, "{}");
+  try {
+    // Signed in and keyed: the plan is paid for already, the key bills
+    assert.equal((await resolveDefaultModel()).provider, "chatgpt");
+    await removeConfig(plan);
+    assert.equal((await resolveDefaultModel()).provider, "openai");
+    // Picked in Settings, and its key gone: said, never moved to the OpenAI key beside it
+    await writeConfig(DEFAULT_MODEL_KEY, "xai/grok-4");
+    await assert.rejects(resolveDefaultModel(), /no xAI key/);
+  } finally {
+    for (const name of [plan, key, DEFAULT_MODEL_KEY]) await removeConfig(name);
+    for (const [name, value] of Object.entries(exported))
+      if (value !== undefined) process.env[name] = value;
+  }
+});
+
+test("a model on the plan asks for the web as Codex asks that endpoint", async () => {
+  const { generateText } = await import("ai");
+  const { TEXT_MODEL_PROVIDERS } = await import(
+    "../features/ai/model.schema.ts"
+  );
+  const { writeConfig, removeConfig } = await import(
+    "../features/config/config.query.ts"
+  );
+  const plan = TEXT_MODEL_PROVIDERS.chatgpt.apiKeyName;
+  const exported = process.env[plan];
+  delete process.env[plan];
+  await writeConfig(
+    plan,
+    JSON.stringify({
+      access: "test.access.token",
+      refresh: "test-refresh",
+      expires: Date.now() + 3_600_000,
+      accountId: "test-account",
+      plan: "plus",
+    }),
+  );
+  const sent: { tools?: unknown; include?: string[] }[] = [];
+  const realFetch = globalThis.fetch;
+  // What reaches the wire is all this looks at; the answer stops the run there
+  globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
+    sent.push(JSON.parse(String(init?.body)));
+    return new Response(JSON.stringify({ error: { message: "stop here" } }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+  try {
+    const built = await realModel.getTextModel({
+      provider: "chatgpt",
+      model: "gpt-6-luna",
+    });
+    assert.ok(built.searchTools, "a model on the plan can search");
+    await assert.rejects(
+      generateText({
+        model: built.model,
+        tools: built.searchTools,
+        prompt: "What is on today?",
+        maxRetries: 0,
+      }),
+    );
+    // Codex's own request shape for its search on this endpoint (codex-rs openai_tools.rs)
+    assert.deepEqual(sent[0].tools, [{ type: "web_search" }]);
+    assert.ok(!sent[0].include?.includes("web_search_call.action.sources"));
+  } finally {
+    globalThis.fetch = realFetch;
+    await removeConfig(plan);
+    if (exported !== undefined) process.env[plan] = exported;
+  }
+});
+
 test("a bot saved without its tools keeps them pinned, and a deleted Jarvis takes no work beside other bots", async () => {
   const { BotFormSchema } = await import("../features/bot/bot.schema.ts");
   const { findJobBot } = await import("../features/bot/bot.query.ts");
