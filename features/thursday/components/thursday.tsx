@@ -92,8 +92,8 @@ import { WriteLine, type WrittenCall } from "./write-line";
 
 /**
  * The call screen. The face is the only control; text stays beside it and is
- * never a list. CallScreen is headless so a scripted call can drive the same
- * markup.
+ * never a list. CallScreen holds no call of its own: a spoken call and a call in
+ * writing drive the same markup (Thursday, below).
  */
 
 type CallScreenProps = {
