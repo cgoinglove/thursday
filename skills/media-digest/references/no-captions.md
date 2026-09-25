@@ -1,7 +1,8 @@
 # No transcript: from the audio
 
 `yt.mjs` says "No captions on this video" when YouTube has none — music, some new or
-non-speech videos. A podcast off YouTube arrives the same way. The words then come from the
+non-speech videos. A podcast off YouTube arrives the same way, and so does a recording of their
+own — a meeting, a lecture, a voice memo, in the `inbox` folder when they sent it with a message. The words then come from the
 studio's transcription model, which costs by the minute of audio: past an hour, send
 Thursday one `send_message` question with the length before transcribing it.
 

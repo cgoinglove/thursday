@@ -14,7 +14,7 @@ Detailed strategies for each major social platform.
 **Best for:** B2B, thought leadership, professional networking, recruiting
 **Audience:** Professionals, decision-makers, job seekers
 **Posting frequency:** 3-5x per week
-**Best times:** Tuesday-Thursday, 7-8am, 12pm, 5-6pm
+**Best times:** when their own audience is active, from the account's analytics — no hour holds for every audience or time zone
 
 **What works:**
 - Personal stories with business lessons
@@ -52,7 +52,7 @@ Detailed strategies for each major social platform.
 **Best for:** Tech, media, real-time commentary, community building
 **Audience:** Tech-savvy, news-oriented, niche communities
 **Posting frequency:** 3-10x per day (including replies)
-**Best times:** Varies by audience; test and measure
+**Best times:** when their own audience is active, from the account's analytics — no hour holds for every audience or time zone
 
 **What works:**
 - Hot takes and opinions
@@ -88,7 +88,7 @@ Detailed strategies for each major social platform.
 **Best for:** Visual brands, lifestyle, e-commerce, younger demographics
 **Audience:** 18-44, visual-first consumers
 **Posting frequency:** 1-2 feed posts per day, 3-10 Stories per day
-**Best times:** 11am-1pm, 7-9pm
+**Best times:** when their own audience is active, from the account's analytics — no hour holds for every audience or time zone
 
 **What works:**
 - High-quality visuals
@@ -124,7 +124,7 @@ Detailed strategies for each major social platform.
 **Best for:** Brand awareness, younger audiences, viral potential
 **Audience:** 16-34, entertainment-focused
 **Posting frequency:** 1-4x per day
-**Best times:** 7-9am, 12-3pm, 7-11pm
+**Best times:** when their own audience is active, from the account's analytics — no hour holds for every audience or time zone
 
 **What works:**
 - Native, unpolished content
@@ -154,7 +154,7 @@ Detailed strategies for each major social platform.
 **Best for:** Communities, local businesses, older demographics, groups
 **Audience:** 25-55+, community-oriented
 **Posting frequency:** 1-2x per day
-**Best times:** 1-4pm weekdays
+**Best times:** when their own audience is active, from the account's analytics — no hour holds for every audience or time zone
 
 **What works:**
 - Facebook Groups (community)

@@ -239,6 +239,27 @@ const mmss = (seconds: number) => {
   return `${m}:${String(s).padStart(2, "0")}`;
 };
 
+/**
+ * A transcript file: `# name`, the text, and a `## Timeline` of `- m:ss text` lines when the
+ * model gave segments. media-digest's `audio.mjs join` reads the timeline to time each line of
+ * a long recording, and stops on one it cannot read (scripts/skill-files.test.mts runs one
+ * through it).
+ */
+export function transcriptFile(
+  name: string,
+  text: string,
+  segments: { startSecond: number; text: string }[],
+): string {
+  const timeline = segments.length
+    ? `\n\n## Timeline\n\n${segments
+        .map(
+          (segment) => `- ${mmss(segment.startSecond)} ${segment.text.trim()}`,
+        )
+        .join("\n")}`
+    : "";
+  return `# ${name}\n\n${text.trim()}${timeline}\n`;
+}
+
 const transcribeTool = async (): Promise<StudioTool | null> => {
   const found = await resolveMediaRef("transcription");
   if (!found) return null;
@@ -260,20 +281,12 @@ const transcribeTool = async (): Promise<StudioTool | null> => {
       const audio = await readFile(sandbox.resolve(path));
       const result = await transcribe({ model, audio, abortSignal });
 
-      const timeline = result.segments.length
-        ? `\n\n## Timeline\n\n${result.segments
-            .map(
-              (segment) =>
-                `- ${mmss(segment.startSecond)} ${segment.text.trim()}`,
-            )
-            .join("\n")}`
-        : "";
       const stem = basename(path, extname(path));
       const out = await save(
         sandbox,
         artifacts,
         fileName(stem, "md"),
-        Buffer.from(`# ${stem}\n\n${result.text.trim()}${timeline}\n`),
+        Buffer.from(transcriptFile(stem, result.text, result.segments)),
       );
       // The text too, folded: a transcript is usually the thing the job is
       // about, and a bot that has to `cat` it back spends a step for nothing

@@ -19,9 +19,9 @@ call. `S=<this skill's dir>/scripts`, `D=$THURSDAY_SKILLS/data-report/scripts`.
 hand to another bot: a hand-off pays for a second bot's prompt, skills and browser, and for the
 messages between you, to find what one search of yours finds.
 
-**Flights come from a published search; the rest from a page on the user's screen.** Nothing
-here reads another site by script: a search page moves without notice, and a wrong price is worse
-than none.
+**Flights come from a published search; the rest from a page on the user's screen.** You read
+only what that page shows them, never a site's own endpoints behind it: a search page moves
+without notice, and a wrong price is worse than none.
 
 - **With Kiwi connected** — `search-flight` on the `kiwi` server, among your own tools or under
   `## Connected tools` in your prompt — flights are that tool (`tool_search` it for the exact
@@ -30,7 +30,7 @@ than none.
 - **Without it, and for a stay**, the results are the user's to choose from, so the search opens
   on their screen — `--headed`, the `browser` skill — and you read it there. The answer then ends
   by saying that connecting Kiwi in Settings › Connectors finds flights without a window. Google's
-  search pages take the search in their address:
+  public search pages take the search in their address, as it reads today:
 
 ```
 https://www.google.com/travel/flights?q=Flights to LIS from LHR on 2026-11-12 through 2026-11-15 for 2 adults&curr=USD&hl=en

@@ -149,8 +149,10 @@ async function cut(input, flags) {
 }
 
 /**
- * A transcribe tool file: `# name`, the text, and a `## Timeline` of `- m:ss text` lines
- * when the model gave segments. Returns lines of `{ at, text, exact }`, times within the piece.
+ * A transcribe tool file (studio.tool transcriptFile): `# name`, the text, and a `## Timeline`
+ * of `- m:ss text` lines when the model gave segments. Returns lines of `{ at, text, exact }`,
+ * times within the piece. A timeline in another shape stops rather than being read as none:
+ * its times would quietly become guesses.
  */
 function readPiece(file, seconds) {
   const body = readFileSync(file, "utf8");
@@ -167,6 +169,9 @@ function readPiece(file, seconds) {
         });
     }
     if (lines.length) return lines;
+    throw new Stop(
+      `${shown(file)} has a timeline in a shape this script does not read (lines of "- m:ss text"), so its times would be guesses. Read the transcript files themselves instead.`,
+    );
   }
   const text = whole
     .replace(/^# .*$/m, "")

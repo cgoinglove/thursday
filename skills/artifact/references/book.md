@@ -70,9 +70,8 @@ Choose each page's picture in this order:
   ```
 
   It saves the page's own picture (`--all` adds the large ones in its body)
-  through the session's browser, so a site that refuses `curl` still answers,
-  keeps only what came back as an image, and prints each file with its size and
-  a `Credit:` line. Every run writes `web-01.…`, so rename what you keep to the
+  through the session's browser, keeps only what came back as an image, and
+  prints each file with its size and a `Credit:` line. Every run writes `web-01.…`, so rename what you keep to the
   page's own name before fetching the next one. Put the credit in the figure:
   `<figcaption>Photo: <author>, <a href="…">source</a>, <license></figcaption>`.
 - **A structure, a flow, a relation** — parts of a whole, one thing asking

@@ -45,9 +45,9 @@ Gather this context — fill it from the page as it stands, the product brief an
 ## Copywriting Principles
 
 ### Clarity Over Cleverness
-If you have to choose between clear and creative, choose clear. Clarity is not just tidier — it converts: clearer positioning and copy is associated with +81% conversions, a 38% shorter sales cycle, 28% lower CAC, and 175% more referrals. When a reader has to decode your line, you've lost them.
+If you have to choose between clear and creative, choose clear. When a reader has to decode your line, you've lost them.
 
-**For message-market fit tools** — the "Now you can" test, the Human Action Model (discomfort → vision → path), the Perception Gap, and the clarity metrics: See [references/copywriting-copy-frameworks.md](copywriting-copy-frameworks.md#clarity--message-market-fit)
+**For message-market fit tools** — the "Now you can" test, the Human Action Model (discomfort → vision → path), and the Perception Gap: See [references/copywriting-copy-frameworks.md](copywriting-copy-frameworks.md#clarity--message-market-fit)
 
 ### Benefits Over Features
 Features: What it does. Benefits: What that means for the customer.

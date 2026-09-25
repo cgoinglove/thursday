@@ -7,7 +7,7 @@ Headline formulas, page section types, and structural templates.
 - Landing Page Section Types (core sections, supporting sections)
 - Page Structure Templates (feature-heavy page, varied engaging page, compact landing page, enterprise/B2B landing page, product launch page)
 - Section Writing Tips (problem section, benefits section, how it works section, testimonial selection)
-- Clarity & Message-Market Fit (the "Now you can" test, Human Action Model, the Perception Gap, the SavvyCal case, clarity metrics)
+- Clarity & Message-Market Fit (the "Now you can" test, Human Action Model, the Perception Gap, the SavvyCal case)
 
 ## Headline Formulas
 
@@ -419,15 +419,8 @@ That one line **roughly tripled (3×) conversions**. It works because it hits al
 
 The lesson: message-market fit beats feature lists. The winning line wasn't cleverer — it named a real feeling the reader hadn't heard a scheduling tool acknowledge before. Run your own hero through "Now you can…" and the Human Action Model to find that line.
 
-### Clarity Beats Cleverness (the metrics)
+### Clarity Beats Cleverness
 
-When teams measure it, clarity — not wit — is what moves the numbers. Clearer positioning and copy is associated with:
-
-- **+81% conversions**
-- **−38% sales cycle** (shorter time to close)
-- **−28% CAC** (lower customer acquisition cost)
-- **+175% referrals**
-
-The mechanism: clear copy lets the *right* buyer self-qualify fast and the wrong one bounce early, so every downstream metric improves. Clever copy that requires decoding does the opposite — it adds a comprehension tax at the exact moment attention is scarcest.
+Clarity, not wit, is what moves the numbers. The mechanism: clear copy lets the *right* buyer self-qualify fast and the wrong one bounce early, so every downstream metric improves. Clever copy that requires decoding does the opposite — it adds a comprehension tax at the exact moment attention is scarcest.
 
 **Practical rule:** if a reader has to pause to figure out what you mean, you've already lost. When forced to choose between a clever line and a clear one, ship the clear one — then use the tests above ("Now you can…", the Human Action Model, the Perception Gap) to make the clear line compelling too.

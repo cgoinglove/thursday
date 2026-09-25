@@ -111,6 +111,18 @@ async function resolveGoogle(links) {
   return found ?? {};
 }
 
+/**
+ * Words in a line of any script, by Unicode's word breaks: a byline, a caption or a button has
+ * a few, a paragraph of the story more. Counted in characters, a Korean, Japanese or Chinese
+ * paragraph of two sentences weighs what an English byline does.
+ */
+const WORDS = new Intl.Segmenter(undefined, { granularity: "word" });
+const wordsIn = (text) => {
+  let count = 0;
+  for (const piece of WORDS.segment(text)) if (piece.isWordLike) count++;
+  return count;
+};
+
 /** The article's own opening, from its paragraphs: past the navigation, before the footer. */
 function leadOf(html) {
   const body = html.match(/<article\b[\s\S]*?<\/article>/i)?.[0] ?? html;
@@ -119,7 +131,7 @@ function leadOf(html) {
   for (const m of body.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)) {
     const text = plain(m[1]);
     // Bylines, captions and buttons are short; a paragraph of the story is not
-    if (text.length < 60) continue;
+    if (wordsIn(text) < 10) continue;
     paras.push(text);
     size += text.length;
     if (size > LEAD_CHARS) break;

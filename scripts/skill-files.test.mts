@@ -342,3 +342,63 @@ test("an uploaded archive is refused when it would unpack past the caps, before 
     ["SKILL.md", "references", "references/a.md"],
   );
 });
+
+test("a long recording's transcripts join with the times the transcribe tool wrote", async () => {
+  const { transcriptFile } = await import(
+    "../features/ai/tools/studio.tool.ts"
+  );
+  const { execFileSync, spawnSync } = await import("node:child_process");
+  const { readFile } = await import("node:fs/promises");
+  const dir = join(home, "recording");
+  await mkdir(dir, { recursive: true });
+  const manifest = join(dir, "talk.pieces.json");
+  await writeFile(
+    manifest,
+    JSON.stringify({
+      source: "talk.m4a",
+      name: "talk",
+      seconds: 1200,
+      pieces: [
+        { file: "talk-000.mp3", start: 0, seconds: 600 },
+        { file: "talk-001.mp3", start: 600, seconds: 600 },
+      ],
+    }),
+  );
+  const first = join(dir, "a.md");
+  const second = join(dir, "b.md");
+  await writeFile(
+    first,
+    transcriptFile("talk-000", "First words.", [
+      { startSecond: 5, text: "First words." },
+    ]),
+  );
+  await writeFile(
+    second,
+    transcriptFile("talk-001", "Second piece.", [
+      { startSecond: 3, text: " Second piece. " },
+    ]),
+  );
+  const script = join(APP_DIR, "skills/media-digest/scripts/audio.mjs");
+  execFileSync("node", [script, "join", manifest, first, second], {
+    cwd: home,
+  });
+  const joined = await readFile(join(dir, "talk.txt"), "utf8");
+  assert.match(joined, /\[0:05\] First words\./);
+  // The second piece's times count from where it starts in the whole
+  assert.match(joined, /\[10:03\] Second piece\./);
+
+  // A timeline it cannot read stops, rather than timing every line by guess
+  await writeFile(
+    second,
+    "# talk-001\n\nSecond piece.\n\n## Timeline\n\n00:03 - Second piece.\n",
+  );
+  const refused = spawnSync("node", [script, "join", manifest, first, second], {
+    cwd: home,
+    encoding: "utf8",
+  });
+  assert.notEqual(refused.status, 0);
+  assert.match(
+    refused.stdout + refused.stderr,
+    /timeline in a shape this script does not read/,
+  );
+});

@@ -1,6 +1,6 @@
 ---
 name: media-digest
-description: "Reads anything long — a video, podcast, talk, article or PDF — and hands it back short. Use it when the user points at one and asks what is in it, or which videos on a topic are worth watching."
+description: "Reads anything long — a video, podcast, talk, article, PDF or a recording of their own — and hands it back short. Use it when the user points at one and asks what is in it, wants a meeting or lecture they recorded written up, or asks which videos on a topic are worth watching."
 ---
 
 # Media digest
@@ -34,4 +34,6 @@ YouTube is read with yt-dlp, which the first `yt.mjs` or `audio.mjs` call fetche
 `projects/` once (~50 MB); after that a video takes a few seconds.
 
 `references/page.md` is the page's JSON and how an answer is shaped; `references/no-captions.md`
-is a video or podcast with no transcript.
+is a video, podcast or recording with no transcript. A meeting or lecture they recorded is written
+up as notes — what was decided, who does what and by when, each point with its `[m:ss]` — in the
+artifact skill's `templates/document/notes.md`, not as a digest page.
