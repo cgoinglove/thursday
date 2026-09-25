@@ -6,14 +6,13 @@ import {
   toUIMessageStream,
   validateUIMessages,
 } from "ai";
-import { ZodError, z } from "zod";
+import { z } from "zod";
 import { MEMORY_EDIT } from "@/config";
 import { loadTools } from "@/features/ai/load-tools";
 import { getTextModel, modelErrorToString } from "@/features/ai/model";
 import { textModelRefSchema } from "@/features/ai/model.schema";
 import { loadMemoryEditPrompt } from "@/features/ai/prompts/memory-edit.prompt";
-import { logger } from "@/lib/logger";
-import { isPublicError } from "@/lib/public-error";
+import { startError } from "@/lib/protocol/to-result";
 
 /**
  * Editing memory from its own screen: one request, one streamed run. The model
@@ -36,7 +35,7 @@ export async function streamMemoryEdit(
     run = await prepare(body);
   } catch (cause) {
     // Nothing has streamed yet, so this text is what the page shows as the error
-    const { status, message } = startError(cause);
+    const { status, message } = startError(cause, "Could not start the edit");
     return new Response(message, { status });
   }
 
@@ -77,17 +76,4 @@ async function prepare(body: unknown) {
     tools,
     messages: await convertToModelMessages(ui),
   };
-}
-
-/** The route boundary's policy (protocol/to-result), for a response that is not a Result. */
-function startError(cause: unknown): { status: number; message: string } {
-  if (isPublicError(cause)) return { status: 400, message: cause.message };
-  if (cause instanceof ZodError) {
-    return {
-      status: 400,
-      message: cause.issues[0]?.message ?? "That request does not fit",
-    };
-  }
-  logger.error(cause);
-  return { status: 500, message: "Could not start the edit" };
 }

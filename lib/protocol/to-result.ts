@@ -24,3 +24,23 @@ export async function toResult(
     return result.error();
   }
 }
+
+/**
+ * The same policy for a streamed route that failed before its first byte, where no Result
+ * reaches the page: the status and text the page shows as the error. `fallback` is what a
+ * masked failure says.
+ */
+export function startError(
+  cause: unknown,
+  fallback: string,
+): { status: number; message: string } {
+  if (isPublicError(cause)) return { status: 400, message: cause.message };
+  if (cause instanceof ZodError) {
+    return {
+      status: 400,
+      message: cause.issues[0]?.message ?? "That request does not fit",
+    };
+  }
+  logger.error(cause);
+  return { status: 500, message: fallback };
+}

@@ -12,7 +12,7 @@ import {
   type UIMessageChunk,
   validateUIMessages,
 } from "ai";
-import { ZodError, z } from "zod";
+import { z } from "zod";
 import { TEXT_CALL } from "@/config";
 import { LIVE_PROVIDER, type LiveSettings } from "@/features/ai/live.schema";
 import { loadTools } from "@/features/ai/load-tools";
@@ -28,7 +28,8 @@ import { EXA_API_KEY } from "@/features/config/config.const";
 import { readConfig } from "@/features/config/config.query";
 import { acceptedReasoning, wantedReasoning } from "@/lib/live/live.server";
 import { logger } from "@/lib/logger";
-import { isPublicError, publicError } from "@/lib/public-error";
+import { startError } from "@/lib/protocol/to-result";
+import { publicError } from "@/lib/public-error";
 import {
   insertCall,
   nextTurnSeq,
@@ -160,7 +161,7 @@ export async function streamTextCall(
   } catch (cause) {
     close();
     // Nothing has streamed yet, so this text is what the page shows as the error
-    const { status, message } = startError(cause);
+    const { status, message } = startError(cause, "Could not reach her");
     return new Response(message, { status });
   }
 
@@ -565,16 +566,3 @@ const wordsOf = (message: UIMessage) =>
     .flatMap((part) => (part.type === "text" ? part.text : []))
     .join("\n")
     .trim();
-
-/** The route boundary's policy (protocol/to-result), for a response that is not a Result. */
-function startError(cause: unknown): { status: number; message: string } {
-  if (isPublicError(cause)) return { status: 400, message: cause.message };
-  if (cause instanceof ZodError) {
-    return {
-      status: 400,
-      message: cause.issues[0]?.message ?? "That request does not fit",
-    };
-  }
-  logger.error(cause);
-  return { status: 500, message: "Could not reach her" };
-}
