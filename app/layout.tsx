@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: APP_NAME,
-  description: `The "${APP_NAME}" is a voice agent that can help you with your daily tasks.`,
+  description: `${APP_NAME} is a voice agent that runs on your own computer and hands the slow work to bots.`,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
