@@ -132,7 +132,7 @@ const { findThread, findThreadView, upsertMessage, lastSeq } = await import(
 );
 const { resumeTranscript } = await import("../features/bot/bot.run.ts");
 const { asWords } = await import("../features/ai/words.ts");
-const { botBrowserSession } = await import(
+const { botArtifacts, botBrowserSession, WORKSPACE } = await import(
   "../features/workspace/workspace.ts"
 );
 const { TOOL_NAMES: T } = await import("../features/ai/tools/tool-name.ts");
@@ -630,6 +630,30 @@ test("words to a bot already on a call join it, and committed sends deduplicate"
     /no longer running/,
   );
   assert.equal((await listRoomWork(thread.id)).length, 3);
+});
+
+test("a kit script run from outside the workspace still delivers to the bot's own folder", async () => {
+  const whole = join(WORKSPACE, botArtifacts("Alpha"));
+  plans.set("Alpha", [
+    () =>
+      call(T.bash, {
+        // The artifact kit's own resolution, loaded as its scripts load it
+        command: `cd "$(mktemp -d)" && node --input-type=module -e 'const { ARTIFACTS } = await import(process.env.THURSDAY_SKILLS + "/artifact/runtime/shell/workspace.mjs"); console.log("ARTIFACTS=" + ARTIFACTS)'`,
+        description: "Ask the kit where it delivers.",
+      }),
+    (prompt) => {
+      // Up to the output's escaped newline; the command's own quoted text never matches
+      assert.equal(prompt.match(/ARTIFACTS=([^\\"]+)/)?.[1], whole);
+      return text("Delivered where it belongs.");
+    },
+  ]);
+  const id = await startThread({
+    bot: "Alpha",
+    request: "Where does a page go",
+    label: "Kit folder",
+    from: "user",
+  });
+  await waitFor(id, "done");
 });
 
 test("Step in is durable and reaches a running B before its next step", async () => {

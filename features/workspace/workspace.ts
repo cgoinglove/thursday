@@ -219,8 +219,10 @@ export const jobShellEnv = (
 export const botShellEnv = (bot: string): Record<string, string> => ({
   // Who is writing: the head a page wears when it is opened names them (skills/artifact/runtime/shell)
   THURSDAY_BOT: bot,
-  // Where a script delivers a file (skills/artifact scripts/document.mjs)
-  THURSDAY_ARTIFACTS: botArtifacts(bot),
+  // Where a script delivers a file (skills/artifact scripts/document.mjs), whole: a script
+  // resolves it against the workspace it finds above the folder it runs in, and run outside
+  // the workspace it finds none and would write under that folder instead
+  THURSDAY_ARTIFACTS: join(WORKSPACE, botArtifacts(bot)),
   // The shipped skills: a kit script in a bot's folder imports the shared ones from here
   THURSDAY_SKILLS: join(APP_DIR, PATHS.skills.default),
   // How much of one command's output the bot sees: a script that splits a long file into
