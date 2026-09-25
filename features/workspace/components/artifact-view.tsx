@@ -19,11 +19,7 @@ import {
   useBotThreads,
 } from "@/features/bot/thread.store";
 import { FileThumb } from "@/features/workspace/components/file-thumb";
-import {
-  opensOnFinish,
-  pathsIn,
-  viewKindOf,
-} from "@/features/workspace/file-kind";
+import { leadFirst, pathsIn, viewKindOf } from "@/features/workspace/file-kind";
 import { toDate } from "@/lib/date-like";
 import { unwrapResult } from "@/lib/protocol/result";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
@@ -149,15 +145,12 @@ export function askToNotify() {
 
 /** A finished job as a card, read off its row when no event brought it: after a reload. */
 function cardOf(thread: ThreadView): Finished {
-  const files = pathsIn(thread.outcome ?? "");
-  const lead = files.findIndex(opensOnFinish);
   return {
     threadId: thread.id,
     label: thread.label,
     bot: thread.bot.name,
     words: plainText(thread.outcome ?? "").slice(0, FINISHED_NOTICE.words),
-    paths:
-      lead > 0 ? [files[lead], ...files.filter((_, at) => at !== lead)] : files,
+    paths: leadFirst(pathsIn(thread.outcome ?? "")),
   };
 }
 

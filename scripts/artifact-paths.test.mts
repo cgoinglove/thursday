@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { decodePagePath, decodePath, queryKey } from "../app/api/query-key.ts";
-import { opensOnFinish, pathsIn } from "../features/workspace/file-kind.ts";
+import {
+  leadFirst,
+  opensOnFinish,
+  pathsIn,
+} from "../features/workspace/file-kind.ts";
 
 test("a finished job opens only a page among the finished work, never a data file or a bot's own", () => {
   const report =
@@ -13,6 +17,28 @@ test("a finished job opens only a page among the finished work, never a data fil
   assert.equal(opensOnFinish("artifacts/Analyst/report.html"), true);
   assert.equal(opensOnFinish("artifacts/Analyst/data.csv"), false);
   assert.equal(opensOnFinish("scratch/job/draft.md"), false);
+});
+
+test("a finished job's page leads its files, and the rest keep their order", () => {
+  assert.deepEqual(
+    leadFirst([
+      "artifacts/Mail/rows.json",
+      "artifacts/Mail/chart.png",
+      "artifacts/Mail/summary.md",
+      "artifacts/Mail/notes.md",
+    ]),
+    [
+      "artifacts/Mail/summary.md",
+      "artifacts/Mail/rows.json",
+      "artifacts/Mail/chart.png",
+      "artifacts/Mail/notes.md",
+    ],
+  );
+  const pageFirst = ["artifacts/Mail/summary.md", "artifacts/Mail/rows.json"];
+  assert.deepEqual(leadFirst(pageFirst), pageFirst);
+  const noPage = ["artifacts/Mail/rows.json", "bots/Mail/memory/inbox.md"];
+  assert.deepEqual(leadFirst(noPage), noPage);
+  assert.deepEqual(leadFirst([]), []);
 });
 
 test("viewer URLs round-trip Unicode, spaces and reserved filename characters", () => {

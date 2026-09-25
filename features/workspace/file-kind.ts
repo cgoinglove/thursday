@@ -188,3 +188,11 @@ export function pathsIn(text: string): string[] {
 export const opensOnFinish = (path: string): boolean =>
   path.startsWith(`${PATHS.artifacts}/`) &&
   ["md", "markdown", "html", "htm"].includes(extensionOf(path));
+
+/** A finished job's files with the one it leads with (opensOnFinish) first; the rest keep the order they were written in. */
+export function leadFirst(files: string[]): string[] {
+  const lead = files.findIndex(opensOnFinish);
+  return lead > 0
+    ? [files[lead], ...files.filter((_, at) => at !== lead)]
+    : files;
+}

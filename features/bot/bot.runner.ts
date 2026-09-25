@@ -5,7 +5,7 @@ import { BOT_RUN, FINISHED_NOTICE, WORKSPACE_KEEP } from "@/config";
 import { isProviderRefusal, modelErrorToString } from "@/features/ai/model";
 import { buildThreadOpening } from "@/features/ai/prompts/bot.prompt";
 import { isAnyCallLive } from "@/features/thursday/thursday.query";
-import { opensOnFinish, pathsIn } from "@/features/workspace/file-kind";
+import { leadFirst, pathsIn } from "@/features/workspace/file-kind";
 import {
   botBrowserSession,
   closeHiddenBrowser,
@@ -245,18 +245,14 @@ async function drive(work: RoomWork, signal: AbortSignal) {
     if (!presence.watching && !(await isAnyCallLive()))
       desktopNotify(thread.label, words);
     const files = await filesOnDisk(pathsIn(thread.outcome ?? ""), null);
-    // A page to read leads the notice; the rest follow in the order they were written.
-    const lead = files.findIndex(opensOnFinish);
     appEvents.emit({
       type: "finished",
       threadId: thread.id,
       label: thread.label,
       bot: thread.bot,
       words,
-      paths:
-        lead > 0
-          ? [files[lead], ...files.filter((_, at) => at !== lead)]
-          : files,
+      // A page to read leads the notice; the rest follow in the order they were written.
+      paths: leadFirst(files),
     });
   }
 }

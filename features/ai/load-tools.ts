@@ -311,7 +311,7 @@ function createThreadTools(callId: string | null | undefined): ToolSet {
         // What it made is what they asked to see: the file itself, in the app's
         // viewer. A thread that left no file opens as itself
         const { filesOnDisk } = await import("@/features/workspace/workspace");
-        const { opensOnFinish, pathsIn, viewKindOf } = await import(
+        const { leadFirst, pathsIn, viewKindOf } = await import(
           "@/features/workspace/file-kind"
         );
         // Only what the viewer draws: a file nothing here draws is passed over, and a
@@ -324,15 +324,12 @@ function createThreadTools(callId: string | null | undefined): ToolSet {
           appEvents.emit({ type: "showThread", threadId: one.id });
           return { label: one.label, showing: "the thread" };
         }
-        const lead = Math.max(0, files.findIndex(opensOnFinish));
-        appEvents.emit({
-          type: "showFile",
-          paths: [files[lead], ...files.filter((_, at) => at !== lead)],
-        });
+        const paths = leadFirst(files);
+        appEvents.emit({ type: "showFile", paths });
         // The result is in front of them: the same as having opened it themselves
         const { markSeen } = await import("@/features/bot/thread.query");
         await markSeen([one.id]);
-        return { label: one.label, showing: files[lead] };
+        return { label: one.label, showing: paths[0] };
       },
     }),
 
