@@ -1,6 +1,6 @@
 <div align="center">
 
-<a href="https://youtu.be/V7fBDY3cYRU">
+<a href="https://youtu.be/7XmsAtwQGjo">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/hero-dark.png">
     <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/hero-light.png" alt="Thursday — an open-source voice assistant on GPT-Live 1, with a team of AI bots: one has finished a page, another is searching the web" width="880">
@@ -16,7 +16,7 @@ Runs on your computer, on your own OpenAI key. You talk; bots take the slow work
 [![node](https://img.shields.io/node/v/thursday-agent?style=flat-square&color=111)](https://nodejs.org)
 [![discord](https://img.shields.io/badge/discord-join-111?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/Qmysdh9Fy8)
 
-[English](README.md) · [한국어](README.ko.md) · [▶ Watch the 90-second demo](https://youtu.be/V7fBDY3cYRU)
+[English](README.md) · [한국어](README.ko.md) · [▶ Watch the film](https://youtu.be/7XmsAtwQGjo) · [a real call](https://youtu.be/V7fBDY3cYRU)
 
 </div>
 
