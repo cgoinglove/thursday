@@ -530,10 +530,11 @@ export async function removeJobScratch(
   threadId: string,
   label: string,
 ): Promise<void> {
-  await rm(join(WORKSPACE, jobScratch(threadId, label)), {
-    recursive: true,
-    force: true,
-  }).catch(() => {});
+  const folder = jobScratch(threadId, label);
+  // `force` already passes over one that is gone; what reaches here is a real refusal
+  await rm(join(WORKSPACE, folder), { recursive: true, force: true }).catch(
+    (cause) => logger.warn(`job folder ${folder}: ${String(cause)}`),
+  );
 }
 
 /**
@@ -544,8 +545,9 @@ export async function removeJobScratch(
  * `artifacts/<bot>` stays: finished work is the user's, not the bot's.
  */
 export async function removeBotFolder(bot: string): Promise<void> {
-  await rm(join(WORKSPACE, botFolder(bot)), {
-    recursive: true,
-    force: true,
-  }).catch(() => {});
+  const folder = botFolder(bot);
+  // `force` already passes over one that is gone; what reaches here is a real refusal
+  await rm(join(WORKSPACE, folder), { recursive: true, force: true }).catch(
+    (cause) => logger.warn(`bot folder ${folder}: ${String(cause)}`),
+  );
 }
