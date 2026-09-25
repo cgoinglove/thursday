@@ -596,7 +596,9 @@ function SkillCreate({ onDone }: { onDone: () => void }) {
       return;
     }
     if (!file) return;
-    upload({ fileName: file.name, base64: await toBase64(file) });
+    const form = new FormData();
+    form.append("file", file);
+    upload(form);
   };
 
   const acceptFile = (list: FileList | null) => {
@@ -731,17 +733,4 @@ function SkillCreate({ onDone }: { onDone: () => void }) {
       {error && <p className="font-mono text-xs text-destructive">{error}</p>}
     </SettingDialogContent>
   );
-}
-
-/** Server action args travel as JSON, so the file goes as text. */
-function toBase64(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const url = reader.result as string;
-      resolve(url.slice(url.indexOf(",") + 1));
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
 }

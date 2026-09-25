@@ -103,9 +103,3 @@ export type SkillNode =
       size: number;
       description?: string;
     };
-
-/** Server action args travel as JSON, so file bytes go as base64. */
-export const SkillUploadSchema = z.object({
-  fileName: z.string().trim().min(1),
-  base64: z.string().min(1),
-});

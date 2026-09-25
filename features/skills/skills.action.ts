@@ -16,7 +16,6 @@ import {
   SkillDraftSchema,
   SkillNameSchema,
   SkillSourceSchema,
-  SkillUploadSchema,
 } from "@/features/skills/skills.schema";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
@@ -38,14 +37,17 @@ export const createSkillAction = serverAction(async (draft: unknown) => {
  * folder holding SKILL.md becomes the skill root; the skill's folder is named
  * after the front matter name reduced to a path segment, not after the file.
  */
-export const uploadSkillAction = serverAction(async (upload: unknown) => {
-  const { fileName, base64 } = SkillUploadSchema.parse(upload);
-  const bytes = Buffer.from(base64, "base64");
-  if (bytes.byteLength > SKILL_FILES.uploadBytes) {
+export const uploadSkillAction = serverAction(async (form: unknown) => {
+  const file = form instanceof FormData ? form.get("file") : null;
+  if (!(file instanceof File) || file.size === 0)
+    publicError("No file came with that");
+  if (file.size > SKILL_FILES.uploadBytes) {
     publicError(
       `File is larger than ${Math.round(SKILL_FILES.uploadBytes / 1024 / 1024)} MB`,
     );
   }
+  const fileName = file.name;
+  const bytes = Buffer.from(await file.arrayBuffer());
 
   const lower = fileName.toLowerCase();
   const files = new Map<string, Uint8Array | string>();
