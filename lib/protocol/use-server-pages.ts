@@ -7,6 +7,7 @@ import { useOnVisible } from "@/hooks/use-on-visible";
 import {
   fetchRoute,
   type KeyInput,
+  READ_DEFAULTS,
   registerPagedReader,
   resolveKey,
 } from "./use-server-route";
@@ -49,17 +50,13 @@ export function useServerPages<T>(options: {
         resolveKey(key(index, previous))) as never,
       fetchRoute as never,
       {
-        // Same defaults as one-shot reads (use-server-route READ_DEFAULTS).
-        // `revalidateOnMount` is false in swr/infinite, unlike plain useSWR:
+        // The same defaults as one-shot reads. Their `revalidateOnMount`
+        // matters here: swr/infinite leaves it false, unlike plain useSWR, and
         // without it a screen reopened over a warm cache reads nothing at all,
         // since `revalidateFirstPage` is off too. Together: opening re-reads
         // every loaded page, scrolling does not re-read page one, and
         // `mutate()` still forces all.
-        dedupingInterval: 500,
-        revalidateOnMount: true,
-        revalidateOnFocus: true,
-        revalidateOnReconnect: true,
-        focusThrottleInterval: 1000,
+        ...READ_DEFAULTS,
         revalidateFirstPage: false,
         ...options.swr,
       },

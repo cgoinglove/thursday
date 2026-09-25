@@ -100,7 +100,7 @@ export async function fetchRoute(key: string | RouteKey): Promise<unknown> {
  * (four of them share `queryKey.config`) and holds nothing back beyond that —
  * what makes a read stale is `revalidateIfStale`, which stays on.
  */
-const READ_DEFAULTS = {
+export const READ_DEFAULTS = {
   dedupingInterval: 500,
   revalidateOnMount: true,
   revalidateOnFocus: true,
