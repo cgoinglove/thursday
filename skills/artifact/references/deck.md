@@ -10,8 +10,10 @@ fill them well.
   never the topic ("Rent").
 - **One idea a slide.** A statement beats a list; three parallel points are `cards`; one number
   that carries the point is `number`; the same questions asked of several things are a `table`;
-  someone's own words are a `quote` with who said it. More than a slide holds is two slides — the
-  app never shrinks words to fit.
+  someone's own words are a `quote` with who said it; dates in order are a `timeline`; the way
+  things are beside the way they will be, or two options, are a `compare`, the side argued for on
+  the right; two to four figures that make one point together are `stats`. More than a slide holds
+  is two slides — the app never shrinks words to fit.
 - **Open with a `cover` and end with a `close`** that says what to do or remember, not "Thank you".
 - **Nothing invented.** A figure you were not given is a visible `[FIGURE]`; a number carries its
   source in the slide's footer.

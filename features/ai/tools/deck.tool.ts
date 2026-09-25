@@ -177,6 +177,61 @@ const close = z.object({
   notes,
 });
 
+const timeline = z.object({
+  layout: z.literal("timeline"),
+  title: words(90).describe("What the dates show together."),
+  steps: z
+    .array(
+      z.object({
+        when: words(24).describe(
+          "When, as you were given it: a date, a week, a phase.",
+        ),
+        title: words(60).describe("What happens then."),
+        text: words(120).nullish().describe("One line under it."),
+      }),
+    )
+    .min(2)
+    .max(5)
+    .describe("Two to five, in order, along one line."),
+  footer,
+  notes,
+});
+const compare = z.object({
+  layout: z.literal("compare"),
+  title: words(90).describe("What changes between the two, as a sentence."),
+  sides: z
+    .array(
+      z.object({
+        label: words(30).describe("Which side it is: Now, After, Option A."),
+        points: z.array(words(90)).min(1).max(4),
+      }),
+    )
+    .length(2)
+    .describe(
+      "The two, left then right; the right is set in the accent: the side the slide argues for.",
+    ),
+  footer,
+  notes,
+});
+const stats = z.object({
+  layout: z.literal("stats"),
+  title: words(90).describe("What the figures say together."),
+  stats: z
+    .array(
+      z.object({
+        value: words(12).describe(
+          "The figure as it reads: 1.4M, 62%, 6 hours. Only one you were given.",
+        ),
+        label: words(80).describe("What it counts, under it."),
+      }),
+    )
+    .min(2)
+    .max(4)
+    .describe("Two to four figures side by side."),
+  footer,
+  notes,
+});
+
 const slide = z.discriminatedUnion("layout", [
   cover,
   statement,
@@ -185,6 +240,9 @@ const slide = z.discriminatedUnion("layout", [
   table,
   quote,
   image,
+  timeline,
+  compare,
+  stats,
   close,
 ]);
 type Slide = z.infer<typeof slide>;

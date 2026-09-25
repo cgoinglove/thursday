@@ -69,6 +69,7 @@
   /** What each layout puts on its slide, and the class that lays it out (deck.css). */
   const LAYOUTS = {
     cover: (s) => [
+      maker(),
       s.eyebrow && el("p", "dk-eyebrow", s.eyebrow, "eyebrow"),
       el("h1", "dk-title", s.title, "title"),
       s.subtitle && el("p", "dk-sub", s.subtitle, "subtitle"),
@@ -146,6 +147,59 @@
       img.alt = s.alt ?? "";
       return [words, img];
     },
+    timeline: (s) => {
+      const line = el("ol", "dk-line");
+      (s.steps ?? []).forEach((step, i) => {
+        const one = el("li", "dk-when");
+        // A dot and the line on to the next one
+        const mark = el("div", "dk-mark");
+        mark.append(el("i", "dk-tick"), el("i", "dk-rule"));
+        one.append(
+          el("p", "dk-date", step.when, `steps.${i}.when`),
+          mark,
+          el("h3", "", step.title, `steps.${i}.title`),
+        );
+        if (step.text) one.append(el("p", "", step.text, `steps.${i}.text`));
+        line.append(one);
+      });
+      const body = el("div", "dk-body");
+      body.append(line);
+      return [el("h2", "dk-head", s.title, "title"), body];
+    },
+    compare: (s) => {
+      const row = el("div", "dk-row dk-sides");
+      (s.sides ?? []).forEach((side, i) => {
+        if (i === 1) {
+          const arrow = el("span", "dk-arrow", "→");
+          arrow.setAttribute("aria-hidden", "true");
+          row.append(arrow);
+        }
+        const box = el("div", i === 1 ? "dk-side dk-after" : "dk-side");
+        const list = el("ul");
+        (side.points ?? []).forEach((point, j) =>
+          list.append(el("li", "", point, `sides.${i}.points.${j}`)),
+        );
+        box.append(el("p", "dk-side-l", side.label, `sides.${i}.label`), list);
+        row.append(box);
+      });
+      const body = el("div", "dk-body");
+      body.append(row);
+      return [el("h2", "dk-head", s.title, "title"), body];
+    },
+    stats: (s) => {
+      const row = el("div", "dk-row dk-figures");
+      (s.stats ?? []).forEach((one, i) => {
+        const box = el("div", "dk-stat");
+        box.append(
+          el("p", "dk-stat-v", one.value, `stats.${i}.value`),
+          el("p", "dk-stat-l", one.label, `stats.${i}.label`),
+        );
+        row.append(box);
+      });
+      const body = el("div", "dk-body");
+      body.append(row);
+      return [el("h2", "dk-head", s.title, "title"), body];
+    },
     close: (s, section) => {
       section.classList.add("dk-dark");
       const steps = el("div", "dk-steps");
@@ -164,11 +218,29 @@
     },
   };
 
+  /**
+   * Who made the deck, on its cover: the face and name the page's head carries (shell
+   * wear.mjs), as they were when the deck was made. Nothing when no bot made it.
+   */
+  const maker = () => {
+    const who = document.querySelector(".sh-head .sh-who");
+    if (!who?.dataset.bot) return null;
+    const by = el("p", "dk-maker");
+    const face = who.querySelector(".sh-mark")?.cloneNode(true);
+    if (face) {
+      face.removeAttribute("width");
+      face.removeAttribute("height");
+      by.append(face);
+    }
+    by.append(document.createTextNode(who.dataset.bot));
+    return by;
+  };
+
   /** Hangul breaks between words, never inside one (deck.css :lang(ko)), so a slide in it says so. */
   const HANGUL = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/;
 
   /** One slide of the deck, drawn. A layout this page does not know is drawn as a statement. */
-  const draw = (s) => {
+  const draw = (s, at) => {
     const layout = LAYOUTS[s.layout] ? s.layout : "statement";
     const section = el("section", `dk-${layout}`);
     section.dataset.slide = "";
@@ -179,6 +251,9 @@
       section.classList.add("dk-footed");
       section.append(el("p", "dk-foot", s.footer, "footer"));
     }
+    // Where it stands in the deck, on every slide after the cover
+    if (at > 0 || layout !== "cover")
+      section.append(el("p", "dk-page", `${at + 1} / ${data.slides.length}`));
     return section;
   };
 

@@ -173,10 +173,45 @@ section[data-slide].dk-footed {
   text-overflow: ellipsis;
 }
 
+/* Where a slide stands in the deck, at the right of the band a footer uses */
+.dk-page {
+  position: absolute;
+  right: 128px;
+  bottom: 64px;
+  color: var(--dk-muted);
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+.dk-dark .dk-page {
+  color: var(--dk-on-accent-muted);
+}
+section[data-slide]:has(.dk-page) .dk-foot {
+  right: 300px;
+}
+/* Who made it, over the cover's title: the face and name the page's head carries */
+.dk-maker {
+  position: absolute;
+  top: 64px;
+  left: 128px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--dk-muted);
+  font-size: 24px;
+  font-weight: 600;
+}
+.dk-maker .sh-mark {
+  width: 32px;
+  height: 32px;
+}
+
 /* A content slide keeps its heading at the top margin, so it never hops between
    neighbours, and its body in the middle of what is left. */
 .dk-cards,
-.dk-table {
+.dk-table,
+.dk-timeline,
+.dk-compare,
+.dk-stats {
   justify-content: flex-start;
   gap: calc(56px * var(--dk-fit, 1));
 }
@@ -585,4 +620,132 @@ body.shot section[data-slide] {
 }
 @page {
   margin: 0;
+}
+
+/* A timeline: dates along one line, each with what happens then */
+.dk-line {
+  display: flex;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dk-when {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: calc(20px * var(--dk-fit, 1));
+  min-width: 0;
+}
+.dk-date {
+  color: var(--dk-accent);
+  font-family: var(--dk-head);
+  font-size: calc(44px * var(--dk-fit, 1));
+}
+/* A dot and the line on to the next dot; the last one has no line after it */
+.dk-mark {
+  display: flex;
+  align-items: center;
+}
+.dk-tick {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--dk-accent);
+}
+.dk-rule {
+  flex: 1;
+  height: 2px;
+  background: var(--dk-accent);
+}
+.dk-when:last-child .dk-rule {
+  visibility: hidden;
+}
+.dk-when > :not(.dk-mark) {
+  padding-right: 32px;
+}
+.dk-when h3 {
+  font-size: calc(40px * var(--dk-fit, 1));
+  font-weight: 600;
+  line-height: 1.2;
+}
+.dk-when p:not(.dk-date) {
+  color: var(--dk-muted);
+  font-size: calc(28px * var(--dk-fit, 1));
+  line-height: 1.5;
+}
+
+/* Two sides, the right one in the accent: what the slide argues for */
+.dk-sides {
+  align-items: stretch;
+}
+.dk-side {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: calc(24px * var(--dk-fit, 1));
+  min-width: 0;
+  padding: calc(48px * var(--dk-fit, 1));
+  border: 1px solid var(--dk-line);
+  border-radius: 16px;
+  background: var(--dk-card);
+}
+.dk-side.dk-after {
+  border-color: var(--dk-accent);
+  background: var(--dk-accent);
+  color: var(--dk-on-accent);
+}
+.dk-side-l {
+  color: var(--dk-muted);
+  font-size: calc(28px * var(--dk-fit, 1));
+  font-weight: 600;
+}
+.dk-after .dk-side-l {
+  color: var(--dk-on-accent-muted);
+}
+.dk-side ul {
+  display: flex;
+  flex-direction: column;
+  gap: calc(16px * var(--dk-fit, 1));
+  margin: 0;
+  padding-left: 1.1em;
+  font-size: calc(34px * var(--dk-fit, 1));
+  line-height: 1.35;
+}
+.dk-arrow {
+  align-self: center;
+  color: var(--dk-accent);
+  font-size: 56px;
+}
+
+/* Two to four figures side by side, each over what it counts */
+.dk-figures {
+  gap: 0;
+}
+.dk-stat {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: calc(16px * var(--dk-fit, 1));
+  min-width: 0;
+  padding: 0 48px;
+  border-left: 1px solid var(--dk-line);
+}
+.dk-stat:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.dk-stat-v {
+  color: var(--dk-accent);
+  font-size: calc(150px * var(--dk-fit, 1));
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.dk-stat-l {
+  color: var(--dk-muted);
+  font-size: calc(32px * var(--dk-fit, 1));
 }

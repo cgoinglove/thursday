@@ -64,6 +64,65 @@ test("a deck is refused by its schema before anything is written", () => {
     );
 });
 
+test("dates along a line, two sides compared and figures side by side are slides, within their bounds", () => {
+  const ok = [
+    {
+      layout: "timeline",
+      title: "What changes when",
+      steps: [
+        { when: "October", title: "A host on day one" },
+        {
+          when: "November",
+          title: "The first week's plan",
+          text: "Day by day",
+        },
+      ],
+    },
+    {
+      layout: "compare",
+      title: "The first week, now and after",
+      sides: [
+        { label: "Now", points: ["Nobody to ask"] },
+        { label: "After", points: ["A map of who knows what"] },
+      ],
+    },
+    {
+      layout: "stats",
+      title: "One day, six people",
+      stats: [
+        { value: "6 hours", label: "Friday" },
+        { value: "6", label: "people" },
+      ],
+    },
+  ];
+  assert.equal(
+    schema.safeParse({ deck: "d", title: "D", slides: ok }).success,
+    true,
+  );
+  for (const bad of [
+    {
+      layout: "timeline",
+      title: "One date",
+      steps: [{ when: "May", title: "x" }],
+    },
+    {
+      layout: "compare",
+      title: "Three sides",
+      sides: [1, 2, 3].map((n) => ({ label: `S${n}`, points: ["p"] })),
+    },
+    {
+      layout: "stats",
+      title: "One figure",
+      stats: [{ value: "1", label: "x" }],
+    },
+  ])
+    assert.equal(
+      schema.safeParse({ deck: "d", title: "D", slides: [bad] }).success,
+      false,
+      JSON.stringify(bad),
+    );
+});
+
 test("a new deck is its frame and its slides as data, with a revision to change it by", async () => {
   const said = await make({ deck: "Q3 review", title: "Q3", slides });
   const path = file("Q3-review");

@@ -231,11 +231,13 @@ was said about the options.
 
 Something to present, or to be walked through a step at a time, comes back as a **deck**. Any bot
 can make one: it writes what each slide says and picks its layout — a cover, one claim on its own,
-two to four cards side by side, one big figure, a table, a quote, a picture or a chart with a heading, a close
-with what happens next — and one of four palettes (green, blue, terracotta, or gold on black). The
+two to four cards side by side, one big figure or two to four side by side, a table, a quote, a
+picture or a chart with a heading, dates along a line, two sides compared, a close with what happens
+next — and one of four palettes (green, blue, terracotta, or gold on black). The
 app draws every slide, so each deck is laid out alike, and a slide that holds more words than fit
 has its type made smaller until they do; one that still does not fit is sent back to the bot to say
-less. Beside the deck sit a picture of every slide and one of all of them together. Slides are shown one at a time, fitted to the window, with every slide small in a strip at the
+less. Every slide after the cover carries its number, and the cover names the bot that made it with its
+face. Beside the deck sit a picture of every slide and one of all of them together. Slides are shown one at a time, fitted to the window, with every slide small in a strip at the
 foot — click one to jump to it, or fold the strip away. The bar at its top names who made it and holds the arrows and
 the count, Notes (what is said over the slide), full screen, Present, a theme button and **Export**
 (**Print · one slide a page**, **This slide as a picture**, **Download this file**). The arrow keys,
