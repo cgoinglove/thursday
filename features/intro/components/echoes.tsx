@@ -1,6 +1,7 @@
 "use client";
 
 import { type RefObject, useEffect, useRef } from "react";
+import { introMuted } from "@/features/intro/intro-voice";
 import {
   ALPHA_TOP,
   EMOJI_POOL,
@@ -47,6 +48,18 @@ const BEAT_JITTER = 0.12;
 /** How long a size takes to come in: the first comes out of nothing, the rest in a step. */
 const FIRST_IN = 1.2;
 const NEXT_IN = 0.35;
+/**
+ * What each beat sounds like, in BEAT's order (public/sounds/NOTICE): short, clean tones on one
+ * chord — a soft low hit and her glyphs crackling in as she comes out of nothing, a thump and a
+ * marimba note on each step down, higher each time, and as she lands, a quick run of chimes.
+ */
+const BEAT_SOUNDS = [
+  "/sounds/opening-rise.ogg",
+  "/sounds/opening-step-1.ogg",
+  "/sounds/opening-step-2.ogg",
+  "/sounds/opening-step-3.ogg",
+  "/sounds/opening-land.ogg",
+] as const;
 /** When the first run's hello goes up under her, seconds from the start. */
 const HELLO_AT = 4.7;
 /** Past the last beat by this much, the opening is over once nothing of it is left on screen. */
@@ -184,6 +197,20 @@ function sheet(glyphs: string[], dpr: number) {
 const still = () =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/** Takes a sound down to nothing over a moment, then stops it. */
+function fadeOut(audio: HTMLAudioElement, seconds = 0.4) {
+  if (audio.paused) return;
+  const from = audio.volume;
+  const t0 = performance.now();
+  const step = (now: number) => {
+    const p = Math.min(1, (now - t0) / 1000 / seconds);
+    audio.volume = from * (1 - p);
+    if (p < 1) requestAnimationFrame(step);
+    else audio.pause();
+  };
+  requestAnimationFrame(step);
+}
+
 /**
  * The first run's opening. She comes in larger than the screen and steps down to her own size on
  * an uneven beat; each size she was keeps only its rim, and the rim comes apart crumb by crumb,
@@ -239,6 +266,16 @@ export function Echoes({
     const beat = BEAT.map(
       (at, i) => at + (i > 0 ? (Math.random() - 0.5) * BEAT_JITTER : 0),
     );
+    // A browser plays nothing before the page has been clicked or typed in, and the opening starts
+    // as the page opens: until then its beats are silent, and the picture alone carries them.
+    const sounds = introMuted()
+      ? []
+      : BEAT_SOUNDS.map((src) => {
+          const audio = new Audio(src);
+          audio.preload = "auto";
+          return audio;
+        });
+    let sounded = 0;
     const seed = Math.random() * 50;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     // her emoji, or her letters where the system draws emoji in its own hand (face-glyphs)
@@ -523,6 +560,8 @@ export function Echoes({
       });
       ctx.globalAlpha = 1;
 
+      for (; sounded < sounds.length && T >= beat[sounded]; sounded++)
+        void sounds[sounded].play().catch(() => {});
       if (T >= beat[4]) say("arrive");
       if (T >= HELLO_AT) say("hello");
       if (T > beat[4] + LAST_CRUMB && lit === 0) {
@@ -536,6 +575,9 @@ export function Echoes({
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", lay);
+      // played through, the last beat rings out on its own under the first screen; cut short, what
+      // is sounding fades rather than stops mid-note
+      if (!said.done) for (const audio of sounds) fadeOut(audio);
     };
   }, [anchor]);
 

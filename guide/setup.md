@@ -3,11 +3,13 @@
 ## The first run
 
 The first time the app opens, she comes in larger than the screen and steps down to her own size,
-and opens her eyes there; when the system is set to reduce motion, she is simply there. Then it walks
+and opens her eyes there, with a soft beat on each step and a run of chimes as she lands; a browser
+keeps a page silent until it is clicked, so the opening is often seen without its sound. When the
+system is set to reduce motion, she is simply there. Then it walks
 through six steps on the call screen itself: a voice key, the microphone, which bots come along, what
 they think with, her style, and the first call. She talks
 through it in a recorded voice, in English, and says so first; her real voice starts with the first
-call. The speaker button at the top right mutes the recording, and stays muted the next time. Every
+call. The speaker button at the top right mutes the recording, and stays muted the next time, the opening's sounds with it. Every
 step can be passed and done later from the screens below. With a key the last button is **Call
 her**; without one it is **Look around**. It stops showing once a call has been placed, and adding
 `?intro` to the address brings it back.

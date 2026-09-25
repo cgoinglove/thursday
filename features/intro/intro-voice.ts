@@ -62,6 +62,15 @@ const SILENT = new Array<number>(SPECTRUM_BANDS).fill(0);
 /** Where the choice is kept: someone who muted her once is not spoken to again. */
 const MUTED_KEY = "thursday.intro.muted";
 
+/** Whether she was muted on an earlier visit; the opening's sounds keep to it too (echoes.tsx). */
+export function introMuted() {
+  try {
+    return window.localStorage.getItem(MUTED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Plays her clips. The first one has to start inside a click (`say` from the handler): a
  * browser lets a page make sound only from there, and an element that has played once may
