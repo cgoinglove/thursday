@@ -881,3 +881,26 @@ test("a token given again for the same bot keeps whoever is let in, and another 
     JSON.stringify({ chat: "7", name: "Sam", bot: "789" }),
   );
 });
+
+test("a token written or removed from anywhere tells every open tab, and who is let in does not", async () => {
+  const { readConfig, removeConfig } = await import(
+    "../features/config/config.query.ts"
+  );
+  const { reachPersonKey } = await import("../features/reach/reach.schema.ts");
+  const token = (await readConfig(TELEGRAM_TOKEN_KEY)) ?? "";
+  const person = (await readConfig(reachPersonKey("telegram"))) ?? "";
+  const told: string[] = [];
+  const stop = appEvents.subscribe((event) => {
+    if (event.type === "config") told.push(event.type);
+  });
+  try {
+    // The same values back: the listener keeps its token and Sam stays let in
+    await removeConfig(TELEGRAM_TOKEN_KEY);
+    await writeConfig(TELEGRAM_TOKEN_KEY, token);
+    assert.equal(told.length, 2, "a Settings key signals on write and removal");
+    await writeConfig(reachPersonKey("telegram"), person);
+    assert.equal(told.length, 2, "a row Settings does not list stays quiet");
+  } finally {
+    stop();
+  }
+});

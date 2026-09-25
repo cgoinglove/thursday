@@ -523,7 +523,7 @@ export function useThursday(
       void revalidate(queryKey.mcp);
       void revalidate(queryKey.mcpTools);
     },
-    // A sign-in finished in its own window (ai/chatgpt): the key rows and the model picker both read it
+    // A key or sign-in changed, in another tab or a sign-in's own window: the key rows and the model picker both read it
     config: () => {
       void revalidate(queryKey.config);
       void revalidate(queryKey.llmModel);

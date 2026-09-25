@@ -21,7 +21,7 @@ export type AppEvent =
   | { type: "memory" }
   /** Signal: a server was registered, removed, synced, or finished OAuth. */
   | { type: "mcp" }
-  /** Signal: a sign-in was written away from the settings screen (ai/chatgpt's sign-in answer). */
+  /** Signal: a key, sign-in or pick that Settings lists was written or removed (config.query). */
   | { type: "config" }
   /** Signal: who may write from a phone changed, or someone is asking to (features/reach). */
   | { type: "reach" }

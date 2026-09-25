@@ -4,7 +4,6 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { type LanguageModel, wrapLanguageModel } from "ai";
 import { formatDistanceToNowStrict } from "date-fns";
 import { z } from "zod";
-import { appEvents } from "@/app/api/events/app-event.server";
 import { CHATGPT_SIGN_IN, CHATGPT_USAGE_HIGH } from "@/config";
 import { readConfig, writeConfig } from "@/features/config/config.query";
 import { logger } from "@/lib/logger";
@@ -202,9 +201,8 @@ async function answerCallback(
       code_verifier: flow.verifier,
       redirect_uri: REDIRECT_URI,
     });
+    // The screen that opened this page is waiting on it: the write signals it (config.query)
     await writeConfig(SIGN_IN_KEY, JSON.stringify(signIn));
-    // The screen that opened this page is waiting on it
-    appEvents.emit({ type: "config" });
     return {
       status: 200,
       title: "Signed in to ChatGPT",
