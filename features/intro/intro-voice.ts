@@ -35,7 +35,7 @@ export const INTRO_SPOKEN = {
   models:
     "Every bot runs on an A.I. model that you pick. Start small: a small one is fast and cheap, and you can move any bot up later. Your OpenAI key already covers it. A GPT subscription, or a Vercel key, opens up a lot more.",
   style:
-    "One more, and it's the fun one: who I am to you. There are ten of me, and the only difference is how I talk. Pick whoever sounds like someone you'd call — you can change your mind anytime.",
+    "One more, and it's the fun one: who I am to you. There are four of me, and the only difference is how I talk. Pick whoever sounds like someone you'd call — you can change your mind anytime.",
   call: "That's everything. Call me, tell me what to call you, and ask for one thing — anything you'd ask someone sitting next to you. From here on, it's my real voice. I'll show you the rest as we go.",
   asleep:
     "I still don't have a voice of my own, so no calls yet — but everything else works. Have a look around. When you have a key, tap me, and I'll take it from there.",

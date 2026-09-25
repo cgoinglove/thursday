@@ -53,6 +53,13 @@ export async function loadThursdayPrompt(options: {
   written?: boolean;
   /** Written from a phone: the call holds no `thread_show` (load-tools). */
   phone?: boolean;
+  /**
+   * The call this prompt is for, when its row already holds words (a call in writing, a
+   * phone). Its own turns are the conversation: read again under `## Earlier calls`, every
+   * turn after the first had the talk it was in handed back as the past, pushing the real
+   * earlier calls out of the 600 tokens they have.
+   */
+  callId?: string | null;
   /** The picked character, read only on a call in writing, where this is who talks. */
   persona?: string;
   /** Settings › Thursday › Style in their own words, read on the same terms as `persona`. */
@@ -70,7 +77,7 @@ export async function loadThursdayPrompt(options: {
       readNotes(MEMORY_ALWAYS_LISTED, { touch: false }),
       listConnectedToolNames(),
       listJobBots(),
-      listRecentTurns(RECENT_CALL.rows),
+      listRecentTurns(RECENT_CALL.rows, options.callId),
       readBotMemoryOn(),
     ]);
   // The jobs those calls opened, folded into the transcript below
@@ -113,7 +120,7 @@ export async function loadThursdayPrompt(options: {
 function result(): string {
   return `## Return the result
 
-Return the relevant facts, whether the task is complete, and what comes next — for work you handed over, who has it and whether it carries an earlier thread on or starts a new one — or the one question the user has to answer first. Use confirmed values from tool results and the notes above, and never invent a successful action. What you return is said aloud: keep it short and plain, and carry what they do not know yet — never a confirmation this conversation has already given them.`;
+Return the relevant facts, whether the task is complete, and what comes next — for work you handed over, who has it and whether it carries an earlier thread on or starts a new one — or the one question the user has to answer first. Use confirmed values from tool results and the notes above, and never invent a successful action. What you return is said aloud: keep it short and plain, and carry what they do not know yet — never a confirmation this conversation has already given them. When all the turn did was keep what they told you about themselves, return only that it was kept: the voice is already answering them.`;
 }
 
 /**
@@ -180,7 +187,7 @@ ${noteLines(
 
 Open a note before answering out of it; a topic not listed is one you know nothing about. A fact marked \`said\` came from a call.
 
-Keep what the user tells you as it comes up, with \`${TOOL_NAMES.memory_remember}\`, without waiting to be asked: what they actually said, never a guess, nothing they asked you not to keep, and from a bot's report only what it confirmed about them. What tells you most about them comes first: what they loved or could not stand and why — how they want you to talk goes under preferences — then what they are going through or working toward, good news, stories from their past and the people in their life, and last plain facts and tastes. A subject that is not on the listing gets a note of its own with \`${TOOL_NAMES.memory_create}\`, under one of the paths below.
+Keep what the user tells you as it comes up, with \`${TOOL_NAMES.memory_remember}\`, without waiting to be asked: what they actually said, never a guess, nothing they asked you not to keep, and from a bot's report only what it confirmed about them. What they say that bears on work already handed over is said to that thread as well (\`${TOOL_NAMES.thread_tell}\`). What tells you most about them comes first: what they loved or could not stand and why — how they want you to talk goes under preferences — then what they are going through or working toward, good news, stories from their past and the people in their life, and last plain facts and tastes. A subject that is not on the listing gets a note of its own with \`${TOOL_NAMES.memory_create}\`, under one of the paths below.
 
 **Keep memory clean as you write.** A fact that repeats, narrows or changes one already in the note replaces it, merged into one line, rather than sitting beside it. A later call finds a note only by its path and its line: give something new its own path below, and when a line no longer says what its note is about, \`${TOOL_NAMES.memory_describe}\` puts it right.
 
@@ -269,7 +276,7 @@ ${roster.map((bot) => `- **${bot.name}** — ${rosterLine(bot)}`).join("\n")}${
 
 **A bot can take on almost anything, and anything that takes more than a few seconds is a bot's**; a note, a look at a file or one command is yours. A bot has this computer, a real browser, the web, a shell to build what is missing and far more time than a call; it signs in where it has to and carries work to the end, so something you do not know how to do is work for a bot, not a no. Bots bring each other in, so work that spans several things is still one thread.${kept}
 
-**Work lives in threads.** A thread's bot remembers that thread and nothing else, so the same bot started on a new one begins from nothing. More about work already handed over — a correction, the next step once it finished, going on after it stopped — is said to that thread (\`${TOOL_NAMES.thread_tell}\`); only a request that stands on its own starts a new one (\`${TOOL_NAMES.thread_start}\`). The threads open as this call started come into the conversation at the start, and they move while you talk: \`${TOOL_NAMES.thread_status}\` reads them as they are now, before you answer about one or hand anything over. Ask the user which it is only when the request could be either. Write the request in the user's own words, with what it stands on — including how they told you they want work done — and nothing they did not say.
+**Work lives in threads.** A thread's bot remembers that thread and nothing else, so the same bot started on a new one begins from nothing. More about work already handed over — a correction, the next step once it finished, going on after it stopped — is said to that thread (\`${TOOL_NAMES.thread_tell}\`); only a request that stands on its own starts a new one (\`${TOOL_NAMES.thread_start}\`). The threads open as this call started come into the conversation at the start, and they move while you talk: \`${TOOL_NAMES.thread_status}\` reads them as they are now, before you answer about one or hand anything over. Ask the user which it is only when the request could be either. Write the request in the user's own words, with what it stands on — including how they told you they want work done — and nothing they did not say. When something the work needs is still missing, either ask the user yourself before handing it over or let the bot ask them — never both.
 
 **Work that should start by itself — every morning, every few hours — is a routine.** \`${TOOL_NAMES.routine}\` makes one from a bot, the work in the user's own words, and when; from then on it starts a thread for it each time without being asked, and the result reaches the user like any thread's. Ask once for whichever of those they left out, and read the ones that exist before making, changing or deleting one.
 

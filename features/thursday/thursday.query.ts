@@ -7,6 +7,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  ne,
   notInArray,
   sql,
 } from "drizzle-orm";
@@ -206,7 +207,11 @@ export type CallGroup = {
  * The most recent turns across calls, oldest call first and in spoken order.
  * `limit` counts turns, not calls; the caller trims to its token budget.
  */
-export async function listRecentTurns(limit: number): Promise<CallGroup[]> {
+export async function listRecentTurns(
+  limit: number,
+  /** The call being answered, left out: its own words are its conversation, not the past. */
+  besides?: string | null,
+): Promise<CallGroup[]> {
   const rows = await database
     .select({
       callId: callMessageTable.callId,
@@ -218,6 +223,7 @@ export async function listRecentTurns(limit: number): Promise<CallGroup[]> {
     })
     .from(callMessageTable)
     .innerJoin(callTable, eq(callMessageTable.callId, callTable.id))
+    .where(besides ? ne(callMessageTable.callId, besides) : undefined)
     .orderBy(desc(callTable.startedAt), desc(callMessageTable.seq))
     .limit(limit);
 

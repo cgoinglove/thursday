@@ -298,7 +298,7 @@ function ModelSection({
 }
 
 /**
- * Which character she is, and under it the user's own words when they want them. Ten of
+ * Which character she is, and under it the user's own words when they want them. Four of
  * them do not fit a card, so the row shows the one picked and the rest open over it; the
  * free field is behind a button because a style is what most people want and an empty box
  * asking for a personality is what nobody fills.

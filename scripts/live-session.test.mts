@@ -993,12 +993,12 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     assert.match(on.text, /Prefer brief replies/);
     assert.match(
       on.text,
-      /\n\n## Always\n\nBackchannel policy: Use moderate backchannels\. .*\n\nInterruption policy: Stop speaking when the user interrupts\. Listen to what they say\.\n\nSpeak the language the user is speaking, [^\n]+\n\nDelegation policy:\nBackend tools:\n- Ending the call: hangs up the line — only the backend can, so a hang-up they ask for is handed over, not answered\.\n(- [^\n]+\n){4}\nDelegate to the backend when:\n- The user wants the call to end\.\n(- [^\n]+\n)+\nDo not delegate to the backend when:\n(- [^\n]+\n)+\nDelegate before giving an answer that depends on backend work\. Do not guess the result while waiting\.\n\n## What you know about them\n/,
+      /\n\n## Always\n\nBackchannel policy: Use moderate backchannels\. .*\n\nInterruption policy: Stop speaking when the user interrupts\. Listen to what they say\.\n\nSpeak the language the user is speaking, [^\n]+\n\nDelegation policy:\nBackend tools:\n- Ending the call: hangs up the line — only the backend can, so a goodbye, or a hang-up they ask for, is handed over rather than answered\.\n(- [^\n]+\n){4}\nDelegate to the backend when:\n- They say goodbye or good night, in whatever words, or want the call to end\.\n(- [^\n]+\n)+\nDo not delegate to the backend when:\n- They say hello, [^\n]+\n(- [^\n]+\n)+\nDelegate before giving an answer that depends on backend work\. Do not guess the result while waiting\.\n\nWhat they tell you about themselves is handed over quietly: [^\n]+\n\n## What you know about them\n/,
     );
     // Who she is to talk to sits right under the identity, character only: no stamp, no rule
     assert.match(
       on.text,
-      /a name, not a day of the week\. \*\*Now\*\*: [^\n]+\n\nWhat they tell you is kept, [^\n]+\n\nWarm and quick to laugh\. [^\n]+\n\nWhen they hand you work, it is work: [^\n]+\n\n## Always\n/,
+      /a name, not a day of the week\. \*\*Now\*\*: [^\n]+\n\nWhat they tell you is kept, [^\n]+\n\nWarm and quick to laugh, [^\n]+\n\nYou are their friend, not their interviewer: [^\n]+\n\n## Always\n/,
     );
     assert.equal(on.text.includes("IMPORTANT"), false);
     assert.match(
@@ -1055,7 +1055,7 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     const written = await loadThursdayPrompt({ written: true });
     assert.match(
       written,
-      /\n\nWarm and quick to laugh\. [^\n]+\n\nWhen they hand you work, it is work: [^\n]+\n\n## Memory\n/,
+      /\n\nWarm and quick to laugh, [^\n]+\n\nYou are their friend, not their interviewer: [^\n]+\n\n## Memory\n/,
     );
     assert.match(
       backend,

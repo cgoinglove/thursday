@@ -124,7 +124,7 @@ Everything here but her face is in **Settings › Thursday**, and changes apply 
   circling.
 - **Voice**: the voice runs on GPT-Live 1, with 22 voices to pick from; clicking a name plays it.
   It is the one setting here a written call or a phone does not use.
-- **Style**: who she is to them — ten of them, and the only difference is how she talks. The row
+- **Style**: who she is to them — Bright, Calm, Straight or Rough, and the only difference is how she talks. The row
   shows the one she is on; opening it lists the rest with a line each. It never changes what she
   can do. Last in the list, **Your own** opens a box for saying it in their own words on top of
   the one picked — how she talks, how much she says — which wins wherever the two differ. What to

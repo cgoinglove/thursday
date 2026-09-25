@@ -448,6 +448,27 @@ test("words a broken turn never kept are kept with the next turn, once", async (
   ]);
 });
 
+test("a call in writing reads its own words as the conversation, never again as an earlier call", async () => {
+  const { callId } = await openTextCall();
+  const first = words("u-7", "the harbour at dawn");
+  steps.push(() => [{ type: "text", text: "Lovely." }]);
+  await pageTurn({ callId, turn: "turn-9", messages: [first] });
+  steps.push(() => [{ type: "text", text: "Sure." }]);
+  await pageTurn({
+    callId,
+    turn: "turn-10",
+    messages: [first, words("u-8", "and at night")],
+  });
+  const system = (
+    JSON.parse(prompts.at(-1) ?? "[]") as { role: string; content: unknown }[]
+  )
+    .filter((message) => message.role === "system")
+    .map((message) => String(message.content))
+    .join("\n");
+  assert.match(system, /## Memory/);
+  assert.doesNotMatch(system, /harbour at dawn/);
+});
+
 test("the last tab going closes the calls a tab held, never one the server holds for a phone", async () => {
   const page = (await openTextCall()).callId;
   const phone = (await openTextCall()).callId;
@@ -498,9 +519,9 @@ test("the kept settings take a browser's copy once, keep only what differs from 
   assert.equal((await readLiveSettings()).persona, "calm");
 
   // Sent whole, so a field left out goes back to its default rather than lingering
-  await writeLiveSettings(LiveSettingsSchema.parse({ persona: "hype" }));
+  await writeLiveSettings(LiveSettingsSchema.parse({ persona: "rough" }));
   const now = await readLiveSettings();
-  assert.equal(now.persona, "hype");
+  assert.equal(now.persona, "rough");
   assert.equal(now.voice, LIVE_DEFAULTS.voice);
   assert.equal(now.stylePrompt, "");
   // Switched off, which is the default: the row it had of its own must not switch it on
@@ -509,20 +530,20 @@ test("the kept settings take a browser's copy once, keep only what differs from 
   // Only what differs from the defaults is kept, so a default nobody picked moves with
   // the app when it changes — the backend model a release replaces, for one
   const kept2 = JSON.parse((await readConfig(THURSDAY_KEYS.settings)) ?? "{}");
-  assert.deepEqual(kept2, { persona: "hype" });
+  assert.deepEqual(kept2, { persona: "rough" });
   await writeLiveSettings(
     LiveSettingsSchema.parse({
-      persona: "hype",
+      persona: "rough",
       backendModel: "gpt-older-luna",
       reasoningEffort: null,
     }),
   );
   assert.deepEqual(
     JSON.parse((await readConfig(THURSDAY_KEYS.settings)) ?? "{}"),
-    { persona: "hype", backendModel: "gpt-older-luna", reasoningEffort: null },
+    { persona: "rough", backendModel: "gpt-older-luna", reasoningEffort: null },
   );
   // Picking the default again lets go of the old one
-  await writeLiveSettings(LiveSettingsSchema.parse({ persona: "hype" }));
+  await writeLiveSettings(LiveSettingsSchema.parse({ persona: "rough" }));
   assert.equal(
     (await readLiveSettings()).backendModel,
     LIVE_DEFAULTS.backendModel,
@@ -531,7 +552,7 @@ test("the kept settings take a browser's copy once, keep only what differs from 
   // A row already seeded with a browser's default backend reads as unpicked too
   await writeConfig(
     THURSDAY_KEYS.settings,
-    JSON.stringify({ persona: "hype", backendModel: "gpt-5.6-luna" }),
+    JSON.stringify({ persona: "rough", backendModel: "gpt-5.6-luna" }),
   );
   assert.equal(
     (await readLiveSettings()).backendModel,
@@ -545,6 +566,13 @@ test("the kept settings take a browser's copy once, keep only what differs from 
   const both = await readLiveSettings();
   assert.equal(both.stylePrompt, "Short answers.");
   assert.equal(both.webSearch, false);
-  assert.equal(both.persona, "hype");
+  assert.equal(both.persona, "rough");
   await assert.rejects(changeLiveSettings({ persona: "" }));
+
+  // A character since retired is read as the closest of the four, not reset to the default
+  await writeConfig(
+    THURSDAY_KEYS.settings,
+    JSON.stringify({ persona: "steady" }),
+  );
+  assert.equal((await readLiveSettings()).persona, "calm");
 });

@@ -93,7 +93,7 @@ const SAYS = {
   models:
     "Bots think with a model you choose. Start small: a small model is quick and costs little, and any bot can move up later. An OpenAI key already covers it; a GPT subscription or one Vercel key opens far more.",
   style:
-    "One more, and it is the fun one: who I am to you. Ten of them, and the only difference is how I talk — pick whoever sounds like someone you would call, and change your mind whenever you like.",
+    "One more, and it is the fun one: who I am to you. Four of them, and the only difference is how I talk — pick whoever sounds like someone you would call, and change your mind whenever you like.",
   call: "That is everything I need. Call me, tell me what to call you, and ask for one thing, anything you would ask a person at the next desk. I will show you the rest as we go.",
   asleep:
     "I still have no voice of my own, so there is no call yet, but everything else works. Look around; tap me whenever you have a key and I will take it from there.",
@@ -787,7 +787,7 @@ function BotsTurn({
 
 /**
  * Picking her character on the first run: one at a time, because a first run has the whole
- * screen and choosing who she is is the point of it. Settings holds the same ten in a
+ * screen and choosing who she is is the point of it. Settings holds the same four in a
  * popover, for changing it later (thursday-setting StylePicker).
  */
 function StyleTurn() {

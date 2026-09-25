@@ -2,7 +2,7 @@ import { z } from "zod";
 import { COMMON_VALIDATE } from "@/config";
 import { LIVE_BACKEND_MODEL } from "@/lib/live/live.schema";
 import { effortSchema, TEXT_MODEL_PROVIDERS } from "./model.schema";
-import { DEFAULT_PERSONA } from "./prompts/persona";
+import { DEFAULT_PERSONA, RETIRED_PERSONAS } from "./prompts/persona";
 
 export const LIVE_PROVIDER = {
   id: "openai",
@@ -131,7 +131,11 @@ export function migrateLiveSettings(value: unknown): Record<string, unknown> {
 
   const candidate: Record<keyof LiveSettings, unknown> = {
     voice: stored.voice ?? openai?.voice,
-    persona: stored.persona,
+    // A retired character is read as its successor, never dropped to the default
+    persona:
+      typeof stored.persona === "string"
+        ? (RETIRED_PERSONAS[stored.persona] ?? stored.persona)
+        : stored.persona,
     stylePrompt: stored.stylePrompt ?? stored.voicePrompt ?? systemPrompt,
     backendModel:
       backendModel === BROWSER_COPY_BACKEND ? undefined : backendModel,

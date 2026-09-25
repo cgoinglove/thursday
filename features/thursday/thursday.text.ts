@@ -376,6 +376,7 @@ async function loadRun(
     loadThursdayPrompt({
       backendPrompt: settings.backendPrompt,
       written: true,
+      callId,
       phone,
       persona: settings.persona,
       stylePrompt: settings.stylePrompt,
