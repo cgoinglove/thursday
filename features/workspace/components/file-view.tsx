@@ -13,7 +13,7 @@ import {
   useState,
 } from "react";
 import { queryKey } from "@/app/api/query-key";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Markdown } from "@/components/ui/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -676,21 +676,19 @@ function FileDialog({
             </>
           )}
           {path && (
-            // The one way out of the app, and it is pressed on purpose
-            <Button
-              variant="ghost"
-              size="icon-sm"
+            // The one way out of the app, and it is pressed on purpose: a link drawn as a
+            // button, so it is still announced as the link it is
+            <a
+              href={queryKey.fileView(path)}
+              target="_blank"
+              rel="noreferrer"
               aria-label="Open in a new tab"
-              render={
-                <a
-                  href={queryKey.fileView(path)}
-                  target="_blank"
-                  rel="noreferrer"
-                />
-              }
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "icon-sm" }),
+              )}
             >
               <ExternalLink />
-            </Button>
+            </a>
           )}
         </div>
 
