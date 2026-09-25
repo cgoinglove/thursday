@@ -20,11 +20,22 @@ type Alert = {
   description?: ReactNode;
 };
 
-const createContainer = () => {
+/**
+ * A root of its own on the body, for a dialog opened from outside React. `unmount`
+ * takes the root down and its node off the body.
+ */
+const mount = () => {
   const container = document.createElement("div");
   container.id = crypto.randomUUID();
   document.body.appendChild(container);
-  return container;
+  const root = createRoot(container);
+  return {
+    render: (node: ReactNode) => root.render(node),
+    unmount: () => {
+      root.unmount();
+      container.remove();
+    },
+  };
 };
 
 export const notify = {
@@ -36,14 +47,12 @@ export const notify = {
     className?: string;
   }) {
     return new Promise<void>((resolve) => {
-      const container = createContainer();
-      const root = createRoot(container);
+      const dialog = mount();
       const close = () => {
-        root.unmount();
-        container.remove();
+        dialog.unmount();
         resolve();
       };
-      root.render(
+      dialog.render(
         <Dialog open onOpenChange={close}>
           <DialogContent className={cn("px-0", className)}>
             <DialogHeader className="hidden">
@@ -58,14 +67,12 @@ export const notify = {
   },
   alert(alert: Alert & { okText?: ReactNode }) {
     return new Promise<void>((resolve) => {
-      const container = createContainer();
-      const root = createRoot(container);
+      const dialog = mount();
       const close = () => {
-        root.unmount();
-        container.remove();
+        dialog.unmount();
         resolve();
       };
-      root.render(
+      dialog.render(
         <Dialog open onOpenChange={close}>
           <DialogContent showCloseButton={false}>
             <DialogHeader>
@@ -108,15 +115,13 @@ export const notify = {
         resolve(false);
         return;
       }
-      const container = createContainer();
-      const root = createRoot(container);
+      const dialog = mount();
       let closed = false;
       const close = () => {
         if (closed) return;
         closed = true;
         confirm.signal?.removeEventListener("abort", taken);
-        root.unmount();
-        container.remove();
+        dialog.unmount();
       };
       const ok = () => {
         resolve(true);
@@ -157,7 +162,7 @@ export const notify = {
         );
       }
 
-      root.render(<Component />);
+      dialog.render(<Component />);
     });
   },
   prompt: (
@@ -170,12 +175,10 @@ export const notify = {
     },
   ) => {
     return new Promise<string>((resolve) => {
-      const container = createContainer();
-      const root = createRoot(container);
+      const dialog = mount();
 
       const close = (text: string = "") => {
-        root.unmount();
-        container.remove();
+        dialog.unmount();
         resolve(text);
       };
       const Component = () => {
@@ -233,7 +236,7 @@ export const notify = {
         );
       };
 
-      root.render(<Component />);
+      dialog.render(<Component />);
     });
   },
 };
