@@ -4,12 +4,14 @@ import { useEffect, useRef } from "react";
 import { ASCII_FACE } from "@/config";
 import { createVoiceFollower, SPECTRUM_BANDS } from "@/lib/live/live.tap";
 import {
+  ALPHA_TOP,
   EMOJI_POOL,
   emojiAlpha,
   emojiWeight,
   hash,
   LETTERS,
   LEVELS,
+  RAMP,
   smoothstep,
 } from "../ascii.const";
 import {
@@ -32,6 +34,7 @@ import {
   eyeState,
   inEye,
 } from "../eyes";
+import { faceGlyphs } from "../face-glyphs";
 import { type Wind, windAt } from "../field";
 import {
   createSmoke,
@@ -70,8 +73,8 @@ type AsciiOrbProps = {
   /** Side length (px). Everything scales with it; cell count scales with area. */
   size?: number;
   /**
-   * Ink (RGB) for a glyph with no colour of its own, where no colour emoji font is installed;
-   * emoji keep theirs. Changes ease in.
+   * Ink (RGB): her letters' colour where she is drawn in letters (face-glyphs.ts), and a glyph's
+   * with no colour of its own among emoji (no colour emoji font). Emoji keep theirs. Changes ease in.
    */
   color?: [number, number, number];
   /**
@@ -108,7 +111,8 @@ const emojiFont = (px: number, level: number, top: number) =>
 function warmEmoji(ctx: CanvasRenderingContext2D, px: number, cells: Cell[]) {
   if (cells.length === 0) return;
   const glyphs = new Set<string>(EMOJI_POOL);
-  for (const set of SETS) for (const glyph of set ?? []) glyphs.add(glyph);
+  for (const set of SETS)
+    for (const glyph of set.emoji ?? []) glyphs.add(glyph);
   const top = LEVELS - 1;
   const fonts: string[] = [];
   for (let lv = 1; lv <= top; lv++) fonts.push(emojiFont(px, lv, top));
@@ -378,10 +382,11 @@ const TRAIL_WEIGHT = 0.52;
  * eye follows a glyph's identity, so a field whose glyphs shuffle while its shape holds still is
  * read as television snow rather than as something moving. The motion comes from the field — a
  * cell also re-picks the moment its brightness moves two steps, which is most of what happens
- * while she speaks. The wave that leaves her face keeps a faster rate (ascii.const
+ * while she speaks. The wave that leaves her face keeps faster rates (ascii.const CHAR_RATE,
  * EMOJI_CHAR_RATE): it is over in two seconds and has no shape to hold.
  */
-export const CHURN = 0.264;
+export const CHURN_LETTERS = 0.4;
+export const CHURN_EMOJI = 0.264;
 
 /**
  * Between one opening of her eyes and the next she rests about this long, times a factor between
@@ -438,12 +443,12 @@ const WAKE_WASH_FOR = 2.9;
 
 /**
  * The glyph sets a cell can be drawn from: the washes' (wash.ts), then what her pieces give off
- * (expressions.ts), whose pool is PIECE_POOL past theirs. A null set is drawn in hers.
+ * (expressions.ts), whose pool is PIECE_POOL past theirs. A set with no emoji is drawn in hers.
  */
-const SETS: readonly (readonly string[] | null)[] = [
-  ...WASH_SETS,
-  ...PIECE_SETS,
-];
+const SETS: readonly {
+  letters: readonly string[];
+  emoji: readonly string[] | null;
+}[] = [...WASH_SETS, ...PIECE_SETS];
 const PIECE_POOL = WASH_SETS.length;
 
 /**
@@ -764,8 +769,8 @@ export function AsciiOrb({
   const cellsRef = useRef<Cell[]>([]);
   /** Cells bucketed by brightness level; reused every frame to avoid garbage */
   const bucketsRef = useRef<{
-    emoji: Int32Array[];
-    emojiN: Int32Array;
+    byLevel: Int32Array[];
+    inLevel: Int32Array;
     glyph: string[];
     fast: Float32Array;
     slow: Float32Array;
@@ -915,8 +920,11 @@ export function AsciiOrb({
 
     // bucketing by level keeps fillStyle changes to one per level
     bucketsRef.current = {
-      emoji: Array.from({ length: LEVELS }, () => new Int32Array(cells.length)),
-      emojiN: new Int32Array(LEVELS),
+      byLevel: Array.from(
+        { length: LEVELS },
+        () => new Int32Array(cells.length),
+      ),
+      inLevel: new Int32Array(LEVELS),
       glyph: new Array<string>(cells.length),
       // the phosphor: a cell takes a brighter value at once and decays from it, on two clocks —
       // a short one that carries the body and a long, weaker one that is the tail
@@ -943,7 +951,7 @@ export function AsciiOrb({
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      warmEmoji(ctx, GLYPH_PX, cells);
+      if (faceGlyphs() === "emoji") warmEmoji(ctx, GLYPH_PX, cells);
       ctxRef.current = ctx;
     }
 
@@ -995,6 +1003,9 @@ export function AsciiOrb({
   useEffect(() => {
     let raf = 0;
     const follower = createVoiceFollower();
+    // her emoji, or her letters where the system draws emoji in its own hand (face-glyphs)
+    const letters = faceGlyphs() === "letters";
+    const churn = letters ? CHURN_LETTERS : CHURN_EMOJI;
     const smoke = createSmoke();
     const expr = createExpression();
     /** Where she is read at the cell being drawn (smoke.ts Spot); one, reused cell to cell */
@@ -1040,7 +1051,7 @@ export function AsciiOrb({
         return;
       }
       const box = boxRef.current;
-      bk.emojiN.fill(0);
+      bk.inLevel.fill(0);
 
       // Live voice when available; without one a murmur keeps the orb alive (previews)
       let live: ArrayLike<number> | undefined = specRef.current?.();
@@ -1416,7 +1427,7 @@ export function AsciiOrb({
         // A glyph is kept until the cell's brightness has really moved, plus a slow churn of its
         // own. Re-picking on a fast clock at an unchanged brightness is what reads as television
         // snow rather than as something moving: the eye follows a glyph's identity.
-        const slot = (clock * CHURN + cell.seed * 7) | 0;
+        const slot = (clock * churn + cell.seed * 7) | 0;
         if (
           slot !== bk.turn[ci] ||
           level - bk.wasLevel[ci] >= 2 ||
@@ -1430,9 +1441,12 @@ export function AsciiOrb({
 
         // A washed cell keeps its brightness and its bucket — only where its glyph comes from
         // changes, so it is drawn at the same weight as everything around it.
-        const bag = (bk.pool[ci] ? SETS[bk.pool[ci] - 1] : null) ?? EMOJI_POOL;
+        const set = bk.pool[ci] ? SETS[bk.pool[ci] - 1] : null;
+        const bag = letters
+          ? (set?.letters ?? RAMP[level])
+          : (set?.emoji ?? EMOJI_POOL);
         bk.glyph[ci] = bag[((pick % bag.length) + bag.length) % bag.length];
-        bk.emoji[level][bk.emojiN[level]++] = ci;
+        bk.byLevel[level][bk.inLevel[level]++] = ci;
       }
 
       // draw bucketed by brightness level
@@ -1447,16 +1461,23 @@ export function AsciiOrb({
           (col.target[i] - col.cur[i]) * (1 - (1 - COLOR_EASE) ** steps);
       }
 
-      // the ink, for a glyph with no colour of its own (no colour emoji font)
+      // Letters take the ink and are shaded by alpha, not colour: darkening toward black only
+      // disappears on a dark background and inverts on a light one. Emoji keep their own colour
+      // (the ink is for a glyph with none, where no colour emoji font is installed), so alpha is
+      // all the shading they have, and alpha alone does not shade a shape (ascii.const
+      // emojiWeight): the dim end is drawn smaller too.
       ctx.fillStyle = `rgb(${col.cur[0] | 0},${col.cur[1] | 0},${col.cur[2] | 0})`;
-      // Emoji keep their own colour, so alpha is all the shading they have, and alpha alone does
-      // not shade a shape (ascii.const emojiWeight): the dim end is drawn smaller too.
+      if (letters) ctx.font = GLYPH_FONT(GLYPH_PX);
       for (let lv = 1; lv <= top; lv++) {
-        const n = bk.emojiN[lv];
+        const n = bk.inLevel[lv];
         if (n === 0) continue;
-        ctx.globalAlpha = emojiAlpha(lv, top);
-        ctx.font = emojiFont(GLYPH_PX, lv, top);
-        const idx = bk.emoji[lv];
+        if (letters) {
+          ctx.globalAlpha = ALPHA_TOP * (lv / top);
+        } else {
+          ctx.globalAlpha = emojiAlpha(lv, top);
+          ctx.font = emojiFont(GLYPH_PX, lv, top);
+        }
+        const idx = bk.byLevel[lv];
         for (let i = 0; i < n; i++) {
           const cell = cells[idx[i]];
           ctx.fillText(bk.glyph[idx[i]], cell.x, cell.y);

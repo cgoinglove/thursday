@@ -3,13 +3,17 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  ALPHA_TOP,
+  CHAR_RATE,
   EMOJI_CHAR_RATE,
   EMOJI_POOL,
   emojiAlpha,
   hash,
   LEVELS,
+  RAMP,
   smoothstep,
 } from "../ascii.const";
+import { faceGlyphs } from "../face-glyphs";
 import type { CallStatus } from "../thursday.schema";
 
 /** Grid step, px: her face's own. */
@@ -79,11 +83,11 @@ export function ConnectWave({ status }: { status: CallStatus }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const was = useRef(status);
   const [playing, setPlaying] = useState(false);
-  // Emoji are drawn as the screen loads: the first emoji a page draws is slow, and the
-  // moment a call picks up is the wrong moment for it
+  // Where she is drawn in emoji, they are drawn as the screen loads: the first emoji a page
+  // draws is slow, and the moment a call picks up is the wrong moment for it
   const emoji = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
-    emoji.current = sheet(EMOJI_POOL);
+    if (faceGlyphs() === "emoji") emoji.current = sheet(EMOJI_POOL);
   }, []);
 
   useEffect(() => {
@@ -155,9 +159,18 @@ export function ConnectWave({ status }: { status: CallStatus }) {
     element.width = w;
     element.height = h;
     const ctx = element.getContext("2d");
-    const emojis = emoji.current ?? sheet(EMOJI_POOL);
-    if (!ctx || !emojis) return;
+    const letters = faceGlyphs() === "letters";
+    const emojis = letters ? null : (emoji.current ?? sheet(EMOJI_POOL));
+    if (!ctx || (!letters && !emojis)) return;
+    if (letters) {
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = FONT;
+      // her ink is the page's foreground: black on light, white on dark
+      ctx.fillStyle = getComputedStyle(element).color;
+    }
     const top = LEVELS - 1;
+    const rate = letters ? CHAR_RATE : EMOJI_CHAR_RATE;
     const half = SLOT / 2;
 
     const t0 = performance.now();
@@ -188,20 +201,30 @@ export function ConnectWave({ status }: { status: CallStatus }) {
         }
         const level = Math.round(v * top);
         if (level < 1) continue;
-        const turn = Math.floor(t * EMOJI_CHAR_RATE + c.seed * 10);
-        // emoji keep their own colour, so only alpha varies, as on her face
-        ctx.globalAlpha = emojiAlpha(level, top);
-        const at = Math.floor(hash(c.seed * 97, turn) * EMOJI_POOL.length);
-        ctx.drawImage(
-          emojis,
-          at * SLOT,
-          0,
-          SLOT,
-          SLOT,
-          c.x - half,
-          c.y - half,
-          SLOT,
-          SLOT,
+        const turn = Math.floor(t * rate + c.seed * 10);
+        if (emojis) {
+          // emoji keep their own colour, so only alpha varies, as on her face
+          ctx.globalAlpha = emojiAlpha(level, top);
+          const at = Math.floor(hash(c.seed * 97, turn) * EMOJI_POOL.length);
+          ctx.drawImage(
+            emojis,
+            at * SLOT,
+            0,
+            SLOT,
+            SLOT,
+            c.x - half,
+            c.y - half,
+            SLOT,
+            SLOT,
+          );
+          continue;
+        }
+        ctx.globalAlpha = ALPHA_TOP * (level / top);
+        const set = RAMP[level];
+        ctx.fillText(
+          set[Math.floor(hash(c.seed * 131, turn) * set.length)],
+          c.x,
+          c.y,
         );
       }
       ctx.globalAlpha = 1;
@@ -222,7 +245,7 @@ export function ConnectWave({ status }: { status: CallStatus }) {
           <canvas
             ref={canvas}
             aria-hidden
-            className="pointer-events-none fixed inset-0 z-30 size-full"
+            className="pointer-events-none fixed inset-0 z-30 size-full text-foreground"
           />,
           document.body,
         )}

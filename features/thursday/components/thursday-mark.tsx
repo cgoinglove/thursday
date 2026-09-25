@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { EMOJI_POOL, hash } from "../ascii.const";
+import { EMOJI_POOL, hash, RAMP } from "../ascii.const";
+import { useFaceGlyphs } from "../face-glyphs";
 
 /**
  * Thursday wherever she is small: the room, a thread, the call log, the
@@ -82,10 +83,16 @@ function layoutOf(size: number) {
 }
 
 /** The glyph a cell holds at `t`. Each cell flips on its own beat, so the ball shimmers rather than blinks. */
-function glyphAt(cell: Cell, t: number) {
+function glyphAt(cell: Cell, t: number, emoji: boolean) {
   const turn = Math.floor((t + hash(cell.seed, 11) * FLIP_MS * 3) / FLIP_MS);
-  const from = Math.floor(hash(cell.seed, 17) * EMOJI_POOL.length);
-  return EMOJI_POOL[(from + turn * HUE_STRIDE) % EMOJI_POOL.length];
+  if (emoji) {
+    const from = Math.floor(hash(cell.seed, 17) * EMOJI_POOL.length);
+    return EMOJI_POOL[(from + turn * HUE_STRIDE) % EMOJI_POOL.length];
+  }
+  // denser letters toward the center, as the orb's brightness falls off to its rim
+  const level = Math.round(5 + 4 * Math.max(0, 1 - cell.r ** 2) ** 0.6);
+  const bag = RAMP[Math.min(RAMP.length - 1, level)];
+  return bag[Math.floor(hash(cell.seed, turn) * bag.length)] ?? " ";
 }
 
 /** One clock for every mounted mark. */
@@ -118,6 +125,8 @@ export function ThursdayMark({
   size?: number;
   className?: string;
 }) {
+  // her emoji or her letters, as the system has them (face-glyphs)
+  const emoji = useFaceGlyphs() === "emoji";
   const { cells, font } = layoutOf(size);
   // first frame is t=0 so server and client render the same picture
   const [t, setT] = useState(0);
@@ -133,7 +142,7 @@ export function ThursdayMark({
       width={size}
       height={size}
       className={className}
-      // a glyph with no colour of its own (no colour emoji font) follows the theme
+      // letters follow the theme; an unset fill paints black and vanishes in dark
       fill="currentColor"
       aria-hidden
     >
@@ -143,10 +152,15 @@ export function ThursdayMark({
           x={cell.x}
           y={cell.y}
           textAnchor="middle"
-          fontFamily='"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif'
+          fontFamily={
+            emoji
+              ? '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif'
+              : "ui-monospace, SFMono-Regular, Menlo, monospace"
+          }
+          fontWeight={emoji ? undefined : 700}
           fontSize={font}
         >
-          {glyphAt(cell, t)}
+          {glyphAt(cell, t, emoji)}
         </text>
       ))}
     </svg>

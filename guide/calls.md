@@ -107,18 +107,19 @@ opens in a new tab.
 
 Everything here but her face is in **Settings › Thursday**, and changes apply from the next call.
 
-- **Face**: she is drawn in emoji, and she looks the same for everyone: no setting changes her
-  face. At rest she is a face of smoke: it keeps moving inside her and drifts off her
-  edge on a wind that comes and goes. She opens her eyes as the app opens and again every
-  twenty seconds or so, waking one of three ways — a sigh of smoke, shaking off a crust of dust,
-  or turning round to face you — and before she closes them she does one thing: looks about,
-  winks, dozes off, her head goes round once, or she lets out a long breath of smoke that fills the
-  space around her. When her head turns, only her face turns; the smoke round her stays where it
-  is. While her eyes are open her smoke grows thick and far-reaching, and she closes them slowly,
-  looking down, as if falling asleep. That happens only while she is resting. She can spell a
-  short word: CALL while she rings, OK as finished work comes in, a goodbye as a call ends (BYE,
-  SEE YA, NIGHT and a few others, by the hour), and whatever she chooses to show. While she works
-  it is a single tail circling.
+- **Face**: on a Mac, iPhone or iPad she is drawn in Apple's emoji, and on every other system in
+  letters: other systems draw emoji in their own style, and letters are lighter to draw. No setting
+  changes her face. At rest she is a face of smoke: it keeps moving inside her and drifts off her
+  edge on a wind that comes and goes. She opens her eyes as the app opens and again every twenty
+  seconds or so, waking one of three ways — a sigh of smoke, shaking off a crust of dust, or turning
+  round to face you — and before she closes them she does one thing: looks about, winks, dozes off,
+  her head goes round once, or she lets out a long breath of smoke that fills the space around her.
+  When her head turns, only her face turns; the smoke round her stays where it is. While her eyes
+  are open her smoke grows thick and far-reaching, and she closes them slowly, looking down, as if
+  falling asleep. That happens only while she is resting. She can spell a short word: CALL while she
+  rings, OK as finished work comes in, a goodbye as a call ends (BYE, SEE YA, NIGHT and a few
+  others, by the hour), and whatever she chooses to show. While she works it is a single tail
+  circling.
 - **Voice**: the voice runs on GPT-Live 1, with 22 voices to pick from; clicking a name plays it.
   It is the one setting here a written call or a phone does not use.
 - **Style**: who she is to them — ten of them, and the only difference is how she talks. The row

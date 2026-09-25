@@ -17,15 +17,27 @@ const smoothstep = (a: number, b: number, x: number) => {
 };
 
 /**
- * What she washes to. Four sets, and the one she uses changes every time. They carry almost no
- * colour, so a face that is otherwise every colour there is goes grey, or lunar, or wet, for a few
- * seconds.
+ * What she washes to. Four sets, and the one she uses changes every time, each in her letters and
+ * in her emoji (face-glyphs.ts). The emoji carry almost no colour, so a face that is otherwise
+ * every colour there is goes grey, or lunar, or wet, for a few seconds.
  */
 export const WASH_SETS = [
-  ["🤍", "🖤", "⚪", "⚫", "☁️", "🦢", "🐧", "🐼", "🎱", "🕊️"],
-  ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘", "🌙", "🌚"],
-  ["❄️", "🫧", "💧", "🌊", "🧊", "🐳", "🐟", "🪸", "🌌", "🔮"],
-  ["🗿", "💬", "🖨️", "📀", "🗝️", "🧷", "📎", "🖇️", "🧮", "🔭"],
+  {
+    letters: ["0", "1", "7", "4", "9", "2", "8", "3", "5", "6"],
+    emoji: ["🤍", "🖤", "⚪", "⚫", "☁️", "🦢", "🐧", "🐼", "🎱", "🕊️"],
+  },
+  {
+    letters: ["/", "\\", "|", "_", "-", "~", "^", "<", ">", "="],
+    emoji: ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘", "🌙", "🌚"],
+  },
+  {
+    letters: ["(", ")", "[", "]", "{", "}", ":", ";", "*", "+"],
+    emoji: ["❄️", "🫧", "💧", "🌊", "🧊", "🐳", "🐟", "🪸", "🌌", "🔮"],
+  },
+  {
+    letters: [".", ",", "'", "`", ":", '"', ";", "·", "*", "^"],
+    emoji: ["🗿", "💬", "🖨️", "📀", "🗝️", "🧷", "📎", "🖇️", "🧮", "🔭"],
+  },
 ] as const;
 
 /**

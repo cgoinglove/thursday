@@ -2,20 +2,24 @@
 
 import { type RefObject, useEffect, useRef } from "react";
 import {
+  ALPHA_TOP,
   EMOJI_POOL,
   emojiAlpha,
   emojiWeight,
   hash,
   LEVELS,
+  RAMP,
   smoothstep,
 } from "@/features/thursday/ascii.const";
 import {
-  CHURN,
+  CHURN_EMOJI,
+  CHURN_LETTERS,
   DESIGN,
   GLYPH_FONT,
   REST_R,
   TRAIL_FAST,
 } from "@/features/thursday/components/ascii-orb";
+import { faceGlyphs } from "@/features/thursday/face-glyphs";
 import { windAt } from "@/features/thursday/field";
 import { createSmoke, restValue, stepSmoke } from "@/features/thursday/smoke";
 import { WASH_SETS } from "@/features/thursday/wash";
@@ -145,8 +149,8 @@ type Size = {
   pool: Int8Array;
   poolFor: Float32Array;
   /** Cells by level this frame, and their glyphs. */
-  emoji: Int32Array[];
-  emojiN: Int32Array;
+  byLevel: Int32Array[];
+  inLevel: Int32Array;
   glyph: string[];
   /** All of it has gone out. */
   over: boolean;
@@ -237,18 +241,22 @@ export function Echoes({
     );
     const seed = Math.random() * 50;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const emojis = sheet(
-      [
-        ...new Set([
-          ...EMOJI_POOL,
-          ...GONE_DARK.flat(),
-          ...GONE_LIGHT.flat(),
-          ...CARRIED.flatMap((set) => WASH_SETS[set - 1]),
-        ]),
-      ],
-      dpr,
-    );
-    if (!emojis) {
+    // her emoji, or her letters where the system draws emoji in its own hand (face-glyphs)
+    const letters = faceGlyphs() === "letters";
+    const emojis = letters
+      ? null
+      : sheet(
+          [
+            ...new Set([
+              ...EMOJI_POOL,
+              ...GONE_DARK.flat(),
+              ...GONE_LIGHT.flat(),
+              ...CARRIED.flatMap((set) => WASH_SETS[set - 1].emoji),
+            ]),
+          ],
+          dpr,
+        );
+    if (!letters && !emojis) {
       say("arrive");
       say("hello");
       say("done");
@@ -257,6 +265,10 @@ export function Echoes({
     const top = LEVELS - 1;
 
     let sizes: Size[] = [];
+    // Her letters' ink is the page's foreground, read again only when the theme turns or the canvas
+    // is laid out anew (which resets it): read every frame, it makes the page work out its styles
+    // while the first screen is animating in.
+    let inkFor: boolean | null = null;
     // her canvas's centre and size, measured off the box she stands in, and every size's grid on it
     const lay = () => {
       const w = window.innerWidth;
@@ -264,6 +276,9 @@ export function Echoes({
       element.width = Math.round(w * dpr);
       element.height = Math.round(h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      inkFor = null;
       const rect = box.getBoundingClientRect();
       const bleed =
         Number.parseFloat(
@@ -327,8 +342,8 @@ export function Echoes({
           pick: new Int32Array(count),
           pool: new Int8Array(count),
           poolFor: new Float32Array(count),
-          emoji: Array.from({ length: top + 1 }, () => new Int32Array(count)),
-          emojiN: new Int32Array(top + 1),
+          byLevel: Array.from({ length: top + 1 }, () => new Int32Array(count)),
+          inLevel: new Int32Array(top + 1),
           glyph: new Array<string>(count),
           over: false,
         };
@@ -350,7 +365,12 @@ export function Echoes({
       const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
       last = now;
       clock += dt;
-      const gone = live.current.dark ? GONE_DARK : GONE_LIGHT;
+      const { dark: onDark } = live.current;
+      const gone = onDark ? GONE_DARK : GONE_LIGHT;
+      if (letters && inkFor !== onDark) {
+        inkFor = onDark;
+        ctx.fillStyle = getComputedStyle(element).color;
+      }
       // her smoke at rest and this frame's wind: every size leans as she does
       stepSmoke(smoke, clock, dt, 0, 0, -1);
       const wind = windAt(clock, windSeed);
@@ -372,7 +392,7 @@ export function Echoes({
         const left = age > 0.05;
         // her own noise, at a time of its own for each size, so no two sizes breathe together
         const at = clock + index * 31;
-        one.emojiN.fill(0);
+        one.inLevel.fill(0);
         let here = 0;
         const cells = one.cells;
         for (let ci = 0; ci < cells.length; ci++) {
@@ -442,7 +462,9 @@ export function Echoes({
           if (level === 0) continue;
           here++;
 
-          const slot = (clock * CHURN + cell.seed * 7) | 0;
+          const slot =
+            (clock * (letters ? CHURN_LETTERS : CHURN_EMOJI) + cell.seed * 7) |
+            0;
           if (
             slot !== one.turn[ci] ||
             level - one.wasLevel[ci] >= 2 ||
@@ -455,22 +477,33 @@ export function Echoes({
           const pick = one.pick[ci];
           const set = one.pool[ci] ? WASH_SETS[one.pool[ci] - 1] : null;
           // a size she has left goes to her whites; what carries a wash wears it
-          const bag = set ?? (left ? gone[level] : EMOJI_POOL);
+          const bag = letters
+            ? (set?.letters ?? RAMP[level])
+            : (set?.emoji ?? (left ? gone[level] : EMOJI_POOL));
           one.glyph[ci] = bag[pick % bag.length];
-          one.emoji[level][one.emojiN[level]++] = ci;
+          one.byLevel[level][one.inLevel[level]++] = ci;
         }
         lit += here;
         if (age > 1.45 && here === 0) one.over = true;
 
-        // drawn by level, as her face is: alpha for how bright, and the dim end smaller too
-        // (ascii.const emojiWeight)
+        // drawn by level, as her face is: alpha for how bright, and emoji at the dim end smaller
+        // too (ascii.const emojiWeight)
+        if (!emojis) ctx.font = GLYPH_FONT(one.px);
         for (let lv = 1; lv <= top; lv++) {
-          const n = one.emojiN[lv];
+          const n = one.inLevel[lv];
           if (n === 0) continue;
+          const idx = one.byLevel[lv];
+          if (!emojis) {
+            ctx.globalAlpha = ALPHA_TOP * (lv / top);
+            for (let i = 0; i < n; i++) {
+              const cell = cells[idx[i]];
+              ctx.fillText(one.glyph[idx[i]], cell.x, cell.y);
+            }
+            continue;
+          }
           ctx.globalAlpha = emojiAlpha(lv, top);
           const side =
             one.px * emojis.scale * (0.5 + emojiWeight(lv, top) * 0.5);
-          const idx = one.emoji[lv];
           for (let i = 0; i < n; i++) {
             const cell = cells[idx[i]];
             const at = emojis.at.get(one.glyph[idx[i]]) ?? 0;
@@ -510,7 +543,7 @@ export function Echoes({
     <canvas
       ref={canvas}
       aria-hidden
-      className="pointer-events-none absolute inset-0 size-full"
+      className="pointer-events-none absolute inset-0 size-full text-foreground"
     />
   );
 }

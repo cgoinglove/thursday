@@ -940,7 +940,8 @@ export const PROMPT_LINE = {
 };
 
 /**
- * Thursday's face, the one everybody sees: nothing in the app changes it. She is drawn in emoji.
+ * Thursday's face, the one everybody sees: nothing in the app changes it. She is drawn in Apple's
+ * emoji on Apple devices and in letters elsewhere (features/thursday/face-glyphs.ts).
  * - `fontSize`  glyph size in px. Smaller glyphs pack more cells into the same
  *            orb: a finer grain, and more to draw on every frame.
  * - `density`  cells per glyph pitch. Above 1 packs them tighter; below leaves
