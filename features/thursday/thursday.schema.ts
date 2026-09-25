@@ -1,3 +1,4 @@
+import type { UIMessage } from "ai";
 import z from "zod";
 import { TEXT_MODEL_PROVIDERS } from "@/features/ai/model.schema";
 import type { ThreadStatus } from "@/features/bot/bot.schema";
@@ -73,6 +74,23 @@ export const TextCallNoteSchema = z.object({
 export type TextCallNote = z.infer<typeof TextCallNoteSchema>;
 /** The data part a note rides in: `data-note`. */
 export const TEXT_CALL_NOTE = "note";
+
+/** The note a part carries, or null for any other part. */
+export const noteOf = (
+  part: UIMessage["parts"][number],
+): TextCallNote | null =>
+  part.type === `data-${TEXT_CALL_NOTE}`
+    ? (part as { data: TextCallNote }).data
+    : null;
+
+/** The notes messages carry, in order. */
+export const notesIn = (messages: UIMessage[]): TextCallNote[] =>
+  messages.flatMap((message) =>
+    message.parts.flatMap((part) => {
+      const note = noteOf(part);
+      return note ? [note] : [];
+    }),
+  );
 
 /**
  * Config keys (features/config config.query) the call's settings live under. Who she

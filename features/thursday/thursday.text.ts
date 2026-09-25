@@ -37,6 +37,8 @@ import {
   saveTurns,
 } from "./thursday.query";
 import {
+  noteOf,
+  notesIn,
   TEXT_CALL_NOTE,
   TEXT_CALL_PROVIDERS,
   type TextCallHandshake,
@@ -457,7 +459,7 @@ async function prepare({
   let at = seq;
   const answered = ui.findLastIndex((message) => message.role === "assistant");
   for (const sent of ui.slice(answered + 1)) {
-    for (const note of notesIn(sent))
+    for (const note of notesIn([sent]))
       if (note.said)
         await saveTurns(callId, [
           { id: note.id, role: "user", text: note.text, seq: at++ },
@@ -484,14 +486,6 @@ async function prepare({
   };
 }
 
-/** The notes a message carries (`data-note` parts), in order. */
-const notesIn = (message: UIMessage): TextCallNote[] =>
-  message.parts.flatMap((part) =>
-    part.type === `data-${TEXT_CALL_NOTE}`
-      ? [(part as { data: TextCallNote }).data]
-      : [],
-  );
-
 /**
  * Every note as a user message of its own, where it sits: ahead of the words it went out
  * with, or between the steps of her answer that read it. A data part left in place is
@@ -507,12 +501,12 @@ function spreadNotes(ui: UIMessage[]): UIMessage[] {
       parts = [];
     };
     for (const part of message.parts) {
-      if (part.type !== `data-${TEXT_CALL_NOTE}`) {
+      const note = noteOf(part);
+      if (!note) {
         parts.push(part);
         continue;
       }
       cut();
-      const note = (part as { data: TextCallNote }).data;
       out.push({
         id: note.id,
         role: "user",

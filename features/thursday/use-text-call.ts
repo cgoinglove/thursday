@@ -30,6 +30,8 @@ import {
 import {
   type CallMessage,
   type CallStatus,
+  noteOf,
+  notesIn,
   TEXT_CALL_NOTE,
   type TextCallHandshake,
   type TextCallNote,
@@ -95,17 +97,6 @@ const notePart = (note: TextCallNote) => ({
   id: note.id,
   data: note,
 });
-const noteOf = (part: UIMessage["parts"][number]): TextCallNote | null =>
-  part.type === `data-${TEXT_CALL_NOTE}`
-    ? (part as { data: TextCallNote }).data
-    : null;
-const notesIn = (messages: UIMessage[]): TextCallNote[] =>
-  messages.flatMap((message) =>
-    message.parts.flatMap((part) => {
-      const note = noteOf(part);
-      return note ? [note] : [];
-    }),
-  );
 
 export function useTextCall(): TextCall {
   const [line, setLine] = useState<(TextCallHandshake & { at: number }) | null>(
