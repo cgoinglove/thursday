@@ -385,6 +385,7 @@ async function loadRun(
       webSearch: settings.webSearch,
       readSkills: settings.readSkills,
       written: true,
+      model: ref,
       phone,
     }),
     readConfig(EXA_API_KEY),

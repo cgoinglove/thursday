@@ -2,6 +2,7 @@ import { asSchema, type ToolSet, tool } from "ai";
 import { formatDistanceToNowStrict } from "date-fns";
 import { CALL_EXEC_TIMEOUT_MS, IS_DEV } from "@/config";
 import { seesToolImages, type TextModel } from "@/features/ai/model";
+import type { TextModelRef } from "@/features/ai/model.schema";
 import { clockNow } from "@/features/ai/prompts/prompt-helper";
 import {
   createThreadRecallTool,
@@ -80,6 +81,11 @@ type ToolRun =
        * a turn back to the page mid-answer, so it holds none of the page's own tools.
        */
       written?: boolean;
+      /**
+       * What a call in writing runs on (thursday.text runsOnOf): any provider with a key, so
+       * whether a picture in a tool result reaches it is asked of the model (seesToolImages).
+       */
+      model?: TextModelRef | null;
       /**
        * Written from a phone (reach): no screen of theirs is in front of them, so the tool
        * that puts what a thread made on it is left out. What they ask to see goes with her
@@ -409,6 +415,9 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     const skills = run.readSkills
       ? createSkillTools({ sandbox, skills: await loadSkills(sandbox) })
       : {};
+    // A picture handed over in writing is one she can see where her model carries an image
+    // in a tool result; a spoken call answers the backend through the page, in text alone
+    const sees = Boolean(run.written && run.model && seesToolImages(run.model));
 
     return {
       ...memory,
@@ -430,10 +439,10 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
       ),
       // What starts by itself is the user's to set up, so only the call holds it
       ...createRoutineTools(),
-      // A picture handed over in writing is one she can see: a call in writing runs on
-      // providers that carry an image in a tool result, where a spoken one answers the
-      // backend through the page, in text alone
-      ...(run.written ? createLookTool() : callTools()),
+      // Absent for a model a picture would not reach, as for a bot
+      ...(sees ? createLookTool() : {}),
+      // The page's own tools, for a spoken call only: nothing hands a written turn back to it
+      ...(run.written ? {} : callTools()),
     };
   }
 
