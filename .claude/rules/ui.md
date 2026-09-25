@@ -1,5 +1,5 @@
 ---
-checked: 2026-09-24
+checked: 2026-09-25
 paths:
   - "{components,hooks}/**"
   - "app/globals.css"
@@ -41,6 +41,8 @@ is its domain's `components/*-badge.tsx`, which loads with the app: the nav draw
 - A field that saves itself commits on Enter or blur (`useDraft`) or on a pick, never per
   keystroke — a write per keystroke stores a half-typed value.
 - Deleting asks first, `notify.confirm({ destructive: true })` — one stray click destroys data.
+- A dialog that opens by itself to grant something starts on cancel, `notify.confirm({ cautious:
+  true })` — it opens over whatever is being typed, and the key already on its way answers it.
 
 ## Check
 No suite covers this area: serve a scratch copy (AGENTS.md, Running the app), look in both themes.
