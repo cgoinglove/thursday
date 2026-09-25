@@ -59,6 +59,8 @@ export type Chatter = {
   text: string;
   kind: ChatterKind;
   question?: boolean;
+  /** Only for a question to Thursday: the room question it opened (thread.query). */
+  questionId?: string;
   /** Only for kind `user`: the words landed between the bot's steps, so the user stepped in on a running turn. */
   steppedIn?: boolean;
   /** Only for kind `tool`. */
@@ -235,6 +237,7 @@ export function threadFromRow(row: Thread, bots?: Bot[]): ThreadView {
           text: line.text,
           kind: "ask",
           question: line.question,
+          questionId: line.questionId,
         });
         break;
       }

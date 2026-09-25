@@ -396,6 +396,8 @@ const ThreadLineSchema = z.discriminatedUnion("kind", [
     to: z.string(),
     text: z.string(),
     question: z.boolean().optional(),
+    /** The room question it opened (room.query messageKey), for a question to Thursday. */
+    questionId: z.string().optional(),
   }),
 ]);
 

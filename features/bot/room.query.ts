@@ -28,7 +28,11 @@ export type RoomWork = typeof work.$inferSelect;
 const changed = () => appEvents.emit({ type: "threads" });
 const terminal = (state: RoomWork["state"]) =>
   state === "done" || state === "cancelled";
-const messageKey = (threadId: string, bot: string, callId: string) =>
+/**
+ * The id of what one `send_message` call opened — its exchange, delivery and relay, and a
+ * question's id — from the call that sent it, so a thread line of that call names it too.
+ */
+export const messageKey = (threadId: string, bot: string, callId: string) =>
   `message:${createHash("sha256")
     .update(JSON.stringify([threadId, bot, callId]))
     .digest("hex")}`;

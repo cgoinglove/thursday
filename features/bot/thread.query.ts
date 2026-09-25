@@ -42,6 +42,7 @@ import {
   type TokenUsage,
   untagSpeaker,
 } from "./bot.schema";
+import { messageKey } from "./room.query";
 import { RESUME_CHECK, ROOM_THURSDAY } from "./room.schema";
 
 // Threads and their messages. Bots themselves (roster, pinned tools) are bot.query.
@@ -949,6 +950,16 @@ function linesOf(message: StoredMessage, addressee: string): ThreadLine[] {
           text: String(args.text ?? ""),
           // No kind is a message (room.schema RoomMessageSchema), never a question
           question: args.kind === "question",
+          // Named as the room names it, so the screen knows which one is still open
+          ...(args.kind === "question" && message.bot
+            ? {
+                questionId: messageKey(
+                  message.threadId,
+                  message.bot,
+                  part.toolCallId,
+                ),
+              }
+            : {}),
         });
       } else if (part.toolName === TOOL_NAMES.bash) {
         // Shell line: the command is the body, the model-written label sits above it

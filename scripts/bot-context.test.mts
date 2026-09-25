@@ -1961,6 +1961,44 @@ test("answer drafts remain separate for two questions from the same bot", async 
   assert.equal(threadDrafts.get("draft-room", "Alpha"), "A general message");
 });
 
+test("a question's line names the room question it opened, the same words asked twice apart", async () => {
+  plans.set("Alpha", [
+    () => ask("Thursday", "Continue?"),
+    () => ask("Thursday", "Continue?"),
+    () => text("Carried on twice"),
+  ]);
+  const id = await startThread({
+    bot: "Alpha",
+    request: "Ask twice",
+    label: "Asked twice",
+    from: "user",
+  });
+  await waitFor(id, "waiting");
+  const [first] = (await findThreadView(id))!.room!.questions;
+  await answerThread(id, "Yes", "user", "Alpha", first.id);
+  const until = Date.now() + 20_000;
+  let second = first;
+  while (second.id === first.id && Date.now() < until) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    second = (await findThreadView(id))!.room!.questions[0] ?? first;
+  }
+  assert.notEqual(second.id, first.id);
+  const asked = (await findThreadView(id))!.lines.filter(
+    (line) => line.kind === "ask" && line.question,
+  );
+  assert.deepEqual(
+    asked.map((line) =>
+      line.kind === "ask" ? [line.text, line.questionId] : [],
+    ),
+    [
+      ["Continue?", first.id],
+      ["Continue?", second.id],
+    ],
+  );
+  await answerThread(id, "Yes again", "user", "Alpha", second.id);
+  await waitFor(id, "done");
+});
+
 test("an answer written in several blocks is one result, the whole of the outcome", async () => {
   const { threadFromRow } = await import("../features/bot/thread.store.ts");
   const block = (id: string, value: string) => [

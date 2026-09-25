@@ -233,15 +233,11 @@ function State({ thread }: { thread: ThreadView }) {
 /**
  * The thread as it is drawn: without the questions still waiting on the user.
  * The reply sheet holds those (ThreadReply), and each joins the thread as a record
- * once answered. A room question is matched by who asked and what, since its ID
- * names the exchange rather than the thread line.
+ * once answered. A question's line names the room question it opened, so the same
+ * words asked twice keep the answered one on the record.
  */
 function withoutOpenQuestions(thread: ThreadView): ThreadView {
-  const open = new Set(
-    thread.room.questions.map(
-      (question) => `${question.bot}\n${question.text.trim()}`,
-    ),
-  );
+  const open = new Set(thread.room.questions.map((question) => question.id));
   if (!open.size) return thread;
   return {
     ...thread,
@@ -249,9 +245,8 @@ function withoutOpenQuestions(thread: ThreadView): ThreadView {
       (line) =>
         !(
           line.kind === "ask" &&
-          line.question &&
-          line.to?.name === THURSDAY.name &&
-          open.has(`${line.bot.name}\n${line.text.trim()}`)
+          line.questionId !== undefined &&
+          open.has(line.questionId)
         ),
     ),
   };
