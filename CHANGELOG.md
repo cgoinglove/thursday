@@ -1,5 +1,95 @@
 # Changelog
 
+## [0.16.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.15.0...thursday-agent-v0.16.0) (2026-09-25)
+
+
+### Features
+
+* **call:** a call she places sounds once, and the call sounds are Android's NFC sounds ([1088560](https://github.com/cgoinglove/thursday/commit/1088560fbd3117d36ac35af041299c5b08e0d7ac))
+* **call:** the mic's bars stay on the line while she works, and the answer-is-coming chip and its setting are gone ([efd93ce](https://github.com/cgoinglove/thursday/commit/efd93ceeb6c5af089efa77f739944f6f26bc80e9))
+* **connectors:** a server is connected by signing in or a pasted header, never a hand-registered OAuth app ([42fda81](https://github.com/cgoinglove/thursday/commit/42fda81ee24be9c66d1a0396d988d9e27efddaab))
+* **settings:** the settings list ends with a community group, Ask on Discord and GitHub ([b733722](https://github.com/cgoinglove/thursday/commit/b733722f9029f6e69b458c1fbd4851471225dd39))
+* **skills:** a chart can be drawn as a picture, so a deck, a board or a post can carry one ([2c13a51](https://github.com/cgoinglove/thursday/commit/2c13a516fb87494da488faf9527acbabdb9ae938))
+* **skills:** Settings › Skills shows each bot's own skills, and its editor never saves one file's words into another ([8fdad2a](https://github.com/cgoinglove/thursday/commit/8fdad2a5b3ba7b00ff438df86e32b504d8207ab7))
+* **thursday:** her face is drawn one way for everyone; the Face settings are gone ([31eab02](https://github.com/cgoinglove/thursday/commit/31eab02a33c09cdfd8e1b8410b5c9e5b50ef42d8))
+
+
+### Fixes
+
+* **artifact:** a deleted bot's finished work stays a shelf under its name, and its folder is never one artifact to delete ([1a91942](https://github.com/cgoinglove/thursday/commit/1a9194279faebc8758e1f659dcffcfaee7922c96))
+* **bot:** a bot's mark makes no gestures of its own when the system asks for reduced motion ([fbd35ec](https://github.com/cgoinglove/thursday/commit/fbd35ec806a9cac8153a09911efeacdbea5c8af2))
+* **bot:** a done thread's answer is read off its last step, so one in several blocks keeps its mark and copy ([7c043e3](https://github.com/cgoinglove/thursday/commit/7c043e3c2d89744fd0fa1a7557e9ae1452b31b28))
+* **bot:** a search step's source links keep their whole address; only a long title is clipped ([e9954d0](https://github.com/cgoinglove/thursday/commit/e9954d0e58b1c1726a096589b4c5f581102fa013))
+* **bot:** a stand-in face beside real bots no longer says "No bots yet" ([51ad50d](https://github.com/cgoinglove/thursday/commit/51ad50d31e1f9ac979c01525ffd015cea090f969))
+* **bot:** a stopped thread's header says "stopped", not the status value "cancelled" ([cff9fa7](https://github.com/cgoinglove/thursday/commit/cff9fa7418b07293a9c16523b8fc403a23b1b6e5))
+* **bot:** an open question is matched to its thread line by id, so the same words asked twice keep the answered one ([11ba72b](https://github.com/cgoinglove/thursday/commit/11ba72b67ecc6e1b0b9d529931ccbd76ce7fc774))
+* **bots:** a bot page's row labels name their fields ([d58c8c0](https://github.com/cgoinglove/thursday/commit/d58c8c0d2d986f32a65d80c362b3122b75384fc2))
+* **bots:** bot and thread actions check their words are text before using them ([c1f068d](https://github.com/cgoinglove/thursday/commit/c1f068d3349add5666d1fe4ac8a12cb6387e2e66))
+* **call:** a wake phrase is English words, and one in another language is not saved ([539e501](https://github.com/cgoinglove/thursday/commit/539e5012c8e99bf134e62f053ded5daf5322b4d6))
+* **call:** the connect and end sounds peak under 0 dBFS ([612bb5f](https://github.com/cgoinglove/thursday/commit/612bb5f8c51d4f8b52df170a567c0570ec65a7e5))
+* **call:** the thinking line shows the model's title as written, not re-cased by a regex ([8220555](https://github.com/cgoinglove/thursday/commit/8220555eb6c33db76ed23741f30be3b3a676ca2c))
+* **call:** the wake phrase keeps its letters in every script, where it kept a-z and 0-9 alone ([d4df031](https://github.com/cgoinglove/thursday/commit/d4df031e962f47418bf598ba743600cf0c30e0ad))
+* **call:** web search with an Exa key hands her the pages' text, not {} ([fceb79e](https://github.com/cgoinglove/thursday/commit/fceb79ed6ecea35f80028b35f1189654101d3fa7))
+* **config:** a key, sign-in or pick written from anywhere signals every open tab ([281b6b1](https://github.com/cgoinglove/thursday/commit/281b6b1eda1d07b8d887069fd3b2e55497650a7e))
+* **config:** the voice key's "Not OpenAI?" warning knows every provider's key by the catalogue's keyLooks ([8c313ea](https://github.com/cgoinglove/thursday/commit/8c313ea9575e98ec75549762cffbdb4f570dbbf5))
+* **connectors:** a server that refuses to register the app is said to, whatever the SDK prints ([4c252e8](https://github.com/cgoinglove/thursday/commit/4c252e8ba0e2717557ae599d6883a049339049a2))
+* **connectors:** a server that refuses to register the app keeps its own words after ours ([a2e9919](https://github.com/cgoinglove/thursday/commit/a2e9919ea0a26e68060b91a3a82b4cb64d06f67d))
+* **deck:** a contact sheet past what one look takes goes back as words ([b47bc1a](https://github.com/cgoinglove/thursday/commit/b47bc1a2d2c92be10df4fb73a4c8b0e423966e82))
+* **intro:** putting the bots' model back to Automatic in the first run clears its effort too ([ceb40fd](https://github.com/cgoinglove/thursday/commit/ceb40fd1c628d77aabbc159a537415599cbe2f56))
+* **intro:** the first run's silent demo names no place to leave from and no currency ([7f103dd](https://github.com/cgoinglove/thursday/commit/7f103dd3f4d7958e9354a3452d1e6669d435ff9b))
+* **intro:** the microphone step says why the microphone did not open, not always that it is not allowed ([bef06f2](https://github.com/cgoinglove/thursday/commit/bef06f21182921f701928fd64b7ccfd5badf5a0e))
+* **models:** a gateway video price that names no resolution reads "$0.042/s", not "$0.042/s undefined" ([10593f3](https://github.com/cgoinglove/thursday/commit/10593f339219aaadfb0c20144b3770e04ec516d9))
+* **reset:** pnpm reset refuses while a server has this data folder's database open, and stops nothing ([7bb2a7c](https://github.com/cgoinglove/thursday/commit/7bb2a7c05b88509cc51f75dbb07c81e1591dfb0b))
+* **signins:** the map of sign-ins a browser holds is one across a dev reload ([c45871a](https://github.com/cgoinglove/thursday/commit/c45871a2ad366574244928651c9bc48075a9e76a))
+* **skills:** a chart drawn into a placeholder that holds its own kind replaces all of it ([d256b93](https://github.com/cgoinglove/thursday/commit/d256b93ca0080bcc51147957d7770a4445663b42))
+* **skills:** a chart picture's drawing keeps the size it is given inside its card ([9199bbd](https://github.com/cgoinglove/thursday/commit/9199bbdcc9450d1c2ce631259f86e45a37d6111d))
+* **skills:** a document, book, deck or canvas no longer says it is in English whatever it is written in ([206f900](https://github.com/cgoinglove/thursday/commit/206f90037105a0187a58f324ffec220e3853a1a5))
+* **skills:** an uploaded archive is weighed before it is unpacked, and a link out of a skill is not followed ([75eca1c](https://github.com/cgoinglove/thursday/commit/75eca1c082880a79ec38b07c2cef1eee361d696c))
+* **skills:** the app kit's build says to build with app.mjs, the script that sets PAGE ([2503d0e](https://github.com/cgoinglove/thursday/commit/2503d0e50820bd8a2a802ac341ba362dd648711c))
+* **skills:** the audit's remaining skill items — words counted in any script, no unsourced figures, a transcript's times read or refused, recordings written up ([7055f6f](https://github.com/cgoinglove/thursday/commit/7055f6f93d49d085f22e8fdc4d331bfdf2e886ab))
+* **ui:** a JSON view's folds take focus and open on Enter or Space ([16fd425](https://github.com/cgoinglove/thursday/commit/16fd4250763cfdb4eb9ff303ddd4a7bbb46e71f5))
+* **ui:** a settings dialog is announced by the title it shows ([e33a227](https://github.com/cgoinglove/thursday/commit/e33a227d10c1d4807bf3da7b6120511b6814456d))
+* **ui:** folded text, the caption pages, the context bar and a thread's reply box reset in the render that brings the new text or thread ([77aa106](https://github.com/cgoinglove/thursday/commit/77aa106a685fe2034783a6db06a88acea2d736d0))
+* **ui:** her face, the intro's echoes and the bot marks draw dark from their first frame on a dark system ([3367f91](https://github.com/cgoinglove/thursday/commit/3367f913afdb1ef14cc5d4eb82d212d76167a1cd))
+* **ui:** removing a saved key, a phone token or a memory fact asks first ([dee1fd2](https://github.com/cgoinglove/thursday/commit/dee1fd24a4a48398c4a0861d0d93450b3e0c7290))
+* **ui:** the page's meta description reads as plain English ([1272778](https://github.com/cgoinglove/thursday/commit/1272778ed59b19162b5f97a903139a1afaa75cb6))
+* **ui:** the shared Combobox says only "Loading…" while its list loads, not what the list holds ([bb529fa](https://github.com/cgoinglove/thursday/commit/bb529fa4344287f96611a35cf45a9f7745cf416c))
+* **workbench:** a bot's shell leaves out what the app set to run itself, and a kept sign-in is only kept over or renewed for the bots it is lent to ([25d5cb6](https://github.com/cgoinglove/thursday/commit/25d5cb6d6674c36d1a2b1eb268eb5b2bc2a7dacc))
+* **workspace:** a bot's shell names its finished-work folder whole, so a kit script run from any folder delivers there ([142fae6](https://github.com/cgoinglove/thursday/commit/142fae62b0d28892adc0992e5436628b9dbcb76b))
+* **workspace:** the browser CLI is pinned to the version its folder names were read from ([ca9988c](https://github.com/cgoinglove/thursday/commit/ca9988c8c4134d2e77e208fd224d5588c8c0d728))
+
+
+### Performance
+
+* **call:** her face is drawn at most 30 times a second ([af2e8cb](https://github.com/cgoinglove/thursday/commit/af2e8cbd581b8b9d577dae6bfd75843662a359ed))
+* **ship:** the published package leaves out the checkout's sources, README images and type packages — 22.6 MB to 17.3 MB ([d64799d](https://github.com/cgoinglove/thursday/commit/d64799d77c0409e8e41cc7c54ef95ba9153ae517))
+
+
+### Under the hood
+
+* **bots:** the speaker the user's words are stored under is one constant ([b852916](https://github.com/cgoinglove/thursday/commit/b852916d3dcf5b94650a7c8440d254c02405360b))
+* **call:** a note is read off a part by one noteOf in thursday.schema, for the page and the server ([3b24640](https://github.com/cgoinglove/thursday/commit/3b24640c53e29974331183e0a1c857c766e511a9))
+* **call:** her frame cap is read from ASCII_FACE, not a prop ([d72003a](https://github.com/cgoinglove/thursday/commit/d72003a283669b5fd98e5c6195d7f8e00800c570))
+* **call:** the wake word's tolerance is config.ts WAKE_TOLERANCE, and its hook takes no options nobody passes ([ed766ea](https://github.com/cgoinglove/thursday/commit/ed766ea50ae5d724351e409745f9df8f81e29148))
+* **connectors:** the connector list learns an OAuth sign-in finished from the mcp signal alone ([1aa35aa](https://github.com/cgoinglove/thursday/commit/1aa35aad32954a2a8defc7e0dec109106fee76e1))
+* **memory:** the Memory screen reads a call's arguments as memory.tool types them ([3fa4b81](https://github.com/cgoinglove/thursday/commit/3fa4b81a619e47561b9a899fe5ef3fc411956386))
+* **reach:** a question's item key is built by open-work's questionKey wherever it is matched ([990495f](https://github.com/cgoinglove/thursday/commit/990495fb1aad311e6c0a2be75563e2d798fd9153))
+* **sandbox:** the readdir wrapper is type-checked, without `as any` ([efcd1ef](https://github.com/cgoinglove/thursday/commit/efcd1ef9e81d44f5cb1a7ad2af1b81e88f49a5a9))
+* **ui:** notify's four dialogs make and take down their root through one mount ([5aabba5](https://github.com/cgoinglove/thursday/commit/5aabba5e6f51a365fb9d8cf310cc9119dbc40ca0))
+* **ui:** useIsDark reads the resolved theme instead of following the system a second time ([311a74d](https://github.com/cgoinglove/thursday/commit/311a74d38f6d84511f80236a0e10877b8c99ff7e))
+* **workspace:** a finished job's files take their lead page from one leadFirst ([be2c8e3](https://github.com/cgoinglove/thursday/commit/be2c8e3a6e04b1036332cb65ba049b009db0bbea))
+* **workspace:** the browser list, the state file and the CLI's waits are written once ([7bc1a11](https://github.com/cgoinglove/thursday/commit/7bc1a11ae6c8d4426dde01a4f2c076784fd8eb6e))
+* **workspace:** the workspace and finished-work screens name their folders from PATHS ([038347d](https://github.com/cgoinglove/thursday/commit/038347d439a1c251469a396d2287d4bcf129b2a6))
+
+
+### Docs
+
+* **bot:** the crew's "+" tail no longer says filled brand is what waits on the user ([bcbc4b4](https://github.com/cgoinglove/thursday/commit/bcbc4b4d41221a4fdbe87527e2f2dd7789d30bd6))
+* **config:** next.config says what the /artifacts/… redirect is for ([9c1e937](https://github.com/cgoinglove/thursday/commit/9c1e93722b9594dedbd621bde7d90c1233f3817d))
+* **readme:** a Discord badge and a line to ask a question there ([2aace1b](https://github.com/cgoinglove/thursday/commit/2aace1b795c35d48201b13e0a47d7e2adf21af58))
+* **search:** the searcher's comment says a step's row reads its pages back out of the text ([8c7fdfa](https://github.com/cgoinglove/thursday/commit/8c7fdfaf8e51777c6f9600cdfe3bd73c1484d9bb))
+* **workspace:** the workspace section's glyph map no longer claims to be the only place a kind is drawn ([35e8422](https://github.com/cgoinglove/thursday/commit/35e8422ad869f329244d2d0d167bc1c6c086e1fb))
+
 ## [0.15.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.14.1...thursday-agent-v0.15.0) (2026-09-25)
 
 
