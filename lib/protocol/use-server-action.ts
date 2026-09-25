@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@/components/ui/toast";
 import { errorToString } from "@/lib/utils";
 import { isResultOk, Result, ResultData, result } from "./result";
@@ -28,8 +28,12 @@ export function useServerAction<A extends ActionFn>(
   const [data, setData] = useState<ResultData<Awaited<ReturnType<A>>>>();
   const [error, setError] = useState<string>();
 
+  // Written after commit, not during render: concurrent rendering may discard a
+  // render, and a ref written in one would keep the discarded options.
   const optionsRef = useRef(options);
-  optionsRef.current = options;
+  useEffect(() => {
+    optionsRef.current = options;
+  });
 
   // Only the most recent call may write state
   const seqRef = useRef(0);

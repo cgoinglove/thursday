@@ -77,9 +77,13 @@ export function useServerPages<T>(options: {
   const isLoadingMore =
     isValidating && pages.length > 0 && asked.current > pages.length;
 
-  // Ref so the observer reads current values, not those at attach time
+  // Ref so the observer reads current values, not those at attach time.
+  // Written after commit, not during render: concurrent rendering may discard a
+  // render, and a ref written in one would keep the discarded values.
   const state = useRef({ isValidating, setSize, pages: pages.length });
-  state.current = { isValidating, setSize, pages: pages.length };
+  useEffect(() => {
+    state.current = { isValidating, setSize, pages: pages.length };
+  });
 
   // Stable, so a caller can re-read from an effect
   const refresh = useCallback(() => mutate(), [mutate]);
