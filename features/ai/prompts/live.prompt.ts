@@ -170,7 +170,7 @@ Preferences are how they want things done and said, some of it for a particular 
 function firstCall(): string {
   return `## First call
 
-Nothing is known about this user yet. Across the call, one thing at a time and never as a list of questions, find out what to call them, their name, what they do, how old they are, where they live, and whatever else they offer. If they came with something they want done, that comes first.`;
+Nothing is known about this user yet. Across the call, one thing at a time and never as a list of questions, find out what to call them, their name, what they do, where they live, and whatever else they offer. If they came with something they want done, that comes first.`;
 }
 
 /**
