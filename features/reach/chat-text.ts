@@ -214,7 +214,9 @@ function inline(tokens: Token[], marks: ChatMarks): string {
         case "link":
           return link(token as Tokens.Link, marks);
         case "image":
-          return escape(decode(token.text), marks);
+          // A picture with no words of its own is drawn by its file's name: left empty, a
+          // row of them came out as a line of commas
+          return escape(decode(token.text) || nameOf(token.href), marks);
         case "br":
           return "\n";
         // Tags written into a line are no marks a chat has; a line break is the one kept
@@ -309,8 +311,20 @@ function fit(words: string, marks: ChatMarks, max: number): string[] {
   });
 }
 
+/** A file's name from where a link or a picture points, for one that has no words of its own. */
+function nameOf(href: string): string {
+  try {
+    const url = new URL(href, "http://here");
+    const path = url.searchParams.get("path") ?? url.pathname;
+    return decodeURIComponent(path.split("/").filter(Boolean).pop() ?? "");
+  } catch {
+    return href.split("/").pop() ?? "";
+  }
+}
+
 function link(token: Tokens.Link, marks: ChatMarks): string {
-  const words = inline(token.tokens, marks);
+  const words =
+    inline(token.tokens, marks) || escape(nameOf(token.href), marks);
   // A path is a file on this computer: its words stay, and the file goes along
   if (!/^(https?|mailto):/i.test(token.href)) return words;
   const same = token.text === token.href;

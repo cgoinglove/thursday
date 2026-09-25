@@ -456,6 +456,15 @@ test("her words are drawn in each service's own marks", () => {
   ]);
 });
 
+test("a picture or a file link with no words of its own is drawn by its file's name", () => {
+  // Left empty, a row of them came out as a line of commas
+  const markdown =
+    "Made: ![](/api/file/artifacts/Designer/poster-1.png), [![](/api/file/artifacts/Designer/poster-2.png)](/api/file/artifacts/Designer/poster-2.png), [](artifacts/Designer/poster-3.png)";
+  assert.deepEqual(chatPieces({ markdown }, "plain", 4_000), [
+    "Made: poster-1.png, poster-2.png, poster-3.png",
+  ]);
+});
+
 test("code reaches every service as written", () => {
   const markdown =
     "Run:\n\n```bash\n# once\nnpm i -g thing\n- not a list\n```\n\nThen `**not bold**`.";

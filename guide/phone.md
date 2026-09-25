@@ -126,10 +126,13 @@ starts a new one, and she reads the last one back like any earlier call.
   in the chat.
 - **A page** — a report, a deck, a design — arrives as pictures of it, since no chat app opens
   one: a deck slide by slide, a design board by board, anything else a phone's screen at a time
-  from the top, nine at most. The page itself comes with them, to open on a computer.
-  Drawing them takes a few seconds and needs the browser bots use; without it the page comes alone.
-- **What she did** — noted something down, started work, looked something up — is one short line
-  under her answer, in the words the call screen uses.
+  from the top, nine at most. The page itself stays on the computer, and the chat says so under
+  *Not sent — still on this computer*; sent along, it showed as code in a chat and its own pictures
+  never opened on a phone. Drawing them takes a few seconds and needs the browser bots use; without
+  it the page comes alone.
+- **What she did** — noted something down, started work, looked something up — is said in one short
+  line, in the words the call screen uses, only when she ended a turn without writing anything;
+  under an answer she wrote, the line read as part of her reply.
 - **How her words look**: bold, lists, links and code arrive the way each chat app draws them. A
   table arrives as rows and a heading as a bold line, since a chat has neither, and a long answer
   comes as several messages, each cut where a paragraph or a code block ends.

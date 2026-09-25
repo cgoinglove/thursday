@@ -84,6 +84,8 @@ let refuse = false;
 let made: Message[] | null = null;
 /** What the next turn did, as the call screen words it. */
 let did: string[] = [];
+/** The next turn ends without a word of hers. */
+let wordless = false;
 let calls = 0;
 mock.module("../features/thursday/thursday.text.ts", {
   namedExports: {
@@ -111,8 +113,10 @@ mock.module("../features/thursday/thursday.text.ts", {
       await gate.after;
       const mine = made ?? [{ role: "assistant", content: "ok" }];
       made = null;
+      const quiet = wordless;
+      wordless = false;
       return {
-        text: `**Heard:** ${turn.words}`,
+        text: quiet ? "" : `**Heard:** ${turn.words}`,
         did: did.splice(0),
         messages: [
           ...input.messages,
@@ -304,17 +308,21 @@ test("once allowed with the code shown, what they wrote while waiting is answere
   assert.equal(turns[2].carried, 5, "the conversation so far goes with it");
 });
 
-test("what she did goes under what she said, each thing once", async () => {
-  did = ["Noting that down", "Checking on work", "Noting that down"];
+test("what she did is said, each thing once, only for a turn she ended without a word", async () => {
+  // Under words of hers the app's own line read as part of her reply (D12)
+  did = ["Noting that down", "Checking on work"];
   inbox.push(message(7, "call me Sam"));
   await until(
     () => saidTo(7).at(-1)?.startsWith("Heard: call me Sam") ?? false,
     "her answer",
   );
-  assert.equal(
-    saidTo(7).at(-1),
-    "Heard: call me Sam\n\n— Noting that down · Checking on work",
-  );
+  assert.equal(saidTo(7).at(-1), "Heard: call me Sam");
+
+  did = ["Noting that down", "Checking on work", "Noting that down"];
+  wordless = true;
+  inbox.push(message(7, "and remember it"));
+  await until(() => saidTo(7).at(-1)?.startsWith("—") ?? false, "what she did");
+  assert.equal(saidTo(7).at(-1), "— Noting that down · Checking on work");
 });
 
 test("nobody else is answered once one person is in", async () => {
@@ -322,7 +330,7 @@ test("nobody else is answered once one person is in", async () => {
   await until(() => saidTo(9).length === 1, "they are turned away");
   assert.match(saidTo(9)[0], /already answers someone else/);
   assert.equal((await reach.readReachStatus()).channels[0].asking, null);
-  assert.equal(turns.length, 4);
+  assert.equal(turns.length, 5);
 });
 
 const thread = (
@@ -712,11 +720,16 @@ test("a page she names goes with pictures of it, and any other file as itself", 
         .filter(([key]) => /^(p\d+|photo|document)$/.test(key))
         .map(([, name]) => name),
     }));
+  // A page goes as its pictures alone (D12), and says where the page itself is
   assert.deepEqual(files, [
     { method: "sendMediaGroup", files: ["report-01.png", "report-02.png"] },
-    { method: "sendDocument", files: ["report.html"] },
     { method: "sendDocument", files: ["notes.txt"] },
   ]);
+  await until(
+    () => saidTo(7).at(-1)?.includes("report.html") ?? false,
+    "where the page is",
+  );
+  assert.match(saidTo(7).at(-1) ?? "", /page itself opens on the computer/);
 });
 
 test("a file that does not come through is said at once, and what was written with it still reaches her", async () => {

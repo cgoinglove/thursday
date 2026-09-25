@@ -648,15 +648,13 @@ async function answer(live: Live, person: ReachPerson, words: string) {
     line.messages = carried(result.messages);
     line.lastAt = Date.now();
 
-    // What she did goes under what she said, in the call screen's words: a chat has no
-    // activity line, and a turn she ended without a word still shows that much. Her words
+    // What she did, in the call screen's words, only for a turn she ended without a word: a
+    // chat has no activity line, so that is all it would show. Under an answer she wrote, the
+    // app's own "— Checking · projects/presentation" read as part of her reply (D12). Her words
     // are markdown, drawn in the service's own marks; the line is words, whatever it holds
     const did = [...new Set(result.did)].join(" · ");
     await channel.say(person.chat, {
-      markdown:
-        [result.text, did && `— ${literal(did)}`]
-          .filter(Boolean)
-          .join("\n\n") || "…",
+      markdown: result.text?.trim() || (did ? `— ${literal(did)}` : "…"),
     });
     await sendFiles(live, person, result.text);
   } catch (cause) {
@@ -737,15 +735,28 @@ async function sendFiles(live: Live, person: ReachPerson, text: string) {
       continue;
     }
     try {
-      await live.channel.sendFiles(person.chat, [
-        ...(await picturesOf(full)),
-        {
-          bytes: await readFile(full),
-          name: path.split("/").pop() ?? "file",
-          // One past what the service draws still goes, as a file
-          picture: viewKindOf(path) === "image" && info.size <= limits.picture,
-        },
-      ]);
+      // A page drawn for the phone goes as its pictures alone (D12): sent too, the file showed
+      // as code in the chat, and the pictures inside it never opened on a phone
+      const pictures = await picturesOf(full);
+      await live.channel.sendFiles(
+        person.chat,
+        pictures.length
+          ? pictures
+          : [
+              {
+                bytes: await readFile(full),
+                name: path.split("/").pop() ?? "file",
+                // One past what the service draws still goes, as a file
+                picture:
+                  viewKindOf(path) === "image" && info.size <= limits.picture,
+              },
+            ],
+      );
+      if (pictures.length)
+        left.push({
+          name: path,
+          why: "sent as pictures above; the page itself opens on the computer",
+        });
     } catch (cause) {
       logger.warn(`reach ${live.name}: could not send ${path}`, cause);
       left.push({ name: path, why: reasonOf(cause) });
