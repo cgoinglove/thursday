@@ -868,7 +868,7 @@ function WakeWord({
       />
       <SettingNote>
         {!value.enabled
-          ? "Between calls, the browser listens for it and picks up."
+          ? "Between calls, the browser listens for it and picks up — Chrome by sending what it hears to Google."
           : !english
             ? "English words only — she listens for it in English."
             : terse

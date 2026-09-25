@@ -129,7 +129,7 @@ export type ActivityLine = {
  * Why a call ended without the user hanging up: the line was quiet (CALL_IDLE),
  * she hung up (`end_call`), Live closed the session, or the connection dropped.
  */
-export type CallEnd = "quiet" | "hungUp" | "closed" | "dropped";
+export type CallEnd = "quiet" | "hungUp" | "closed" | "expired" | "dropped";
 
 export function useThursday(
   /** A call in writing holds the screen (use-text-call): nothing rings, and what comes up is told there. */
@@ -839,7 +839,9 @@ export function useThursday(
               );
               nameTool(call, output);
               const started =
-                call.name === TOOL_NAMES.thread_start ? startedOf(output) : null;
+                call.name === TOOL_NAMES.thread_start
+                  ? startedOf(output)
+                  : null;
               if (started) outbox.send(startedLine(started));
               if (searching)
                 kept = keepSearch({
@@ -989,9 +991,26 @@ export function useThursday(
               description,
             }),
           failed: (description) => {
+            // Live says session.closed (finalized) when it closes the call itself, with why.
+            // Not every close is a failure: one that ran to Live's length limit, or that Live's
+            // side hung up, is said plainly, and a safety stop as a warning; only a lost line or
+            // an unknown close is drawn red, with her ERROR face
+            const reason = finalized.current?.reason;
+            if (reason === "expired" || reason === "remote_hangup") {
+              void hangUp(reason === "expired" ? "expired" : "closed");
+              return;
+            }
+            if (reason === "content") {
+              toast.add({
+                type: "warning",
+                title: "Live ended the call",
+                description: "Its safety filter stopped the conversation.",
+              });
+              void hangUp("closed");
+              return;
+            }
             toast.add({ type: "error", title: "Call failed", description });
             showFailed(true);
-            // Live says session.closed (finalized) when it closes the call itself
             void hangUp(finalized.current ? "closed" : "dropped");
           },
         },

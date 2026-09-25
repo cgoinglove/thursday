@@ -1450,6 +1450,7 @@ const ENDED: Record<CallEnd, string> = {
   quiet: `${CALL_IDLE.hangUpMs / 1000}s of quiet`,
   hungUp: "Thursday hung up",
   closed: "Live closed the call",
+  expired: "the call ran to Live's time limit",
   dropped: "the connection dropped",
 };
 

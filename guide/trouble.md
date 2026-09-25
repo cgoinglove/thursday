@@ -14,8 +14,11 @@ has already said which: a provider's own words are shown as they came, never hid
   microphone step says which it was: not allowed, no microphone found, one that would not start
   (another app may be using it), or the browser's own words for anything else.
 - **The call ended by itself**: the line under her face says why — *40s of quiet* (nothing was said
-  for 40 seconds; the last 10 count down on screen), *Thursday hung up*, *Live closed the call*, or
-  *the connection dropped*. Work already handed to a bot is not affected.
+  for 40 seconds; the last 10 count down on screen, and an update she is reading is let finish
+  first), *Thursday hung up*, *the call ran to Live's time limit*, *Live closed the call*, or *the
+  connection dropped*. Only a dropped connection or a close Live gives no reason for shows as a
+  failure; when Live's safety filter stops a call, a note says so. Work already handed to a bot is
+  not affected.
 
 ## "Hey thursday" does nothing
 

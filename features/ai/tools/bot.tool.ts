@@ -63,7 +63,8 @@ export const threadStatusSpec = {
 };
 
 export const threadCancelSpec = {
-  description: "Stop a thread for good. It cannot be taken back.",
+  description:
+    "Stop a thread now: its bot stops where it is. The thread is kept, and saying more to it later carries it on.",
   parameters: z.object({ thread: THREAD_REF }),
 };
 

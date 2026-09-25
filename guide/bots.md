@@ -327,7 +327,8 @@ time, and at most twelve routines exist:
   run, and picking a new day and time sets it again. A time already gone is refused.
 - **On set days**: a time of day on the days picked. Every day, Weekdays and Weekends fill the days
   in one press.
-- **Every few hours**: 1, 2, 3, 6, 12 or 24 in one press, or any number from 1 to 168.
+- **Every few hours**: 1, 2, 3, 6, 12 or 24 in one press. Another number up to 168 is set by asking
+  Thursday for it, and then shows beside them.
 
 The line under the field says it back in words, with when it first starts. A routine's name and job
 are saved with **Save**.

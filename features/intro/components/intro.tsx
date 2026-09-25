@@ -694,7 +694,9 @@ function MicTurn({ mic }: { mic: MicState }) {
           <span className="text-sm">Wake her by voice</span>
           <Fine>
             Say <span className="text-foreground">"{wake.phrase}"</span> and she
-            picks up. The microphone stays open for as long as this tab is.
+            picks up. The microphone stays open for as long as this tab is, and
+            the browser does the listening: Chrome sends what it hears to
+            Google.
           </Fine>
           {/* The one thing this step asks them to try, so it is the one thing that moves */}
           {wake.enabled &&

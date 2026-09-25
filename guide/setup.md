@@ -21,7 +21,8 @@ still need a key or a ChatGPT sign-in. It stops showing once a call has been pla
 The buttons at the top right of the call screen open **Thursday**, **Memory** and **Bots** directly,
 and **Settings** opens everything; each carries a dot when something there wants the user. The
 Settings list is Thursday, Memory, Bots, Threads, Routines, Files, Skills, Connectors, Sign-ins,
-Models, API keys and Phone. ⌘K (Ctrl+K) jumps to its filter, and ⌘ with a number opens that section.
+Models, API keys and Phone. ⌘K (Ctrl+K) jumps to its filter, and ⌘ with a number opens one of the
+first nine.
 Under Phone, as a group of their own named community, **Ask on Discord** opens the app's community,
 where people who use and build it answer questions, and **GitHub** opens its code, bug reports and
 releases. The theme — **System**, **Light** or **Dark** — is picked at the foot of the list.
@@ -37,7 +38,7 @@ The screen puts the two easy ways next: **GPT Subscription**, a sign-in with Cha
 ChatGPT plan, no key; the row shows how much of the plan is used and when it resets), and the
 **Vercel AI Gateway**, one key for every model and the one the app recommends (its row shows what is
 left). Under them every other provider is a mark to tap and paste a key into — Claude, Gemini, xAI
-and more behind **More**. The box a key goes in shows how that provider's keys begin where it is
+and the rest; the first run shows four of them and keeps the others behind **More**. The box a key goes in shows how that provider's keys begin where it is
 known, with a link to the page that makes one; **Remove**, on a key already set, is the red word at
 the far left.
 
