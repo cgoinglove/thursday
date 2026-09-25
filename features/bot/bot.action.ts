@@ -25,6 +25,7 @@ import {
 } from "./bot.runner";
 import { BotFormSchema, botIconSchema } from "./bot.schema";
 import { BOT_SEEDS, findBotSeed, rollSeedIcons } from "./bot.seed";
+import { acceptRoomRelays, withdrawDelivery } from "./room.query";
 import { markSeen, resolveThread } from "./thread.query";
 
 export const createBotAction = serverAction(async (input: unknown) => {
@@ -119,7 +120,6 @@ function labelFor(request: string): string {
 /** Takes back words the user stepped in with, before the bot reads them (room.query withdrawDelivery). */
 export const withdrawStepInAction = serverAction(
   async (threadId: unknown, key: unknown) => {
-    const { withdrawDelivery } = await import("./room.query");
     const gone = await withdrawDelivery(
       z.string().min(1).parse(threadId),
       z.string().min(1).parse(key),
@@ -191,6 +191,5 @@ export const clearFinishedThreadsAction = serverAction(async () => {
 });
 
 export const acceptThreadRelaysAction = serverAction(async (ids: unknown) => {
-  const { acceptRoomRelays } = await import("./room.query");
   await acceptRoomRelays(z.number().int().positive().array().parse(ids));
 });
