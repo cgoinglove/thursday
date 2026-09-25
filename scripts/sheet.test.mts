@@ -483,53 +483,100 @@ test("a column of dates holds Excel's dates, summed by month with SUMIFS, and re
   assert.deepEqual(described.sheets[1].rows[1], ["2026-08-01", null]);
 });
 
-test("a bank's export in another encoding is refused until named, and read from the line naming its columns", async () => {
-  const csv = join(home, "bank.csv");
-  const text =
-    '조회계좌,123-456\n\n거래일자,적요,출금액,입금액\n2026.07.03 12:10,카페,"5,500",\n2026.07.05 09:00,급여,,"3,200,000"\n2026.08.11 18:30,환불,(1200),\n';
-  // EUC-KR by hand: the Korean words here, and ASCII as it is
-  const { execFileSync } = await import("node:child_process");
-  await writeFile(
-    csv,
-    execFileSync("iconv", ["-f", "utf-8", "-t", "euc-kr"], { input: text }),
+// EUC-KR by hand: each Korean word's bytes, and ASCII as it is
+const EUC_KR: Record<string, string> = {
+  조회계좌: "c1b6c8b8b0e8c1c2",
+  거래일자: "b0c5b7a1c0cfc0da",
+  적요: "c0fbbfe4",
+  출금액: "c3e2b1ddbed7",
+  입금액: "c0d4b1ddbed7",
+  카페: "c4abc6e4",
+  급여: "b1debfa9",
+  환불: "c8afbad2",
+};
+const eucKr = (text: string) =>
+  Buffer.concat(
+    text.split(/(\p{Script=Hangul}+)/u).map((part) => {
+      if (EUC_KR[part]) return Buffer.from(EUC_KR[part], "hex");
+      assert.match(part, /^[\x00-\x7f]*$/, `no EUC-KR bytes for ${part}`);
+      return Buffer.from(part, "ascii");
+    }),
   );
-  const refused = run("read", csv);
-  assert.equal(refused.status, 1);
-  assert.match(refused.stderr, /not written in UTF-8[\s\S]*--encoding euc-kr/);
-  const lines = run("read", csv, "--encoding", "euc-kr");
-  assert.match(lines.stdout, /^3\t거래일자\t적요\t출금액\t입금액$/m);
-  const out = join(home, "bank.json");
-  const json = run(
-    "read",
-    csv,
-    "--encoding",
-    "euc-kr",
-    "--header",
-    "3",
-    "--json",
-    out,
-  );
-  assert.equal(json.status, 0, json.stderr);
-  const spec = JSON.parse(await readFile(out, "utf8"));
-  assert.deepEqual(spec.sheets[0].columns[0], {
-    name: "거래일자",
-    format: "yyyy-mm-dd hh:mm",
+
+// Two banks' exports, each with a line about the account over its table
+const BANK_EXPORTS = [
+  {
+    encoding: "euc-kr",
+    bytes: eucKr(
+      '조회계좌,123-456\n\n거래일자,적요,출금액,입금액\n2026.07.03 12:10,카페,"5,500",\n2026.07.05 09:00,급여,,"3,200,000"\n2026.08.11 18:30,환불,(1200),\n',
+    ),
+    columns: ["거래일자", "적요", "출금액", "입금액"],
+    rows: [
+      ["2026-07-03 12:10", "카페", 5500, null],
+      ["2026-07-05 09:00", "급여", null, 3200000],
+      ["2026-08-11 18:30", "환불", -1200, null],
+    ],
+  },
+  {
+    encoding: "windows-1252",
+    // latin1 and windows-1252 write every letter here as the same byte
+    bytes: Buffer.from(
+      "Compte,000123\n\nDate,Libellé,Débit,Crédit\n2026-07-03 12:10,Café,5.50,\n2026-07-05 09:00,Salaire,,3200.00\n2026-08-11 18:30,Remboursé,(12.00),\n",
+      "latin1",
+    ),
+    columns: ["Date", "Libellé", "Débit", "Crédit"],
+    rows: [
+      ["2026-07-03 12:10", "Café", 5.5, null],
+      ["2026-07-05 09:00", "Salaire", null, 3200],
+      ["2026-08-11 18:30", "Remboursé", -12, null],
+    ],
+  },
+];
+
+for (const bank of BANK_EXPORTS)
+  test(`a bank's export in ${bank.encoding} is refused until named, and read from the line naming its columns`, async () => {
+    const name = `bank-${bank.encoding}`;
+    const csv = join(home, `${name}.csv`);
+    await writeFile(csv, bank.bytes);
+    const refused = run("read", csv);
+    assert.equal(refused.status, 1);
+    assert.match(
+      refused.stderr,
+      new RegExp(`not written in UTF-8[\\s\\S]*${bank.encoding}`),
+    );
+    const lines = run("read", csv, "--encoding", bank.encoding);
+    assert.match(
+      lines.stdout,
+      new RegExp(`^3\\t${bank.columns.join("\\t")}$`, "m"),
+    );
+    const out = join(home, `${name}.json`);
+    const json = run(
+      "read",
+      csv,
+      "--encoding",
+      bank.encoding,
+      "--header",
+      "3",
+      "--json",
+      out,
+    );
+    assert.equal(json.status, 0, json.stderr);
+    const spec = JSON.parse(await readFile(out, "utf8"));
+    assert.deepEqual(spec.sheets[0].columns[0], {
+      name: bank.columns[0],
+      format: "yyyy-mm-dd hh:mm",
+    });
+    assert.deepEqual(spec.sheets[0].rows, bank.rows);
+    assert.equal(run("put", name, out).status, 0);
+    const back = readXlsx(
+      await readFile(join(home, "artifacts", name, `${name}.xlsx`)),
+    ).sheets[0];
+    assert.equal(back.formats[0], "yyyy-mm-dd hh:mm");
+    assert.equal(
+      formatValue(back.rows[1][0].v, back.formats[0]),
+      "2026-07-03 12:10",
+    );
   });
-  assert.deepEqual(spec.sheets[0].rows, [
-    ["2026-07-03 12:10", "카페", 5500, null],
-    ["2026-07-05 09:00", "급여", null, 3200000],
-    ["2026-08-11 18:30", "환불", -1200, null],
-  ]);
-  assert.equal(run("put", "bank", out).status, 0);
-  const back = readXlsx(
-    await readFile(join(home, "artifacts", "bank", "bank.xlsx")),
-  ).sheets[0];
-  assert.equal(back.formats[0], "yyyy-mm-dd hh:mm");
-  assert.equal(
-    formatValue(back.rows[1][0].v, back.formats[0]),
-    "2026-07-03 12:10",
-  );
-});
 
 test("a CSV becomes one sheet, grouped numbers read as numbers; an old .xls is refused", async () => {
   const csv = join(home, "d.csv");
