@@ -13,6 +13,7 @@ import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { notify } from "@/components/ui/notify";
 import { ShinyText } from "@/components/ui/shiny-text";
 import { SiteIcon } from "@/components/ui/site-icon";
 import { KEY_MIN } from "@/config";
@@ -652,6 +653,15 @@ function KeyField({
   const [remove, removing] = useServerAction(removeConfigAction, {
     onOk: done,
   });
+  const confirmRemove = async () => {
+    const confirmed = await notify.confirm({
+      title: "Remove this token?",
+      description: "That service stops, and whoever is let in is let go.",
+      okText: "Remove",
+      destructive: true,
+    });
+    if (confirmed) void remove(configKey);
+  };
 
   // A step already behind stays quiet: one muted way back in, and nothing else
   if (set && !editing && refused === null)
@@ -711,7 +721,7 @@ function KeyField({
               size="sm"
               variant="ghost"
               loading={removing}
-              onClick={() => void remove(configKey)}
+              onClick={() => void confirmRemove()}
               className="ml-auto text-destructive hover:text-destructive"
             >
               Remove

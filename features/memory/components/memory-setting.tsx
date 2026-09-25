@@ -438,6 +438,16 @@ function FactRow({
   });
   const [forget, forgetting] = useServerAction(forgetFactAction, refresh);
 
+  const confirmForget = async () => {
+    const confirmed = await notify.confirm({
+      title: "Forget this fact?",
+      description: `"${fact.text}" is deleted for good.`,
+      okText: "Delete",
+      destructive: true,
+    });
+    if (confirmed) forget(noteId, fact.id);
+  };
+
   const save = () => {
     const text = draft.trim();
     if (!text || text === fact.text) return setEditing(false);
@@ -503,7 +513,7 @@ function FactRow({
             className="text-muted-foreground"
             aria-label="Forget this fact"
             loading={forgetting}
-            onClick={() => forget(noteId, fact.id)}
+            onClick={() => void confirmForget()}
           >
             {!forgetting && <Trash2 />}
           </Button>

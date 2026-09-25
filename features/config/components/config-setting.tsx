@@ -799,6 +799,16 @@ function ConfigDialog({
       onDone();
     },
   });
+  const confirmRemove = async () => {
+    const confirmed = await notify.confirm({
+      title: `Remove the ${entry.label} key?`,
+      description:
+        "It is deleted from this computer, and nothing runs on it until a key is pasted again.",
+      okText: "Remove",
+      destructive: true,
+    });
+    if (confirmed) remove(entry.key);
+  };
 
   return (
     <SettingDialogContent
@@ -822,7 +832,7 @@ function ConfigDialog({
             <Button
               variant="ghost"
               loading={removing}
-              onClick={() => remove(entry.key)}
+              onClick={() => void confirmRemove()}
               className="mr-auto text-destructive hover:text-destructive"
             >
               Remove
