@@ -1,5 +1,5 @@
 import z from "zod";
-import { COMMON_VALIDATE } from "@/config";
+import { COMMON_VALIDATE, MAX_PINNED_TOOLS } from "@/config";
 import {
   type Effort,
   effortSchema,
@@ -55,9 +55,6 @@ export function randomBotIcons(count: number): BotIcon[] {
 }
 
 export const randomBotIcon = (): BotIcon => randomBotIcons(1)[0];
-
-/** Pinned MCP tools skip the in-call tool search. 10 is a prompt-size budget, not a DB limit. */
-export const MAX_PINNED_TOOLS = 10;
 
 /** Pinned tool as the screen sees it. */
 const PinnedToolSchema = z.object({

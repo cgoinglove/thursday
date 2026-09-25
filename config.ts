@@ -502,6 +502,30 @@ export const COMMON_VALIDATE = {
 export const BOT_MEMORY_LIMITS = { files: 20, chars: 10_000 };
 
 /**
+ * Connected tools one bot may be pinned to (Settings › Bots). A pinned tool is handed to the bot
+ * as a tool of its own, its schema sent on every step of every job it runs, where the rest are
+ * reached through `tool_search`. A prompt-size budget, not a database limit: more spares the
+ * bot that search for more tools and makes each of its steps carry their schemas.
+ */
+export const MAX_PINNED_TOOLS = 10;
+
+/**
+ * How many of the most recently changed threads a label is matched against when a thread is
+ * named by its label rather than its id (thread.query resolveThread), as the call's thread
+ * tools may name one. An older thread is found by its id alone. More reaches further back and
+ * reads that many rows for each label named; fewer sends the model to the id sooner.
+ */
+export const THREAD_LABEL_REACH = 20;
+
+/**
+ * Lines of one tool's result read when the room opens it whole (thread.query readToolResult);
+ * a web search's is read as far in the thread's list, to find the pages its row names. Past it
+ * the rest is not sent, so one log file cannot flatten the browser; more sends and draws more
+ * of a long output.
+ */
+export const FULL_RESULT_LINES = 400;
+
+/**
  * How many of its other threads a bot's prompt lists (thread.query `listBotWork`): the ones
  * it coordinates and the ones it was called into, each as one line with its own last words
  * there. It is what a new thread knows of the bot's earlier work without anything being kept

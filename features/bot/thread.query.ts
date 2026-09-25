@@ -15,9 +15,11 @@ import { appEvents } from "@/app/api/events/app-event.server";
 import { queryKey } from "@/app/api/query-key";
 import {
   BOT_WORK,
+  FULL_RESULT_LINES,
   INBOX_FINISHED,
   PAGE_SIZE,
   STUDIO_SERVER,
+  THREAD_LABEL_REACH,
   THREAD_STATUS_LIMIT,
 } from "@/config";
 import { database } from "@/database/db";
@@ -558,7 +560,7 @@ export async function resolveThread(ref: string) {
     .select()
     .from(threadTable)
     .orderBy(desc(threadTable.updatedAt))
-    .limit(20);
+    .limit(THREAD_LABEL_REACH);
   return recent.find((thread) => thread.label.toLowerCase() === lower) ?? null;
 }
 
@@ -844,9 +846,6 @@ const RESULT_LINES = 4;
  * whole; the output opens in full on demand. Long enough for a file path.
  */
 const RESULT_LINE_MAX = 200;
-
-/** Cap for the full result, so one log file cannot flatten the browser. */
-const FULL_RESULT_LINES = 400;
 
 /** Everything one tool returned, as written; only when the screen asks for it. The list carries a clipped glance (resultLine). */
 export async function readToolResult(

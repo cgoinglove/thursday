@@ -45,6 +45,7 @@ import {
   BOT_ROSTER,
   BOT_RUN,
   COMMON_VALIDATE,
+  MAX_PINNED_TOOLS,
   PROMPT_CROWDED,
 } from "@/config";
 import { EffortSwitch } from "@/features/ai/components/effort-switch";
@@ -70,7 +71,6 @@ import {
   type BotIcon,
   type BotMemory,
   type BotMemoryFile,
-  MAX_PINNED_TOOLS,
   randomBotIcon,
   type Thread,
 } from "@/features/bot/bot.schema";
