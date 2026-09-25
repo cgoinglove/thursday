@@ -16,8 +16,10 @@
  * headless browser of its own, closed after, never in the session's: a bot's pictures of
  * its own work must not appear in a window on the user's screen. `--sheet <file.png>` also
  * lays every picture it took on one image, numbered, so all of them are seen in one look.
+ * `--strict` fails the run, exit 1, when a picture on the page did not load, for a caller
+ * that goes on from the pictures without a look; without it they are listed and it goes on.
  *
- *   node render.mjs <slides.html> --out <dir> [--size 1080x1350] [--name slide] [--shot] [--most n] [--apart] [--sheet <file.png>]
+ *   node render.mjs <slides.html> --out <dir> [--size 1080x1350] [--name slide] [--shot] [--most n] [--apart] [--sheet <file.png>] [--strict]
  */
 import { existsSync, mkdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -33,7 +35,7 @@ import {
 } from "../../browser/scripts/session.mjs";
 
 const USAGE =
-  "usage: node render.mjs <slides.html> --out <dir> [--size 1080x1350] [--name slide] [--shot] [--most n] [--apart] [--sheet <file.png>]";
+  "usage: node render.mjs <slides.html> --out <dir> [--size 1080x1350] [--name slide] [--shot] [--most n] [--apart] [--sheet <file.png>] [--strict]";
 const opts = parseArgs();
 const file = opts._[0] && resolve(opts._[0]);
 const [w, h] = String(opts.size ?? "")
@@ -207,8 +209,11 @@ for (const path of done.files) {
     `${path} ${size ? `${size.w}x${size.h}` : "?"}${ok ? "" : ` — not ${w}x${h}`}`,
   );
 }
-if (done.broken.length)
-  console.log(`Pictures that did not load: ${done.broken.join(", ")}`);
+if (done.broken.length) {
+  const said = `Pictures that did not load: ${done.broken.join(", ")}`;
+  if (opts.strict) fail(`${said}. Fix them and run this again.`);
+  console.log(said);
+}
 if (wrong)
   fail(
     `${wrong} slide(s) came out at the wrong size: give every [data-slide] exactly width ${w}px and height ${h}px, with nothing overflowing it.`,

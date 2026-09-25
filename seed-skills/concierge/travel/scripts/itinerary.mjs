@@ -222,14 +222,14 @@ function fromPage(url) {
     throw new Error("THURSDAY_SKILLS is not set: run this from a bot's shell");
   const dir = mkdtempSync(join(tmpdir(), "trip-photo-"));
   try {
-    const said = execFileSync(process.execPath, [script, url, "--out", dir], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    const file = said.match(/^(\S+\.(?:jpg|png|webp|gif|avif))/m)?.[1];
-    if (!file) throw new Error("no picture came back");
-    const credit = said.match(/^Credit: (.+)$/m)?.[1] ?? url;
-    return { src: fromFile(file).src, credit, href: url };
+    const said = execFileSync(
+      process.execPath,
+      [script, url, "--out", dir, "--json"],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    );
+    const { files, credit } = JSON.parse(said.trim().split("\n").at(-1));
+    if (!files?.length) throw new Error("no picture came back");
+    return { src: fromFile(files[0].path).src, credit, href: url };
   } catch (error) {
     throw new Error(
       String(error.stderr || error.message)

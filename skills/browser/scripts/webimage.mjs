@@ -3,9 +3,10 @@
  * Saves the picture a web page shares itself with (og:image, else twitter:image),
  * and with --all the large pictures in its body too, through the session's browser
  * so a picture behind its sign-in loads. Prints each file with its size and the
- * credit line to put on the slide.
+ * credit line to put on the slide; with --json, for a script, one line of JSON instead:
+ * { "files": [{ "path", "w", "h", "alt" }], "credit" }.
  *
- *   node webimage.mjs <page url> --out <dir> [--all] [--min 600]
+ *   node webimage.mjs <page url> --out <dir> [--all] [--min 600] [--json]
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -15,7 +16,9 @@ import { fail, inPage, orFail, parseArgs } from "./session.mjs";
 const opts = parseArgs();
 const url = opts._[0];
 if (!url || !opts.out)
-  fail("usage: node webimage.mjs <page url> --out <dir> [--all] [--min 600]");
+  fail(
+    "usage: node webimage.mjs <page url> --out <dir> [--all] [--min 600] [--json]",
+  );
 const out = resolve(opts.out);
 mkdirSync(out, { recursive: true });
 
@@ -115,12 +118,24 @@ const ext = (type) =>
     "image/gif": "gif",
     "image/avif": "avif",
   })[type.split(";")[0]] ?? "jpg";
-got.files.forEach((f, i) => {
+const saved = got.files.map((f, i) => {
   const path = `${out}/web-${String(i + 1).padStart(2, "0")}.${ext(f.type)}`;
   writeFileSync(path, Buffer.from(f.data, "base64"));
   const size = imageSize(path);
-  console.log(
-    `${path} ${size ? `${size.w}x${size.h}` : f.type} ${f.alt ? `(${f.alt.slice(0, 60)})` : ""}`,
-  );
+  return { path, w: size?.w, h: size?.h, type: f.type, alt: f.alt ?? "" };
 });
-console.log(`Credit: ${got.site} — ${got.title.trim().slice(0, 100)}`);
+const credit = `${got.site} — ${got.title.trim().slice(0, 100)}`;
+if (opts.json)
+  console.log(
+    JSON.stringify({
+      files: saved.map(({ path, w, h, alt }) => ({ path, w, h, alt })),
+      credit,
+    }),
+  );
+else {
+  for (const { path, w, h, type, alt } of saved)
+    console.log(
+      `${path} ${w ? `${w}x${h}` : type} ${alt ? `(${alt.slice(0, 60)})` : ""}`,
+    );
+  console.log(`Credit: ${credit}`);
+}

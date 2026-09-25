@@ -108,13 +108,13 @@ export function bookVideo({ book, voices, size, workspace, shown }, Stop) {
         "--name",
         "page",
         "--apart",
+        // A page whose picture did not load is not made into video
+        "--strict",
       ],
       { encoding: "utf8" },
     );
-    const said = `${drawn.stdout}${drawn.stderr}`.trim();
-    if (drawn.status !== 0) throw new Stop(said);
-    const broken = /^Pictures that did not load.*$/m.exec(said);
-    if (broken) throw new Stop(`${broken[0]} — fix them and run this again.`);
+    if (drawn.status !== 0)
+      throw new Stop(`${drawn.stdout}${drawn.stderr}`.trim());
     const pngs = readdirSync(frames)
       .filter((file) => file.endsWith(".png"))
       .sort()
