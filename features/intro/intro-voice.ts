@@ -39,6 +39,8 @@ export const INTRO_SPOKEN = {
   call: "That's everything. Call me, tell me what to call you, and ask for one thing — anything you'd ask someone sitting next to you. From here on, it's my real voice. I'll show you the rest as we go.",
   asleep:
     "I still don't have a voice of my own, so no calls yet — but everything else works. Have a look around. When you have a key, tap me, and I'll take it from there.",
+  asleepBare:
+    "I still don't have a voice of my own, and my bots have nothing to think with yet — so no calls and no jobs for now. Have a look around. Add a key, or sign in with ChatGPT, and I'll take it from there.",
 } as const;
 
 export type IntroLine = keyof typeof INTRO_SPOKEN;

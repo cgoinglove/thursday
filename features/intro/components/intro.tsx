@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/tooltip";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import {
+  type AutomaticModel,
   parseTextModel,
   type TextModelProviderId,
 } from "@/features/ai/model.schema";
@@ -96,6 +97,8 @@ const SAYS = {
   call: "That is everything I need. Call me, tell me what to call you, and ask for one thing, anything you would ask a person at the next desk. I will show you the rest as we go.",
   asleep:
     "I still have no voice of my own, so there is no call yet, but everything else works. Look around; tap me whenever you have a key and I will take it from there.",
+  asleepBare:
+    "I still have no voice of my own, and my bots have nothing to think with yet, so there is no call and no job for now. Look around; add a key or sign in with ChatGPT whenever you like, and I will take it from there.",
 } as const;
 
 /** Must match the `duration-700` below. */
@@ -158,9 +161,15 @@ export function Intro({
   }, [gone]);
 
   const at = STEPS.indexOf(step as (typeof STEPS)[number]);
+  // Whether bots have a model to run on, as a run would resolve it: without one, "everything
+  // else works" was not true on a machine with no key at all
+  const { data: automatic } = useServerRoute<AutomaticModel>(
+    queryKey.automaticModel,
+  );
+  const thinks = Boolean(automatic?.ref);
   const said = useMemo(
-    () => herTurns(step, keyed, mic.on),
-    [step, keyed, mic.on],
+    () => herTurns(step, keyed, mic.on, thinks),
+    [step, keyed, mic.on, thinks],
   );
   const turns = step === "hello" ? demo.turns : said;
   // Only while it is up: mounted on every page load, its ↓ took the key from every call after
@@ -175,19 +184,20 @@ export function Intro({
   const face = (seed: BotSeed) => icons[BOT_SEEDS.indexOf(seed)];
 
   /**
-   * With a key, install the picked bots (they need a model, so not without one), each on the
-   * app's default model the model step set; `calling` places the first call from inside this click.
+   * Installs the picked bots, key or no key: a bot needs no model to be made, only to run, and
+   * the model is resolved at each run (bot.run). Left for the first key, the picks were lost, and
+   * the key saved later brought every seed, the ones switched off here too.
+   * `calling` places the first call from inside this click.
    */
   const leave = (calling: boolean) => {
     voice.hush();
     setGone(true);
-    if (keyed)
-      installSeedBots(
-        BOT_SEEDS.filter((seed) => picked[seed.name]).map((seed) => ({
-          name: seed.name,
-          icon: face(seed),
-        })),
-      );
+    installSeedBots(
+      BOT_SEEDS.filter((seed) => picked[seed.name]).map((seed) => ({
+        name: seed.name,
+        icon: face(seed),
+      })),
+    );
     if (calling) callSignal.place();
     router.replace("/");
     router.refresh();
@@ -449,7 +459,13 @@ export function Intro({
 }
 
 /** Her lines so far on the way through the steps, so the earlier ones recede as captions do. */
-function herTurns(step: Step, keyed: boolean, heard: boolean): Turn[] {
+function herTurns(
+  step: Step,
+  keyed: boolean,
+  heard: boolean,
+  /** A model bots can run on is set (api/llm-model/automatic): only then does "everything else" work. */
+  thinks: boolean,
+): Turn[] {
   // Each id is also the clip she says it with, so a line with no recording does not compile
   const line = (id: IntroLine, text: string): Turn => ({
     id,
@@ -470,7 +486,13 @@ function herTurns(step: Step, keyed: boolean, heard: boolean): Turn[] {
   if (step === "models") return lines;
   lines.push(line("style", SAYS.style));
   if (step === "style") return lines;
-  lines.push(keyed ? line("call", SAYS.call) : line("asleep", SAYS.asleep));
+  lines.push(
+    keyed
+      ? line("call", SAYS.call)
+      : thinks
+        ? line("asleep", SAYS.asleep)
+        : line("asleepBare", SAYS.asleepBare),
+  );
   return lines;
 }
 

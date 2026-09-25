@@ -42,8 +42,8 @@ while it is open, silence included. Work already handed to a bot carries on.
 ## Writing to her instead
 
 The **+** at the left end of the pill in the bottom right corner — or the `/` key — opens a line at
-the foot of the screen. It opens on whoever it was last addressed to: her, the first time. What is
-sent to her there starts a call in writing: her answers come up beside her face as on a spoken
+the foot of the screen. It opens on her, always. What is sent to her there starts a call in
+writing: her answers come up beside her face as on a spoken
 call, what she is doing shows with them, and the line stays as the way to write back. She has the
 same memory, tools and bots as on a spoken call; there is no voice and no microphone, and nothing is
 billed by the minute.
@@ -53,9 +53,9 @@ billed by the minute.
 - **Files** go with the words: the paperclip, a paste, or a drop anywhere on the window — at most 8
   at a time, 25 MB each. A picture handed over in writing is one she can look at herself — a
   receipt, a screenshot, a chart — so "what does this say?" is answered on the spot.
-- **Who it goes to**: the chip at the left of the line, or `@` and a name at the start. During a
-  written call a bot picked there gets that one message; after it the line is hers again, and
-  **Esc** with a bot picked goes back to her.
+- **Who it goes to**: the chip at the left of the line, or `@` and a name at the start. A bot
+  picked there gets that one message; after it the line is hers again, and **Esc** with a bot
+  picked goes back to her.
 - **What it runs on**: the GPT Subscription when one is signed in, else the OpenAI key. The small
   **runs on** button under the line says which before anything is sent, and picks another model
   for writing to her — any provider with a key. The pick is remembered by this browser and is only

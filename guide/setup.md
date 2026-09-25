@@ -10,8 +10,10 @@ through six steps on the call screen itself: a voice key, the microphone, which 
 they think with, her style, and the first call. She talks
 through it in a recorded voice, in English, and says so first; her real voice starts with the first
 call. The speaker button at the top right mutes the recording, and stays muted the next time, the opening's sounds with it. Every
-step can be passed and done later from the screens below. With a key the last button is **Call
-her**; without one it is **Look around**. It stops showing once a call has been placed, and adding
+step can be passed and done later from the screens below. The bots picked there are set up when
+it ends, key or no key; they run once there is a model to run on. With a key the last button is
+**Call her**; without one it is **Look around**, and she says whether the bots can already work or
+still need a key or a ChatGPT sign-in. It stops showing once a call has been placed, and adding
 `?intro` to the address brings it back.
 
 ## Around the screen

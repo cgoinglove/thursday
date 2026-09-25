@@ -18,9 +18,10 @@ type SeedPick = {
 };
 
 /**
- * Creates the seed roster. Call only after a voice key is saved: seed bots
- * need a resolvable default model. Fire-and-forget; failure only toasts.
- * Without picks, every seed is created on the app default model.
+ * Creates the seed roster. No key is needed: a bot's model is resolved when it runs
+ * (bot.run), so one made on a machine with no key yet runs once there is one.
+ * Fire-and-forget; failure only toasts. Without picks, every seed is created on the app
+ * default model.
  */
 export function installSeedBots(picks?: SeedPick[]) {
   const wanted =

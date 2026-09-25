@@ -82,9 +82,6 @@ const HER: Recipient = {
   description: "A call in writing — she answers here",
 };
 
-/** Where the last pick is remembered, so the line opens on whoever was written to last. */
-const LAST_TO = "thursday.write.to";
-
 const mentionOf = (draft: string) => /^@(\S*)$/.exec(draft.split(/\s/, 1)[0]);
 
 /** How long the line takes to go, so it can be watched leaving. */
@@ -115,7 +112,6 @@ export function WriteLine({
   const [open, setOpen] = useState(false);
   const [picking, setPicking] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [toName, setToName] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const spoken = useRef(onCall);
   spoken.current = onCall;
@@ -130,23 +126,18 @@ export function WriteLine({
   const field = useRef<HTMLTextAreaElement>(null);
   const picker = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    try {
-      setToName(window.localStorage.getItem(LAST_TO));
-    } catch {
-      // storage may be blocked; the first bot is as good a start
-    }
-  }, []);
   const calling = Boolean(written?.on);
-  // While a call in writing is on the line is hers, until a bot is picked for one message:
-  // that pick lasts for the message and is not what the line opens on next time
+  // The line is hers, until a bot is picked for one message: that pick lasts for the message
+  // and is not what the line opens on next time. Opened on whoever was written to last, a
+  // line addressed to a bot an hour ago turned "what's the weather?" into a job for it
   const [besides, setBesides] = useState<string | null>(null);
   useEffect(() => {
     if (!calling) setBesides(null);
   }, [calling]);
-  const to = calling
-    ? (roster.find((bot) => bot.name === besides) ?? HER)
-    : (roster.find((bot) => bot.name === toName) ?? roster[0]);
+  const to =
+    roster.find((bot) => bot.name === besides) ??
+    // Writing to her needs a model to run on (written); without one the first bot takes it
+    (written ? HER : roster[0]);
   const toHer = to === HER;
 
   // The first run is drawn over this screen: nothing opens behind it (call-signal)
@@ -240,13 +231,7 @@ export function WriteLine({
     setDraft((text) => (mentionOf(text) ? text.replace(/^@\S*\s?/, "") : text));
     setCursor(0);
     field.current?.focus();
-    if (calling) return setBesides(bot.name === HER.name ? null : bot.name);
-    setToName(bot.name);
-    try {
-      window.localStorage.setItem(LAST_TO, bot.name);
-    } catch {
-      // remembered for this visit only
-    }
+    setBesides(bot.name === HER.name ? null : bot.name);
   };
 
   const mention = asWords ? null : mentionOf(draft);
@@ -290,11 +275,11 @@ export function WriteLine({
   };
 
   /**
-   * Esc. A bot picked during her call: it gives the line back to her. Hers, it ends the
-   * call in writing, and the line goes with it.
+   * Esc. A bot picked for one message: it gives the line back to her. Hers, it ends the
+   * call in writing if one is on, and the line goes with it.
    */
   const leave = () => {
-    if (calling && !toHer) return setBesides(null);
+    if (besides) return setBesides(null);
     if (calling) written?.end();
     setOpen(false);
   };

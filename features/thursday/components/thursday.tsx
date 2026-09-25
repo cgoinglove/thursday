@@ -35,13 +35,15 @@ import {
 } from "@/components/ui/tooltip";
 import { CALL_IDLE, CALL_LINE } from "@/config";
 import { LIVE_DEFAULTS, LIVE_PROVIDER } from "@/features/ai/live.schema";
-import { TEXT_MODEL_PROVIDERS } from "@/features/ai/model.schema";
+import {
+  type AutomaticModel,
+  TEXT_MODEL_PROVIDERS,
+} from "@/features/ai/model.schema";
 import { type Bot, DEFAULT_BOT } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { BotRoom } from "@/features/bot/components/bot-room";
 import { toolIcon } from "@/features/bot/components/bot-tool";
 import { useAnswerThread } from "@/features/bot/components/thread-reply";
-import { installSeedBots } from "@/features/bot/seed-bots";
 import { GetKeyLink, VoiceKeys } from "@/features/config/components/voice-key";
 import { type ConfigStatus, isConfigSet } from "@/features/config/config.const";
 import { InstallNudge } from "@/features/settings/components/install-app";
@@ -1617,6 +1619,10 @@ function NeedsKey({
   onOpen: () => void;
   onClose: () => void;
 }) {
+  // Whether bots have a model to run on: "everything else works" only when they do
+  const { data: automatic } = useServerRoute<AutomaticModel>(
+    queryKey.automaticModel,
+  );
   if (open) {
     return (
       <div className="w-[min(26rem,84vw)] animate-in space-y-2.5 rounded-2xl bg-background/80 p-3 ring-1 ring-border/60 backdrop-blur-md fade-in duration-300">
@@ -1635,8 +1641,9 @@ function NeedsKey({
             <X className="size-3.5" />
           </Button>
         </div>
-        {/* the intro's key step, in place; the first key also installs the seed bots */}
-        <VoiceKeys dense plain autoFocus onSaved={() => installSeedBots()} />
+        {/* the intro's key step, in place. The bots picked on the first run are already
+            installed, key or no key: installing every seed here brought back the ones left out */}
+        <VoiceKeys dense plain autoFocus />
         <GetKeyLink />
       </div>
     );
@@ -1657,7 +1664,9 @@ function NeedsKey({
         <MicOff className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-muted text-muted-foreground" />
       </span>
       <span className="text-[13px] text-muted-foreground break-keep wrap-anywhere">
-        Calls need one speech key. Everything else here already works.
+        {automatic && !automatic.ref
+          ? "Calls need one speech key, and bots a model key or a ChatGPT sign-in."
+          : "Calls need one speech key. Everything else here already works."}
       </span>
       {/* the one thing this screen asks for */}
       <Button size="sm" variant="brand" onClick={onOpen} className="h-7 px-3.5">
