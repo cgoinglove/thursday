@@ -12,13 +12,26 @@ This is a public MIT repository (`github.com/cgoinglove/thursday`, published to 
 
 - **English in the tree.** Code, comments, prompts, strings and commit messages are English.
   `README.ko.md` is the one translated file.
-- **Nothing about one user goes into the tree.** A user's words, names, accounts, habits and rules for
-  a situation are their data — memory, Settings, a `*.local.*` file — never code, prompt text, a test
-  fixture or a word list.
+- **Nothing about one user goes into the tree, and the person you work for is one user.** Their
+  words, names, accounts, habits, rules for a situation, language, country and market are their
+  data — memory, Settings, a `*.local.*` file — never code, prompt text, a test fixture, a word
+  list or a default. A default, example, source, site or currency works for a stranger anywhere;
+  what serves one script or region, such as a font, is added beside the others, never instead.
 - **Anything private is named `*.local.*`.** `.gitignore` keeps that shape out of commits. Never
   `git add -f` one.
 - **No heuristic does the model's job.** No phrase matching, per-language word lists or timers that
   guess intent.
+- **Nothing is forced to work.** No copy of another site's markup or private endpoint, no branch
+  that only makes the example at hand pass, no retry, fallback or empty result that hides a
+  failure. What cannot be done cleanly is said, not forced.
+- **Each thing a diff changes stands on something you can name** — a case you reproduced, a
+  measurement, code or a document you can quote, what you were asked — and the commit or pull
+  request says which. A guess is not one.
+- **A rule that looks wrong is asked about, not obeyed or worked around.** When a line of this
+  file, a map or a `SKILL.md` contradicts the code, the task or another line, or its stated reason
+  does not hold for the case at hand, quote it, say what following it would cause, and ask the
+  person you work for before doing the part it decides; with no one to ask, leave that part undone
+  and open your report with the question. The answer rewrites the line, unless it is a vendored skill.
 - **The user's data is not clutter.** The database, `DATA_DIR/.sign-ins` and `.ai-workspace/` are
   never deleted to tidy up.
 - **A number that tunes behaviour is a `config.ts` constant** whose comment says what moving it does;
