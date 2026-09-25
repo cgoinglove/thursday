@@ -10,6 +10,7 @@ import type { BotWorkLine } from "@/features/bot/bot.schema";
 import type { McpToolRef } from "@/features/connectors/mcp.schema";
 import type { MemoryIndexEntry } from "@/features/memory/memory.schema";
 import type { SkillMetadata } from "@/features/skills/skills.discover";
+import type { CallTurn } from "@/features/thursday/thursday.schema";
 import { searchOf, startedLabel } from "@/features/thursday/tool-line";
 import { toDate } from "@/lib/date-like";
 import { logger } from "@/lib/logger";
@@ -208,7 +209,7 @@ export function reachNames(
 type RecentCall = {
   startedAt: Date;
   turns: {
-    role: "user" | "assistant" | "tool";
+    role: CallTurn["role"];
     tool?: string | null;
     text: string;
   }[];

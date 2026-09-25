@@ -16,7 +16,7 @@ import {
   type ThreadPending,
   type ThreadStatus,
 } from "@/features/bot/bot.schema";
-import type { WorkState } from "@/features/bot/room.schema";
+import type { RelayKind, WorkState } from "@/features/bot/room.schema";
 import {
   MCPOAuthData,
   MCPServerConfig,
@@ -24,6 +24,7 @@ import {
 } from "@/features/connectors/mcp.schema";
 import type { MemorySource } from "@/features/memory/memory.schema";
 import type { RoutineSchedule } from "@/features/routine/routine.schema";
+import type { CallTurn } from "@/features/thursday/thursday.schema";
 
 /** Workers that background jobs are delegated to. */
 export const botTable = sqliteTable("bot", {
@@ -329,9 +330,7 @@ export const threadRelayTable = sqliteTable("thread_relay", {
     .references(() => threadTable.id, { onDelete: "cascade" }),
   bot: text("bot").notNull(),
   text: text("text").notNull(),
-  kind: text("kind")
-    .notNull()
-    .$type<"message" | "question" | "report" | "interrupted">(),
+  kind: text("kind").notNull().$type<RelayKind>(),
   messageId: text("message_id"),
   accepted: int("accepted", { mode: "boolean" }).notNull().default(false),
 });
@@ -377,7 +376,7 @@ export const callMessageTable = sqliteTable(
      *  land after the reply starts), so this orders them, not `at`. */
     seq: int("seq").notNull(),
     /** `tool` turns keep only the tool name and its arguments, not the result. */
-    role: text("role").notNull().$type<"user" | "assistant" | "tool">(),
+    role: text("role").notNull().$type<CallTurn["role"]>(),
     /** Tool name for `tool` turns; `text` is then the argument JSON. */
     tool: text("tool"),
     text: text("text").notNull(),

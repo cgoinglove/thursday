@@ -36,6 +36,15 @@ const RoomQuestionSchema = z.object({
   options: z.string().array().optional(),
 });
 
+/** What a `thread_relay` row carries to Thursday. */
+const RelayKindSchema = z.enum([
+  "message",
+  "question",
+  "report",
+  "interrupted",
+]);
+export type RelayKind = z.infer<typeof RelayKindSchema>;
+
 export const ROOM_THURSDAY = "Thursday";
 
 /**
@@ -61,7 +70,7 @@ export const RoomViewSchema = z.object({
       id: z.number(),
       bot: z.string(),
       text: z.string(),
-      kind: z.enum(["message", "question", "report", "interrupted"]),
+      kind: RelayKindSchema,
       messageId: z.string().nullable(),
     })
     .array(),

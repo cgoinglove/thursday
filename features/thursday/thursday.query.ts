@@ -179,7 +179,7 @@ export type CallGroup = {
   callId: string;
   startedAt: Date;
   turns: {
-    role: "user" | "assistant" | "tool";
+    role: CallTurn["role"];
     tool: string | null;
     text: string;
     seq: number;
