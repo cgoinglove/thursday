@@ -18,8 +18,9 @@ stop of day 1 is the train, with its time and fare from the operator's own site.
 
 ```bash
 S=<this skill's dir>/scripts
-node $S/weather.mjs "Lisbon, PT" 2026-11-12 2026-11-15 && \
-node $S/fx.mjs 150 USD EUR
+D=$THURSDAY_SKILLS/data-report/scripts
+node $D/weather.mjs "Lisbon, PT" 2026-11-12 2026-11-15 && \
+node $D/fx.mjs 150 USD EUR
 ```
 
 The currency is the user's: a budget in dollars means the whole answer is in dollars.
@@ -47,7 +48,8 @@ again — the page is now "Choose return" with a list of its own.
 Either way, choose on times as well as price — a $20 saving that lands at midnight or leaves at 6
 in the morning is not a saving — and say why the one you chose beats the next.
 
-Then open the stays url in a second tab (`tab-new`) and read it the same way: name, nightly price,
+Then open the stays url in a second tab (`tab-new`), set the dates and the guests on the page
+(its address does not carry them), and read it the same way: name, nightly price,
 rating, class, whether it is refundable. An apartment or a whole house is the same url with
 `vacation rentals in <place>` as the `q`. Google lists places around a city as well as in it, so a
 pick whose name or address puts it in another town is said to be there, with the ride; and a room
@@ -81,4 +83,6 @@ one. Build it at most twice.
 Your final text holds the answer before anything else: the flights (airline, times, price), the
 place to stay (name, nightly price, why it), the total and per person against the budget, then the
 page's path and the links. Every price says the day you read it. What you could not confirm — a
-price only one seller showed, a stop whose hours you did not find — is said beside it.
+price only one seller showed, a stop whose hours you did not find — is said beside it. When the
+flights came from a window rather than Kiwi, the last line says that connecting Kiwi in
+Settings › Connectors finds them without one.

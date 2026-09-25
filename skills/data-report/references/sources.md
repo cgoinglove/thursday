@@ -14,6 +14,11 @@ call; an industry body's report; a research firm's estimate; news.
 | SEC XBRL | US-listed companies' reported figures, yearly or quarterly | `sec <TICKER> --find <word>`, then `sec <TICKER> <CONCEPT,…>` |
 | Wikipedia pageviews | Public interest in a topic, monthly (a stand-in for search trends) | `pageviews <ARTICLE,…> [--wiki de]` |
 
+The weather and an amount in another currency are a line each, not a series: `weather.mjs`
+reads Open-Meteo's forecast, or its archive past the forecast's 16 days, and `fx.mjs` the ECB's
+rates through frankfurter.dev, or ExchangeRate-API's open feed for a currency the ECB does not
+quote.
+
 **FRED's download names a series by its id alone.** What it measures, in what unit, how often and
 whether seasonally adjusted is on its page (`https://fred.stlouisfed.org/series/<ID>`): read it
 before a label, a chart title or a unit says so.

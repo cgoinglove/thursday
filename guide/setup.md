@@ -65,10 +65,12 @@ A skill is a written-down way of doing something that a bot reads before it star
 ship with the app are every bot's alike: the browser; this Mac (listed on a Mac only); what the user
 keeps, looks at or uses — a document, a design canvas, a picture book, the deck every bot can make,
 and a page or a small app, with charts and diagrams — as one (the first app installs its kit, which
-takes a minute and the network); reading a video, a podcast, an article or a PDF; answers built on published numbers, with charts; a daily news brief; a trip planned; finding
-more skills; and writing a new one. **Marketer** also carries one of its own for marketing — a
-product's brief, page copy, email sequences, a launch, social posts, an SEO audit — which no other
-bot sees. **Settings › Skills** lists them in two groups, **Custom** (the
+takes a minute and the network); reading a video, a podcast, an article or a PDF; answers built on
+published numbers, with charts, the weather on given days and an amount in another currency; a
+daily news brief; finding more skills; and writing a new one. **Marketer** also carries one of its
+own for marketing — a product's brief, page copy, email sequences, a launch, social posts, an SEO
+audit — and **Concierge** one for trips — flights and stays compared, a booking handed over, a
+day-by-day page — which no other bot sees. **Settings › Skills** lists them in two groups, **Custom** (the
 user's own) and **Default** (the ones that ship, read-only). There a skill can be switched off (it stays off through an update of the app), uploaded (a `.md`,
 `.zip` or `.skill` file), written from scratch, or deleted when it is one of their own. Opening a skill shows its files; in one of
 their own, **Edit** on a file writes it back, which is how a typo or a changed step is fixed without

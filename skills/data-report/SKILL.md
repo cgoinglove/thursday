@@ -1,6 +1,6 @@
 ---
 name: data-report
-description: "Answers questions that turn on real numbers, taken from where they are published. Use it for a cost, a trend, a market size, a company, or which to pick, buy or wait, with a chart when it helps."
+description: "Answers questions that turn on real numbers, taken from where they are published. Use it for a cost, a trend, a market size, a company, which to pick, buy or wait, the weather on given days, or an amount in another currency, with a chart when it helps."
 ---
 
 # Data report
@@ -37,6 +37,15 @@ node $S/fetch.mjs fred SP500,NASDAQCOM --from 2025-01 --label "S&P 500,Nasdaq" -
 
 A `--label` names the columns in the order you asked for them, so give one for every column or
 none. `node $S/fetch.mjs` with no arguments lists every source and option.
+
+Two more answer in a line, with no CSV and no page:
+
+```bash
+# The forecast a line a day; past the 16 days it reaches, the same days over the last five years
+node $S/weather.mjs "<place>[, <country code>]" <from YYYY-MM-DD> [<to>]   # --f for °F
+# An amount at today's rate, with the rate's date and source; fetch.mjs fx is the rate over time
+node $S/fx.mjs 150 USD EUR,JPY
+```
 
 `references/sources.md` says which source holds what, the series ids worth knowing, and what the
 script cannot reach. A CSV you build from a page or a file you were given takes the same shape: a

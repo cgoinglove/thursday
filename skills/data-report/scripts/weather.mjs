@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Weather for a place over the trip's days, one line a day. Within the forecast's reach
+ * Weather for a place over the days asked, one line a day. Within the forecast's reach
  * (16 days) it is the forecast; further out it is what the same days were like over the
  * last five years, which is what "what will it be like" can honestly get. Open-Meteo,
  * no key, no browser.

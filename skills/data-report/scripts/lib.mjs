@@ -42,22 +42,13 @@ export const addDays = (iso, n) =>
     .toISOString()
     .slice(0, 10);
 
-export const money = (amount, code) =>
-  amount == null
-    ? "?"
-    : new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: code,
-        maximumFractionDigits: 0,
-      }).format(amount);
-
 /** GET a keyless JSON API, tried twice; a second failure stops the script with the url. */
 export async function getJson(url) {
   let last = "";
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const res = await fetch(url, {
-        headers: { "user-agent": "thursday-agent travel" },
+        headers: { "user-agent": "thursday-agent data-report" },
         signal: AbortSignal.timeout(20000),
       });
       if (res.ok) return await res.json();

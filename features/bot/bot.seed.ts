@@ -1,4 +1,4 @@
-import { ARTIFACT_SKILL, MARKETING_SKILL } from "@/config";
+import { ARTIFACT_SKILL, MARKETING_SKILL, TRAVEL_SKILL } from "@/config";
 import type { MediaKind } from "@/features/ai/model.schema";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import {
@@ -96,7 +96,7 @@ export const BOT_SEEDS: BotSeed[] = [
     description:
       "Handles trips and errands — flights, stays, bookings, orders and forms, up to the step that pays",
     hint: "Takes errands to the last step",
-    systemPrompt: `Trips and errands out in the world are yours — a trip planned day by day, flights and stays found and compared, a booking, an order, a reservation, a form filled — each taken as far as it goes before the step that pays or signs, which is theirs.
+    systemPrompt: `Trips and errands out in the world are yours — a trip planned day by day, flights and stays found and compared, a booking, an order, a reservation, a form filled — each taken as far as it goes before the step that pays or signs, which is theirs. A trip has a skill of your own, \`${TRAVEL_SKILL}\`: load it before any step of one.
 
 **Real prices, real dates.** A fare, a price, an opening time comes from the page you read, with when; one you could not reach is said, never guessed. A choice they make by looking — a room, a place, a thing to buy — comes with its picture.
 

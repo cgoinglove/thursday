@@ -19,9 +19,10 @@ often the reason for the difference.
 ## Which price
 
 The seller charges in its own currency, and the page shows both (`$312` beside `€288`). Say
-the one that will actually be charged, and use `fx.mjs` for the one the user thinks in. The price
-can move between the search and the seller's page: if the seller shows another number, that is the
-price, and say so rather than repeating the search's.
+the one that will actually be charged, and give the one the user thinks in with
+`$THURSDAY_SKILLS/data-report/scripts/fx.mjs`. The price can move between the search and the
+seller's page: if the seller shows another number, that is the price, and say so rather than
+repeating the search's.
 
 ## On their screen
 

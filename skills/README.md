@@ -57,9 +57,9 @@ now only run the chart, the document script and the camera the artifact skill ho
   workspace the first time it is needed; a PDF through `pdftotext` when the machine has it, else
   pypdf installed into the workspace; audio is cut with ffmpeg, or a portable build installed into
   the workspace. No code is copied from any of them.
-- **`daily-brief`, `travel` and `data-report`** call sources that answer without a key (Google News
-  feeds, Open-Meteo, Frankfurter and the series `data-report/references/sources.md` lists); that
-  file names the ones that need one. Their scripts need Node and no packages.
+- **`daily-brief`, `data-report` and the Concierge's `travel`** call sources that answer without a
+  key (Google News feeds, Open-Meteo, Frankfurter and the series `data-report/references/sources.md`
+  lists); that file names the ones that need one. Their scripts need Node and no packages.
 
 ### Marketing: what was cut or changed from upstream
 

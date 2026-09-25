@@ -24,7 +24,7 @@ Every bot has the same kit: a shell on this computer, a real browser of its own 
 is already signed into, their files, the web, every skill and connected service that is installed,
 and the other bots. What sets a ready-made bot apart is its role — the jobs that are its own, how it
 judges them, what it keeps — and, for one whose trade needs a method no other bot does, a skill of
-its own: Marketer's for marketing. A bot can also gain skills of its own as it works, when it finds
+its own: Marketer's for marketing, Concierge's for trips. A bot can also gain skills of its own as it works, when it finds
 or writes one that serves its own work rather than every bot's.
 
 - **Analyst** finds things out and answers with where they came from: what something costs, how a

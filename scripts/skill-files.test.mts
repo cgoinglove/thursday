@@ -213,4 +213,13 @@ test("a ready-made bot's kit is listed to that bot alone, and an old copy left u
     (one) => one.name,
   );
   assert.ok(!others.includes("marketing"), "no other bot sees the kit");
+
+  // Trips are the Concierge's own: listed to it, and to no other bot
+  const concierge = seedSkills("Concierge");
+  assert.ok(concierge);
+  const its = (await discoverSkills(sandbox, [shipped, concierge])).map(
+    (one) => one.name,
+  );
+  assert.ok(its.includes("travel"), "the Concierge's kit holds travel");
+  assert.ok(!others.includes("travel"), "no other bot sees travel");
 });
