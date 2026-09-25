@@ -3,7 +3,6 @@ import { appEvents } from "@/app/api/events/app-event.server";
 import { PAGE_SIZE } from "@/config";
 import { database } from "@/database/db";
 import { callTable, memoryFactTable, memoryNoteTable } from "@/database/tables";
-import { createKeyedLock } from "@/lib/queue";
 import {
   isAlwaysListed,
   MEMORY_ALWAYS_LISTED,
@@ -15,11 +14,6 @@ import {
 } from "./memory.schema";
 
 // Forgetting deletes a fact; revising appends a new row and retires the old one (isLatest = false).
-
-// Tool calls during a call run concurrently (routes, not actions) and SQLite allows
-// one write transaction, so writes are serialized on a single key.
-const writeLock = createKeyedLock();
-const serialize = <T>(work: () => Promise<T>) => writeLock("memory", work);
 
 const changed = () => appEvents.emit({ type: "memory" });
 
@@ -127,32 +121,30 @@ export async function addFact(noteId: number, text: string) {
 
 /** Revision never overwrites: the old row is retired and a new row becomes current. */
 export async function reviseFact(noteId: number, factId: number, text: string) {
-  const fact = await serialize(() =>
-    database.transaction(async (tx) => {
-      const retired = await tx
-        .update(memoryFactTable)
-        .set({ isLatest: false })
-        .where(
-          and(
-            eq(memoryFactTable.id, factId),
-            eq(memoryFactTable.noteId, noteId),
-            eq(memoryFactTable.isLatest, true),
-          ),
-        )
-        .returning({ id: memoryFactTable.id });
-      if (retired.length === 0) return null;
+  const fact = await database.transaction(async (tx) => {
+    const retired = await tx
+      .update(memoryFactTable)
+      .set({ isLatest: false })
+      .where(
+        and(
+          eq(memoryFactTable.id, factId),
+          eq(memoryFactTable.noteId, noteId),
+          eq(memoryFactTable.isLatest, true),
+        ),
+      )
+      .returning({ id: memoryFactTable.id });
+    if (retired.length === 0) return null;
 
-      const [fact] = await tx
-        .insert(memoryFactTable)
-        .values({ noteId, text, source: "user" })
-        .returning();
-      await tx
-        .update(memoryNoteTable)
-        .set({ updatedAt: new Date() })
-        .where(eq(memoryNoteTable.id, noteId));
-      return fact;
-    }),
-  );
+    const [fact] = await tx
+      .insert(memoryFactTable)
+      .values({ noteId, text, source: "user" })
+      .returning();
+    await tx
+      .update(memoryNoteTable)
+      .set({ updatedAt: new Date() })
+      .where(eq(memoryNoteTable.id, noteId));
+    return fact;
+  });
   if (fact) changed();
   return fact;
 }
@@ -348,17 +340,15 @@ export async function writeFacts(
   callId: string | null = null,
 ): Promise<MemoryNoteView | null> {
   const target = path.trim();
-  const written = await serialize(() =>
-    database.transaction(async (tx) => {
-      const [note] = await tx
-        .select({ id: memoryNoteTable.id })
-        .from(memoryNoteTable)
-        .where(eq(memoryNoteTable.path, target));
-      if (!note) return false;
-      await insertFacts(tx, note.id, facts, source, callId);
-      return true;
-    }),
-  );
+  const written = await database.transaction(async (tx) => {
+    const [note] = await tx
+      .select({ id: memoryNoteTable.id })
+      .from(memoryNoteTable)
+      .where(eq(memoryNoteTable.path, target));
+    if (!note) return false;
+    await insertFacts(tx, note.id, facts, source, callId);
+    return true;
+  });
   if (!written) return null;
 
   // Re-read without touching hits: saving is not recall.
@@ -380,18 +370,16 @@ export async function createNoteWithFacts(
   callId: string | null = null,
 ): Promise<MemoryNoteView | null> {
   const target = path.trim();
-  const made = await serialize(() =>
-    database.transaction(async (tx) => {
-      const [note] = await tx
-        .insert(memoryNoteTable)
-        .values({ path: target, description })
-        .onConflictDoNothing({ target: memoryNoteTable.path })
-        .returning({ id: memoryNoteTable.id });
-      if (!note) return false;
-      await insertFacts(tx, note.id, facts, source, callId);
-      return true;
-    }),
-  );
+  const made = await database.transaction(async (tx) => {
+    const [note] = await tx
+      .insert(memoryNoteTable)
+      .values({ path: target, description })
+      .onConflictDoNothing({ target: memoryNoteTable.path })
+      .returning({ id: memoryNoteTable.id });
+    if (!note) return false;
+    await insertFacts(tx, note.id, facts, source, callId);
+    return true;
+  });
   if (!made) return null;
 
   const { notes } = await readNotes([target], { touch: false });
@@ -465,50 +453,48 @@ export async function listNoteIndex() {
 export async function forgetFactById(
   factId: number,
 ): Promise<{ path: string; noteGone: boolean } | null> {
-  const forgotten = await serialize(() =>
-    database.transaction(async (tx) => {
-      const removed = await tx
-        .delete(memoryFactTable)
-        .where(eq(memoryFactTable.id, factId))
-        .returning({ noteId: memoryFactTable.noteId });
-      if (removed.length === 0) return null;
+  const forgotten = await database.transaction(async (tx) => {
+    const removed = await tx
+      .delete(memoryFactTable)
+      .where(eq(memoryFactTable.id, factId))
+      .returning({ noteId: memoryFactTable.noteId });
+    if (removed.length === 0) return null;
 
-      const noteId = removed[0].noteId;
-      const [note] = await tx
-        .select({
-          path: memoryNoteTable.path,
-          ownedByUser: memoryNoteTable.ownedByUser,
-        })
-        .from(memoryNoteTable)
-        .where(eq(memoryNoteTable.id, noteId));
+    const noteId = removed[0].noteId;
+    const [note] = await tx
+      .select({
+        path: memoryNoteTable.path,
+        ownedByUser: memoryNoteTable.ownedByUser,
+      })
+      .from(memoryNoteTable)
+      .where(eq(memoryNoteTable.id, noteId));
 
-      const [remaining] = await tx
-        .select({ count: sql<number>`count(*)` })
-        .from(memoryFactTable)
-        .where(
-          and(
-            eq(memoryFactTable.noteId, noteId),
-            eq(memoryFactTable.isLatest, true),
-          ),
-        );
+    const [remaining] = await tx
+      .select({ count: sql<number>`count(*)` })
+      .from(memoryFactTable)
+      .where(
+        and(
+          eq(memoryFactTable.noteId, noteId),
+          eq(memoryFactTable.isLatest, true),
+        ),
+      );
 
-      if (
-        remaining?.count === 0 &&
-        note &&
-        !note.ownedByUser &&
-        !isAlwaysListed(note.path)
-      ) {
-        await tx.delete(memoryNoteTable).where(eq(memoryNoteTable.id, noteId));
-        return { path: note.path, noteGone: true };
-      }
+    if (
+      remaining?.count === 0 &&
+      note &&
+      !note.ownedByUser &&
+      !isAlwaysListed(note.path)
+    ) {
+      await tx.delete(memoryNoteTable).where(eq(memoryNoteTable.id, noteId));
+      return { path: note.path, noteGone: true };
+    }
 
-      await tx
-        .update(memoryNoteTable)
-        .set({ updatedAt: new Date() })
-        .where(eq(memoryNoteTable.id, noteId));
-      return { path: note?.path ?? "", noteGone: false };
-    }),
-  );
+    await tx
+      .update(memoryNoteTable)
+      .set({ updatedAt: new Date() })
+      .where(eq(memoryNoteTable.id, noteId));
+    return { path: note?.path ?? "", noteGone: false };
+  });
   if (forgotten) changed();
   return forgotten;
 }
