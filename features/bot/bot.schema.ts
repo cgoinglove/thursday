@@ -75,10 +75,7 @@ const botNameSchema = z
     (name) => name.toLowerCase() !== ROOM_THURSDAY.toLowerCase(),
     "Thursday is reserved for the voice assistant.",
   )
-  .pipe(
-    z.string().min(1, "A name is required").max(COMMON_VALIDATE.name.max),
-    // .regex(/^\p{L}+(?: \p{L}+)*$/u, "Letters and single spaces only"),
-  );
+  .pipe(z.string().min(1, "A name is required").max(COMMON_VALIDATE.name.max));
 
 /** Tokens burned. Input and output stay apart because output costs about ten times more. */
 const TokenUsageSchema = z.object({
