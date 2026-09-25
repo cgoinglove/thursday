@@ -778,7 +778,17 @@ function LetGo({
         size="sm"
         variant="outline"
         loading={forgetting}
-        onClick={() => void forget(name)}
+        onClick={async () => {
+          // One press ends every chat through this service, so it is asked like a delete
+          const sure = await notify.confirm({
+            title: `Let ${who} go?`,
+            description:
+              "Nobody can write to Thursday through this service until someone is let in again.",
+            okText: "Let them go",
+            destructive: true,
+          });
+          if (sure) void forget(name);
+        }}
       >
         Let them go
       </Button>

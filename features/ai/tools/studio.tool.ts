@@ -333,6 +333,9 @@ const videoTool = async (): Promise<StudioTool | null> => {
         prompt,
         aspectRatio: aspectRatio ?? "16:9",
         duration: seconds ?? undefined,
+        // The SDK retries twice by default, and a clip the provider made before the
+        // answer was lost is billed again: a failure is the bot's to see, once
+        maxRetries: 0,
         abortSignal,
       });
       const path = await save(

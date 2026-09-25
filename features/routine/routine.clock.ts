@@ -52,7 +52,8 @@ async function open(routine: RoutineInput & { id: string }): Promise<string> {
  * One look at what is due. Two things keep a due routine from starting, and they differ
  * in what becomes of the time it missed:
  * - its bot is gone or switched off: held, it starts once the bot is back;
- * - its last run is still running or waiting: skipped, runs are never stacked.
+ * - its last run is still running or waiting: skipped, runs are never stacked — but one
+ *   that starts once has no later time to fall to, so it is held until that run closes.
  */
 export async function startDueRoutines(now = new Date()) {
   const due = await listDueRoutines(now);
@@ -60,6 +61,10 @@ export async function startDueRoutines(now = new Date()) {
   for (const row of due) {
     const bot = await findJobBot(row.bot);
     if (!bot || bot.disabled) continue;
+    // Claiming switches a once-only routine off: a "Run now" still open at its moment
+    // left it off with its own run never made
+    if (row.schedule.kind === "once" && isOpen(await latestRun(row.id)))
+      continue;
     // Moved on before anything opens, so a second tick reading the same row starts nothing
     if (!(await claimRoutine(row, now))) continue;
     if (isOpen(await latestRun(row.id))) {

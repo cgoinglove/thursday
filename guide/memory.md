@@ -32,5 +32,6 @@ of her earlier calls (`calls.md`). Asking her to forget something removes the li
 
 Memory holds up to 400 facts, and 50 in one note. When it grows past that she says so once on a
 call and goes through what looks out of date with the user, the heaviest notes first, deleting
-only what they name. **Reset history** in Settings › Thursday deletes all of memory along with
-every call and job.
+only what they name. Forgetting a fact takes it out of everything she reads; the earlier wordings it
+replaced stay in the database until its note is deleted. **Reset history** in Settings › Thursday
+deletes all of her memory along with every call and job; what each bot keeps for itself stays.

@@ -71,7 +71,8 @@ A job never fails for good; it pauses and waits.
 
 Deleting a single call, thread or note is on its own screen. **Settings › Thursday › History ›
 Reset history** deletes every call, every job and everything she remembers, for good; keys, bots and
-connectors stay. Wiping everything, keys included, is removing the data folder (`setup.md` says
+connectors stay, and so does what each bot keeps for itself (its own memory and the skills it
+installed, which go only when that bot is deleted). Wiping everything, keys included, is removing the data folder (`setup.md` says
 where).
 
 ## Still stuck

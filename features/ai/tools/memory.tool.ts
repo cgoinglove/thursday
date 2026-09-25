@@ -95,11 +95,17 @@ const FACT_TEXT = z
  * @param options.countReads Whether opening a note counts as reading it. The
  * counts rank notes cold in the call prompt, so only a runtime that recalls on
  * the user's behalf counts; an edit opening a note to change it does not.
+ * @param options.tidies Whether the holder can settle an overgrown note with the
+ * user. A bot is handed the read alone, so its recall carries no ask to delete:
+ * told to, it had nothing to delete with and the user was asked mid-job.
  */
 export const createMemoryTools = (
   source: MemorySource,
   callId: string | null = null,
-  { countReads = true }: { countReads?: boolean } = {},
+  {
+    countReads = true,
+    tidies = true,
+  }: { countReads?: boolean; tidies?: boolean } = {},
 ) => ({
   [TOOL_NAMES.memory_recall]: tool({
     description: "Open one note from the listing, whole.",
@@ -109,7 +115,7 @@ export const createMemoryTools = (
       const note = notes[0];
       // A missing note is an answer to relay, not a reason to retry spellings
       if (!note) return { note: missing(path.trim()) };
-      const over = overSize(note.facts.length);
+      const over = tidies ? overSize(note.facts.length) : "";
       return over ? { ...withCount(note), note: over.trim() } : withCount(note);
     },
   }),

@@ -728,7 +728,17 @@ function SignInDialog({
             <Button
               variant="ghost"
               loading={signingOut}
-              onClick={() => signOut(entry.key)}
+              onClick={async () => {
+                // What runs on the plan stops until the next sign-in, so it is asked like a delete
+                const sure = await notify.confirm({
+                  title: `Sign out of ${entry.label}?`,
+                  description:
+                    "Nothing runs on your plan until you sign in again.",
+                  okText: "Sign out",
+                  destructive: true,
+                });
+                if (sure) signOut(entry.key);
+              }}
             >
               Sign out
             </Button>

@@ -251,16 +251,24 @@ function SkillRow({ skill }: { skill: SkillSummary }) {
 function openSkillBrowser(skill: SkillSummary) {
   return notify.component({
     className: "sm:max-w-4xl",
-    renderer: () => <SkillBrowser skill={skill} />,
+    renderer: ({ guard }) => <SkillBrowser skill={skill} guard={guard} />,
   });
 }
 
 /** Folder list on the left, the picked file on the right; both paths are skill-relative. */
-function SkillBrowser({ skill }: { skill: SkillSummary }) {
+function SkillBrowser({
+  skill,
+  guard,
+}: {
+  skill: SkillSummary;
+  guard: (unsaved: () => boolean) => void;
+}) {
   const [dir, setDir] = useState("");
   const [file, setFile] = useState<string | null>("SKILL.md");
   /** Whether the open file has words written into it and not saved: they live only in the box. */
   const unsaved = useRef(false);
+  // Closing the dialog asks about them as picking another file does
+  useEffect(() => guard(() => unsaved.current), [guard]);
 
   const openEntry = async (entry: SkillEntry) => {
     const path = dir ? `${dir}/${entry.name}` : entry.name;
@@ -611,11 +619,19 @@ function FileView({
 function openSkillCreate() {
   return notify.component({
     className: "sm:max-w-lg",
-    renderer: ({ close }) => <SkillCreate onDone={close} />,
+    renderer: ({ close, guard }) => (
+      <SkillCreate onDone={close} guard={guard} />
+    ),
   });
 }
 
-function SkillCreate({ onDone }: { onDone: () => void }) {
+function SkillCreate({
+  onDone,
+  guard,
+}: {
+  onDone: () => void;
+  guard: (unsaved: () => boolean) => void;
+}) {
   const [mode, setMode] = useState<"write" | "upload">("write");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -623,6 +639,12 @@ function SkillCreate({ onDone }: { onDone: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [over, setOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  /** Anything typed or dropped: Esc, the backdrop and × ask before it goes (notify). */
+  const begun = useRef(false);
+  begun.current = Boolean(
+    name.trim() || description.trim() || content.trim() || file,
+  );
+  useEffect(() => guard(() => begun.current), [guard]);
 
   const done = {
     errorMessage: false as const,

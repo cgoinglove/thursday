@@ -136,7 +136,11 @@ export const BotFormSchema = z.object({
   effort: effortSchema.nullish(),
   disabled: z.boolean().optional(),
   descriptionLocked: z.boolean().optional(),
-  toolIds: z.number().int().array().max(MAX_PINNED_TOOLS).default([]),
+  /**
+   * Replaces the pinned set when sent. No default: `.partial()` keeps one, and every save
+   * on the bot's page that was not about tools emptied the set.
+   */
+  toolIds: z.number().int().array().max(MAX_PINNED_TOOLS).optional(),
 });
 
 /**

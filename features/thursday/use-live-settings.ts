@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect } from "react";
 import { queryKey } from "@/app/api/query-key";
 import type { LiveSettings } from "@/features/ai/live.schema";
 import { useServerAction } from "@/lib/protocol/use-server-action";
@@ -17,8 +17,9 @@ import { useThursdayStore } from "./thursday.store";
  * kept where a call reads it is the one a phone writing in and a second computer get too
  * (thursday.query readLiveSettings).
  *
- * A save sends every field, since the screen holds every field: nothing to merge, and no
- * order for two saves to disagree about.
+ * A save sends only what changed and the server lays it over what it keeps: a whole row
+ * built on the last read put back a field changed a moment before, while that save was
+ * still on its way.
  */
 export function useLiveSettings() {
   const { data: settings } = useServerRoute<LiveSettings>(
@@ -28,13 +29,8 @@ export function useLiveSettings() {
     onOk: () => revalidate(queryKey.thursdaySettings),
   });
 
-  const held = useRef(settings);
-  held.current = settings;
   const patch = useCallback(
-    (change: Partial<LiveSettings>) => {
-      const now = held.current;
-      if (now) void save({ ...now, ...change });
-    },
+    (change: Partial<LiveSettings>) => void save(change),
     [save],
   );
 

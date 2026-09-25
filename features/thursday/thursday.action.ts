@@ -3,7 +3,7 @@
 import { asSchema } from "ai";
 import z from "zod";
 import { reclaim } from "@/database/db";
-import { LIVE_PROVIDER, LiveSettingsSchema } from "@/features/ai/live.schema";
+import { LIVE_PROVIDER } from "@/features/ai/live.schema";
 import { loadTools } from "@/features/ai/load-tools";
 import { textModelRefSchema } from "@/features/ai/model.schema";
 import { loadCallStanding } from "@/features/ai/prompts/call-standing";
@@ -23,6 +23,7 @@ import { acceptedReasoning, createLiveCall } from "@/lib/live/live.server";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
 import {
+  changeLiveSettings,
   deleteCall,
   deleteEndedCalls,
   endCall,
@@ -31,7 +32,6 @@ import {
   saveThought,
   saveTurns,
   seedLiveSettings,
-  writeLiveSettings,
 } from "./thursday.query";
 import {
   type CallHandshake,
@@ -174,14 +174,13 @@ export const tellTextCallAction = serverAction(
 );
 
 /**
- * Settings › Thursday, sent whole. The screen holds every field, so there is nothing to
- * merge and no order for two saves to disagree about; what is kept is what differs from the
- * defaults (thursday.query). Nothing is cached: the next call builds its prompts and its
- * tool set from this (ai/load-tools, prompts/thursday.prompt).
+ * Settings › Thursday: the fields a screen changed (thursday.query changeLiveSettings).
+ * Nothing is cached: the next call builds its prompts and its tool set from this
+ * (ai/load-tools, prompts/thursday.prompt).
  */
-export const setLiveSettingsAction = serverAction(async (settings: unknown) => {
-  await writeLiveSettings(LiveSettingsSchema.parse(settings));
-});
+export const setLiveSettingsAction = serverAction(async (change: unknown) =>
+  changeLiveSettings(z.record(z.string(), z.unknown()).parse(change)),
+);
 
 /**
  * The copy a browser kept before these moved to the server, offered once on load. It is

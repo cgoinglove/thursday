@@ -43,20 +43,45 @@ export const notify = {
     renderer,
     className,
   }: {
-    renderer: ({ close }: { close: () => void }) => ReactNode;
+    renderer: (dialog: {
+      /** Closes it without asking: for after a save, or a cancel pressed on purpose. */
+      close: () => void;
+      /**
+       * Tells the dialog how to know it holds words not saved. Esc, the backdrop and ×
+       * then ask before throwing them away; a dialog that never calls it closes at once.
+       */
+      guard: (unsaved: () => boolean) => void;
+    }) => ReactNode;
     className?: string;
   }) {
     return new Promise<void>((resolve) => {
       const dialog = mount();
+      let unsaved: (() => boolean) | null = null;
       const close = () => {
         dialog.unmount();
         resolve();
       };
+      const leave = async () => {
+        if (
+          unsaved?.() &&
+          !(await notify.confirm({
+            title: "Discard your changes?",
+            description: "What you wrote here is not saved.",
+            okText: "Discard",
+            destructive: true,
+          }))
+        )
+          return;
+        close();
+      };
+      const guard = (ask: () => boolean) => {
+        unsaved = ask;
+      };
       dialog.render(
-        <Dialog open onOpenChange={close}>
+        <Dialog open onOpenChange={leave}>
           {/* Named by what the renderer draws: SettingDialogContent's title is its DialogTitle */}
           <DialogContent className={cn("px-0", className)}>
-            {renderer({ close })}
+            {renderer({ close, guard })}
           </DialogContent>
         </Dialog>,
       );

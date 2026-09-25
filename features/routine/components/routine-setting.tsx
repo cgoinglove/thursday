@@ -64,6 +64,7 @@ import {
   type Routine,
   type RoutineInput,
   type RoutineSchedule,
+  sameSchedule,
   scheduleText,
   WEEKDAYS,
 } from "../routine.schema";
@@ -428,6 +429,9 @@ function RoutineSheet({
     patch(next);
     const spelled = scheduleOf({ ...draft, ...next });
     if (!spelled || isSpent(spelled)) return;
+    // The schedule it already keeps, picked again, is no change: a "Once" pressed twice
+    // switched a routine the user had stopped back on
+    if (saved && sameSchedule(spelled, saved.schedule)) return;
     // Picking the moment of one that starts once sets it, whether or not it already ran
     commit({
       schedule: spelled,

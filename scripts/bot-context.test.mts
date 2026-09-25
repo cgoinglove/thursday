@@ -1657,6 +1657,69 @@ test("a routine opens one thread when it is due, skips while its last run is ope
   for (const run of [first, second, third]) await deleteThread(run.id);
 });
 
+test("a once-only routine waits out an open run, and the schedule it has, sent again, restarts nothing", async () => {
+  const { routineTable } = await import("../database/tables.ts");
+  const { createRoutine, deleteRoutine, findRoutine, updateRoutine } =
+    await import("../features/routine/routine.query.ts");
+  const { startDueRoutines, runRoutineNow } = await import(
+    "../features/routine/routine.clock.ts"
+  );
+  const { deleteThread } = await import("../features/bot/thread.query.ts");
+  const later = new Date(Date.now() + 3_600_000);
+  const two = (n: number) => String(n).padStart(2, "0");
+  const at = `${later.getFullYear()}-${two(later.getMonth() + 1)}-${two(later.getDate())} ${two(later.getHours())}:${two(later.getMinutes())}`;
+  const routine = await createRoutine({
+    bot: "Alpha",
+    label: "Once only",
+    request: "Say hello once.",
+    schedule: { kind: "once", at },
+  });
+  const now = async () => (await findRoutine(routine.id))!;
+
+  // Stopped by the user, then its own moment sent again ("Once" pressed twice): still off
+  await updateRoutine(routine.id, { enabled: false });
+  const kept = (await now()).nextRunAt;
+  await updateRoutine(routine.id, { schedule: { kind: "once", at } });
+  assert.equal((await now()).enabled, false);
+  assert.equal(+(await now()).nextRunAt, +kept);
+  await updateRoutine(routine.id, { enabled: true });
+
+  // Run by hand and still open at its moment: held, rather than switched off unmade
+  plans.set("Alpha", [() => ask("Thursday", "Which greeting?")]);
+  const byHand = await runRoutineNow(routine.id);
+  await waitFor(byHand, "waiting");
+  await database
+    .update(routineTable)
+    .set({ nextRunAt: new Date(Date.now() - 60_000) })
+    .where(eq(routineTable.id, routine.id));
+  await startDueRoutines();
+  assert.equal((await now()).enabled, true, "held while its run is open");
+  assert.equal((await now()).runs.length, 1);
+
+  // Once that run closes, its own start is made, and then it is spent
+  await cancelThread(byHand);
+  plans.set("Alpha", [() => text("Hello.")]);
+  await startDueRoutines();
+  const runs = (await now()).runs;
+  assert.equal(runs.length, 2);
+  assert.equal((await now()).enabled, false);
+  await waitFor(runs[0].id, "done");
+
+  await deleteRoutine(routine.id);
+  for (const run of runs) await deleteThread(run.id);
+});
+
+test("a bot saved without its tools keeps them pinned, and a deleted Jarvis takes no work beside other bots", async () => {
+  const { BotFormSchema } = await import("../features/bot/bot.schema.ts");
+  const { findJobBot } = await import("../features/bot/bot.query.ts");
+  // A save about anything else carries no `toolIds`, so the pinned set is not replaced
+  const patch = BotFormSchema.partial().parse({ description: "New words" });
+  assert.equal("toolIds" in patch, false);
+  // The rows here have no Jarvis: the one that stands in when there are no bots is not conjured
+  assert.equal(await findJobBot("Jarvis"), null);
+  assert.equal((await findJobBot("alpha"))?.name, "Alpha");
+});
+
 test("a committed message recovers its real receipt after the tool result is lost", async () => {
   const { insertThread, deleteThread } = await import(
     "../features/bot/thread.query.ts"

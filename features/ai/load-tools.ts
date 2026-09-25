@@ -459,7 +459,9 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
   const sees = Boolean(run.model && seesToolImages(run.model.ref));
   return {
     // A bot only reads memory: every write is the call's, and there is no screen to show a note on
-    [TOOL_NAMES.memory_recall]: memory[TOOL_NAMES.memory_recall],
+    [TOOL_NAMES.memory_recall]: createMemoryTools("call", null, {
+      tidies: false,
+    })[TOOL_NAMES.memory_recall],
     // Exa when its key is set, else this bot's own model when it can search;
     // absent when neither, and the browser is the way in (search.tool)
     ...(await createSearchTool(run.model, sandbox)),

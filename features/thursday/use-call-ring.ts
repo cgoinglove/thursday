@@ -174,12 +174,30 @@ export function useCallRing({
     setRangOutAt(null);
   }, []);
 
+  /**
+   * The call that answered it never opened: the ring comes back as a missed one, so what it
+   * was about still waits under her face and not only in the room.
+   */
+  const unanswered = useCallback((ids: string[]) => {
+    if (!ids.length) return;
+    setRingingFor((now) => [...ids, ...now.filter((id) => !ids.includes(id))]);
+    setRangOutAt(Date.now());
+  }, []);
+
   /** A call ended: what came up during it was that call's to tell, and only what comes after rings. */
   const settle = useCallback(() => {
     ringAfter.current = Date.now();
   }, []);
 
-  return { ringing, isRinging, ringingFor, answered, settle, decline };
+  return {
+    ringing,
+    isRinging,
+    ringingFor,
+    answered,
+    unanswered,
+    settle,
+    decline,
+  };
 }
 
 /**

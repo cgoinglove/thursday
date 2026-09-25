@@ -656,7 +656,7 @@ function ResetHistory() {
     const confirmed = await notify.confirm({
       title: "Reset history?",
       description:
-        "Every call, every job and everything she remembers is deleted for good. Keys, bots and connectors stay.",
+        "Every call, every job and everything she remembers is deleted for good. Keys, bots and connectors stay, and so does what each bot keeps for itself.",
       okText: "Reset",
       destructive: true,
     });

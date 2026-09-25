@@ -60,8 +60,8 @@ async function wasReadingSkills(): Promise<boolean> {
 /**
  * Kept as what differs from the defaults, so a default nobody picked moves with the app
  * when it changes — a release that replaces the backend model reaches every install that
- * left it alone, as the bots' model left on Automatic does. The screen sends every field,
- * so there is nothing to merge.
+ * left it alone, as the bots' model left on Automatic does. Takes the whole row: a screen's
+ * change is laid over what is kept first (thursday.action setLiveSettingsAction).
  */
 export async function writeLiveSettings(settings: LiveSettings): Promise<void> {
   const chosen = Object.fromEntries(
@@ -70,6 +70,22 @@ export async function writeLiveSettings(settings: LiveSettings): Promise<void> {
     ),
   );
   await writeConfig(THURSDAY_KEYS.settings, JSON.stringify(chosen));
+}
+
+/**
+ * The fields a screen changed, each checked by its own rule, laid over what is kept. A whole
+ * row built on the last one the screen read put a field back: a style typed and a switch
+ * flipped before the first save came back lost the style.
+ */
+export async function changeLiveSettings(
+  change: Record<string, unknown>,
+): Promise<void> {
+  // `.partial()` still fills an absent field with its default: only what was sent is kept
+  const parsed = LiveSettingsSchema.partial().parse(change);
+  const fields = Object.fromEntries(
+    Object.entries(parsed).filter(([key]) => key in change),
+  );
+  await writeLiveSettings({ ...(await readLiveSettings()), ...fields });
 }
 
 /**

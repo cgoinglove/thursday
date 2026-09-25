@@ -176,4 +176,4 @@ sound on a page nobody has clicked yet, so right after a reload it rings on the 
 after another, oldest at the top, each with the jobs it opened and where they stand; a single call
 can be deleted, or all of them with **Delete all**. A call is kept for three months and then goes
 by itself. **Reset history** deletes every call, every job and everything she remembers, for good;
-keys, bots and connectors stay.
+keys, bots and connectors stay, and so does what each bot keeps for itself.

@@ -12,6 +12,7 @@ import {
   type RoutineInput,
   type RoutineRun,
   type RoutineSchedule,
+  sameSchedule,
 } from "./routine.schema";
 
 // Routines and the threads they opened. A run is an ordinary thread carrying `routine_id`;
@@ -111,7 +112,8 @@ export async function createRoutine(input: RoutineInput): Promise<Routine> {
 
 /**
  * A new schedule, and switching it back on, both count from now: a routine left off for a
- * month does not owe a run the moment it is switched on.
+ * month does not owe a run the moment it is switched on. The schedule it already has, sent
+ * again, is not a new one.
  */
 export async function updateRoutine(
   id: string,
@@ -123,7 +125,9 @@ export async function updateRoutine(
     .where(eq(routineTable.id, id));
   if (!was) return null;
   const schedule = patch.schedule ?? was.schedule;
-  const restarts = Boolean(patch.schedule) || (patch.enabled && !was.enabled);
+  const restarts =
+    Boolean(patch.schedule && !sameSchedule(patch.schedule, was.schedule)) ||
+    (patch.enabled && !was.enabled);
   // only a moment being given or switched on is asked about: one waiting to start is due, not spent
   if (restarts) refuseSpentMoment(schedule, patch.enabled ?? was.enabled);
   const [row] = await database

@@ -135,6 +135,19 @@ export function scheduleText(schedule: RoutineSchedule): string {
 }
 
 /**
+ * Whether two schedules start the same runs, whatever order the days were picked in: the
+ * one kept, and the same one picked again, which changes nothing.
+ */
+export function sameSchedule(a: RoutineSchedule, b: RoutineSchedule): boolean {
+  if (a.kind === "once") return b.kind === "once" && a.at === b.at;
+  if (a.kind === "every") return b.kind === "every" && a.hours === b.hours;
+  const days = (list: number[]) => [...list].sort((x, y) => x - y).join();
+  return (
+    b.kind === "daily" && a.time === b.time && days(a.days) === days(b.days)
+  );
+}
+
+/**
  * The first start after `from`. A daily one is the next listed day at its time; an `every`
  * one counts from `from` itself, so a machine that slept through several starts owes one,
  * not all of them. A `once` one has its moment, passed or not.

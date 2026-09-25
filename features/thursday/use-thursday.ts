@@ -541,7 +541,7 @@ export function useThursday(
   }, [threads]);
 
   const ring = useCallRing({ threads, resting: status === "idle", writing });
-  const { answered, settle } = ring;
+  const { answered, unanswered, settle } = ring;
 
   // The user acted on screen: context she need not say (screen-act)
   useEffect(
@@ -684,6 +684,7 @@ export function useThursday(
   const call = useCallback(async () => {
     // Every way in answers a ringing call-back: the face, the wake word, the hotkey
     const calledBack = ring.isRinging;
+    const rangFor = ring.ringingFor;
     // Guard with a ref, not `status`: three entry points (face, wake word,
     // hotkey) can fire in one frame and both see a stale "idle", opening two sessions
     if (opening.current || ending.current) return;
@@ -1026,6 +1027,8 @@ export function useThursday(
           description: errorToString(cause),
         });
         showFailed(true);
+        // Answering took the ring down; it comes back as missed, since nothing was told
+        if (calledBack) unanswered(rangFor);
       }
       if (attempt.current !== mine) return;
       // a call that never opened still has a row; close it
@@ -1054,6 +1057,7 @@ export function useThursday(
     ring.isRinging,
     ring.ringingFor,
     answered,
+    unanswered,
   ]);
 
   // Why the last call ended is news for a moment, not the idle screen's one line

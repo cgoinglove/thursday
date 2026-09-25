@@ -132,6 +132,7 @@ const { answerInWriting, openTextCall, streamTextCall, tellTextCall } =
 const {
   isCallOpen,
   listRecentTurns,
+  changeLiveSettings,
   readLiveSettings,
   seedLiveSettings,
   sweepCalls,
@@ -536,4 +537,14 @@ test("the kept settings take a browser's copy once, keep only what differs from 
     (await readLiveSettings()).backendModel,
     LIVE_DEFAULTS.backendModel,
   );
+
+  // What a screen changes goes alone and lands on what is kept: a style typed, then a
+  // switch flipped before the first came back, keeps both
+  await changeLiveSettings({ stylePrompt: "Short answers." });
+  await changeLiveSettings({ webSearch: false });
+  const both = await readLiveSettings();
+  assert.equal(both.stylePrompt, "Short answers.");
+  assert.equal(both.webSearch, false);
+  assert.equal(both.persona, "hype");
+  await assert.rejects(changeLiveSettings({ persona: "" }));
 });

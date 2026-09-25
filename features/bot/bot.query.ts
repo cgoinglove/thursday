@@ -90,8 +90,14 @@ export async function findJobBot(name: string): Promise<JobBot | null> {
     .where(eq(sql`lower(${botTable.name})`, said));
   if (match) return asJobBot(match);
 
-  // The worker that exists when no row does; it has no row to match against
-  return DEFAULT_BOT.name.toLowerCase() === said ? DEFAULT_BOT : null;
+  // The worker that exists when no row does, as listJobBots has it: once there are bots,
+  // a Jarvis the user deleted is gone like any other and takes no more work
+  if (DEFAULT_BOT.name.toLowerCase() !== said) return null;
+  const [any] = await database
+    .select({ name: botTable.name })
+    .from(botTable)
+    .limit(1);
+  return any ? null : DEFAULT_BOT;
 }
 
 /** Bots with their pinned tools and token totals: a set of queries plus grouping, not a join. */
@@ -240,7 +246,7 @@ export async function createBot(form: BotForm) {
 
   const { toolIds, ...values } = pickedModel(form);
   const [bot] = await database.insert(botTable).values(values).returning();
-  await setPinnedTools(bot.name, toolIds);
+  if (toolIds?.length) await setPinnedTools(bot.name, toolIds);
   return bot;
 }
 
