@@ -69,7 +69,7 @@ export function TabState({
   const alerts = useSectionAlerts();
   const worst = worstAlert(Object.values(alerts).map((each) => each ?? null));
   // A suggestion is for the settings corner, not the tab: from another window nothing is owed
-  const alert = worst === "brand" ? null : worst;
+  const alert = worst === "waiting" ? null : worst;
 
   useEffect(() => {
     const name = ringing ? `${APP_NAME} is calling` : APP_NAME;

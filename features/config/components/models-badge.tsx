@@ -28,16 +28,15 @@ const MODEL_KEYS = CONFIG_GROUPS.filter(
  * that only clears when every kind is set is a standing demand to spend. What is
  * worth saying once is that the whole drawer exists, because until one is picked
  * a bot that would have drawn just finds out mid-job. Picking any answers it.
- * Blue, not amber: nothing waits on it. A loading read reports nothing rather
- * than flashing a dot on every open.
+ * A loading read reports nothing rather than flashing a dot on every open.
  */
 export function useModelsAlert(): SectionAlert {
   const { data, isLoading } = useServerRoute<ConfigStatus[]>(queryKey.config);
   if (isLoading || !data) return null;
-  return MODEL_KEYS.every((key) => !isConfigSet(data, key)) ? "brand" : null;
+  return MODEL_KEYS.every((key) => !isConfigSet(data, key)) ? "waiting" : null;
 }
 
 /** The Models section's dot: the studio is empty. A dot, not a count. */
 export function ModelsBadge() {
-  return useModelsAlert() ? <NavBadge tone="brand" /> : null;
+  return useModelsAlert() ? <NavBadge tone="waiting" /> : null;
 }

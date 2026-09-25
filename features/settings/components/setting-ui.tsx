@@ -196,16 +196,16 @@ export function SettingFilter({
 }
 
 /**
- * What a nav row reports about its section. Amber counts what waits on you, red
- * marks what failed, and the brand colour marks everything that wants the user
- * — a question, a stopped job, an answer not opened, a section worth setting
- * up. The nav carries no others. A count of 0 draws nothing, so a section at rest stays quiet.
+ * What a nav row reports about its section. Red marks what failed, and the
+ * `--waiting` ember marks everything that wants the user — a question, a
+ * stopped job, an answer not opened, a section worth setting up. The nav
+ * carries no others. A count of 0 draws nothing, so a section at rest stays quiet.
  */
 export function NavBadge({
   tone,
   count,
 }: {
-  tone: "red" | "brand";
+  tone: "red" | "waiting";
   /** Omitted draws a dot: the section has something wrong, not a number of things. */
   count?: number;
 }) {

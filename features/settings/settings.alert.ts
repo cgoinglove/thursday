@@ -9,19 +9,19 @@ import { useReachAlert } from "@/features/reach/components/reach-badge";
 import type { SettingSectionId } from "./settings.store";
 
 /**
- * What a section is reporting: red is broken, and the brand colour is everything
- * that wants the user — a question, a stopped job, an answer not opened, a
- * section worth setting up (the user's pick). One colour to look for, so the
- * eye learns one thing. A section at rest reports nothing. The fact lives here
- * so both places that draw it stay in step — the nav row (which can afford a
- * count) and the call screen's corner (which cannot).
+ * What a section is reporting: red is broken, and waiting, drawn in the
+ * `--waiting` ember, is everything that wants the user — a question, a stopped
+ * job, an answer not opened, a section worth setting up. One colour to look
+ * for, so the eye learns one thing. A section at rest reports nothing. The fact
+ * lives here so both places that draw it stay in step — the nav row (which can
+ * afford a count) and the call screen's corner (which cannot).
  */
-export type SectionAlert = "red" | "brand" | null;
+export type SectionAlert = "red" | "waiting" | null;
 
-/** Broken outranks everything the brand colour says; one of them is the whole ladder. */
+/** Broken outranks everything waiting says; one of them is the whole ladder. */
 export function worstAlert(alerts: SectionAlert[]): SectionAlert {
   if (alerts.includes("red")) return "red";
-  return alerts.includes("brand") ? "brand" : null;
+  return alerts.includes("waiting") ? "waiting" : null;
 }
 
 /**
