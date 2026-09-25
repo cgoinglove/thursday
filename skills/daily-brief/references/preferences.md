@@ -41,8 +41,12 @@ No
 - **A source they complain about goes under Avoid**, one they praise under Prefer; both are
   domains, passed as `--avoid` and `--prefer`.
 - Fix what proved wrong rather than add beside it. The file stays one screen long.
+- **Only what they like goes in the file.** Every brief reads it as their wishes, so what you
+  learned about a source — a series that lags, a symbol that changed, a feed that failed — stays
+  out of it: say it in that brief when it matters to them.
 - **Markets written as Yahoo symbols** (`^GSPC`, `EURUSD=X`, `BTC-USD`) are from an older glance:
-  `glance.mjs` names what each one is now; write those into the file before the next brief.
+  `glance.mjs` names what each one is now; put those in place of the old ones before the next
+  brief, with no note about the change.
 
 ## The first brief
 
