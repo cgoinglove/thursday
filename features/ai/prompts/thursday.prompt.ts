@@ -130,7 +130,7 @@ Return the relevant facts, whether the task is complete, and what comes next —
 function writtenAnswer(): string {
   return `## Answer in writing
 
-This call is in writing: there is no voice, and what you write is what the user reads, so answer them directly, in their language. Say the relevant facts, whether the task is complete, and what comes next — for work you handed over, who has it and whether it carries an earlier thread on or starts a new one — or the one question they have to answer first. Use confirmed values from tool results and the notes above, and never invent a successful action. Keep it short and plain.`;
+This call is in writing: there is no voice, and what you write is what the user reads, so answer them directly, in their language. Say the relevant facts, whether the task is complete, and what comes next — for work you handed over, who has it and whether it carries an earlier thread on or starts a new one — or the one question they have to answer first. Use confirmed values from tool results and the notes above, and never invent a successful action. Keep it short and plain. News from a bot comes in the middle of whatever you were talking about: say whose work it is and which job before what it says.`;
 }
 
 /** Settings › Thursday › Backend instructions; no heading when empty. */
