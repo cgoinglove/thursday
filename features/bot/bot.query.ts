@@ -19,6 +19,7 @@ import {
   DEFAULT_BOT,
   isBotMemoryOn,
   type JobBot,
+  type OwnLine,
   type PinnedTool,
   pickedModel,
 } from "./bot.schema";
@@ -28,6 +29,7 @@ import {
 const asJobBot = (row: {
   name: string;
   description: string;
+  ownLine: OwnLine | null;
   systemPrompt: string | null;
   icon: BotIcon | null;
   /** Empty runs on the app default model (bot.run resolveModel). */
@@ -39,6 +41,7 @@ const asJobBot = (row: {
 }): JobBot => ({
   name: row.name,
   description: row.description,
+  ownLine: row.ownLine?.line ?? null,
   systemPrompt: row.systemPrompt,
   icon: row.icon,
   provider: row.provider,
@@ -161,30 +164,48 @@ async function findBot(name: string) {
   return bot ?? null;
 }
 
-/** Whether a bot may rewrite its own description: it has a row and the user has not locked it. */
-export async function mayDescribeItself(name: string): Promise<boolean> {
+/**
+ * The line a bot may write after its description, and the one it wrote before: null when it
+ * may not (no row, or the user locked it).
+ */
+export async function ownLineOf(
+  name: string,
+): Promise<{ line: string | null } | null> {
   const row = await findBot(name);
-  return Boolean(row && !row.descriptionLocked);
+  if (!row || row.descriptionLocked) return null;
+  return { line: row.ownLine?.line ?? null };
 }
 
 /**
- * A bot's new description in its own words (`describe_self`), unless the user locked it since.
- * Returns the line it replaced, or null when nothing was written. Emitted here, since the
- * screen that lists the bots did not make this change.
+ * A bot's own line (`describe_self`), unless the user locked it since. Returns the line it
+ * replaced, or undefined when nothing was written. Emitted here, since the screen that lists
+ * the bots did not make this change.
  */
-export async function rewriteBotDescription(
+export async function writeOwnLine(
   name: string,
-  description: string,
-): Promise<string | null> {
+  line: string,
+  reason: string,
+): Promise<{ was: string | null } | undefined> {
   const row = await findBot(name);
-  if (!row || row.descriptionLocked) return null;
-  if (row.description === description) return row.description;
+  if (!row || row.descriptionLocked) return undefined;
+  const was = row.ownLine?.line ?? null;
+  if (was === line) return { was };
   await database
     .update(botTable)
-    .set({ description })
+    .set({ ownLine: { line, reason, at: Date.now() } })
     .where(eq(botTable.name, row.name));
   appEvents.emit({ type: "bots" });
-  return row.description;
+  return { was };
+}
+
+/** The user takes the bot's own line away; its description stays. */
+export async function clearOwnLine(name: string): Promise<boolean> {
+  const cleared = await database
+    .update(botTable)
+    .set({ ownLine: null })
+    .where(eq(botTable.name, name))
+    .returning({ name: botTable.name });
+  return cleared.length > 0;
 }
 
 /** Rows on the roster, switched off or not: what BOT_ROSTER.max counts. */

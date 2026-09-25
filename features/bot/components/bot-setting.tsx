@@ -51,6 +51,7 @@ import {
   type TextModelProviderId,
 } from "@/features/ai/model.schema";
 import {
+  clearOwnLineAction,
   createBotAction,
   createSeedBotsAction,
   deleteBotAction,
@@ -824,6 +825,9 @@ function BotPage({
       onDone(null);
     },
   });
+  const [clearLine, clearingLine] = useServerAction(clearOwnLineAction, {
+    onOk: () => revalidate(queryKey.bot),
+  });
 
   const ready =
     name.trim() && description.trim() && provider && model.trim() && !creating;
@@ -872,6 +876,17 @@ function BotPage({
       destructive: true,
     });
     if (confirmed) remove(bot.name);
+  };
+
+  const confirmClearLine = async () => {
+    if (!bot) return;
+    const confirmed = await notify.confirm({
+      title: `Clear ${bot.name}'s line?`,
+      description: `${APP_NAME} and the other bots read your description alone again.`,
+      okText: "Clear",
+      destructive: true,
+    });
+    if (confirmed) clearLine(bot.name);
   };
 
   return (
@@ -963,14 +978,37 @@ function BotPage({
             The one line {APP_NAME} and the other bots read when they decide who
             gets a job.
           </p>
+          {/* The bot's own words, read after the description wherever it is
+              listed (bot.schema rosterLine): theirs to write, the user's to clear */}
+          {bot?.ownLine && (
+            <div className="mt-1 flex items-start gap-2 rounded-lg bg-muted/50 py-2 pr-1.5 pl-2.5">
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <p className="text-[13px] leading-[18px]">{bot.ownLine.line}</p>
+                <p className="font-mono text-[11px] leading-4 text-muted-foreground">
+                  added by {bot.name} · {whenOf(new Date(bot.ownLine.at))} ·{" "}
+                  {bot.ownLine.reason}
+                </p>
+              </div>
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                loading={clearingLine}
+                aria-label="Clear its line"
+                onClick={confirmClearLine}
+                className="shrink-0 text-muted-foreground"
+              >
+                <X />
+              </Button>
+            </div>
+          )}
           {bot && (
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
               <Switch
                 checked={!bot.descriptionLocked}
                 onCheckedChange={(on) => commit({ descriptionLocked: !on })}
-                aria-label={`${bot.name} may rewrite its description`}
+                aria-label={`${bot.name} may add its own line`}
               />
-              It may rewrite this line when its work changes for good
+              It may add its own line when its work changes for good
             </label>
           )}
         </Row>

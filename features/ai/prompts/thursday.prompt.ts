@@ -2,7 +2,7 @@ import { CALL_EXEC_TIMEOUT_MS, RECENT_CALL } from "@/config";
 import { guideLine } from "@/features/ai/guide";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { listJobBots, readBotMemoryOn } from "@/features/bot/bot.query";
-import type { JobBot } from "@/features/bot/bot.schema";
+import { type JobBot, rosterLine } from "@/features/bot/bot.schema";
 import { type CallJob, listCallJobs } from "@/features/bot/thread.query";
 import { listNoteIndex, readNotes } from "@/features/memory/memory.query";
 import {
@@ -263,7 +263,7 @@ function backgroundWork(
 
 Who you hand work to — the names \`${TOOL_NAMES.thread_start}\` takes.
 
-${roster.map((bot) => `- **${bot.name}** — ${bot.description}`).join("\n")}${
+${roster.map((bot) => `- **${bot.name}** — ${rosterLine(bot)}`).join("\n")}${
   reach ? `\n\nWhat bots can reach for: ${reach}.` : ""
 }
 

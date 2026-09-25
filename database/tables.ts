@@ -12,6 +12,7 @@ import z from "zod";
 import type { Effort, TextModelProviderId } from "@/features/ai/model.schema";
 import {
   botIconSchema,
+  type OwnLine,
   type ThreadPending,
   type ThreadStatus,
 } from "@/features/bot/bot.schema";
@@ -31,12 +32,18 @@ export const botTable = sqliteTable("bot", {
   /** One line, shown in lists and in the prompt's Bots section. */
   description: text("description").notNull(),
   /**
-   * The user keeps the description as written: the bot's own `describe_self` is left out of
-   * its tools. Off at first, so a bot can say what it has come to do once that has changed.
+   * The user keeps the bot's line as it stands: its `describe_self` is left out of its tools.
+   * Off at first, so a bot can say what it has come to do once that has changed.
    */
   descriptionLocked: int("description_locked", { mode: "boolean" })
     .notNull()
     .default(false),
+  /**
+   * The bot's own words, read after the description wherever it is listed (bot.schema
+   * rosterLine), with why it wrote them. The description is the user's alone; this is the
+   * bot's alone, and the user can only clear it. Null until the bot writes one.
+   */
+  ownLine: text("own_line", { mode: "json" }).$type<OwnLine>(),
   /** Appended after the base persona, never replacing it. null means generalist. */
   systemPrompt: text("system_prompt"),
   icon: text("icon", {

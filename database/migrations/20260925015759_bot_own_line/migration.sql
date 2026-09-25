@@ -1,0 +1,1 @@
+ALTER TABLE `bot` ADD `own_line` text;

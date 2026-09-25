@@ -32,6 +32,15 @@ export const botIconSchema = z.object({
 
 const botSystemPromptSchema = z.string().max(COMMON_VALIDATE.prompt.max);
 
+/** A bot's own words after the user's description (`describe_self`), why it wrote them, and when (ms). */
+export const ownLineSchema = z.object({
+  line: z.string(),
+  reason: z.string(),
+  at: z.number(),
+});
+
+export type OwnLine = z.infer<typeof ownLineSchema>;
+
 /**
  * Faces for bots nobody drew, distinct from one another: the whole vocabulary is
  * rolled, shape and paints included, so a face the app hands out and a face
@@ -88,8 +97,10 @@ export const COMPACT_AT_MIN = 8_000;
 const BotSchema = z.object({
   name: z.string(),
   description: z.string(),
-  /** The user keeps the description as written; the bot cannot rewrite it (botTable). */
+  /** The bot may not write its own line (botTable). */
   descriptionLocked: z.boolean(),
+  /** The bot's words after the description; null until it writes some. */
+  ownLine: ownLineSchema.nullish(),
   systemPrompt: z.string().nullish(),
   icon: botIconSchema.nullish(),
   /** Set only when chosen; empty runs on the app default model. */
@@ -158,6 +169,8 @@ export type BotForm = z.infer<typeof BotFormSchema>;
 export type JobBot = {
   name: string;
   description: string;
+  /** The bot's own words after the description (`describe_self`); read through `rosterLine`. */
+  ownLine: string | null;
   systemPrompt: string | null;
   icon: BotIcon | null;
   /** null means whatever key is configured; only the default bot. */
@@ -187,6 +200,7 @@ export const DEFAULT_BOT_ICON: BotIcon = {
 export const DEFAULT_BOT: JobBot = {
   name: "Jarvis",
   description: "Anything — this computer, a browser, the web, files, services",
+  ownLine: null,
   systemPrompt: null,
   icon: DEFAULT_BOT_ICON,
   provider: null,
@@ -195,6 +209,17 @@ export const DEFAULT_BOT: JobBot = {
   compactAt: null,
   effort: null,
 };
+
+/**
+ * The line a bot is listed and picked by: the user's description, then the bot's own words
+ * after it as the next sentence. Every roster and the bot's own prompt read it from here, so
+ * the two halves never read apart.
+ */
+export function rosterLine(bot: Pick<JobBot, "description" | "ownLine">) {
+  const said = bot.description.trim();
+  if (!bot.ownLine) return said;
+  return `${said}${/[.!?。…]$/.test(said) ? "" : "."} ${bot.ownLine}`;
+}
 
 // A bot's own memory (features/bot/bot.memory): the setting behind it. The files
 // are per bot; whether any bot is shown its own is not.

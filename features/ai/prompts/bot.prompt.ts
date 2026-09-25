@@ -10,11 +10,16 @@ import {
 import { botGuideLine } from "@/features/ai/guide";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { botMemoryFolder, listBotMemory } from "@/features/bot/bot.memory";
-import { listJobBots, readBotMemoryOn } from "@/features/bot/bot.query";
+import {
+  findJobBot,
+  listJobBots,
+  readBotMemoryOn,
+} from "@/features/bot/bot.query";
 import {
   type BotMemory,
   type BotWorkLine,
   type JobBot,
+  rosterLine,
   type ThreadRoutine,
   type ThreadSpeaker,
   workHandle,
@@ -92,9 +97,12 @@ export async function loadBotPrompt(
   ]);
 
   const peers = allBots.filter((bot) => bot.name !== name);
+  // A switched-off bot still finishes the jobs it has, and the roster leaves it out
+  const me =
+    allBots.find((bot) => bot.name === name) ?? (await findJobBot(name));
 
   const text = [
-    identity(name, seat),
+    identity(name, me, seat),
     memory(index),
     connectedTools(mcpTools, pinned),
     methods(skills),
@@ -117,10 +125,11 @@ export async function loadBotPrompt(
 
 /**
  * Who is who, how the job gets done, and that guesses are not results. The people come
- * first so the rest — whose memory, who reads the answer — has someone to refer to. How
- * this job reached it is the first message's to say (buildThreadOpening).
+ * first so the rest — whose memory, who reads the answer — has someone to refer to. Its
+ * own roster line goes under its name, since the roster below leaves it out. How this job
+ * reached it is the first message's to say (buildThreadOpening).
  */
-function identity(name: string, seat?: Seat | null): string {
+function identity(name: string, me: JobBot | null, seat?: Seat | null): string {
   const owner = seat?.owner ?? name;
   const coordinator =
     owner === name
@@ -130,7 +139,9 @@ function identity(name: string, seat?: Seat | null): string {
     ? `\n\nCurrent conversation: ${seat.caller} → ${name}. Your final text goes back to ${seat.caller}.`
     : "";
 
-  return `You are ${name}, one of the bots in this thread. ${nowLine()}
+  const known = me ? `\nOthers know you as: ${rosterLine(me)}` : "";
+
+  return `You are ${name}, one of the bots in this thread. ${nowLine()}${known}
 
 - **The user** — the one person all of this is for. They talk with Thursday by voice and follow this thread on their screen.
 - **Thursday** — their personal assistant. She talks with them, hands bots the work that takes time, and tells them what comes back.
@@ -307,7 +318,7 @@ function roster(peers: JobBot[]): string {
 
   return `## Bots
 
-${peers.map((bot) => `- **${bot.name}** — ${bot.description}`).join("\n")}
+${peers.map((bot) => `- **${bot.name}** — ${rosterLine(bot)}`).join("\n")}
 
 These lines were written for the user: where one says "you", it means them. When part of the job is another bot's strength, bring it in with \`${TOOL_NAMES.send_message}\` rather than rebuilding it yourself.`;
 }

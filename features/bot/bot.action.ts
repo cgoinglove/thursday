@@ -7,6 +7,7 @@ import { removeBotFolder } from "@/features/workspace/workspace";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
 import {
+  clearOwnLine,
   countBots,
   createBot,
   deleteBot,
@@ -39,6 +40,11 @@ export const updateBotAction = serverAction(
     if (!(await updateBot(name, parsed))) publicError("Bot not found");
   },
 );
+
+/** The user clears the line a bot wrote after its description (self.tool). */
+export const clearOwnLineAction = serverAction(async (name: string) => {
+  if (!(await clearOwnLine(name))) publicError("Bot not found");
+});
 
 /** One seed bot to create; the model fields are optional and only count as a pair. */
 const SeedPickSchema = z.object({

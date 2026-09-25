@@ -12,11 +12,13 @@ There can be at most 14 bots, switched-off ones included: at 14 the roster says 
 place of New bot, and one has to be deleted before another is made. When fewer places are left than
 ready-made bots on offer, only as many as fit are ticked; unticking one lets another be picked.
 
-A bot can rewrite its own description when what it does has changed for good — the user told it
-what it is for, it gained a skill of its own, or the same kind of job keeps coming to it — and it
-says so, and why, in its answer. It is meant to happen rarely. The switch under the description on
-its page, **It may rewrite this line when its work changes for good**, turned off keeps the line
-exactly as the user wrote it.
+A bot can add a line of its own after its description when what it does has changed for good — the
+user told it what it is for, it gained a skill of its own, or the same kind of job keeps coming to
+it — and it says so, and why, in its answer. It is meant to happen rarely. The description stays
+exactly as the user wrote it; Thursday and the other bots read the bot's line right after it. On
+the bot's page the line sits under the description with when and why it was written, and the ×
+beside it clears it. The switch below, **It may add its own line when its work changes for good**,
+turned off keeps the bot from writing one.
 
 Every bot has the same kit: a shell on this computer, a real browser of its own or the one the user
 is already signed into, their files, the web, every skill and connected service that is installed,
