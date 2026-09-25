@@ -62,16 +62,7 @@ export const notify = {
         resolve();
       };
       const leave = async () => {
-        if (
-          unsaved?.() &&
-          !(await notify.confirm({
-            title: "Discard your changes?",
-            description: "What you wrote here is not saved.",
-            okText: "Discard",
-            destructive: true,
-          }))
-        )
-          return;
+        if (unsaved?.() && !(await notify.discard())) return;
         close();
       };
       const guard = (ask: () => boolean) => {
@@ -87,6 +78,14 @@ export const notify = {
       );
     });
   },
+  /** Asked before words not saved are thrown away; true to throw them. */
+  discard: () =>
+    notify.confirm({
+      title: "Discard your changes?",
+      description: "What you wrote here is not saved.",
+      okText: "Discard",
+      destructive: true,
+    }),
   alert(alert: Alert & { okText?: ReactNode }) {
     return new Promise<void>((resolve) => {
       const dialog = mount();

@@ -449,6 +449,23 @@ function RoutineSheet({
       ((draft.label.trim() && draft.label.trim() !== saved.label) ||
         (draft.request.trim() && draft.request.trim() !== saved.request)),
   );
+  // Typed and not kept — the name or the job of one not made yet, or a change to one that is —
+  // is asked about before the sheet, its section or Settings closes (settings.store)
+  const unsaved = saved
+    ? typedAway
+    : Boolean(draft.label.trim() || draft.request.trim());
+  const unsavedNow = useRef(unsaved);
+  unsavedNow.current = unsaved;
+  const holdUnsaved = useSettingsStore((state) => state.holdUnsaved);
+  useEffect(() => {
+    holdUnsaved(() => unsavedNow.current);
+    return () => holdUnsaved(null);
+  }, [holdUnsaved]);
+  const close = async () => {
+    if (unsavedNow.current && !(await notify.discard())) return;
+    onClose();
+  };
+
   const saveTyped = () => {
     if (!saved) return;
     const next: Partial<RoutineInput> = {};
@@ -488,7 +505,7 @@ function RoutineSheet({
       <span ref={anchor} hidden />
       <Dialog
         open={Boolean(routine && host)}
-        onOpenChange={(next) => !next && onClose()}
+        onOpenChange={(next) => !next && void close()}
         modal={false}
         disablePointerDismissal
       >

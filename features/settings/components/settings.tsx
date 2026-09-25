@@ -27,6 +27,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { notify } from "@/components/ui/notify";
 import { Segmented } from "@/components/ui/segmented";
 import { BotBadge } from "@/features/bot/components/bot-badge";
 import { BotsMark } from "@/features/bot/components/bot-mark";
@@ -347,6 +348,12 @@ export function Settings({ children }: { children?: ReactElement }) {
   const show = useSettingsStore((state) => state.show);
   const hide = useSettingsStore((state) => state.hide);
   const pick = useSettingsStore((state) => state.pick);
+  const unsaved = useSettingsStore((state) => state.unsaved);
+  /** Words a section holds and has not kept are asked about before it goes (settings.store). */
+  const leaving = async (then: () => void) => {
+    if (unsaved?.() && !(await notify.discard())) return;
+    then();
+  };
   const bodyRef = useRef<HTMLDivElement>(null);
   const current =
     SECTIONS.find((entry) => entry.id === sectionId) ?? SECTIONS[0];
@@ -370,7 +377,7 @@ export function Settings({ children }: { children?: ReactElement }) {
       const at = Number(event.key);
       if (Number.isInteger(at) && at >= 1 && at <= SECTIONS.length) {
         event.preventDefault();
-        pick(SECTIONS[at - 1].id);
+        void leaving(() => pick(SECTIONS[at - 1].id));
       }
     };
     window.addEventListener("keydown", onKey);
@@ -378,7 +385,10 @@ export function Settings({ children }: { children?: ReactElement }) {
   }, [open, pick]);
 
   return (
-    <Dialog open={open} onOpenChange={(next) => (next ? show() : hide())}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => (next ? show() : void leaving(hide))}
+    >
       {children && <DialogTrigger render={children} />}
       {/* block, not grid: a popup portaled in here (the thread sheet and anything it opens) would take a row */}
       <DialogContent className="block h-[min(52rem,calc(100vh-3rem))] overflow-hidden p-0 sm:max-w-[min(80rem,calc(100vw-3rem))]">
@@ -398,7 +408,7 @@ export function Settings({ children }: { children?: ReactElement }) {
               if (!step) return;
               event.preventDefault();
               const next = stepSection(sectionId, step);
-              pick(next);
+              void leaving(() => pick(next));
               event.currentTarget
                 .querySelector<HTMLButtonElement>(`[data-section="${next}"]`)
                 ?.focus();
@@ -412,7 +422,7 @@ export function Settings({ children }: { children?: ReactElement }) {
                   <Button
                     key={item.id}
                     data-section={item.id}
-                    onClick={() => pick(item.id)}
+                    onClick={() => void leaving(() => pick(item.id))}
                     variant={item.id === sectionId ? "secondary" : "ghost"}
                     className={cn(
                       "justify-start",

@@ -28,6 +28,12 @@ type SettingsStore = {
   show(section?: SettingSectionId): void;
   hide(): void;
   pick(section: SettingSectionId): void;
+  /**
+   * What the open section holds that is not saved, asked before the dialog closes or another
+   * section opens (settings): a routine's name or job typed and not kept went with either.
+   */
+  unsaved: (() => boolean) | null;
+  holdUnsaved(unsaved: (() => boolean) | null): void;
 };
 
 export const useSettingsStore = create<SettingsStore>()((set) => ({
@@ -37,6 +43,8 @@ export const useSettingsStore = create<SettingsStore>()((set) => ({
     set((state) => ({ open: true, section: section ?? state.section })),
   hide: () => set({ open: false }),
   pick: (section) => set({ section }),
+  unsaved: null,
+  holdUnsaved: (unsaved) => set({ unsaved }),
 }));
 
 /** Opens a settings section from outside a component. */
