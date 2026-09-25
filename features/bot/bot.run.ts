@@ -668,12 +668,10 @@ async function summarize(
   });
   const summary = text.trim();
   if (!summary) {
-    // A blank reply is the model's hiccup, not the job's: worth another try
-    throw Object.assign(
-      new Error(
-        "The summary of the context came back empty, so there is nothing to carry on from.",
-      ),
-      { isRetryable: true },
+    // A blank reply is the model's hiccup, not the job's. It carries no status, so it is
+    // not a refusal (ai/model isProviderRefusal) and the runner gives it one more try
+    throw new Error(
+      "The summary of the context came back empty, so there is nothing to carry on from.",
     );
   }
   return { text: `${COMPACT_PREAMBLE}\n\n${summary}`, usage: usageOf(usage) };
