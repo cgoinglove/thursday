@@ -160,6 +160,130 @@
   contents();
   spy();
 
+  /* ── reading: a column in order, a footnote in place, the time it takes ──── */
+
+  // Each table's rows in the order they were written: a sort is a view of the page, and
+  // the file keeps that order (shell.clean puts it back in the copy it keeps)
+  const written = new WeakMap();
+  const collator = new Intl.Collator(undefined, { numeric: true });
+  const numberIn = (text) => {
+    const n = Number.parseFloat(text.replace(/[^\d.-]/g, ""));
+    return Number.isFinite(n) ? n : null;
+  };
+  const tables = () =>
+    [...paper.querySelectorAll("table")].filter(
+      (table) => table.tHead?.rows[0] && table.tBodies[0]?.rows.length > 1,
+    );
+  for (const table of tables()) {
+    [...table.tBodies[0].rows].forEach((row, at) => {
+      written.set(row, at);
+    });
+    for (const th of table.tHead.rows[0].cells) {
+      th.dataset.sort = "";
+      th.tabIndex = 0;
+    }
+  }
+  /** Every table back in its written order, its headings unmarked. */
+  const unsort = () => {
+    for (const table of tables()) {
+      const rows = [...table.tBodies[0].rows];
+      rows.sort((a, b) => (written.get(a) ?? 0) - (written.get(b) ?? 0));
+      table.tBodies[0].append(...rows);
+      for (const th of table.tHead.rows[0].cells)
+        th.removeAttribute("aria-sort");
+    }
+  };
+  /** Up, down, then as written: one heading's column at a time. */
+  const sortBy = (th) => {
+    const table = th.closest("table");
+    const body = table.tBodies[0];
+    const at = th.cellIndex;
+    const was = th.getAttribute("aria-sort");
+    const next = was === "ascending" ? "descending" : was ? null : "ascending";
+    for (const one of table.tHead.rows[0].cells)
+      one.removeAttribute("aria-sort");
+    const rows = [...body.rows];
+    const key = (row) => row.cells[at]?.textContent.trim() ?? "";
+    const numeric =
+      th.classList.contains("num") ||
+      rows.every((row) => numberIn(key(row)) !== null);
+    if (next) {
+      th.setAttribute("aria-sort", next);
+      const sign = next === "ascending" ? 1 : -1;
+      rows.sort(
+        (a, b) =>
+          sign *
+          (numeric
+            ? numberIn(key(a)) - numberIn(key(b))
+            : collator.compare(key(a), key(b))),
+      );
+    } else rows.sort((a, b) => (written.get(a) ?? 0) - (written.get(b) ?? 0));
+    body.append(...rows);
+  };
+  const browsing = () => !document.body.classList.contains("pg-editing");
+  paper.addEventListener("click", (event) => {
+    const th = event.target.closest?.("th[data-sort]");
+    if (th && browsing()) sortBy(th);
+  });
+  paper.addEventListener("keydown", (event) => {
+    const th = event.target.closest?.("th[data-sort]");
+    if (!th || !browsing() || (event.key !== "Enter" && event.key !== " "))
+      return;
+    event.preventDefault();
+    sortBy(th);
+  });
+
+  // A footnote's note, beside the number that cites it, while the pointer or focus is there
+  let card = null;
+  const hideNote = () => card?.remove();
+  const showNote = (link) => {
+    const note = document.getElementById(
+      decodeURIComponent(link.hash.slice(1)),
+    );
+    if (!note) return;
+    card ??= Object.assign(document.createElement("div"), { id: "fn-card" });
+    card.setAttribute("role", "tooltip");
+    card.innerHTML = note.innerHTML;
+    document.body.append(card);
+    const box = link.getBoundingClientRect();
+    const left = Math.min(
+      box.left + scrollX,
+      scrollX + document.documentElement.clientWidth - card.offsetWidth - 12,
+    );
+    card.style.left = `${Math.max(scrollX + 12, left)}px`;
+    card.style.top = `${box.bottom + scrollY + 6}px`;
+  };
+  paper.addEventListener("mouseover", (event) => {
+    const link = event.target.closest?.("sup.fn a");
+    if (link && browsing()) showNote(link);
+  });
+  paper.addEventListener("mouseout", (event) => {
+    if (event.target.closest?.("sup.fn a")) hideNote();
+  });
+  paper.addEventListener("focusin", (event) => {
+    const link = event.target.closest?.("sup.fn a");
+    if (link && browsing()) showNote(link);
+    else hideNote();
+  });
+  addEventListener("scroll", hideNote, { passive: true });
+
+  // How long it reads, beside the other facts under the title, in the reader's language
+  const byline = paper.querySelector(".byline");
+  if (byline && typeof Intl.Segmenter === "function") {
+    let words = 0;
+    const segmenter = new Intl.Segmenter(undefined, { granularity: "word" });
+    for (const piece of segmenter.segment(paper.textContent))
+      if (piece.isWordLike) words++;
+    const minutes = Math.max(1, Math.round(words / 200));
+    const chip = document.createElement("span");
+    chip.className = "chip read";
+    chip.textContent = new Intl.NumberFormat(
+      document.documentElement.lang || undefined,
+      { style: "unit", unit: "minute", unitDisplay: "short" },
+    ).format(minutes);
+    byline.append(" ", chip);
+  }
+
   /* ── keeping it (shell.edits) ────────────────────────────────────────────── */
 
   const changed = () => shell.edits.changed();
@@ -203,6 +327,30 @@
     }
     for (const el of copy.querySelectorAll(".pg-hot"))
       el.classList.remove("pg-hot");
+    // What reading put on the page: a column's order, the time it takes, a note shown
+    const live = [...paper.querySelectorAll("table")];
+    copy.querySelectorAll("#paper table").forEach((table, at) => {
+      const body = table.tBodies[0];
+      const order = [...(live[at]?.tBodies[0]?.rows ?? [])].map((row) =>
+        written.get(row),
+      );
+      if (
+        body &&
+        order.length === body.rows.length &&
+        order.every((n) => n !== undefined)
+      ) {
+        const rows = [...body.rows];
+        body.append(
+          ...order.map((_, i) => rows[order.indexOf(i)]).filter(Boolean),
+        );
+      }
+      for (const th of table.querySelectorAll("th")) {
+        th.removeAttribute("aria-sort");
+        th.removeAttribute("data-sort");
+        th.removeAttribute("tabindex");
+      }
+    });
+    for (const el of copy.querySelectorAll(".chip.read, #fn-card")) el.remove();
     for (const tabs of copy.querySelectorAll(".tabs")) {
       tabs.querySelector('[role="tablist"]')?.remove();
       for (const panel of tabs.querySelectorAll("[role=tabpanel]")) {
@@ -264,6 +412,12 @@
   };
 
   shell.edits.onToggle((on) => {
+    // Edits are made on the page as written: no column in order, no reading time among the chips
+    if (on) {
+      unsort();
+      hideNote();
+      for (const chip of paper.querySelectorAll(".chip.read")) chip.remove();
+    }
     document.body.classList.toggle("pg-editing", on);
     paper.contentEditable = on ? "true" : "false";
     seal();

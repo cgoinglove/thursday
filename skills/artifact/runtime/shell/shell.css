@@ -114,6 +114,9 @@ body {
   gap: 0.4375rem;
   font-weight: 600;
 }
+.sh-mark {
+  flex: none;
+}
 .sh-who[data-bot=""],
 .sh-who[data-bot=""] + .sh-dot {
   display: none;

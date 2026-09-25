@@ -296,6 +296,31 @@ body.pg-toc-shut .pg-toc {
 :where(.pg-paper) .chip.who::before {
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M4 21a8 8 0 0 1 16 0'/%3E%3C/svg%3E");
 }
+:where(.pg-paper) .chip.who.bot::before {
+  display: none;
+}
+/* The bot that wrote it, by its face (shell/wear.mjs markSvg) */
+:where(.pg-paper) .chip .sh-mark {
+  margin-right: 0.3rem;
+  vertical-align: -0.15em;
+}
+/* How long it takes to read, worked out as it opens (quick.js); never kept in the file */
+:where(.pg-paper) .chip.read::before {
+  content: "";
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  margin-right: 0.3rem;
+  vertical-align: -0.1em;
+  background: currentColor;
+  opacity: 0.7;
+  mask:
+    center / contain no-repeat
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E");
+}
+:where(.pg-paper) .chip.read {
+  color: var(--muted);
+}
 :where(.pg-paper) .chip.status::after {
   content: "";
   display: inline-block;
@@ -368,6 +393,47 @@ body.pg-toc-shut .pg-toc {
 /* A footnote: <sup><a href="#fn1">1</a></sup> in the text, <ol class="footnotes"> at the end */
 :where(.pg-paper) sup {
   line-height: 0;
+}
+:where(.pg-paper) sup.fn a {
+  padding: 0 0.15em;
+  font-weight: 600;
+  text-decoration: none;
+}
+:where(.pg-paper) .fn-back {
+  text-decoration: none;
+}
+/* A footnote read where it is cited: the note, shown beside the number (quick.js) */
+#fn-card {
+  position: absolute;
+  z-index: 30;
+  max-width: 22rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+#fn-card .fn-back {
+  display: none;
+}
+/* A table's column put in order by a press on its heading, while reading (quick.js) */
+body:not(.pg-editing) :where(.pg-paper) th[data-sort] {
+  cursor: pointer;
+  user-select: none;
+}
+body:not(.pg-editing) :where(.pg-paper) th[data-sort]:hover {
+  color: var(--fg);
+}
+:where(.pg-paper) th[aria-sort]::after {
+  content: "↑";
+  margin-left: 0.3rem;
+  color: var(--accent, currentColor);
+}
+:where(.pg-paper) th[aria-sort="descending"]::after {
+  content: "↓";
 }
 :where(.pg-paper) ol.footnotes {
   margin-top: 2.4rem;

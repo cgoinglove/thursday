@@ -446,6 +446,15 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
   // A bot works inside a job it did not open: it can pull another bot in but cannot start a job.
   // The runner attaches messaging with the active continuation (bot.run).
   const skills = await loadSkills(sandbox, run.bot);
+  // What its pages show of it: the face it wears now (workspace.ts botShellEnv)
+  const shell = {
+    ...jobShellEnv(run.session),
+    ...botShellEnv(
+      run.bot,
+      (await (await import("@/features/bot/bot.query")).findJobBot(run.bot))
+        ?.icon,
+    ),
+  };
   // Whether a picture inside a tool result reaches this model (ai/model seesToolImages)
   const sees = Boolean(run.model && seesToolImages(run.model.ref));
   return {
@@ -459,7 +468,7 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     // and so is the bot's artifacts folder
     ...createWorkspaceTools(sandbox, {
       write: true,
-      env: { ...jobShellEnv(run.session), ...botShellEnv(run.bot) },
+      env: shell,
       // What the shell is like and what this machine has, on the first command
       // of the run only (workspace.tool SHELL_GUIDE). The call gets no guide:
       // one command is a glance, not a job to plan around
@@ -475,12 +484,7 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     ...(await createSelfTools(run.bot)),
     // A deck is typed slides the app draws; its pictures are taken in this job's browser
     // session, apart from any window of it on screen, and shown to a model that sees them
-    ...createDeckTools(
-      sandbox,
-      run.bot,
-      { ...jobShellEnv(run.session), ...botShellEnv(run.bot) },
-      sees,
-    ),
+    ...createDeckTools(sandbox, run.bot, shell, sees),
     // Absent for a model a picture would not reach
     ...(sees ? createLookTool() : {}),
     // Sign-ins are the app's to keep and the user's to lend (tools/signin.tool); the state

@@ -17,9 +17,12 @@
 //   - [x] done / - [ ] next      a checklist the reader can tick
 //   ![What it shows](photo.jpg) alone in its paragraph: a picture with its caption
 //   | Item | Value |             a column aligned right (---:) is read as numbers
+//   a claim.[^1]                 a footnote, numbered as it is first cited, its line
+//   [^1]: Where it comes from     anywhere, gathered at the end of the document
 //
 // HTML written inside the Markdown passes through untouched, for tabs, a chip, a figure a
 // chart is drawn into. Comments are dropped: the outlines' guidance never reaches the page.
+import { markSvg } from "../shell/wear.mjs";
 import { Marked, Tokenizer } from "../vendor/marked.mjs";
 
 const escape = (text) =>
@@ -157,6 +160,52 @@ const markdown = new Marked({
   },
 });
 
+/** A footnote's own line, `[^id]: what it says`, and a citation of one in the text. */
+const NOTE_LINE = /^\[\^([^\]\s]+)\]:\s*(.+)$/;
+const CITE = /\[\^([^\]\s]+)\](?!:)/g;
+const FENCE = /^\s*(```|~~~)/;
+
+/**
+ * `[^id]` citations and `[^id]: …` lines as the document's own footnotes (quick.css): each
+ * citation a numbered link, in the order first cited, and the notes gathered at the end.
+ * Code is left as written; a citation with no note, or a note never cited, stays as text.
+ */
+function footnotes(text) {
+  const notes = new Map();
+  const kept = [];
+  let fenced = false;
+  for (const line of text.split("\n")) {
+    if (FENCE.test(line)) fenced = !fenced;
+    const note = fenced ? null : NOTE_LINE.exec(line);
+    if (note) notes.set(note[1], note[2]);
+    else kept.push(line);
+  }
+  if (!notes.size) return { text, notes: "" };
+  const order = [];
+  const anchor = (id) => `fn-${id.replace(/[^\p{L}\p{N}_-]/gu, "-")}`;
+  fenced = false;
+  const cited = kept.map((line) => {
+    if (FENCE.test(line)) fenced = !fenced;
+    if (fenced) return line;
+    return line.replace(CITE, (whole, id) => {
+      if (!notes.has(id)) return whole;
+      if (!order.includes(id)) order.push(id);
+      const n = order.indexOf(id) + 1;
+      return `<sup class="fn"><a href="#${anchor(id)}" id="${anchor(id)}-ref">${n}</a></sup>`;
+    });
+  });
+  const items = order.map(
+    (id) =>
+      `<li id="${anchor(id)}">${markdown.parseInline(notes.get(id))} <a class="fn-back" href="#${anchor(id)}-ref" aria-label="Back to the text">↩</a></li>`,
+  );
+  return {
+    text: cited.join("\n"),
+    notes: items.length
+      ? `\n<ol class="footnotes">\n${items.join("\n")}\n</ol>\n`
+      : "",
+  };
+}
+
 /** The keys the line over and under the title is made of. */
 const KEY_LINE = /^(kicker|date|by|status|tone)\s*:\s*\S/i;
 
@@ -189,14 +238,21 @@ function frontMatter(text) {
 /** The document's body, as the page's put writes it, from a Markdown text. */
 export function documentBody(text) {
   const { meta, rest } = frontMatter(text.replace(/<!--[\s\S]*?-->/g, ""));
-  let html = markdown.parse(rest);
+  const cited = footnotes(rest);
+  let html = markdown.parse(cited.text) + cited.notes;
 
   // `by` may name several, split by commas: who a memo is from and for, who attended
   const who = (meta.by ?? "")
     .split(",")
     .map((one) => one.trim())
     .filter(Boolean)
-    .map((one) => `<span class="chip who">${escape(one)}</span>`);
+    .map((one) =>
+      // The bot writing now wears its own face, as the page's head does
+      one.toLowerCase() === process.env.THURSDAY_BOT?.trim().toLowerCase() &&
+      markSvg(14)
+        ? `<span class="chip who bot">${markSvg(14)}${escape(one)}</span>`
+        : `<span class="chip who">${escape(one)}</span>`,
+    );
   const tone = ["good", "warn", "bad"].includes(meta.tone)
     ? ` ${meta.tone}`
     : "";

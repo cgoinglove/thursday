@@ -47,6 +47,11 @@ A page that fits none starts from nothing: a `# ` title, then the page.
 - **A note set apart** is a GitHub alert: `> [!NOTE]`, `> [!TIP]`, `> [!WARNING]`, `> [!CAUTION]`.
   A plain `>` stays a quotation.
 - **A checklist** is `- [ ]` and `- [x]`; the reader ticks it in the page.
+- **Where a claim comes from** is a footnote: `the claim.[^rent]` in the text and
+  `[^rent]: The index, [its page](url)` on a line of its own anywhere. They are numbered in the
+  order cited and gathered at the end, and the reader sees one by pointing at its number.
+- **A table's columns sort** by a press on their heading while it is read; write the rows in
+  the order that answers the question.
 - **A picture** alone in its paragraph, `![What it shows](photo.jpg)`, becomes a picture with that
   caption. It sits beside the document's file, saved there from the page it came from.
 - **HTML inside the Markdown passes through** for what Markdown lacks: a chip

@@ -358,6 +358,7 @@ async function put(
   deck: { title: string; theme: string | null; slides: Slide[] },
   revision: string,
   bot: string,
+  mark: string | undefined,
 ): Promise<Put> {
   const dir = await mkdtemp(join(tmpdir(), "thursday-deck-"));
   try {
@@ -372,6 +373,8 @@ async function put(
         NODE_ENV: process.env.NODE_ENV,
         PATH: process.env.PATH ?? "",
         THURSDAY_BOT: bot,
+        // The face its cover shows (workspace.ts botShellEnv)
+        ...(mark ? { THURSDAY_BOT_MARK: mark } : {}),
       },
       maxBuffer: 16 * 1024 * 1024,
     }).catch((failed: { code?: number; stdout?: string; stderr?: string }) => {
@@ -453,6 +456,7 @@ export const createDeckTools = (
           { title: input.title, theme: input.theme ?? null, slides },
           input.revision?.trim() ?? "",
           bot,
+          env.THURSDAY_BOT_MARK,
         );
         if ("changed" in written) {
           if (!written.deck)

@@ -315,6 +315,81 @@ test("front matter written without its fences is still the line over and under t
   );
 });
 
+test("footnotes are numbered as first cited and gathered at the end, code and strays left as written", async () => {
+  const { documentBody } = await import(
+    "../skills/artifact/runtime/document/markdown.mjs"
+  );
+  const body = documentBody(
+    [
+      "# Rent",
+      "",
+      "Rents rose.[^b] Pay did not.[^a] Rents again.[^b] Unknown.[^c]",
+      "",
+      "```",
+      "[^x]: inside code",
+      "```",
+      "",
+      "[^a]: Pay survey",
+      "[^b]: Rent index, [the source](https://example.com)",
+    ].join("\n"),
+  );
+  assert.ok(
+    body.includes(
+      '<sup class="fn"><a href="#fn-b" id="fn-b-ref">1</a></sup> Pay did not.<sup class="fn"><a href="#fn-a" id="fn-a-ref">2</a></sup>',
+    ),
+    "numbered in the order first cited",
+  );
+  assert.ok(
+    body.includes("Unknown.[^c]"),
+    "a citation with no note stays text",
+  );
+  assert.ok(body.includes("[^x]: inside code"), "code is left as written");
+  const notes = body.slice(body.indexOf('<ol class="footnotes">'));
+  assert.ok(notes.indexOf('id="fn-b"') < notes.indexOf('id="fn-a"'));
+  assert.ok(notes.includes('<a href="https://example.com">the source</a>'));
+});
+
+test("the bot writing the page wears its face on its own byline chip, and only there", async () => {
+  const { documentBody } = await import(
+    "../skills/artifact/runtime/document/markdown.mjs"
+  );
+  const { markStill } = await import("../features/bot/mark.geometry");
+  const was = {
+    bot: process.env.THURSDAY_BOT,
+    mark: process.env.THURSDAY_BOT_MARK,
+  };
+  process.env.THURSDAY_BOT = "Analyst";
+  process.env.THURSDAY_BOT_MARK = JSON.stringify(
+    markStill("Analyst", { color: "#22C55E", shape: "squircle" }),
+  );
+  try {
+    const body = documentBody("---\nby: analyst, Sam\n---\n# Title\n");
+    assert.ok(
+      /<span class="chip who bot"><svg class="sh-mark"[^>]*>.*<\/svg>analyst<\/span>/.test(
+        body,
+      ),
+    );
+    assert.ok(body.includes('<span class="chip who">Sam</span>'));
+    // What is in the variable is drawn only when it is a mark: markup in it draws nothing
+    process.env.THURSDAY_BOT_MARK = JSON.stringify({
+      ...markStill("Analyst"),
+      ink: '#000" onload="alert(1)',
+    });
+    assert.ok(
+      documentBody("---\nby: Analyst\n---\n# Title\n").includes(
+        '<span class="chip who">Analyst</span>',
+      ),
+    );
+  } finally {
+    for (const [key, value] of [
+      ["THURSDAY_BOT", was.bot],
+      ["THURSDAY_BOT_MARK", was.mark],
+    ] as const)
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+  }
+});
+
 test("bold that ends in punctuation closes before a Chinese, Japanese or Korean letter, and nothing else changes", async () => {
   const { documentBody } = await import(
     "../skills/artifact/runtime/document/markdown.mjs"

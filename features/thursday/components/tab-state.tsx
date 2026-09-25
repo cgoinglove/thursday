@@ -2,8 +2,8 @@
 
 import { useEffect } from "react";
 import { APP_NAME } from "@/config";
-import { markAtRest } from "@/features/bot/components/bot-mark";
 import { useThreadReport } from "@/features/bot/components/thread-badge";
+import { markAtRest } from "@/features/bot/mark.geometry";
 import {
   type SectionAlert,
   useSectionAlerts,

@@ -193,6 +193,8 @@ from — its stylesheets, scripts and fonts — stay off the shelf.
 
 ## Books, canvases, decks and pages
 
+The bar at the top of a page, a canvas or a deck names the bot that made it beside its face, as its
+face was when the file was made: changing the bot's look later leaves its earlier work as it was.
 A page, a canvas or a deck opened inside the app takes its keys once it has been clicked; before
 that, keys go to the app. Opened in its own tab (↗) it has the whole window and the keyboard, under
 its own top bar.
@@ -252,9 +254,12 @@ deck starts from the deck as it is, with what was edited in it, and a deck made 
 the app takes on its new look the next time a bot changes it.
 
 Something to read — a report, a memo, a comparison, a plan, notes of a meeting — comes back as one
-page: a title with the date and who it is by, its contents beside it (the section being read is
-marked), chips for dates, people and status, checklists, tables with the pick marked, and the
-sources at the end. It reads on a phone and prints as a document. **Edit** in its top bar makes the
+page: a title with the date, who it is by and how long it takes to read, its contents beside it (the
+section being read is marked), chips for dates, people and status, checklists, tables with the pick
+marked, and the sources at the end. Pressing a table's heading puts the rows in that column's order,
+up, down, then back as written; that order is only for reading and is never saved. A small number
+beside a sentence is where it comes from: pointing at it shows the source, and the full list is at
+the end. It reads on a phone and prints as a document. **Edit** in its top bar makes the
 page editable in place: a paragraph gets a handle and a **+** to put something after it, selected
 words get their formatting over them, and a chip — a date, a person, a status — moves as one piece:
 pressing it opens its words, and Enter or Esc closes it. Typing `/` on an empty line opens the same

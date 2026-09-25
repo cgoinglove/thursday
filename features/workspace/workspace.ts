@@ -21,6 +21,8 @@ import {
   TOOL_OUTPUT,
   WORKSPACE_KEEP,
 } from "@/config";
+import type { BotIcon } from "@/features/bot/bot.schema";
+import { markStill } from "@/features/bot/mark.geometry";
 import { logger } from "@/lib/logger";
 import { createSandBox, type Sandbox, walkFiles } from "@/lib/sandbox";
 import { slug } from "@/lib/utils";
@@ -216,9 +218,14 @@ export const jobShellEnv = (
 /**
  * What a bot's scripts find in its shell rather than a model typing the path.
  */
-export const botShellEnv = (bot: string): Record<string, string> => ({
+export const botShellEnv = (
+  bot: string,
+  icon?: BotIcon | null,
+): Record<string, string> => ({
   // Who is writing: the head a page wears when it is opened names them (skills/artifact/runtime/shell)
   THURSDAY_BOT: bot,
+  // And shows their face as it is now, kept by the page after the icon changes (shell/wear.mjs)
+  THURSDAY_BOT_MARK: JSON.stringify(markStill(bot, icon)),
   // Where a script delivers a file (skills/artifact scripts/document.mjs), whole: a script
   // resolves it against the workspace it finds above the folder it runs in, and run outside
   // the workspace it finds none and would write under that folder instead
