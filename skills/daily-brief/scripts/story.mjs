@@ -32,10 +32,14 @@ const MIN_WIDTH = 480;
 // What of the article's own words comes back for the summary
 const LEAD_CHARS = 900;
 /**
- * What one bash call shows before the shell cuts the middle to a file (config TOOL_OUTPUT
- * is 8,000). The stories' words go into files of this size, so each is one whole read.
+ * Under what one bash call shows before the shell cuts the middle to a file
+ * (THURSDAY_TOOL_OUTPUT, from the app's config), with room for a line of notes: the stories'
+ * words go into files of this size, so each is one whole read. Outside a bot's shell nothing
+ * cuts what a command prints, so the words are one file.
  */
-const PART_CHARS = 7000;
+const PART_CHARS =
+  (Number(process.env.THURSDAY_TOOL_OUTPUT) || Number.POSITIVE_INFINITY) -
+  1_000;
 
 const oneLine = (text, max) => {
   const flat = String(text ?? "")

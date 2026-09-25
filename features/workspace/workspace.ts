@@ -216,6 +216,9 @@ export const botShellEnv = (bot: string): Record<string, string> => ({
   THURSDAY_ARTIFACTS: botArtifacts(bot),
   // The shipped skills: a kit script in a bot's folder imports the shared ones from here
   THURSDAY_SKILLS: join(APP_DIR, PATHS.skills.default),
+  // How much of one command's output the bot sees: a script that splits a long file into
+  // parts splits it to fit (skills/media-digest)
+  THURSDAY_TOOL_OUTPUT: String(TOOL_OUTPUT.max),
   // The skills CLI (find-skills) reports every search and install to its maker unless this
   // is set; what a job searches for is the user's, not the registry's
   DISABLE_TELEMETRY: "1",

@@ -118,10 +118,13 @@ export const oneLine = (text, max) => {
 };
 
 /**
- * What one `bash` call shows before it cuts the rest to a file (config TOOL_OUTPUT is
- * 8,000). A part stays under it with room for a line of notes in the same call.
+ * How long a part may be: under what one `bash` call shows before it cuts the rest to a file
+ * (THURSDAY_TOOL_OUTPUT, from the app's config), with room for a line of notes in the same
+ * call. Outside a bot's shell nothing cuts what a command prints, so a file is one part.
  */
-export const PART_CHARS = 7000;
+export const PART_CHARS =
+  (Number(process.env.THURSDAY_TOOL_OUTPUT) || Number.POSITIVE_INFINITY) -
+  1_000;
 
 /**
  * Lines of `[time] text` (or `[p. N] text`) into parts that each fit one read, a part

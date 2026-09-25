@@ -20,7 +20,7 @@ node $S/digest.mjs <digest.json> --name <page>                      # the page, 
 
 Two facts decide the work:
 
-- **One bash call shows 8,000 characters; the rest is cut.** So every file these scripts
+- **One bash call shows only so much of what it prints; the rest is cut.** So every file these scripts
   write is split into `## Part N` blocks that each fit one read, and the head they print says
   how many. One part per bash call — two in one call are cut — and the calls for several
   parts sent together in one step. A question about one thing is `grep -n -i` on the file first, then only the parts
