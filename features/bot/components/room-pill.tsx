@@ -770,10 +770,11 @@ export function RoomState(props: {
 
 /** Stand-in faces for an install with no bots. Fixed, not random: this renders on the server too and Math.random would break hydration. */
 const GHOSTS: CrewFace[] = ["alto", "brio", "cinder", "delta"].map(
-  (seed, index) => ({
+  (seed, index, seeds) => ({
     name: seed,
     icon: {
-      color: MARK_PALETTE[Math.floor((index * MARK_PALETTE.length) / 4)],
+      color:
+        MARK_PALETTE[Math.floor((index * MARK_PALETTE.length) / seeds.length)],
       shape: MARK_SHAPES[index % MARK_SHAPES.length],
     },
     awake: false,
