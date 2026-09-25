@@ -40,8 +40,6 @@ import { FoldButton, TAB } from "./room-conversation";
 
 /** The room open on its lists: what is happening now, and the history behind it. Split out of bot-room by subject; see it for the room as a whole. */
 
-export const needsYou = needsThreadReply;
-
 /**
  * An ending nobody has opened. It needs the user too, to read rather than to
  * answer. Takes the two fields it reads, as `needsThreadReply` does, so a
@@ -62,7 +60,9 @@ export function useWaitingRows(): ThreadView[] {
     () =>
       [...threads]
         .reverse()
-        .filter((thread) => !rung.includes(thread.id) && needsYou(thread)),
+        .filter(
+          (thread) => !rung.includes(thread.id) && needsThreadReply(thread),
+        ),
     [threads, rung],
   );
 }
@@ -345,7 +345,7 @@ export function ThreadRow({
   /** Lines its second row may take: two where it has the write line's width, so a question keeps its end. */
   lines?: 1 | 2;
 }) {
-  const attention = needsYou(thread);
+  const attention = needsThreadReply(thread);
   // secondLine runs plainText over the whole answer. Every sync rebuilds each ThreadView
   // (thread.store), so depend on the fields that change the line, not on `thread`.
   const last = thread.lines.at(-1);

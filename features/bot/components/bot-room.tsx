@@ -5,7 +5,12 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { PAGE_SIZE } from "@/config";
-import { type Bot, standOf, type Thread } from "@/features/bot/bot.schema";
+import {
+  type Bot,
+  needsThreadReply,
+  standOf,
+  type Thread,
+} from "@/features/bot/bot.schema";
 import {
   type BotGesture,
   useCrewGestures,
@@ -33,7 +38,6 @@ import {
   Empty,
   HistoryList,
   ListHeader,
-  needsYou,
   Quiet,
   RoomTab,
   ThreadList,
@@ -231,7 +235,7 @@ export const BotRoom = memo(function BotRoom() {
   );
 
   const busy = threads.filter((entry) => entry.status === "working").length;
-  const pending = newest.filter(needsYou).length;
+  const pending = newest.filter(needsThreadReply).length;
   // In the open room the list says what each bot is on; its foot keeps the faces,
   // so a step's words never come and go under the list.
   const faces = useMemo(
