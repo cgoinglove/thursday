@@ -43,6 +43,7 @@ import {
   SettingSkeleton,
   SettingToolbar,
 } from "@/features/settings/components/setting-ui";
+import { composing } from "@/hooks/use-hotkey";
 import { shortAgo } from "@/lib/date-like";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { useServerPages } from "@/lib/protocol/use-server-pages";
@@ -208,7 +209,7 @@ function ProviderMarks() {
 function editKeys(save: () => void, cancel: () => void) {
   return (event: KeyboardEvent<HTMLInputElement>) => {
     // During IME composition Enter confirms the character, not the edit
-    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+    if (composing(event)) return;
     if (event.key === "Enter") {
       event.preventDefault();
       save();

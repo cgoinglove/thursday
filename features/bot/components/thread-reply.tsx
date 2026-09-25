@@ -49,6 +49,7 @@ import {
   roomDrop,
   useGivenFiles,
 } from "@/features/workspace/components/given-files";
+import { composing } from "@/hooks/use-hotkey";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
@@ -630,16 +631,15 @@ function DraftComposer({
         }}
         onKeyDown={(event) => {
           // During IME composition the keys belong to the character being made: Enter
-          // confirms it and Esc drops it (keyCode 229 for browsers without isComposing).
-          const composing =
-            event.nativeEvent.isComposing || event.keyCode === 229;
-          if (event.key === "Escape" && onEscape && !composing) {
+          // confirms it and Esc drops it.
+          const midWord = composing(event);
+          if (event.key === "Escape" && onEscape && !midWord) {
             // taken here, so the same key does not also close the room around it
             event.preventDefault();
             onEscape();
             return;
           }
-          if (event.key !== "Enter" || event.shiftKey || composing) return;
+          if (event.key !== "Enter" || event.shiftKey || midWord) return;
           event.preventDefault();
           void submit();
         }}

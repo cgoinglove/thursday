@@ -42,7 +42,7 @@ import {
   roomDrop,
   useGivenFiles,
 } from "@/features/workspace/components/given-files";
-import { useEscape, windowKey } from "@/hooks/use-hotkey";
+import { composing, useEscape, windowKey } from "@/hooks/use-hotkey";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn } from "@/lib/utils";
@@ -492,12 +492,10 @@ export function WriteLine({
                   take(pasted);
                 }}
                 // During IME composition the keys belong to the character being made:
-                // Enter confirms it and the arrows walk its own candidates
-                // (keyCode 229 for browsers without isComposing).
+                // Enter confirms it and the arrows walk its own candidates.
                 onKeyDown={(event) => {
-                  const composing =
-                    event.nativeEvent.isComposing || event.keyCode === 229;
-                  if (event.key === "Escape" && !composing) {
+                  const midWord = composing(event);
+                  if (event.key === "Escape" && !midWord) {
                     event.preventDefault();
                     // a typed name is left alone first: the words and the line stay
                     if (mention) return setAsWords(true);
@@ -505,11 +503,11 @@ export function WriteLine({
                   }
                   const arrow =
                     event.key === "ArrowDown" || event.key === "ArrowUp";
-                  if (mention && arrow && !composing) {
+                  if (mention && arrow && !midWord) {
                     event.preventDefault();
                     return walk(event.key === "ArrowDown" ? 1 : -1);
                   }
-                  if (event.key !== "Enter" || event.shiftKey || composing)
+                  if (event.key !== "Enter" || event.shiftKey || midWord)
                     return;
                   event.preventDefault();
                   if (mention) {

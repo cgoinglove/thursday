@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 /**
  * The keys the window owns: the combo that places a call, the plain keys a screen
@@ -27,9 +32,15 @@ export const capturesKeys = (target: EventTarget | null) => {
   );
 };
 
-/** Mid-composition the keys belong to the character being made, not to the window. */
-const composing = (event: KeyboardEvent) =>
-  event.isComposing || event.keyCode === 229;
+/**
+ * Mid-composition the keys belong to the character being made, not to the window
+ * or a field's own Enter and Esc. keyCode 229 is for Safari, whose key that
+ * confirms a composed character arrives with `isComposing` already false.
+ */
+export const composing = (event: KeyboardEvent | ReactKeyboardEvent) => {
+  const native = "nativeEvent" in event ? event.nativeEvent : event;
+  return native.isComposing || native.keyCode === 229;
+};
 
 /**
  * Whether a plain key (no modifier) is the window's to take: not typed into a field,

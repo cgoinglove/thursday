@@ -1,5 +1,6 @@
 import type { KeyboardEvent } from "react";
 import { useState } from "react";
+import { composing } from "@/hooks/use-hotkey";
 
 /**
  * Draft for a one-line input, committed on blur. Enter blurs (one commit path);
@@ -28,7 +29,7 @@ export function useDraft(
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     // Enter during IME composition confirms the character, not the draft.
-    if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+    if (event.key === "Enter" && !composing(event)) {
       event.currentTarget.blur();
     }
   };
