@@ -1,5 +1,119 @@
 # Changelog
 
+## [0.15.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.14.1...thursday-agent-v0.15.0) (2026-09-25)
+
+
+### Features
+
+* **bot:** a bot's own line follows the user's description instead of replacing it ([11e3d86](https://github.com/cgoinglove/thursday/commit/11e3d862d4aac292e5fdd16e4311fca5e07587e5))
+* **bot:** the roster holds fourteen bots, and ready-made ones stop at what fits ([d3b67e9](https://github.com/cgoinglove/thursday/commit/d3b67e99e2100dab52d85b013710f51cdc2b572e))
+* **reach:** her words reach each chat app in its own marks ([8efa253](https://github.com/cgoinglove/thursday/commit/8efa253c6b3a4f0b146940176f496b028d83da99))
+* **reach:** nothing written while waiting is lost, a question outlives the screen, and a token given again keeps its person ([ca759f7](https://github.com/cgoinglove/thursday/commit/ca759f787c077a0066ef7f0b4e076696c04ff7d6))
+* **skills:** a bot decides who a new skill is for, and asks before it installs one ([9eaf266](https://github.com/cgoinglove/thursday/commit/9eaf2667f15e7d510b2f261340f81d19d3644747))
+* **skills:** the page skill folds into artifact, which routes every kind it makes ([f6fa9cb](https://github.com/cgoinglove/thursday/commit/f6fa9cb5e26fbaa5b192ab107fcc344abbe8d03a))
+* **skills:** trips are the Concierge's own, and the weather and money are every bot's ([aa67184](https://github.com/cgoinglove/thursday/commit/aa67184dbd95d1513c3133d0bb3ccbe5150576a3))
+
+
+### Fixes
+
+* **ai:** a thinking step the model does not take is dropped with one write, not one per render ([62249ac](https://github.com/cgoinglove/thursday/commit/62249ac81e9c110ef67cdd473f667911aba4d731))
+* **bot:** a trip's search stays with the Concierge rather than going to another bot ([f565382](https://github.com/cgoinglove/thursday/commit/f5653822cef1f44efe80cce5bdfdf5a069fb980a))
+* **bot:** marks read their boxes in one pass, not one layout per mark per frame ([be774a8](https://github.com/cgoinglove/thursday/commit/be774a8c90df1c96306c7d39a3ac66b3cd4fe074))
+* **bot:** the thread menu's icon button has a name a screen reader can say ([0476fbe](https://github.com/cgoinglove/thursday/commit/0476fbe391ca87dacc706b38cac5137672646fff))
+* **bot:** the Tutor seed's description fits the form it is edited in ([2e5de23](https://github.com/cgoinglove/thursday/commit/2e5de23ac0a1b3e055bceedc2a9b15162f624333))
+* **bot:** WriteOrb's fade has one length, and its comment names it ([8758652](https://github.com/cgoinglove/thursday/commit/8758652b6d9417708af17f55b50ca7c53c4b63e5))
+* **call:** a call in writing says when it could not record a relay as delivered ([a4c5308](https://github.com/cgoinglove/thursday/commit/a4c530845b6a3a9320791049773e76574fdaac3e))
+* **call:** a first call no longer asks a stranger how old they are ([9a936a8](https://github.com/cgoinglove/thursday/commit/9a936a87032928efb14c04ac641e9901e4cff5a2))
+* **call:** deleteCallAction checks the id it is given, as the other call actions do ([60b4bc2](https://github.com/cgoinglove/thursday/commit/60b4bc2515575d41213e93ce717177faf072af7b))
+* **chatgpt:** the sign-in button watches its window as long as the server waits, read from config ([1d1998f](https://github.com/cgoinglove/thursday/commit/1d1998f5f4b0238194e288230563a8fa29ff7b7b))
+* **connectors:** the button that removes a header or env row has a name a screen reader says ([67c8af9](https://github.com/cgoinglove/thursday/commit/67c8af92f8be08e82ffdeb7b8709a21ebd71bdae))
+* **database:** the one client hands close, sync and reconnect through to libsql ([46afddb](https://github.com/cgoinglove/thursday/commit/46afddb5a80040b1e395563fe970b89f28d68b02))
+* **files:** a text names the files it names, and no guess fills in the ones between ([a08d63f](https://github.com/cgoinglove/thursday/commit/a08d63fd662db1fb090bb040000aa2ea8d0764f0))
+* **markdown:** bold that ends in punctuation closes before a Chinese, Japanese or Korean letter ([8f878b6](https://github.com/cgoinglove/thursday/commit/8f878b6d2845fcdff613e6371ce8139aae0a55b3))
+* **mcp:** one server's route reads its name as Next hands it, decoded once ([f4bd6f9](https://github.com/cgoinglove/thursday/commit/f4bd6f980a6ede4af6cb1694da34eb2bb4eb1194))
+* **memory:** Enter that finishes a composed character in a new note's Summary no longer creates the note ([5d3a806](https://github.com/cgoinglove/thursday/commit/5d3a806eb4ff5536d88fd0b5b12a3b5384bfeba2))
+* **prompts:** the backend is not told to keep the word seen from the user ([630fd3c](https://github.com/cgoinglove/thursday/commit/630fd3cdfa9dee5d9d95ccbbdffcc4a34115b605))
+* **protocol:** useServerAction and useServerPages write their refs after commit ([ea89bb9](https://github.com/cgoinglove/thursday/commit/ea89bb9878600a7febea2708e0db445f45f53926))
+* **reach:** a phone's ask that fails to save says so ([0d0d47d](https://github.com/cgoinglove/thursday/commit/0d0d47d3d752999ec48067334b0ac59bdc864264))
+* **reach:** Discord's steps keep the bot to its owner and say how a phone writes to it ([3013dd4](https://github.com/cgoinglove/thursday/commit/3013dd488ef4350418c71c81b93d5368f719adff))
+* **reach:** only a picture Telegram refuses as a photo goes again as a file ([93dd7a2](https://github.com/cgoinglove/thursday/commit/93dd7a26218bd31001c3494453c9b6c14648642f))
+* **skills:** pages name no Chinese, Japanese or Korean face, so each script gets its own ([13f8ba4](https://github.com/cgoinglove/thursday/commit/13f8ba4cf9e17ab31e245cac1cc8bdfd9f959161))
+* **skills:** the brief's preferences file holds only what the reader likes ([cbc059b](https://github.com/cgoinglove/thursday/commit/cbc059be65fd6849cc8746029d365ff5a056c520))
+* **travel:** a trip page writes its prices as its language does, and names their currency ([a40b822](https://github.com/cgoinglove/thursday/commit/a40b822b86612a9564863e3b73703b384bfcb0c8))
+* **travel:** a trip's costs are numbers, or the page would print a total of nothing ([091b12e](https://github.com/cgoinglove/thursday/commit/091b12e15eeef3fcd2ca65da1c3baac682a311b6))
+* **ui:** Japanese and Chinese are drawn in their own fonts, not the Korean one ([b5287e0](https://github.com/cgoinglove/thursday/commit/b5287e07edb392313920dc30455dcb1a36b4e8a8))
+* **ui:** Japanese and Chinese prose wraps where Korean keeps its words whole ([be5f2e9](https://github.com/cgoinglove/thursday/commit/be5f2e9e785c1288d4c756cce609a18790c30c25))
+* **ui:** useDraft keeps the Enter that confirms a composed character on Safari ([dd8ecfe](https://github.com/cgoinglove/thursday/commit/dd8ecfe89695087336713e0443b997b5682610c1))
+* **workspace:** a job's or a deleted bot's folder that cannot be removed says so in the log ([9e8138b](https://github.com/cgoinglove/thursday/commit/9e8138bf2529bdfb917eb737f0f57f246dabdee7))
+
+
+### Performance
+
+* **call:** an ascii face's connect wave draws no emoji sheet as the call picks up ([63fb883](https://github.com/cgoinglove/thursday/commit/63fb883cb49f921b11ba5c31c0bc3d52528801b8))
+
+
+### Under the hood
+
+* **ai:** a run reads the gateway's shelf through one runCatalog ([6d521cc](https://github.com/cgoinglove/thursday/commit/6d521cc1d4b4fc520e9444a33a7c85453ad62c5f))
+* **bot:** a bot's icon becomes BotMark props in one place, beside BotMark ([ca40ef8](https://github.com/cgoinglove/thursday/commit/ca40ef851b698fa421c6b22d641de2b2ced4978d))
+* **bot:** a compaction the user asked for has its own name in prepareStep ([6996b0f](https://github.com/cgoinglove/thursday/commit/6996b0f4a45371d9d34ee88693e8c957c5eaf727))
+* **bot:** an empty summary throws a plain error, since nothing reads isRetryable ([8b10c6f](https://github.com/cgoinglove/thursday/commit/8b10c6f24ba775021cd6a7b822b14d0c2c136927))
+* **bot:** an unread ending is one rule in bot.schema, beside needsThreadReply ([d95c44e](https://github.com/cgoinglove/thursday/commit/d95c44e9a315b924fcee47bbaff4ea7cc6626baf))
+* **bot:** resumeRoom always starts a new generation, as its one caller asked ([39f2603](https://github.com/cgoinglove/thursday/commit/39f2603a4634491a22fabec0f70418df6b2e80e5))
+* **bot:** the bot name schema carries no commented-out rule ([06d0790](https://github.com/cgoinglove/thursday/commit/06d0790c9e6bbcde28f998c8ac6a7508f7b620b7))
+* **bot:** the pinned-tool budget, how far back a label finds a thread and the full-result cap are config.ts constants ([cb94571](https://github.com/cgoinglove/thursday/commit/cb94571e56316a0fe8ea8b88f7bc0476439bd058))
+* **bot:** the room reads needsThreadReply under its own name ([17f1827](https://github.com/cgoinglove/thursday/commit/17f18277ef0b0bafd14cff40d38fbc1594f0e85a))
+* **bot:** the thread actions import room.query at the top, as bot.runner does ([ded6488](https://github.com/cgoinglove/thursday/commit/ded648801e997047169a34812a00d4ddd384b533))
+* **call:** how long the activity line holds a finished step is a config.ts constant, one for both calls ([4f76d64](https://github.com/cgoinglove/thursday/commit/4f76d64f434378c711a709bc25c90fd37f07df70))
+* **call:** the call page's scrollback, save retries and inbox poll are config.ts constants ([f05afd4](https://github.com/cgoinglove/thursday/commit/f05afd44d84bfe9a891582b970caa33d05c4619c))
+* **call:** the pages of a search are read from its answer once, not parsed twice ([5241ed5](https://github.com/cgoinglove/thursday/commit/5241ed514734bac82e04cf5befd9d5300dbf82cc))
+* **call:** the reasoning a chosen effort asks for is worked out in one place ([2f20f12](https://github.com/cgoinglove/thursday/commit/2f20f1254173208995ce65184e83b0a670f6b17f))
+* **call:** the silent voice has as many bands as the audio tap ([620098f](https://github.com/cgoinglove/thursday/commit/620098f6f1ea33af0bcbf35ec4fed20b745f4ef7))
+* **call:** the tool-call route and a call's opening set take their defaults from LIVE_DEFAULTS ([dd0cb48](https://github.com/cgoinglove/thursday/commit/dd0cb487d1cc3afaee61f97ebd80cdffe27be62d))
+* **config:** the caps on a bot's name, lines and prompts are in config.ts, with what moving them does ([f718101](https://github.com/cgoinglove/thursday/commit/f718101b81291bb3f5e61080987e5dfadf91e754))
+* **config:** the database's path on disk is config.ts DB_PATH, and dev reads DATA_DIR from there ([7bfb487](https://github.com/cgoinglove/thursday/commit/7bfb4877eb376e91ab6710dd3fa801d5c730569f))
+* **config:** the shortest key the app takes is KEY_MIN in config.ts, read by the save and every field ([be2e97d](https://github.com/cgoinglove/thursday/commit/be2e97d5a7fd14c2d89114789c8436ec65768700))
+* **connectors:** how long an idle MCP session stays open is config.ts MCP_IDLE_MS ([9ffb610](https://github.com/cgoinglove/thursday/commit/9ffb610d3dcbca9446cedca7079c12d579106740))
+* **events:** how often a signal goes down the event stream is a config.ts constant ([692277d](https://github.com/cgoinglove/thursday/commit/692277d37d32cf6b2300e66da5f34a97996b57c2))
+* **hooks:** useObjectState returns one patch function, without per-key setters ([15f5c77](https://github.com/cgoinglove/thursday/commit/15f5c771c36ecbb417c33365b5b19970871a995d))
+* **memory:** a Memory-screen edit's step limit is config.ts MEMORY_EDIT.maxSteps ([82473bb](https://github.com/cgoinglove/thursday/commit/82473bb0d1447e817efa77a5697e56c78574fcc9))
+* **memory:** memory's transactions wait in the database's one lane, not in a second lock of their own ([b65f21f](https://github.com/cgoinglove/thursday/commit/b65f21fb837b61c16008d1c26dc860dc4615f8d3))
+* **memory:** the always-listed notes are the root notes MEMORY_PATHS names, not a second list ([6901fb3](https://github.com/cgoinglove/thursday/commit/6901fb3f417d78433a03db836737530e115bfd73))
+* **models:** how long the gateway catalog is believed is config.ts GATEWAY_CATALOG_MS ([993e9ef](https://github.com/cgoinglove/thursday/commit/993e9efd83cb9539bf75e4e0ddbd44fb5f3451b9))
+* **protocol:** a streamed route that fails before it starts answers through one startError ([851b19b](https://github.com/cgoinglove/thursday/commit/851b19b5eb1bcc3f88836efff376adff9dc2618a))
+* **protocol:** paged reads spread READ_DEFAULTS instead of a copy of it ([530e448](https://github.com/cgoinglove/thursday/commit/530e4481da3ca4804c2b5a39c7a31858c7ef34e5))
+* **reach:** the wait that makes a burst of thread changes one look is REACH.lookMs ([635c790](https://github.com/cgoinglove/thursday/commit/635c790cbbf8ab5003b5449fbdee7447c5cf68f8))
+* **routine:** the routine sheet takes its day names and its whole week from the schema ([087e806](https://github.com/cgoinglove/thursday/commit/087e806b1bf28d5ee03ef2790a52d8abd5ddf251))
+* **settings:** a section's alert is "red" or "waiting", the colour it is drawn in ([72674b3](https://github.com/cgoinglove/thursday/commit/72674b36df05ba105e42480b5a32f4ee628b1e2f))
+* **skills:** a script reads another's result as an exit code or JSON, not its sentences ([be68bcf](https://github.com/cgoinglove/thursday/commit/be68bcf9e3105559a3468448af808df1cadc6c6d))
+* **skills:** an uploaded skill crosses as FormData, as files given on the write line do ([80ff49d](https://github.com/cgoinglove/thursday/commit/80ff49ddd2385e612b75d38bb8a92608438155ea))
+* **skills:** decks and canvases shoot through render's shot mode, and render serves through serve.mjs ([7a9adab](https://github.com/cgoinglove/thursday/commit/7a9adabf2b34c448b4b3fd0bd75f79c3f5d9d5c1))
+* **skills:** the artifact scripts find their workspace in one place, and a whole artifacts path is kept whole ([811a9a7](https://github.com/cgoinglove/thursday/commit/811a9a71349f74839088bed3b8d9438a839d1fa8))
+* **skills:** the output a bash call shows reaches the scripts from config, not as a copied number ([ab22103](https://github.com/cgoinglove/thursday/commit/ab221031d778a86348ac6052d923f5a48b34bc14))
+* **tools:** tool_search's cap and the lengths the thread and routine tools clip to are config.ts constants ([c7711e5](https://github.com/cgoinglove/thursday/commit/c7711e5f42cd7cdf95ce0f45616253735d4a7d6e))
+* **types:** a relay's kind and a call turn's role are spelled once, in their schema ([997effd](https://github.com/cgoinglove/thursday/commit/997effd510ff76924e14e24b0731155a43e70dfa))
+* **utils:** hostOf lives in lib/utils, where the call prompt can use it too ([69d37de](https://github.com/cgoinglove/thursday/commit/69d37de2949f1baad90ff0270dd77aecb46e4d09))
+* **workspace:** a job's folder and a studio file take their readable name from one slug ([69ba28d](https://github.com/cgoinglove/thursday/commit/69ba28d7111b656cc716726ec4bc72bdbd0f345c))
+* **workspace:** the cap on files read from a job's folder is a config.ts constant ([1a31148](https://github.com/cgoinglove/thursday/commit/1a31148fdc02ad1c9aa497db2b063af163866ce6))
+
+
+### Docs
+
+* **agents:** nothing of one country goes in, nothing is forced, every change has a ground, and a wrong rule is asked about ([8e9f914](https://github.com/cgoinglove/thursday/commit/8e9f914eeb12dd8d78532e1b2fb7eb56d7b26d34))
+* **bot:** a thread with no tab kept is on its own bot's tab, not on All ([0b767ed](https://github.com/cgoinglove/thursday/commit/0b767ed30c23fae1e4b847cba277b3512b936f38))
+* **bot:** comments name only the stops the app still makes ([782b6d4](https://github.com/cgoinglove/thursday/commit/782b6d46c6363451ed7f7d9ab85ce36fd9554a94))
+* **bot:** the mark's notify prop is described once, as the boolean it is ([a26a75b](https://github.com/cgoinglove/thursday/commit/a26a75b8c21905b7ec57c59f757b6bd5b552d812))
+* **bot:** the room pump says why it claims twice ([947fe02](https://github.com/cgoinglove/thursday/commit/947fe020eacc3000727928035b48a279f147da56))
+* **call:** CallScreen's comment names the calls that drive it ([10a68f5](https://github.com/cgoinglove/thursday/commit/10a68f5f24b39b554742511fdf1e882bd4d4a015))
+* **call:** the call settings' comments say what is true since the settings moved to the server ([31608ec](https://github.com/cgoinglove/thursday/commit/31608eca6e92cf4d21923c034b4f3e7d1b7d435b))
+* **connectors:** the presets' comment no longer promises two stdio entries that drive a browser ([5f828d5](https://github.com/cgoinglove/thursday/commit/5f828d5f64ec9b0d1de3a9bfe60556b041a472f4))
+* **guide:** a bot keeps a skill to itself when it serves its own work ([2bf3499](https://github.com/cgoinglove/thursday/commit/2bf34994bf8b1fd579bd35fb592f6c9bbe8b00d9))
+* **memory:** a Memory-screen edit is said to get memory's own read and writes, not "two writes" ([1dcbd65](https://github.com/cgoinglove/thursday/commit/1dcbd65c52788097e2d9889c1e1f4717624d5c3b))
+* **prompts:** nowLine's example sits on nowLine again, not on botWorkHead ([f602ed3](https://github.com/cgoinglove/thursday/commit/f602ed3dc81b810261eb393c1b541d3b9e06c538))
+* **security:** a kept sign-in is in .sign-ins and lent by the tool, not in a bot's folder ([eebd63f](https://github.com/cgoinglove/thursday/commit/eebd63fa1529f67aca6797a6e10ce2e0eabc6018))
+* **settings:** the section shortcut's comment says Cmd+1..9, as the handler does ([a99d218](https://github.com/cgoinglove/thursday/commit/a99d218e6280d3e512d9ab895f528edf3b25b986))
+* **skills:** data-report's worked examples are in several currencies, not all in won ([88087e1](https://github.com/cgoinglove/thursday/commit/88087e160cd4e584578d54f474c7e0faeb9ff29d))
+
 ## [0.14.1](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.14.0...thursday-agent-v0.14.1) (2026-09-25)
 
 
