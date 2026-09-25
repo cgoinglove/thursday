@@ -58,6 +58,7 @@ import {
   updateRoutineAction,
 } from "../routine.action";
 import {
+  DAY_NAMES,
   momentOf,
   nextRun,
   type Routine,
@@ -288,7 +289,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
 function dayOf(ahead: number, from = new Date()): string {
   const at = new Date(from);
   at.setDate(at.getDate() + ahead);
-  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+  return format(at, "yyyy-MM-dd");
 }
 
 const draftOf = (routine: Routine | null, bots: Bot[]): Draft => {
@@ -338,10 +339,9 @@ function inAnHour(): Pick<Draft, "date" | "time"> {
   };
 }
 
-const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 /** The sets of days most routines want, one press each. */
 const DAY_SETS = [
-  { label: "Every day", days: [1, 2, 3, 4, 5, 6, 7] },
+  { label: "Every day", days: [...WEEKDAYS] },
   { label: "Weekdays", days: [1, 2, 3, 4, 5] },
   { label: "Weekends", days: [6, 7] },
 ];
@@ -706,7 +706,7 @@ function RoutineSheet({
                                       })
                                     }
                                   >
-                                    {DAY_SHORT[day - 1]}
+                                    {DAY_NAMES[day - 1]}
                                   </Pill>
                                 );
                               })}

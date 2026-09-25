@@ -93,7 +93,8 @@ const RoutineSchema = RoutineInputSchema.extend({
 });
 export type Routine = z.infer<typeof RoutineSchema>;
 
-const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+/** A weekday's short name, Monday first as `WEEKDAYS` counts them. */
+export const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTH_NAMES = [
   "Jan",
   "Feb",
