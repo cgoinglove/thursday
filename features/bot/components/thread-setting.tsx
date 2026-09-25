@@ -397,7 +397,14 @@ function ThreadMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        render={<Button size="icon-sm" variant="ghost" className={className} />}
+        render={
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="More"
+            className={className}
+          />
+        }
       >
         <MoreHorizontal />
       </DropdownMenuTrigger>
