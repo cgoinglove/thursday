@@ -278,3 +278,42 @@ test("front matter written without its fences is still the line over and under t
     "prose below the title stays prose",
   );
 });
+
+test("bold that ends in punctuation closes before a Chinese, Japanese or Korean letter, and nothing else changes", async () => {
+  const { documentBody } = await import(
+    "../skills/artifact/runtime/document/markdown.mjs"
+  );
+  const inline = (text: string) =>
+    documentBody(text).replace(/^<p>|<\/p>\s*$/g, "");
+
+  // Scripts that put no space after a word: the run closes on the letter, and opens after one
+  assert.equal(
+    inline("금리는 **5.11%**다."),
+    "금리는 <strong>5.11%</strong>다.",
+  );
+  assert.equal(
+    inline("今日は**「重要」**です。"),
+    "今日は<strong>「重要」</strong>です。",
+  );
+  assert.equal(inline("他说**“好”**了"), "他说<strong>“好”</strong>了");
+  assert.equal(
+    inline('그는 다**"인용"**이라고 했다.'),
+    "그는 다<strong>&quot;인용&quot;</strong>이라고 했다.",
+  );
+  // A note's body is lexed on its own, the same way
+  assert.ok(
+    documentBody("> [!NOTE]\n> 금리는 **5.11%**다.").includes(
+      "<strong>5.11%</strong>다.",
+    ),
+  );
+
+  // Elsewhere CommonMark stands: a letter after punctuation still opens rather than closes
+  assert.equal(
+    inline("Rates of **5.11%**, then **6%**s and a**b**c."),
+    "Rates of <strong>5.11%</strong>, then <strong>6%<strong>s and a</strong>b</strong>c.",
+  );
+  assert.equal(
+    inline("2 * 3 * 4 and `**code**다`"),
+    "2 * 3 * 4 and <code>**code**다</code>",
+  );
+});

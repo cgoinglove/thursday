@@ -1,5 +1,6 @@
 "use client";
 
+import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
@@ -18,6 +19,9 @@ const defaultProps: ComponentProps<typeof Streamdown> = {
     code: code,
     mermaid: mermaid,
     math: math,
+    // Bold that ends in punctuation before a Chinese, Japanese or Korean letter,
+    // `**5.11%**다`, closes; CommonMark alone prints its asterisks
+    cjk: cjk,
   },
 };
 

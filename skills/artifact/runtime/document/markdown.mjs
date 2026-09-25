@@ -20,7 +20,7 @@
 //
 // HTML written inside the Markdown passes through untouched, for tabs, a chip, a figure a
 // chart is drawn into. Comments are dropped: the outlines' guidance never reaches the page.
-import { Marked } from "../vendor/marked.mjs";
+import { Marked, Tokenizer } from "../vendor/marked.mjs";
 
 const escape = (text) =>
   String(text)
@@ -39,8 +39,61 @@ const ALERTS = {
 };
 const ALERT = /^\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/i;
 
+/**
+ * Chinese, Japanese and Korean put no space after a word, so bold that ends in punctuation meets
+ * a letter: `**5.11%**다`, `**「重要」**です`. CommonMark closes a run after punctuation only
+ * before a space or more punctuation, and printed those asterisks. markdown-cjk-friendly
+ * (github.com/tats-u/markdown-cjk-friendly) amends the rule for these scripts: beside a
+ * delimiter run their letters count as a space would. marked's own emphasis runs with the two
+ * rules it reads for `*` widened so; `_` stays as CommonMark has it, since bold is `**`.
+ */
+const CJK = String.raw`[\p{scx=Han}\p{scx=Hiragana}\p{scx=Katakana}\p{scx=Hangul}\p{scx=Bopomofo}]`;
+const widened = (rule, from, to) => {
+  if (rule.source.split(from).length !== 2)
+    throw new Error(
+      "marked's emphasis rules changed: markdown.mjs no longer widens them for CJK",
+    );
+  return new RegExp(rule.source.replace(from, to), rule.flags);
+};
+// Each set of marked's rules to its widened copy; a copy maps to itself, since bold inside bold
+// is lexed while the copy is in place
+const cjk = new WeakMap();
+const cjkInline = (inline) => {
+  if (!cjk.has(inline)) {
+    const wide = {
+      ...inline,
+      // After punctuation a run closes before one of their letters, as before a space
+      emStrongRDelimAst: widened(
+        inline.emStrongRDelimAst,
+        String.raw`(\*+)(?=[\s]|$)`,
+        String.raw`(\*+)(?=[\s]|${CJK}|$)`,
+      ),
+      // and opens after one of them before punctuation, as after a space
+      punctuation: widened(
+        inline.punctuation,
+        String.raw`[\s\p{P}\p{S}])`,
+        String.raw`(?:[\s\p{P}\p{S}]|${CJK}))`,
+      ),
+    };
+    cjk.set(inline, wide).set(wide, wide);
+  }
+  return cjk.get(inline);
+};
+const tokenizer = {
+  emStrong(src, masked, before) {
+    const rules = this.rules;
+    this.rules = { ...rules, inline: cjkInline(rules.inline) };
+    try {
+      return Tokenizer.prototype.emStrong.call(this, src, masked, before);
+    } finally {
+      this.rules = rules;
+    }
+  },
+};
+
 const markdown = new Marked({
   gfm: true,
+  tokenizer,
   renderer: {
     // A box a reader ticks in the page; the document's script keeps what they tick
     checkbox({ checked }) {
@@ -70,7 +123,9 @@ const markdown = new Marked({
       if (!mark)
         return `<blockquote>\n${this.parser.parse(token.tokens)}</blockquote>\n`;
       const rest = this.parser.parse(
-        new Marked({ gfm: true }).lexer(token.text.replace(ALERT, "")),
+        new Marked({ gfm: true, tokenizer }).lexer(
+          token.text.replace(ALERT, ""),
+        ),
       );
       return `<div class="${ALERTS[mark[1].toUpperCase()]}">\n${rest}</div>\n`;
     },
