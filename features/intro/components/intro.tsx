@@ -732,10 +732,6 @@ function BotsTurn({
 }
 
 /**
- * The app's default model — the one Settings › Models keeps, which every bot runs on until
- * its own page picks one — set as it is picked, so leaving the intro any way keeps it.
- */
-/**
  * Picking her character on the first run: one at a time, because a first run has the whole
  * screen and choosing who she is is the point of it. Settings holds the same ten in a
  * popover, for changing it later (thursday-setting StylePicker).
@@ -786,6 +782,10 @@ function StyleTurn() {
   );
 }
 
+/**
+ * The app's default model — the one Settings › Models keeps, which every bot runs on until
+ * its own page picks one — set as it is picked, so leaving the intro any way keeps it.
+ */
 function ModelsTurn() {
   const { data } = useServerRoute<ConfigStatus[]>(queryKey.config);
   const stored = parseTextModel(

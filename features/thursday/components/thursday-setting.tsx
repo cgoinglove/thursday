@@ -337,7 +337,7 @@ function StylePicker({
   value: string;
   own: string;
   onPersona: (persona: string) => void;
-  onOwn: (voicePrompt: string) => void;
+  onOwn: (stylePrompt: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   // Written words are the reason the field is open; closing it would hide them
@@ -556,10 +556,9 @@ function BackendModelPicker({
 }
 
 /**
- * What the backend may reach for. Web search is this browser's setting; the
- * skills switch hands the call `load_skill` and is the server's, because tools
- * are built where no browser is. Off by default: reading a skill is a page of
- * instructions arriving mid-sentence.
+ * What the backend may reach for. Both switches are the app's (LiveSettings), because
+ * tools are built where no browser is. The skills switch hands the call `load_skill` and is
+ * off by default: reading a skill is a page of instructions arriving mid-sentence.
  */
 function BackendTools({
   webSearch,
