@@ -423,7 +423,7 @@ function page({ title, sheets, xlsxName, hash }) {
       .replace(
         "// formula.mjs",
         () =>
-          `const Formula = (() => {\n${part("formula.mjs").replace(/^export /gm, "")}\nreturn { workOut, moveRefs, fillDown, parse, FormulaError, colName };\n})();`,
+          `const Formula = (() => {\n${part("formula.mjs").replace(/^export /gm, "")}\nreturn { workOut, moveRefs, fillDown, parse, FormulaError, colName, referencesIn };\n})();`,
       )
       .replace("// format.mjs", () =>
         part("format.mjs").replace(/^export /gm, ""),

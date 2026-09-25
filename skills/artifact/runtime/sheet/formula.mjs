@@ -716,3 +716,40 @@ export function asColumnFormula(formula, row) {
   );
   return fits ? out : null;
 }
+
+/**
+ * The references a formula names, in order, each with where it stands in the text (`start`,
+ * `end`) — as far as the formula reads, so one being typed shows what it names so far.
+ */
+export function referencesIn(formula) {
+  const text = String(formula);
+  const found = [];
+  let at = text.startsWith("=") ? 1 : 0;
+  while (at < text.length) {
+    const rest = text.slice(at);
+    let hit = null;
+    for (const [kind, re] of PATTERNS) {
+      const m = re.exec(rest);
+      if (m) {
+        hit = { kind, m };
+        break;
+      }
+    }
+    if (!hit) break;
+    const { kind, m } = hit;
+    if (kind === "ref") {
+      const a = part(m[3]);
+      const b = m[4] ? part(m[4]) : null;
+      if (a && (!m[4] || b) && (b || a.r !== null))
+        found.push({
+          sheet: m[1]?.replaceAll("''", "'") ?? m[2] ?? null,
+          a,
+          b,
+          start: at,
+          end: at + m[0].length,
+        });
+    }
+    at += m[0].length;
+  }
+  return found;
+}

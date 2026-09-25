@@ -24,7 +24,7 @@ const SCRIPT = join(
   "scripts",
   "spreadsheet.mjs",
 );
-const { workOut, parse, moveRefs, fillDown } = await import(
+const { workOut, parse, moveRefs, fillDown, referencesIn } = await import(
   join(RUNTIME, "formula.mjs")
 );
 const { formatValue, formatColor, checkFormat, xlsxFormat, valueOf, serialOf } =
@@ -155,6 +155,25 @@ test("a formula moves as rows or columns go in or out, and fills down as Excel c
   );
   assert.equal(fillDown("=C2*$D$2+SUM(C:C)", 3), "=C5*$D$2+SUM(C:C)");
   assert.equal(fillDown("=C2", -2), "=#REF!");
+});
+
+test("the references a formula names are found where they stand, a half-typed one too", () => {
+  const found = (formula: string) =>
+    referencesIn(formula).map(
+      (ref: { sheet: string | null; start: number; end: number }) => [
+        ref.sheet,
+        formula.slice(ref.start, ref.end),
+      ],
+    );
+  assert.deepEqual(found('=SUMIF(Sales!B:B,A2,Sales!E:E)&"B2"'), [
+    ["Sales", "Sales!B:B"],
+    [null, "A2"],
+    ["Sales", "Sales!E:E"],
+  ]);
+  assert.deepEqual(found("=IF(TRUE,'Two words'!$A$1,SUM(C2:C"), [
+    ["Two words", "'Two words'!$A$1"],
+    [null, "C2:C"],
+  ]);
 });
 
 test("worked out for an edit, a formula that cannot be holds Excel's error and says why", () => {

@@ -194,6 +194,20 @@ body {
 .ss-grid .at {
   box-shadow: inset 0 0 0 2px var(--sh-brand);
 }
+/* A cell worked out by a formula, faintly; the cells the picked formula names, each reference in
+   its own colour, edged where the range ends (sheet.js showRefs) */
+.ss-grid td.fx:not(.in) {
+  background: color-mix(in srgb, var(--sh-brand) 5%, var(--sh-paper));
+}
+.ss-grid td[data-ref],
+.ss-grid th[data-ref] {
+  background: color-mix(in srgb, var(--ref) 12%, var(--sh-paper));
+  box-shadow:
+    inset 0 var(--rt, 0) 0 0 var(--ref),
+    inset calc(-1 * var(--rr, 0px)) 0 0 0 var(--ref),
+    inset 0 calc(-1 * var(--rb, 0px)) 0 0 var(--ref),
+    inset var(--rl, 0) 0 0 0 var(--ref);
+}
 .ss-grid .ss-row.in,
 .ss-grid .ss-letters th.in {
   background: color-mix(in srgb, var(--sh-brand) 16%, var(--sh-soft));
@@ -371,6 +385,32 @@ body {
 
 /* Editing: the formula line takes typing, the tools sit at its end, and a cell being typed
    in has a box of its own over it */
+.ss-fx-box {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+/* The formula again over the line, its references in their colours; the line's own text hides
+   under it until someone types there */
+.ss-fx-show {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  overflow: hidden;
+  white-space: pre;
+  pointer-events: none;
+}
+.ss-fx-box.colored .ss-fx-show {
+  display: flex;
+}
+.ss-fx-box.colored .ss-formula:not(.ss-fx-show) {
+  color: transparent;
+}
+.ss-fx-show b {
+  font-weight: 600;
+}
 .ss-formula:not([readonly]):focus {
   box-shadow: inset 0 -2px 0 var(--sh-brand);
 }

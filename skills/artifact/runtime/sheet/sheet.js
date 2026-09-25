@@ -27,6 +27,8 @@
   const tools = document.getElementById("tools");
   const formatPick = document.getElementById("format");
   const note = document.getElementById("note");
+  const fxBox = document.getElementById("fx-box");
+  const fxShow = document.getElementById("fx-show");
 
   /** The most rows drawn at once; the .xlsx holds the rest. */
   const MOST = 10000;
@@ -203,6 +205,7 @@
           c,
         );
         paintColor(td, v, column.format);
+        if (rows[i][c]?.f !== undefined) td.classList.add("fx");
         tr.append(td);
       });
       body.append(tr);
@@ -337,7 +340,103 @@
       place();
       drawFormat();
     }
+    showRefs(picked?.f ?? null);
   };
+
+  /* ── what a formula names ───────────────────────────────────────────────── */
+
+  /** A colour for each reference a formula names, as Excel gives them. */
+  const REF_COLORS = [
+    "#2563eb",
+    "#dc2626",
+    "#16a34a",
+    "#9333ea",
+    "#ea580c",
+    "#0891b2",
+  ];
+  let marked = [];
+  /**
+   * The cells `text` names on this sheet, each reference edged in its colour, and the formula
+   * line with its references in the same colours. Null clears them.
+   */
+  function showRefs(text) {
+    for (const el of marked) {
+      el.removeAttribute("data-ref");
+      el.removeAttribute("style");
+      if (el.dataset.color) el.style.color = el.dataset.color;
+    }
+    marked = [];
+    fxShow.replaceChildren();
+    fxBox.classList.remove("colored");
+    if (!text || !String(text).startsWith("=")) return;
+    const refs = Formula.referencesIn(text);
+    if (!refs.length) return;
+    const colors = new Map();
+    const colorOf = (ref) => {
+      const key = text
+        .slice(ref.start, ref.end)
+        .replaceAll("$", "")
+        .toUpperCase();
+      if (!colors.has(key))
+        colors.set(key, REF_COLORS[colors.size % REF_COLORS.length]);
+      return colors.get(key);
+    };
+    // The line: the formula's text, each reference in its colour
+    let from = 0;
+    for (const ref of refs) {
+      fxShow.append(text.slice(from, ref.start));
+      const b = document.createElement("b");
+      b.style.color = colorOf(ref);
+      b.textContent = text.slice(ref.start, ref.end);
+      fxShow.append(b);
+      from = ref.end;
+    }
+    fxShow.append(text.slice(from));
+    if (document.activeElement !== formula) fxBox.classList.add("colored");
+    // The cells: where each reference on this sheet lands among the rows drawn
+    const here = sheet().name.toLowerCase();
+    const { rows } = sheet();
+    const excelRow = (r) =>
+      r === "-1" ? 0 : r === "T" ? rows.length + 1 : list[Number(r)] + 1;
+    const boxes = refs
+      .filter((ref) => (ref.sheet ?? sheet().name).toLowerCase() === here)
+      .map((ref) => {
+        const b = ref.b ?? ref.a;
+        return {
+          color: colorOf(ref),
+          top: Math.min(ref.a.r ?? 0, b.r ?? 0),
+          bottom:
+            ref.a.r === null || b.r === null
+              ? Infinity
+              : Math.max(ref.a.r, b.r),
+          left: Math.min(ref.a.c, b.c),
+          right: Math.max(ref.a.c, b.c),
+        };
+      });
+    if (!boxes.length) return;
+    const lastRow = rows.length + (sheet().totals ? 1 : 0);
+    for (const el of table.querySelectorAll(
+      "td[data-r], .ss-names th[data-r]",
+    )) {
+      const c = Number(el.dataset.c);
+      if (c < 0) continue;
+      const r = excelRow(el.dataset.r);
+      const box = boxes.find(
+        (one) =>
+          r >= one.top && r <= one.bottom && c >= one.left && c <= one.right,
+      );
+      if (!box) continue;
+      if (el.style.color) el.dataset.color = el.style.color;
+      el.dataset.ref = "";
+      el.style.setProperty("--ref", box.color);
+      if (r === box.top) el.style.setProperty("--rt", "2px");
+      if (r === Math.min(box.bottom, lastRow))
+        el.style.setProperty("--rb", "2px");
+      if (c === box.left) el.style.setProperty("--rl", "2px");
+      if (c === box.right) el.style.setProperty("--rr", "2px");
+      marked.push(el);
+    }
+  }
 
   const pickTo = (r, c, extend) => {
     const p = view().pick;
@@ -1010,8 +1109,18 @@
     const b = td.getBoundingClientRect();
     editor.style.left = `${b.left - g.left + grid.scrollLeft}px`;
     editor.style.top = `${b.top - g.top + grid.scrollTop}px`;
-    editor.style.width = `${Math.max(b.width, 80)}px`;
+    editor.dataset.base = String(Math.max(b.width, 80));
+    editor.style.width = `${editor.dataset.base}px`;
     editor.style.height = `${b.height}px`;
+    grow();
+  };
+  /** The editor as wide as what is typed in it, as Excel's is, up to the grid's right edge. */
+  const grow = () => {
+    if (!typing) return;
+    const room = grid.scrollLeft + grid.clientWidth - editor.offsetLeft - 4;
+    const base = Number(editor.dataset.base) || 80;
+    editor.style.width = `${base}px`;
+    editor.style.width = `${Math.max(base, Math.min(room, editor.scrollWidth + 2))}px`;
   };
 
   /** The editor opened on the ring's cell, holding `text` (null keeps what was just typed). */
@@ -1155,6 +1264,8 @@
   editor.addEventListener("input", () => {
     if (!typing) openEditor(null);
     else formula.value = editor.value;
+    grow();
+    showRefs(editor.value);
   });
   editor.addEventListener("compositionstart", () => {
     if (!typing) openEditor(null);
@@ -1176,12 +1287,16 @@
 
   // The formula line edits the ring's cell as well
   formula.addEventListener("focus", () => {
+    // Typed into, the line shows its own text
+    fxBox.classList.remove("colored");
     if (!editing || typing) return;
     openEditor(rawAt(view().pick.r1, view().pick.c1));
     formula.focus();
   });
   formula.addEventListener("input", () => {
     if (typing) editor.value = formula.value;
+    grow();
+    showRefs(formula.value);
   });
   formula.addEventListener("keydown", (event) => {
     if (!typing || event.isComposing) return;
@@ -1227,6 +1342,8 @@
     copy.querySelector("#formula")?.setAttribute("readonly", "");
     copy.querySelector("#grid")?.classList.remove("editing");
     copy.querySelector("#note")?.replaceChildren();
+    copy.querySelector("#fx-show")?.replaceChildren();
+    copy.querySelector("#fx-box")?.classList.remove("colored");
     copy.querySelector("#table")?.replaceChildren();
     copy.querySelector("#table")?.removeAttribute("style");
     copy.querySelector("#tabs")?.replaceChildren();

@@ -41,7 +41,10 @@
     <div class="ss-bar">
       <span class="ss-ref" id="ref"></span>
       <span class="ss-fx" aria-hidden="true">fx</span>
-      <input class="ss-formula" id="formula" readonly spellcheck="false" autocomplete="off" aria-label="The cell's formula or value" />
+      <span class="ss-fx-box" id="fx-box">
+        <input class="ss-formula" id="formula" readonly spellcheck="false" autocomplete="off" aria-label="The cell's formula or value" />
+        <span class="ss-formula ss-fx-show" id="fx-show" aria-hidden="true"></span>
+      </span>
       <span class="ss-tools" id="tools" hidden>
         <button type="button" class="sh-b sh-sm" data-do="row" title="A row under the one picked">+ Row</button>
         <button type="button" class="sh-b sh-sm" data-do="unrow" title="Take out the rows picked">− Row</button>

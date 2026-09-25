@@ -263,6 +263,8 @@ opens in Excel, Numbers or Google Sheets (uploaded to Drive), with its formulas,
 frozen header with a filter, and a totals row. The page has a tab for each sheet, the formula or
 value of the cell picked over the grid, and the sum, average and count of the cells picked at its
 foot; the arrow keys move, Shift widens the pick, and ⌘C copies it to paste into any spreadsheet.
+A cell worked out by a formula has a faint tint; pick one and the cells it uses are edged in
+colours, the same colours as its references in the formula line, and so while one is typed.
 The button on a column's heading sorts it or keeps only the values ticked, which the totals follow;
 that is a view and changes nothing in the file. **Export** has the Excel file, the sheet as CSV,
 the sheet copied, and print. **Edit** changes the sheet itself, no Excel needed: type over a cell
