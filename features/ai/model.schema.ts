@@ -924,6 +924,21 @@ export const GATEWAY_TEXT = "language";
 export const GATEWAY_TOOL_USE = "tool-use";
 
 /**
+ * The providers here that the gateway also carries, by the gateway's name for them — the
+ * first segment of its ids, and its `owned_by` — which is not always theirs (xAI is
+ * `spacexai`). What a gateway model's provider can do, and its mark, are read through it.
+ */
+export const GATEWAY_OWNERS: Partial<Record<string, TextModelProviderId>> = {
+  anthropic: "anthropic",
+  openai: "openai",
+  google: "google",
+  spacexai: "xai",
+  mistral: "mistral",
+  deepseek: "deepseek",
+  cohere: "cohere",
+};
+
+/**
  * How the gateway bills one model, flattened in `readGatewayCatalog` from the ten
  * shapes its pricing answers with. A null price is "the gateway did not say", never zero.
  */

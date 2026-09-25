@@ -41,6 +41,7 @@ import {
   type Effort,
   effortSchema,
   effortsOf,
+  GATEWAY_OWNERS,
   type GatewayCredits,
   type GatewayModel,
   type GatewayPrice,
@@ -159,13 +160,21 @@ export type TextModel = {
 /**
  * Whether a picture a tool hands back reaches this model as a picture (tools/look.tool): the
  * providers whose drivers carry an image inside a tool result. The gateway is asked by the
- * family its model id opens with, since it passes the request on to that provider.
+ * provider its model id opens with (`GATEWAY_OWNERS`), since it passes the request on to it.
  */
 export function seesToolImages(ref: TextModelRef): boolean {
-  const SEEING = ["openai", "chatgpt", "anthropic", "google", "xai"];
-  if (ref.provider !== "vercel-ai-gateway")
-    return SEEING.includes(ref.provider);
-  return SEEING.includes(ref.model.split("/")[0] ?? "");
+  const SEEING: TextModelProviderId[] = [
+    "openai",
+    "chatgpt",
+    "anthropic",
+    "google",
+    "xai",
+  ];
+  const provider =
+    ref.provider === "vercel-ai-gateway"
+      ? GATEWAY_OWNERS[ref.model.split("/")[0]]
+      : ref.provider;
+  return provider !== undefined && SEEING.includes(provider);
 }
 
 /** A model whose provider has no web search to bind. */

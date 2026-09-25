@@ -1,27 +1,16 @@
 import type { ReactNode } from "react";
-import type { TextModelProviderId } from "../model.schema";
+import { GATEWAY_OWNERS } from "../model.schema";
 import { ProviderIcon } from "./provider-icon";
 
 /**
  * A glyph for every owner the gateway names. Some of them are providers this app already
- * draws, and those delegate to `ProviderIcon` so a provider has one mark rather than two
- * that drift apart. The rest are drawn from the table below.
+ * draws (`GATEWAY_OWNERS`), and those delegate to `ProviderIcon` so a provider has one mark
+ * rather than two that drift apart. The rest are drawn from the table below.
  *
  * The table is expected to be incomplete: the gateway carries 35 owners today and adds more
  * every month. An owner with no glyph draws nothing — the id under the model's name says who
  * runs it either way, and a wrong mark is worse than none.
- */
-const GATEWAY_PROVIDERS: Record<string, TextModelProviderId> = {
-  anthropic: "anthropic",
-  openai: "openai",
-  google: "google",
-  spacexai: "xai",
-  mistral: "mistral",
-  deepseek: "deepseek",
-  cohere: "cohere",
-};
-
-/**
+ *
  * Monochrome marks from @lobehub/icons-static-svg 1.95.0, inlined rather than depended on:
  * the package carries 906 icons for the two dozen used here, and the published app installs
  * with no build step. Every one is a 24x24 evenodd path drawn in `currentColor`, so a row's
@@ -177,7 +166,7 @@ export function GatewayOwnerIcon({
   owner: string;
   className?: string;
 }): ReactNode {
-  const provider = GATEWAY_PROVIDERS[owner];
+  const provider = GATEWAY_OWNERS[owner];
   if (provider)
     return <ProviderIcon provider={provider} className={className} />;
 
