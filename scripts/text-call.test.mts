@@ -469,6 +469,21 @@ test("a call in writing reads its own words as the conversation, never again as 
   assert.doesNotMatch(system, /harbour at dawn/);
 });
 
+test("a closing tab's beacon ends the call it held", async () => {
+  const { POST } = await import("../app/api/thursday/call/end/route.ts");
+  const { callId } = await openTextCall();
+  assert.equal(await isCallOpen(callId), true);
+  const response = await POST(
+    new Request("http://127.0.0.1:3000/api/thursday/call/end", {
+      method: "POST",
+      body: callId,
+    }),
+    {} as never,
+  );
+  assert.equal(response.status, 200);
+  assert.equal(await isCallOpen(callId), false);
+});
+
 test("the last tab going closes the calls a tab held, never one the server holds for a phone", async () => {
   const page = (await openTextCall()).callId;
   const phone = (await openTextCall()).callId;

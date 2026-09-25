@@ -166,6 +166,8 @@ export const queryKey = {
    * {toolCallId, callId, name, input}; one JSON Result per call, abortable.
    */
   toolCall: "/api/thursday/tool-call",
+  /** POST, a beacon: the call a closing tab held, ended (use-thursday). */
+  callEnd: "/api/thursday/call/end",
   /** The sign-ins the app keeps for bots to borrow (features/signins). */
   signIns: "/api/signins",
   /** Who may write from a phone, and who is asking to (features/reach). */

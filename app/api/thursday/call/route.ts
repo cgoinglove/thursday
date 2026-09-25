@@ -7,9 +7,9 @@ import { serverRoute } from "@/lib/protocol/server-route";
  * of each in speaking order. `?before=<ISO>` is the next page: the start time
  * of the oldest call already on screen (queryKey.callHistory).
  *
- * Read only. Nothing writes a call through a route: a spoken call saves its turns
- * as they are confirmed (thursday.action), a call in writing and a phone as they are
- * answered (thursday.text).
+ * Read only. Nothing writes a call through a route but the beacon a closing tab sends to
+ * end its own (call/end): a spoken call saves its turns as they are confirmed
+ * (thursday.action), a call in writing and a phone as they are answered (thursday.text).
  */
 export const GET = serverRoute((request) => {
   const before = new URL(request.url).searchParams.get("before");

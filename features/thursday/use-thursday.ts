@@ -131,6 +131,30 @@ export type ActivityLine = {
  */
 export type CallEnd = "quiet" | "hungUp" | "closed" | "expired" | "dropped";
 
+/** The one lock a spoken call holds across this app's tabs: one line open at a time (D17). */
+const CALL_LOCK = "thursday-spoken-call";
+
+/** Another tab of the app has a call on: said as that, not as a call that failed. */
+class CallElsewhere extends Error {}
+
+/**
+ * Takes the call lock, or answers null when another tab of the app holds it: two tabs could
+ * each open a line, billed twice and saying every update twice. Held until the call lets it
+ * go or its tab closes. A browser without Web Locks guards nothing and lets the call go.
+ */
+function takeCallLock(): Promise<(() => void) | null> {
+  if (!("locks" in navigator)) return Promise.resolve(() => {});
+  return new Promise((resolve) => {
+    void navigator.locks.request(CALL_LOCK, { ifAvailable: true }, (lock) => {
+      if (!lock) {
+        resolve(null);
+        return;
+      }
+      return new Promise<void>((release) => resolve(() => release()));
+    });
+  });
+}
+
 export function useThursday(
   /** A call in writing holds the screen (use-text-call): nothing rings, and what comes up is told there. */
   writing = false,
@@ -193,6 +217,8 @@ export function useThursday(
   const working = useRef<AbortController | null>(null);
   /** Row the turns are saved to; a ref so long-lived callbacks see it. */
   const callId = useRef<string | null>(null);
+  /** Lets go of the call lock this tab holds (takeCallLock). */
+  const callLock = useRef<(() => void) | null>(null);
   /** Open work already put to her while this page has been open: one set for both kinds of call (open-work). */
   const told = useRef(toldWork);
   /**
@@ -605,6 +631,8 @@ export function useThursday(
       // Waits (bounded) for session.closed, which saves the last turns and says
       // what was billed; the row is ended with that, after the saves it queued
       await live?.close();
+      callLock.current?.();
+      callLock.current = null;
       const close = finalized.current;
       finalized.current = null;
       ending.current = false;
@@ -620,10 +648,23 @@ export function useThursday(
     [outbox, restFace, doneReading, setThinking],
   );
 
+  // A tab closing on a call ends its row by beacon (api/thursday/call/end): a server action
+  // sent on the way out never arrives, and a row left live holds every desktop notice back
+  useEffect(() => {
+    const gone = () => {
+      const call = callId.current;
+      if (call) navigator.sendBeacon(queryKey.callEnd, call);
+    };
+    window.addEventListener("pagehide", gone);
+    return () => window.removeEventListener("pagehide", gone);
+  }, []);
+
   // Unmount during a call must release the mic and stop tools
   useEffect(() => {
     return () => {
       attempt.current += 1;
+      callLock.current?.();
+      callLock.current = null;
       void session.current?.close();
       session.current = null;
       // Closing only the session would leave the row live (thursday.query
@@ -723,6 +764,13 @@ export function useThursday(
       armAudioUnlock(tap.current.open().context);
       const chime = new Audio(CONNECTED_SOUND);
       farewell.current ??= new Audio(HUNG_UP_SOUND);
+      // After the audio, which has to be opened inside the click
+      const release = await takeCallLock();
+      if (!release)
+        throw new CallElsewhere(
+          "A call is already on in another tab of this app. Hang up there, or go on there.",
+        );
+      callLock.current = release;
 
       const stop = new AbortController();
       working.current = stop;
@@ -1052,8 +1100,16 @@ export function useThursday(
       // a rejected chime is not worth a message
       void chime.play().catch(() => {});
     } catch (cause) {
+      callLock.current?.();
+      callLock.current = null;
       // Hanging up while the line was going up is not a failure to report
-      if (current()) {
+      if (current() && cause instanceof CallElsewhere)
+        toast.add({
+          type: "warning",
+          title: "One call at a time",
+          description: cause.message,
+        });
+      else if (current()) {
         toast.add({
           type: "error",
           title: "Could not start the call",

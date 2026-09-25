@@ -7,6 +7,9 @@ has already said which: a provider's own words are shown as they came, never hid
 
 - **"Call failed"** shows the provider's reason. A refused key or no credit left is fixed in
   **Settings › API keys**; a model the key cannot use is changed in **Settings › Thursday › Models**.
+- **"One call at a time"**: another tab of the app has a spoken call on. Hang up there, or go on
+  there; two lines at once were billed twice and said every update twice. A tab closed mid-call
+  ends its call as it goes.
 - **She cannot be heard** on a call that opened by itself (she called back): the browser holds the
   sound until the page is touched. A tap anywhere lets it through.
 - **She does not hear them**: the browser asks for the microphone on the first call. If that was
