@@ -52,7 +52,6 @@ export const clockNow = (now = new Date()) =>
     Intl.DateTimeFormat().resolvedOptions().timeZone
   }`;
 
-/** `**Now**: 2026-09-02 (Wed) 15:41 Europe/Lisbon` */
 /**
  * One of a bot's other threads, up to its words: whose it is and where it stands. The
  * listing in its prompt and the tool that opens one whole say it the same way.
@@ -70,6 +69,7 @@ export function botWorkHead(row: BotWorkLine, self: string): string {
   return `"${row.label}" — ${row.owner === self ? "yours" : `${row.owner}'s`} — ${state}`;
 }
 
+/** `**Now**: 2026-09-02 (Wed) 15:41 Europe/Lisbon` */
 export const nowLine = (now = new Date()) => `**Now**: ${clockNow(now)}`;
 
 /**
