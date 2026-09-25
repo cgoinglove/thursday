@@ -8,7 +8,10 @@ import { Input } from "@/components/ui/input";
 import { KEY_MIN } from "@/config";
 import { ProviderIcon } from "@/features/ai/components/provider-icon";
 import { LIVE_PROVIDER } from "@/features/ai/live.schema";
-import { TEXT_MODEL_PROVIDERS } from "@/features/ai/model.schema";
+import {
+  TEXT_MODEL_PROVIDERS,
+  type TextModelProviderId,
+} from "@/features/ai/model.schema";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
@@ -230,6 +233,21 @@ function KeyField({
   );
 }
 
+/** How a provider's keys begin, from the catalogue's `keyLooks` ("xai-…" → "xai-"). */
+const prefixOf = (looks?: string) => looks?.replace(/…$/, "") ?? "";
+
+/**
+ * How every other provider's keys begin, read off the one catalogue. A prefix this provider's
+ * own keys also begin with (DeepSeek's "sk-" beside OpenAI's) tells nothing and is left out.
+ */
+const otherPrefixes = (id: TextModelProviderId) => {
+  const own = prefixOf(TEXT_MODEL_PROVIDERS[id].keyLooks);
+  return Object.entries(TEXT_MODEL_PROVIDERS).flatMap(([other, entry]) => {
+    const prefix = prefixOf(entry.keyLooks);
+    return other !== id && prefix && !own.startsWith(prefix) ? [prefix] : [];
+  });
+};
+
 /** Just the field and its save button, no provider label — for a spot that already shows one. */
 export function KeyInput({
   provider,
@@ -256,8 +274,9 @@ export function KeyInput({
   onSubmit: () => void;
 }) {
   // A mismatch warns but never blocks: key prefixes change
-  const mismatch =
-    value.trim().startsWith("xai-") || value.trim().startsWith("sk-ant-");
+  const mismatch = otherPrefixes(provider.id).some((prefix) =>
+    value.trim().startsWith(prefix),
+  );
 
   return (
     <form
