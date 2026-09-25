@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.17.1](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.17.0...thursday-agent-v0.17.1) (2026-09-25)
+
+
+### Fixes
+
+* **bots:** a bot that hands work out waits for the answer instead of doing it twice ([f5ec2c4](https://github.com/cgoinglove/thursday/commit/f5ec2c41334d109a35bda41281d765aeb3a6f32e))
+* **skills:** a CSV is read as it is written, and says what it could not take ([0f57878](https://github.com/cgoinglove/thursday/commit/0f578784457dd905a41fa9808f451ea7d4dadd09))
+* **skills:** a picture book is reached by its path as well as its name ([bd03ea7](https://github.com/cgoinglove/thursday/commit/bd03ea799e82336f2cbd9ac86958469c911b6272))
+* **skills:** the bank-export test writes its own bytes beside a second bank, and the Analyst may end in a sheet ([405897f](https://github.com/cgoinglove/thursday/commit/405897f3a8c81e977995a25b63b2ab12ae5f9da4))
+
 ## [0.17.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.16.0...thursday-agent-v0.17.0) (2026-09-25)
 
 
