@@ -1126,7 +1126,10 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     // The one call that opens with nothing: she says who she is, then learns who they are
     assert.match(first.opening ?? "", /say who you are/);
     assert.match(first.opening ?? "", /ask what to call them/);
-    assert.match(first.text, /what they do, where they live, and whatever else they offer/);
+    assert.match(
+      first.text,
+      /what they do, where they live, and whatever else they offer/,
+    );
 
     // A call the page placed says so, ahead of even the first-call opening
     const rung = await loadLivePrompt({ calledBack: true });
