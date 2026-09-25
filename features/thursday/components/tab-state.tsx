@@ -27,15 +27,15 @@ const DOT = { cx: 200, cy: 200, r: 46, ring: 20 };
 
 /**
  * The icon sits on the browser's own light or dark bar, not on the app's theme,
- * so its colours follow the SVG's media query. The hex values of the corner
- * dot's tokens: amber-600 / amber-400 and destructive.
+ * so its colours follow the SVG's media query, written out because a data: SVG
+ * reads no CSS variable: the ink, and the red of a broken section's dot.
  */
 const ICON_STYLE =
-  ".ink{fill:#0a0a0a}.amber{fill:#e17100}.red{fill:#e7000b}" +
-  "@media (prefers-color-scheme:dark){.ink{fill:#fafafa}.amber{fill:#ffb900}.red{fill:#ff6467}}";
+  ".ink{fill:#0a0a0a}.red{fill:#e7000b}" +
+  "@media (prefers-color-scheme:dark){.ink{fill:#fafafa}.red{fill:#ff6467}}";
 
-/** Thursday's mark at rest, wearing the dot for `alert` when there is one. */
-function tabIconSvg(alert: SectionAlert): string {
+/** Thursday's mark at rest, wearing the red dot when a section is broken. */
+function tabIconSvg(alert: Exclude<SectionAlert, "waiting">): string {
   const { head, eyes } = markAtRest(THURSDAY_SEED);
   const cut = alert
     ? `<circle cx="${DOT.cx}" cy="${DOT.cy}" r="${DOT.r + DOT.ring}"/>`
@@ -50,9 +50,8 @@ function tabIconSvg(alert: SectionAlert): string {
  * The tab, for when the app is not the window in front. The title leads with
  * what is owed — the Threads badge's count — and a live call keeps its waveform at
  * the end, so neither takes the other's place. The icon wears the settings
- * corner's dot when something is owed: amber waits on the user, red is broken
- * (a blue suggestion stays in the corner), and a section with
- * nothing to count still gets the dot.
+ * corner's red dot when a section is broken, one with nothing to count
+ * included; what waits on the user stays in the corner.
  *
  * Draws nothing. A component rather than a hook in the call screen, so a report
  * changing re-renders only this.
@@ -68,7 +67,7 @@ export function TabState({
   const { owed } = useThreadReport();
   const alerts = useSectionAlerts();
   const worst = worstAlert(Object.values(alerts).map((each) => each ?? null));
-  // A suggestion is for the settings corner, not the tab: from another window nothing is owed
+  // Only red reaches the icon; `waiting` stays in the settings corner
   const alert = worst === "waiting" ? null : worst;
 
   useEffect(() => {
