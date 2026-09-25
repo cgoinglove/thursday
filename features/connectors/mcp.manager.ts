@@ -10,7 +10,7 @@ import {
   UnauthorizedError,
 } from "@ai-sdk/mcp";
 import { Experimental_StdioMCPTransport as StdioMCPTransport } from "@ai-sdk/mcp/mcp-stdio";
-import { APP_NAME, APP_URL } from "@/config";
+import { APP_NAME, APP_URL, MCP_IDLE_MS } from "@/config";
 import { logger } from "@/lib/logger";
 import { errorToString } from "@/lib/utils";
 import {
@@ -73,13 +73,9 @@ export class McpAuthRequiredError extends Error {
 interface McpManagerOptions {
   /** The absolute URL the authorization server redirects back to. */
   callbackUrl: string;
-  /** How long an unused session stays open. 30 minutes by default. */
-  idleTtlMs?: number;
   /** The client name announced to servers and registered at DCR time. */
   clientName?: string;
 }
-
-const DEFAULT_IDLE_TTL_MS = 30 * 60 * 1000;
 
 /**
  * An `OAuthClientProvider` whose persistence hooks write through the store.
@@ -196,7 +192,6 @@ class McpManager {
   private readonly sessions = new Map<string, Session>();
   /** Collapses concurrent connects to the same server. */
   private readonly connecting = new Map<string, Promise<ConnectOutcome>>();
-  private readonly idleTtlMs: number;
   private readonly callbackUrl: string;
   private readonly clientName: string;
 
@@ -205,7 +200,6 @@ class McpManager {
     options: McpManagerOptions,
   ) {
     this.callbackUrl = options.callbackUrl;
-    this.idleTtlMs = options.idleTtlMs ?? DEFAULT_IDLE_TTL_MS;
     this.clientName = options.clientName ?? APP_NAME;
   }
 
@@ -432,7 +426,7 @@ class McpManager {
   private armIdleTimer(name: string) {
     const timer = setTimeout(() => {
       void this.closeSession(name);
-    }, this.idleTtlMs);
+    }, MCP_IDLE_MS);
     // Never keep the process alive just to close one idle connection
     timer.unref?.();
     return timer;

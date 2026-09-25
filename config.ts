@@ -676,6 +676,14 @@ export const CONNECTED_TOOL_TIMEOUT_MS = 10 * 60_000;
 export const TOOL_SEARCH_SCHEMAS = 8;
 
 /**
+ * How long a connected MCP server's session stays open with nothing using it
+ * (features/connectors/mcp.manager); each tool call starts the wait again. Past it the session
+ * closes, and the next call connects again first. Longer keeps a server's process or connection
+ * up through longer quiet; shorter makes a bot wait on that connect more often.
+ */
+export const MCP_IDLE_MS = 30 * 60_000;
+
+/**
  * How many files of one job's own folder are read when its files are listed
  * (features/workspace filesOnDisk, what bot.run names as the job's files). A folder of
  * generated files past it is not a list anyone reads; raising it lists more of one and
