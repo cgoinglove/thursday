@@ -69,7 +69,6 @@ import {
   type CallEnd,
   useThursday,
 } from "@/features/thursday/use-thursday";
-import { WorkChip } from "@/features/thursday/work-chip";
 import { ArtifactView } from "@/features/workspace/components/artifact-view";
 import { useHotkeyLabel } from "@/hooks/use-hotkey";
 import { RING_CYCLE_MS } from "@/lib/live/ring";
@@ -307,9 +306,13 @@ function CallScreen({
               toolUp={drawn !== null}
               thinkingSince={thinkingSince}
               thinkingTitle={thinkingTitle}
-              // nobody is listened to on a call in writing: there is no microphone
-              listening={
-                status === "listening" && thinkingSince === null && !writing
+              // the mic stays open while she works, so the meter does too; a call in
+              // writing has no microphone, and her own voice has the row to itself
+              micOpen={
+                !writing &&
+                (status === "listening" ||
+                  status === "working" ||
+                  status === "delegating")
               }
               getMicSpectrum={getMicSpectrum}
             />
@@ -944,12 +947,18 @@ function useHeldThought(
   return { thought, title };
 }
 
+/**
+ * The mic is open for the whole of a spoken call, her work included, so its meter stays
+ * in this row until her voice takes over: at the head of the work line while she thinks
+ * or runs a tool, and as Listening when the row has nothing else to say. A meter that
+ * left when the work began read as a mic that had closed.
+ */
 function ActivityRow({
   tool,
   toolUp,
   thinkingSince,
   thinkingTitle,
-  listening,
+  micOpen,
   getMicSpectrum,
 }: {
   /** The line to draw here now (useDwell); none while the lines stand beside her face. */
@@ -958,7 +967,8 @@ function ActivityRow({
   toolUp: boolean;
   thinkingSince: number | null;
   thinkingTitle: string | null;
-  listening: boolean;
+  /** A spoken call's mic is taking the user in: any status but her speaking. */
+  micOpen: boolean;
   getMicSpectrum?: () => ArrayLike<number>;
 }) {
   // held past the tool so the pill has something to fade out with
@@ -968,29 +978,35 @@ function ActivityRow({
   }, [tool]);
   const { thought, title } = useHeldThought(thinkingSince, thinkingTitle);
 
-  const hearing = listening && !tool;
+  const working = tool !== null;
+  const thinking = thinkingSince !== null && !toolUp;
+  const hearing = micOpen && !working && !thinking;
+  // the meter a work line wears at its head; drawn only on the face that is showing
+  const meter = (on: boolean) =>
+    micOpen && <MicMeter live={on} getMicSpectrum={getMicSpectrum} />;
   return (
-    <div className="flex h-7 max-w-full items-center justify-center gap-2">
+    <div className="flex h-7 max-w-full items-center justify-center">
       <div className="grid min-w-0 items-center justify-items-center">
         {shown && (
-          <Fade at="col-start-1 row-start-1 max-w-full" shown={tool !== null}>
-            <Activity tool={shown} />
+          <Fade at="col-start-1 row-start-1 max-w-full" shown={working}>
+            <span className="flex min-w-0 items-center gap-1.5">
+              {meter(working)}
+              <Activity tool={shown} />
+            </span>
           </Fade>
         )}
         {thought && (
-          <Fade
-            at="col-start-1 row-start-1"
-            shown={thinkingSince !== null && !toolUp}
-          >
-            <Thinking title={title} />
+          <Fade at="col-start-1 row-start-1 max-w-full" shown={thinking}>
+            <span className="flex min-w-0 items-center gap-1.5">
+              {meter(thinking)}
+              <Thinking title={title} />
+            </span>
           </Fade>
         )}
         <Fade at="col-start-1 row-start-1" shown={hearing}>
           <Ear live={hearing} getMicSpectrum={getMicSpectrum} />
         </Fade>
       </div>
-      {/* Off by default; the whole feature is features/thursday/work-chip */}
-      <WorkChip shown={thinkingSince !== null} />
     </div>
   );
 }
@@ -1654,7 +1670,7 @@ function NeedsKey({
  * (the user's pick).
  */
 function Thinking({ title }: { title: string | null }) {
-  const words = title ? `Thinking · ${title}` : "Thinking…";
+  const words = title ? `Thinking · ${title}` : "Thinking";
   return (
     <span className="flex max-w-full items-center text-[13px] leading-5">
       {/* keyed so a new title fades in rather than replacing the words mid-sweep */}

@@ -1,8 +1,8 @@
 ---
-checked: 2026-09-24
+checked: 2026-09-25
 paths:
   - "features/thursday/components/**"
-  - "features/thursday/{tool-line,work-chip,face*,field,smoke,eyes,wash,ascii.const,silent-voice}.*"
+  - "features/thursday/{tool-line,face*,field,smoke,eyes,wash,ascii.const,silent-voice}.*"
   - "features/bot/components/{room-*,bot-room,bot-tool,bot-mark,bot-tip,thread-reply,attachments,crew-motion,write-orb}.*"
   - "features/bot/{thread.store,mark.const}.ts"
   - "features/workspace/components/{artifact-view,file-thumb,file-view,given-files}.tsx"

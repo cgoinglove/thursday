@@ -59,7 +59,6 @@ import {
 } from "@/features/thursday/thursday.schema";
 import { useThursdayStore } from "@/features/thursday/thursday.store";
 import { useLiveSettings } from "@/features/thursday/use-live-settings";
-import { WorkChipSetting } from "@/features/thursday/work-chip";
 import { useDraft } from "@/hooks/use-draft";
 import {
   comboOf,
@@ -112,9 +111,6 @@ export function ThursdaySetting() {
         value={thursday.captionView}
         onChange={(captionView) => patch({ captionView })}
       />
-
-      {/* Off by default; the whole feature is features/thursday/work-chip */}
-      <WorkChipSetting />
 
       <ModelsSetting value={settings} hasKey={hasKey} onChange={change} />
 

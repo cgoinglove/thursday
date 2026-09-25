@@ -28,9 +28,9 @@ file to make, several steps — goes to a bot and comes back while the call carr
 hers to pick; she says who took it.
 
 While she is working the line under her face says so, and the answer can take a while. The
-microphone stays open the whole time: anything said meanwhile is heard and answered once the work
-is done, so there is no need to repeat it. **Settings › Thursday › While she works › Say the
-answer is coming** puts a small chip beside that line, *answers after this*; it starts off.
+microphone stays open the whole time, and the bars of its meter stay at the head of that line to
+show it: anything said meanwhile is heard and answered once the work is done, so there is no need
+to repeat it.
 
 ## Ending it
 
@@ -135,7 +135,7 @@ Everything here but her face is in **Settings › Thursday**, and changes apply 
   how work should be handed over and what to check first.
 
 Voice, style, the backend and its settings belong to the app, so she is the same on every browser
-and from a phone. Captions, starting a call and While she works belong to this browser.
+and from a phone. Captions and starting a call belong to this browser.
 
 ## When work has something to say
 
