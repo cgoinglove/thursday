@@ -15,6 +15,10 @@ call. `S=<this skill's dir>/scripts`, `D=$THURSDAY_SKILLS/data-report/scripts`.
 | `node $D/fx.mjs <amount> <FROM> <TO[,TO…]>` | The amount at today's rate, with the rate's date and where it came from |
 | `node $S/itinerary.mjs <trip.json> [--name <file>]` | The trip as one page in your `artifacts/` folder: a photo and a map link per stop, costs added up. Uses the browser only for a `"photo"` page url |
 
+**The search is yours.** Flights, stays and their prices are this skill's work, not a question to
+hand to another bot: a hand-off pays for a second bot's prompt, skills and browser, and for the
+messages between you, to find what one search of yours finds.
+
 **Flights come from a published search; the rest from a page on the user's screen.** Nothing
 here reads another site by script: a search page moves without notice, and a wrong price is worse
 than none.
