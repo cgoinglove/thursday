@@ -10,7 +10,7 @@ import {
 } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
-import { TEXT_CALL } from "@/config";
+import { CALL_LINE, TEXT_CALL } from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { acceptThreadRelaysAction } from "@/features/bot/bot.action";
 import type { Thread } from "@/features/bot/bot.schema";
@@ -34,7 +34,12 @@ import {
   type TextCallNote,
 } from "./thursday.schema";
 import { useThursdayStore } from "./thursday.store";
-import { searchSourcesOf, toolBot, toolLine } from "./tool-line";
+import {
+  reasoningTitle,
+  searchSourcesOf,
+  toolBot,
+  toolLine,
+} from "./tool-line";
 import type { ActivityLine } from "./use-thursday";
 
 /**
@@ -58,9 +63,6 @@ import type { ActivityLine } from "./use-thursday";
  */
 
 const transport = new DefaultChatTransport({ api: queryKey.textCall });
-
-/** How long a finished tool stays on the line before it clears, as on a spoken call. */
-const TOOL_LINGER_MS = 2500;
 
 export type TextCall = {
   /** A call in writing is open. */
@@ -387,7 +389,7 @@ export function useTextCall(): TextCall {
   // A bot's update stays on the line while she answers it, then clears as a tool's does
   useEffect(() => {
     if (running || !relayLine) return;
-    const out = setTimeout(() => setRelayLine(null), TOOL_LINGER_MS);
+    const out = setTimeout(() => setRelayLine(null), CALL_LINE.lingerMs);
     return () => clearTimeout(out);
   }, [running, relayLine]);
 
@@ -492,7 +494,7 @@ export function useTextCall(): TextCall {
   const usedId = used?.done && !used.sources ? used.id : null;
   useEffect(() => {
     if (!usedId) return;
-    const out = setTimeout(() => setLingered(usedId), TOOL_LINGER_MS);
+    const out = setTimeout(() => setLingered(usedId), CALL_LINE.lingerMs);
     return () => clearTimeout(out);
   }, [usedId]);
   // Her own tool first; else the update she is answering, as a relay holds the spoken line
@@ -512,7 +514,7 @@ export function useTextCall(): TextCall {
   const thinkingTitle =
     (thinking &&
       thought?.type === "reasoning" &&
-      /^\s*\*\*(.+?)\*\*/.exec(thought.text)?.[1]?.trim()) ||
+      reasoningTitle(thought.text)) ||
     null;
 
   const callStatus: CallStatus = !line

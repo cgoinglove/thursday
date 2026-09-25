@@ -55,13 +55,29 @@ export const CALL_RELAY = {
 };
 
 /**
- * The activity line under her face (thursday.tsx). A backend that uses three tools in a
- * second reports three lines in a second, and none of them can be read.
+ * The activity line under her face (thursday.tsx, filled by useThursday and use-text-call). A
+ * backend that uses three tools in a second reports three lines in a second, and none of them
+ * can be read.
  * - `dwellMs`  the least time one line is drawn before the next takes its place; the ones
  *   behind it wait their turn. Longer reads better and runs further behind the work; her
  *   voice starting drops whatever still waits, since it is the answer those lines led to.
+ * - `lingerMs`  how long a finished tool stays on the line before it clears, on a call aloud
+ *   and in writing alike; in writing a bot's update she has answered clears after it too. A
+ *   tool that starts within it swaps the words rather than drawing the line again. Longer
+ *   leaves finished work up after it is done; shorter clears it before it is read.
+ * - `relayLingerMs`  the same for a bot's update on a spoken call, once she has voiced it: it
+ *   carries more to read than a tool's line.
+ * - `thinkingTailMs`  how long the line keeps saying she is at work once the backend's turn is
+ *   over, while it waits for her voice. Her first word is what normally ends it; this ends a
+ *   turn that never reaches one. Shorter can drop the line while her answer is still coming;
+ *   longer keeps it up over a turn that ended in silence.
  */
-export const CALL_LINE = { dwellMs: 2_000 };
+export const CALL_LINE = {
+  dwellMs: 2_000,
+  lingerMs: 2_500,
+  relayLingerMs: 5_000,
+  thinkingTailMs: 6_000,
+};
 
 /**
  * When a quiet call ends itself (useThursday).

@@ -202,6 +202,14 @@ export function toolLine(
   );
 }
 
+/**
+ * What the backend's work is about, for the line while it thinks: a reasoning summary opens
+ * with its title in bold, on a call aloud and in writing alike. Null when it opens otherwise.
+ */
+export function reasoningTitle(summary: string): string | null {
+  return /^\s*\*\*(.+?)\*\*/.exec(summary)?.[1]?.trim() || null;
+}
+
 /** The call's tools that act on one thread the model names by its label or id. */
 const ON_A_THREAD = new Set<string>([
   TOOL_NAMES.thread_tell,

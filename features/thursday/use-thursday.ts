@@ -4,7 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { toast } from "@/components/ui/toast";
-import { CALL_END, CALL_ENDED_MS, CALL_IDLE, CALL_RELAY } from "@/config";
+import {
+  CALL_END,
+  CALL_ENDED_MS,
+  CALL_IDLE,
+  CALL_LINE,
+  CALL_RELAY,
+} from "@/config";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { acceptThreadRelaysAction } from "@/features/bot/bot.action";
 import type { Bot, Thread } from "@/features/bot/bot.schema";
@@ -52,7 +58,13 @@ import type {
   LiveStatus,
 } from "./thursday.schema";
 import { useThursdayStore } from "./thursday.store";
-import { searchQueryOf, searchSourcesOf, toolBot, toolLine } from "./tool-line";
+import {
+  reasoningTitle,
+  searchQueryOf,
+  searchSourcesOf,
+  toolBot,
+  toolLine,
+} from "./tool-line";
 import { useCallRing } from "./use-call-ring";
 
 /**
@@ -66,21 +78,6 @@ const CONNECTED_SOUND = "/sounds/start_voice.ogg";
 
 /** Plays when the line closes. */
 const HUNG_UP_SOUND = "/sounds/end_voice.ogg";
-
-/**
- * How long a finished tool stays on the activity line. A tool starting inside
- * this window swaps the text instead of re-showing the line.
- */
-const TOOL_LINGER_MS = 2500;
-/** A relay from a bot carries more to read than a tool line. */
-const RELAY_LINGER_MS = 5000;
-
-/**
- * Once the backend's turn is over, how long the activity line keeps saying it is
- * working while it waits for her voice. Her first word is what normally ends it;
- * this is only for a turn that never reaches one.
- */
-const THINKING_TAIL_MS = 6000;
 
 /**
  * The face lags the activity line: only a tool held longer than this switches
@@ -290,7 +287,7 @@ export function useThursday(
     if (linger.current) clearTimeout(linger.current);
     linger.current = setTimeout(
       () => setTool((open) => (open?.done ? null : open)),
-      TOOL_LINGER_MS,
+      CALL_LINE.lingerMs,
     );
   }, []);
 
@@ -324,7 +321,7 @@ export function useThursday(
     if (linger.current) clearTimeout(linger.current);
     linger.current = setTimeout(
       () => setTool((open) => (open?.kind === "relay" ? null : open)),
-      RELAY_LINGER_MS,
+      CALL_LINE.relayLingerMs,
     );
   }, []);
 
@@ -372,7 +369,7 @@ export function useThursday(
         thinkTail.current = setTimeout(() => {
           thinkTail.current = null;
           setThinking(null);
-        }, THINKING_TAIL_MS);
+        }, CALL_LINE.thinkingTailMs);
       }
     },
     [setThinking],
@@ -884,7 +881,7 @@ export function useThursday(
           },
           reasoning: (part) => {
             // A summary part opens with its title in bold; the activity line says what the work is about
-            const title = /^\s*\*\*(.+?)\*\*/.exec(part.text)?.[1]?.trim();
+            const title = reasoningTitle(part.text);
             if (title) setThinkingTitle(title);
             persist(
               thinkingSaves,
