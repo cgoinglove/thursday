@@ -20,7 +20,7 @@ import { STUDIO_TOOLS } from "@/features/ai/tools/tool-name";
 import { viewKindOf } from "@/features/workspace/file-kind";
 import { logger } from "@/lib/logger";
 import type { Sandbox } from "@/lib/sandbox";
-import { errorToString } from "@/lib/utils";
+import { errorToString, slug } from "@/lib/utils";
 
 /**
  * Media tools (image, speech, transcription, video), exposed behind `tool_search`/`tool_call`
@@ -73,13 +73,9 @@ function define<Shape extends z.ZodRawShape>(spec: {
 
 /** A filename someone can recognise a week later, out of what was asked for. */
 function fileName(stem: string, ext: string): string {
-  const slug = stem
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
+  const name = slug(stem);
   const stamp = format(new Date(), "yyyyMMdd-HHmmss");
-  return `${stamp}${slug ? `-${slug}` : ""}.${ext}`;
+  return `${stamp}${name ? `-${name}` : ""}.${ext}`;
 }
 
 async function save(

@@ -11,6 +11,19 @@ export function clip(text: string, max: number): string {
   return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}…` : flat;
 }
 
+/**
+ * Text as a name a path can carry and a person can still read: lowercase, each run of
+ * anything but a letter or a digit one `-`, none at either end, at most 40 characters.
+ * Empty when nothing is left.
+ */
+export function slug(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+}
+
 /** How much of a thrown object with no words of its own is worth reading back. */
 const THROWN_JSON_MAX = 300;
 

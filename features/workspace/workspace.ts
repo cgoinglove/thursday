@@ -22,6 +22,7 @@ import {
 } from "@/config";
 import { logger } from "@/lib/logger";
 import { createSandBox, type Sandbox, walkFiles } from "@/lib/sandbox";
+import { slug } from "@/lib/utils";
 
 /**
  * Where the sandbox is opened. The app's own skills live outside the
@@ -134,14 +135,7 @@ export async function insideWorkspace(rel: string): Promise<string | null> {
  * and code is `projects/`, which outlives the job that started it.
  */
 export function jobScratch(threadId: string, label: string): string {
-  const slug =
-    label
-      .trim()
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}]+/gu, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 40) || "job";
-  return `${PATHS.scratch}/${slug}-${threadId.slice(0, 6)}`;
+  return `${PATHS.scratch}/${slug(label) || "job"}-${threadId.slice(0, 6)}`;
 }
 
 /**
