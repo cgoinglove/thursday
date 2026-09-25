@@ -11,7 +11,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
@@ -786,6 +786,8 @@ function BotPage({
     effort,
     toolIds,
   } = fields;
+  // Ties each row's label to its field (Row htmlFor)
+  const fieldId = useId();
   // Typed by hand; otherwise the field shows what the picked model fills in
   const [compactEdited, setCompactEdited] = useState(Boolean(bot?.compactAt));
   // Read here as well as in the picker: a pick has to fill in from it the moment it happens
@@ -939,11 +941,12 @@ function BotPage({
           }}
         />
 
-        <Row label="Name">
+        <Row label="Name" htmlFor={bot ? undefined : `${fieldId}-name`}>
           {bot ? (
             <p className="truncate text-sm leading-8 font-medium">{bot.name}</p>
           ) : (
             <Input
+              id={`${fieldId}-name`}
               value={name}
               onChange={(event) => patch({ name: event.target.value })}
               placeholder="researcher"
@@ -960,8 +963,9 @@ function BotPage({
           </p>
         </Row>
 
-        <Row label="Description">
+        <Row label="Description" htmlFor={`${fieldId}-description`}>
           <Input
+            id={`${fieldId}-description`}
             value={description}
             onChange={(event) => patch({ description: event.target.value })}
             onBlur={() => {
@@ -1070,9 +1074,10 @@ function BotPage({
           </p>
         </Row>
 
-        <Row label="Compacts at">
+        <Row label="Compacts at" htmlFor={`${fieldId}-compact`}>
           <InputGroup>
             <InputGroupInput
+              id={`${fieldId}-compact`}
               inputMode="decimal"
               value={shownK}
               placeholder={model.trim() ? "" : "Pick a model first"}
@@ -1115,8 +1120,9 @@ function BotPage({
           />
         </Row>
 
-        <Row label="Prompt">
+        <Row label="Prompt" htmlFor={`${fieldId}-prompt`}>
           <Textarea
+            id={`${fieldId}-prompt`}
             value={systemPrompt}
             onChange={(event) => patch({ systemPrompt: event.target.value })}
             onBlur={() => {
@@ -1397,12 +1403,24 @@ function compactNote(input: {
     : `This model's context window is unknown, so the default is filled in. ${summarize}`;
 }
 
-function Row({ label, children }: { label: string; children: ReactNode }) {
+function Row({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  /** The field the label names, so a screen reader reads it and a click focuses it. */
+  htmlFor?: string;
+  children: ReactNode;
+}) {
   return (
     <div className="flex gap-3">
-      <span className="w-20 shrink-0 pt-2 font-mono text-xs text-muted-foreground">
+      <label
+        htmlFor={htmlFor}
+        className="w-20 shrink-0 pt-2 font-mono text-xs text-muted-foreground"
+      >
         {label}
-      </span>
+      </label>
       <div className="min-w-0 flex-1 space-y-1.5">{children}</div>
     </div>
   );
