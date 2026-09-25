@@ -6,7 +6,7 @@ import type { Thread } from "@/features/bot/bot.schema";
 import { ringingThreads } from "@/features/bot/thread.store";
 import { useEscape } from "@/hooks/use-hotkey";
 import { toDate } from "@/lib/date-like";
-import { createRing } from "@/lib/live/ring";
+import { ringOnce } from "@/lib/live/ring";
 import type { CallBack } from "./thursday.schema";
 import { useThursdayStore } from "./thursday.store";
 
@@ -127,12 +127,11 @@ export function useCallRing({
     const out = setTimeout(() => setRangOutAt(Date.now()), CALL_BACK.ringMs);
     return () => clearTimeout(out);
   }, [isRinging, rangOutAt]);
-  // It rings out loud for as long as the screen rings: a call nobody hears is a notice
+  // It rings out loud once, as it starts ringing: a call nobody hears is a notice, and the
+  // screen goes on ringing by itself. Work that rings again after it rang out sounds again
   useEffect(() => {
     if (!isRinging || rangOutAt !== null) return;
-    const ring = createRing();
-    ring.start();
-    return () => ring.stop();
+    return ringOnce();
   }, [isRinging, rangOutAt]);
 
   /** What the ringing screen names: every thread that rang, the first one whole. */

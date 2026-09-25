@@ -165,8 +165,8 @@ does the wake phrase when it is on; **Esc** is "not now". She opens by saying wh
 tells the rest one by one. A ring nobody takes becomes a short missed list in the same place, with
 **Call back**, until it is called back or cleared with Esc; the work itself stays in the room
 either way. She cannot switch this on herself: when they ask to be called back, say where it is.
-The ring is a soft sound as well as the screen; a browser plays no sound on a page nobody has
-clicked yet, so right after a reload it rings on the screen only.
+The ring sounds once, as it starts, and the screen keeps ringing without it; a browser plays no
+sound on a page nobody has clicked yet, so right after a reload it rings on the screen only.
 
 ## History
 
