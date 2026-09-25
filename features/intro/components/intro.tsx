@@ -39,6 +39,7 @@ import {
 } from "@/features/config/config.action";
 import {
   type ConfigStatus,
+  DEFAULT_EFFORT_KEY,
   DEFAULT_MODEL_KEY,
 } from "@/features/config/config.const";
 import { Echoes } from "@/features/intro/components/echoes";
@@ -789,6 +790,9 @@ function ModelsTurn() {
   const stored = parseTextModel(
     data?.find((status) => status.key === DEFAULT_MODEL_KEY)?.value,
   );
+  const effort = data?.find(
+    (status) => status.key === DEFAULT_EFFORT_KEY,
+  )?.value;
   // A provider looked at without a model yet is not stored, but must still render
   const [half, setHalf] = useState<TextModelProviderId | null>(null);
   const [save] = useServerAction(setConfigAction, {
@@ -820,7 +824,11 @@ function ModelsTurn() {
             }}
             onUnset={() => {
               setHalf(null);
-              if (stored) void clear(DEFAULT_MODEL_KEY);
+              if (!stored) return;
+              void clear(DEFAULT_MODEL_KEY);
+              // As in Settings › Models: a step is read off the model's own ladder, so with
+              // the model back to automatic the step goes with it
+              if (effort) void clear(DEFAULT_EFFORT_KEY);
             }}
           />
         </div>
