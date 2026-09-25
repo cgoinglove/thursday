@@ -97,6 +97,12 @@ const out = join(
 
 const cur = trip.currency ? String(trip.currency).toUpperCase() : null;
 const lang = String(trip.lang ?? "en");
+// Built without them, a page in Korean came out with "Day by day" and "Before you go" on it,
+// and the warning printed after the build was passed over
+if (!lang.startsWith("en") && !trip.labels)
+  fail(
+    `The page is in "${lang}" but its own headings would be English: add "labels" in that language (references/itinerary.md) and build again.`,
+  );
 const place = String(trip.place ?? "");
 const L = {
   flights: "Getting there",
@@ -508,8 +514,4 @@ console.log(
 if (missing.length)
   console.log(
     `No photo for: ${missing.join("; ")}. Give those a "wiki" title that exists — a place abroad often has one only in its own language's Wikipedia ("pt:Mosteiro dos Jerónimos", "de:Kölner Dom") — or a "photo" page url, or leave them without one.`,
-  );
-if (!lang.startsWith("en") && !trip.labels)
-  console.log(
-    `The page is in "${lang}" but its own headings are English: add "labels" in that language (references/itinerary.md) and build again.`,
   );

@@ -28,11 +28,14 @@ read `snapshot` to continue where you left off; use `open` only if it is closed.
 
 **Headless is yours; headed is theirs.** A browser opens headless: nobody sees
 it, and the app keeps it for follow-ups until the job's workspace expires.
+Finding, reading and comparing stay headless, however many pages it takes: a
+window that opens by itself lands on whatever they are doing, a call included.
 `--headed` puts a real window on their screen, and that window outlives the job
-until they close it or cancel or delete the job. Show them the thing itself: the products
-they asked you to find, the order sitting at checkout for them to confirm, the map with the
-pin dropped, the page they asked to watch, a sign-in for them to finish. Open it `--headed`,
-leave it open, and say in your answer that it is on their screen. A window you opened
+until they close it or cancel or delete the job. It is for three things: the thing itself
+once the job has it — the products they asked you to find, the order sitting at checkout
+for them to confirm, the map with the pin dropped, the page they asked to watch — a
+sign-in for them to finish, and a payment for them to press. Open it `--headed`, leave it
+open, and say in your answer that it is on their screen. A window you opened
 headed only to get past a wall and are done with, `close` yourself. A window is never how
 you look at your own work: a page, a deck, a canvas or a picture book you made is shown to
 you by its skill's `shots` and `look_at`, and reaches them under your answer — nor is `open` on their
@@ -76,8 +79,8 @@ yours to read off the job:
   link it prints and ask. A click there waits on a tab that is in front:
   `--raw run-code "async page => page.bringToFront()"` first.
 - **They sign in themselves.** `open <the login url> --headed --persistent` —
-  the login page, not the front door — then a `question` to Thursday in one line
-  saying what to sign into and that the window is open, options `Signed in` /
+  the login page, not the front door — then a `question` through Thursday, to the
+  user, in one line saying what to sign into and that the window is open, options `Signed in` /
   `Not now`, and stop. The window stays open while the job waits; continue from a
   fresh `snapshot` when the answer comes. A captcha or a code sent to their phone
   is the same move. Not `show` — it blocks waiting for annotations nobody will

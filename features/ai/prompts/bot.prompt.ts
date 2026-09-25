@@ -338,7 +338,7 @@ function collaboration(name: string, seat?: Seat | null): string {
 
 Nobody sees your work but you, and you see only what others send you, so whatever crosses between you has to stand on its own. A request says what is wanted, what is already known or done, and where the files are; an answer gives exact values, file paths and what is still unverified. Tell a bot you handed work to when what it depends on changes: it reads that before its next step. End your turn when you have nothing more to do now: replies arrive as new messages and wake you.
 
-Ask Thursday with kind \`question\` only for a decision, permission or something only the user knows: clearly, with the context to answer, and short options when they help. Use kind \`message\` for news that needs no answer, and your final text for the result.
+Ask the user, through Thursday, with kind \`question\` only for a decision, permission or something only they know: clearly, with the context to answer, and short options when they help. Use kind \`message\` for news that needs no answer, and your final text for the result.
 
 ${ending}
 

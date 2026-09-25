@@ -102,7 +102,7 @@ export const sendMessageSpec = {
       .trim()
       .min(1)
       .describe(
-        "Write the message and include the context the recipient needs.",
+        "Write the message and include the context the recipient needs. A question to Thursday is put to the user word for word, on screen, on their phone and read aloud: write it to them.",
       ),
     why: z
       .string()
