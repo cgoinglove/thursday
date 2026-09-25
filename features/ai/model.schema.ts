@@ -48,7 +48,7 @@ export type Effort = z.infer<typeof effortSchema>;
 
 /** Size of a suggested model, not quality. A label rather than a price because prices move. */
 const MODEL_TIERS = ["small", "mid", "large"] as const;
-type ModelTier = (typeof MODEL_TIERS)[number];
+export type ModelTier = (typeof MODEL_TIERS)[number];
 
 /** One model worth offering, as the picker reads it. */
 export type SuggestModel = {
@@ -424,6 +424,8 @@ export const TEXT_MODEL_PROVIDERS: Record<
     keysAt?: string;
     /** How a key begins, shown in its empty field in place of the setting's name. */
     keyLooks?: string;
+    /** The size it runs when nobody picked (`defaultModelOf`); the middle of its row when left out. */
+    defaultTier?: ModelTier;
     suggestModels: SuggestModel[];
   }
 > = {
@@ -432,6 +434,8 @@ export const TEXT_MODEL_PROVIDERS: Record<
     apiKeyName: "OPENAI_API_KEY",
     keysAt: "https://platform.openai.com/api-keys",
     keyLooks: "sk-…",
+    // The small one, which a call's backend also thinks with (LIVE_BACKEND_MODEL)
+    defaultTier: "small",
     suggestModels: [
       {
         id: "gpt-6-luna",
@@ -465,6 +469,7 @@ export const TEXT_MODEL_PROVIDERS: Record<
     label: "GPT Subscription",
     apiKeyName: "CHATGPT_SIGN_IN",
     signIn: true,
+    defaultTier: "small",
     suggestModels: [
       {
         id: "gpt-6-luna",
@@ -874,9 +879,11 @@ const modelOfTier = (
     provider.suggestModels[0]
   )?.id;
 
-/** What a provider runs when nobody picked: the middle of its row. */
-export const defaultModelOf = (provider: { suggestModels: SuggestModel[] }) =>
-  modelOfTier(provider, "mid");
+/** What a provider runs when nobody picked: its `defaultTier`, else the middle of its row. */
+export const defaultModelOf = (provider: {
+  defaultTier?: ModelTier;
+  suggestModels: SuggestModel[];
+}) => modelOfTier(provider, provider.defaultTier ?? "mid");
 
 /** The record above in a stable order — routes and pickers walk it. */
 export const TEXT_MODEL_PROVIDER_LIST = (

@@ -49,7 +49,9 @@ own, so it opens pages in its browser instead.
 
 **Settings › Models** has two groups. **Bots** holds the **Default model** — the one a bot uses when
 its own page says nothing; a small one is quick and costs little, and is the place to start — and
-its **Default effort**. Left unset it shows *auto* and runs on the first provider with a key. The
+its **Default effort**. Left unset it shows *auto* and runs on the first provider with a key: its
+**small** model on Open AI and the GPT Subscription, the one the call's backend starts on too, and
+its **mid** one elsewhere. The
 first run's model step sets this same one, and **App default** at the top of a bot's model list puts
 that bot back on it. **Studio** holds the **Image model**, **Video model**, **Speech model** and
 **Transcription model**. A kind with no model picked simply is not there — a bot that needs it says

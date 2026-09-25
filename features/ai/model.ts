@@ -49,6 +49,7 @@ import {
   type MediaKind,
   type MediaModelProviderId,
   type MediaModelRef,
+  type ModelTier,
   parseMediaModel,
   parseTextModel,
   type SuggestModel,
@@ -543,9 +544,11 @@ export async function resolveDefaultModel(
 ): Promise<TextModelRef> {
   const workhorse = async (provider: {
     id: TextModelProviderId;
+    defaultTier?: ModelTier;
     suggestModels: SuggestModel[];
   }) =>
     defaultModelOf({
+      defaultTier: provider.defaultTier,
       suggestModels: await callableRows(provider.id, provider.suggestModels),
     });
 
