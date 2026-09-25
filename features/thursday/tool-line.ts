@@ -295,18 +295,9 @@ export function searchOf(
   if (tool !== TOOL_NAMES.web_search) return null;
   try {
     const said = JSON.parse(text) as { query?: unknown; sources?: unknown };
-    const sources = Array.isArray(said.sources)
-      ? said.sources.flatMap((source) =>
-          source &&
-          typeof source === "object" &&
-          typeof (source as SearchedSource).url === "string"
-            ? [source as SearchedSource]
-            : [],
-        )
-      : [];
     return {
       query: typeof said.query === "string" ? said.query : null,
-      sources,
+      sources: sourcesIn(said.sources),
     };
   } catch {
     return null;
@@ -325,8 +316,18 @@ export function searchQueryOf(args: string): string | null {
  * a result cut short.
  */
 export function searchSourcesOf(output: string): SearchedSource[] {
-  const said = parseArgs(output);
-  return said
-    ? (searchOf(TOOL_NAMES.web_search, JSON.stringify(said))?.sources ?? [])
+  return sourcesIn(parseArgs(output)?.sources);
+}
+
+/** The pages in a search's `sources`: each entry that has an address, none for anything else. */
+function sourcesIn(sources: unknown): SearchedSource[] {
+  return Array.isArray(sources)
+    ? sources.flatMap((source) =>
+        source &&
+        typeof source === "object" &&
+        typeof (source as SearchedSource).url === "string"
+          ? [source as SearchedSource]
+          : [],
+      )
     : [];
 }
