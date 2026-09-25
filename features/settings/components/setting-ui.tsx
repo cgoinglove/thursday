@@ -2,6 +2,7 @@
 
 import { Plus, Search } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
+import { DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, WAITING_INK } from "@/lib/utils";
@@ -280,6 +281,10 @@ function SettingHeader({
   );
 }
 
+/**
+ * The body of a settings dialog, opened through `notify.component`. Its title is the
+ * dialog's DialogTitle, so the dialog is announced by the name it shows.
+ */
 export function SettingDialogContent({
   title,
   description,
@@ -298,7 +303,12 @@ export function SettingDialogContent({
     <div className="flex min-w-0 max-h-[75vh] flex-col gap-6 p-1">
       <div className="flex shrink-0 items-start justify-between gap-3">
         <div className="min-w-0 space-y-1 px-6">
-          <p className="truncate text-xl font-semibold">{title}</p>
+          <DialogTitle
+            render={<p />}
+            className="truncate text-xl font-semibold"
+          >
+            {title}
+          </DialogTitle>
           {description && (
             <div className="text-xs text-muted-foreground">{description}</div>
           )}

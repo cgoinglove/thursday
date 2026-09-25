@@ -54,11 +54,8 @@ export const notify = {
       };
       dialog.render(
         <Dialog open onOpenChange={close}>
+          {/* Named by what the renderer draws: SettingDialogContent's title is its DialogTitle */}
           <DialogContent className={cn("px-0", className)}>
-            <DialogHeader className="hidden">
-              <DialogTitle></DialogTitle>
-              <DialogDescription></DialogDescription>
-            </DialogHeader>
             {renderer({ close })}
           </DialogContent>
         </Dialog>,
