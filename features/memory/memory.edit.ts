@@ -7,6 +7,7 @@ import {
   validateUIMessages,
 } from "ai";
 import { ZodError, z } from "zod";
+import { MEMORY_EDIT } from "@/config";
 import { loadTools } from "@/features/ai/load-tools";
 import { getTextModel, modelErrorToString } from "@/features/ai/model";
 import { textModelRefSchema } from "@/features/ai/model.schema";
@@ -20,9 +21,6 @@ import { isPublicError } from "@/lib/public-error";
  * call as it arrives. Nothing about the exchange is kept — the page holds the
  * messages and drops them — so what lasts is only what the tools wrote.
  */
-
-/** One line of intent: a run still writing after this many steps is not converging. */
-const MAX_STEPS = 20;
 
 const BodySchema = z.object({
   model: textModelRefSchema,
@@ -52,7 +50,7 @@ export async function streamMemoryEdit(
     prepareStep: ({ stepNumber }) => ({
       toolChoice: stepNumber === 0 ? "required" : "auto",
     }),
-    stopWhen: stepCountIs(MAX_STEPS),
+    stopWhen: stepCountIs(MEMORY_EDIT.maxSteps),
     abortSignal: signal,
   });
   // A provider's refusal is the user's to act on, so it is never masked

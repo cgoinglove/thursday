@@ -782,6 +782,15 @@ export const MEMORY_LIMITS = {
 };
 
 /**
+ * An edit typed on the Memory screen (features/memory/memory.edit): one streamed run with
+ * memory's tools, where only what the tools wrote lasts.
+ * - `maxSteps`  how many model steps one edit may take; a run still writing past it is not
+ *   converging, and it stops there with what it already wrote kept. More lets one request
+ *   rework more notes; fewer cuts a long one short.
+ */
+export const MEMORY_EDIT = { maxSteps: 20 };
+
+/**
  * One picture handed to a model: a look at an image (features/ai/tools/look.tool), and one
  * an image call works from (features/ai/tools/studio.tool).
  * - `maxBytes`  the largest file handed to a model as a picture. It rides in the request as
