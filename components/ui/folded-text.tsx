@@ -44,7 +44,7 @@ export function FoldedText({
       <p
         ref={box}
         className={cn(
-          "min-w-0 flex-1 text-[13px] leading-snug break-keep",
+          "min-w-0 flex-1 text-[13px] leading-snug break-keep wrap-anywhere",
           open ? cn(tall, "overflow-y-auto scrollbar-none") : clamp,
         )}
       >

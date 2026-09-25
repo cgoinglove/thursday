@@ -463,7 +463,7 @@ export function FinishedCard({
               </span>
             </span>
             {row.words && (
-              <span className="line-clamp-2 break-keep text-[12.5px] leading-normal text-muted-foreground">
+              <span className="line-clamp-2 break-keep wrap-anywhere text-[12.5px] leading-normal text-muted-foreground">
                 {shortenPaths(row.words)}
               </span>
             )}

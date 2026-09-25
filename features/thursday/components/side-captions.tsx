@@ -302,7 +302,7 @@ function SideColumn({
             <p
               ref={level ? scrollRef : undefined}
               className={cn(
-                "break-keep text-pretty whitespace-pre-line opacity-(--ink) transition-opacity duration-[520ms] motion-reduce:transition-none",
+                "break-keep wrap-anywhere text-pretty whitespace-pre-line opacity-(--ink) transition-opacity duration-[520ms] motion-reduce:transition-none",
                 !level && "line-clamp-4",
                 level && "overflow-y-auto overscroll-contain scrollbar-none",
                 pickable && "group-hover/turn:opacity-(--lift)",

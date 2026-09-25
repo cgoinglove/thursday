@@ -329,7 +329,7 @@ export function ThreadReply({
                   className="min-w-0 truncate"
                 />
               </p>
-              <p className="whitespace-pre-wrap break-keep text-[13px] leading-snug">
+              <p className="whitespace-pre-wrap break-keep wrap-anywhere text-[13px] leading-snug">
                 {note.text}
               </p>
             </div>

@@ -600,7 +600,7 @@ function SeedPackage({
         <h3 className="text-[17px] font-medium tracking-tight">
           Bots you can add
         </h3>
-        <p className="mt-1.5 max-w-lg text-[13px] leading-relaxed text-muted-foreground break-keep">
+        <p className="mt-1.5 max-w-lg text-[13px] leading-relaxed text-muted-foreground break-keep wrap-anywhere">
           Each one is a starting point — re-prompt it, give it a model of its
           own. What a bot needs before it can work stands on its row; until then
           it runs on the app default model.

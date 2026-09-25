@@ -1164,7 +1164,7 @@ function Stops({ lines }: { lines: Chatter[] }) {
       </summary>
       <div className="mt-1 space-y-1 pl-4.5 text-[11px] leading-relaxed">
         {lines.map((line) => (
-          <p key={line.id} className="flex gap-2 break-keep">
+          <p key={line.id} className="flex gap-2 break-keep wrap-anywhere">
             {line.at && (
               <span className="shrink-0 font-mono text-muted-foreground/70 tabular-nums">
                 {format(toDate(line.at), "HH:mm:ss")}

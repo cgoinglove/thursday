@@ -319,7 +319,7 @@ function StudioTool({ tool, threadId, collapsed }: ToolProps) {
   return (
     <Frame tool={tool} threadId={threadId} collapsed={collapsed}>
       {call?.words && (
-        <p className="px-3 pt-1 pb-1.5 text-[13px] leading-snug break-keep">
+        <p className="px-3 pt-1 pb-1.5 text-[13px] leading-snug break-keep wrap-anywhere">
           “{call.words}”
         </p>
       )}
@@ -346,7 +346,7 @@ function WebSearchTool({ tool, threadId, collapsed }: ToolProps) {
   const hits = pages.length ? [] : texts(tool.results);
   return (
     <Frame tool={tool} threadId={threadId} collapsed={collapsed}>
-      <p className="px-3 pt-1 pb-1.5 text-[13px] leading-snug break-keep">
+      <p className="px-3 pt-1 pb-1.5 text-[13px] leading-snug break-keep wrap-anywhere">
         “{tool.input}”
       </p>
       {pages.length > 0 && (
@@ -413,7 +413,7 @@ function FileTool({ tool, threadId, collapsed }: ToolProps) {
 function GenericTool({ tool, threadId, collapsed }: ToolProps) {
   return (
     <Frame tool={tool} threadId={threadId} collapsed={collapsed}>
-      <p className="px-3 pt-1 pb-1.5 text-[12px] leading-snug break-keep">
+      <p className="px-3 pt-1 pb-1.5 text-[12px] leading-snug break-keep wrap-anywhere">
         {tool.input}
       </p>
       <Lines lines={texts(tool.results)} />

@@ -395,7 +395,7 @@ function Turn({
       <div className={cn("flex justify-end", opensRun ? "mt-3" : "mt-1")}>
         <p
           className={cn(
-            "max-w-[min(34rem,78%)] rounded-2xl bg-muted px-3.5 py-2 text-[13.5px] leading-relaxed break-keep whitespace-pre-wrap",
+            "max-w-[min(34rem,78%)] rounded-2xl bg-muted px-3.5 py-2 text-[13.5px] leading-relaxed break-keep wrap-anywhere whitespace-pre-wrap",
             closesRun && "rounded-br-sm",
           )}
         >
@@ -408,7 +408,7 @@ function Turn({
     <div className={cn("flex items-start gap-2", opensRun ? "mt-3" : "mt-1")}>
       {/* mt-0.5 centres the 18px face on the first 22px line */}
       <FaceSlot face={opensRun} className="mt-0.5" />
-      <p className="max-w-[min(34rem,78%)] text-[13.5px] leading-relaxed break-keep whitespace-pre-wrap">
+      <p className="max-w-[min(34rem,78%)] text-[13.5px] leading-relaxed break-keep wrap-anywhere whitespace-pre-wrap">
         {turn.text}
       </p>
     </div>

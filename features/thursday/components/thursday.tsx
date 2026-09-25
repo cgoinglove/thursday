@@ -559,7 +559,7 @@ function Flow({
         lineHeight: CAPTION_LEADING,
         transform: `translateY(-${at * CAPTION_LEADING}em)`,
       }}
-      className="break-keep whitespace-pre-line transition-transform duration-200"
+      className="break-keep wrap-anywhere whitespace-pre-line transition-transform duration-200"
     >
       <CaptionWords text={text} animate={fadeIn} />
     </p>
@@ -1294,7 +1294,7 @@ function Incoming({
         <span className="truncate text-muted-foreground">{first.label}</span>
       </span>
       {/* five lines of it, where the window is tall enough to keep the button on screen */}
-      <p className="line-clamp-3 max-w-150 text-base/relaxed text-pretty break-keep [@media(min-height:860px)]:line-clamp-5">
+      <p className="line-clamp-3 max-w-150 text-base/relaxed text-pretty break-keep wrap-anywhere [@media(min-height:860px)]:line-clamp-5">
         {plainText(first.text)}
       </p>
       {first.options.length > 0 && (
@@ -1636,7 +1636,7 @@ function NeedsKey({
         />
         <MicOff className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-muted text-muted-foreground" />
       </span>
-      <span className="text-[13px] text-muted-foreground break-keep">
+      <span className="text-[13px] text-muted-foreground break-keep wrap-anywhere">
         Calls need one speech key. Everything else here already works.
       </span>
       {/* the one thing this screen asks for */}
