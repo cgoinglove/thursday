@@ -30,8 +30,8 @@ export const REACH_LABEL: Record<ReachChannelName, string> = {
 
 /**
  * The one person allowed to write through a service, as the screen let them in
- * (`ReachPerson`, JSON). Kept beside the token rather than in it: a new token is a new bot,
- * and nobody is let in to it yet.
+ * (`ReachPerson` and the bot they were let in to, JSON). Kept beside the token rather than in
+ * it: a token given again for the same bot keeps them, and another bot starts with nobody.
  */
 export const reachPersonKey = (name: ReachChannelName) =>
   `REACH_PERSON_${name.toUpperCase()}`;

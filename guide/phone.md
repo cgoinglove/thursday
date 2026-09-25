@@ -23,10 +23,11 @@ separate list of keys.
    opens the chat with the new bot — and write anything. (The address is a button too, for a
    computer that has Telegram on it.) The bot answers with a four-digit code: *Almost there.
    Thursday is asking on your computer whether to let you in. Press Allow there only if it shows
-   4821.*
+   4821, and she answers what you wrote.*
 4. On the computer a question appears: **Let … reach Thursday from a phone?**, with the name
    Telegram gives them, what they wrote, and a code. Press **Allow** only if it is the code on your
-   phone. The bot says *You are in*; from then on what is written there reaches her.
+   phone. The bot says *You are in*, she answers what was written while it waited, and from then on
+   what is written there reaches her.
 
 ## Setting it up: Discord
 
@@ -83,12 +84,16 @@ through her start work on the computer — so the question is asked on the compu
 on the phone. A name in a chat app is anyone's to pick, so the question carries the code that
 phone was sent: whoever holds the phone showing it is the one being let in. The question opens by
 itself, over whatever is being typed, so a key pressed as it opens lands on **Not them**, which
-turns the person away. While someone waits to be let in, anyone else who writes is told so; once
-someone is let in, anyone else is told this Thursday already answers someone else.
+turns the person away. What the one waiting writes meanwhile is kept, a few messages of it, and
+answered once they are let in; turned away, it goes with them. While someone waits, anyone else
+who writes is told so; once someone is let in, anyone else is told this Thursday already answers
+someone else.
 
-**Change the token**, under the step that took it, offers **Replace** and **Remove**: removing stops
-that service, and a new token starts over, since nobody is let in to a new bot yet. **Let them go**,
-under that app's steps, lets the person go and keeps the bot.
+**Change the token**, under the step that took it, offers **Replace** and **Remove**. A new token
+for the same bot — one revoked in BotFather, or reset on Discord — keeps whoever is let in; a
+token for another bot starts over, since nobody is let in to it yet. Removing stops that service
+and lets the person go with it. **Let them go**, under that app's steps, lets the person go and
+keeps the bot.
 
 ## What it is
 
@@ -126,7 +131,9 @@ starts a new one, and she reads the last one back like any earlier call.
   does not say it again, and she knows it went. Work started from the phone comes back to the phone
   as soon as it happens. Anything else — a routine, work started at the computer — comes only while
   no browser has the app open; with the app open on a screen it is the screen's, so an app left open
-  while they are out keeps that work from the phone. What reached the phone counts as read on the
+  while they are out keeps that work from the phone. A bot's question the screen was showing goes
+  to the phone once the last browser closes, since the bot waits on its answer; what finished stays
+  the screen's. What reached the phone counts as read on the
   computer and is not sent twice. Steps along the way are not sent. When a bot offered choices, they
   are buttons: pressing one answers that bot directly. Anything else written back goes to her, never
   straight to a bot, and she passes it on.
@@ -147,8 +154,8 @@ on the computer: a machine that is off or asleep does nothing until it is back.
   permission the app was made without — stops: its line in **Settings › Phone** says *Stopped — …
   turned the token away* in red, the step holding that token opens with what the service said and
   where to get a new one, and **Phone** in the settings list, like **Settings** on the call screen,
-  carries a red dot. Nothing written from the phone reaches her until the token is replaced, and a
-  new token starts over: the person is let in again.
+  carries a red dot. Nothing written from the phone reaches her until the token is replaced; a new
+  token for the same bot keeps whoever was let in.
 - While the line is down — no network, the service unwell — the app's line says *Reconnecting…*
   with why, and it tries again by itself.
 - The computer is asleep or the app is not running: on Telegram, messages wait and are answered

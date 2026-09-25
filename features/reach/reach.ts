@@ -102,7 +102,18 @@ type Live = {
   problem: string | null;
   /** The key whose token the service turned away: listening has stopped until a key changes. */
   refused: string | null;
+  /** The bot's own id on the service, once it has connected: who is let in is let in to it. */
+  id: string | null;
+  /**
+   * Started with the token that was already there, so a record kept before the app noted
+   * which bot someone was let in to is taken as this bot's (settle).
+   */
+  adopt: boolean;
+  /** Who is let in, checked against the bot that connected: what arrives waits on it. */
+  settled: Promise<void>;
   asking: ReachAsking | null;
+  /** What the one asking wrote while they wait, up to REACH.held: answered once they are let in. */
+  held: Written[];
   line: Line | null;
   /** The calls its conversations were kept as: a thread started from one comes back here. */
   calls: Set<string>;
@@ -127,10 +138,16 @@ type State = {
   live: Map<ReachChannelName, Live>;
   /** Where they last wrote from: open work goes there, once, rather than to every service. */
   last: ReachChannelName | null;
-  /** Open work settled here, by item key (open-work): sent to a phone, or left to the screen. */
-  told: Set<string>;
+  /**
+   * Open work settled here, by item key (open-work): sent to a phone, or left to the screen
+   * that was watching. A question left to the screen goes to the phone once no screen is
+   * (offerLeftQuestions): a bot waits on its answer, and nobody is there to give it.
+   */
+  told: Map<string, { kind: OpenWork["kind"]; phone: boolean }>;
   choices: Map<string, Choice>;
   listening: (() => void) | null;
+  /** Stops hearing that the last browser left (presence). */
+  gone: (() => void) | null;
   /** A look at the inbox already on its way: a working bot changes threads many times a second. */
   looking: ReturnType<typeof setTimeout> | null;
   /** Closes lines nobody is writing to any more (sweepIdleLines). */
@@ -143,27 +160,44 @@ const pinned = globalThis as { __reach?: State };
 const state: State = (pinned.__reach ??= {
   live: new Map(),
   last: null,
-  told: new Set(),
+  told: new Map(),
   choices: new Map(),
   listening: null,
+  gone: null,
   looking: null,
   idle: null,
 });
 
 const changed = () => appEvents.emit({ type: "reach" });
 
-async function readPerson(name: ReachChannelName): Promise<ReachPerson | null> {
+/** Who is let in through a service, and the bot they were let in to (null in a record kept before that was noted). */
+type Kept = ReachPerson & { bot: string | null };
+
+/** Who is let in through that service, once it is checked against the bot that connected (settle). */
+async function readPerson(name: ReachChannelName): Promise<Kept | null> {
+  await state.live.get(name)?.settled;
+  return readKept(name);
+}
+
+async function readKept(name: ReachChannelName): Promise<Kept | null> {
   const kept = await readConfig(reachPersonKey(name));
   if (!kept) return null;
   try {
-    const person = JSON.parse(kept) as Partial<ReachPerson>;
+    const person = JSON.parse(kept) as Partial<Kept>;
     return typeof person.chat === "string" && typeof person.name === "string"
-      ? { chat: person.chat, name: person.name }
+      ? {
+          chat: person.chat,
+          name: person.name,
+          bot: typeof person.bot === "string" ? person.bot : null,
+        }
       : null;
   } catch {
     return null;
   }
 }
+
+const writePerson = (name: ReachChannelName, person: Kept) =>
+  writeConfig(reachPersonKey(name), JSON.stringify(person));
 
 export async function readReachStatus(): Promise<ReachStatus> {
   return {
@@ -172,7 +206,9 @@ export async function readReachStatus(): Promise<ReachStatus> {
         name: live.name,
         bot: live.bot,
         link: live.link,
-        allowed: await readPerson(live.name),
+        allowed: await readPerson(live.name).then(
+          (person) => person && { chat: person.chat, name: person.name },
+        ),
         asking: live.asking,
         refused: live.refused,
         problem: live.problem,
@@ -193,21 +229,27 @@ export const reachChannelOf = (key: string): ReachChannelName | null =>
 
 /**
  * Listens to every service whose keys are set. Called at boot for all of them, and with a
- * service's name whenever one of its keys changes (config.action): a new token is a new
- * bot, so whoever was let in to the old one is not carried over.
+ * service's name whenever one of its keys changes (config.action). A new token may be this
+ * bot's, revoked and given again, or another bot's: whoever was let in stays for the one and
+ * goes with the other, once the service says which bot it is (settle). A token taken out
+ * takes them with it.
  */
 export async function startReach(fresh?: ReachChannelName): Promise<void> {
   for (const name of fresh ? [fresh] : REACH_CHANNELS) {
     const was = state.live.get(name);
     was?.stop.abort();
     state.live.delete(name);
-    if (fresh) {
-      await removeConfig(reachPersonKey(name));
-      if (was?.line) await endCall(was.line.callId).catch(() => {});
-    }
+    if (fresh && was?.line) await endCall(was.line.callId).catch(() => {});
 
     const keys = await Promise.all(REACH_KEYS[name].map(readConfig));
-    if (!keys.every((key): key is string => Boolean(key))) continue;
+    if (!keys.every((key): key is string => Boolean(key))) {
+      if (fresh) await removeConfig(reachPersonKey(name));
+      continue;
+    }
+    // The bot the last token reached is who an older record was let in to
+    const person = fresh && was?.id ? await readKept(name) : null;
+    if (person && person.bot === null && was?.id)
+      await writePerson(name, { ...person, bot: was.id });
     const live: Live = {
       name,
       channel: MAKE[name](...keys),
@@ -216,7 +258,11 @@ export async function startReach(fresh?: ReachChannelName): Promise<void> {
       link: null,
       problem: null,
       refused: null,
+      id: null,
+      adopt: !fresh,
+      settled: Promise.resolve(),
       asking: null,
+      held: [],
       line: null,
       calls: new Set(),
       busy: false,
@@ -230,6 +276,7 @@ export async function startReach(fresh?: ReachChannelName): Promise<void> {
     state.listening ??= appEvents.subscribe((event) => {
       if (event.type === "threads") lookSoon();
     });
+    state.gone ??= presence.onGone(offerLeftQuestions);
     // What boot's own sweep stopped (instrumentation sweepThreads) was emitted before
     // this subscription existed, and nothing re-emits it
     lookSoon();
@@ -253,10 +300,14 @@ async function listen(live: Live) {
     try {
       await live.channel.listen(
         {
-          ready: (bot, link) => {
+          ready: (bot, link, id) => {
             live.bot = bot;
             live.link = link;
             live.problem = null;
+            live.id = id;
+            live.settled = settle(live, id).catch((cause) =>
+              logger.error(`reach ${live.name}: who is let in`, cause),
+            );
             changed();
           },
           incoming: (incoming) =>
@@ -285,55 +336,86 @@ async function listen(live: Live) {
   }
 }
 
-async function take(live: Live, incoming: Incoming) {
-  const { channel } = live;
-  const person = await readPerson(live.name);
+/**
+ * Whoever was let in, against the bot that answered: let in to this very bot, they stay; to
+ * another, they go, since its chats are other people's (a Telegram chat is the person's own
+ * id, the same with every bot). A record from before bots were noted is this bot's when the
+ * token is the one it was kept under.
+ */
+async function settle(live: Live, id: string) {
+  const person = await readKept(live.name);
+  if (!person || person.bot === id) return;
+  if (person.bot === null && live.adopt)
+    return writePerson(live.name, { ...person, bot: id });
+  await removeConfig(reachPersonKey(live.name));
+  changed();
+}
 
+/** A message as the service handed it over. */
+type Written = Extract<Incoming, { kind: "message" }>;
+
+async function take(live: Live, incoming: Incoming) {
+  const person = await readPerson(live.name);
   if (incoming.kind === "press") {
     if (person?.chat !== incoming.chat) return;
     return choose(live, person, incoming.data, incoming.under);
   }
-
-  if (person?.chat !== incoming.chat) {
-    if (person) {
-      await channel.say(
-        incoming.chat,
-        "This Thursday already answers someone else.",
-      );
-      return;
-    }
-    // One at a time: overwriting would drop the first person without a word, and
-    // put a name on the screen's Allow that is not the one who asked for it.
-    if (live.asking && live.asking.chat !== incoming.chat) {
-      await channel.say(
-        incoming.chat,
-        "Someone else is already waiting to be let in here. If that is not you, press Not them on the computer, then write again.",
-      );
-      return;
-    }
-    // A display name is anyone's to pick, so the screen shows a code this phone alone was
-    // sent: the user lets in the phone in their hand, not a name. Writing again changes neither
-    live.asking ??= {
-      chat: incoming.chat,
-      name: incoming.name,
-      handle: incoming.handle,
-      said: incoming.words,
-      code: randomInt(10 ** REACH.codeDigits)
-        .toString()
-        .padStart(REACH.codeDigits, "0"),
-    };
-    changed();
-    await channel.say(
+  if (person?.chat === incoming.chat) return written(live, person, incoming);
+  if (person)
+    return live.channel.say(
       incoming.chat,
-      `Almost there. Thursday is asking on your computer whether to let you in. Press Allow there only if it shows ${live.asking.code}.`,
+      "This Thursday already answers someone else.",
     );
-    return;
-  }
+  return ask(live, incoming);
+}
 
+/**
+ * Someone not let in yet wrote: the screen asks about them, and what they write meanwhile
+ * waits to be answered once they are let in (allowReach). A display name is anyone's to pick,
+ * so the screen shows a code this phone alone was sent: the user lets in the phone in their
+ * hand, not a name. Writing again changes neither the ask nor its code.
+ */
+async function ask(live: Live, incoming: Written) {
+  // One at a time: overwriting would drop the first person without a word, and
+  // put a name on the screen's Allow that is not the one who asked for it.
+  if (live.asking && live.asking.chat !== incoming.chat)
+    return live.channel.say(
+      incoming.chat,
+      "Someone else is already waiting to be let in here. If that is not you, press Not them on the computer, then write again.",
+    );
+  if (live.held.length < REACH.held) live.held.push(incoming);
+  if (live.asking) return;
+  live.asking = {
+    chat: incoming.chat,
+    name: incoming.name,
+    handle: incoming.handle,
+    said: incoming.words,
+    code: randomInt(10 ** REACH.codeDigits)
+      .toString()
+      .padStart(REACH.codeDigits, "0"),
+  };
+  changed();
+  await live.channel.say(
+    incoming.chat,
+    `Almost there. Thursday is asking on your computer whether to let you in. Press Allow there only if it shows ${live.asking.code}, and she answers what you wrote.`,
+  );
+}
+
+/** What someone let in wrote, for her. */
+async function written(live: Live, person: ReachPerson, incoming: Written) {
+  const words = await wordsOf(live, incoming);
+  if (words) hear(live, person, words);
+}
+
+/**
+ * The words a message brings her: what it says, and the paths of what it carried, kept in the
+ * workspace as the write line keeps them. A file that did not come through is said at once,
+ * and what was written with it still goes to her, with the fact, so she answers it without
+ * reading a file that is not there. Null when nothing in it is for her.
+ */
+async function wordsOf(live: Live, incoming: Written): Promise<string | null> {
+  const { channel } = live;
   state.last = live.name;
-  // What it brought is kept in the workspace and named by path, as the write line names it.
-  // A file that did not come through is said at once, and what was written with it still
-  // goes to her, with the fact, so she answers it without reading a file that is not there
   const { kept, lost } = await takeFiles(live, incoming.files);
   if (lost.length)
     await channel
@@ -353,14 +435,14 @@ async function take(live: Live, incoming: Incoming) {
         incoming.chat,
         "I can read words, pictures and files here — not voice or video yet. Write it instead.",
       );
-    return;
+    return null;
   }
   if (lost.length)
     live.notes.push({
       text: `[Sent from their phone with what follows, and lost on the way: ${lost.map(({ name, why }) => `${name} (${why})`).join("; ")}. They have been told.]`,
       said: false,
     });
-  hear(live, person, words);
+  return words;
 }
 
 type Lost = { name: string; why: string };
@@ -416,13 +498,31 @@ export async function allowReach(
   // The ask the screen showed, code and all: a dialog left from an earlier ask lets nobody in
   const asking = isAsking(live, chat, code);
   if (!live || !asking) return;
-  const person: ReachPerson = { chat: asking.chat, name: asking.name };
-  await writeConfig(reachPersonKey(name), JSON.stringify(person));
+  // With the bot they are let in to, so a token given again for it keeps them (settle)
+  const person: Kept = { chat: asking.chat, name: asking.name, bot: live.id };
+  await writePerson(name, person);
   live.asking = null;
   changed();
+  const held = live.held.splice(0);
   await live.channel
-    .say(chat, "You are in. Write here and Thursday answers.")
+    .say(
+      chat,
+      held.length
+        ? "You are in. Thursday answers what you wrote."
+        : "You are in. Write here and Thursday answers.",
+    )
     .catch((cause) => logger.warn(`reach ${name}: could not say so`, cause));
+  // What they wrote while they waited was all written before she could answer, so it is
+  // answered as one turn, in the order it was written
+  const words: string[] = [];
+  for (const one of held) {
+    const said = await wordsOf(live, one).catch((cause) => {
+      logger.warn(`reach ${name}: what they wrote while waiting`, cause);
+      return null;
+    });
+    if (said) words.push(said);
+  }
+  if (words.length) hear(live, person, words.join("\n"));
 }
 
 /** Turns away whoever is asking, if they are still the one asked about; they may ask again. */
@@ -434,6 +534,8 @@ export function declineReach(
   const live = state.live.get(name);
   if (!live || !isAsking(live, chat, code)) return;
   live.asking = null;
+  // What they wrote is not for the next one to be let in
+  live.held = [];
   changed();
 }
 
@@ -713,8 +815,9 @@ function lookSoon(ms = 2_000) {
  * is where it will be read. A thread started from a conversation here comes back to it,
  * whoever is watching; anything else comes only while no browser is (presence). Each item
  * is settled the first time it is looked at, so a browser that leaves later brings no
- * backlog with it, and a restart brings none either (UP_SINCE). Progress never goes: a
- * phone that buzzes for every step is one that gets muted.
+ * backlog with it — but for a question, which a bot is waiting on (offerLeftQuestions) —
+ * and a restart brings none either (UP_SINCE). Progress never goes: a phone that buzzes for
+ * every step is one that gets muted.
  */
 async function lookForOpenWork() {
   // A tab that was open comes back within the grace presence gives one; until then
@@ -729,7 +832,8 @@ async function lookForOpenWork() {
   // Nothing is kept about what stopped waiting. Both are held for the life of the
   // process (pinned above), so a question answered on the computer would leave
   // its key and its buttons behind on every job, for as long as the server runs.
-  for (const key of state.told) if (!keys.has(key)) state.told.delete(key);
+  for (const key of state.told.keys())
+    if (!keys.has(key)) state.told.delete(key);
   for (const [data, choice] of state.choices)
     if (!keys.has(`question:${choice.question}`)) state.choices.delete(data);
 
@@ -739,16 +843,28 @@ async function lookForOpenWork() {
   for (const item of fresh) {
     const thread = threads.find((one) => one.id === item.threadId);
     if (!thread) continue;
-    state.told.add(item.key);
     const from = started.get(item.threadId);
     const person = from ? await readPerson(from.name) : null;
-    if (from && person) await tell({ live: from, person }, item, thread);
-    else if (
-      !presence.watching &&
-      toDate(thread.updatedAt).getTime() >= UP_SINCE
-    )
-      await tell(anyone, item, thread);
+    const to =
+      from && person
+        ? { live: from, person }
+        : !presence.watching && toDate(thread.updatedAt).getTime() >= UP_SINCE
+          ? anyone
+          : null;
+    state.told.set(item.key, { kind: item.kind, phone: Boolean(to) });
+    if (to) await tell(to, item, thread);
   }
+}
+
+/**
+ * The last browser left. A question it was left holding waits on someone who is no longer at
+ * the screen, so it goes to the phone at the next look; what finished stays the screen's to
+ * show, since a browser that leaves brings no backlog with it.
+ */
+function offerLeftQuestions() {
+  for (const [key, told] of state.told)
+    if (told.kind === "question" && !told.phone) state.told.delete(key);
+  lookSoon(0);
 }
 
 /** The threads started from a conversation here, each with the service it was. */

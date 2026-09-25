@@ -80,7 +80,12 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     });
   }
   if (url.endsWith("/auth.test"))
-    return Response.json({ ok: true, user: "thursday" });
+    return Response.json({
+      ok: true,
+      user: "thursday",
+      user_id: "U0BOT",
+      bot_id: "B0BOT",
+    });
   if (url.endsWith("/apps.connections.open"))
     return Response.json({ ok: true, url: "wss://slack.test/socket" });
   if (url.endsWith("/users.info"))
@@ -105,11 +110,13 @@ test("discord identifies after hello, hands over a direct message, leaves a serv
   const got: unknown[] = [];
   let bot = "";
   let link: string | null = null;
+  let id = "";
   const listening = createDiscord("bot-token").listen(
     {
-      ready: (name, where) => {
+      ready: (name, where, own) => {
         bot = name;
         link = where;
+        id = own;
       },
       incoming: (one) => got.push(one),
     },
@@ -136,6 +143,8 @@ test("discord identifies after hello, hands over a direct message, leaves a serv
     d: { user: { id: "b", username: "thursday" }, application: { id: "app1" } },
   });
   assert.equal(bot, "thursday");
+  // The bot's own id, the same under every token it is given
+  assert.equal(id, "b");
   // The invite is the step nothing else can do for the user: Discord delivers a direct
   // message only to a bot you share a server with, and READY names the application
   assert.equal(
@@ -223,13 +232,22 @@ test("slack acknowledges every envelope and hands over only the direct conversat
   const stop = new AbortController();
   const got: unknown[] = [];
   let bot = "";
+  let id = "";
   const listening = createSlack("xapp-1", "xoxb-1").listen(
-    { ready: (name) => (bot = name), incoming: (one) => got.push(one) },
+    {
+      ready: (name, _, own) => {
+        bot = name;
+        id = own;
+      },
+      incoming: (one) => got.push(one),
+    },
     stop.signal,
   );
   await tick();
   await tick();
   assert.equal(bot, "@thursday");
+  // The app's bot, not the person whose token installed it
+  assert.equal(id, "B0BOT");
   const socket = FakeSocket.last;
   assert.equal(socket.url, "wss://slack.test/socket");
 

@@ -230,7 +230,11 @@ export function createDiscord(token: string): Channel {
                   user: DiscordUser;
                   application?: { id?: string };
                 };
-                on.ready(ready.user.username, invite(ready.application?.id));
+                on.ready(
+                  ready.user.username,
+                  invite(ready.application?.id),
+                  ready.user.id,
+                );
               } else if (op === 0 && t) {
                 const incoming = read(t, d);
                 if (incoming) on.incoming(incoming);

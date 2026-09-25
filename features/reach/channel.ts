@@ -60,10 +60,13 @@ export type Channel = {
    * service's own file can name — a chat to open on Telegram, an invite to accept on
    * Discord — or null where the service has none. The screen draws it for a phone to read,
    * so nothing about a service is worked out from its bot's name.
+   *
+   * `id` is the bot's own id on the service, the same under every token it is given: what
+   * tells a token replaced for this bot from a token for another one.
    */
   listen(
     on: {
-      ready(bot: string, link: string | null): void;
+      ready(bot: string, link: string | null, id: string): void;
       incoming(incoming: Incoming): void;
     },
     signal: AbortSignal,

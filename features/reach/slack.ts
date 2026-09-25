@@ -182,14 +182,23 @@ export function createSlack(appToken: string, botToken: string): Channel {
     limits: { take: Infinity, file: FILE_BYTES, picture: FILE_BYTES },
 
     async listen(on, signal) {
-      const me = await api<{ user?: string }>("auth.test", {});
+      const me = await api<{
+        user?: string;
+        user_id?: string;
+        bot_id?: string;
+      }>("auth.test", {});
       const { url } = await api<{ url: string }>(
         "apps.connections.open",
         {},
         appToken,
       );
-      // Slack names no address for an app: it is opened from inside the workspace
-      on.ready(me.user ? `@${me.user}` : "the app", null);
+      // Slack names no address for an app, which is opened from inside the workspace, and its
+      // bot is the app's own, the same however often the app is installed again
+      on.ready(
+        me.user ? `@${me.user}` : "the app",
+        null,
+        me.bot_id ?? me.user_id ?? "",
+      );
 
       const closed = await runSocket(
         url,

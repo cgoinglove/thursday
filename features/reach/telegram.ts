@@ -213,15 +213,16 @@ export function createTelegram(token: string): Channel {
     limits: LIMITS,
 
     async listen(on, signal) {
-      const me = await call<{ username?: string; first_name?: string }>(
-        "getMe",
-        undefined,
-        signal,
-      );
+      const me = await call<{
+        id: number;
+        username?: string;
+        first_name?: string;
+      }>("getMe", undefined, signal);
       on.ready(
         me.username ? `@${me.username}` : (me.first_name ?? "the bot"),
         // The chat with this bot, which a phone opens straight from its camera
         me.username ? `https://t.me/${me.username}` : null,
+        String(me.id),
       );
 
       while (!signal.aborted) {

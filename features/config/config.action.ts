@@ -49,7 +49,7 @@ export const removeConfigAction = serverAction(async (key: unknown) => {
   await tokenChanged(parsed);
 });
 
-/** A chat service's new token is a new bot to listen to, and none is nothing to listen for (features/reach). */
+/** A chat service's new token is listened to at once, and none is nothing to listen for (features/reach). */
 async function tokenChanged(key: string) {
   if (!Object.values(REACH_KEYS).some((keys) => keys.includes(key))) return;
   const { reachChannelOf, startReach } = await import("@/features/reach/reach");

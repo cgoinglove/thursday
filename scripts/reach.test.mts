@@ -49,7 +49,11 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
           }),
           { status: 401 },
         )
-      : answer({ username: "test_bot" });
+      : // A Telegram token opens with its bot's id, the same under every token it is given
+        answer({
+          id: Number(url.split("/bot")[1].split(":")[0]),
+          username: "test_bot",
+        });
   if (method === "getUpdates") {
     // A short wait in place of the long poll, so the loop neither spins nor holds the test
     await new Promise((resolve) => setTimeout(resolve, 5));
@@ -232,13 +236,13 @@ test("someone who is not let in is asked about on screen with a code their phone
   // The phone reads the same code the screen shows
   assert.equal(
     saidTo(7)[0],
-    `Almost there. Thursday is asking on your computer whether to let you in. Press Allow there only if it shows ${code}.`,
+    `Almost there. Thursday is asking on your computer whether to let you in. Press Allow there only if it shows ${code}, and she answers what you wrote.`,
   );
 
-  // Writing again changes nothing: one ask, one code, the first words
+  // Writing again changes nothing and is not answered yet: one ask, one code, the first words
   inbox.push(message(7, "hello?"));
-  await until(() => saidTo(7).length === 2, "they are told again");
-  assert.ok(saidTo(7)[1].endsWith(`${code}.`));
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  assert.equal(saidTo(7).length, 1, "nothing more is said while they wait");
   assert.equal(
     (await reach.readReachStatus()).channels[0].asking?.said,
     "hello",
@@ -252,7 +256,7 @@ test("someone who is not let in is asked about on screen with a code their phone
   assert.equal(turns.length, 0);
 });
 
-test("once allowed with the code shown, what they write is a turn of one conversation", async () => {
+test("once allowed with the code shown, what they wrote while waiting is answered, and what follows is one conversation", async () => {
   const code = await askingCode();
   // A dialog left from another ask carries another code, and lets nobody in
   await reach.allowReach("telegram", "7", code === "0000" ? "1111" : "0000");
@@ -264,25 +268,31 @@ test("once allowed with the code shown, what they write is a turn of one convers
     chat: "7",
     name: "Sam",
   });
-  await until(
-    () => saidTo(7).length === before + 1,
-    "they are told they are in",
+  assert.equal(
+    saidTo(7)[before],
+    "You are in. Thursday answers what you wrote.",
   );
+  // All of it was written before she could answer: one turn, in the order it was written
+  await until(() => turns.length === 1, "what they wrote gets its turn");
+  assert.equal(turns[0].words, "hello\nhello?");
+  assert.equal(turns[0].said, "hello\nhello?");
+  await until(() => saidTo(7).at(-1) === "Heard: hello\nhello?", "her answer");
 
   inbox.push(message(7, "what is on today?"));
-  await until(() => turns.length === 1, "her backend is asked");
-  const { words, said, carried } = turns[0];
+  await until(() => turns.length === 2, "her backend is asked");
+  const { words, said, carried } = turns[1];
   assert.deepEqual(
     { words, said, carried },
-    { words: "what is on today?", said: "what is on today?", carried: 1 },
+    { words: "what is on today?", said: "what is on today?", carried: 3 },
   );
-  await until(() => saidTo(7).length === before + 2, "her answer goes back");
-  // Markdown is for a screen; a chat gets the words
-  assert.equal(saidTo(7).at(-1), "Heard: what is on today?");
+  await until(
+    () => saidTo(7).at(-1) === "Heard: what is on today?",
+    "her answer goes back",
+  );
 
   inbox.push(message(7, "and tomorrow?"));
-  await until(() => turns.length === 2, "the next turn");
-  assert.equal(turns[1].carried, 3, "the conversation so far goes with it");
+  await until(() => turns.length === 3, "the next turn");
+  assert.equal(turns[2].carried, 5, "the conversation so far goes with it");
 });
 
 test("what she did goes under what she said, each thing once", async () => {
@@ -303,7 +313,7 @@ test("nobody else is answered once one person is in", async () => {
   await until(() => saidTo(9).length === 1, "they are turned away");
   assert.match(saidTo(9)[0], /already answers someone else/);
   assert.equal((await reach.readReachStatus()).channels[0].asking, null);
-  assert.equal(turns.length, 3);
+  assert.equal(turns.length, 4);
 });
 
 const thread = (
@@ -615,6 +625,47 @@ test("with a browser watching, only what was started from here comes to the phon
   );
 });
 
+test("a question the screen was left holding goes to the phone once the last browser closes", async () => {
+  threads = [
+    thread("thread-6", {
+      label: "From the screen too",
+      status: "waiting",
+      room: {
+        relays: [],
+        questions: [
+          { id: "q-6", bot: "Insta", text: "Which one?", options: ["A", "B"] },
+        ],
+      },
+    }),
+    // What finished while the screen watched stays the screen's
+    thread("thread-4", { label: "From the screen", outcome: "Done there." }),
+  ];
+  const count = sent.length;
+  appEvents.emit({ type: "threads" });
+  await looked();
+  assert.equal(sent.length, count, "while it is watched, the screen has it");
+
+  // The last tab goes; past the grace a reload is given, the bot's question is the phone's
+  presence.track(0);
+  const asked = () =>
+    sent
+      .slice(count)
+      .some(
+        (one) =>
+          one.method === "sendMessage" &&
+          String(one.body.text).startsWith("Insta asks · From the screen too"),
+      );
+  for (let tries = 0; tries < 1_500 && !asked(); tries++)
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.ok(asked(), "the question reaches the phone");
+  assert.ok(
+    !sent
+      .slice(count)
+      .some((one) => String(one.body.text).includes("From the screen\n")),
+    "and what finished does not",
+  );
+});
+
 test("a page she names goes with pictures of it, and any other file as itself", async () => {
   const { WORKSPACE } = await import("../features/workspace/workspace.ts");
   const folder = join(WORKSPACE, "artifacts", "Jarvis");
@@ -773,4 +824,40 @@ test("a token the service turns away stops that service, names its key, and says
     "Telegram said “Unauthorized”: this token was revoked or mistyped. Get it again from @BotFather and paste it here.",
   );
   assert.equal(status.bot, null);
+});
+
+test("a token given again for the same bot keeps whoever is let in, and another bot's starts with nobody", async () => {
+  const { readConfig } = await import("../features/config/config.query.ts");
+  const { reachPersonKey } = await import("../features/reach/reach.schema.ts");
+  /** The service once its bot has answered: who is let in is settled by then. */
+  const connected = async () => {
+    for (let tries = 0; tries < 200; tries++) {
+      const [status] = (await reach.readReachStatus()).channels;
+      if (status.bot) return status;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    return assert.fail("the bot never answered");
+  };
+
+  // Revoked and given again: the same bot, so Sam stays let in
+  await writeConfig(TELEGRAM_TOKEN_KEY, "123:given-again");
+  await reach.startReach("telegram");
+  assert.deepEqual((await connected()).allowed, { chat: "7", name: "Sam" });
+
+  // Another bot: its chats are other people's, and nobody is let in to it yet
+  await writeConfig(TELEGRAM_TOKEN_KEY, "789:another-bot");
+  await reach.startReach("telegram");
+  assert.equal((await connected()).allowed, null);
+
+  // A record kept before the app noted bots is this bot's when the app starts with its token
+  await writeConfig(
+    reachPersonKey("telegram"),
+    JSON.stringify({ chat: "7", name: "Sam" }),
+  );
+  await reach.startReach();
+  assert.deepEqual((await connected()).allowed, { chat: "7", name: "Sam" });
+  assert.equal(
+    await readConfig(reachPersonKey("telegram")),
+    JSON.stringify({ chat: "7", name: "Sam", bot: "789" }),
+  );
 });

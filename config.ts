@@ -108,6 +108,9 @@ export const CALL_IDLE = {
  * - `codeDigits`  how long the code is that someone asking to be let in is sent, and the
  *   screen's Allow shows beside their name. Longer is harder to guess at a glance; shorter is
  *   quicker to compare.
+ * - `held`  how many messages someone waiting to be let in may write before the rest are
+ *   dropped; those kept are answered once they are let in. More keeps a longer first request;
+ *   fewer bounds what a stranger can pile up in memory before being turned away.
  * - `pictures`  how many pictures of a page go with it (reach/pictures): its first slides or
  *   boards, or its first screens from the top. With the page itself that is ten files, what
  *   one Discord message carries and one Telegram album holds; the page has the rest.
@@ -128,6 +131,7 @@ export const REACH = {
   rateRetries: 3,
   rateWaitMs: 30_000,
   codeDigits: 4,
+  held: 5,
   pictures: 9,
   drawMs: 60_000,
 };
