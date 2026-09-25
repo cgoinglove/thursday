@@ -22,7 +22,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { type Bot, type BotIcon, isAppStop } from "@/features/bot/bot.schema";
+import {
+  type Bot,
+  type BotIcon,
+  isAppStop,
+  isUnread,
+} from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { BotTip } from "@/features/bot/components/bot-tip";
 import {
@@ -45,7 +50,7 @@ import {
 } from "../thread.store";
 
 import { leadOf, stepOf, THURSDAY } from "./room-conversation";
-import { isUnread, ThreadRow } from "./room-list";
+import { ThreadRow } from "./room-list";
 
 /** The room folded: the pill at the foot of the call screen, the faces on it, and what passed between two parties riding above one for a moment. Split out of bot-room by subject; see it for the room as a whole. */
 

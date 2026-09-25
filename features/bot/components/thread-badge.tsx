@@ -1,7 +1,11 @@
 "use client";
 
 import { queryKey } from "@/app/api/query-key";
-import { needsThreadReply, type Thread } from "@/features/bot/bot.schema";
+import {
+  isUnread,
+  needsThreadReply,
+  type Thread,
+} from "@/features/bot/bot.schema";
 import { NavBadge } from "@/features/settings/components/setting-ui";
 import type { SectionAlert } from "@/features/settings/settings.alert";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
@@ -18,8 +22,7 @@ export function useThreadReport() {
   const threads = data ?? [];
   return {
     owed: threads.filter(
-      (thread) =>
-        needsThreadReply(thread) || (thread.status === "done" && !thread.seen),
+      (thread) => needsThreadReply(thread) || isUnread(thread),
     ).length,
   };
 }

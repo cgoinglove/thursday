@@ -491,3 +491,11 @@ export const needsThreadReply = (thread: {
   status: string;
   room: Thread["room"];
 }) => standOf(thread) === "needsYou";
+
+/**
+ * An ending nobody has opened. It needs the user too, to read rather than to
+ * answer. Takes the two fields it reads, as `needsThreadReply` does, so a
+ * stored row answers it as well as a drawn one.
+ */
+export const isUnread = (thread: { status: string; seen: boolean }) =>
+  thread.status === "done" && !thread.seen;

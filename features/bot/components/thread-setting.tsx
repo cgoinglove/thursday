@@ -36,6 +36,7 @@ import {
 import {
   type Bot,
   isAppStop,
+  isUnread,
   needsThreadReply,
   type Thread,
   type ThreadLine,
@@ -47,7 +48,6 @@ import {
   Conversation,
   ThreadFacts,
 } from "@/features/bot/components/room-conversation";
-import { isUnread } from "@/features/bot/components/room-list";
 import {
   screenActs,
   threadFromRow,

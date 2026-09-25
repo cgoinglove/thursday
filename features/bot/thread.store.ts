@@ -4,12 +4,13 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { toast } from "@/components/ui/toast";
 import { markSeenAction } from "@/features/bot/bot.action";
-import type {
-  Bot,
-  BotIcon,
-  ResultPart,
-  Thread,
-  TokenUsage,
+import {
+  type Bot,
+  type BotIcon,
+  isUnread,
+  type ResultPart,
+  type Thread,
+  type TokenUsage,
 } from "@/features/bot/bot.schema";
 import { type DateLike, toDate } from "@/lib/date-like";
 import { unwrapResult } from "@/lib/protocol/result";
@@ -704,7 +705,7 @@ export function useSeenOnDetail(
   const key = thread
     ? `${thread.id}@${toDate(thread.updatedAt).getTime()}`
     : null;
-  const owed = !!thread && thread.status === "done" && !thread.seen;
+  const owed = !!thread && isUnread(thread);
 
   useEffect(() => {
     if (!id || !key || !owed || sent.current.has(key)) return;

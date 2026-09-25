@@ -17,6 +17,7 @@ import {
   type Bot,
   DEFAULT_BOT,
   isAppStop,
+  isUnread,
   needsThreadReply,
   standOf,
   THREAD_CONTINUE,
@@ -39,14 +40,6 @@ import {
 import { FoldButton, TAB } from "./room-conversation";
 
 /** The room open on its lists: what is happening now, and the history behind it. Split out of bot-room by subject; see it for the room as a whole. */
-
-/**
- * An ending nobody has opened. It needs the user too, to read rather than to
- * answer. Takes the two fields it reads, as `needsThreadReply` does, so a
- * stored row answers it as well as a drawn one.
- */
-export const isUnread = (thread: { status: string; seen: boolean }) =>
-  thread.status === "done" && !thread.seen;
 
 /**
  * What waits on the user's answer, newest first: the rows the folded pill grows, and the

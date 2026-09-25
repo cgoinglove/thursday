@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { FINISHED_NOTICE } from "@/config";
 import { markSeenAction } from "@/features/bot/bot.action";
-import type { Bot } from "@/features/bot/bot.schema";
+import { type Bot, isUnread } from "@/features/bot/bot.schema";
 import { shortenPaths } from "@/features/bot/components/attachments";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import {
@@ -226,10 +226,7 @@ function Notice() {
     }
     const dismissed = new Set(readDismissed());
     const waiting = threads
-      .filter(
-        (thread) =>
-          thread.status === "done" && !thread.seen && !dismissed.has(thread.id),
-      )
+      .filter((thread) => isUnread(thread) && !dismissed.has(thread.id))
       .sort(
         (a, b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime(),
       );
