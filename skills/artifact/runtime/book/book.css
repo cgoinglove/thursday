@@ -47,7 +47,7 @@ body {
   color: var(--fg);
   font-family:
     ui-rounded, "SF Pro Rounded", ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    "Segoe UI", sans-serif;
   counter-reset: page;
 }
 

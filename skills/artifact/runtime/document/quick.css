@@ -99,14 +99,7 @@ body.pg-toc-shut .pg-toc {
   margin: 0 auto;
   padding: 2.5rem 1.5rem 6rem;
   color: var(--fg);
-  font:
-    16px / 1.7 ui-sans-serif,
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    "Apple SD Gothic Neo",
-    "Noto Sans KR",
-    sans-serif;
+  font: 16px / 1.7 var(--sh-font);
 }
 .pg-paper:focus {
   outline: 0;

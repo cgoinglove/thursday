@@ -457,7 +457,7 @@ const STYLE = `<style id="chart-style">
 .chart{margin:1.5rem 0 2rem}
 .chart-title{margin:0 0 .15rem;font-weight:600}
 .chart-sub{margin:0 0 .6rem;font-size:.85rem;color:var(--muted,#71717a)}
-.chart-svg{display:block;width:100%;height:auto;overflow:visible;border-radius:0;font:${FONT}px ui-sans-serif,system-ui,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;font-variant-numeric:tabular-nums;touch-action:pan-y}
+.chart-svg{display:block;width:100%;height:auto;overflow:visible;border-radius:0;font:${FONT}px ui-sans-serif,system-ui,-apple-system,sans-serif;font-variant-numeric:tabular-nums;touch-action:pan-y}
 .chart-svg .grid{stroke:var(--line,#e4e4e7);stroke-width:1}
 .chart-svg .grid.base,.chart-svg .zero{stroke:var(--muted,#71717a);stroke-dasharray:3 3}
 .chart-svg .tick,.chart-svg .mark-label{fill:var(--muted,#71717a)}

@@ -14,6 +14,10 @@
    blue, its red, a border that is the ink at 10%, muted text that clears 4.5:1. */
 :root {
   color-scheme: light dark;
+  /* The type of every page's own words, until a kind sets its own. No face is named for
+     Chinese, Japanese or Korean: the page's lang, else the reader's system, picks the one
+     that script needs, where a named one drew all three in one country's letterforms. */
+  --sh-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --sh-paper: #ffffff;
   --sh-ink: #0d0d0d;
   --sh-ink-2: #4f4f4f;
@@ -79,14 +83,7 @@ body {
   margin: 0;
   background: var(--sh-paper);
   color: var(--sh-ink);
-  font:
-    14px / 1.5 ui-sans-serif,
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    "Apple SD Gothic Neo",
-    "Noto Sans KR",
-    sans-serif;
+  font: 14px / 1.5 var(--sh-font);
   -webkit-text-size-adjust: 100%;
   text-wrap: pretty;
 }

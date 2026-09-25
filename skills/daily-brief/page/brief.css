@@ -15,9 +15,7 @@
   --serif:
     "Iowan Old Style", "Charter", "Palatino Linotype", Georgia, "Noto Serif",
     serif;
-  --sans:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo",
-    "Noto Sans KR", "Noto Sans JP", "Noto Sans SC", sans-serif;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root {

@@ -316,14 +316,7 @@ body[data-tool="note"] #field {
      no theme turns. Anything the board sets inline wins. */
   background: #fff;
   color: #18181b;
-  font:
-    14px / 1.6 ui-sans-serif,
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    "Apple SD Gothic Neo",
-    "Noto Sans KR",
-    sans-serif;
+  font: 14px / 1.6 var(--sh-font);
 }
 /* A board's content starts from nothing: no default margin on a heading, a paragraph or
    a list, no space between table cells, no box around a fieldset. What is on a board is
