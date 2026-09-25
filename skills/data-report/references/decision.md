@@ -22,7 +22,7 @@ Only when the costs need a table: each path's costs over time, the break-even as
 
 ## Example (illustrative numbers)
 
-> **Wait until November.** The current model costs ₩1,390,000; its successor is announced for
+> **Wait until November.** The current model costs ¥139,000; its successor is announced for
 > 10-28 (maker's event page), and the current model dropped 18% within six weeks of the last
 > launch (comparison site's price history, 2025). Buy now only if you need it before November:
-> waiting is worth about ₩250,000.
+> waiting is worth about ¥25,000.

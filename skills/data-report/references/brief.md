@@ -23,9 +23,9 @@ the page is these same lines on top, the chart or table under them.
 
 > Q: How much has the price of a subway ride gone up in this city?
 >
-> Up 38% in eleven years: ₩1,050 in 2015 to ₩1,450 now — (1,450 − 1,050) ÷ 1,050 (city transit
+> Up 38% in eleven years: €2.10 in 2015 to €2.90 now — (2.90 − 2.10) ÷ 2.10 (city transit
 > site, fares page, 2026).
-> - The last rise was ₩1,400 → ₩1,450 in 2025, after ₩1,550 was proposed and cut (city press
+> - The last rise was €2.80 → €2.90 in 2025, after €3.10 was proposed and cut (city press
 >   release, 2025-06).
 > - Consumer prices rose 24% over the same years (national statistics office CPI, 2015 = 100 → 124),
 >   so the fare grew faster than prices.

@@ -33,11 +33,11 @@ behind the reaction, and what to watch next quarter.
 
 > **Northwind grew 18% but guided below what the market expected**
 >
-> | (₩ billion) | Q2 2026 | Q2 2025 | Change |
+> | ($ million) | Q2 2026 | Q2 2025 | Change |
 > |---|---|---|---|
 > | Revenue | 1,240 | 1,051 | +18% |
 > | Operating income | 161 | 147 | +10% |
 > | Operating margin | 13.0% | 14.0% | −1.0 pt |
 >
-> Shares fell 6.2% the day after (index −0.4%): Q3 revenue guidance of ₩1,260–1,290 billion sat
-> under the ₩1,330 billion consensus (brokerage summary on a finance portal, 2026-07-28).
+> Shares fell 6.2% the day after (index −0.4%): Q3 revenue guidance of $1,260–1,290 million sat
+> under the $1,330 million consensus (brokerage summary on a finance portal, 2026-07-28).

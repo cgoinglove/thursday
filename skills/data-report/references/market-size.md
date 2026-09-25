@@ -37,15 +37,15 @@ here, stated.
 
 ## Example (illustrative numbers)
 
-> **Home coffee subscriptions here: ₩170–255 billion a year (2025)**
+> **Home coffee subscriptions here: €170–255 million a year (2025)**
 >
 > | Bottom-up driver | Value | Source |
 > |---|---|---|
 > | Households | 22.3 M | Statistics office, 2025 |
 > | Buy beans online at least monthly | 4–6% | Industry survey, 2024 (n = 3,000) |
 > | Orders a year | 10 | same survey |
-> | Average order | ₩19,000 | median of 12 shops' listings, checked 2026-09 |
-> | **SAM** | **₩170–255 billion** | 22.3 M × 4–6% × 10 × ₩19,000 |
+> | Average order | €19 | median of 12 shops' listings, checked 2026-09 |
+> | **SAM** | **€170–255 million** | 22.3 M × 4–6% × 10 × €19 |
 >
-> Top-down: ₩1.9 trillion coffee retail (market report, 2025) × 12% online bean share = ₩228 billion.
-> SOM at 2% of SAM (what the third-largest shop holds): ₩3.4–5.1 billion.
+> Top-down: €1.9 billion coffee retail (market report, 2025) × 12% online bean share = €228 million.
+> SOM at 2% of SAM (what the third-largest shop holds): €3.4–5.1 million.

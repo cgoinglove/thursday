@@ -31,11 +31,11 @@ The pick and the one number that decides it, then the runner-up and when it wins
 
 ## Example (illustrative numbers)
 
-> **Plan B costs the least for a family of four** — ₩118,000 a month against ₩131,000 and ₩146,000.
+> **Plan B costs the least for a family of four** — $118 a month against $131 and $146.
 >
 > | | Plan A | **Plan B** | Plan C |
 > |---|---|---|---|
-> | Monthly, 4 lines (₩) | 131,000 | **118,000** | 146,000 |
+> | Monthly, 4 lines ($) | 131 | **118** | 146 |
 > | Data per line (GB) | 30 | 25 | **unlimited** |
 > | Contract (months) | 24 | **none** | 24 |
 >

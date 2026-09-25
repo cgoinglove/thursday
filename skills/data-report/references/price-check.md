@@ -27,7 +27,7 @@ there is one.
 
 ## Example (illustrative numbers)
 
-> Cheapest now: Shop B, ₩389,000 delivered by Friday — ₩24,000 under the next best (Shop A,
-> ₩413,000 with ₩3,000 shipping). The lowest in the last six months was ₩372,000 (a comparison
-> site's history, 2026-05); ₩389,000 is near the low end of its usual ₩385,000–420,000.
+> Cheapest now: Shop B, £389 delivered by Friday — £24 under the next best (Shop A, £413 with
+> £3 shipping). The lowest in the last six months was £372 (a comparison site's history,
+> 2026-05); £389 is near the low end of its usual £385–420.
 > Checked 2026-09-19 14:10.
