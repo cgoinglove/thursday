@@ -241,7 +241,8 @@ export const createCallSearchTool = async (
           },
         );
         return {
-          results: sandbox.fold(found.text, "web-search"),
+          // Awaited here: a promise in the answer is serialized as {}, and the page text never reaches her
+          results: await sandbox.fold(found.text, "web-search"),
           sources: found.sources,
         };
       },

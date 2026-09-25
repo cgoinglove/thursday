@@ -1255,7 +1255,8 @@ test("with an Exa key the call searches through Exa and hands the pages back apa
       "../features/ai/tools/search.tool.ts"
     );
     const tools = await createCallSearchTool({
-      fold: (text: string) => text,
+      // As the real sandbox's: a promise, so an answer that forgets to await it shows here
+      fold: async (text: string) => text,
     } as never);
     const run = tools.web_search?.execute as unknown as (
       input: { query: string },
