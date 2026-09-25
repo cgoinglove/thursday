@@ -547,11 +547,14 @@ function writePicture(path, { svg, title, sub, source }) {
       "<svg ",
       `<svg x="${pad}" y="${pad + head}" width="${W}" height="${H}" `,
     );
+  // The drawing's own rules; the page's sizing rule (width 100%) would stretch the inner
+  // drawing past the card, where its size attributes are what it keeps
   const style = STYLE.replace(/<\/?style[^>]*>/g, "")
     .split("\n")
     .filter(
       (line) =>
         line.startsWith(".chart-svg") &&
+        !line.startsWith(".chart-svg{") &&
         !line.includes(".narrow") &&
         !line.includes(".hover"),
     )
@@ -566,7 +569,7 @@ function writePicture(path, { svg, title, sub, source }) {
     .join(" ");
   const file = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${esc(title)}">
 <style>
-.pic{font:${FONT}px ui-sans-serif,system-ui,-apple-system,sans-serif}
+.pic{font:${FONT}px ui-sans-serif,system-ui,-apple-system,sans-serif;font-variant-numeric:tabular-nums}
 .pic-title{font-size:16px;font-weight:600;fill:#18181b}
 .pic-sub,.pic-source{font-size:12px;fill:#71717a}
 ${style}
