@@ -146,7 +146,7 @@ function tone(level: number, out: [number, number, number]) {
 }
 
 /**
- * `on` is the line being up. The orb outlives it by `BLOOM_MS` so it has time to draw back into
+ * `on` is the line being up. The orb outlives it by `FADE_MS` so it has time to draw back into
  * the button rather than vanishing: a swap with no going-away is what made `/` read as a cut.
  */
 export function WriteOrb({
@@ -287,10 +287,12 @@ export function WriteOrb({
       ref={held}
       aria-hidden
       className={cn(
-        "pointer-events-none absolute inset-0 size-full transition-opacity duration-200",
+        "pointer-events-none absolute inset-0 size-full transition-opacity",
         shown ? "opacity-100" : "opacity-0",
         className,
       )}
+      // The fade and the timer that takes the canvas away after it are one length
+      style={{ transitionDuration: `${FADE_MS}ms` }}
     />
   );
 }
