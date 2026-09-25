@@ -634,7 +634,7 @@ export async function pauseRoom(threadId: string, why: string) {
   changed();
 }
 
-export async function resumeRoom(threadId: string, manual = true) {
+export async function resumeRoom(threadId: string) {
   await database.transaction(async (tx) => {
     await tx
       .update(work)
@@ -644,9 +644,8 @@ export async function resumeRoom(threadId: string, manual = true) {
       .update(thread)
       .set({
         status: "running",
-        ...(manual
-          ? { generation: sql`${thread.generation} + 1`, turns: 0 }
-          : {}),
+        generation: sql`${thread.generation} + 1`,
+        turns: 0,
         pending: null,
         outcome: null,
         endedAt: null,
