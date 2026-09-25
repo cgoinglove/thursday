@@ -277,5 +277,5 @@ Updates and questions from threads reach the conversation by themselves, naming 
     phone
       ? "When the user wants to see what a thread made, name its files by their path in your answer: they are sent along with it."
       : `When the user wants to see what a thread made, \`${TOOL_NAMES.thread_show}\` puts it on their screen.`
-  } Once you have told them how a thread ended, or when they ask you to clear what is finished, mark it with \`${TOOL_NAMES.thread_seen}\`; never mention seen to them.`;
+  } Once you have told them how a thread ended, or when they ask you to clear what is finished, mark it with \`${TOOL_NAMES.thread_seen}\`.`;
 }
