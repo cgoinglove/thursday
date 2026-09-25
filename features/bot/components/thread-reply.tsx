@@ -92,11 +92,15 @@ export function ThreadReply({
   );
   const [stepping, setStepping] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
-  useEffect(() => {
+  // Another thread starts from its own kept recipient, no question picked, no step open.
+  // Synced during render, as useDraft does: an effect would draw the old thread's for a frame.
+  const [shownFor, setShownFor] = useState({ id: thread.id, bot: thread.bot });
+  if (shownFor.id !== thread.id || shownFor.bot !== thread.bot) {
+    setShownFor({ id: thread.id, bot: thread.bot });
     setRecipient(threadDrafts.recipient(thread.id) ?? thread.bot);
     setSelected(undefined);
     setStepping(false);
-  }, [thread.id, thread.bot]);
+  }
   // Opening a bot's tab addresses the composer to it, kept like a pick in RecipientPicker.
   useEffect(() => {
     if (!to) return;

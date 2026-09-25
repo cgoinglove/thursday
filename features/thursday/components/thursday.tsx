@@ -523,8 +523,13 @@ function Flow({
   /** Pages back from the tail; 0 is the last page. */
   const [back, setBack] = useState(0);
 
-  // new text always starts at the tail, also while it grows
-  useEffect(() => setBack(0), [text]);
+  // new text always starts at the tail, also while it grows. Synced during render, as
+  // useDraft does: an effect would draw the new text at the old page for a frame.
+  const [shown, setShown] = useState(text);
+  if (shown !== text) {
+    setShown(text);
+    setBack(0);
+  }
 
   // re-measure on width change and on every text change (streaming moves the last line)
   useEffect(() => {

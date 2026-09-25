@@ -30,8 +30,13 @@ export function FoldedText({
   const [clipped, setClipped] = useState(false);
   const box = useRef<HTMLParagraphElement>(null);
 
-  // Holders are not remounted per subject, so new text starts folded again.
-  useEffect(() => setOpen(false), [text]);
+  // Holders are not remounted per subject, so new text starts folded again. Synced
+  // during render, as useDraft does: an effect would draw the new text open for a frame.
+  const [shown, setShown] = useState(text);
+  if (shown !== text) {
+    setShown(text);
+    setOpen(false);
+  }
 
   useEffect(() => {
     const node = box.current;

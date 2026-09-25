@@ -146,8 +146,13 @@ function Context({ thread }: { thread: ThreadView }) {
   const [compact, asking] = useServerAction(compactThreadAction, {
     onOk: () => setAsked(true),
   });
-  // A new number is a step taken since: what was asked for has happened
-  useEffect(() => setAsked(false), [used]);
+  // A new number is a step taken since: what was asked for has happened. Synced during
+  // render, as useDraft does: an effect would draw the new number still asked for a frame.
+  const [seen, setSeen] = useState(used);
+  if (seen !== used) {
+    setSeen(used);
+    setAsked(false);
+  }
   if (!used || !budget) return null;
   const full = Math.min(1, used / budget);
 
