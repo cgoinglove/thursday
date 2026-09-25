@@ -229,7 +229,7 @@ was said about the options.
 
 Something to present, or to be walked through a step at a time, comes back as a **deck**. Any bot
 can make one: it writes what each slide says and picks its layout — a cover, one claim on its own,
-two to four cards side by side, one big figure, a table, a quote, a picture with a heading, a close
+two to four cards side by side, one big figure, a table, a quote, a picture or a chart with a heading, a close
 with what happens next — and one of four palettes (green, blue, terracotta, or gold on black). The
 app draws every slide, so each deck is laid out alike, and a slide that holds more words than fit
 has its type made smaller until they do; one that still does not fit is sent back to the bot to say

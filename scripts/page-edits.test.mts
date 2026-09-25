@@ -353,3 +353,33 @@ test("bold that ends in punctuation closes before a Chinese, Japanese or Korean 
     "2 * 3 * 4 and <code>**code**다</code>",
   );
 });
+
+test("a chart drawn as a picture stands alone: its title and source on it, no page and no readout", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const csv = join(home, "visits.csv");
+  await writeFile(
+    csv,
+    "# title: Visits\n# source: https://example.org/visits\nmonth,A\n2026-01,1\n2026-02,3\n",
+  );
+  const chart = join(
+    import.meta.dirname,
+    "..",
+    "skills",
+    "artifact",
+    "scripts",
+    "chart.mjs",
+  );
+  const out = join(home, "pictures", "visits.svg");
+  const said = execFileSync(process.execPath, [chart, out, csv], {
+    encoding: "utf8",
+  });
+  assert.match(said, /as a picture/);
+  const svg = await readFile(out, "utf8");
+  assert.ok(svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg"'));
+  assert.match(svg, /<text class="pic-title"[^>]*>Visits<\/text>/);
+  assert.match(svg, /example\.org/);
+  // The readout needs a page's script; a picture has none, and draws once, not twice
+  assert.ok(!svg.includes("data-chart"));
+  assert.ok(!svg.includes('class="hover"'));
+  assert.equal(svg.match(/class="chart-svg"/g)?.length, 1);
+});

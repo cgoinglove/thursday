@@ -6,6 +6,10 @@
 // and the same figure is replaced.
 //
 //   node chart.mjs <page.html> <id> <data.csv> [options]
+//   node chart.mjs <picture.svg> <data.csv> [options]
+//                        the chart alone as a picture, its title and source on it, on a
+//                        light card that reads on any ground: a deck's image slide (fit
+//                        whole), a board, a post
 //
 //   --kind line|bar      line when the first column is dates, bar otherwise
 //   --title "<text>"     what the chart shows (default: the CSV's `# title:`)
@@ -26,7 +30,8 @@
 //
 // The figure carries no words of its own beyond what it is given, so it reads the same
 // in any language: the site's name, a date, "CSV".
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import {
   END,
   editedSince,
@@ -522,13 +527,74 @@ function sourceLinks(text) {
     .replace(/(<\/a>) (<a )/g, "$1, $2");
 }
 
+/**
+ * The chart alone as an SVG file: its title and unit above, its source below, on a light card
+ * of its own, since a picture does not know the ground it will sit on. The page's stylesheet
+ * travels inside it, with the light colours only, and without the readout, which needs a page.
+ */
+function writePicture(path, { svg, title, sub, source }) {
+  const [, W, H] = svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/) ?? [];
+  const pad = 24;
+  const head = 22 + (sub ? 20 : 0) + 12;
+  const foot = source ? 30 : 8;
+  const width = Number(W) + pad * 2;
+  const height = pad + head + Number(H) + foot + pad;
+  const inner = svg
+    .replace(/ data-chart='[^']*'/, "")
+    .replace('<g class="hover"></g>', "")
+    .replace(/class="chart-svg (wide|narrow)"/, 'class="chart-svg"')
+    .replace(
+      "<svg ",
+      `<svg x="${pad}" y="${pad + head}" width="${W}" height="${H}" `,
+    );
+  const style = STYLE.replace(/<\/?style[^>]*>/g, "")
+    .split("\n")
+    .filter(
+      (line) =>
+        line.startsWith(".chart-svg") &&
+        !line.includes(".narrow") &&
+        !line.includes(".hover"),
+    )
+    .join("\n");
+  const plainSource = String(source ?? "")
+    .split(/\s+/)
+    .map((part) =>
+      /^https?:\/\//.test(part)
+        ? new URL(part).hostname.replace(/^www\./, "")
+        : part,
+    )
+    .join(" ");
+  const file = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${esc(title)}">
+<style>
+.pic{font:${FONT}px ui-sans-serif,system-ui,-apple-system,sans-serif}
+.pic-title{font-size:16px;font-weight:600;fill:#18181b}
+.pic-sub,.pic-source{font-size:12px;fill:#71717a}
+${style}
+</style>
+<g class="pic">
+<rect width="${width}" height="${height}" rx="14" fill="#ffffff"/>
+<text class="pic-title" x="${pad}" y="${pad + 16}">${esc(title)}</text>
+${sub ? `<text class="pic-sub" x="${pad}" y="${pad + 36}">${esc(sub)}</text>` : ""}
+${inner}
+${plainSource ? `<text class="pic-source" x="${pad}" y="${height - pad}">${esc(plainSource)}</text>` : ""}
+</g>
+</svg>
+`;
+  mkdirSync(dirname(resolve(path)), { recursive: true });
+  writeFileSync(path, file);
+}
+
 function main() {
   const { positional, flags } = parseArgs(process.argv.slice(2));
-  const [pagePath, id, csvPath] = positional;
-  if (!pagePath || !id || !csvPath) throw new Stop(usage());
-  if (!/^[\w-]+$/.test(id))
+  // A picture takes no page and no id: the first path names what is written
+  const picture = /\.svg$/i.test(positional[0] ?? "") ? positional[0] : null;
+  const [pagePath, id, csvPath] = picture
+    ? [null, null, positional[1]]
+    : positional;
+  if (!csvPath || (!picture && (!pagePath || !id))) throw new Stop(usage());
+  if (!picture && !/^[\w-]+$/.test(id))
     throw new Stop(`"${id}" is not an id: letters, numbers, - and _ only.`);
-  if (!existsSync(pagePath))
+  if (!picture && !existsSync(pagePath))
     throw new Stop(
       `No page at ${pagePath}. Put a document first (the artifact skill's document.mjs), or give any HTML file.`,
     );
@@ -608,6 +674,8 @@ function main() {
     throw new Stop(`No numbers in ${wanted.join(", ")}.`);
 
   let chart;
+  let lineDraw;
+  let barDraw;
   if (kind === "line") {
     let indexed = null;
     if (flags.index) {
@@ -640,7 +708,7 @@ function main() {
         );
       return { t, text: label.join("=") || date };
     });
-    const draw = (size) =>
+    lineDraw = (size) =>
       lineChart({
         xs,
         labels: body.map((r) => r[0]),
@@ -651,7 +719,7 @@ function main() {
         locale,
         size,
       });
-    chart = both(draw);
+    chart = both(lineDraw);
   } else {
     let order = body.map((_, i) => i);
     if (!flags["keep-order"])
@@ -660,7 +728,7 @@ function main() {
           (series[0].values[b] ?? -Infinity) -
           (series[0].values[a] ?? -Infinity),
       );
-    chart = both((size) =>
+    barDraw = (size) =>
       barChart({
         labels: order.map((i) => body[i][0]),
         series: series.map((s) => ({
@@ -670,8 +738,8 @@ function main() {
         fmt,
         highlight: highlight ?? null,
         size,
-      }),
-    );
+      });
+    chart = both(barDraw);
   }
 
   const title =
@@ -702,6 +770,19 @@ function main() {
         `<tr><td>${esc(r[0])}</td>${cols.map((c) => `<td class="num">${toNumber(r[c]) === null ? "—" : esc(fmt.exact(r[c]))}</td>`).join("")}</tr>`,
     )
     .join("")}</tbody></table>`;
+  if (picture) {
+    const drawn = (kind === "line" ? lineDraw : barDraw)(SIZES.wide);
+    writePicture(picture, {
+      svg: drawn.svg,
+      title,
+      sub,
+      source: [source, note].filter(Boolean).join(". "),
+    });
+    console.log(
+      `Drew "${title}" (${kind}, ${body.length} rows) as a picture: ${picture}. On a deck, an image slide with fit "whole"; elsewhere an <img>.`,
+    );
+    return;
+  }
   const download = `data:text/csv;charset=utf-8,${encodeURIComponent(text)}`;
   const figure = `<figure id="${id}" class="chart">
 <p class="chart-title">${esc(title)}</p>${sub ? `\n<p class="chart-sub">${esc(sub)}</p>` : ""}

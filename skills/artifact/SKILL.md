@@ -42,7 +42,8 @@ document.
 ## Charts
 
 Numbers they should see are a chart, drawn into the document, page or book that carries them:
-`node $S/chart.mjs <file.html> <figure id> <data.csv>` (no arguments lists its options). Never
+`node $S/chart.mjs <file.html> <figure id> <data.csv>`; on a slide, a board or a post, it is a
+picture: `node $S/chart.mjs <picture.svg> <data.csv>` (no arguments lists its options). Never
 hand-write chart SVG.
 
 A few paragraphs that answer a question stay your final text; a kind here is for what they will

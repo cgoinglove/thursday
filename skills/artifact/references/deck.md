@@ -17,6 +17,10 @@ fill them well.
   source in the slide's footer.
 - **Pictures come off the pages you read** (`webimage.mjs`, SKILL.md) and go in an `image` slide
   with their credit; a picture that only decorates is left out.
+- **Numbers that move are a chart**, drawn as a picture from their CSV —
+  `node $THURSDAY_SKILLS/artifact/scripts/chart.mjs <scratch>/<name>.svg <data.csv>` — and put in
+  an `image` slide with `fit` whole; the heading beside it says what it shows, and its source goes
+  in the slide's footer.
 - **Notes are speech**: what the presenter says over the slide, in their voice, never the slide's
   words again.
 - **Changing a deck** is sending the whole deck again with the `revision` the last call answered
