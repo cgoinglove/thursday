@@ -1648,11 +1648,13 @@ function NeedsKey({
 /**
  * The backend has the turn: the activity line says so, so the seconds before a
  * tool and before her voice never read as a call that has stopped. Once a
- * reasoning summary names what the work is, the line says that instead. It
- * shines where the rest of this screen pulses (the user's pick).
+ * reasoning summary names what the work is, the line names it too, as the model
+ * wrote it: set apart rather than run into a sentence, which would mean re-casing
+ * it and breaking the names in it. It shines where the rest of this screen pulses
+ * (the user's pick).
  */
 function Thinking({ title }: { title: string | null }) {
-  const words = title ? `Thinking about ${midSentence(title)}` : "Thinking…";
+  const words = title ? `Thinking · ${title}` : "Thinking…";
   return (
     <span className="flex max-w-full items-center text-[13px] leading-5">
       {/* keyed so a new title fades in rather than replacing the words mid-sweep */}
@@ -1663,13 +1665,6 @@ function Thinking({ title }: { title: string | null }) {
       />
     </span>
   );
-}
-
-/** A title read mid-sentence: "Checking thread status" becomes "checking thread status"; "API limits" stays. */
-function midSentence(title: string) {
-  return /^\p{Lu}\p{Lu}/u.test(title)
-    ? title
-    : title.charAt(0).toLowerCase() + title.slice(1);
 }
 
 /** Time since the line opened, mm:ss; only this span re-renders each second. */
