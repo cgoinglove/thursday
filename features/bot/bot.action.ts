@@ -38,13 +38,15 @@ export const createBotAction = serverAction(async (input: unknown) => {
 export const updateBotAction = serverAction(
   async (name: string, patch: unknown) => {
     const parsed = BotFormSchema.partial().parse(patch);
-    if (!(await updateBot(name, parsed))) publicError("Bot not found");
+    if (!(await updateBot(z.string().parse(name), parsed)))
+      publicError("Bot not found");
   },
 );
 
 /** The user clears the line a bot wrote after its description (self.tool). */
 export const clearOwnLineAction = serverAction(async (name: string) => {
-  if (!(await clearOwnLine(name))) publicError("Bot not found");
+  if (!(await clearOwnLine(z.string().parse(name))))
+    publicError("Bot not found");
 });
 
 /** One seed bot to create; the model fields are optional and only count as a pair. */
@@ -93,9 +95,10 @@ export const createSeedBotsAction = serverAction(async (picks: unknown) => {
 });
 
 export const deleteBotAction = serverAction(async (name: string) => {
-  if (!(await deleteBot(name))) publicError("Bot not found");
+  const bot = z.string().parse(name);
+  if (!(await deleteBot(bot))) publicError("Bot not found");
   // The row is not the whole bot: what it kept is on disk under its name
-  await removeBotFolder(name);
+  await removeBotFolder(bot);
 });
 
 /** Switched off, no bot is shown its own memory. What is already written stays on disk. */
@@ -135,10 +138,10 @@ export const withdrawStepInAction = serverAction(
  */
 export const startThreadAction = serverAction(
   async (bot: string, request: string) => {
-    const said = request.trim();
+    const said = z.string().parse(request).trim();
     if (!said) publicError("Nothing to hand over.");
     // Resolved as a delegated job is, so an install with no bots still has its worker
-    const worker = await findJobBot(bot);
+    const worker = await findJobBot(z.string().parse(bot));
     if (!worker || worker.disabled)
       publicError(`No enabled bot called "${bot}".`);
     const label = labelFor(said);
@@ -154,10 +157,17 @@ export const startThreadAction = serverAction(
 
 export const answerThreadAction = serverAction(
   async (ref: string, answer: string, recipient?: string, replyTo?: string) => {
-    const thread = await resolveThread(ref);
+    const thread = await resolveThread(z.string().parse(ref));
     if (!thread) publicError(`No job called "${ref}".`);
-    if (!answer.trim()) publicError("Nothing to tell it.");
-    await answerThread(thread.id, answer.trim(), "user", recipient, replyTo);
+    const said = z.string().parse(answer).trim();
+    if (!said) publicError("Nothing to tell it.");
+    await answerThread(
+      thread.id,
+      said,
+      "user",
+      z.string().nullish().parse(recipient) ?? undefined,
+      z.string().nullish().parse(replyTo) ?? undefined,
+    );
     return { id: thread.id, label: thread.label, status: "running" as const };
   },
 );
@@ -170,7 +180,7 @@ export const compactThreadAction = serverAction(
 );
 
 export const cancelThreadAction = serverAction(async (ref: string) => {
-  const thread = await resolveThread(ref);
+  const thread = await resolveThread(z.string().parse(ref));
   if (!thread) publicError(`No job called "${ref}".`);
   await cancelThread(thread.id);
   return { id: thread.id, label: thread.label, status: "cancelled" as const };
@@ -182,7 +192,8 @@ export const markSeenAction = serverAction(async (ids: string[]) => {
 });
 
 export const deleteThreadAction = serverAction(async (id: string) => {
-  if (!(await removeThread(id))) publicError("Thread not found");
+  if (!(await removeThread(z.string().parse(id))))
+    publicError("Thread not found");
 });
 
 /** Empties the log of what is over. Running and waiting jobs are not touched. */
