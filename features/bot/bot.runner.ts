@@ -167,6 +167,8 @@ export async function answerThread(
 /** Claiming is short and serialized; model execution never holds the room lock. */
 async function pump(id: string) {
   await threadLock(id, async () => {
+    // settleRoom can queue one turn, the coordinator's wrap-up (`wrapped` holds back another
+    // until a message is sent in the room); the second pass launches it rather than leaving it queued
     for (let pass = 0; pass < 2; pass++) {
       let work: RoomWork | null;
       while ((work = await claimRoomWork(id))) launch(work);
