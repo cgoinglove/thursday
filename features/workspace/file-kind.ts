@@ -154,29 +154,11 @@ function chipPath(raw: string): string | null {
   return rest.length && head.includes(".") ? null : rel;
 }
 
-/** What stands between two names when the first runs on to the second: "slide_1.png ~ slide_7.png". */
-const RUNS_TO = /^[\s`'"*_)]*(?:~|–|—|-|\.{2,}|…|to|through)[\s`'"*_(]*$/i;
-
 /**
- * The names a run leaves out: `slide_1.png ~ slide_7.png` is seven files said as two. Only
- * when both ends differ by their last number alone, and by few enough to be a list.
+ * The workspace files a text names, each as it was written. Only what is named: a model that
+ * means seven slides names seven (bot.prompt), and a guess at the ones between two names
+ * reads a list, a rename or a range in some other language as files nobody picked.
  */
-function between(from: string, to: string): string[] {
-  const parts = (path: string) => /^(.*?)(\d+)(\D*)$/.exec(path);
-  const a = parts(from);
-  const b = parts(to);
-  if (!a || !b || a[1] !== b[1] || a[3] !== b[3]) return [];
-  const first = Number(a[2]);
-  const last = Number(b[2]);
-  if (!(last - first > 1) || last - first > 12) return [];
-  // `01` runs on as `02`; `1` as `2`
-  const width = a[2].startsWith("0") ? a[2].length : 0;
-  return Array.from(
-    { length: last - first - 1 },
-    (_, at) => `${a[1]}${String(first + at + 1).padStart(width, "0")}${a[3]}`,
-  );
-}
-
 export function pathsIn(text: string): string[] {
   // Strip urls first, or `example.com/price.html` becomes a chip. A scheme on a
   // single slash is a link prefix on a real path (`sandbox:/…`, how a model links
@@ -189,17 +171,11 @@ export function pathsIn(text: string): string[] {
   // A list names its folder once, then only the names in it: a bare name is
   // read in the folder of the path before it
   let folder = "";
-  let before: { rel: string; end: number } | null = null;
-  for (const found of prose.matchAll(PATH_RE)) {
-    const match = found[0];
+  for (const [match] of prose.matchAll(PATH_RE)) {
     const bare = !match.includes("/");
     const rel = chipPath(bare ? folder + match : match);
     if (!bare) folder = rel?.slice(0, rel.lastIndexOf("/") + 1) ?? "";
-    if (!rel) continue;
-    if (before && RUNS_TO.test(prose.slice(before.end, found.index)))
-      for (const one of between(before.rel, rel)) seen.add(one);
-    seen.add(rel);
-    before = { rel, end: found.index + match.length };
+    if (rel) seen.add(rel);
   }
   return [...seen].slice(0, 12);
 }
