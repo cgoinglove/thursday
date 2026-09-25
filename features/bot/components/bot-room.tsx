@@ -81,7 +81,7 @@ export const BotRoom = memo(function BotRoom() {
     roomOpen.set(open ? (reading ? "thread" : "list") : null);
     return () => roomOpen.set(null);
   }, [open, reading]);
-  /** The bot each thread shows, by thread id; a thread not in here is on All. */
+  /** The bot each thread shows, by thread id; a thread not in here is on its own bot's tab. */
   const [sides, setSides] = useState<Record<string, string | null>>({});
   /** The list on screen: what is current, or everything that has ended. */
   const [tab, setTab] = useState<RoomTab>("now");

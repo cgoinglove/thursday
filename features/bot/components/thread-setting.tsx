@@ -446,7 +446,7 @@ function ThreadSheet({
   const anchor = useCallback((node: HTMLElement | null) => {
     setHost(node?.closest<HTMLElement>("[data-slot=dialog-content]") ?? null);
   }, []);
-  /** The tab each thread was left on; missing is All. */
+  /** The tab each thread was left on; missing is the thread's own bot's tab. */
   const [sides, setSides] = useState<Record<string, string | null>>({});
   const view = useMemo(
     () => (thread ? threadFromRow(thread, bots) : null),
