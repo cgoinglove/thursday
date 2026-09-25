@@ -1,5 +1,5 @@
 ---
-checked: 2026-09-24
+checked: 2026-09-26
 paths:
   - "lib/protocol/**"
   - "lib/{public-error,date-like}.ts"
@@ -30,7 +30,7 @@ A server component calls a domain's query directly; a client screen reads a `ser
 ## Rules
 - A fact is emitted where it is written (the domain's `*.query.ts`, or the one module that owns that state), never in a caller — an emit in a caller misses the bot, routine or phone that writes through the same function.
 - A GET that a signal names carries detail only for what can still change, and a finished item's detail is read by its own key — the GET is re-read on every write in its domain, so a finished thread's lines would be read again for every row a working bot writes.
-- A GET starts nothing and changes nothing a screen shows; the MCP OAuth callback, which a provider can reach only by GET, acts only on a `state` this app issued — `proxy.ts` checks where a write came from but not a read, so any page the user has open can send a GET.
+- A GET starts nothing and changes nothing a screen shows; the MCP OAuth callback, which a provider can reach only by GET, acts only on a `state` this app issued — `proxy.ts` checks where a write came from, and a read only on the routes in its `ACTING_READS` (the event stream's presence, the favicon fetch), so any page the user has open can send any other GET.
 - An outside API's refusal crosses the boundary in its own words: the seam that called it raises `publicError`, through `modelErrorToString` for what the AI SDK wrapped — left to `to-result.ts`, a refused key or spent credit is masked into a failure nobody can act on.
 - State the server holds for its lifetime (a client, a bus, a runner, a timer, a map a route and an action share) is pinned on `globalThis` — a dev reload evaluates the module again and a route and an action can load separate copies, so a second pool or clock starts beside the first, or what an action sets never reaches the route.
 - A path from a request or a model goes through `insideWorkspace` (`features/workspace/workspace.ts`) before its file is read, served or deleted — else a `..` or a symlink a bot left behind hands out any file on the machine.

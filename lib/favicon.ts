@@ -42,8 +42,37 @@ async function fetchIcon(host: string): Promise<Favicon | null> {
   return named ? fetchImage(named) : null;
 }
 
+/**
+ * A fetch that follows a redirect only to another public https host, as the first one had to
+ * be: left to follow on its own, a public page redirecting to an address on the machine's own
+ * network was fetched from here.
+ */
+async function publicFetch(
+  url: string,
+  init: RequestInit,
+  hops = 3,
+): Promise<Response | null> {
+  let at = url;
+  for (let hop = 0; hop <= hops; hop++) {
+    const response = await fetch(at, { ...init, redirect: "manual" });
+    if (response.status < 300 || response.status > 399) return response;
+    const next = response.headers.get("location");
+    if (!next) return null;
+    const target = new URL(next, at);
+    const name = target.hostname.toLowerCase();
+    if (
+      target.protocol !== "https:" ||
+      !HOST.test(name) ||
+      name.endsWith(".local")
+    )
+      return null;
+    at = target.href;
+  }
+  return null;
+}
+
 async function fetchImage(url: string): Promise<Favicon | null> {
-  const response = await fetch(url, {
+  const response = await publicFetch(url, {
     signal: AbortSignal.timeout(FAVICON.timeoutMs),
     headers: { accept: "image/*", "user-agent": AGENT },
   }).catch(() => null);
@@ -57,11 +86,11 @@ async function fetchImage(url: string): Promise<Favicon | null> {
 
 /** The icon a front page names, as an absolute https URL on a public host. */
 async function namedIcon(host: string): Promise<string | null> {
-  const response = await fetch(`https://${host}/`, {
+  const response = await publicFetch(`https://${host}/`, {
     signal: AbortSignal.timeout(FAVICON.timeoutMs),
     headers: { accept: "text/html", "user-agent": AGENT },
   });
-  if (!response.ok || !response.body) return null;
+  if (!response?.ok || !response.body) return null;
   // The head is at the top; the rest of the page is never read
   const reader = response.body.getReader();
   const decoder = new TextDecoder();

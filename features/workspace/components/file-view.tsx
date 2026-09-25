@@ -441,8 +441,10 @@ export function FileFrame({
       ref={frame}
       title={path}
       src={queryKey.file(path)}
-      // `*`: a page is served sandboxed, so it holds no origin the default (`src`) would match
-      allow="clipboard-read *; clipboard-write *; fullscreen *; autoplay *"
+      // `*`: a page is served sandboxed, so it holds no origin the default (`src`) would match.
+      // It may write to the clipboard, never read it: a page a bot wrote from the web would
+      // read whatever the user last copied
+      allow="clipboard-write *; fullscreen *; autoplay *"
       className={className}
       onLoad={loaded}
     />

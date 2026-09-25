@@ -115,7 +115,9 @@ function shellEnv(): NodeJS.ProcessEnv {
   for (const name of Object.keys(env)) {
     if (
       APP_OWN.test(name) ||
-      /KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|_AUTH/i.test(name)
+      /KEY|TOKEN|SECRET|PASS|_PWD|CREDENTIAL|_AUTH|_DSN|DATABASE_URL/i.test(
+        name,
+      )
     ) {
       delete env[name];
     }

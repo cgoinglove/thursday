@@ -2427,8 +2427,12 @@ test("a bot's shell has the user's environment, not what the app set to run itse
     __NEXT_PRIVATE_STANDALONE_CONFIG: "{}",
     npm_lifecycle_event: "npx",
     THURSDAY_URL: "http://localhost:4747",
-    // A secret
+    // A secret, and ones named without KEY or TOKEN in them
     SOME_API_KEY: "sk-test",
+    DATABASE_URL: "postgres://me:hunter2@localhost/db",
+    MYSQL_PWD: "hunter2",
+    SMTP_PASS: "hunter2",
+    SENTRY_DSN: "https://key@sentry.example/1",
     // The user's own tools
     MY_TOOLCHAIN_HOME: "/opt/tools",
   };
@@ -2454,6 +2458,10 @@ test("a bot's shell has the user's environment, not what the app set to run itse
       "npm_lifecycle_event",
       "THURSDAY_URL",
       "SOME_API_KEY",
+      "DATABASE_URL",
+      "MYSQL_PWD",
+      "SMTP_PASS",
+      "SENTRY_DSN",
     ])
       assert.ok(!seen.has(name), `${name} reached the shell`);
     // What is meant for the bot is laid back over it, and the user's own stays

@@ -76,6 +76,44 @@ test("a write another site sends is refused, and the app's own and a local tool'
   );
 });
 
+test("the app may be framed only by itself, and a read that acts is refused to another site", () => {
+  const page = proxy(request("http://127.0.0.1:3000/"));
+  assert.equal(
+    page.headers.get("content-security-policy"),
+    "frame-ancestors 'self'",
+  );
+  assert.equal(page.headers.get("x-frame-options"), "SAMEORIGIN");
+  // A bot's page sets its own, sandboxed, and the viewer frames it
+  assert.equal(
+    proxy(
+      request("http://127.0.0.1:3000/api/file/artifacts/Tester/page.html"),
+    ).headers.get("x-frame-options"),
+    null,
+  );
+  // Held open by another site, the stream counted it as the user watching
+  for (const path of ["/api/events", "/api/favicon/example.com"]) {
+    assert.equal(
+      proxy(
+        request(`http://127.0.0.1:3000${path}`, {
+          "sec-fetch-site": "cross-site",
+        }),
+      ).status,
+      403,
+      path,
+    );
+    assert.ok(
+      passes(
+        proxy(
+          request(`http://127.0.0.1:3000${path}`, {
+            "sec-fetch-site": "same-origin",
+          }),
+        ),
+      ),
+      path,
+    );
+  }
+});
+
 test("a page or a drawing is served sandboxed, and a picture is not", async () => {
   await mkdir(join(WORKSPACE, "artifacts", "Tester"), { recursive: true });
   const serve = async (name: string, body: string) => {

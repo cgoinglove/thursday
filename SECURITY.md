@@ -14,7 +14,7 @@ What the app does to keep that narrow:
   the environment), are read only where a model is built, and are passed to a
   provider explicitly. Nothing is sent anywhere else.
 - **Secrets are not in the shell's environment.** Every environment variable
-  matching `KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|_AUTH` is stripped from the
+  matching `KEY|TOKEN|SECRET|PASS|_PWD|CREDENTIAL|_AUTH|_DSN|DATABASE_URL` is stripped from the
   environment a bot's commands run in (`lib/sandbox.ts`), so a compromised npm
   package in a bot's project cannot read them out of `process.env`. This is
   narrower than it sounds and is meant to be: the database those keys live in
@@ -43,7 +43,16 @@ What the app does to keep that narrow:
   bot still on the list. Signing out removes the file
   (`features/signins/signins.query.ts`). These checks are on the tools, not the
   file: a bot's shell runs as you and can read it. A kept session signs every
-  later job of those bots in as you.
+  later job of those bots in as you. It is the browser's whole session, not
+  one site's cookies: a sign-in made through another site — "Sign in with
+  Google" — carries that site's session as well, so a bot lent it can reach
+  both.
+- **Your own Chrome is lent whole.** A bot can attach to the Chrome you use —
+  a tab of its own through the Playwright extension, or the browser you left
+  open (`playwright-cli attach`, `skills/browser/SKILL.md`) — and it then acts
+  in every site that Chrome is signed into, not only the one the job named.
+  Nothing in the app or the skill asks you before it attaches; without the
+  extension installed, the tab of its own is not there to take.
 - **From a phone, one person, let in at the computer.** Settings › Phone
   connects the app out to Telegram, Discord or Slack; nothing on the computer
   is opened to the internet. Each service lets in one person, and only once

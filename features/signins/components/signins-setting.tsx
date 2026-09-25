@@ -51,7 +51,8 @@ export function SignInsSetting() {
       footer={
         <SettingRailNote>
           A site's session as the browser held it — never a password. Kept on
-          this machine, outside the folder the bots work in.
+          this machine, outside the folder the bots work in. It is the whole
+          session: signed in with Google, it carries the Google sign-in too.
         </SettingRailNote>
       }
     >
@@ -242,7 +243,7 @@ function OwnChrome() {
         <span className="block text-sm font-medium">Your own Chrome</span>
         <span className="block text-[13px] text-muted-foreground">
           For a site that will not stay signed in. A bot gets a tab of its own,
-          signed in as you.
+          signed in as you — to every site your Chrome is, not only that one.
         </span>
       </span>
       {/* A link, not a button that navigates: it leaves the app, and should be heard as one */}

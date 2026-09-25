@@ -58,6 +58,8 @@ export const GET = serverRoute(
     const tag = `W/"${info.size.toString(16)}-${info.mtimeMs.toString(16)}"`;
     const headers = new Headers({
       "content-type": mimeOf(rel),
+      // Read as the type named here and nothing else: a file a bot wrote is not guessed at
+      "x-content-type-options": "nosniff",
       "last-modified": info.mtime.toUTCString(),
       etag: tag,
       "accept-ranges": "bytes",
