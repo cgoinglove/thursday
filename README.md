@@ -40,8 +40,8 @@ Needs Node.js 22.18+ and one OpenAI API key, pasted into the first screen. Pick 
 A speech model that opens a browser goes silent for a minute, and a silent call is a dead call. So anything slower than a few seconds goes to a bot, and she keeps talking — interrupt her, change the subject, or ask how the job is going.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/talk-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/talk-light.png" alt="On a call: she says a bot is on it and will tell you when it is back. Below, the job is handed over and a web search starts" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-talk-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-talk-light.png" alt="On a call: she says a bot is on it and will tell you when it is back, and the job is handed over" width="880">
 </picture>
 
 ### One ask, a whole team
@@ -49,8 +49,8 @@ A speech model that opens a browser goes silent for a minute, and a silent call 
 Bots hand parts of a job to each other, check what comes back, and ask you only when a decision is yours. Every handoff is saved: open the thread to see who did what, or step in.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/team-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/team-light.png" alt="A thread between two bots: one hands the job over, the other reports what it compared, and a question waits on you" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-team-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-team-light.png" alt="While she tells you what was compared, two bots work a shop in their browser, and a question waits on you: keep the two that ship late?" width="880">
 </picture>
 
 ### Errands, in a real browser
@@ -58,8 +58,8 @@ Bots hand parts of a job to each other, check what comes back, and ask you only 
 Orders, bookings, forms, the inbox. A bot uses its own browser or the Chrome you are already signed into. A purchase stops at the Pay button, left open on your screen for you to press.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/errands-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/errands-light.png" alt="A checkout in a browser a bot drove: filled in, stopped at the Pay button, left open on your screen" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-errands-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-errands-light.png" alt="Two bots in a browser of their own, one handing the other the job, searching a shop while she stays on the call" width="880">
 </picture>
 
 ### Results you can keep
@@ -67,15 +67,15 @@ Orders, bookings, forms, the inbox. A bot uses its own browser or the Chrome you
 Pages, charts, videos, slides, docs and scripts, saved as files on your machine. A finished one shows up in the corner of your screen, and “show me” opens it.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/results-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/results-light.png" alt="A page a bot made, with the file it saved named beside it" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-results-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-results-light.png" alt="A finished job lands in the corner as a card; opened, it is the page a bot made, saved as a file" width="880">
 </picture>
 
 ## And also
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/more-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/more-light.png" alt="Your crew: pick starter bots or make your own, each on the model you choose. From your phone: write to her from Telegram, Discord or Slack. Routines: every weekday at nine, a bot, a job and a time. Memory you can read: plain notes you can open, edit or delete" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-more-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-more-light.png" alt="Routines: every weekday at nine, a bot, a job and a time. From your phone: write to her from Telegram, Discord or Slack. Memory you can read: plain notes you can open, edit or delete. Every bot, its own model, picked per bot" width="880">
 </picture>
 
 ## How it works

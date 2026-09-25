@@ -40,8 +40,8 @@ Node.js 22.18 이상과 OpenAI API 키 하나면 됩니다. 첫 화면에 키를
 음성 모델이 직접 브라우저를 열면 1분쯤 말이 없어지고, 조용한 통화는 끊긴 통화나 다름없습니다. 그래서 몇 초 넘게 걸리는 일은 봇에게 넘기고 통화는 이어집니다. 말을 끊어도 되고, 딴 얘기를 해도 되고, 시킨 일이 어디까지 됐는지 물어봐도 됩니다.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/talk-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/talk-light.png" alt="통화 중 — 봇이 맡았고 돌아오면 알려 주겠다고 말한다. 그 아래로 일이 넘어가고 웹 검색이 시작된다" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-talk-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-talk-light.png" alt="통화 중 — 봇이 맡았고 돌아오면 알려 주겠다고 말하고, 일이 넘어간다" width="880">
 </picture>
 
 ### 한마디면 팀이 움직입니다
@@ -49,8 +49,8 @@ Node.js 22.18 이상과 OpenAI API 키 하나면 됩니다. 첫 화면에 키를
 봇들은 일을 나눠 맡고, 서로의 결과를 확인하고, 내가 정해야 할 때만 묻습니다. 주고받은 것은 전부 스레드에 남습니다. 누가 뭘 했는지 열어 보고, 중간에 끼어들 수도 있습니다.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/team-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/team-light.png" alt="봇 둘의 스레드 — 하나가 일을 넘기고, 다른 하나가 비교한 것을 보고하고, 질문 하나가 나를 기다린다" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-team-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-team-light.png" alt="그녀가 비교한 것을 말하는 동안 봇 둘이 브라우저에서 쇼핑몰을 뒤지고, 질문 하나가 나를 기다린다 — 늦게 오는 두 벌은 뺄까?" width="880">
 </picture>
 
 ### 심부름은 진짜 브라우저로
@@ -58,8 +58,8 @@ Node.js 22.18 이상과 OpenAI API 키 하나면 됩니다. 첫 화면에 키를
 주문, 예약, 신청서, 메일함. 봇은 전용 브라우저나 내가 이미 로그인해 둔 Chrome 을 씁니다. 결제는 마지막 버튼 앞에서 멈추고, 그 화면은 내가 누르라고 열린 채로 남습니다.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/errands-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/errands-light.png" alt="봇이 몰던 브라우저의 결제 화면 — 다 채워 두고 결제 버튼 앞에서 멈춰 열린 채로 남았다" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-errands-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-errands-light.png" alt="봇 둘이 자기 브라우저에서 일을 넘겨받아 쇼핑몰을 검색하고, 그녀는 통화를 이어 간다" width="880">
 </picture>
 
 ### 결과는 파일로 남습니다
@@ -67,15 +67,15 @@ Node.js 22.18 이상과 OpenAI API 키 하나면 됩니다. 첫 화면에 키를
 페이지, 차트, 영상, 슬라이드, 문서, 스크립트. 전부 내 컴퓨터에 파일로 저장되고, 다 되면 화면 구석에 올라옵니다. “보여 줘” 하면 열립니다.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/results-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/results-light.png" alt="봇이 만든 페이지와, 그 옆에 저장된 파일 이름" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-results-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-results-light.png" alt="끝난 일이 화면 구석에 카드로 도착하고, 열면 봇이 만든 페이지가 파일로 저장돼 있다" width="880">
 </picture>
 
 ## 이런 것도 됩니다
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/more-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/more-light.png" alt="내 봇 팀 — 첫 실행에서 고르거나 직접 만들고, 봇마다 다른 모델로. 폰에서 — 텔레그램·디스코드·슬랙으로 말 걸기. 루틴 — 평일 아침 아홉 시, 봇 하나와 일 하나와 시각 하나. 읽을 수 있는 메모리 — 열고 고치고 지울 수 있는 평범한 메모" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-more-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-more-light.png" alt="루틴 — 평일 아침 아홉 시, 봇 하나와 일 하나와 시각 하나. 폰에서 — 텔레그램·디스코드·슬랙으로 말 걸기. 읽을 수 있는 메모리 — 열고 고치고 지울 수 있는 평범한 메모. 봇마다 고르는 모델" width="880">
 </picture>
 
 ## 어떻게 돌아가나
