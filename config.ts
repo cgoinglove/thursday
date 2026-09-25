@@ -940,9 +940,7 @@ export const PROMPT_LINE = {
 };
 
 /**
- * Thursday's ascii face, the one everybody sees: nothing in the app changes it.
- * - `charset`  `ascii` draws characters only, `emoji` sprinkles emoji in,
- *            `emojiOnly` draws nothing else. Emoji cost more to draw per frame.
+ * Thursday's face, the one everybody sees: nothing in the app changes it. She is drawn in emoji.
  * - `fontSize`  glyph size in px. Smaller glyphs pack more cells into the same
  *            orb: a finer grain, and more to draw on every frame.
  * - `density`  cells per glyph pitch. Above 1 packs them tighter; below leaves
@@ -953,7 +951,6 @@ export const PROMPT_LINE = {
  *            time, not frames, so a lower cap draws the same motion less often.
  */
 export const ASCII_FACE = {
-  charset: "emojiOnly",
   fontSize: 8,
   density: 1.4,
   fps: 30,

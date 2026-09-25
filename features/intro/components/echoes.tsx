@@ -2,25 +2,20 @@
 
 import { type RefObject, useEffect, useRef } from "react";
 import {
-  ALPHA_TOP,
-  EMOJI_MIN_LEVEL,
   EMOJI_POOL,
-  EMOJI_RATIO,
   emojiAlpha,
   emojiWeight,
   hash,
-  RAMP,
+  LEVELS,
   smoothstep,
 } from "@/features/thursday/ascii.const";
 import {
-  CHURN_ASCII,
-  CHURN_EMOJI,
+  CHURN,
   DESIGN,
   GLYPH_FONT,
   REST_R,
   TRAIL_FAST,
 } from "@/features/thursday/components/ascii-orb";
-import type { AsciiCharset } from "@/features/thursday/face.const";
 import { windAt } from "@/features/thursday/field";
 import { createSmoke, restValue, stepSmoke } from "@/features/thursday/smoke";
 import { WASH_SETS } from "@/features/thursday/wash";
@@ -136,7 +131,6 @@ type Cell = {
   seed: number;
   grain: number;
   gap: number;
-  roll: number;
 };
 
 type Size = {
@@ -151,9 +145,7 @@ type Size = {
   pool: Int8Array;
   poolFor: Float32Array;
   /** Cells by level this frame, and their glyphs. */
-  ascii: Int32Array[];
   emoji: Int32Array[];
-  asciiN: Int32Array;
   emojiN: Int32Array;
   glyph: string[];
   /** All of it has gone out. */
@@ -200,13 +192,11 @@ const still = () =>
  */
 export function Echoes({
   anchor,
-  charset,
   onArrive,
   onHello,
   onDone,
 }: {
   anchor: RefObject<HTMLElement | null>;
-  charset: AsciiCharset;
   onArrive: () => void;
   onHello: () => void;
   onDone: () => void;
@@ -214,8 +204,8 @@ export function Echoes({
   const canvas = useRef<HTMLCanvasElement>(null);
   const dark = useIsDark();
   // the loop starts once; what may change under it comes through refs
-  const live = useRef({ charset, dark, onArrive, onHello, onDone });
-  live.current = { charset, dark, onArrive, onHello, onDone };
+  const live = useRef({ dark, onArrive, onHello, onDone });
+  live.current = { dark, onArrive, onHello, onDone };
 
   useEffect(() => {
     const element = canvas.current;
@@ -253,18 +243,20 @@ export function Echoes({
           ...EMOJI_POOL,
           ...GONE_DARK.flat(),
           ...GONE_LIGHT.flat(),
-          ...CARRIED.flatMap((set) => WASH_SETS[set - 1].emoji),
+          ...CARRIED.flatMap((set) => WASH_SETS[set - 1]),
         ]),
       ],
       dpr,
     );
-    const top = RAMP.length - 1;
+    if (!emojis) {
+      say("arrive");
+      say("hello");
+      say("done");
+      return;
+    }
+    const top = LEVELS - 1;
 
     let sizes: Size[] = [];
-    // Her ink is the page's foreground, read again only when the theme turns or the canvas is
-    // laid out anew (which resets it): read every frame, it makes the page work out its styles
-    // while the first screen is animating in.
-    let inkFor: boolean | null = null;
     // her canvas's centre and size, measured off the box she stands in, and every size's grid on it
     const lay = () => {
       const w = window.innerWidth;
@@ -272,9 +264,6 @@ export function Echoes({
       element.width = Math.round(w * dpr);
       element.height = Math.round(h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      inkFor = null;
       const rect = box.getBoundingClientRect();
       const bleed =
         Number.parseFloat(
@@ -325,7 +314,6 @@ export function Echoes({
               seed: hash(col + index * 101, row),
               grain: hash(col * 5.7 + 19 + index, row * 2.3 + 53),
               gap: 0.05 + hash(col * 7.3 + 11, row * 3.1 + 5 + index) * 0.3,
-              roll: hash(col * 2.7 + 31, row * 5.9 + 17 + index),
             });
           }
         const count = cells.length;
@@ -339,9 +327,7 @@ export function Echoes({
           pick: new Int32Array(count),
           pool: new Int8Array(count),
           poolFor: new Float32Array(count),
-          ascii: Array.from({ length: top + 1 }, () => new Int32Array(count)),
           emoji: Array.from({ length: top + 1 }, () => new Int32Array(count)),
-          asciiN: new Int32Array(top + 1),
           emojiN: new Int32Array(top + 1),
           glyph: new Array<string>(count),
           over: false,
@@ -364,14 +350,7 @@ export function Echoes({
       const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
       last = now;
       clock += dt;
-      const { charset: cs, dark: onDark } = live.current;
-      const alone = cs === "emojiOnly";
-      const rate = alone ? CHURN_EMOJI : CHURN_ASCII;
-      const gone = onDark ? GONE_DARK : GONE_LIGHT;
-      if (inkFor !== onDark) {
-        inkFor = onDark;
-        ctx.fillStyle = getComputedStyle(element).color;
-      }
+      const gone = live.current.dark ? GONE_DARK : GONE_LIGHT;
       // her smoke at rest and this frame's wind: every size leans as she does
       stepSmoke(smoke, clock, dt, 0, 0, -1);
       const wind = windAt(clock, windSeed);
@@ -393,7 +372,6 @@ export function Echoes({
         const left = age > 0.05;
         // her own noise, at a time of its own for each size, so no two sizes breathe together
         const at = clock + index * 31;
-        one.asciiN.fill(0);
         one.emojiN.fill(0);
         let here = 0;
         const cells = one.cells;
@@ -464,7 +442,7 @@ export function Echoes({
           if (level === 0) continue;
           here++;
 
-          const slot = (clock * rate + cell.seed * 7) | 0;
+          const slot = (clock * CHURN + cell.seed * 7) | 0;
           if (
             slot !== one.turn[ci] ||
             level - one.wasLevel[ci] >= 2 ||
@@ -476,47 +454,22 @@ export function Echoes({
           }
           const pick = one.pick[ci];
           const set = one.pool[ci] ? WASH_SETS[one.pool[ci] - 1] : null;
-          const showEmoji =
-            alone ||
-            (cs === "emoji" &&
-              (set !== null ||
-                (cell.roll < EMOJI_RATIO && level >= EMOJI_MIN_LEVEL)));
-          if (showEmoji && emojis) {
-            // a size she has left goes to her whites; what carries a wash wears it
-            const bag = set ? set.emoji : left ? gone[level] : EMOJI_POOL;
-            one.glyph[ci] = bag[pick % bag.length];
-            one.emoji[level][one.emojiN[level]++] = ci;
-          } else {
-            const bag = set ? set.ascii : RAMP[level];
-            one.glyph[ci] = bag[pick % bag.length];
-            one.ascii[level][one.asciiN[level]++] = ci;
-          }
+          // a size she has left goes to her whites; what carries a wash wears it
+          const bag = set ?? (left ? gone[level] : EMOJI_POOL);
+          one.glyph[ci] = bag[pick % bag.length];
+          one.emoji[level][one.emojiN[level]++] = ci;
         }
         lit += here;
         if (age > 1.45 && here === 0) one.over = true;
 
-        // drawn by level, as her face is: ink for the glyphs, alpha for how bright
-        ctx.font = GLYPH_FONT(one.px);
-        for (let lv = 1; lv <= top; lv++) {
-          const n = one.asciiN[lv];
-          if (n === 0) continue;
-          ctx.globalAlpha = ALPHA_TOP * (lv / top);
-          const idx = one.ascii[lv];
-          for (let i = 0; i < n; i++) {
-            const cell = cells[idx[i]];
-            ctx.fillText(one.glyph[idx[i]], cell.x, cell.y);
-          }
-        }
-        if (!emojis) return;
+        // drawn by level, as her face is: alpha for how bright, and the dim end smaller too
+        // (ascii.const emojiWeight)
         for (let lv = 1; lv <= top; lv++) {
           const n = one.emojiN[lv];
           if (n === 0) continue;
-          ctx.globalAlpha = emojiAlpha(lv, top, alone);
-          // drawn alone, the dim end is drawn smaller too (ascii.const emojiWeight)
+          ctx.globalAlpha = emojiAlpha(lv, top);
           const side =
-            one.px *
-            emojis.scale *
-            (alone ? 0.5 + emojiWeight(lv, top) * 0.5 : 1);
+            one.px * emojis.scale * (0.5 + emojiWeight(lv, top) * 0.5);
           const idx = one.emoji[lv];
           for (let i = 0; i < n; i++) {
             const cell = cells[idx[i]];
@@ -557,7 +510,7 @@ export function Echoes({
     <canvas
       ref={canvas}
       aria-hidden
-      className="pointer-events-none absolute inset-0 size-full text-foreground"
+      className="pointer-events-none absolute inset-0 size-full"
     />
   );
 }

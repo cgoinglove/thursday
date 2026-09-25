@@ -20,7 +20,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ASCII_FACE } from "@/config";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import {
   parseTextModel,
@@ -213,7 +212,6 @@ export function Intro({
       {opening !== "over" && (
         <Echoes
           anchor={faceBox}
-          charset={ASCII_FACE.charset}
           onArrive={() => setOpening("her")}
           onHello={() => setOpening("hello")}
           onDone={() => setOpening("over")}

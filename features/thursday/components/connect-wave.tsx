@@ -3,18 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  ALPHA_TOP,
-  CHAR_RATE,
   EMOJI_CHAR_RATE,
-  EMOJI_MIN_LEVEL,
   EMOJI_POOL,
-  EMOJI_RATIO,
   emojiAlpha,
   hash,
-  RAMP,
+  LEVELS,
   smoothstep,
 } from "../ascii.const";
-import type { AsciiCharset } from "../face.const";
 import type { CallStatus } from "../thursday.schema";
 
 /** Grid step, px: her face's own. */
@@ -43,7 +38,6 @@ type Cell = {
   seed: number;
   grain: number;
   speck: number;
-  roll: number;
 };
 
 const FONT = `700 ${GLYPH}px ui-monospace, SFMono-Regular, Menlo, monospace`;
@@ -80,13 +74,7 @@ const still = () =>
  * front crossing the whole window a second after a reload is the most regular thing on the
  * screen, and it landed on top of the hello she is already showing (the user's pick).
  */
-export function ConnectWave({
-  status,
-  charset,
-}: {
-  status: CallStatus;
-  charset: AsciiCharset;
-}) {
+export function ConnectWave({ status }: { status: CallStatus }) {
   const anchor = useRef<HTMLSpanElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const was = useRef(status);
@@ -95,8 +83,8 @@ export function ConnectWave({
   // moment a call picks up is the wrong moment for it
   const emoji = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
-    emoji.current = charset === "ascii" ? null : sheet(EMOJI_POOL);
-  }, [charset]);
+    emoji.current = sheet(EMOJI_POOL);
+  }, []);
 
   useEffect(() => {
     const from = was.current;
@@ -147,7 +135,6 @@ export function ConnectWave({
           seed: hash(c, r),
           grain,
           speck: hash(c + 7, r + 101),
-          roll: hash(c + 211, r + 89),
         });
       }
     // nearest first, so a frame visits only the cells between the crumbs and the front
@@ -168,21 +155,9 @@ export function ConnectWave({
     element.width = w;
     element.height = h;
     const ctx = element.getContext("2d");
-    // An ascii face draws no emoji, so it needs no sheet, least of all one drawn now
-    const emojis =
-      charset === "ascii" ? null : (emoji.current ?? sheet(EMOJI_POOL));
-    if (!ctx || (charset !== "ascii" && !emojis)) return;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = FONT;
-    // her ink is the page's foreground: black on light, white on dark
-    ctx.fillStyle = getComputedStyle(element).color;
-    const top = RAMP.length - 1;
-    // the same glyphs as her face: all emoji, emoji over the bright ascii, or ascii alone
-    const emojiAt = (c: Cell, level: number) =>
-      charset === "emojiOnly" ||
-      (charset === "emoji" && c.roll < EMOJI_RATIO && level >= EMOJI_MIN_LEVEL);
-    const rate = charset === "emojiOnly" ? EMOJI_CHAR_RATE : CHAR_RATE;
+    const emojis = emoji.current ?? sheet(EMOJI_POOL);
+    if (!ctx || !emojis) return;
+    const top = LEVELS - 1;
     const half = SLOT / 2;
 
     const t0 = performance.now();
@@ -213,37 +188,27 @@ export function ConnectWave({
         }
         const level = Math.round(v * top);
         if (level < 1) continue;
-        const turn = Math.floor(t * rate + c.seed * 10);
-        if (emojis && emojiAt(c, level)) {
-          // emoji keep their own colour, so only alpha varies, as on her face
-          ctx.globalAlpha = emojiAlpha(level, top, charset === "emojiOnly");
-          const at = Math.floor(hash(c.seed * 97, turn) * EMOJI_POOL.length);
-          ctx.drawImage(
-            emojis,
-            at * SLOT,
-            0,
-            SLOT,
-            SLOT,
-            c.x - half,
-            c.y - half,
-            SLOT,
-            SLOT,
-          );
-          continue;
-        }
-        ctx.globalAlpha = ALPHA_TOP * (level / top);
-        const set = RAMP[level];
-        ctx.fillText(
-          set[Math.floor(hash(c.seed * 131, turn) * set.length)],
-          c.x,
-          c.y,
+        const turn = Math.floor(t * EMOJI_CHAR_RATE + c.seed * 10);
+        // emoji keep their own colour, so only alpha varies, as on her face
+        ctx.globalAlpha = emojiAlpha(level, top);
+        const at = Math.floor(hash(c.seed * 97, turn) * EMOJI_POOL.length);
+        ctx.drawImage(
+          emojis,
+          at * SLOT,
+          0,
+          SLOT,
+          SLOT,
+          c.x - half,
+          c.y - half,
+          SLOT,
+          SLOT,
         );
       }
       ctx.globalAlpha = 1;
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, charset]);
+  }, [playing]);
 
   return (
     <>
@@ -257,7 +222,7 @@ export function ConnectWave({
           <canvas
             ref={canvas}
             aria-hidden
-            className="pointer-events-none fixed inset-0 z-30 size-full text-foreground"
+            className="pointer-events-none fixed inset-0 z-30 size-full"
           />,
           document.body,
         )}

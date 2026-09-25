@@ -33,7 +33,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ASCII_FACE, CALL_IDLE, CALL_LINE } from "@/config";
+import { CALL_IDLE, CALL_LINE } from "@/config";
 import { LIVE_DEFAULTS, LIVE_PROVIDER } from "@/features/ai/live.schema";
 import { TEXT_MODEL_PROVIDERS } from "@/features/ai/model.schema";
 import { type Bot, DEFAULT_BOT } from "@/features/bot/bot.schema";
@@ -249,7 +249,7 @@ function CallScreen({
               />
             </span>
           </button>
-          <ConnectWave status={status} charset={ASCII_FACE.charset} />
+          <ConnectWave status={status} />
 
           {sided && (
             <SideCaptions

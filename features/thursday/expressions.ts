@@ -77,17 +77,11 @@ const DUST = 2;
 
 /**
  * The glyphs of what she gives off, in the wash's shape (wash.ts): a breath of smoke, and dust. Dust
- * has no emoji of its own — it is her own, thinned out, since a colour of its own read as paint.
+ * has none of its own (null) — it is her own, thinned out, since a colour of its own read as paint.
  */
-export const PIECE_SETS: readonly {
-  ascii: readonly string[];
-  emoji: readonly string[] | null;
-}[] = [
-  {
-    ascii: ["~", "s", "S", "§", "~", "∫", "s", "≈", "S", "~"],
-    emoji: ["💨", "☁️", "🌫️", "💨", "☁️", "🫧", "💭", "💨", "☁️", "🌫️"],
-  },
-  { ascii: ["*", ":", "'", ".", "*", ",", ":", "`", "*", ";"], emoji: null },
+export const PIECE_SETS: readonly (readonly string[] | null)[] = [
+  ["💨", "☁️", "🌫️", "💨", "☁️", "🫧", "💭", "💨", "☁️", "🌫️"],
+  null,
 ];
 
 /** While her eyes are up her head is never quite still: a slow turn this far either way (rad). */

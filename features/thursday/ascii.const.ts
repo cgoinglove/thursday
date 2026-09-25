@@ -2,26 +2,12 @@
 // so the schema can read it too.
 
 /**
- * Glyph candidates per brightness level; a cell picks one so equal levels do
- * not form rings. No dense glyphs (blocks, filled shapes, @#MW): brightness
- * comes from alpha, glyphs only add texture.
+ * Brightness levels a cell is drawn at, 0 (empty) to LEVELS - 1. Brightness is how an emoji is
+ * drawn — its alpha and its size (emojiAlpha, emojiWeight) — not which emoji it is.
  */
-export const RAMP: string[][] = [
-  [" "],
-  [" ", ".", "`"],
-  [".", ",", "·", "'"],
-  [":", ";", "-", "^"],
-  ["=", "+", "~", '"'],
-  ["*", "?", "◦", "j"],
-  ["c", "v", "○", "7"],
-  ["o", "x", "◇", "い"],
-  ["s", "y", "t", "あ"],
-  ["e", "a", "u", "な"],
-  ["k", "w", "z", "や"],
-  ["q", "h", "n", "米"],
-];
+export const LEVELS = 12;
 
-/** Emoji mixed into the glyphs, spread across the color wheel. */
+/** Her emoji, spread across the colour wheel. */
 export const EMOJI_POOL = [
   // red
   "🍎",
@@ -98,38 +84,23 @@ export const EMOJI_POOL = [
   "🎡",
 ];
 
-/** Opacity of the brightest level. */
-export const ALPHA_TOP = 0.82;
-
 /**
- * Where an emoji stands on the ramp when emoji are all there is, 0 to 1. Not the level itself:
- * an emoji cannot shade. A "." is a tenth of an "\u7C73" in ink, while a pale emoji is the same
- * nine pixels across as a bright one, so eleven even steps come out as one weight everywhere and
- * what she has thrown weighs what her body weighs. This splits them instead — the bottom rungs
- * are the halo and fall away fast, and everything from the body up is simply there.
+ * Where an emoji stands on the ramp, 0 to 1. Not the level itself: an emoji cannot shade. A pale
+ * emoji is the same nine pixels across as a bright one, so eleven even steps come out as one
+ * weight everywhere and what she has thrown weighs what her body weighs. This splits them instead
+ * — the bottom rungs are the halo and fall away fast, and everything from the body up is simply
+ * there.
  */
 export function emojiWeight(level: number, top: number) {
   return smoothstep(0.05, 0.42, level / top);
 }
 
-/**
- * How brightly an emoji is drawn at brightness level `level` of `top`. Sprinkled over an ascii
- * body they are the highlights and never the dim end, so they start high; drawn alone they carry
- * the whole ramp.
- */
-export function emojiAlpha(level: number, top: number, alone: boolean) {
-  return alone
-    ? 0.06 + emojiWeight(level, top) * 0.94
-    : 0.35 + (level / top) * 0.65;
+/** How brightly an emoji is drawn at brightness level `level` of `top`: it carries the whole ramp. */
+export function emojiAlpha(level: number, top: number) {
+  return 0.06 + emojiWeight(level, top) * 0.94;
 }
 
-/** Fraction of cells that hold an emoji. */
-export const EMOJI_RATIO = 0.11;
-/** Minimum brightness level for an emoji cell. */
-export const EMOJI_MIN_LEVEL = 6;
-/** Glyph changes per second. */
-export const CHAR_RATE = 2.2;
-/** Emoji changes per second; emoji are expensive to draw. */
+/** Emoji changes per second in the wave that leaves her face; emoji are expensive to draw. */
 export const EMOJI_CHAR_RATE = 0.6;
 
 /**

@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ASCII_FACE } from "@/config";
-import { EMOJI_POOL, hash, RAMP } from "../ascii.const";
-import type { AsciiCharset } from "../face.const";
+import { EMOJI_POOL, hash } from "../ascii.const";
 
 /**
  * Thursday wherever she is small: the room, a thread, the call log, the
@@ -25,8 +23,6 @@ export const THURSDAY_SEED = "thursday";
 const GLYPH = 4;
 /** The air a bot mark leaves in its own box (BotMark draws 240 of 276); without it she reads a size larger beside one. */
 const INSET = 240 / 276;
-/** Her glyphs (config ASCII_FACE): anything but ascii draws her mark in emoji. */
-const CHARSET: AsciiCharset = ASCII_FACE.charset;
 /** How long a cell keeps a glyph. */
 const FLIP_MS = 620;
 /** Steps through EMOJI_POOL per flip. The pool runs in colour bands, so a stride past one changes the colour. */
@@ -86,16 +82,10 @@ function layoutOf(size: number) {
 }
 
 /** The glyph a cell holds at `t`. Each cell flips on its own beat, so the ball shimmers rather than blinks. */
-function glyphAt(cell: Cell, t: number, emoji: boolean) {
+function glyphAt(cell: Cell, t: number) {
   const turn = Math.floor((t + hash(cell.seed, 11) * FLIP_MS * 3) / FLIP_MS);
-  if (emoji) {
-    const from = Math.floor(hash(cell.seed, 17) * EMOJI_POOL.length);
-    return EMOJI_POOL[(from + turn * HUE_STRIDE) % EMOJI_POOL.length];
-  }
-  // denser letters toward the center, as the orb's brightness falls off to its rim
-  const level = Math.round(5 + 4 * Math.max(0, 1 - cell.r ** 2) ** 0.6);
-  const bag = RAMP[Math.min(RAMP.length - 1, level)];
-  return bag[Math.floor(hash(cell.seed, turn) * bag.length)] ?? " ";
+  const from = Math.floor(hash(cell.seed, 17) * EMOJI_POOL.length);
+  return EMOJI_POOL[(from + turn * HUE_STRIDE) % EMOJI_POOL.length];
 }
 
 /** One clock for every mounted mark. */
@@ -128,7 +118,6 @@ export function ThursdayMark({
   size?: number;
   className?: string;
 }) {
-  const emoji = CHARSET !== "ascii";
   const { cells, font } = layoutOf(size);
   // first frame is t=0 so server and client render the same picture
   const [t, setT] = useState(0);
@@ -144,7 +133,7 @@ export function ThursdayMark({
       width={size}
       height={size}
       className={className}
-      // letters follow the theme; an unset fill paints black and vanishes in dark
+      // a glyph with no colour of its own (no colour emoji font) follows the theme
       fill="currentColor"
       aria-hidden
     >
@@ -154,15 +143,10 @@ export function ThursdayMark({
           x={cell.x}
           y={cell.y}
           textAnchor="middle"
-          fontFamily={
-            emoji
-              ? '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif'
-              : "ui-monospace, SFMono-Regular, Menlo, monospace"
-          }
-          fontWeight={emoji ? undefined : 700}
+          fontFamily='"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif'
           fontSize={font}
         >
-          {glyphAt(cell, t, emoji)}
+          {glyphAt(cell, t)}
         </text>
       ))}
     </svg>
