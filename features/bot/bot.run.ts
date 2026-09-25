@@ -41,6 +41,7 @@ import {
 import { logger } from "@/lib/logger";
 import { estimateTokens } from "@/lib/tokens";
 import { findJobBot } from "./bot.query";
+import { ROOM_THURSDAY } from "./room.schema";
 import {
   argumentLine,
   findThread,
@@ -205,7 +206,16 @@ export async function runBot(
       execute: async (input, call) => {
         const receipt = await options.send({ ...input, id: call.toolCallId });
         if (input.kind === "question") asked = true;
-        return receipt;
+        if (!receipt || typeof receipt !== "object" || !("to" in receipt))
+          return receipt;
+        const to = String(receipt.to);
+        if (to === ROOM_THURSDAY) return receipt;
+        // What a handoff means for the one who made it: left unsaid, a caller whose colleague
+        // was slow watched their folder with sleep and then did the work itself (a second copy)
+        return {
+          ...receipt,
+          note: `${to} has it now. When they finish, their answer — what they did and where the files are — comes to you as a new message and wakes you. Until then you do not know it: do not report it, guess it or do it yourself, and do not watch their folder. Go on with other work, or end your turn if there is none; the thread stays open.`,
+        };
       },
     }),
   };

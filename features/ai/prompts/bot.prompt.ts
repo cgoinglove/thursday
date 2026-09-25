@@ -331,7 +331,7 @@ These lines were written for the user: where one says "you", it means them. When
 function collaboration(name: string, seat?: Seat | null): string {
   const owner = (seat?.owner ?? name) === name;
   const ending = owner
-    ? `Bring what you received together into one result for Thursday: what was done, where it is, what you decided that the request did not say, and what is still open, at the detail the user asked for. Every file you name in it is drawn under your words in the thread and waits in the screen's corner for the user to open, so name each one you want them to see — the page to read first, then the rest.`
+    ? `While work you handed out is still out, your result waits for it: end your turn and its answer wakes you; write the result once everything you asked for is in. Bring what you received together into one result for Thursday: what was done, where it is, what you decided that the request did not say, and what is still open, at the detail the user asked for. Every file you name in it is drawn under your words in the thread and waits in the screen's corner for the user to open, so name each one you want them to see — the page to read first, then the rest.`
     : `Your final text is your answer to ${seat?.caller ?? "whoever asked"}, and all they see of your work: give them everything they need to carry on. When you cannot go on without something from them, end with that question instead; their reply brings you back with all you have done still in front of you.`;
 
   return `## Working together
