@@ -71,15 +71,19 @@ published numbers, with charts, the weather on given days and an amount in anoth
 daily news brief; finding more skills; and writing a new one. **Marketer** also carries one of its
 own for marketing — a product's brief, page copy, email sequences, a launch, social posts, an SEO
 audit — and **Concierge** one for trips — flights and stays compared, a booking handed over, a
-day-by-day page — which no other bot sees. **Settings › Skills** lists them in two groups, **Custom** (the
-user's own) and **Default** (the ones that ship, read-only). There a skill can be switched off (it stays off through an update of the app), uploaded (a `.md`,
-`.zip` or `.skill` file), written from scratch, or deleted when it is one of their own. Opening a skill shows its files; in one of
-their own, **Edit** on a file writes it back, which is how a typo or a changed step is fixed without
-making the skill again. A bot can also find one in the open registry while it works, or write a
-new one. Before it installs one from the registry it asks, saying who published it, its license
+day-by-day page — which no other bot sees. **Settings › Skills** lists them in groups: **Custom** (the
+user's own), one for each bot that has skills of its own (**Marketer's own**: what ships with it,
+and what it found or wrote for itself), and **Default** (the ones that ship, read-only). There a skill can be switched off (it stays off through an update of the app), uploaded (a `.md`,
+`.zip` or `.skill` file up to 20 MB; an archive that would unpack past 100 MB or 1,000 files is
+refused), written from scratch, or deleted when it is one of their own. Each row says what the
+skill does; opening it shows the rest of its description and its files. In one of their own,
+**Edit** on a file writes it back, which is how a typo or a changed step is fixed without making
+the skill again; picking another file with changes not saved asks before dropping them. A bot can
+also find one in the open registry while it works, or write a new one. Before it installs one from the registry it asks, saying who published it, its license
 and what its security checks found. Either way it decides whether the skill is for itself alone
 or for every bot: to itself unless any bot would use it or the user said everyone, and its report
-says which. A bot's own skills sit in its own folder and are not on that screen.
+says which. One it keeps for itself shows under its name there, where it can be opened, switched
+off, edited or deleted like one of their own.
 
 ## Connected services
 

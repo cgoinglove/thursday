@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { APP_DIR, DATA_DIR, PATHS } from "@/config";
 import { botFolder, WORKSPACE } from "@/features/workspace/workspace";
@@ -9,6 +8,7 @@ import { errorToString } from "@/lib/utils";
 import {
   isSkillOff,
   parseFrontmatter,
+  readRetired,
   readSkillsOff,
   runsHere,
 } from "./skills.query";
@@ -33,24 +33,6 @@ export const seedSkills = (bot: string): string | null => {
   const key = bot.trim().toLowerCase();
   return /^[a-z0-9][a-z0-9_-]*$/.test(key) ? join(seeds, key) : null;
 };
-
-/**
- * Copies the app once made in a ready-made bot's folder and no longer ships there
- * (`seed-skills/retired.json`): one still byte for byte as shipped is not listed, so the bot
- * does not see an old copy beside what replaced it. One the user changed is theirs and stays.
- */
-let retired: Promise<Map<string, Set<string>>> | undefined;
-const readRetired = () =>
-  (retired ??= readFile(join(seeds, "retired.json"), "utf8")
-    .then((text) => {
-      const { sha256 } = JSON.parse(text) as {
-        sha256: Record<string, string[]>;
-      };
-      return new Map(
-        Object.entries(sha256).map(([name, hashes]) => [name, new Set(hashes)]),
-      );
-    })
-    .catch(() => new Map<string, Set<string>>()));
 
 /**
  * Shipped first: a skill the app ships wins over any other of the same name, so a copy

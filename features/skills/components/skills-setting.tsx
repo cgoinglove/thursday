@@ -17,7 +17,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { type DragEvent, useRef, useState } from "react";
+import { type DragEvent, useEffect, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldLabel } from "@/components/ui/field";
@@ -28,7 +28,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { PATHS, PROMPT_CROWDED } from "@/config";
+import { PATHS, PROMPT_CROWDED, SKILL_FILES } from "@/config";
 import {
   PICKED_ROW,
   SettingDialogContent,
@@ -49,11 +49,13 @@ import {
   uploadSkillAction,
   writeSkillFileAction,
 } from "@/features/skills/skills.action";
-import type {
-  SkillEntry,
-  SkillNode,
-  SkillSource,
-  SkillSummary,
+import {
+  firstSentence,
+  isEditableSource,
+  type SkillEntry,
+  type SkillNode,
+  type SkillSource,
+  type SkillSummary,
 } from "@/features/skills/skills.schema";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
@@ -87,13 +89,25 @@ export function SkillsSetting() {
     `${skill.name} ${skill.description}`.toLowerCase().includes(needle);
   const shown = skills.filter(match);
   const on = skills.filter((skill) => !skill.disabled).length;
+  /** What every bot reads on every step: its own come on top only for that bot. */
+  const onForAll = skills.filter(
+    (skill) =>
+      !skill.disabled &&
+      (skill.source === "default" || skill.source === "custom"),
+  ).length;
+  /** Each bot's own, kit and found alike, under its name, in the roster's order of names. */
+  const byBot = new Map<string, SkillSummary[]>();
+  for (const skill of shown)
+    if (skill.bot)
+      byBot.set(skill.bot, [...(byBot.get(skill.bot) ?? []), skill]);
 
   return (
     <SettingScreen
       footer={
         <SettingRailNote>
-          {skills.filter((skill) => skill.source === "default").length} shipped
-          · {skills.filter((skill) => skill.source === "custom").length}{" "}
+          {skills.filter((skill) => !isEditableSource(skill.source)).length}{" "}
+          shipped ·{" "}
+          {skills.filter((skill) => isEditableSource(skill.source)).length}{" "}
           installed
         </SettingRailNote>
       }
@@ -108,7 +122,7 @@ export function SkillsSetting() {
 
       <SettingGroup
         label="Custom"
-        hint="yours — added here · wins a name clash"
+        hint="yours — added here · a Default skill of the same name wins"
       >
         <SettingItems addRow={{ label: "Add skill", onClick: openSkillCreate }}>
           {shown
@@ -118,6 +132,20 @@ export function SkillsSetting() {
             ))}
         </SettingItems>
       </SettingGroup>
+
+      {[...byBot].map(([bot, own]) => (
+        <SettingGroup
+          key={bot}
+          label={`${bot}'s own`}
+          hint={`only ${bot} reads these · what it found or wrote can be edited or deleted`}
+        >
+          <SettingItems>
+            {own.map((skill) => (
+              <SkillRow key={`${skill.source}/${skill.dir}`} skill={skill} />
+            ))}
+          </SettingItems>
+        </SettingGroup>
+      ))}
 
       <SettingGroup
         label="Default"
@@ -132,10 +160,10 @@ export function SkillsSetting() {
         </SettingItems>
       </SettingGroup>
 
-      {on > PROMPT_CROWDED.skills && (
+      {onForAll > PROMPT_CROWDED.skills && (
         <SettingNote>
-          {on} skills are on. Each is a line in every prompt a bot reads, and
-          one more to look past when it picks.
+          {onForAll} skills are on for every bot. Each is a line in every prompt
+          a bot reads, and one more to look past when it picks.
         </SettingNote>
       )}
     </SettingScreen>
@@ -157,7 +185,7 @@ function SkillRow({ skill }: { skill: SkillSummary }) {
       okText: "Delete",
       destructive: true,
     });
-    if (confirmed) remove(skill.dir);
+    if (confirmed) remove(skill.source, skill.dir);
   };
 
   const Mark = markOf(skill);
@@ -187,7 +215,7 @@ function SkillRow({ skill }: { skill: SkillSummary }) {
             {skill.name}
           </span>
           <span className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-            {skill.description}
+            {firstSentence(skill.description)}
           </span>
         </span>
         <ChevronRight className="size-4 shrink-0 text-muted-foreground/60 group-hover:text-foreground" />
@@ -201,7 +229,7 @@ function SkillRow({ skill }: { skill: SkillSummary }) {
           aria-label={`${skill.name} on or off`}
           className="shrink-0"
         />
-        {skill.source === "custom" ? (
+        {isEditableSource(skill.source) ? (
           <Button
             size="icon-sm"
             variant="ghost"
@@ -231,11 +259,28 @@ function openSkillBrowser(skill: SkillSummary) {
 function SkillBrowser({ skill }: { skill: SkillSummary }) {
   const [dir, setDir] = useState("");
   const [file, setFile] = useState<string | null>("SKILL.md");
+  /** Whether the open file has words written into it and not saved: they live only in the box. */
+  const unsaved = useRef(false);
 
-  const openEntry = (entry: SkillEntry) => {
+  const openEntry = async (entry: SkillEntry) => {
     const path = dir ? `${dir}/${entry.name}` : entry.name;
-    if (entry.kind === "dir") setDir(path);
-    else setFile(path);
+    if (entry.kind === "dir") {
+      setDir(path);
+      return;
+    }
+    if (path === file) return;
+    if (
+      unsaved.current &&
+      !(await notify.confirm({
+        title: "Discard your changes?",
+        description: `What you wrote in ${file?.split("/").pop()} is not saved.`,
+        okText: "Discard",
+        destructive: true,
+      }))
+    )
+      return;
+    unsaved.current = false;
+    setFile(path);
   };
 
   return (
@@ -266,11 +311,17 @@ function SkillBrowser({ skill }: { skill: SkillSummary }) {
 
         <div className="min-w-0 flex-1 overflow-y-auto">
           {file ? (
+            // Keyed by the file: a draft belongs to the file it was written in, and Save
+            // writes to the one on screen
             <FileView
+              key={file}
               source={skill.source}
               dir={skill.dir}
               path={file}
-              editable={skill.source === "custom"}
+              editable={isEditableSource(skill.source)}
+              onUnsaved={(has) => {
+                unsaved.current = has;
+              }}
             />
           ) : (
             <p className="p-6 text-sm text-muted-foreground/60">Pick a file</p>
@@ -447,18 +498,24 @@ function FileView({
   dir,
   path,
   editable,
+  onUnsaved,
 }: {
   source: SkillSource;
   dir: string;
   path: string;
   /** A skill of the user's own is written back from here; one that ships is read-only. */
   editable?: boolean;
+  /** Told whether the box holds words the file does not, so leaving it can ask first. */
+  onUnsaved?: (has: boolean) => void;
 }) {
   /** The text being written, or null while the file is only being read. */
   const [draft, setDraft] = useState<string | null>(null);
   const { data, isLoading, error } = useServerRoute<SkillNode>(
     queryKey.skillNode(source, dir, path),
   );
+  const changed =
+    draft !== null && (data?.kind !== "file" || draft !== data.content);
+  useEffect(() => onUnsaved?.(changed), [changed, onUnsaved]);
   const [save, saving] = useServerAction(writeSkillFileAction, {
     okMessage: "Saved",
     onOk: () => {
@@ -517,7 +574,7 @@ function FileView({
                 className="font-mono"
                 loading={saving}
                 disabled={draft === data.content}
-                onClick={() => save(dir, path, draft)}
+                onClick={() => save(source, dir, path, draft)}
               >
                 Save
               </Button>
@@ -535,7 +592,9 @@ function FileView({
         />
       ) : data.content === null ? (
         <p className="px-5 py-4 text-sm text-muted-foreground/60">
-          Not a text file — a bot can still read it from disk.
+          {data.size > SKILL_FILES.inlineBytes
+            ? "Too long to show here — a bot still reads it from disk."
+            : "Not a text file — a bot can still read it from disk."}
         </p>
       ) : name.toLowerCase().endsWith(".md") ? (
         <SkillMarkdown content={data.content} description={data.description} />
@@ -582,12 +641,15 @@ function SkillCreate({ onDone }: { onDone: () => void }) {
   );
   const busy = creating || uploading;
   const error = mode === "write" ? createError : uploadError;
+  /** Known here, before a byte is sent: the server refuses it at the same size. */
+  const tooLarge = file !== null && file.size > SKILL_FILES.uploadBytes;
+  const uploadMb = Math.round(SKILL_FILES.uploadBytes / 1024 / 1024);
 
   const canSubmit =
     !busy &&
     (mode === "write"
       ? name.trim() && description.trim() && content.trim()
-      : file !== null);
+      : file !== null && !tooLarge);
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -659,7 +721,7 @@ function SkillCreate({ onDone }: { onDone: () => void }) {
                 id="skill-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="When to use it — this is how a bot decides to read it"
+                placeholder="What it does, then when to use it — a bot reads this to decide"
               />
             </FieldContent>
           </Field>
@@ -697,8 +759,14 @@ function SkillCreate({ onDone }: { onDone: () => void }) {
             {file ? (
               <span className="text-sm">
                 {file.name}
-                <span className="ml-2 font-mono text-[11px] text-muted-foreground">
+                <span
+                  className={cn(
+                    "ml-2 font-mono text-[11px]",
+                    tooLarge ? "text-destructive" : "text-muted-foreground",
+                  )}
+                >
                   {formatBytes(file.size)}
+                  {tooLarge && ` · over ${uploadMb} MB`}
                 </span>
               </span>
             ) : (
@@ -726,6 +794,7 @@ function SkillCreate({ onDone }: { onDone: () => void }) {
               <span className="font-mono">.skill</span> archive needs a SKILL.md
               inside — the rest of its folder comes along.
             </p>
+            <p>Up to {uploadMb} MB.</p>
           </div>
         </TabsContent>
       </Tabs>

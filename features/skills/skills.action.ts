@@ -4,7 +4,7 @@ import { unzipSync } from "fflate";
 import { z } from "zod";
 import { SKILL_FILES } from "@/config";
 import {
-  deleteCustomSkill,
+  deleteSkill,
   parseFrontmatter,
   renderSkillMarkdown,
   setSkillOff,
@@ -14,7 +14,6 @@ import {
 } from "@/features/skills/skills.query";
 import {
   SkillDraftSchema,
-  SkillNameSchema,
   SkillSourceSchema,
 } from "@/features/skills/skills.schema";
 import { serverAction } from "@/lib/protocol/server-action";
@@ -110,27 +109,41 @@ export const uploadSkillAction = serverAction(async (form: unknown) => {
   return writeCustomSkill(skillFolderName(meta.name), files);
 });
 
-export const deleteSkillAction = serverAction(async (dir: unknown) => {
-  await deleteCustomSkill(SkillNameSchema.parse(dir));
-});
+/**
+ * A skill's folder as its source holds it. One a bot installed for itself is named by whoever
+ * published it, so only emptiness is refused here; skills.query skillDir keeps it one folder
+ * inside its source.
+ */
+const SkillFolderSchema = z.string().trim().min(1).max(128);
 
-/** One text file of a skill of the user's own, written back as it is on screen. */
+/** The user's own, or one a bot wrote for itself: what ships is only switched off. */
+export const deleteSkillAction = serverAction(
+  async (source: unknown, dir: unknown) => {
+    await deleteSkill(
+      SkillSourceSchema.parse(source),
+      SkillFolderSchema.parse(dir),
+    );
+  },
+);
+
+/** One text file of a skill the user may change, written back as it is on screen. */
 export const writeSkillFileAction = serverAction(
-  async (dir: unknown, path: unknown, content: unknown) => {
+  async (source: unknown, dir: unknown, path: unknown, content: unknown) => {
     await writeSkillFile(
-      SkillNameSchema.parse(dir),
+      SkillSourceSchema.parse(source),
+      SkillFolderSchema.parse(dir),
       z.string().trim().min(1).parse(path),
       z.string().parse(content),
     );
   },
 );
 
-/** Both sources. Switching off is kept in the user's config, never in the skill's files. */
+/** Every source. Switching off is kept in the user's config, never in the skill's files. */
 export const setSkillDisabledAction = serverAction(
   async (source: unknown, dir: unknown, disabled: unknown) => {
     await setSkillOff(
       SkillSourceSchema.parse(source),
-      SkillNameSchema.parse(dir),
+      SkillFolderSchema.parse(dir),
       z.boolean().parse(disabled),
     );
   },

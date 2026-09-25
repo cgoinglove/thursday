@@ -256,7 +256,7 @@ test("a skill's file is read and written only where it really is inside the skil
     /File not found/,
   );
   await assert.rejects(
-    writeSkillFile("linky", "leak.md", "changed"),
+    writeSkillFile("custom", "linky", "leak.md", "changed"),
     /File not found/,
   );
   const { readFile } = await import("node:fs/promises");

@@ -1,9 +1,29 @@
 import { z } from "zod";
 
-/** `default` ships with the app and is read-only; `custom` lives in the workspace's `.agents/skills`. */
-const SKILL_SOURCES = ["custom", "default"] as const;
-export const SkillSourceSchema = z.enum(SKILL_SOURCES);
+/**
+ * Where a skill lives, which decides who reads it and what the user may do with it:
+ * - `default` ships with the app, every bot's, read-only;
+ * - `custom` is the user's own in the workspace's `.agents/skills`, every bot's;
+ * - `kit:<bot>` ships with a ready-made bot (`seed-skills/<name>`), that bot's alone, read-only;
+ * - `own:<bot>` is one a bot found or wrote for itself (`bots/<bot>/.agents/skills`), that
+ *   bot's alone. `<bot>` is its folder name (workspace botFolderName).
+ */
+export const SkillSourceSchema = z.union([
+  z.enum(["custom", "default"]),
+  z.templateLiteral(["kit:", z.string().regex(/^[\p{L}\p{N}_-]+$/u)]),
+  z.templateLiteral(["own:", z.string().regex(/^[\p{L}\p{N}_-]+$/u)]),
+]);
 export type SkillSource = z.infer<typeof SkillSourceSchema>;
+
+/** The user's to change and delete: their own, and what a bot wrote for itself. */
+export const isEditableSource = (source: SkillSource) =>
+  source === "custom" || source.startsWith("own:");
+
+/** The bot a `kit:` or `own:` source belongs to, by its folder name; null for every bot's. */
+export const botOfSource = (source: SkillSource): string | null =>
+  source.startsWith("kit:") || source.startsWith("own:")
+    ? source.slice(4)
+    : null;
 
 /** The skill's folder name; also a path segment, so restricted to what every filesystem and URL accepts. */
 export const SkillNameSchema = z
@@ -76,11 +96,23 @@ export const SkillDraftSchema = SkillFrontmatterSchema.extend({
   content: z.string().trim().min(1, "Content is required"),
 });
 
+/**
+ * A description's first sentence: what the skill does (.claude/rules/skills.md). The rest
+ * says when a bot should load it, which is the bot's to read, not the person's.
+ */
+export const firstSentence = (description: string): string =>
+  description
+    .trim()
+    .split(/(?<=[.。])\s|\n/)[0]
+    .trim();
+
 /** A skill list row. */
 export type SkillSummary = SkillFrontmatter & {
   source: SkillSource;
   /** Folder name; differs from `name` only for skills not created here. */
   dir: string;
+  /** The bot a `kit:` or `own:` skill is for, by name as the roster shows it. */
+  bot?: string;
 };
 
 /** One entry of a folder listing inside a skill. */

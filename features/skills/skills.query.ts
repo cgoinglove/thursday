@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   mkdir,
   readdir,
@@ -10,6 +11,7 @@ import {
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { parse, stringify } from "yaml";
 import { APP_DIR, DATA_DIR, PATHS, SKILL_FILES } from "@/config";
+import { listBotNames } from "@/features/bot/bot.query";
 import { readConfig, writeConfig } from "@/features/config/config.query";
 import type {
   SkillEntry,
@@ -19,26 +21,66 @@ import type {
   SkillSummary,
 } from "@/features/skills/skills.schema";
 import {
+  botOfSource,
+  isEditableSource,
   parseSkillsOff,
   SKILLS_OFF_KEY,
   SkillFrontmatterSchema,
 } from "@/features/skills/skills.schema";
+import { botFolderName, WORKSPACE } from "@/features/workspace/workspace";
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
 import { errorToString } from "@/lib/utils";
 
 /** Skills are folders on disk, so "query" here means the filesystem. Nothing else touches the skill dirs. */
 
-const ROOTS: Record<SkillSource, string> = {
-  default: resolve(APP_DIR, PATHS.skills.default),
-  custom: resolve(DATA_DIR, PATHS.skills.custom),
-};
+/** Where each source's skill folders sit (skills.schema SkillSourceSchema). */
+function rootOf(source: SkillSource): string {
+  if (source === "default") return resolve(APP_DIR, PATHS.skills.default);
+  if (source === "custom") return resolve(DATA_DIR, PATHS.skills.custom);
+  const bot = botOfSource(source) ?? "";
+  // A kit is read where it ships, by the bot's name lowercased (skills.discover seedSkills)
+  return source.startsWith("kit:")
+    ? resolve(APP_DIR, PATHS.skills.seeds, bot.toLowerCase())
+    : resolve(WORKSPACE, PATHS.bots, bot, PATHS.skills.own);
+}
+
+/**
+ * Copies the app once made in a ready-made bot's folder and no longer ships there
+ * (`seed-skills/retired.json`): one still byte for byte as shipped is neither listed to the
+ * bot nor on the Skills screen, so an old copy is not seen beside what replaced it. One the
+ * user changed is theirs and stays.
+ */
+let retired: Promise<Map<string, Set<string>>> | undefined;
+export const readRetired = () =>
+  (retired ??= readFile(
+    join(APP_DIR, PATHS.skills.seeds, "retired.json"),
+    "utf8",
+  )
+    .then((text) => {
+      const { sha256 } = JSON.parse(text) as {
+        sha256: Record<string, string[]>;
+      };
+      return new Map(
+        Object.entries(sha256).map(([name, hashes]) => [name, new Set(hashes)]),
+      );
+    })
+    .catch(() => new Map<string, Set<string>>()));
+
+const isRetiredCopy = (
+  retiredCopies: Map<string, Set<string>>,
+  name: string,
+  content: string,
+) =>
+  retiredCopies
+    .get(name)
+    ?.has(createHash("sha256").update(content, "utf8").digest("hex")) ?? false;
 
 const HIDDEN = new Set([".DS_Store", "__MACOSX"]);
 
 /** Resolves a skill folder under its root; `..`, absolute paths and anything outside are refused alike. */
 function skillDir(source: SkillSource, dir: string) {
-  const root = ROOTS[source];
+  const root = rootOf(source);
   const full = resolve(root, dir);
   const rel = relative(root, full);
   if (!rel || rel.startsWith("..") || rel.includes(sep) || rel === ".") {
@@ -206,37 +248,70 @@ export function renderSkillMarkdown(
 async function readSummary(
   source: SkillSource,
   dir: string,
+  retiredCopies: Map<string, Set<string>>,
 ): Promise<SkillSummary | null> {
   try {
     const content = await readFile(
-      join(ROOTS[source], dir, "SKILL.md"),
+      join(rootOf(source), dir, "SKILL.md"),
       "utf-8",
     );
-    return { ...parseFrontmatter(content), source, dir };
+    const frontmatter = parseFrontmatter(content);
+    if (
+      source.startsWith("own:") &&
+      isRetiredCopy(retiredCopies, frontmatter.name, content)
+    )
+      return null;
+    return { ...frontmatter, source, dir };
   } catch {
     // A folder without a readable SKILL.md is not a skill, same as discoverSkills
     return null;
   }
 }
 
-/** default first, then custom: the agent's priority (skills.discover). `disabled` is whether it is off. */
+/**
+ * Every skill a bot can read, where it lives: the shipped ones and the user's own (every
+ * bot's), then each bot's own — what its ready-made kit ships and what it found or wrote for
+ * itself. `disabled` is whether it is off. A bot's own are on this list so that what one
+ * installed from the registry for itself is seen, and can be switched off or deleted.
+ */
 export async function findAllSkills(): Promise<SkillSummary[]> {
   const out: SkillSummary[] = [];
   const off = await readSkillsOff();
-  for (const source of ["default", "custom"] as const) {
+  const retiredCopies = await readRetired();
+  const bots = await listBotNames().catch((cause) => {
+    logger.warn(
+      `skills: the bots could not be listed — ${errorToString(cause)}`,
+    );
+    return [] as string[];
+  });
+  const sources: { source: SkillSource; bot?: string }[] = [
+    { source: "default" },
+    { source: "custom" },
+    ...[...bots]
+      .sort((a, b) => a.localeCompare(b))
+      .flatMap((bot) => [
+        { source: `kit:${botFolderName(bot)}` as const, bot },
+        { source: `own:${botFolderName(bot)}` as const, bot },
+      ]),
+  ];
+  for (const { source, bot } of sources) {
     let names: string[] = [];
     try {
-      names = (await readdir(ROOTS[source], { withFileTypes: true }))
+      names = (await readdir(rootOf(source), { withFileTypes: true }))
         .filter((e) => e.isDirectory() && !HIDDEN.has(e.name))
         .map((e) => e.name)
         .sort();
     } catch {
-      continue; // a fresh install has no custom skills folder yet
+      continue; // a folder nothing has been put in yet
     }
     for (const dir of names) {
-      const summary = await readSummary(source, dir);
+      const summary = await readSummary(source, dir, retiredCopies);
       if (summary && runsHere(summary))
-        out.push({ ...summary, disabled: isSkillOff(summary, off) });
+        out.push({
+          ...summary,
+          ...(bot ? { bot } : {}),
+          disabled: isSkillOff(summary, off),
+        });
     }
   }
   return out;
@@ -336,7 +411,7 @@ export async function writeCustomSkill(
     throw error;
   }
 
-  const summary = await readSummary("custom", dir);
+  const summary = await readSummary("custom", dir, new Map());
   if (!summary) {
     await rm(base, { recursive: true, force: true });
     publicError("SKILL.md could not be read back");
@@ -351,11 +426,14 @@ export async function writeCustomSkill(
  * opened, and a new file in a skill is a job for the bot that works in it.
  */
 export async function writeSkillFile(
+  source: SkillSource,
   dir: string,
   path: string,
   content: string,
 ) {
-  const base = skillDir("custom", dir);
+  if (!isEditableSource(source))
+    publicError("A skill that ships with the app is read-only");
+  const base = skillDir(source, dir);
   const full = await stillInside(base, insideSkill(base, path));
   const info = await stat(full).catch(() => null);
   if (!info?.isFile()) publicError("File not found");
@@ -368,9 +446,11 @@ export async function writeSkillFile(
   await writeFile(full, content, "utf-8");
 }
 
-/** Only custom skills can be deleted. */
-export async function deleteCustomSkill(dir: string) {
-  const base = skillDir("custom", dir);
+/** The user's own and what a bot wrote for itself can be deleted; what ships cannot. */
+export async function deleteSkill(source: SkillSource, dir: string) {
+  if (!isEditableSource(source))
+    publicError("A skill that ships with the app can only be switched off");
+  const base = skillDir(source, dir);
   const exists = await stat(base).then(
     () => true,
     () => false,

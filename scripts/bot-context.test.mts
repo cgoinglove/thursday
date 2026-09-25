@@ -2392,3 +2392,63 @@ test("a kept sign-in is renewed only from a browser holding it for a bot allowed
     await rm(join(home, "state.json"), { force: true });
   }
 });
+
+test("the Skills screen lists each bot's own — its kit and what it found or wrote — and only the latter can be changed", async () => {
+  const { findAllSkills, deleteSkill, writeSkillFile } = await import(
+    "../features/skills/skills.query.ts"
+  );
+  const { WORKSPACE } = await import("../features/workspace/workspace.ts");
+  const { createBot, deleteBot } = await import("../features/bot/bot.query.ts");
+  const { existsSync } = await import("node:fs");
+  const made = await createBot({
+    name: "Marketer",
+    description: "Marketing",
+    toolIds: [],
+  });
+  const own = join(
+    WORKSPACE,
+    "bots",
+    "Jarvis",
+    ".agents",
+    "skills",
+    "notes-style",
+  );
+  await mkdir(own, { recursive: true });
+  await writeFile(
+    join(own, "SKILL.md"),
+    "---\nname: notes-style\ndescription: Writes notes as they like them. Use it for notes.\n---\nBody\n",
+  );
+  try {
+    const all = await findAllSkills();
+    const found = all.find((skill) => skill.source === "own:Jarvis");
+    assert.equal(found?.name, "notes-style");
+    assert.equal(found?.bot, "Jarvis");
+    const kit = all.find(
+      (skill) => skill.source === "kit:Marketer" && skill.name === "marketing",
+    );
+    assert.equal(kit?.bot, "Marketer");
+    // Every bot's still come first and last, as before
+    assert.equal(all[0]?.source, "default");
+
+    // What a bot wrote is the user's to change; what ships with a bot is not
+    await writeSkillFile(
+      "own:Jarvis",
+      "notes-style",
+      "SKILL.md",
+      "---\nname: notes-style\ndescription: Changed. Use it.\n---\n",
+    );
+    await assert.rejects(
+      writeSkillFile("kit:Marketer", "marketing", "SKILL.md", "x"),
+      /read-only/,
+    );
+    await assert.rejects(
+      deleteSkill("kit:Marketer", "marketing"),
+      /switched off/,
+    );
+    await deleteSkill("own:Jarvis", "notes-style");
+    assert.equal(existsSync(own), false);
+  } finally {
+    await rm(own, { recursive: true, force: true });
+    if (made) await deleteBot("Marketer");
+  }
+});

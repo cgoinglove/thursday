@@ -10,6 +10,7 @@ import type { BotWorkLine } from "@/features/bot/bot.schema";
 import type { McpToolRef } from "@/features/connectors/mcp.schema";
 import type { MemoryIndexEntry } from "@/features/memory/memory.schema";
 import type { SkillMetadata } from "@/features/skills/skills.discover";
+import { firstSentence } from "@/features/skills/skills.schema";
 import type { CallTurn } from "@/features/thursday/thursday.schema";
 import { searchOf, startedLabel } from "@/features/thursday/tool-line";
 import { toDate } from "@/lib/date-like";
@@ -159,10 +160,7 @@ export const skillLines = (
 
 function headline(description: string): string {
   const max = PROMPT_LINE.skill;
-  const first = description
-    .trim()
-    .split(/(?<=[.。])\s|\n/)[0]
-    .trim();
+  const first = firstSentence(description);
   return first.length > max ? `${first.slice(0, max).trim()}…` : first;
 }
 
