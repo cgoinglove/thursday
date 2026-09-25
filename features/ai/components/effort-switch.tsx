@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Segmented } from "@/components/ui/segmented";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
@@ -48,8 +48,17 @@ export function EffortSwitch({
   // A step this model does not take is not a step: the run would drop it and no button stands for
   // it, so the value goes rather than sitting behind an Auto nobody can see. Only where the
   // ladder is known — unknown is "nobody has checked", which is not a reason to throw a value away.
+  // Asked once per value: every caller passes a fresh onChange, so this runs on each render until
+  // the stored value catches up, and a write that fails would otherwise be sent again each time.
+  const dropped = useRef<Effort | null>(null);
   useEffect(() => {
-    if (value && ladder && !ladder.includes(value)) onChange(null);
+    if (!value || ladder?.includes(value)) {
+      dropped.current = null;
+      return;
+    }
+    if (!ladder || dropped.current === value) return;
+    dropped.current = value;
+    onChange(null);
   }, [value, ladder, onChange]);
 
   // What the last press asked for, until the screen's own value catches up. A screen that keeps
