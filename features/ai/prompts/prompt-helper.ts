@@ -54,11 +54,26 @@ export const clockNow = (now = new Date()) =>
   }`;
 
 /**
+ * `2026-09-02 (Wed) PM`: the day and its half. What a bot's instructions say of the time,
+ * because a provider reuses a prompt only while its opening is the same text: a minute or
+ * an "x minutes ago" there made every turn after the first pay for the whole conversation
+ * again, and the half of the day changes that at most twice.
+ */
+export const dayStamp = (at: Date) => format(at, "yyyy-MM-dd (EEE) a");
+
+/** `**Today**: 2026-09-02 (Wed) PM, Europe/Lisbon — \`date\` has the exact time` */
+export const todayLine = (now = new Date()) =>
+  `**Today**: ${dayStamp(now)}, ${
+    Intl.DateTimeFormat().resolvedOptions().timeZone
+  } — \`date\` has the exact time`;
+
+/**
  * One of a bot's other threads, up to its words: whose it is and where it stands. The
- * listing in its prompt and the tool that opens one whole say it the same way.
+ * listing in its prompt and the tool that opens one whole say it the same way, to the half
+ * day (`dayStamp`), since the listing sits in instructions a provider caches.
  */
 export function botWorkHead(row: BotWorkLine, self: string): string {
-  const since = formatDistanceToNowStrict(row.updatedAt, { addSuffix: true });
+  const since = dayStamp(row.updatedAt);
   const state =
     row.status === "running"
       ? `running, last moved ${since}`

@@ -432,7 +432,8 @@ export function chatGptModel(modelId: string): LanguageModel {
     headers: { "OpenAI-Beta": "responses=experimental" },
     fetch: codexFetch,
   });
-  // One key for the model's life — a run, its compactions, its answers — so its calls share a prompt cache
+  // One key for the model's life — a run, its compactions, its answers — so its calls share a
+  // prompt cache; a caller's own key wins (bot.run's, one per bot in a thread, across its runs)
   const promptCacheKey = randomUUID();
   return wrapLanguageModel({
     model: chatgpt.responses(modelId),

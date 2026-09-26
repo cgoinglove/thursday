@@ -39,6 +39,8 @@ const realModel = await import("../features/ai/model.ts");
 const plans = new Map<string, ((prompt: string) => unknown[])[]>();
 const replies = new Map<string, ((prompt: string) => string)[]>();
 const inputs = new Map<string, string[]>();
+/** The prompt cache key each step was sent with, per model (ai/model promptCacheOptions). */
+const cacheKeys = new Map<string, unknown[]>();
 const failures: unknown[] = [];
 let nextId = 0;
 const usage = {
@@ -55,9 +57,13 @@ const models = new Map(
     name,
     new MockLanguageModelV4({
       modelId: name,
-      doStream: async ({ prompt }) => {
+      doStream: async ({ prompt, providerOptions }) => {
         const text = JSON.stringify(prompt);
         inputs.set(name, [...(inputs.get(name) ?? []), text]);
+        cacheKeys.set(name, [
+          ...(cacheKeys.get(name) ?? []),
+          providerOptions?.openai?.promptCacheKey,
+        ]);
         const plan = plans.get(name)?.shift();
         assert.ok(plan, `Unexpected ${name} step`);
         let chunks: unknown[];
@@ -2717,5 +2723,57 @@ test("a deleted bot's finished work stays a shelf under its name, sets and all",
     );
   } finally {
     await rm(shelf, { recursive: true, force: true });
+  }
+});
+
+test("a bot's runs in one thread send the same instructions and cache key, and the thread adds up what the cache served", async () => {
+  const { threadTable } = await import("../database/tables.ts");
+  const system = (prompt: string) => JSON.stringify(JSON.parse(prompt)[0]);
+  usage.inputTokens.cacheRead = 60 as never;
+  usage.inputTokens.cacheWrite = 30 as never;
+  // A minute in the instructions made every later run miss the cache; the half day does not move here
+  mock.timers.enable({ apis: ["Date"], now: new Date(2026, 8, 26, 13, 5) });
+  try {
+    plans.set("Alpha", [() => text("First pass")]);
+    const id = await startThread({
+      bot: "Alpha",
+      request: "Cache fixture",
+      label: "Cache",
+      from: "user",
+    });
+    await waitFor(id, "done");
+    mock.timers.setTime(new Date(2026, 8, 26, 17, 40).getTime());
+    plans.set("Alpha", [() => text("Second pass")]);
+    await answerThread(id, "Once more.");
+    await waitFor(id, "done");
+    const [first, second] = (inputs.get("Alpha") ?? []).slice(-2);
+    assert.equal(system(second), system(first));
+    const [key, again] = (cacheKeys.get("Alpha") ?? []).slice(-2);
+    assert.match(String(key), /^[0-9a-f]{32}$/);
+    assert.equal(again, key);
+
+    plans.set("Alpha", [() => text("Elsewhere")]);
+    const other = await startThread({
+      bot: "Alpha",
+      request: "Another cache fixture",
+      label: "Cache elsewhere",
+      from: "user",
+    });
+    await waitFor(other, "done");
+    assert.notEqual(cacheKeys.get("Alpha")?.at(-1), key);
+
+    const [row] = await database
+      .select({
+        input: threadTable.inputTokens,
+        read: threadTable.cacheReadTokens,
+        write: threadTable.cacheWriteTokens,
+      })
+      .from(threadTable)
+      .where(eq(threadTable.id, id));
+    assert.deepEqual(row, { input: 200, read: 120, write: 60 });
+  } finally {
+    mock.timers.reset();
+    usage.inputTokens.cacheRead = undefined;
+    usage.inputTokens.cacheWrite = undefined;
   }
 });

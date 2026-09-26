@@ -192,6 +192,13 @@ export const threadTable = sqliteTable(
     /** Running totals across every participant; added per step. */
     inputTokens: int("input_tokens").notNull().default(0),
     outputTokens: int("output_tokens").notNull().default(0),
+    /**
+     * The part of `inputTokens` the provider read from its prompt cache, and the part it
+     * wrote there; each billed apart from the rest of the input. Added per step, 0 where
+     * the provider says nothing and on steps from before these were kept.
+     */
+    cacheReadTokens: int("cache_read_tokens").notNull().default(0),
+    cacheWriteTokens: int("cache_write_tokens").notNull().default(0),
     /** Context size of the last step, not a total; overwritten every step. */
     contextTokens: int("context_tokens").notNull().default(0),
     /**

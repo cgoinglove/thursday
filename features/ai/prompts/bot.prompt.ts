@@ -48,8 +48,8 @@ import {
   logPromptSize,
   mcpToolLines,
   noteLines,
-  nowLine,
   skillLines,
+  todayLine,
 } from "./prompt-helper";
 
 /** Where this turn sits: the thread, who coordinates it, and who is asking. */
@@ -142,7 +142,7 @@ function identity(name: string, me: JobBot | null, seat?: Seat | null): string {
 
   const known = me ? `\nOthers know you as: ${rosterLine(me)}` : "";
 
-  return `You are ${name}, one of the bots in this thread. ${nowLine()}${known}
+  return `You are ${name}, one of the bots in this thread. ${todayLine()}${known}
 
 - **The user** — the one person all of this is for. They talk with Thursday by voice and follow this thread on their screen.
 - **Thursday** — their personal assistant. She talks with them, hands bots the work that takes time, and tells them what comes back.

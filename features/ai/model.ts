@@ -15,6 +15,7 @@ import {
   createGateway,
   type experimental_generateVideo,
   type ImageModel,
+  type JSONValue,
   type LanguageModel,
   RetryError,
   type SpeechModel,
@@ -176,6 +177,32 @@ export function seesToolImages(ref: TextModelRef): boolean {
       ? GATEWAY_OWNERS[ref.model.split("/")[0]]
       : ref.provider;
   return provider !== undefined && SEEING.includes(provider);
+}
+
+/**
+ * What gets a provider to reuse the part of a request it has already read, for a run that
+ * sends the same instructions and a longer conversation at every step. OpenAI and the
+ * ChatGPT plan cache by themselves and are told which requests belong together (`key`:
+ * one per bot in a thread, so its runs there share one); Anthropic caches only when asked,
+ * and its top-level marker follows the conversation's end as it grows, a write billed at
+ * 1.25× input that the next step reads back at 0.1×; the gateway sets the marker the
+ * provider behind the model needs. The rest cache by themselves or not at all.
+ */
+export function promptCacheOptions(
+  ref: TextModelRef,
+  key: string | null,
+): Record<string, Record<string, JSONValue>> {
+  switch (ref.provider) {
+    case "openai":
+    case "chatgpt":
+      return key ? { openai: { promptCacheKey: key } } : {};
+    case "anthropic":
+      return { anthropic: { cacheControl: { type: "ephemeral" } } };
+    case "vercel-ai-gateway":
+      return { gateway: { caching: "auto" } };
+    default:
+      return {};
+  }
 }
 
 /** A model whose provider has no web search to bind. */

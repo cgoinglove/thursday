@@ -35,11 +35,11 @@ import { clip } from "@/lib/utils";
 import {
   type BotWorkLine,
   type ResultPart,
+  type StepUsage,
   type Thread,
   type ThreadLine,
   type ThreadPending,
   type ThreadStatus,
-  type TokenUsage,
   untagSpeaker,
 } from "./bot.schema";
 import { messageKey } from "./room.query";
@@ -211,7 +211,7 @@ export async function closeEndedQuestions() {
  */
 export async function addThreadUsage(
   id: string,
-  usage: TokenUsage,
+  usage: StepUsage,
   context: { tokens: number; budget: number } | null = null,
 ) {
   if (!usage.input && !usage.output && context === null) return;
@@ -220,6 +220,8 @@ export async function addThreadUsage(
     .set({
       inputTokens: sql`${threadTable.inputTokens} + ${usage.input}`,
       outputTokens: sql`${threadTable.outputTokens} + ${usage.output}`,
+      cacheReadTokens: sql`${threadTable.cacheReadTokens} + ${usage.cacheRead}`,
+      cacheWriteTokens: sql`${threadTable.cacheWriteTokens} + ${usage.cacheWrite}`,
       ...(context === null
         ? {}
         : { contextTokens: context.tokens, contextBudget: context.budget }),

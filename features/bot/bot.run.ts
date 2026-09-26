@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   type FinishReason,
   generateText,
@@ -19,6 +20,7 @@ import {
   isContextOverflow,
   isProviderRefusal,
   modelErrorToString,
+  promptCacheOptions,
   resolveDefaultModel,
   runEffort,
 } from "@/features/ai/model";
@@ -29,7 +31,7 @@ import { asWords } from "@/features/ai/words";
 import {
   COMPACT_AT_MIN,
   type JobBot,
-  type TokenUsage,
+  type StepUsage,
 } from "@/features/bot/bot.schema";
 import { renewSignIns } from "@/features/signins/signins.query";
 import {
@@ -77,7 +79,7 @@ type BotEvent =
   | {
       type: "step";
       messages: ModelMessage[];
-      usage: TokenUsage;
+      usage: StepUsage;
       budget: number;
     }
   /**
@@ -88,7 +90,7 @@ type BotEvent =
   | {
       type: "compact";
       text: string;
-      usage: TokenUsage;
+      usage: StepUsage;
       messages: number;
       tokens: number;
     }
@@ -195,6 +197,12 @@ export async function runBot(
   // What the owner set, else the app default, and nothing at all where the model's ladder is
   // unknown (model.ts runEffort). The sdk translates the step into whatever this provider takes.
   const reasoning = await runEffort(model.ref, bot.effort);
+  // Every step sends the instructions and the conversation again; this is what lets the
+  // provider read back what it has seen, across this bot's runs in the thread too
+  const cache = promptCacheOptions(
+    model.ref,
+    options.threadId ? deskCacheKey(options.threadId, name) : null,
+  );
 
   // A committed question to the user ends the turn; the answer brings the bot back (room.query tellRoom).
   let asked = false;
@@ -286,6 +294,7 @@ export async function runBot(
     instructions: prompt.text,
     tools: agentTools,
     reasoning,
+    providerOptions: cache,
     stopWhen: [stepCountIs(MAX_STEPS), () => asked],
     prepareStep: async ({ stepNumber, steps, messages }) => {
       await writtenStep;
@@ -313,6 +322,7 @@ export async function runBot(
           signal: options.signal,
           budget,
           instructions: prompt.text,
+          providerOptions: cache,
         }).finally(quiet.release);
         logger.debug(
           `compacted ${messages.length} messages at ${size} tokens (budget ${budget})`,
@@ -625,8 +635,8 @@ async function compact(
   model: LanguageModel,
   tools: ToolSet,
   messages: ModelMessage[],
-  options: { signal?: AbortSignal; budget: number; instructions: string },
-): Promise<{ text: string; usage: TokenUsage }> {
+  options: SummaryOptions,
+): Promise<{ text: string; usage: StepUsage }> {
   let failure: unknown;
   try {
     return await summarize(model, tools, messages, options);
@@ -654,13 +664,21 @@ async function compact(
   );
 }
 
+type SummaryOptions = {
+  signal?: AbortSignal;
+  budget: number;
+  instructions: string;
+  /** The run's own (promptCacheOptions): the summary is asked of the same conversation. */
+  providerOptions: ReturnType<typeof promptCacheOptions>;
+};
+
 /** One summarising call. Nothing streams back, so its whole length is one silence (config BOT_RUN.silenceMs). */
 async function summarize(
   model: LanguageModel,
   tools: ToolSet,
   messages: ModelMessage[],
-  options: { signal?: AbortSignal; budget: number; instructions: string },
-): Promise<{ text: string; usage: TokenUsage }> {
+  options: SummaryOptions,
+): Promise<{ text: string; usage: StepUsage }> {
   const { text, usage } = await generateText({
     model,
     instructions: options.instructions,
@@ -675,6 +693,7 @@ async function summarize(
     ],
     abortSignal: options.signal,
     timeout: BOT_RUN.silenceMs,
+    providerOptions: options.providerOptions,
   });
   const summary = text.trim();
   if (!summary) {
@@ -723,7 +742,7 @@ function storedMessages(step: {
 }
 
 /** Step messages handed from `onStepEnd` to the loop. A take that arrives before the push waits. */
-type FinishedStep = { messages: ModelMessage[]; usage: TokenUsage };
+type FinishedStep = { messages: ModelMessage[]; usage: StepUsage };
 
 function stepQueue() {
   const ready: FinishedStep[] = [];
@@ -800,10 +819,19 @@ function silenceWatch(ms: number) {
 }
 
 /** The sdk gives undefined when unknown; 0 sums correctly. */
-const usageOf = (usage: LanguageModelUsage): TokenUsage => ({
+const usageOf = (usage: LanguageModelUsage): StepUsage => ({
   input: usage.inputTokens ?? 0,
   output: usage.outputTokens ?? 0,
+  cacheRead: usage.inputTokenDetails?.cacheReadTokens ?? 0,
+  cacheWrite: usage.inputTokenDetails?.cacheWriteTokens ?? 0,
 });
+
+/**
+ * Which requests a provider may answer from one cache (promptCacheOptions): a bot's turns in
+ * one thread. Hashed to a fixed length any provider takes as a key.
+ */
+const deskCacheKey = (threadId: string, bot: string) =>
+  createHash("sha256").update(`${threadId}\n${bot}`).digest("hex").slice(0, 32);
 
 /** A bot with both model columns set uses them; otherwise the app default (resolveDefaultModel). */
 function resolveModel(bot: JobBot) {

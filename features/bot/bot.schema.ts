@@ -85,6 +85,12 @@ const TokenUsageSchema = z.object({
 
 export type TokenUsage = z.infer<typeof TokenUsageSchema>;
 
+/**
+ * One step's usage as a thread adds it up: `cacheRead` and `cacheWrite` are the part of
+ * `input` the provider read from its prompt cache or wrote to it, 0 where it says nothing.
+ */
+export type StepUsage = TokenUsage & { cacheRead: number; cacheWrite: number };
+
 /** A budget under this leaves no room for the opening message, so it is refused rather than stored. */
 export const COMPACT_AT_MIN = 8_000;
 

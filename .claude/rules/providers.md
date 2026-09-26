@@ -1,5 +1,5 @@
 ---
-checked: 2026-09-24
+checked: 2026-09-26
 paths:
   - "features/ai/{model,model.schema,chatgpt}.ts"
   - "features/ai/components/**"
@@ -43,10 +43,11 @@ connected tools: its pinned ones as tools of their own, the rest through `tool_s
   a call thinks with is chosen for the user (`resolveDefaultModel`, `runsOnOf` in
   `thursday.text.ts`) — else a key added for one thing is spent on a model nobody chose.
 - A new text provider also takes its case in `buildTextModel` (the `default` refuses it at run time,
-  not at compile time), its native search in `searchTools` where its SDK has one, and a
-  `seesToolImages` entry where its driver carries a picture inside a tool result; a media provider
-  takes its case in each `build…Model` for the kinds it lists — else it saves fine, then fails on
-  first use or quietly goes without search, `look_at` or its studio tool.
+  not at compile time), its native search in `searchTools` where its SDK has one, a
+  `seesToolImages` entry where its driver carries a picture inside a tool result, and a
+  `promptCacheOptions` case where it caches only when asked; a media provider takes its case in
+  each `build…Model` for the kinds it lists — else it saves fine, then fails on first use or
+  quietly goes without search, `look_at`, its studio tool or its prompt cache.
 - A new key or token is a `CONFIG_GROUPS` entry read with `readConfig`, named so `shellEnv` in
   `lib/sandbox.ts` strips it (`…_API_KEY`, `…_TOKEN`) — else it cannot be set in Settings, or, once
   it is in `.env`, it reaches every command a bot runs.
