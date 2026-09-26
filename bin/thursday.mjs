@@ -16,10 +16,11 @@ import {
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { backgroundJob, offerBackground } from "./background.mjs";
 import { askToSetDatabaseAside, MIGRATION_FAILED_EXIT } from "./database.mjs";
 import { holdFolder, runningOn, stopLines } from "./lock.mjs";
 import { freePort } from "./port.mjs";
-import { ROOT, thursdayCommand, toolPath } from "./tools.mjs";
+import { openBrowser, ROOT, thursdayCommand, toolPath } from "./tools.mjs";
 
 const { version, name } = JSON.parse(
   await readFile(join(ROOT, "package.json"), "utf8"),
@@ -39,8 +40,11 @@ if (has("-h", "--help")) {
   ${name} ${version}
 
   Usage
-    $ ${command} [options]
-    $ ${command} autostart [--off]   Start with the computer, macOS only
+    $ ${command} [options]          Start it here, in this terminal
+    $ ${command} start [options]    Keep it running in the background, and start it
+                                    when you log in (macOS)
+    $ ${command} stop               Stop it in the background
+    $ ${command} status             Whether it runs, where, and how to reach it
 
   Options
     --port <n>     Port to serve on (default 4747, or the next free one)
@@ -84,22 +88,28 @@ const DEFAULT_HOME = APP === ROOT ? join(homedir(), ".thursday") : ROOT;
 const asked = flag("port") ?? process.env.PORT;
 const home = resolve(flag("home") || process.env.THURSDAY_HOME || DEFAULT_HOME);
 
-// Turning it on or off is the whole command; it never goes on to serve.
-if (argv[0] === "autostart") {
-  const { autostart } = await import("./autostart.mjs");
-  await autostart({ root: ROOT, home, off: has("--off") });
+// The background (background.mjs): each is the whole command, and never goes on to serve.
+// `autostart` and `autostart --off` are what earlier versions called start and stop.
+const background = { start: "start", stop: "stop", status: "status" }[
+  argv[0] === "autostart" ? (has("--off") ? "stop" : "start") : argv[0]
+];
+if (background) {
+  const { printStatus, startInBackground, stopBackground } = await import(
+    "./background.mjs"
+  );
+  if (background === "status") printStatus({ home });
+  else if (background === "stop") await stopBackground({ home });
+  else {
+    const started = await startInBackground({
+      root: ROOT,
+      home,
+      port: asked,
+      open: !has("--no-open"),
+      version,
+    });
+    process.exit(started ? 0 : 1);
+  }
   process.exit(0);
-}
-
-/** A browser that will not open is not a failure. */
-function openBrowser(url) {
-  const [command, args] =
-    process.platform === "darwin"
-      ? ["open", [url]]
-      : process.platform === "win32"
-        ? ["cmd", ["/c", "start", "", url]]
-        : ["xdg-open", [url]];
-  spawn(command, args, { stdio: "ignore" }).on("error", () => {});
 }
 
 // Before a port is picked: a second server on this folder would take the next one, and
@@ -111,20 +121,43 @@ if (running) {
   const other =
     running.version && running.version !== version ? running.version : null;
   const opens = Boolean(running.url) && !other && !has("--no-open");
+  // The copy in the background moves to this version by starting it from this one
+  const moves =
+    other && backgroundJob()?.home === home
+      ? `  To move it to ${version}: npx thursday-agent@${version} start\n`
+      : null;
   console.log(
     `\n  Thursday${other ? ` ${other}` : ""} is already running on this data folder${running.url ? `: ${running.url}` : ""}\n${
       opens
         ? "  Opened it in your browser.\n"
-        : other
-          ? `  To run ${version} instead, stop that one and run this again.\n`
-          : ""
-    }${stopLines(running.pid, home)
-      .map((line) => `  ${line}\n`)
-      .join("")}`,
+        : (moves ??
+          (other
+            ? `  To run ${version} instead, stop that one and run this again.\n`
+            : ""))
+    }${
+      moves
+        ? ""
+        : stopLines(running.pid, home)
+            .map((line) => `  ${line}\n`)
+            .join("")
+    }`,
   );
   if (opens) openBrowser(running.url);
   process.exit(other ? 1 : 0);
 }
+
+// A first run in a terminal asks once whether to keep it running in the background; said
+// yes, the background serves and this run is done
+if (
+  await offerBackground({
+    root: ROOT,
+    home,
+    port: asked,
+    open: !has("--no-open"),
+    version,
+  })
+)
+  process.exit(0);
 const port = String(await freePort(asked, home));
 const url = `http://localhost:${port}`;
 holdFolder(home, url, version);

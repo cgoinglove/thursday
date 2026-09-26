@@ -1,5 +1,5 @@
 ---
-checked: 2026-09-24
+checked: 2026-09-26
 paths:
   - "bin/**"
   - ".github/**"
@@ -17,6 +17,7 @@ touches anyone's data.
 ## Start here
 - `config.ts` — the roots, paths, limits and tuning numbers.
 - `bin/thursday.mjs` — `npx thursday-agent` and `pnpm start`: two roots, a port, the built server.
+- `bin/background.mjs` — `start`, `stop`, `status` and the first run's question: the launchd job, and the copy it runs from `~/.thursday/app`.
 - `scripts/dev.mts` — `pnpm dev`: `next dev` on a free loopback port.
 - `instrumentation-node.ts` — boot: migrate, sweep the last run, start routines and the phone.
 - `next.config.ts` — standalone output, and the run-time files the trace is told about.

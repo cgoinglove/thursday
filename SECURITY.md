@@ -63,8 +63,9 @@ What the app does to keep that narrow:
   chat service, and its bot tokens are kept in the local database with your
   keys.
 - **Work goes on with nobody watching.** A job keeps running after its tab
-  closes, a routine starts at its time with nothing open, and `thursday
-  autostart` (macOS) starts the server at login. Such a job has the same shell,
+  closes, a routine starts at its time with nothing open, and `npx
+  thursday-agent start` (macOS) keeps the server running in the background and
+  starts it at login. Such a job has the same shell,
   browser and sign-ins as one you watch; what it asks waits for an answer, and
   what it finishes is told by the computer's notification and, with a phone
   connected, there.

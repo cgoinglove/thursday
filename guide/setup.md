@@ -124,20 +124,25 @@ with it. Chrome and Edge can install it as its own window with its own icon. The
 this once (**Install** or **Not now**), and **Install app** stays at the foot of the Settings list
 until it is installed. In Safari on a Mac it is **File › Add to Dock**; Firefox cannot do it.
 
-The window only shows what the server serves, and the server is started in a terminal with `npx
-thursday-agent`. On a Mac, `thursday autostart` makes the computer start it at login and restart it
-if it stops, so no terminal is needed; this needs the app installed with `npm i -g thursday-agent`,
-not run through `npx`. `thursday autostart --off` turns it off. On Linux and Windows, add it to the
-programs that start at login.
+The window only shows what the server serves, and the server is started with `npx
+thursday-agent`. On a Mac, the first start in a terminal asks once whether to keep it running in
+the background. Yes, and no terminal is needed: it starts again when they log in, and comes back
+by itself if it stops. `npx thursday-agent start` does the same later, and moves the background to
+the version it was run as; if that version does not come up, the one before is started again.
+`npx thursday-agent stop` stops it, and it no longer starts at login; `npx thursday-agent status`
+says whether it runs, where, and where its log is. The copy that runs in the background is kept in
+`~/.thursday/app`. On Linux and Windows it runs in a terminal; add it to the programs that start at
+login.
 
 The app uses the same address every time: port 4747 by default. If that port is taken one day, it
 says so and uses the next free one for that run, and the browser shows different settings there.
-`--port` with a number moves it for good (turn autostart on again after that). `--home` uses another
+`--port` with a number moves it for good (in the background, `start` with it). `--home` uses another
 data folder, `--no-open` starts without opening a browser, and `--help` lists everything.
 
 Starting it again while it already runs on the same data folder opens the running one in the
 browser instead of starting a second, and says how to stop it. It needs Node 22.18 or newer.
-Closing the terminal it runs in stops it like Ctrl+C: running jobs pause and wait for **Continue**.
+Closing the terminal it runs in stops it like Ctrl+C: running jobs pause and wait for **Continue**;
+in the background, closing the terminal changes nothing.
 
 ## Where the files are
 

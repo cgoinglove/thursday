@@ -2,8 +2,10 @@
 // imports: this runs from the published `bin`, on a machine that has neither a
 // build nor a TypeScript loader.
 
+import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
+import { homedir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 
 const require = createRequire(import.meta.url);
@@ -12,19 +14,41 @@ const require = createRequire(import.meta.url);
 export const ROOT = resolve(import.meta.dirname, "..");
 
 /**
+ * Where the copy that runs in the background is installed (background.mjs). Beside the
+ * default data folder, so everything the app keeps on the computer is under one folder.
+ */
+export const PROGRAM = join(homedir(), ".thursday", "app");
+
+/** The one copy with the dev script beside it; the package ships no `scripts`. */
+export const isCheckout = (root) =>
+  existsSync(join(root, "scripts", "dev.mts"));
+
+/**
  * What this person types to run the app, for a line that tells them to run it again. Only a
  * global install puts `thursday` on the PATH: said to someone who ran `npx`, it is a command
- * they do not have. npx names itself in npm_lifecycle_event and unpacks into its `_npx` cache;
- * a checkout is the one copy with the dev script beside it (the package ships no `scripts`).
+ * they do not have. npx names itself in npm_lifecycle_event and unpacks into its `_npx` cache,
+ * and the copy that runs in the background was put there from one.
  */
 export function thursdayCommand() {
   if (
     process.env.npm_lifecycle_event === "npx" ||
-    ROOT.includes(`${sep}_npx${sep}`)
+    ROOT.includes(`${sep}_npx${sep}`) ||
+    ROOT.startsWith(`${PROGRAM}${sep}`)
   )
     return "npx thursday-agent";
-  if (existsSync(join(ROOT, "scripts", "dev.mts"))) return "pnpm start";
+  if (isCheckout(ROOT)) return "pnpm start";
   return "thursday";
+}
+
+/** A browser that will not open is not a failure. */
+export function openBrowser(url) {
+  const [command, args] =
+    process.platform === "darwin"
+      ? ["open", [url]]
+      : process.platform === "win32"
+        ? ["cmd", ["/c", "start", "", url]]
+        : ["xdg-open", [url]];
+  spawn(command, args, { stdio: "ignore" }).on("error", () => {});
 }
 
 /**

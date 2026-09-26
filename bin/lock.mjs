@@ -6,7 +6,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { startsWithMac } from "./autostart.mjs";
+import { backgroundJob } from "./background.mjs";
 import { thursdayCommand } from "./tools.mjs";
 
 /** Beside the database, and named so a checkout never commits it (`*.local.*`). */
@@ -78,8 +78,8 @@ function whereRuns(pid) {
 /**
  * How to stop the server with this pid, said where it can be done. A person told only "stop
  * it" looked for a terminal they could not find: the one it runs in is named, with a command
- * that does the same from any terminal. One that starts with the Mac is started again by
- * launchd, so it is stopped by turning that off. Lines to print, without indent.
+ * that does the same from any terminal. One that runs in the background is started again by
+ * launchd, so it is stopped by stopping that. Lines to print, without indent.
  */
 export function stopLines(pid, home) {
   const where = whereRuns(pid);
@@ -88,10 +88,8 @@ export function stopLines(pid, home) {
       `It runs in a terminal (${where.terminal}${where.typed ? `, ${where.typed}` : ""}, since ${where.since}).`,
       `Ctrl+C there, or from any terminal: kill -INT -${where.group}`,
     ];
-  if (startsWithMac(home))
-    return [
-      `It starts with your Mac. To stop it: ${thursdayCommand()} autostart --off`,
-    ];
+  if (backgroundJob()?.home === home)
+    return [`It runs in the background. To stop it: ${thursdayCommand()} stop`];
   if (where) return [`It runs in the background. To stop it: kill ${pid}`];
   return ["Ctrl+C where it runs."];
 }
