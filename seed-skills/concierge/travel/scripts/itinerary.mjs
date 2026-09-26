@@ -188,14 +188,19 @@ const plain = (html) =>
     .replace(/\s+/g, " ")
     .trim();
 
-/** A Wikipedia article's own lead picture, with who made it and its licence from Commons. */
+/**
+ * A Wikipedia article's own lead picture, with who made it and, where its file says, its licence.
+ * `pilicense=any`: the lead picture the article shows, not only a freely licensed one — the
+ * default (`free`) returns none for an article led by a non-free image, and the stop then shows
+ * without its photo.
+ */
 async function fromWiki(title) {
   const [wiki, name] = /^[a-z]{2,3}:/.test(title)
     ? [title.slice(0, title.indexOf(":")), title.slice(title.indexOf(":") + 1)]
     : ["en", title];
   const api = `https://${wiki}.wikipedia.org/w/api.php?format=json&action=query&redirects=1`;
   const q = await getJson(
-    `${api}&prop=pageimages|info&inprop=url&piprop=thumbnail|name&pithumbsize=960&titles=${encodeURIComponent(name)}`,
+    `${api}&prop=pageimages|info&inprop=url&piprop=thumbnail|name&pithumbsize=960&pilicense=any&titles=${encodeURIComponent(name)}`,
   );
   const page = Object.values(q.query?.pages ?? {})[0];
   if (!page || "missing" in page)

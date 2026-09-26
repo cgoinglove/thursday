@@ -77,8 +77,7 @@ first is the cover, asking the question the book answers.
 Choose each page's picture in this order:
 
 - **A real thing whose look matters** — a place, an animal, a machine, a
-  person's work — is a real photo from the web. Take it from the page you read,
-  or from Wikimedia Commons, whose files allow reuse with credit:
+  person's work — is a real photo from the web, taken from the page you read:
 
   ```bash
   node "$THURSDAY_SKILLS/browser/scripts/webimage.mjs" <page url> --out <the book's folder> [--all]
@@ -88,7 +87,8 @@ Choose each page's picture in this order:
   through the session's browser, keeps only what came back as an image, and
   prints each file with its size and a `Credit:` line. Every run writes `web-01.…`, so rename what you keep to the
   page's own name before fetching the next one. Put the credit in the figure:
-  `<figcaption>Photo: <author>, <a href="…">source</a>, <license></figcaption>`.
+  `<figcaption>Photo: <a href="…">source</a></figcaption>`, with who made it and
+  its licence added when the page says them.
 - **A structure, a flow, a relation** — parts of a whole, one thing asking
   another, a before and after — is an inline `<svg viewBox="0 0 800 400">`
   drawn by hand. Fill it with `var(--ink)`, `var(--paper)`, `var(--blue)`,

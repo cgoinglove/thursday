@@ -61,7 +61,7 @@ Words on the page are yours, in the user's language: set `lang` and `labels` whe
 - **A photo per stop** is one of three: `"wiki"`, the English Wikipedia title of the place
   (`"pt:Mosteiro dos Jerónimos"` for another language's — a place outside the English-speaking
   world often has an article, or a picture, only in its own language), whose lead picture comes
-  with its author and licence; `"photo"` as a page url, whose own share picture is taken through the browser; `"photo"` as a
+  with who made it and, where its file says, its licence; `"photo"` as a page url, whose own share picture is taken through the browser; `"photo"` as a
   file beside the JSON. A stop with none shows without one — the airport, the hotel check-in, a walk.
 - **Every link is a full `http(s)` address** — `flights.link`, `stay.link`, a stop's `link`, a
   source's `url`. Anything shorter stops the build by name before a single photo is fetched.
