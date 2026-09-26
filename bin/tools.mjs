@@ -30,6 +30,9 @@ export const isCheckout = (root) =>
  * and the copy that runs in the background was put there from one.
  */
 export function thursdayCommand() {
+  // Written into the background job by the command that started it, which knew
+  if (process.env.THURSDAY_COMMAND?.trim())
+    return process.env.THURSDAY_COMMAND.trim();
   if (
     process.env.npm_lifecycle_event === "npx" ||
     ROOT.includes(`${sep}_npx${sep}`) ||

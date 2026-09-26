@@ -210,4 +210,6 @@ export const queryKey = {
    * signed out. Under `llmModel`, so signing in or out re-reads it.
    */
   subscriptionUsage: "/api/llm-model/subscription",
+  /** Running: where this server runs — the background, a terminal — and the command to change it */
+  running: "/api/running",
 } as const;

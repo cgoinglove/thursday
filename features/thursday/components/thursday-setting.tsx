@@ -1,6 +1,13 @@
 "use client";
 
-import { Check, ChevronsUpDown, TriangleAlert } from "lucide-react";
+import {
+  Check,
+  ChevronsUpDown,
+  Copy,
+  Power,
+  SquareTerminal,
+  TriangleAlert,
+} from "lucide-react";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
@@ -17,6 +24,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { COMMON_VALIDATE, KEY_MIN } from "@/config";
@@ -40,6 +48,7 @@ import {
   SettingScreen,
   SettingSkeleton,
 } from "@/features/settings/components/setting-ui";
+import type { Running } from "@/features/settings/running";
 import type { SkillSummary } from "@/features/skills/skills.schema";
 import { CallHistoryRow } from "@/features/thursday/components/call-log";
 import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
@@ -130,6 +139,10 @@ export function ThursdaySetting() {
             onChange={(callBack) => patch({ callBack })}
           />
         </Tiles>
+      </SettingGroup>
+
+      <SettingGroup label="Running">
+        <RunningRow />
       </SettingGroup>
 
       <SettingGroup label="History">
@@ -686,6 +699,103 @@ function ResetHistory() {
         Reset
       </Button>
     </div>
+  );
+}
+
+/**
+ * Where the app runs, and the one command that changes it. The app never moves or stops itself
+ * (bin/background.mjs): a server that stopped itself from a click would leave this page with
+ * nothing behind it.
+ */
+function RunningRow() {
+  const { data } = useServerRoute<Running>(queryKey.running);
+  if (!data) return <Skeleton className="h-16 w-full rounded-xl" />;
+
+  const { where, mac, command, home } = data;
+  const said = {
+    background: {
+      title: "In the background",
+      hint: "Starts when you log in, and comes back if it stops.",
+      how: command && { label: "To stop it", run: `${command} stop` },
+    },
+    terminal: {
+      title: "In a terminal",
+      hint: "Closing that terminal stops Thursday.",
+      how:
+        command && mac
+          ? {
+              label:
+                "To keep it running without one, press Ctrl+C there and run",
+              run: `${command} start`,
+            }
+          : null,
+    },
+    source: {
+      title: "From source",
+      hint: "pnpm dev in a terminal. Closing it stops Thursday.",
+      how: null,
+    },
+    elsewhere: {
+      title: "Started by something else",
+      hint: "It stops the way it was started.",
+      how: null,
+    },
+  }[where];
+
+  return (
+    <div className="space-y-3 rounded-xl border border-border/60 p-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+          {where === "background" ? (
+            <Power className="size-4" />
+          ) : (
+            <SquareTerminal className="size-4" />
+          )}
+        </span>
+        <span className="min-w-0 flex-1 space-y-0.5">
+          <span className="block truncate text-sm font-medium">
+            {said.title}
+          </span>
+          <span className="block text-xs text-muted-foreground">
+            {said.hint}
+            {where === "terminal" && !mac
+              ? " Running in the background is macOS only for now."
+              : ""}
+          </span>
+          <span className="block truncate font-mono text-[11px] text-muted-foreground">
+            {home}
+          </span>
+        </span>
+      </div>
+      {said.how && (
+        <div className="flex flex-wrap items-center gap-2 pl-13 text-xs text-muted-foreground">
+          <span>{said.how.label}</span>
+          <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground">
+            {said.how.run}
+          </code>
+          <CopyCommand text={said.how.run} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CopyCommand({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={() =>
+        void navigator.clipboard.writeText(text).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2_000);
+        })
+      }
+    >
+      {copied ? <Check /> : <Copy />}
+      {copied ? "Copied" : "Copy"}
+    </Button>
   );
 }
 

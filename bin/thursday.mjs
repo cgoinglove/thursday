@@ -206,6 +206,14 @@ function start() {
       THURSDAY_URL: url,
       // Where a bot's shell finds playwright-cli (workspace.ts TOOL_PATH)
       THURSDAY_TOOL_PATH: toolPath().join(":"),
+      // How it was started and what the person types to run it, for Settings to say where it
+      // runs and how to stop or keep it (features/settings/running.ts)
+      THURSDAY_RUNS: process.env.THURSDAY_BACKGROUND
+        ? "background"
+        : process.stdin.isTTY
+          ? "terminal"
+          : "elsewhere",
+      THURSDAY_COMMAND: thursdayCommand(),
       PORT: port,
       // This machine only. A voice agent with a shell is not a thing to expose.
       // Never inherited: Docker exports HOSTNAME as the container and some

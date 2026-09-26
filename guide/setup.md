@@ -130,9 +130,10 @@ the background. Yes, and no terminal is needed: it starts again when they log in
 by itself if it stops. `npx thursday-agent start` does the same later, and moves the background to
 the version it was run as; if that version does not come up, the one before is started again.
 `npx thursday-agent stop` stops it, and it no longer starts at login; `npx thursday-agent status`
-says whether it runs, where, and where its log is. The copy that runs in the background is kept in
-`~/.thursday/app`. On Linux and Windows it runs in a terminal; add it to the programs that start at
-login.
+says whether it runs, where, and where its log is. **Settings › Thursday › Running** shows the same
+and the command to change it, to copy; the app never stops or moves itself. The copy that runs in
+the background is kept in `~/.thursday/app`. On Linux and Windows it runs in a terminal; add it to
+the programs that start at login.
 
 The app uses the same address every time: port 4747 by default. If that port is taken one day, it
 says so and uses the next free one for that run, and the browser shows different settings there.

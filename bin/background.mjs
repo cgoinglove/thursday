@@ -127,6 +127,13 @@ const plistOf = ({
   <dict>
     <key>PATH</key>
     <string>${xml(process.env.PATH ?? "")}</string>
+    <!-- How the starter knows it is this job, and tells Settings where it runs -->
+    <key>THURSDAY_BACKGROUND</key>
+    <string>1</string>
+    <!-- What the person typed to start it, for every line that tells them what to type next:
+         the copy that runs here cannot tell npx from a global install -->
+    <key>THURSDAY_COMMAND</key>
+    <string>${xml(thursdayCommand())}</string>
   </dict>
   <key>RunAtLoad</key>
   <true/>
