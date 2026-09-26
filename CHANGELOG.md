@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.19.0...thursday-agent-v0.20.0) (2026-09-26)
+
+
+### Features
+
+* **call:** a call in writing moves onto the OpenAI key when the GPT plan is spent ([eff378a](https://github.com/cgoinglove/thursday/commit/eff378a1c3b2e57a02c7979b7295f9fa75524b38))
+
 ## [0.19.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.18.0...thursday-agent-v0.19.0) (2026-09-26)
 
 
