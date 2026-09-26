@@ -314,7 +314,7 @@ export function Intro({
 
           {/* Beside her there is no room in a narrow window: there her latest line alone,
               under her */}
-          <div className="max-[900px]:hidden">
+          <div className={cn(stacked && "max-[900px]:hidden")}>
             <SideCaptions
               turns={turns}
               pinned={focus.pinned}
