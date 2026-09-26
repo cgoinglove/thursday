@@ -842,12 +842,16 @@ export const LOOK = { maxBytes: 4 * 1024 * 1024 };
  *   message; smaller loses that text first.
  * - `qualities` then `scales`  what a picture too large for that message steps down through:
  *   at each size the JPEG quality, then the size, until it fits.
+ * - `firstFrameMs`  how long a look waits for a share that has not shown anything yet, as one
+ *   just started has not. Longer gives a slow start its chance before she hears that nothing
+ *   showed; she is silent that long first.
  */
 export const SCREEN_SHARE = {
   frameRate: 5,
   longestSide: 1600,
   qualities: [0.8, 0.6, 0.45],
   scales: [1, 0.75, 0.5, 0.35],
+  firstFrameMs: 3000,
 };
 
 /**

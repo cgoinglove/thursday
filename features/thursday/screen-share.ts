@@ -104,16 +104,39 @@ export function stopSharing(): void {
 }
 
 /**
+ * Whether the share has shown a frame, waiting up to SCREEN_SHARE.firstFrameMs for the first:
+ * the share is kept, and a look can come, before the capture has sent anything.
+ */
+function shown(video: HTMLVideoElement): Promise<boolean> {
+  const has = () => Boolean(video.videoWidth && video.videoHeight);
+  if (has()) return Promise.resolve(true);
+  return new Promise((done) => {
+    const finish = () => {
+      clearTimeout(timer);
+      video.removeEventListener("loadeddata", finish);
+      video.removeEventListener("resize", finish);
+      done(has());
+    };
+    const timer = setTimeout(finish, SCREEN_SHARE.firstFrameMs);
+    video.addEventListener("loadeddata", finish);
+    video.addEventListener("resize", finish);
+  });
+}
+
+/**
  * The screen as it is now, as a JPEG data URL of at most `bytes`: a data channel carries one
  * message up to its limit and no more, so the picture is made plainer, then smaller, until it
  * fits (config SCREEN_SHARE). What went wrong otherwise, said as the backend will read it.
  */
-export function takePicture(
+export async function takePicture(
   bytes: number,
-): { url: string } | { failed: string } {
+): Promise<{ url: string } | { failed: string }> {
   const video = shared?.video;
   if (!video) return { failed: "Nothing is being shared." };
-  if (!video.videoWidth || !video.videoHeight)
+  const ready = await shown(video);
+  // Stopped while it waited
+  if (shared?.video !== video) return { failed: "Nothing is being shared." };
+  if (!ready)
     return { failed: "The shared screen has not shown anything yet." };
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");

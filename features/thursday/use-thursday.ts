@@ -941,7 +941,7 @@ export function useThursday(
                 limit > PICTURE_ENVELOPE_BYTES * 2
                   ? limit
                   : SCTP_DEFAULT_BYTES;
-              const taken = takePicture(bytes - PICTURE_ENVELOPE_BYTES);
+              const taken = await takePicture(bytes - PICTURE_ENVELOPE_BYTES);
               if ("failed" in taken) return taken.failed;
               return {
                 output: "Their screen as it is now follows, as a picture.",
