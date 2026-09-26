@@ -348,9 +348,13 @@ export function Settings({ children }: { children?: ReactElement }) {
   const show = useSettingsStore((state) => state.show);
   const hide = useSettingsStore((state) => state.hide);
   const pick = useSettingsStore((state) => state.pick);
-  const unsaved = useSettingsStore((state) => state.unsaved);
-  /** Words a section holds and has not kept are asked about before it goes (settings.store). */
+  /**
+   * Words a section holds and has not kept are asked about before it goes (settings.store).
+   * Read when asked, not at render: the Cmd+1..9 listener keeps the first render's closure,
+   * from before a sheet registered what it holds.
+   */
   const leaving = async (then: () => void) => {
+    const unsaved = useSettingsStore.getState().unsaved;
     if (unsaved?.() && !(await notify.discard())) return;
     then();
   };
