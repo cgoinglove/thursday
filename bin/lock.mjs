@@ -27,6 +27,7 @@ export function runningOn(home) {
     url: String(held.url ?? ""),
     // Null from `pnpm dev`, and from a server started before the lock said
     version: typeof held.version === "string" ? held.version : null,
+    background: held.background === true,
   };
 }
 
@@ -155,6 +156,8 @@ export function holdFolder(home, url, version) {
         started: startedAt(process.pid) || undefined,
         url,
         version,
+        // Which one launchd started, so a stop can end it when launchd did not (background.mjs)
+        background: process.env.THURSDAY_BACKGROUND ? true : undefined,
       })}\n`,
     );
   } catch {

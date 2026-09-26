@@ -6,6 +6,7 @@
 import { spawnSync } from "node:child_process";
 import {
   closeSync,
+  copyFileSync,
   existsSync,
   fstatSync,
   mkdirSync,
@@ -17,10 +18,11 @@ import {
   renameSync,
   rmSync,
   statSync,
+  truncateSync,
   writeFileSync,
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { delimiter, join, sep } from "node:path";
+import { delimiter, dirname, join, sep } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { heldBy, runningOn, startedAt, stillRuns, stopLines } from "./lock.mjs";
 import { homePort, portTaken } from "./port.mjs";
@@ -37,6 +39,16 @@ const LABEL = "thursday-agent";
 
 /** Named as private files are here, so a checkout never commits its own log. */
 const LOG_FILE = "server.local.log";
+
+/**
+ * The size at which the log starts over. The one before is kept beside it as `.1`, replacing
+ * the one before that, so the two never hold more than twice this. Larger keeps more of a long
+ * run; smaller loses its start sooner.
+ */
+const LOG_BYTES = 10 * 1024 * 1024;
+
+/** How often the server running in the background looks at its log's size. */
+const LOG_CHECK_MS = 10 * 60_000;
 
 /**
  * Written when the person has decided about the background — answered no, or stopped it — so a
@@ -119,6 +131,67 @@ function jobState() {
   };
 }
 
+/** A word the shell takes as it is, whatever it holds. */
+const shellQuoted = (text) => `'${text.replace(/'/g, `'\\''`)}'`;
+
+/**
+ * What launchd runs: a shell that finds a Node and starts the copy on it. The Node that ran
+ * `start` comes first, then `node` on the PATH it was given, then where Node's installers and
+ * version managers keep one that stays put. The first alone broke on the day it went: a version
+ * manager keeps each version in a folder of its own and removes it with the version (`nvm
+ * uninstall`), and Homebrew removes the file behind its link on an upgrade — the job then failed
+ * at every login. Each is tried with the copy's own version check (node-check.mjs), so one gone,
+ * broken or too old is passed over, and the log says which ran when it was not the first; with
+ * none, the log says so and launchd tries again in half a minute, which picks up a Node
+ * installed meanwhile. The log is kept to its size here too: a job that fails at once is started
+ * every half minute, and nothing else of it runs to do it.
+ */
+function launcherOf({ cli, log }) {
+  const home = homedir();
+  const env = process.env;
+  const stays = [
+    // Homebrew on Apple silicon; on Intel, and nodejs.org's installer, and n
+    "/opt/homebrew/bin/node",
+    "/usr/local/bin/node",
+    // Version managers' own launchers, which run their default version
+    join(env.VOLTA_HOME || join(home, ".volta"), "bin", "node"),
+    join(env.ASDF_DATA_DIR || join(home, ".asdf"), "shims", "node"),
+    join(
+      env.MISE_DATA_DIR || join(home, ".local", "share", "mise"),
+      "shims",
+      "node",
+    ),
+    ...[
+      env.FNM_DIR,
+      join(home, ".local", "share", "fnm"),
+      join(home, "Library", "Application Support", "fnm"),
+    ]
+      .filter(Boolean)
+      .map((dir) => join(dir, "aliases", "default", "bin", "node")),
+  ].map(shellQuoted);
+  // nvm has no launcher of its own: every version it holds, left to the shell to list
+  const nvm = `${shellQuoted(join(env.NVM_DIR || join(home, ".nvm"), "versions", "node"))}/*/bin/node`;
+  const stamp = `$(date '+%Y-%m-%d %H:%M:%S')`;
+  return `log=${shellQuoted(log)}
+if [ -f "$log" ] && [ "$(stat -f %z "$log")" -gt ${LOG_BYTES} ]; then cp "$log" "$log.1" && : > "$log"; fi
+first=${shellQuoted(process.execPath)}
+check=${shellQuoted(join(dirname(cli), "node-check.mjs"))}
+seen=
+for node in "$first" "$(command -v node)" ${stays.join(" ")} ${nvm}; do
+  [ -x "$node" ] || continue
+  if "$node" "$check" > /dev/null 2>&1; then
+    [ "$node" = "$first" ] || echo "${stamp} $first did not run: starting on $node" >&2
+    exec "$node" "$@"
+  fi
+  seen=$node
+done
+echo "${stamp} No Node to start Thursday on: $first did not run, and no other that does was found." >&2
+[ -z "$seen" ] || "$seen" "$check" >&2
+echo "Once one is installed, it starts on it within half a minute." >&2
+exit 127
+`;
+}
+
 const plistOf = ({
   cli,
   home,
@@ -135,12 +208,12 @@ const plistOf = ({
        leave the installed window looking at an address nothing answers on. -->
   <key>ProgramArguments</key>
   <array>
-    <!-- Node by name on the PATH below, not by the file it was: a Homebrew upgrade removes
-         that file, and the app stopped starting at login. A version manager that puts a
-         folder per version on the PATH (nvm, fnm) still ties it to that version: once it is
-         removed, "start" again from the Node in use -->
-    <string>/usr/bin/env</string>
-    <string>node</string>
+    <!-- A shell that finds a Node to run it on: the one that ran "start" while it is there,
+         and another when a version manager or an upgrade has removed it -->
+    <string>/bin/sh</string>
+    <string>-c</string>
+    <string>${xml(launcherOf({ cli, log }))}</string>
+    <string>${LABEL}</string>
     <string>${xml(cli)}</string>
     <string>--home</string>
     <string>${xml(home)}</string>
@@ -206,17 +279,48 @@ function stagePlist(text) {
   return staged;
 }
 
+/** Waits without giving up the thread, for a Ctrl+C that has to finish before it exits. */
+const pause = (ms) =>
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
 /**
  * Takes the job out and waits for launchd to let go of it: it keeps the job's record until the
  * server has parked its jobs and exited, and a job loaded under the same name meanwhile is
  * refused as one already there. Blocking, for a Ctrl+C that has to finish before it exits.
  */
 function bootOut() {
+  const home = backgroundJob()?.home;
   const out = launchctl("bootout", `${domain()}/${LABEL}`);
-  const pause = new Int32Array(new SharedArrayBuffer(4));
   for (let waited = 0; waited < FREE_MS && jobState(); waited += 250)
-    Atomics.wait(pause, 0, 0, 250);
+    pause(250);
+  if (home) endLeftover(home);
   return out;
+}
+
+/**
+ * Ends a server of the job's that outlived it. launchd signals the process it started, and a
+ * launcher that runs node as its child — a version manager's — need not pass the signal on: its
+ * server went on holding the folder and the port with no job left to stop it. Only one marked
+ * as the background's (lock.mjs); asked to stop first, as launchd would have, and ended with
+ * what it started when it has not within the wait.
+ */
+function endLeftover(home) {
+  const left = runningOn(home);
+  if (!left?.background) return;
+  const gone = () => runningOn(home)?.pid !== left.pid;
+  try {
+    process.kill(left.pid, "SIGTERM");
+  } catch {
+    return;
+  }
+  for (let waited = 0; waited < FREE_MS && !gone(); waited += 250) pause(250);
+  if (gone()) return;
+  spawnSync("pkill", ["-KILL", "-P", String(left.pid)]);
+  try {
+    process.kill(left.pid, "SIGKILL");
+  } catch {
+    // Gone meanwhile
+  }
 }
 
 /** Whether the port is free, giving a server that was just stopped time to let go of it. */
@@ -378,14 +482,15 @@ function logSize(log) {
 
 /**
  * The last lines the log gained since `from`, for a start that did not come up. Read from its
- * end: launchd only ever appends to it, and it grows for as long as the job runs.
+ * end: it grows for as long as the job runs. One started over since (LOG_BYTES) is read from
+ * its start.
  */
 function logTail(log, from, lines = 12) {
   let fd;
   try {
     fd = openSync(log, "r");
     const size = fstatSync(fd).size;
-    const start = Math.max(from, size - 16_384);
+    const start = Math.max(size < from ? 0 : from, size - 16_384);
     const text = Buffer.alloc(Math.max(0, size - start));
     readSync(fd, text, 0, text.length, start);
     return text.toString("utf8").trimEnd().split("\n").slice(-lines);
@@ -394,6 +499,26 @@ function logTail(log, from, lines = 12) {
   } finally {
     if (fd !== undefined) closeSync(fd);
   }
+}
+
+/**
+ * Keeps the log to its size while the server runs in the background, where it runs for weeks:
+ * past LOG_BYTES it is copied aside as `.1`, over the one before, and started over. launchd
+ * holds it open for appending, so what the server writes next lands at the new start.
+ */
+export function keepLogShort(home) {
+  const log = join(home, LOG_FILE);
+  const check = () => {
+    try {
+      if (statSync(log).size <= LOG_BYTES) return;
+      copyFileSync(log, `${log}.1`);
+      truncateSync(log, 0);
+    } catch {
+      // A log that cannot be kept short is not a reason to stop serving
+    }
+  };
+  check();
+  setInterval(check, LOG_CHECK_MS).unref();
 }
 
 /**
@@ -665,11 +790,15 @@ async function replaceJob({ root, home, asked, open, version }) {
       ]);
       return false;
     }
+    // Asked for by name: a turn-off left from before (`launchctl disable`) is undone, which
+    // launchctl otherwise refuses as "Input/output error"
+    launchctl("enable", `${domain()}/${LABEL}`);
     const started = launchctl("bootstrap", domain(), PLIST);
     if (started.status !== 0) {
       fail([
         "macOS refused to start it in the background:",
         started.stderr?.trim() || `launchctl exited ${started.status}`,
+        "If it is turned off under System Settings › General › Login Items, turn it on there.",
         await putBack(before, job),
       ]);
       return false;
@@ -742,7 +871,7 @@ export async function stopBackground({ home }) {
       ]);
       return false;
     }
-  }
+  } else if (job) endLeftover(job.home);
   rmSync(PLIST, { force: true });
   // A server parks its running jobs before it exits, which can outlast the wait
   const freed = !job?.port || (await waitFree(job.port));
@@ -778,8 +907,14 @@ export function printStatus({ home }) {
   }
   if (job) {
     const log = join(job.home, LOG_FILE);
+    const off = new RegExp(`"${LABEL}" => (disabled|true)`).test(
+      launchctl("print-disabled", domain()).stdout ?? "",
+    );
     say([
       "Thursday is set to start when you log in, but is not running now.",
+      off
+        ? "macOS has it turned off (launchctl disable); starting it again turns it on."
+        : null,
       failed(state?.exit)
         ? `It last stopped with exit ${state.exit}. The end of its log:`
         : "The end of its log:",

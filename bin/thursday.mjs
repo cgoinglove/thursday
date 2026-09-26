@@ -15,7 +15,7 @@ import {
 } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { backgroundJob, offerBackground } from "./background.mjs";
+import { backgroundJob, keepLogShort, offerBackground } from "./background.mjs";
 import { askToSetDatabaseAside, MIGRATION_FAILED_EXIT } from "./database.mjs";
 import { holdFolder, runningOn, stopLines } from "./lock.mjs";
 import { freePort } from "./port.mjs";
@@ -91,24 +91,32 @@ const home = resolve(flag("home") || process.env.THURSDAY_HOME || DEFAULT_HOME);
 const said =
   argv[0] === "autostart" ? (has("--off") ? "stop" : "start") : argv[0];
 const background = ["start", "stop", "status"].includes(said) ? said : null;
+/** A start that could not run it in the background, and serves in this terminal instead. */
+let fellBack = false;
 if (background) {
   const { printStatus, startInBackground, stopBackground } = await import(
     "./background.mjs"
   );
-  if (background === "status") printStatus({ home });
-  else if (background === "stop")
-    process.exit((await stopBackground({ home })) ? 0 : 1);
-  else {
-    const started = await startInBackground({
-      root: ROOT,
-      home,
-      port: asked,
-      open: !has("--no-open"),
-      version,
-    });
-    process.exit(started === true ? 0 : 1);
+  if (background === "status") {
+    printStatus({ home });
+    process.exit(0);
   }
-  process.exit(0);
+  if (background === "stop")
+    process.exit((await stopBackground({ home })) ? 0 : 1);
+  const started = await startInBackground({
+    root: ROOT,
+    home,
+    port: asked,
+    open: !has("--no-open"),
+    version,
+  });
+  if (started === true) process.exit(0);
+  // A person at a terminal still gets it running, there, for as long as it stays open, as the
+  // first run's question does. "held" is a folder something else serves already; a script
+  // gets the failure
+  if (started === "held" || !process.stdin.isTTY || !process.stdout.isTTY)
+    process.exit(1);
+  fellBack = true;
 }
 
 /**
@@ -159,22 +167,27 @@ function leaveToRunning() {
 // Before a port is picked
 leaveToRunning();
 
-// A first run in a terminal asks once whether to keep it running in the background; said
-// yes, the background serves and this run is done
-const chose = await offerBackground({
-  root: ROOT,
-  home,
-  port: asked,
-  open: !has("--no-open"),
-  version,
-});
-if (chose !== "terminal") process.exit(chose === "background" ? 0 : 1);
+if (fellBack) console.log("  Running it in this terminal instead.");
+else {
+  // A first run in a terminal asks once whether to keep it running in the background; said
+  // yes, the background serves and this run is done
+  const chose = await offerBackground({
+    root: ROOT,
+    home,
+    port: asked,
+    open: !has("--no-open"),
+    version,
+  });
+  if (chose !== "terminal") process.exit(chose === "background" ? 0 : 1);
+}
 // The question waits as long as the person does, and a start takes a minute: a server another
 // terminal started on this folder meanwhile is the one to use, not a second beside it
 leaveToRunning();
 const port = String(await freePort(asked, home));
 const url = `http://localhost:${port}`;
 holdFolder(home, url, version);
+// launchd writes the background's output to a log that nothing else trims
+if (process.env.THURSDAY_BACKGROUND) keepLogShort(home);
 /** Where config.ts DB_PATH puts the database under the home. */
 const database = join(home, "local.db");
 

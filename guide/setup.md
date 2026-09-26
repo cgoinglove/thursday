@@ -128,7 +128,10 @@ The window only shows what the server serves, and the server is started with `np
 thursday-agent`. On a Mac, the first start in a terminal asks once whether to keep it running in
 the background. Yes, and no terminal is needed: it starts again when they log in, and comes back
 by itself if it stops. `npx thursday-agent start` does the same later, and moves the background to
-the version it was run as; if that version does not come up, the one before is started again.
+the version it was run as; if that version does not come up, the one before is started again, and
+when nothing can run in the background, it runs in that terminal instead. When the Node it was
+started with is removed, by a version manager or an upgrade, it starts on another Node it finds and
+says which in its log, which keeps to about 10 MB with the one before beside it.
 `npx thursday-agent stop` stops it, and it no longer starts at login; `npx thursday-agent status`
 says whether it runs, where, and where its log is. **Settings › Thursday › Running** shows the same
 and the command to change it, to copy; the app never stops or moves itself. The copy that runs in
