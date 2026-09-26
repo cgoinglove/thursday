@@ -6,6 +6,7 @@ import {
   type StepResult,
   stepCountIs,
   streamText,
+  type TextStreamPart,
   type ToolSet,
   toUIMessageStream,
   type UIMessage,
@@ -16,8 +17,13 @@ import { z } from "zod";
 import { TEXT_CALL } from "@/config";
 import { LIVE_PROVIDER, type LiveSettings } from "@/features/ai/live.schema";
 import { loadTools } from "@/features/ai/load-tools";
-import { getTextModel, modelErrorToString } from "@/features/ai/model";
 import {
+  getTextModel,
+  isPlanSpent,
+  modelErrorToString,
+} from "@/features/ai/model";
+import {
+  TEXT_MODEL_PROVIDERS,
   type TextModelRef,
   textModelRefSchema,
 } from "@/features/ai/model.schema";
@@ -27,8 +33,9 @@ import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { EXA_API_KEY } from "@/features/config/config.const";
 import { readConfig } from "@/features/config/config.query";
 import { acceptedReasoning, wantedReasoning } from "@/lib/live/live.server";
+import { logger } from "@/lib/logger";
 import { startError } from "@/lib/protocol/to-result";
-import { publicError } from "@/lib/public-error";
+import { PublicError, publicError } from "@/lib/public-error";
 import {
   insertCall,
   nextTurnSeq,
@@ -39,9 +46,11 @@ import {
 import {
   noteOf,
   notesIn,
+  TEXT_CALL_MOVED,
   TEXT_CALL_NOTE,
   TEXT_CALL_PROVIDERS,
   type TextCallHandshake,
+  type TextCallMoved,
   type TextCallNote,
   TextCallNoteSchema,
   type TextCallProvider,
@@ -84,6 +93,43 @@ async function runsOnOf(
   const provider = await readTextCallProvider();
   if (!provider) publicError(NOTHING_TO_RUN_ON);
   return { provider, model: settings.backendModel };
+}
+
+/**
+ * Where a turn goes when the GPT subscription refuses it for a spent plan before anything
+ * of it ran: the OpenAI key, on the call's backend model, and the line that tells the user
+ * so. Null for any other failure, or with no key set. Every turn asks the plan first, so
+ * the plan takes the call back once its window resets.
+ */
+async function spareOf(
+  ref: TextModelRef,
+  cause: unknown,
+): Promise<{ ref: TextModelRef; why: string; line: string } | null> {
+  if (ref.provider !== "chatgpt" || !isPlanSpent(cause)) return null;
+  if (!(await readConfig(LIVE_PROVIDER.apiKeyName))) return null;
+  const model = (await readLiveSettings()).backendModel;
+  const label =
+    TEXT_MODEL_PROVIDERS.openai.suggestModels.find((one) => one.id === model)
+      ?.label ?? model;
+  // The plan's own words: which plan, and when it resets (ai/chatgpt usageLimitOf)
+  const why = cause instanceof Error ? cause.message : String(cause);
+  return {
+    ref: { provider: "openai", model },
+    why,
+    line: `${why} Answering on your OpenAI key (${label}) until it resets.`,
+  };
+}
+
+/** A spent plan with no key to go on to: what the user can do, after the plan's own words. */
+async function planSpentError(cause: unknown): Promise<unknown> {
+  if (!isPlanSpent(cause)) return cause;
+  const why = cause instanceof Error ? cause.message : String(cause);
+  // Set, it was refused partway through a turn: the next turn starts on the key
+  return new PublicError(
+    (await readConfig(LIVE_PROVIDER.apiKeyName))
+      ? `${why} Write again and she answers on your OpenAI key.`
+      : `${why} With an OpenAI key in Settings › API keys, she answers on it until then.`,
+  );
 }
 
 /** The row a call in writing is kept under, and what stood open as it began. */
@@ -169,33 +215,69 @@ export async function streamTextCall(
   const rows = turnRows(run.callId, run.seq);
   /** What each step read before it ran, by step: told back to the page ahead of that step. */
   const took = new Map<number, TextCallNote[]>();
-  const result = streamText({
-    model: run.model,
-    instructions: run.system,
-    messages: run.messages,
-    allowSystemInMessages: true,
-    tools: run.tools,
-    providerOptions: run.providerOptions,
-    stopWhen: stepCountIs(TEXT_CALL.maxSteps),
-    abortSignal: signal,
-    prepareStep: async ({ stepNumber, messages: soFar }) => {
-      const notes = inbox.splice(0);
-      if (!notes.length) return undefined;
-      for (const note of notes)
-        if (note.said) await rows.said(note.text, note.id);
-      took.set(stepNumber, notes);
-      // Carried forward by the sdk: from here the steps stack on these
-      return {
-        messages: [
-          ...soFar,
-          ...notes.map((note) => ({
-            role: "user" as const,
-            content: note.text,
-          })),
-        ],
-      };
-    },
-    onStepEnd: rows.step,
+  const ask = (on: Run) =>
+    streamText({
+      model: on.model,
+      instructions: on.system,
+      messages: run.messages,
+      allowSystemInMessages: true,
+      tools: on.tools,
+      providerOptions: on.providerOptions,
+      stopWhen: stepCountIs(TEXT_CALL.maxSteps),
+      abortSignal: signal,
+      prepareStep: async ({ stepNumber, messages: soFar }) => {
+        const notes = inbox.splice(0);
+        if (!notes.length) return undefined;
+        for (const note of notes)
+          if (note.said) await rows.said(note.text, note.id);
+        took.set(stepNumber, notes);
+        // Carried forward by the sdk: from here the steps stack on these
+        return {
+          messages: [
+            ...soFar,
+            ...notes.map((note) => ({
+              role: "user" as const,
+              content: note.text,
+            })),
+          ],
+        };
+      },
+      onStepEnd: rows.step,
+    });
+
+  /** Where the turn went instead of the plan, once it has: said to the page as it starts. */
+  let moved: TextCallMoved | null = null;
+  const parts = streamParts(async function* () {
+    // What opens the stream is held until her first step has something to show: a spent
+    // plan refuses before that, and the turn then starts again on the key as if it were new
+    const held: TextStreamPart<ToolSet>[] = [];
+    let shown = false;
+    let spare: Awaited<ReturnType<typeof spareOf>> = null;
+    for await (const part of ask(run).stream) {
+      if (!shown && part.type === "error") {
+        spare = await spareOf(run.ref, part.error);
+        if (spare) break;
+      }
+      if (!shown && (part.type === "start" || part.type === "start-step")) {
+        held.push(part);
+        continue;
+      }
+      shown = true;
+      yield* held.splice(0);
+      yield part;
+    }
+    // Moved, what the refused attempt opened is dropped: the answer on the key opens its own
+    if (!spare) return yield* held;
+    logger.info(`text call ${run.callId}: ${spare.line}`);
+    moved = { why: spare.why, line: spare.line };
+    // What the refused step had read goes to the step that runs in its place
+    inbox.unshift(...(took.get(0) ?? []));
+    took.delete(0);
+    try {
+      yield* ask(await loadRun(run.callId, spare.ref)).stream;
+    } catch (cause) {
+      yield { type: "error", error: cause };
+    }
   });
 
   // A note goes back ahead of the step that read it, never inside one, so it can never
@@ -213,6 +295,13 @@ export async function streamTextCall(
           });
       }
       controller.enqueue(chunk);
+      // Once, as the answer on the key begins: said, not kept in the conversation
+      if (chunk.type === "start" && moved)
+        controller.enqueue({
+          type: `data-${TEXT_CALL_MOVED}`,
+          data: moved,
+          transient: true,
+        });
     },
     // Over before the page hears the end: what comes after her last step goes with the next turn
     flush: close,
@@ -220,10 +309,27 @@ export async function streamTextCall(
   // A provider's refusal is the user's to act on, so it is never masked
   return createUIMessageStreamResponse({
     stream: toUIMessageStream({
-      stream: result.stream,
+      stream: parts,
       tools: run.tools,
       onError: modelErrorToString,
     }).pipeThrough(told),
+  });
+}
+
+/** A generator of stream parts as the stream the sdk reads; cancelled, the generator ends. */
+function streamParts(
+  make: () => AsyncGenerator<TextStreamPart<ToolSet>>,
+): ReadableStream<TextStreamPart<ToolSet>> {
+  const parts = make();
+  return new ReadableStream({
+    async pull(controller) {
+      const next = await parts.next();
+      if (next.done) controller.close();
+      else controller.enqueue(next.value);
+    },
+    async cancel() {
+      await parts.return(undefined);
+    },
   });
 }
 
@@ -237,7 +343,8 @@ export type TurnNote = { text: string; said: boolean };
  * for a bot, which is no turn of its own. `notes` is asked before every step after the
  * first: what arrived while she worked joins this turn instead of waiting for the next, as
  * it does for a bot (bot.run). What comes back is her words, what she did, and the
- * messages to carry into the next turn, in the order they were said.
+ * messages to carry into the next turn, in the order they were said — and, when a spent
+ * plan moved the turn onto the OpenAI key (spareOf), the line that tells them so.
  */
 export async function answerInWriting(input: {
   callId: string;
@@ -246,7 +353,12 @@ export async function answerInWriting(input: {
   said: string | null;
   notes?: () => TurnNote[];
   signal?: AbortSignal;
-}): Promise<{ text: string; did: string[]; messages: ModelMessage[] }> {
+}): Promise<{
+  text: string;
+  did: string[];
+  messages: ModelMessage[];
+  moved: string | null;
+}> {
   const { callId, standing, messages, said, signal } = input;
   const [run, seq] = await Promise.all([
     loadRun(callId, null, true),
@@ -261,27 +373,51 @@ export async function answerInWriting(input: {
   // What the latest step was sent. The sdk returns only what she made, so this is where
   // a note that joined keeps its place between her steps
   let sent: ModelMessage[] = [...head, ...messages];
-  const result = await generateText({
-    model: run.model,
-    instructions: run.system,
-    messages: sent,
-    allowSystemInMessages: true,
-    tools: run.tools,
-    providerOptions: run.providerOptions,
-    stopWhen: stepCountIs(TEXT_CALL.maxSteps),
-    abortSignal: signal,
-    prepareStep: async ({ stepNumber, messages: soFar }) => {
-      const notes = stepNumber > 0 ? (input.notes?.() ?? []) : [];
-      sent = [
-        ...soFar,
-        ...notes.map((note) => ({ role: "user" as const, content: note.text })),
-      ];
-      for (const note of notes) if (note.said) await rows.said(note.text);
-      // Carried forward by the sdk: from here the steps stack on these
-      return notes.length ? { messages: sent } : undefined;
-    },
-    onStepEnd: rows.step,
-  });
+  /** Steps finished: a turn is moved to the key only while none has. */
+  let finished = 0;
+  const ask = (on: Run) =>
+    generateText({
+      model: on.model,
+      instructions: on.system,
+      messages: sent,
+      allowSystemInMessages: true,
+      tools: on.tools,
+      providerOptions: on.providerOptions,
+      stopWhen: stepCountIs(TEXT_CALL.maxSteps),
+      abortSignal: signal,
+      prepareStep: async ({ stepNumber, messages: soFar }) => {
+        const notes = stepNumber > 0 ? (input.notes?.() ?? []) : [];
+        sent = [
+          ...soFar,
+          ...notes.map((note) => ({
+            role: "user" as const,
+            content: note.text,
+          })),
+        ];
+        for (const note of notes) if (note.said) await rows.said(note.text);
+        // Carried forward by the sdk: from here the steps stack on these
+        return notes.length ? { messages: sent } : undefined;
+      },
+      onStepEnd: async (step) => {
+        finished += 1;
+        await rows.step(step);
+      },
+    });
+  let result: Awaited<ReturnType<typeof ask>>;
+  let moved: string | null = null;
+  try {
+    result = await ask(run);
+  } catch (cause) {
+    const spare = finished ? null : await spareOf(run.ref, cause);
+    if (!spare) throw await planSpentError(cause);
+    logger.info(`text call ${callId}: ${spare.line}`);
+    moved = spare.line;
+    try {
+      result = await ask(await loadRun(callId, spare.ref, true));
+    } catch (again) {
+      throw await planSpentError(again);
+    }
+  }
   return {
     text: result.text.trim(),
     // What she did, as the call screen words it: all there is to show for a turn she
@@ -297,6 +433,7 @@ export async function answerInWriting(input: {
       ...sent.slice(head.length),
       ...(result.steps.at(-1)?.response.messages ?? []),
     ],
+    moved,
   };
 }
 
@@ -359,6 +496,8 @@ function turnRows(callId: string, from: number) {
 const standingHead = (standing: string | null | undefined): ModelMessage[] =>
   standing ? [{ role: "system", content: standing }] : [];
 
+type Run = Awaited<ReturnType<typeof loadRun>>;
+
 /** What a turn runs on, whoever holds the conversation: the model, her prompt, her tools. */
 async function loadRun(
   callId: string,
@@ -419,6 +558,7 @@ async function loadRun(
       : wantedReasoning(settings.reasoningEffort);
 
   return {
+    ref,
     model: model.model,
     system,
     tools,

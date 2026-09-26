@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, mock, test } from "node:test";
 import {
+  APICallError,
   readUIMessageStream,
   simulateReadableStream,
   type UIMessage,
@@ -100,17 +101,38 @@ const model = new MockLanguageModelV4({
     };
   },
 });
+/** Which provider each turn's model was built for, in order. */
+const builtFor: string[] = [];
 const realModel = await import("../features/ai/model.ts");
 mock.module("../features/ai/model.ts", {
   namedExports: {
     ...realModel,
-    getTextModel: async (ref: { model?: string }) => {
+    getTextModel: async (ref: { provider?: string; model?: string }) => {
       // A pick that cannot be run: refused before anything of the turn is kept
       if (ref.model === "refused") throw new Error("No key for that model.");
+      builtFor.push(String(ref.provider));
       return { ref, model, searchTools: null };
     },
   },
 });
+
+/** The GPT subscription's refusal once the plan is spent, as ai/chatgpt words it. */
+const planSpent = () =>
+  new APICallError({
+    message:
+      "GPT Subscription usage limit reached on the plus plan. It resets in 3 hours.",
+    url: "https://chatgpt.com/backend-api/codex/responses",
+    requestBodyValues: {},
+    statusCode: 402,
+    responseBody: JSON.stringify({
+      error: {
+        message:
+          "GPT Subscription usage limit reached on the plus plan. It resets in 3 hours.",
+        code: "usage_limit_reached",
+      },
+    }),
+    isRetryable: false,
+  });
 const realLive = await import("../lib/live/live.server.ts");
 mock.module("../lib/live/live.server.ts", {
   // Asked of the provider over the network; nothing here depends on the answer
@@ -119,7 +141,7 @@ mock.module("../lib/live/live.server.ts", {
 
 const { migrateDatabase } = await import("../database/migrate.ts");
 await migrateDatabase();
-const { readConfig, writeConfig } = await import(
+const { readConfig, removeConfig, writeConfig } = await import(
   "../features/config/config.query.ts"
 );
 const { LIVE_PROVIDER, LiveSettingsSchema } = await import(
@@ -590,4 +612,151 @@ test("the kept settings take a browser's copy once, keep only what differs from 
     JSON.stringify({ persona: "steady" }),
   );
   assert.equal((await readLiveSettings()).persona, "calm");
+});
+
+// A spent GPT plan: the turn moves onto the OpenAI key before anything of it ran, and says so
+const onPlan = { provider: "chatgpt", model: "gpt-6-luna" };
+
+test("a phone's turn the spent plan refuses is answered on the OpenAI key, and says so", async () => {
+  await writeConfig("CHATGPT_SIGN_IN", "{}");
+  try {
+    const { callId } = await openTextCall();
+    builtFor.length = 0;
+    steps.push(
+      () => {
+        throw planSpent();
+      },
+      () => [{ type: "text", text: "It is noon in Lisbon." }],
+    );
+    const result = await answerInWriting({
+      callId,
+      standing: null,
+      messages: [{ role: "user", content: "what time is it in Lisbon?" }],
+      said: "what time is it in Lisbon?",
+    });
+    assert.deepEqual(builtFor, ["chatgpt", "openai"]);
+    assert.equal(result.text, "It is noon in Lisbon.");
+    assert.match(
+      result.moved ?? "",
+      /^GPT Subscription usage limit reached on the plus plan\. It resets in 3 hours\. Answering on your OpenAI key \(6 Luna\)/,
+    );
+    // Their words are kept once, and her answer after them
+    assert.deepEqual(await rowsOf(callId), [
+      ["user", "what time is it in L"],
+      ["assistant", "It is noon in Lisbon"],
+    ]);
+
+    // Any other refusal is not moved: it reaches them as it was said
+    steps.push(() => {
+      throw new Error("The provider said no.");
+    });
+    await assert.rejects(
+      answerInWriting({
+        callId,
+        standing: null,
+        messages: [{ role: "user", content: "and in Lima?" }],
+        said: "and in Lima?",
+      }),
+      /The provider said no\./,
+    );
+  } finally {
+    await removeConfig("CHATGPT_SIGN_IN");
+  }
+});
+
+test("a spent plan with no key, or refused partway through a turn, says what the user can do and runs nothing twice", async () => {
+  await writeConfig("CHATGPT_SIGN_IN", "{}");
+  await removeConfig(LIVE_PROVIDER.apiKeyName);
+  try {
+    const { callId } = await openTextCall();
+    steps.push(() => {
+      throw planSpent();
+    });
+    await assert.rejects(
+      answerInWriting({
+        callId,
+        standing: null,
+        messages: [{ role: "user", content: "hello" }],
+        said: "hello",
+      }),
+      /resets in 3 hours\. With an OpenAI key in Settings › API keys, she answers on it until then\./,
+    );
+
+    // With the key, but after a tool already ran: the tool is not run again on the key
+    await writeConfig(LIVE_PROVIDER.apiKeyName, "sk-test");
+    builtFor.length = 0;
+    steps.push(
+      () => [
+        {
+          type: "tool-call",
+          toolCallId: "s-1",
+          toolName: TOOL_NAMES.thread_status,
+          input: JSON.stringify({ thread: "all" }),
+        },
+      ],
+      () => {
+        throw planSpent();
+      },
+    );
+    await assert.rejects(
+      answerInWriting({
+        callId,
+        standing: null,
+        messages: [{ role: "user", content: "anything running?" }],
+        said: "anything running?",
+      }),
+      /Write again and she answers on your OpenAI key\./,
+    );
+    assert.deepEqual(builtFor, ["chatgpt"]);
+    assert.equal(steps.length, 0);
+  } finally {
+    await writeConfig(LIVE_PROVIDER.apiKeyName, "sk-test");
+    await removeConfig("CHATGPT_SIGN_IN");
+  }
+});
+
+test("a page's turn the spent plan refuses streams on the OpenAI key, tells the page once, and keeps what it had read", async () => {
+  const { callId } = await openTextCall();
+  builtFor.length = 0;
+  const note = { id: "note-m", text: "the other account", said: true };
+  steps.push(
+    () => {
+      throw planSpent();
+    },
+    () => [{ type: "text", text: "Done on the key." }],
+  );
+  // Written before her first step: the step on the key reads it
+  const response = streamTextCall(
+    { callId, turn: "turn-m", runsOn: onPlan, messages: [words("u-m", "go")] },
+    new AbortController().signal,
+  );
+  tellTextCall(callId, "turn-m", note);
+  const sent = await (await response).text();
+  const chunks = sent
+    .split("\n")
+    .filter((line) => line.startsWith("data: ") && line !== "data: [DONE]")
+    .map((line) => JSON.parse(line.slice(6)) as Record<string, unknown>);
+
+  assert.deepEqual(builtFor, ["chatgpt", "openai"]);
+  assert.ok(!chunks.some((chunk) => chunk.type === "error"), sent);
+  assert.equal(chunks.filter((chunk) => chunk.type === "start").length, 1);
+  const moved = chunks.filter((chunk) => chunk.type === "data-moved");
+  assert.equal(moved.length, 1);
+  assert.equal(moved[0].transient, true);
+  assert.match(
+    String((moved[0].data as { why: string }).why),
+    /usage limit reached/,
+  );
+  const answer = await answerOf(chunks);
+  assert.ok(
+    answer.parts.some(
+      (part) => part.type === "text" && part.text === "Done on the key.",
+    ),
+  );
+  assert.ok(prompts.at(-1)?.includes("the other account"));
+  assert.deepEqual(await rowsOf(callId), [
+    ["user", "go"],
+    ["user", "the other account"],
+    ["assistant", "Done on the key."],
+  ]);
 });

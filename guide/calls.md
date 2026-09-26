@@ -60,10 +60,14 @@ as on a spoken call, with no voice and no per-minute billing.
 - **What it runs on**: the GPT Subscription when one is signed in, else the OpenAI key. The small
   **runs on** button under the line shows which, and can pick another model, from any provider with
   a key, for writing only. With nothing to run on it says so; keys are in **Settings › API keys**.
-- **When a turn fails** — a plan's limit, a refused key — her face says ERROR and the provider's
-  reason shows in red under the line, with **Send it again** and a link to **API keys**. When an
-  OpenAI key is set and was not the problem, the button reads **Send it again on your OpenAI key**.
-  It never switches by itself, since the cost changes with what it runs on.
+- **When the GPT Subscription's limit is reached** and an OpenAI key is set, the turn is answered on
+  the key, on the backend model from **Settings › Thursday**, and a notice says so once a call with
+  when the plan resets. Every turn tries the plan first, so it goes back to the plan by itself once
+  the plan resets. Turns on the key are billed to it. With no key, the turn fails as below.
+- **When a turn fails** — a refused key, a plan's limit with no key to go on — her face says ERROR
+  and the provider's reason shows in red under the line, with **Send it again** and a link to
+  **API keys**. When an OpenAI key is set and was not the problem, the button reads **Send it again
+  on your OpenAI key**.
 - **Ending it**: **Esc** ends it (saying goodbye does not), and so does starting a spoken call.
   Opening a thread in the corner does not: the corner says *Thursday is still on the line*, with
   **Back to her** to return.

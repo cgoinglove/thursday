@@ -93,6 +93,8 @@ type Line = {
   standing: string | null;
   messages: ModelMessage[];
   lastAt: number;
+  /** A spent plan moved a turn onto the OpenAI key, and the chat was told: once a conversation. */
+  moved?: true;
 };
 
 /** One service being listened to. */
@@ -647,6 +649,11 @@ async function answer(live: Live, person: ReachPerson, words: string) {
     });
     line.messages = carried(result.messages);
     line.lastAt = Date.now();
+    // Every turn asks the plan first and moves again until it resets: said once, ahead of her answer
+    if (result.moved && !line.moved) {
+      line.moved = true;
+      await channel.say(person.chat, { plain: result.moved });
+    }
 
     // What she did, in the call screen's words, only for a turn she ended without a word: a
     // chat has no activity line, so that is all it would show. Under an answer she wrote, the

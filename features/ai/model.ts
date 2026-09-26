@@ -34,7 +34,12 @@ import { readConfig } from "@/features/config/config.query";
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
 import { clip, errorToString } from "@/lib/utils";
-import { chatGptModel, chatGptSearch, readChatGptPlan } from "./chatgpt";
+import {
+  chatGptModel,
+  chatGptSearch,
+  PLAN_SPENT_CODE,
+  readChatGptPlan,
+} from "./chatgpt";
 import {
   type CatalogModel,
   type CatalogPrice,
@@ -143,6 +148,25 @@ export function isProviderRefusal(cause: unknown): boolean {
       statusCode < 500 &&
       !PASSING_4XX.has(statusCode)
     );
+  });
+}
+
+/**
+ * Whether the GPT subscription refused a request because the plan's usage is spent until its
+ * window resets (ai/chatgpt usageLimitOf): its 402, read by the code the backend gave.
+ */
+export function isPlanSpent(cause: unknown): boolean {
+  return causeChain(cause).some((error) => {
+    if (!APICallError.isInstance(error) || error.statusCode !== 402)
+      return false;
+    try {
+      const { code } =
+        (JSON.parse(error.responseBody ?? "") as { error?: { code?: unknown } })
+          .error ?? {};
+      return typeof code === "string" && PLAN_SPENT_CODE.test(code);
+    } catch {
+      return false;
+    }
   });
 }
 

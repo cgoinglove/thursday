@@ -124,4 +124,7 @@ back.
   by itself.
 - **The computer is asleep or the app is not running**: on Telegram, messages wait and are answered
   when it is back; on Discord and Slack, what was written meanwhile is not seen.
-- **No key or a plan's limit** is said in the chat in the provider's own words (`trouble.md`).
+- **The GPT Subscription's limit**: with an OpenAI key set, she answers on the key, and the chat is
+  told so once a conversation, with when the plan resets. With no key, the chat says the limit and
+  that an OpenAI key in **Settings › API keys** would let her answer.
+- **No key, or a refused one**, is said in the chat in the provider's own words (`trouble.md`).

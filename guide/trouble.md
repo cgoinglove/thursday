@@ -30,7 +30,8 @@ A job does not fail for good; it pauses and waits.
 - **The model failed or the provider refused**: the thread says why. Fix the key or pick another
   model on the bot's page, then press **Continue**.
 - **The GPT Subscription ran out**: the job says when the plan resets; its row in **Settings › API
-  keys** shows *Limit reached*.
+  keys** shows *Limit reached*. A call in writing, on screen or from a phone, goes on on the OpenAI
+  key when one is set (`calls.md`); a job does not.
 - **The app stopped while it ran** (terminal closed, computer restarted), or **it reached its step
   limit**: **Continue** picks it up. Closing the browser tab does not stop jobs.
 - **They stopped it**: writing to the thread starts it again.

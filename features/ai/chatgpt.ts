@@ -556,6 +556,9 @@ async function refusalOf(response: Response): Promise<Response> {
   );
 }
 
+/** The codes the backend refuses a spent plan with; its 402 (usageLimitOf) carries one of them. */
+export const PLAN_SPENT_CODE = /usage_limit_reached|usage_not_included/;
+
 /**
  * A 429 is either a rate limit a moment fixes or the plan's usage spent until its window resets
  * — hours, or on Free a month. The second becomes a 402 in the backend's words: the sdk does not
@@ -574,9 +577,7 @@ async function usageLimitOf(response: Response): Promise<Response> {
     said = (JSON.parse(text) as { error?: typeof said }).error ?? {};
   } catch {}
 
-  if (
-    !/usage_limit_reached|usage_not_included/.test(`${said.code} ${said.type}`)
-  ) {
+  if (!PLAN_SPENT_CODE.test(`${said.code} ${said.type}`)) {
     const retryAfter = response.headers.get("retry-after");
     return new Response(text, {
       status: 429,

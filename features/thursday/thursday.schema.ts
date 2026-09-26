@@ -75,6 +75,14 @@ export type TextCallNote = z.infer<typeof TextCallNoteSchema>;
 /** The data part a note rides in: `data-note`. */
 export const TEXT_CALL_NOTE = "note";
 
+/**
+ * The data part that says a turn moved off a spent GPT subscription onto the OpenAI key
+ * (thursday.text spareOf): the plan's words (`why`) and the whole line. Transient: the
+ * page says it, the conversation does not keep it.
+ */
+export const TEXT_CALL_MOVED = "moved";
+export type TextCallMoved = { why: string; line: string };
+
 /** The note a part carries, or null for any other part. */
 export const noteOf = (
   part: UIMessage["parts"][number],

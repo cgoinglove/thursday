@@ -32,8 +32,10 @@ import {
   type CallStatus,
   noteOf,
   notesIn,
+  TEXT_CALL_MOVED,
   TEXT_CALL_NOTE,
   type TextCallHandshake,
+  type TextCallMoved,
   type TextCallNote,
 } from "./thursday.schema";
 import { useThursdayStore } from "./thursday.store";
@@ -128,6 +130,11 @@ export function useTextCall(): TextCall {
   const [relayLine, setRelayLine] = useState<ActivityLine | null>(null);
   /** What a request does once it is over; set below, where all it needs exists. */
   const after = useRef<ChatOnFinishCallback<UIMessage>>(() => {});
+  /**
+   * A spent plan moved a turn of this call onto the OpenAI key (thursday.text): said once a
+   * call, since every turn after it asks the plan first and moves again until it resets.
+   */
+  const movedSaid = useRef(false);
   const {
     messages,
     sendMessage,
@@ -136,7 +143,19 @@ export function useTextCall(): TextCall {
     stop,
     error,
     clearError,
-  } = useChat({ transport, onFinish: (event) => after.current(event) });
+  } = useChat({
+    transport,
+    onFinish: (event) => after.current(event),
+    onData: (part) => {
+      if (part.type !== `data-${TEXT_CALL_MOVED}` || movedSaid.current) return;
+      movedSaid.current = true;
+      toast.add({
+        type: "warning",
+        title: "Answering on your OpenAI key",
+        description: (part.data as TextCallMoved).why,
+      });
+    },
+  });
   const running = status === "submitted" || status === "streaming";
   /** The conversation as last drawn, for a request that has to read it (again). */
   const chat = useRef(messages);
@@ -189,6 +208,7 @@ export function useTextCall(): TextCall {
     facts.current.clear();
     hold([]);
     auto.current = 0;
+    movedSaid.current = false;
     setRelayLine(null);
     void stop();
     setMessages([]);

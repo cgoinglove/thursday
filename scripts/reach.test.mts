@@ -86,6 +86,8 @@ let made: Message[] | null = null;
 let did: string[] = [];
 /** The next turn ends without a word of hers. */
 let wordless = false;
+/** The next turn was moved off a spent plan onto the OpenAI key, with this line. */
+let moved: string | null = null;
 let calls = 0;
 mock.module("../features/thursday/thursday.text.ts", {
   namedExports: {
@@ -115,7 +117,10 @@ mock.module("../features/thursday/thursday.text.ts", {
       made = null;
       const quiet = wordless;
       wordless = false;
+      const line = moved;
+      moved = null;
       return {
+        moved: line,
         text: quiet ? "" : `**Heard:** ${turn.words}`,
         did: did.splice(0),
         messages: [
@@ -353,6 +358,24 @@ const lastSaid = () =>
 /** A look at the inbox runs a moment after the event (reach looks once for a burst, REACH.lookMs). */
 const looked = () =>
   new Promise((resolve) => setTimeout(resolve, REACH.lookMs + 300));
+
+test("a turn moved off a spent plan says so ahead of her answer, once a conversation", async () => {
+  const line =
+    "GPT Subscription usage limit reached. Answering on your OpenAI key (6 Luna) until it resets.";
+  moved = line;
+  inbox.push(message(7, "what is on today?"));
+  await until(
+    () => saidTo(7).at(-1) === "Heard: what is on today?",
+    "her answer",
+  );
+  assert.deepEqual(saidTo(7).slice(-2), [line, "Heard: what is on today?"]);
+
+  // Every turn moves again until the plan resets: the chat is not told again
+  moved = line;
+  inbox.push(message(7, "and tomorrow?"));
+  await until(() => saidTo(7).at(-1) === "Heard: and tomorrow?", "the next");
+  assert.equal(saidTo(7).at(-2), "Heard: what is on today?");
+});
 
 test("a bot's question goes to the phone as the bot wrote it, and a button answers the bot", async () => {
   threads = [
