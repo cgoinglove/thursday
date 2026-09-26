@@ -48,7 +48,7 @@ const lineOf = async (path: string) =>
 test("a subject not on the listing is refused by remember and made by create, with its line", async () => {
   const refused = await call(TOOL_NAMES.memory_remember, {
     path: "people/sam",
-    facts: [{ text: "Lives in Busan." }],
+    facts: [{ text: "Lives by the sea." }],
   });
   assert.match(
     refused.note ?? "",
@@ -60,7 +60,7 @@ test("a subject not on the listing is refused by remember and made by create, wi
   const made = await call(TOOL_NAMES.memory_create, {
     path: "people/sam",
     description: "Their brother, Sam",
-    facts: [{ text: "Lives in Busan." }, { text: "lives in busan" }],
+    facts: [{ text: "Lives by the sea." }, { text: "lives by the sea" }],
   });
   assert.match(made.note ?? "", /^Saved\./);
   // The same fact twice in one write is one fact
@@ -96,10 +96,10 @@ test("a line past the cap is refused, on create and on describe, and nothing is 
 
   const fits = await call(TOOL_NAMES.memory_describe, {
     path: "people/sam",
-    description: "Their brother Sam, in Busan",
+    description: "Their brother Sam, by the sea",
   });
   assert.match(fits.note ?? "", /^Renamed\./);
-  assert.equal(await lineOf("people/sam"), "Their brother Sam, in Busan");
+  assert.equal(await lineOf("people/sam"), "Their brother Sam, by the sea");
 
   const gone = await call(TOOL_NAMES.memory_describe, {
     path: "people/nobody",
@@ -138,26 +138,26 @@ test("profile and preferences keep the app's line and take facts through remembe
 
 test("replaces retires the old fact, and a fact already there is not written twice", async () => {
   const before = (await readNotes(["people/sam"])).notes[0]?.facts ?? [];
-  const busan = before.find((fact) => fact.text === "Lives in Busan.");
-  assert.ok(busan);
+  const sea = before.find((fact) => fact.text === "Lives by the sea.");
+  assert.ok(sea);
 
   const again = await call(TOOL_NAMES.memory_remember, {
     path: "people/sam",
-    facts: [{ text: "Lives in Busan!" }],
+    facts: [{ text: "Lives by the sea!" }],
   });
   assert.equal(again.factCount, 1);
 
   const moved = await call(TOOL_NAMES.memory_remember, {
     path: "people/sam",
-    facts: [{ text: "Moved to Seoul in 2026.", replaces: busan.id }],
+    facts: [{ text: "Moved to the city in 2026.", replaces: sea.id }],
   });
   assert.equal(moved.factCount, 1);
   const after = (await readNotes(["people/sam"])).notes[0]?.facts ?? [];
   assert.deepEqual(
     after.map((fact) => fact.text),
-    ["Moved to Seoul in 2026."],
+    ["Moved to the city in 2026."],
   );
-  assert.notEqual(after[0].id, busan.id);
+  assert.notEqual(after[0].id, sea.id);
 });
 
 test("a path outside the convention is refused, and a note is opened by its path alone", async () => {
@@ -172,5 +172,5 @@ test("a path outside the convention is refused, and a note is opened by its path
   assert.match(byTitle.note ?? "", /^Nothing on the listing called sam\./);
   const byPath = await call(TOOL_NAMES.memory_recall, { path: "people/sam" });
   assert.equal(byPath.factCount, 1);
-  assert.equal(byPath.description, "Their brother Sam, in Busan");
+  assert.equal(byPath.description, "Their brother Sam, by the sea");
 });

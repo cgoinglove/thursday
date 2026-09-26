@@ -19,7 +19,7 @@ const TIMEOUT_MS = 10_000;
 //
 // The values are `run` arguments rather than anything read from inside the
 // script: `system attribute` decodes the environment in a legacy encoding, so
-// a Korean title arrived as mojibake, and interpolating into the script text
+// a title with a letter outside ASCII arrived as mojibake, and interpolating into the script text
 // would hand a quote the power to end it. argv is UTF-8 and already `text`.
 const APPLESCRIPT = `on run argv
 display notification (item 2 of argv) with title (item 1 of argv)

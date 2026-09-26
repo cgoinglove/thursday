@@ -439,11 +439,11 @@ test("words a broken turn never kept are kept with the next turn, once", async (
   await pageTurn({
     callId,
     turn: "turn-8",
-    messages: [first, words("u-6", "and in Seoul")],
+    messages: [first, words("u-6", "and in Lima")],
   });
   assert.deepEqual(await rowsOf(callId), [
     ["user", "what time is it in L"],
-    ["user", "and in Seoul"],
+    ["user", "and in Lima"],
     ["assistant", "Both, then."],
   ]);
 });

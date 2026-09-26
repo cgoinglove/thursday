@@ -97,7 +97,7 @@ const out = join(
 
 const cur = trip.currency ? String(trip.currency).toUpperCase() : null;
 const lang = String(trip.lang ?? "en");
-// Built without them, a page in Korean came out with "Day by day" and "Before you go" on it,
+// Built without them, a page in another language came out with "Day by day" and "Before you go" on it,
 // and the warning printed after the build was passed over
 if (!lang.startsWith("en") && !trip.labels)
   fail(

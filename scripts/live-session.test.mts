@@ -1292,20 +1292,20 @@ test("a finished job reaches her voice as words to say: a link is its name, a pi
   );
   const thread = {
     id: "t-1",
-    label: "Gyeongju trip",
+    label: "Weekend trip",
     bot: "Concierge",
     status: "done",
     seen: false,
     updatedAt: new Date().toISOString(),
     outcome:
-      "Here is the plan: [the itinerary](/api/file?path=artifacts/Concierge/gyeongju.html).\n\n![map](/api/file?path=artifacts/Concierge/map.png)\n\n| Day | Where |\n|---|---|\n| 1 | Bulguksa |\n\n- **Bring** a light jacket.",
+      "Here is the plan: [the itinerary](/api/file?path=artifacts/Concierge/weekend.html).\n\n![map](/api/file?path=artifacts/Concierge/map.png)\n\n| Day | Where |\n|---|---|\n| 1 | Old town |\n\n- **Bring** a light jacket.",
     ask: null,
     room: { relays: [], questions: [] },
   };
   const [ending] = openWork([thread] as never);
   const said = ending.line.split("\n").slice(1).join("\n");
   assert.match(said, /the itinerary/);
-  assert.match(said, /1 · Bulguksa/);
+  assert.match(said, /1 · Old town/);
   assert.match(said, /Bring a light jacket/);
   assert.doesNotMatch(said, /\/api\/file|map\.png|\||\*\*/);
 
