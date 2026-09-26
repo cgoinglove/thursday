@@ -68,14 +68,14 @@ Pages, charts, videos, slides, docs and scripts, saved as files on your machine.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-results-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-results-light.png" alt="A page a bot made, the files it saved beside it, and the card it landed as" width="880">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-results-light.png" alt="A page a bot made, a chart and a deck from the same job, and the files they were saved as" width="880">
 </picture>
 
 ## And also
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-more-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-more-light.png" alt="Every weekday at nine: a bot, a job and a time. From your phone: Telegram, Discord or Slack. Memory you can read: plain notes you can open, edit or delete. Every bot, its own model" width="880">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-more-light.png" alt="Every weekday at nine: a bot, a job and a time. From your phone: Telegram, Discord or Slack. Memory you can read: plain notes you can open, edit or delete. Every bot, its own model, from OpenAI, Anthropic, Google, xAI or the Vercel AI Gateway" width="880">
 </picture>
 
 ## How it works

@@ -68,14 +68,14 @@ Node.js 22.18 이상과 OpenAI API 키 하나면 됩니다. 첫 화면에 키를
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-results-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-results-light.png" alt="봇이 만든 페이지와 옆에 저장된 파일들, 그리고 도착한 카드" width="880">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-results-light.png" alt="봇이 만든 페이지와, 같은 일에서 나온 차트와 슬라이드, 그리고 저장된 파일들" width="880">
 </picture>
 
 ## 이런 것도 됩니다
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-more-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-more-light.png" alt="평일 아침 아홉 시 — 봇 하나와 일 하나와 시각 하나. 폰에서 — 텔레그램·디스코드·슬랙. 읽을 수 있는 메모리 — 열고 고치고 지울 수 있는 평범한 메모. 봇마다 고르는 모델" width="880">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-more-light.png" alt="평일 아침 아홉 시 — 봇 하나와 일 하나와 시각 하나. 폰에서 — 텔레그램·디스코드·슬랙. 읽을 수 있는 메모리 — 열고 고치고 지울 수 있는 평범한 메모. 봇마다 고르는 모델 — OpenAI·Anthropic·Google·xAI·Vercel AI Gateway" width="880">
 </picture>
 
 ## 어떻게 돌아가나
