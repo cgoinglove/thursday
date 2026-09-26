@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.17.2](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.17.1...thursday-agent-v0.17.2) (2026-09-26)
+
+
+### Fixes
+
+* **bots:** a question is written to the user, research stays out of sight, and a page is not left half in English ([5419f96](https://github.com/cgoinglove/thursday/commit/5419f964bd641b9fba1784fc768721799659f5a4))
+* **bots:** a ready-made bot's role is said as the app's, and words nobody changed follow the seed ([239e55a](https://github.com/cgoinglove/thursday/commit/239e55a51dfa403a319acdcd984cd525eabc96e8))
+* **bots:** the pinned-tools field says nothing until its list has come ([219a922](https://github.com/cgoinglove/thursday/commit/219a922222afc04ec8b1825a474a32a4735a1fe3))
+* **call:** a goodbye ends the call, she is a friend rather than an interviewer, and four characters instead of ten ([397c910](https://github.com/cgoinglove/thursday/commit/397c910cafb661856c35b389d45e704e01c4bf2f))
+* **call:** a quiet call hangs up after 25 seconds, not 40 ([be8b109](https://github.com/cgoinglove/thursday/commit/be8b10998247375a2c31aaecf3d9082b45947ccd))
+* **call:** in writing, news from a bot is said with whose work it is first ([bef6f18](https://github.com/cgoinglove/thursday/commit/bef6f1824a8de7d06d2f8de7c17b75e6e03da1ae))
+* **call:** one spoken call across the app's tabs, and a tab that closes ends its own ([ed172f4](https://github.com/cgoinglove/thursday/commit/ed172f46ad5137cae0e00aeb0e1f3484ec8c0c6d))
+* **call:** what the work sends her voice is said whole and in words, and "working" ends with the handoff ([f631e04](https://github.com/cgoinglove/thursday/commit/f631e04ce38e56fdb58e92179c6cf881c89c9c4c))
+* **copy:** what the screen and the guide say is what happens ([0da65a1](https://github.com/cgoinglove/thursday/commit/0da65a18dd7c31f08d91df85be3225ab7da8c482))
+* **data:** data a newer version wrote is not offered to be set aside ([482f3d5](https://github.com/cgoinglove/thursday/commit/482f3d583a6159cfdfb8b7c66b71365f184e78d4))
+* **first-run:** the picked bots come along without a key, she says what works, and / always opens on her ([c703cbf](https://github.com/cgoinglove/thursday/commit/c703cbf52323777c8e104e4a00297984185b9bfd))
+* **models:** a bot on the plan can search, the plan comes before a key, and Settings names what Automatic runs ([2a4aa97](https://github.com/cgoinglove/thursday/commit/2a4aa970a2371ba6eb73870b27b91daaedbf47c7))
+* **models:** a bot with no model picked runs on GPT's small model, as a call's backend does ([25fadcb](https://github.com/cgoinglove/thursday/commit/25fadcbd8d962ca5b1e65aa86fcc976a724cc66c))
+* **models:** with nobody picking, a paid plan runs its middle model ([336c8f8](https://github.com/cgoinglove/thursday/commit/336c8f826baaab08aef5e10c49e0586296b3dd3f))
+* **phone:** the app's work line only for a wordless turn, a page as its pictures alone, and no row of commas ([cde8879](https://github.com/cgoinglove/thursday/commit/cde88792bee56cd9897bff85324d82bccac7aa32))
+* **screen:** ↓ comes back to now on every call, and nothing is reached through the intro ([b7eee3b](https://github.com/cgoinglove/thursday/commit/b7eee3bb9ccf810cfae9306d835defda759da780))
+* **security:** the app is framed only by itself, two reads that act refuse other sites, and more secrets stay out of a bot's shell ([b40cb86](https://github.com/cgoinglove/thursday/commit/b40cb86acaca026df44af2262a9cd94cddd45302))
+* **settings:** a routine's name or job typed and not kept is asked about before it goes ([7c7e1cc](https://github.com/cgoinglove/thursday/commit/7c7e1ccf0582f252b251c8d72cb26bb4b0ceb0bb))
+* **ship:** one server to a data folder, an old Node told what it needs, and nothing published untested ([c7eeb71](https://github.com/cgoinglove/thursday/commit/c7eeb71987ff6e7d70247e6bdf951f3224238559))
+* what the user set stays set, and nothing is thrown away or billed twice unasked ([bf3407a](https://github.com/cgoinglove/thursday/commit/bf3407a5ace6f10719915cdf3fe63442386dcdf2))
+* **workbench:** a bot's command runs in bash where the machine has it, as the tool says ([7ab9fad](https://github.com/cgoinglove/thursday/commit/7ab9fadbcdeb11c446d801e93184990530713e50))
+
 ## [0.17.1](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.17.0...thursday-agent-v0.17.1) (2026-09-25)
 
 
