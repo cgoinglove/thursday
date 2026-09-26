@@ -30,7 +30,14 @@ export async function readFileThread(
   if (!file?.isFile()) return { state: "gone" };
 
   const thread = await threadOf(path, from);
-  if (!thread) return { state: "none", bot: await botOfArtifact(path) };
+  if (!thread) {
+    return {
+      state: "none",
+      bot: await botOfArtifact(path),
+      // The screen names a thread it opened the file from: one nobody has now was deleted since
+      threadDeleted: from !== null,
+    };
+  }
   const ref = { id: thread.id, label: thread.label, bot: thread.bot };
 
   if (
@@ -103,7 +110,9 @@ export async function tellFileThread(
   const found = await readFileThread(path, from);
   if (found.state === "gone") publicError("This file is no longer on disk.");
   if (found.state === "none")
-    publicError("No thread made this file. Hand it to a bot as a new job.");
+    publicError(
+      `${found.threadDeleted ? "This file's thread was deleted." : "This file isn't in any thread."} Hand it to a bot as a new job.`,
+    );
   if (found.state === "asking")
     publicError(
       `${found.bot} is waiting on your answer to a question. Answer it in the thread first.`,

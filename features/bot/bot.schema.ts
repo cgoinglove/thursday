@@ -357,8 +357,11 @@ type ThreadRef = { id: string; label: string; bot: string };
 export type FileThread =
   /** The file is not on disk any more. */
   | { state: "gone" }
-  /** No thread there is reported it; `bot` is the one whose folder holds it, to hand it to anew. */
-  | { state: "none"; bot: string | null }
+  /**
+   * No thread has it: none that is there reported it, or the one it was opened from was deleted
+   * (`threadDeleted`). `bot` is the one whose folder holds it, to hand it to anew.
+   */
+  | { state: "none"; bot: string | null; threadDeleted: boolean }
   /** A bot in it waits on the user's answer: a note now would be taken as that answer. */
   | { state: "asking"; thread: ThreadRef; bot: string; question: string }
   /** Nobody could act on it: its bot was deleted, or the model it runs on cannot be reached. */

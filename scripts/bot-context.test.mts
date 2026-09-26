@@ -2906,11 +2906,30 @@ test("a note about a file reaches the thread that reported it, even after that t
   assert.deepEqual(await readFileThread(unreported), {
     state: "none",
     bot: "Alpha",
+    threadDeleted: false,
   });
   await assert.rejects(
     tellFileThread(unreported, "Hello"),
-    /No thread made this file/,
+    /This file isn't in any thread/,
   );
+
+  // Deleted while the file was open from it: said as that, and its report went with it
+  const { removeThread } = await import("../features/bot/bot.runner.ts");
+  await removeThread(id);
+  assert.deepEqual(await readFileThread(page, id), {
+    state: "none",
+    bot: "Alpha",
+    threadDeleted: true,
+  });
+  await assert.rejects(
+    tellFileThread(page, "Hello", id),
+    /This file's thread was deleted/,
+  );
+  assert.deepEqual(await readFileThread(page), {
+    state: "none",
+    bot: "Alpha",
+    threadDeleted: false,
+  });
 });
 
 test("a note about a helper's file reaches the helper, and none is sent to a thread waiting on a question or left without its bot", async () => {
