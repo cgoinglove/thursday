@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.19.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.18.0...thursday-agent-v0.19.0) (2026-09-26)
+
+
+### Features
+
+* **bots:** each seed bot wears a fixed face instead of one rolled per install ([7eb52c2](https://github.com/cgoinglove/thursday/commit/7eb52c27a3c6101d751cd01b481ac30782c71eef))
+* **call:** share a screen with her, and she looks when asked ([2b36634](https://github.com/cgoinglove/thursday/commit/2b3663471608729c80e2d8bf75143e4b1f10aa16))
+* **cli:** keep it running in the background on a Mac, with no global install ([fc5f947](https://github.com/cgoinglove/thursday/commit/fc5f9471cc02c4534eb413087abe464f0fb782a7))
+* **models:** OpenRouter as a second catalog provider, browsed like the gateway ([b6a800a](https://github.com/cgoinglove/thursday/commit/b6a800a45f41361f25c1394ea4caab3f9af350e4))
+* **settings:** Settings › Thursday says where the app runs, with the command to change it ([2319543](https://github.com/cgoinglove/thursday/commit/23195439ff84cc495d0f021be2778108ab8c1def))
+
+
+### Fixes
+
+* **call:** a look waits for a share's first frame ([7be32d9](https://github.com/cgoinglove/thursday/commit/7be32d9073e908de6dcb6c9ddf696b57be45508d))
+* **call:** a share that outlives its call is stopped, and a refused one says why ([985c7c3](https://github.com/cgoinglove/thursday/commit/985c7c3b0f8b1ba6320fb21d2046a63e50c87060))
+* **cli:** one server per folder in every time zone, and a background start that fails cleanly ([c355fb5](https://github.com/cgoinglove/thursday/commit/c355fb57747282906fc1dc832b3fc4c7b1704a3d))
+* **cli:** the background finds a Node when its own is gone, keeps its log short, and a failed start runs in the terminal ([d02471e](https://github.com/cgoinglove/thursday/commit/d02471e217eece20ca3a8abba0c53b8acf0cb669))
+* **intro:** the opening's sounds fade out instead of throwing ([f26d31f](https://github.com/cgoinglove/thursday/commit/f26d31ff47ed69c0bfe5811ab0d8095838b8d8ac))
+* **skills:** a photo is credited to the page it came from, and a stop takes its article's lead picture ([2ede80c](https://github.com/cgoinglove/thursday/commit/2ede80ccbc3a9c43cb019f3ce2972dde9c7de947))
+
+
+### Docs
+
+* **maps:** a map says what breaks, and a rule is only what the maintainer approved ([84259f0](https://github.com/cgoinglove/thursday/commit/84259f04a103b7b0fbf641525bf00d1f2d3181c9))
+
 ## [0.18.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.17.2...thursday-agent-v0.18.0) (2026-09-26)
 
 
