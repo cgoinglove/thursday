@@ -359,47 +359,67 @@ export function Intro({
           ) : (
             <Button
               variant="brand"
+              // Asked from the button the eye is already on: a second, smaller one beside her
+              // was the one that went unpressed (09-26). On once, it goes on as every step does
+              loading={step === "mic" && mic.asking}
               onClick={() => {
                 if (step === "hello") {
                   // Inside this click, so the browser lets her be heard from here on
                   voice.say("hello", keyed ? "awake" : "key");
                   setStep("key");
-                } else if (last) leave(keyed);
+                } else if (step === "mic" && !mic.on) void mic.turnOn();
+                else if (last) leave(keyed);
                 else setStep(STEPS[at + 1]);
               }}
               // on the first screen it follows her line up, once
               className={cn(
                 "h-12 px-7 pl-8 text-[15px]",
+                step === "mic" && !mic.on && "pl-6",
                 step === "hello" &&
                   "animate-in delay-300 duration-700 fill-mode-backwards fade-in slide-in-from-bottom-2",
               )}
             >
+              {step === "mic" && !mic.on && !mic.asking && (
+                <Mic className="fill-current" />
+              )}
               {step === "hello"
                 ? "Start"
-                : last
-                  ? keyed
-                    ? "Call her"
-                    : "Look around"
-                  : "Continue"}
+                : step === "mic" && !mic.on
+                  ? "Turn on the microphone"
+                  : last
+                    ? keyed
+                      ? "Call her"
+                      : "Look around"
+                    : "Continue"}
               <ChevronRight />
             </Button>
           )}
 
           <p className="h-4 font-mono text-[11px] text-muted-foreground/70">
-            {step === "hello"
-              ? helloIn && (
-                  // it comes up after the button, as the first screen's last line
-                  <span className="block animate-in delay-500 duration-700 fill-mode-backwards fade-in">
-                    two minutes · every step can wait
-                  </span>
-                )
-              : step === "key" && !keyed
-                ? "no key is fine — it can go in from the call screen"
-                : step === "mic" && !mic.on
-                  ? "or allow it when the first call asks"
-                  : last && keyed
-                    ? "or tap her"
-                    : ""}
+            {step === "hello" ? (
+              helloIn && (
+                // it comes up after the button, as the first screen's last line
+                <span className="block animate-in delay-500 duration-700 fill-mode-backwards fade-in">
+                  two minutes · every step can wait
+                </span>
+              )
+            ) : step === "key" && !keyed ? (
+              "no key is fine — it can go in from the call screen"
+            ) : step === "mic" && mic.asking ? (
+              "your browser is asking — allow it at the top of the window"
+            ) : step === "mic" && !mic.on ? (
+              <button
+                type="button"
+                onClick={() => setStep(STEPS[at + 1])}
+                className="rounded-md outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                not now — allow it when the first call asks
+              </button>
+            ) : last && keyed ? (
+              "or tap her"
+            ) : (
+              ""
+            )}
           </p>
         </div>
       </div>
@@ -599,16 +619,22 @@ function micFailure(error: unknown): MicFailure {
 }
 
 /**
- * The microphone on the intro: opened by its button and nothing else, heard through the
- * call's own tap so her face moves as it does on a call, and released as the step is left.
+ * The microphone on the intro: opened by the step's main button and nothing else, heard
+ * through the call's own tap so her face moves as it does on a call, and released as the
+ * step is left. `asking` while the browser's own question is up: it opens by the address
+ * bar, and a page that said nothing meanwhile read as a button that did not press.
  */
 function useMic(active: boolean) {
-  const [state, setState] = useState<"off" | "on" | MicFailure>("off");
+  const [state, setState] = useState<"off" | "asking" | "on" | MicFailure>(
+    "off",
+  );
   /** It opened once: the browser will not ask again, whatever the step. */
   const [allowed, setAllowed] = useState(false);
   const [label, setLabel] = useState("");
   const tap = useRef<AudioTap | null>(null);
   const stream = useRef<MediaStream | null>(null);
+  const live = useRef(active);
+  live.current = active;
 
   const release = useCallback(() => {
     for (const track of stream.current?.getTracks() ?? []) track.stop();
@@ -617,13 +643,20 @@ function useMic(active: boolean) {
   useEffect(() => {
     if (active) return;
     release();
-    setState((was) => (was === "on" ? "off" : was));
+    setState((was) => (was === "on" || was === "asking" ? "off" : was));
   }, [active, release]);
   useEffect(() => release, [release]);
 
   const turnOn = useCallback(async () => {
+    setState("asking");
     try {
       const heard = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Answered after the step was left: allowed, but not opened here
+      if (!live.current) {
+        for (const track of heard.getTracks()) track.stop();
+        setAllowed(true);
+        return;
+      }
       stream.current = heard;
       tap.current ??= createAudioTap();
       tap.current.open();
@@ -639,6 +672,7 @@ function useMic(active: boolean) {
   const spectrum = useCallback(() => tap.current?.readMic() ?? [], []);
   return {
     on: state === "on",
+    asking: state === "asking",
     failed: typeof state === "object" ? state : null,
     allowed,
     label,
@@ -660,17 +694,11 @@ function MicTurn({ mic }: { mic: MicState }) {
     onError: setUnheard,
   });
 
+  // The step's main button turns it on (Intro), so its turn here only says what it is for
   if (!mic.on)
     return (
       <>
         <Mine>Turn on the microphone</Mine>
-        <Button
-          onClick={() => void mic.turnOn()}
-          className="h-11 self-start rounded-full px-5 pl-4 text-sm"
-        >
-          <Mic className="" />
-          Turn it on
-        </Button>
         {mic.failed ? (
           <>
             <p className={cn("text-[13px] leading-normal", WAITING_INK)}>
