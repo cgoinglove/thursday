@@ -17,9 +17,9 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { askToSetDatabaseAside, MIGRATION_FAILED_EXIT } from "./database.mjs";
-import { holdFolder, refuseSecond } from "./lock.mjs";
+import { holdFolder, runningOn, stopLines } from "./lock.mjs";
 import { freePort } from "./port.mjs";
-import { ROOT, toolPath } from "./tools.mjs";
+import { ROOT, thursdayCommand, toolPath } from "./tools.mjs";
 
 const { version, name } = JSON.parse(
   await readFile(join(ROOT, "package.json"), "utf8"),
@@ -34,12 +34,13 @@ const flag = (name) => {
 };
 
 if (has("-h", "--help")) {
+  const command = thursdayCommand();
   console.log(`
   ${name} ${version}
 
   Usage
-    $ thursday [options]
-    $ thursday autostart [--off]   Start with the computer, macOS only
+    $ ${command} [options]
+    $ ${command} autostart [--off]   Start with the computer, macOS only
 
   Options
     --port <n>     Port to serve on (default 4747, or the next free one)
@@ -90,11 +91,43 @@ if (argv[0] === "autostart") {
   process.exit(0);
 }
 
-// Before a port is picked: a second server on this folder would take the next one
-refuseSecond(home);
+/** A browser that will not open is not a failure. */
+function openBrowser(url) {
+  const [command, args] =
+    process.platform === "darwin"
+      ? ["open", [url]]
+      : process.platform === "win32"
+        ? ["cmd", ["/c", "start", "", url]]
+        : ["xdg-open", [url]];
+  spawn(command, args, { stdio: "ignore" }).on("error", () => {});
+}
+
+// Before a port is picked: a second server on this folder would take the next one, and
+// serve the same calls, jobs and phone twice (lock.mjs). Run again, it is usually the app
+// they came for — a second `npx` once its tab is closed — so that one opens instead. One of
+// another version does not: they ran this one to have this one.
+const running = runningOn(home);
+if (running) {
+  const other =
+    running.version && running.version !== version ? running.version : null;
+  const opens = Boolean(running.url) && !other && !has("--no-open");
+  console.log(
+    `\n  Thursday${other ? ` ${other}` : ""} is already running on this data folder${running.url ? `: ${running.url}` : ""}\n${
+      opens
+        ? "  Opened it in your browser.\n"
+        : other
+          ? `  To run ${version} instead, stop that one and run this again.\n`
+          : ""
+    }${stopLines(running.pid, home)
+      .map((line) => `  ${line}\n`)
+      .join("")}`,
+  );
+  if (opens) openBrowser(running.url);
+  process.exit(other ? 1 : 0);
+}
 const port = String(await freePort(asked, home));
 const url = `http://localhost:${port}`;
-holdFolder(home, url);
+holdFolder(home, url, version);
 /** Where config.ts DB_PATH puts the database under the home. */
 const database = join(home, "local.db");
 
@@ -162,18 +195,12 @@ function start() {
   });
 
   if (opened) return;
-  const open =
-    process.platform === "darwin"
-      ? ["open", [url]]
-      : process.platform === "win32"
-        ? ["cmd", ["/c", "start", "", url]]
-        : ["xdg-open", [url]];
   // After the port is listening, and only on a server still up: one that could
-  // not migrate is asking in the terminal. A browser that will not open is not a failure
+  // not migrate is asking in the terminal
   setTimeout(() => {
     if (opened || server.exitCode !== null) return;
     opened = true;
-    spawn(open[0], open[1], { stdio: "ignore" }).on("error", () => {});
+    openBrowser(url);
   }, 1500).unref();
 }
 start();

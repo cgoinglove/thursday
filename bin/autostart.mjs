@@ -3,10 +3,17 @@
 // no app imports, like the rest of bin: it runs from the published package.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { join, sep } from "node:path";
 import { homePort, portTaken } from "./port.mjs";
+import { thursdayCommand } from "./tools.mjs";
 
 /** launchd's name for the job. The file it reads is named after it. */
 const LABEL = "thursday-agent";
@@ -29,6 +36,29 @@ const launchctl = (...args) =>
 /** A path holding `&` or `<` would end the document early. */
 const xml = (text) =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/**
+ * Whether the job that starts with this Mac serves this data folder: stopped any other way,
+ * launchd starts it again (KeepAlive below), so it is stopped by turning autostart off.
+ */
+export function startsWithMac(home) {
+  if (process.platform !== "darwin") return false;
+  let plist;
+  try {
+    plist = readFileSync(PLIST, "utf8");
+  } catch {
+    return false;
+  }
+  const served = plist.match(
+    /<string>--home<\/string>\s*<string>([^<]*)<\/string>/,
+  )?.[1];
+  return (
+    served
+      ?.replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&") === home
+  );
+}
 
 const job = ({
   cli,
@@ -157,6 +187,6 @@ export async function autostart({ root, home, off }) {
   }
 
   console.log(
-    `\n  Thursday starts with your Mac.\n  http://localhost:${port}\n  data: ${home}\n  log:  ${log}\n\n  Install it as its own window from the call screen and no terminal is needed again.\n  To stop: thursday autostart --off\n`,
+    `\n  Thursday starts with your Mac.\n  http://localhost:${port}\n  data: ${home}\n  log:  ${log}\n\n  Install it as its own window from the call screen and no terminal is needed again.\n  To stop: ${thursdayCommand()} autostart --off\n`,
   );
 }

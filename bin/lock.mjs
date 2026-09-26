@@ -3,8 +3,11 @@
 // the phone a second time, so every message was answered twice. The second is refused, and
 // told where the first one is.
 
+import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { startsWithMac } from "./autostart.mjs";
+import { thursdayCommand } from "./tools.mjs";
 
 /** Beside the database, and named so a checkout never commits it (`*.local.*`). */
 const LOCK_FILE = "server.local.lock";
@@ -25,7 +28,58 @@ export function runningOn(home) {
     // Someone else's process by that id is still a live one
     if (error?.code !== "EPERM") return null;
   }
-  return { pid: held.pid, url: String(held.url ?? "") };
+  return {
+    pid: held.pid,
+    url: String(held.url ?? ""),
+    // Null from `pnpm dev`, and from a server started before the lock said
+    version: typeof held.version === "string" ? held.version : null,
+  };
+}
+
+const ps = (...args) =>
+  spawnSync("ps", args, { encoding: "utf8" }).stdout?.trim() ?? "";
+
+/**
+ * Where a process runs, as `ps` has it: the terminal it is attached to (null when none), when
+ * it started, and what was typed there — the leader of its process group, `pnpm dev` or
+ * `npx thursday-agent`, not the Node process under it. Null where `ps` cannot say (Windows).
+ */
+function whereRuns(pid) {
+  const [tty, group, ...started] = ps(
+    "-o",
+    "tty=,pgid=,lstart=",
+    "-p",
+    String(pid),
+  ).split(/\s+/);
+  if (!tty || !group) return null;
+  return {
+    terminal: tty === "??" || tty === "?" ? null : tty,
+    group,
+    // "Fri Sep 25 20:55:51 2026" to the minute
+    since: started.join(" ").replace(/:\d\d \d{4}$/, ""),
+    typed: ps("-o", "command=", "-p", group),
+  };
+}
+
+/**
+ * How to stop the server with this pid, said where it can be done. A person told only "stop
+ * it" looked for a terminal they could not find: the one it runs in is named, with a command
+ * that does the same from any terminal. One that starts with the Mac is started again by
+ * launchd, so it is stopped by turning that off. Lines to print, without indent.
+ */
+export function stopLines(pid, home) {
+  const where = whereRuns(pid);
+  if (where?.terminal)
+    return [
+      `It runs in a terminal (${where.terminal}${where.typed ? `, ${where.typed}` : ""}, since ${where.since}).`,
+      `Ctrl+C there, or from any terminal: kill -INT -${where.group}`,
+    ];
+  if (startsWithMac(home))
+    return [
+      `It starts with your Mac. To stop it: ${thursdayCommand()} autostart --off`,
+    ];
+  if (where) return [`It runs in the background. To stop it: kill ${pid}`];
+  return ["Ctrl+C where it runs."];
 }
 
 /** Exits with where the running one is, when this folder already has a server. */
@@ -33,17 +87,25 @@ export function refuseSecond(home) {
   const running = runningOn(home);
   if (!running) return;
   console.error(
-    `\n  Thursday is already running on this data folder${running.url ? `: ${running.url}` : ""}\n  Open that one, or stop it first (Ctrl+C where it runs; one that starts with the\n  computer stops with: thursday autostart --off).\n`,
+    `\n  Thursday is already running on this data folder${running.url ? `: ${running.url}` : ""}\n  Open that one, or stop it first.\n${stopLines(
+      running.pid,
+      home,
+    )
+      .map((line) => `  ${line}\n`)
+      .join("")}`,
   );
   process.exit(1);
 }
 
 /** Marks this folder as served from here until this process ends. */
-export function holdFolder(home, url) {
+export function holdFolder(home, url, version) {
   const file = join(home, LOCK_FILE);
   try {
     mkdirSync(home, { recursive: true });
-    writeFileSync(file, `${JSON.stringify({ pid: process.pid, url })}\n`);
+    writeFileSync(
+      file,
+      `${JSON.stringify({ pid: process.pid, url, version })}\n`,
+    );
   } catch {
     // A folder that cannot be written is not a reason not to serve
     return;

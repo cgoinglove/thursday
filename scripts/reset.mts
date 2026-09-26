@@ -9,6 +9,7 @@ import { join, relative } from "node:path";
 import { createInterface, emitKeypressEvents } from "node:readline";
 // node:sqlite is built into Node 22.13+.
 import { DatabaseSync } from "node:sqlite";
+import { stopLines } from "../bin/lock.mjs";
 // config.ts has no dependencies; folder names must match what the app uses.
 import { DATA_DIR, DB_PATH, PATHS } from "../config.ts";
 
@@ -176,7 +177,7 @@ const GROUPS: Group[] = [
  * by path, so a server on another data folder, or another project's, is not one of them.
  * Nothing is stopped from here; an Error when lsof could not be asked.
  */
-function holders(): string[] | Error {
+function holders(): { pid: number; command: string }[] | Error {
   const paths = [DB_PATH, `${DB_PATH}-wal`, `${DB_PATH}-shm`].filter(
     existsSync,
   );
@@ -190,12 +191,13 @@ function holders(): string[] | Error {
       .map((line) => line.trim())
       .filter(Boolean),
   );
-  return [...pids].map((pid) => {
-    const command = spawnSync("ps", ["-o", "command=", "-p", pid], {
-      encoding: "utf8",
-    }).stdout?.trim();
-    return `${pid}  ${command || "?"}`;
-  });
+  return [...pids].map((pid) => ({
+    pid: Number(pid),
+    command:
+      spawnSync("ps", ["-o", "command=", "-p", pid], {
+        encoding: "utf8",
+      }).stdout?.trim() || "?",
+  }));
 }
 
 const present = GROUPS.filter((group) => group.live());
@@ -212,8 +214,17 @@ if (held instanceof Error) {
     `\n  Could not ask what has ${DB_FILE} open (lsof: ${held.message}).\n  Stop any Thursday server on this data folder before wiping.`,
   );
 } else if (held.length) {
+  // Where each one runs and how to stop it (bin/lock.mjs): "stop it" alone left a server
+  // in a terminal tab nobody was looking at
   console.error(
-    `\n  ${DB_FILE} is open in a running server:\n\n${held.map((line) => `    ${line}`).join("\n")}\n\n  Stop it, then run this again. One that starts with your Mac comes back\n  by itself until: thursday autostart --off\n`,
+    `\n  ${DB_FILE} is open in a running server:\n${held
+      .map(
+        ({ pid, command }) =>
+          `\n    ${pid}  ${command}\n${stopLines(pid, DATA_DIR)
+            .map((line: string) => `    ${line}\n`)
+            .join("")}`,
+      )
+      .join("")}\n  Stop it, then run this again.\n`,
   );
   process.exit(1);
 }

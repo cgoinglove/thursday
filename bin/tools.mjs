@@ -2,13 +2,30 @@
 // imports: this runs from the published `bin`, on a machine that has neither a
 // build nor a TypeScript loader.
 
+import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 
 const require = createRequire(import.meta.url);
 
 /** The checkout, or the installed package. */
 export const ROOT = resolve(import.meta.dirname, "..");
+
+/**
+ * What this person types to run the app, for a line that tells them to run it again. Only a
+ * global install puts `thursday` on the PATH: said to someone who ran `npx`, it is a command
+ * they do not have. npx names itself in npm_lifecycle_event and unpacks into its `_npx` cache;
+ * a checkout is the one copy with the dev script beside it (the package ships no `scripts`).
+ */
+export function thursdayCommand() {
+  if (
+    process.env.npm_lifecycle_event === "npx" ||
+    ROOT.includes(`${sep}_npx${sep}`)
+  )
+    return "npx thursday-agent";
+  if (existsSync(join(ROOT, "scripts", "dev.mts"))) return "pnpm start";
+  return "thursday";
+}
 
 /**
  * The `playwright-cli` entry, resolved rather than guessed: pnpm keeps it under
