@@ -218,6 +218,8 @@ export function Intro({
           ? "listening"
           : "idle";
   const last = step === "call";
+  /** A step past the first screen: in a narrow window it stacks (the column below). */
+  const stacked = step !== "hello";
 
   return (
     <div
@@ -263,13 +265,25 @@ export function Intro({
         </TooltipProvider>
       )}
 
-      {/* The call screen's own column, so nothing moves when the intro lifts */}
-      <div className="flex h-full flex-col items-center justify-center gap-5 pt-[7vh]">
+      {/* The call screen's own column, so nothing moves when the intro lifts. In a narrow
+          window a step's turn stacks under her instead of beside her, where it ran off the
+          edge below about 820px (09-26), and the column scrolls */}
+      <div
+        className={cn(
+          "flex h-full flex-col items-center justify-center gap-5 pt-[7vh]",
+          stacked &&
+            "max-[900px]:justify-start max-[900px]:overflow-y-auto max-[900px]:pb-20",
+        )}
+      >
         {/* The call screen's face box and `--face-bleed`: the canvas draws past the box, and
             what stands beside her stands past the canvas */}
         <div
           ref={faceBox}
-          className="relative w-[min(20rem,52vw,37.5vh)] [--face-bleed:19.5%]"
+          className={cn(
+            "relative w-[min(20rem,52vw,37.5vh)] [--face-bleed:19.5%]",
+            stacked &&
+              "max-[900px]:flex max-[900px]:w-full max-[900px]:flex-col max-[900px]:items-center max-[900px]:gap-7",
+          )}
         >
           <button
             type="button"
@@ -280,6 +294,7 @@ export function Intro({
             className={cn(
               "block w-full rounded-full outline-none transition-all duration-700 ease-out focus-visible:ring-3 focus-visible:ring-ring/50",
               step !== "hello" && !keyed && "opacity-35",
+              stacked && "max-[900px]:mt-6 max-[900px]:w-[min(8rem,20vh)]",
             )}
           >
             {herIn ? (
@@ -297,18 +312,27 @@ export function Intro({
             )}
           </button>
 
-          <SideCaptions
-            turns={turns}
-            pinned={focus.pinned}
-            live={step === "hello" ? demo.saying : voice.speaking}
-            onPick={focus.pick}
-          />
+          {/* Beside her there is no room in a narrow window: there her latest line alone,
+              under her */}
+          <div className="max-[900px]:hidden">
+            <SideCaptions
+              turns={turns}
+              pinned={focus.pinned}
+              live={step === "hello" ? demo.saying : voice.speaking}
+              onPick={focus.pick}
+            />
+          </div>
+          {stacked && (
+            <p className="hidden w-[min(22rem,calc(100vw-2rem))] text-left text-[15px] leading-[1.6] text-foreground max-[900px]:block">
+              {said.at(-1)?.text}
+            </p>
+          )}
 
           {step !== "hello" && (
             // Where the caller's words go on a call: the caller's turn
             <div
               key={step}
-              className="absolute top-1/2 left-full ml-[calc(var(--face-bleed)+0.375rem)] flex w-[min(22rem,26vw)] -translate-y-1/2 animate-in flex-col gap-4 text-left fade-in slide-in-from-bottom-1 duration-300"
+              className="absolute top-1/2 left-full ml-[calc(var(--face-bleed)+0.375rem)] flex w-[min(22rem,26vw)] -translate-y-1/2 animate-in flex-col gap-4 text-left fade-in slide-in-from-bottom-1 duration-300 max-[900px]:static max-[900px]:ml-0 max-[900px]:w-[min(22rem,calc(100vw-2rem))] max-[900px]:translate-y-0"
             >
               {step === "key" && (
                 <KeyTurn

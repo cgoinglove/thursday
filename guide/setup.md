@@ -7,7 +7,8 @@ and opens her eyes there, with a soft beat on each step and a run of chimes as s
 keeps a page silent until it is clicked, so the opening is often seen without its sound. When the
 system is set to reduce motion, she is simply there. Then it walks
 through six steps on the call screen itself: a voice key, the microphone, which bots come along, what
-they think with, her style, and the first call. She talks
+they think with, her style, and the first call. In a narrow window each step sits under her rather
+than beside her, with only her latest line. She talks
 through it in a recorded voice, in English, and says so first; her real voice starts with the first
 call. The speaker button at the top right mutes the recording, and stays muted the next time, the opening's sounds with it. Every
 step can be passed and done later from the screens below. On the microphone step the main button
