@@ -1,5 +1,4 @@
 import { AppEventSource } from "@/app/api/events/app-event.client";
-import { rollSeedIcons } from "@/features/bot/bot.seed";
 import { isCallable } from "@/features/config/config.query";
 import { Intro } from "@/features/intro/components/intro";
 import { hasPassedIntro } from "@/features/intro/intro.query";
@@ -28,13 +27,11 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   return (
     <div className="h-full min-h-0 flex-1">
       <Thursday ready={ready} />
-      {/* Decided on the server: toggling after hydration flashes the first frame.
-          The seed faces are rolled here for the same reason (bot.seed). */}
+      {/* Decided on the server: toggling after hydration flashes the first frame. */}
       <Intro
         ready={ready}
         firstRun={!called && !passed}
         forced={intro !== undefined}
-        icons={rollSeedIcons()}
       />
       <ReachAsk />
       <Boot />

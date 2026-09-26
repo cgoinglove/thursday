@@ -13,7 +13,7 @@ import {
   MARK_PAINT_IDS,
   MARK_SHAPES,
   MARK_SYSTEM,
-  randomMarkFills,
+  randomMarkFill,
 } from "./mark.const";
 import { ROOM_THURSDAY, RoomViewSchema } from "./room.schema";
 
@@ -43,19 +43,14 @@ export const ownLineSchema = z.object({
 export type OwnLine = z.infer<typeof ownLineSchema>;
 
 /**
- * Faces for bots nobody drew, distinct from one another: the whole vocabulary is
+ * The face a new bot starts with, until someone draws it: the whole vocabulary is
  * rolled, shape and paints included, so a face the app hands out and a face
- * somebody picked are drawn from the same range. Random rather than name-derived
- * so two bots made in one call differ at a glance.
+ * somebody picked are drawn from the same range. A seed wears its own (bot.seed).
  */
-export function randomBotIcons(count: number): BotIcon[] {
-  return randomMarkFills(count).map((fill) => ({
-    ...fill,
-    shape: MARK_SHAPES[Math.floor(Math.random() * MARK_SHAPES.length)],
-  }));
-}
-
-export const randomBotIcon = (): BotIcon => randomBotIcons(1)[0];
+export const randomBotIcon = (): BotIcon => ({
+  ...randomMarkFill(),
+  shape: MARK_SHAPES[Math.floor(Math.random() * MARK_SHAPES.length)],
+});
 
 /** Pinned tool as the screen sees it. */
 const PinnedToolSchema = z.object({

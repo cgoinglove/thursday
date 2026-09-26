@@ -27,8 +27,7 @@ import {
   type TextModelProviderId,
 } from "@/features/ai/model.schema";
 import { PERSONAS } from "@/features/ai/prompts/persona";
-import type { BotIcon } from "@/features/bot/bot.schema";
-import { BOT_SEEDS, type BotSeed, ERRANDS_BOT } from "@/features/bot/bot.seed";
+import { BOT_SEEDS, ERRANDS_BOT, findBotSeed } from "@/features/bot/bot.seed";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { installSeedBots } from "@/features/bot/seed-bots";
 import { AccountsSetup } from "@/features/config/components/config-setting";
@@ -118,13 +117,10 @@ export function Intro({
   firstRun,
   /** Opened deliberately via `?intro`. */
   forced,
-  /** One face per BOT_SEEDS entry (bot.seed rollSeedIcons), rolled on the server so hydration keeps the same faces. */
-  icons,
 }: {
   ready: boolean;
   firstRun: boolean;
   forced: boolean;
-  icons: BotIcon[];
 }) {
   const shown = firstRun || forced;
   const router = useRouter();
@@ -182,8 +178,6 @@ export function Intro({
 
   if (lifted || !shown) return null;
 
-  const face = (seed: BotSeed) => icons[BOT_SEEDS.indexOf(seed)];
-
   /**
    * On the first run, installs the picked bots, key or no key: a bot needs no model to be made,
    * only to run, and the model is resolved at each run (bot.run). Left for the first key, the
@@ -198,7 +192,6 @@ export function Intro({
       installSeedBots(
         BOT_SEEDS.filter((seed) => picked[seed.name]).map((seed) => ({
           name: seed.name,
-          icon: face(seed),
         })),
       );
       // a failure costs only the intro once more on the next load
@@ -347,7 +340,6 @@ export function Intro({
               {step === "bots" && (
                 <BotsTurn
                   picked={picked}
-                  face={face}
                   onToggle={(name) =>
                     setPicked((all) => ({ ...all, [name]: !all[name] }))
                   }
@@ -455,7 +447,7 @@ export function Intro({
       </div>
 
       {step === "hello" ? (
-        helloIn && <DemoCorners stage={demo.stage} icons={icons} />
+        helloIn && <DemoCorners stage={demo.stage} />
       ) : (
         // Three columns, so the dots stand still whatever the words either side of them say;
         // a short window brings the row down rather than letting the column reach it
@@ -788,11 +780,9 @@ function MicTurn({ mic }: { mic: MicState }) {
 
 function BotsTurn({
   picked,
-  face,
   onToggle,
 }: {
   picked: Record<string, boolean>;
-  face: (seed: BotSeed) => BotIcon | undefined;
   onToggle: (name: string) => void;
 }) {
   return (
@@ -809,7 +799,7 @@ function BotsTurn({
               <BotMark
                 size={24}
                 seed={seed.name}
-                {...face(seed)}
+                {...seed.icon}
                 notify={false}
                 className={cn(
                   "shrink-0 transition-opacity",
@@ -1038,7 +1028,7 @@ function useDemo(playing: boolean) {
 }
 
 /** The pill and the corner where finished work lands, as they stand during the loop. */
-function DemoCorners({ stage, icons }: { stage: DemoStage; icons: BotIcon[] }) {
+function DemoCorners({ stage }: { stage: DemoStage }) {
   return (
     <>
       {/* The card finished work really lands as, drawn here with nothing behind it */}
@@ -1047,9 +1037,7 @@ function DemoCorners({ stage, icons }: { stage: DemoStage; icons: BotIcon[] }) {
           <FinishedCard
             row={DEMO_LANDED}
             bot={{
-              icon: icons[
-                BOT_SEEDS.findIndex((seed) => seed.name === DEMO_LANDED.bot)
-              ],
+              icon: findBotSeed(DEMO_LANDED.bot)?.icon ?? null,
             }}
             onOpen={() => {}}
             onClose={() => {}}
@@ -1063,7 +1051,7 @@ function DemoCorners({ stage, icons }: { stage: DemoStage; icons: BotIcon[] }) {
               key={seed.name}
               size={22}
               seed={seed.name}
-              {...icons[index]}
+              {...seed.icon}
               state={
                 stage === "working" && seed.name === ERRANDS_BOT
                   ? "thinking"

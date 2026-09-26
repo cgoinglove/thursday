@@ -23,8 +23,8 @@ import {
   removeThread,
   startThread,
 } from "./bot.runner";
-import { BotFormSchema, botIconSchema } from "./bot.schema";
-import { BOT_SEEDS, findBotSeed, rollSeedIcons } from "./bot.seed";
+import { BotFormSchema } from "./bot.schema";
+import { findBotSeed } from "./bot.seed";
 import { acceptRoomRelays, withdrawDelivery } from "./room.query";
 import { aboutFile, readFileThread, tellFileThread } from "./thread.file";
 import { markSeen, resolveThread } from "./thread.query";
@@ -55,8 +55,6 @@ const SeedPickSchema = z.object({
   name: z.string().trim().min(1).max(80),
   provider: textModelProviderSchema.nullish(),
   model: z.string().trim().min(1).max(80).nullish(),
-  /** The face the intro already showed for this bot. Rolled here when the caller had no screen. */
-  icon: botIconSchema.optional(),
 });
 
 /**
@@ -70,12 +68,6 @@ export const createSeedBotsAction = serverAction(async (picks: unknown) => {
   const wanted = SeedPickSchema.array().max(20).parse(picks);
   const room = BOT_ROSTER.max - (await countBots());
 
-  // Seeds carry no face of their own (bot.seed); one roll covers the whole batch
-  // so bots made together never come out looking alike. Read by the seed's own
-  // place in the list rather than the caller's order, because one face in it is
-  // fixed (Jarvis) and a shorter pick list would hand it to another bot
-  const rolled = rollSeedIcons();
-
   const created: string[] = [];
   for (const pick of wanted) {
     if (created.length >= room) break;
@@ -85,7 +77,7 @@ export const createSeedBotsAction = serverAction(async (picks: unknown) => {
       name: seed.name,
       description: seed.description,
       systemPrompt: seed.systemPrompt,
-      icon: pick.icon ?? rolled[BOT_SEEDS.indexOf(seed)],
+      icon: seed.icon,
       provider: pick.provider,
       model: pick.model,
       toolIds: [],

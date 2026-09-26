@@ -74,11 +74,7 @@ import {
   randomBotIcon,
   type Thread,
 } from "@/features/bot/bot.schema";
-import {
-  BOT_SEEDS,
-  type BotSeed,
-  rollSeedIcons,
-} from "@/features/bot/bot.seed";
+import { BOT_SEEDS, type BotSeed } from "@/features/bot/bot.seed";
 import { BotMark, iconProps } from "@/features/bot/components/bot-mark";
 import { MarkPalette } from "@/features/bot/components/mark-palette";
 import {
@@ -139,14 +135,6 @@ export function BotSetting() {
   /** Picked roster entry: a bot name, NEW, or null for the first bot. */
   const [picked, setPicked] = useState<string | null>(null);
 
-  /**
-   * One roll for this screen, in BOT_SEEDS order. The faces on the invite, in the
-   * picker and on the bot that gets created are then the same, because
-   * `createSeedBotsAction` takes it (bot.seed rollSeedIcons rolls per install so
-   * no two rosters look alike; a seed itself carries none, bar Jarvis, which keeps
-   * the fallback's face).
-   */
-  const [faces] = useState(rollSeedIcons);
   const [draft, setDraft] = useState<DraftCreate | null>(null);
 
   if (isLoading) return <SettingPanesSkeleton />;
@@ -195,7 +183,6 @@ export function BotSetting() {
               {bots.length > 0 && missing.length > 0 && (
                 <SeedInvite
                   missing={missing}
-                  faces={faces}
                   have={have}
                   onDone={(name) => setPicked(name)}
                 />
@@ -243,11 +230,7 @@ export function BotSetting() {
         ) : missing.length > 0 ? (
           // Nothing on the roster: the offer is the only thing this pane could
           // hold, so it fills it rather than sitting in a dialog nobody opened
-          <SeedPackage
-            have={have}
-            faces={faces}
-            onDone={(name) => setPicked(name)}
-          />
+          <SeedPackage have={have} onDone={(name) => setPicked(name)} />
         ) : (
           <div className="space-y-4 p-8">
             <p className="text-sm leading-relaxed text-muted-foreground">
@@ -397,7 +380,6 @@ function unmetLine(
  */
 function useSeedPicks(
   have: Set<string>,
-  faces: BotIcon[],
   onDone: (name: string | null) => void,
 ) {
   const room = Math.max(0, BOT_ROSTER.max - have.size);
@@ -458,7 +440,6 @@ function useSeedPicks(
       add(
         wanted.map((seed) => ({
           name: seed.name,
-          icon: faces[BOT_SEEDS.indexOf(seed)],
         })),
       ),
   };
@@ -467,16 +448,14 @@ function useSeedPicks(
 /** The rows themselves. Both wrappers draw these and supply their own chrome. */
 function SeedRows({
   have,
-  faces,
   picks,
 }: {
   have: Set<string>;
-  faces: BotIcon[];
   picks: ReturnType<typeof useSeedPicks>;
 }) {
   return (
     <div className="flex flex-col gap-2">
-      {BOT_SEEDS.map((seed, at) => {
+      {BOT_SEEDS.map((seed) => {
         const owned = have.has(seed.name);
         const on = picks.ticked(seed);
         const blocked = picks.blocked(seed);
@@ -502,7 +481,7 @@ function SeedRows({
             >
               <BotMark
                 size={28}
-                {...markProps(seed.name, faces[at])}
+                {...markProps(seed.name, seed.icon)}
                 className={cn(
                   "shrink-0 transition-opacity",
                   !on && "opacity-35",
@@ -585,15 +564,13 @@ function SeedActions({
  */
 function SeedPackage({
   have,
-  faces,
   onDone,
 }: {
   /** Names already on the roster. */
   have: Set<string>;
-  faces: BotIcon[];
   onDone: (name: string | null) => void;
 }) {
-  const picks = useSeedPicks(have, faces, onDone);
+  const picks = useSeedPicks(have, onDone);
 
   return (
     <div className="flex min-h-full flex-col">
@@ -615,7 +592,7 @@ function SeedPackage({
       {/* pb, not the footer's own: the pane scrolls, so the last row would
           otherwise end hard against the rule above Add */}
       <div className="px-8 pt-4 pb-8">
-        <SeedRows have={have} faces={faces} picks={picks} />
+        <SeedRows have={have} picks={picks} />
       </div>
 
       <div className="mt-auto flex items-center gap-3 border-t border-border/60 px-8 py-4">
@@ -631,14 +608,12 @@ function SeedPackage({
 /** The same offer in a dialog, which brings its own padding and its own footer. */
 function SeedDialog({
   have,
-  faces,
   onDone,
 }: {
   have: Set<string>;
-  faces: BotIcon[];
   onDone: (name: string | null) => void;
 }) {
-  const picks = useSeedPicks(have, faces, onDone);
+  const picks = useSeedPicks(have, onDone);
 
   return (
     <SettingDialogContent
@@ -656,7 +631,7 @@ function SeedDialog({
         </>
       }
     >
-      <SeedRows have={have} faces={faces} picks={picks} />
+      <SeedRows have={have} picks={picks} />
     </SettingDialogContent>
   );
 }
@@ -675,12 +650,10 @@ const INVITE_FACES = 3;
  */
 function SeedInvite({
   missing,
-  faces,
   have,
   onDone,
 }: {
   missing: BotSeed[];
-  faces: BotIcon[];
   have: Set<string>;
   onDone: (name: string | null) => void;
 }) {
@@ -697,7 +670,6 @@ function SeedInvite({
           renderer: ({ close }) => (
             <SeedDialog
               have={have}
-              faces={faces}
               onDone={(name) => {
                 close();
                 onDone(name);
@@ -720,7 +692,7 @@ function SeedInvite({
         >
           <BotMark
             size={20}
-            {...markProps(seed.name, faces[BOT_SEEDS.indexOf(seed)])}
+            {...markProps(seed.name, seed.icon)}
             notify={false}
           />
         </span>

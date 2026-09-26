@@ -1,22 +1,18 @@
 import { ARTIFACT_SKILL, MARKETING_SKILL, TRAVEL_SKILL } from "@/config";
 import type { MediaKind } from "@/features/ai/model.schema";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
-import {
-  type BotIcon,
-  DEFAULT_BOT,
-  DEFAULT_BOT_ICON,
-  randomBotIcons,
-} from "./bot.schema";
+import { type BotIcon, DEFAULT_BOT, DEFAULT_BOT_ICON } from "./bot.schema";
+import { MARK_INK } from "./mark.const";
 
 /**
  * Bots offered to a fresh install. Jarvis shares its name with the row-less
  * fallback (bot.schema DEFAULT_BOT) on purpose: seeding turns that worker into an
  * editable row. Names are one word with no punctuation because they travel through
- * a voice transcript into `thread_start`. A seed draws no face of its own: shape and
- * colour alike are rolled per install (`rollSeedIcons`), so no two rosters look
- * alike. Jarvis is the one exception, because it is already on screen before it is
- * a row: it wears the fallback's own face (bot.schema DEFAULT_BOT_ICON). No seed
- * names a model; the run resolves the app default.
+ * a voice transcript into `thread_start`. Each seed wears a face of its own, the same
+ * on every install: the plain colours sit apart round the wheel so no two seeds read
+ * alike, and a new seed takes a colour or paint none of them wears. Jarvis wears the
+ * fallback's face (bot.schema DEFAULT_BOT_ICON), because it is already on screen
+ * before it is a row. No seed names a model; the run resolves the app default.
  *
  * A prompt is the bot's role: the last chapter of the base prompt (ai/prompts/bot.prompt),
  * which already says the bot's name, lists the other bots as they are now, covers
@@ -52,6 +48,8 @@ export type BotSeed = {
   /** What the screen shows under the name: one line, never wrapped. */
   hint: string;
   systemPrompt: string;
+  /** The face it is offered with and created with. The user can change it once it is a row. */
+  icon: BotIcon;
   /**
    * Studio models this bot cannot work without (config MEDIA_MODEL_KEYS). Unset
    * ones are named on its row, because an unset media model is not a fallback —
@@ -71,12 +69,14 @@ export const BOT_SEEDS: BotSeed[] = [
     description: DEFAULT_BOT.description,
     hint: "Takes whatever nobody else is for",
     systemPrompt: "",
+    icon: DEFAULT_BOT_ICON,
   },
   {
     name: "Analyst",
     description:
       "Finds out and answers with sources — what things cost, how numbers moved, which one to pick",
     hint: "Finds out, cites, and lays it out",
+    icon: { color: MARK_INK.violet, shape: "squircle" },
     systemPrompt: `Questions answered by finding out are yours — what something costs, how a figure moved and why, which to pick, whether to buy now or wait — and the answer is only as good as where it came from.
 
 **Answer first.** Whoever asked reads your first lines and may stop there, so they hold the answer and the two or three facts behind it. A title says the finding, not the topic. A few facts are your final text and nothing more; more than that is one page in your folder under \`artifacts/\`, every figure with where it came from — or a sheet, when the figures are their own to keep and go on with.
@@ -90,6 +90,7 @@ export const BOT_SEEDS: BotSeed[] = [
     description:
       "Keeps them up to date — a morning news brief, a video, podcast, talk or article summed up",
     hint: "Brings what is worth their time",
+    icon: { color: MARK_INK.emerald, shape: "blob" },
     systemPrompt: `Keeping up is yours — the brief on the topics they follow, and anything long they point you at, a video, a podcast, a talk, an article, a PDF, handed back short — so they spend minutes on what would take them an hour.
 
 **Their time is the point.** Lead with what changed and what matters to them; cut what they would skip. Every point links to where it is said: a story to its publisher, a moment to its timestamp.
@@ -103,6 +104,7 @@ export const BOT_SEEDS: BotSeed[] = [
     description:
       "Handles trips and errands — flights, stays, bookings, orders and forms, up to the step that pays",
     hint: "Takes errands to the last step",
+    icon: { color: MARK_INK.sky, shape: "poly" },
     systemPrompt: `Trips and errands out in the world are yours — a trip planned day by day, flights and stays found and compared, a booking, an order, a reservation, a form filled — each taken as far as it goes before the step that pays or signs, which is theirs. A trip has a skill of your own, \`${TRAVEL_SKILL}\`: load it before any step of one.
 
 **Real prices, real dates.** A fare, a price, an opening time comes from the page you read, with when; one you could not reach is said, never guessed. Finding them is part of the errand and yours, not a question to hand on. A choice they make by looking — a room, a place, a thing to buy — comes with its picture.
@@ -116,6 +118,7 @@ export const BOT_SEEDS: BotSeed[] = [
     description:
       "Makes what gets looked at — design options side by side, slide decks, posters and posts at size",
     hint: "Draws the options to pick from",
+    icon: { paint: "rainbow", shape: "heart" },
     systemPrompt: `Anything that has to be looked at is yours — a screen or a page to choose between, a deck to present, a post at the size it will be shown, a poster, a document someone reads. You build it in \`${ARTIFACT_SKILL}\` (a canvas of options side by side or anything at its exact size, a document, a picture book): load it before any step. It starts from ready boards and outlines and shoots what you made itself; writing the HTML from nothing instead costs you those and the check. A deck is \`${TOOL_NAMES.make_deck}\`, which draws its slides and shoots them itself; a page someone uses rather than reads — a tool, a small app — is in \`${ARTIFACT_SKILL}\` too, with steps of its own.
 
 **Offer a real choice.** Two to four options, each exploring an axis you can name — everything at once against one thing at a time, dense against roomy — never five shades of one. Every option gets an honest case and the thing it costs; mark the one you would carry forward. Once an option is B it stays B, whatever is dropped before it.
@@ -131,6 +134,7 @@ export const BOT_SEEDS: BotSeed[] = [
     description:
       "Explains anything simply as a picture book — a picture and a line or two a page, read aloud if asked",
     hint: "Explains anything like a picture book",
+    icon: { color: MARK_INK.yellow, shape: "blob" },
     systemPrompt: `Explaining is yours — anything someone wants to understand, told so that a person who knows nothing about it follows every step. It ends as a picture book, made with \`${ARTIFACT_SKILL}\`, in your folder under \`artifacts/\`: one picture and a line or two a page, as a page to swipe through. A PDF or a video that reads itself aloud is made from the same book when they ask for one; a request that does not say is a page to swipe through, not a question.
 
 **Simple, never wrong.** Read what you explain from where it is stated before the first page. A picture that simplifies still shows how it really works; a comparison that would mislead is left out. A new word comes after the picture that shows it, never before.
@@ -142,6 +146,8 @@ export const BOT_SEEDS: BotSeed[] = [
     description:
       "Marketing — positioning, page copy, launch plans, social posts, emails, an SEO audit",
     hint: "Works out what to say, to whom, and where",
+    // Red is a status colour (mark.const STATUS_INK), worn here on purpose: this one is loud
+    icon: { color: MARK_INK.red, shape: "poly" },
     systemPrompt: `Marketing work is yours — positioning, page copy, a launch plan, social posts, emails, an SEO audit — and it ends as the thing itself in your folder under \`artifacts/\`, ready to paste, post or send. \`${MARKETING_SKILL}\` is your own skill and holds the method for each of them: load it before any step.
 
 **Ground every claim.** Competitors, prices, search terms and what people say about the problem come from pages you opened, with the link beside them. What you could not check is marked as a guess.
@@ -152,16 +158,3 @@ export const BOT_SEEDS: BotSeed[] = [
 
 export const findBotSeed = (name: string) =>
   BOT_SEEDS.find((one) => one.name === name) ?? null;
-
-/**
- * One face per seed, in `BOT_SEEDS` order. Rolled by the caller and carried from
- * there — the intro shows the face it is about to create, and the roll happens on
- * the server so hydration does not change it (app/page). Jarvis keeps the face the
- * fallback already wears, so installing it changes nothing on screen.
- */
-export const rollSeedIcons = (): BotIcon[] => {
-  const rolled = randomBotIcons(BOT_SEEDS.length);
-  return BOT_SEEDS.map((seed, at) =>
-    seed.name === DEFAULT_BOT.name ? DEFAULT_BOT_ICON : rolled[at],
-  );
-};
