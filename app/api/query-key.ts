@@ -1,3 +1,5 @@
+import type { CatalogProviderId } from "@/features/ai/model.schema";
+
 /**
  * Every endpoint the browser reads. Keys double as SWR cache keys; `revalidate`
  * matches by url prefix, so invalidating `queryKey.memory` also refreshes every
@@ -194,13 +196,15 @@ export const queryKey = {
    * saved or a sign-in re-reads it.
    */
   automaticModel: "/api/llm-model/automatic",
-  /** Models reachable with the AI Gateway key; gateway only */
-  modelCatalog: "/api/llm-model/catalog",
+  /** CatalogModel[]: every model a catalog provider lists (`CATALOG_PROVIDERS`), read without a key */
+  modelCatalog: (provider: CatalogProviderId) =>
+    `/api/llm-model/catalog/${provider}`,
   /**
-   * GatewayCredits | null: what is left on the gateway key, null without one.
+   * KeyCredits | null: what is left on a catalog provider's key, null without one.
    * Under `llmModel`, so the key dialog's revalidate re-reads it after a save.
    */
-  gatewayCredits: "/api/llm-model/credits",
+  keyCredits: (provider: CatalogProviderId) =>
+    `/api/llm-model/credits/${provider}`,
   /**
    * SubscriptionUsage | null: how much of the GPT Subscription plan is used, null when
    * signed out. Under `llmModel`, so signing in or out re-reads it.

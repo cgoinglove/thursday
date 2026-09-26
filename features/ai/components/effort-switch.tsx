@@ -5,11 +5,11 @@ import { queryKey } from "@/app/api/query-key";
 import { Segmented } from "@/components/ui/segmented";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
 import type {
+  CatalogModel,
   Effort,
-  GatewayModel,
   TextModelProviderId,
 } from "../model.schema";
-import { effortsOf } from "../model.schema";
+import { effortsOf, isCatalogProvider } from "../model.schema";
 
 /**
  * How hard a model is set to think: the steps that model takes, as one button group beside the
@@ -36,10 +36,11 @@ export function EffortSwitch({
   value: Effort | null;
   onChange: (next: Effort | null) => void;
 }) {
-  // The gateway is the one provider that answers at run time; the rest carry their ladder on the shelf
-  const gateway = provider === "vercel-ai-gateway";
-  const { data: catalog } = useServerRoute<GatewayModel[]>(
-    gateway && model ? queryKey.modelCatalog : null,
+  // A catalog provider answers at run time; the rest carry their ladder on the shelf
+  const { data: catalog } = useServerRoute<CatalogModel[]>(
+    isCatalogProvider(provider) && model
+      ? queryKey.modelCatalog(provider)
+      : null,
   );
   const chosen = Boolean(provider && model);
   const ladder =

@@ -51,10 +51,11 @@ import {
 import { EffortSwitch } from "@/features/ai/components/effort-switch";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import {
+  type CatalogModel,
   compactAtFor,
   contextWindowOf,
   type Effort,
-  type GatewayModel,
+  isCatalogProvider,
   type TextModelProviderId,
 } from "@/features/ai/model.schema";
 import {
@@ -763,7 +764,9 @@ function BotPage({
   // Typed by hand; otherwise the field shows what the picked model fills in
   const [compactEdited, setCompactEdited] = useState(Boolean(bot?.compactAt));
   // Read here as well as in the picker: a pick has to fill in from it the moment it happens
-  const catalog = useServerRoute<GatewayModel[]>(queryKey.modelCatalog);
+  const catalog = useServerRoute<CatalogModel[]>(
+    isCatalogProvider(provider) ? queryKey.modelCatalog(provider) : null,
+  );
   const windowOf = (of: TextModelProviderId | null, id: string) =>
     of && id.trim() ? contextWindowOf(of, id.trim(), catalog.data) : null;
   const pickedWindow = windowOf(provider, model);

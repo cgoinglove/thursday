@@ -1,7 +1,7 @@
 ---
 checked: 2026-09-26
 paths:
-  - "features/ai/{model,model.schema,chatgpt}.ts"
+  - "features/ai/{model,model.schema,chatgpt,openrouter}.ts"
   - "features/ai/components/**"
   - "features/config/**"
   - "features/connectors/**"
@@ -11,18 +11,20 @@ paths:
 
 # Models, keys and connectors
 
-The user runs bots on the keys, ChatGPT sign-in or gateway they already have, picks the models that
-draw, film, speak and transcribe for them, and connects MCP servers for them to use.
+The user runs bots on the keys, ChatGPT sign-in or catalog key (the Vercel AI Gateway, OpenRouter)
+they already have, picks the models that draw, film, speak and transcribe for them, and connects
+MCP servers for them to use.
 
 ## Start here
 - `features/ai/model.schema.ts` — text and media providers, their shelves with context and effort steps.
-- `features/ai/model.ts` — a model built from a ref and a key; the default and media picks; the gateway catalog.
+- `features/ai/model.ts` — a model built from a ref and a key; the default and media picks; the catalogs (`readCatalog`).
 - `features/ai/chatgpt.ts` — GPT Subscription: sign-in, renewal, plan usage, the Codex request shape.
+- `features/ai/openrouter.ts` — OpenRouter's list read into the gateway's words, and its key's credit.
 - `features/config/config.const.ts` — every key and app-wide model pick, grouped as Settings draws them.
 - `features/connectors/mcp.manager.ts` — MCP sessions, their OAuth, reconnects.
 - `features/ai/tools/connected.ts` — what answers `tool_search` and `tool_call`: MCP and the studio.
 - `features/ai/tools/studio.tool.ts` — image, video, speech, transcription; each once a model is picked.
-- `features/ai/components/model-picker.tsx` — the model field: providers, shelves, the gateway's browser.
+- `features/ai/components/model-picker.tsx` — the model field: providers, shelves, a catalog's browser.
 
 ## How it fits
 Keys, the ChatGPT sign-in and the app-wide model picks are rows of the `config` table, read through
@@ -56,4 +58,5 @@ connected tools: its pinned ones as tools of their own, the rest through `tool_s
 No suite is this area's own: `pnpm test:bot` and `pnpm test:reach` fake `getTextModel`, and
 `pnpm test:live` fakes `connected.ts`, so run them when those exports change. To see it, serve a
 scratch copy (AGENTS.md › Running the app) and open Settings › API keys, Models and Connectors: a
-model field browses the gateway's shelf without a key, and a preset that needs no account connects.
+model field browses a catalog provider's shelf without a key, and a preset that needs no account
+connects.

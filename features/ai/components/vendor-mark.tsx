@@ -1,14 +1,15 @@
 import type { ReactNode } from "react";
-import { GATEWAY_OWNERS } from "../model.schema";
+import { VENDOR_PROVIDERS } from "../model.schema";
 import { ProviderIcon } from "./provider-icon";
 
 /**
- * A glyph for every owner the gateway names. Some of them are providers this app already
- * draws (`GATEWAY_OWNERS`), and those delegate to `ProviderIcon` so a provider has one mark
- * rather than two that drift apart. The rest are drawn from the table below.
+ * A glyph for every vendor a catalog names, in the gateway's words (OpenRouter's are put in
+ * them as its rows are read). Some of them are providers this app already draws
+ * (`VENDOR_PROVIDERS`), and those delegate to `ProviderIcon` so a provider has one mark rather
+ * than two that drift apart. The rest are drawn from the table below.
  *
- * The table is expected to be incomplete: the gateway carries 35 owners today and adds more
- * every month. An owner with no glyph draws nothing — the id under the model's name says who
+ * The table is expected to be incomplete: the gateway carries 35 owners today, OpenRouter
+ * more than sixty, and both add more every month. An owner with no glyph draws nothing — the id under the model's name says who
  * runs it either way, and a wrong mark is worse than none.
  *
  * Monochrome marks from @lobehub/icons-static-svg 1.95.0, inlined rather than depended on:
@@ -16,7 +17,7 @@ import { ProviderIcon } from "./provider-icon";
  * with no build step. Every one is a 24x24 evenodd path drawn in `currentColor`, so a row's
  * ink carries it and both themes work. They are their owners' trademarks, used to name them.
  */
-const GATEWAY_MARKS: Record<string, { d: string; opacity?: string }[]> = {
+const VENDOR_MARKS: Record<string, { d: string; opacity?: string }[]> = {
   /** Qwen */
   alibaba: [
     {
@@ -158,19 +159,19 @@ const GATEWAY_MARKS: Record<string, { d: string; opacity?: string }[]> = {
   ],
 };
 
-export function GatewayOwnerIcon({
+export function VendorIcon({
   owner,
   className,
 }: {
-  /** `owned_by` as the gateway sends it, which is also the id's first segment. */
+  /** The vendor in the gateway's words: its `owned_by`, which is also the id's first segment. */
   owner: string;
   className?: string;
 }): ReactNode {
-  const provider = GATEWAY_OWNERS[owner];
+  const provider = VENDOR_PROVIDERS[owner];
   if (provider)
     return <ProviderIcon provider={provider} className={className} />;
 
-  const paths = GATEWAY_MARKS[owner];
+  const paths = VENDOR_MARKS[owner];
   if (!paths) return null;
   return (
     <svg

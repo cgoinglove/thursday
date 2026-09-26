@@ -871,20 +871,20 @@ export const FAVICON = {
 export const KEY_MIN = 8;
 
 /**
- * At or under this many dollars left on the gateway key, its row in Settings › Models & keys
- * turns amber (ai/model readGatewayCredits): a video clip or a long job can spend
- * that before it finishes. Raising it warns sooner; 0 warns only once nothing is left.
+ * At or under this many dollars left on the gateway's or OpenRouter's key, its row in
+ * Settings › Models & keys turns amber (ai/model readKeyCredits): a video clip or a long job
+ * can spend that before it finishes. Raising it warns sooner; 0 warns only once nothing is left.
  */
-export const GATEWAY_LOW_CREDIT = 1;
+export const KEY_LOW_CREDIT = 1;
 
 /**
- * How long the gateway's model catalog is believed once read (ai/model readGatewayCatalog), one
- * copy for the whole app: the model field's shelf, and a gateway model's context window and
- * effort steps when a run starts. A model list does not change inside a call. Longer shows a
- * model the gateway added, or drops one it retired, that much later; shorter asks the gateway
- * again more often.
+ * How long a catalog provider's model list is believed once read (ai/model readCatalog), one
+ * copy per provider for the whole app: the model field's shelf, and a catalog model's context
+ * window and effort steps when a run starts. A model list does not change inside a call.
+ * Longer shows a model the provider added, or drops one it retired, that much later; shorter
+ * asks it again more often.
  */
-export const GATEWAY_CATALOG_MS = 10 * 60_000;
+export const CATALOG_MS = 10 * 60_000;
 
 /**
  * Signing in to ChatGPT (features/ai/chatgpt), whose plan runs bots in place of an API key.

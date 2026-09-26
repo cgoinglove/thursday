@@ -36,7 +36,8 @@ import {
   type AiProvider,
   type AutomaticModel,
   effortSchema,
-  type GatewayCredits,
+  isCatalogProvider,
+  type KeyCredits,
   type MediaKind,
   parseMediaModel,
   parseTextModel,
@@ -371,7 +372,7 @@ function KeyRow({
   /** Its group must have a key and has none, so this row is waiting on the user. */
   needed: boolean;
 }) {
-  const credits = useGatewayCredits(entry, set);
+  const credits = useKeyCredits(entry, set);
   const usage = useSubscriptionUsage(entry, set);
   const plan = useSignInPlan(entry, set);
   const state = usage.data
@@ -437,7 +438,7 @@ function KeyRow({
       </span>
 
       {narrow ? null : waiting ? (
-        // Only this end waits, so the row keeps its shape while the gateway or the plan answers
+        // Only this end waits, so the row keeps its shape while the catalog provider or the plan answers
         <Skeleton className="h-3 w-20 shrink-0" />
       ) : (
         stateLine
@@ -448,20 +449,20 @@ function KeyRow({
   );
 }
 
-/** US dollars, as the gateway bills. */
+/** US dollars, as the gateway and OpenRouter bill. */
 const USD = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
 });
 
 /**
- * What a key says at the end of its row. A key only knows whether it is set, except the
- * gateway's, which also says what is left on it: the waiting colour for a top-up, red is a refusal.
+ * What a key says at the end of its row. A key only knows whether it is set, except a catalog
+ * provider's, which also says what is left on it: the waiting colour for a top-up, red is a refusal.
  */
 function keyState(
   set: boolean,
   needed: boolean,
-  credits: GatewayCredits | null | undefined,
+  credits: KeyCredits | null | undefined,
   signIn?: true,
 ): { text: string; ink: string; warn: boolean } {
   if (!set)
@@ -487,11 +488,11 @@ function keyState(
   };
 }
 
-/** What is left on the gateway key (ai/model readGatewayCredits); any other key reads nothing. */
-function useGatewayCredits(entry: ConfigEntry, set: boolean) {
-  return useServerRoute<GatewayCredits | null>(
-    set && entry.provider === "vercel-ai-gateway"
-      ? queryKey.gatewayCredits
+/** What is left on a catalog provider's key (ai/model readKeyCredits); any other key reads nothing. */
+function useKeyCredits(entry: ConfigEntry, set: boolean) {
+  return useServerRoute<KeyCredits | null>(
+    set && isCatalogProvider(entry.provider)
+      ? queryKey.keyCredits(entry.provider)
       : null,
   );
 }
@@ -807,10 +808,10 @@ function ConfigDialog({
   onDone: () => void;
 }) {
   const [value, setValue] = useState("");
-  const { data: credits } = useGatewayCredits(entry, set);
+  const { data: credits } = useKeyCredits(entry, set);
   const state = credits ? keyState(set, false, credits) : null;
 
-  // The model picker reads hasKey too, and the gateway's credits sit under the same url
+  // The model picker reads hasKey too, and a catalog key's credits sit under the same url
   const refresh = () => {
     revalidate(queryKey.config);
     revalidate(queryKey.llmModel);

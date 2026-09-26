@@ -10,6 +10,7 @@ import { createMistral } from "@ai-sdk/mistral";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createTogetherAI } from "@ai-sdk/togetherai";
 import { createXai } from "@ai-sdk/xai";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import {
   APICallError,
   createGateway,
@@ -21,8 +22,9 @@ import {
   type SpeechModel,
   type ToolSet,
   type TranscriptionModel,
+  wrapLanguageModel,
 } from "ai";
-import { GATEWAY_CATALOG_MS, GATEWAY_LOW_CREDIT } from "@/config";
+import { CATALOG_MS, KEY_LOW_CREDIT } from "@/config";
 import {
   DEFAULT_EFFORT_KEY,
   DEFAULT_MODEL_KEY,
@@ -34,6 +36,9 @@ import { publicError } from "@/lib/public-error";
 import { clip, errorToString } from "@/lib/utils";
 import { chatGptModel, chatGptSearch, readChatGptPlan } from "./chatgpt";
 import {
+  type CatalogModel,
+  type CatalogPrice,
+  type CatalogProviderId,
   canMakeKind,
   compactAtFor,
   contextWindowOf,
@@ -42,10 +47,8 @@ import {
   type Effort,
   effortSchema,
   effortsOf,
-  GATEWAY_OWNERS,
-  type GatewayCredits,
-  type GatewayModel,
-  type GatewayPrice,
+  isCatalogProvider,
+  type KeyCredits,
   MEDIA_MODEL_PROVIDERS,
   type MediaKind,
   type MediaModelProviderId,
@@ -58,7 +61,13 @@ import {
   TEXT_MODEL_PROVIDERS,
   type TextModelProviderId,
   type TextModelRef,
+  VENDOR_PROVIDERS,
 } from "./model.schema";
+import {
+  fetchOpenRouterCatalog,
+  readOpenRouterCredits,
+  vendorOf,
+} from "./openrouter";
 
 /**
  * Which model a run runs on, and how it is built; every path to a model goes through here.
@@ -157,14 +166,15 @@ function causeChain(cause: unknown): object[] {
 export type TextModel = {
   ref: TextModelRef;
   model: LanguageModel;
-  /** The provider's own web search, bound to it; null when it has none (the gateway). Never handed to a bot as is: `web_search` (tools/search.tool) runs it one call down. */
+  /** The provider's own web search, bound to it; null when it has none (the gateway). Never handed to a bot as is: `web_search` (tools/search.tool) runs it one call down. OpenRouter's is its server tool, which it answers whichever model runs. */
   searchTools: ToolSet | null;
 };
 
 /**
  * Whether a picture a tool hands back reaches this model as a picture (tools/look.tool): the
- * providers whose drivers carry an image inside a tool result. The gateway is asked by the
- * provider its model id opens with (`GATEWAY_OWNERS`), since it passes the request on to it.
+ * providers whose drivers carry an image inside a tool result. A catalog provider is asked by
+ * the vendor its model id opens with (`VENDOR_PROVIDERS`), since it passes the request on to
+ * it; OpenRouter's driver sends the picture on as an `image_url` part.
  */
 export function seesToolImages(ref: TextModelRef): boolean {
   const SEEING: TextModelProviderId[] = [
@@ -176,8 +186,10 @@ export function seesToolImages(ref: TextModelRef): boolean {
   ];
   const provider =
     ref.provider === "vercel-ai-gateway"
-      ? GATEWAY_OWNERS[ref.model.split("/")[0]]
-      : ref.provider;
+      ? VENDOR_PROVIDERS[ref.model.split("/")[0]]
+      : ref.provider === "openrouter"
+        ? VENDOR_PROVIDERS[vendorOf(ref.model)]
+        : ref.provider;
   return provider !== undefined && SEEING.includes(provider);
 }
 
@@ -188,7 +200,9 @@ export function seesToolImages(ref: TextModelRef): boolean {
  * one per bot in a thread, so its runs there share one); Anthropic caches only when asked,
  * and its top-level marker follows the conversation's end as it grows, a write billed at
  * 1.25× input that the next step reads back at 0.1×; the gateway sets the marker the
- * provider behind the model needs. The rest cache by themselves or not at all.
+ * provider behind the model needs. OpenRouter takes Anthropic's marker at the top of the
+ * request (its prompt-caching guide), and the vendors behind its other models cache by
+ * themselves. The rest cache by themselves or not at all.
  */
 export function promptCacheOptions(
   ref: TextModelRef,
@@ -202,6 +216,10 @@ export function promptCacheOptions(
       return { anthropic: { cacheControl: { type: "ephemeral" } } };
     case "vercel-ai-gateway":
       return { gateway: { caching: "auto" } };
+    case "openrouter":
+      return vendorOf(ref.model) === "anthropic"
+        ? { openrouter: { cacheControl: { type: "ephemeral" } } }
+        : {};
     default:
       return {};
   }
@@ -278,13 +296,52 @@ function buildTextModel(ref: TextModelRef, apiKey: string): TextModel {
       const gateway = createGateway({ apiKey });
       return { ref, model: gateway(ref.model), searchTools: null };
     }
+    case "openrouter": {
+      const openrouter = createOpenRouter({ apiKey });
+      return {
+        ref,
+        model: withOpenRouterEffort(openrouter(ref.model)),
+        searchTools: { search: openrouter.tools.webSearch({}) },
+      };
+    }
     default:
       publicError(`Not supported provider: ${String(ref.provider)}`);
   }
 }
 
-/** One shelf for the app: the listing is the same for everyone, key or no key. */
-let catalogCache: { at: number; models: GatewayModel[] } | null = null;
+/**
+ * The sdk's own step (`reasoning`), which OpenRouter's driver does not read, sent the way its
+ * API takes one: `reasoning.effort` in the body. Only a step the model's row lists reaches
+ * here (runEffort), so the step is never one the model would refuse.
+ */
+function withOpenRouterEffort(
+  model: Parameters<typeof wrapLanguageModel>[0]["model"],
+) {
+  return wrapLanguageModel({
+    model,
+    middleware: {
+      specificationVersion: "v4",
+      transformParams: async ({ params }) =>
+        !params.reasoning || params.reasoning === "provider-default"
+          ? params
+          : {
+              ...params,
+              providerOptions: {
+                ...params.providerOptions,
+                openrouter: {
+                  ...params.providerOptions?.openrouter,
+                  reasoning: { effort: params.reasoning },
+                },
+              },
+            },
+    },
+  });
+}
+
+/** One shelf per catalog for the app: a listing is the same for everyone, key or no key. */
+const catalogCache: Partial<
+  Record<CatalogProviderId, { at: number; models: CatalogModel[] }>
+> = {};
 
 /**
  * The gateway's own listing, the one vercel.com/ai-gateway/models draws from. The SDK's
@@ -352,7 +409,7 @@ function per1M(value: unknown): number | null {
  * second or the character, a token price would misstate the model, so the unit replaces it;
  * where tokens do price it, anything that qualifies them rides along as a note.
  */
-function priceOfGatewayModel(row: CatalogRow): GatewayPrice {
+function priceOfGatewayModel(row: CatalogRow): CatalogPrice {
   const pricing: CatalogPricing = row.pricing ?? {};
   const tokensIn = per1M(pricing.input);
   const out = per1M(pricing.output);
@@ -400,14 +457,26 @@ function priceOfGatewayModel(row: CatalogRow): GatewayPrice {
 }
 
 /**
- * What the gateway carries now, every modality in one listing. Rows come back with their kind
- * as the gateway states it and their price flattened (`priceOfGatewayModel`), so a screen
- * filters and sorts on plain fields. The gateway is the only provider that can be asked.
+ * What a catalog provider carries now, every modality in one listing, sorted by id. Rows come
+ * back in the gateway's words with their price flattened, so a screen filters and sorts on
+ * plain fields whichever catalog it reads.
  */
-export async function readGatewayCatalog(): Promise<GatewayModel[]> {
-  if (catalogCache && Date.now() - catalogCache.at < GATEWAY_CATALOG_MS)
-    return catalogCache.models;
+export async function readCatalog(
+  provider: CatalogProviderId,
+): Promise<CatalogModel[]> {
+  const cached = catalogCache[provider];
+  if (cached && Date.now() - cached.at < CATALOG_MS) return cached.models;
+  const models = (
+    provider === "openrouter"
+      ? await fetchOpenRouterCatalog()
+      : await fetchGatewayCatalog()
+  ).sort((a, b) => a.id.localeCompare(b.id));
+  catalogCache[provider] = { at: Date.now(), models };
+  return models;
+}
 
+/** What the gateway carries, each row's kind as the gateway states it and its price flattened. */
+async function fetchGatewayCatalog(): Promise<CatalogModel[]> {
   const response = await fetch(GATEWAY_CATALOG_URL, {
     headers: { accept: "application/json" },
   }).catch((cause: unknown) => {
@@ -417,10 +486,10 @@ export async function readGatewayCatalog(): Promise<GatewayModel[]> {
   if (!response.ok) publicError(`The gateway answered ${response.status}`);
 
   const body = (await response.json()) as { data?: CatalogRow[] };
-  const list = (body.data ?? [])
+  return (body.data ?? [])
     .filter((row): row is CatalogRow & { id: string } => Boolean(row.id))
     .map(
-      (row): GatewayModel => ({
+      (row): CatalogModel => ({
         id: row.id,
         label: row.name || row.id,
         owner: row.owned_by || row.id.slice(0, row.id.indexOf("/")),
@@ -437,22 +506,29 @@ export async function readGatewayCatalog(): Promise<GatewayModel[]> {
             : null,
         efforts: effortsOfRow(row),
       }),
-    )
-    .sort((a, b) => a.id.localeCompare(b.id));
-
-  catalogCache = { at: Date.now(), models: list };
-  return list;
+    );
 }
 
 /** Unlike the listing, this answers only to a key. */
 const GATEWAY_CREDITS_URL = "https://ai-gateway.vercel.sh/v1/credits";
 
 /**
- * What is left on the gateway key. The gateway is the one provider that tells this to the key
- * a user typed; the others keep a balance behind an admin key. A key it turns away is a state
- * of that key, not a failed read, so it comes back as `refused` in the gateway's own words.
+ * What is left on a catalog provider's key, null when none is set. These two tell it to the key
+ * a user typed; the others keep a balance behind an admin key.
  */
-export async function readGatewayCredits(): Promise<GatewayCredits | null> {
+export async function readKeyCredits(
+  provider: CatalogProviderId,
+): Promise<KeyCredits | null> {
+  return provider === "openrouter"
+    ? readOpenRouterCredits()
+    : readGatewayCredits();
+}
+
+/**
+ * What is left on the gateway key. A key it turns away is a state of that key, not a failed
+ * read, so it comes back as `refused` in the gateway's own words.
+ */
+async function readGatewayCredits(): Promise<KeyCredits | null> {
   const apiKey = await readConfig(
     TEXT_MODEL_PROVIDERS["vercel-ai-gateway"].apiKeyName,
   );
@@ -481,7 +557,7 @@ export async function readGatewayCredits(): Promise<GatewayCredits | null> {
   const balance = Number(body?.balance);
   if (!body?.balance || !Number.isFinite(balance))
     publicError("The gateway did not say what is left");
-  return { balance, low: balance <= GATEWAY_LOW_CREDIT };
+  return { balance, low: balance <= KEY_LOW_CREDIT };
 }
 
 /**
@@ -500,11 +576,11 @@ export async function compactBudget(
   return compactAtFor(contextWindowOf(ref.provider, ref.model, catalog));
 }
 
-/** The gateway's shelf for a run on the gateway; empty for any other provider. */
-async function runCatalog(ref: TextModelRef): Promise<GatewayModel[]> {
-  if (ref.provider !== "vercel-ai-gateway") return [];
+/** The catalog for a run on a catalog provider; empty for any other provider. */
+async function runCatalog(ref: TextModelRef): Promise<CatalogModel[]> {
+  if (!isCatalogProvider(ref.provider)) return [];
   // Never worth failing a run over: an unreachable catalog is a fallback, not an error
-  return await readGatewayCatalog().catch(() => []);
+  return await readCatalog(ref.provider).catch(() => []);
 }
 
 /**
@@ -529,27 +605,29 @@ export async function runEffort(
 }
 
 /**
- * The gateway shelf as a set of ids. Null means it could not be asked, which is not "not there":
+ * A catalog as a set of ids. Null means it could not be asked, which is not "not there":
  * callers keep the written rows. Only existence is checked; the gateway prices image and video
  * rows in units of their own, so it cannot order them.
  */
-async function liveGatewayIds(): Promise<Set<string> | null> {
-  return await readGatewayCatalog()
+async function liveIds(
+  provider: CatalogProviderId,
+): Promise<Set<string> | null> {
+  return await readCatalog(provider)
     .then((models) => new Set(models.map((model) => model.id)))
     .catch(() => null);
 }
 
 /**
- * A provider's written rows minus the ones the gateway does not carry; other providers pass
- * through. Order is kept, and an empty result hands back the rows whole rather than leaving a
- * bot with no model.
+ * A provider's written rows minus the ones its catalog does not carry; providers without a
+ * catalog pass through. Order is kept, and an empty result hands back the rows whole rather
+ * than leaving a bot with no model.
  */
 async function callableRows<T extends { id: string }>(
   provider: TextModelProviderId | MediaModelProviderId,
   rows: T[],
 ): Promise<T[]> {
-  if (provider !== "vercel-ai-gateway") return rows;
-  const live = await liveGatewayIds();
+  if (!isCatalogProvider(provider)) return rows;
+  const live = await liveIds(provider);
   if (!live) return rows;
   const kept = rows.filter((row) => live.has(row.id));
   return kept.length > 0 ? kept : rows;

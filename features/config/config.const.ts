@@ -2,6 +2,7 @@ import { LIVE_PROVIDER } from "@/features/ai/live.schema";
 import {
   canMakeKind,
   EFFORTS,
+  isCatalogProvider,
   MEDIA_MODEL_PROVIDER_LIST,
   type MediaKind,
   parseMediaModel,
@@ -194,9 +195,9 @@ export function acceptsChoice(entry: ConfigEntry, value: string): boolean {
 const isVoiceKey = (provider: { apiKeyName: string }) =>
   voiceKeys.includes(provider.apiKeyName);
 
-/** Reached without collecting a key per provider: a sign-in, or the gateway's one key. */
+/** Reached without collecting a key per provider: a sign-in, or one key for a whole catalog. */
 const isEasy = (provider: { id: string; signIn?: true }) =>
-  Boolean(provider.signIn) || provider.id === "vercel-ai-gateway";
+  Boolean(provider.signIn) || isCatalogProvider(provider.id);
 
 const keyEntry = (
   provider: (typeof TEXT_MODEL_PROVIDER_LIST)[number],

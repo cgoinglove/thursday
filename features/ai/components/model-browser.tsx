@@ -3,7 +3,6 @@
 import { Check, LoaderCircle, Search } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { VercelIcon } from "@/components/ui/custom-icon";
 import {
   Dialog,
   DialogContent,
@@ -14,33 +13,39 @@ import { Input, inputClassName } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { cn } from "@/lib/utils";
 import {
-  GATEWAY_TEXT,
-  GATEWAY_TOOL_USE,
-  type GatewayModel,
-  type GatewayPrice,
+  CATALOG_TEXT,
+  CATALOG_TOOL_USE,
+  type CatalogModel,
+  type CatalogPrice,
+  type CatalogProviderId,
   type MediaKind,
+  TEXT_MODEL_PROVIDERS,
 } from "../model.schema";
-import { GatewayOwnerIcon } from "./gateway-mark";
+import { ProviderIcon } from "./provider-icon";
+import { VendorIcon } from "./vendor-mark";
 
 /**
- * The gateway's shelf, for one slot. It is opened for a kind and never leaves it: what a
+ * A catalog provider's shelf, for one slot. It is opened for a kind and never leaves it: what a
  * slot cannot run is not a filter a person should have to apply, so kind is an argument
  * rather than a control. A text slot additionally means tool-use — a bot that cannot call
  * a tool cannot do a job — which is why the dialog counts fewer than the shelf holds.
  *
- * It is the model field itself, not a button beside one: the gateway lists hundreds of
+ * It is the model field itself, not a button beside one: a catalog lists hundreds of
  * rows with prices, and a field next to it could only be a worse copy of the search
  * inside. An id the catalog does not list is typed here too, from the empty search.
  */
 export function ModelBrowser({
+  provider,
   models,
   kind,
   value,
   loading,
   onPick,
 }: {
+  /** Whose catalog this is: its mark heads the dialog. */
+  provider: CatalogProviderId;
   /** The catalog the picker already read; one fetch serves both. */
-  models: GatewayModel[];
+  models: CatalogModel[];
   /** What the slot makes. Absent is a text model. */
   kind?: MediaKind;
   value: string;
@@ -51,11 +56,12 @@ export function ModelBrowser({
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortId>("cheap");
   const [picked, setPicked] = useState(value);
+  const { label } = TEXT_MODEL_PROVIDERS[provider];
 
-  const shelf = models.filter((model) => model.type === (kind ?? GATEWAY_TEXT));
+  const shelf = models.filter((model) => model.type === (kind ?? CATALOG_TEXT));
   const runnable = kind
     ? shelf
-    : shelf.filter((model) => model.tags.includes(GATEWAY_TOOL_USE));
+    : shelf.filter((model) => model.tags.includes(CATALOG_TOOL_USE));
 
   const needle = query.trim().toLowerCase();
   const rows = (
@@ -112,15 +118,15 @@ export function ModelBrowser({
         <div className="flex h-full min-h-0 min-w-0 flex-col">
           <div className="shrink-0 space-y-1 px-6 pt-5 pb-4">
             <DialogTitle className="flex items-center gap-2.5 text-xl font-semibold">
-              <VercelIcon className="size-3.5" />
+              <ProviderIcon provider={provider} className="size-3.5" />
               {kind ? KIND_TITLE[kind] : "Text"} models
             </DialogTitle>
             <p className="font-mono text-xs text-muted-foreground">
               {needle
                 ? `${rows.length} matching “${query.trim()}”`
                 : kind
-                  ? `${runnable.length} on the gateway`
-                  : `${runnable.length} of ${shelf.length} on the gateway can call tools`}
+                  ? `${runnable.length} on ${label}`
+                  : `${runnable.length} of ${shelf.length} on ${label} can call tools`}
             </p>
           </div>
 
@@ -170,7 +176,7 @@ export function ModelBrowser({
                 </p>
                 {needle && (
                   <div className="flex gap-2">
-                    {/* The catalog is a listing, not the whole gateway: an id it does
+                    {/* The catalog is a listing, not the whole provider: an id it does
                         not carry still runs, so it is taken as typed */}
                     <Button size="sm" onClick={() => setPicked(query.trim())}>
                       Use “{query.trim()}” as the id
@@ -220,14 +226,14 @@ const KIND_TITLE: Record<MediaKind, string> = {
 
 type SortId = "cheap" | "dear" | "name";
 
-/** A model the gateway prices in some other unit sorts last either way, never as a zero. */
-const byPrice = (model: GatewayModel) => model.price.in;
+/** A model the catalog prices in some other unit sorts last either way, never as a zero. */
+const byPrice = (model: CatalogModel) => model.price.in;
 const SORTS: Record<
   SortId,
   {
     label: string;
     title: string;
-    compare: (a: GatewayModel, b: GatewayModel) => number;
+    compare: (a: CatalogModel, b: CatalogModel) => number;
   }
 > = {
   cheap: {
@@ -259,7 +265,7 @@ const money = (value: number) =>
   value >= 1 ? value.toFixed(2) : String(Number(value.toFixed(4)));
 
 /** What the price column says. A note is the whole line when no token price stands behind it. */
-function priceLine(price: GatewayPrice) {
+function priceLine(price: CatalogPrice) {
   if (price.free) return "free";
   if (price.in === null && price.out === null) return price.note ?? "—";
   return `${price.in === null ? "—" : money(price.in)} / ${price.out === null ? "—" : money(price.out)}`;
@@ -270,7 +276,7 @@ function ModelRow({
   picked,
   onPick,
 }: {
-  model: GatewayModel;
+  model: CatalogModel;
   picked: boolean;
   onPick: () => void;
 }) {
@@ -286,7 +292,7 @@ function ModelRow({
       )}
     >
       <span className="grid size-[18px] shrink-0 place-items-center">
-        <GatewayOwnerIcon owner={model.owner} className="size-[15px]" />
+        <VendorIcon owner={model.owner} className="size-[15px]" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-1.5">

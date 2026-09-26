@@ -36,14 +36,17 @@ Two easier ways for bots come next:
   shows how much of the plan is used and when it resets. It does not cover a spoken call, which
   OpenAI bills by the minute on a key.
 - **Vercel AI Gateway**: one key for every model; its row shows what credit is left.
+- **OpenRouter**: the same, one key for every model it carries, free ones among them; its row
+  shows what credit is left.
 
 Under them, every other provider (Claude, Gemini, xAI and more, some behind **More**) is a mark to
 tap and paste a key into, with a link to the page that makes one.
 
 A search key (Exa) is optional. With it, calls and bots all search through Exa, which is cheap and
 has free monthly credits. Without it, a call uses OpenAI's own search, and a bot uses its model's
-own search: the GPT Subscription, OpenAI, Claude, Gemini and xAI have one. A bot on the Gateway or
-any other provider has no search of its own, so it opens pages in its browser instead.
+own search: the GPT Subscription, OpenAI, Claude, Gemini, xAI and OpenRouter have one. A bot on
+the Gateway or any other provider has no search of its own, so it opens pages in its browser
+instead.
 
 ## Models
 

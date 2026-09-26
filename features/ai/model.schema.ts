@@ -10,6 +10,7 @@ export const textModelProviderSchema = z.enum([
   "google",
   "xai",
   "vercel-ai-gateway",
+  "openrouter",
   "mistral",
   "deepseek",
   "groq",
@@ -56,15 +57,15 @@ export type SuggestModel = {
   label: string;
   tier: ModelTier;
   /**
-   * Context window in tokens, from the gateway's catalog for the same model. Only
-   * the gateway can be asked at run time (readGatewayCatalog), so a provider used
-   * directly reads its window here instead of guessing. Null where the gateway
-   * does not carry the model: the run falls back to `BOT_RUN.compactAt`.
+   * Context window in tokens, from the gateway's catalog for the same model. Only a catalog
+   * provider can be asked at run time (ai/model readCatalog), so a provider used directly
+   * reads its window here instead of guessing. Null where the gateway does not carry the
+   * model: the run falls back to `BOT_RUN.compactAt`.
    */
   context?: number | null;
   /**
-   * The steps of the ladder this model answers to, written down because only the gateway can be
-   * asked at run time. Read off the provider's own sdk — the table it checks a model against, the
+   * The steps of the ladder this model answers to, written down because only a catalog provider
+   * can be asked at run time. Read off the provider's own sdk — the table it checks a model against, the
    * map it translates a step through — never guessed: a step a provider passes straight to its
    * API fails the whole call, not just the setting. An empty list is "this model has no ladder";
    * left out is "nobody has checked", and both run on the model's own default (ai/model runEffort).
@@ -73,17 +74,30 @@ export type SuggestModel = {
 };
 
 /**
- * A model's context window where the app can know it: the gateway's catalog row
- * for a gateway model, else the window stamped on a directly used provider's
- * shelf (`SuggestModel.context`). Null when neither says. Pure, so the settings
- * screen and a run (ai/model compactBudget) read the same number.
+ * The providers that list what they carry and answer without a key: one key reaches every
+ * model on the list, so their model field is the list itself (model-browser), and a model's
+ * window and effort steps are read off its row when a run starts (ai/model readCatalog).
+ */
+export const CATALOG_PROVIDERS = ["vercel-ai-gateway", "openrouter"] as const;
+export type CatalogProviderId = (typeof CATALOG_PROVIDERS)[number];
+
+export const isCatalogProvider = (
+  provider: string | null | undefined,
+): provider is CatalogProviderId =>
+  CATALOG_PROVIDERS.includes(provider as CatalogProviderId);
+
+/**
+ * A model's context window where the app can know it: the catalog row for a catalog
+ * provider's model, else the window stamped on a directly used provider's shelf
+ * (`SuggestModel.context`). Null when neither says. Pure, so the settings screen and a
+ * run (ai/model compactBudget) read the same number.
  */
 export function contextWindowOf(
   provider: TextModelProviderId,
   model: string,
-  catalog: readonly GatewayModel[] = [],
+  catalog: readonly CatalogModel[] = [],
 ): number | null {
-  if (provider === "vercel-ai-gateway") {
+  if (isCatalogProvider(provider)) {
     return catalog.find((row) => row.id === model)?.contextWindow ?? null;
   }
   const shelf = TEXT_MODEL_PROVIDERS[provider].suggestModels;
@@ -91,16 +105,16 @@ export function contextWindowOf(
 }
 
 /**
- * Which steps a model takes: the gateway's own answer for a gateway model, else what its shelf
- * row says. Null means nobody knows, which is not the same as an empty list ("it has none") —
+ * Which steps a model takes: the catalog's own answer for a catalog provider's model, else what
+ * its shelf row says. Null means nobody knows, which is not the same as an empty list ("it has none") —
  * a run sets nothing in either case, but a screen says something different about them.
  */
 export function effortsOf(
   provider: TextModelProviderId,
   model: string,
-  catalog: readonly GatewayModel[] = [],
+  catalog: readonly CatalogModel[] = [],
 ): readonly Effort[] | null {
-  if (provider === "vercel-ai-gateway") {
+  if (isCatalogProvider(provider)) {
     return catalog.find((row) => row.id === model)?.efforts ?? null;
   }
   const shelf = TEXT_MODEL_PROVIDERS[provider].suggestModels;
@@ -621,6 +635,73 @@ export const TEXT_MODEL_PROVIDERS: Record<
       },
     ],
   },
+  /**
+   * The gateway's shelf as OpenRouter names it (xAI is `x-ai`, Z.ai `z-ai`), checked against
+   * its live list (model.ts callableRows); shown until the catalog arrives.
+   */
+  openrouter: {
+    label: "OpenRouter",
+    apiKeyName: "OPENROUTER_API_KEY",
+    keysAt: "https://openrouter.ai/settings/keys",
+    keyLooks: "sk-or-…",
+    suggestModels: [
+      {
+        id: "z-ai/glm-5.3-flash",
+        label: "GLM 5.3 Flash",
+        tier: "small",
+        context: 1_310_720,
+      },
+      {
+        id: "google/gemini-3.8-flash",
+        label: "Gemini 3.8 Flash",
+        tier: "small",
+        context: 1_048_576,
+      },
+      {
+        id: "openai/gpt-6-luna",
+        label: "GPT 6 Luna",
+        tier: "small",
+        context: 1_050_000,
+      },
+      { id: "z-ai/glm-5.3", label: "GLM 5.3", tier: "mid", context: 1_310_720 },
+      {
+        id: "x-ai/grok-4.7",
+        label: "Grok 4.7",
+        tier: "mid",
+        context: 500_000,
+      },
+      {
+        id: "anthropic/claude-sonnet-5",
+        label: "Claude Sonnet 5",
+        tier: "mid",
+        context: 1_000_000,
+      },
+      {
+        id: "openai/gpt-6-sol",
+        label: "GPT 6 Sol",
+        tier: "mid",
+        context: 1_050_000,
+      },
+      {
+        id: "moonshotai/kimi-k3",
+        label: "Kimi K3",
+        tier: "mid",
+        context: 1_048_576,
+      },
+      {
+        id: "anthropic/claude-opus-5.5",
+        label: "Claude Opus 5.5",
+        tier: "large",
+        context: 1_000_000,
+      },
+      {
+        id: "openai/gpt-6-astra",
+        label: "GPT 6 Astra",
+        tier: "large",
+        context: 1_050_000,
+      },
+    ],
+  },
   mistral: {
     label: "Mistral",
     apiKeyName: "MISTRAL_API_KEY",
@@ -933,18 +1014,23 @@ export type SubscriptionUsage =
     }
   | { refused: string };
 
-/** What a gateway row can be picked as: text, one of the studio kinds, or a word this app offers nowhere (embedding, reranking, realtime). */
-export const GATEWAY_TEXT = "language";
+/**
+ * What a catalog row can be picked as, in the gateway's words: text, one of the studio kinds, or
+ * a word this app offers nowhere (embedding, reranking, realtime). OpenRouter's rows are put in
+ * the same words when they are read (ai/openrouter).
+ */
+export const CATALOG_TEXT = "language";
 
-/** The gateway tag a text model must carry: a bot that cannot call a tool cannot do a job. */
-export const GATEWAY_TOOL_USE = "tool-use";
+/** The tag a text model must carry: a bot that cannot call a tool cannot do a job. */
+export const CATALOG_TOOL_USE = "tool-use";
 
 /**
- * The providers here that the gateway also carries, by the gateway's name for them — the
- * first segment of its ids, and its `owned_by` — which is not always theirs (xAI is
- * `spacexai`). What a gateway model's provider can do, and its mark, are read through it.
+ * The providers here that a catalog also carries, by the gateway's name for them — the first
+ * segment of its ids, and its `owned_by` — which is not always theirs (xAI is `spacexai`).
+ * OpenRouter's names are put in these words when its rows are read (ai/openrouter). What a
+ * catalog model's provider can do, and its mark, are read through it.
  */
-export const GATEWAY_OWNERS: Partial<Record<string, TextModelProviderId>> = {
+export const VENDOR_PROVIDERS: Partial<Record<string, TextModelProviderId>> = {
   anthropic: "anthropic",
   openai: "openai",
   google: "google",
@@ -952,13 +1038,15 @@ export const GATEWAY_OWNERS: Partial<Record<string, TextModelProviderId>> = {
   mistral: "mistral",
   deepseek: "deepseek",
   cohere: "cohere",
+  // Its own routers (`openrouter/free`, `openrouter/auto`), which pick a model per request
+  openrouter: "openrouter",
 };
 
 /**
- * How the gateway bills one model, flattened in `readGatewayCatalog` from the ten
- * shapes its pricing answers with. A null price is "the gateway did not say", never zero.
+ * How a catalog bills one model, flattened when it is read from the shapes each catalog's
+ * pricing answers with. A null price is "the catalog did not say", never zero.
  */
-export type GatewayPrice = {
+export type CatalogPrice = {
   /** USD per 1M tokens; null when the model is not billed per token at all. */
   in: number | null;
   out: number | null;
@@ -967,35 +1055,35 @@ export type GatewayPrice = {
   free: boolean;
 };
 
-/** One row of the gateway's live model list — only the gateway has one. */
-export type GatewayModel = {
-  /** Gateway id, "<provider>/<model>" — used as the model name. */
+/** One row of a catalog provider's live model list (`CATALOG_PROVIDERS`). */
+export type CatalogModel = {
+  /** The catalog's id, "<vendor>/<model>" — used as the model name. */
   id: string;
   label: string;
-  /** Who runs it, the gateway's own word. Four of them are providers this app draws (provider-icon). */
+  /** Who makes it, in the gateway's words (`VENDOR_PROVIDERS`); what its mark is drawn from. */
   owner: string;
-  /** The gateway's own word, as `readGatewayCatalog` received it; null when it did not say. */
+  /** What it makes, in the gateway's words (`CATALOG_TEXT`, a studio kind); null when the catalog did not say. */
   type?: string | null;
-  /** The gateway's own words for what a model can do; only `tool-use` is read. */
+  /** What a model can do, in the gateway's words; only `tool-use` is read. */
   tags: string[];
-  price: GatewayPrice;
-  /** The gateway has dated its retirement. */
+  price: CatalogPrice;
+  /** The catalog has dated its retirement. */
   retiring: boolean;
-  /** Context window in tokens; null when the gateway did not say. What a run compacts against (bot.run). */
+  /** Context window in tokens; null when the catalog did not say. What a run compacts against (bot.run). */
   contextWindow: number | null;
-  /** The ladder the gateway lists for this model (`reasoning_options`), narrowed to steps the app can set; null when it lists none. */
+  /** The ladder the catalog lists for this model, narrowed to steps the app can set; null when it lists none. */
   efforts: Effort[] | null;
 };
 
 /**
- * What is left on the gateway key (ai/model `readGatewayCredits`). A key the gateway turns
+ * What is left on a catalog provider's key (ai/model `readKeyCredits`). A key the provider turns
  * away is not a failed read: `refused` carries its words, drawn on the key's row and dialog.
  */
-export type GatewayCredits =
+export type KeyCredits =
   | {
       /** USD. */
       balance: number;
-      /** At or under `GATEWAY_LOW_CREDIT` (config): amber, it waits on a top-up. */
+      /** At or under `KEY_LOW_CREDIT` (config): amber, it waits on a top-up. */
       low: boolean;
     }
   | { refused: string };

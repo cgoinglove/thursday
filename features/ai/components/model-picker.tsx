@@ -17,12 +17,13 @@ import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn } from "@/lib/utils";
 import type {
   AiProvider,
-  GatewayModel,
+  CatalogModel,
   MediaKind,
   TextModelProviderId,
 } from "../model.schema";
 import {
   canMakeKind,
+  isCatalogProvider,
   MEDIA_MODEL_PROVIDERS,
   TEXT_MODEL_PROVIDERS,
 } from "../model.schema";
@@ -34,8 +35,8 @@ import { ProviderIcon } from "./provider-icon";
  * A provider and its model behind one button, so the field is one width whatever is picked.
  * It opens on two columns: the providers, and what the one in hand offers — its suggested
  * models, a field for an id that is not on the list, or the way to its key when it has none.
- * Looking at another provider changes nothing; a pick is a model. The gateway's column is
- * the shelf (`ModelBrowser`), because its list is hundreds of priced rows.
+ * Looking at another provider changes nothing; a pick is a model. A catalog provider's column
+ * is its shelf (`ModelBrowser`), because its list is hundreds of priced rows.
  */
 export function ModelPicker({
   provider,
@@ -78,11 +79,11 @@ export function ModelPicker({
     providers.find((entry) => entry.id === (looking ?? provider)) ??
     providers[0];
 
-  const gateway = shown?.id === "vercel-ai-gateway";
-  // The listing answers without a key (ai/model readGatewayCatalog), so the shelf is
+  const listing = shown && isCatalogProvider(shown.id) ? shown.id : null;
+  // The listing answers without a key (ai/model readCatalog), so the shelf is
   // browsable while the key row asks
-  const catalog = useServerRoute<GatewayModel[]>(
-    open && gateway && queryKey.modelCatalog,
+  const catalog = useServerRoute<CatalogModel[]>(
+    open && listing && queryKey.modelCatalog(listing),
   );
 
   const modelsOf = (entry?: AiProvider) =>
@@ -206,12 +207,13 @@ export function ModelPicker({
               </p>
               <AskForKey provider={shown} onSaved={() => mutate()} />
             </div>
-          ) : gateway && !catalog.error ? (
+          ) : listing && !catalog.error ? (
             <div className="space-y-2 p-2">
               <p className="text-xs leading-relaxed text-muted-foreground">
-                Every model the gateway carries, with what each costs.
+                Every model {shown.label} carries, with what each costs.
               </p>
               <ModelBrowser
+                provider={listing}
                 models={catalog.data ?? []}
                 kind={kind}
                 value={shown.id === provider ? model : ""}
