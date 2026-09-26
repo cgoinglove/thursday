@@ -75,7 +75,8 @@ export async function readFileThread(
     };
   }
   try {
-    await resolveModel(to);
+    // Re-read whenever a thread moves or a file changes: a check, not a run, so it logs nothing
+    await resolveModel(to, { quiet: true });
   } catch (cause) {
     if (!isPublicError(cause)) throw cause;
     return {

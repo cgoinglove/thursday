@@ -838,11 +838,15 @@ const deskCacheKey = (threadId: string, bot: string) =>
  * Refuses, in words a person can act on, what a run on this bot would be refused (no key, a
  * sign-in gone), so a caller can ask before it starts one (thread.file).
  */
-export function resolveModel(bot: JobBot) {
+export function resolveModel(
+  bot: JobBot,
+  /** Asked before a run, not by one: nothing to log (resolveDefaultModel). */
+  options: { quiet?: boolean } = {},
+) {
   if (bot.provider && bot.model) {
     return getTextModel({ provider: bot.provider, model: bot.model });
   }
-  return resolveDefaultModel().then(getTextModel);
+  return resolveDefaultModel(undefined, options).then(getTextModel);
 }
 
 /** Build a valid model projection without changing the recorded interruption history. */
