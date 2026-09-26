@@ -2,6 +2,7 @@ import { AppEventSource } from "@/app/api/events/app-event.client";
 import { rollSeedIcons } from "@/features/bot/bot.seed";
 import { isCallable } from "@/features/config/config.query";
 import { Intro } from "@/features/intro/components/intro";
+import { hasPassedIntro } from "@/features/intro/intro.query";
 import { ReachAsk } from "@/features/reach/components/reach-ask";
 import { Boot } from "@/features/thursday/components/boot";
 import { Thursday } from "@/features/thursday/components/thursday";
@@ -9,8 +10,8 @@ import { hasAnyCall } from "@/features/thursday/thursday.query";
 
 /**
  * The app's only screen. The call screen always renders (it shows its own
- * no-key state); the intro overlays it until a first call has been placed here, or
- * when `?intro` asks for it.
+ * no-key state); the intro overlays it until it has been left once, or a call placed here
+ * before it remembered that, or when `?intro` asks for it.
  *
  * The event stream is opened here rather than in the layout: this is the one
  * screen that listens, and a tab holding a stream nothing reads costs the app a
@@ -18,7 +19,11 @@ import { hasAnyCall } from "@/features/thursday/thursday.query";
  */
 export default async function Home({ searchParams }: PageProps<"/">) {
   const { intro } = await searchParams;
-  const [ready, called] = await Promise.all([isCallable(), hasAnyCall()]);
+  const [ready, called, passed] = await Promise.all([
+    isCallable(),
+    hasAnyCall(),
+    hasPassedIntro(),
+  ]);
 
   return (
     <div className="h-full min-h-0 flex-1">
@@ -27,7 +32,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           The seed faces are rolled here for the same reason (bot.seed). */}
       <Intro
         ready={ready}
-        firstRun={!called}
+        firstRun={!called && !passed}
         forced={intro !== undefined}
         icons={rollSeedIcons()}
       />

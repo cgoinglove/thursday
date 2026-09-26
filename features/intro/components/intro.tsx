@@ -43,6 +43,7 @@ import {
   DEFAULT_MODEL_KEY,
 } from "@/features/config/config.const";
 import { Echoes } from "@/features/intro/components/echoes";
+import { passIntroAction } from "@/features/intro/intro.action";
 import { type IntroLine, useIntroVoice } from "@/features/intro/intro-voice";
 import { callSignal } from "@/features/thursday/call-signal";
 import { Face } from "@/features/thursday/components/face";
@@ -74,8 +75,8 @@ import { cn, WAITING_INK } from "@/lib/utils";
  * works for them, what those think with. It opens on her coming down to her own size
  * (echoes.tsx), then on the app's one loop played silently in place, and its last button
  * is the first call. No step holds anyone: every one can be passed at once and done later
- * from the screen it belongs to. It shows until a call has been placed here (app/page
- * `firstRun`), or whenever `?intro` asks.
+ * from the screen it belongs to. It shows until it has been left once (intro.query), or
+ * whenever `?intro` asks (app/page `firstRun`).
  */
 
 const STEPS = ["key", "mic", "bots", "models", "style", "call"] as const;
@@ -184,20 +185,25 @@ export function Intro({
   const face = (seed: BotSeed) => icons[BOT_SEEDS.indexOf(seed)];
 
   /**
-   * Installs the picked bots, key or no key: a bot needs no model to be made, only to run, and
-   * the model is resolved at each run (bot.run). Left for the first key, the picks were lost, and
-   * the key saved later brought every seed, the ones switched off here too.
+   * On the first run, installs the picked bots, key or no key: a bot needs no model to be made,
+   * only to run, and the model is resolved at each run (bot.run). Left for the first key, the
+   * picks were lost, and the key saved later brought every seed, the ones switched off here too.
+   * Only then: seen again through `?intro`, a leave brought back bots deleted since.
    * `calling` places the first call from inside this click.
    */
   const leave = (calling: boolean) => {
     voice.hush();
     setGone(true);
-    installSeedBots(
-      BOT_SEEDS.filter((seed) => picked[seed.name]).map((seed) => ({
-        name: seed.name,
-        icon: face(seed),
-      })),
-    );
+    if (firstRun) {
+      installSeedBots(
+        BOT_SEEDS.filter((seed) => picked[seed.name]).map((seed) => ({
+          name: seed.name,
+          icon: face(seed),
+        })),
+      );
+      // a failure costs only the intro once more on the next load
+      void passIntroAction();
+    }
     if (calling) callSignal.place();
     router.replace("/");
     router.refresh();

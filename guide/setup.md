@@ -15,8 +15,9 @@ turns the microphone on — the browser asks first, by its address bar — and t
 on without one. The bots picked there are set up when
 it ends, key or no key; they run once there is a model to run on. With a key the last button is
 **Call her**; without one it is **Look around**, and she says whether the bots can already work or
-still need a key or a ChatGPT sign-in. It stops showing once a call has been placed, and adding
-`?intro` to the address brings it back.
+still need a key or a ChatGPT sign-in. Once it has been left, by any of its buttons, it does not
+show again, and **Reset history** does not bring it back; adding `?intro` to the address does,
+and leaving it that way sets up no bots, so one deleted since stays deleted.
 
 ## Around the screen
 
