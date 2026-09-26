@@ -41,7 +41,7 @@ A speech model that opens a browser goes silent for a minute, and a silent call 
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-talk-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-talk-light.png" alt="On a call: she says a bot is on it and will tell you when it is back, and the job is handed over" width="880">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-talk-light.png" alt="On a call: she says a bot is on it and will tell you when it is back, while the job is handed over and a web search starts" width="880">
 </picture>
 
 ### One ask, a whole team
@@ -50,7 +50,7 @@ Bots hand parts of a job to each other, check what comes back, and ask you only 
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-team-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-team-light.png" alt="While she tells you what was compared, two bots work a shop in their browser, and a question waits on you: keep the two that ship late?" width="880">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-team-light.png" alt="A thread between two bots: one hands the job over, the other reports six coats compared, and a question waits on you" width="880">
 </picture>
 
 ### Errands, in a real browser
@@ -59,7 +59,7 @@ Orders, bookings, forms, the inbox. A bot uses its own browser or the Chrome you
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-errands-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-errands-light.png" alt="Two bots in a browser of their own, one handing the other the job, searching a shop while she stays on the call" width="880">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-errands-light.png" alt="A checkout a bot filled in, stopped at the Pay button and left open on your screen" width="880">
 </picture>
 
 ### Results you can keep
@@ -68,14 +68,14 @@ Pages, charts, videos, slides, docs and scripts, saved as files on your machine.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-results-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-results-light.png" alt="A finished job lands in the corner as a card; opened, it is the page a bot made, saved as a file" width="880">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-results-light.png" alt="A page a bot made, the files it saved beside it, and the card it landed as" width="880">
 </picture>
 
 ## And also
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-more-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-more-light.png" alt="Routines: every weekday at nine, a bot, a job and a time. From your phone: write to her from Telegram, Discord or Slack. Memory you can read: plain notes you can open, edit or delete. Every bot, its own model, picked per bot" width="880">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-more-light.png" alt="Every weekday at nine: a bot, a job and a time. From your phone: Telegram, Discord or Slack. Memory you can read: plain notes you can open, edit or delete. Every bot, its own model" width="880">
 </picture>
 
 ## How it works
