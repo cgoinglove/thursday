@@ -203,7 +203,9 @@ function fadeOut(audio: HTMLAudioElement, seconds = 0.4) {
   const from = audio.volume;
   const t0 = performance.now();
   const step = (now: number) => {
-    const p = Math.min(1, (now - t0) / 1000 / seconds);
+    // A frame's time can be a little before `t0`: unclamped, the volume went past 1, the
+    // browser threw, and the sound played on unfaded
+    const p = Math.max(0, Math.min(1, (now - t0) / 1000 / seconds));
     audio.volume = from * (1 - p);
     if (p < 1) requestAnimationFrame(step);
     else audio.pause();
