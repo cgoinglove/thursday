@@ -1194,7 +1194,7 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     const first = await loadLivePrompt({});
     assert.match(first.text, /## First call/);
     // The one call that opens with nothing: she says who she is, then learns who they are
-    assert.match(first.opening ?? "", /say who you are/);
+    assert.match(first.opening ?? "", /Speak first: greet the user in one line, say you are Thursday/);
     assert.match(first.opening ?? "", /ask what to call them/);
     assert.match(
       first.text,
