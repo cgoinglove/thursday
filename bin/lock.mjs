@@ -28,6 +28,13 @@ export function runningOn(home) {
     // Someone else's process by that id is still a live one
     if (error?.code !== "EPERM") return null;
   }
+  // A lock left by a server that died without its exit (a kill -9, a power cut) names a pid
+  // another process may hold after a restart, which would refuse every start until the file
+  // was deleted by hand: the pid is this server only if it started when the lock says. Where
+  // `ps` cannot say (Windows), or the lock predates `started`, the live pid is all there is.
+  const started = startedAt(held.pid);
+  if (typeof held.started === "string" && started && started !== held.started)
+    return null;
   return {
     pid: held.pid,
     url: String(held.url ?? ""),
@@ -36,8 +43,15 @@ export function runningOn(home) {
   };
 }
 
+// LC_ALL=C: a start time is compared as `ps` wrote it, so both reads spell it alike
 const ps = (...args) =>
-  spawnSync("ps", args, { encoding: "utf8" }).stdout?.trim() ?? "";
+  spawnSync("ps", args, {
+    encoding: "utf8",
+    env: { ...process.env, LC_ALL: "C" },
+  }).stdout?.trim() ?? "";
+
+/** When a process started, to the second, as `ps` has it. Empty where it cannot say. */
+const startedAt = (pid) => ps("-o", "lstart=", "-p", String(pid));
 
 /**
  * Where a process runs, as `ps` has it: the terminal it is attached to (null when none), when
@@ -104,7 +118,12 @@ export function holdFolder(home, url, version) {
     mkdirSync(home, { recursive: true });
     writeFileSync(
       file,
-      `${JSON.stringify({ pid: process.pid, url, version })}\n`,
+      `${JSON.stringify({
+        pid: process.pid,
+        started: startedAt(process.pid) || undefined,
+        url,
+        version,
+      })}\n`,
     );
   } catch {
     // A folder that cannot be written is not a reason not to serve
