@@ -1,4 +1,5 @@
 import { stat } from "node:fs/promises";
+import { PATHS } from "@/config";
 import { botOfArtifact } from "@/features/artifact/artifact.query";
 import { pathsIn } from "@/features/workspace/file-kind";
 import { botFolderName, insideWorkspace } from "@/features/workspace/workspace";
@@ -15,9 +16,10 @@ import { findThread } from "./thread.query";
  * A note about a file, sent to the thread that made it: the way to ask for a change to a page
  * a bot wrote, or to go on from it, from where the file is open rather than from the room.
  * Which thread is the one the file was opened from, when the screen knows it (a finished card,
- * a message in the room); otherwise the latest whose coordinator reported the file, since a
- * report stays for as long as its thread does. Everything that would stop the note from being
- * acted on is found before it is sent, and said, rather than after the thread was taken up.
+ * a message in the room); otherwise the latest whose coordinator reported the file, or another
+ * file of its set, since a report stays for as long as its thread does. Everything that would
+ * stop the note from being acted on is found before it is sent, and said, rather than after the
+ * thread was taken up.
  */
 
 /** Which thread, and whether a note could reach a bot in it. `path` is workspace-relative. */
@@ -122,13 +124,34 @@ export async function tellFileThread(
   return { id: found.thread.id, label: found.thread.label, to: found.to };
 }
 
-/** The thread the screen opened the file from, else the latest whose report named it. */
+/**
+ * The thread the screen opened the file from, else the latest whose report named it, else the
+ * latest that named another file of its set: one entry on a bot's shelf, a file or a folder of
+ * several, is one piece of work (features/artifact), and a report names the files worth opening
+ * rather than every picture a skill drew beside them.
+ */
 async function threadOf(path: string, from: string | null) {
   if (from) return findThread(from);
-  for (const report of await listReportsNaming(path)) {
-    if (!pathsIn(report.text).includes(path)) continue;
-    const thread = await findThread(report.threadId);
-    if (thread) return thread;
-  }
-  return null;
+  const set = setOf(path);
+  const reports = await listReportsNaming(set ?? path);
+  const latest = async (named: (one: string) => boolean) => {
+    for (const report of reports) {
+      if (!pathsIn(report.text).some(named)) continue;
+      const thread = await findThread(report.threadId);
+      if (thread) return thread;
+    }
+    return null;
+  };
+  return (
+    (await latest((one) => one === path)) ??
+    (set ? await latest((one) => one.startsWith(`${set}/`)) : null)
+  );
+}
+
+/** The folder on a bot's shelf a file sits in, when it sits in one: `artifacts/<bot>/<set>`. */
+function setOf(path: string): string | null {
+  const [root, bot, set, ...inside] = path.split("/");
+  return root === PATHS.artifacts && bot && set && inside.length
+    ? `${root}/${bot}/${set}`
+    : null;
 }

@@ -3102,6 +3102,32 @@ test("every command and write in a shell tells a file open on screen to look aga
   }
 });
 
+test("a file of a set its report did not name finds the thread that named another file of the set", async () => {
+  const { readFileThread } = await import("../features/bot/thread.file.ts");
+  const shelf = botArtifacts("Alpha");
+  const set = `${shelf}/note-set`;
+  await mkdir(join(WORKSPACE, set), { recursive: true });
+  await writeFile(join(WORKSPACE, `${set}/flyer.html`), "<p>flyer</p>");
+  // A skill's overview picture, beside the page the report names
+  await writeFile(join(WORKSPACE, `${set}/boards.png`), "png");
+  await writeFile(join(WORKSPACE, `${shelf}/note-set-loose.png`), "png");
+  plans.set("Alpha", [() => text(`The flyer: ${set}/flyer.html`)]);
+  const id = await startThread({
+    bot: "Alpha",
+    request: "Set fixture",
+    label: "Set",
+    from: "user",
+  });
+  await waitFor(id, "done");
+  const found = await readFileThread(`${set}/boards.png`);
+  assert.equal(found.state === "open" && found.thread.id, id);
+  // A file on the shelf beside the set is not one of it, however its name begins
+  assert.equal(
+    (await readFileThread(`${shelf}/note-set-loose.png`)).state,
+    "none",
+  );
+});
+
 test("a report naming a file by a full path, from a data folder since moved, still finds its thread", async () => {
   const { readFileThread } = await import("../features/bot/thread.file.ts");
   const { PATHS } = await import("../config.ts");
