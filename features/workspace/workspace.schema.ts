@@ -45,7 +45,15 @@ export type FileOnDisk = {
  * now on, or refused because the file moved on after the page was opened ("" is a page
  * from before revisions, which names none).
  */
-export type PageSave = { changed: false; revision: string } | { changed: true };
+export type PageSave =
+  /** `version` is the file's as the save left it (workspace.query readFileVersion): the screen that saved knows its own write. */
+  { changed: false; revision: string; version: string } | { changed: true };
+
+/**
+ * A file as it is now (workspace.query readFileVersion): `version` changes with every write,
+ * `revision` is what a page the shell dressed carries, null for anything else.
+ */
+export type FileVersion = { version: string; revision: string | null };
 
 /** One folder. Its own rows and nothing about the rest of the tree. */
 export type WorkspaceFolder = {

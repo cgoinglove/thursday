@@ -91,6 +91,16 @@ export const queryKey = {
    * same signal keeps an open thread live.
    */
   thread: (id: string) => ({ url: "/api/bot/thread", query: { id } }),
+  /**
+   * FileNote: where a note about a file open on screen goes, and the version the file is at
+   * (bot/thread.file). Under `threads`, so a thread moving re-reads it; the `files` signal
+   * re-reads the bare key.
+   */
+  fileNotes: "/api/bot/thread/file",
+  fileNote: (path: string, from: string | null) => ({
+    url: "/api/bot/thread/file",
+    query: { path, from },
+  }),
   /** ResultPart[]: the full result of one tool call; lists carry only a few lines. */
   toolResult: (threadId: string | null, callId: string | null) => ({
     url: "/api/bot/thread",

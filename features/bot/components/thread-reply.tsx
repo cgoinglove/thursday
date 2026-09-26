@@ -553,7 +553,7 @@ function Choices({
  * question (the caller's key) so a late answer cannot clear another question's
  * text. Enter sends and Shift+Enter breaks a line.
  */
-function DraftComposer({
+export function DraftComposer({
   threadId,
   recipient,
   draftKey,
@@ -566,6 +566,7 @@ function DraftComposer({
   leading,
   trailing,
   className,
+  claimsDrops = true,
 }: {
   threadId: string;
   recipient: string;
@@ -579,6 +580,12 @@ function DraftComposer({
   leading?: ReactNode;
   trailing?: ReactNode;
   className?: string;
+  /**
+   * Whether files dropped on the room come here. The room's own reply takes them; a box
+   * elsewhere (a file's note, file-note) does not, or closing it would leave the room's
+   * reply without them.
+   */
+  claimsDrops?: boolean;
 }) {
   const [draft, setDraft] = useState(() =>
     threadDrafts.get(threadId, recipient, draftKey),
@@ -592,7 +599,11 @@ function DraftComposer({
   const given = useGivenFiles();
   const picker = useRef<HTMLInputElement>(null);
   const { take } = given;
-  useEffect(() => roomDrop.claim((files) => void take(files)), [take]);
+  useEffect(
+    () =>
+      claimsDrops ? roomDrop.claim((files) => void take(files)) : undefined,
+    [take, claimsDrops],
+  );
   const ready = Boolean(draft.trim()) && !busy && !given.arriving;
   const submit = async () => {
     if (!ready) return;
@@ -694,7 +705,7 @@ function DraftComposer({
  * Who a message goes to when several bots share the room: the same mention the
  * thread draws at the head of a message, opening to the others.
  */
-function RecipientPicker({
+export function RecipientPicker({
   current,
   bots,
   disabled,
@@ -736,7 +747,7 @@ function RecipientPicker({
   );
 }
 
-function Face({ bot, size }: { bot: BotRef; size: number }) {
+export function Face({ bot, size }: { bot: BotRef; size: number }) {
   return (
     <BotMark
       size={size}

@@ -340,9 +340,14 @@ test("a page from before revisions keeps its edits as it did", async () => {
   );
   await writeFile(file, older);
   const edited = older.replace("One", "One, edited");
+  const { readFileVersion } = await import(
+    "../features/workspace/workspace.query.ts"
+  );
   assert.deepEqual(await savePage(rel, edited, ""), {
     changed: false,
     revision: "",
+    // The file as the save left it, said as a read says it: the page's own write
+    version: (await readFileVersion(rel))?.version,
   });
   assert.equal(await readFile(file, "utf8"), edited);
 });
@@ -744,4 +749,44 @@ test("a book's pages go in through put, checked, and a book with none is not sho
     book("shots", "artifacts/nowhere").stderr,
     /given by its name .* or by its path/,
   );
+});
+
+test("a file's version moves with every write, and a page's names the revision its saves check", async () => {
+  const { readFileVersion } = await import(
+    "../features/workspace/workspace.query.ts"
+  );
+  const rel = "artifacts/version-check.html";
+  await mkdir(join(WORKSPACE, "artifacts"), { recursive: true });
+  const made = page("<p>One</p>");
+  await writeFile(join(WORKSPACE, rel), made);
+  const opened = await readFileVersion(rel);
+  assert.equal(opened?.revision, revisionOf(made));
+
+  // The reader's save names a new revision, which the page then holds
+  const saved = await savePage(
+    rel,
+    made.replace("One", "One, edited"),
+    opened?.revision ?? "",
+  );
+  assert.equal(saved.changed, false);
+  const after = await readFileVersion(rel);
+  assert.equal(after?.revision, saved.changed ? null : saved.revision);
+  assert.notEqual(after?.version, opened?.version);
+
+  // Written over whole with the same tag: the revision stays, the version still moves
+  await writeFile(
+    join(WORKSPACE, rel),
+    `${await readFile(join(WORKSPACE, rel), "utf8")}\n`,
+  );
+  const rewritten = await readFileVersion(rel);
+  assert.equal(rewritten?.revision, after?.revision);
+  assert.notEqual(rewritten?.version, after?.version);
+
+  await writeFile(join(WORKSPACE, "artifacts/version-check.txt"), "x");
+  assert.equal(
+    (await readFileVersion("artifacts/version-check.txt"))?.revision,
+    null,
+  );
+  assert.equal(await readFileVersion("artifacts/nothing-here.html"), null);
+  assert.equal(await readFileVersion("../outside.txt"), null);
 });

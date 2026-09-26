@@ -326,6 +326,7 @@ function StudioTool({ tool, threadId, collapsed }: ToolProps) {
       {picture ? (
         <FileLink
           path={picture}
+          from={threadId}
           title={picture}
           className="mx-3 mb-1.5 block w-fit overflow-hidden rounded-xl outline-none ring-1 ring-foreground/5 transition-opacity ring-inset hover:opacity-90 focus-visible:ring-3 focus-visible:ring-ring/50"
         >
@@ -399,7 +400,12 @@ function FileTool({ tool, threadId, collapsed }: ToolProps) {
         <span className="min-w-0 flex-1 truncate font-mono text-[11px]">
           {tool.input}
         </span>
-        <FileLink path={path} label={`Open ${path}`} className={OPEN_BUTTON}>
+        <FileLink
+          path={path}
+          from={threadId}
+          label={`Open ${path}`}
+          className={OPEN_BUTTON}
+        >
           <ExternalLink className="size-3" />
           Open
         </FileLink>

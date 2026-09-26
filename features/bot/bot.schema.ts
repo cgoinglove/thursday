@@ -6,6 +6,7 @@ import {
   type TextModelProviderId,
   textModelProviderSchema,
 } from "@/features/ai/model.schema";
+import type { FileVersion } from "@/features/workspace/workspace.schema";
 import { DateLikeSchema } from "@/lib/date-like";
 import { clip } from "@/lib/utils";
 import {
@@ -349,6 +350,37 @@ export const isAppStop = (
     !ask?.messageId && options.length === 1 && options[0] === THREAD_CONTINUE
   );
 };
+
+/** A thread as a note about a file names it (thread.file); `bot` coordinates it. */
+type ThreadRef = { id: string; label: string; bot: string };
+
+export type FileThread =
+  /** The file is not on disk any more. */
+  | { state: "gone" }
+  /** No thread there is reported it; `bot` is the one whose folder holds it, to hand it to anew. */
+  | { state: "none"; bot: string | null }
+  /** A bot in it waits on the user's answer: a note now would be taken as that answer. */
+  | { state: "asking"; thread: ThreadRef; bot: string; question: string }
+  /** Nobody could act on it: its bot was deleted, or the model it runs on cannot be reached. */
+  | {
+      state: "refused";
+      thread: ThreadRef;
+      reason: "deleted" | "model";
+      why: string;
+    }
+  | {
+      state: "open";
+      thread: ThreadRef;
+      status: ThreadStatus;
+      /** Who reads the note: the bot whose folder holds the file when it is in the thread, else the coordinator. */
+      to: string;
+      coordinator: string;
+      /** Why the app stopped it, when it did; the note takes it up again. */
+      paused: string | null;
+    };
+
+/** A file open on screen, as the note under it reads it (app/api/bot/thread/file). */
+export type FileNote = { file: FileVersion | null; note: FileThread };
 
 /** One piece of a tool result as the screen draws it. Full output stays in the stored messages. */
 const ResultPartSchema = z.discriminatedUnion("type", [

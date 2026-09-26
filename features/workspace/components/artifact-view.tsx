@@ -318,6 +318,8 @@ function Notice() {
                     openFile(
                       path,
                       row.paths.filter((one) => viewKindOf(one) === "image"),
+                      false,
+                      row.threadId,
                     );
                     read([row.threadId]);
                   } else {

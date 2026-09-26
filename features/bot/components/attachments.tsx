@@ -33,10 +33,13 @@ const TILES = 4;
  */
 export function Attachments({
   text,
+  from = null,
   className,
   onBubble = false,
 }: {
   text: string;
+  /** The thread the words are in, where a note about one of the files goes (file-note). */
+  from?: string | null;
   className?: string;
   /** Inside a message bubble, where the page's own background stands off the surface. */
   onBubble?: boolean;
@@ -88,6 +91,7 @@ export function Attachments({
         <div className="flex flex-wrap items-start gap-1.5">
           {leaves.map((file) => (
             <FileLink
+              from={from}
               key={file.path}
               path={file.path}
               title={`${file.path} — ${formatBytes(file.bytes)}`}
@@ -117,6 +121,7 @@ export function Attachments({
           ))}
           {shown.map((file, at) => (
             <FileLink
+              from={from}
               key={file.path}
               path={file.path}
               group={group}
@@ -149,6 +154,7 @@ export function Attachments({
         const Icon = fileIcon(file.path);
         return (
           <FileLink
+            from={from}
             key={file.path}
             path={file.path}
             title={file.path}

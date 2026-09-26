@@ -491,6 +491,7 @@ function SpeakerTurn({
               line={entry.line}
               surface={surface}
               mention={mention}
+              threadId={thread.id}
             />
           );
         })}
@@ -930,11 +931,14 @@ export function Message({
   line,
   surface,
   mention,
+  threadId = null,
 }: {
   line: Chatter;
   surface: Surface;
   /** The bot it is for, named at its head (SpeakerTurn). */
   mention: BotRef | null;
+  /** The thread it is in; a note about a file it names goes there. */
+  threadId?: string | null;
 }) {
   const question = Boolean(line.question);
   const ending = line.kind === "result";
@@ -953,7 +957,12 @@ export function Message({
           {text}
         </MessageText>
       )}
-      <Attachments text={line.text} onBubble={bubble} className="mt-2" />
+      <Attachments
+        text={line.text}
+        from={threadId}
+        onBubble={bubble}
+        className="mt-2"
+      />
     </>
   );
 

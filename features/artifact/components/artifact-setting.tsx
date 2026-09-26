@@ -23,6 +23,12 @@ import type {
 import type { Bot } from "@/features/bot/bot.schema";
 import { BotMark, markOf } from "@/features/bot/components/bot-mark";
 import {
+  FileNoteBar,
+  FileThreadChip,
+  useFileNote,
+} from "@/features/bot/components/file-note";
+import { roomOpens } from "@/features/bot/thread.store";
+import {
   PICKED_ROW,
   SettingError,
   SettingFilter,
@@ -30,6 +36,7 @@ import {
   SettingPanesSkeleton,
   SettingRailNote,
 } from "@/features/settings/components/setting-ui";
+import { useSettingsStore } from "@/features/settings/settings.store";
 import { FileThumb } from "@/features/workspace/components/file-thumb";
 import { FilePreview } from "@/features/workspace/components/file-view";
 import { revealFileAction } from "@/features/workspace/workspace.action";
@@ -280,6 +287,16 @@ function Reader({
       ? { path: row.path, bytes: row.bytes, at: row.at }
       : null;
 
+  // A note to the thread that made it, as under a file opened over the app (file-note)
+  const { filed, note, failure, follow } = useFileNote(
+    open?.path ?? null,
+    null,
+  );
+  const openThread = (threadId: string) => {
+    useSettingsStore.getState().hide();
+    roomOpens.open(threadId);
+  };
+
   const confirmRemove = async (path: string) => {
     const confirmed = await notify.confirm({
       title: `Delete ${path.split("/").pop()}?`,
@@ -311,6 +328,7 @@ function Reader({
             ? `${formatBytes(open.bytes)} · ${shortAgo(open.at)}`
             : `${row.count} ${row.count === 1 ? "file" : "files"} · ${shortAgo(row.at)}`}
         </span>
+        {filed && <FileThreadChip note={note} onOpen={openThread} />}
         {open && (
           <a
             href={queryKey.fileView(open.path)}
@@ -351,6 +369,18 @@ function Reader({
           <SetSheet path={row.path} onOpen={onOpen} />
         )}
       </div>
+
+      {open && filed && (
+        <div className="shrink-0 border-t border-border/60 px-6 pt-2.5 pb-3">
+          <FileNoteBar
+            path={open.path}
+            note={note}
+            failure={failure}
+            onThread={follow}
+            onOpenThread={openThread}
+          />
+        </div>
+      )}
     </>
   );
 }

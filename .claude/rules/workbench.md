@@ -1,5 +1,5 @@
 ---
-checked: 2026-09-25
+checked: 2026-09-26
 paths:
   - "features/workspace/*.ts"
   - "lib/sandbox.ts"
@@ -24,7 +24,8 @@ it, in a workspace the app lays out and clears by age.
 - `skills/browser/SKILL.md` — what a bot is told about the browser.
 
 ## How it fits
-Every shell opens through `openWorkspace` onto `lib/sandbox`; for a bot, `features/ai/load-tools.ts`
+Every shell opens through `openWorkspace` onto `lib/sandbox`, whose every command and write tells
+an open file to look again (the `files` signal); for a bot, `features/ai/load-tools.ts`
 lays `jobShellEnv` and `botShellEnv` over each command and hands the same session to the deck and
 sign-in tools. The sandbox is a working directory and a scrubbed environment, not isolation: `bash`
 reaches the whole disk as the user, and `writeRefusal` fences `write_file` alone.

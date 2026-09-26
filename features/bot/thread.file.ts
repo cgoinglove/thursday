@@ -7,7 +7,7 @@ import { errorToString } from "@/lib/utils";
 import { findJobBot } from "./bot.query";
 import { resolveModel } from "./bot.run";
 import { answerThread } from "./bot.runner";
-import { isAppStop, type ThreadStatus } from "./bot.schema";
+import { type FileThread, isAppStop } from "./bot.schema";
 import { listReportsNaming, listRoomWork } from "./room.query";
 import { findThread } from "./thread.query";
 
@@ -20,28 +20,6 @@ import { findThread } from "./thread.query";
  * acted on is found before it is sent, and said, rather than after the thread was taken up.
  */
 
-type ThreadRef = { id: string; label: string };
-
-export type FileThread =
-  /** The file is not on disk any more. */
-  | { state: "gone" }
-  /** No thread there is reported it; `bot` is the one whose folder holds it, to hand it to anew. */
-  | { state: "none"; bot: string | null }
-  /** A bot in it waits on the user's answer: a note now would be taken as that answer. */
-  | { state: "asking"; thread: ThreadRef; bot: string; question: string }
-  /** Nobody could act on it: its bot was deleted, or the model it runs on cannot be reached. */
-  | { state: "refused"; thread: ThreadRef; why: string }
-  | {
-      state: "open";
-      thread: ThreadRef;
-      status: ThreadStatus;
-      /** Who reads the note: the bot whose folder holds the file when it is in the thread, else the coordinator. */
-      to: string;
-      coordinator: string;
-      /** Why the app stopped it, when it did; the note takes it up again. */
-      paused: string | null;
-    };
-
 /** Which thread, and whether a note could reach a bot in it. `path` is workspace-relative. */
 export async function readFileThread(
   path: string,
@@ -53,7 +31,7 @@ export async function readFileThread(
 
   const thread = await threadOf(path, from);
   if (!thread) return { state: "none", bot: await botOfArtifact(path) };
-  const ref = { id: thread.id, label: thread.label };
+  const ref = { id: thread.id, label: thread.label, bot: thread.bot };
 
   if (
     thread.status === "waiting" &&
@@ -83,6 +61,7 @@ export async function readFileThread(
     return {
       state: "refused",
       thread: ref,
+      reason: "deleted",
       why: `${maker ?? thread.bot} was deleted, so nobody in this thread can take it up.`,
     };
   }
@@ -90,7 +69,12 @@ export async function readFileThread(
     await resolveModel(to);
   } catch (cause) {
     if (!isPublicError(cause)) throw cause;
-    return { state: "refused", thread: ref, why: errorToString(cause) };
+    return {
+      state: "refused",
+      thread: ref,
+      reason: "model",
+      why: errorToString(cause),
+    };
   }
 
   return {

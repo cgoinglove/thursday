@@ -26,6 +26,7 @@ import {
 import { BotFormSchema, botIconSchema } from "./bot.schema";
 import { BOT_SEEDS, findBotSeed, rollSeedIcons } from "./bot.seed";
 import { acceptRoomRelays, withdrawDelivery } from "./room.query";
+import { aboutFile, readFileThread, tellFileThread } from "./thread.file";
 import { markSeen, resolveThread } from "./thread.query";
 
 export const createBotAction = serverAction(async (input: unknown) => {
@@ -140,20 +141,53 @@ export const startThreadAction = serverAction(
   async (bot: string, request: string) => {
     const said = z.string().parse(request).trim();
     if (!said) publicError("Nothing to hand over.");
-    // Resolved as a delegated job is, so an install with no bots still has its worker
-    const worker = await findJobBot(z.string().parse(bot));
-    if (!worker || worker.disabled)
-      publicError(`No enabled bot called "${bot}".`);
-    const label = labelFor(said);
-    const id = await startThread({
-      bot: worker.name,
-      request: said,
-      label,
-      from: "user",
-    });
-    return { id, label, bot: worker.name };
+    return handOver(bot, said, said);
   },
 );
+
+/**
+ * A note about a file, to the thread that made it (thread.file); `from` is the thread the
+ * screen opened the file from, when it knows one.
+ */
+export const tellFileThreadAction = serverAction(
+  async (path: unknown, note: unknown, from?: unknown) => {
+    const said = z.string().parse(note).trim();
+    if (!said) publicError("Nothing to tell it.");
+    return tellFileThread(
+      z.string().min(1).parse(path),
+      said,
+      z.string().nullish().parse(from) ?? null,
+    );
+  },
+);
+
+/** A file handed to a bot as a new job, for when no thread holds it (thread.file `none`). */
+export const handFileAction = serverAction(
+  async (bot: unknown, path: unknown, note: unknown) => {
+    const said = z.string().parse(note).trim();
+    if (!said) publicError("Nothing to hand over.");
+    const file = z.string().min(1).parse(path);
+    if ((await readFileThread(file)).state === "gone")
+      publicError("This file is no longer on disk.");
+    return handOver(bot, aboutFile(file, said), said);
+  },
+);
+
+/** A new job from the screen; its label is read off the user's own words. */
+async function handOver(bot: unknown, request: string, words: string) {
+  // Resolved as a delegated job is, so an install with no bots still has its worker
+  const worker = await findJobBot(z.string().parse(bot));
+  if (!worker || worker.disabled)
+    publicError(`No enabled bot called "${bot}".`);
+  const label = labelFor(words);
+  const id = await startThread({
+    bot: worker.name,
+    request,
+    label,
+    from: "user",
+  });
+  return { id, label, bot: worker.name };
+}
 
 export const answerThreadAction = serverAction(
   async (ref: string, answer: string, recipient?: string, replyTo?: string) => {

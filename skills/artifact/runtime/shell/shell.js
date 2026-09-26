@@ -112,6 +112,11 @@ window.shell = (() => {
    * the one each save came back with. A file written since — a bot's put, another
    * window's save — names another, and the save fails with `changed` rather than undo it.
    * Saves go one at a time, so each names the revision the one before it left.
+   *
+   * The hello says the page takes `changed`: the app sends it when the file was written
+   * while the page is open, with the revision the file now holds. The same revision as the
+   * page's is its own save come back; any other is someone else's write, which the page
+   * shows (`edits` below) — the app cannot tell from outside whether anyone is editing.
    */
   const host = (() => {
     const parent = window.parent !== window ? window.parent : null;
@@ -123,6 +128,7 @@ window.shell = (() => {
     let line = Promise.resolve();
     const waiting = new Map();
     const heard = new Set();
+    const written = new Set();
     addEventListener("message", (event) => {
       if (!parent || event.source !== parent) return;
       const said = event.data;
@@ -137,6 +143,15 @@ window.shell = (() => {
       }
       // An answer meant for another page this frame held before, or from elsewhere
       if (event.origin !== app || said.as !== as) return;
+      if (said.thursday === "changed") {
+        if (
+          said.revision &&
+          said.revision === revision?.getAttribute("content")
+        )
+          return;
+        for (const fn of written) fn();
+        return;
+      }
       const one = waiting.get(said.id);
       if (!one) return;
       waiting.delete(said.id);
@@ -153,9 +168,11 @@ window.shell = (() => {
       error.changed = said.changed === true;
       one.fail(error);
     });
-    // A hello says nothing: it goes to whoever frames the page, and only the app answers it
+    // A hello says nothing but what the page takes: it goes to whoever frames the page,
+    // and only the app answers it
     const ask = () => {
-      if (parent) parent.postMessage({ thursday: "hello" }, "*");
+      if (parent)
+        parent.postMessage({ thursday: "hello", can: ["changed"] }, "*");
     };
     ask();
     const send = (html) =>
@@ -174,6 +191,10 @@ window.shell = (() => {
       onKeeps(fn) {
         if (keeps) fn();
         else heard.add(fn);
+      },
+      /** `fn` runs when the app says the file was written by someone else while this page is open. */
+      onWritten(fn) {
+        written.add(fn);
       },
       save(html) {
         if (!keeps)
@@ -194,7 +215,9 @@ window.shell = (() => {
    * ticked while reading a file opened from disk costs nothing. A save the app answers
    * `changed` — the file moved on after this page was opened: a bot wrote it, another
    * window saved it — stops all keeping, since this copy would undo that; Reload shows the
-   * file as it is now, and Export still downloads this copy.
+   * file as it is now, and Export still downloads this copy. Told by the app that the file
+   * was written, a page nobody is working on reloads itself; one being worked on stops
+   * keeping in the same way.
    */
   const edits = (() => {
     const button = document.querySelector("[data-edit]");
@@ -224,6 +247,12 @@ window.shell = (() => {
       say("Changed since it opened · not kept");
       if (reload) reload.hidden = false;
     };
+    // Written by someone else while open: shown as it is now, unless someone is working on
+    // this copy, which a reload would throw away — then it says so, as a refused save does
+    host.onWritten(() => {
+      if (on || dirty || saving || stale) goneStale();
+      else location.reload();
+    });
 
     /** Keeps the page now: into the file when the app holds it, as a copy otherwise. */
     const keep = async () => {

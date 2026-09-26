@@ -2803,7 +2803,7 @@ test("a note about a file reaches the thread that reported it, even after that t
   assert.equal((await findThread(id))?.outcome, "Nothing else changed.");
   assert.deepEqual(await readFileThread(page), {
     state: "open",
-    thread: { id, label: "Plan" },
+    thread: { id, label: "Plan", bot: "Alpha" },
     status: "done",
     to: "Alpha",
     coordinator: "Alpha",
@@ -2917,7 +2917,8 @@ test("a note about a helper's file reaches the helper, and none is sent to a thr
       .where(eq(botTable.name, "Gamma"));
     assert.deepEqual(await readFileThread(report), {
       state: "refused",
-      thread: { id: own, label: "Report" },
+      thread: { id: own, label: "Report", bot: "Gamma" },
+      reason: "model",
       why: "No key for refused.",
     });
     await database.delete(botTable).where(eq(botTable.name, "Gamma"));
@@ -2931,4 +2932,46 @@ test("a note about a helper's file reaches the helper, and none is sent to a thr
       .values(gamma)
       .onConflictDoUpdate({ target: botTable.name, set: { model: "Gamma" } });
   }
+});
+
+test("every command and write in a shell tells a file open on screen to look again", async () => {
+  const { appEvents } = await import("../app/api/events/app-event.server.ts");
+  const { openWorkspace } = await import("../features/workspace/workspace.ts");
+  let told = 0;
+  const stop = appEvents.subscribe((event) => {
+    if (event.type === "files") told += 1;
+  });
+  try {
+    const sandbox = await openWorkspace();
+    await sandbox.exec("true");
+    assert.equal(told, 1);
+    await sandbox.writeFile("scratch/files-signal.txt", "x");
+    assert.equal(told, 2);
+    // A command that failed may have written part of a file
+    assert.equal((await sandbox.exec("exit 3")).exitCode, 3);
+    assert.equal(told, 3);
+  } finally {
+    stop();
+  }
+});
+
+test("a report naming a file by a full path, from a data folder since moved, still finds its thread", async () => {
+  const { readFileThread } = await import("../features/bot/thread.file.ts");
+  const { PATHS } = await import("../config.ts");
+  const page = `${botArtifacts("Alpha")}/note-moved.html`;
+  await mkdir(join(WORKSPACE, botArtifacts("Alpha")), { recursive: true });
+  await writeFile(join(WORKSPACE, page), "<p>moved</p>");
+  plans.set("Alpha", [
+    () =>
+      text(`Written to /Users/someone/.thursday/${PATHS.workspace}/${page}`),
+  ]);
+  const id = await startThread({
+    bot: "Alpha",
+    request: "Moved fixture",
+    label: "Moved",
+    from: "user",
+  });
+  await waitFor(id, "done");
+  const found = await readFileThread(page);
+  assert.equal(found.state === "open" && found.thread.id, id);
 });

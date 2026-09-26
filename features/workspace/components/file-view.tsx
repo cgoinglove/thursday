@@ -1,5 +1,6 @@
 "use client";
 
+import { format } from "date-fns";
 import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import Image from "next/image";
 import {
@@ -27,6 +28,12 @@ import {
 } from "@/components/ui/table";
 import { WORKSPACE_VIEW } from "@/config";
 import {
+  FileNoteBar,
+  FileThreadChip,
+  useFileNote,
+} from "@/features/bot/components/file-note";
+import { roomOpens } from "@/features/bot/thread.store";
+import {
   type FileViewKind,
   viewKindOf,
   workspaceRelative,
@@ -36,6 +43,7 @@ import {
   revealFileAction,
   savePageAction,
 } from "@/features/workspace/workspace.action";
+import { capturesKeys } from "@/hooks/use-hotkey";
 import { isResultOk } from "@/lib/protocol/result";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { cn, errorToString, formatBytes } from "@/lib/utils";
@@ -71,13 +79,26 @@ export function fileTarget(raw: string): FileTarget {
 /**
  * How a file was opened: the reader pressed something, or Thursday put it up on a call.
  * `n` counts openings, so a file put up again while it is showing is loaded again — a
- * page a bot has just rewritten, not the copy already on screen.
+ * page a bot has just rewritten, not the copy already on screen. `from` is the thread it
+ * was opened from, when the screen knows one: a note about it goes there (file-note).
  */
-type Opening = { path: string; group: string[]; byHer: boolean; n: number };
+type Opening = {
+  path: string;
+  group: string[];
+  byHer: boolean;
+  from: string | null;
+  n: number;
+};
 
 /** Opening a file in the shared dialog; `group` are the files it can be stepped through (one message's images). */
 const OpenInDialog = createContext<
-  ((path: string, group?: string[], byHer?: boolean) => void) | null
+  | ((
+      path: string,
+      group?: string[],
+      byHer?: boolean,
+      from?: string | null,
+    ) => void)
+  | null
 >(null);
 
 /**
@@ -89,11 +110,16 @@ const OpenInDialog = createContext<
 export function useOpenFile() {
   const inDialog = useContext(OpenInDialog);
   return useCallback(
-    (raw: string, group: string[] = [], byHer = false): boolean => {
+    (
+      raw: string,
+      group: string[] = [],
+      byHer = false,
+      from: string | null = null,
+    ): boolean => {
       const target = fileTarget(raw);
       if (target.how === "os") return false;
       if (inDialog) {
-        inDialog(target.path, group, byHer);
+        inDialog(target.path, group, byHer, from);
         return true;
       }
       return window.open(queryKey.fileView(target.path), "_blank") !== null;
@@ -107,8 +133,12 @@ export function FileViewer({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState<Opening | null>(null);
   const openings = useRef(0);
   const show = useCallback(
-    (path: string, group: string[] = [], byHer = false) =>
-      setOpen({ path, group, byHer, n: ++openings.current }),
+    (
+      path: string,
+      group: string[] = [],
+      byHer = false,
+      from: string | null = null,
+    ) => setOpen({ path, group, byHer, from, n: ++openings.current }),
     [],
   );
   return (
@@ -120,6 +150,7 @@ export function FileViewer({ children }: { children: ReactNode }) {
         group={open?.group ?? []}
         kind={open ? viewKindOf(open.path) : "text"}
         byHer={open?.byHer ?? false}
+        from={open?.from ?? null}
         onPath={(path) => setOpen((was) => was && { ...was, path })}
         onClose={() => setOpen(null)}
       />
@@ -131,6 +162,7 @@ export function FileViewer({ children }: { children: ReactNode }) {
 export function FileLink({
   path,
   group,
+  from = null,
   className,
   title,
   label,
@@ -140,6 +172,8 @@ export function FileLink({
   path: string;
   /** Files this one can be stepped through in the dialog (one message's images). */
   group?: string[];
+  /** The thread the link sits in, where a note about the file goes (file-note). */
+  from?: string | null;
   className?: string;
   title?: string;
   /** Accessible name for icon-only links. */
@@ -160,7 +194,7 @@ export function FileLink({
       onClick={() => {
         // Outside a FileViewer there is no dialog, so open a tab
         if (target.how === "dialog") {
-          if (inDialog) inDialog(target.path, group);
+          if (inDialog) inDialog(target.path, group, false, from);
           else window.open(queryKey.fileView(target.path), "_blank");
           return;
         }
@@ -248,7 +282,7 @@ function Body({
  * that no `<pre>` survives, and the size is not known before asking. What came
  * back short is reported as `truncated`, so the view can say so.
  */
-export function useFileText(path: string | null) {
+export function useFileText(path: string | null, again = 0) {
   const [content, setContent] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   /** The file's size on disk when only its head arrived; null when whole. */
@@ -281,7 +315,7 @@ export function useFileText(path: string | null) {
     return () => {
       gone = true;
     };
-  }, [path]);
+  }, [path, again]);
 
   return { content, failure, truncated };
 }
@@ -357,6 +391,10 @@ const pages = {
   opened: new Map<string, string>(),
   /** A frame's window → the file it shows now. */
   showing: new WeakMap<Window, string>(),
+  /** A frame's window → what its hello said it takes (`changed`); absent when it never said hello. */
+  takes: new WeakMap<Window, string[]>(),
+  /** A file → the version its latest save from this screen left, which is no one else's write. */
+  saves: new Map<string, string>(),
   listening: false,
 };
 
@@ -378,6 +416,13 @@ async function hearPages(event: MessageEvent) {
   if (!from || event.origin !== "null") return;
   if (typeof said?.thursday !== "string") return;
   if (said.thursday === "hello") {
+    // A page from before `can` takes nothing but saves
+    pages.takes.set(
+      from,
+      Array.isArray(said.can)
+        ? said.can.filter((one: unknown) => typeof one === "string")
+        : [],
+    );
     const path = pages.showing.get(from);
     if (path) from.postMessage(hostFor(path), "*");
     return;
@@ -390,6 +435,8 @@ async function hearPages(event: MessageEvent) {
     typeof said.base === "string" ? said.base : "",
   );
   const answer = { as: said.as, id: said.id };
+  if (isResultOk(kept) && !kept.data.changed)
+    pages.saves.set(path, kept.data.version);
   from.postMessage(
     !isResultOk(kept)
       ? { ...answer, thursday: "not-saved", error: kept.message }
@@ -399,6 +446,9 @@ async function hearPages(event: MessageEvent) {
     "*",
   );
 }
+
+/** The file was written while it is shown: `n` counts writes, `revision` is what a page the shell dressed now names. */
+export type FileWritten = { n: number; revision: string | null };
 
 /**
  * A file the browser fills itself. A page arrives sandboxed from the file route, on an
@@ -417,20 +467,63 @@ export function FileFrame({
   path,
   className,
   takeKeys,
+  written,
+  onUntold,
+  onReloaded,
 }: {
   path: string;
   className: string;
   takeKeys?: boolean;
+  /** Set when the file was written while shown (FileDialog). */
+  written?: FileWritten | null;
+  /**
+   * The page cannot be told: one without the shell (a pdf, a page of a bot's own) is `plain`
+   * and is simply loaded again; one from before `changed` may hold edits, so it is `older`.
+   */
+  onUntold?: (page: "plain" | "older") => void;
+  /** The page loaded again after it was told the file was written. */
+  onReloaded?: () => void;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
+  // Told the file was written; the next load is the page taking it in
+  const told = useRef(false);
+  const reloaded = useRef(onReloaded);
+  reloaded.current = onReloaded;
+  const untold = useRef(onUntold);
+  untold.current = onUntold;
   const loaded = useCallback(() => {
     if (takeKeys) frame.current?.focus();
     const page = frame.current?.contentWindow;
     if (!page) return;
     pages.showing.set(page, path);
     page.postMessage(hostFor(path), "*");
+    if (told.current) {
+      told.current = false;
+      reloaded.current?.();
+    }
   }, [path, takeKeys]);
   useEffect(loaded, [loaded]);
+  // A page that took `changed` in its hello decides for itself: shown again, or kept as it is
+  // while someone edits it (skills/artifact/runtime/shell)
+  useEffect(() => {
+    if (!written) return;
+    const page = frame.current?.contentWindow;
+    if (!page) return;
+    const takes = pages.takes.get(page);
+    if (!takes?.includes("changed")) {
+      untold.current?.(takes ? "older" : "plain");
+      return;
+    }
+    told.current = true;
+    page.postMessage(
+      {
+        thursday: "changed",
+        as: hostFor(path).as,
+        revision: written.revision,
+      },
+      "*",
+    );
+  }, [written, path]);
   useEffect(() => {
     if (pages.listening) return;
     pages.listening = true;
@@ -461,18 +554,34 @@ function FileElement({
   kind,
   where,
   takeKeys,
+  again = 0,
+  written,
+  onUntold,
+  onReloaded,
 }: {
   path: string;
   kind: FileViewKind;
   where: "dialog" | "preview";
   takeKeys?: boolean;
+  /** Read again this many times since opened: a picture held by the browser is asked for anew. */
+  again?: number;
+  written?: FileWritten | null;
+  onUntold?: (page: "plain" | "older") => void;
+  onReloaded?: () => void;
 }) {
+  // The route ignores the query; a new one is a picture the browser has not kept
+  const src = again
+    ? `${queryKey.file(path)}?again=${again}`
+    : queryKey.file(path);
   if (kind === "frame") {
     return (
       <FileFrame
         path={path}
         className="h-full w-full bg-white"
         takeKeys={takeKeys}
+        written={written}
+        onUntold={onUntold}
+        onReloaded={onReloaded}
       />
     );
   }
@@ -480,7 +589,7 @@ function FileElement({
     return (
       // biome-ignore lint/performance/noImgElement: local raw route, nothing to optimize
       <img
-        src={queryKey.file(path)}
+        src={src}
         alt={path}
         className={
           where === "dialog"
@@ -492,17 +601,13 @@ function FileElement({
   }
   if (kind === "audio") {
     return (
-      <audio controls src={queryKey.file(path)} className="w-full p-6">
+      <audio controls src={src} className="w-full p-6">
         <track kind="captions" />
       </audio>
     );
   }
   return (
-    <video
-      controls
-      src={queryKey.file(path)}
-      className="mx-auto max-h-full max-w-full p-4"
-    >
+    <video controls src={src} className="mx-auto max-h-full max-w-full p-4">
       <track kind="captions" />
     </video>
   );
@@ -594,6 +699,7 @@ function FileDialog({
   group = [],
   kind,
   byHer,
+  from,
   onPath,
   onClose,
 }: {
@@ -606,12 +712,30 @@ function FileDialog({
   kind: FileViewKind;
   /** Thursday put it up on a call; the reader did not ask for it, so it closes itself. */
   byHer: boolean;
+  /** The thread it was opened from, when the screen knows one (`Opening`). */
+  from: string | null;
   onPath?: (path: string) => void;
   onClose: () => void;
 }) {
   const image = kind === "image";
   const element = DRAWS_ITSELF.has(kind);
-  const { content, failure, truncated } = useFileText(element ? null : path);
+  const {
+    note,
+    filed,
+    failure: noteFailure,
+    again,
+    written,
+    reloadedAt,
+    stale,
+    reload,
+    follow,
+    untold,
+    reloaded,
+  } = useFileWrites(path, opening, from, kind);
+  const { content, failure, truncated } = useFileText(
+    element ? null : path,
+    again,
+  );
   const name = path?.split("/").pop() ?? "";
   const at = path ? group.indexOf(path) : -1;
   const step = (by: number) => {
@@ -622,6 +746,10 @@ function FileDialog({
   // A page and a video are read at a size of their own; everything else is as tall as it is
   const roomy = kind === "frame" || kind === "video";
   const popup = useRef<HTMLDivElement>(null);
+  const openThread = (threadId: string) => {
+    roomOpens.open(threadId);
+    onClose();
+  };
 
   return (
     <Dialog open={path !== null} onOpenChange={(next) => !next && onClose()}>
@@ -631,6 +759,8 @@ function FileDialog({
         // button reads as something to press. The popup takes the key instead.
         initialFocus={popup}
         onKeyDown={(event) => {
+          // An arrow in the note under it moves through the words, not the pictures
+          if (capturesKeys(event.target)) return;
           if (event.key === "ArrowLeft") step(-1);
           if (event.key === "ArrowRight") step(1);
         }}
@@ -654,6 +784,23 @@ function FileDialog({
               {`Closing in ${left}s`}
             </span>
           )}
+          {stale ? (
+            <Button
+              variant="ghost"
+              size="xs"
+              className="shrink-0 font-normal text-muted-foreground"
+              onClick={reload}
+            >
+              Changed since it opened · Reload
+            </Button>
+          ) : (
+            reloadedAt && (
+              <span className="shrink-0 pr-1 font-mono text-[11px] text-muted-foreground tabular-nums">
+                {`Reloaded at ${format(reloadedAt, "HH:mm")}`}
+              </span>
+            )
+          )}
+          {filed && <FileThreadChip note={note} onOpen={openThread} />}
           {at >= 0 && group.length > 1 && (
             <>
               <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
@@ -705,11 +852,15 @@ function FileDialog({
             // A page the reader opened takes the keys; one she put up leaves them to
             // the dialog, whose auto-close waits for a hand the frame would hide
             <FileElement
-              key={opening}
+              key={`${opening}:${again}`}
               path={path}
               kind={kind}
               where="dialog"
               takeKeys={!byHer}
+              again={again}
+              written={written}
+              onUntold={untold}
+              onReloaded={reloaded}
             />
           ) : failure ? (
             <p className="p-5 font-mono text-xs text-destructive">{failure}</p>
@@ -749,9 +900,99 @@ function FileDialog({
             ))}
           </div>
         )}
+
+        {filed && path && (
+          <div className="shrink-0 border-t border-border/60 px-3 pt-2.5 pb-3">
+            <FileNoteBar
+              path={path}
+              note={note}
+              failure={noteFailure}
+              onThread={follow}
+              onOpenThread={openThread}
+            />
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * A file open in the dialog, as it stays true while it is open: where a note about it goes
+ * (file-note), and what to do when it is written meanwhile — by a bot, the call, another
+ * window. Only finished work carries a note, or a file opened from its thread. The version
+ * the server reads with the note (`readFileVersion`) is what says it was written: the
+ * `files` signal and the thread moving both read it again. A page is told and decides for
+ * itself; a picture or text is read again; what plays, or a page that cannot be told and may
+ * hold edits, waits for the reader's Reload.
+ */
+function useFileWrites(
+  path: string | null,
+  opening: number,
+  from: string | null,
+  kind: FileViewKind,
+) {
+  const { filed, file, note, failure, follow } = useFileNote(path, from);
+  const [again, setAgain] = useState(0);
+  const [written, setWritten] = useState<FileWritten | null>(null);
+  const [reloadedAt, setReloadedAt] = useState<Date | null>(null);
+  const [stale, setStale] = useState(false);
+  const seen = useRef<string | null>(null);
+  useEffect(() => {
+    setAgain(0);
+    setWritten(null);
+    setReloadedAt(null);
+    setStale(false);
+    seen.current = null;
+  }, [path, opening]);
+
+  // A write is news once: taken up, it is cleared, or the frame mounted again to show the
+  // file would take it as news again and load it again, and again
+  const readAgain = useCallback(() => {
+    setAgain((n) => n + 1);
+    setWritten(null);
+    setStale(false);
+    setReloadedAt(new Date());
+  }, []);
+  const version = file?.version ?? null;
+  const revision = file?.revision ?? null;
+  useEffect(() => {
+    if (!version) return;
+    const was = seen.current;
+    seen.current = version;
+    if (was === null || was === version) return;
+    // Its own save, from this screen: nothing anyone else wrote
+    if (path !== null && pages.saves.get(path) === version) return;
+    if (kind === "frame")
+      setWritten((last) => ({ n: (last?.n ?? 0) + 1, revision }));
+    // A reload would stop what is playing
+    else if (kind === "audio" || kind === "video") setStale(true);
+    else readAgain();
+  }, [version, revision, kind, readAgain]);
+
+  return {
+    filed,
+    note,
+    failure,
+    again,
+    written,
+    reloadedAt,
+    stale,
+    reload: readAgain,
+    follow,
+    untold: useCallback(
+      (page: "plain" | "older") => {
+        if (page === "plain") return readAgain();
+        setWritten(null);
+        setStale(true);
+      },
+      [readAgain],
+    ),
+    reloaded: useCallback(() => {
+      setWritten(null);
+      setReloadedAt(new Date());
+    }, []),
+  };
 }
 
 function Plain({ text, className }: { text: string; className?: string }) {

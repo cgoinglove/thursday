@@ -1,9 +1,9 @@
 ---
-checked: 2026-09-25
+checked: 2026-09-26
 paths:
   - "features/thursday/components/**"
   - "features/thursday/{tool-line,face*,field,smoke,eyes,wash,ascii.const,silent-voice}.*"
-  - "features/bot/components/{room-*,bot-room,bot-tool,bot-mark,bot-tip,thread-reply,attachments,crew-motion,write-orb}.*"
+  - "features/bot/components/{room-*,bot-room,bot-tool,bot-mark,bot-tip,thread-reply,attachments,crew-motion,write-orb,file-note}.*"
   - "features/bot/{thread.store,mark.const,mark.geometry}.ts"
   - "features/workspace/components/{artifact-view,file-thumb,file-view,given-files}.tsx"
   - "features/intro/**"
@@ -22,7 +22,7 @@ user and what has finished.
 - `features/bot/components/room-conversation.tsx` — a thread read as a conversation; `thread-reply.tsx` beside it is its box, its questions and Stop.
 - `features/bot/thread.store.ts` — the client mirror of threads, and the signals the screen's parts send each other.
 - `features/thursday/tool-line.ts` — the line for each of the call's tool calls; `features/bot/components/bot-tool.tsx` draws a bot's steps.
-- `features/workspace/components/artifact-view.tsx` — the left corner of finished jobs; `file-thumb.tsx` and `file-view.tsx` beside it draw and open a file.
+- `features/workspace/components/artifact-view.tsx` — the left corner of finished jobs; `file-thumb.tsx` and `file-view.tsx` beside it draw and open a file, and `features/bot/components/file-note.tsx` is the note under an open file to the thread that made it.
 - `features/thursday/components/face.tsx` — her face, the call's status mapped onto `ascii-orb.tsx`; a bot's face is `features/bot/components/bot-mark.tsx`, its shape `features/bot/mark.geometry.ts` (no React: the tab's icon and the face a bot's pages carry, `markStill`).
 - `features/intro/components/intro.tsx` — the first run, drawn over the call screen; `features/intro/intro-voice.ts` holds what she says aloud there.
 - `features/intro/components/echoes.tsx` — the first run's opening: her larger sizes stepping down to her own on the intro's face box, before her real face comes in `waking`.

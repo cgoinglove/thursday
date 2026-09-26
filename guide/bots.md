@@ -183,6 +183,18 @@ closes itself after five seconds: the top of the window counts down, and moving 
 a key or scrolling anywhere in it stops the count for good. Nothing opened by hand is ever on that
 clock.
 
+Under a result a bot made — a file in **Settings › Files › Finished**, or one opened from its card
+or its thread — is a box for a note to the bot that made it: what to change, or what to do with it
+next. The note goes to the thread the file came from, which picks up where it left off, and the bot
+reads it with the file named; the thread's name at the top of the window opens that thread. When the
+thread cannot take a note, the box says why instead of sending it: a bot there waits on an answer
+(**Answer in the thread**), its bot was deleted (**Hand to another bot**), or the model it runs on
+has no key or is signed out (**Open Settings**). A file no thread made, or whose thread is gone,
+goes from the same box to a bot as a new job. While a file is open over the app, one its bot writes
+again is shown as it is now, and the top of the window says **Reloaded at** the time; a sound or a
+video, and a page from an older app that may hold edits, wait for **Changed since it opened ·
+Reload**.
+
 **Settings › Files** keeps all of them. **Finished** is one shelf per bot (**Everyone**, each bot,
 **Unsorted**), each file with **Open in a new tab**, **Reveal in the file manager** (the file picked
 in its folder) and **Delete**. **All files** is the whole folder, for looking around rather than for
@@ -308,10 +320,10 @@ tables and leaves the look and the pictures of the page it came from behind. ⌘
 moved, copied, deleted or put in, and a table's row or column, as it does typing. What is changed is
 saved back into the file as it is typed, and at once when the page is left; a box ticked while
 reading is saved the same way. Closing its tab before a change is kept asks first. If the page
-changed after it was opened — its bot put new work in, or it was saved from another window — nothing
-more is saved over it: its top bar says **Changed since it opened · not kept** and shows **Reload**,
-which brings the page up as it is now (**Export › Download this file** first keeps the copy on
-screen). A bot asked to change a page it made starts from the page as it is, so what was edited in
+changed after it was opened — its bot put new work in, or it was saved from another window — a page
+nobody is editing is shown again as it is now; while it is being edited, nothing more is saved over
+it: its top bar says **Changed since it opened · not kept** and shows **Reload**, which brings the
+page up as it is now (**Export › Download this file** first keeps the copy on screen). A bot asked to change a page it made starts from the page as it is, so what was edited in
 it stays. Opened outside the app the edits are kept as a copy downloaded on Done.
 
 ## Routines: jobs that start by themselves

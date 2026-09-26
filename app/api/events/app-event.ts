@@ -28,6 +28,12 @@ export type AppEvent =
   /** Signal: a sign-in was kept, lent, asked for or removed (features/signins). */
   | { type: "signins" }
   /**
+   * Signal: a command or a write in a bot's or the call's shell finished, so a file on
+   * screen may have changed (workspace.ts openWorkspace). What reads it asks whether its
+   * own file did.
+   */
+  | { type: "files" }
+  /**
    * Data: a job finished. `words` opens its answer as plain text; `paths` are the
    * files it named, workspace-relative with the one worth reading first at the
    * head, and empty when it answered in words alone.
@@ -71,6 +77,7 @@ export const SIGNALS: Record<Signal, true> = {
   config: true,
   reach: true,
   signins: true,
+  files: true,
 };
 
 export const isSignal = (

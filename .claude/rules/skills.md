@@ -1,5 +1,5 @@
 ---
-checked: 2026-09-25
+checked: 2026-09-26
 paths:
   - "skills/**"
   - "seed-skills/**"
@@ -32,10 +32,10 @@ the user opens what they made in the app and edits a page, a deck or a canvas th
 A job's shell names the bot's artifacts folder and the shipped skills (`botShellEnv` in
 `features/workspace/workspace.ts`); `document.mjs`, `canvas.mjs` and `book.mjs` write there by
 default, and `make_deck` runs `deck.mjs` itself. All dress their one HTML file in the artifact
-skill's `runtime/shell`, which `load_skill` never lists (`PATHS.skills.runtime`). The app
-lists finished work from the folders, serves it through `app/api/file`, and frames a page in
-`FileFrame` (`features/workspace/components/file-view.tsx`), which hands a reader's edits to
-`savePage` (`features/workspace/workspace.query.ts`). A seed's own skills are read in place from
+skill's `runtime/shell`, which `load_skill` never lists (`PATHS.skills.runtime`). The app lists
+finished work from the folders, serves it through `app/api/file`, and frames a page in `FileFrame`
+(`features/workspace/components/file-view.tsx`): a reader's edits go to `savePage`, a write while
+it shows goes to the page as `changed`. A seed's own skills are read in place from
 `seed-skills/<name>/`; older copies in bots' folders stay, unlisted (`seed-skills/retired.json`).
 
 ## Rules

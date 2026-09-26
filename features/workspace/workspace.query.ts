@@ -1,6 +1,8 @@
 import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import type { Stats } from "node:fs";
 import {
+  open,
   readdir,
   readFile,
   rename,
@@ -22,6 +24,7 @@ import {
 } from "./workspace";
 import type {
   FileOnDisk,
+  FileVersion,
   PageSave,
   WorkspaceEntry,
   WorkspaceFolder,
@@ -187,6 +190,41 @@ async function syncSheet(edited: string, page: string): Promise<boolean> {
   );
 }
 
+/** How far into a page its revision is looked for: the shell's head puts it on the page's sixth line (runtime/shell/head.html). */
+const REVISION_HEAD = 1024;
+
+/**
+ * A file as it is now, to tell whether it changed since a screen showed it: its size and
+ * time, as the file route's ETag has them, and for a page the shell dressed, the revision
+ * every write gives it — a bot's put or a reader's save (savePage) — which is how the page
+ * itself tells its own save from someone else's write. Null when it is not there.
+ */
+export async function readFileVersion(
+  rel: string,
+): Promise<FileVersion | null> {
+  const full = await insideWorkspace(rel);
+  const info = full ? await stat(full).catch(() => null) : null;
+  if (!full || !info?.isFile()) return null;
+  let revision: string | null = null;
+  if (/\.html?$/i.test(rel)) {
+    const handle = await open(full);
+    try {
+      const head = Buffer.alloc(REVISION_HEAD);
+      const { bytesRead } = await handle.read(head, 0, REVISION_HEAD, 0);
+      revision =
+        REVISION.exec(head.subarray(0, bytesRead).toString("utf8"))?.[1] ??
+        null;
+    } finally {
+      await handle.close();
+    }
+  }
+  return { version: versionOf(revision, info), revision };
+}
+
+/** One way to say a file's version, for a read and for the save that wrote it. */
+const versionOf = (revision: string | null, info: Stats) =>
+  `${revision ?? ""}:${info.size.toString(16)}-${info.mtimeMs.toString(16)}`;
+
 /**
  * Writes a page a bot made back over itself, as its reader edited it where the app shows
  * it (skills/artifact/runtime/shell). Only a page that is there already: this keeps edits and never makes
@@ -231,7 +269,11 @@ export async function savePage(
     await rm(beside, { force: true });
     throw error;
   }
-  return { changed: false, revision };
+  return {
+    changed: false,
+    revision,
+    version: versionOf(revision || null, await stat(full)),
+  };
 }
 
 /**

@@ -11,6 +11,7 @@ import {
 } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
+import { appEvents } from "@/app/api/events/app-event.server";
 import {
   APP_DIR,
   BROWSER_CLI,
@@ -535,11 +536,21 @@ export async function openWorkspace(): Promise<Sandbox> {
       () => {},
     );
   }
-  return createSandBox({
+  const sandbox = createSandBox({
     workingDirectory: WORKSPACE,
     spill: { dir: PATHS.output, ...TOOL_OUTPUT },
     toolPath: TOOL_PATH,
   });
+  // Every write a bot or the call makes passes here, whatever made it: a file open on
+  // screen is asked again whether it changed (app-event `files`), a failed command too,
+  // since it may have written part of one
+  const touched = () => appEvents.emit({ type: "files" });
+  return {
+    ...sandbox,
+    exec: (command, opts) => sandbox.exec(command, opts).finally(touched),
+    writeFile: (path, content) =>
+      sandbox.writeFile(path, content).finally(touched),
+  };
 }
 
 /**
