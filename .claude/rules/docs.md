@@ -31,25 +31,23 @@ The README, `how-it-works.md` and `SECURITY.md` are read before anyone runs the 
 `guide/` is read after: boot copies it into the workspace, and Thursday reads it with her shell
 when an answer depends on how the app works, so what it says is what she tells the user.
 
-## Rules
-- `README.md` stays a landing page and anything longer goes to `docs/how-it-works.md`;
-  `README.ko.md` changes in the same commit, section for section — a long README loses the
-  newcomer before the quick start, and a twin left behind describes an older app.
-- README images stay at absolute `raw.githubusercontent.com` URLs on `main`, and a file the
-  published README links is never renamed or deleted; `how-it-works.md` links its own relatively —
-  the README is also the npm page, and every published version loads its images from `main`.
-- The text of the README and `how-it-works.md` names no seed bot and counts none ("starter bots",
-  "a bot"), and a screenshot shows no number that moves — seeds are renamed, dropped and switched
-  off, and the landing page then lies.
-- The README, `how-it-works.md` and `SECURITY.md` tell one story about protection: a thing is
-  called enforced only where code enforces it, and an instruction to a model, such as stopping at
-  Pay, is called one — a reader who takes an instruction for a lock gives a bot access it can
-  misuse.
-- `guide/` writes every screen, setting and button name exactly as the screen does — she repeats
-  the words, and the user looks for them on screen.
-- Every guide file has a row in `guide/index.md`'s table, and a subject lives in the one file its
-  row names — she reads the index and then one file, so a file without a row is never opened and a
-  split subject is half answered.
+## What breaks
+- A long README loses the newcomer before the quick start; what is longer lives in
+  `docs/how-it-works.md`. `README.ko.md` is its twin, section for section, and one left a commit
+  behind describes an older app.
+- The README is also the npm page, and every published version loads its images from `main`: they
+  sit at absolute `raw.githubusercontent.com` URLs there, and a file a published README links,
+  renamed or deleted, breaks it. `how-it-works.md` links its own relatively.
+- Seeds are renamed, dropped and switched off: README or `how-it-works.md` text that names or
+  counts one ("starter bots", "a bot" does not), or a screenshot showing a number that moves, soon
+  lies.
+- A reader who takes an instruction to a model for a lock gives a bot access it can misuse: the
+  README, `how-it-works.md` and `SECURITY.md` call a thing enforced only where code enforces it,
+  and an instruction, such as stopping at Pay, an instruction.
+- She repeats `guide/`'s words, and the user looks for them on screen: a screen, setting or button
+  named there other than as the screen names it is not found.
+- She reads `guide/index.md` and then the one file its row names: a guide file without a row is
+  never opened, and a subject split across files is half answered.
 
 ## Check
 `pnpm test:live` checks that the call's backend prompt points at `.guide/`; after `pnpm build`,

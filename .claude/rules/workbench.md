@@ -34,24 +34,24 @@ reaches the whole disk as the user, and `writeRefusal` fences `write_file` alone
 every turn. A bot refused a sign-in it did not keep lands on that sign-in's `asking` list, and only
 Settings › Sign-ins or `signin-ask.tsx` in its question lets it in.
 
-## Rules
-- Every command a bot's tools send the browser CLI carries that participant's `jobShellEnv`
-  (`botBrowserSession`: one job, one participant) — without it the command lands in the shared
-  `default` session no cancel closes, and a session keyed to the bot alone lets one job's `open`
-  close another's browser.
-- A second browser a job opens is named `<its session>-<suffix>`, as `inPageApart` in
-  `skills/browser/scripts/session.mjs` does — cancel, delete and the sweep find a thread's browsers
-  and profiles by that prefix, and never one under another name.
-- A variable the app sets to run itself (`bin/thursday.mjs`, a server it starts) is matched by
-  `APP_OWN` in `lib/sandbox.ts` — unmatched, every bot's project reads it as its own: Thursday's
-  port, production mode, Next's config.
-- A kept sign-in is replaced only by a bot on its list and renewed only from a browser the app
-  lent it to (`keepSignIn`, `holdSignIn`) — every shell can read the vault, so the tools are its lock.
-- `@playwright/cli` is pinned to one version in `package.json`; move it only after the browser check
-  below, then `pnpm install --lockfile-only` — each install of the published package resolves that
-  entry itself (`scripts/pack.mts`), and this area leans on the CLI's variable names, `list --json`,
-  the `.playwright` marker and how it names its daemon folder, where a change fails quietly as
-  windows left open and profiles piling up.
+## What breaks
+- A command a bot's tools send the browser CLI without that participant's `jobShellEnv`
+  (`botBrowserSession`: one job, one participant) lands in the shared `default` session no cancel
+  closes, and a session keyed to the bot alone lets one job's `open` close another's browser.
+- Cancel, delete and the sweep find a thread's browsers and profiles by its session prefix: a
+  second browser a job opens under a name other than `<its session>-<suffix>` (as `inPageApart` in
+  `skills/browser/scripts/session.mjs` names one) is never found.
+- A variable the app sets to run itself (`bin/thursday.mjs`, a server it starts) that `APP_OWN` in
+  `lib/sandbox.ts` does not match is read by every bot's project as its own: Thursday's port,
+  production mode, Next's config.
+- Every shell can read the sign-in vault, so the tools are its lock: a kept sign-in is replaced
+  only by a bot on its list and renewed only from a browser the app lent it to (`keepSignIn`,
+  `holdSignIn`).
+- This area leans on `@playwright/cli`'s variable names, `list --json`, the `.playwright` marker
+  and how it names its daemon folder, where a change fails quietly as windows left open and
+  profiles piling up. It is pinned to one version in `package.json`, which each install of the
+  published package resolves itself (`scripts/pack.mts`), and moves only after the browser check
+  below, then `pnpm install --lockfile-only`.
 
 ## Check
 `pnpm test:bot` runs bots' shells against a stand-in `playwright-cli`, so it proves nothing about the

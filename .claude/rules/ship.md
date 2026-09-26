@@ -30,19 +30,19 @@ client screens, plain `node` (`pnpm dev`, `pnpm reset`) and the Next and drizzle
 once per server process: `next dev` reloads code but not boot, so a new boot step waits for a
 restart — say so to whoever runs the server.
 
-## Rules
-- `config.ts` imports nothing and uses only erasable TypeScript — plain `node` loads it for
-  `pnpm dev` and `pnpm reset`, where an `@/` import or an `enum` fails before anything starts, and
-  no CI step loads it that way.
-- A file the server reads by path at run time is listed in `outputFileTracingIncludes` or copied by
-  `pack.mts`, and goes in `REQUIRED` when an install cannot work without it — `pnpm dev` runs on
-  the checkout, where every file is beside it, so a missing one shows only in a build.
-- A change to `pack.mts`, `next.config.ts`, `bin/` or a dependency is tried as `npm pack ./dist`,
-  installed in an empty folder, booted on an empty `--home` with a markdown page opened, and
-  resolved per platform with `npm install --os/--cpu/--libc` — the checkout's `node_modules` hides
-  what a tarball lacks.
+## What breaks
+- Plain `node` loads `config.ts` for `pnpm dev` and `pnpm reset`, and no CI step loads it that
+  way: an `@/` import there, or TypeScript that is not erasable (an `enum`), fails before anything
+  starts.
+- `pnpm dev` runs on the checkout, where every file is beside it: a file the server reads by path
+  at run time that is neither in `outputFileTracingIncludes` nor copied by `pack.mts` is missing
+  only from a build, and `REQUIRED` fails the pack when one an install cannot work without is gone.
+- The checkout's `node_modules` hides what a tarball lacks: a change to `pack.mts`,
+  `next.config.ts`, `bin/` or a dependency can break only the published package.
 
 ## Check
+Such a change is tried as `npm pack ./dist`, installed in an empty folder, booted on an empty
+`--home` with a markdown page opened, and resolved per platform with `npm install --os/--cpu/--libc`.
 `node scripts/pack.mts` runs the release gates and writes `dist/` without publishing;
 `pnpm pack:check` repacks the last build, checking its files but not lint, types or the build;
 `pnpm release` publishes and is never a check. A starter or boot change is served from the build,

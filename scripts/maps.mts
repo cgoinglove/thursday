@@ -12,9 +12,14 @@ const ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"], {
   encoding: "utf8",
 }).trim();
 const RULES = ".claude/rules";
-// A map is read whenever its area is; past this it costs more than it tells
-const MAX_LINES: Record<string, number> = { "AGENTS.md": 140, "taste.md": 32 };
-const MAP_MAX = 64;
+// A map is read whenever its area is; past this it costs more than it tells. Counted in
+// characters without the frontmatter, which never reaches the model, so a line rewrapped or
+// merged into another to fit saves nothing
+const MAX_CHARS: Record<string, number> = {
+  "AGENTS.md": 9500,
+  "taste.md": 2000,
+};
+const MAP_MAX = 4200;
 
 const tracked = execFileSync("git", ["ls-files"], {
   cwd: ROOT,
@@ -95,9 +100,9 @@ if (process.argv.includes("--stale")) {
 const problems: string[] = [];
 for (const file of ["AGENTS.md", ...maps]) {
   const text = readFileSync(join(ROOT, file), "utf8");
-  const lines = text.split("\n").length - 1;
-  const max = MAX_LINES[basename(file)] ?? MAX_LINES[file] ?? MAP_MAX;
-  if (lines > max) problems.push(`${file}: ${lines} lines, over ${max}`);
+  const size = text.replace(/^---\n[\s\S]*?\n---\n/, "").length;
+  const max = MAX_CHARS[basename(file)] ?? MAX_CHARS[file] ?? MAP_MAX;
+  if (size > max) problems.push(`${file}: ${size} characters, over ${max}`);
   if (file !== "AGENTS.md") {
     const globs = globsOf(text);
     // A rule file with no paths is loaded into every session

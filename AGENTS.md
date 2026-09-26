@@ -23,7 +23,9 @@ This is a public MIT repository (`github.com/cgoinglove/thursday`, published to 
   guess intent.
 - **Nothing is forced to work.** No copy of another site's markup, no endpoint its owner does not
   document for that use, no branch that only makes the example at hand pass, no retry, fallback
-  or empty result that hides a failure. What cannot be done cleanly is said, not forced.
+  or empty result that hides a failure. What cannot be done cleanly is said, not forced. The one
+  exception is the maintainer's choice: the ChatGPT sign-in (`features/ai/chatgpt.ts`) signs in
+  through the Codex CLI's OAuth client.
 - **Each thing a diff changes stands on something you can name** — a case you reproduced, a
   measurement, code or a document you can quote, what you were asked — and the commit or pull
   request says which. A guess is not one.
@@ -98,8 +100,8 @@ docs/                how-it-works.md, and the images the READMEs show.
 
 # Maps
 
-Each area has a map in `.claude/rules/`: what it is for, the files to open first, and the few rules
-that hold there. Claude Code attaches one only when its Read tool opens a matching file — a file read
+Each area has a map in `.claude/rules/`: what it is for, the files to open first, and what breaks
+there. Claude Code attaches one only when its Read tool opens a matching file — a file read
 through `cat`, `sed` or `grep` brings none — so anything else reads the map by hand:
 
 | When you change … | Read |
@@ -121,8 +123,9 @@ Keeping them true:
 - A change that makes a line of a map wrong rewrites that line in the same commit and moves the
   map's `checked:` date; a line is replaced, never followed by a correction.
 - A new entry file gets a line under its map's "Start here"; a new area gets a map of its own.
-- A rule or a pick in `taste.md` earns its line only when the same mistake comes back or the
-  maintainer asks for it, and an agent proposes it at the end of its report rather than adding it.
+- A rule is the maintainer's: a line under this file's Rules or in `taste.md` goes in only in
+  wording the maintainer approved. A map's "What breaks" says what breaks where, as the code bears
+  it out; an agent proposes a new line there at the end of its report rather than adding it.
 - When a new model arrives, what it no longer needs is deleted: `/claude-api prompt-audit`, and
   `node scripts/maps.mts --stale` for the maps whose area changed most since they were checked.
 

@@ -38,24 +38,22 @@ finished work from the folders, serves it through `app/api/file`, and frames a p
 it shows goes to the page as `changed`. A seed's own skills are read in place from
 `seed-skills/<name>/`; older copies in bots' folders stay, unlisted (`seed-skills/retired.json`).
 
-## Rules
-- **A skill's script stands on a public API, a managed tool or the app's own scripts**, never on
-  another site's markup, private endpoints or a pinned client version, and fails loudly rather
-  than with an empty result — else it breaks quietly the day that site changes.
-- **A bot looks at what it made through a skill's `shots` over `render.mjs --apart`**, and no role
-  or `SKILL.md` sends it to the browser for that — the job's browser may be a window on the
-  user's screen.
-- **A contract between `skills/` and the app changes on both sides in one commit**: `render.mjs`'s
-  options and `features/reach/pictures.ts`; the last line of `deck.mjs shots` and `deck.tool.ts`;
-  the shell's generator meta, `?face` and frame messages and `app/artifact`, `file-thumb.tsx`,
-  `FileFrame`; `spreadsheet.mjs sync` (its exit 3) and `savePage` — the suites mock `pictures.ts`,
-  stub `shots` and frame no page, so a break goes unseen.
-- **A seed's text is copied into its bot when the bot is made** — a role change never reaches a
-  bot already installed, so what every bot must get goes in a skill or the base prompt.
-- **A new capability extends an existing skill, or `make_deck`, before it is a skill of its
-  own** — two skills for one ask split the bots' choice.
-- **A `SKILL.md` description says what the skill does in its first sentence, then when** — the
-  call reads that first sentence alone (`skillLines` in `features/ai/prompts/prompt-helper.ts`).
+## What breaks
+- A job's browser may be a window on the user's screen: a role or `SKILL.md` that sends a bot to
+  the browser to look at what it made opens it in front of the user, where a skill's `shots` over
+  `render.mjs --apart` shows it to the bot alone.
+- The suites mock `pictures.ts`, stub `shots` and frame no page, so a contract between `skills/`
+  and the app changed on one side only breaks unseen: `render.mjs`'s options and
+  `features/reach/pictures.ts`; the last line of `deck.mjs shots` and `deck.tool.ts`; the shell's
+  generator meta, `?face` and frame messages and `app/artifact`, `file-thumb.tsx`, `FileFrame`;
+  `spreadsheet.mjs sync` (its exit 3) and `savePage`.
+- A seed's text is copied into its bot when the bot is made, so a role change never reaches a bot
+  already installed; what every bot must get lives in a skill or the base prompt.
+- Two skills for one ask split the bots' choice; a new capability that extends an existing skill,
+  or `make_deck`, does not.
+- The call reads a `SKILL.md` description's first sentence alone (`skillLines` in
+  `features/ai/prompts/prompt-helper.ts`): a description that does not say there what the skill
+  does is not understood.
 
 ## Check
 `pnpm test:skills` (`load_skill`'s file list, `put` against a reader's save, `make_deck`) and

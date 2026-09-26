@@ -38,11 +38,10 @@ screen's alone: the call log and a phone chat show its words, a phone call's old
 reach the model as those words (reach `carried`), and the call prompts read stored turns back
 through its `searchOf` and `startedLabel`.
 
-## Rules
-- How anything here looks or moves changes as its own proposal, never on the way to other work — a look changed in passing is one nobody chose.
-- Anything new at the foot takes a cell of `CallFoot`'s grid, on the rail or in the row above it, never a position against the window or a breakpoint — placed any other way, at some width it lands on the pill, the cards or the write line.
-- A bot's mark is seeded by the bot's name and wears its whole `icon` wherever it is drawn — a mark seeded or coloured from anything else reads as a different bot.
-- A line changed in `intro-voice.ts` `INTRO_SPOKEN` is recorded again with `scripts/intro-voice.mts`, and the clips it writes under `public/voices/intro/` go in the same commit — a clip left for later is silence on every first run, and nothing reports it.
+## What breaks
+- Anything at the foot placed other than in a cell of `CallFoot`'s grid (on the rail or in the row above it) — against the window, or at a breakpoint — lands on the pill, the cards or the write line at some width.
+- A bot's mark seeded or coloured from anything but the bot's name and its whole `icon` reads as a different bot.
+- A line changed in `intro-voice.ts` `INTRO_SPOKEN` is silence on every first run, and nothing reports it, until `scripts/intro-voice.mts` records it again (on the OpenAI key) and the clips it writes under `public/voices/intro/` are committed.
 
 ## Check
 Nothing tests the drawing; `pnpm test:bot` covers `thread.store`'s drafts and `pnpm test:live` the

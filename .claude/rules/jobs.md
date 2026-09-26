@@ -38,22 +38,19 @@ thread; `bot.runner` launches what they queue; `bot.run` runs one turn. What is 
 — a message, a question, the coordinator's report, a stop — is a `thread_relay` row, which the
 call (`features/thursday/open-work.ts`) and a phone (`features/reach`) read and accept.
 
-## Rules
-- Start, answer, stop and remove a job only through `bot.runner`; nothing else calls `runBot` or
-  a `room.query` write that queues, pauses or cancels turns — a turn queued outside it waits
-  until the runner next claims work in that thread, and a stop outside it leaves the live run's
-  tools going.
-- Everything a job says, hears or waits on is a row; the runner keeps in memory only live runs,
-  the thread lock and one-shot asks (`askCompact`) — anything else is lost at a restart, and the
+## What breaks
+- `bot.runner` is the only caller of `runBot` and of the `room.query` writes that queue, pause or
+  cancel turns: a turn queued elsewhere waits until the runner next claims work in that thread,
+  and a stop elsewhere leaves the live run's tools going.
+- The runner keeps in memory only live runs, the thread lock and one-shot asks (`askCompact`):
+  anything else a job says, hears or waits on that is not a row is lost at a restart, and the
   screen and the resumed model stop reading the same thing.
-- Bound a room with a `BOT_RUN` limit (`config.ts`) checked where a turn is claimed, a message is
-  sent or a step is taken (`room.query`, `bot.run`) — two bots answering each other stop only at a
-  limit.
-- Nothing about a job waits on a browser: `presence` decides only where news of a job goes (a
-  desktop notice, a phone) — routines and a phone start jobs with no tab open, so a step that waits
-  for a tab never runs for them.
-- News for the call or a phone is a `thread_relay` row, never only an app event — an event
-  reaches only a tab open at that moment, so a phone and the next call miss it.
+- Two bots answering each other stop only at a limit: the `BOT_RUN` limits (`config.ts`) are
+  checked where a turn is claimed, a message is sent or a step is taken (`room.query`, `bot.run`).
+- Routines and a phone start jobs with no tab open, so a step that waits on a browser never runs
+  for them; `presence` decides only where news of a job goes (a desktop notice, a phone).
+- An app event reaches only a tab open at that moment: news for the call or a phone that is not a
+  `thread_relay` row is missed by the phone and the next call.
 
 ## Check
 `pnpm test:bot`; a change to how the room routes, waits or resumes gets a case there. To judge

@@ -42,13 +42,13 @@ call's prompts read back; the browser's `thursday.store` holds only how this mac
 Background work reaches a call through `open-work` (what waits on the user, as it comes) and
 `call-standing` (what stood open as the call began, for the backend alone).
 
-## Rules
-- Voice is GPT-Live (`/v1/live/sessions` in `lib/live/live.server.ts`, tools delegated to a Responses backend), not the Realtime API — code written from memory of Realtime does not match this wire.
-- A switch that changes her tool set reaches `loadTools`, `loadThursdayPrompt` where the prompt names those tools, and on a spoken call `CallHandshake.opened` and the tool-call route's schema, which drops a field it does not name — else she is told of a tool she lacks, or the route builds a set other than her manifest.
-- A new kind of thing the call can do gets a line on the voice's delegation list (`live.prompt` `delegation`) — without it the voice answers the request herself and never hands it over.
-- What reaches her that the user did not say — a bot's words, an act on screen, a press on a phone — goes in as a fact (who, which thread, what happened), on a spoken call as `commentary` or `thinking` and never as `instructions` — else a bot's text steers her as if the app had said it.
-- A new way into a call ends its row wherever that call ends, and a row the server holds rather than a tab is listed by `heldCalls` — an open row keeps `isAnyCallLive` true, so `bot.runner` sends no desktop notice, and an unlisted held row is swept shut when the last tab goes.
-- Every `Incoming` kind a channel hands over passes `take`'s check of the one person let in before it reaches her or a bot — whoever gets past it runs commands on this computer through her.
+## What breaks
+- Voice is GPT-Live (`/v1/live/sessions` in `lib/live/live.server.ts`, tools delegated to a Responses backend), not the Realtime API: code written from memory of Realtime does not match this wire.
+- Her tool set is named in four places: `loadTools`, `loadThursdayPrompt` where the prompt names those tools, and on a spoken call `CallHandshake.opened` and the tool-call route's schema, which drops a field it does not name. A switch that reaches only some of them tells her of a tool she lacks, or has the route build a set other than her manifest.
+- The voice hands over only what her delegation list (`live.prompt` `delegation`) names; a kind of request it leaves out she answers herself and never hands over.
+- What reaches her that the user did not say — a bot's words, an act on screen, a press on a phone — steers her as if the app had said it when it goes in as `instructions`; as a fact (who, which thread, what happened), on a spoken call as `commentary` or `thinking`, it does not.
+- An open call row keeps `isAnyCallLive` true, so `bot.runner` sends no desktop notice: a way into a call that does not end its row wherever the call ends silences them. A row the server holds rather than a tab is swept shut when the last tab goes unless `heldCalls` lists it.
+- `take`'s check of the one person let in is all that stands between a phone channel and her: an `Incoming` kind that reaches her or a bot without it lets whoever sent it run commands on this computer through her.
 
 ## Check
 `pnpm test:live` (the Live wire, both call prompts, call history) and `pnpm test:reach` (a phone
