@@ -2,211 +2,159 @@
 
 ## The first run
 
-The first time the app opens, she comes in larger than the screen and steps down to her own size,
-and opens her eyes there, with a soft beat on each step and a run of chimes as she lands; a browser
-keeps a page silent until it is clicked, so the opening is often seen without its sound. When the
-system is set to reduce motion, she is simply there. Then it walks
-through six steps on the call screen itself: a voice key, the microphone, which bots come along, what
-they think with, her style, and the first call. In a narrow window each step sits under her rather
-than beside her, with only her latest line. She talks
-through it in a recorded voice, in English, and says so first; her real voice starts with the first
-call. The speaker button at the top right mutes the recording, and stays muted the next time, the opening's sounds with it. Every
-step can be passed and done later from the screens below. On the microphone step the main button
-turns the microphone on — the browser asks first, by its address bar — and the line under it goes
-on without one. The bots picked there are set up when
-it ends, key or no key; they run once there is a model to run on. With a key the last button is
-**Call her**; without one it is **Look around**, and she says whether the bots can already work or
-still need a key or a ChatGPT sign-in. Once it has been left, by any of its buttons, it does not
-show again, and **Reset history** does not bring it back; adding `?intro` to the address does,
-and leaving it that way sets up no bots, so one deleted since stays deleted.
+The first time the app opens, six steps run on the call screen itself: a voice key, the
+microphone, which bots come along, what they think with, her style, and the first call. In a narrow
+window each step sits under her face. She talks through it in a recorded English voice; her
+real voice starts with the first call. The speaker button at the top right mutes it.
+
+Every step can be skipped and done later in Settings. On the microphone step the main button turns
+the microphone on (the browser asks first, by its address bar); the line under it goes on without
+one. The bots picked there are set up when it ends; they work once there is a model to run on.
+With a key the last button is **Call her**; without one it is **Look around**.
+
+Once it has been left, by any of its buttons, it does not show again, and **Reset history** does not
+bring it back. Adding `?intro` to the address shows it again; leaving it that way sets up no bots.
 
 ## Around the screen
 
-The buttons at the top right of the call screen open **Thursday**, **Memory** and **Bots** directly,
-and **Settings** opens everything; each carries a dot when something there wants the user. The
-Settings list is Thursday, Memory, Bots, Threads, Routines, Files, Skills, Connectors, Sign-ins,
-Models, API keys and Phone. ⌘K (Ctrl+K) jumps to its filter, and ⌘ with a number opens one of the
-first nine.
-Under Phone, as a group of their own named community, **Ask on Discord** opens the app's community,
-where people who use and build it answer questions, and **GitHub** opens its code, bug reports and
-releases. The theme — **System**, **Light** or **Dark** — is picked at the foot of the list.
+The buttons at the top right of the call screen open **Thursday**, **Memory** and **Bots**, and
+**Settings** opens everything; each carries a dot when something there needs the user. The Settings
+list is Thursday, Memory, Bots, Threads, Routines, Files, Skills, Connectors, Sign-ins, Models,
+API keys and Phone. ⌘K (Ctrl+K) jumps to a section's filter, and ⌘ (Ctrl) with a number from 1 to 9
+opens one of the first nine sections. Under community are **Ask on Discord** and **GitHub**. The
+theme — **System**, **Light** or **Dark** — is at the foot of the list.
 
 ## Keys
 
-**Settings › API keys** holds them, and they stay on this machine. One OpenAI key is all a call
-needs — it pays for both the voice and the model behind it. That key is checked with OpenAI as it is
-saved: one OpenAI turns away is not kept, and the screen says what OpenAI said about it (a mistyped
-key, one that was deleted). Bots can run on that same key.
+**Settings › API keys** holds them, and they stay on this computer. One OpenAI key is all a call
+needs: it pays for both her voice and the model behind it. The key is checked when it is saved,
+and one OpenAI refuses is not kept. Bots can run on the same key.
 
-The screen puts the two easy ways next: **GPT Subscription**, a sign-in with ChatGPT (bots run on the
-ChatGPT plan, no key; the row shows how much of the plan is used and when it resets), and the
-**Vercel AI Gateway**, one key for every model and the one the app recommends (its row shows what is
-left). Under them every other provider is a mark to tap and paste a key into — Claude, Gemini, xAI
-and the rest; the first run shows four of them and keeps the others behind **More**. The box a key goes in shows how that provider's keys begin where it is
-known, with a link to the page that makes one; **Remove**, on a key already set, is the red word at
-the far left.
+Two easier ways for bots come next:
 
-A search key (Exa) is optional. With it, calls and bots both search through Exa, which is cheaper
-per search and comes with free credits every month. Without it, a call uses OpenAI's own search and
-a bot its model's own — which the GPT Subscription has, and OpenAI, Claude, Gemini and xAI on their
-own keys. A bot running through the Gateway or any other provider has no search of its own, so it
-opens pages in its browser instead.
+- **GPT Subscription**: sign in with ChatGPT, and bots run on the ChatGPT plan with no key. The row
+  shows how much of the plan is used and when it resets. It does not cover a spoken call, which
+  OpenAI bills by the minute on a key.
+- **Vercel AI Gateway**: one key for every model; its row shows what credit is left.
+
+Under them, every other provider (Claude, Gemini, xAI and more, some behind **More**) is a mark to
+tap and paste a key into, with a link to the page that makes one.
+
+A search key (Exa) is optional. With it, calls and bots all search through Exa, which is cheap and
+has free monthly credits. Without it, a call uses OpenAI's own search, and a bot uses its model's
+own search: the GPT Subscription, OpenAI, Claude, Gemini and xAI have one. A bot on the Gateway or
+any other provider has no search of its own, so it opens pages in its browser instead.
 
 ## Models
 
-**Settings › Models** has two groups. **Bots** holds the **Default model** — the one a bot uses when
-its own page says nothing; a small one is quick and costs little, and is the place to start — and
-its **Default effort**. Left unset it shows *auto* and names the model bots run on now: the GPT
-Subscription's when you are signed in, since the plan is already paid for, else OpenAI's, else xAI's,
-else the first provider with a key — the **small** model on OpenAI, the one the call's backend starts
-on too, and the **mid** one on the GPT Subscription, which is paid for either way (a Free plan opens
-only the small one and runs that), and elsewhere. A default picked here whose key is
-later removed is not swapped for another provider: bots stop and say so until it is back or another
-is picked. The
-first run's model step sets this same one, and **App default** at the top of a bot's model list puts
-that bot back on it. **Studio** holds the **Image model**, **Video model**, **Speech model** and
-**Transcription model**. A kind with no model picked simply is not there — a bot that needs it says
-so rather than guessing. The call's own two models are in Settings › Thursday.
+**Settings › Models** has two groups.
 
-**Effort** is how hard a model thinks, as a row of buttons: **auto** first, then one for every step
-that model takes (none, low, medium, high, xhigh and so on). Higher is slower and costs more, and
-**auto** leaves the step to the model, which is where every model starts. The steps differ by model —
-some offer four, some two, and one whose steps the app cannot check offers **auto** alone. Change the
-model and the step comes along where the new one has it, and falls back to **auto** where it does
-not. A bot's own page and the call's backend have the same control; a bot back on **App default**
-follows this one again.
+- **Bots** holds the **Default model**, which a bot uses when its own page picks none, and its
+  effort. Left unset it shows *auto* and names what bots run on now: the GPT Subscription when
+  signed in, else OpenAI, else xAI, else the first provider with a key. If the default picked here
+  loses its key, bots stop and say so rather than switch to another provider. **App default** at
+  the top of a bot's model list puts that bot back on it.
+- **Studio** holds the **Image model**, **Video model**, **Speech model** and **Transcription
+  model**. One left unpicked shows *off*, and bots cannot do that kind of work until one is picked.
+
+The call's own two models are in **Settings › Thursday**, under Models.
+
+**Effort** is how hard a model thinks, shown as a row of buttons: **auto**, then the steps that
+model offers (such as none, low, medium, high, xhigh). Higher is slower and costs more; **auto**
+lets the model decide. A bot's own page and the call's backend have the same control.
 
 ## Skills
 
 A skill is a written-down way of doing something that a bot reads before it starts. The ones that
-ship with the app are every bot's alike: the browser; this Mac (listed on a Mac only); what the user
-keeps, looks at or uses — a document, a design canvas, a picture book, the deck every bot can make,
-and a page or a small app, with charts and diagrams — as one (the first app installs its kit, which
-takes a minute and the network); reading a video, a podcast, an article, a PDF or a recording of
-their own, a meeting written up as notes; answers built on
-published numbers, with charts, the weather on given days and an amount in another currency; a
-daily news brief; finding more skills; and writing a new one. **Marketer** also carries one of its
-own for marketing — a product's brief, page copy, email sequences, a launch, social posts, an SEO
-audit — and **Concierge** one for trips — flights and stays compared, a booking handed over, a
-day-by-day page — which no other bot sees. **Settings › Skills** lists them in groups: **Custom** (the
-user's own), one for each bot that has skills of its own (**Marketer's own**: what ships with it,
-and what it found or wrote for itself), and **Default** (the ones that ship, read-only). There a skill can be switched off (it stays off through an update of the app), uploaded (a `.md`,
-`.zip` or `.skill` file up to 20 MB; an archive that would unpack past 100 MB or 1,000 files is
-refused), written from scratch, or deleted when it is one of their own. Each row says what the
-skill does; opening it shows the rest of its description and its files. In one of their own,
-**Edit** on a file writes it back, which is how a typo or a changed step is fixed without making
-the skill again; picking another file with changes not saved asks before dropping them. A bot can
-also find one in the open registry while it works, or write a new one. Before it installs one from the registry it asks, saying who published it, its license
-and what its security checks found. Either way it decides whether the skill is for itself alone
-or for every bot: to itself unless any bot would use it or the user said everyone, and its report
-says which. One it keeps for itself shows under its name there, where it can be opened, switched
-off, edited or deleted like one of their own.
+ship with the app are shared by every bot: using the browser; using this Mac's apps (on a Mac only);
+making documents, slides, pages and small apps with charts; reading videos, podcasts, articles and
+PDFs; reports built on published numbers; a daily news brief; finding more skills; and writing a new
+one. **Marketer** and **Concierge** also carry skills of their own, for marketing and for trips,
+that no other bot sees.
+
+**Settings › Skills** lists them in groups: **Custom** (the user's own), one group for each bot that
+has its own (such as **Marketer's own**), and **Default** (the ones that ship, read-only). There a
+skill can be switched off, uploaded (a `.md`, `.zip` or `.skill` file up to 20 MB), written from
+scratch, or deleted when it is the user's own. In one of the user's own, **Edit** on a file
+changes it in place.
+
+A bot can also find a skill in the open registry while it works, or write a new one. Before it
+installs one from the registry it asks, saying who published it, its license and what its security
+checks found. Its report says whether it kept the skill for itself or for every bot.
 
 ## Connected services
 
-**Settings › Connectors** connects MCP servers, by picking one from the list or pasting its details.
-Once connected, its tools are there for bots to search and call, and up to ten of them can be pinned
-to one bot so they are always in front of it; she does not use them on a call herself, she hands
-that work to a bot. Opening a server lists every tool it carries, with a box to narrow them by name,
-and has **Reconnect** and **Delete**. Signing in happens in a popup window; a server that needs it
-again turns red on that screen, with its error, and **Reconnect** signs in again.
+**Settings › Connectors** connects MCP servers, picked from the list or added by pasting their
+details. The list starts with everyday services (to-dos, the house, flights, and Zapier for Gmail,
+Google Calendar and many other apps) and the tools for developers come after. Once connected, a
+server's tools are there for bots to use, and up to ten can be pinned to one bot on its page in
+**Settings › Bots**. She does not use them on a call herself; she hands that work to a bot.
 
-The list starts with everyday services — to-dos, the house, flights, and Zapier for Gmail, Google
-Calendar and the other apps connected there — and the tools for developers come after. Home
-Assistant asks for two things first: the address of their own Home Assistant, and a long-lived
-access token made on their profile page there. Its Model Context Protocol Server integration has to
-be added in Home Assistant too.
+Opening a server lists its tools, with **Reconnect** and **Delete**. A server that needs signing in
+again turns red, and **Reconnect** fixes it. Home Assistant asks for the address of their Home
+Assistant and a long-lived access token made on their profile page there; its Model Context Protocol
+Server integration has to be added in Home Assistant too.
 
 ## Sites they signed in to
 
-When a bot needs them signed in to a website — to post, to read mail, to order — it opens a window of
-the bots' own browser (Google Chrome for Testing, not their Chrome) on their screen and asks; they
-sign in there themselves, and the app keeps that sign-in so later work does not ask again. The
-window then closes by itself and the bot goes on out of sight, still signed in; it stays up only when
-what comes next is for them to see, like the products they asked for or a checkout to confirm. A bot
-never opens a window just to look at a page, deck or canvas it made. **Settings
-› Sign-ins** lists each one: the site, the account, and the bots that may use it. What is kept is the
-site's session, never a password, on this machine and outside the folder the bots work in.
+When a bot needs them signed in to a website, to post, read mail or order, it opens a window of the
+bots' own browser (Google Chrome for Testing, not their Chrome) and asks. They sign in there
+themselves, and the app keeps that sign-in so later work does not ask again.
 
-- The bot that asked for the sign-in may use it. Another bot that needs the same one asks first: its
-  question carries a button to let it in, and the list shows *… asks* with **Allow**. The **×** on a
-  bot's name in the list takes that back. A bot that has not been let in cannot replace what is
-  kept either: if they sign in to the same site for it, that sign-in lasts for its job only, and it
-  asks — to use the kept one, or for them to sign out of it here so the new one can be kept.
-- Some sites — Google is one — do not accept a sign-in carried from one browser to another: the bot
-  is signed out again on its next job however often they sign in. For those a bot works in a tab of
-  their own Chrome instead, signed in as they already are. That needs the **Playwright Extension**
-  from the Chrome Web Store installed in their Chrome once, and Chrome open: the last row of the
-  list, **Your own Chrome**, has the button to it. The bot gets a tab of its own and cannot see
-  theirs; nothing is kept from it.
-- **Sign out** removes what is kept; the next job that needs the site asks them to sign in again. The
-  site may go on listing the session until it ends it, so a lost or shared computer is also a reason
-  to sign out on the site itself.
-- A site that ends the session by itself just makes the bot ask again.
+**Settings › Sign-ins** lists each one: the site, the account, and the bots that may use it. What is
+kept is the site's session, never a password, and it stays on this computer.
+
+- The bot that asked for a sign-in may use it. Another bot that needs it asks first; the list then
+  shows *… asks* with **Allow**. The **×** on a bot's name takes that back.
+- Some sites, Google among them, sign the bot out again on every job however often they sign in.
+  For those, a bot can work in a tab of their own Chrome instead, signed in as they already are —
+  to every site their Chrome is signed in to, not only that one. That needs the Playwright
+  extension installed in their Chrome once and Chrome open: the last row, **Your own Chrome**, has
+  **Get the extension**.
+- **Sign out** removes what is kept; the next job that needs the site asks again. On a lost or shared
+  computer, also sign out on the site itself.
 
 ## Its own window
 
-The app runs in a browser tab, and a tab is easy to lose: closed, it takes the wake phrase, the
-shortcut and her calls with it. Chrome and Edge can install it instead, which gives it its own window
-and its own icon in the Dock or the taskbar, and the browser can be told to open that window when
-the computer starts. The call screen offers it once, under the buttons at its top right —
-**Install**, or **Not now** and it does not ask again — and **Install app** stays at the foot of the
-Settings list for as long as it is not installed. Safari on a Mac does it from its File menu, **Add
-to Dock**; Firefox cannot. It is the same local app either way; nothing moves anywhere.
+The app runs in a browser tab, and a closed tab takes the wake phrase, the shortcut and her calls
+with it. Chrome and Edge can install it as its own window with its own icon. The call screen offers
+this once (**Install** or **Not now**), and **Install app** stays at the foot of the Settings list
+until it is installed. In Safari on a Mac it is **File › Add to Dock**; Firefox cannot do it.
 
-The window only shows what the server is serving, and the server is started in a terminal. On a Mac
-it does not have to be: `thursday autostart` hands it to the computer, which starts it at login and
-again whenever it stops, so the icon in the Dock opens the call screen with no terminal anywhere.
-It needs the app installed with `npm i -g thursday-agent`, not run through `npx`.
-`thursday autostart --off` takes it back. A server nobody is watching writes what it would have said
-to `server.local.log`, beside the database. The address is the one it is on when autostart is turned
-on, so moving it with `--port` means turning autostart on once more. Linux and Windows start it the
-way they start anything else at login.
+The window only shows what the server serves, and the server is started in a terminal with `npx
+thursday-agent`. On a Mac, `thursday autostart` makes the computer start it at login and restart it
+if it stops, so no terminal is needed; this needs the app installed with `npm i -g thursday-agent`,
+not run through `npx`. `thursday autostart --off` turns it off. On Linux and Windows, add it to the
+programs that start at login.
 
-The app comes back on the same address every time it starts: the first start takes port 4747, which
-other apps rarely use, and keeps it. If that port is taken by something else one day, it says so
-where it was started and serves on the next one for that day; the browser then shows other
-settings, because a browser keeps settings per address. Starting it once with `--port` and a number
-moves it to that address for good; if that port is taken, it says so and stops. `--help`
-(`npx thursday-agent --help`, or `thursday --help` once installed) lists the rest: `--home` for
-another data folder, `--no-open` to start without opening a browser.
+The app uses the same address every time: port 4747 by default. If that port is taken one day, it
+says so and uses the next free one for that run, and the browser shows different settings there.
+`--port` with a number moves it for good (turn autostart on again after that). `--home` uses another
+data folder, `--no-open` starts without opening a browser, and `--help` lists everything.
 
-One data folder is served by one app at a time. Started again while it runs — a second `npx` once
-its tab is closed, or one beside the one that starts at login — it opens the one running in the
-browser rather than serving the same calls, jobs and phone twice, and says where that one runs and
-how to stop it: the terminal it is in, or turning autostart off. A different version already
-running is not opened; it says which one runs, to be stopped first. It needs Node 22.18 or newer
-and says so on an older one. Closing the terminal it runs in stops it the way Ctrl+C does: jobs that were running
-are paused, to be picked up again.
+Starting it again while it already runs on the same data folder opens the running one in the
+browser instead of starting a second, and says how to stop it. It needs Node 22.18 or newer.
+Closing the terminal it runs in stops it like Ctrl+C: running jobs pause and wait for **Continue**.
 
 ## Where the files are
 
-Everything is on this computer, in one folder: `.thursday` in their home folder when the app was
-installed or started with `npx thursday-agent`, or the folder it was started from otherwise; every
-start prints it. It holds the database with calls, memory, bots, keys and who she is set to be, the
-sites they signed in to, and the workspace with finished results, projects, each bot's folder and
-the skills that were installed. The folder her shell opens in is that workspace, so the exact place
-is one command away when they ask. Updating the app never touches it. Nothing is sent anywhere but
-the model providers that were set up and the services that were connected. The app listens only to
-this machine and has no account and no login.
+Everything is on this computer, in one folder: `.thursday` in their home folder when started with
+`npx thursday-agent` or installed, or the folder it was started from otherwise; every start prints
+it. It holds the database (calls, memory, bots, keys, her settings), the kept sign-ins, and the
+workspace with finished work, each bot's folder and installed skills. Updating the app never touches
+it. Nothing is sent anywhere except to the model providers and services they set up. The app listens
+only to this computer and has no account.
 
-One thing sits outside it: the browser the bots work in. It is downloaded once into this computer's
-own cache folder, a few hundred megabytes — so that folder, not `.thursday`, is where to look if the
-disk is short.
+The bots' browser is the one thing outside it: a download of a few hundred megabytes in the
+computer's cache folder.
 
-A copy of that folder is the backup, and it is taken with the app stopped. While it runs, the newest
-calls and messages are in a second file beside the database, so a copy of the database on its own
-can be missing the last thing that was said; stopping the app folds that file back in. Moving to
-another computer is the same folder put in the same place there. If the app ever cannot open the
-database, the terminal it was started in asks whether to set it aside and start over; yes moves it
-next to the new one with `.corrupt-` and a number in its name, and nothing is thrown away. Started by
-autostart it cannot ask, so it does not come up until it is started once from a terminal. Data a
-newer version of the app has opened is not offered to be set aside: an older one — an autostart left
-behind while `npx` runs the latest — says so and stops, and the newer one opens it as it was.
+To back up, copy that folder with the app stopped; moving to another computer is the same folder
+put in the same place. If the app ever cannot open the database, the terminal asks whether to set it
+aside and start fresh; the old file is kept beside the new one, with `.corrupt-` in its name.
 
 ## What it costs
 
-The user brings their own keys, so the cost is whatever those providers charge: a spoken call is
-billed per minute it is open, silence included, and everything else by how much text the models
-read and write — a call in writing included. The GPT Subscription spends the ChatGPT plan's usage
-instead. A long job on a large model is what adds up fastest.
+The user brings their own keys, so the cost is whatever those providers charge: a spoken call by the
+minute it is open, silence included, and everything else by how much text the models read and
+write, a call in writing included. The GPT Subscription uses the ChatGPT plan instead. A long job on
+a large model adds up fastest.

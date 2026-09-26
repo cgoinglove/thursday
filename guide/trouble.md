@@ -1,88 +1,65 @@
 # When something does not work
 
-Say what happened and the one thing that fixes it. Most of these are a setting or a key, and the app
-has already said which: a provider's own words are shown as they came, never hidden.
+Say what happened and the one thing that fixes it; most problems are a setting or a key.
 
 ## A call will not open, or ended
 
-- **"Call failed"** shows the provider's reason. A refused key or no credit left is fixed in
-  **Settings › API keys**; a model the key cannot use is changed in **Settings › Thursday › Models**.
-- **"One call at a time"**: another tab of the app has a spoken call on. Hang up there, or go on
-  there; two lines at once were billed twice and said every update twice. A tab closed mid-call
-  ends its call as it goes.
-- **She cannot be heard** on a call that opened by itself (she called back): the browser holds the
-  sound until the page is touched. A tap anywhere lets it through.
-- **She does not hear them**: the browser asks for the microphone on the first call. If that was
-  refused, it is allowed again from the site's settings in the address bar. The first run's
-  microphone step says which it was: not allowed, no microphone found, one that would not start
-  (another app may be using it), or the browser's own words for anything else.
-- **The call ended by itself**: the line under her face says why — *25s of quiet* (nothing was said
-  for 25 seconds; the last 10 count down on screen, and an update she is reading is let finish
-  first), *Thursday hung up*, *the call ran to Live's time limit*, *Live closed the call*, or *the
-  connection dropped*. Only a dropped connection or a close Live gives no reason for shows as a
-  failure; when Live's safety filter stops a call, a note says so. Work already handed to a bot is
-  not affected.
+- **"Call failed"** shows the provider's reason. A refused key or no credit is fixed in **Settings ›
+  API keys**; a model the key cannot use is changed in **Settings › Thursday**, under Models.
+- **"One call at a time"**: another tab of the app has a spoken call on. Hang up there first.
+- **She cannot be heard** on a call she opened herself: the browser holds sound until the page is
+  touched. A tap anywhere fixes it.
+- **She does not hear them**: the microphone was refused, or another app is using it. Allow it again
+  from the site's settings in the address bar.
+- **The call ended by itself**: the line under her face says why, such as *25s of quiet* (nothing
+  said for 25 seconds), *Thursday hung up* or *the connection dropped*.
 
 ## "Hey thursday" does nothing
 
-The wake phrase is off until it is switched on in **Settings › Thursday › Starting a call**, and it
-may have been rewritten there. It uses the browser's own speech recognition, which not every browser
-has, and needs the microphone while no call is open and the app's tab open. When it cannot start,
-the screen says "Wake word off" with the reason. Tapping her face always works, and so does the
-shortcut once it is switched on.
+The wake phrase is off until it is switched on in **Settings › Thursday › Starting a call**, where
+the phrase can also be changed. It needs a browser with speech recognition, the microphone, and the
+app's tab open. When it cannot start, the screen says "Wake word off" with the reason. Tapping her
+face always works.
 
 ## A job stopped
 
-A job never fails for good; it pauses and waits.
+A job does not fail for good; it pauses and waits.
 
-- **It asked something**: the question is in its thread, in the corner at the bottom right and in
-  the card above the pill. Answering it, on screen or through her, carries it on.
-- **The model broke or the provider refused**: a broken model call is tried once more by itself;
-  after that the thread says why. Fix the key or pick another model on the bot's page, then
-  **Continue**.
-- **The GPT Subscription ran out of its plan's usage**: the job stops and says when the plan resets;
-  its row in **Settings › API keys** shows *N% used* or *Limit reached*, and when it resets.
-- **The server stopped while it was running** — the terminal was quit or the machine restarted: the
-  job waits, and **Continue** picks it up. Closing every tab is not this: jobs run on with nothing
-  open, and a machine that slept carries on when it wakes.
-- **It reached its step limit**: a long job stops to check in after many steps without word from the
-  user. **Continue** gives it another run.
-- **They stopped it**: writing to the thread picks it up again.
+- **It asked something**: the question is in its thread, in the corner at the bottom right.
+  Answering it, on screen or through her, carries it on.
+- **The model failed or the provider refused**: the thread says why. Fix the key or pick another
+  model on the bot's page, then press **Continue**.
+- **The GPT Subscription ran out**: the job says when the plan resets; its row in **Settings › API
+  keys** shows *Limit reached*.
+- **The app stopped while it ran** (terminal closed, computer restarted), or **it reached its step
+  limit**: **Continue** picks it up. Closing the browser tab does not stop jobs.
+- **They stopped it**: writing to the thread starts it again.
 
 ## A bot says it cannot do something
 
-- **Make an image, a video, a voice, or transcribe**: no model is picked for that kind. **Settings ›
-  Models** has one slot for each, under Studio.
-- **Open a web page**: the bots' browser is downloaded in the background the first time the app
-  starts, a few hundred megabytes. Until that finishes, a bot cannot browse. On Linux it also needs
-  system libraries that a desktop usually has and a server or a container may not; without them it
-  closes as soon as it opens. `npx playwright install-deps chromium`, run once with administrator
-  rights, installs them.
-- **Use this Mac's apps and windows**: macOS has to allow it. The bot says which two permissions are
-  missing, Screen Recording and Accessibility, and only the user can grant them in System Settings.
-- **Sign in or pay**: by design. The bot opens the page and waits for them. A sign-in is kept for
-  next time (`setup.md`, Sites they signed in to); paying is always theirs to press. A site that asks
-  again on every job although they signed in is refusing a sign-in carried between browsers: the
-  same section says how a bot works in their own Chrome instead.
-- **Search the web**: only OpenAI, Claude, Gemini and xAI models search by themselves, and only on
-  their own keys. A bot on anything else — the GPT Subscription and the Gateway included — opens
+- **Make an image, a video, speech, or a transcript**: pick a model for it in **Settings › Models**,
+  under Studio.
+- **Open a web page**: the bots' browser downloads in the background on first start, a few hundred
+  megabytes. On a Linux server it may also need `npx playwright install-deps chromium`, run once
+  with administrator rights.
+- **Use this Mac's apps**: macOS must allow Screen Recording and Accessibility in System Settings.
+- **Sign in or pay**: on purpose. The bot opens the page and waits; paying is always theirs to
+  press. A site that asks for a sign-in on every job can be used through their own Chrome
+  (`setup.md`, Sites they signed in to).
+- **Search the web**: a bot on the Vercel AI Gateway or a provider without its own search opens
   pages instead. A search key (Exa) in **Settings › API keys** gives every bot search.
-- **Reach a connected service**: a server that needs signing in again turns red in **Settings ›
-  Connectors**; **Reconnect** there signs in again. A server that does not let an app register
-  itself for sign-in cannot be connected here at all: its error says so, then what the server
-  answered.
+- **Reach a connected service**: one that needs signing in again turns red in **Settings ›
+  Connectors**; **Reconnect** fixes it.
 - **Take a file**: at most 8 files go with one message, 25 MB each.
 
 ## Starting over
 
-Deleting a single call, thread or note is on its own screen. **Settings › Thursday › History ›
-Reset history** deletes every call, every job and everything she remembers, for good; keys, bots and
-connectors stay, and so does what each bot keeps for itself (its own memory and the skills it
-installed, which go only when that bot is deleted). Wiping everything, keys included, is removing the data folder (`setup.md` says
-where).
+**Settings › Thursday › History › Reset history** deletes every call, every job and everything she
+remembers, for good; keys, bots and connectors stay, and so does what each bot keeps for itself.
+Wiping everything, keys included, means deleting the data folder (`setup.md`, Where the files are).
 
 ## Still stuck
 
-**Ask on Discord**, under community at the end of the Settings list, opens the app's community: a
-question there is answered by people who use and build the app. A bug that happens again the same
-way goes to **GitHub**, just below it, under Issues, with the steps that bring it back.
+**Ask on Discord**, under community in the Settings list, opens the app's community. A bug that
+happens again the same way goes to **GitHub**, just below it, as an issue with the steps that bring
+it back.
