@@ -711,7 +711,7 @@ function RunningRow() {
   const { data } = useServerRoute<Running>(queryKey.running);
   if (!data) return <Skeleton className="h-16 w-full rounded-xl" />;
 
-  const { where, mac, command, home } = data;
+  const { where, mac, command, start, home } = data;
   const said = {
     background: {
       title: "In the background",
@@ -722,11 +722,11 @@ function RunningRow() {
       title: "In a terminal",
       hint: "Closing that terminal stops Thursday.",
       how:
-        command && mac
+        start && mac
           ? {
               label:
                 "To keep it running without one, press Ctrl+C there and run",
-              run: `${command} start`,
+              run: start,
             }
           : null,
     },

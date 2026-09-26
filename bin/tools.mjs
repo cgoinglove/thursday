@@ -24,6 +24,17 @@ export const isCheckout = (root) =>
   existsSync(join(root, "scripts", "dev.mts"));
 
 /**
+ * The user's files when no `--home` is given: database, workspace, installed skills. An
+ * installed package keeps them in the home folder, never inside the package — an upgrade
+ * replaces that. A checkout keeps them in the checkout, which is where `pnpm dev` already
+ * writes them (config.ts DATA_DIR): a build started here opens the data it was developed
+ * against, not a second, empty one beside it.
+ */
+export const DEFAULT_HOME = isCheckout(ROOT)
+  ? ROOT
+  : join(homedir(), ".thursday");
+
+/**
  * What this person types to run the app, for a line that tells them to run it again. Only a
  * global install puts `thursday` on the PATH: said to someone who ran `npx`, it is a command
  * they do not have. npx names itself in npm_lifecycle_event and unpacks into its `_npx` cache,
@@ -42,6 +53,22 @@ export function thursdayCommand() {
   if (isCheckout(ROOT)) return "pnpm start";
   return "thursday";
 }
+
+/**
+ * The line to type for `sub` — start, stop, status, or "" to run it in a terminal — on this
+ * data folder: `--home` is said when it is not the one the command finds by itself. Followed
+ * as printed without it, a line served another folder, an empty app or a checkout's own data.
+ */
+export function commandFor(sub, home, command = thursdayCommand()) {
+  const line = sub ? `${command} ${sub}` : command;
+  return home && resolve(home) !== DEFAULT_HOME
+    ? `${line} --home ${shellWord(home)}`
+    : line;
+}
+
+/** A path a shell reads back as it is: quoted once it holds more than plain characters. */
+const shellWord = (path) =>
+  /^[\w@%+=:,./-]+$/.test(path) ? path : `'${path.replaceAll("'", `'\\''`)}'`;
 
 /** A browser that will not open is not a failure. */
 export function openBrowser(url) {

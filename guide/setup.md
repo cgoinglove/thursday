@@ -151,15 +151,17 @@ Everything is on this computer, in one folder: `.thursday` in their home folder 
 `npx thursday-agent` or installed, or the folder it was started from otherwise; every start prints
 it. It holds the database (calls, memory, bots, keys, her settings), the kept sign-ins, and the
 workspace with finished work, each bot's folder and installed skills. Updating the app never touches
-it. Nothing is sent anywhere except to the model providers and services they set up. The app listens
-only to this computer and has no account.
+any of these. On a Mac that keeps it running in the background, `app` in it is the copy that runs
+there, which `start` replaces with each version. Nothing is sent anywhere except to the model
+providers and services they set up. The app listens only to this computer and has no account.
 
 The bots' browser is the one thing outside it: a download of a few hundred megabytes in the
 computer's cache folder.
 
 To back up, copy that folder with the app stopped; moving to another computer is the same folder
-put in the same place. If the app ever cannot open the database, the terminal asks whether to set it
-aside and start fresh; the old file is kept beside the new one, with `.corrupt-` in its name.
+put in the same place, and `app` need not come along: `start` there installs a copy for that
+computer. If the app ever cannot open the database, the terminal asks whether to set it aside and
+start fresh; the old file is kept beside the new one, with `.corrupt-` in its name.
 
 ## What it costs
 

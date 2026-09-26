@@ -5,21 +5,32 @@
 
 import { spawnSync } from "node:child_process";
 import {
+  closeSync,
   existsSync,
+  fstatSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
+  readSync,
   realpathSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
-import { join, sep } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { delimiter, join, sep } from "node:path";
 import { createInterface } from "node:readline/promises";
-import { runningOn, stopLines } from "./lock.mjs";
+import { heldBy, runningOn, startedAt, stillRuns, stopLines } from "./lock.mjs";
 import { homePort, portTaken } from "./port.mjs";
-import { isCheckout, openBrowser, PROGRAM, thursdayCommand } from "./tools.mjs";
+import {
+  commandFor,
+  isCheckout,
+  openBrowser,
+  PROGRAM,
+  thursdayCommand,
+} from "./tools.mjs";
 
 /** launchd's name for the job. The file it reads is named after it. */
 const LABEL = "thursday-agent";
@@ -41,6 +52,15 @@ const UP_MS = 90_000;
 
 const AGENTS = join(homedir(), "Library", "LaunchAgents");
 const PLIST = join(AGENTS, `${LABEL}.plist`);
+
+/** Written into a copy's folder under PROGRAM once npm has put all of it there. */
+const INSTALLED = "installed.json";
+
+/**
+ * One start at a time: two would install into one folder, and each replace the other's job. In
+ * the temporary folder, which is this person's own on a Mac, so it holds nothing for long.
+ */
+const START_LOCK = join(tmpdir(), `${LABEL}-start.lock`);
 
 /** This login session. A user agent, so it goes with the person, not the machine. */
 const domain = () => `gui/${process.getuid()}`;
@@ -76,7 +96,13 @@ export function backgroundJob() {
     )?.[1];
   const home = value("home");
   if (!home) return null;
-  return { home: unxml(home), port: Number(value("port")) || null };
+  return {
+    home: unxml(home),
+    port: Number(value("port")) || null,
+    // Written by `autostart` before there was a copy of its own to run: from a global install,
+    // and without the mark that tells Settings it is the background
+    legacy: !plist.includes("<key>THURSDAY_BACKGROUND</key>"),
+  };
 }
 
 /**
@@ -109,8 +135,10 @@ const plistOf = ({
        leave the installed window looking at an address nothing answers on. -->
   <key>ProgramArguments</key>
   <array>
-    <!-- Node by name on the PATH below, not by the file it was: a Homebrew or version
-         manager upgrade removes that file, and the app stopped starting at login -->
+    <!-- Node by name on the PATH below, not by the file it was: a Homebrew upgrade removes
+         that file, and the app stopped starting at login. A version manager that puts a
+         folder per version on the PATH (nvm, fnm) still ties it to that version: once it is
+         removed, "start" again from the Node in use -->
     <string>/usr/bin/env</string>
     <string>node</string>
     <string>${xml(cli)}</string>
@@ -126,7 +154,7 @@ const plistOf = ({
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
-    <string>${xml(process.env.PATH ?? "")}</string>
+    <string>${xml(personPath())}</string>
     <!-- How the starter knows it is this job, and tells Settings where it runs -->
     <key>THURSDAY_BACKGROUND</key>
     <string>1</string>
@@ -152,6 +180,45 @@ const plistOf = ({
 </plist>
 `;
 
+/**
+ * The PATH of the terminal that ran this, without what npm put ahead of it. Run through npx, the
+ * PATH also holds npx's cache and the `node_modules/.bin` of the folder it was run from and of
+ * every folder above it, and a login item started inside a project found that project's tools
+ * first — `node` included — from then on. npm puts those first, then its own node-gyp-bin,
+ * then the PATH it was given (@npmcli/run-script set-path.js).
+ */
+function personPath() {
+  const dirs = (process.env.PATH ?? "").split(delimiter);
+  const npm = dirs.findLastIndex((dir) => dir.endsWith(`${sep}node-gyp-bin`));
+  return dirs.slice(npm + 1).join(delimiter);
+}
+
+/**
+ * The job's file, written beside where it goes: moved into place, it is there whole or not at
+ * all, and a full disk leaves the one before rather than half of a new one. Never writable by
+ * the group, which launchd refuses to load. The staged path, for the caller to move.
+ */
+function stagePlist(text) {
+  mkdirSync(AGENTS, { recursive: true });
+  const staged = `${PLIST}.new`;
+  rmSync(staged, { force: true });
+  writeFileSync(staged, text, { mode: 0o644 });
+  return staged;
+}
+
+/**
+ * Takes the job out and waits for launchd to let go of it: it keeps the job's record until the
+ * server has parked its jobs and exited, and a job loaded under the same name meanwhile is
+ * refused as one already there. Blocking, for a Ctrl+C that has to finish before it exits.
+ */
+function bootOut() {
+  const out = launchctl("bootout", `${domain()}/${LABEL}`);
+  const pause = new Int32Array(new SharedArrayBuffer(4));
+  for (let waited = 0; waited < FREE_MS && jobState(); waited += 250)
+    Atomics.wait(pause, 0, 0, 250);
+  return out;
+}
+
 /** Whether the port is free, giving a server that was just stopped time to let go of it. */
 async function waitFree(port) {
   for (let waited = 0; waited < FREE_MS; waited += 250) {
@@ -169,14 +236,20 @@ const same = (a, b) => {
   }
 };
 
-/** Whether a copy installed under PROGRAM is whole, and the version it says it is. */
-function intact(installed, version) {
+/**
+ * Whether a copy installed under PROGRAM is whole, of this version and for this machine. npm
+ * writes a package's files in no order that ends on one to look for: a copy cut short — killed,
+ * the power gone — held its manifest and its server and not the rest, and a data folder carried
+ * to a Mac of the other kind carries native code that does not run there. The mark is written
+ * once npm has finished, for the machine it ran on.
+ */
+function intact(folder, version) {
   try {
-    const manifest = JSON.parse(
-      readFileSync(join(installed, "package.json"), "utf8"),
-    );
+    const mark = JSON.parse(readFileSync(join(folder, INSTALLED), "utf8"));
     return (
-      manifest.version === version && existsSync(join(installed, "server.js"))
+      mark.version === version &&
+      mark.platform === process.platform &&
+      mark.arch === process.arch
     );
   } catch {
     return false;
@@ -195,8 +268,8 @@ function installCopy(root, version) {
   if (isCheckout(root)) return root;
   const folder = join(PROGRAM, version);
   const installed = join(folder, "node_modules", "thursday-agent");
-  if (same(root, installed) || intact(installed, version)) return installed;
-  // Half a copy from an install that was cut short
+  if (same(root, installed) || intact(folder, version)) return installed;
+  // Half a copy from an install that was cut short, or one for another machine
   rmSync(folder, { recursive: true, force: true });
   mkdirSync(folder, { recursive: true });
   writeFileSync(
@@ -224,8 +297,23 @@ function installCopy(root, version) {
     throw new Error(
       npm.stderr?.trim() || npm.error?.message || `npm exited ${npm.status}`,
     );
-  if (!intact(installed, version))
+  let manifest = null;
+  try {
+    manifest = JSON.parse(
+      readFileSync(join(installed, "package.json"), "utf8"),
+    );
+  } catch {
+    // Said below
+  }
+  if (
+    manifest?.version !== version ||
+    !existsSync(join(installed, "server.js"))
+  )
     throw new Error(`npm finished, but ${installed} is not a whole copy.`);
+  writeFileSync(
+    join(folder, INSTALLED),
+    `${JSON.stringify({ version, platform: process.platform, arch: process.arch })}\n`,
+  );
   return installed;
 }
 
@@ -245,16 +333,38 @@ function pruneCopies(program) {
 }
 
 /**
- * Puts back the job there was before a start that did not work, so what ran still runs; with
- * none before, no job is left behind to fail again at every login.
+ * Writes back and loads the job file there was before a start that did not work; with none
+ * before, no job is left behind to fail again at every login. Whether one was loaded.
  */
-function restore(before) {
-  if (before === null) {
-    rmSync(PLIST, { force: true });
-    return false;
+function reload(before) {
+  if (before !== null) {
+    try {
+      renameSync(stagePlist(before), PLIST);
+      if (launchctl("bootstrap", domain(), PLIST).status === 0) return true;
+    } catch {
+      // Said by the caller: nothing runs in the background
+    }
   }
-  writeFileSync(PLIST, before);
-  return launchctl("bootstrap", domain(), PLIST).status === 0;
+  rmSync(PLIST, { force: true });
+  return false;
+}
+
+/**
+ * Puts back the job there was, and says whether it serves again. One that no longer can — its
+ * database already moved on by the version that failed, its copy gone — is taken out too: left
+ * in, launchd would start it every half minute and at every login. The line to print.
+ */
+async function putBack(before, job) {
+  if (!reload(before))
+    return before === null
+      ? "Nothing runs in the background now."
+      : "The one that ran before could not be started again, so nothing runs in the background now.";
+  if (!job?.port) return "The one that ran before is loaded again.";
+  if (await waitUp(job.port, job.home))
+    return `The one that ran before runs again: http://localhost:${job.port}`;
+  bootOut();
+  rmSync(PLIST, { force: true });
+  return "The one that ran before did not come back either, so nothing runs in the background now.";
 }
 
 /** How far the log runs now, so a failure shows only what this start wrote after it. */
@@ -266,17 +376,23 @@ function logSize(log) {
   }
 }
 
-/** The last lines the log gained since `from`, for a start that did not come up. */
+/**
+ * The last lines the log gained since `from`, for a start that did not come up. Read from its
+ * end: launchd only ever appends to it, and it grows for as long as the job runs.
+ */
 function logTail(log, from, lines = 12) {
+  let fd;
   try {
-    return readFileSync(log)
-      .subarray(from)
-      .toString("utf8")
-      .trimEnd()
-      .split("\n")
-      .slice(-lines);
+    fd = openSync(log, "r");
+    const size = fstatSync(fd).size;
+    const start = Math.max(from, size - 16_384);
+    const text = Buffer.alloc(Math.max(0, size - start));
+    readSync(fd, text, 0, text.length, start);
+    return text.toString("utf8").trimEnd().split("\n").slice(-lines);
   } catch {
     return [];
+  } finally {
+    if (fd !== undefined) closeSync(fd);
   }
 }
 
@@ -298,16 +414,23 @@ async function answers(port) {
 }
 
 /**
- * Waits for the job to serve a page. A job that stopped with a failure meanwhile is not waited
- * on — launchd would start it again in half a minute, and it would fail the same way.
+ * Waits for the job to serve a page on this folder. The page alone is not enough: a server a
+ * terminal started meanwhile answers on the same port, and was taken for the job while the job
+ * failed. A job that stopped with a failure meanwhile is not waited on — launchd would start
+ * it again in half a minute, and it would fail the same way.
  */
-async function waitUp(port) {
+async function waitUp(port, home) {
   const until = Date.now() + UP_MS;
   const since = Date.now();
   while (Date.now() < until) {
-    if ((await portTaken(port)) && (await answers(port))) return true;
     const state = jobState();
     if (!state) return false;
+    if (
+      state.pid &&
+      heldBy(runningOn(home), state.pid) &&
+      (await answers(port))
+    )
+      return true;
     if (!state.pid && failed(state.exit) && Date.now() - since > 2000)
       return false;
     await sleep(500);
@@ -331,6 +454,44 @@ function markDecided(home) {
   }
 }
 
+/**
+ * Takes the start lock. The process of the start that holds it, when another does; a lock left
+ * by a start that was killed names a process that is gone, and is taken over. A temporary folder
+ * that cannot be written costs only this guard.
+ */
+function holdStart() {
+  const mine = JSON.stringify({
+    pid: process.pid,
+    startedUtc: startedAt(process.pid, "UTC") || undefined,
+  });
+  for (let tries = 0; tries < 2; tries++) {
+    try {
+      writeFileSync(START_LOCK, mine, { flag: "wx" });
+      return null;
+    } catch (error) {
+      if (error?.code !== "EEXIST") return null;
+    }
+    let held = null;
+    try {
+      held = JSON.parse(readFileSync(START_LOCK, "utf8"));
+    } catch {
+      // Unreadable: nobody's
+    }
+    if (Number.isInteger(held?.pid) && stillRuns(held)) return held.pid;
+    rmSync(START_LOCK, { force: true });
+  }
+  return null;
+}
+
+const letGoOfStart = () => {
+  try {
+    if (JSON.parse(readFileSync(START_LOCK, "utf8")).pid === process.pid)
+      rmSync(START_LOCK, { force: true });
+  } catch {
+    // Gone already
+  }
+};
+
 /** Lines to print, indented; null is a line left out, "" an empty one. */
 const block = (lines) =>
   `\n${lines
@@ -342,9 +503,10 @@ const fail = (lines) => console.error(block(lines));
 
 /**
  * Starts the server in the background and has it start when the person logs in; a job already
- * there — another version, another data folder, or one that stopped — is replaced, and put
- * back if the new one does not come up. True once it serves. Everything it could not do is
- * said before it returns false.
+ * there — another version, another data folder, another port, or one that stopped — is
+ * replaced, and put back if the new one does not come up. True once it serves; "held" when
+ * another server or another start holds this folder, so nothing is to be served here either;
+ * false otherwise. Everything it could not do is said before it returns.
  */
 export async function startInBackground({
   root,
@@ -353,30 +515,53 @@ export async function startInBackground({
   open,
   version,
 }) {
-  const command = thursdayCommand();
   if (!mac()) {
     fail([
       "Running in the background is macOS only for now.",
-      `Elsewhere, run ${command} in a terminal and leave it open,`,
+      `Elsewhere, run ${commandFor("", home)} in a terminal and leave it open,`,
       "or add it to the programs that start when you log in.",
     ]);
     return false;
   }
+  const another = holdStart();
+  if (another) {
+    fail([
+      `Another start is setting it up already (process ${another}).`,
+      "Run this again once it is done.",
+    ]);
+    return "held";
+  }
+  try {
+    return await replaceJob({ root, home, asked, open, version });
+  } finally {
+    letGoOfStart();
+  }
+}
 
+async function replaceJob({ root, home, asked, open, version }) {
+  const command = thursdayCommand();
   const state = jobState();
   const job = backgroundJob();
   const running = runningOn(home);
   // A server on this folder that is not the job: two must never share one database, and
   // stopping a person's terminal for them is not this command's to do
-  if (running && running.pid !== state?.pid) {
+  if (running && !heldBy(running, state?.pid)) {
     fail([
       `Thursday is already running on this data folder${running.url ? `: ${running.url}` : ""}`,
       ...stopLines(running.pid, home),
       "Then run this again.",
     ]);
-    return false;
+    return "held";
   }
-  if (running && job?.home === home && running.version === version) {
+  // Nothing to change: this version serves this folder already, on the port asked for, from a
+  // job this version wrote. One an earlier `autostart` wrote is written again
+  if (
+    running &&
+    job?.home === home &&
+    !job.legacy &&
+    running.version === version &&
+    (asked === undefined || Number(asked) === job.port)
+  ) {
     say([
       `Thursday ${version} already runs in the background: ${running.url}`,
       open ? "Opened it in your browser." : null,
@@ -391,13 +576,12 @@ export async function startInBackground({
     return false;
   }
   // The job about to be replaced may hold it; anything else holding it is not about to move
-  const busy = () =>
-    fail([
-      `Something else serves on port ${port}.`,
-      "Stop it, or choose another with --port, and run this again.",
-    ]);
+  const busy = [
+    `Something else serves on port ${port}.`,
+    "Stop it, or choose another with --port, and run this again.",
+  ];
   if (!(state?.pid && job?.port === port) && (await portTaken(port))) {
-    busy();
+    fail(busy);
     return false;
   }
 
@@ -417,58 +601,104 @@ export async function startInBackground({
     return false;
   }
 
+  // Written before the job there is stopped: a folder that cannot be written, or a full disk,
+  // then leaves what runs running
+  const log = join(home, LOG_FILE);
+  let staged;
+  try {
+    mkdirSync(home, { recursive: true });
+    staged = stagePlist(
+      plistOf({ cli: join(program, "bin", "thursday.mjs"), home, port, log }),
+    );
+  } catch (error) {
+    fail([
+      `Could not write ${PLIST}:`,
+      String(error?.message ?? error),
+      "",
+      "Nothing was changed. Your data is as it was.",
+    ]);
+    return false;
+  }
+
   // Not loaded is not a failure: this is also how an earlier job lets go before a new one
   const before = existsSync(PLIST) ? readFileSync(PLIST, "utf8") : null;
-  if (state) {
-    launchctl("bootout", `${domain()}/${LABEL}`);
-    if (job?.port) await waitFree(job.port);
-  }
-  if (!(await waitFree(port))) {
-    restore(before);
-    busy();
-    return false;
-  }
-
-  const log = join(home, LOG_FILE);
-  const from = logSize(log);
-  mkdirSync(home, { recursive: true });
-  mkdirSync(AGENTS, { recursive: true });
-  writeFileSync(
-    PLIST,
-    plistOf({ cli: join(program, "bin", "thursday.mjs"), home, port, log }),
-  );
-  const started = launchctl("bootstrap", domain(), PLIST);
-  if (started.status !== 0) {
-    const back = restore(before);
-    fail([
-      "macOS refused to start it in the background:",
-      started.stderr?.trim() || `launchctl exited ${started.status}`,
-      back ? "The one that ran before is starting again." : null,
-    ]);
-    return false;
-  }
-
-  const url = `http://localhost:${port}`;
-  if (!(await waitUp(port))) {
-    // Taken back out: left in, launchd would start it every half minute and at every login,
-    // failing the same way each time
-    launchctl("bootout", `${domain()}/${LABEL}`);
-    const back = restore(before);
-    fail([
-      "It did not come up in the background. The log says why:",
-      "",
-      ...logTail(log, from),
-      "",
-      `Log: ${log}`,
-      back
-        ? "The one that ran before is starting again."
+  // From here until the new one serves, the job there was is out: Ctrl+C, or the terminal
+  // closed, loads it again rather than leave nothing, or a new job that may not work, loaded.
+  // Heard once: npx passes the terminal's Ctrl+C on as a second one, which ended this halfway
+  let interrupting = false;
+  const interrupted = () => {
+    if (interrupting) return;
+    interrupting = true;
+    bootOut();
+    rmSync(staged, { force: true });
+    say([
+      "Stopped.",
+      reload(before)
+        ? "The one that ran before is loaded again."
         : "Nothing runs in the background now.",
-      `Run in a terminal, ${command}, and it can ask what to do about it.`,
     ]);
-    return false;
+    // Exiting skips the `finally` that would
+    letGoOfStart();
+    process.exit(130);
+  };
+  const signals = ["SIGINT", "SIGTERM", "SIGHUP"];
+  for (const signal of signals) process.on(signal, interrupted);
+  try {
+    if (state) {
+      bootOut();
+      if (job?.port) await waitFree(job.port);
+    }
+    if (!(await waitFree(port))) {
+      rmSync(staged, { force: true });
+      fail([...busy, await putBack(before, job)]);
+      return false;
+    }
+
+    const from = logSize(log);
+    try {
+      renameSync(staged, PLIST);
+    } catch (error) {
+      fail([
+        `Could not write ${PLIST}:`,
+        String(error?.message ?? error),
+        await putBack(before, job),
+      ]);
+      return false;
+    }
+    const started = launchctl("bootstrap", domain(), PLIST);
+    if (started.status !== 0) {
+      fail([
+        "macOS refused to start it in the background:",
+        started.stderr?.trim() || `launchctl exited ${started.status}`,
+        await putBack(before, job),
+      ]);
+      return false;
+    }
+
+    if (!(await waitUp(port, home))) {
+      // Taken back out: left in, launchd would start it every half minute and at every login,
+      // failing the same way each time
+      bootOut();
+      // Read before the one that ran before writes to the same log again
+      const why = logTail(log, from);
+      const back = await putBack(before, job);
+      fail([
+        "It did not come up in the background. The log says why:",
+        "",
+        ...why,
+        "",
+        `Log: ${log}`,
+        back,
+        `Run in a terminal, ${commandFor("", home)}, and it can ask what to do about it.`,
+      ]);
+      return false;
+    }
+  } finally {
+    for (const signal of signals) process.off(signal, interrupted);
   }
   pruneCopies(program);
 
+  const url = `http://localhost:${port}`;
   say([
     `Thursday ${version} runs in the background, and starts when you log in.`,
     url,
@@ -484,9 +714,11 @@ export async function startInBackground({
   return true;
 }
 
-/** Stops the background job, and it no longer starts at login. The data folder is untouched. */
+/**
+ * Stops the background job, and it no longer starts at login. The data folder is untouched.
+ * False when macOS kept it running, which is said.
+ */
 export async function stopBackground({ home }) {
-  const command = thursdayCommand();
   const job = backgroundJob();
   const state = mac() ? jobState() : null;
   const terminal = runningOn(home);
@@ -496,19 +728,35 @@ export async function stopBackground({ home }) {
       "Thursday was not running in the background.",
       ...(terminal ? stopLines(terminal.pid, home) : []),
     ]);
-    return;
+    return true;
   }
 
-  launchctl("bootout", `${domain()}/${LABEL}`);
+  if (state) {
+    // A server slow to park its jobs keeps its record past the wait: a refusal is launchctl
+    // saying it failed, with the job still loaded
+    const out = bootOut();
+    if (out.status !== 0 && jobState()) {
+      fail([
+        "macOS did not stop it:",
+        out.stderr?.trim() || `launchctl exited ${out.status}`,
+      ]);
+      return false;
+    }
+  }
   rmSync(PLIST, { force: true });
-  if (job?.port) await waitFree(job.port);
+  // A server parks its running jobs before it exits, which can outlast the wait
+  const freed = !job?.port || (await waitFree(job.port));
   // Stopped on purpose: a later run in a terminal does not ask again
   markDecided(job?.home ?? home);
   say([
     "Thursday stopped, and no longer starts when you log in.",
+    freed
+      ? null
+      : `Port ${job.port} is still in use; it may take a moment more.`,
     job ? `data: ${job.home} (kept as it is)` : null,
-    `Start it again: ${command} start`,
+    `Start it again: ${commandFor("start", job?.home ?? home)}`,
   ]);
+  return true;
 }
 
 /** Where Thursday runs, if it does, and how to reach and stop it. */
@@ -518,7 +766,7 @@ export function printStatus({ home }) {
   const state = mac() && job ? jobState() : null;
   const served = job ? runningOn(job.home) : null;
 
-  if (job && served && served.pid === state?.pid) {
+  if (job && heldBy(served, state?.pid)) {
     say([
       `Thursday${served.version ? ` ${served.version}` : ""} runs in the background, and starts when you log in.`,
       served.url,
@@ -529,13 +777,17 @@ export function printStatus({ home }) {
     return;
   }
   if (job) {
+    const log = join(job.home, LOG_FILE);
     say([
       "Thursday is set to start when you log in, but is not running now.",
       failed(state?.exit)
-        ? `It last stopped with exit ${state.exit}. The log says why:`
-        : "The log says why:",
-      join(job.home, LOG_FILE),
-      `Try again: ${command} start   ·   Stop trying: ${command} stop`,
+        ? `It last stopped with exit ${state.exit}. The end of its log:`
+        : "The end of its log:",
+      "",
+      ...logTail(log, 0, 6),
+      "",
+      `Log: ${log}`,
+      `Try again: ${commandFor("start", job.home)}   ·   Stop trying: ${command} stop`,
     ]);
     return;
   }
@@ -545,28 +797,31 @@ export function printStatus({ home }) {
       `Thursday runs on this data folder${terminal.url ? `: ${terminal.url}` : ""}, not in the background.`,
       ...stopLines(terminal.pid, home),
       mac()
-        ? `To run it in the background instead, stop it and run: ${command} start`
+        ? `To run it in the background instead, stop it and run: ${commandFor("start", home)}`
         : null,
     ]);
     return;
   }
   say([
     "Thursday is not running.",
-    mac() ? `In the background: ${command} start` : null,
-    `In this terminal:  ${command}`,
+    mac() ? `In the background: ${commandFor("start", home)}` : null,
+    `In this terminal:  ${commandFor("", home)}`,
   ]);
 }
 
 /**
  * The one question a first run asks: whether to keep Thursday running in the background.
  * Asked of a person at a terminal on a Mac, with no job yet and nothing decided before; a
- * checkout is someone working on the app, who runs it by hand. True once it runs in the
- * background, and this run has nothing left to do; false to serve here, in the terminal.
+ * checkout is someone working on the app, who runs it by hand. "background" once it runs
+ * there, and this run has nothing left to do; "terminal" to serve here; "refused" when another
+ * server or start took this folder while the question waited, and serving here would make two.
  */
 export async function offerBackground({ root, home, port, open, version }) {
-  if (!mac() || !process.stdin.isTTY || !process.stdout.isTTY) return false;
-  if (process.env.CI || isCheckout(root)) return false;
-  if (existsSync(PLIST) || existsSync(join(home, DECIDED_FILE))) return false;
+  if (!mac() || !process.stdin.isTTY || !process.stdout.isTTY)
+    return "terminal";
+  if (process.env.CI || isCheckout(root)) return "terminal";
+  if (existsSync(PLIST) || existsSync(join(home, DECIDED_FILE)))
+    return "terminal";
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   // Raw mode: Ctrl+C arrives here as a key, not as a signal
@@ -588,16 +843,18 @@ export async function offerBackground({ root, home, port, open, version }) {
 
   if (answer === null) {
     console.log();
-    return false;
+    return "terminal";
   }
   if (/^n/i.test(answer.trim())) {
     markDecided(home);
     console.log(
-      `\n  It runs in this terminal until you close it.\n  To keep it running in the background later: ${thursdayCommand()} start`,
+      `\n  It runs in this terminal until you close it.\n  To keep it running in the background later: ${commandFor("start", home)}`,
     );
-    return false;
+    return "terminal";
   }
-  if (await startInBackground({ root, home, port, open, version })) return true;
+  const started = await startInBackground({ root, home, port, open, version });
+  if (started === true) return "background";
+  if (started === "held") return "refused";
   console.log("  Running it in this terminal instead.");
-  return false;
+  return "terminal";
 }

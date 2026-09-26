@@ -1,4 +1,5 @@
 import { homedir } from "node:os";
+import { sep } from "node:path";
 import { DATA_DIR } from "@/config";
 
 /**
@@ -12,6 +13,11 @@ export type Running = {
   mac: boolean;
   /** What the person types to run it — `npx thursday-agent`, `thursday` or `pnpm start`. */
   command: string | null;
+  /**
+   * The line that moves this data folder to the background, `--home` included when it is not
+   * the one the command finds by itself (bin/tools.mjs commandFor).
+   */
+  start: string | null;
   /** The data folder, the home folder written as `~`. */
   home: string;
 };
@@ -30,8 +36,10 @@ export function readRunning(): Running {
     where,
     mac: process.platform === "darwin",
     command: process.env.THURSDAY_COMMAND?.trim() || null,
-    home: DATA_DIR.startsWith(home)
-      ? `~${DATA_DIR.slice(home.length)}`
-      : DATA_DIR,
+    start: process.env.THURSDAY_START?.trim() || null,
+    home:
+      DATA_DIR === home || DATA_DIR.startsWith(`${home}${sep}`)
+        ? `~${DATA_DIR.slice(home.length)}`
+        : DATA_DIR,
   };
 }

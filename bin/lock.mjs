@@ -21,20 +21,7 @@ export function runningOn(home) {
     return null;
   }
   if (!Number.isInteger(held?.pid) || held.pid === process.pid) return null;
-  try {
-    // Signal 0 asks whether the process exists and sends nothing
-    process.kill(held.pid, 0);
-  } catch (error) {
-    // Someone else's process by that id is still a live one
-    if (error?.code !== "EPERM") return null;
-  }
-  // A lock left by a server that died without its exit (a kill -9, a power cut) names a pid
-  // another process may hold after a restart, which would refuse every start until the file
-  // was deleted by hand: the pid is this server only if it started when the lock says. Where
-  // `ps` cannot say (Windows), or the lock predates `started`, the live pid is all there is.
-  const started = startedAt(held.pid);
-  if (typeof held.started === "string" && started && started !== held.started)
-    return null;
+  if (!stillRuns(held)) return null;
   return {
     pid: held.pid,
     url: String(held.url ?? ""),
@@ -43,15 +30,60 @@ export function runningOn(home) {
   };
 }
 
+/**
+ * Whether the process a lock names is still the one that wrote it. A lock left by a process
+ * that died without its exit (a kill -9, a power cut) names a pid another process may hold
+ * after a restart, which would refuse every start until the file was deleted by hand: the pid
+ * is the writer only if it started when the lock says. Where `ps` cannot say (Windows), or the
+ * lock predates its start time, the live pid is all there is.
+ */
+export function stillRuns(held) {
+  try {
+    // Signal 0 asks whether the process exists and sends nothing
+    process.kill(held.pid, 0);
+  } catch (error) {
+    // Someone else's process by that id is still a live one
+    if (error?.code !== "EPERM") return false;
+  }
+  // Compared in UTC: `ps` writes the reader's zone, and a server under launchd (no TZ), a
+  // terminal that exports one, or a Mac that moved zones since it started spelled one start
+  // two ways — the server read as gone, and a second one opened the same database. A lock
+  // written before `startedUtc` has `started` alone, in its writer's zone.
+  const [said, zone] =
+    typeof held.startedUtc === "string"
+      ? [held.startedUtc, "UTC"]
+      : [held.started, undefined];
+  if (typeof said !== "string") return true;
+  const started = startedAt(held.pid, zone);
+  return !started || started === said;
+}
+
+/**
+ * Whether the server holding this folder is `pid`, or runs under it: launchd knows a job by the
+ * process it started, and a version manager's shim (Volta's) starts node as its child rather
+ * than becoming it.
+ */
+export function heldBy(running, pid) {
+  if (!running || !pid) return false;
+  return (
+    running.pid === pid ||
+    Number(ps(["-o", "ppid=", "-p", String(running.pid)])) === pid
+  );
+}
+
 // LC_ALL=C: a start time is compared as `ps` wrote it, so both reads spell it alike
-const ps = (...args) =>
+const ps = (args, zone) =>
   spawnSync("ps", args, {
     encoding: "utf8",
-    env: { ...process.env, LC_ALL: "C" },
+    env: { ...process.env, LC_ALL: "C", ...(zone ? { TZ: zone } : {}) },
   }).stdout?.trim() ?? "";
 
-/** When a process started, to the second, as `ps` has it. Empty where it cannot say. */
-const startedAt = (pid) => ps("-o", "lstart=", "-p", String(pid));
+/**
+ * When a process started, to the second, as `ps` has it in `zone` (the reader's own when none).
+ * Empty where it cannot say.
+ */
+export const startedAt = (pid, zone) =>
+  ps(["-o", "lstart=", "-p", String(pid)], zone);
 
 /**
  * Where a process runs, as `ps` has it: the terminal it is attached to (null when none), when
@@ -59,19 +91,19 @@ const startedAt = (pid) => ps("-o", "lstart=", "-p", String(pid));
  * `npx thursday-agent`, not the Node process under it. Null where `ps` cannot say (Windows).
  */
 function whereRuns(pid) {
-  const [tty, group, ...started] = ps(
+  const [tty, group, ...started] = ps([
     "-o",
     "tty=,pgid=,lstart=",
     "-p",
     String(pid),
-  ).split(/\s+/);
+  ]).split(/\s+/);
   if (!tty || !group) return null;
   return {
     terminal: tty === "??" || tty === "?" ? null : tty,
     group,
-    // "Fri Sep 25 20:55:51 2026" to the minute
+    // "Fri Sep 25 20:55:51 2026" to the minute, in the reader's zone: it is read, not compared
     since: started.join(" ").replace(/:\d\d \d{4}$/, ""),
-    typed: ps("-o", "command=", "-p", group),
+    typed: ps(["-o", "command=", "-p", group]),
   };
 }
 
@@ -118,6 +150,8 @@ export function holdFolder(home, url, version) {
       file,
       `${JSON.stringify({
         pid: process.pid,
+        startedUtc: startedAt(process.pid, "UTC") || undefined,
+        // What a starter from before `startedUtc` reads, in this process's zone
         started: startedAt(process.pid) || undefined,
         url,
         version,

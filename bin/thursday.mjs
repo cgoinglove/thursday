@@ -14,13 +14,19 @@ import {
   symlinkSync,
 } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { backgroundJob, offerBackground } from "./background.mjs";
 import { askToSetDatabaseAside, MIGRATION_FAILED_EXIT } from "./database.mjs";
 import { holdFolder, runningOn, stopLines } from "./lock.mjs";
 import { freePort } from "./port.mjs";
-import { openBrowser, ROOT, thursdayCommand, toolPath } from "./tools.mjs";
+import {
+  commandFor,
+  DEFAULT_HOME,
+  openBrowser,
+  ROOT,
+  thursdayCommand,
+  toolPath,
+} from "./tools.mjs";
 
 const { version, name } = JSON.parse(
   await readFile(join(ROOT, "package.json"), "utf8"),
@@ -76,29 +82,22 @@ if (!APP) {
   process.exit(1);
 }
 
-/**
- * The user's files: database, workspace, installed skills. An installed package
- * keeps them in the home folder, never inside the package — an upgrade replaces
- * that. A checkout keeps them in the checkout, which is where `pnpm dev` already
- * writes them (config.ts DATA_DIR): a build started here opens the data it was
- * developed against, not a second, empty one beside it.
- */
-const DEFAULT_HOME = APP === ROOT ? join(homedir(), ".thursday") : ROOT;
-
-const asked = flag("port") ?? process.env.PORT;
+// An exported `PORT=` with nothing in it asks for no port
+const asked = flag("port") ?? (process.env.PORT?.trim() || undefined);
 const home = resolve(flag("home") || process.env.THURSDAY_HOME || DEFAULT_HOME);
 
 // The background (background.mjs): each is the whole command, and never goes on to serve.
 // `autostart` and `autostart --off` are what earlier versions called start and stop.
-const background = { start: "start", stop: "stop", status: "status" }[
-  argv[0] === "autostart" ? (has("--off") ? "stop" : "start") : argv[0]
-];
+const said =
+  argv[0] === "autostart" ? (has("--off") ? "stop" : "start") : argv[0];
+const background = ["start", "stop", "status"].includes(said) ? said : null;
 if (background) {
   const { printStatus, startInBackground, stopBackground } = await import(
     "./background.mjs"
   );
   if (background === "status") printStatus({ home });
-  else if (background === "stop") await stopBackground({ home });
+  else if (background === "stop")
+    process.exit((await stopBackground({ home })) ? 0 : 1);
   else {
     const started = await startInBackground({
       root: ROOT,
@@ -107,24 +106,35 @@ if (background) {
       open: !has("--no-open"),
       version,
     });
-    process.exit(started ? 0 : 1);
+    process.exit(started === true ? 0 : 1);
   }
   process.exit(0);
 }
 
-// Before a port is picked: a second server on this folder would take the next one, and
-// serve the same calls, jobs and phone twice (lock.mjs). Run again, it is usually the app
-// they came for — a second `npx` once its tab is closed — so that one opens instead. One of
-// another version does not: they ran this one to have this one.
-const running = runningOn(home);
-if (running) {
+/**
+ * Leaves when this folder already has a server: a second one would take the next port, and
+ * serve the same calls, jobs and phone twice (lock.mjs). Run again, it is usually the app they
+ * came for — a second `npx` once its tab is closed — so that one opens instead. One of another
+ * version does not: they ran this one to have this one.
+ */
+function leaveToRunning() {
+  const running = runningOn(home);
+  if (!running) return;
   const other =
     running.version && running.version !== version ? running.version : null;
   const opens = Boolean(running.url) && !other && !has("--no-open");
-  // The copy in the background moves to this version by starting it from this one
+  // The copy in the background moves to this version by starting it from this one: through
+  // npx pinned, since a bare `npx thursday-agent` is whichever version npm resolves that day
+  const command = thursdayCommand();
   const moves =
     other && backgroundJob()?.home === home
-      ? `  To move it to ${version}: npx thursday-agent@${version} start\n`
+      ? `  To move it to ${version}: ${commandFor(
+          "start",
+          home,
+          command === "npx thursday-agent"
+            ? `npx thursday-agent@${version}`
+            : command,
+        )}\n`
       : null;
   console.log(
     `\n  Thursday${other ? ` ${other}` : ""} is already running on this data folder${running.url ? `: ${running.url}` : ""}\n${
@@ -146,18 +156,22 @@ if (running) {
   process.exit(other ? 1 : 0);
 }
 
+// Before a port is picked
+leaveToRunning();
+
 // A first run in a terminal asks once whether to keep it running in the background; said
 // yes, the background serves and this run is done
-if (
-  await offerBackground({
-    root: ROOT,
-    home,
-    port: asked,
-    open: !has("--no-open"),
-    version,
-  })
-)
-  process.exit(0);
+const chose = await offerBackground({
+  root: ROOT,
+  home,
+  port: asked,
+  open: !has("--no-open"),
+  version,
+});
+if (chose !== "terminal") process.exit(chose === "background" ? 0 : 1);
+// The question waits as long as the person does, and a start takes a minute: a server another
+// terminal started on this folder meanwhile is the one to use, not a second beside it
+leaveToRunning();
 const port = String(await freePort(asked, home));
 const url = `http://localhost:${port}`;
 holdFolder(home, url, version);
@@ -214,6 +228,7 @@ function start() {
           ? "terminal"
           : "elsewhere",
       THURSDAY_COMMAND: thursdayCommand(),
+      THURSDAY_START: commandFor("start", home),
       PORT: port,
       // This machine only. A voice agent with a shell is not a thing to expose.
       // Never inherited: Docker exports HOSTNAME as the container and some

@@ -64,6 +64,7 @@ Open any note in Settings › Memory to see exactly what she knows. To change it
 ~/.thursday
 ├── local.db          calls, memory, bots, jobs, keys
 ├── .sign-ins/        the sites you signed in to, one file a site
+├── app/              on a Mac, the copy that runs in the background
 └── .ai-workspace
     ├── artifacts/    finished work, a folder per bot
     ├── projects/     code and longer-lived projects
