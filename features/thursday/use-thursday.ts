@@ -12,6 +12,7 @@ import {
   CALL_PAGE,
   CALL_RELAY,
   INBOX_POLL_MS,
+  LIVE_CALL,
 } from "@/config";
 import { LIVE_DEFAULTS } from "@/features/ai/live.schema";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
@@ -1087,8 +1088,10 @@ export function useThursday(
       heard.current = Date.now();
 
       if (line.opening) {
-        // The greeting goes first; open work waits until she has said it
+        // The greeting goes first; open work waits until she has said it. The room is kept
+        // from her until she starts it, or she waits on it (config LIVE_CALL.openingHoldMs)
         readAloud();
+        live.holdInput(LIVE_CALL.openingHoldMs);
         void live.append("instructions", line.opening).then(unless);
       }
       // What is already open is the backend's to know and nobody's to hear: it waits there

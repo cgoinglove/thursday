@@ -17,6 +17,11 @@ export const APP_NAME = "Thursday";
  * settings, once per model and effort; past it the call opens with them as chosen.
  * keyCheckMs bounds asking OpenAI about a key as it is saved; past it the key is kept
  * unasked, so a slow network never stands between a user and saving one.
+ * openingHoldMs holds the caller's input off while she opens a call, until her first words
+ * or this long: with any sound in the room she often waited for the caller rather than
+ * greet (a quiet living room under the line, 09-26: a first call spoke first 2 of 6, held
+ * 6 of 6; an ordinary one 16 of 32, held 10 of 10). Longer gives her more time to begin,
+ * and what the caller says in it is not heard; 0 never holds.
  */
 export const LIVE_CALL = {
   startupMs: 30_000,
@@ -27,6 +32,7 @@ export const LIVE_CALL = {
   backendOutputTokens: 4_096,
   reasoningCheckMs: 5_000,
   keyCheckMs: 5_000,
+  openingHoldMs: 3_000,
 };
 
 /**

@@ -577,6 +577,76 @@ test("updates go out one at a time by kind, settle on their own acknowledgement,
   assert.equal(sent.length, 2);
 });
 
+const herWords = (delta: string, start_ms: number) =>
+  wire.on.event({
+    type: "session.output_transcript.delta",
+    delta,
+    start_ms,
+    end_ms: start_ms + 200,
+  });
+
+test("the caller's input is held off for her opening and let go at her first words, once", async (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  const { session } = await connect();
+  session.holdInput(LIVE_CALL.openingHoldMs);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].type, "session.input_audio.mute");
+
+  herWords("Hey", 0);
+  herWords(" there", 200);
+  assert.equal(count("session.input_audio.unmute"), 1);
+  wire.on.event({
+    type: "session.input_audio.unmuted",
+    client_event_id: sent.find(
+      (event) => event.type === "session.input_audio.unmute",
+    )?.event_id,
+  });
+  // The hold's own clock was stopped with it
+  context.mock.timers.tick(LIVE_CALL.openingHoldMs);
+  assert.equal(count("session.input_audio.unmute"), 1);
+});
+
+test("a hold she never speaks into runs out by itself", async (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  const { session } = await connect();
+  session.holdInput(LIVE_CALL.openingHoldMs);
+  context.mock.timers.tick(LIVE_CALL.openingHoldMs - 1);
+  assert.equal(count("session.input_audio.unmute"), 0);
+  context.mock.timers.tick(1);
+  assert.equal(count("session.input_audio.unmute"), 1);
+});
+
+test("a mute Live refuses left the input open: nothing is unmuted after it", async (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  const { session, failures } = await connect();
+  session.holdInput(LIVE_CALL.openingHoldMs);
+  wire.on.event({
+    type: "error",
+    error: { message: "Not allowed.", client_event_id: sent[0].event_id },
+  });
+  context.mock.timers.tick(LIVE_CALL.openingHoldMs);
+  herWords("Hey", 0);
+  assert.equal(count("session.input_audio.unmute"), 0);
+  assert.deepEqual(failures, []);
+});
+
+test("an unmute Live refuses ends the call with why, rather than going on deaf to the caller", async () => {
+  const { session, failures } = await connect();
+  session.holdInput(LIVE_CALL.openingHoldMs);
+  herWords("Hey", 0);
+  wire.on.event({
+    type: "error",
+    error: {
+      message: "Not allowed.",
+      client_event_id: sent.find(
+        (event) => event.type === "session.input_audio.unmute",
+      )?.event_id,
+    },
+  });
+  assert.equal(failures.length, 1);
+  assert.match(failures[0], /could not hear the microphone again/);
+});
+
 test("a fact for the backend alone goes as an item of its own: no append the voice would read, and no turn started", async () => {
   const { session } = await connect();
   session.brief(

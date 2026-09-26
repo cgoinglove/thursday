@@ -266,6 +266,21 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
   /** The chunk on the wire, by the event id its acknowledgement names. */
   let pendingAppend: string | null = null;
   let lastOutput = -Infinity;
+  /**
+   * The caller's input held off while she opens the call (`holdInput`): the mute command,
+   * and the unmute once it is sent, by the event ids their answers name.
+   */
+  let held: { mute: string; unmute: string | null } | null = null;
+  let holdTimer: ReturnType<typeof setTimeout> | undefined;
+  const letGo = () => {
+    clearTimeout(holdTimer);
+    if (!held || held.unmute || closed || closing) return;
+    held.unmute = crypto.randomUUID();
+    transport.send({
+      type: "session.input_audio.unmute",
+      event_id: held.unmute,
+    });
+  };
 
   const flushTranscripts = () => {
     clearTimeout(transcriptTimer);
@@ -279,6 +294,7 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
     closed = true;
     clearTimeout(closeTimer);
     clearTimeout(appendTimer);
+    clearTimeout(holdTimer);
     clearInterval(activityTimer);
     flushTranscripts();
     pendingAppend = null;
@@ -448,7 +464,12 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
         transcript(event, "user");
         break;
       case "session.output_transcript.delta":
+        // Her opening has begun: the caller is heard again
+        letGo();
         transcript(event, "assistant");
+        break;
+      case "session.input_audio.unmuted":
+        if (held && event.client_event_id === held.unmute) held = null;
         break;
       case "session.instructions.appended":
       case "session.commentary.appended":
@@ -462,6 +483,16 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
         if (!started) {
           fail(message);
           break;
+        }
+        // An unmute refused leaves her deaf to the caller for the rest of the call: said, not
+        // talked through. A mute refused left the input open, so there is nothing to let go.
+        if (held?.unmute && event.error?.client_event_id === held.unmute) {
+          fail(`She could not hear the microphone again: ${message}`);
+          break;
+        }
+        if (held && event.error?.client_event_id === held.mute) {
+          clearTimeout(holdTimer);
+          held = null;
         }
         on.warn(message);
         if (pendingAppend && event.error?.client_event_id === pendingAppend)
@@ -706,6 +737,18 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
         appends.push({ kind, chunks, settle });
         appendNext();
       });
+    },
+    /**
+     * Holds the caller's input off (`session.input_audio.mute`) until her first words or
+     * `ms`, whichever comes first — for an opening she is to speak first, which a room that
+     * is not silent kept her from (config LIVE_CALL.openingHoldMs). The session runs on and
+     * she speaks; only what the caller says meanwhile goes unheard.
+     */
+    holdInput(ms: number) {
+      if (!started || closed || closing || held || ms <= 0) return;
+      held = { mute: crypto.randomUUID(), unmute: null };
+      transport.send({ type: "session.input_audio.mute", event_id: held.mute });
+      holdTimer = setTimeout(letGo, ms);
     },
     /**
      * Queues a fact for the backend alone. It starts no turn: it waits in the backend's

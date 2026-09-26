@@ -17,7 +17,9 @@ Both are switched on, off or rewritten in **Settings › Thursday › Starting a
 setup offers the wake phrase too, with a try.
 
 She speaks first, with a short greeting, in the language the user speaks, and switches when they
-do; the browser's language plays no part. Every call is a new one: she does not open on old work
+do; the browser's language plays no part. Until her greeting starts — three seconds at most — she
+does not hear the room, since any sound in it kept her waiting for the user instead of greeting;
+words said in that moment are not heard. Every call is a new one: she does not open on old work
 or on how the last call ended. She has the most recent part of her earlier calls — about the last
 twenty turns — and picks a subject up when the user does. Anything older is gone unless she kept
 it in memory (`memory.md`). A call she places herself opens on why she called.
