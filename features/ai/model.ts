@@ -31,7 +31,7 @@ import { readConfig } from "@/features/config/config.query";
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
 import { clip, errorToString } from "@/lib/utils";
-import { chatGptModel, chatGptSearch } from "./chatgpt";
+import { chatGptModel, chatGptSearch, readChatGptPlan } from "./chatgpt";
 import {
   canMakeKind,
   compactAtFor,
@@ -559,7 +559,11 @@ export async function resolveDefaultModel(
     suggestModels: SuggestModel[];
   }) =>
     defaultModelOf({
-      defaultTier: provider.defaultTier,
+      // A Free plan opens Luna alone (model.schema chatgpt): its middle one would be refused
+      defaultTier:
+        provider.id === "chatgpt" && (await readChatGptPlan()) === "free"
+          ? "small"
+          : provider.defaultTier,
       suggestModels: await callableRows(provider.id, provider.suggestModels),
     });
 

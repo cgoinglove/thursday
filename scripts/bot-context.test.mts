@@ -1728,11 +1728,25 @@ test("with nobody picking, a bot runs on the plan before a key, and a picked def
     [plan, key, xai].map((name) => [name, process.env[name]]),
   );
   for (const name of [plan, key, xai]) delete process.env[name];
+  const signIn = (kind: string) =>
+    JSON.stringify({
+      access: "test.access.token",
+      refresh: "test-refresh",
+      expires: Date.now() + 3_600_000,
+      accountId: "test-account",
+      plan: kind,
+    });
   await writeConfig(key, "sk-test");
-  await writeConfig(plan, "{}");
+  await writeConfig(plan, signIn("plus"));
   try {
-    // Signed in and keyed: the plan is paid for already, the key bills
-    assert.equal((await resolveDefaultModel()).provider, "chatgpt");
+    // Signed in and keyed: the plan is paid for already, the key bills — and on the plan it
+    // is the middle model, while a Free plan runs the one model it opens
+    assert.deepEqual(await resolveDefaultModel(), {
+      provider: "chatgpt",
+      model: "gpt-6-sol",
+    });
+    await writeConfig(plan, signIn("free"));
+    assert.equal((await resolveDefaultModel()).model, "gpt-6-luna");
     await removeConfig(plan);
     assert.equal((await resolveDefaultModel()).provider, "openai");
     // Picked in Settings, and its key gone: said, never moved to the OpenAI key beside it

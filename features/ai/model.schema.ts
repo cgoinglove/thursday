@@ -463,13 +463,14 @@ export const TEXT_MODEL_PROVIDERS: Record<
   /**
    * The Codex models a ChatGPT plan carries, reached by signing in (ai/chatgpt). Which ones a
    * plan opens differs — a Free plan lists Luna alone — and the backend caps every
-   * window at 272k, whatever the same model takes over the API.
+   * window at 272k, whatever the same model takes over the API. Nobody picking, a plan runs
+   * its middle one (6 Sol): it is paid for either way (the maintainer, 09-26). A Free plan
+   * runs Luna, the one it opens (ai/model resolveDefaultModel).
    */
   chatgpt: {
     label: "GPT Subscription",
     apiKeyName: "CHATGPT_SIGN_IN",
     signIn: true,
-    defaultTier: "small",
     suggestModels: [
       {
         id: "gpt-6-luna",

@@ -54,8 +54,9 @@ opens pages in its browser instead.
 its own page says nothing; a small one is quick and costs little, and is the place to start — and
 its **Default effort**. Left unset it shows *auto* and names the model bots run on now: the GPT
 Subscription's when you are signed in, since the plan is already paid for, else OpenAI's, else xAI's,
-else the first provider with a key — the **small** model on OpenAI and the GPT Subscription, the one
-the call's backend starts on too, and the **mid** one elsewhere. A default picked here whose key is
+else the first provider with a key — the **small** model on OpenAI, the one the call's backend starts
+on too, and the **mid** one on the GPT Subscription, which is paid for either way (a Free plan opens
+only the small one and runs that), and elsewhere. A default picked here whose key is
 later removed is not swapped for another provider: bots stop and say so until it is back or another
 is picked. The
 first run's model step sets this same one, and **App default** at the top of a bot's model list puts
