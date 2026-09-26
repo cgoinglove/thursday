@@ -116,11 +116,14 @@ const models = new Map(
 mock.module("../features/ai/model.ts", {
   namedExports: {
     ...realModel,
-    getTextModel: async (ref: { model: string }) => ({
-      ref,
-      model: models.get(ref.model),
-      searchTools: null,
-    }),
+    getTextModel: async (ref: { model: string }) => {
+      // A pick with no scripted model stands for one with no key: refused the way the real one is
+      if (!models.has(ref.model))
+        (await import("../lib/public-error.ts")).publicError(
+          `No key for ${ref.model}.`,
+        );
+      return { ref, model: models.get(ref.model), searchTools: null };
+    },
     compactBudget: async () => 8000,
   },
 });
@@ -2775,5 +2778,157 @@ test("a bot's runs in one thread send the same instructions and cache key, and t
     mock.timers.reset();
     usage.inputTokens.cacheRead = undefined;
     usage.inputTokens.cacheWrite = undefined;
+  }
+});
+
+test("a note about a file reaches the thread that reported it, even after that thread was taken up again", async () => {
+  const { readFileThread, tellFileThread } = await import(
+    "../features/bot/thread.file.ts"
+  );
+  const page = `${botArtifacts("Alpha")}/note-plan.html`;
+  await mkdir(join(WORKSPACE, botArtifacts("Alpha")), { recursive: true });
+  await writeFile(join(WORKSPACE, page), "<p>plan</p>");
+  plans.set("Alpha", [() => text(`The plan is at ${page}`)]);
+  const id = await startThread({
+    bot: "Alpha",
+    request: "Plan fixture",
+    label: "Plan",
+    from: "user",
+  });
+  await waitFor(id, "done");
+  // Taken up again and ended without naming it: the outcome forgets the file, the report does not
+  plans.set("Alpha", [() => text("Nothing else changed.")]);
+  await answerThread(id, "Anything else?");
+  await waitFor(id, "done");
+  assert.equal((await findThread(id))?.outcome, "Nothing else changed.");
+  assert.deepEqual(await readFileThread(page), {
+    state: "open",
+    thread: { id, label: "Plan" },
+    status: "done",
+    to: "Alpha",
+    coordinator: "Alpha",
+    paused: null,
+  });
+
+  plans.set("Alpha", [
+    (prompt) => {
+      assert.ok(prompt.includes(`About \`${page}\``));
+      assert.ok(prompt.includes("Make the title shorter."));
+      return text("Shortened.");
+    },
+  ]);
+  assert.deepEqual(await tellFileThread(page, "Make the title shorter."), {
+    id,
+    label: "Plan",
+    to: "Alpha",
+  });
+  await waitFor(id, "done");
+  assert.equal((await findThread(id))?.outcome, "Shortened.");
+
+  assert.deepEqual(
+    await readFileThread(`${botArtifacts("Alpha")}/never-made.html`),
+    { state: "gone" },
+  );
+  const unreported = `${botArtifacts("Alpha")}/note-unreported.html`;
+  await writeFile(join(WORKSPACE, unreported), "<p>x</p>");
+  assert.deepEqual(await readFileThread(unreported), {
+    state: "none",
+    bot: "Alpha",
+  });
+  await assert.rejects(
+    tellFileThread(unreported, "Hello"),
+    /No thread made this file/,
+  );
+});
+
+test("a note about a helper's file reaches the helper, and none is sent to a thread waiting on a question or left without its bot", async () => {
+  const { readFileThread, tellFileThread } = await import(
+    "../features/bot/thread.file.ts"
+  );
+  const chart = `${botArtifacts("Beta")}/note-chart.html`;
+  await mkdir(join(WORKSPACE, botArtifacts("Beta")), { recursive: true });
+  await writeFile(join(WORKSPACE, chart), "<p>chart</p>");
+  plans.set("Alpha", [
+    () => ask("Beta", "Draw the chart"),
+    () => text("Waiting."),
+    () => text(`Done: ${chart}`),
+  ]);
+  plans.set("Beta", [() => text(`Drew ${chart}`)]);
+  const id = await startThread({
+    bot: "Alpha",
+    request: "Chart fixture",
+    label: "Chart",
+    from: "user",
+  });
+  await waitFor(id, "done");
+  const found = await readFileThread(chart);
+  assert.equal(found.state === "open" && found.to, "Beta");
+  plans.set("Beta", [
+    (prompt) => {
+      assert.ok(prompt.includes(`About \`${chart}\``));
+      return text("Recoloured.");
+    },
+  ]);
+  plans.set("Alpha", [
+    (prompt) => {
+      assert.ok(prompt.includes("Recoloured."));
+      return text(`Updated: ${chart}`);
+    },
+  ]);
+  assert.equal((await tellFileThread(chart, "Use warmer colours.")).to, "Beta");
+  await waitFor(id, "done");
+
+  // Asked: a note now would be taken as the answer, so it is not sent
+  plans.set("Alpha", [
+    () => ask("Thursday", "Which colour?"),
+    () => text("Waiting for the user."),
+  ]);
+  await answerThread(id, "One more change.");
+  await waitFor(id, "waiting");
+  const asking = await readFileThread(chart, id);
+  assert.equal(asking.state, "asking");
+  assert.equal(asking.state === "asking" && asking.bot, "Alpha");
+  await assert.rejects(
+    tellFileThread(chart, "Blue.", id),
+    /Alpha is waiting on your answer to a question/,
+  );
+  await cancelThread(id);
+
+  // Its bot deleted, or its model out of reach: said before anything is sent
+  const report = `${botArtifacts("Gamma")}/note-report.html`;
+  await mkdir(join(WORKSPACE, botArtifacts("Gamma")), { recursive: true });
+  await writeFile(join(WORKSPACE, report), "<p>report</p>");
+  plans.set("Gamma", [() => text(`Report: ${report}`)]);
+  const own = await startThread({
+    bot: "Gamma",
+    request: "Report fixture",
+    label: "Report",
+    from: "user",
+  });
+  await waitFor(own, "done");
+  const [gamma] = await database
+    .select()
+    .from(botTable)
+    .where(eq(botTable.name, "Gamma"));
+  try {
+    await database
+      .update(botTable)
+      .set({ model: "refused" })
+      .where(eq(botTable.name, "Gamma"));
+    assert.deepEqual(await readFileThread(report), {
+      state: "refused",
+      thread: { id: own, label: "Report" },
+      why: "No key for refused.",
+    });
+    await database.delete(botTable).where(eq(botTable.name, "Gamma"));
+    const gone = await readFileThread(report);
+    assert.equal(gone.state, "refused");
+    assert.match(gone.state === "refused" ? gone.why : "", /Gamma was deleted/);
+    await assert.rejects(tellFileThread(report, "Again."), /Gamma was deleted/);
+  } finally {
+    await database
+      .insert(botTable)
+      .values(gamma)
+      .onConflictDoUpdate({ target: botTable.name, set: { model: "Gamma" } });
   }
 });

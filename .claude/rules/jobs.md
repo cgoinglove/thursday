@@ -1,7 +1,7 @@
 ---
-checked: 2026-09-24
+checked: 2026-09-26
 paths:
-  - "features/bot/{bot,room,thread}.{action,memory,query,run,runner,schema}.ts"
+  - "features/bot/{bot,room,thread}.{action,file,memory,query,run,runner,schema}.ts"
   - "features/routine/**"
   - "features/ai/prompts/bot.prompt.ts"
   - "features/ai/tools/{bot,routine}.tool.ts"
@@ -22,6 +22,8 @@ cannot go on it waits for a person, and everything it did stays as rows.
 - `features/bot/bot.run.ts` — one participant's turn: prompt, tools, stream, compaction, resume.
 - `features/bot/thread.query.ts` — thread rows and what the screen and the call read of them.
 - `features/bot/bot.schema.ts` — bot and thread shapes: thread status, `isAppStop`, `standOf`.
+- `features/bot/thread.file.ts` — a note about a file to the thread that reported it: which
+  thread, who reads it, what stops it.
 - `features/ai/prompts/bot.prompt.ts` — what a participant reads each turn, and its opening.
 - `features/routine/routine.clock.ts` — what starts a routine.
 - `scripts/bot-context.test.mts` — the real runner, database and prompts, with scripted models.

@@ -833,8 +833,12 @@ const usageOf = (usage: LanguageModelUsage): StepUsage => ({
 const deskCacheKey = (threadId: string, bot: string) =>
   createHash("sha256").update(`${threadId}\n${bot}`).digest("hex").slice(0, 32);
 
-/** A bot with both model columns set uses them; otherwise the app default (resolveDefaultModel). */
-function resolveModel(bot: JobBot) {
+/**
+ * A bot with both model columns set uses them; otherwise the app default (resolveDefaultModel).
+ * Refuses, in words a person can act on, what a run on this bot would be refused (no key, a
+ * sign-in gone), so a caller can ask before it starts one (thread.file).
+ */
+export function resolveModel(bot: JobBot) {
   if (bot.provider && bot.model) {
     return getTextModel({ provider: bot.provider, model: bot.model });
   }

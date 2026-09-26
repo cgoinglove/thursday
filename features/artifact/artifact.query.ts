@@ -126,6 +126,13 @@ async function botsByFolder(): Promise<Map<string, string>> {
   );
 }
 
+/** The bot whose folder in `artifacts/` holds a workspace path; null for anything else, a deleted bot's folder included. */
+export async function botOfArtifact(path: string): Promise<string | null> {
+  const [root, folder, ...inside] = path.split("/");
+  if (root !== PATHS.artifacts || !folder || !inside.length) return null;
+  return (await botsByFolder()).get(folder.toLowerCase()) ?? null;
+}
+
 /**
  * The bot a top-level folder was, when that bot was deleted (workspace removeBotFolder):
  * its folder is still a shelf of its work, not one set of the files at its top.

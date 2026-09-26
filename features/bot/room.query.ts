@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { ModelMessage } from "ai";
-import { and, eq, inArray, max, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, max, or, sql } from "drizzle-orm";
 import type { z } from "zod";
 import { appEvents } from "@/app/api/events/app-event.server";
 import { BOT_RUN } from "@/config";
@@ -912,6 +912,22 @@ export async function listParticipantTranscript(
   return kept.map(
     (row) => ({ role: row.role, content: row.content }) as ModelMessage,
   );
+}
+
+/**
+ * The coordinator reports that name a text, the latest first. A thread keeps one per time it
+ * ended (`report:<thread>:<generation>`) for as long as it lives, so what a job handed over is
+ * found again after the thread was taken up and its outcome cleared. `instr` only narrows:
+ * the caller reads each report's paths to keep a whole-path match.
+ */
+export async function listReportsNaming(text: string) {
+  return database
+    .select({ threadId: relay.threadId, text: relay.text })
+    .from(relay)
+    .where(
+      and(eq(relay.kind, "report"), sql`instr(${relay.text}, ${text}) > 0`),
+    )
+    .orderBy(desc(relay.id));
 }
 
 export async function listRoomRelays() {
