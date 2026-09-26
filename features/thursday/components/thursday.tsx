@@ -27,6 +27,7 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Letters } from "@/components/ui/letters";
 import { ShinyText } from "@/components/ui/shiny-text";
 import { SourceChips } from "@/components/ui/source-chips";
+import { toast } from "@/components/ui/toast";
 import {
   Tooltip,
   TooltipContent,
@@ -82,7 +83,7 @@ import { ArtifactView } from "@/features/workspace/components/artifact-view";
 import { useHotkeyLabel } from "@/hooks/use-hotkey";
 import { RING_CYCLE_MS } from "@/lib/live/ring";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
-import { cn, plainText } from "@/lib/utils";
+import { cn, errorToString, plainText } from "@/lib/utils";
 import { CaptionWords } from "./caption-words";
 import { ConnectWave } from "./connect-wave";
 import { Face } from "./face";
@@ -1603,7 +1604,17 @@ function ShareScreen() {
       ) : (
         <button
           type="button"
-          onClick={() => void share()}
+          // What the browser refused, in its words: a press that did nothing left the person
+          // guessing, where the system's screen recording permission was the answer
+          onClick={() =>
+            share().catch((cause: unknown) =>
+              toast.add({
+                type: "warning",
+                title: "Nothing was shared",
+                description: errorToString(cause),
+              }),
+            )
+          }
           className={LINE_BUTTON}
         >
           Share screen
@@ -1613,7 +1624,10 @@ function ShareScreen() {
   );
 }
 
-/** What is shared with her, small, while it is: she looks at it only when asked to. */
+/**
+ * What is shared with her, small, while it is. Nothing of it leaves the page until she looks,
+ * which the backend decides, most often when asked: the caption says only what the code holds.
+ */
 function SharedScreen() {
   const stream = useSharedScreen();
   const video = useRef<HTMLVideoElement>(null);
@@ -1632,7 +1646,7 @@ function SharedScreen() {
         className="aspect-video w-full rounded-lg bg-muted object-contain ring-1 ring-border/60"
       />
       <figcaption className="font-mono text-[11px] text-muted-foreground">
-        She looks when you ask
+        Sent only when she looks
       </figcaption>
     </figure>
   );

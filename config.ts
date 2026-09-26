@@ -833,6 +833,24 @@ export const MEMORY_EDIT = { maxSteps: 20 };
 export const LOOK = { maxBytes: 4 * 1024 * 1024 };
 
 /**
+ * A screen the user shares with a spoken call (features/thursday/screen-share.ts).
+ * - `frameRate`  how often the browser grabs the screen while it is shared. Only a still is
+ *   ever taken, when she looks: more costs the computer for nothing, fewer makes a look up to
+ *   that much older.
+ * - `longestSide`  the longest side, in pixels, a look is taken at. Larger keeps small text on
+ *   a big screen readable, and has the picture shrink further to fit the connection's one
+ *   message; smaller loses that text first.
+ * - `qualities` then `scales`  what a picture too large for that message steps down through:
+ *   at each size the JPEG quality, then the size, until it fits.
+ */
+export const SCREEN_SHARE = {
+  frameRate: 5,
+  longestSide: 1600,
+  qualities: [0.8, 0.6, 0.45],
+  scales: [1, 0.75, 0.5, 0.35],
+};
+
+/**
  * One web search (features/ai/tools/search.tool), Exa or a model's own.
  * - `sources`  hits carried back. Each is a page's worth of tokens in the run from then on,
  *            and the first few answer most questions; a bot that needs more searches again.

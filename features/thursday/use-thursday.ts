@@ -56,6 +56,7 @@ import {
 } from "./open-work";
 import { screenActLine } from "./screen-act";
 import {
+  canShare,
   isSharing,
   onShareChange,
   stopSharing,
@@ -86,7 +87,8 @@ import { useCallRing } from "./use-call-ring";
 /**
  * One live call, plus the thread inbox the app watches even with no call open.
  * The server opens the Live session (openCallAction) and runs the tools
- * (tool-call); the page itself only hangs up and puts a word on the face.
+ * (tool-call); the page itself hangs up, puts a word on the face, and takes the
+ * picture of a screen the user shares (screen-share).
  */
 
 /** Plays when the line opens. */
@@ -115,7 +117,8 @@ const FAILED_FACE_MS = 6000;
 
 /**
  * What one data channel message may carry when the far end names no limit (the SCTP default
- * the two ends both know), for a picture taken before the connection says (screen-share).
+ * the two ends both know), for a picture taken while the connection says none it can be held
+ * to (screen-share).
  */
 const SCTP_DEFAULT_BYTES = 65_536;
 
@@ -734,6 +737,8 @@ export function useThursday(
       if (thinkTail.current) clearTimeout(thinkTail.current);
       if (failedFor.current) clearTimeout(failedFor.current);
       if (leaving.current) clearInterval(leaving.current);
+      // Held for the page, not this screen: left on, it would go on with no Stop in sight
+      stopSharing();
     };
   }, []);
 
@@ -920,18 +925,26 @@ export function useThursday(
               if (word) setFaceWord({ text: word, at: Date.now() });
               return reply;
             }
-            // The page holds the shared screen: the picture goes to the backend right after
-            // this answer, made to fit one message of the connection
+            // The page holds the shared screen: the picture goes to the backend after this
+            // turn's results, made to fit one message of the connection
             if (call.name === TOOL_NAMES.look_at_screen) {
               if (!isSharing())
-                return "Nothing is being shared. They can share a screen, a window or a tab with Share screen, under your face.";
-              const limit =
-                session.current?.messageLimit() ?? SCTP_DEFAULT_BYTES;
-              const taken = takePicture(limit - PICTURE_ENVELOPE_BYTES);
+                return canShare()
+                  ? "Nothing is being shared. They can share a screen, a window or a tab with Share screen, under your face."
+                  : "Nothing is being shared, and this browser cannot share a screen.";
+              // A limit no picture can be held to — none yet, 0, or none at all (Infinity) —
+              // is taken as the smallest one every end takes
+              const limit = session.current?.messageLimit();
+              const bytes =
+                limit &&
+                Number.isFinite(limit) &&
+                limit > PICTURE_ENVELOPE_BYTES * 2
+                  ? limit
+                  : SCTP_DEFAULT_BYTES;
+              const taken = takePicture(bytes - PICTURE_ENVELOPE_BYTES);
               if ("failed" in taken) return taken.failed;
               return {
-                output:
-                  "The picture right after this is their screen as it is now.",
+                output: "Their screen as it is now follows, as a picture.",
                 image: taken.url,
               };
             }

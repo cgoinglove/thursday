@@ -29,10 +29,12 @@ While she is working, the line under her face says so. The microphone stays open
 meanwhile is heard and answered once she is done, so there is no need to repeat it.
 
 **Share screen**, on that line during a spoken call, shows her a screen, a window or a tab; the
-browser asks which. A small copy of it stands at the top right while it is shared. She sees it
-only when asked to look — "what does this error say?" — and then a picture of it as it is at that
-moment goes to the model behind her, nowhere else. **Stop** on the line, the browser's own bar,
-or the end of the call stops sharing.
+browser asks which. A small copy of it stands at the top right while it is shared. Nothing of it
+is sent while it is only shared: she looks when what they ask needs it — "what does this error
+say?" — and then a picture of it as it is at that moment goes to the model behind her, nowhere
+else. **Stop** on the line, the browser's own bar, or the end of the call stops sharing. When the
+browser refuses — on a Mac, the browser needs Screen Recording in System Settings › Privacy &
+Security to share a window or the whole screen — its reason shows, and nothing is shared.
 
 ## Ending it
 

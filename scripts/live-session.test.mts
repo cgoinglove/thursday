@@ -20,6 +20,8 @@ let wire: {
 };
 let sent: Record<string, unknown>[] = [];
 let released = false;
+/** A message the data channel throws on, as it does on one past its limit. */
+let refuses: ((event: Record<string, unknown>) => boolean) | null = null;
 mock.module("../lib/live/live.transport.ts", {
   namedExports: {
     createWebRtcTransport: (options: typeof wire) => {
@@ -29,7 +31,10 @@ mock.module("../lib/live/live.transport.ts", {
           assert.equal(await wire.negotiate("offer"), "answer");
           wire.on.event({ type: "session.started" });
         },
-        send: (event: Record<string, unknown>) => sent.push(event),
+        send: (event: Record<string, unknown>) => {
+          if (refuses?.(event)) throw new TypeError("Message too large");
+          sent.push(event);
+        },
         limit: () => 262_144,
         close: () => {
           released = true;
@@ -56,6 +61,7 @@ afterEach(async () => {
     });
     await closed;
   }
+  refuses = null;
   mock.restoreAll();
 });
 
@@ -164,7 +170,27 @@ test("the backend waits for every function output and continues once, using the 
   assert.equal(count("response.item.create"), 2);
 });
 
-test("a picture a tool hands back goes in right after its output, as the user's image, before the backend goes on", async () => {
+/** What went out for the backend, in order: an item's type (a message's role), or continue. */
+const backendOrder = () =>
+  sent
+    .filter(
+      (event) =>
+        event.type === "response.item.create" ||
+        event.type === "response.create",
+    )
+    .map((event) => {
+      if (event.type === "response.create") return "continue";
+      const item = event.item as {
+        type: string;
+        role?: string;
+        call_id?: string;
+      };
+      return item.type === "message"
+        ? `message:${item.role}`
+        : `${item.type}:${item.call_id}`;
+    });
+
+test("a picture a tool hands back goes in after its turn's outputs, as the user's image, before the backend goes on", async () => {
   const image = "data:image/jpeg;base64,AAAA";
   const { session } = await connect({
     runTool: async () => ({ output: "Their screen follows.", image }),
@@ -173,18 +199,11 @@ test("a picture a tool hands back goes in right after its output, as the user's 
   functionCall("a");
   nested({ type: "response.completed", response: { id: "r1", output: [] } });
   await tick();
-  const order = sent
-    .filter(
-      (event) =>
-        event.type === "response.item.create" ||
-        event.type === "response.create",
-    )
-    .map((event) =>
-      event.type === "response.create"
-        ? "continue"
-        : (event.item as { type: string }).type,
-    );
-  assert.deepEqual(order, ["function_call_output", "message", "continue"]);
+  assert.deepEqual(backendOrder(), [
+    "function_call_output:a",
+    "message:user",
+    "continue",
+  ]);
   assert.deepEqual(
     sent.find(
       (event) =>
@@ -198,6 +217,56 @@ test("a picture a tool hands back goes in right after its output, as the user's 
   );
   // What a picture is made to fit: the connection's own limit
   assert.equal(session.messageLimit(), 262_144);
+});
+
+test("with two tools in one turn, the picture waits until both outputs are in, whichever finishes first", async () => {
+  const image = "data:image/jpeg;base64,AAAA";
+  const pending = new Map<string, (value: string | LiveToolResult) => void>();
+  await connect({
+    runTool: (call) => new Promise((resolve) => pending.set(call.id, resolve)),
+  });
+  nested({ type: "response.created", response: { id: "r1" } });
+  functionCall("a");
+  functionCall("b");
+  nested({ type: "response.completed", response: { id: "r1", output: [] } });
+  await tick();
+  pending.get("a")?.({ output: "Their screen follows.", image });
+  await tick();
+  assert.deepEqual(backendOrder(), ["function_call_output:a"]);
+  pending.get("b")?.("done");
+  await tick();
+  assert.deepEqual(backendOrder(), [
+    "function_call_output:a",
+    "function_call_output:b",
+    "message:user",
+    "continue",
+  ]);
+});
+
+test("a picture the connection will not carry is said to the backend and the user instead, and the turn still goes on", async () => {
+  refuses = (event) => JSON.stringify(event).includes('"type":"input_image"');
+  const { warnings } = await connect({
+    runTool: async () => ({
+      output: "Their screen follows.",
+      image: "data:image/jpeg;base64,AAAA",
+    }),
+  });
+  nested({ type: "response.created", response: { id: "r1" } });
+  functionCall("a");
+  nested({ type: "response.completed", response: { id: "r1", output: [] } });
+  await tick();
+  assert.deepEqual(backendOrder(), [
+    "function_call_output:a",
+    "message:developer",
+    "continue",
+  ]);
+  const note = sent.find(
+    (event) =>
+      (event.item as { role?: string } | undefined)?.role === "developer",
+  )?.item as { content: { text: string }[] };
+  assert.match(note.content[0].text, /did not go through.*Message too large/);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /picture of your screen did not go through/);
 });
 
 test("an incomplete response that asked for tools is continued once, and a second in a row only warns", async () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { SCREEN_SHARE } from "@/config";
 
 /**
  * The screen the user shares with a spoken call, held in the page until they stop or the call
@@ -12,6 +13,12 @@ import { useSyncExternalStore } from "react";
 type Shared = { stream: MediaStream; video: HTMLVideoElement };
 
 let shared: Shared | null = null;
+/**
+ * A share the browser is still asking about. Stopped before it answers — the call ended, or
+ * Stop was pressed — what it answers is not kept: a capture that outlived its call went on with
+ * no Stop but the browser's own bar.
+ */
+let asking: { wanted: boolean } | null = null;
 const listeners = new Set<() => void>();
 const changed = () => {
   for (const listener of listeners) listener();
@@ -46,33 +53,49 @@ export const canShare = () =>
   typeof navigator.mediaDevices?.getDisplayMedia === "function";
 
 /**
- * Asks the browser to share a screen, window or tab. A refusal is not an error: the person
- * chose not to. Stopping from the browser's own bar ends it here too.
+ * Asks the browser to share a screen, window or tab. What the browser refuses — the person
+ * closing its picker, or the system's permission to record the screen — rejects with its
+ * reason, for the caller to say. A press while it still asks is the same share. Stopping
+ * from the browser's own bar ends it here too.
  */
 export async function share(): Promise<void> {
-  if (shared) return;
+  if (shared || asking) return;
+  const ask = { wanted: true };
+  asking = ask;
   let stream: MediaStream;
   try {
     stream = await navigator.mediaDevices.getDisplayMedia({
       // A still is all that is ever taken; a low rate keeps the capture light
-      video: { frameRate: 5 },
+      video: { frameRate: SCREEN_SHARE.frameRate },
       audio: false,
     });
-  } catch {
+  } finally {
+    asking = null;
+  }
+  if (!ask.wanted) {
+    for (const track of stream.getTracks()) track.stop();
     return;
   }
   const video = document.createElement("video");
   video.muted = true;
   video.playsInline = true;
   video.srcObject = stream;
-  await video.play().catch(() => {});
+  // Kept before anything is awaited, so Stop, the call's end and the browser's bar all reach
+  // it: one kept only once it played went on uncaught when it never did
   for (const track of stream.getVideoTracks())
     track.addEventListener("ended", stopSharing);
   shared = { stream, video };
   changed();
+  try {
+    await video.play();
+  } catch (error) {
+    stopSharing();
+    throw error;
+  }
 }
 
 export function stopSharing(): void {
+  if (asking) asking.wanted = false;
   if (!shared) return;
   for (const track of shared.stream.getTracks()) track.stop();
   shared.video.srcObject = null;
@@ -80,13 +103,10 @@ export function stopSharing(): void {
   changed();
 }
 
-/** The longest side a picture is taken at, before it is made smaller to fit. */
-const LONGEST = 1600;
-
 /**
  * The screen as it is now, as a JPEG data URL of at most `bytes`: a data channel carries one
- * message up to its limit and no more, so the picture is made smaller, then plainer, until it
- * fits. What went wrong otherwise, said as the backend will read it.
+ * message up to its limit and no more, so the picture is made plainer, then smaller, until it
+ * fits (config SCREEN_SHARE). What went wrong otherwise, said as the backend will read it.
  */
 export function takePicture(
   bytes: number,
@@ -98,15 +118,16 @@ export function takePicture(
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
   if (!context) return { failed: "This browser could not take the picture." };
-  for (const scale of [1, 0.75, 0.5, 0.35]) {
+  for (const scale of SCREEN_SHARE.scales) {
     const ratio = Math.min(
       1,
-      (LONGEST * scale) / Math.max(video.videoWidth, video.videoHeight),
+      (SCREEN_SHARE.longestSide * scale) /
+        Math.max(video.videoWidth, video.videoHeight),
     );
     canvas.width = Math.round(video.videoWidth * ratio);
     canvas.height = Math.round(video.videoHeight * ratio);
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    for (const quality of [0.8, 0.6, 0.45]) {
+    for (const quality of SCREEN_SHARE.qualities) {
       const url = canvas.toDataURL("image/jpeg", quality);
       if (url.length <= bytes) return { url };
     }

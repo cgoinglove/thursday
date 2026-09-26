@@ -27,8 +27,9 @@ export type LiveToolCall = {
 };
 /**
  * What a tool answers with: its text, and a picture for the backend to see after it. A picture
- * cannot ride in a function output on this wire; it is queued as the next input item, which is
- * how the guide has an image reach a Responses backend ("Add images and visual context").
+ * cannot ride in a function output on this wire; it is queued as an input item once the turn's
+ * outputs are in, which is how the guide has an image reach a Responses backend ("Add images
+ * and visual context").
  */
 export type LiveToolResult = { output: string; image?: string };
 /**
@@ -229,6 +230,12 @@ type Transcript = {
 };
 type BackendResponse = {
   calls: Map<string, Promise<void>>;
+  /**
+   * Pictures its tools handed back, sent once every output is in and just before it goes on:
+   * the guide returns every pending result first, and a picture between two outputs of one
+   * turn is an order it never shows.
+   */
+  images: string[];
   terminal: boolean;
   continued: boolean;
   /** Taken for ended by a top-level error that named no end for it; lifted if it goes on. */
@@ -429,6 +436,7 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
     response.continued = true;
     await Promise.all(response.calls.values());
     if (!closing && !closed) {
+      for (const image of response.images.splice(0)) sendImage(image);
       continuedAt = performance.now();
       transport.send({
         type: "response.create",
@@ -436,6 +444,42 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
       });
     }
     activity();
+  };
+  /**
+   * A picture for the backend, as the user's image. One the connection will not carry is
+   * said to the backend instead, which was told a picture follows and without a word
+   * described a screen it never saw — and to the user, whose screen went unseen.
+   */
+  const sendImage = (image: string) => {
+    try {
+      transport.send({
+        type: "response.item.create",
+        event_id: crypto.randomUUID(),
+        item: {
+          type: "message",
+          role: "user",
+          content: [{ type: "input_image", image_url: image }],
+        },
+      });
+    } catch (cause) {
+      const reason = errorToString(cause);
+      logger.warn("Live picture not sent", { reason, bytes: image.length });
+      transport.send({
+        type: "response.item.create",
+        event_id: crypto.randomUUID(),
+        item: {
+          type: "message",
+          role: "developer",
+          content: [
+            {
+              type: "input_text",
+              text: `The picture of their screen did not go through, so nothing on it was seen: ${reason}`,
+            },
+          ],
+        },
+      });
+      on.warn(`The picture of your screen did not go through: ${reason}`);
+    }
   };
   const handle = (event: LiveEvent) => {
     if (closed) return;
@@ -534,7 +578,12 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
         if (!id) break;
         let response = responses.get(id);
         if (!response) {
-          response = { calls: new Map(), terminal: false, continued: false };
+          response = {
+            calls: new Map(),
+            images: [],
+            terminal: false,
+            continued: false,
+          };
           responses.set(id, response);
         }
         // Heard from again after an error took it for ended: it is still going
@@ -637,17 +686,8 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
                     output,
                   },
                 });
-                // Before the response is continued (continueResponse waits on this call)
-                if (image)
-                  transport.send({
-                    type: "response.item.create",
-                    event_id: crypto.randomUUID(),
-                    item: {
-                      type: "message",
-                      role: "user",
-                      content: [{ type: "input_image", image_url: image }],
-                    },
-                  });
+                // After every output of this turn (continueResponse)
+                if (image) response.images.push(image);
               }
               activity();
             });
@@ -771,18 +811,18 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
       holdTimer = setTimeout(letGo, ms);
     },
     /**
-     * Queues a fact for the backend alone. It starts no turn: it waits in the backend's
-     * conversation and is read with whatever the voice hands over next, and the voice,
-     * which may say aloud anything appended to it, never sees it. Live acknowledges no
-     * item; a refusal comes back as an `error`.
-     */
-    /**
      * The largest message the connection carries, in bytes, once it is up: a picture for the
      * backend goes in one message, so it is made to fit. Null before the connection says.
      */
     messageLimit(): number | null {
       return transport.limit();
     },
+    /**
+     * Queues a fact for the backend alone. It starts no turn: it waits in the backend's
+     * conversation and is read with whatever the voice hands over next, and the voice,
+     * which may say aloud anything appended to it, never sees it. Live acknowledges no
+     * item; a refusal comes back as an `error`.
+     */
     brief(text: string): void {
       const content = text.trim();
       if (closed || closing || !content) return;
