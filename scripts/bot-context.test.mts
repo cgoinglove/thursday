@@ -1823,6 +1823,62 @@ test("a model on the plan asks for the web as Codex asks that endpoint", async (
   }
 });
 
+test("a model on the plan sends its prompt cache key as the header the backend keeps the cache by", async () => {
+  const { generateText } = await import("ai");
+  const { TEXT_MODEL_PROVIDERS } = await import(
+    "../features/ai/model.schema.ts"
+  );
+  const { writeConfig, removeConfig } = await import(
+    "../features/config/config.query.ts"
+  );
+  const plan = TEXT_MODEL_PROVIDERS.chatgpt.apiKeyName;
+  const exported = process.env[plan];
+  delete process.env[plan];
+  await writeConfig(
+    plan,
+    JSON.stringify({
+      access: "test.access.token",
+      refresh: "test-refresh",
+      expires: Date.now() + 3_600_000,
+      accountId: "test-account",
+      plan: "plus",
+    }),
+  );
+  const sent: { header: string | null; key?: string }[] = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
+    sent.push({
+      header: new Headers(init?.headers).get("session-id"),
+      key: JSON.parse(String(init?.body)).prompt_cache_key,
+    });
+    return Response.json({ error: { message: "stop here" } }, { status: 400 });
+  }) as typeof fetch;
+  try {
+    const { model } = await realModel.getTextModel({
+      provider: "chatgpt",
+      model: "gpt-6-luna",
+    });
+    // What reaches the wire is all this looks at; the fake's 400 ends each call there
+    const call = (providerOptions?: { openai: { promptCacheKey: string } }) =>
+      generateText({
+        model,
+        prompt: "Hello",
+        maxRetries: 0,
+        providerOptions,
+      }).catch(() => {});
+    // A bot's key for its desk in a thread (bot.run), and the model's own when a caller has none
+    await call({ openai: { promptCacheKey: "desk-key" } });
+    await call();
+    assert.deepEqual(sent[0], { header: "desk-key", key: "desk-key" });
+    assert.ok(sent[1].key);
+    assert.equal(sent[1].header, sent[1].key);
+  } finally {
+    globalThis.fetch = realFetch;
+    await removeConfig(plan);
+    if (exported !== undefined) process.env[plan] = exported;
+  }
+});
+
 test("a refusal from the plan's backend reads in its own words, which it sends as `detail`", async () => {
   const { generateText } = await import("ai");
   const { TEXT_MODEL_PROVIDERS } = await import(

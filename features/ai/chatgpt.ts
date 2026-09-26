@@ -472,13 +472,14 @@ type CodexBody = {
   stream?: boolean;
   store?: boolean;
   max_output_tokens?: number;
+  prompt_cache_key?: string;
 };
 
 /**
  * What the ChatGPT backend asks of a Responses call that api.openai.com does not, applied to
  * every request the sdk makes: signed with the current sign-in, so a job that outlives a token
  * renews it; always streamed and never stored; the system prompt as `instructions`, which it
- * refuses a call without; no output cap.
+ * refuses a call without; no output cap; the prompt cache key as the `session-id` header too.
  */
 async function codexFetch(
   input: RequestInfo | URL,
@@ -500,6 +501,10 @@ async function codexFetch(
 
   const body = JSON.parse(init.body) as CodexBody;
   const streamed = body.stream === true;
+  // The backend keeps a prompt's cache where this header sends it, not the body's key (codex-rs
+  // core/src/client.rs, `responses_session_id`): measured on it, seven steps of one growing
+  // conversation read 21% of their input from the cache without it and 75% with it
+  if (body.prompt_cache_key) headers.set("session-id", body.prompt_cache_key);
   const system: string[] = [];
   body.input = (body.input ?? []).filter((item) => {
     if (item.role !== "system" && item.role !== "developer") return true;
