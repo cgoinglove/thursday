@@ -31,6 +31,8 @@ export function createWebRtcTransport<Incoming, Outgoing>({
 }): {
   connect(): Promise<void>;
   send(event: Outgoing): void;
+  /** The largest message the data channel carries, as the two ends agreed; null before. */
+  limit(): number | null;
   close(): void;
 } {
   let peer: RTCPeerConnection | null = null;
@@ -146,6 +148,9 @@ export function createWebRtcTransport<Incoming, Outgoing>({
     send(event) {
       if (!closed && channel?.readyState === "open")
         channel.send(JSON.stringify(event));
+    },
+    limit() {
+      return peer?.sctp?.maxMessageSize ?? null;
     },
     close,
   };

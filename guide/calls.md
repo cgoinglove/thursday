@@ -28,6 +28,12 @@ several steps — goes to a bot while the call carries on. She picks the bot and
 While she is working, the line under her face says so. The microphone stays open: anything said
 meanwhile is heard and answered once she is done, so there is no need to repeat it.
 
+**Share screen**, on that line during a spoken call, shows her a screen, a window or a tab; the
+browser asks which. A small copy of it stands at the top right while it is shared. She sees it
+only when asked to look — "what does this error say?" — and then a picture of it as it is at that
+moment goes to the model behind her, nowhere else. **Stop** on the line, the browser's own bar,
+or the end of the call stops sharing.
+
 ## Ending it
 
 Saying goodbye usually ends the call, but not always. Tapping her face ends it for certain, and so

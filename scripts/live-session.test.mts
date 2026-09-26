@@ -7,6 +7,7 @@ import type {
   LiveSearch,
   LiveSource,
   LiveToolCall,
+  LiveToolResult,
   LiveTurn,
 } from "../lib/live/live.session.ts";
 
@@ -29,6 +30,7 @@ mock.module("../lib/live/live.transport.ts", {
           wire.on.event({ type: "session.started" });
         },
         send: (event: Record<string, unknown>) => sent.push(event),
+        limit: () => 262_144,
         close: () => {
           released = true;
         },
@@ -60,7 +62,7 @@ afterEach(async () => {
 async function connect({
   runTool = async () => "ok",
 }: {
-  runTool?: (call: LiveToolCall) => Promise<string>;
+  runTool?: (call: LiveToolCall) => Promise<string | LiveToolResult>;
 } = {}) {
   sent = [];
   released = false;
@@ -160,6 +162,42 @@ test("the backend waits for every function output and continues once, using the 
   await tick();
   assert.equal(count("response.create"), 1);
   assert.equal(count("response.item.create"), 2);
+});
+
+test("a picture a tool hands back goes in right after its output, as the user's image, before the backend goes on", async () => {
+  const image = "data:image/jpeg;base64,AAAA";
+  const { session } = await connect({
+    runTool: async () => ({ output: "Their screen follows.", image }),
+  });
+  nested({ type: "response.created", response: { id: "r1" } });
+  functionCall("a");
+  nested({ type: "response.completed", response: { id: "r1", output: [] } });
+  await tick();
+  const order = sent
+    .filter(
+      (event) =>
+        event.type === "response.item.create" ||
+        event.type === "response.create",
+    )
+    .map((event) =>
+      event.type === "response.create"
+        ? "continue"
+        : (event.item as { type: string }).type,
+    );
+  assert.deepEqual(order, ["function_call_output", "message", "continue"]);
+  assert.deepEqual(
+    sent.find(
+      (event) =>
+        (event.item as { type?: string } | undefined)?.type === "message",
+    )?.item,
+    {
+      type: "message",
+      role: "user",
+      content: [{ type: "input_image", image_url: image }],
+    },
+  );
+  // What a picture is made to fit: the connection's own limit
+  assert.equal(session.messageLimit(), 262_144);
 });
 
 test("an incomplete response that asked for tools is continued once, and a second in a row only warns", async () => {
@@ -1063,7 +1101,7 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     assert.match(on.text, /Prefer brief replies/);
     assert.match(
       on.text,
-      /\n\n## Always\n\nBackchannel policy: Use moderate backchannels\. .*\n\nInterruption policy: Stop speaking when the user interrupts\. Listen to what they say\.\n\nSpeak the language the user is speaking, [^\n]+\n\nDelegation policy:\nBackend tools:\n- Ending the call: hangs up the line — only the backend can, so a goodbye, or a hang-up they ask for, is handed over rather than answered\.\n(- [^\n]+\n){4}\nDelegate to the backend when:\n- They say goodbye or good night, in whatever words, or want the call to end\.\n(- [^\n]+\n)+\nDo not delegate to the backend when:\n- They say hello, [^\n]+\n(- [^\n]+\n)+\nDelegate before giving an answer that depends on backend work\. Do not guess the result while waiting\.\n\nWhat they tell you about themselves is handed over quietly: [^\n]+\n\n## What you know about them\n/,
+      /\n\n## Always\n\nBackchannel policy: Use moderate backchannels\. .*\n\nInterruption policy: Stop speaking when the user interrupts\. Listen to what they say\.\n\nSpeak the language the user is speaking, [^\n]+\n\nDelegation policy:\nBackend tools:\n- Ending the call: hangs up the line — only the backend can, so a goodbye, or a hang-up they ask for, is handed over rather than answered\.\n(- [^\n]+\n){5}\nDelegate to the backend when:\n- They say goodbye or good night, in whatever words, or want the call to end\.\n(- [^\n]+\n)+\nDo not delegate to the backend when:\n- They say hello, [^\n]+\n(- [^\n]+\n)+\nDelegate before giving an answer that depends on backend work\. Do not guess the result while waiting\.\n\nWhat they tell you about themselves is handed over quietly: [^\n]+\n\n## What you know about them\n/,
     );
     // Who she is to talk to sits right under the identity, character only: no stamp, no rule
     assert.match(

@@ -15,6 +15,7 @@ const LINES: Record<string, string> = {
   [TOOL_NAMES.look_at]: "Looking at the picture",
   [TOOL_NAMES.make_deck]: "Making the deck",
   [TOOL_NAMES.end_call]: "Ending the call",
+  [TOOL_NAMES.look_at_screen]: "Looking at your screen",
   [TOOL_NAMES.routine]: "Checking your routines",
 };
 

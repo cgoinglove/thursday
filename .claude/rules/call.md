@@ -1,9 +1,9 @@
 ---
-checked: 2026-09-24
+checked: 2026-09-26
 paths:
   - "features/thursday/thursday.*.ts"
   - "features/thursday/use-*.ts"
-  - "features/thursday/{open-work,screen-act,tool-call,call-signal}.ts"
+  - "features/thursday/{open-work,screen-act,screen-share,tool-call,call-signal}.ts"
   - "hooks/use-wake-word.ts"
   - "features/reach/**"
   - "lib/live/**"
@@ -33,7 +33,8 @@ she answers what takes a glance on the spot and hands anything longer to a bot.
 ## How it fits
 A spoken call is two models on one Live connection: `openCallAction` builds the voice's prompt,
 the backend's prompt and the tool manifest on the server, and the backend's tool calls arrive in
-the page and run through `/api/thursday/tool-call`, but for `end_call` and `emote`, which
+the page and run through `/api/thursday/tool-call`, but for `end_call`, `emote` and
+`look_at_screen` (a picture of the screen they share, `features/thursday/screen-share.ts`), which
 `use-thursday` runs. A call in writing (`use-text-call` → `/api/thursday/text`) and a phone
 (`reach.ts` → `answerInWriting`) are that backend with no voice, run by `thursday.text`. Every way
 in reads the one `LiveSettings` row (`readLiveSettings`) and is kept as a call row that the next

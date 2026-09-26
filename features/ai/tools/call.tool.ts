@@ -41,10 +41,24 @@ const emoteTool = tool({
   inputSchema: emoteSpec.parameters,
 });
 
+const lookAtScreenSpec = {
+  description: `See the screen the user is sharing with you, as it is at this moment.
+
+The picture comes right after this result. When they are not sharing, the result says so.`,
+  parameters: z.object({}),
+};
+
+/** Deliberately has no `execute`: the page holds the shared screen and takes the picture. */
+const lookAtScreenTool = tool({
+  description: lookAtScreenSpec.description,
+  inputSchema: lookAtScreenSpec.parameters,
+});
+
 /** The tools that act on the call itself. */
 export function callTools() {
   return {
     [TOOL_NAMES.end_call]: endCallTool,
     [TOOL_NAMES.emote]: emoteTool,
+    [TOOL_NAMES.look_at_screen]: lookAtScreenTool,
   };
 }

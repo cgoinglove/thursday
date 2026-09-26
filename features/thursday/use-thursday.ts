@@ -56,6 +56,12 @@ import {
 } from "./open-work";
 import { screenActLine } from "./screen-act";
 import {
+  isSharing,
+  onShareChange,
+  stopSharing,
+  takePicture,
+} from "./screen-share";
+import {
   endCallAction,
   openCallAction,
   saveThoughtAction,
@@ -106,6 +112,15 @@ const FACE_SETTLE_MS = 600;
  * enough for the orb to spell its ERROR out. The toast carries the reason.
  */
 const FAILED_FACE_MS = 6000;
+
+/**
+ * What one data channel message may carry when the far end names no limit (the SCTP default
+ * the two ends both know), for a picture taken before the connection says (screen-share).
+ */
+const SCTP_DEFAULT_BYTES = 65_536;
+
+/** Room left in that message for the event around a picture: its type, ids and fields. */
+const PICTURE_ENVELOPE_BYTES = 1_024;
 
 /**
  * What the activity line draws: a tool the model is using, or a relay. `line` is
@@ -206,6 +221,8 @@ export function useThursday(
     spoke: boolean;
     giveUp: ReturnType<typeof setTimeout> | null;
   }>({ on: false, spoke: false, giveUp: null });
+  /** What waits for her to finish reading something out before it goes in (shareNews). */
+  const afterReading = useRef<(() => void) | null>(null);
   /** What `session.closed` confirmed for the call being ended; recorded on its row. */
   const finalized = useRef<LiveClose | null>(null);
   /** When the line last had new words from the user, her voice or backend work: the idle clock. */
@@ -340,6 +357,7 @@ export function useThursday(
     onLineRows.current = [];
     onLine.current = [];
     reading.current = { on: false, spoke: false, giveUp: null };
+    afterReading.current?.();
     if (!relayOpen.current) return;
     relayOpen.current = false;
     setTool((open) =>
@@ -585,6 +603,32 @@ export function useThursday(
     [outbox],
   );
 
+  // Sharing a screen, or stopping, is told too; while she reads the opening or an update it
+  // waits: put in at once, it went in over her greeting, and on two calls she never gave it.
+  // What earlier calls said about a screen is in her reading, and she answered from it with
+  // a different screen shared; the fact says what is on it now is only known by looking
+  const shareNews = useRef<string | null>(null);
+  useEffect(() => {
+    const tell = () => {
+      const news = shareNews.current;
+      if (!news || !calling.current || reading.current.on) return;
+      shareNews.current = null;
+      outbox.send(news);
+    };
+    afterReading.current = tell;
+    const stop = onShareChange((sharing) => {
+      if (!calling.current) return;
+      shareNews.current = sharing
+        ? "The user started sharing their screen with you. What is on it now is known only by looking at it; what was said about a screen before may not be what is there."
+        : "The user stopped sharing their screen.";
+      tell();
+    });
+    return () => {
+      stop();
+      afterReading.current = null;
+    };
+  }, [outbox]);
+
   /** Closes the session and resets state. Turns were saved during the call. `why` is null when the user hung up. */
   const hangUp = useCallback(
     async (why: CallEnd | null = null) => {
@@ -600,6 +644,9 @@ export function useThursday(
       callId.current = null;
       calling.current = false;
       opening.current = false;
+      // A screen is shared with a call, and goes with it; nothing about it is left to tell
+      shareNews.current = null;
+      stopSharing();
       rang.current = false;
       // What she did not voice goes in again next call; unsent context goes with the session
       for (const key of unvoiced.current) told.current.delete(key);
@@ -872,6 +919,21 @@ export function useThursday(
               const { word, reply } = readFaceWord(call.arguments);
               if (word) setFaceWord({ text: word, at: Date.now() });
               return reply;
+            }
+            // The page holds the shared screen: the picture goes to the backend right after
+            // this answer, made to fit one message of the connection
+            if (call.name === TOOL_NAMES.look_at_screen) {
+              if (!isSharing())
+                return "Nothing is being shared. They can share a screen, a window or a tab with Share screen, under your face.";
+              const limit =
+                session.current?.messageLimit() ?? SCTP_DEFAULT_BYTES;
+              const taken = takePicture(limit - PICTURE_ENVELOPE_BYTES);
+              if ("failed" in taken) return taken.failed;
+              return {
+                output:
+                  "The picture right after this is their screen as it is now.",
+                image: taken.url,
+              };
             }
             showTool(call);
             // Exa's search, while its key is set (load-tools): its pages come back with

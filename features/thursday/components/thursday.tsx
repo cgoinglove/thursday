@@ -55,6 +55,12 @@ import {
 } from "@/features/settings/settings.alert";
 import { openSettings } from "@/features/settings/settings.store";
 import { useCallHeld } from "@/features/thursday/call-signal";
+import {
+  canShare,
+  share,
+  stopSharing,
+  useSharedScreen,
+} from "@/features/thursday/screen-share";
 import { silentVoice } from "@/features/thursday/silent-voice";
 import {
   type CallMessage,
@@ -208,6 +214,8 @@ function CallScreen({
         <InstallNudge
           hidden={status !== "idle" || ringing !== null || writing}
         />
+        {/* On the caller's side, clear of the captions stacked beside her face */}
+        <SharedScreen />
       </div>
 
       {/* Top padding in vh, like the face itself, so the face+text column sits below center */}
@@ -1509,6 +1517,7 @@ function Hint({
         ) : (
           <Elapsed since={since} />
         )}
+        <ShareScreen />
       </>
     );
   } else if (ended) {
@@ -1567,6 +1576,65 @@ function Hint({
     >
       {body}
     </span>
+  );
+}
+
+const LINE_BUTTON =
+  "rounded-md outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50";
+
+/**
+ * The way to show her a screen, on the line while a spoken call is up. The browser asks which
+ * screen, window or tab, and only from a press; she sees it only when she looks (screen-share).
+ */
+function ShareScreen() {
+  const stream = useSharedScreen();
+  if (!canShare()) return null;
+  return (
+    <>
+      <span className="text-muted-foreground/40">·</span>
+      {stream ? (
+        <>
+          <span>Sharing</span>
+          <span className="text-muted-foreground/40">·</span>
+          <button type="button" onClick={stopSharing} className={LINE_BUTTON}>
+            Stop
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={() => void share()}
+          className={LINE_BUTTON}
+        >
+          Share screen
+        </button>
+      )}
+    </>
+  );
+}
+
+/** What is shared with her, small, while it is: she looks at it only when asked to. */
+function SharedScreen() {
+  const stream = useSharedScreen();
+  const video = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (video.current) video.current.srcObject = stream;
+  }, [stream]);
+  if (!stream) return null;
+  return (
+    <figure className="flex w-44 animate-in flex-col items-end gap-1.5 fade-in duration-300">
+      <video
+        ref={video}
+        autoPlay
+        muted
+        playsInline
+        aria-label="The screen you are sharing"
+        className="aspect-video w-full rounded-lg bg-muted object-contain ring-1 ring-border/60"
+      />
+      <figcaption className="font-mono text-[11px] text-muted-foreground">
+        She looks when you ask
+      </figcaption>
+    </figure>
   );
 }
 

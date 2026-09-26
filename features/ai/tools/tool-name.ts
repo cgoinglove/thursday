@@ -42,6 +42,7 @@ export const TOOL_NAMES = {
 
   end_call: "end_call",
   emote: "emote",
+  look_at_screen: "look_at_screen",
 } as const;
 
 /**

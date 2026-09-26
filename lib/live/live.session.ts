@@ -26,6 +26,12 @@ export type LiveToolCall = {
   item?: string;
 };
 /**
+ * What a tool answers with: its text, and a picture for the backend to see after it. A picture
+ * cannot ride in a function output on this wire; it is queued as the next input item, which is
+ * how the guide has an image reach a Responses backend ("Add images and visual context").
+ */
+export type LiveToolResult = { output: string; image?: string };
+/**
  * One reasoning summary part of the backend, whole. A summary is the backend's
  * own account of its thinking, not its reasoning tokens, and comes only while a
  * model reasons.
@@ -70,7 +76,7 @@ type LiveOptions = {
   initialize(sdp: string): Promise<string>;
   audio: LiveAudio;
   on: {
-    runTool(call: LiveToolCall): Promise<string>;
+    runTool(call: LiveToolCall): Promise<string | LiveToolResult>;
     reasoning?(part: LiveReasoning): void;
     search?(search: LiveSearch): void;
     /** URL citations on a backend answer, by the response that wrote it. */
@@ -617,9 +623,11 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
               }),
             )
             .catch((cause) => `Error: ${errorToString(cause)}`)
-            .then((output) => {
+            .then((result) => {
               tools.delete(item.call_id);
-              if (!closed && !closing)
+              const { output, image } =
+                typeof result === "string" ? { output: result } : result;
+              if (!closed && !closing) {
                 transport.send({
                   type: "response.item.create",
                   event_id: crypto.randomUUID(),
@@ -629,6 +637,18 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
                     output,
                   },
                 });
+                // Before the response is continued (continueResponse waits on this call)
+                if (image)
+                  transport.send({
+                    type: "response.item.create",
+                    event_id: crypto.randomUUID(),
+                    item: {
+                      type: "message",
+                      role: "user",
+                      content: [{ type: "input_image", image_url: image }],
+                    },
+                  });
+              }
               activity();
             });
           response.calls.set(item.call_id, running);
@@ -756,6 +776,13 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
      * which may say aloud anything appended to it, never sees it. Live acknowledges no
      * item; a refusal comes back as an `error`.
      */
+    /**
+     * The largest message the connection carries, in bytes, once it is up: a picture for the
+     * backend goes in one message, so it is made to fit. Null before the connection says.
+     */
+    messageLimit(): number | null {
+      return transport.limit();
+    },
     brief(text: string): void {
       const content = text.trim();
       if (closed || closing || !content) return;
