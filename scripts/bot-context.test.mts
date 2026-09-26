@@ -1823,6 +1823,54 @@ test("a model on the plan asks for the web as Codex asks that endpoint", async (
   }
 });
 
+test("a refusal from the plan's backend reads in its own words, which it sends as `detail`", async () => {
+  const { generateText } = await import("ai");
+  const { TEXT_MODEL_PROVIDERS } = await import(
+    "../features/ai/model.schema.ts"
+  );
+  const { writeConfig, removeConfig } = await import(
+    "../features/config/config.query.ts"
+  );
+  const plan = TEXT_MODEL_PROVIDERS.chatgpt.apiKeyName;
+  const exported = process.env[plan];
+  delete process.env[plan];
+  await writeConfig(
+    plan,
+    JSON.stringify({
+      access: "test.access.token",
+      refresh: "test-refresh",
+      expires: Date.now() + 3_600_000,
+      accountId: "test-account",
+      plan: "plus",
+    }),
+  );
+  const said =
+    "Could not parse your authentication token. Please try signing in again.";
+  const realFetch = globalThis.fetch;
+  // As the backend answers a sign-in it no longer takes: no status word, the reason as `detail`
+  globalThis.fetch = (async () =>
+    Response.json({ detail: said }, { status: 401 })) as typeof fetch;
+  try {
+    const built = await realModel.getTextModel({
+      provider: "chatgpt",
+      model: "gpt-6-luna",
+    });
+    const failure = await generateText({
+      model: built.model,
+      prompt: "Hello",
+      maxRetries: 0,
+    }).then(
+      () => null,
+      (cause: unknown) => cause,
+    );
+    assert.equal(realModel.modelErrorToString(failure), `${said} (401)`);
+  } finally {
+    globalThis.fetch = realFetch;
+    await removeConfig(plan);
+    if (exported !== undefined) process.env[plan] = exported;
+  }
+});
+
 test("the record of the ready-made bots' words says what bot.seed says today", async () => {
   const { createHash } = await import("node:crypto");
   const { BOT_SEEDS } = await import("../features/bot/bot.seed.ts");
@@ -2067,6 +2115,30 @@ test("a provider's refusal waits for a person at once; a break is tried once mor
     ).length,
     0,
   );
+});
+
+test("a refusal that came with no status word pauses on what the provider said", async () => {
+  // Over HTTP/2 there is no status word, so a body the sdk cannot read leaves its message empty
+  const refused = new APICallError({
+    message: "",
+    url: "https://provider.test/v1",
+    requestBodyValues: {},
+    statusCode: 403,
+    responseBody: '{"detail":"This model is not on your plan."}',
+    isRetryable: false,
+  });
+  plans.set("Alpha", [() => [{ type: "error", error: refused }]]);
+  const id = await startThread({
+    bot: "Alpha",
+    request: "Fail with no status word",
+    label: "Unworded",
+    from: "user",
+  });
+  assert.equal(
+    (await waitFor(id, "waiting")).outcome,
+    '(403) {"detail":"This model is not on your plan."}',
+  );
+  await cancelThread(id);
 });
 
 test("compaction thresholds belong to the participant across different callers", async () => {

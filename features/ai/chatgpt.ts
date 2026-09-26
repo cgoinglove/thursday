@@ -524,8 +524,31 @@ async function codexFetch(
     body: JSON.stringify(body),
   });
   if (response.status === 429) return usageLimitOf(response);
-  if (streamed || !response.ok) return response;
+  if (!response.ok) return refusalOf(response);
+  if (streamed) return response;
   return finishedOf(response);
+}
+
+/**
+ * A refusal the backend words as `{ detail }`, where the sdk reads `{ error: { message } }`, in
+ * the sdk's shape: its message is then the backend's own words ("Could not parse your
+ * authentication token. Please try signing in again.") rather than the status word, which a
+ * response over HTTP/2 does not carry. Any other body goes on as it came.
+ */
+async function refusalOf(response: Response): Promise<Response> {
+  const said = (await response
+    .clone()
+    .json()
+    .catch(() => null)) as { detail?: unknown } | null;
+  if (typeof said?.detail !== "string") return response;
+  const retryAfter = response.headers.get("retry-after");
+  return Response.json(
+    { error: { message: said.detail } },
+    {
+      status: response.status,
+      headers: retryAfter ? { "retry-after": retryAfter } : {},
+    },
+  );
 }
 
 /**

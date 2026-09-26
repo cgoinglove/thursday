@@ -74,16 +74,18 @@ const PROVIDER_BODY_MAX = 300;
  * wrong, spent, or not entitled to this model, so its own words are what a caller
  * reports. When the body did not fit the sdk's error schema the message it built is
  * the status word alone ("Unauthorized"), and the body it wrapped comes out with it.
+ * Over HTTP/2 there is no status word, so that message is empty and the body is all
+ * the provider said: an empty message is in every body, and must not hide it.
  */
 export function modelErrorToString(cause: unknown): string {
   if (!APICallError.isInstance(cause)) return errorToString(cause);
-  const status = cause.statusCode ? ` (${cause.statusCode})` : "";
+  const status = cause.statusCode ? `(${cause.statusCode})` : "";
   const body = cause.responseBody?.trim();
   const said =
-    body && !body.includes(cause.message)
-      ? ` ${clip(body, PROVIDER_BODY_MAX)}`
+    body && !(cause.message && body.includes(cause.message))
+      ? clip(body, PROVIDER_BODY_MAX)
       : "";
-  return `${cause.message}${status}${said}`;
+  return [cause.message, status, said].filter(Boolean).join(" ");
 }
 
 /** How providers word a context too long for the model; the sdk has no error class for it. */
