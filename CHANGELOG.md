@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.18.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.17.2...thursday-agent-v0.18.0) (2026-09-26)
+
+
+### Features
+
+* **bots:** a note about a file finds the thread that reported it, and says first why it cannot be sent ([fe0322a](https://github.com/cgoinglove/thursday/commit/fe0322a035b0b92893277a6a92848d5f29cf5712))
+* **files:** a note under a finished file goes to the thread that made it, and the file shows a bot's rewrite while open ([8c02ada](https://github.com/cgoinglove/thursday/commit/8c02ada3b0244fb64efe76ce0721ee782f951dc1))
+
+
+### Fixes
+
+* **bots:** a bot's later runs in a thread read the conversation back from the provider's cache ([fd5241a](https://github.com/cgoinglove/thursday/commit/fd5241a75a9f8ddf9b54e208351b143b21df72ea))
+* **call:** she opens the call before the room is heard ([9a556f8](https://github.com/cgoinglove/thursday/commit/9a556f88efadc50de7dd38c8f4e860639807d48d))
+* **call:** the first call opens the way every other call does ([c15b0b9](https://github.com/cgoinglove/thursday/commit/c15b0b90b59d0814b839386749ab9ea670688e08))
+* **chatgpt:** a run on the plan reads its conversation back from the cache, by the header the backend keeps it by ([071b9fc](https://github.com/cgoinglove/thursday/commit/071b9fc9ff4bb3af79644625a29941c62d937be9))
+* **cli:** a lock left by a server that died is not taken for a running one ([8edfcea](https://github.com/cgoinglove/thursday/commit/8edfcea651c1198a7496792548c8d3a9b9cd71cd))
+* **cli:** a second start opens the one running, and every hint names a command this install has ([f33a9cb](https://github.com/cgoinglove/thursday/commit/f33a9cb116378f37ba6d28de159feeafc69f7ba3))
+* **files:** a file no report names says only that, since that is all the app knows ([4e6843d](https://github.com/cgoinglove/thursday/commit/4e6843daeb8cdbc1f32916e1f803f88cc70901c7))
+* **files:** a picture a skill drew beside a reported page finds the page's thread ([1075476](https://github.com/cgoinglove/thursday/commit/1075476b5318c067f8f65cc294ca9e73b6c1701d))
+* **files:** the note under a file checks the bot's model without logging a fallback ([b7d713d](https://github.com/cgoinglove/thursday/commit/b7d713d540659ba50a2c1823266bea70796093e6))
+* **files:** the note under a file whose thread was deleted says so, not that no thread made it ([4b796b4](https://github.com/cgoinglove/thursday/commit/4b796b4f389d913ead4ff939eaed4b1f361a33ae))
+* **intro:** in a narrow window each step stacks under her instead of running off the edge ([fcd722d](https://github.com/cgoinglove/thursday/commit/fcd722de7be3be076a761f77f7389989b4ef876d))
+* **intro:** once left, the first run stays gone, and only that first leave sets the bots up ([f1b4f4b](https://github.com/cgoinglove/thursday/commit/f1b4f4b91fa4cc141a1f896fc74f2be615fa00a1))
+* **intro:** the first screen keeps its captions in a narrow window ([42ecc4b](https://github.com/cgoinglove/thursday/commit/42ecc4bf48a55ff38524d30c454613f61fdb6570))
+* **intro:** the microphone step's main button turns it on, and says so while the browser asks ([d9db582](https://github.com/cgoinglove/thursday/commit/d9db5825af7217e1b0ef1553427e64110e5e334f))
+* **models:** a refusal says the provider's reason when its response carried no status word ([5153405](https://github.com/cgoinglove/thursday/commit/5153405d77868b36d59feb18d4ecd55a1f090225))
+* **prompts:** she knows her bots work on this computer, and says so when asked ([2cc642e](https://github.com/cgoinglove/thursday/commit/2cc642e35e2045402fcddbeae3ed085c92de967a))
+* **settings:** Cmd+1..9 asks about a routine typed and not kept, as a click does ([1ac0f36](https://github.com/cgoinglove/thursday/commit/1ac0f36e7db9377957332d1a0f0638ecb2456500))
+
+
+### Docs
+
+* **guide:** shorter by 40%, and what it says checked against the code ([65f3294](https://github.com/cgoinglove/thursday/commit/65f3294b266d7d898bbd5549dab0f1a9211ba228))
+* **readme:** the section pictures are drawn, not cut from the film ([7c5e133](https://github.com/cgoinglove/thursday/commit/7c5e1333385d3939e39e3c8844978d4db400bd49))
+* **readme:** the section pictures get a light of their own ([15b72f6](https://github.com/cgoinglove/thursday/commit/15b72f64589cb259f18bc364f531ddafd3f22e99))
+* **readme:** the section pictures stand on a plain ground ([7b95bb7](https://github.com/cgoinglove/thursday/commit/7b95bb784ff6e7cce0332ad29eb4cfe79006b7d8))
+
 ## [0.17.2](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.17.1...thursday-agent-v0.17.2) (2026-09-26)
 
 
