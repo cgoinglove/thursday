@@ -95,11 +95,12 @@ export const CALL_PAGE = { scrollback: 24, saveFailures: 3 };
  * - `hangUpMs`  how long the user has said nothing and she has neither spoken nor worked
  *   before the page hangs up, with no goodbye. Updates she voices on her own (CALL_RELAY) do
  *   not count, so waiting results cannot hold a call open, and neither do sounds transcribed
- *   in brackets ("[sigh]"). Noise transcribed as words does.
+ *   in brackets ("[sigh]"). Noise transcribed as words does. Longer keeps a silent line open,
+ *   billed by the minute; 40 s was too long a silence to sit through (the maintainer, 09-26).
  * - `warnMs`  how much of `hangUpMs` counts down on screen.
  */
 export const CALL_IDLE = {
-  hangUpMs: 40_000,
+  hangUpMs: 25_000,
   warnMs: 10_000,
 };
 
