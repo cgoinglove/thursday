@@ -188,7 +188,7 @@ export function FileNoteBar({
         <HandOver
           path={path}
           suggested={note.bot}
-          lead={`${note.threadDeleted ? "This file's thread was deleted." : "This file isn't in any thread."} What you send starts a new one.`}
+          lead={`${note.threadDeleted ? "This file's thread was deleted." : "No thread's report names this file."} What you send starts a new one.`}
           onThread={onThread}
         />
       );

@@ -113,7 +113,7 @@ export async function tellFileThread(
   if (found.state === "gone") publicError("This file is no longer on disk.");
   if (found.state === "none")
     publicError(
-      `${found.threadDeleted ? "This file's thread was deleted." : "This file isn't in any thread."} Hand it to a bot as a new job.`,
+      `${found.threadDeleted ? "This file's thread was deleted." : "No thread's report names this file."} Hand it to a bot as a new job.`,
     );
   if (found.state === "asking")
     publicError(
@@ -128,7 +128,9 @@ export async function tellFileThread(
  * The thread the screen opened the file from, else the latest whose report named it, else the
  * latest that named another file of its set: one entry on a bot's shelf, a file or a folder of
  * several, is one piece of work (features/artifact), and a report names the files worth opening
- * rather than every picture a skill drew beside them.
+ * rather than every picture a skill drew beside them. A report naming only a folder names no file
+ * (`pathsIn` reads files) and finds nothing here, as it puts nothing on the finished card either:
+ * the bot is asked to name each file (bot.prompt).
  */
 async function threadOf(path: string, from: string | null) {
   if (from) return findThread(from);

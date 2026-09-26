@@ -189,11 +189,11 @@ next. The note goes to the thread the file came from, which picks up where it le
 reads it with the file named; the thread's name at the top of the window opens that thread. When the
 thread cannot take a note, the box says why instead of sending it: a bot there waits on an answer
 (**Answer in the thread**), its bot was deleted (**Hand to another bot**), or the model it runs on
-has no key or is signed out (**Open Settings**). A file no thread made, or whose thread is gone,
-goes from the same box to a bot as a new job. While a file is open over the app, one its bot writes
-again is shown as it is now, and the top of the window says **Reloaded at** the time; a sound or a
-video, and a page from an older app that may hold edits, wait for **Changed since it opened ·
-Reload**.
+has no key or is signed out (**Open Settings**). A file no thread's report names, or whose thread
+was deleted, goes from the same box to a bot as a new job. While a file is open over the app, one
+its bot writes again is shown as it is now, and the top of the window says **Reloaded at** the time;
+a sound or a video, and a page from an older app that may hold edits, wait for **Changed since it
+opened · Reload**.
 
 **Settings › Files** keeps all of them. **Finished** is one shelf per bot (**Everyone**, each bot,
 **Unsorted**), each file with **Open in a new tab**, **Reveal in the file manager** (the file picked

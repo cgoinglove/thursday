@@ -2966,7 +2966,7 @@ test("a note about a file reaches the thread that reported it, even after that t
   });
   await assert.rejects(
     tellFileThread(unreported, "Hello"),
-    /This file isn't in any thread/,
+    /No thread's report names this file/,
   );
 
   // Deleted while the file was open from it: said as that, and its report went with it
