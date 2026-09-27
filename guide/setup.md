@@ -59,6 +59,9 @@ instead.
   the top of a bot's model list puts that bot back on it.
 - **Studio** holds the **Image model**, **Video model**, **Speech model** and **Transcription
   model**. One left unpicked shows *off*, and bots cannot do that kind of work until one is picked.
+  The GPT Subscription can be the Image model (**GPT Image 2**): pictures then come out of the
+  ChatGPT plan with no key, under a limit of their own that a refusal names. It has nothing for
+  video, speech or transcription.
 
 The call's own two models are in **Settings › Thursday**, under Models.
 

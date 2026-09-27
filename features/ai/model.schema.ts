@@ -134,6 +134,7 @@ export const compactAtFor = (window: number | null | undefined): number =>
 /** Providers that make non-text media. Kept apart from the text providers: the key is the same, but a text provider does not necessarily draw (Anthropic). */
 const mediaModelProviderSchema = z.enum([
   "openai",
+  "chatgpt",
   "google",
   "xai",
   "vercel-ai-gateway",
@@ -196,6 +197,21 @@ export const MEDIA_MODEL_PROVIDERS: Record<
         },
         { id: "gpt-transcribe", label: "GPT Transcribe", tier: "mid" },
       ],
+    },
+  },
+  /**
+   * What the Codex CLI makes on a ChatGPT plan, signed in the same way (ai/chatgpt): pictures
+   * with the model it draws with (codex-rs ext/image-generation tool.rs `IMAGE_MODEL`), under
+   * a limit of the plan's own. It has no route to film, speak or transcribe on a plan.
+   */
+  chatgpt: {
+    label: "GPT Subscription",
+    apiKeyName: "CHATGPT_SIGN_IN",
+    models: {
+      image: [{ id: "gpt-image-2", label: "GPT Image 2", tier: "mid" }],
+      video: [],
+      speech: [],
+      transcription: [],
     },
   },
   google: {

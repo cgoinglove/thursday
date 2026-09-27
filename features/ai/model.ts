@@ -35,6 +35,7 @@ import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
 import { clip, errorToString } from "@/lib/utils";
 import {
+  chatGptImageModel,
   chatGptModel,
   chatGptSearch,
   PLAN_SPENT_CODE,
@@ -770,6 +771,9 @@ export function buildImageModel(
   switch (ref.provider) {
     case "openai":
       return createOpenAI({ apiKey }).image(ref.model);
+    case "chatgpt":
+      // Signed with the stored sign-in itself (ai/chatgpt), as its text model is
+      return chatGptImageModel(ref.model);
     case "google":
       return createGoogleGenerativeAI({ apiKey }).image(ref.model);
     case "xai":

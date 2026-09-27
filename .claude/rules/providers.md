@@ -1,5 +1,5 @@
 ---
-checked: 2026-09-26
+checked: 2026-09-27
 paths:
   - "features/ai/{model,model.schema,chatgpt,openrouter}.ts"
   - "features/ai/components/**"
@@ -18,7 +18,7 @@ MCP servers for them to use.
 ## Start here
 - `features/ai/model.schema.ts` — text and media providers, their shelves with context and effort steps.
 - `features/ai/model.ts` — a model built from a ref and a key; the default and media picks; the catalogs (`readCatalog`).
-- `features/ai/chatgpt.ts` — GPT Subscription: sign-in, renewal, plan usage, the Codex request shape.
+- `features/ai/chatgpt.ts` — GPT Subscription: sign-in, renewal, plan usage, the Codex request shape, its pictures.
 - `features/ai/openrouter.ts` — OpenRouter's list read into the gateway's words, and its key's credit.
 - `features/config/config.const.ts` — every key and app-wide model pick, grouped as Settings draws them.
 - `features/connectors/mcp.manager.ts` — MCP sessions, their OAuth, reconnects.

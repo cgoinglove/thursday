@@ -1,7 +1,12 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { createServer, type RequestListener, type Server } from "node:http";
 import { createOpenAI } from "@ai-sdk/openai";
-import { type LanguageModel, wrapLanguageModel } from "ai";
+import {
+  APICallError,
+  type ImageModel,
+  type LanguageModel,
+  wrapLanguageModel,
+} from "ai";
 import { formatDistanceToNowStrict } from "date-fns";
 import { z } from "zod";
 import { CHATGPT_SIGN_IN, CHATGPT_USAGE_HIGH } from "@/config";
@@ -14,10 +19,11 @@ import { errorToString } from "@/lib/utils";
 import { type SubscriptionUsage, TEXT_MODEL_PROVIDERS } from "./model.schema";
 
 /**
- * ChatGPT as a text provider: the Codex usage a ChatGPT plan carries, in place of an API key.
+ * ChatGPT as a provider: the Codex usage a ChatGPT plan carries, in place of an API key.
  * Signing in is OpenAI's OAuth for the Codex CLI, the way other agent apps reach a plan. The
  * model is the Responses API behind chatgpt.com, which takes less than api.openai.com does;
- * `codexFetch` is the difference.
+ * `codexFetch` is the difference. A picture is drawn there too, the way the Codex CLI draws
+ * one (`chatGptImageModel`).
  */
 
 /** The Codex CLI's public OAuth client. */
@@ -523,15 +529,124 @@ async function codexFetch(
   body.max_output_tokens = undefined;
 
   headers.set("accept", "text/event-stream");
-  const response = await fetch(input, {
-    ...init,
-    headers,
-    body: JSON.stringify(body),
-  });
-  if (response.status === 429) return usageLimitOf(response);
-  if (!response.ok) return refusalOf(response);
+  const response = await answerOf(
+    await fetch(input, {
+      ...init,
+      headers,
+      body: JSON.stringify(body),
+    }),
+  );
+  if (!response.ok) return response;
   if (streamed) return response;
   return finishedOf(response);
+}
+
+/** A refusal from the backend in the sdk's words (usageLimitOf, refusalOf); an answer goes on as it came. */
+async function answerOf(response: Response): Promise<Response> {
+  if (response.status === 429) return usageLimitOf(response);
+  if (!response.ok) return refusalOf(response);
+  return response;
+}
+
+type PlanImageModel = Extract<ImageModel, { specificationVersion: "v4" }>;
+
+/** What the images route answers: the pictures, or a refusal in the sdk's words (answerOf). */
+type DrawAnswer = {
+  data?: { b64_json?: unknown }[];
+  error?: { message?: unknown };
+};
+
+/**
+ * A picture on the plan, asked for as the Codex CLI asks for one (codex-rs
+ * ext/image-generation tool.rs `request_for_call_args`, codex-api endpoint/images.rs): JSON to
+ * `images/generations`, or to `images/edits` with the pictures to work from inline as data
+ * URLs, the background opaque and the size and quality left to the model. Codex asks for no
+ * `n`, so it is one picture a request. A shape asked for goes as the OpenAI key's image model
+ * takes it: not sent, and said so in the warnings.
+ */
+export function chatGptImageModel(modelId: string): PlanImageModel {
+  return {
+    specificationVersion: "v4",
+    provider: "chatgpt.image",
+    modelId,
+    maxImagesPerCall: 1,
+    async doGenerate({
+      prompt,
+      files,
+      mask,
+      aspectRatio,
+      size,
+      seed,
+      abortSignal,
+    }) {
+      const unsent = { aspectRatio, size, seed, mask };
+      const warnings = Object.entries(unsent)
+        .filter(([, value]) => value != null)
+        .map(([feature]) => ({ type: "unsupported" as const, feature }));
+      const images = (files ?? []).map((file) => ({
+        image_url:
+          file.type === "url"
+            ? file.url
+            : `data:${file.mediaType};base64,${
+                typeof file.data === "string"
+                  ? file.data
+                  : Buffer.from(file.data).toString("base64")
+              }`,
+      }));
+      const url = `${CODEX_URL}/images/${images.length ? "edits" : "generations"}`;
+      const request = {
+        ...(images.length ? { images } : {}),
+        prompt: prompt ?? "",
+        background: "opaque",
+        model: modelId,
+        quality: "auto",
+        size: "auto",
+      };
+      const response = await answerOf(
+        await codexFetch(url, {
+          method: "POST",
+          headers: {
+            accept: "application/json",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(request),
+          signal: abortSignal,
+        }),
+      );
+      const text = await response.text();
+      let said: DrawAnswer = {};
+      try {
+        said = (JSON.parse(text) as DrawAnswer | null) ?? {};
+      } catch {}
+      const drawn = (said.data ?? []).flatMap((image) =>
+        typeof image.b64_json === "string" ? [image.b64_json] : [],
+      );
+      if (!response.ok || !drawn.length) {
+        throw new APICallError({
+          message:
+            typeof said.error?.message === "string"
+              ? said.error.message
+              : response.ok
+                ? `${LABEL} answered with no picture`
+                : `${LABEL} answered ${response.status}`,
+          url,
+          requestBodyValues: { model: modelId, prompt },
+          statusCode: response.status,
+          responseHeaders: Object.fromEntries(response.headers),
+          responseBody: text,
+        });
+      }
+      return {
+        images: drawn,
+        warnings,
+        response: {
+          timestamp: new Date(),
+          modelId,
+          headers: Object.fromEntries(response.headers),
+        },
+      };
+    },
+  };
 }
 
 /**
@@ -560,9 +675,17 @@ async function refusalOf(response: Response): Promise<Response> {
 export const PLAN_SPENT_CODE = /usage_limit_reached|usage_not_included/;
 
 /**
+ * Which of the plan's limits a refusal hit, and the one pictures have (codex-rs codex-api
+ * api_bridge.rs `ACTIVE_LIMIT_HEADER`; ext/image-generation tool.rs `usage_limit_failure`).
+ */
+const ACTIVE_LIMIT_HEADER = "x-codex-active-limit";
+const IMAGE_LIMIT = "image_gen";
+
+/**
  * A 429 is either a rate limit a moment fixes or the plan's usage spent until its window resets
  * — hours, or on Free a month. The second becomes a 402 in the backend's words: the sdk does not
- * retry it, so a job fails with it at once instead of being refused again and again.
+ * retry it, so a job fails with it at once instead of being refused again and again. Pictures
+ * have a limit of their own, and a refusal for it says so: the plan still answers in words.
  */
 async function usageLimitOf(response: Response): Promise<Response> {
   const text = await response.text();
@@ -597,10 +720,14 @@ async function usageLimitOf(response: Response): Promise<Response> {
   const when = resets
     ? ` It resets in ${formatDistanceToNowStrict(resets)}.`
     : "";
+  const limit =
+    response.headers.get(ACTIVE_LIMIT_HEADER) === IMAGE_LIMIT
+      ? "image"
+      : "usage";
   return Response.json(
     {
       error: {
-        message: `${LABEL} usage limit reached${plan}.${when}`,
+        message: `${LABEL} ${limit} limit reached${plan}.${when}`,
         code: said.code ?? said.type,
       },
     },
