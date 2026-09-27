@@ -32,9 +32,9 @@ and one OpenAI refuses is not kept. Bots can run on the same key.
 
 Two easier ways for bots come next:
 
-- **GPT Subscription**: sign in with ChatGPT, and bots run on the ChatGPT plan with no key. The row
-  shows how much of the plan is used and when it resets. It does not cover a spoken call, which
-  OpenAI bills by the minute on a key.
+- **GPT Subscription**: sign in with ChatGPT, and bots run on the ChatGPT plan with no key: they
+  think, search the web and, on a paid plan, draw on it. The row shows how much of the plan is used
+  and when it resets. It does not cover a spoken call, which OpenAI bills by the minute on a key.
 - **Vercel AI Gateway**: one key for every model; its row shows what credit is left.
 - **OpenRouter**: the same, one key for every model it carries, free ones among them; its row
   shows what credit is left.
@@ -59,9 +59,10 @@ instead.
   the top of a bot's model list puts that bot back on it.
 - **Studio** holds the **Image model**, **Video model**, **Speech model** and **Transcription
   model**. One left unpicked shows *off*, and bots cannot do that kind of work until one is picked.
-  The GPT Subscription can be the Image model (**GPT Image 2**): pictures then come out of the
-  ChatGPT plan with no key, under a limit of their own that a refusal names. It has nothing for
-  video, speech or transcription.
+  The Image model is the exception: left unpicked while someone is signed in to the GPT Subscription
+  on a paid plan, it shows *auto* and bots draw with **GPT Image 2** on the ChatGPT plan, under a
+  limit of its own that a refusal names. The Free plan does not draw. Picking a model uses that one
+  instead. The GPT Subscription has nothing for video, speech or transcription.
 
 The call's own two models are in **Settings › Thursday**, under Models.
 

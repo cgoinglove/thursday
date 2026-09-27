@@ -90,7 +90,7 @@ export type ConfigGroup = {
 /** Live voice and Responses delegation share this API key. */
 const voiceKeys = [LIVE_PROVIDER.apiKeyName];
 
-/** The studio model per kind, as `provider/model`. Unset means the tool is absent, not a fallback. */
+/** The studio model per kind, as `provider/model`. Unset, the GPT Subscription makes what its plan can (model.schema planMediaOf) and the rest is absent: no key is a fallback. */
 export const MEDIA_MODEL_KEYS: Record<MediaKind, string> = {
   image: "IMAGE_MODEL",
   video: "VIDEO_MODEL",
@@ -305,7 +305,7 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
   {
     id: "studio",
     title: "Studio",
-    hint: "what a bot draws, films and speaks with — off until you pick one",
+    hint: "what a bot draws, films and speaks with — off until you pick one; a paid GPT Subscription draws by itself",
     section: "models",
     require: "none",
     entries: (Object.keys(MEDIA_MODEL_KEYS) as MediaKind[]).map(mediaEntry),

@@ -39,7 +39,7 @@ A job does not fail for good; it pauses and waits.
 ## A bot says it cannot do something
 
 - **Make an image, a video, speech, or a transcript**: pick a model for it in **Settings › Models**,
-  under Studio.
+  under Studio. An image needs none while the GPT Subscription is signed in on a paid plan.
 - **Open a web page**: the bots' browser downloads in the background on first start, a few hundred
   megabytes. On a Linux server it may also need `npx playwright install-deps chromium`, run once
   with administrator rights.

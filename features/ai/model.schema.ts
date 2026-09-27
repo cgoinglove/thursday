@@ -202,7 +202,8 @@ export const MEDIA_MODEL_PROVIDERS: Record<
   /**
    * What the Codex CLI makes on a ChatGPT plan, signed in the same way (ai/chatgpt): pictures
    * with the model it draws with (codex-rs ext/image-generation tool.rs `IMAGE_MODEL`), under
-   * a limit of the plan's own. It has no route to film, speak or transcribe on a plan.
+   * a limit of the plan's own, and what they run on when nobody picked (`planMediaOf`). It has
+   * no route to film, speak or transcribe on a plan.
    */
   chatgpt: {
     label: "GPT Subscription",
@@ -416,6 +417,24 @@ export const MEDIA_MODEL_PROVIDER_LIST = (
 export const canMakeKind = (provider: string, kind: MediaKind): boolean =>
   (MEDIA_MODEL_PROVIDERS[provider as MediaModelProviderId]?.models[kind]
     ?.length ?? 0) > 0;
+
+/**
+ * What a studio kind nobody picked a model for runs on: the GPT Subscription, for a kind it
+ * makes, while someone is signed in on a plan other than Free. The plan is paid for either
+ * way, where a key bills each picture, so a sign-in alone is enough (the maintainer, 09-28).
+ * The Codex CLI does not draw on a Free plan (codex-rs core tools/spec_plan.rs
+ * `image_generation_available`), so neither does this. Null otherwise: the tool is absent.
+ * The server (ai/model resolveMediaRef) and Settings (config-setting) both ask this.
+ */
+export function planMediaOf(
+  kind: MediaKind,
+  /** The sign-in, with its plan as the token names it; null when nobody is signed in. */
+  signIn: { plan: string | null } | null,
+): MediaModelRef | null {
+  if (!signIn || signIn.plan?.toLowerCase() === "free") return null;
+  const [model] = MEDIA_MODEL_PROVIDERS.chatgpt.models[kind];
+  return model ? { provider: "chatgpt", model: model.id } : null;
+}
 
 /** `provider/model` for a text model, as the default-model config stores it. */
 export function parseTextModel(value: string | undefined): TextModelRef | null {

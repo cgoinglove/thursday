@@ -41,6 +41,7 @@ import {
   type MediaKind,
   parseMediaModel,
   parseTextModel,
+  planMediaOf,
   type SubscriptionUsage,
 } from "@/features/ai/model.schema";
 import { BotsMark } from "@/features/bot/components/bot-mark";
@@ -581,7 +582,8 @@ function automaticLabel(
  * normal, so the field says what runs then. The value sits under the label rather than
  * across the row: at this width the two ends of a row are not read in one glance. Clearing
  * means different things: the bots' default falls back to whatever has a key, a studio kind
- * stops being offered at all (ai/model resolveMediaRef).
+ * to the GPT Subscription where its sign-in makes it and otherwise stops being offered at all
+ * (ai/model resolveMediaRef).
  */
 function ChoiceRow({
   entry,
@@ -602,6 +604,19 @@ function ChoiceRow({
   const { data: automatic } = useServerRoute<AutomaticModel>(
     entry.text && !value && queryKey.automaticModel,
   );
+  // Unpicked, a studio kind runs on the GPT Subscription while its sign-in makes it, by the
+  // rule the server resolves with (model.schema planMediaOf)
+  const { data: providers } = useServerRoute<AiProvider[]>(
+    entry.kind && !value && queryKey.llmModel,
+  );
+  const signIn = providers?.find((provider) => provider.signIn);
+  const planRuns =
+    entry.kind && !value
+      ? planMediaOf(
+          entry.kind,
+          signIn?.hasKey ? { plan: signIn.plan ?? null } : null,
+        )
+      : null;
   // A text model is what a bot thinks with, so it wears the bots mark; Cpu here was the memory glyph (memory-mark).
   const Mark = entry.kind ? KIND_MARKS[entry.kind] : BotsMark;
   // The row redraws with the pick — the model, its effort, the auto/off badge — so nothing
@@ -631,12 +646,12 @@ function ChoiceRow({
             <span
               className={cn(
                 "shrink-0 rounded-[5px] border border-border/60 px-1 font-mono text-[10px]",
-                entry.kind ? WAITING_INK : "text-muted-foreground",
+                entry.kind && !planRuns ? WAITING_INK : "text-muted-foreground",
               )}
             >
-              {/* A studio kind unpicked is not automatic: the tool is not offered
-                  at all (ai/model resolveMediaRef). Only the bots' default falls back. */}
-              {entry.kind ? "off" : "auto"}
+              {/* A studio kind unpicked falls back to nothing on a key: the tool is not
+                  offered at all (ai/model resolveMediaRef), unless the plan makes it */}
+              {entry.kind && !planRuns ? "off" : "auto"}
             </span>
           )}
         </span>
@@ -648,7 +663,15 @@ function ChoiceRow({
               model={ref?.model ?? ""}
               unset={
                 entry.kind
-                  ? "Not offered to bots until you pick one"
+                  ? planRuns
+                    ? `Automatic · ${
+                        choices.find(
+                          (choice) =>
+                            choice.value ===
+                            `${planRuns.provider}/${planRuns.model}`,
+                        )?.label ?? planRuns.model
+                      }`
+                    : "Not offered to bots until you pick one"
                   : automaticLabel(automatic, choices)
               }
               onChange={(next) =>

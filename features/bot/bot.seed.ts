@@ -52,9 +52,9 @@ export type BotSeed = {
   icon: BotIcon;
   /**
    * Studio models this bot cannot work without (config MEDIA_MODEL_KEYS). Unset
-   * ones are named on its row, because an unset media model is not a fallback —
-   * the tool is simply absent (ai/model resolveMediaRef) and the bot would find
-   * out mid-job. A login is not listed here: the bot asks for one itself.
+   * ones the GPT Subscription does not make are named on its row: the tool is then
+   * simply absent (ai/model resolveMediaRef) and the bot would find out mid-job. A
+   * login is not listed here: the bot asks for one itself.
    */
   requires?: MediaKind[];
 };

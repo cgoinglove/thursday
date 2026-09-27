@@ -62,6 +62,7 @@ import {
   type ModelTier,
   parseMediaModel,
   parseTextModel,
+  planMediaOf,
   type SuggestModel,
   TEXT_MODEL_PROVIDER_LIST,
   TEXT_MODEL_PROVIDERS,
@@ -745,15 +746,23 @@ type VideoModel = Parameters<typeof experimental_generateVideo>[0]["model"];
 
 /**
  * One app-wide pick per kind, stored in config as `provider/model` (config.const); the gateway
- * accepts any `vendor/model`. There is deliberately no fallback: a picture, a film or a minute of
- * speech costs real money, so a kind nobody picked returns null and the tool is simply absent
- * (tools/studio.tool) rather than running on a model nobody chose.
+ * accepts any `vendor/model`. A picture, a film or a minute of speech on a key costs real money,
+ * so a kind nobody picked runs on no key: it runs on the GPT Subscription when a sign-in makes
+ * it (model.schema `planMediaOf`), which is paid for either way, and otherwise returns null and
+ * the tool is simply absent (tools/studio.tool). A pick whose key is gone is absent too, not
+ * moved to the plan: it is the user's.
  */
 export async function resolveMediaRef(
   kind: MediaKind,
 ): Promise<{ ref: MediaModelRef; apiKey: string } | null> {
   const chosen = parseMediaModel(await readConfig(MEDIA_MODEL_KEYS[kind]));
-  if (!chosen) return null;
+  if (!chosen) {
+    const signIn = await readConfig(MEDIA_MODEL_PROVIDERS.chatgpt.apiKeyName);
+    const ref = signIn
+      ? planMediaOf(kind, { plan: await readChatGptPlan() })
+      : null;
+    return ref && signIn ? { ref, apiKey: signIn } : null;
+  }
   // A chosen provider that cannot make this kind is skipped (canMakeKind); otherwise
   // `build…Model` throws and loadStudio takes both prompts down with it
   if (!canMakeKind(chosen.provider, kind)) return null;

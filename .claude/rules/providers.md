@@ -42,7 +42,8 @@ connected tools: its pinned ones as tools of their own, the rest through `tool_s
 - A default for a feature that costs per use (a picture, a film, speech, a transcript, a web
   search) spends a key added for one thing on a model nobody chose: such a feature runs on what the
   user picked for it or on the run's own model, and is otherwise absent. Only the model a bot or a
-  call thinks with is chosen for the user (`resolveDefaultModel`, `runsOnOf` in `thursday.text.ts`).
+  call thinks with is chosen for the user (`resolveDefaultModel`, `runsOnOf` in `thursday.text.ts`),
+  and pictures on a paid GPT Subscription, which bills no key (`planMediaOf` in `model.schema.ts`).
 - A text provider added to `model.schema.ts` alone saves fine, then fails on first use or quietly
   goes without search, `look_at` or its prompt cache: it also takes a case in `buildTextModel`
   (whose `default` refuses it at run time, not at compile time), its native search in
