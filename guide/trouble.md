@@ -6,6 +6,9 @@ Say what happened and the one thing that fixes it; most problems are a setting o
 
 - **"Call failed"** shows the provider's reason. A refused key or no credit is fixed in **Settings ›
   API keys**; a model the key cannot use is changed in **Settings › Thursday**, under Models.
+- **A call on the GPT Subscription is refused**: the reason is the plan's own, such as its usage
+  spent. With an OpenAI key set too, **model** in **Settings › Thursday › Models** moves calls to
+  the key.
 - **"One call at a time"**: another tab of the app has a spoken call on. Hang up there first.
 - **She cannot be heard** on a call she opened herself: the browser holds sound until the page is
   touched. A tap anywhere fixes it.

@@ -36,6 +36,24 @@ export const LIVE_CALL = {
 };
 
 /**
+ * A spoken call on the GPT subscription (features/thursday/thursday.plan), where the app runs
+ * her backend for the voice instead of the provider.
+ * - `delegationBytes`  the most of the voice's request, and of what was said since the hand-over
+ *   before it, that each hand-over carries to her backend; past it the request keeps its start
+ *   and the talk its end. Codex's own bound (codex-rs core context/realtime_delegation.rs
+ *   `MAX_REALTIME_DELEGATION_FIELD_BYTES`). More hands the backend more of the talk at more
+ *   input; less cuts a long request short.
+ * - `pictureBytes`  the largest picture of a shared screen the page sends her backend on this
+ *   line, where it goes over HTTP instead of a data channel with a limit of its own: about what
+ *   Chrome's channel takes on a key's call. More costs the backend more to read, less blurs
+ *   small text.
+ */
+export const PLAN_CALL = {
+  delegationBytes: 4 * 1024,
+  pictureBytes: 262_144,
+};
+
+/**
  * Background work put to the voice during a call (useThursday). Live never speaks
  * unprompted, so what waits on the user reaches them only when the page puts it in.
  * Each item goes in once a call; once she has voiced it, not on a later call either,

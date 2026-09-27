@@ -9,8 +9,9 @@ import {
 } from "ai";
 import { formatDistanceToNowStrict } from "date-fns";
 import { z } from "zod";
-import { CHATGPT_SIGN_IN, CHATGPT_USAGE_HIGH } from "@/config";
+import { CHATGPT_SIGN_IN, CHATGPT_USAGE_HIGH, LIVE_CALL } from "@/config";
 import { readConfig, writeConfig } from "@/features/config/config.query";
+import { isPlanCallId } from "@/lib/live/live.plan";
 import { logger } from "@/lib/logger";
 import { oauthPage } from "@/lib/oauth-page";
 import { publicError } from "@/lib/public-error";
@@ -546,6 +547,77 @@ async function answerOf(response: Response): Promise<Response> {
   if (response.status === 429) return usageLimitOf(response);
   if (!response.ok) return refusalOf(response);
   return response;
+}
+
+/**
+ * Where the Codex CLI opens a voice call on the plan, and the protocol it names on the request
+ * and on the line it joins after (codex-rs codex-api endpoint/realtime_call.rs; core
+ * realtime_conversation.rs `realtime_request_headers`; the request whole in core
+ * tests/suite/realtime_conversation.rs
+ * `conversation_webrtc_frameless_chatgpt_sends_codex_headers_to_backend`).
+ */
+const PLAN_CALL_URL = `${CODEX_URL}/realtime/calls?intent=quicksilver&architecture=avas`;
+const PLAN_CALL_PROTOCOL = "quicksilver=v2";
+
+/**
+ * Opens a voice call on the plan from the browser's offer, the way the Codex CLI's /voice does:
+ * JSON `{ sdp, session }` to the plan's realtime route, signed as its text requests are, with
+ * the ids Codex sends. What comes back is the answer for the browser, the provider's id for
+ * the call, and the headers its line is joined with (live.plan), which Codex sends again
+ * there. A refusal is the plan's own words, as a text request's is.
+ */
+export async function openPlanCall(input: {
+  sdp: string;
+  session: Record<string, unknown>;
+}): Promise<{ sdp: string; callId: string; headers: Record<string, string> }> {
+  const signIn = await currentSignIn();
+  const headers = {
+    authorization: `Bearer ${signIn.access}`,
+    "chatgpt-account-id": signIn.accountId,
+    originator: ORIGINATOR,
+    "openai-alpha": PLAN_CALL_PROTOCOL,
+    "session-id": randomUUID(),
+    "thread-id": randomUUID(),
+    "x-session-id": randomUUID(),
+  };
+  const response = await answerOf(
+    await fetch(PLAN_CALL_URL, {
+      method: "POST",
+      headers: { ...headers, "content-type": "application/json" },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(LIVE_CALL.startupMs),
+    }).catch((cause: unknown) => {
+      logger.warn({ cause }, "chatgpt voice call unreachable");
+      publicError("Could not reach ChatGPT for the call.");
+    }),
+  );
+  const text = await response.text();
+  if (!response.ok) {
+    let said: string | null = null;
+    try {
+      const error = (JSON.parse(text) as { error?: { message?: unknown } })
+        .error;
+      said = typeof error?.message === "string" ? error.message : null;
+    } catch {}
+    publicError(
+      said ??
+        `${LABEL} refused the call (${response.status})${text ? `: ${text.slice(0, 300)}` : ""}`,
+    );
+  }
+  // The id is the last part of Location that is one, else the session header (openclaw
+  // extensions/openai realtime-quicksilver-wire.ts `decodeOpenAIQuicksilverCallId`)
+  const callId =
+    (response.headers.get("location") ?? "")
+      .split("?")[0]
+      .split("/")
+      .reverse()
+      .find(isPlanCallId) ??
+    [response.headers.get("openai-session-id")?.trim() ?? ""].find(
+      isPlanCallId,
+    );
+  if (!callId) publicError(`${LABEL} opened the call without naming it.`);
+  if (!text.trim()) publicError(`${LABEL} answered the call with no SDP.`);
+  return { sdp: text, callId, headers };
 }
 
 type PlanImageModel = Extract<ImageModel, { specificationVersion: "v4" }>;

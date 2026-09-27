@@ -26,15 +26,16 @@ theme — **System**, **Light** or **Dark** — is at the foot of the list.
 
 ## Keys
 
-**Settings › API keys** holds them, and they stay on this computer. One OpenAI key is all a call
-needs: it pays for both her voice and the model behind it. The key is checked when it is saved,
-and one OpenAI refuses is not kept. Bots can run on the same key.
+**Settings › API keys** holds them, and they stay on this computer. A call needs one of two: a GPT
+Subscription sign-in or an OpenAI key. Either pays for both her voice and the model behind it. The
+key is checked when it is saved, and one OpenAI refuses is not kept. Bots can run on the same key.
 
 Two easier ways for bots come next:
 
 - **GPT Subscription**: sign in with ChatGPT, and bots run on the ChatGPT plan with no key: they
-  think, search the web and, on a paid plan, draw on it. The row shows how much of the plan is used
-  and when it resets. It does not cover a spoken call, which OpenAI bills by the minute on a key.
+  think, search the web and, on a paid plan, draw on it. A spoken call runs on it too, in the plan's
+  own voice, **GPT-Live 1 Codex**, the one the Codex CLI's `/voice` uses. The row shows how much of
+  the plan is used and when it resets.
 - **Vercel AI Gateway**: one key for every model; its row shows what credit is left.
 - **OpenRouter**: the same, one key for every model it carries, free ones among them; its row
   shows what credit is left.
@@ -175,5 +176,5 @@ start fresh; the old file is kept beside the new one, with `.corrupt-` in its na
 
 The user brings their own keys, so the cost is whatever those providers charge: a spoken call by the
 minute it is open, silence included, and everything else by how much text the models read and
-write, a call in writing included. The GPT Subscription uses the ChatGPT plan instead. A long job on
-a large model adds up fastest.
+write, a call in writing included. On the GPT Subscription, calls and bots use the ChatGPT plan
+instead. A long job on a large model adds up fastest.

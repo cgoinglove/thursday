@@ -1,4 +1,4 @@
-import { LIVE_PROVIDER } from "@/features/ai/live.schema";
+import { LIVE_LINES, LIVE_PROVIDER } from "@/features/ai/live.schema";
 import {
   canMakeKind,
   EFFORTS,
@@ -8,6 +8,7 @@ import {
   parseMediaModel,
   parseTextModel,
   TEXT_MODEL_PROVIDER_LIST,
+  TEXT_MODEL_PROVIDERS,
   type TextModelProviderId,
 } from "@/features/ai/model.schema";
 import {
@@ -214,9 +215,13 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
   {
     id: "voice",
     title: "voice",
-    hint: "calls run on this key",
+    hint: "calls run on this key, or on a GPT Subscription sign-in",
     section: "keys",
     require: "any",
+    // The sign-in is listed with the easy ways, and opens a call as well (live.schema liveLineOf)
+    requireKeys: LIVE_LINES.map(
+      (line) => TEXT_MODEL_PROVIDERS[line].apiKeyName,
+    ),
     note: "required for calls",
     entries: TEXT_MODEL_PROVIDER_LIST.filter(isVoiceKey).map(keyEntry),
   },

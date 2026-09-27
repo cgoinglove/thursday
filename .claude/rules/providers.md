@@ -18,7 +18,7 @@ MCP servers for them to use.
 ## Start here
 - `features/ai/model.schema.ts` — text and media providers, their shelves with context and effort steps.
 - `features/ai/model.ts` — a model built from a ref and a key; the default and media picks; the catalogs (`readCatalog`).
-- `features/ai/chatgpt.ts` — GPT Subscription: sign-in, renewal, plan usage, the Codex request shape, its pictures.
+- `features/ai/chatgpt.ts` — GPT Subscription: sign-in, renewal, plan usage, the Codex request shape, its pictures, a call on it.
 - `features/ai/openrouter.ts` — OpenRouter's list read into the gateway's words, and its key's credit.
 - `features/config/config.const.ts` — every key and app-wide model pick, grouped as Settings draws them.
 - `features/connectors/mcp.manager.ts` — MCP sessions, their OAuth, reconnects.
@@ -30,10 +30,11 @@ MCP servers for them to use.
 Keys, the ChatGPT sign-in and the app-wide model picks are rows of the `config` table, read through
 `readConfig`, where `.env` wins. The provider records in `model.schema.ts` are the source: Settings'
 key rows, the save's allow list, the picker's providers and the default-model fallback all derive
-from them. Bots, a call in writing and a memory edit get their model from `model.ts`; a spoken call,
-its backend included, opens on the OpenAI key through `lib/live` instead. Only a bot reaches
-connected tools: its pinned ones as tools of their own, the rest through `tool_search` and
-`tool_call` (`mcp.tool.ts`).
+from them. Bots, a call in writing and a memory edit get their model from `model.ts`; a spoken call
+opens through `lib/live` instead: on the OpenAI key with its backend there, or on the GPT
+Subscription, whose backend `thursday.plan` gets from `model.ts`. Only a bot reaches connected
+tools: its pinned ones as tools of their own, the rest through `tool_search` and `tool_call`
+(`mcp.tool.ts`).
 
 ## What breaks
 - A subscription sign-in other than ChatGPT's gets the user's own account closed: Claude's terms
@@ -42,8 +43,9 @@ connected tools: its pinned ones as tools of their own, the rest through `tool_s
 - A default for a feature that costs per use (a picture, a film, speech, a transcript, a web
   search) spends a key added for one thing on a model nobody chose: such a feature runs on what the
   user picked for it or on the run's own model, and is otherwise absent. Only the model a bot or a
-  call thinks with is chosen for the user (`resolveDefaultModel`, `runsOnOf` in `thursday.text.ts`),
-  and pictures on a paid GPT Subscription, which bills no key (`planMediaOf` in `model.schema.ts`).
+  call thinks with is chosen for the user (`resolveDefaultModel`, `runsOnOf` in `thursday.text.ts`,
+  `liveLineOf` in `live.schema.ts`), and pictures on a paid GPT Subscription, which bills no key
+  (`planMediaOf` in `model.schema.ts`).
 - A text provider added to `model.schema.ts` alone saves fine, then fails on first use or quietly
   goes without search, `look_at` or its prompt cache: it also takes a case in `buildTextModel`
   (whose `default` refuses it at run time, not at compile time), its native search in

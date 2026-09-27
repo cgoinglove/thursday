@@ -24,6 +24,7 @@ import { ModelPicker } from "@/features/ai/components/model-picker";
 import {
   type AutomaticModel,
   parseTextModel,
+  TEXT_MODEL_PROVIDERS,
   type TextModelProviderId,
 } from "@/features/ai/model.schema";
 import { PERSONAS } from "@/features/ai/prompts/persona";
@@ -40,6 +41,7 @@ import {
   type ConfigStatus,
   DEFAULT_EFFORT_KEY,
   DEFAULT_MODEL_KEY,
+  isConfigSet,
 } from "@/features/config/config.const";
 import { Echoes } from "@/features/intro/components/echoes";
 import { passIntroAction } from "@/features/intro/intro.action";
@@ -129,6 +131,11 @@ export function Intro({
   /** After the fade; then the element is removed entirely. */
   const [lifted, setLifted] = useState(false);
   const [keyed, setKeyed] = useState(ready);
+  // A ChatGPT sign-in, made at the models step or before, opens a call too, on the plan's own
+  // voice (live.schema liveLineOf): she ends awake with it, key or no key
+  const { data: config } = useServerRoute<ConfigStatus[]>(queryKey.config);
+  const callable =
+    keyed || isConfigSet(config, TEXT_MODEL_PROVIDERS.chatgpt.apiKeyName);
   const [word, setWord] = useState<FaceWord | null>(null);
   const [picked, setPicked] = useState<Record<string, boolean>>(() =>
     // every bot comes along unless it is switched off here
@@ -165,8 +172,8 @@ export function Intro({
   );
   const thinks = Boolean(automatic?.ref);
   const said = useMemo(
-    () => herTurns(step, keyed, mic.on, thinks),
-    [step, keyed, mic.on, thinks],
+    () => herTurns(step, keyed, callable, mic.on, thinks),
+    [step, keyed, callable, mic.on, thinks],
   );
   const turns = step === "hello" ? demo.turns : said;
   // Only while it is up: mounted on every page load, its ↓ took the key from every call after
@@ -280,13 +287,13 @@ export function Intro({
         >
           <button
             type="button"
-            disabled={!last || !keyed}
+            disabled={!last || !callable}
             onClick={() => leave(true)}
-            aria-label={last && keyed ? "Call Thursday" : undefined}
+            aria-label={last && callable ? "Call Thursday" : undefined}
             // asleep, not broken: the same face, dimmed, until she has a voice
             className={cn(
               "block w-full rounded-full outline-none transition-all duration-700 ease-out focus-visible:ring-3 focus-visible:ring-ring/50",
-              step !== "hello" && !keyed && "opacity-35",
+              step !== "hello" && !callable && "opacity-35",
               stacked && "max-[900px]:mt-6 max-[900px]:w-[min(8rem,20vh)]",
             )}
           >
@@ -390,7 +397,7 @@ export function Intro({
                   voice.say("hello", keyed ? "awake" : "key");
                   setStep("key");
                 } else if (step === "mic" && !mic.on) void mic.turnOn();
-                else if (last) leave(keyed);
+                else if (last) leave(callable);
                 else setStep(STEPS[at + 1]);
               }}
               // on the first screen it follows her line up, once
@@ -409,7 +416,7 @@ export function Intro({
                 : step === "mic" && !mic.on
                   ? "Turn on the microphone"
                   : last
-                    ? keyed
+                    ? callable
                       ? "Call her"
                       : "Look around"
                     : "Continue"}
@@ -437,7 +444,7 @@ export function Intro({
               >
                 not now — allow it when the first call asks
               </button>
-            ) : last && keyed ? (
+            ) : last && callable ? (
               "or tap her"
             ) : (
               ""
@@ -480,7 +487,7 @@ export function Intro({
           </span>
           {/* The way out without a call. On the last step nothing is left to skip, and with
               no key the main button already says it */}
-          {last && !keyed ? (
+          {last && !callable ? (
             <span />
           ) : (
             <button
@@ -504,6 +511,8 @@ export function Intro({
 function herTurns(
   step: Step,
   keyed: boolean,
+  /** A call can open at the end: the key, or a ChatGPT sign-in made on the way. */
+  callable: boolean,
   heard: boolean,
   /** A model bots can run on is set (api/llm-model/automatic): only then does "everything else" work. */
   thinks: boolean,
@@ -529,7 +538,7 @@ function herTurns(
   lines.push(line("style", SAYS.style));
   if (step === "style") return lines;
   lines.push(
-    keyed
+    callable
       ? line("call", SAYS.call)
       : thinks
         ? line("asleep", SAYS.asleep)

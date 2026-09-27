@@ -15,7 +15,7 @@ Both are switched on, off or changed in **Settings › Thursday › Starting a c
 
 She speaks first, with a short greeting, in the language the user speaks, and switches when they
 do. Until she starts speaking — three seconds at most — she does not hear the room, so words said
-in that moment are lost. Every call starts fresh, but she remembers the last part of her recent
+in that moment are lost; on the GPT Subscription she hears it from the start. Every call starts fresh, but she remembers the last part of her recent
 calls and picks a subject up when the user does. Anything older is gone unless she kept it in
 memory (`memory.md`). A call she places herself opens on why she called.
 
@@ -48,8 +48,9 @@ Security to share a window or the whole screen — its reason shows, and nothing
 
 Saying goodbye usually ends the call, but not always. Tapping her face ends it for certain, and so
 does the shortcut. When nothing is said and she is neither talking nor working for 25 seconds, the
-call ends by itself; the last 10 seconds count down on screen. A spoken call is billed by the
-minute while it is open, silence included. Work already handed to a bot carries on.
+call ends by itself; the last 10 seconds count down on screen. On an OpenAI key a spoken call is
+billed by the minute while it is open, silence included; on the GPT Subscription it uses the plan.
+Work already handed to a bot carries on.
 
 ## Writing to her instead
 
@@ -104,7 +105,11 @@ read on the web show under her face, and each opens in a new tab.
 These are in **Settings › Thursday › Models**, in two parts, **Voice** and **Backend**. Changes
 apply from the next call.
 
-- **voice**: 22 voices; clicking a name plays it. Only the spoken call uses it.
+- **model**: what a spoken call runs on. With both a GPT Subscription and an OpenAI key set, it
+  picks one: **GPT Subscription** (GPT-Live 1 Codex, on the plan) or **OpenAI key** (GPT-Live 1,
+  billed by the minute). Left alone, a call runs on the GPT Subscription.
+- **voice**: 22 voices; clicking a name plays it. Only the spoken call uses it. On the GPT
+  Subscription she speaks in the plan's own nine voices instead, and none plays.
 - **style**: Bright, Calm, Straight or Rough. It changes only how she talks, never what she can do.
   **Your own** adds their own words on top — how she talks, how much she says — and wins where the
   two differ. What she calls them is not set here: tell her on a call and she remembers it.

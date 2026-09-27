@@ -48,10 +48,11 @@ export async function isCallable(): Promise<boolean> {
   const voice = CONFIG_GROUPS.find((group) => group.id === VOICE_GROUP_ID);
   if (!voice) return true;
 
+  // The keys the group counts, which are not all among its rows: the GPT Subscription's
+  // sign-in opens a call too, and is listed with the easy ways
   const set = await Promise.all(
-    voice.entries.map(
-      async (entry) =>
-        [entry.key, Boolean(await readConfig(entry.key))] as const,
+    (voice.requireKeys ?? voice.entries.map((entry) => entry.key)).map(
+      async (key) => [key, Boolean(await readConfig(key))] as const,
     ),
   );
   const has = new Map(set);

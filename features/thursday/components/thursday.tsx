@@ -35,7 +35,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { CALL_IDLE, CALL_LINE } from "@/config";
-import { LIVE_DEFAULTS, LIVE_PROVIDER } from "@/features/ai/live.schema";
+import { ChatGptSignIn } from "@/features/ai/components/chatgpt-sign-in";
+import { LIVE_DEFAULTS, LIVE_LINES } from "@/features/ai/live.schema";
 import {
   type AutomaticModel,
   TEXT_MODEL_PROVIDERS,
@@ -1711,7 +1712,7 @@ function NeedsKey({
       <div className="w-[min(26rem,84vw)] animate-in space-y-2.5 rounded-2xl bg-background/80 p-3 ring-1 ring-border/60 backdrop-blur-md fade-in duration-300">
         <div className="flex h-6 items-center justify-between gap-2 pl-0.5">
           <span className="text-[13px] font-medium">
-            Paste your OpenAI API key
+            Sign in with ChatGPT, or paste an OpenAI API key
           </span>
           <Button
             type="button"
@@ -1724,8 +1725,11 @@ function NeedsKey({
             <X className="size-3.5" />
           </Button>
         </div>
-        {/* the intro's key step, in place. The bots picked on the first run are already
-            installed, key or no key: installing every seed here brought back the ones left out */}
+        {/* The sign-in first: on a plan it opens calls, bots and pictures at once (live.schema
+            liveLineOf). Then the intro's key step, in place. The bots picked on the first run are
+            already installed, key or no key: installing every seed here brought back the ones
+            left out */}
+        <ChatGptSignIn variant="brand" />
         <VoiceKeys dense plain autoFocus />
         <GetKeyLink />
       </div>
@@ -1748,12 +1752,12 @@ function NeedsKey({
       </span>
       <span className="text-[13px] text-muted-foreground break-keep wrap-anywhere">
         {automatic && !automatic.ref
-          ? "Calls need one speech key, and bots a model key or a ChatGPT sign-in."
-          : "Calls need one speech key. Everything else here already works."}
+          ? "Sign in with ChatGPT and calls and bots run on your plan, or add a key."
+          : "Calls need a GPT Subscription or an OpenAI key. Everything else here already works."}
       </span>
       {/* the one thing this screen asks for */}
       <Button size="sm" variant="brand" onClick={onOpen} className="h-7 px-3.5">
-        Add key
+        Set up
       </Button>
     </span>
   );
@@ -1839,8 +1843,11 @@ export function Thursday({
    * every load, then woke her.
    */
   const { data: config } = useServerRoute<ConfigStatus[]>(queryKey.config);
+  // The OpenAI key, or the GPT Subscription's sign-in, which opens a call on its own line
   const callable = config
-    ? isConfigSet(config, LIVE_PROVIDER.apiKeyName)
+    ? LIVE_LINES.some((line) =>
+        isConfigSet(config, TEXT_MODEL_PROVIDERS[line].apiKeyName),
+      )
     : ready;
 
   // A call in writing takes the same screen while no line is open; a spoken call ends it,

@@ -24,18 +24,27 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { COMMON_VALIDATE, KEY_MIN } from "@/config";
+import { ChatGptSignIn } from "@/features/ai/components/chatgpt-sign-in";
 import { EffortSwitch } from "@/features/ai/components/effort-switch";
 import {
   LIVE_BACKEND_MODELS,
   LIVE_DEFAULTS,
+  LIVE_LINES,
+  LIVE_PLAN_VOICES,
   LIVE_PROVIDER,
+  type LiveLine,
   type LiveSettings,
+  liveLineOf,
 } from "@/features/ai/live.schema";
-import type { AiProvider } from "@/features/ai/model.schema";
+import {
+  type AiProvider,
+  TEXT_MODEL_PROVIDERS,
+} from "@/features/ai/model.schema";
 import { DEFAULT_PERSONA, PERSONAS } from "@/features/ai/prompts/persona";
 import { KeyInput } from "@/features/config/components/voice-key";
 import { setConfigAction } from "@/features/config/config.action";
@@ -75,7 +84,7 @@ import {
   isCombo,
   useHotkeyLabel,
 } from "@/hooks/use-hotkey";
-import { LIVE_MODEL } from "@/lib/live/live.schema";
+import { LIVE_MODEL, LIVE_PLAN_MODEL } from "@/lib/live/live.schema";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
@@ -103,9 +112,8 @@ export function ThursdaySetting() {
   if (isLoading || !settings) return <SettingSkeleton rows={4} />;
   if (error) return <SettingError message={error.message} />;
 
-  const hasKey = providers.some(
-    (entry) => entry.apiKeyName === LIVE_PROVIDER.apiKeyName && entry.hasKey,
-  );
+  const has = (key: string) =>
+    providers.some((entry) => entry.apiKeyName === key && entry.hasKey);
 
   return (
     <SettingScreen
@@ -121,7 +129,7 @@ export function ThursdaySetting() {
         onChange={(captionView) => patch({ captionView })}
       />
 
-      <ModelsSetting value={settings} hasKey={hasKey} onChange={change} />
+      <ModelsSetting value={settings} has={has} onChange={change} />
 
       {/* Every way a call starts other than pressing her face, read at once */}
       <SettingGroup label="Starting a call">
@@ -191,50 +199,101 @@ function TileHead({
   );
 }
 
+/** The two lines a spoken call opens on, as the model field names them. */
+const LINE_MODELS: Record<LiveLine, { model: string; label: string }> = {
+  chatgpt: { model: LIVE_PLAN_MODEL, label: "GPT Subscription" },
+  openai: { model: LIVE_MODEL, label: "OpenAI key" },
+};
+
 /**
  * Both models a call runs on, in one card: the Live voice and the Responses
- * backend that holds her tools (thursday.prompt). They share the OpenAI key, so
- * a missing key is asked for once, above both.
+ * backend that holds her tools (thursday.prompt). They run on one line — the
+ * GPT Subscription's own voice or the OpenAI key (live.schema liveLineOf) — so
+ * the line is picked once, above both, and a missing key is asked for there.
  */
 function ModelsSetting({
   value,
-  hasKey,
+  has,
   onChange,
 }: {
   value: LiveSettings;
-  hasKey: boolean;
+  has: (key: string) => boolean;
   onChange: (change: Partial<LiveSettings>) => void;
 }) {
+  const line = liveLineOf(value.runsOn, has);
+  // The lines this computer can open, the plan's first, as the rule tries them
+  const ready = LIVE_LINES.filter((one) =>
+    has(TEXT_MODEL_PROVIDERS[one].apiKeyName),
+  );
+  const plan = line === "chatgpt";
   return (
     <SettingGroup
       label="Models"
-      note="Both run on your OpenAI key. Instructions are saved when you leave the field."
+      note={`Both run on ${plan ? "your GPT Subscription" : "your OpenAI key"}. Instructions are saved when you leave the field.`}
     >
       <div className="@container divide-y divide-border/60 rounded-xl border border-border/60">
-        {!hasKey && <KeyRow />}
+        {!line && <KeyRow />}
 
-        <ModelSection name="Voice" fact="billed by the minute">
+        <ModelSection
+          name="Voice"
+          fact={plan ? "on your plan" : "billed by the minute"}
+        >
           <div className="grid gap-4 @xl:grid-cols-2">
             <ModelBlock label="model">
-              {/* Locked: LIVE_MODEL is the only Live model a call opens on */}
-              <Combobox
-                value={LIVE_MODEL}
-                onChange={() => undefined}
-                options={[{ value: LIVE_MODEL, label: "GPT-Live 1" }]}
-                aria-label="Voice model"
-                disabled
-              />
+              {/* The line is the model: the plan speaks with its own, the key with GPT-Live 1 */}
+              {ready.length > 1 && line ? (
+                <Segmented
+                  options={ready.map((one) => ({
+                    value: one,
+                    label: LINE_MODELS[one].label,
+                    title: LINE_MODELS[one].model,
+                  }))}
+                  value={line}
+                  onChange={(runsOn) => onChange({ runsOn })}
+                  aria-label="Voice model"
+                />
+              ) : (
+                <Combobox
+                  value={LINE_MODELS[line ?? "openai"].model}
+                  onChange={() => undefined}
+                  options={[
+                    {
+                      value: LINE_MODELS[line ?? "openai"].model,
+                      label: plan ? "GPT-Live 1 Codex" : "GPT-Live 1",
+                    },
+                  ]}
+                  aria-label="Voice model"
+                  disabled
+                />
+              )}
             </ModelBlock>
           </div>
 
-          {/* Its own row: opened, the picker holds her face beside the voices. */}
+          {/* Its own row: opened, the picker holds her face beside the voices. The plan's voice
+              speaks in voices of its own, with no recorded lines to play */}
           <ModelBlock label="voice">
-            <VoicePicker
-              voice={value.voice}
-              onChange={(voice) =>
-                onChange({ voice: voice.trim() || LIVE_DEFAULTS.voice })
-              }
-            />
+            {plan ? (
+              <Combobox
+                value={value.planVoice}
+                onChange={(voice) =>
+                  onChange({
+                    planVoice: voice.trim() || LIVE_DEFAULTS.planVoice,
+                  })
+                }
+                options={LIVE_PLAN_VOICES.map((voice) => ({
+                  value: voice,
+                  label: voice,
+                }))}
+                aria-label="Voice on the GPT Subscription"
+              />
+            ) : (
+              <VoicePicker
+                voice={value.voice}
+                onChange={(voice) =>
+                  onChange({ voice: voice.trim() || LIVE_DEFAULTS.voice })
+                }
+              />
+            )}
           </ModelBlock>
 
           <ModelBlock label="style">
@@ -247,7 +306,10 @@ function ModelsSetting({
           </ModelBlock>
         </ModelSection>
 
-        <ModelSection name="Backend" fact="billed per token">
+        <ModelSection
+          name="Backend"
+          fact={plan ? "on your plan" : "billed per token"}
+        >
           <ModelBlock label="model">
             <BackendModelPicker
               value={value.backendModel}
@@ -452,12 +514,14 @@ function KeyRow() {
     <div className="space-y-3 p-5">
       <span className="block space-y-0.5">
         <span className={cn("block text-sm font-medium", WAITING_INK)}>
-          No OpenAI key
+          No GPT Subscription or OpenAI key
         </span>
         <span className="block text-xs text-muted-foreground">
-          Her voice and the backend both run on it
+          Her voice and the backend both run on one of them
         </span>
       </span>
+      {/* The plan opens calls, bots and pictures at once (live.schema liveLineOf) */}
+      <ChatGptSignIn variant="brand" />
       <KeyInput
         dense
         provider={LIVE_PROVIDER}

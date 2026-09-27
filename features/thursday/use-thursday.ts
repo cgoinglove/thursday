@@ -913,7 +913,10 @@ export function useThursday(
           line.opening = handshake.opening;
           line.standing = handshake.standing;
           line.opened = handshake.opened;
-          return handshake.sdp;
+          // On the GPT subscription's line the server relays the call's events (thursday.plan)
+          return handshake.relay
+            ? { sdp: handshake.sdp, relay: handshake.relay }
+            : handshake.sdp;
         },
         audio: tap.current,
         on: {

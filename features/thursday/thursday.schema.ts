@@ -62,6 +62,12 @@ export type CallHandshake = {
    * manifest for tools the route no longer builds.
    */
   opened: { webSearch: boolean; readSkills: boolean };
+  /**
+   * Where the page follows a call on the GPT subscription's line (thursday.plan): that line
+   * speaks through the server, which runs her backend for the voice. Null on a key's call,
+   * whose events ride the media connection itself.
+   */
+  relay: string | null;
 };
 
 /**

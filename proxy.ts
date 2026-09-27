@@ -17,9 +17,11 @@ const READS = new Set(["GET", "HEAD", "OPTIONS"]);
 /**
  * Reads that still do something, so another site may not send them either: a page anywhere
  * that held `/api/events` open counted as the user watching (app-event.server presence) and
- * kept notices and phone questions back, and `/api/favicon` fetches from the network.
+ * kept notices and phone questions back, `/api/favicon` fetches from the network, and a page
+ * that follows a call on the plan's line (`/api/thursday/call/plan`) takes it from its own
+ * and ends it by leaving (thursday.plan).
  */
-const ACTING_READS = ["/api/events", "/api/favicon"];
+const ACTING_READS = ["/api/events", "/api/favicon", "/api/thursday/call/plan"];
 
 /**
  * Where the app may be shown in a frame: only in itself. Another site framing it could lay
