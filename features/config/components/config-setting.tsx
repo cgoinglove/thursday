@@ -455,6 +455,7 @@ function KeyRow({
   const credits = useKeyCredits(entry, set);
   const usage = useSubscriptionUsage(entry, set);
   const plan = useSignInPlan(entry, set);
+  // A plan's use keeps the row as it is, narrow as the card is; its dialog says where it is set
   const state = usage.data
     ? usageState(usage.data)
     : keyState(set, needed, credits.data, entry.signIn, lost, env);
@@ -479,12 +480,8 @@ function KeyRow({
   return (
     <button
       type="button"
-      // A sign-in the environment holds cannot be signed out of here: its dialog is the one
-      // that says where it is set
       onClick={() =>
-        entry.signIn && !env
-          ? openSignInDialog(entry)
-          : openConfigDialog(entry, set)
+        entry.signIn ? openSignInDialog(entry) : openConfigDialog(entry, set)
       }
       className={cn(
         "group flex w-full items-center gap-3 p-4 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
@@ -554,9 +551,20 @@ function keyState(
   env = false,
 ): { text: string; ink: string; warn: boolean } {
   const state = keyStateText(set, needed, credits, signIn, lost);
-  // Where it is set, beside what it has left: the dialog cannot change it (config.const envWords)
-  if (!set || !env) return state;
-  return credits
+  return set ? envState(state, env, Boolean(credits)) : state;
+}
+
+/**
+ * Where a key is set, said at its row's end since its dialog cannot change it (config.const
+ * envWords): beside the credit it has left, else in place of "Set".
+ */
+function envState(
+  state: { text: string; ink: string; warn: boolean },
+  env: boolean,
+  figure: boolean,
+): { text: string; ink: string; warn: boolean } {
+  if (!env) return state;
+  return figure
     ? { ...state, text: `${state.text} · env` }
     : { ...state, text: "Set in env" };
 }
@@ -887,6 +895,8 @@ function SignInDialog({
   const { data } = useServerRoute<ConfigStatus[]>(queryKey.config);
   const signedIn = isConfigSet(data, entry.key);
   const lost = isConfigUnreadable(data, entry.key);
+  // Held in the environment: signing out here would change nothing that is used
+  const env = isConfigFromEnv(data, entry.key);
   const plan = useSignInPlan(entry, signedIn);
   const usage = useSubscriptionUsage(entry, signedIn);
   const state = usage.data ? usageState(usage.data) : null;
@@ -925,7 +935,7 @@ function SignInDialog({
       }
       footer={
         <>
-          {(signedIn || lost) && (
+          {(signedIn || lost) && !env && (
             <Button
               variant="ghost"
               loading={signingOut}
@@ -965,6 +975,11 @@ function SignInDialog({
         {lost && (
           <SettingNote className={cn("wrap-break-word", WAITING_INK)}>
             {lostWords("The sign-in saved here", "Sign in again.")}
+          </SettingNote>
+        )}
+        {env && (
+          <SettingNote className="wrap-break-word">
+            {envWords(entry.label)}
           </SettingNote>
         )}
       </div>
