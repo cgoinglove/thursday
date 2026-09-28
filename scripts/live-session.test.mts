@@ -36,6 +36,8 @@ mock.module("../lib/live/live.transport.ts", {
           sent.push(event);
         },
         limit: () => 262_144,
+        // A key's call: its events ride the media connection
+        relayed: () => false,
         close: () => {
           released = true;
         },

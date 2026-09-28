@@ -3,6 +3,7 @@ import { appEvents } from "@/app/api/events/app-event.server";
 import { ENV_PATH } from "@/config";
 import { database } from "@/database/db";
 import { configTable } from "@/database/tables";
+import { planCallsOf, TEXT_MODEL_PROVIDERS } from "@/features/ai/model.schema";
 import {
   ENCRYPTION_KEY_NAME,
   isSealed,
@@ -163,16 +164,25 @@ export async function sealConfigSecrets(): Promise<{
   });
 }
 
-/** Whether a voice key exists (the keys group's `requireKeys`); decides call screen vs intro. */
+/** Whether a call can open (the keys group's `requireKeys`, a sign-in on a plan with calls); decides call screen vs intro. */
 export async function isCallable(): Promise<boolean> {
   const voice = CONFIG_GROUPS.find((group) => group.id === VOICE_GROUP_ID);
   if (!voice) return true;
 
+  // The keys the group counts, which are not all among its rows: the GPT Subscription's
+  // sign-in opens a call too, and is listed with the easy ways
   const set = await Promise.all(
-    voice.entries.map(
-      async (entry) => [entry.key, await hasConfig(entry.key)] as const,
+    (voice.requireKeys ?? voice.entries.map((entry) => entry.key)).map(
+      async (key) => [key, await hasConfig(key)] as const,
     ),
   );
   const has = new Map(set);
+  // A sign-in opens a call on a plan that has calls (model.schema planCallsOf). Read here
+  // rather than imported: ai/chatgpt reads its sign-in through this module
+  const signIn = TEXT_MODEL_PROVIDERS.chatgpt.apiKeyName;
+  if (has.get(signIn)) {
+    const { readChatGptPlan } = await import("@/features/ai/chatgpt");
+    has.set(signIn, planCallsOf({ plan: await readChatGptPlan() }));
+  }
   return groupSatisfied(voice, (key) => has.get(key) ?? false);
 }

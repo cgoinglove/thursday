@@ -2,6 +2,13 @@ import { z } from "zod";
 
 export const LIVE_MODEL = "gpt-live-1";
 export const LIVE_BACKEND_MODEL = "gpt-6-luna";
+/**
+ * The voice the Codex CLI's /voice opens on a ChatGPT plan (codex-rs core
+ * realtime_conversation.rs `DEFAULT_FRAMELESS_REALTIME_MODEL`): GPT-Live on the plan instead
+ * of a key. It hands work to whoever opened the call rather than to a backend of its own
+ * (live.plan, thursday.plan).
+ */
+export const LIVE_PLAN_MODEL = "gpt-live-1-codex";
 
 /** Flat function declaration accepted by Responses delegation. */
 export type ToolManifest = {

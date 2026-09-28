@@ -51,11 +51,13 @@ import {
 import { EffortSwitch } from "@/features/ai/components/effort-switch";
 import { ModelPicker } from "@/features/ai/components/model-picker";
 import {
+  type AiProvider,
   type CatalogModel,
   compactAtFor,
   contextWindowOf,
   type Effort,
   isCatalogProvider,
+  planMediaOf,
   type TextModelProviderId,
 } from "@/features/ai/model.schema";
 import {
@@ -355,16 +357,18 @@ function sinceWord(at: DateLike): string {
 }
 /**
  * What a seed still needs before it can work, as one line, or null when it needs
- * nothing. A missing studio model is not a fallback — the tool is absent — so the
- * row says so before the bot finds out mid-job. Ticking is never blocked: the list
- * states the cost, it does not cap it.
+ * nothing. A studio kind nobody picked and the GPT Subscription does not make is
+ * absent — the tool is not there — so the row says so before the bot finds out
+ * mid-job. Ticking is never blocked: the list states the cost, it does not cap it.
  */
 function unmetLine(
   seed: BotSeed,
   isSet: (key: string) => boolean,
+  /** The GPT Subscription's sign-in and its plan (model.schema planMediaOf); null when signed out. */
+  signIn: { plan: string | null } | null,
 ): string | null {
   const unmet = (seed.requires ?? []).filter(
-    (kind) => !isSet(MEDIA_MODEL_KEYS[kind]),
+    (kind) => !isSet(MEDIA_MODEL_KEYS[kind]) && !planMediaOf(kind, signIn),
   );
   if (!unmet.length) return null;
   return `needs ${unmet.map(mediaModelWords).join(" and ")}`;
@@ -401,6 +405,10 @@ function useSeedPicks(
   // Same key the Models section and its badge read, so one fetch answers all three.
   const { data: config } = useServerRoute<ConfigStatus[]>(queryKey.config);
   const isSet = (key: string) => isConfigSet(config, key);
+  // The plan the sign-in is on, which decides what it makes (unmetLine)
+  const { data: providers } = useServerRoute<AiProvider[]>(queryKey.llmModel);
+  const plan = providers?.find((provider) => provider.signIn);
+  const signIn = plan?.hasKey ? { plan: plan.plan ?? null } : null;
 
   // Seeds not on the roster yet. `have` is the whole roster, so counting against
   // its size goes negative the moment a bot nobody seeded is on it.
@@ -412,6 +420,7 @@ function useSeedPicks(
 
   return {
     isSet,
+    signIn,
     adding,
     addable,
     wanted,
@@ -460,7 +469,7 @@ function SeedRows({
         const owned = have.has(seed.name);
         const on = picks.ticked(seed);
         const blocked = picks.blocked(seed);
-        const needs = unmetLine(seed, picks.isSet);
+        const needs = unmetLine(seed, picks.isSet, picks.signIn);
         return (
           <div
             key={seed.name}

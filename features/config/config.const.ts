@@ -1,4 +1,4 @@
-import { LIVE_PROVIDER } from "@/features/ai/live.schema";
+import { LIVE_LINES, LIVE_PROVIDER } from "@/features/ai/live.schema";
 import {
   canMakeKind,
   EFFORTS,
@@ -8,6 +8,7 @@ import {
   parseMediaModel,
   parseTextModel,
   TEXT_MODEL_PROVIDER_LIST,
+  TEXT_MODEL_PROVIDERS,
   type TextModelProviderId,
 } from "@/features/ai/model.schema";
 import {
@@ -90,7 +91,7 @@ export type ConfigGroup = {
 /** Live voice and Responses delegation share this API key. */
 const voiceKeys = [LIVE_PROVIDER.apiKeyName];
 
-/** The studio model per kind, as `provider/model`. Unset means the tool is absent, not a fallback. */
+/** The studio model per kind, as `provider/model`. Unset, the GPT Subscription makes what its plan can (model.schema planMediaOf) and the rest is absent: no key is a fallback. */
 export const MEDIA_MODEL_KEYS: Record<MediaKind, string> = {
   image: "IMAGE_MODEL",
   video: "VIDEO_MODEL",
@@ -214,9 +215,14 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
   {
     id: "voice",
     title: "voice",
-    hint: "calls run on this key",
+    hint: "calls run on this key, or on a paid GPT Subscription sign-in",
     section: "keys",
     require: "any",
+    // The sign-in is listed with the easy ways, and opens a call as well on a plan with calls
+    // (live.schema liveLineOf; config.query isCallable and voice-key useVoiceLine ask the plan)
+    requireKeys: LIVE_LINES.map(
+      (line) => TEXT_MODEL_PROVIDERS[line].apiKeyName,
+    ),
     note: "required for calls",
     entries: TEXT_MODEL_PROVIDER_LIST.filter(isVoiceKey).map(keyEntry),
   },
@@ -305,7 +311,7 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
   {
     id: "studio",
     title: "Studio",
-    hint: "what a bot draws, films and speaks with — off until you pick one",
+    hint: "what a bot draws, films and speaks with — off until you pick one; a paid GPT Subscription draws by itself",
     section: "models",
     require: "none",
     entries: (Object.keys(MEDIA_MODEL_KEYS) as MediaKind[]).map(mediaEntry),

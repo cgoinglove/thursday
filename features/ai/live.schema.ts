@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { COMMON_VALIDATE } from "@/config";
 import { LIVE_BACKEND_MODEL } from "@/lib/live/live.schema";
-import { effortSchema, TEXT_MODEL_PROVIDERS } from "./model.schema";
+import {
+  effortSchema,
+  planCallsOf,
+  TEXT_MODEL_PROVIDERS,
+} from "./model.schema";
 import { DEFAULT_PERSONA, RETIRED_PERSONAS } from "./prompts/persona";
 
 export const LIVE_PROVIDER = {
@@ -61,11 +65,75 @@ export const LIVE_VOICE_NOTE: Partial<
 /** A recorded line in this voice. Only the listed voices have one. */
 export const voiceSamplePath = (voice: string) => `/voices/${voice}.ogg`;
 
+/**
+ * The voices GPT-Live speaks in on a ChatGPT plan (LIVE_PLAN_MODEL), none of them the key's:
+ * codex-rs protocol.rs `RealtimeVoicesList::builtin`, `v1`, which the frameless model takes too
+ * (core realtime_conversation.rs `validate_realtime_voice`), with `cove` its default. A voice
+ * of the key's is refused there, as one of these is on a key.
+ */
+export const LIVE_PLAN_VOICES = [
+  "cove",
+  "juniper",
+  "maple",
+  "spruce",
+  "ember",
+  "vale",
+  "breeze",
+  "arbor",
+  "sol",
+] as const;
+
+/**
+ * What a spoken call can open on: the GPT subscription's own voice (LIVE_PLAN_MODEL), or GPT-Live
+ * on the OpenAI key. Named as the text providers are, so the rule a call in writing follows
+ * reads the same keys (thursday.schema `textCallRunsOn`).
+ */
+export const LIVE_LINES = ["chatgpt", "openai"] as const;
+export type LiveLine = (typeof LIVE_LINES)[number];
+
+/**
+ * Whether a line can open a call: its key is set, and on the GPT subscription the plan is one
+ * that has calls (model.schema planCallsOf) — a Free sign-in runs bots and calls in writing, not
+ * a spoken call.
+ */
+export function liveLineReady(
+  line: LiveLine,
+  isSet: (key: string) => boolean,
+  /** The plan the sign-in is on, as the token names it; null when it does not say. */
+  plan: string | null,
+): boolean {
+  if (!isSet(TEXT_MODEL_PROVIDERS[line].apiKeyName)) return false;
+  return line !== "chatgpt" || planCallsOf({ plan });
+}
+
+/**
+ * The line a spoken call opens on: the one picked while it is set up, else the rule — the GPT
+ * subscription when one is signed in on a plan with calls, else the OpenAI key; null when neither
+ * is. The same answer on the server (the keys themselves) and on the screen (their status).
+ */
+export function liveLineOf(
+  picked: LiveLine | null,
+  isSet: (key: string) => boolean,
+  plan: string | null,
+): LiveLine | null {
+  const ready = (line: LiveLine) => liveLineReady(line, isSet, plan);
+  if (picked && ready(picked)) return picked;
+  return LIVE_LINES.find(ready) ?? null;
+}
+
 export const LIVE_BACKEND_MODELS = TEXT_MODEL_PROVIDERS.openai.suggestModels;
 const instruction = z.string().max(COMMON_VALIDATE.prompt.max).default("");
 
 export const LiveSettingsSchema = z.object({
   voice: z.string().trim().min(1).max(128).default("marin"),
+  /** Her voice on the plan's line, which speaks in voices of its own (LIVE_PLAN_VOICES). */
+  planVoice: z.string().trim().min(1).max(128).default("cove"),
+  /**
+   * Which line a spoken call opens on, when the user picked one. Null follows the rule a call
+   * in writing does: the GPT subscription when one is signed in, else the OpenAI key, because
+   * the plan is paid for either way and the key bills by the minute.
+   */
+  runsOn: z.enum(LIVE_LINES).nullable().default(null),
   /**
    * Which character she is on a call (prompts/persona). A temperament, not a voice:
    * which of the 22 says it is the setting above, and changing one leaves the other.
@@ -131,6 +199,8 @@ export function migrateLiveSettings(value: unknown): Record<string, unknown> {
 
   const candidate: Record<keyof LiveSettings, unknown> = {
     voice: stored.voice ?? openai?.voice,
+    planVoice: stored.planVoice,
+    runsOn: stored.runsOn,
     // A retired character is read as its successor, never dropped to the default
     persona:
       typeof stored.persona === "string"

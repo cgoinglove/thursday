@@ -1,5 +1,5 @@
 ---
-checked: 2026-09-24
+checked: 2026-09-27
 paths:
   - "features/ai/prompts/**"
   - "features/ai/tools/**"
@@ -24,7 +24,7 @@ Thursday and her bots work from short instructions and single-purpose tools, and
 - `features/memory/memory.edit.ts` — an edit typed on the Memory screen: one streamed run with memory's tools.
 
 ## How it fits
-A spoken call's voice reads `live.prompt.ts`; the call's backend reads `thursday.prompt.ts` and holds the tools. Only what runs a model imports a prompt loader or `loadTools` — `thursday.action`, the tool-call route and `thursday.text` for a call, `bot.run` and `bot.runner` for a bot, `memory.edit` for an edit — while `persona.ts` and `tool-name.ts` are vocabulary any file may import. A tool that cannot work in a run is left out of the set, not disabled. Memory is merged as the call writes it (`replaces`), so no pass runs after a call. A time a model reads is local, from the `prompt-helper.ts` stamps or `whenOf`, never a `Date`, which serialises as UTC.
+A spoken call's voice reads `live.prompt.ts`; the call's backend reads `thursday.prompt.ts` and holds the tools. Only what runs a model imports a prompt loader or `loadTools` — `thursday.action`, `thursday.plan`, the tool-call route and `thursday.text` for a call, `bot.run` and `bot.runner` for a bot, `memory.edit` for an edit — while `persona.ts` and `tool-name.ts` are vocabulary any file may import. A tool that cannot work in a run is left out of the set, not disabled. Memory is merged as the call writes it (`replaces`), so no pass runs after a call. A time a model reads is local, from the `prompt-helper.ts` stamps or `whenOf`, never a `Date`, which serialises as UTC.
 
 ## What breaks
 - The call's cheap backend model fills the wrong field of a many-purpose tool or sends a follow-up as new work, so a tool the call holds does one thing with its arguments required (`routine` is the exception, not the template); a model leaves optional keys out, which `.nullable()` fails and `.nullish()` takes.

@@ -4,8 +4,16 @@ Say what happened and the one thing that fixes it; most problems are a setting o
 
 ## A call will not open, or ended
 
-- **"Call failed"** shows the provider's reason. A refused key or no credit is fixed in **Settings ›
-  API keys**; a model the key cannot use is changed in **Settings › Thursday**, under Models.
+- **"Could not start the call on your GPT Subscription"** (or **on your OpenAI key**), or **"The
+  call on … failed"**, names what the call ran on and shows the provider's words as they came. Its
+  button is that line's fix: **Sign in again** for the GPT Subscription, **Change key** for the
+  OpenAI key (**Settings › API keys**). A model the key cannot use is changed in **Settings ›
+  Thursday**, under Models, and **runs on** there moves calls to the other line.
+- **A call on the GPT Subscription is refused**: the reason is the plan's own, such as its usage
+  spent. **runs on** in **Settings › Thursday › Models** moves calls to the OpenAI key, and asks for
+  one there when none is set.
+- **Signed in on the Free plan**: ChatGPT has no spoken calls on it. Add an OpenAI key, or sign in
+  again with a paid plan; bots and calls in writing work on Free as they are.
 - **"One call at a time"**: another tab of the app has a spoken call on. Hang up there first.
 - **She cannot be heard** on a call she opened herself: the browser holds sound until the page is
   touched. A tap anywhere fixes it.
@@ -39,7 +47,7 @@ A job does not fail for good; it pauses and waits.
 ## A bot says it cannot do something
 
 - **Make an image, a video, speech, or a transcript**: pick a model for it in **Settings › Models**,
-  under Studio.
+  under Studio. An image needs none while the GPT Subscription is signed in on a paid plan.
 - **Open a web page**: the bots' browser downloads in the background on first start, a few hundred
   megabytes. On a Linux server it may also need `npx playwright install-deps chromium`, run once
   with administrator rights.

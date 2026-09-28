@@ -6,7 +6,7 @@ import {
   type LiveClose,
   type LiveFragment,
 } from "./live.schema";
-import { createWebRtcTransport } from "./live.transport";
+import { createWebRtcTransport, type Negotiated } from "./live.transport";
 
 /** A revisable display group, independent of audio playback and backend responses. */
 export type LiveTurn = {
@@ -73,8 +73,11 @@ export type LiveAudio = {
   levels?(): { output: number };
 };
 type LiveOptions = {
-  /** Exchanges the offer on the server and returns the SDP answer. */
-  initialize(sdp: string): Promise<string>;
+  /**
+   * Exchanges the offer on the server and returns the SDP answer; on the GPT subscription's line,
+   * with where the server relays the call's events (live.transport).
+   */
+  initialize(sdp: string): Promise<Negotiated>;
   audio: LiveAudio;
   on: {
     runTool(call: LiveToolCall): Promise<string | LiveToolResult>;
@@ -734,7 +737,8 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
     audio,
     negotiate: async (sdp) => {
       const answer = await initialize(sdp);
-      if (!answer) throw new Error("OpenAI Live returned no SDP answer.");
+      if (!(typeof answer === "string" ? answer : answer.sdp))
+        throw new Error("OpenAI Live returned no SDP answer.");
       return answer;
     },
     on: { event: handle, dropped: fail },
@@ -805,6 +809,8 @@ export const createLiveSession = ({ initialize, audio, on }: LiveOptions) => {
      * she speaks; only what the caller says meanwhile goes unheard.
      */
     holdInput(ms: number) {
+      // The plan's line takes no mute (live.plan): the room is heard from the start there
+      if (transport.relayed()) return;
       if (!started || closed || closing || held || ms <= 0) return;
       held = { mute: crypto.randomUUID(), unmute: null };
       transport.send({ type: "session.input_audio.mute", event_id: held.mute });

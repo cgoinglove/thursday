@@ -24,6 +24,7 @@ import { ModelPicker } from "@/features/ai/components/model-picker";
 import {
   type AutomaticModel,
   parseTextModel,
+  planName,
   type TextModelProviderId,
 } from "@/features/ai/model.schema";
 import { PERSONAS } from "@/features/ai/prompts/persona";
@@ -31,7 +32,10 @@ import { BOT_SEEDS, ERRANDS_BOT, findBotSeed } from "@/features/bot/bot.seed";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { installSeedBots } from "@/features/bot/seed-bots";
 import { AccountsSetup } from "@/features/config/components/config-setting";
-import { GetKeyLink, VoiceKeys } from "@/features/config/components/voice-key";
+import {
+  CallLines,
+  useVoiceLine,
+} from "@/features/config/components/voice-key";
 import {
   removeConfigAction,
   setConfigAction,
@@ -83,20 +87,20 @@ type Step = "hello" | (typeof STEPS)[number];
 
 /** Her words, long enough to sit well beside her face: two or three lines. */
 const SAYS = {
-  key: "I am Thursday. My voice comes from OpenAI, so the first thing I need is a key: paste one and I wake up. No key yet? Go on without it, and I will ask again when you call.",
+  key: "I am Thursday, and the first thing I need is a voice. Sign in with ChatGPT and I talk on your plan, or paste an OpenAI key. Neither yet? Go on without it, and I will ask again when you call.",
   awake:
-    "There, I am awake, and that key is everything a call needs. From here on it is quick: your microphone, who works for you, and what they think with.",
+    "There, I am awake, and that is everything a call needs. From here on it is quick: your microphone, who works for you, and what they think with.",
   mic: "Now let me hear you. Your browser asks before it opens the microphone: say yes, then say anything at all and watch the line under me move. It is only open on a call, unless you ask for more.",
   heard:
     "I hear you: that line is your voice. If you would rather wake me by saying my name than by tapping me, switch it on here and try it once.",
   bots: "Long work goes to bots, so we can keep talking while they are at it. They work on this computer, with a shell, a browser and your files, and signing in or paying always stays with you.",
   models:
-    "Bots think with a model you choose. Start small: a small model is quick and costs little, and any bot can move up later. An OpenAI key already covers it; a GPT subscription or one Vercel key opens far more.",
+    "Bots think with a model you choose. Start small: a small model is quick and costs little, and any bot can move up later. Your ChatGPT plan or OpenAI key already covers it; one Vercel key opens far more.",
   style:
     "One more, and it is the fun one: who I am to you. Four of them, and the only difference is how I talk — pick whoever sounds like someone you would call, and change your mind whenever you like.",
   call: "That is everything I need. Call me, tell me what to call you, and ask for one thing, anything you would ask a person at the next desk. I will show you the rest as we go.",
   asleep:
-    "I still have no voice of my own, so there is no call yet, but everything else works. Look around; tap me whenever you have a key and I will take it from there.",
+    "I still have no voice of my own, so there is no call yet, but everything else works. Look around; tap me whenever you sign in or have a key, and I will take it from there.",
   asleepBare:
     "I still have no voice of my own, and my bots have nothing to think with yet, so there is no call and no job for now. Look around; add a key or sign in with ChatGPT whenever you like, and I will take it from there.",
 } as const;
@@ -111,7 +115,7 @@ const FADE_MS = 700;
 type Opening = "echoes" | "her" | "hello" | "over";
 
 export function Intro({
-  /** A voice key already exists (as the server saw it). */
+  /** A call can already open: a sign-in or a voice key exists (as the server saw it). */
   ready,
   /** No call has been placed here yet. */
   firstRun,
@@ -129,6 +133,16 @@ export function Intro({
   /** After the fade; then the element is removed entirely. */
   const [lifted, setLifted] = useState(false);
   const [keyed, setKeyed] = useState(ready);
+  // A ChatGPT sign-in opens a call too, on the plan's own voice (live.schema liveLineOf), and
+  // lands on the server rather than here: she wakes with it as she does with a key
+  // (a Free sign-in has no spoken calls: voice-key useVoiceLine)
+  const voiceLine = useVoiceLine();
+  const callable = keyed || voiceLine.line !== null;
+  const wasCallable = useRef(callable);
+  useEffect(() => {
+    if (callable && !wasCallable.current) setWord(awake());
+    wasCallable.current = callable;
+  }, [callable]);
   const [word, setWord] = useState<FaceWord | null>(null);
   const [picked, setPicked] = useState<Record<string, boolean>>(() =>
     // every bot comes along unless it is switched off here
@@ -165,8 +179,8 @@ export function Intro({
   );
   const thinks = Boolean(automatic?.ref);
   const said = useMemo(
-    () => herTurns(step, keyed, mic.on, thinks),
-    [step, keyed, mic.on, thinks],
+    () => herTurns(step, callable, mic.on, thinks),
+    [step, callable, mic.on, thinks],
   );
   const turns = step === "hello" ? demo.turns : said;
   // Only while it is up: mounted on every page load, its ↓ took the key from every call after
@@ -280,13 +294,13 @@ export function Intro({
         >
           <button
             type="button"
-            disabled={!last || !keyed}
+            disabled={!last || !callable}
             onClick={() => leave(true)}
-            aria-label={last && keyed ? "Call Thursday" : undefined}
+            aria-label={last && callable ? "Call Thursday" : undefined}
             // asleep, not broken: the same face, dimmed, until she has a voice
             className={cn(
               "block w-full rounded-full outline-none transition-all duration-700 ease-out focus-visible:ring-3 focus-visible:ring-ring/50",
-              step !== "hello" && !keyed && "opacity-35",
+              step !== "hello" && !callable && "opacity-35",
               stacked && "max-[900px]:mt-6 max-[900px]:w-[min(8rem,20vh)]",
             )}
           >
@@ -328,13 +342,7 @@ export function Intro({
               className="absolute top-1/2 left-full ml-[calc(var(--face-bleed)+0.375rem)] flex w-[min(22rem,26vw)] -translate-y-1/2 animate-in flex-col gap-4 text-left fade-in slide-in-from-bottom-1 duration-300 max-[900px]:static max-[900px]:ml-0 max-[900px]:w-[min(22rem,calc(100vw-2rem))] max-[900px]:translate-y-0"
             >
               {step === "key" && (
-                <KeyTurn
-                  keyed={keyed}
-                  onSaved={() => {
-                    setKeyed(true);
-                    setWord(awake());
-                  }}
-                />
+                <KeyTurn voiced={callable} onSaved={() => setKeyed(true)} />
               )}
               {step === "mic" && <MicTurn mic={mic} />}
               {step === "bots" && (
@@ -364,7 +372,7 @@ export function Intro({
               )
             ) : step === "mic" && mic.on ? (
               <Ear live getMicSpectrum={mic.spectrum} />
-            ) : !keyed ? (
+            ) : !callable ? (
               "Asleep"
             ) : last ? (
               <Ready
@@ -387,10 +395,10 @@ export function Intro({
               onClick={() => {
                 if (step === "hello") {
                   // Inside this click, so the browser lets her be heard from here on
-                  voice.say("hello", keyed ? "awake" : "key");
+                  voice.say("hello", callable ? "awake" : "key");
                   setStep("key");
                 } else if (step === "mic" && !mic.on) void mic.turnOn();
-                else if (last) leave(keyed);
+                else if (last) leave(callable);
                 else setStep(STEPS[at + 1]);
               }}
               // on the first screen it follows her line up, once
@@ -409,7 +417,7 @@ export function Intro({
                 : step === "mic" && !mic.on
                   ? "Turn on the microphone"
                   : last
-                    ? keyed
+                    ? callable
                       ? "Call her"
                       : "Look around"
                     : "Continue"}
@@ -425,8 +433,8 @@ export function Intro({
                   two minutes · every step can wait
                 </span>
               )
-            ) : step === "key" && !keyed ? (
-              "no key is fine — it can go in from the call screen"
+            ) : step === "key" && !callable ? (
+              "neither is fine — both can wait for the call screen"
             ) : step === "mic" && mic.asking ? (
               "your browser is asking — allow it at the top of the window"
             ) : step === "mic" && !mic.on ? (
@@ -437,7 +445,7 @@ export function Intro({
               >
                 not now — allow it when the first call asks
               </button>
-            ) : last && keyed ? (
+            ) : last && callable ? (
               "or tap her"
             ) : (
               ""
@@ -480,7 +488,7 @@ export function Intro({
           </span>
           {/* The way out without a call. On the last step nothing is left to skip, and with
               no key the main button already says it */}
-          {last && !keyed ? (
+          {last && !callable ? (
             <span />
           ) : (
             <button
@@ -503,7 +511,8 @@ export function Intro({
 /** Her lines so far on the way through the steps, so the earlier ones recede as captions do. */
 function herTurns(
   step: Step,
-  keyed: boolean,
+  /** A call can open: a ChatGPT sign-in or the key, made here or before. */
+  callable: boolean,
   heard: boolean,
   /** A model bots can run on is set (api/llm-model/automatic): only then does "everything else" work. */
   thinks: boolean,
@@ -517,7 +526,7 @@ function herTurns(
   const lines: Turn[] = [];
   if (step === "hello") return lines;
   lines.push(line("key", SAYS.key));
-  if (keyed) lines.push(line("awake", SAYS.awake));
+  if (callable) lines.push(line("awake", SAYS.awake));
   if (step === "key") return lines;
   lines.push(line("mic", SAYS.mic));
   if (heard) lines.push(line("heard", SAYS.heard));
@@ -529,7 +538,7 @@ function herTurns(
   lines.push(line("style", SAYS.style));
   if (step === "style") return lines;
   lines.push(
-    keyed
+    callable
       ? line("call", SAYS.call)
       : thinks
         ? line("asleep", SAYS.asleep)
@@ -572,36 +581,44 @@ function Done({ children, tail }: { children: string; tail?: string }) {
   );
 }
 
-function KeyTurn({ keyed, onSaved }: { keyed: boolean; onSaved: () => void }) {
-  if (keyed)
-    return (
+/**
+ * Her voice: the GPT Subscription or an OpenAI key, the plan first (voice-key CallLines). Once
+ * either is in, what she runs on, and where to change it.
+ */
+function KeyTurn({
+  voiced,
+  onSaved,
+}: {
+  voiced: boolean;
+  onSaved: () => void;
+}) {
+  const voice = useVoiceLine();
+  const plan = planName(voice.plan);
+  if (voiced)
+    return voice.line === "chatgpt" ? (
+      <>
+        <Done tail={plan ? `${plan} plan` : undefined}>
+          Signed in with ChatGPT
+        </Done>
+        <Fine>
+          Calls and bots run on your plan. Settings › Thursday switches a call
+          to a key.
+        </Fine>
+      </>
+    ) : (
       <>
         <Done>OpenAI key saved</Done>
-        <Fine>Change it any time in Settings › API keys.</Fine>
+        <Fine>
+          {voice.signedIn
+            ? `Calls run on the key; bots and calls in writing run on your ${plan ?? "ChatGPT"} plan.`
+            : "Change it any time in Settings › API keys."}
+        </Fine>
       </>
     );
   return (
     <>
-      <Mine>Paste your OpenAI API key</Mine>
-      <VoiceKeys dense plain autoFocus onSaved={onSaved} />
-      <GetKeyLink />
-      <ol className="flex flex-col gap-1.75 text-[13px] text-muted-foreground">
-        {[
-          "Sign in, or make an account",
-          "Create new secret key, and copy it",
-          "Paste it here",
-        ].map((text, index) => (
-          <li key={text} className="flex items-center gap-2.5">
-            <span className="grid size-4.5 shrink-0 place-items-center  rounded font-mono text-[10px] text-foreground bg-secondary">
-              {index + 1}
-            </span>
-            {text}
-          </li>
-        ))}
-      </ol>
-      <Fine>
-        OpenAI bills it by the minute of call, separately from ChatGPT.
-      </Fine>
+      <Mine>Give her a voice</Mine>
+      <CallLines onSaved={onSaved} />
     </>
   );
 }

@@ -90,8 +90,8 @@ that bot settles it first. Bots do not report progress to the call or a phone: t
 is working, and what reaches the user is a question or the ending.
 
 A picture a bot made or was given can be changed rather than drawn again: ask for what should be
-different. This needs an image model in **Settings › Models**; if the one picked cannot work from a
-picture, the bot says so.
+different. This needs an image model in **Settings › Models**, or the GPT Subscription signed in on
+a paid plan; if the one picked cannot work from a picture, the bot says so.
 
 ## Telling a running bot something
 

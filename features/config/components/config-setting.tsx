@@ -41,9 +41,12 @@ import {
   type MediaKind,
   parseMediaModel,
   parseTextModel,
+  planMediaOf,
+  planName,
   type SubscriptionUsage,
 } from "@/features/ai/model.schema";
 import { BotsMark } from "@/features/bot/components/bot-mark";
+import { useVoiceLine } from "@/features/config/components/voice-key";
 import {
   removeConfigAction,
   setConfigAction,
@@ -62,6 +65,7 @@ import {
   isConfigSet,
   isConfigUnreadable,
   lostWords,
+  VOICE_GROUP_ID,
 } from "@/features/config/config.const";
 import { ReachGuide } from "@/features/reach/components/reach-guide";
 import {
@@ -128,6 +132,7 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
   const { data, isLoading, error } = useServerRoute<ConfigStatus[]>(
     queryKey.config,
   );
+  const voice = useVoiceLine();
 
   if (isLoading) return <SettingSkeleton rows={4} />;
   if (error) return <SettingError message={error.message} />;
@@ -135,6 +140,12 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
   const isSet = (key: string) => isConfigSet(data, key);
   const isLost = (key: string) => isConfigUnreadable(data, key);
   const isEnv = (key: string) => isConfigFromEnv(data, key);
+  // A group is met by what can use it: the voice group by a sign-in on a plan with calls
+  const meets = (group: ConfigGroup) =>
+    groupSatisfied(
+      group,
+      group.id === VOICE_GROUP_ID ? voice.countsForCall : isSet,
+    );
   // Only choice entries carry a value
   const valueOf = (key: string) =>
     data?.find((entry) => entry.key === key)?.value;
@@ -156,7 +167,7 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
             : `${keys.filter((entry) => isSet(entry.key)).length} of ${keys.length} set${
                 lost ? ` · ${lost} to enter again` : ""
               }${
-                groups.some((group) => !groupSatisfied(group, isSet))
+                groups.some((group) => !meets(group))
                   ? " · a call needs one voice key"
                   : " · your keys stay on this machine"
               }`}
@@ -168,7 +179,7 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
           key={group.id}
           label={group.title}
           hint={group.hint}
-          right={<RequirementBadge group={group} isSet={isSet} />}
+          right={<RequirementBadge group={group} met={meets(group)} />}
         >
           {group.id === "easy" ? (
             <div className="grid gap-3 sm:grid-cols-2">
@@ -217,7 +228,7 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
                     env={isEnv(entry.key)}
                     // Amber only where something is actually missing: an
                     // unsatisfied required group is waiting on the user
-                    needed={!groupSatisfied(group, isSet)}
+                    needed={!meets(group)}
                   />
                 ),
               )}
@@ -392,13 +403,13 @@ function KeyTile({
 
 function RequirementBadge({
   group,
-  isSet,
+  met,
 }: {
   group: ConfigGroup;
-  isSet: (key: string) => boolean;
+  met: boolean;
 }) {
   if (group.require === "none") return null;
-  if (groupSatisfied(group, isSet)) {
+  if (met) {
     return (
       <span className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
         <Check className="size-3" />
@@ -486,7 +497,8 @@ function KeyRow({
       <span className="min-w-0 flex-1 space-y-0.5">
         <span className="flex items-center gap-2 truncate text-sm font-medium">
           {entry.label}
-          {entry.recommended && (
+          {entry.signIn && set && <PlanBadge usage={usage.data} plan={plan} />}
+          {entry.recommended && !(entry.signIn && set) && (
             <span className="rounded-full px-1.5 font-mono text-[9.5px] leading-4 font-normal text-muted-foreground ring-1 ring-border ring-inset">
               recommended
             </span>
@@ -500,14 +512,15 @@ function KeyRow({
           )
         ) : (
           <span className="block truncate font-mono text-xs text-muted-foreground">
-            {/* A sign-in's config key is nothing to read; the plan it is on is */}
+            {/* A sign-in's config key is nothing to read; how much of its plan is left is */}
             {entry.signIn
               ? set
-                ? usageLine(usage.data, plan)
+                ? (resetLine(usage.data) ?? "signed in")
                 : "sign in with your account"
               : entry.key}
           </span>
         )}
+        {entry.signIn && set && usage.data && <UsageBar usage={usage.data} />}
       </span>
 
       {narrow ? null : waiting ? (
@@ -628,16 +641,57 @@ function usageState(usage: SubscriptionUsage): {
   };
 }
 
-/** A signed-in row's second line: the plan as the backend names it now, and when its window frees up. */
-function usageLine(
-  usage: SubscriptionUsage | null | undefined,
-  plan: string | null,
-): string {
+/** A signed-in row's second line: when the plan's tightest window frees up. */
+function resetLine(usage: SubscriptionUsage | null | undefined): string | null {
   const live = usage && !("refused" in usage) ? usage : null;
-  const name = `${live?.plan ?? plan ?? "unknown"} plan`;
   return live?.resetsAt
-    ? `${name} · resets in ${formatDistanceToNowStrict(new Date(live.resetsAt))}`
-    : name;
+    ? `resets in ${formatDistanceToNowStrict(new Date(live.resetsAt))}`
+    : null;
+}
+
+/** The plan a sign-in is on, as the backend names it now, beside the account's name. */
+export function PlanBadge({
+  usage,
+  plan,
+}: {
+  usage: SubscriptionUsage | null | undefined;
+  plan: string | null;
+}) {
+  const name = planName(
+    (usage && !("refused" in usage) ? usage.plan : null) ?? plan,
+  );
+  if (!name) return null;
+  return (
+    <span className="rounded-full px-1.5 font-mono text-[9.5px] leading-4 font-normal text-foreground ring-1 ring-border ring-inset">
+      {name}
+    </span>
+  );
+}
+
+/**
+ * The share of the plan's tightest window used, drawn as a bar under the row: read at a glance,
+ * where the number at its end is read closely. It takes the waiting colour where the number does.
+ */
+function UsageBar({ usage }: { usage: SubscriptionUsage }) {
+  if ("refused" in usage) return null;
+  return (
+    <span
+      role="meter"
+      aria-label="Plan used"
+      aria-valuenow={usage.usedPercent}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      className="mt-1.5 block h-1 w-full max-w-48 overflow-hidden rounded-full bg-muted"
+    >
+      <span
+        className={cn(
+          "block h-full rounded-full transition-[width] duration-500",
+          usage.high ? "bg-waiting" : "bg-foreground/45",
+        )}
+        style={{ width: `${Math.min(100, Math.max(2, usage.usedPercent))}%` }}
+      />
+    </span>
+  );
 }
 
 /** Whose key it is, or what it buys when it belongs to no provider. */
@@ -678,7 +732,8 @@ function automaticLabel(
  * normal, so the field says what runs then. The value sits under the label rather than
  * across the row: at this width the two ends of a row are not read in one glance. Clearing
  * means different things: the bots' default falls back to whatever has a key, a studio kind
- * stops being offered at all (ai/model resolveMediaRef).
+ * to the GPT Subscription where its sign-in makes it and otherwise stops being offered at all
+ * (ai/model resolveMediaRef).
  */
 function ChoiceRow({
   entry,
@@ -699,6 +754,19 @@ function ChoiceRow({
   const { data: automatic } = useServerRoute<AutomaticModel>(
     entry.text && !value && queryKey.automaticModel,
   );
+  // Unpicked, a studio kind runs on the GPT Subscription while its sign-in makes it, by the
+  // rule the server resolves with (model.schema planMediaOf)
+  const { data: providers } = useServerRoute<AiProvider[]>(
+    entry.kind && !value && queryKey.llmModel,
+  );
+  const signIn = providers?.find((provider) => provider.signIn);
+  const planRuns =
+    entry.kind && !value
+      ? planMediaOf(
+          entry.kind,
+          signIn?.hasKey ? { plan: signIn.plan ?? null } : null,
+        )
+      : null;
   // A text model is what a bot thinks with, so it wears the bots mark; Cpu here was the memory glyph (memory-mark).
   const Mark = entry.kind ? KIND_MARKS[entry.kind] : BotsMark;
   // The row redraws with the pick — the model, its effort, the auto/off badge — so nothing
@@ -728,12 +796,12 @@ function ChoiceRow({
             <span
               className={cn(
                 "shrink-0 rounded-[5px] border border-border/60 px-1 font-mono text-[10px]",
-                entry.kind ? WAITING_INK : "text-muted-foreground",
+                entry.kind && !planRuns ? WAITING_INK : "text-muted-foreground",
               )}
             >
-              {/* A studio kind unpicked is not automatic: the tool is not offered
-                  at all (ai/model resolveMediaRef). Only the bots' default falls back. */}
-              {entry.kind ? "off" : "auto"}
+              {/* A studio kind unpicked falls back to nothing on a key: the tool is not
+                  offered at all (ai/model resolveMediaRef), unless the plan makes it */}
+              {entry.kind && !planRuns ? "off" : "auto"}
             </span>
           )}
         </span>
@@ -745,7 +813,15 @@ function ChoiceRow({
               model={ref?.model ?? ""}
               unset={
                 entry.kind
-                  ? "Not offered to bots until you pick one"
+                  ? planRuns
+                    ? `Automatic · ${
+                        choices.find(
+                          (choice) =>
+                            choice.value ===
+                            `${planRuns.provider}/${planRuns.model}`,
+                        )?.label ?? planRuns.model
+                      }`
+                    : "Not offered to bots until you pick one"
                   : automaticLabel(automatic, choices)
               }
               onChange={(next) =>
@@ -829,8 +905,13 @@ function SignInDialog({
       description={
         signedIn ? (
           <>
-            Signed in ·{" "}
-            <span className="font-mono">{usageLine(usage.data, plan)}</span>
+            Signed in <PlanBadge usage={usage.data} plan={plan} />
+            {resetLine(usage.data) && (
+              <>
+                {" · "}
+                <span className="font-mono">{resetLine(usage.data)}</span>
+              </>
+            )}
             {state && (
               <>
                 {" · "}

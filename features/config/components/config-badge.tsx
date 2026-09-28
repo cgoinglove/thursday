@@ -1,11 +1,13 @@
 "use client";
 
 import { queryKey } from "@/app/api/query-key";
+import { useVoiceLine } from "@/features/config/components/voice-key";
 import {
   CONFIG_GROUPS,
   type ConfigStatus,
   groupSatisfied,
   isConfigSet,
+  VOICE_GROUP_ID,
 } from "@/features/config/config.const";
 import { REACH_KEYS } from "@/features/reach/reach.schema";
 import { NavBadge } from "@/features/settings/components/setting-ui";
@@ -21,10 +23,17 @@ const PHONE_KEYS: string[] = Object.values(REACH_KEYS).flat();
  */
 export function useConfigAlert(): SectionAlert {
   const { data, isLoading } = useServerRoute<ConfigStatus[]>(queryKey.config);
+  const voice = useVoiceLine();
   if (isLoading) return null;
   const isSet = (key: string) => isConfigSet(data, key);
+  // The voice group is met by a sign-in only on a plan with calls (voice-key useVoiceLine)
   const unmet = CONFIG_GROUPS.some(
-    (group) => group.section === "keys" && !groupSatisfied(group, isSet),
+    (group) =>
+      group.section === "keys" &&
+      !groupSatisfied(
+        group,
+        group.id === VOICE_GROUP_ID ? voice.countsForCall : isSet,
+      ),
   );
   const lost = Boolean(
     data?.some((entry) => entry.unreadable && !PHONE_KEYS.includes(entry.key)),

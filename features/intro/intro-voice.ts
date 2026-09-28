@@ -25,20 +25,20 @@ export const INTRO_SPOKEN = {
   /** Said once, ahead of whichever line comes first: she says what this is before anything else. */
   hello:
     "Hi, I'm Thursday. One thing first: this is a recording. You'll hear my real voice on our first call.",
-  key: "My real voice comes from OpenAI, and it needs a key — think of it as a password. Paste one in, and I wake up. Don't have one yet? No problem, skip ahead. I'll ask again later.",
+  key: "First, I need a voice. Sign in with ChatGPT, and I talk on the plan you already have. Or paste an OpenAI key, if you'd rather. Neither one yet? No problem, skip ahead. I'll ask again later.",
   awake:
-    "There we go — I'm awake. That key is all a call needs. The rest is quick: your microphone, who does the work for you, and what they think with.",
+    "There we go — I'm awake. That's all a call needs. The rest is quick: your microphone, who does the work for you, and what they think with.",
   mic: "Now let me hear you. Your browser will ask before it turns the microphone on. Say yes, then say anything — and watch the line under me move. It's only on during a call, unless you ask for more.",
   heard:
     "I hear you — that line is your voice. If you'd rather wake me by saying my name instead of tapping, switch that on here and give it a try.",
   bots: "Big jobs go to my helper bots, so you and I can keep talking while they work. They work right here on your computer, with a browser and your files. Signing in and paying always stay with you.",
   models:
-    "Every bot runs on an A.I. model that you pick. Start small: a small one is fast and cheap, and you can move any bot up later. Your OpenAI key already covers it. A GPT subscription, or a Vercel key, opens up a lot more.",
+    "Every bot runs on an A.I. model that you pick. Start small: a small one is fast and cheap, and you can move any bot up later. Your ChatGPT plan or your OpenAI key already covers it. One Vercel key opens up a lot more.",
   style:
     "One more, and it's the fun one: who I am to you. There are four of me, and the only difference is how I talk. Pick whoever sounds like someone you'd call — you can change your mind anytime.",
   call: "That's everything. Call me, tell me what to call you, and ask for one thing — anything you'd ask someone sitting next to you. From here on, it's my real voice. I'll show you the rest as we go.",
   asleep:
-    "I still don't have a voice of my own, so no calls yet — but everything else works. Have a look around. When you have a key, tap me, and I'll take it from there.",
+    "I still don't have a voice of my own, so no calls yet — but everything else works. Have a look around. When you sign in, or have a key, tap me, and I'll take it from there.",
   asleepBare:
     "I still don't have a voice of my own, and my bots have nothing to think with yet — so no calls and no jobs for now. Have a look around. Add a key, or sign in with ChatGPT, and I'll take it from there.",
 } as const;

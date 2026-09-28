@@ -134,6 +134,7 @@ export const compactAtFor = (window: number | null | undefined): number =>
 /** Providers that make non-text media. Kept apart from the text providers: the key is the same, but a text provider does not necessarily draw (Anthropic). */
 const mediaModelProviderSchema = z.enum([
   "openai",
+  "chatgpt",
   "google",
   "xai",
   "vercel-ai-gateway",
@@ -196,6 +197,22 @@ export const MEDIA_MODEL_PROVIDERS: Record<
         },
         { id: "gpt-transcribe", label: "GPT Transcribe", tier: "mid" },
       ],
+    },
+  },
+  /**
+   * What the Codex CLI makes on a ChatGPT plan, signed in the same way (ai/chatgpt): pictures
+   * with the model it draws with (codex-rs ext/image-generation tool.rs `IMAGE_MODEL`), under
+   * a limit of the plan's own, and what they run on when nobody picked (`planMediaOf`). It has
+   * no route to film, speak or transcribe on a plan.
+   */
+  chatgpt: {
+    label: "GPT Subscription",
+    apiKeyName: "CHATGPT_SIGN_IN",
+    models: {
+      image: [{ id: "gpt-image-2", label: "GPT Image 2", tier: "mid" }],
+      video: [],
+      speech: [],
+      transcription: [],
     },
   },
   google: {
@@ -400,6 +417,39 @@ export const MEDIA_MODEL_PROVIDER_LIST = (
 export const canMakeKind = (provider: string, kind: MediaKind): boolean =>
   (MEDIA_MODEL_PROVIDERS[provider as MediaModelProviderId]?.models[kind]
     ?.length ?? 0) > 0;
+
+/**
+ * What a studio kind nobody picked a model for runs on: the GPT Subscription, for a kind it
+ * makes, while someone is signed in on a plan other than Free. The plan is paid for either
+ * way, where a key bills each picture, so a sign-in alone is enough (the maintainer, 09-28).
+ * The Codex CLI does not draw on a Free plan (codex-rs core tools/spec_plan.rs
+ * `image_generation_available`), so neither does this. Null otherwise: the tool is absent.
+ * The server (ai/model resolveMediaRef) and Settings (config-setting) both ask this.
+ */
+export function planMediaOf(
+  kind: MediaKind,
+  /** The sign-in, with its plan as the token names it; null when nobody is signed in. */
+  signIn: { plan: string | null } | null,
+): MediaModelRef | null {
+  if (!signIn || signIn.plan?.toLowerCase() === "free") return null;
+  const [model] = MEDIA_MODEL_PROVIDERS.chatgpt.models[kind];
+  return model ? { provider: "chatgpt", model: model.id } : null;
+}
+
+/**
+ * Whether a GPT Subscription sign-in opens a spoken call: on every plan but Free. Codex's
+ * realtime route answered a Free sign-in's call with 404 Not Found where a Plus sign-in's same
+ * offer opened (measured 09-28); the Codex CLI names no plan for /voice, and OpenClaw's docs say a
+ * subscription talks "when the account has access". A plan the token does not name is let
+ * through, and the call says what the plan answered. The server (live.schema liveLineOf callers,
+ * config.query isCallable) and every screen that asks for a voice read this.
+ */
+export function planCallsOf(
+  /** The sign-in, with its plan as the token names it; null when nobody is signed in. */
+  signIn: { plan: string | null } | null,
+): boolean {
+  return Boolean(signIn) && signIn?.plan?.toLowerCase() !== "free";
+}
 
 /** `provider/model` for a text model, as the default-model config stores it. */
 export function parseTextModel(value: string | undefined): TextModelRef | null {
@@ -997,6 +1047,13 @@ export type AiProvider = {
   /** The plan the signed-in account is on, as the provider names it; sign-in providers only. */
   plan?: string | null;
 };
+
+/**
+ * A plan as a screen names it: the backend's own word ("pro", "plus", "free"), capitalised,
+ * so a plan it adds later reads as it names it; null when it does not say.
+ */
+export const planName = (plan: string | null | undefined): string | null =>
+  plan ? plan.charAt(0).toUpperCase() + plan.slice(1) : null;
 
 /**
  * What a GPT Subscription sign-in has used (ai/chatgpt readChatGptUsage): the tightest window of

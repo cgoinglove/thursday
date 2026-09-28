@@ -35,9 +35,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { CALL_IDLE, CALL_LINE } from "@/config";
-import { LIVE_DEFAULTS, LIVE_PROVIDER } from "@/features/ai/live.schema";
+import { LIVE_DEFAULTS, LIVE_LINES } from "@/features/ai/live.schema";
 import {
   type AutomaticModel,
+  planName,
   TEXT_MODEL_PROVIDERS,
 } from "@/features/ai/model.schema";
 import { type Bot, DEFAULT_BOT } from "@/features/bot/bot.schema";
@@ -45,7 +46,10 @@ import { BotMark } from "@/features/bot/components/bot-mark";
 import { BotRoom } from "@/features/bot/components/bot-room";
 import { toolIcon } from "@/features/bot/components/bot-tool";
 import { useAnswerThread } from "@/features/bot/components/thread-reply";
-import { GetKeyLink, VoiceKeys } from "@/features/config/components/voice-key";
+import {
+  CallLines,
+  useVoiceLine,
+} from "@/features/config/components/voice-key";
 import {
   type ConfigStatus,
   isConfigSet,
@@ -1710,16 +1714,19 @@ function NeedsKey({
   const { data: automatic } = useServerRoute<AutomaticModel>(
     queryKey.automaticModel,
   );
-  // A key saved before that can no longer be opened is said as that, not as one never given
+  // A key or sign-in saved before that can no longer be opened is said as that, not as one never given
   const { data: config } = useServerRoute<ConfigStatus[]>(queryKey.config);
-  const lost = isConfigUnreadable(config, LIVE_PROVIDER.apiKeyName);
+  const lost = LIVE_LINES.find((line) =>
+    isConfigUnreadable(config, TEXT_MODEL_PROVIDERS[line].apiKeyName),
+  );
+  // Signed in on a plan without spoken calls: bots and writing run on it, a call does not
+  const voice = useVoiceLine();
+  const noCalls = voice.signedIn && !voice.planCalls;
   if (open) {
     return (
       <div className="w-[min(26rem,84vw)] animate-in space-y-2.5 rounded-2xl bg-background/80 p-3 ring-1 ring-border/60 backdrop-blur-md fade-in duration-300">
         <div className="flex h-6 items-center justify-between gap-2 pl-0.5">
-          <span className="text-[13px] font-medium">
-            Paste your OpenAI API key
-          </span>
+          <span className="text-[13px] font-medium">Give her a voice</span>
           <Button
             type="button"
             size="icon"
@@ -1731,10 +1738,11 @@ function NeedsKey({
             <X className="size-3.5" />
           </Button>
         </div>
-        {/* the intro's key step, in place. The bots picked on the first run are already
-            installed, key or no key: installing every seed here brought back the ones left out */}
-        <VoiceKeys dense plain autoFocus />
-        <GetKeyLink />
+        {/* The intro's first step, in place: the sign-in first, as on a plan it opens calls,
+            bots and pictures at once (live.schema liveLineOf). The bots picked on the first run
+            are already installed, key or no key: installing every seed here brought back the
+            ones left out */}
+        <CallLines />
       </div>
     );
   }
@@ -1754,15 +1762,19 @@ function NeedsKey({
         <MicOff className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-muted text-muted-foreground" />
       </span>
       <span className="text-[13px] text-muted-foreground break-keep wrap-anywhere">
-        {lost
-          ? "The key saved for calls can't be unlocked any more — add it again."
-          : automatic && !automatic.ref
-            ? "Calls need one speech key, and bots a model key or a ChatGPT sign-in."
-            : "Calls need one speech key. Everything else here already works."}
+        {lost === "chatgpt"
+          ? "The ChatGPT sign-in saved for calls can't be unlocked any more — sign in again."
+          : lost
+            ? "The key saved for calls can't be unlocked any more — add it again."
+            : noCalls
+              ? `Your ${planName(voice.plan) ? `${planName(voice.plan)} ` : ""}ChatGPT plan has no spoken calls — add an OpenAI key. Bots and writing already run on it.`
+              : automatic && !automatic.ref
+                ? "Sign in with ChatGPT and calls and bots run on your plan, or add a key."
+                : "Calls need a GPT Subscription or an OpenAI key. Everything else here already works."}
       </span>
       {/* the one thing this screen asks for */}
       <Button size="sm" variant="brand" onClick={onOpen} className="h-7 px-3.5">
-        Add key
+        Set up
       </Button>
     </span>
   );
@@ -1848,9 +1860,10 @@ export function Thursday({
    * every load, then woke her.
    */
   const { data: config } = useServerRoute<ConfigStatus[]>(queryKey.config);
-  const callable = config
-    ? isConfigSet(config, LIVE_PROVIDER.apiKeyName)
-    : ready;
+  // The OpenAI key, or the GPT Subscription's sign-in on a plan with calls, which opens a
+  // call on its own line
+  const voice = useVoiceLine();
+  const callable = voice.known ? voice.line !== null : ready;
 
   // A call in writing takes the same screen while no line is open; a spoken call ends it,
   // which is what tapping her face in the middle of one does

@@ -14,7 +14,7 @@ A call runs on two models: **GPT-Live 1** holds the conversation, and a Response
 
 Settings › Thursday picks the voice, the backend model and its reasoning, web search, the wake word and the hotkey (both off until you switch them on), and whether she rings your screen when a job ends.
 
-The voice is billed per active minute, silence included; the backend is billed per token. Both use your OpenAI API key, not a ChatGPT subscription.
+On your OpenAI API key, the voice is billed per active minute, silence included, and the backend per token. Signed in to a GPT Subscription, both run on your ChatGPT plan instead: the voice is **GPT-Live 1 Codex**, the one the Codex CLI's `/voice` speaks with, and the app runs the backend for it.
 
 ## Without your voice
 

@@ -1,15 +1,21 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { createServer, type RequestListener, type Server } from "node:http";
 import { createOpenAI } from "@ai-sdk/openai";
-import { type LanguageModel, wrapLanguageModel } from "ai";
+import {
+  APICallError,
+  type ImageModel,
+  type LanguageModel,
+  wrapLanguageModel,
+} from "ai";
 import { formatDistanceToNowStrict } from "date-fns";
 import { z } from "zod";
-import { CHATGPT_SIGN_IN, CHATGPT_USAGE_HIGH } from "@/config";
+import { CHATGPT_SIGN_IN, CHATGPT_USAGE_HIGH, LIVE_CALL } from "@/config";
 import {
   missingKeyWords,
   readConfig,
   writeConfig,
 } from "@/features/config/config.query";
+import { isPlanCallId } from "@/lib/live/live.plan";
 import { logger } from "@/lib/logger";
 import { oauthPage } from "@/lib/oauth-page";
 import { publicError } from "@/lib/public-error";
@@ -18,10 +24,11 @@ import { errorToString } from "@/lib/utils";
 import { type SubscriptionUsage, TEXT_MODEL_PROVIDERS } from "./model.schema";
 
 /**
- * ChatGPT as a text provider: the Codex usage a ChatGPT plan carries, in place of an API key.
+ * ChatGPT as a provider: the Codex usage a ChatGPT plan carries, in place of an API key.
  * Signing in is OpenAI's OAuth for the Codex CLI, the way other agent apps reach a plan. The
  * model is the Responses API behind chatgpt.com, which takes less than api.openai.com does;
- * `codexFetch` is the difference.
+ * `codexFetch` is the difference. A picture is drawn there too, the way the Codex CLI draws
+ * one (`chatGptImageModel`).
  */
 
 /** The Codex CLI's public OAuth client. */
@@ -54,7 +61,11 @@ const SignInSchema = z.object({
   /** When the access token runs out, epoch ms. */
   expires: z.number(),
   accountId: z.string().min(1),
-  /** The plan as the token names it ("free", "plus", "pro"); null when it does not say. */
+  /**
+   * The plan ("free", "plus", "pro") as the token named it, and as the usage read names it since
+   * (readChatGptUsage keepPlan): a plan changed after sign-in is not in the token until it renews,
+   * and what a call may open on (model.schema planCallsOf) reads this. Null when neither says.
+   */
   plan: z.string().nullable(),
 });
 type SignIn = z.infer<typeof SignInSchema>;
@@ -408,6 +419,8 @@ export async function readChatGptUsage(): Promise<SubscriptionUsage | null> {
         typeof window?.used_percent === "number",
     )
     .sort((a, b) => (b.used_percent ?? 0) - (a.used_percent ?? 0))[0];
+  // The plan as it is now, kept for every reader of the sign-in, before a missing window stops here
+  if (typeof body?.plan_type === "string") await keepPlan(body.plan_type);
   if (!tightest)
     publicError("ChatGPT did not say how much of the plan is used");
 
@@ -425,6 +438,24 @@ export async function readChatGptUsage(): Promise<SubscriptionUsage | null> {
     spent,
     high: spent || usedPercent >= CHATGPT_USAGE_HIGH,
   };
+}
+
+/**
+ * Keeps the plan the backend names now on the stored sign-in when it differs from the one there:
+ * an account moved from Free to Plus after signing in reads as Plus here — its badge — while its
+ * token, until it renews, still says Free, which kept its calls shut (live.schema liveLineReady).
+ * Written through the renewal lock, so a renewal writing the same row is not undone; the write
+ * signals `config`, and the screens read the plan again — and, the same, write nothing more.
+ */
+async function keepPlan(plan: string): Promise<void> {
+  // One given in the environment wins over the row (config.query readConfig): a write there
+  // would never be read, and each would signal the screens to read the usage, and write, again
+  if (process.env[SIGN_IN_KEY]?.trim()) return;
+  await renewal(SIGN_IN_KEY, async () => {
+    const latest = await readSignIn();
+    if (!latest || latest.plan === plan) return;
+    await writeConfig(SIGN_IN_KEY, JSON.stringify({ ...latest, plan }));
+  });
 }
 
 /** A Codex model on the signed-in plan. */
@@ -527,15 +558,195 @@ async function codexFetch(
   body.max_output_tokens = undefined;
 
   headers.set("accept", "text/event-stream");
-  const response = await fetch(input, {
-    ...init,
-    headers,
-    body: JSON.stringify(body),
-  });
-  if (response.status === 429) return usageLimitOf(response);
-  if (!response.ok) return refusalOf(response);
+  const response = await answerOf(
+    await fetch(input, {
+      ...init,
+      headers,
+      body: JSON.stringify(body),
+    }),
+  );
+  if (!response.ok) return response;
   if (streamed) return response;
   return finishedOf(response);
+}
+
+/** A refusal from the backend in the sdk's words (usageLimitOf, refusalOf); an answer goes on as it came. */
+async function answerOf(response: Response): Promise<Response> {
+  if (response.status === 429) return usageLimitOf(response);
+  if (!response.ok) return refusalOf(response);
+  return response;
+}
+
+/**
+ * Where the Codex CLI opens a voice call on the plan, and the protocol it names on the request
+ * and on the line it joins after (codex-rs codex-api endpoint/realtime_call.rs; core
+ * realtime_conversation.rs `realtime_request_headers`; the request whole in core
+ * tests/suite/realtime_conversation.rs
+ * `conversation_webrtc_frameless_chatgpt_sends_codex_headers_to_backend`).
+ */
+const PLAN_CALL_URL = `${CODEX_URL}/realtime/calls?intent=quicksilver&architecture=avas`;
+const PLAN_CALL_PROTOCOL = "quicksilver=v2";
+
+/**
+ * Opens a voice call on the plan from the browser's offer, the way the Codex CLI's /voice does:
+ * JSON `{ sdp, session }` to the plan's realtime route, signed as its text requests are, with
+ * the ids Codex sends. What comes back is the answer for the browser, the provider's id for
+ * the call, and the headers its line is joined with (live.plan), which Codex sends again
+ * there. A refusal is the plan's own words, as a text request's is.
+ */
+export async function openPlanCall(input: {
+  sdp: string;
+  session: Record<string, unknown>;
+}): Promise<{ sdp: string; callId: string; headers: Record<string, string> }> {
+  const signIn = await currentSignIn();
+  const headers = {
+    authorization: `Bearer ${signIn.access}`,
+    "chatgpt-account-id": signIn.accountId,
+    originator: ORIGINATOR,
+    "openai-alpha": PLAN_CALL_PROTOCOL,
+    "session-id": randomUUID(),
+    "thread-id": randomUUID(),
+    "x-session-id": randomUUID(),
+  };
+  const response = await answerOf(
+    await fetch(PLAN_CALL_URL, {
+      method: "POST",
+      headers: { ...headers, "content-type": "application/json" },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(LIVE_CALL.startupMs),
+    }).catch((cause: unknown) => {
+      logger.warn({ cause }, "chatgpt voice call unreachable");
+      publicError("Could not reach ChatGPT for the call.");
+    }),
+  );
+  const text = await response.text();
+  if (!response.ok) {
+    let said: string | null = null;
+    try {
+      const error = (JSON.parse(text) as { error?: { message?: unknown } })
+        .error;
+      said = typeof error?.message === "string" ? error.message : null;
+    } catch {}
+    publicError(
+      said ??
+        `${LABEL} refused the call (${response.status})${text ? `: ${text.slice(0, 300)}` : ""}`,
+    );
+  }
+  // The id is the last part of Location that is one, else the session header (openclaw
+  // extensions/openai realtime-quicksilver-wire.ts `decodeOpenAIQuicksilverCallId`)
+  const callId =
+    (response.headers.get("location") ?? "")
+      .split("?")[0]
+      .split("/")
+      .reverse()
+      .find(isPlanCallId) ??
+    [response.headers.get("openai-session-id")?.trim() ?? ""].find(
+      isPlanCallId,
+    );
+  if (!callId) publicError(`${LABEL} opened the call without naming it.`);
+  if (!text.trim()) publicError(`${LABEL} answered the call with no SDP.`);
+  return { sdp: text, callId, headers };
+}
+
+type PlanImageModel = Extract<ImageModel, { specificationVersion: "v4" }>;
+
+/** What the images route answers: the pictures, or a refusal in the sdk's words (answerOf). */
+type DrawAnswer = {
+  data?: { b64_json?: unknown }[];
+  error?: { message?: unknown };
+};
+
+/**
+ * A picture on the plan, asked for as the Codex CLI asks for one (codex-rs
+ * ext/image-generation tool.rs `request_for_call_args`, codex-api endpoint/images.rs): JSON to
+ * `images/generations`, or to `images/edits` with the pictures to work from inline as data
+ * URLs, the background opaque and the size and quality left to the model. Codex asks for no
+ * `n`, so it is one picture a request. A shape asked for goes as the OpenAI key's image model
+ * takes it: not sent, and said so in the warnings.
+ */
+export function chatGptImageModel(modelId: string): PlanImageModel {
+  return {
+    specificationVersion: "v4",
+    provider: "chatgpt.image",
+    modelId,
+    maxImagesPerCall: 1,
+    async doGenerate({
+      prompt,
+      files,
+      mask,
+      aspectRatio,
+      size,
+      seed,
+      abortSignal,
+    }) {
+      const unsent = { aspectRatio, size, seed, mask };
+      const warnings = Object.entries(unsent)
+        .filter(([, value]) => value != null)
+        .map(([feature]) => ({ type: "unsupported" as const, feature }));
+      const images = (files ?? []).map((file) => ({
+        image_url:
+          file.type === "url"
+            ? file.url
+            : `data:${file.mediaType};base64,${
+                typeof file.data === "string"
+                  ? file.data
+                  : Buffer.from(file.data).toString("base64")
+              }`,
+      }));
+      const url = `${CODEX_URL}/images/${images.length ? "edits" : "generations"}`;
+      const request = {
+        ...(images.length ? { images } : {}),
+        prompt: prompt ?? "",
+        background: "opaque",
+        model: modelId,
+        quality: "auto",
+        size: "auto",
+      };
+      const response = await answerOf(
+        await codexFetch(url, {
+          method: "POST",
+          headers: {
+            accept: "application/json",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(request),
+          signal: abortSignal,
+        }),
+      );
+      const text = await response.text();
+      let said: DrawAnswer = {};
+      try {
+        said = (JSON.parse(text) as DrawAnswer | null) ?? {};
+      } catch {}
+      const drawn = (said.data ?? []).flatMap((image) =>
+        typeof image.b64_json === "string" ? [image.b64_json] : [],
+      );
+      if (!response.ok || !drawn.length) {
+        throw new APICallError({
+          message:
+            typeof said.error?.message === "string"
+              ? said.error.message
+              : response.ok
+                ? `${LABEL} answered with no picture`
+                : `${LABEL} answered ${response.status}`,
+          url,
+          requestBodyValues: { model: modelId, prompt },
+          statusCode: response.status,
+          responseHeaders: Object.fromEntries(response.headers),
+          responseBody: text,
+        });
+      }
+      return {
+        images: drawn,
+        warnings,
+        response: {
+          timestamp: new Date(),
+          modelId,
+          headers: Object.fromEntries(response.headers),
+        },
+      };
+    },
+  };
 }
 
 /**
@@ -564,9 +775,17 @@ async function refusalOf(response: Response): Promise<Response> {
 export const PLAN_SPENT_CODE = /usage_limit_reached|usage_not_included/;
 
 /**
+ * Which of the plan's limits a refusal hit, and the one pictures have (codex-rs codex-api
+ * api_bridge.rs `ACTIVE_LIMIT_HEADER`; ext/image-generation tool.rs `usage_limit_failure`).
+ */
+const ACTIVE_LIMIT_HEADER = "x-codex-active-limit";
+const IMAGE_LIMIT = "image_gen";
+
+/**
  * A 429 is either a rate limit a moment fixes or the plan's usage spent until its window resets
  * — hours, or on Free a month. The second becomes a 402 in the backend's words: the sdk does not
- * retry it, so a job fails with it at once instead of being refused again and again.
+ * retry it, so a job fails with it at once instead of being refused again and again. Pictures
+ * have a limit of their own, and a refusal for it says so: the plan still answers in words.
  */
 async function usageLimitOf(response: Response): Promise<Response> {
   const text = await response.text();
@@ -601,10 +820,14 @@ async function usageLimitOf(response: Response): Promise<Response> {
   const when = resets
     ? ` It resets in ${formatDistanceToNowStrict(resets)}.`
     : "";
+  const limit =
+    response.headers.get(ACTIVE_LIMIT_HEADER) === IMAGE_LIMIT
+      ? "image"
+      : "usage";
   return Response.json(
     {
       error: {
-        message: `${LABEL} usage limit reached${plan}.${when}`,
+        message: `${LABEL} ${limit} limit reached${plan}.${when}`,
         code: said.code ?? said.type,
       },
     },
