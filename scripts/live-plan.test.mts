@@ -477,6 +477,66 @@ test("a sign-in makes her callable on a plan with calls, and on Free only beside
   }
 });
 
+test("a plan changed after sign-in is kept from the usage read, so calls follow the plan the badge shows", async () => {
+  const { isCallable, writeConfig, removeConfig } = await import(
+    "../features/config/config.query.ts"
+  );
+  const key = process.env.OPENAI_API_KEY;
+  process.env.OPENAI_API_KEY = "";
+  await writeConfig(
+    "CHATGPT_SIGN_IN",
+    JSON.stringify({
+      access: "a",
+      refresh: "r",
+      expires: Date.now() + 3_600_000,
+      accountId: "acct",
+      plan: "free",
+    }),
+  );
+  let planType = "plus";
+  const fetching = mock.method(globalThis, "fetch", async () =>
+    Response.json({
+      plan_type: planType,
+      rate_limit: {
+        primary_window: { used_percent: 12, reset_after_seconds: 60 },
+      },
+    }),
+  );
+  try {
+    assert.equal(await isCallable(), false);
+    // Upgraded to Plus after signing in: the token still says Free, the usage read does not
+    const usage = await realChatgpt.readChatGptUsage();
+    assert.equal(usage && "plan" in usage ? usage.plan : null, "plus");
+    assert.equal(await realChatgpt.readChatGptPlan(), "plus");
+    assert.equal(await isCallable(), true);
+    // The same plan again writes nothing; moved back to Free, it is kept as that
+    await realChatgpt.readChatGptUsage();
+    planType = "free";
+    await realChatgpt.readChatGptUsage();
+    assert.equal(await realChatgpt.readChatGptPlan(), "free");
+    assert.equal(await isCallable(), false);
+
+    // A sign-in given in the environment wins over the row: nothing is written for it
+    process.env.CHATGPT_SIGN_IN = JSON.stringify({
+      access: "a",
+      refresh: "r",
+      expires: Date.now() + 3_600_000,
+      accountId: "acct",
+      plan: "free",
+    });
+    planType = "pro";
+    await realChatgpt.readChatGptUsage();
+    delete process.env.CHATGPT_SIGN_IN;
+    assert.equal(await realChatgpt.readChatGptPlan(), "free");
+  } finally {
+    fetching.mock.restore();
+    delete process.env.CHATGPT_SIGN_IN;
+    await removeConfig("CHATGPT_SIGN_IN");
+    if (key === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = key;
+  }
+});
+
 test("the plan's voice is told which channel is hers to say and which is background", async () => {
   const plan = await loadLivePrompt({ plan: true });
   const key = await loadLivePrompt({});

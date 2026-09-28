@@ -17,6 +17,7 @@ import {
   type AiProvider,
   planCallsOf,
   planName,
+  type SubscriptionUsage,
   TEXT_MODEL_PROVIDERS,
   type TextModelProviderId,
 } from "@/features/ai/model.schema";
@@ -91,8 +92,15 @@ export function useVoiceLine(
   const { data: providers } = useServerRoute<AiProvider[]>(
     signedIn ? queryKey.llmModel : null,
   );
+  // The plan as it is now, which its badge shows (config-setting PlanBadge): reading it also
+  // puts it on the sign-in the server gates calls by (ai/chatgpt keepPlan)
+  const { data: usage } = useServerRoute<SubscriptionUsage | null>(
+    signedIn ? queryKey.subscriptionUsage : null,
+  );
   const plan =
-    providers?.find((provider) => provider.id === "chatgpt")?.plan ?? null;
+    (usage && !("refused" in usage) ? usage.plan : null) ??
+    providers?.find((provider) => provider.id === "chatgpt")?.plan ??
+    null;
   const known = config !== undefined && (!signedIn || providers !== undefined);
   const planCalls = planCallsOf(signedIn ? { plan } : null);
   return {

@@ -61,7 +61,11 @@ const SignInSchema = z.object({
   /** When the access token runs out, epoch ms. */
   expires: z.number(),
   accountId: z.string().min(1),
-  /** The plan as the token names it ("free", "plus", "pro"); null when it does not say. */
+  /**
+   * The plan ("free", "plus", "pro") as the token named it, and as the usage read names it since
+   * (readChatGptUsage keepPlan): a plan changed after sign-in is not in the token until it renews,
+   * and what a call may open on (model.schema planCallsOf) reads this. Null when neither says.
+   */
   plan: z.string().nullable(),
 });
 type SignIn = z.infer<typeof SignInSchema>;
@@ -415,6 +419,8 @@ export async function readChatGptUsage(): Promise<SubscriptionUsage | null> {
         typeof window?.used_percent === "number",
     )
     .sort((a, b) => (b.used_percent ?? 0) - (a.used_percent ?? 0))[0];
+  // The plan as it is now, kept for every reader of the sign-in, before a missing window stops here
+  if (typeof body?.plan_type === "string") await keepPlan(body.plan_type);
   if (!tightest)
     publicError("ChatGPT did not say how much of the plan is used");
 
@@ -432,6 +438,24 @@ export async function readChatGptUsage(): Promise<SubscriptionUsage | null> {
     spent,
     high: spent || usedPercent >= CHATGPT_USAGE_HIGH,
   };
+}
+
+/**
+ * Keeps the plan the backend names now on the stored sign-in when it differs from the one there:
+ * an account moved from Free to Plus after signing in reads as Plus here — its badge — while its
+ * token, until it renews, still says Free, which kept its calls shut (live.schema liveLineReady).
+ * Written through the renewal lock, so a renewal writing the same row is not undone; the write
+ * signals `config`, and the screens read the plan again — and, the same, write nothing more.
+ */
+async function keepPlan(plan: string): Promise<void> {
+  // One given in the environment wins over the row (config.query readConfig): a write there
+  // would never be read, and each would signal the screens to read the usage, and write, again
+  if (process.env[SIGN_IN_KEY]?.trim()) return;
+  await renewal(SIGN_IN_KEY, async () => {
+    const latest = await readSignIn();
+    if (!latest || latest.plan === plan) return;
+    await writeConfig(SIGN_IN_KEY, JSON.stringify({ ...latest, plan }));
+  });
 }
 
 /** A Codex model on the signed-in plan. */
