@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.21.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.20.0...thursday-agent-v0.21.0) (2026-09-28)
+
+
+### Features
+
+* **call:** show her your camera, and on the GPT Subscription she sees what you show as work is handed over ([#53](https://github.com/cgoinglove/thursday/issues/53)) ([995c263](https://github.com/cgoinglove/thursday/commit/995c263a90f0653e56c0a20ce6711ef72e0d1f18))
+* one ChatGPT sign-in runs calls, bots and pictures ([#50](https://github.com/cgoinglove/thursday/issues/50)) ([d382603](https://github.com/cgoinglove/thursday/commit/d382603e9f9265a1f1dae1430a366ba924717972))
+
+
+### Fixes
+
+* **settings:** a key the environment sets says so, and Remove or Replace no longer reports done what changed nothing ([#52](https://github.com/cgoinglove/thursday/issues/52)) ([36ab26a](https://github.com/cgoinglove/thursday/commit/36ab26a12e5d70d9c156c028f429f3bd79bd28fa))
+
 ## [0.20.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.19.0...thursday-agent-v0.20.0) (2026-09-27)
 
 
