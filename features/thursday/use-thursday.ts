@@ -19,6 +19,7 @@ import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { acceptThreadRelaysAction } from "@/features/bot/bot.action";
 import type { Bot, Thread } from "@/features/bot/bot.schema";
 import { botThreads, screenActs } from "@/features/bot/thread.store";
+import { openSettings } from "@/features/settings/settings.store";
 import { runRemoteTool } from "@/features/thursday/tool-call";
 import { askToNotify } from "@/features/workspace/components/artifact-view";
 import { isCombo, useHotkey } from "@/hooks/use-hotkey";
@@ -153,6 +154,15 @@ export type CallEnd = "quiet" | "hungUp" | "closed" | "expired" | "dropped";
 
 /** The one lock a spoken call holds across this app's tabs: one line open at a time (D17). */
 const CALL_LOCK = "thursday-spoken-call";
+
+/**
+ * The way from a call that failed on its line to what it runs on: Settings › Thursday, where the
+ * GPT Subscription and the OpenAI key stand side by side, with the one not set up asked for there.
+ */
+const LINE_SETTINGS = {
+  children: "Call settings",
+  onClick: () => openSettings("thursday"),
+};
 
 /** Another tab of the app has a call on: said as that, not as a call that failed. */
 class CallElsewhere extends Error {}
@@ -810,6 +820,9 @@ export function useThursday(
     attempt.current += 1;
     const mine = attempt.current;
     const current = () => calling.current && attempt.current === mine;
+    // Whether the server was asked to open the line: a failure from there on is the line's —
+    // the plan or the key it runs on — and its setting is one press away
+    const reached = { server: false };
     try {
       // Inside the gesture, before anything awaits: an AudioContext created later
       // starts suspended. Calls from the wake word or a call-back have no gesture;
@@ -901,6 +914,7 @@ export function useThursday(
 
       const live = await openLiveSession({
         initialize: async (sdp) => {
+          reached.server = true;
           const handshake = unwrapResult(
             await openCallAction(sdp, calledBack, await where),
           );
@@ -1142,7 +1156,12 @@ export function useThursday(
               void hangUp("closed");
               return;
             }
-            toast.add({ type: "error", title: "Call failed", description });
+            toast.add({
+              type: "error",
+              title: "Call failed",
+              description,
+              actionProps: LINE_SETTINGS,
+            });
             showFailed(true);
             void hangUp(finalized.current ? "closed" : "dropped");
           },
@@ -1201,6 +1220,7 @@ export function useThursday(
           type: "error",
           title: "Could not start the call",
           description: errorToString(cause),
+          actionProps: reached.server ? LINE_SETTINGS : undefined,
         });
         showFailed(true);
         // Answering took the ring down; it comes back as missed, since nothing was told

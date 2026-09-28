@@ -8,7 +8,7 @@
 </a>
 
 **An open-source voice assistant on GPT-Live 1, with a team of AI bots behind it.**<br>
-Runs on your computer, on your own OpenAI key. You talk; bots take the slow work to a real browser, a shell and your files.
+Runs on your computer, on your ChatGPT plan or your own OpenAI key. You talk; bots take the slow work to a real browser, a shell and your files.
 
 [![npm](https://img.shields.io/npm/v/thursday-agent?style=flat-square&color=111&label=npm)](https://www.npmjs.com/package/thursday-agent)
 [![CI](https://img.shields.io/github/actions/workflow/status/cgoinglove/thursday/ci.yml?style=flat-square&label=ci)](https://github.com/cgoinglove/thursday/actions/workflows/ci.yml)
@@ -26,7 +26,7 @@ Runs on your computer, on your own OpenAI key. You talk; bots take the slow work
 npx thursday-agent
 ```
 
-Needs Node.js 22.18+ and one OpenAI API key, pasted into the first screen. Pick your starter bots and **tap her face**. No account, no `.env`. The voice costs about $0.05 a minute on that key.
+Needs Node.js 22.18+ and a paid ChatGPT plan's sign-in or one OpenAI API key, given on the first screen. Pick your starter bots and **tap her face**. No new account, no `.env`. On your plan a call spends its usage, not money; on a key the voice costs about $0.05 a minute.
 
 ## Try saying
 
@@ -80,7 +80,7 @@ Pages, charts, videos, slides, docs and scripts, saved as files on your machine.
 
 ## How it works
 
-Thursday is an open-source voice assistant that runs on your own computer. OpenAI's GPT-Live 1 holds the call, and a Responses model runs its tools. Anything slower than a few seconds goes to a background bot: a text model from OpenAI, Anthropic, Google or xAI, with a shell, a real browser, your files, Agent Skills and MCP servers. Bots hand parts of a job to each other and ask you when a decision is yours; their results and questions come back into the live call, and jobs keep running after you hang up. Routines start jobs on a schedule. What she knows about you is plain notes you can read. You can write to her instead of talking, from the app or from Telegram, Discord or Slack. [Read more →](docs/how-it-works.md)
+Thursday is an open-source voice assistant that runs on your own computer. OpenAI's GPT-Live 1 holds the call, on your ChatGPT plan in the voice the Codex CLI uses or on an OpenAI key, and a Responses model runs its tools. Anything slower than a few seconds goes to a background bot: a text model from OpenAI, Anthropic, Google or xAI, with a shell, a real browser, your files, Agent Skills and MCP servers. Bots hand parts of a job to each other and ask you when a decision is yours; their results and questions come back into the live call, and jobs keep running after you hang up. Routines start jobs on a schedule. What she knows about you is plain notes you can read. You can write to her instead of talking, from the app or from Telegram, Discord or Slack. [Read more →](docs/how-it-works.md)
 
 ## Before you run it
 
@@ -91,7 +91,7 @@ Thursday is an open-source voice assistant that runs on your own computer. OpenA
 <details>
 <summary><b>What does it cost?</b></summary>
 
-Thursday is free and MIT-licensed. You bring the keys: OpenAI bills the voice at about $0.05 a minute while a call is open, silence included ([pricing](https://developers.openai.com/api/docs/pricing)). Bots bill per token on whichever provider you pick for them.
+Thursday is free and MIT-licensed. You bring the account: a signed-in ChatGPT plan runs calls, bots and, on a paid plan, pictures on its own usage, and on an OpenAI key the voice bills about $0.05 a minute while a call is open, silence included ([pricing](https://developers.openai.com/api/docs/pricing)). Bots bill per token on whichever provider you pick for them.
 
 </details>
 

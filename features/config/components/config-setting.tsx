@@ -42,9 +42,11 @@ import {
   parseMediaModel,
   parseTextModel,
   planMediaOf,
+  planName,
   type SubscriptionUsage,
 } from "@/features/ai/model.schema";
 import { BotsMark } from "@/features/bot/components/bot-mark";
+import { useVoiceLine } from "@/features/config/components/voice-key";
 import {
   removeConfigAction,
   setConfigAction,
@@ -61,6 +63,7 @@ import {
   isConfigSet,
   isConfigUnreadable,
   lostWords,
+  VOICE_GROUP_ID,
 } from "@/features/config/config.const";
 import { ReachGuide } from "@/features/reach/components/reach-guide";
 import {
@@ -127,12 +130,19 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
   const { data, isLoading, error } = useServerRoute<ConfigStatus[]>(
     queryKey.config,
   );
+  const voice = useVoiceLine();
 
   if (isLoading) return <SettingSkeleton rows={4} />;
   if (error) return <SettingError message={error.message} />;
 
   const isSet = (key: string) => isConfigSet(data, key);
   const isLost = (key: string) => isConfigUnreadable(data, key);
+  // A group is met by what can use it: the voice group by a sign-in on a plan with calls
+  const meets = (group: ConfigGroup) =>
+    groupSatisfied(
+      group,
+      group.id === VOICE_GROUP_ID ? voice.countsForCall : isSet,
+    );
   // Only choice entries carry a value
   const valueOf = (key: string) =>
     data?.find((entry) => entry.key === key)?.value;
@@ -154,7 +164,7 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
             : `${keys.filter((entry) => isSet(entry.key)).length} of ${keys.length} set${
                 lost ? ` · ${lost} to enter again` : ""
               }${
-                groups.some((group) => !groupSatisfied(group, isSet))
+                groups.some((group) => !meets(group))
                   ? " · a call needs one voice key"
                   : " · your keys stay on this machine"
               }`}
@@ -166,7 +176,7 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
           key={group.id}
           label={group.title}
           hint={group.hint}
-          right={<RequirementBadge group={group} isSet={isSet} />}
+          right={<RequirementBadge group={group} met={meets(group)} />}
         >
           {group.id === "easy" ? (
             <div className="grid gap-3 sm:grid-cols-2">
@@ -212,7 +222,7 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
                     lost={isLost(entry.key)}
                     // Amber only where something is actually missing: an
                     // unsatisfied required group is waiting on the user
-                    needed={!groupSatisfied(group, isSet)}
+                    needed={!meets(group)}
                   />
                 ),
               )}
@@ -373,13 +383,13 @@ function KeyTile({
 
 function RequirementBadge({
   group,
-  isSet,
+  met,
 }: {
   group: ConfigGroup;
-  isSet: (key: string) => boolean;
+  met: boolean;
 }) {
   if (group.require === "none") return null;
-  if (groupSatisfied(group, isSet)) {
+  if (met) {
     return (
       <span className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
         <Check className="size-3" />
@@ -460,7 +470,8 @@ function KeyRow({
       <span className="min-w-0 flex-1 space-y-0.5">
         <span className="flex items-center gap-2 truncate text-sm font-medium">
           {entry.label}
-          {entry.recommended && (
+          {entry.signIn && set && <PlanBadge usage={usage.data} plan={plan} />}
+          {entry.recommended && !(entry.signIn && set) && (
             <span className="rounded-full px-1.5 font-mono text-[9.5px] leading-4 font-normal text-muted-foreground ring-1 ring-border ring-inset">
               recommended
             </span>
@@ -474,14 +485,15 @@ function KeyRow({
           )
         ) : (
           <span className="block truncate font-mono text-xs text-muted-foreground">
-            {/* A sign-in's config key is nothing to read; the plan it is on is */}
+            {/* A sign-in's config key is nothing to read; how much of its plan is left is */}
             {entry.signIn
               ? set
-                ? usageLine(usage.data, plan)
+                ? (resetLine(usage.data) ?? "signed in")
                 : "sign in with your account"
               : entry.key}
           </span>
         )}
+        {entry.signIn && set && usage.data && <UsageBar usage={usage.data} />}
       </span>
 
       {narrow ? null : waiting ? (
@@ -586,16 +598,57 @@ function usageState(usage: SubscriptionUsage): {
   };
 }
 
-/** A signed-in row's second line: the plan as the backend names it now, and when its window frees up. */
-function usageLine(
-  usage: SubscriptionUsage | null | undefined,
-  plan: string | null,
-): string {
+/** A signed-in row's second line: when the plan's tightest window frees up. */
+function resetLine(usage: SubscriptionUsage | null | undefined): string | null {
   const live = usage && !("refused" in usage) ? usage : null;
-  const name = `${live?.plan ?? plan ?? "unknown"} plan`;
   return live?.resetsAt
-    ? `${name} · resets in ${formatDistanceToNowStrict(new Date(live.resetsAt))}`
-    : name;
+    ? `resets in ${formatDistanceToNowStrict(new Date(live.resetsAt))}`
+    : null;
+}
+
+/** The plan a sign-in is on, as the backend names it now, beside the account's name. */
+export function PlanBadge({
+  usage,
+  plan,
+}: {
+  usage: SubscriptionUsage | null | undefined;
+  plan: string | null;
+}) {
+  const name = planName(
+    (usage && !("refused" in usage) ? usage.plan : null) ?? plan,
+  );
+  if (!name) return null;
+  return (
+    <span className="rounded-full px-1.5 font-mono text-[9.5px] leading-4 font-normal text-foreground ring-1 ring-border ring-inset">
+      {name}
+    </span>
+  );
+}
+
+/**
+ * The share of the plan's tightest window used, drawn as a bar under the row: read at a glance,
+ * where the number at its end is read closely. It takes the waiting colour where the number does.
+ */
+function UsageBar({ usage }: { usage: SubscriptionUsage }) {
+  if ("refused" in usage) return null;
+  return (
+    <span
+      role="meter"
+      aria-label="Plan used"
+      aria-valuenow={usage.usedPercent}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      className="mt-1.5 block h-1 w-full max-w-48 overflow-hidden rounded-full bg-muted"
+    >
+      <span
+        className={cn(
+          "block h-full rounded-full transition-[width] duration-500",
+          usage.high ? "bg-waiting" : "bg-foreground/45",
+        )}
+        style={{ width: `${Math.min(100, Math.max(2, usage.usedPercent))}%` }}
+      />
+    </span>
+  );
 }
 
 /** Whose key it is, or what it buys when it belongs to no provider. */
@@ -809,8 +862,13 @@ function SignInDialog({
       description={
         signedIn ? (
           <>
-            Signed in ·{" "}
-            <span className="font-mono">{usageLine(usage.data, plan)}</span>
+            Signed in <PlanBadge usage={usage.data} plan={plan} />
+            {resetLine(usage.data) && (
+              <>
+                {" · "}
+                <span className="font-mono">{resetLine(usage.data)}</span>
+              </>
+            )}
             {state && (
               <>
                 {" · "}

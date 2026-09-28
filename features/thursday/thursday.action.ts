@@ -3,6 +3,7 @@
 import { asSchema } from "ai";
 import z from "zod";
 import { reclaim } from "@/database/db";
+import { readChatGptPlan } from "@/features/ai/chatgpt";
 import {
   LIVE_LINES,
   LIVE_PROVIDER,
@@ -10,6 +11,7 @@ import {
 } from "@/features/ai/live.schema";
 import { loadTools } from "@/features/ai/load-tools";
 import {
+  planName,
   TEXT_MODEL_PROVIDERS,
   textModelRefSchema,
 } from "@/features/ai/model.schema";
@@ -109,8 +111,19 @@ export const openCallAction = serverAction(
         }),
       ),
     );
-    const line = liveLineOf(thursday.runsOn, (key) => keys.get(key) ?? false);
+    const signedIn = keys.get(TEXT_MODEL_PROVIDERS.chatgpt.apiKeyName) ?? false;
+    const plan = signedIn ? await readChatGptPlan() : null;
+    const line = liveLineOf(
+      thursday.runsOn,
+      (key) => keys.get(key) ?? false,
+      plan,
+    );
     if (!line) {
+      // Signed in on a plan without calls: said as that, with the way that opens one
+      if (signedIn)
+        publicError(
+          `Your ${TEXT_MODEL_PROVIDERS.chatgpt.label} is on the ${planName(plan)} plan, which has no spoken calls. Add an ${LIVE_PROVIDER.label} key in Settings › API keys, or sign in with a paid plan. Calls in writing and bots run on it as they are.`,
+        );
       publicError(
         // Neither line can open it; one saved but no longer readable is said as that
         await missingKeyWords(

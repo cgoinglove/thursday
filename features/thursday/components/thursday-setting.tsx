@@ -40,13 +40,15 @@ import {
   type LiveLine,
   type LiveSettings,
   liveLineOf,
+  liveLineReady,
 } from "@/features/ai/live.schema";
 import {
   type AiProvider,
+  planName,
   TEXT_MODEL_PROVIDERS,
 } from "@/features/ai/model.schema";
 import { DEFAULT_PERSONA, PERSONAS } from "@/features/ai/prompts/persona";
-import { KeyInput } from "@/features/config/components/voice-key";
+import { CallLines, KeyInput } from "@/features/config/components/voice-key";
 import { setConfigAction } from "@/features/config/config.action";
 import {
   PICKED_ROW,
@@ -129,7 +131,12 @@ export function ThursdaySetting() {
         onChange={(captionView) => patch({ captionView })}
       />
 
-      <ModelsSetting value={settings} has={has} onChange={change} />
+      <ModelsSetting
+        value={settings}
+        has={has}
+        plan={providers.find((entry) => entry.id === "chatgpt")?.plan ?? null}
+        onChange={change}
+      />
 
       {/* Every way a call starts other than pressing her face, read at once */}
       <SettingGroup label="Starting a call">
@@ -199,7 +206,7 @@ function TileHead({
   );
 }
 
-/** The two lines a spoken call opens on, as the model field names them. */
+/** The two lines a spoken call opens on, as the switch names them, and the voice model each opens. */
 const LINE_MODELS: Record<LiveLine, { model: string; label: string }> = {
   chatgpt: { model: LIVE_PLAN_MODEL, label: "GPT Subscription" },
   openai: { model: LIVE_MODEL, label: "OpenAI key" },
@@ -209,22 +216,31 @@ const LINE_MODELS: Record<LiveLine, { model: string; label: string }> = {
  * Both models a call runs on, in one card: the Live voice and the Responses
  * backend that holds her tools (thursday.prompt). They run on one line — the
  * GPT Subscription's own voice or the OpenAI key (live.schema liveLineOf) — so
- * the line is picked once, above both, and a missing key is asked for there.
+ * the line is picked once, above both. Both lines are always on the switch, so
+ * what a call runs on, and the other way it could, is read here whatever is set:
+ * a line picked that is not set up asks for its sign-in or key in place, and a
+ * call goes on the other one meanwhile. A call that fails to open sends the user
+ * here (use-thursday).
  */
 function ModelsSetting({
   value,
   has,
+  plan: signedPlan,
   onChange,
 }: {
   value: LiveSettings;
   has: (key: string) => boolean;
+  /** The plan the sign-in is on, as the token names it; null when it does not say. */
+  plan: string | null;
   onChange: (change: Partial<LiveSettings>) => void;
 }) {
-  const line = liveLineOf(value.runsOn, has);
-  // The lines this computer can open, the plan's first, as the rule tries them
-  const ready = LIVE_LINES.filter((one) =>
-    has(TEXT_MODEL_PROVIDERS[one].apiKeyName),
-  );
+  const line = liveLineOf(value.runsOn, has, signedPlan);
+  // Set up and able to open a call: a Free sign-in is set, but has no spoken calls
+  const ready = (one: LiveLine) => liveLineReady(one, has, signedPlan);
+  const signedIn = has(TEXT_MODEL_PROVIDERS.chatgpt.apiKeyName);
+  // The line picked here that has no sign-in or key yet: shown picked, and asked for below
+  const [setup, setSetup] = useState<LiveLine | null>(null);
+  const waiting = setup && !ready(setup) ? setup : null;
   const plan = line === "chatgpt";
   return (
     <SettingGroup
@@ -232,42 +248,45 @@ function ModelsSetting({
       note={`Both run on ${plan ? "your GPT Subscription" : "your OpenAI key"}. Instructions are saved when you leave the field.`}
     >
       <div className="@container divide-y divide-border/60 rounded-xl border border-border/60">
-        {!line && <KeyRow />}
+        {!line && (
+          <KeyRow plan={signedIn ? (planName(signedPlan) ?? "") : null} />
+        )}
 
         <ModelSection
           name="Voice"
           fact={plan ? "on your plan" : "billed by the minute"}
         >
-          <div className="grid gap-4 @xl:grid-cols-2">
-            <ModelBlock label="model">
-              {/* The line is the model: the plan speaks with its own, the key with GPT-Live 1 */}
-              {ready.length > 1 && line ? (
-                <Segmented
-                  options={ready.map((one) => ({
-                    value: one,
-                    label: LINE_MODELS[one].label,
-                    title: LINE_MODELS[one].model,
-                  }))}
-                  value={line}
-                  onChange={(runsOn) => onChange({ runsOn })}
-                  aria-label="Voice model"
+          {line && (
+            <ModelBlock label="runs on">
+              <Segmented
+                options={LIVE_LINES.map((one) => ({
+                  value: one,
+                  label: lineLabel(one, {
+                    ready: ready(one),
+                    set: has(TEXT_MODEL_PROVIDERS[one].apiKeyName),
+                    plan: planName(signedPlan),
+                  }),
+                }))}
+                value={waiting ?? line}
+                onChange={(runsOn) => {
+                  setSetup(ready(runsOn) ? null : runsOn);
+                  onChange({ runsOn });
+                }}
+                aria-label="What a call runs on"
+              />
+              {waiting ? (
+                <LineSetup
+                  line={waiting}
+                  runsOn={line}
+                  plan={signedIn ? planName(signedPlan) : null}
                 />
               ) : (
-                <Combobox
-                  value={LINE_MODELS[line ?? "openai"].model}
-                  onChange={() => undefined}
-                  options={[
-                    {
-                      value: LINE_MODELS[line ?? "openai"].model,
-                      label: plan ? "GPT-Live 1 Codex" : "GPT-Live 1",
-                    },
-                  ]}
-                  aria-label="Voice model"
-                  disabled
-                />
+                <span className="block font-mono text-[11px] text-muted-foreground/70">
+                  {LINE_MODELS[line].model}
+                </span>
               )}
             </ModelBlock>
-          </div>
+          )}
 
           {/* Its own row: opened, the picker holds her face beside the voices. The plan's voice
               speaks in voices of its own, with no recorded lines to play */}
@@ -498,8 +517,42 @@ function ModelBlock({
   );
 }
 
-/** No key yet: paste one here, above both models, instead of leaving for Keys. */
-function KeyRow() {
+/**
+ * A line on the switch: its name, with the plan it is on, or what it still needs — a sign-in, a
+ * key, or, signed in on a plan without spoken calls, that it has none.
+ */
+function lineLabel(
+  line: LiveLine,
+  {
+    ready,
+    set,
+    plan,
+  }: {
+    ready: boolean;
+    set: boolean;
+    plan: string | null;
+  },
+): string {
+  const { label } = LINE_MODELS[line];
+  if (set && !ready) return `${label} · ${plan ?? "plan"} · no calls`;
+  if (!ready) return `${label} · ${line === "chatgpt" ? "sign in" : "add"}`;
+  return line === "chatgpt" && plan ? `${label} · ${plan}` : label;
+}
+
+/**
+ * A line picked on the switch that has no sign-in or key yet: it is asked for here, and a call
+ * runs on the line that is set until it is in (live.schema liveLineOf).
+ */
+function LineSetup({
+  line,
+  runsOn,
+  plan,
+}: {
+  line: LiveLine;
+  runsOn: LiveLine;
+  /** Signed in already, on this plan: one without spoken calls. */
+  plan: string | null;
+}) {
   const [draft, setDraft] = useState("");
   const [save, saving] = useServerAction(setConfigAction, {
     onOk: () => {
@@ -509,29 +562,59 @@ function KeyRow() {
     },
   });
   const ready = draft.trim().length >= KEY_MIN;
+  return (
+    <div className="space-y-2.5 pt-1">
+      <span className="block text-xs text-muted-foreground">
+        {line === "chatgpt"
+          ? plan
+            ? `The ${plan} plan runs bots and calls in writing, but not spoken calls. Sign in again with a paid plan.`
+            : "Sign in with ChatGPT and calls run on your plan, with no bill by the minute."
+          : "Paste an OpenAI API key. OpenAI bills a call by the minute, apart from ChatGPT."}{" "}
+        Until then a call runs on your {LINE_MODELS[runsOn].label}.
+      </span>
+      {line === "chatgpt" ? (
+        <ChatGptSignIn
+          variant="brand"
+          size="sm"
+          label={plan ? "Sign in again" : undefined}
+        />
+      ) : (
+        <KeyInput
+          dense
+          provider={LIVE_PROVIDER}
+          saved={false}
+          autoFocus
+          value={draft}
+          ready={ready}
+          saving={saving}
+          onValue={setDraft}
+          onSubmit={() => ready && save(LIVE_PROVIDER.apiKeyName, draft)}
+        />
+      )}
+    </div>
+  );
+}
 
+/**
+ * Neither line can open a call: the first run's two ways, above both models, instead of leaving
+ * for Keys. `plan` is the plan a sign-in without spoken calls is on.
+ */
+function KeyRow({ plan }: { plan: string | null }) {
   return (
     <div className="space-y-3 p-5">
       <span className="block space-y-0.5">
         <span className={cn("block text-sm font-medium", WAITING_INK)}>
-          No GPT Subscription or OpenAI key
+          {plan === null
+            ? "No GPT Subscription or OpenAI key"
+            : `Your ${plan ? `${plan} ` : ""}plan has no spoken calls`}
         </span>
         <span className="block text-xs text-muted-foreground">
           Her voice and the backend both run on one of them
         </span>
       </span>
-      {/* The plan opens calls, bots and pictures at once (live.schema liveLineOf) */}
-      <ChatGptSignIn variant="brand" />
-      <KeyInput
-        dense
-        provider={LIVE_PROVIDER}
-        saved={false}
-        value={draft}
-        ready={ready}
-        saving={saving}
-        onValue={setDraft}
-        onSubmit={() => ready && save(LIVE_PROVIDER.apiKeyName, draft)}
-      />
+      <div className="max-w-md">
+        <CallLines />
+      </div>
     </div>
   );
 }

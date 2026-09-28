@@ -436,6 +436,21 @@ export function planMediaOf(
   return model ? { provider: "chatgpt", model: model.id } : null;
 }
 
+/**
+ * Whether a GPT Subscription sign-in opens a spoken call: on every plan but Free. Codex's
+ * realtime route answered a Free sign-in's call with 404 Not Found where a Plus sign-in's same
+ * offer opened (measured 09-28); the Codex CLI names no plan for /voice, and OpenClaw's docs say a
+ * subscription talks "when the account has access". A plan the token does not name is let
+ * through, and the call says what the plan answered. The server (live.schema liveLineOf callers,
+ * config.query isCallable) and every screen that asks for a voice read this.
+ */
+export function planCallsOf(
+  /** The sign-in, with its plan as the token names it; null when nobody is signed in. */
+  signIn: { plan: string | null } | null,
+): boolean {
+  return Boolean(signIn) && signIn?.plan?.toLowerCase() !== "free";
+}
+
 /** `provider/model` for a text model, as the default-model config stores it. */
 export function parseTextModel(value: string | undefined): TextModelRef | null {
   const [provider, ...rest] = (value ?? "").trim().split("/");
@@ -1032,6 +1047,13 @@ export type AiProvider = {
   /** The plan the signed-in account is on, as the provider names it; sign-in providers only. */
   plan?: string | null;
 };
+
+/**
+ * A plan as a screen names it: the backend's own word ("pro", "plus", "free"), capitalised,
+ * so a plan it adds later reads as it names it; null when it does not say.
+ */
+export const planName = (plan: string | null | undefined): string | null =>
+  plan ? plan.charAt(0).toUpperCase() + plan.slice(1) : null;
 
 /**
  * What a GPT Subscription sign-in has used (ai/chatgpt readChatGptUsage): the tightest window of

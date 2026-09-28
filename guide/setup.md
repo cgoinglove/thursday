@@ -2,15 +2,19 @@
 
 ## The first run
 
-The first time the app opens, six steps run on the call screen itself: a voice key, the
+The first time the app opens, six steps run on the call screen itself: her voice, the
 microphone, which bots come along, what they think with, her style, and the first call. In a narrow
 window each step sits under her face. She talks through it in a recorded English voice; her
 real voice starts with the first call. The speaker button at the top right mutes it.
 
+The first step offers her voice two ways, side by side: **GPT Subscription**, marked recommended,
+with **Sign in with ChatGPT**, and **OpenAI API key**, whose **Paste a key** opens the key field
+under both. Either one wakes her; signed in, the step shows the plan it is on.
+
 Every step can be skipped and done later in Settings. On the microphone step the main button turns
 the microphone on (the browser asks first, by its address bar); the line under it goes on without
 one. The bots picked there are set up when it ends; they work once there is a model to run on.
-With a key the last button is **Call her**; without one it is **Look around**.
+With a sign-in or a key the last button is **Call her**; without either it is **Look around**.
 
 Once it has been left, by any of its buttons, it does not show again, and **Reset history** does not
 bring it back. Adding `?intro` to the address shows it again; leaving it that way sets up no bots.
@@ -27,15 +31,17 @@ theme — **System**, **Light** or **Dark** — is at the foot of the list.
 ## Keys
 
 **Settings › API keys** holds them, and they stay on this computer. A call needs one of two: a GPT
-Subscription sign-in or an OpenAI key. Either pays for both her voice and the model behind it. The
+Subscription sign-in on a paid plan, or an OpenAI key. Either pays for both her voice and the model behind it. The
 key is checked when it is saved, and one OpenAI refuses is not kept. Bots can run on the same key.
 
 Two easier ways for bots come next:
 
 - **GPT Subscription**: sign in with ChatGPT, and bots run on the ChatGPT plan with no key: they
-  think, search the web and, on a paid plan, draw on it. A spoken call runs on it too, in the plan's
-  own voice, **GPT-Live 1 Codex**, the one the Codex CLI's `/voice` uses. The row shows how much of
-  the plan is used and when it resets.
+  think, search the web and, on a paid plan, draw on it. On a paid plan a spoken call runs on it
+  too, in the plan's own voice, **GPT-Live 1 Codex**, the one the Codex CLI's `/voice` uses. The row names the plan
+  (such as **Pro**), and a bar and a percentage show how much of it is used, with when it resets.
+  The **Free** plan runs bots and calls in writing but has no spoken calls: ChatGPT does not open
+  one on it. Signed in on Free, the screens that ask for a voice say so and offer the OpenAI key.
 - **Vercel AI Gateway**: one key for every model; its row shows what credit is left.
 - **OpenRouter**: the same, one key for every model it carries, free ones among them; its row
   shows what credit is left.

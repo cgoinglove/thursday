@@ -8,7 +8,7 @@
 </a>
 
 **GPT-Live 1 위에서 도는 오픈소스 음성 비서. 뒤에는 AI 봇 팀이 있습니다.**<br>
-내 컴퓨터에서, 내 OpenAI 키로 돕니다. 나는 말하고, 오래 걸리는 일은 봇들이 진짜 브라우저와 셸과 내 파일로 처리합니다.
+내 컴퓨터에서, 내 ChatGPT 요금제나 내 OpenAI 키로 돕니다. 나는 말하고, 오래 걸리는 일은 봇들이 진짜 브라우저와 셸과 내 파일로 처리합니다.
 
 [![npm](https://img.shields.io/npm/v/thursday-agent?style=flat-square&color=111&label=npm)](https://www.npmjs.com/package/thursday-agent)
 [![CI](https://img.shields.io/github/actions/workflow/status/cgoinglove/thursday/ci.yml?style=flat-square&label=ci)](https://github.com/cgoinglove/thursday/actions/workflows/ci.yml)
@@ -26,7 +26,7 @@
 npx thursday-agent
 ```
 
-Node.js 22.18 이상과 OpenAI API 키 하나면 됩니다. 첫 화면에 키를 넣고, 함께할 봇을 고른 뒤 **얼굴을 누르면** 통화가 시작됩니다. 가입도 `.env` 도 없습니다. 통화는 그 키로 1분에 약 $0.05 입니다. 한국어로 말하면 한국어로 답합니다(화면은 아직 영어입니다).
+Node.js 22.18 이상과 유료 ChatGPT 요금제 로그인이나 OpenAI API 키 하나면 됩니다. 첫 화면에서 로그인하거나 키를 넣고, 함께할 봇을 고른 뒤 **얼굴을 누르면** 통화가 시작됩니다. 새 가입도 `.env` 도 없습니다. 요금제로 하는 통화는 돈이 아니라 요금제 사용량을 쓰고, 키로 하면 1분에 약 $0.05 입니다. 한국어로 말하면 한국어로 답합니다(화면은 아직 영어입니다).
 
 ## 이렇게 시켜 보세요
 
@@ -80,7 +80,7 @@ Node.js 22.18 이상과 OpenAI API 키 하나면 됩니다. 첫 화면에 키를
 
 ## 어떻게 돌아가나
 
-Thursday 는 내 컴퓨터에서 도는 오픈소스 음성 비서입니다. 통화는 OpenAI 의 GPT-Live 1 이 붙들고, 도구는 Responses 모델이 씁니다. 몇 초 넘게 걸리는 일은 뒤에서 도는 봇에게 갑니다 — OpenAI·Anthropic·Google·xAI 의 텍스트 모델에 셸, 진짜 브라우저, 내 파일, Agent Skills, MCP 서버가 붙은 것입니다. 봇들은 일을 나눠 맡고 내가 정해야 할 때 묻습니다. 그 결과와 질문은 통화 안으로 돌아오고, 전화를 끊어도 일은 계속 돕니다. 루틴은 정해진 시각에 일을 시작합니다. 그녀가 나에 대해 아는 것은 내가 읽을 수 있는 평범한 메모입니다. 말 대신 글로 시켜도 되고, 앱에서도 텔레그램·디스코드·슬랙에서도 됩니다. [자세히 →](docs/how-it-works.md)
+Thursday 는 내 컴퓨터에서 도는 오픈소스 음성 비서입니다. 통화는 OpenAI 의 GPT-Live 1 이 붙들고(ChatGPT 요금제로는 Codex CLI 가 쓰는 목소리로, 아니면 OpenAI 키로), 도구는 Responses 모델이 씁니다. 몇 초 넘게 걸리는 일은 뒤에서 도는 봇에게 갑니다 — OpenAI·Anthropic·Google·xAI 의 텍스트 모델에 셸, 진짜 브라우저, 내 파일, Agent Skills, MCP 서버가 붙은 것입니다. 봇들은 일을 나눠 맡고 내가 정해야 할 때 묻습니다. 그 결과와 질문은 통화 안으로 돌아오고, 전화를 끊어도 일은 계속 돕니다. 루틴은 정해진 시각에 일을 시작합니다. 그녀가 나에 대해 아는 것은 내가 읽을 수 있는 평범한 메모입니다. 말 대신 글로 시켜도 되고, 앱에서도 텔레그램·디스코드·슬랙에서도 됩니다. [자세히 →](docs/how-it-works.md)
 
 ## 돌리기 전에 알아 둘 것
 
@@ -91,7 +91,7 @@ Thursday 는 내 컴퓨터에서 도는 오픈소스 음성 비서입니다. 통
 <details>
 <summary><b>돈은 얼마나 드나요?</b></summary>
 
-Thursday 자체는 무료이고 MIT 입니다. 키는 내가 넣습니다. 통화는 OpenAI 가 1분에 약 $0.05 로 매기고(말이 없는 시간도 포함, [요금표](https://developers.openai.com/api/docs/pricing)), 봇은 내가 고른 프로바이더에 토큰만큼 붙습니다.
+Thursday 자체는 무료이고 MIT 입니다. 계정은 내 것을 씁니다. 로그인한 ChatGPT 요금제는 통화·봇과 (유료 요금제면) 그림을 그 요금제 사용량으로 돌리고, OpenAI 키로 하는 통화는 1분에 약 $0.05 입니다(말이 없는 시간도 포함, [요금표](https://developers.openai.com/api/docs/pricing)). 봇은 내가 고른 프로바이더에 토큰만큼 붙습니다.
 
 </details>
 

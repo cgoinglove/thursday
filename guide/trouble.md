@@ -4,11 +4,15 @@ Say what happened and the one thing that fixes it; most problems are a setting o
 
 ## A call will not open, or ended
 
-- **"Call failed"** shows the provider's reason. A refused key or no credit is fixed in **Settings ›
-  API keys**; a model the key cannot use is changed in **Settings › Thursday**, under Models.
+- **"Could not start the call"** or **"Call failed"** shows the provider's reason, with a **Call
+  settings** button that opens **Settings › Thursday**. A refused key or no credit is fixed in
+  **Settings › API keys**; a model the key cannot use is changed in **Settings › Thursday**, under
+  Models.
 - **A call on the GPT Subscription is refused**: the reason is the plan's own, such as its usage
-  spent. With an OpenAI key set too, **model** in **Settings › Thursday › Models** moves calls to
-  the key.
+  spent. **runs on** in **Settings › Thursday › Models** moves calls to the OpenAI key, and asks for
+  one there when none is set.
+- **Signed in on the Free plan**: ChatGPT has no spoken calls on it. Add an OpenAI key, or sign in
+  again with a paid plan; bots and calls in writing work on Free as they are.
 - **"One call at a time"**: another tab of the app has a spoken call on. Hang up there first.
 - **She cannot be heard** on a call she opened herself: the browser holds sound until the page is
   touched. A tap anywhere fixes it.

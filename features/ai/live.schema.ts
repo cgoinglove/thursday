@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { COMMON_VALIDATE } from "@/config";
 import { LIVE_BACKEND_MODEL } from "@/lib/live/live.schema";
-import { effortSchema, TEXT_MODEL_PROVIDERS } from "./model.schema";
+import {
+  effortSchema,
+  planCallsOf,
+  TEXT_MODEL_PROVIDERS,
+} from "./model.schema";
 import { DEFAULT_PERSONA, RETIRED_PERSONAS } from "./prompts/persona";
 
 export const LIVE_PROVIDER = {
@@ -88,16 +92,31 @@ export const LIVE_LINES = ["chatgpt", "openai"] as const;
 export type LiveLine = (typeof LIVE_LINES)[number];
 
 /**
+ * Whether a line can open a call: its key is set, and on the GPT subscription the plan is one
+ * that has calls (model.schema planCallsOf) — a Free sign-in runs bots and calls in writing, not
+ * a spoken call.
+ */
+export function liveLineReady(
+  line: LiveLine,
+  isSet: (key: string) => boolean,
+  /** The plan the sign-in is on, as the token names it; null when it does not say. */
+  plan: string | null,
+): boolean {
+  if (!isSet(TEXT_MODEL_PROVIDERS[line].apiKeyName)) return false;
+  return line !== "chatgpt" || planCallsOf({ plan });
+}
+
+/**
  * The line a spoken call opens on: the one picked while it is set up, else the rule — the GPT
- * subscription when one is signed in, else the OpenAI key; null when neither is. The same answer
- * on the server (the keys themselves) and on the screen (their status), as a call in writing's.
+ * subscription when one is signed in on a plan with calls, else the OpenAI key; null when neither
+ * is. The same answer on the server (the keys themselves) and on the screen (their status).
  */
 export function liveLineOf(
   picked: LiveLine | null,
   isSet: (key: string) => boolean,
+  plan: string | null,
 ): LiveLine | null {
-  const ready = (line: LiveLine) =>
-    isSet(TEXT_MODEL_PROVIDERS[line].apiKeyName);
+  const ready = (line: LiveLine) => liveLineReady(line, isSet, plan);
   if (picked && ready(picked)) return picked;
   return LIVE_LINES.find(ready) ?? null;
 }

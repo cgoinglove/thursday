@@ -105,9 +105,11 @@ read on the web show under her face, and each opens in a new tab.
 These are in **Settings › Thursday › Models**, in two parts, **Voice** and **Backend**. Changes
 apply from the next call.
 
-- **model**: what a spoken call runs on. With both a GPT Subscription and an OpenAI key set, it
-  picks one: **GPT Subscription** (GPT-Live 1 Codex, on the plan) or **OpenAI key** (GPT-Live 1,
-  billed by the minute). Left alone, a call runs on the GPT Subscription.
+- **runs on**: what a spoken call runs on, **GPT Subscription** (GPT-Live 1 Codex, on the plan,
+  with the plan's name beside it) or **OpenAI key** (GPT-Live 1, billed by the minute). Both are
+  always shown. One not set up reads **sign in** or **add**, and a Free plan reads **no calls**; picking it asks for the sign-in or the
+  key right there, and calls stay on the other until it is in. Left alone, a call runs on the GPT
+  Subscription. When neither is set, the card asks for one the way the first run does.
 - **voice**: 22 voices; clicking a name plays it. Only the spoken call uses it. On the GPT
   Subscription she speaks in the plan's own nine voices instead, and none plays.
 - **style**: Bright, Calm, Straight or Rough. It changes only how she talks, never what she can do.

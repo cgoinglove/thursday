@@ -17,8 +17,15 @@ const WINDOW_POLL_MS = 700;
  */
 export function ChatGptSignIn({
   variant,
+  size,
+  className,
+  label = "Sign in with ChatGPT",
 }: {
   variant?: ComponentProps<typeof Button>["variant"];
+  size?: ComponentProps<typeof Button>["size"];
+  className?: string;
+  /** What the button says; the sign-in it starts is the same. */
+  label?: string;
 }) {
   const [waiting, setWaiting] = useState(false);
   const watch = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -57,10 +64,12 @@ export function ChatGptSignIn({
   return (
     <Button
       variant={variant}
+      size={size}
+      className={className}
       loading={starting || waiting}
       onClick={() => start()}
     >
-      Sign in with ChatGPT
+      {label}
     </Button>
   );
 }

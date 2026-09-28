@@ -215,10 +215,11 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
   {
     id: "voice",
     title: "voice",
-    hint: "calls run on this key, or on a GPT Subscription sign-in",
+    hint: "calls run on this key, or on a paid GPT Subscription sign-in",
     section: "keys",
     require: "any",
-    // The sign-in is listed with the easy ways, and opens a call as well (live.schema liveLineOf)
+    // The sign-in is listed with the easy ways, and opens a call as well on a plan with calls
+    // (live.schema liveLineOf; config.query isCallable and voice-key useVoiceLine ask the plan)
     requireKeys: LIVE_LINES.map(
       (line) => TEXT_MODEL_PROVIDERS[line].apiKeyName,
     ),

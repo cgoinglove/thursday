@@ -423,22 +423,58 @@ test("the line closes when the page asks, when the page leaves, and when the voi
   hung.leave.abort();
 });
 
-test("a call opens on the line picked while it is set up, else the plan when signed in, else the key", () => {
+test("a call opens on the line picked while it is set up, else the plan when signed in on one with calls, else the key", () => {
   const set =
     (...keys: string[]) =>
     (key: string) =>
       keys.includes(key);
   assert.equal(
-    liveLineOf(null, set("CHATGPT_SIGN_IN", "OPENAI_API_KEY")),
+    liveLineOf(null, set("CHATGPT_SIGN_IN", "OPENAI_API_KEY"), "plus"),
     "chatgpt",
   );
   assert.equal(
-    liveLineOf("openai", set("CHATGPT_SIGN_IN", "OPENAI_API_KEY")),
+    liveLineOf("openai", set("CHATGPT_SIGN_IN", "OPENAI_API_KEY"), "plus"),
     "openai",
   );
-  assert.equal(liveLineOf("openai", set("CHATGPT_SIGN_IN")), "chatgpt");
-  assert.equal(liveLineOf(null, set("OPENAI_API_KEY")), "openai");
-  assert.equal(liveLineOf(null, set()), null);
+  assert.equal(liveLineOf("openai", set("CHATGPT_SIGN_IN"), "pro"), "chatgpt");
+  assert.equal(liveLineOf(null, set("OPENAI_API_KEY"), null), "openai");
+  assert.equal(liveLineOf(null, set(), null), null);
+  // A plan the token does not name is let through: the call says what the plan answered
+  assert.equal(liveLineOf(null, set("CHATGPT_SIGN_IN"), null), "chatgpt");
+  // Free has no spoken calls: a key opens one instead, picked or not, and alone it is none
+  assert.equal(
+    liveLineOf("chatgpt", set("CHATGPT_SIGN_IN", "OPENAI_API_KEY"), "free"),
+    "openai",
+  );
+  assert.equal(liveLineOf(null, set("CHATGPT_SIGN_IN"), "free"), null);
+});
+
+test("a sign-in makes her callable on a plan with calls, and on Free only beside a key", async () => {
+  const { isCallable } = await import("../features/config/config.query.ts");
+  const signIn = (plan: string | null) =>
+    JSON.stringify({
+      access: "a",
+      refresh: "r",
+      expires: Date.now() + 3_600_000,
+      accountId: "acct",
+      plan,
+    });
+  const key = process.env.OPENAI_API_KEY;
+  process.env.OPENAI_API_KEY = "";
+  try {
+    process.env.CHATGPT_SIGN_IN = signIn("plus");
+    assert.equal(await isCallable(), true);
+    process.env.CHATGPT_SIGN_IN = signIn(null);
+    assert.equal(await isCallable(), true);
+    process.env.CHATGPT_SIGN_IN = signIn("free");
+    assert.equal(await isCallable(), false);
+    process.env.OPENAI_API_KEY = "sk-test-0123456789";
+    assert.equal(await isCallable(), true);
+  } finally {
+    delete process.env.CHATGPT_SIGN_IN;
+    if (key === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = key;
+  }
 });
 
 test("the plan's voice is told which channel is hers to say and which is background", async () => {
