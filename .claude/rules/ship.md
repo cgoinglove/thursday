@@ -20,7 +20,7 @@ touches anyone's data.
 - `bin/thursday.mjs` — the command: two roots, a port, the built server.
 - `bin/background.mjs` — `start`, `stop`, `status` and the first run's question: the launchd job, and the copy it runs from `~/.thursday/app`.
 - `scripts/dev.mts` — `pnpm dev`: `next dev` on a free loopback port.
-- `instrumentation-node.ts` — boot: migrate, sweep the last run, start routines and the phone.
+- `instrumentation-node.ts` — boot: migrate, seal what is still in the clear, sweep the last run, start routines and the phone.
 - `next.config.ts` — standalone output, and the run-time files the trace is told about.
 - `scripts/pack.mts` — builds `dist/`, the tree npm publishes, behind its gates.
 - `.github/workflows/release.yml` — release-please's PR through to `npm publish` with provenance.

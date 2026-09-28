@@ -16,7 +16,12 @@ import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
 import { setConfigAction } from "../config.action";
-import { type ConfigStatus, isConfigSet } from "../config.const";
+import {
+  type ConfigStatus,
+  isConfigSet,
+  isConfigUnreadable,
+  lostWords,
+} from "../config.const";
 
 /**
  * Lets the parent save unsaved fields before navigating away. A ref rather
@@ -153,7 +158,7 @@ export function VoiceKeys({
         onSubmit={() => void commit(LIVE_PROVIDER)}
       />
 
-      {refused && (
+      {(refused || isConfigUnreadable(config, LIVE_PROVIDER.apiKeyName)) && (
         <p
           className={cn(
             "px-0.5 leading-5 break-words",
@@ -161,7 +166,9 @@ export function VoiceKeys({
             WAITING_INK,
           )}
         >
-          {refused}
+          {/* A key saved before that can no longer be opened is asked for again, saying why */}
+          {refused ??
+            lostWords("The OpenAI key saved before", "Paste it again.")}
         </p>
       )}
 

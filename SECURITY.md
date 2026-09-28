@@ -13,13 +13,24 @@ What the app does to keep that narrow:
 - **Your keys stay on your machine.** They live in the local SQLite database (or
   the environment), are read only where a model is built, and are passed to a
   provider explicitly. Nothing is sent anywhere else.
+- **Saved keys are sealed.** In the database, the API keys, the phone's bot
+  tokens, the ChatGPT sign-in and a connector's headers, env and OAuth tokens are
+  sealed with AES-256-GCM (`lib/secret.ts`), under a key the app makes on its
+  first start and keeps in the data folder's `.env` as `THURSDAY_ENCRYPTION_KEY`,
+  owner-only. Keys an older version kept in the clear are sealed on the first
+  start of this one, and the file is then rewritten, so none is left in the pages
+  their old values freed. A copy of `local.db` on its own — a backup, a synced
+  folder, a file attached to an issue — carries none of them. The key sits beside
+  it, so this does not keep them from anything that runs as you, a bot's shell
+  included; nor from an older copy of `local.db`, made before the upgrade.
 - **Secrets are not in the shell's environment.** Every environment variable
   matching `KEY|TOKEN|SECRET|PASS|_PWD|CREDENTIAL|_AUTH|_DSN|DATABASE_URL` is stripped from the
   environment a bot's commands run in (`lib/sandbox.ts`), so a compromised npm
   package in a bot's project cannot read them out of `process.env`. This is
-  narrower than it sounds and is meant to be: the database those keys live in
-  is a file on the same machine, and a bot has a shell. Reads are not fenced —
-  a bot that cannot look around cannot do the work.
+  narrower than it sounds and is meant to be: the database those keys live in,
+  and the `.env` with the key they are sealed with, are files on the same
+  machine, and a bot has a shell. Reads are not fenced — a bot that cannot look
+  around cannot do the work.
 - **The file tool is fenced; the shell is not.** `write_file` refuses the app's
   own directory and the workspace root, and inside the workspace accepts only its
   folders (`features/workspace/workspace.ts`). A path outside the workspace is

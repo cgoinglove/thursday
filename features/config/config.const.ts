@@ -337,10 +337,24 @@ export const CONFIG_CHOICES: Record<string, ConfigChoice[]> =
       .map((entry) => [entry.key, entry.choices as ConfigChoice[]]),
   );
 
+/**
+ * Whether a key's value is a secret: every Settings entry without `choices` — a key, a token,
+ * the ChatGPT sign-in. Sealed before it is written (config.query), and never served.
+ */
+export function isSecretKey(key: string): boolean {
+  const entry = CONFIG_ENTRIES[key];
+  return Boolean(entry && !entry.choices);
+}
+
 /** What /api/config returns; never a secret's value. */
 export type ConfigStatus = {
   key: string;
   set: boolean;
+  /**
+   * Saved, but sealed under a key the data folder no longer has (lib/secret): not set, since
+   * nothing can use it, and the screen asks for it again rather than showing it as never given.
+   */
+  unreadable?: true;
   /** Choice entries only. */
   value?: string;
 };
@@ -350,6 +364,30 @@ export function isConfigSet(
   key: string,
 ): boolean {
   return status?.some((entry) => entry.key === key && entry.set) ?? false;
+}
+
+export function isConfigUnreadable(
+  status: ConfigStatus[] | undefined,
+  key: string,
+): boolean {
+  return (
+    status?.some((entry) => entry.key === key && entry.unreadable) ?? false
+  );
+}
+
+/**
+ * Why a saved secret cannot be read: the one cause there is, since the key is the data folder's
+ * `.env` alone (lib/secret) — it was lost, replaced, or left behind when the database moved.
+ */
+const LOST_KEY_WHY =
+  "the .env in the data folder that unlocks it was lost or replaced";
+
+/**
+ * How a saved secret that can no longer be opened is said, wherever it is — a screen, an error,
+ * a connector's row: what it was, why, the file's path where the server has it, and what to do.
+ */
+export function lostWords(what: string, todo: string, where?: string): string {
+  return `${what} can't be unlocked any more: ${LOST_KEY_WHY}${where ? ` (${where})` : ""}. ${todo}`;
 }
 
 export function groupSatisfied(

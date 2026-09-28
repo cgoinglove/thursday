@@ -12,9 +12,10 @@ import {
 } from "@/components/ui/popover";
 import { KEY_MIN } from "@/config";
 import { setConfigAction } from "@/features/config/config.action";
+import { lostWords } from "@/features/config/config.const";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
-import { cn } from "@/lib/utils";
+import { cn, WAITING_INK } from "@/lib/utils";
 import type {
   AiProvider,
   CatalogModel,
@@ -202,8 +203,24 @@ export function ModelPicker({
         <div className="flex max-h-80 min-w-0 flex-1 flex-col gap-px overflow-y-auto p-1.5">
           {!shown ? null : !shown.hasKey ? (
             <div className="space-y-2 p-2">
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                {shown.label} has no key yet.
+              {/* A key saved before that can no longer be opened is said as that, as Settings says it */}
+              <p
+                className={cn(
+                  "text-xs leading-relaxed",
+                  shown.lostKey ? WAITING_INK : "text-muted-foreground",
+                )}
+              >
+                {shown.lostKey
+                  ? shown.signIn
+                    ? lostWords(
+                        `The ${shown.label} sign-in saved before`,
+                        "Sign in again.",
+                      )
+                    : lostWords(
+                        `The ${shown.label} key saved before`,
+                        "Paste it again.",
+                      )
+                  : `${shown.label} has no key yet.`}
               </p>
               <AskForKey provider={shown} onSaved={() => mutate()} />
             </div>

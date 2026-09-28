@@ -7,7 +7,8 @@ one they last wrote from.
 
 **Settings › Phone** lists the three chat apps, one line each. A folded line says where it stands:
 *Not set*, *1 of 2 tokens in*, *Connecting…*, *Listening as … — waiting for your first message*,
-*Listening as … . … is let in.*, *Reconnecting…*, or *Stopped — … turned the token away* in red.
+*Listening as … . … is let in.*, *Reconnecting…*, or in red *Stopped — … turned the token away* or
+*Stopped — the saved token can't be unlocked any more*.
 Opening a line shows its four steps, each ticked as it is done. Tokens are pasted in the steps that
 ask for them.
 
@@ -120,6 +121,11 @@ back.
   *Stopped — … turned the token away* in red, the step holding that token opens with what the
   service said, and **Phone** in the settings list and the **Settings** button carry a red dot.
   Nothing gets through until the token is replaced.
+- **A token that can't be unlocked** (the `.env` in the data folder that unlocks the saved keys was
+  lost or replaced): the line says *Stopped — the saved token can't be unlocked any more* in red,
+  and the step holding it says the same. Whoever was let in stays. The old `.env` put back, and the
+  app started again, opens it; otherwise paste the token again (`trouble.md`, A saved key is asked
+  for again).
 - **No network or the service is down**: the line says *Reconnecting…* with why, and it tries again
   by itself.
 - **The computer is asleep or the app is not running**: on Telegram, messages wait and are answered

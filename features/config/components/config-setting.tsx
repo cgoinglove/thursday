@@ -59,6 +59,8 @@ import {
   EXA_API_KEY,
   groupSatisfied,
   isConfigSet,
+  isConfigUnreadable,
+  lostWords,
 } from "@/features/config/config.const";
 import { ReachGuide } from "@/features/reach/components/reach-guide";
 import {
@@ -130,6 +132,7 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
   if (error) return <SettingError message={error.message} />;
 
   const isSet = (key: string) => isConfigSet(data, key);
+  const isLost = (key: string) => isConfigUnreadable(data, key);
   // Only choice entries carry a value
   const valueOf = (key: string) =>
     data?.find((entry) => entry.key === key)?.value;
@@ -140,6 +143,7 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
   const keys = groups
     .filter((group) => group.section === "keys")
     .flatMap((group) => group.entries);
+  const lost = keys.filter((entry) => isLost(entry.key)).length;
 
   return (
     <SettingScreen
@@ -148,6 +152,8 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
           {screen === "models"
             ? "Her own voice and backend models are in Thursday. A bot can pick its own on its page."
             : `${keys.filter((entry) => isSet(entry.key)).length} of ${keys.length} set${
+                lost ? ` · ${lost} to enter again` : ""
+              }${
                 groups.some((group) => !groupSatisfied(group, isSet))
                   ? " · a call needs one voice key"
                   : " · your keys stay on this machine"
@@ -170,6 +176,7 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
                   card
                   entry={entry}
                   set={isSet(entry.key)}
+                  lost={isLost(entry.key)}
                   needed={false}
                 />
               ))}
@@ -177,7 +184,12 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
           ) : group.id === "text" ? (
             <div className="flex flex-wrap gap-x-1.5 gap-y-3.5">
               {group.entries.map((entry) => (
-                <KeyTile key={entry.key} entry={entry} set={isSet(entry.key)} />
+                <KeyTile
+                  key={entry.key}
+                  entry={entry}
+                  set={isSet(entry.key)}
+                  lost={isLost(entry.key)}
+                />
               ))}
             </div>
           ) : (
@@ -197,6 +209,7 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
                     key={entry.key}
                     entry={entry}
                     set={isSet(entry.key)}
+                    lost={isLost(entry.key)}
                     // Amber only where something is actually missing: an
                     // unsatisfied required group is waiting on the user
                     needed={!groupSatisfied(group, isSet)}
@@ -224,6 +237,7 @@ export function AccountsSetup({
 }) {
   const { data } = useServerRoute<ConfigStatus[]>(queryKey.config);
   const isSet = (key: string) => isConfigSet(data, key);
+  const isLost = (key: string) => isConfigUnreadable(data, key);
   const entries = (id: ConfigGroup["id"]) =>
     CONFIG_GROUPS.find((group) => group.id === id)?.entries ?? [];
   // A newcomer reads one row: the providers most people have a key for, and any that is
@@ -253,13 +267,19 @@ export function AccountsSetup({
             narrow
             entry={entry}
             set={isSet(entry.key)}
+            lost={isLost(entry.key)}
             needed={false}
           />
         ))}
       </div>
       <div className="flex flex-wrap gap-y-2.5">
         {first.map((entry) => (
-          <KeyTile key={entry.key} entry={entry} set={isSet(entry.key)} />
+          <KeyTile
+            key={entry.key}
+            entry={entry}
+            set={isSet(entry.key)}
+            lost={isLost(entry.key)}
+          />
         ))}
         {rest.length > 0 && (
           <Popover open={more} onOpenChange={setMore}>
@@ -279,7 +299,12 @@ export function AccountsSetup({
               onClick={() => setMore(false)}
             >
               {rest.map((entry) => (
-                <KeyTile key={entry.key} entry={entry} set={isSet(entry.key)} />
+                <KeyTile
+                  key={entry.key}
+                  entry={entry}
+                  set={isSet(entry.key)}
+                  lost={isLost(entry.key)}
+                />
               ))}
             </PopoverContent>
           </Popover>
@@ -292,6 +317,7 @@ export function AccountsSetup({
           narrow
           entry={entry}
           set={isSet(entry.key)}
+          lost={isLost(entry.key)}
           needed={false}
         />
       ))}
@@ -299,21 +325,38 @@ export function AccountsSetup({
   );
 }
 
-/** One provider's key as its mark: tap it, paste the key. A key that is set wears a check. */
-function KeyTile({ entry, set }: { entry: ConfigEntry; set: boolean }) {
+/**
+ * One provider's key as its mark: tap it, paste the key. A key that is set wears a check; one
+ * saved but no longer readable (config.const ConfigStatus `unreadable`), the waiting mark.
+ */
+function KeyTile({
+  entry,
+  set,
+  lost,
+}: {
+  entry: ConfigEntry;
+  set: boolean;
+  lost: boolean;
+}) {
   return (
     <button
       type="button"
       onClick={() => openConfigDialog(entry, set)}
-      aria-label={`${entry.label}: ${set ? "set" : "not set"}`}
+      aria-label={`${entry.label}: ${set ? "set" : lost ? "enter it again" : "not set"}`}
       className="group flex w-17 flex-col items-center gap-1.5 rounded-xl py-1 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       <span className="relative grid size-10.5 place-items-center rounded-[13px] bg-muted/60 transition-colors group-hover:bg-muted">
         <KeyMark entry={entry} />
-        {set && (
+        {set ? (
           <span className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full bg-primary text-primary-foreground ring-2 ring-background">
             <Check className="size-2.5" />
           </span>
+        ) : (
+          lost && (
+            <span className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full bg-waiting text-background ring-2 ring-background">
+              <TriangleAlert className="size-2.5" />
+            </span>
+          )
         )}
       </span>
       <span
@@ -360,12 +403,15 @@ function RequirementBadge({
 function KeyRow({
   entry,
   set,
+  lost,
   needed,
   card = false,
   narrow = false,
 }: {
   entry: ConfigEntry;
   set: boolean;
+  /** Saved, but no longer readable: asked for again (config.const ConfigStatus `unreadable`). */
+  lost: boolean;
   /** Drawn as a card of its own rather than a row in a list. */
   card?: boolean;
   /** In a narrow column the state takes the second line, where the key's name is of no use. */
@@ -378,7 +424,7 @@ function KeyRow({
   const plan = useSignInPlan(entry, set);
   const state = usage.data
     ? usageState(usage.data)
-    : keyState(set, needed, credits.data, entry.signIn);
+    : keyState(set, needed, credits.data, entry.signIn, lost);
 
   const waiting = credits.isLoading || usage.isLoading;
   const stateLine = (
@@ -465,7 +511,15 @@ function keyState(
   needed: boolean,
   credits: KeyCredits | null | undefined,
   signIn?: true,
+  lost = false,
 ): { text: string; ink: string; warn: boolean } {
+  // Saved once and no longer readable: the user has to give it again, whichever group it is in
+  if (!set && lost)
+    return {
+      text: signIn ? "Sign in again" : "Enter again",
+      ink: WAITING_INK,
+      warn: true,
+    };
   if (!set)
     return needed
       ? { text: "Needed", ink: WAITING_INK, warn: true }
@@ -736,6 +790,7 @@ function SignInDialog({
 }) {
   const { data } = useServerRoute<ConfigStatus[]>(queryKey.config);
   const signedIn = isConfigSet(data, entry.key);
+  const lost = isConfigUnreadable(data, entry.key);
   const plan = useSignInPlan(entry, signedIn);
   const usage = useSubscriptionUsage(entry, signedIn);
   const state = usage.data ? usageState(usage.data) : null;
@@ -769,7 +824,7 @@ function SignInDialog({
       }
       footer={
         <>
-          {signedIn && (
+          {(signedIn || lost) && (
             <Button
               variant="ghost"
               loading={signingOut}
@@ -806,6 +861,11 @@ function SignInDialog({
             {usage.data.refused}
           </SettingNote>
         )}
+        {lost && (
+          <SettingNote className={cn("wrap-break-word", WAITING_INK)}>
+            {lostWords("The sign-in saved here", "Sign in again.")}
+          </SettingNote>
+        )}
       </div>
     </SettingDialogContent>
   );
@@ -823,14 +883,20 @@ function openConfigDialog(entry: ConfigEntry, set: boolean) {
 /** Set, replace or remove one key. The current value is never shown. */
 function ConfigDialog({
   entry,
-  set,
+  set: opened,
   onDone,
 }: {
   entry: ConfigEntry;
+  /** As the row that opened it drew it, until the dialog's own read lands. */
   set: boolean;
   onDone: () => void;
 }) {
   const [value, setValue] = useState("");
+  // Read here rather than handed in: the dialog outlives the row that opened it, and a key
+  // entered again in another tab meanwhile changes both at once
+  const { data: status } = useServerRoute<ConfigStatus[]>(queryKey.config);
+  const set = status ? isConfigSet(status, entry.key) : opened;
+  const lost = isConfigUnreadable(status, entry.key);
   const { data: credits } = useKeyCredits(entry, set);
   const state = credits ? keyState(set, false, credits) : null;
 
@@ -882,8 +948,9 @@ function ConfigDialog({
       }
       footer={
         <>
-          {/* set apart from what saves, at the far end and in red */}
-          {set && (
+          {/* set apart from what saves, at the far end and in red; a key that can no longer be
+              read can go without a new one */}
+          {(set || lost) && (
             <Button
               variant="ghost"
               loading={removing}
@@ -918,7 +985,9 @@ function ConfigDialog({
           placeholder={
             set
               ? "New value — replaces the current key"
-              : (entry.keyLooks ?? "Paste the key")
+              : lost
+                ? "Paste the key again"
+                : (entry.keyLooks ?? "Paste the key")
           }
           spellCheck={false}
           type="password"
@@ -938,6 +1007,11 @@ function ConfigDialog({
         {credits && "refused" in credits && (
           <SettingNote className="wrap-break-word text-destructive">
             {credits.refused}
+          </SettingNote>
+        )}
+        {lost && (
+          <SettingNote className={cn("wrap-break-word", WAITING_INK)}>
+            {lostWords("The key saved here", "Paste it again.")}
           </SettingNote>
         )}
       </div>

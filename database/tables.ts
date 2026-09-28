@@ -18,8 +18,8 @@ import {
 } from "@/features/bot/bot.schema";
 import type { RelayKind, WorkState } from "@/features/bot/room.schema";
 import {
-  MCPOAuthData,
   MCPServerConfig,
+  MCPStoredOAuth,
   MCPToolInfo,
 } from "@/features/connectors/mcp.schema";
 import type { MemorySource } from "@/features/memory/memory.schema";
@@ -80,7 +80,10 @@ export const botTable = sqliteTable("bot", {
 export const mcpServerTable = sqliteTable("mcp_server", {
   /** Also the prefix of every tool name shown to the model. */
   name: text("name").primaryKey(),
-  /** How to connect: remote (`url`) or stdio (`command`), told apart by shape. */
+  /**
+   * How to connect: remote (`url`) or stdio (`command`), told apart by shape. The values of its
+   * headers and env are credentials, sealed (mcp.query sealConfig).
+   */
   config: text("config", {
     mode: "json",
   })
@@ -92,8 +95,9 @@ export const mcpServerTable = sqliteTable("mcp_server", {
     .$defaultFn(() => new Date()),
   /** Why the last connect failed; null when it succeeded. */
   lastError: text("last_error"),
-  // Server-only: list queries must never select this column.
-  oauth: text("oauth", { mode: "json" }).$type<MCPOAuthData>(),
+  // Server-only: list queries must never select this column. Its credentials are sealed, its
+  // `state` is not (mcp.schema MCPStoredOAuth).
+  oauth: text("oauth", { mode: "json" }).$type<MCPStoredOAuth>(),
   createdAt: int("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -533,6 +537,6 @@ export const routineTable = sqliteTable(
 export const configTable = sqliteTable("config", {
   /** Same name as the env var (config.const). */
   key: text("key").primaryKey(),
-  /** Plaintext; never sent to the browser. */
+  /** A secret sealed, a pick as it is (config.query writeConfig); never sent to the browser. */
   value: text("value").notNull(),
 });

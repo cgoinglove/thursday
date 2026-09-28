@@ -21,7 +21,12 @@ import {
   removeConfigAction,
   setConfigAction,
 } from "@/features/config/config.action";
-import { type ConfigStatus, isConfigSet } from "@/features/config/config.const";
+import {
+  type ConfigStatus,
+  isConfigSet,
+  isConfigUnreadable,
+  lostWords,
+} from "@/features/config/config.const";
 import {
   SettingItems,
   SettingNote,
@@ -259,15 +264,18 @@ export function ReachGuide() {
   useAppEvent({ reach: () => void revalidate(queryKey.reach) });
 
   const isSet = (key: string) => isConfigSet(config.data, key);
+  const isLost = (key: string) => isConfigUnreadable(config.data, key);
   const statusOf = (name: ReachChannelName) =>
     reach.data?.channels.find((one) => one.name === name) ?? null;
   const keyed = (name: ReachChannelName) => REACH_KEYS[name].every(isSet);
   const letIn = (name: ReachChannelName) => Boolean(statusOf(name)?.allowed);
 
-  // The app opens on what is unfinished: a service that stopped (the nav's dot led here),
-  // else one part-way through, else the first one when nobody is let in anywhere. With one
-  // working and nothing half-done, none opens.
-  const stopped = REACH_CHANNELS.find((name) => statusOf(name)?.refused);
+  // The app opens on what is unfinished: a service that stopped — its token turned away, or
+  // no longer readable (the nav's dot led here) — else one part-way through, else the first
+  // one when nobody is let in anywhere. With one working and nothing half-done, none opens.
+  const stopped = REACH_CHANNELS.find(
+    (name) => statusOf(name)?.refused || REACH_KEYS[name].some(isLost),
+  );
   const started = REACH_CHANNELS.find((name) => keyed(name) && !letIn(name));
   const none = !REACH_CHANNELS.some(letIn);
   const [open, setOpen] = useState<ReachChannelName | null>(
@@ -284,6 +292,7 @@ export function ReachGuide() {
             status={statusOf(name)}
             tokensIn={REACH_KEYS[name].filter(isSet).length}
             isSet={isSet}
+            isLost={isLost}
             open={open === name}
             onOpen={() => setOpen(open === name ? null : name)}
           />
@@ -303,6 +312,7 @@ function Channel({
   status,
   tokensIn,
   isSet,
+  isLost,
   open,
   onOpen,
 }: {
@@ -311,6 +321,8 @@ function Channel({
   /** How many of this service's tokens are in; Slack takes two. */
   tokensIn: number;
   isSet: (key: string) => boolean;
+  /** Saved, but no longer readable (config.const ConfigStatus `unreadable`). */
+  isLost: (key: string) => boolean;
   open: boolean;
   onOpen: () => void;
 }) {
@@ -343,6 +355,7 @@ function Channel({
             status={status}
             tokensIn={tokensIn}
             tokens={REACH_KEYS[name].length}
+            lost={REACH_KEYS[name].some(isLost)}
           />
         </span>
         <ChevronRight
@@ -365,10 +378,17 @@ function Channel({
                 set={
                   step.slot && "key" in step.slot ? isSet(step.slot.key) : false
                 }
+                lost={
+                  step.slot && "key" in step.slot
+                    ? isLost(step.slot.key)
+                    : false
+                }
                 refused={
                   step.slot && "key" in step.slot && step.slot.key === refused
                     ? (status?.problem ?? "")
-                    : null
+                    : step.slot && "key" in step.slot && isLost(step.slot.key)
+                      ? lostWords("The token saved here", "Paste it again.")
+                      : null
                 }
                 link={status?.link ?? null}
                 waiting={waiting && at === steps.length - 1}
@@ -393,12 +413,21 @@ function ChannelWords({
   status,
   tokensIn,
   tokens,
+  lost,
 }: {
   status: ReachChannelStatus | null;
   tokensIn: number;
   tokens: number;
+  /** A token of it is saved but no longer readable: stopped, as a refused one is. */
+  lost: boolean;
 }) {
   const small = "text-xs";
+  if (lost)
+    return (
+      <span className={cn(small, "text-destructive")}>
+        Stopped — the saved token can't be unlocked any more
+      </span>
+    );
   if (tokensIn < tokens)
     return (
       <span className={cn(small, "text-muted-foreground")}>
@@ -445,6 +474,7 @@ function Row({
   step,
   state,
   set,
+  lost,
   refused,
   link,
   waiting,
@@ -454,6 +484,8 @@ function Row({
   state: StepState;
   /** Key steps only: whether the token is already stored. */
   set: boolean;
+  /** Key steps only: stored, but no longer readable. */
+  lost: boolean;
   /** Key steps only: what the service said when it turned this step's token away. */
   refused: string | null;
   /** Where the service says this bot is, once it has connected. */
@@ -479,6 +511,7 @@ function Row({
           slot={step.slot}
           state={state}
           set={set}
+          lost={lost}
           refused={refused}
           link={link}
           waiting={waiting}
@@ -519,6 +552,7 @@ function Doing({
   slot,
   state,
   set,
+  lost,
   refused,
   link,
   waiting,
@@ -526,6 +560,7 @@ function Doing({
   slot?: Slot;
   state: StepState;
   set: boolean;
+  lost: boolean;
   refused: string | null;
   link: string | null;
   waiting: boolean;
@@ -540,6 +575,7 @@ function Doing({
         configKey={slot.key}
         looks={slot.looks}
         set={set}
+        lost={lost}
         refused={refused}
       />
     );
@@ -634,11 +670,14 @@ function KeyField({
   configKey,
   looks,
   set,
+  lost,
   refused,
 }: {
   configKey: string;
   looks: string;
   set: boolean;
+  /** Stored, but no longer readable: it can be replaced, or removed without a new one. */
+  lost: boolean;
   refused: string | null;
 }) {
   const [value, setValue] = useState("");
@@ -704,7 +743,7 @@ function KeyField({
         >
           {set ? "Replace" : "Save"}
         </Button>
-        {set && (
+        {(set || lost) && (
           <>
             {/* A refused token has nothing to go back to: the step waits on a new one */}
             {refused === null && (

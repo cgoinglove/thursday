@@ -1,13 +1,14 @@
 ---
-checked: 2026-09-26
+checked: 2026-09-28
 paths:
   - "lib/protocol/**"
-  - "lib/{public-error,date-like}.ts"
+  - "lib/{public-error,date-like,secret}.ts"
   - "app/api/**"
   - "database/**"
   - "proxy.ts"
   - "features/**/*.{query,action,schema}.ts"
-  - "scripts/proxy.test.mts"
+  - "features/config/config.seal.ts"
+  - "scripts/{proxy,secrets}.test.mts"
 ---
 
 # Data flow and boundaries
@@ -23,6 +24,8 @@ The screen shows what the server holds, whoever changed it, and nothing but this
 - `app/api/events/app-event.server.ts` — the bus, the SSE stream and `presence`.
 - `database/db.ts` — the one client, and the lane every statement waits in.
 - `proxy.ts` — what may reach the app at all.
+- `lib/secret.ts` — the data folder's key in its `.env`, and the sealing `config.query` and `mcp.query` do with it.
+- `features/config/config.seal.ts` — boot's pass over the secrets: seal what is in the clear, rewrite the file, name what cannot be opened.
 
 ## How it fits
 A server component calls a domain's query directly; a client screen reads a `serverRoute` GET by its `queryKey`, with `useServerRoute` or `useServerPages`. A write is a server action, and the screen that made it revalidates what it changed in `onOk`; one client's actions run one at a time, so a POST route exists only for work that must not wait in that line or hold it — tool calls that run side by side, and work that streams as it runs. A change the screen did not make — a bot's row, a routine, a phone — arrives as an `appEvents` signal, which a `useAppEvent` handler turns into a `revalidate` of the GET it names. On the server the same bus only wakes the phone relay (`features/reach/reach.ts`), which then reads the rows.
@@ -37,4 +40,4 @@ A server component calls a domain's query directly; a client screen reads a `ser
 - A transaction holds the database's one lane: a statement inside `database.transaction` that goes through `database` rather than its `tx` waits on itself forever, and a network wait inside it stalls every read in the app.
 
 ## Check
-`pnpm test:artifact` runs `scripts/proxy.test.mts` (what `proxy.ts` refuses, and a bot's page served sandboxed); `pnpm test:reach` emits on the bus and moves `presence`. To watch the stream, run a scratch server and `curl -N http://127.0.0.1:<port>/api/events`: `hello` first, then a `data:` line as each change lands.
+`pnpm test:artifact` runs `scripts/proxy.test.mts` (what `proxy.ts` refuses, and a bot's page served sandboxed); `pnpm test:reach` emits on the bus and moves `presence`; `pnpm test:secrets` seals, opens and migrates the secrets, and has an older build refuse the database. To watch the stream, run a scratch server and `curl -N http://127.0.0.1:<port>/api/events`: `hello` first, then a `data:` line as each change lands.

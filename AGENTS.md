@@ -42,10 +42,10 @@ This is a public MIT repository (`github.com/cgoinglove/thursday`, published to 
 
 # The two roots
 
-`config.ts` has `APP_DIR` (build, migrations, bundled skills) and `DATA_DIR` (database, workspace,
-installed skills, kept sign-ins). Both default to the checkout and move with `THURSDAY_APP_DIR` /
-`THURSDAY_HOME`; `npx thursday-agent` points them at the package and `~/.thursday`. The app never
-writes into `APP_DIR` at run time.
+`config.ts` has `APP_DIR` (build, migrations, bundled skills) and `DATA_DIR` (database, the `.env`
+with the key its secrets are sealed with, workspace, installed skills, kept sign-ins). Both default
+to the checkout and move with `THURSDAY_APP_DIR` / `THURSDAY_HOME`; `npx thursday-agent` points
+them at the package and `~/.thursday`. The app never writes into `APP_DIR` at run time.
 
 # Running the app
 
@@ -90,8 +90,8 @@ docs/                how-it-works.md, and the images the READMEs show.
 # Checks
 
 - `pnpm typecheck`, `pnpm lint`, and the suite for the area changed (`pnpm test:live`, `test:bot`,
-  `test:memory`, `test:reach`, `test:artifact`, `test:skills`, `test:cli`; all offline). A
-  client/server boundary change also needs `pnpm build`.
+  `test:memory`, `test:reach`, `test:artifact`, `test:skills`, `test:cli`, `test:secrets`; all
+  offline). A client/server boundary change also needs `pnpm build`.
 - Schema change: `pnpm db:generate`, and commit the migration with it. Never `drizzle-kit push`. A
   running server applies it only after a restart; say so.
 - A change the user would notice updates `guide/` in the same commit.

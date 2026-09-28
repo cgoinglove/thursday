@@ -1024,6 +1024,8 @@ export type AiProvider = {
   label: string;
   apiKeyName: string;
   hasKey: boolean;
+  /** Saved, but sealed under a key the data folder no longer has (config.query configState). */
+  lostKey?: true;
   suggestModels: SuggestModel[];
   /** Signs in to an account instead of taking a key (TEXT_MODEL_PROVIDERS `signIn`). */
   signIn?: true;

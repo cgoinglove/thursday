@@ -9,7 +9,9 @@ pnpm install
 pnpm dev       # first run also fetches the browser bots drive, in the background
 ```
 
-There is no `.env` to fill in. Keys are entered in the app, on the first screen.
+There is no `.env` to fill in. Keys are entered in the app, on the first screen, and
+sealed with a key the first start appends to the checkout's `.env`
+(`THURSDAY_ENCRYPTION_KEY`): keep it with `local.db`, or the saved keys are entered again.
 Node 22.18+ and pnpm 10+.
 
 Useful:
@@ -18,7 +20,7 @@ Useful:
 |---|---|
 | `pnpm dev` | the app, with hot reload — on 4747, or the next free port; afterwards on the port its first run took |
 | `pnpm typecheck` / `pnpm lint` | types and lint |
-| `pnpm test:live` / `test:bot` / `test:memory` / `test:reach` / `test:artifact` / `test:skills` | the call, bots, memory tools, the phone and calls in writing, file viewer URLs, shipped skills' files — offline, providers mocked |
+| `pnpm test:live` / `test:bot` / `test:memory` / `test:reach` / `test:artifact` / `test:skills` / `test:secrets` | the call, bots, memory tools, the phone and calls in writing, file viewer URLs, shipped skills' files, sealed secrets — offline, providers mocked |
 | `pnpm reset` | wipe local data (calls, jobs, memory) and optionally the build |
 | `pnpm build` && `pnpm start` | the production server, as `npx thursday-agent` runs it — on this checkout's data, not `~/.thursday` |
 | `pnpm pack:check` | assemble the tree npm would publish into `dist/`, from the last build and with no gates |

@@ -15,6 +15,7 @@ import {
   markSeen,
 } from "@/features/bot/thread.query";
 import {
+  configState,
   readConfig,
   removeConfig,
   writeConfig,
@@ -247,6 +248,11 @@ export async function startReach(fresh?: ReachChannelName): Promise<void> {
     state.live.delete(name);
     if (fresh && was?.line) await endCall(was.line.callId).catch(() => {});
 
+    // A token saved but no longer readable is not one taken out: the service stays off until it
+    // is given again (Settings › Phone says why), and whoever was let in stays for it — Slack's
+    // two come back one at a time, and the first alone must not let them go
+    const states = await Promise.all(REACH_KEYS[name].map(configState));
+    if (states.includes("unreadable")) continue;
     const keys = await Promise.all(REACH_KEYS[name].map(readConfig));
     if (!keys.every((key): key is string => Boolean(key))) {
       if (fresh) await removeConfig(reachPersonKey(name));

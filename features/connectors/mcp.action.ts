@@ -4,6 +4,7 @@ import { STUDIO_SERVER } from "@/config";
 import {
   deleteServer,
   findServerDetail,
+  forgetLostSignIn,
   upsertServer,
 } from "@/features/connectors/mcp.query";
 import { MCPServerFormSchema } from "@/features/connectors/mcp.schema";
@@ -42,8 +43,13 @@ export const registerServerAction = serverAction(async (input: unknown) => {
   return summary;
 });
 
-/** Drop the session and reconnect. */
+/**
+ * Drop the session and reconnect. A sign-in the data folder's key can no longer open is let go
+ * first, so this connect signs in afresh: Reconnect is where the Connectors screen sends the
+ * user for it (mcp.query forgetLostSignIn).
+ */
 export const refreshServerAction = serverAction(async (name: string) => {
+  await forgetLostSignIn(name);
   await mcpManager.disconnect(name);
   return connectSummary(name);
 });

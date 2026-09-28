@@ -1,5 +1,5 @@
 ---
-checked: 2026-09-27
+checked: 2026-09-28
 paths:
   - "features/ai/{model,model.schema,chatgpt,openrouter}.ts"
   - "features/ai/components/**"
@@ -28,7 +28,8 @@ MCP servers for them to use.
 
 ## How it fits
 Keys, the ChatGPT sign-in and the app-wide model picks are rows of the `config` table, read through
-`readConfig`, where `.env` wins. The provider records in `model.schema.ts` are the source: Settings'
+`readConfig`, where the environment wins; the keys and the sign-in are sealed there (`lib/secret.ts`),
+the picks are not. The provider records in `model.schema.ts` are the source: Settings'
 key rows, the save's allow list, the picker's providers and the default-model fallback all derive
 from them. Bots, a call in writing and a memory edit get their model from `model.ts`; a spoken call
 opens through `lib/live` instead: on the OpenAI key with its backend there, or on the GPT
@@ -58,8 +59,9 @@ tools: its pinned ones as tools of their own, the rest through `tool_search` and
   every command a bot runs once it is in `.env`.
 
 ## Check
-No suite is this area's own: `pnpm test:bot` and `pnpm test:reach` fake `getTextModel`, and
-`pnpm test:live` fakes `connected.ts`, so run them when those exports change. To see it, serve a
+`pnpm test:secrets` covers the keys and connector credentials kept sealed, and one that can no
+longer be opened; `pnpm test:bot` and `pnpm test:reach` fake `getTextModel`, and `pnpm test:live`
+fakes `connected.ts`, so run them when those exports change. To see it, serve a
 scratch copy (AGENTS.md › Running the app) and open Settings › API keys, Models and Connectors: a
 model field browses a catalog provider's shelf without a key, and a preset that needs no account
 connects.

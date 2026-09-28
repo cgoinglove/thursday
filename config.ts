@@ -259,6 +259,13 @@ export const DB_PATH = `${DATA_DIR}/local.db`;
 export const DB_FILE_NAME = `file:${DB_PATH}`;
 
 /**
+ * The data folder's own `.env`, where the key that seals the secrets in DB_PATH is kept when
+ * the environment does not set it (lib/secret). Beside the database, so it goes wherever the
+ * database goes: a copy of the folder carries both.
+ */
+export const ENV_PATH = `${DATA_DIR}/.env`;
+
+/**
  * Relative paths; readers join them with the root that owns them (APP_DIR for
  * the app's, DATA_DIR for the user's).
  */

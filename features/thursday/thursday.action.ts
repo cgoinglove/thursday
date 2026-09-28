@@ -19,7 +19,11 @@ import { loadThursdayPrompt } from "@/features/ai/prompts/thursday.prompt";
 import { removeThread } from "@/features/bot/bot.runner";
 import { listAllThreadIds } from "@/features/bot/thread.query";
 import { EXA_API_KEY } from "@/features/config/config.const";
-import { readConfig } from "@/features/config/config.query";
+import {
+  hasConfig,
+  missingKeyWords,
+  readConfig,
+} from "@/features/config/config.query";
 import { deleteAllNotes } from "@/features/memory/memory.query";
 import {
   LIVE_MODEL,
@@ -101,14 +105,21 @@ export const openCallAction = serverAction(
       await Promise.all(
         LIVE_LINES.map(async (line) => {
           const key = TEXT_MODEL_PROVIDERS[line].apiKeyName;
-          return [key, Boolean(await readConfig(key))] as const;
+          return [key, await hasConfig(key)] as const;
         }),
       ),
     );
     const line = liveLineOf(thursday.runsOn, (key) => keys.get(key) ?? false);
     if (!line) {
       publicError(
-        `A spoken call needs a ${TEXT_MODEL_PROVIDERS.chatgpt.label} sign-in or an ${LIVE_PROVIDER.label} key — Settings › API keys.`,
+        // Neither line can open it; one saved but no longer readable is said as that
+        await missingKeyWords(
+          TEXT_MODEL_PROVIDERS.chatgpt.apiKeyName,
+          await missingKeyWords(
+            LIVE_PROVIDER.apiKeyName,
+            `A spoken call needs a ${TEXT_MODEL_PROVIDERS.chatgpt.label} sign-in or an ${LIVE_PROVIDER.label} key — Settings › API keys.`,
+          ),
+        ),
       );
     }
 

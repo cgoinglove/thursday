@@ -10,7 +10,11 @@ import {
 import { formatDistanceToNowStrict } from "date-fns";
 import { z } from "zod";
 import { CHATGPT_SIGN_IN, CHATGPT_USAGE_HIGH, LIVE_CALL } from "@/config";
-import { readConfig, writeConfig } from "@/features/config/config.query";
+import {
+  missingKeyWords,
+  readConfig,
+  writeConfig,
+} from "@/features/config/config.query";
 import { isPlanCallId } from "@/lib/live/live.plan";
 import { logger } from "@/lib/logger";
 import { oauthPage } from "@/lib/oauth-page";
@@ -317,13 +321,13 @@ const expiring = (signIn: SignIn) =>
 /** The sign-in to send a request with, renewed first when its access token is about to run out. */
 async function currentSignIn(): Promise<SignIn> {
   const stored = await readSignIn();
-  if (!stored) publicError(NOT_SIGNED_IN);
+  if (!stored) publicError(await missingKeyWords(SIGN_IN_KEY, NOT_SIGNED_IN));
   if (!expiring(stored)) return stored;
 
   return renewal(SIGN_IN_KEY, async () => {
     // Another request may have renewed it while this one waited its turn
     const latest = await readSignIn();
-    if (!latest) publicError(NOT_SIGNED_IN);
+    if (!latest) publicError(await missingKeyWords(SIGN_IN_KEY, NOT_SIGNED_IN));
     if (!expiring(latest)) return latest;
     try {
       const renewed = await requestToken({

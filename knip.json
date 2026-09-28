@@ -3,5 +3,6 @@
   "entry": ["scripts/intro-voice.mts"],
   "ignore": ["skills/**", "components/ui/**"],
   "ignoreBinaries": ["du"],
+  "ignoreDependencies": ["@next/env"],
   "ignoreExportsUsedInFile": true
 }

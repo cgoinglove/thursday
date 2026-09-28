@@ -48,6 +48,14 @@ export type MCPToolInfo = z.infer<typeof MCPToolInfoSchema>;
 
 export type MCPOAuthData = z.infer<typeof MCPOAuthDataSchema>;
 
+/**
+ * The oauth column as stored: `state` and the authorization server's public metadata as they
+ * are, since the callback finds its server by `state` in SQL (mcp.query findServerByOAuthState),
+ * and the client, tokens and verifier sealed together in `sealed` (lib/secret). A row written
+ * before sealing began holds them in the clear until boot seals it.
+ */
+export type MCPStoredOAuth = MCPOAuthData & { sealed?: string };
+
 /** Remote or stdio is decided by shape; the user is never asked. */
 export function isRemoteConfig(
   config: MCPServerConfig,

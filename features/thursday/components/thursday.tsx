@@ -47,7 +47,11 @@ import { BotRoom } from "@/features/bot/components/bot-room";
 import { toolIcon } from "@/features/bot/components/bot-tool";
 import { useAnswerThread } from "@/features/bot/components/thread-reply";
 import { GetKeyLink, VoiceKeys } from "@/features/config/components/voice-key";
-import { type ConfigStatus, isConfigSet } from "@/features/config/config.const";
+import {
+  type ConfigStatus,
+  isConfigSet,
+  isConfigUnreadable,
+} from "@/features/config/config.const";
 import { InstallNudge } from "@/features/settings/components/install-app";
 import { SECTIONS, Settings } from "@/features/settings/components/settings";
 import {
@@ -1707,6 +1711,11 @@ function NeedsKey({
   const { data: automatic } = useServerRoute<AutomaticModel>(
     queryKey.automaticModel,
   );
+  // A key or sign-in saved before that can no longer be opened is said as that, not as one never given
+  const { data: config } = useServerRoute<ConfigStatus[]>(queryKey.config);
+  const lost = LIVE_LINES.find((line) =>
+    isConfigUnreadable(config, TEXT_MODEL_PROVIDERS[line].apiKeyName),
+  );
   if (open) {
     return (
       <div className="w-[min(26rem,84vw)] animate-in space-y-2.5 rounded-2xl bg-background/80 p-3 ring-1 ring-border/60 backdrop-blur-md fade-in duration-300">
@@ -1751,9 +1760,13 @@ function NeedsKey({
         <MicOff className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-muted text-muted-foreground" />
       </span>
       <span className="text-[13px] text-muted-foreground break-keep wrap-anywhere">
-        {automatic && !automatic.ref
-          ? "Sign in with ChatGPT and calls and bots run on your plan, or add a key."
-          : "Calls need a GPT Subscription or an OpenAI key. Everything else here already works."}
+        {lost === "chatgpt"
+          ? "The ChatGPT sign-in saved for calls can't be unlocked any more — sign in again."
+          : lost
+            ? "The key saved for calls can't be unlocked any more — add it again."
+            : automatic && !automatic.ref
+              ? "Sign in with ChatGPT and calls and bots run on your plan, or add a key."
+              : "Calls need a GPT Subscription or an OpenAI key. Everything else here already works."}
       </span>
       {/* the one thing this screen asks for */}
       <Button size="sm" variant="brand" onClick={onOpen} className="h-7 px-3.5">

@@ -30,7 +30,7 @@ import {
   DEFAULT_MODEL_KEY,
   MEDIA_MODEL_KEYS,
 } from "@/features/config/config.const";
-import { readConfig } from "@/features/config/config.query";
+import { missingKeyWords, readConfig } from "@/features/config/config.query";
 import { logger } from "@/lib/logger";
 import { publicError } from "@/lib/public-error";
 import { clip, errorToString } from "@/lib/utils";
@@ -664,9 +664,12 @@ export async function getTextModel(ref: TextModelRef): Promise<TextModel> {
   const apiKey = await readConfig(apiKeyName);
   if (!apiKey) {
     publicError(
-      signIn
-        ? `${label} is not signed in — sign in from Settings › API keys.`
-        : `No ${label} key — add one in Settings › API keys.`,
+      await missingKeyWords(
+        apiKeyName,
+        signIn
+          ? `${label} is not signed in — sign in from Settings › API keys.`
+          : `No ${label} key — add one in Settings › API keys.`,
+      ),
     );
   }
   return buildTextModel(ref, apiKey);
@@ -721,9 +724,12 @@ export async function resolveDefaultModel(
     const { label, apiKeyName, signIn } = TEXT_MODEL_PROVIDERS[chosen.provider];
     if (await readConfig(apiKeyName)) return chosen;
     publicError(
-      signIn
-        ? `The default model is ${chosen.model} on ${label}, which is signed out — sign in again, or pick another in Settings › Models.`
-        : `The default model is ${chosen.model}, and there is no ${label} key any more — add it in Settings › API keys, or pick another in Settings › Models.`,
+      await missingKeyWords(
+        apiKeyName,
+        signIn
+          ? `The default model is ${chosen.model} on ${label}, which is signed out — sign in again, or pick another in Settings › Models.`
+          : `The default model is ${chosen.model}, and there is no ${label} key any more — add it in Settings › API keys, or pick another in Settings › Models.`,
+      ),
     );
   }
 

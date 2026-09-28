@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.20.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.19.0...thursday-agent-v0.20.0) (2026-09-27)
+
+
+### Features
+
+* **bot:** one bot hands a job out, and work that needs another's answer waits for it ([d196644](https://github.com/cgoinglove/thursday/commit/d19664485f3b4ed890d365ed7fc2e85adfe8aeae))
+* **call:** a call in writing moves onto the OpenAI key when the GPT plan is spent ([eff378a](https://github.com/cgoinglove/thursday/commit/eff378a1c3b2e57a02c7979b7295f9fa75524b38))
+* **call:** both call prompts know the user's town and its weather, when the browser shares where they are ([25d0a6a](https://github.com/cgoinglove/thursday/commit/25d0a6a7604cd067b8ae03f6fe11f0cb6b8fcc79))
+
+
+### Fixes
+
+* **bot:** work held `after` another bot goes out once the coordinator has read that bot's answer ([e2c1839](https://github.com/cgoinglove/thursday/commit/e2c1839513cc4555c0746e79da97303d3c75ed82))
+* **call:** where the user is never fails a call: a malformed one is dropped, and a refusal is read without a global ([e387341](https://github.com/cgoinglove/thursday/commit/e387341f330513f8d05dc4c2e67d38f021ef2df8))
+* **cli:** an older Node is told what to type to update it and start again, on Node 10 and up ([c8cf2e5](https://github.com/cgoinglove/thursday/commit/c8cf2e54b3426d7080a0dae494615626e7a9da8e))
+* **test:** the whereabouts test keeps one module, so it passes on Node 22 ([188f318](https://github.com/cgoinglove/thursday/commit/188f31896f006f2007ee1fb128798dd825c4619b))
+* **ui:** update loading text in Combobox and remove ellipsis from connection status in Reach Guide ([d141dad](https://github.com/cgoinglove/thursday/commit/d141dad639a3a55683c8586c2c1f8d24e4690796))
+
 ## [0.19.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.18.0...thursday-agent-v0.19.0) (2026-09-26)
 
 

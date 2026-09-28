@@ -58,11 +58,13 @@ function connect(): Client {
 }
 
 /**
- * Locks the database to the account that runs the app. It holds every provider
- * key and every sign-in token as plain text (features/config), and SQLite makes
- * the file with the process umask — 644 on macOS, which any other account on the
- * machine can read, as can whatever syncs the folder it sits in. The sign-ins
- * beside it are already owner-only (signins.query write).
+ * Locks the database to the account that runs the app. It holds every call,
+ * memory and job in plain text, and every provider key and sign-in token sealed
+ * under a key in the `.env` beside it (lib/secret) — and SQLite makes the file
+ * with the process umask, 644 on macOS, which any other account on the machine
+ * can read, as can whatever syncs the folder it sits in. The sign-ins beside it
+ * are already owner-only (signins.query write), as is the `.env` a key is
+ * written to (lib/secret).
  */
 function ownerOnly(): void {
   for (const file of [DB_PATH, `${DB_PATH}-wal`, `${DB_PATH}-shm`]) {
@@ -75,22 +77,27 @@ function ownerOnly(): void {
 }
 
 /**
- * Folds the write-ahead log back into the database file. Under WAL the recent
- * writes live in `local.db-wal` and SQLite folds them in when it chooses, so a
- * copy of `local.db` on its own can be missing everything since the last fold —
- * and a copy is what a backup, or a move to another machine, takes. Called as the
- * server stops (instrumentation), the one moment nothing else is writing.
+ * Folds the write-ahead log back into the database file and empties it. Under WAL
+ * the recent writes live in `local.db-wal` and SQLite folds them in when it
+ * chooses, so a copy of `local.db` on its own can be missing everything since the
+ * last fold — and a copy is what a backup, or a move to another machine, takes.
+ * Called as the server stops (instrumentation), the one moment nothing else is
+ * writing, and after boot rewrites the file (config.seal). False when a reader
+ * held it back and the log is not yet empty.
  */
-export async function checkpoint(): Promise<void> {
-  await client.execute("PRAGMA wal_checkpoint(TRUNCATE)");
+export async function checkpoint(): Promise<boolean> {
+  const { rows } = await client.execute("PRAGMA wal_checkpoint(TRUNCATE)");
+  return Number(rows[0]?.busy ?? 0) === 0;
 }
 
 /**
  * Gives the deleted rows' pages back to the disk. SQLite hands them to its own
  * free list instead, so the file never shrinks below the most it has ever held
- * and someone who wipes a year of calls to make room gets none of it back. It
- * rewrites the whole file, so it belongs to a wipe that is already rare and
- * deliberate (thursday.action resetHistory), never to deleting one call.
+ * and someone who wipes a year of calls to make room gets none of it back — and
+ * what a row held stays in the page it freed. It rewrites the whole file, so it
+ * belongs to what is already rare and deliberate: a wipe (thursday.action
+ * resetHistory), and the one pass that seals keys an older build kept in the
+ * clear (config.seal); never to deleting one call.
  */
 export async function reclaim(): Promise<void> {
   await client.execute("VACUUM");
