@@ -22,7 +22,10 @@ import {
   setConfigAction,
 } from "@/features/config/config.action";
 import {
+  CONFIG_ENTRIES,
   type ConfigStatus,
+  envWords,
+  isConfigFromEnv,
   isConfigSet,
   isConfigUnreadable,
   lostWords,
@@ -682,6 +685,9 @@ function KeyField({
 }) {
   const [value, setValue] = useState("");
   const [editing, setEditing] = useState(false);
+  // Deduped with the guide's own read; a token the environment sets cannot be changed here
+  const { data: config } = useServerRoute<ConfigStatus[]>(queryKey.config);
+  const env = isConfigFromEnv(config, configKey);
   const done = () => {
     setValue("");
     setEditing(false);
@@ -701,6 +707,17 @@ function KeyField({
     });
     if (confirmed) void remove(configKey);
   };
+
+  // Set where this field cannot reach: where it is, and nothing that would not stick
+  if (env)
+    return (
+      <>
+        <p className="max-w-xl text-muted-foreground">
+          {envWords(CONFIG_ENTRIES[configKey]?.label ?? configKey)}
+        </p>
+        {refused && <p className="max-w-xl text-destructive">{refused}</p>}
+      </>
+    );
 
   // A step already behind stays quiet: one muted way back in, and nothing else
   if (set && !editing && refused === null)

@@ -69,6 +69,13 @@ no longer wanted. A connector that took a key is added again under the same name
 its bots keep their tools; one that signs in waits until **Reconnect**, which asks for the sign-in
 again — a bot or a routine using it meanwhile is told so, and the old sign-in stays until then.
 
+## A key cannot be removed or replaced
+
+A key or token set in the environment the app started with — a `.env` next to the app, or one
+exported in the shell — is used over one saved in Settings. Its row in **Settings › API keys** or
+its step in **Settings › Phone** says it is set in the environment, and offers no Remove or
+Replace, since neither would change the key in use. Change or remove it where it is set, then start the app again.
+
 ## Starting over
 
 **Settings › Thursday › History › Reset history** deletes every call, every job and everything she

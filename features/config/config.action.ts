@@ -8,8 +8,13 @@ import { REACH_KEYS } from "@/features/reach/reach.schema";
 import { keyRefusal } from "@/lib/live/live.server";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
-import { acceptsChoice, CONFIG_ENTRIES, CONFIG_KEYS } from "./config.const";
-import { removeConfig, writeConfig } from "./config.query";
+import {
+  acceptsChoice,
+  CONFIG_ENTRIES,
+  CONFIG_KEYS,
+  envWords,
+} from "./config.const";
+import { configFromEnv, removeConfig, writeConfig } from "./config.query";
 
 /** The catalogue is the allow list. */
 const KeySchema = z.enum(CONFIG_KEYS as [string, ...string[]]);
@@ -22,6 +27,7 @@ export const setConfigAction = serverAction(
       .parse({ key, value });
 
     const entry = CONFIG_ENTRIES[parsed.key];
+    refuseFromEnv(parsed.key);
     if (entry?.signIn) {
       publicError(`${entry.label} takes a sign-in, not a key.`);
     }
@@ -46,9 +52,19 @@ export const setConfigAction = serverAction(
 
 export const removeConfigAction = serverAction(async (key: unknown) => {
   const parsed = KeySchema.parse(key);
+  refuseFromEnv(parsed);
   await removeConfig(parsed);
   await tokenChanged(parsed);
 });
+
+/**
+ * The environment wins over a row (config.query readConfig), so a write or a removal here would
+ * change nothing that is used: refused in words, rather than reported done.
+ */
+function refuseFromEnv(key: string) {
+  if (configFromEnv(key))
+    publicError(envWords(CONFIG_ENTRIES[key]?.label ?? key));
+}
 
 /** A chat service's new token is listened to at once, and none is nothing to listen for (features/reach). */
 async function tokenChanged(key: string) {

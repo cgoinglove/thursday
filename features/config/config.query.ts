@@ -61,6 +61,11 @@ export async function hasConfig(key: string): Promise<boolean> {
   return (await configState(key)) === "set";
 }
 
+/** Whether the environment sets this key, which then wins over its row (`readConfig`). */
+export function configFromEnv(key: string): boolean {
+  return Boolean(process.env[key]?.trim());
+}
+
 /** A key's value and whether it can be used: the environment's, else the row's, opened. */
 async function stored(key: string): Promise<{
   state: "set" | "unset" | "unreadable";

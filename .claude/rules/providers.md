@@ -28,8 +28,9 @@ MCP servers for them to use.
 
 ## How it fits
 Keys, the ChatGPT sign-in and the app-wide model picks are rows of the `config` table, read through
-`readConfig`, where the environment wins; the keys and the sign-in are sealed there (`lib/secret.ts`),
-the picks are not. The provider records in `model.schema.ts` are the source: Settings'
+`readConfig`, where the environment wins — `/api/config` marks such a key `env`, Settings says so,
+and the save and remove actions refuse it; the keys and the sign-in are sealed there
+(`lib/secret.ts`), the picks are not. The provider records in `model.schema.ts` are the source: Settings'
 key rows, the save's allow list, the picker's providers and the default-model fallback all derive
 from them. Bots, a call in writing and a memory edit get their model from `model.ts`; a spoken call,
 its backend included, opens on the OpenAI key through `lib/live` instead. Only a bot reaches

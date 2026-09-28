@@ -350,6 +350,11 @@ export type ConfigStatus = {
    * nothing can use it, and the screen asks for it again rather than showing it as never given.
    */
   unreadable?: true;
+  /**
+   * Set in the environment the app started with (a `.env` Next loads, or the shell), which wins
+   * over a row (config.query readConfig): Settings can neither replace nor remove it.
+   */
+  env?: true;
   /** Choice entries only. */
   value?: string;
 };
@@ -368,6 +373,18 @@ export function isConfigUnreadable(
   return (
     status?.some((entry) => entry.key === key && entry.unreadable) ?? false
   );
+}
+
+export function isConfigFromEnv(
+  status: ConfigStatus[] | undefined,
+  key: string,
+): boolean {
+  return status?.some((entry) => entry.key === key && entry.env) ?? false;
+}
+
+/** How a setting the environment holds is said, on the screen and in the action's refusal. */
+export function envWords(label: string): string {
+  return `${label} is set in the environment the app started with — a .env or your shell — and that one is used over one saved here. Change or remove it there, then start the app again.`;
 }
 
 /**

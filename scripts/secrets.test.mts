@@ -287,6 +287,47 @@ test("the environment still wins over a sealed row", async () => {
   assert.equal(await config.readConfig(EXA_API_KEY), "exa-from-settings");
 });
 
+test("a key the environment sets is marked env, and Settings refuses to replace or remove it rather than report it done", async () => {
+  const { removeConfigAction, setConfigAction } = await import(
+    "../features/config/config.action.ts"
+  );
+  const route = await import("../app/api/config/route.ts");
+  await config.writeConfig(EXA_API_KEY, "exa-from-settings");
+  const saved = await rawConfig(EXA_API_KEY);
+  process.env[EXA_API_KEY] = "exa-from-env";
+  try {
+    const status =
+      await get<{ key: string; set: boolean; env?: true }[]>(route);
+    assert.deepEqual(
+      status.find((one) => one.key === EXA_API_KEY),
+      { key: EXA_API_KEY, set: true, env: true },
+    );
+
+    // Refused in the words the screen shows, and the row is as it was
+    for (const refused of [
+      await removeConfigAction(EXA_API_KEY),
+      await setConfigAction(EXA_API_KEY, "exa-typed-into-settings"),
+    ]) {
+      assert.equal(refused.$ok, false);
+      assert.match(
+        (refused as { message?: string }).message ?? "",
+        /set in the environment the app started with/,
+      );
+    }
+    assert.equal(await rawConfig(EXA_API_KEY), saved);
+    assert.equal(await config.readConfig(EXA_API_KEY), "exa-from-env");
+  } finally {
+    delete process.env[EXA_API_KEY];
+  }
+
+  // Without it, the row is Settings' own again: not marked, and removed when asked
+  const status = await get<{ key: string; env?: true }[]>(route);
+  assert.equal(status.find((one) => one.key === EXA_API_KEY)?.env, undefined);
+  dataOf(await removeConfigAction(EXA_API_KEY));
+  assert.equal(await rawConfig(EXA_API_KEY), undefined);
+  await config.writeConfig(EXA_API_KEY, "exa-from-settings");
+});
+
 test("keys an older build wrote in the clear read as before, and are sealed at boot once", async () => {
   await putConfig(TELEGRAM_TOKEN_KEY, "456:legacy-token");
   await putConfig(EXA_API_KEY, "exa-legacy");
