@@ -14,11 +14,17 @@ import {
   INBOX_POLL_MS,
   LIVE_CALL,
 } from "@/config";
-import { LIVE_DEFAULTS } from "@/features/ai/live.schema";
+import { signInWithChatGpt } from "@/features/ai/components/chatgpt-sign-in";
+import {
+  LIVE_DEFAULTS,
+  type LiveLine,
+  type LiveSettings,
+} from "@/features/ai/live.schema";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import { acceptThreadRelaysAction } from "@/features/bot/bot.action";
 import type { Bot, Thread } from "@/features/bot/bot.schema";
 import { botThreads, screenActs } from "@/features/bot/thread.store";
+import { useVoiceLine } from "@/features/config/components/voice-key";
 import { openSettings } from "@/features/settings/settings.store";
 import { runRemoteTool } from "@/features/thursday/tool-call";
 import { askToNotify } from "@/features/workspace/components/artifact-view";
@@ -156,13 +162,33 @@ export type CallEnd = "quiet" | "hungUp" | "closed" | "expired" | "dropped";
 const CALL_LOCK = "thursday-spoken-call";
 
 /**
- * The way from a call that failed on its line to what it runs on: Settings › Thursday, where the
- * GPT Subscription and the OpenAI key stand side by side, with the one not set up asked for there.
+ * What a call that failed on its line says: which line it was on, the provider's words as they
+ * came (the description), and the one thing that line takes again — the sign-in, or the key.
+ * The app does not guess why; the other line is Settings › Thursday's "runs on".
  */
-const LINE_SETTINGS = {
-  children: "Call settings",
-  onClick: () => openSettings("thursday"),
-};
+function lineFailure(
+  line: LiveLine | null,
+  opening: boolean,
+): { title: string; actionProps: { children: string; onClick: () => void } } {
+  const on =
+    line === "chatgpt"
+      ? " on your GPT Subscription"
+      : line === "openai"
+        ? " on your OpenAI key"
+        : "";
+  return {
+    title: opening ? `Could not start the call${on}` : `The call${on} failed`,
+    actionProps:
+      line === "chatgpt"
+        ? { children: "Sign in again", onClick: () => void signInWithChatGpt() }
+        : line === "openai"
+          ? { children: "Change key", onClick: () => openSettings("keys") }
+          : {
+              children: "Call settings",
+              onClick: () => openSettings("thursday"),
+            },
+  };
+}
 
 /** Another tab of the app has a call on: said as that, not as a call that failed. */
 class CallElsewhere extends Error {}
@@ -190,6 +216,13 @@ export function useThursday(
   writing = false,
 ) {
   const session = useRef<LiveSession | null>(null);
+  // The line a call opens on, as the server will pick it (live.schema liveLineOf): a failure
+  // says which one it was on, and offers that line's sign-in or key
+  const { data: liveSettings } = useServerRoute<LiveSettings>(
+    queryKey.thursdaySettings,
+  );
+  const voiceLine = useRef<LiveLine | null>(null);
+  voiceLine.current = useVoiceLine(liveSettings?.runsOn ?? null).line;
   // created on the first call: `new Audio()` cannot run during SSR
   const tap = useRef<AudioTap | null>(null);
   /** Created inside the call-starting click; hang-up may come from a tool or a disconnect with no gesture. */
@@ -823,6 +856,7 @@ export function useThursday(
     // Whether the server was asked to open the line: a failure from there on is the line's —
     // the plan or the key it runs on — and its setting is one press away
     const reached = { server: false };
+    const on = voiceLine.current;
     try {
       // Inside the gesture, before anything awaits: an AudioContext created later
       // starts suspended. Calls from the wake word or a call-back have no gesture;
@@ -1158,9 +1192,8 @@ export function useThursday(
             }
             toast.add({
               type: "error",
-              title: "Call failed",
               description,
-              actionProps: LINE_SETTINGS,
+              ...lineFailure(on, false),
             });
             showFailed(true);
             void hangUp(finalized.current ? "closed" : "dropped");
@@ -1216,11 +1249,13 @@ export function useThursday(
           description: cause.message,
         });
       else if (current()) {
+        // Before the line was asked for (the microphone, the lock) it is not the line's to fix
         toast.add({
           type: "error",
-          title: "Could not start the call",
           description: errorToString(cause),
-          actionProps: reached.server ? LINE_SETTINGS : undefined,
+          ...(reached.server
+            ? lineFailure(on, true)
+            : { title: "Could not start the call" }),
         });
         showFailed(true);
         // Answering took the ring down; it comes back as missed, since nothing was told

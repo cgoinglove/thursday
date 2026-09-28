@@ -70,7 +70,10 @@ export function GetKeyLink() {
  * a call would open on (live.schema liveLineOf). `known` is false until both the keys and, when
  * signed in, the plan have answered, so a screen keeps its own answer meanwhile.
  */
-export function useVoiceLine(): {
+export function useVoiceLine(
+  /** The line picked in Settings › Thursday, which a call opens on while it is set up. */
+  picked: LiveLine | null = null,
+): {
   known: boolean;
   signedIn: boolean;
   /** The plan as the token names it; null when it does not say or nobody is signed in. */
@@ -98,7 +101,7 @@ export function useVoiceLine(): {
     plan,
     planCalls,
     line: known
-      ? liveLineOf(null, (key) => isConfigSet(config, key), plan)
+      ? liveLineOf(picked, (key) => isConfigSet(config, key), plan)
       : null,
     countsForCall: (key) =>
       isConfigSet(config, key) &&
@@ -132,47 +135,47 @@ export function CallLines({
   const noCalls = voice.signedIn && !voice.planCalls;
   return (
     // Left-aligned wherever it stands: the call screen centres what is under her face
-    <div className="flex w-full flex-col gap-3 text-left">
-      {/* Equal cards whose buttons share one line at their foot, whatever each says above */}
-      <div className="grid grid-cols-2 gap-2">
-        <LineCard
-          provider="chatgpt"
-          title={TEXT_MODEL_PROVIDERS.chatgpt.label}
-          tag={noCalls ? (planName(voice.plan) ?? undefined) : "recommended"}
-          about={
-            planLost
-              ? "The sign-in saved before can't be unlocked any more. Sign in again."
-              : noCalls
-                ? "This plan runs bots and calls in writing, but not spoken calls. A paid plan or a key does."
-                : "Your ChatGPT plan. No key, and no bill by the minute."
-          }
-          lost={planLost || noCalls}
+    <div className="flex w-full flex-col gap-2 text-left">
+      {/* Rows as Settings › API keys draws an account, the plan first: in the first run's
+          narrow column two cards side by side left each button no room (09-28) */}
+      <LineRow
+        provider="chatgpt"
+        title={TEXT_MODEL_PROVIDERS.chatgpt.label}
+        // Recommended by its place and its button, not a tag: the name has no room beside one
+        tag={noCalls ? (planName(voice.plan) ?? undefined) : undefined}
+        about={
+          planLost
+            ? "The sign-in saved before can't be unlocked any more."
+            : noCalls
+              ? "Bots and writing run on this plan; spoken calls don't."
+              : "Your ChatGPT plan. No key, no bill by the minute."
+        }
+        warn={planLost || noCalls}
+      >
+        <ChatGptSignIn
+          variant={noCalls ? "outline" : "brand"}
+          size="sm"
+          className="w-full"
+          label={planLost || noCalls ? "Sign in again" : "Sign in"}
+        />
+      </LineRow>
+      <LineRow
+        provider="openai"
+        title="OpenAI API key"
+        about="Billed by the minute of call, apart from ChatGPT."
+      >
+        <Button
+          size="sm"
+          variant={noCalls ? "brand" : "outline"}
+          aria-expanded={keyOpen}
+          onClick={() => setKeyOpen((open) => !open)}
+          className="w-full"
         >
-          <ChatGptSignIn
-            variant={noCalls ? "outline" : "brand"}
-            size="sm"
-            className="w-full"
-            label={noCalls ? "Sign in again" : undefined}
-          />
-        </LineCard>
-        <LineCard
-          provider="openai"
-          title="OpenAI API key"
-          about="Billed by the minute of call, apart from ChatGPT."
-        >
-          <Button
-            size="sm"
-            variant={noCalls ? "brand" : "outline"}
-            aria-expanded={keyOpen}
-            onClick={() => setKeyOpen((open) => !open)}
-            className="w-full"
-          >
-            Paste a key
-          </Button>
-        </LineCard>
-      </div>
+          Paste a key
+        </Button>
+      </LineRow>
       {keyOpen && (
-        <div className="flex animate-in flex-col gap-2.5 fade-in slide-in-from-top-1 duration-200">
+        <div className="flex animate-in flex-col gap-2.5 pt-1 fade-in slide-in-from-top-1 duration-200">
           <VoiceKeys dense plain autoFocus onSaved={onSaved} />
           <GetKeyLink />
         </div>
@@ -181,43 +184,48 @@ export function CallLines({
   );
 }
 
-function LineCard({
+/** One way to her voice: its mark, name and what it costs, and the one button that sets it up. */
+function LineRow({
   provider,
   title,
   tag,
   about,
-  lost = false,
+  warn = false,
   children,
 }: {
   provider: TextModelProviderId;
   title: string;
   tag?: string;
   about: string;
-  lost?: boolean;
+  /** What it says waits on the user: a sign-in lost, or a plan without spoken calls. */
+  warn?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2.5 rounded-xl p-3 ring-1 ring-border ring-inset">
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="flex h-4.5 items-center justify-between gap-1.5">
-          <ProviderIcon provider={provider} className="size-4 shrink-0" />
+    <div className="flex items-center gap-3 rounded-xl p-3 ring-1 ring-border ring-inset">
+      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted/60">
+        <ProviderIcon provider={provider} className="size-4" />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex items-center gap-2 text-[13px] leading-tight font-medium">
+          <span className="truncate">{title}</span>
           {tag && (
-            <span className="rounded-full px-1.5 font-mono text-[9.5px] leading-4 text-muted-foreground ring-1 ring-border ring-inset">
+            <span className="shrink-0 rounded-full px-1.5 font-mono text-[9.5px] leading-4 font-normal text-muted-foreground ring-1 ring-border ring-inset">
               {tag}
             </span>
           )}
         </span>
-        <span className="text-[13px] leading-tight font-medium">{title}</span>
         <span
           className={cn(
             "text-[11.5px] leading-snug text-pretty",
-            lost ? WAITING_INK : "text-muted-foreground",
+            warn ? WAITING_INK : "text-muted-foreground",
           )}
         >
           {about}
         </span>
-      </div>
-      {children}
+      </span>
+      {/* One width for both, so the two buttons stand in one column */}
+      <span className="w-28 shrink-0">{children}</span>
     </div>
   );
 }

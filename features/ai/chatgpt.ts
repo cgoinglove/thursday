@@ -603,9 +603,9 @@ export async function openPlanCall(input: {
         .error;
       said = typeof error?.message === "string" ? error.message : null;
     } catch {}
-    // Its words alone were a bare "Not Found" on a plan without calls: said as the call's
     publicError(
-      `${LABEL} did not open a spoken call (${response.status}): ${said ?? (text.slice(0, 300) || "no reason given")}. Settings › Thursday can move calls to an OpenAI key.`,
+      said ??
+        `${LABEL} refused the call (${response.status})${text ? `: ${text.slice(0, 300)}` : ""}`,
     );
   }
   // The id is the last part of Location that is one, else the session header (openclaw

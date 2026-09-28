@@ -7,9 +7,10 @@ microphone, which bots come along, what they think with, her style, and the firs
 window each step sits under her face. She talks through it in a recorded English voice; her
 real voice starts with the first call. The speaker button at the top right mutes it.
 
-The first step offers her voice two ways, side by side: **GPT Subscription**, marked recommended,
-with **Sign in with ChatGPT**, and **OpenAI API key**, whose **Paste a key** opens the key field
-under both. Either one wakes her; signed in, the step shows the plan it is on.
+The first step offers her voice two ways, one above the other: **GPT Subscription** first, with
+**Sign in** (it opens ChatGPT's sign-in window), and **OpenAI API key**, whose
+**Paste a key** opens the key field under both. Either one wakes her; signed in, the step shows the
+plan it is on. The call screen's **Set up** and **Settings › Thursday** ask the same way.
 
 Every step can be skipped and done later in Settings. On the microphone step the main button turns
 the microphone on (the browser asks first, by its address bar); the line under it goes on without

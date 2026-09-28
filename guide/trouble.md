@@ -4,10 +4,11 @@ Say what happened and the one thing that fixes it; most problems are a setting o
 
 ## A call will not open, or ended
 
-- **"Could not start the call"** or **"Call failed"** shows the provider's reason, with a **Call
-  settings** button that opens **Settings › Thursday**. A refused key or no credit is fixed in
-  **Settings › API keys**; a model the key cannot use is changed in **Settings › Thursday**, under
-  Models.
+- **"Could not start the call on your GPT Subscription"** (or **on your OpenAI key**), or **"The
+  call on … failed"**, names what the call ran on and shows the provider's words as they came. Its
+  button is that line's fix: **Sign in again** for the GPT Subscription, **Change key** for the
+  OpenAI key (**Settings › API keys**). A model the key cannot use is changed in **Settings ›
+  Thursday**, under Models, and **runs on** there moves calls to the other line.
 - **A call on the GPT Subscription is refused**: the reason is the plan's own, such as its usage
   spent. **runs on** in **Settings › Thursday › Models** moves calls to the OpenAI key, and asks for
   one there when none is set.
