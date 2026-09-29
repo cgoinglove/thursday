@@ -1,5 +1,84 @@
 # Changelog
 
+## [0.23.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.22.0...thursday-agent-v0.23.0) (2026-09-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* **call:** a spoken call no longer shares a screen or the camera
+
+### Features
+
+* **artifact:** a document is edited by clicking into it, and no edit is lost in or out of the app ([803afa4](https://github.com/cgoinglove/thursday/commit/803afa4b8b41c79942011ef59b868d99286b23c5))
+* **artifact:** a page built on the app kit reads in the app's own type ([f8b2be6](https://github.com/cgoinglove/thursday/commit/f8b2be689cce6bc48ccd2431272b3ebbcbf48181))
+* **artifact:** decks keep their four palettes and gain paper and night; boards keep their look beside a plain one ([91657ab](https://github.com/cgoinglove/thursday/commit/91657ab09195252d43b1175fe28a431481b5957d))
+* **artifact:** every page a bot makes wears the app's type and its maker's face, and the morning brief is drawn in the app's look ([b64967b](https://github.com/cgoinglove/thursday/commit/b64967bd469ecfe24121ed166de8f5388ffec2d3))
+* **artifact:** finished pages read as the app's own, and end naming who made them ([b96ff2a](https://github.com/cgoinglove/thursday/commit/b96ff2aa498b3c864f0804c1161c40549899f671))
+* **artifact:** picture books become slides that explain a picture at a time, and a deck prints to a PDF or reads itself aloud ([2abed91](https://github.com/cgoinglove/thursday/commit/2abed9177db30e57190cc8e56153e3f068609c05))
+* **bot:** an open thread is its office where her face stands ([0ab9fe9](https://github.com/cgoinglove/thursday/commit/0ab9fe9fd486e9d0d92b523503f65409dfb6f367))
+* **bot:** the office reads at a glance, and the room stops jumping ([950d19d](https://github.com/cgoinglove/thursday/commit/950d19d470fe0102e40977f368c7a93ccef6574a))
+* **bot:** the office says only what matters: a plate for the bot at work, the one that needs you and the report, and the finish written large ([0d56f6b](https://github.com/cgoinglove/thursday/commit/0d56f6b872857ab8ae8c097fa52e66bfc4a5c3d1))
+* **bot:** the office stamps how the job stands, opens a plate where it is, and its bots leap ([993a210](https://github.com/cgoinglove/thursday/commit/993a210908b3dc3f223ecc3a5105c788f2038d00))
+* **bot:** the office's ground keeps its stamp alone, papers fall and lie, quiet plates fold to a mark, and a stopped bot's eyes cross ([ec7f828](https://github.com/cgoinglove/thursday/commit/ec7f82878ecc2a1a5a0d5da6272bd60b4d89b1e5))
+* **bot:** the report stands open over the thread's bot, a pressed bot opens its last answer there, and the office opens at 70% ([344ddfa](https://github.com/cgoinglove/thursday/commit/344ddfadeb27030e15ce81757083fdf0ace9a39e))
+* **bot:** the report stays put, a thread reads without its office, and a bot walks a taken-back report home ([c960e1e](https://github.com/cgoinglove/thursday/commit/c960e1ed295553da0aa4a29c182d83713b439ab4))
+* **bot:** the Writer takes mail and whatever goes out in the user's name, the Designer short films, and a job's own form wins over a role's ([8b52a59](https://github.com/cgoinglove/thursday/commit/8b52a595b749c7c4ba8d50478ab1b3331cc4cb01))
+* **brief:** a morning brief that is the reader's own — what changed since the last one, why each story is theirs ([6865b06](https://github.com/cgoinglove/thursday/commit/6865b06f48a26dfa60c465612329f00363b1bb15))
+* **call:** a spoken call no longer shares a screen or the camera ([bc5e187](https://github.com/cgoinglove/thursday/commit/bc5e187df25e48a4680057b607ff8a426119f41d))
+* **call:** draw something and hand it to her as a picture ([ce58e59](https://github.com/cgoinglove/thursday/commit/ce58e591330f6ecc172717b5558dc70e5741c414))
+* **draw:** the pad takes back a stroke and brings it back ([d26c28c](https://github.com/cgoinglove/thursday/commit/d26c28c5781e1ace8992e03dbde07ae695e75034))
+* **intro:** one press turns the microphone on and goes on ([4e547d6](https://github.com/cgoinglove/thursday/commit/4e547d6d701fb01fae034b98fa876ff10808d986))
+* **intro:** the bots step shows who works for you as their office ([c52f226](https://github.com/cgoinglove/thursday/commit/c52f226ef00e1322d954c071784474f073bc7a17))
+* **intro:** the microphone turned on in the first run turns the wake phrase on ([95cb72e](https://github.com/cgoinglove/thursday/commit/95cb72ee2b62e8b7cfb6e1252f8f6c5b55ef5eb0))
+* **reach:** a page made to be read reaches the phone with a PDF of the whole of it ([5fee772](https://github.com/cgoinglove/thursday/commit/5fee772aa449827da1a025e78f6bdde4d727791c))
+* **room:** what you wrote to a bot is yours in its conversation ([20b0a8d](https://github.com/cgoinglove/thursday/commit/20b0a8ddefa0615b7f766d81cb2d6f9c5adc2e0d))
+* **theme:** the app draws light until a theme is picked ([f2f347a](https://github.com/cgoinglove/thursday/commit/f2f347af5fbb263c30e644ca9ed30a8246ad0b4a))
+* **travel:** a trip page a traveller wants to open — pictures of every place, the money in view, what to do and watch for ([fdb2465](https://github.com/cgoinglove/thursday/commit/fdb2465c0cfbc73ab4664eff7b8375547b53b2ee))
+* **travel:** a trip page opens each day on a picture and says what to know at each stop ([a403179](https://github.com/cgoinglove/thursday/commit/a40317951cdb17c42a1497474ab50af854e41754))
+* **write:** `@` opens the write line on who to write to ([1c61272](https://github.com/cgoinglove/thursday/commit/1c61272d0095c84f390952a112f4daf0c1a98c13))
+
+
+### Fixes
+
+* **artifact:** a deck's voices are copied, not moved, its PDF comes from the camera, words in a maker's colour read at 4.5:1, and the page head is one part ([8634d53](https://github.com/cgoinglove/thursday/commit/8634d532ebb237ca8c82374c7b6fdf3c6d7d45da))
+* **artifact:** a document gains the print mark when put again, a deck's PDF is checked slide by slide, pages print on A4, and a trip section in the wrong shape stops the build ([6562bc7](https://github.com/cgoinglove/thursday/commit/6562bc78636739426d368e4e1913aa5dd992dfd4))
+* **artifact:** a picture copied beside a deck never writes over one a slide still shows ([73ff88a](https://github.com/cgoinglove/thursday/commit/73ff88ad0e96a1349cb3f2188501913c9c061e84))
+* **bot:** a bot installed as the Marketer is told its role as the app's words ([f140834](https://github.com/cgoinglove/thursday/commit/f140834a49c17950634c5995e42ec735240a7fd8))
+* **bot:** pressing a bot in the office opens its plate, and a bot at rest is drawn in full ink ([a5a6adb](https://github.com/cgoinglove/thursday/commit/a5a6adb45c4873f23a91816073d3e98226a28d6b))
+* **bot:** the office's ground plot holds its widest stamp, and the head's opened files fold with nothing left to fold ([b0ac715](https://github.com/cgoinglove/thursday/commit/b0ac715e9275543696d868d8dbaff5cc15a96b2d))
+* **bot:** the Tutor's roster line no longer says slides, which the Designer's says ([e1333e8](https://github.com/cgoinglove/thursday/commit/e1333e85c8a787af5bf1fe3150a74972937042c4))
+* **brief,travel:** the brief's timeline keeps its line joined, and both pages open calmer ([cd1473b](https://github.com/cgoinglove/thursday/commit/cd1473b6f747774fc1ca898a082cbee7852b9fea))
+* **call:** a drawing shown on a spoken call goes to her and she answers it; the plan reads what was put down before the words that followed it ([72e164c](https://github.com/cgoinglove/thursday/commit/72e164c023ec159f57e97c071d2298aee4eac645))
+* **call:** a drawing stays on the pad until the line takes it, and what stopped it is said ([b3e07a8](https://github.com/cgoinglove/thursday/commit/b3e07a81f2a1160ea157432be6f600196f4848af))
+* **call:** a picture sent to her reaches her as a picture, on every way in ([aa1ccf9](https://github.com/cgoinglove/thursday/commit/aa1ccf9ad2ecc3d7a20b8a8fe34832997487dedb))
+* **call:** a run on a shown drawing waits for a turn asked and not yet started, and runs once ([956f654](https://github.com/cgoinglove/thursday/commit/956f65478963556d568e7d241c5a36465ad06776))
+* **call:** a turn cut off after two in a row were is continued once again, not left unanswered ([655969d](https://github.com/cgoinglove/thursday/commit/655969d5266025d881d8b73222077a113471b06d))
+* **call:** on the GPT Subscription, a hand-over that runs out of steps says so instead of going silent ([f98e64f](https://github.com/cgoinglove/thursday/commit/f98e64fff48f7853fcf96beac88720e9aabc1545))
+* **call:** pictures in writing and from a phone are carried by name, read in per request up to a budget, each named ([550a29f](https://github.com/cgoinglove/thursday/commit/550a29f0dd5e1529422b123ab7b1fafff8dadee8))
+* **call:** what is put down is in before she is told of it, a turn that ends early waits for its tools, and a call the sdk answered is not run again ([80a7eff](https://github.com/cgoinglove/thursday/commit/80a7effd1fc36ee800fbf2e892197a9577d04391))
+* **call:** what is put down on a spoken call waits for the backend's tool outputs, and a clear picture is laid on white ([d7f87f8](https://github.com/cgoinglove/thursday/commit/d7f87f89a3df499af206e0480c2ffa3eec82ea59))
+* **config:** API keys says a call needs the plan or a key, not the key ([c64541c](https://github.com/cgoinglove/thursday/commit/c64541c8f6fff2dbcafdd1d29b52cb06747d7b01))
+* **intro:** the bots step's office is a job under way that ends while you look, her line beside it ([4c0a84c](https://github.com/cgoinglove/thursday/commit/4c0a84c8e610b6a1f4ed4957d08cfd1bd6014284))
+* **intro:** the bots step's office is over in under 7s, its clock starts with the step, and the one who holds it is at work ([86acb39](https://github.com/cgoinglove/thursday/commit/86acb39a459263598aa04f874e446b9a59ebcadd))
+* **intro:** the first run reads clean on a laptop, and says one voice is enough ([eb2dacc](https://github.com/cgoinglove/thursday/commit/eb2dacc4fd7e642f28efafbe354b797386dd970a))
+* **keys:** a refused key says so in a sentence and opens Settings ([cee6418](https://github.com/cgoinglove/thursday/commit/cee6418afe4a6edae8f5a8c8cdd6ea8aaefa29ab))
+* **pill:** the user's own words go out under "You" on the pill too ([e6ecff6](https://github.com/cgoinglove/thursday/commit/e6ecff69f197d8dd09b20defe50fecd8f2c3fb49))
+* **text:** a mark that is not emphasis stays in a preview and a caption ([96a0f85](https://github.com/cgoinglove/thursday/commit/96a0f85ab562356dac05486d89bb4c73a92bc43f))
+* **write:** `@` on a line that already names someone puts the caret after the name ([4cc301c](https://github.com/cgoinglove/thursday/commit/4cc301cf8faf921fb3497073eda7feac1d8e0eb4))
+* **write:** at phone width the words get a row of their own ([b7340be](https://github.com/cgoinglove/thursday/commit/b7340be556332d2ea8cfe7402f0d67f9c0549423))
+
+
+### Performance
+
+* the first call no longer waits on the device's position, and what nobody sees is not drawn ([#60](https://github.com/cgoinglove/thursday/issues/60)) ([80fbc0a](https://github.com/cgoinglove/thursday/commit/80fbc0a308782f06d5518e01ee445f7b52c65cca))
+* **ui:** ShinyText's sweep moves by transform, so it runs on while the page is busy ([e6d525b](https://github.com/cgoinglove/thursday/commit/e6d525b4fff20de4aa1bf04dceaeda9841561f64))
+
+
+### Under the hood
+
+* **artifact:** a deck's size and the reading of its data live in one module ([07b5088](https://github.com/cgoinglove/thursday/commit/07b5088d2106d0912d09a024591d755dffb9c2e8))
+* **artifact:** the grey ground and its cards are the shell's, and paper stays light ([b8fa85a](https://github.com/cgoinglove/thursday/commit/b8fa85a37db5bdcbb6003a925f4c9d1bd1900dc7))
+
 ## [0.22.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.21.0...thursday-agent-v0.22.0) (2026-09-29)
 
 
