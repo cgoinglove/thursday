@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.22.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.21.0...thursday-agent-v0.22.0) (2026-09-29)
+
+
+### Features
+
+* **artifact:** motion videos — short hand-drawn films with music ([#57](https://github.com/cgoinglove/thursday/issues/57)) ([8b90294](https://github.com/cgoinglove/thursday/commit/8b902946f5ea6c4a32cde0107aa52d3be87d07f7))
+* **bot:** a bot keeps a skill of its own for a kind of job that comes back ([18de1af](https://github.com/cgoinglove/thursday/commit/18de1afa6a93e674a1477fa13ccec3a10ed7af3c))
+* **bot:** a thread holds eight bots, and all eight can work at once ([62e9d3f](https://github.com/cgoinglove/thursday/commit/62e9d3f1a395aaa2e9c91c46d02426c90981ec63))
+* **bot:** watch a thread as an office, live or replayed ([937f7b8](https://github.com/cgoinglove/thursday/commit/937f7b8b472042915b9a5d66d223d434763047f5))
+* **call:** her face shows where you are, the pictures you give her, and her own drawings ([#56](https://github.com/cgoinglove/thursday/issues/56)) ([7c41387](https://github.com/cgoinglove/thursday/commit/7c41387d2dd7bdec3670101f13f599183c4dff26))
+* **signins:** a site keeps a sign-in per account, and a bot names the one it uses ([38f0e52](https://github.com/cgoinglove/thursday/commit/38f0e5260ff96b84afd0046dca8cef942db4de55))
+
+
+### Fixes
+
+* **bot:** the office follows a thread at work, drawn from where it stands now ([bc294ab](https://github.com/cgoinglove/thursday/commit/bc294ab6f6d47a2a7316a370f49a38e2957e02b9))
+* **call:** a failed call or turn shows the provider's words, not a sign-in or key button ([efe69c8](https://github.com/cgoinglove/thursday/commit/efe69c839739cc0741bc922a6cb116759deb683d))
+* **call:** CALL stays on her face while she rings ([fc0a67f](https://github.com/cgoinglove/thursday/commit/fc0a67fe1759c4b7db3e1efcd83e2ad86dd66b08))
+* **call:** her face keeps only the globe, and the globe runs in three quarters of the time ([#58](https://github.com/cgoinglove/thursday/issues/58)) ([2ca157f](https://github.com/cgoinglove/thursday/commit/2ca157fc406a8051b0184eb0bd4f27172b02313b))
+* **call:** she looks at what is shown only when her backend asks, on every line ([67f3df2](https://github.com/cgoinglove/thursday/commit/67f3df23f148302777d9e1fb15065055396128dd))
+* **intro:** a Free sign-in does not flash as set while its plan is read ([cfb8bee](https://github.com/cgoinglove/thursday/commit/cfb8bee440ce1e1db2049f3b642995d680b77ec0))
+* **intro:** a key given before still leaves the plan to sign in to, and her face no longer covers the words under it ([d8e27c4](https://github.com/cgoinglove/thursday/commit/d8e27c4fdd028107f48e0bc371e2286a428b98ae))
+* **intro:** the two ways to her voice wear one round button ([070e33e](https://github.com/cgoinglove/thursday/commit/070e33e48a6ab1f599375525c82b592b93f9594a))
+* **settings:** the Vercel AI Gateway row drops its "recommended" tag ([902554e](https://github.com/cgoinglove/thursday/commit/902554e281bc73290612b125254e82c8240a22ed))
+* **signins:** a kept sign-in is renewed only from the browser it was lent to ([5427497](https://github.com/cgoinglove/thursday/commit/54274974b83e8184fa3d8bb8e63ac72f3d44ced1))
+* **signins:** a sign-in lent again is the renewed one, and a signed-out account stays out ([c1093a8](https://github.com/cgoinglove/thursday/commit/c1093a8d0c779d0e624d142e468f785ee16b010e))
+* **ui:** small print wraps between hints, a bot on the app default says where it compacts, examples read as examples ([b375c4b](https://github.com/cgoinglove/thursday/commit/b375c4b71e0883fbe3c1a721b05aa954f706c73f))
+* **ui:** Tab moves on from the @ list when nobody matches ([04c2bac](https://github.com/cgoinglove/thursday/commit/04c2bac5a27d3ab9e812fc92ea5c526c63705d12))
+* **ui:** Tab takes a bot from the @ list; a new bot may run on the app default model ([a54f708](https://github.com/cgoinglove/thursday/commit/a54f7088ee7d9c2862b5188997f9f67b365ee279))
+
+
+### Under the hood
+
+* **intro:** simplify Mic component rendering in the Intro component ([ea97d2a](https://github.com/cgoinglove/thursday/commit/ea97d2ab2a48c9757405281cb4818cd1fbffd4b8))
+
 ## [0.21.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.20.0...thursday-agent-v0.21.0) (2026-09-28)
 
 
