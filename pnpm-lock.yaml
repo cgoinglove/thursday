@@ -102,8 +102,8 @@ importers:
         specifier: ^1.48.0
         version: 1.48.0(react@19.2.8)
       marked:
-        specifier: ^17.0.6
-        version: 17.0.6
+        specifier: ^18.0.14
+        version: 18.0.14
       next:
         specifier: 16.3.4
         version: 16.3.4(@babel/core@7.29.7)(@types/node@26.6.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -3166,6 +3166,11 @@ packages:
 
   marked@17.0.6:
     resolution: {integrity: sha512-gB0gkNafnonOw0obSTEGZTT86IuhILt2Wfx0mWH/1Au83kybTayroZ/V6nS25mN7u8ASy+5fMhgB3XPNrOZdmA==}
+    engines: {node: '>= 20'}
+    hasBin: true
+
+  marked@18.0.14:
+    resolution: {integrity: sha512-mBHK6FBHuBAlhgRe88w9F0O1AbwwXJUcQibUbC/QcdTbVGAD7aWza+xt3N6oT/jCZx3/OMeS+8rnuiHZcQ9s7A==}
     engines: {node: '>= 20'}
     hasBin: true
 
@@ -6927,6 +6932,8 @@ snapshots:
   marked@16.4.2: {}
 
   marked@17.0.6: {}
+
+  marked@18.0.14: {}
 
   math-intrinsics@1.1.0: {}
 
