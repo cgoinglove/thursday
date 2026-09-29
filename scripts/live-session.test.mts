@@ -1930,3 +1930,53 @@ test("the page finds where they are from the browser's position, and goes on wit
   context.mock.timers.tick(HERE.waitMs);
   assert.equal(await waiting, null);
 });
+
+test("the position is taken as the page opens where the browser already lets it, so the press does not wait on the device", async (context) => {
+  let asked = 0;
+  let allowed = "prompt";
+  const pending: { answer: ((at: unknown) => void) | null } = { answer: null };
+  const device = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  context.after(() => {
+    if (device) Object.defineProperty(globalThis, "navigator", device);
+  });
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: {
+      geolocation: {
+        getCurrentPosition: (ok: (at: unknown) => void) => {
+          asked += 1;
+          pending.answer = ok;
+        },
+      },
+      permissions: { query: async () => ({ state: allowed }) },
+    },
+  });
+  context.mock.method(globalThis, "fetch", async (input: string) =>
+    new URL(input).host === "api.bigdatacloud.net"
+      ? Response.json({ city: "Lisbon", countryName: "Portugal" })
+      : new Response("down", { status: 503 }),
+  );
+  const settle = () => new Promise((done) => setImmediate(done));
+  const { takePositionAhead, whereNow } = await import(
+    "../features/thursday/where.ts"
+  );
+
+  // Not allowed yet: nothing is asked, so no prompt comes without a press
+  await takePositionAhead();
+  assert.equal(asked, 0);
+
+  allowed = "granted";
+  const taking = takePositionAhead();
+  await settle();
+  assert.equal(asked, 1);
+  // Asked again while the first is on its way, it waits on that one
+  await takePositionAhead();
+  assert.equal(asked, 1);
+  pending.answer?.({ coords: { latitude: 38.7223, longitude: -9.1393 } });
+  await taking;
+
+  // The press finds it: the device is not asked again, the services are
+  const found = await whereNow();
+  assert.equal(asked, 1);
+  assert.equal(found?.where.place, "Lisbon, Portugal");
+});

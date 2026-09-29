@@ -21,6 +21,13 @@ export type Found = {
 /** What was found last, and when: used again for `HERE.keptMs`. */
 let kept: { found: Found; at: number } | null = null;
 
+/**
+ * The device's position taken as the page opens, while the browser already lets it: the slow
+ * part of `whereNow`, done before the press (`takePositionAhead`). It stays on this page; the
+ * services hear of it only when a call starts. Used for `HERE.keptMs` from when it was asked.
+ */
+let ahead: { at: Promise<GeolocationCoordinates>; asked: number } | null = null;
+
 function position(): Promise<GeolocationCoordinates> {
   return new Promise((resolve, reject) =>
     navigator.geolocation.getCurrentPosition(
@@ -116,7 +123,9 @@ async function weatherAt(
 }
 
 async function find(signal: AbortSignal): Promise<Found | null> {
-  const at = await position();
+  const at = await (ahead && Date.now() - ahead.asked < HERE.keptMs
+    ? ahead.at
+    : position());
   const [place, weather] = await Promise.allSettled([
     placeOf(at, signal),
     weatherAt(at, signal),
@@ -172,4 +181,32 @@ export async function whereNow(): Promise<Found | null> {
   } finally {
     clearTimeout(late);
   }
+}
+
+/**
+ * Asks the device for its position as the page opens, when the browser already lets this app
+ * have it, so the first call's press does not wait on the device (config HERE). Never asks
+ * where it would prompt: the prompt comes with a press (`whereNow`). Nothing leaves the page.
+ */
+export async function takePositionAhead(): Promise<void> {
+  if (kept && Date.now() - kept.at < HERE.keptMs) return;
+  if (ahead && Date.now() - ahead.asked < HERE.keptMs) return;
+  if (!navigator.geolocation || !navigator.permissions) return;
+  let allowed: boolean;
+  try {
+    allowed =
+      (await navigator.permissions.query({ name: "geolocation" })).state ===
+      "granted";
+  } catch {
+    // A browser that cannot say is asked at the press, as it always was
+    return;
+  }
+  if (!allowed) return;
+  const taken = { at: position(), asked: Date.now() };
+  ahead = taken;
+  await taken.at.catch((cause) => {
+    // Not kept: the press asks the device itself, and says what it answers
+    if (ahead === taken) ahead = null;
+    console.warn(`No position ahead of the call: ${errorToString(cause)}`);
+  });
 }

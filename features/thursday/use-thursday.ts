@@ -88,7 +88,7 @@ import {
   toolLine,
 } from "./tool-line";
 import { useCallRing } from "./use-call-ring";
-import { whereNow } from "./where";
+import { takePositionAhead, whereNow } from "./where";
 
 /**
  * One live call, plus the thread inbox the app watches even with no call open.
@@ -197,6 +197,38 @@ export type ActivityLine = {
  */
 export type CallEnd = "quiet" | "hungUp" | "closed" | "expired" | "dropped";
 
+/** The parts of a spoken call's opening, in the order they are reached. */
+const OPENING_PARTS = {
+  offer: "the microphone and the offer",
+  where: "where they are",
+  answer: "the server's answer",
+  line: "the line",
+} as const;
+
+/**
+ * How long a spoken call took to open, part by part from the press: each part a measure on
+ * the page's performance timeline (DevTools › Performance, "call …"), and the whole one line
+ * at the console's verbose level. A part the call never reached is left out.
+ */
+function openingTimes() {
+  const press = performance.now();
+  const reached: Partial<Record<keyof typeof OPENING_PARTS, number>> = {};
+  return {
+    at(part: keyof typeof OPENING_PARTS) {
+      const end = performance.now();
+      reached[part] = end - press;
+      performance.measure(`call ${part}`, { start: press, end });
+    },
+    say() {
+      const parts = Object.entries(OPENING_PARTS).flatMap(([part, name]) => {
+        const ms = reached[part as keyof typeof OPENING_PARTS];
+        return ms === undefined ? [] : [`${name} at ${Math.round(ms)} ms`];
+      });
+      console.debug(`The call opened: ${parts.join(", ")}.`);
+    },
+  };
+}
+
 /** The one lock a spoken call holds across this app's tabs: one line open at a time (D17). */
 const CALL_LOCK = "thursday-spoken-call";
 
@@ -287,6 +319,16 @@ export function useThursday(
   useEffect(() => {
     if (globeDrawn) hereShown();
   }, [globeDrawn]);
+  // The device's position, asked as the page opens or comes back while the browser already
+  // lets it: waited on at the press, it held the first call's line up by as long (where.ts)
+  useEffect(() => {
+    const ask = () => {
+      if (document.visibilityState === "visible") void takePositionAhead();
+    };
+    ask();
+    document.addEventListener("visibilitychange", ask);
+    return () => document.removeEventListener("visibilitychange", ask);
+  }, []);
   /** The same value where callbacks can read it, and the timer that ends it. */
   const thinking = useRef<number | null>(null);
   const thinkTail = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -884,6 +926,7 @@ export function useThursday(
     // the plan or the key it runs on — and its setting is one press away
     const reached = { server: false };
     const on = voiceLine.current;
+    const took = openingTimes();
     try {
       // Inside the gesture, before anything awaits: an AudioContext created later
       // starts suspended. Calls from the wake word or a call-back have no gesture;
@@ -1010,6 +1053,7 @@ export function useThursday(
 
       const live = await openLiveSession({
         initialize: async (sdp) => {
+          took.at("offer");
           const place = await found;
           const sky = place?.where.weather;
           const showing = Boolean(
@@ -1018,6 +1062,7 @@ export function useThursday(
               (await mapped) &&
               document.visibilityState === "visible",
           );
+          took.at("where");
           reached.server = true;
           const handshake = unwrapResult(
             await openCallAction(
@@ -1027,6 +1072,7 @@ export function useThursday(
               showing,
             ),
           );
+          took.at("answer");
           if (!current()) {
             void endCallAction(handshake.callId);
             throw new Error("The call closed during startup.");
@@ -1271,6 +1317,8 @@ export function useThursday(
         if (!delivered) doneReading();
       };
 
+      took.at("line");
+      took.say();
       session.current = live;
       opening.current = false;
       rang.current = calledBack;

@@ -816,8 +816,9 @@ export const HISTORY_KEEP = {
  * - `waitMs`  how long a call's start waits for it, the browser's permission prompt
  *   included. Longer delays the call; shorter starts more calls without it, and one that
  *   outwaits the prompt goes without while the next has it.
- * - `keptMs`  how long what was found is used before it is found again. Longer asks the
- *   device and the services less often and may name a place they have left.
+ * - `keptMs`  how long what was found, and the position taken as the page opens (where
+ *   `takePositionAhead`), is used before it is found again. Longer asks the device and the
+ *   services less often and may name a place they have left.
  * - `holdMs`  how long the globe (features/thursday/components/here-globe), shown as the
  *   day's first call opens, stays once their country, sky and weather are all in (about 5.7 s
  *   after it starts) before she comes back. Longer leaves them up longer, and her face and the
