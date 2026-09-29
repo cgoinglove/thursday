@@ -88,6 +88,7 @@ import {
   useThursday,
 } from "@/features/thursday/use-thursday";
 import { ArtifactView } from "@/features/workspace/components/artifact-view";
+import { useAwayAfter } from "@/hooks/use-away-after";
 import { useHotkeyLabel } from "@/hooks/use-hotkey";
 import { useWide } from "@/hooks/use-wide";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
@@ -325,6 +326,7 @@ function CallScreen({
             <HereGlobe
               key={moment.id}
               scene={moment.moment.scene}
+              covered={covered || away}
               onPhase={(phase) => faceMoment.tell(moment.id, phase)}
             />
           )}
@@ -518,20 +520,6 @@ const SIDES_MIN_WIDTH = 1000;
 
 /** How long her face takes to give way to the office (its fade, `duration-500`): from then she is not drawn. */
 const FACE_YIELD_MS = 500;
-
-/** True once `on` has held for `ms`, and false again the moment it drops. */
-function useAwayAfter(on: boolean, ms: number) {
-  const [away, setAway] = useState(false);
-  useEffect(() => {
-    if (!on) {
-      setAway(false);
-      return;
-    }
-    const out = setTimeout(() => setAway(true), ms);
-    return () => clearTimeout(out);
-  }, [on, ms]);
-  return on && away;
-}
 
 function SettingsCorner() {
   const alerts = useSectionAlerts();

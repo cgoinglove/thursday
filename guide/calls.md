@@ -35,7 +35,7 @@ with her turning into a globe: it spins to where they are, dives until their cou
 screen, and shows the sky over it as it is there now — the sun or the moon where it really is,
 and the weather, lightly — while she greets them with that weather. At night the country is
 dark. After about eight seconds she is back; tapping the globe brings her back sooner and does
-not hang up. It waits for the next call on a call she placed herself and on the very first
+not hang up, and opening a job's office over her ends it. It waits for the next call on a call she placed herself and on the very first
 call, and does not play when the system is set to reduce motion or the app's page is not the
 one in front. The day counts only once it has played, in this browser only. The map is drawn
 in the browser, so the position still goes nowhere.

@@ -1490,6 +1490,11 @@ function PlateAt({
   const pill = useRef<HTMLDivElement>(null);
   const mark = useRef<HTMLSpanElement>(null);
   const [room, setRoom] = useState<Room | null>(null);
+  // Measured again only when what it says changes, and as its words close, since the plate is
+  // hidden while they stand. Measured on every render, it forced a layout per plate on each
+  // frame the office moved (useSceneClock re-renders it per frame)
+  const says = `${state.key} ${plate?.tone ?? ""} ${plate?.words ?? ""}`;
+  const hidden = words !== undefined;
   useLayoutEffect(() => {
     if (!pill.current || !mark.current) return;
     let rest = 0;
@@ -1502,7 +1507,7 @@ function PlateAt({
     setRoom((was) =>
       was && was.mark === next.mark && was.rest === next.rest ? was : next,
     );
-  });
+  }, [bot, says, hidden, onRoom]);
   const open = room ? room.mark + room.rest : 0;
   const anchor = !room
     ? null
@@ -1552,7 +1557,7 @@ function PlateAt({
       )}
       <div
         ref={pill}
-        hidden={words !== undefined}
+        hidden={hidden}
         style={anchor ?? undefined}
         className={cn(
           "pointer-events-auto absolute bottom-0 flex h-6.5 items-center whitespace-nowrap rounded-full bg-background pr-2.25 text-[12px] shadow-md transition-opacity duration-200",
@@ -1632,10 +1637,12 @@ function Reads({
 }) {
   const card = useRef<HTMLDivElement>(null);
   const [tall, setTall] = useState(0);
+  // Measured again only when its words change, not on each frame the office moves
+  const says = `${state.label} ${words?.kind ?? ""} ${words?.text ?? ""}`;
   useLayoutEffect(() => {
     const height = card.current?.offsetHeight ?? 0;
     setTall((was) => (was === height ? was : height));
-  });
+  }, [says]);
   const down = tall > 0 && top - tall < 8;
   const asks = words?.kind === "question";
   return (

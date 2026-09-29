@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef } from "react";
+import { memo, useEffect, useId, useMemo, useRef } from "react";
+import { watchOnScreen } from "@/hooks/use-on-screen";
 import { useIsDark } from "@/hooks/use-theme";
 import { createVoiceFollower, SPECTRUM_BANDS } from "@/lib/live/live.tap";
 import { cn } from "@/lib/utils";
@@ -624,7 +625,11 @@ export const iconProps = (icon?: BotIcon | null) => ({
 export const markOf = (name: string, bots?: Bot[]) =>
   iconProps(bots?.find((bot) => bot.name === name)?.icon);
 
-export function BotMark({
+/**
+ * memo: its props are plain values, and a screen that redraws per frame (the office's clock)
+ * would otherwise run every mark's render with it; its motion runs through refs, not renders.
+ */
+export const BotMark = memo(function BotMark({
   size = 32,
   seed,
   color,
@@ -785,7 +790,14 @@ export function BotMark({
     /** The element this mark keeps a box for in `boxes`, while its eyes follow the pointer. */
     let followed: SVGSVGElement | null = null;
 
+    // Out of the window it draws nothing and asks for no frames: a thread's turns each carry
+    // a mark, and one long thread kept dozens ticking out of sight (hooks/use-on-screen)
+    let onScreen = true;
     const tick = (now: number) => {
+      if (!onScreen) {
+        raf = 0;
+        return;
+      }
       raf = requestAnimationFrame(tick);
       const { cfg: c, state: st } = live.current;
       const t = (now / 1000) * c.speed;
@@ -1041,8 +1053,15 @@ export function BotMark({
     };
 
     raf = requestAnimationFrame(tick);
+    const unwatch = svgRef.current
+      ? watchOnScreen(svgRef.current, (on) => {
+          onScreen = on;
+          if (on && !raf) raf = requestAnimationFrame(tick);
+        })
+      : undefined;
     return () => {
       cancelAnimationFrame(raf);
+      unwatch?.();
       if (followed) boxes.delete(followed);
     };
   }, []);
@@ -1213,7 +1232,7 @@ export function BotMark({
       </g>
     </svg>
   );
-}
+});
 
 /** Mark for bots as a group (the settings section icon). No color or shape of its own:
  *  `currentColor` and the default silhouette, since it names the room, not a bot. */

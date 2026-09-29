@@ -1241,9 +1241,15 @@ class Globe {
  */
 export function HereGlobe({
   scene,
+  covered = false,
   onPhase,
 }: {
   scene: HereScene;
+  /**
+   * Something is drawn over it (a job's office where her face stands, the first-run intro): it
+   * is over, as when the page is hidden, rather than drawn under it for nobody.
+   */
+  covered?: boolean;
   onPhase: (phase: MomentPhase) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -1258,6 +1264,8 @@ export function HereGlobe({
   darkRef.current = dark;
   const phaseRef = useRef(onPhase);
   phaseRef.current = onPhase;
+  const coveredRef = useRef(covered);
+  coveredRef.current = covered;
   /** Asked to go (a tap), as seconds in; it goes the way it would at its end, from then. */
   const leaveRef = useRef<number | null>(null);
   const clockRef = useRef<number | null>(null);
@@ -1321,6 +1329,11 @@ export function HereGlobe({
       raf = requestAnimationFrame(draw);
       if (now - drawnAt < 1000 / HERE.globeFps - CAP_SLACK_MS) return;
       drawnAt = now;
+      if (coveredRef.current) {
+        ctx.clearRect(0, 0, size.width, size.height);
+        tell("done");
+        return;
+      }
       if (!globe || clockRef.current === null) return;
       if (lookDark !== darkRef.current) {
         lookDark = darkRef.current;

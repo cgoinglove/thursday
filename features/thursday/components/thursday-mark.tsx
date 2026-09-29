@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useOnScreen } from "@/hooks/use-on-screen";
 import { EMOJI_POOL, hash, RAMP } from "../ascii.const";
 import { useFaceGlyphs } from "../face-glyphs";
 
@@ -130,14 +131,19 @@ export function ThursdayMark({
   const { cells, font } = layoutOf(size);
   // first frame is t=0 so server and client render the same picture
   const [t, setT] = useState(0);
+  // Out of the window it holds its letters: a thread's turns each carry one (hooks/use-on-screen)
+  const svg = useRef<SVGSVGElement>(null);
+  const onScreen = useOnScreen(svg);
 
   useEffect(() => {
+    if (!onScreen) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     return subscribe(setT);
-  }, []);
+  }, [onScreen]);
 
   return (
     <svg
+      ref={svg}
       viewBox={`0 0 ${size} ${size}`}
       width={size}
       height={size}

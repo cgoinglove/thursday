@@ -65,6 +65,7 @@ import {
   type Finished,
   FinishedCard,
 } from "@/features/workspace/components/artifact-view";
+import { useAwayAfter } from "@/hooks/use-away-after";
 import { toDate } from "@/lib/date-like";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
@@ -304,6 +305,9 @@ export function Intro({
   const patchCall = useThursdayStore((state) => state.patch);
   // The bots step is drawn as their office (teamThread), and it goes as the step does
   const officeUp = step === "bots";
+  // Her face is faded out under the office (its button's duration-700), then not drawn at all:
+  // drawn under it, it cost as much as everything else on the step
+  const faceAway = useAwayAfter(officeUp, 700);
   const [officeDrawn, setOfficeDrawn] = useState(false);
   // Its job is timed from the step opening (teamThread), and ends OFFICE_DONE_MS in
   const [opened, setOpened] = useState<Date | null>(null);
@@ -497,6 +501,7 @@ export function Intro({
                 word={word}
                 getSpectrum={step === "hello" ? demo.voice : voice.spectrum}
                 waking
+                covered={faceAway}
                 className="-m-(--face-bleed) w-[calc(100%+2*var(--face-bleed))] max-w-none"
               />
             ) : (
