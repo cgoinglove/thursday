@@ -1,6 +1,7 @@
 "use client";
 
 import { formatDistanceToNowStrict } from "date-fns";
+import { enUS, tr as trLocale } from "date-fns/locale";
 import {
   ArrowUpRight,
   AudioLines,
@@ -78,9 +79,12 @@ import {
   SettingScreen,
   SettingSkeleton,
 } from "@/features/settings/components/setting-ui";
+import { useLocale } from "@/hooks/use-locale";
+import type { Locale } from "@/lib/locale";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
+import { type ConfigDict, settingsDictOf } from "@/messages";
 
 /** A key that is not a provider's still wears a mark, or its row is a hole in the column. */
 const KEY_MARKS: Record<string, LucideIcon> = { [EXA_API_KEY]: Search };
@@ -114,18 +118,14 @@ export const ModelsSetting = () => <ConfigScreen screen="models" />;
  * screen is `reach-guide`. Its keys stay in the catalogue — that is the write action's allow
  * list — they are simply not drawn as rows here.
  */
-export const PhoneSetting = () => (
-  <SettingScreen
-    footer={
-      <SettingRailNote>
-        Nothing on this computer is opened to the internet: the app asks the
-        chat service, or her mailbox, what was written.
-      </SettingRailNote>
-    }
-  >
-    <ReachGuide />
-  </SettingScreen>
-);
+export const PhoneSetting = () => {
+  const t = settingsDictOf(useLocale()).config;
+  return (
+    <SettingScreen footer={<SettingRailNote>{t.phoneFooter}</SettingRailNote>}>
+      <ReachGuide />
+    </SettingScreen>
+  );
+};
 
 /** Reads set/unset only, never a value. */
 function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
@@ -133,6 +133,8 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
     queryKey.config,
   );
   const voice = useVoiceLine();
+  const locale = useLocale();
+  const t = settingsDictOf(locale).config;
 
   if (isLoading) return <SettingSkeleton rows={4} />;
   if (error) return <SettingError message={error.message} />;
@@ -153,7 +155,19 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
   const groups = SCREENS[screen].flatMap(
     (id) => CONFIG_GROUPS.find((group) => group.id === id) ?? [],
   );
-  const keys = groups
+  const shownGroups = groups.map((group) => ({
+    ...group,
+    ...(() => {
+      const text = t.groups[group.id];
+      return text ? { title: text.title, hint: text.hint } : {};
+    })(),
+    entries: group.entries.map((entry) => ({
+      ...entry,
+      label: t.entryLabels[entry.key] ?? entry.label,
+      hint: t.entryHints[entry.key] ?? entry.hint,
+    })),
+  }));
+  const keys = shownGroups
     .filter((group) => group.section === "keys")
     .flatMap((group) => group.entries);
   const lost = keys.filter((entry) => isLost(entry.key)).length;
@@ -163,18 +177,18 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
       footer={
         <SettingRailNote>
           {screen === "models"
-            ? "Her own voice and backend models are in Thursday. A bot can pick its own on its page."
-            : `${keys.filter((entry) => isSet(entry.key)).length} of ${keys.length} set${
-                lost ? ` · ${lost} to enter again` : ""
+            ? t.modelsFooter
+            : `${t.keysFooterSet(keys.filter((entry) => isSet(entry.key)).length, keys.length)}${
+                lost ? t.keysFooterLost(lost) : ""
               }${
-                groups.some((group) => !meets(group))
-                  ? " · a call needs the GPT Subscription or an OpenAI key"
-                  : " · your keys stay on this machine"
+                shownGroups.some((group) => !meets(group))
+                  ? t.keysFooterNeedCall
+                  : t.keysFooterStay
               }`}
         </SettingRailNote>
       }
     >
-      {groups.map((group) => (
+      {shownGroups.map((group) => (
         <SettingGroup
           key={group.id}
           label={group.title}
@@ -257,6 +271,7 @@ export function AccountsSetup({
   // already set. The rest are one press away, over the row rather than below it, so the
   // screen around it does not move
   const [more, setMore] = useState(false);
+  const t = settingsDictOf(useLocale()).config;
   const voice = entries("voice");
   const marks = [...voice, ...entries("text")];
   // Without the voice key the row is one shorter, not refilled from the rest
@@ -298,13 +313,15 @@ export function AccountsSetup({
         {rest.length > 0 && (
           <Popover open={more} onOpenChange={setMore}>
             <PopoverTrigger
-              aria-label={`${rest.length} more providers`}
+              aria-label={t.moreProviders(rest.length)}
               className="group flex w-17 flex-col items-center gap-1.5 rounded-xl py-1 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <span className="grid size-10.5 place-items-center rounded-[13px] bg-muted/60 text-muted-foreground transition-colors group-hover:bg-muted">
                 <Ellipsis className="size-4" />
               </span>
-              <span className="text-[11px] text-muted-foreground">More</span>
+              <span className="text-[11px] text-muted-foreground">
+                {t.moreWord}
+              </span>
             </PopoverTrigger>
             {/* A tile opens its key's dialog; the list goes first so the dialog is not under it */}
             <PopoverContent
@@ -329,8 +346,7 @@ export function AccountsSetup({
           runs without it is config.const `EXA_API_KEY` */}
       <div className="flex flex-col gap-2">
         <p className="font-mono text-[11px] text-muted-foreground/70">
-          Web search, if you want it: without a key, a bot searches only when
-          its own model can.
+          {t.searchHint}
         </p>
         {entries("search").map((entry) => (
           <KeyRow
@@ -365,11 +381,12 @@ function KeyTile({
   /** Set in the environment (config.const ConfigStatus `env`). */
   env: boolean;
 }) {
+  const t = settingsDictOf(useLocale()).config;
   return (
     <button
       type="button"
       onClick={() => openConfigDialog(entry, set)}
-      aria-label={`${entry.label}: ${env ? "set in env" : set ? "set" : lost ? "enter it again" : "not set"}`}
+      aria-label={`${entry.label}: ${env ? t.ariaSetEnv : set ? t.ariaSet : lost ? t.ariaLost : t.ariaUnset}`}
       className="group flex w-17 flex-col items-center gap-1.5 rounded-xl py-1 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       <span className="relative grid size-10.5 place-items-center rounded-[13px] bg-muted/60 transition-colors group-hover:bg-muted">
@@ -410,12 +427,13 @@ function RequirementBadge({
   group: ConfigGroup;
   met: boolean;
 }) {
+  const t = settingsDictOf(useLocale()).config;
   if (group.require === "none") return null;
   if (met) {
     return (
       <span className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
         <Check className="size-3" />
-        ready
+        {t.readyWord}
       </span>
     );
   }
@@ -427,7 +445,7 @@ function RequirementBadge({
       )}
     >
       <TriangleAlert className="size-3" />
-      {group.note ?? "Required"}
+      {t.groups[group.id]?.note ?? group.note ?? t.groupNoteFallback}
     </span>
   );
 }
@@ -454,10 +472,12 @@ function KeyRow({
   const credits = useKeyCredits(entry, set);
   const usage = useSubscriptionUsage(entry, set);
   const plan = useSignInPlan(entry, set);
+  const locale = useLocale();
+  const t = settingsDictOf(locale).config;
   // A plan's use keeps the row as it is, narrow as the card is; its dialog says where it is set
   const state = usage.data
-    ? usageState(usage.data)
-    : keyState(set, credits.data, entry.signIn, lost, env);
+    ? usageState(usage.data, t)
+    : keyState(set, credits.data, t, entry.signIn, lost, env);
 
   const waiting = credits.isLoading || usage.isLoading;
   const stateLine = (
@@ -506,8 +526,8 @@ function KeyRow({
             {/* A sign-in's config key is nothing to read; how much of its plan is left is */}
             {entry.signIn
               ? set
-                ? (resetLine(usage.data) ?? "signed in")
-                : "sign in with your account"
+                ? (resetLine(usage.data, t, locale) ?? t.signedInWord)
+                : t.signInWithAccount
               : entry.key}
           </span>
         )}
@@ -539,12 +559,13 @@ const USD = new Intl.NumberFormat("en-US", {
 function keyState(
   set: boolean,
   credits: KeyCredits | null | undefined,
+  t: ConfigDict,
   signIn?: true,
   lost = false,
   env = false,
 ): { text: string; ink: string; warn: boolean } {
-  const state = keyStateText(set, credits, signIn, lost);
-  return set ? envState(state, env, Boolean(credits)) : state;
+  const state = keyStateText(set, credits, t, signIn, lost);
+  return set ? envState(state, env, Boolean(credits), t) : state;
 }
 
 /**
@@ -555,43 +576,45 @@ function envState(
   state: { text: string; ink: string; warn: boolean },
   env: boolean,
   figure: boolean,
+  t: ConfigDict,
 ): { text: string; ink: string; warn: boolean } {
   if (!env) return state;
   return figure
     ? { ...state, text: `${state.text} · env` }
-    : { ...state, text: "Set in env" };
+    : { ...state, text: t.setInEnv };
 }
 
 function keyStateText(
   set: boolean,
   credits: KeyCredits | null | undefined,
+  t: ConfigDict,
   signIn?: true,
   lost = false,
 ): { text: string; ink: string; warn: boolean } {
   // Saved once and no longer readable: the user has to give it again, whichever group it is in
   if (!set && lost)
     return {
-      text: signIn ? "Sign in again" : "Enter again",
+      text: signIn ? t.signInAgain : t.enterAgain,
       ink: WAITING_INK,
       warn: true,
     };
   // An unmet voice group says so at its head, since the sign-in in another group meets it too
   if (!set)
     return {
-      text: signIn ? "Signed out" : "Not set",
+      text: signIn ? t.signedOut : t.notSet,
       ink: "text-muted-foreground/60",
       warn: false,
     };
   if (!credits)
     return {
-      text: signIn ? "Signed in" : "Set",
+      text: signIn ? t.signedIn : t.setWord,
       ink: "text-muted-foreground",
       warn: false,
     };
   if ("refused" in credits)
-    return { text: "Key refused", ink: "text-destructive", warn: true };
+    return { text: t.keyRefused, ink: "text-destructive", warn: true };
   return {
-    text: `${USD.format(credits.balance)} left`,
+    text: t.creditsLeft(USD.format(credits.balance)),
     ink: credits.low ? WAITING_INK : "text-muted-foreground",
     warn: credits.low,
   };
@@ -626,25 +649,36 @@ function useSubscriptionUsage(entry: ConfigEntry, set: boolean) {
  * once it is nearly or wholly spent, because the jobs on it are about to wait for the reset; red
  * is a sign-in the plan refused.
  */
-function usageState(usage: SubscriptionUsage): {
+function usageState(
+  usage: SubscriptionUsage,
+  t: ConfigDict,
+): {
   text: string;
   ink: string;
   warn: boolean;
 } {
   if ("refused" in usage)
-    return { text: "Sign-in refused", ink: "text-destructive", warn: true };
+    return { text: t.signinRefused, ink: "text-destructive", warn: true };
   return {
-    text: usage.spent ? "Limit reached" : `${usage.usedPercent}% used`,
+    text: usage.spent ? t.limitReached : t.usedPercent(usage.usedPercent),
     ink: usage.high ? WAITING_INK : "text-muted-foreground",
     warn: usage.high,
   };
 }
 
 /** A signed-in row's second line: when the plan's tightest window frees up. */
-function resetLine(usage: SubscriptionUsage | null | undefined): string | null {
+function resetLine(
+  usage: SubscriptionUsage | null | undefined,
+  t: ConfigDict,
+  locale: Locale,
+): string | null {
   const live = usage && !("refused" in usage) ? usage : null;
   return live?.resetsAt
-    ? `resets in ${formatDistanceToNowStrict(new Date(live.resetsAt))}`
+    ? t.resetsIn(
+        formatDistanceToNowStrict(new Date(live.resetsAt), {
+          locale: locale === "tr" ? trLocale : enUS,
+        }),
+      )
     : null;
 }
 
@@ -672,11 +706,12 @@ export function PlanBadge({
  * where the number at its end is read closely. It takes the waiting colour where the number does.
  */
 function UsageBar({ usage }: { usage: SubscriptionUsage }) {
+  const t = settingsDictOf(useLocale()).config;
   if ("refused" in usage) return null;
   return (
     <span
       role="meter"
-      aria-label="Plan used"
+      aria-label={t.planUsedAria}
       aria-valuenow={usage.usedPercent}
       aria-valuemin={0}
       aria-valuemax={100}
@@ -715,14 +750,15 @@ function KeyMark({ entry }: { entry: ConfigEntry }) {
 function automaticLabel(
   automatic: AutomaticModel | undefined,
   choices: ConfigChoice[],
+  t: ConfigDict,
 ): string {
-  if (!automatic) return "Automatic";
+  if (!automatic) return t.automaticWord;
   if (!automatic.ref) return automatic.problem;
   const { provider, model } = automatic.ref;
   const named = choices.find(
     (choice) => choice.value === `${provider}/${model}`,
   );
-  return `Automatic · ${named?.label ?? model}`;
+  return `${t.automaticWord} · ${named?.label ?? model}`;
 }
 
 /**
@@ -768,6 +804,8 @@ function ChoiceRow({
       : null;
   // A text model is what a bot thinks with, so it wears the bots mark; Cpu here was the memory glyph (memory-mark).
   const Mark = entry.kind ? KIND_MARKS[entry.kind] : BotsMark;
+  const locale = useLocale();
+  const t = settingsDictOf(locale).config;
   // The row redraws with the pick — the model, its effort, the auto/off badge — so nothing
   // is said about it; only a failure is (rules/ui notifications).
   const [save] = useServerAction(setConfigAction, {
@@ -800,7 +838,7 @@ function ChoiceRow({
             >
               {/* A studio kind unpicked falls back to nothing on a key: the tool is not
                   offered at all (ai/model resolveMediaRef), unless the plan makes it */}
-              {entry.kind && !planRuns ? "off" : "auto"}
+              {entry.kind && !planRuns ? t.offWord : t.autoWord}
             </span>
           )}
         </span>
@@ -813,15 +851,15 @@ function ChoiceRow({
               unset={
                 entry.kind
                   ? planRuns
-                    ? `Automatic · ${
+                    ? t.unsetPlanRuns(
                         choices.find(
                           (choice) =>
                             choice.value ===
                             `${planRuns.provider}/${planRuns.model}`,
-                        )?.label ?? planRuns.model
-                      }`
-                    : "Not offered to bots until you pick one"
-                  : automaticLabel(automatic, choices)
+                        )?.label ?? planRuns.model,
+                      )
+                    : t.unsetNoOffer
+                  : automaticLabel(automatic, choices, t)
               }
               onChange={(next) =>
                 save(entry.key, `${next.provider}/${next.model.trim()}`)
@@ -843,7 +881,7 @@ function ChoiceRow({
           {effort && ref && (
             <div className="flex items-start gap-3 pt-0.5">
               <span className="w-12 shrink-0 pt-1.5 font-mono text-[11px] text-muted-foreground">
-                effort
+                {t.effortWord}
               </span>
               <EffortSwitch
                 provider={ref.provider}
@@ -890,9 +928,11 @@ function SignInDialog({
   const env = isConfigFromEnv(data, entry.key);
   const plan = useSignInPlan(entry, signedIn);
   const usage = useSubscriptionUsage(entry, signedIn);
-  const state = usage.data ? usageState(usage.data) : null;
+  const locale = useLocale();
+  const t = settingsDictOf(locale).config;
+  const state = usage.data ? usageState(usage.data, t) : null;
   const [signOut, signingOut] = useServerAction(removeConfigAction, {
-    okMessage: `Signed out of ${entry.label}`,
+    okMessage: t.signedOutOf(entry.label),
     onOk: () => {
       revalidate(queryKey.config);
       revalidate(queryKey.llmModel);
@@ -906,11 +946,13 @@ function SignInDialog({
       description={
         signedIn ? (
           <>
-            Signed in <PlanBadge usage={usage.data} plan={plan} />
-            {resetLine(usage.data) && (
+            {t.signedInWord} <PlanBadge usage={usage.data} plan={plan} />
+            {resetLine(usage.data, t, locale) && (
               <>
                 {" · "}
-                <span className="font-mono">{resetLine(usage.data)}</span>
+                <span className="font-mono">
+                  {resetLine(usage.data, t, locale)}
+                </span>
               </>
             )}
             {state && (
@@ -921,7 +963,7 @@ function SignInDialog({
             )}
           </>
         ) : (
-          "Sign in with your ChatGPT account instead of a key"
+          t.signInInstead
         )
       }
       footer={
@@ -933,20 +975,19 @@ function SignInDialog({
               onClick={async () => {
                 // What runs on the plan stops until the next sign-in, so it is asked like a delete
                 const sure = await notify.confirm({
-                  title: `Sign out of ${entry.label}?`,
-                  description:
-                    "Nothing runs on your plan until you sign in again.",
-                  okText: "Sign out",
+                  title: t.signOutOf(entry.label),
+                  description: t.signOutConfirmBody,
+                  okText: t.signOutBtn,
                   destructive: true,
                 });
                 if (sure) signOut(entry.key);
               }}
             >
-              Sign out
+              {t.signOutBtn}
             </Button>
           )}
           <Button variant="ghost" onClick={onDone}>
-            {signedIn ? "Close" : "Cancel"}
+            {signedIn ? t.closeBtn : t.cancelBtn}
           </Button>
           {!signedIn && <ChatGptSignIn />}
         </>
@@ -954,9 +995,7 @@ function SignInDialog({
     >
       <div className="space-y-2">
         <SettingNote>
-          {signedIn
-            ? "Bots on this subscription spend your plan's usage, not a key. When it runs out, the job stops and says when it resets."
-            : "The sign-in opens in its own window. Approve it there, and this turns to signed in by itself."}
+          {signedIn ? t.planSpendNote : t.signInWindowNote}
         </SettingNote>
         {usage.data && "refused" in usage.data && (
           <SettingNote className="wrap-break-word text-destructive">
@@ -965,12 +1004,17 @@ function SignInDialog({
         )}
         {lost && (
           <SettingNote className={cn("wrap-break-word", WAITING_INK)}>
-            {lostWords("The sign-in saved here", "Sign in again.")}
+            {lostWords(
+              "The sign-in saved here",
+              t.lostSigninAgain,
+              undefined,
+              locale,
+            )}
           </SettingNote>
         )}
         {env && (
           <SettingNote className="wrap-break-word">
-            {envWords(entry.label)}
+            {envWords(entry.label, locale)}
           </SettingNote>
         )}
       </div>
@@ -1007,7 +1051,9 @@ function ConfigDialog({
   // Set where this dialog cannot reach: it says where, and offers nothing that would not stick
   const env = isConfigFromEnv(status, entry.key);
   const { data: credits } = useKeyCredits(entry, set);
-  const state = credits ? keyState(set, credits) : null;
+  const locale = useLocale();
+  const t = settingsDictOf(locale).config;
+  const state = credits ? keyState(set, credits, t) : null;
 
   // The model picker reads hasKey too, and a catalog key's credits sit under the same url
   const refresh = () => {
@@ -1016,14 +1062,14 @@ function ConfigDialog({
   };
 
   const [save, saving] = useServerAction(setConfigAction, {
-    okMessage: `${entry.label} key saved`,
+    okMessage: t.saveKeyOk(entry.label),
     onOk: () => {
       refresh();
       onDone();
     },
   });
   const [remove, removing] = useServerAction(removeConfigAction, {
-    okMessage: `${entry.label} key removed`,
+    okMessage: t.removeKeyOk(entry.label),
     onOk: () => {
       refresh();
       onDone();
@@ -1031,10 +1077,9 @@ function ConfigDialog({
   });
   const confirmRemove = async () => {
     const confirmed = await notify.confirm({
-      title: `Remove the ${entry.label} key?`,
-      description:
-        "It is deleted from this computer, and nothing runs on it until a key is pasted again.",
-      okText: "Remove",
+      title: t.removeKeyTitle(entry.label),
+      description: t.removeKeyBody,
+      okText: t.removeAction,
       destructive: true,
     });
     if (confirmed) remove(entry.key);
@@ -1057,7 +1102,7 @@ function ConfigDialog({
       }
       footer={
         env ? (
-          <Button onClick={onDone}>Close</Button>
+          <Button onClick={onDone}>{t.closeAction}</Button>
         ) : (
           <>
             {/* set apart from what saves, at the far end and in red; a key that can no longer be
@@ -1069,18 +1114,18 @@ function ConfigDialog({
                 onClick={() => void confirmRemove()}
                 className="mr-auto text-destructive hover:text-destructive"
               >
-                Remove
+                {t.removeAction}
               </Button>
             )}
             <Button variant="ghost" onClick={onDone}>
-              Cancel
+              {t.cancelAction}
             </Button>
             <Button
               loading={saving}
               disabled={value.trim().length < KEY_MIN}
               onClick={() => save(entry.key, value)}
             >
-              {set ? "Replace" : "Save"}
+              {set ? t.replaceAction : t.saveAction}
             </Button>
           </>
         )
@@ -1089,7 +1134,7 @@ function ConfigDialog({
       <div className="space-y-2">
         {env ? (
           <SettingNote className="wrap-break-word">
-            {envWords(entry.label)}
+            {envWords(entry.label, locale)}
           </SettingNote>
         ) : (
           <Input
@@ -1102,10 +1147,10 @@ function ConfigDialog({
             // what a key looks like says more than the setting's name, which is above
             placeholder={
               set
-                ? "New value — replaces the current key"
+                ? t.newValuePlaceholder
                 : lost
-                  ? "Paste the key again"
-                  : (entry.keyLooks ?? "Paste the key")
+                  ? t.pasteAgainPlaceholder
+                  : (entry.keyLooks ?? t.pasteKeyFallback)
             }
             spellCheck={false}
             type="password"
@@ -1119,7 +1164,7 @@ function ConfigDialog({
             rel="noreferrer"
             className="flex w-fit items-center gap-1 px-0.5 text-[13px] text-foreground underline underline-offset-3 hover:text-foreground/80"
           >
-            Get a key at {new URL(entry.keysAt).host}
+            {t.getKeyAt(new URL(entry.keysAt).host)}
             <ArrowUpRight className="size-3.5" />
           </a>
         )}
@@ -1130,7 +1175,7 @@ function ConfigDialog({
         )}
         {lost && (
           <SettingNote className={cn("wrap-break-word", WAITING_INK)}>
-            {lostWords("The key saved here", "Paste it again.")}
+            {lostWords("The key saved here", t.lostKeyAgain, undefined, locale)}
           </SettingNote>
         )}
       </div>

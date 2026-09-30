@@ -1,5 +1,7 @@
 import { format, isToday, isYesterday } from "date-fns";
+import { enUS, tr as trLocale } from "date-fns/locale";
 import * as z from "zod";
+import type { Locale } from "./locale";
 
 /**
  * A timestamp on both sides of the wire: drizzle returns a `Date`, JSON carries
@@ -13,22 +15,31 @@ export type DateLike = z.infer<typeof DateLikeSchema>;
 /** Normalized for date math. date-fns takes both, `.getTime()` does not. */
 export const toDate = (value: DateLike): Date => new Date(value);
 
+const dateLocaleOf = (locale: Locale = "en") =>
+  locale === "tr" ? trLocale : enUS;
+
 /** "HH:mm" for today, "Yesterday HH:mm", otherwise "MMM d · HH:mm". */
-export function whenOf(value: DateLike): string {
+export function whenOf(value: DateLike, locale: Locale = "en"): string {
   const at = toDate(value);
+  const dateLocale = dateLocaleOf(locale);
   const clock = format(at, "HH:mm");
   if (isToday(at)) return clock;
-  if (isYesterday(at)) return `Yesterday ${clock}`;
-  return `${format(at, "MMM d")} · ${clock}`;
+  if (isYesterday(at))
+    return `${locale === "tr" ? "Dün" : "Yesterday"} ${clock}`;
+  return `${format(at, "MMM d", { locale: dateLocale })} · ${clock}`;
 }
 
 /** "now", "3m", "2h", "5d". */
-export function shortAgo(value: DateLike, now = Date.now()): string {
+export function shortAgo(
+  value: DateLike,
+  now = Date.now(),
+  locale: Locale = "en",
+): string {
   const seconds = Math.max(
     0,
     Math.round((now - toDate(value).getTime()) / 1000),
   );
-  if (seconds < 60) return "now";
+  if (seconds < 60) return locale === "tr" ? "şimdi" : "now";
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.round(minutes / 60);

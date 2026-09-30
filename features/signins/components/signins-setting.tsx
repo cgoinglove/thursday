@@ -7,7 +7,6 @@ import {
   KeyRound,
   LogIn,
   LogOut,
-  type LucideIcon,
   ShieldCheck,
   X,
 } from "lucide-react";
@@ -25,10 +24,12 @@ import {
   SettingScreen,
   SettingSkeleton,
 } from "@/features/settings/components/setting-ui";
+import { useLocale } from "@/hooks/use-locale";
 import { whenOf } from "@/lib/date-like";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
+import { type SigninsDict, settingsDictOf } from "@/messages";
 import { removeSignInAction, setSignInBotAction } from "../signins.action";
 import type { SignIn } from "../signins.schema";
 
@@ -42,28 +43,20 @@ export function SignInsSetting() {
   const { data, isLoading, error } = useServerRoute<SignIn[]>(queryKey.signIns);
   const { data: bots } = useServerRoute<Bot[]>(queryKey.bot);
   useAppEvent({ signins: () => void revalidate(queryKey.signIns) });
+  const locale = useLocale();
+  const t = settingsDictOf(locale).signins;
 
   if (isLoading) return <SettingSkeleton rows={3} />;
   if (error) return <SettingError message={error.message} />;
   const all = data ?? [];
 
   return (
-    <SettingScreen
-      footer={
-        <SettingRailNote>
-          A site's session as the browser held it — never a password. Kept on
-          this machine, outside the folder the bots work in. It is the whole
-          session: signed in with Google, it carries the Google sign-in too.
-        </SettingRailNote>
-      }
-    >
-      <How />
+    <SettingScreen footer={<SettingRailNote>{t.railNote}</SettingRailNote>}>
+      <How t={t} />
       <SettingItems>
         {all.length === 0 ? (
           <p className="p-4 text-sm leading-relaxed text-muted-foreground">
-            Nothing is kept yet. When a bot needs you signed in somewhere, it
-            opens a window for you to sign in — and that sign-in is kept here
-            for its later work.
+            {t.empty}
           </p>
         ) : (
           bySite(all).map((accounts) =>
@@ -89,42 +82,32 @@ export function SignInsSetting() {
 }
 
 /** How a sign-in comes to be here and who gets to use it, in three steps: the list below is what step two leaves. */
-const STEPS: [LucideIcon, string, string][] = [
-  [
-    AppWindow,
-    "A bot opens a window",
-    "When its work needs you signed in to a site, it opens that site on your screen and asks.",
-  ],
-  [
-    LogIn,
-    "You sign in there",
-    "The app keeps that sign-in here — the site's session, never your password. A second account on a site is kept beside the first.",
-  ],
-  [
-    ShieldCheck,
-    "Only that bot uses it",
-    "Later work is signed in without asking. Another bot has to ask you first.",
-  ],
-];
+const STEP_ICONS = [AppWindow, LogIn, ShieldCheck] as const;
 
-function How() {
+function How({ t }: { t: SigninsDict }) {
   return (
     <ol className="grid gap-3 pb-5 sm:grid-cols-3">
-      {STEPS.map(([Icon, title, text], at) => (
-        <li key={title} className="flex gap-3 rounded-xl bg-muted/40 p-3.5">
-          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-background text-muted-foreground ring-1 ring-border/60">
-            <Icon className="size-4" />
-          </span>
-          <span className="min-w-0 space-y-0.5">
-            <span className="block text-[13px] font-medium">
-              {at + 1}. {title}
+      {t.steps.map((step, at) => {
+        const Icon = STEP_ICONS[at];
+        return (
+          <li
+            key={step.title}
+            className="flex gap-3 rounded-xl bg-muted/40 p-3.5"
+          >
+            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-background text-muted-foreground ring-1 ring-border/60">
+              <Icon className="size-4" />
             </span>
-            <span className="block text-xs leading-relaxed text-muted-foreground">
-              {text}
+            <span className="min-w-0 space-y-0.5">
+              <span className="block text-[13px] font-medium">
+                {at + 1}. {step.title}
+              </span>
+              <span className="block text-xs leading-relaxed text-muted-foreground">
+                {step.text}
+              </span>
             </span>
-          </span>
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -157,9 +140,7 @@ function Row({ signIn, bots }: { signIn: SignIn; bots?: Bot[] }) {
       <Bots signIn={signIn} bots={bots} className="pl-13" />
     </div>
   );
-}
-
-/**
+} /**
  * A site with more than one account kept: the site once, and under it each account with its
  * own time, sign-out and bots, so none is behind another.
  */
@@ -171,6 +152,7 @@ function SiteAccounts({
   bots?: Bot[];
 }) {
   const { site } = accounts[0];
+  const t = settingsDictOf(useLocale()).signins;
   return (
     <div className="flex flex-col p-4 pb-1">
       <div className="flex items-center gap-3">
@@ -178,7 +160,7 @@ function SiteAccounts({
         <span className="min-w-0 flex-1 space-y-0.5">
           <span className="block truncate text-sm font-medium">{site}</span>
           <span className="block truncate text-[13px] text-muted-foreground">
-            {accounts.length} accounts
+            {accounts.length} {t.accountsWord}
           </span>
         </span>
       </div>
@@ -216,17 +198,20 @@ function SiteBadge({ site }: { site: string }) {
 }
 
 function When({ signIn }: { signIn: SignIn }) {
+  const locale = useLocale();
+  const t = settingsDictOf(locale).signins;
   return (
     <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
       {signIn.usedAt
-        ? `used ${whenOf(signIn.usedAt)}`
-        : `kept ${whenOf(signIn.keptAt)}`}
+        ? `${t.usedWord} ${whenOf(signIn.usedAt, locale)}`
+        : `${t.keptWord} ${whenOf(signIn.keptAt, locale)}`}
     </span>
   );
 }
 
 /** Signing out of one account; `others` is how many more the site keeps, which stay. */
 function SignOut({ signIn, others }: { signIn: SignIn; others: number }) {
+  const t = settingsDictOf(useLocale()).signins;
   const [remove, removing] = useServerAction(removeSignInAction, {
     onOk: () => revalidate(queryKey.signIns),
   });
@@ -234,14 +219,10 @@ function SignOut({ signIn, others }: { signIn: SignIn; others: number }) {
   const signOut = async () => {
     const ok = await notify.confirm({
       title: others
-        ? `Sign out of ${signIn.account} on ${signIn.site}?`
-        : `Sign out of ${signIn.site}?`,
-      description: `What is kept here is removed, and the bots that used it ask you to sign in again.${
-        others
-          ? ` Your other ${signIn.site} ${others === 1 ? "account stays" : "accounts stay"}.`
-          : ""
-      } The site itself may still list the session until it ends it.`,
-      okText: "Sign out",
+        ? t.signOutTitleAccount(signIn.account, signIn.site)
+        : t.signOutTitleOne(signIn.site),
+      description: t.signOutBody(others, signIn.site),
+      okText: t.signOutOk,
       destructive: true,
     });
     if (ok) void remove(signIn.site, signIn.account);
@@ -252,11 +233,11 @@ function SignOut({ signIn, others }: { signIn: SignIn; others: number }) {
       variant="outline"
       size="sm"
       loading={removing}
-      aria-label={others ? `Sign out of ${signIn.account}` : undefined}
+      aria-label={others ? t.signOutAria(signIn.account) : undefined}
       onClick={() => void signOut()}
     >
       <LogOut />
-      Sign out
+      {t.signOutBtn}
     </Button>
   );
 }
@@ -274,6 +255,7 @@ function Bots({
   const [setBot, setting] = useServerAction(setSignInBotAction, {
     onOk: () => revalidate(queryKey.signIns),
   });
+  const t = settingsDictOf(useLocale()).signins;
 
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
@@ -287,7 +269,7 @@ function Bots({
           <button
             type="button"
             disabled={setting}
-            aria-label={`${name} may no longer use it`}
+            aria-label={t.revokeAria(name)}
             onClick={() =>
               void setBot(signIn.site, signIn.account, name, false)
             }
@@ -298,9 +280,7 @@ function Bots({
         </span>
       ))}
       {signIn.bots.length === 0 && signIn.asking.length === 0 && (
-        <span className="text-[13px] text-muted-foreground">
-          No bot may use it. One that needs it will ask.
-        </span>
+        <span className="text-[13px] text-muted-foreground">{t.noBot}</span>
       )}
       {signIn.asking.map((name) => (
         <span
@@ -311,7 +291,7 @@ function Bots({
           )}
         >
           <BotMark size={18} seed={name} {...markOf(name, bots)} />
-          {name} asks
+          {name} {t.asksSuffix}
           <Button
             size="sm"
             variant="secondary"
@@ -319,7 +299,7 @@ function Bots({
             disabled={setting}
             onClick={() => void setBot(signIn.site, signIn.account, name, true)}
           >
-            Allow
+            {t.allowBtn}
           </Button>
         </span>
       ))}
@@ -337,6 +317,7 @@ const EXTENSION =
  * state — whether the extension is there is known only by attaching, which a bot's job does.
  */
 function OwnChrome() {
+  const t = settingsDictOf(useLocale()).signins;
   return (
     <div className="flex items-center gap-3 p-4">
       <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted/60">
@@ -347,10 +328,9 @@ function OwnChrome() {
         />
       </span>
       <span className="min-w-0 flex-1 space-y-0.5">
-        <span className="block text-sm font-medium">Your own Chrome</span>
+        <span className="block text-sm font-medium">{t.ownChromeTitle}</span>
         <span className="block text-[13px] text-muted-foreground">
-          For a site that will not stay signed in. A bot gets a tab of its own,
-          signed in as you — to every site your Chrome is, not only that one.
+          {t.ownChromeDesc}
         </span>
       </span>
       {/* A link, not a button that navigates: it leaves the app, and should be heard as one */}
@@ -361,7 +341,7 @@ function OwnChrome() {
         // Merged as Button merges them: a variant's border has to beat the base's transparent one
         className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
       >
-        Get the extension
+        {t.getExtension}
         <ArrowUpRight />
       </a>
     </div>

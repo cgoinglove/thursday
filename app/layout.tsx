@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import { LocaleSync } from "@/components/ui/locale-sync";
 import { ThemeSync } from "@/components/ui/theme-sync";
 import { Toaster } from "@/components/ui/toast";
 import { APP_NAME } from "@/config";
+import { LOCALE_BOOT } from "@/lib/locale";
 import { THEME_BOOT } from "@/lib/theme";
 
 const geistSans = Geist({
@@ -33,7 +35,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <Script id="theme-boot" strategy="beforeInteractive">
           {THEME_BOOT}
         </Script>
+        <Script id="locale-boot" strategy="beforeInteractive">
+          {LOCALE_BOOT}
+        </Script>
         <ThemeSync />
+        <LocaleSync />
         {children}
         <Toaster />
       </body>

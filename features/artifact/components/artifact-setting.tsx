@@ -40,10 +40,13 @@ import { useSettingsStore } from "@/features/settings/settings.store";
 import { FileThumb } from "@/features/workspace/components/file-thumb";
 import { FilePreview } from "@/features/workspace/components/file-view";
 import { revealFileAction } from "@/features/workspace/workspace.action";
+import { useLocale } from "@/hooks/use-locale";
 import { shortAgo } from "@/lib/date-like";
+import type { Locale } from "@/lib/locale";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, formatBytes } from "@/lib/utils";
+import { type FilesDict, settingsDictOf } from "@/messages";
 
 /*
  * What the bots finished, listed the way they file it: each bot writes into
@@ -73,6 +76,8 @@ export function ArtifactSetting() {
 
   const { data: bots } = useServerRoute<Bot[]>(queryKey.bot);
   const [reveal] = useServerAction(revealFileAction);
+  const locale = useLocale();
+  const t = settingsDictOf(locale).files;
 
   if (isLoading) return <SettingPanesSkeleton />;
   if (error) return <SettingError message={error.message} />;
@@ -98,8 +103,10 @@ export function ArtifactSetting() {
         <>
           <SettingRailNote>
             <span className="font-mono">
-              <span className="font-medium text-foreground">finished</span>
-              {` · ${countLine(entries, total, data?.files ?? 0)}`}
+              <span className="font-medium text-foreground">
+                {t.finishedWord}
+              </span>
+              {` · ${countLine(entries, total, data?.files ?? 0, t)}`}
             </span>
           </SettingRailNote>
           <Button
@@ -108,7 +115,7 @@ export function ArtifactSetting() {
             onClick={() => reveal(PATHS.artifacts)}
           >
             <FolderOpen />
-            Reveal folder
+            {t.revealFolder}
           </Button>
         </>
       }
@@ -117,13 +124,13 @@ export function ArtifactSetting() {
           <SettingFilter
             value={filter}
             onChange={setFilter}
-            placeholder="Filter files"
+            placeholder={t.filter}
             className="mx-2 mb-1.5 w-auto"
           />
 
           {/* Bots only: with every file listed here the bots themselves scrolled out of sight */}
           <BotRow
-            label="Everyone"
+            label={t.everyone}
             count={entries.length}
             active={of === undefined}
             onPick={() => {
@@ -134,7 +141,7 @@ export function ArtifactSetting() {
           {groupByBot(entries).map(({ bot, rows }) => (
             <BotRow
               key={bot ?? ""}
-              label={bot ?? "Unsorted"}
+              label={bot ?? t.unsorted}
               mark={
                 bot ? (
                   <BotMark
@@ -162,7 +169,10 @@ export function ArtifactSetting() {
               className="mx-2 mt-2 rounded-md px-2 py-1.5 text-left font-mono text-[11px] text-muted-foreground outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
             >
               {/* The filter only sees loaded rows, so the count says what it is not searching */}
-              {`Show ${Math.min(ARTIFACT_VIEW.rows, total - entries.length)} more of ${total.toLocaleString("en")}`}
+              {t.showMore(
+                Math.min(ARTIFACT_VIEW.rows, total - entries.length),
+                total.toLocaleString("en"),
+              )}
             </button>
           )}
         </div>
@@ -209,13 +219,20 @@ function groupByBot(
 }
 
 /** `4 results · 34 files`, and what is not on screen. Counts rows, so it is free. */
-function countLine(shown: Artifact[], total: number, files: number): string {
-  if (total === 0) return "empty";
+function countLine(
+  shown: Artifact[],
+  total: number,
+  files: number,
+  t: FilesDict,
+): string {
+  if (total === 0) return t.countEmpty;
   const head =
     total > shown.length
-      ? `${shown.length} of ${total.toLocaleString("en")} results`
-      : `${total} ${total === 1 ? "result" : "results"}`;
-  return files > total ? `${head} · ${files.toLocaleString("en")} files` : head;
+      ? `${t.countResults(shown.length, total.toLocaleString("en"))}`
+      : `${total} ${total === 1 ? t.resultOne : t.resultMany}`;
+  return files > total
+    ? `${head}${t.countFiles(files.toLocaleString("en"))}`
+    : head;
 }
 
 /** One row of the left pane: whose shelf the right pane shows. */
@@ -271,8 +288,10 @@ function Reader({
   onShelf: () => void;
 }) {
   const [reveal] = useServerAction(revealFileAction);
+  const locale = useLocale();
+  const t = settingsDictOf(locale).files;
   const [remove, removing] = useServerAction(deleteArtifactAction, {
-    okMessage: "Deleted",
+    okMessage: t.deletedOk,
     onOk: () => {
       revalidate(queryKey.artifacts);
       if (file) onBack();
@@ -299,11 +318,9 @@ function Reader({
 
   const confirmRemove = async (path: string) => {
     const confirmed = await notify.confirm({
-      title: `Delete ${path.split("/").pop()}?`,
-      description: open
-        ? "It is deleted from disk for good."
-        : "The folder and everything in it are deleted from disk for good.",
-      okText: "Delete",
+      title: t.deleteTitle(path.split("/").pop() ?? path),
+      description: open ? t.deleteFileBody : t.deleteFolderBody,
+      okText: t.deleteOk,
       destructive: true,
     });
     if (confirmed) remove(path);
@@ -318,15 +335,15 @@ function Reader({
           className="-ml-1 flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 font-mono text-[11px] text-muted-foreground outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <ChevronLeft className="size-3" />
-          {file ? row.name : "Shelf"}
+          {file ? row.name : t.shelfWord}
         </button>
         <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-foreground">
           {open ? (open.path.split("/").pop() ?? row.name) : row.name}
         </span>
         <span className="shrink-0 font-mono text-[11px] text-muted-foreground/70">
           {open
-            ? `${formatBytes(open.bytes)} · ${shortAgo(open.at)}`
-            : `${row.count} ${row.count === 1 ? "file" : "files"} · ${shortAgo(row.at)}`}
+            ? `${formatBytes(open.bytes)} · ${shortAgo(open.at, Date.now(), locale)}`
+            : `${row.count} ${row.count === 1 ? t.fileWord : t.filesWord} · ${shortAgo(row.at, Date.now(), locale)}`}
         </span>
         {filed && <FileThreadChip note={note} onOpen={openThread} />}
         {open && (
@@ -334,7 +351,7 @@ function Reader({
             href={queryKey.fileView(open.path)}
             target="_blank"
             rel="noreferrer"
-            aria-label="Open in a new tab"
+            aria-label={t.openNewTab}
             className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             <ExternalLink className="size-4" />
@@ -343,7 +360,7 @@ function Reader({
         <Button
           size="icon-sm"
           variant="ghost"
-          aria-label="Reveal in the file manager"
+          aria-label={t.revealManager}
           className="text-muted-foreground"
           onClick={() => reveal(open?.path ?? row.path)}
         >
@@ -353,7 +370,7 @@ function Reader({
         <Button
           size="icon-sm"
           variant="ghost"
-          aria-label="Delete"
+          aria-label={t.deleteAria}
           loading={removing}
           className="ml-1.5 text-muted-foreground hover:text-destructive"
           onClick={() => confirmRemove(open?.path ?? row.path)}
@@ -399,6 +416,7 @@ function SetSheet({
   const { data, isLoading, error } = useServerRoute<ArtifactSet>(
     queryKey.artifactSet(path, ARTIFACT_VIEW.setFiles),
   );
+  const t = settingsDictOf(useLocale()).files;
 
   if (isLoading) {
     return (
@@ -413,11 +431,7 @@ function SetSheet({
 
   const files = data?.files ?? [];
   if (files.length === 0) {
-    return (
-      <p className="p-5 text-xs text-muted-foreground/60">
-        Nothing in here the app can open.
-      </p>
-    );
+    return <p className="p-5 text-xs text-muted-foreground/60">{t.setEmpty}</p>;
   }
 
   return (
@@ -440,7 +454,7 @@ function SetSheet({
       </div>
       {data && data.total > files.length && (
         <p className="pt-4 font-mono text-[11px] text-muted-foreground/60">
-          {`${files.length} of ${data.total.toLocaleString("en")} — the rest are in the folder`}
+          {t.setRest(files.length, data.total.toLocaleString("en"))}
         </p>
       )}
     </div>
@@ -472,6 +486,8 @@ function Shelf({
   bots?: Bot[];
   onPick: (row: Artifact) => void;
 }) {
+  const locale = useLocale();
+  const t = settingsDictOf(locale).files;
   return (
     <div className="space-y-7 p-6">
       {groupByBot(entries).map(({ bot, rows }) => (
@@ -486,7 +502,7 @@ function Shelf({
                 className="shrink-0"
               />
             )}
-            <span className="truncate">{bot ?? "Unsorted"}</span>
+            <span className="truncate">{bot ?? t.unsorted}</span>
             <span className="font-mono text-[11px] font-normal text-muted-foreground">
               {rows.length}
             </span>
@@ -515,9 +531,9 @@ function Shelf({
                   <span className="block truncate text-[13px]">{row.name}</span>
                   <span className="block truncate font-mono text-[10.5px] text-muted-foreground">
                     {row.kind === "set"
-                      ? `${row.count} ${row.count === 1 ? "file" : "files"} · `
+                      ? `${row.count} ${row.count === 1 ? t.fileWord : t.filesWord} · `
                       : ""}
-                    {shortAgo(row.at)}
+                    {shortAgo(row.at, Date.now(), locale)}
                   </span>
                 </span>
               </button>
@@ -531,12 +547,11 @@ function Shelf({
 
 /** The right pane with nothing to show: what lands here, and where it comes from. Reveal folder is the footer's. */
 function Nothing({ empty }: { empty: boolean }) {
+  const t = settingsDictOf(useLocale()).files;
   return (
     <div className="p-8">
       <p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
-        {empty
-          ? "Nothing finished yet. When a bot ends a job with something to hand over — a page, a report, a set of pictures — it lands here."
-          : "Pick something on the left. Each bot's work is under its face; a folder it filled is one row, and opens as a sheet."}
+        {empty ? t.nothingEmpty : t.nothingPick}
       </p>
     </div>
   );

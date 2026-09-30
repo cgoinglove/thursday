@@ -35,9 +35,16 @@ import {
   SettingItems,
   SettingNote,
 } from "@/features/settings/components/setting-ui";
+import { useLocale } from "@/hooks/use-locale";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
+import {
+  type ReachDict,
+  type ReachSeg,
+  type ReachStep,
+  settingsDictOf,
+} from "@/messages";
 import {
   forgetReachAction,
   nameReachAction,
@@ -45,7 +52,6 @@ import {
   saveMailboxAction,
 } from "../reach.action";
 import {
-  DISCORD_TOKEN_KEY,
   EMAIL_PASSWORD_KEY,
   REACH_CHANNELS,
   REACH_KEYS,
@@ -53,9 +59,6 @@ import {
   type ReachChannelName,
   type ReachChannelStatus,
   type ReachStatus,
-  SLACK_APP_TOKEN_KEY,
-  SLACK_BOT_TOKEN_KEY,
-  TELEGRAM_TOKEN_KEY,
 } from "../reach.schema";
 
 /**
@@ -108,178 +111,34 @@ const B = ({ children }: { children: ReactNode }) => (
   <span className="font-medium text-foreground">{children}</span>
 );
 
+/** A translated step body: plain runs, bold runs, and links. */
+function Segs({ segs }: { segs: ReachSeg[] }) {
+  return (
+    <>
+      {segs.map((seg, at) =>
+        typeof seg === "string" ? (
+          <span key={at}>{seg}</span>
+        ) : "bold" in seg ? (
+          <B key={at}>{seg.bold}</B>
+        ) : (
+          <Link key={at} href={seg.link.href}>
+            {seg.link.label}
+          </Link>
+        ),
+      )}
+    </>
+  );
+}
+
+/** The guide steps in the reader's language. */
+function stepsOf(t: ReachDict): Record<ReachChannelName, ReachStep[]> {
+  return t.steps as Record<ReachChannelName, ReachStep[]>;
+}
+
 /** What a step holds besides its words: the one thing to do in it. */
-type Slot =
-  | { open: string; label: string }
-  | { key: string; looks: string }
-  | { manifest: true }
-  /** Email: her mailbox — address, app password, and its servers where none are published. */
-  | { mailbox: true }
-  /** Email: the user's own address, the one that may write. */
-  | { person: true }
-  /** Email: the way to write to her, once both addresses are in. */
-  | { write: true }
-  /**
-   * The address the service named for this bot, drawn for a phone to read. `does` is what
-   * pressing it does, for an address too long to read as a label.
-   */
-  | { says: string; does?: string };
+type Slot = NonNullable<ReachStep["slot"]>;
 
-type Step = { body: ReactNode; slot?: Slot };
-
-const STEPS: Record<ReachChannelName, Step[]> = {
-  telegram: [
-    {
-      body: (
-        <>
-          In Telegram, write to <B>@BotFather</B>, send <B>/newbot</B> and pick
-          a name. It answers with a <B>token</B>.
-        </>
-      ),
-      slot: { open: "https://t.me/BotFather", label: "Open @BotFather" },
-    },
-    {
-      body: <>Paste the token here.</>,
-      slot: { key: TELEGRAM_TOKEN_KEY, looks: "123456789:AAE…" },
-    },
-    {
-      body: <>From your phone, write anything to your bot.</>,
-      slot: { says: "Point your phone's camera at it to open the chat." },
-    },
-    {
-      body: (
-        <>
-          A question with a code appears on this computer. Press <B>Allow</B> if
-          your phone shows the same code.
-        </>
-      ),
-    },
-  ],
-  discord: [
-    {
-      body: (
-        <>
-          At <B>discord.com/developers</B>, make a <B>New Application</B>. So
-          nobody else can add it to a server, set <B>Install Link</B> to{" "}
-          <B>None</B> on its <B>Installation</B> page and turn off{" "}
-          <B>Public Bot</B> on its <B>Bot</B> page. There, press{" "}
-          <B>Reset Token</B> and copy it.
-        </>
-      ),
-      slot: {
-        open: "https://discord.com/developers/applications",
-        label: "Open discord.com/developers",
-      },
-    },
-    {
-      body: <>Paste the token here.</>,
-      slot: { key: DISCORD_TOKEN_KEY, looks: "MTE…" },
-    },
-    {
-      body: (
-        <>
-          <B>Add the bot to a server of your own</B> — Discord only delivers a
-          message to a bot you share a server with. A private server made for
-          this is fine.
-        </>
-      ),
-      slot: {
-        says: "Point your phone's camera at it, or open it here. It asks which server, and adds the bot with no permissions in it.",
-        does: "Add the bot to a server",
-      },
-    },
-    {
-      body: (
-        <>
-          <B>Send the bot a direct message</B>, not in the server: on a phone,
-          tap the bot in the server's member list, then <B>Message</B>. A
-          question with a code appears here: press <B>Allow</B> if your phone
-          shows the same code.
-        </>
-      ),
-    },
-  ],
-  slack: [
-    {
-      body: (
-        <>
-          At <Link href="https://api.slack.com/apps">api.slack.com/apps</Link>,{" "}
-          <B>Create New App › From a manifest</B>, and paste the manifest.
-        </>
-      ),
-      slot: { manifest: true },
-    },
-    {
-      body: (
-        <>
-          <B>Basic Information › App-Level Tokens</B>: generate one with{" "}
-          <B>connections:write</B>. It starts with xapp-.
-        </>
-      ),
-      slot: { key: SLACK_APP_TOKEN_KEY, looks: "xapp-…" },
-    },
-    {
-      body: (
-        <>
-          <B>Install App</B> to your workspace. The Bot User OAuth Token starts
-          with xoxb-.
-        </>
-      ),
-      slot: { key: SLACK_BOT_TOKEN_KEY, looks: "xoxb-…" },
-    },
-    {
-      body: (
-        <>
-          In Slack, open the app under <B>Apps</B> and write in its{" "}
-          <B>Messages</B> tab. A question with a code appears here: press{" "}
-          <B>Allow</B> if Slack shows the same code.
-        </>
-      ),
-    },
-  ],
-  email: [
-    {
-      body: (
-        <>
-          Make a <B>mailbox of her own</B> — a new account at a mail service
-          that gives app passwords (Outlook no longer does). Turn on{" "}
-          <B>two-step sign-in</B> there and create an <B>app password</B> for
-          Thursday: how on{" "}
-          <Link href="https://support.google.com/accounts/answer/185833">
-            Gmail
-          </Link>
-          , <Link href="https://support.apple.com/en-us/102654">iCloud</Link>,{" "}
-          <Link href="https://www.fastmail.help/hc/en-us/articles/360058752854-App-passwords">
-            Fastmail
-          </Link>
-          . Your own inbox stays out of it.
-        </>
-      ),
-    },
-    {
-      body: <>Her address and the app password.</>,
-      slot: { mailbox: true },
-    },
-    {
-      body: (
-        <>
-          Your own address. Only mail from it reaches her, and only once its
-          mail service vouches it was sent from there.
-        </>
-      ),
-      slot: { person: true },
-    },
-    {
-      body: (
-        <>
-          From your address, write anything to hers. She answers in the same
-          thread.
-        </>
-      ),
-      slot: { write: true },
-    },
-  ],
-};
+type Step = { body: ReachSeg[]; slot?: Slot };
 
 /** How a step is drawn. `flat` is a step the app cannot see the end of — it happens elsewhere. */
 type StepState = "flat" | "now" | "done" | "later";
@@ -361,6 +220,8 @@ export function ReachGuide() {
   );
   const started = REACH_CHANNELS.find((name) => keyed(name) && !letIn(name));
   const none = !REACH_CHANNELS.some(letIn);
+  const locale = useLocale();
+  const t = settingsDictOf(locale).reach;
   const [open, setOpen] = useState<ReachChannelName | null>(
     stopped ?? started ?? (none ? REACH_CHANNELS[0] : null),
   );
@@ -381,12 +242,7 @@ export function ReachGuide() {
           />
         ))}
       </SettingItems>
-      <SettingNote>
-        Only the one person you allow can write: direct messages in a chat app,
-        and by email only mail from the address you name. Nobody else is ever
-        written back to. Work started here runs whether or not a tab is open,
-        while Thursday is running on this computer.
-      </SettingNote>
+      <SettingNote>{t.note}</SettingNote>
     </div>
   );
 }
@@ -410,7 +266,9 @@ function Channel({
   open: boolean;
   onOpen: () => void;
 }) {
-  const steps = STEPS[name];
+  const locale = useLocale();
+  const t = settingsDictOf(locale).reach;
+  const steps = stepsOf(t)[name];
   const refused = status?.refused ?? null;
   const email = name === "email";
   const states = email
@@ -489,7 +347,12 @@ function Channel({
                   step.slot && "key" in step.slot && step.slot.key === refused
                     ? (status?.problem ?? "")
                     : step.slot && "key" in step.slot && isLost(step.slot.key)
-                      ? lostWords("The token saved here", "Paste it again.")
+                      ? lostWords(
+                          t.lostTokenAgain,
+                          t.mailtoFallback,
+                          undefined,
+                          locale,
+                        )
                       : null
                 }
                 link={status?.link ?? null}
@@ -526,17 +389,16 @@ function ChannelWords({
   /** A token of it is saved but no longer readable: stopped, as a refused one is. */
   lost: boolean;
 }) {
+  const t = settingsDictOf(useLocale()).reach;
   const small = "text-xs";
   if (lost)
     return (
-      <span className={cn(small, "text-destructive")}>
-        Stopped — the saved token can't be unlocked any more
-      </span>
+      <span className={cn(small, "text-destructive")}>{t.stoppedToken}</span>
     );
   if (tokensIn < tokens)
     return (
       <span className={cn(small, "text-muted-foreground")}>
-        {tokensIn ? `${tokensIn} of ${tokens} tokens in` : "Not set"}
+        {tokensIn ? t.tokensIn(tokensIn, tokens) : t.notSet}
       </span>
     );
   // Stopped for good until a token changes: said in red whoever is let in, since nothing
@@ -544,30 +406,37 @@ function ChannelWords({
   if (status?.refused)
     return (
       <span className={cn(small, "text-destructive")}>
-        Stopped — {REACH_LABEL[status.name]} turned the token away
+        {t.stoppedTurned(REACH_LABEL[status.name])}
       </span>
     );
   // Trouble it is trying again after, and may come back from by itself: a wait, not a failure
   if (status?.problem)
     return (
       <ShinyText
-        text={`${status.bot ? "Reconnecting" : "Connecting"} ${status.problem}`}
+        text={
+          status.bot
+            ? t.reconnecting(status.problem)
+            : t.connecting(status.problem)
+        }
         className={cn(small, "align-middle")}
       />
     );
   if (status?.allowed)
     return (
       <span className={cn(small, "text-muted-foreground")}>
-        Listening as {status.bot}. {status.allowed.name} is let in.
+        {t.listeningAs(status.bot, status.allowed.name)}
       </span>
     );
   if (!status?.bot)
     return (
-      <ShinyText text="Connecting…" className={cn(small, "align-middle")} />
+      <ShinyText
+        text={t.connectingDots}
+        className={cn(small, "align-middle")}
+      />
     );
   return (
     <ShinyText
-      text={`Listening as ${status.bot} — waiting for your first message`}
+      text={t.waitingFirst(status.bot)}
       tone="waiting"
       className={cn(small, "align-middle")}
     />
@@ -583,49 +452,59 @@ function MailWords({
   /** The saved app password can no longer be read. */
   lost: boolean;
 }) {
+  const t = settingsDictOf(useLocale()).reach;
   const small = "text-xs";
   if (lost)
     return (
       <span className={cn(small, "text-destructive")}>
-        Stopped — the saved app password can't be unlocked any more
+        {t.mailStoppedPassword}
       </span>
     );
   if (!status?.mailbox)
-    return <span className={cn(small, "text-muted-foreground")}>Not set</span>;
+    return (
+      <span className={cn(small, "text-muted-foreground")}>{t.notSet}</span>
+    );
   if (status.refused)
     return (
       <span className={cn(small, "text-destructive")}>
-        Stopped — the mail service turned her mailbox's sign-in away
+        {t.mailStoppedService}
       </span>
     );
   if (status.problem)
     return (
       <ShinyText
-        text={`${status.bot ? "Reconnecting" : "Connecting"} ${status.problem}`}
+        text={
+          status.bot
+            ? t.reconnecting(status.problem)
+            : t.connecting(status.problem)
+        }
         className={cn(small, "align-middle")}
       />
     );
   if (!status.bot)
     return (
-      <ShinyText text="Connecting…" className={cn(small, "align-middle")} />
+      <ShinyText
+        text={t.connectingDots}
+        className={cn(small, "align-middle")}
+      />
     );
   // Connected, and a mail of theirs waits on a check that will be made again: a wait, not a stop
   if (status.holding)
     return (
       <ShinyText
-        text={`Listening as ${status.bot} — a mail is held: ${status.holding}`}
+        text={t.mailHeld(status.bot, status.holding)}
         className={cn(small, "align-middle")}
       />
     );
   if (status.allowed)
     return (
       <span className={cn(small, "text-muted-foreground")}>
-        Listening as {status.bot}. {status.allowed.name} can write.
+        {t.mailCanWrite(status.bot, status.allowed.name)}
       </span>
     );
   return (
     <ShinyText
-      text={`Listening as ${status.bot} — name your own address`}
+      text={t.mailNameAddress(status.bot)}
       tone="waiting"
       className={cn(small, "align-middle")}
     />
@@ -674,7 +553,7 @@ function Row({
               : "text-muted-foreground",
           )}
         >
-          {step.body}
+          <Segs segs={step.body} />
         </p>
         <Doing
           slot={step.slot}
@@ -740,9 +619,9 @@ function Doing({
   status: ReachChannelStatus | null;
   lostPassword: boolean;
 }) {
-  const held = waiting && (
-    <ShinyText text="Waiting for your first message…" tone="waiting" />
-  );
+  const locale = useLocale();
+  const t = settingsDictOf(locale).reach;
+  const held = waiting && <ShinyText text={t.waitingFirstMsg} tone="waiting" />;
   if (state === "later") return null;
   if (slot && "mailbox" in slot)
     return (
@@ -752,10 +631,7 @@ function Doing({
           status?.refused
             ? (status.problem ?? "")
             : lostPassword
-              ? lostWords(
-                  "The app password saved here",
-                  "Save her mailbox again.",
-                )
+              ? lostWords(t.lostTokenAgain, t.mailtoFallback, undefined, locale)
               : null
         }
       />
@@ -806,6 +682,7 @@ function Scan({
 }) {
   const { size, data } = encode(link);
   const shown = bare(link);
+  const t = settingsDictOf(useLocale()).reach;
   return (
     <div className="flex flex-wrap items-center gap-4">
       <div className="rounded-lg bg-white p-2.5">
@@ -813,7 +690,7 @@ function Scan({
           viewBox={`0 0 ${size} ${size}`}
           className="block size-31 text-black"
           role="img"
-          aria-label={`A picture of ${shown} for a phone camera`}
+          aria-label={t.cameraAria(shown)}
         >
           {data.flatMap((row, y) =>
             row.map((on, x) =>
@@ -879,6 +756,8 @@ function KeyField({
 }) {
   const [value, setValue] = useState("");
   const [editing, setEditing] = useState(false);
+  const locale = useLocale();
+  const t = settingsDictOf(locale).reach;
   // Deduped with the guide's own read; a token the environment sets cannot be changed here
   const { data: config } = useServerRoute<ConfigStatus[]>(queryKey.config);
   const env = isConfigFromEnv(config, configKey);
@@ -894,9 +773,9 @@ function KeyField({
   });
   const confirmRemove = async () => {
     const confirmed = await notify.confirm({
-      title: "Remove this token?",
-      description: "That service stops, and whoever is let in is let go.",
-      okText: "Remove",
+      title: t.removeTokenTitle,
+      description: t.removeTokenBody,
+      okText: t.removeTokenOk,
       destructive: true,
     });
     if (confirmed) void remove(configKey);
@@ -907,7 +786,7 @@ function KeyField({
     return (
       <>
         <p className="max-w-xl text-muted-foreground">
-          {envWords(CONFIG_ENTRIES[configKey]?.label ?? configKey)}
+          {envWords(CONFIG_ENTRIES[configKey]?.label ?? configKey, locale)}
         </p>
         {refused && <p className="max-w-xl text-destructive">{refused}</p>}
       </>
@@ -922,7 +801,7 @@ function KeyField({
         onClick={() => setEditing(true)}
         className="-ml-2 text-muted-foreground"
       >
-        Change the token
+        {t.changeToken}
       </Button>
     );
 
@@ -939,7 +818,7 @@ function KeyField({
           value={value}
           onChange={(event) => setValue(event.target.value)}
           placeholder={looks}
-          aria-label="Token"
+          aria-label={t.tokenAria}
           // A token is a key to the bot: kept out of sight, as every key field keeps its value
           type="password"
           autoComplete="off"
@@ -952,7 +831,7 @@ function KeyField({
           loading={saving}
           disabled={value.trim().length < KEY_MIN}
         >
-          {set ? "Replace" : "Save"}
+          {set ? t.replaceBtn : t.saveBtn}
         </Button>
         {(set || lost) && (
           <>
@@ -963,7 +842,7 @@ function KeyField({
                 variant="ghost"
                 onClick={() => setEditing(false)}
               >
-                Cancel
+                {t.cancelBtn}
               </Button>
             )}
             {/* set apart from what saves, at the far end and in red */}
@@ -974,7 +853,7 @@ function KeyField({
               onClick={() => void confirmRemove()}
               className="ml-auto text-destructive hover:text-destructive"
             >
-              Remove
+              {t.removeBtn}
             </Button>
           </>
         )}
@@ -986,6 +865,7 @@ function KeyField({
 
 function CopyManifest() {
   const [copied, setCopied] = useState(false);
+  const t = settingsDictOf(useLocale()).reach;
   return (
     <Button
       size="sm"
@@ -998,7 +878,7 @@ function CopyManifest() {
       }
     >
       {copied ? <Check /> : <Copy />}
-      {copied ? "Copied" : "Copy the manifest"}
+      {copied ? t.copiedBtn : t.copyManifest}
     </Button>
   );
 }
@@ -1019,11 +899,10 @@ function LetGo({
   const [forget, forgetting] = useServerAction(forgetReachAction, {
     onOk: () => revalidate(queryKey.reach),
   });
+  const t = settingsDictOf(useLocale()).reach;
   return (
     <div className="flex flex-wrap items-center gap-2 pt-3 pl-8 text-[13px] text-muted-foreground">
-      <span>
-        {stopped ? `${who} is let in.` : `${who} can write from a phone.`}
-      </span>
+      <span>{stopped ? t.letInLine(who) : t.canWriteLine(who)}</span>
       <Button
         size="sm"
         variant="outline"
@@ -1031,16 +910,15 @@ function LetGo({
         onClick={async () => {
           // One press ends every chat through this service, so it is asked like a delete
           const sure = await notify.confirm({
-            title: `Let ${who} go?`,
-            description:
-              "Nobody can write to Thursday through this service until someone is let in again.",
-            okText: "Let them go",
+            title: t.letGoTitle(who),
+            description: t.letGoBody,
+            okText: t.letGoOk,
             destructive: true,
           });
           if (sure) void forget(name);
         }}
       >
-        Let them go
+        {t.letGoBtn}
       </Button>
     </div>
   );
@@ -1092,12 +970,13 @@ function MailboxField({
   const [remove, removing] = useServerAction(removeMailboxAction, {
     onOk: done,
   });
+  const locale = useLocale();
+  const t = settingsDictOf(locale).reach;
   const confirmRemove = async () => {
     const confirmed = await notify.confirm({
-      title: "Remove her mailbox?",
-      description:
-        "Email stops, and the address that could write is let go. The mailbox itself is not touched.",
-      okText: "Remove",
+      title: t.removeMailboxTitle,
+      description: t.removeMailboxBody,
+      okText: t.removeMailboxOk,
       destructive: true,
     });
     if (confirmed) void remove();
@@ -1107,7 +986,7 @@ function MailboxField({
     return (
       <>
         <p className="max-w-xl text-muted-foreground">
-          {envWords("Her mailbox's app password")}
+          {envWords(t.mailboxAppPassword, locale)}
         </p>
         {refused && <p className="max-w-xl text-destructive">{refused}</p>}
       </>
@@ -1129,14 +1008,14 @@ function MailboxField({
           }}
           className="-ml-2 text-muted-foreground"
         >
-          Change
+          {t.changeBtn}
         </Button>
       </div>
     );
 
   const domain = address.includes("@")
     ? address.slice(address.lastIndexOf("@") + 1)
-    : "Its domain";
+    : t.domainFallback;
   const field = "grid gap-1 font-mono text-[11px] text-muted-foreground";
   return (
     <>
@@ -1165,7 +1044,7 @@ function MailboxField({
       >
         <div className="flex flex-wrap items-end gap-2">
           <label className={field}>
-            Address
+            {t.addressField}
             <Input
               value={address}
               onChange={(event) => {
@@ -1180,11 +1059,11 @@ function MailboxField({
             />
           </label>
           <label className={field}>
-            App password
+            {t.appPasswordField}
             <Input
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="paste it here"
+              placeholder={t.appPasswordPlaceholder}
               // A key to her mailbox: kept out of sight, as every key field keeps its value
               type="password"
               autoComplete="off"
@@ -1196,19 +1075,17 @@ function MailboxField({
         {servers && (
           <>
             <p className="max-w-xl text-muted-foreground">
-              {domain} doesn't say where its mail servers are. Its help pages
-              name them — one for reading mail (IMAP) and one for sending it
-              (SMTP).
+              {t.noServersNote(domain)}
             </p>
             <div className="flex flex-wrap items-end gap-2">
               <ServerFields
-                label="Reading server"
+                label={t.readingServer}
                 looks={`imap.${domain}`}
                 value={imap}
                 onChange={setImap}
               />
               <ServerFields
-                label="Sending server"
+                label={t.sendingServer}
                 looks={`smtp.${domain}`}
                 value={smtp}
                 onChange={setSmtp}
@@ -1227,7 +1104,7 @@ function MailboxField({
               (servers && !(imap.host.trim() && smtp.host.trim()))
             }
           >
-            {mailbox ? "Replace" : "Save"}
+            {mailbox ? t.replaceAction : t.saveAction}
           </Button>
           {mailbox && (
             <>
@@ -1237,7 +1114,7 @@ function MailboxField({
                   variant="ghost"
                   onClick={() => setEditing(false)}
                 >
-                  Cancel
+                  {t.cancelBtn}
                 </Button>
               )}
               {/* set apart from what saves, at the far end and in red */}
@@ -1248,7 +1125,7 @@ function MailboxField({
                 onClick={() => void confirmRemove()}
                 className="ml-auto text-destructive hover:text-destructive"
               >
-                Remove
+                {t.removeBtn}
               </Button>
             </>
           )}
@@ -1271,6 +1148,7 @@ function ServerFields({
   onChange: (value: { host: string; port: string }) => void;
 }) {
   const field = "grid gap-1 font-mono text-[11px] text-muted-foreground";
+  const t = settingsDictOf(useLocale()).reach;
   return (
     <>
       <label className={field}>
@@ -1285,7 +1163,7 @@ function ServerFields({
         />
       </label>
       <label className={field}>
-        Port
+        {t.portField}
         <Input
           value={value.port}
           onChange={(event) => onChange({ ...value, port: event.target.value })}
@@ -1305,6 +1183,7 @@ function ServerFields({
 function PersonField({ who }: { who: string | null }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
+  const t = settingsDictOf(useLocale()).reach;
   const done = () => {
     setValue("");
     setEditing(false);
@@ -1325,7 +1204,7 @@ function PersonField({ who }: { who: string | null }) {
           onClick={() => setEditing(true)}
           className="-ml-2 text-muted-foreground"
         >
-          Change
+          {t.changeBtn}
         </Button>
       </div>
     );
@@ -1342,7 +1221,7 @@ function PersonField({ who }: { who: string | null }) {
         value={value}
         onChange={(event) => setValue(event.target.value)}
         placeholder="you@example.org"
-        aria-label="Your own address"
+        aria-label={t.ownAddressAria}
         type="email"
         autoComplete="email"
         spellCheck={false}
@@ -1354,12 +1233,12 @@ function PersonField({ who }: { who: string | null }) {
         loading={naming}
         disabled={!value.includes("@")}
       >
-        {who ? "Replace" : "Save"}
+        {who ? t.replaceAction : t.saveAction}
       </Button>
       {who && (
         <>
           <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
-            Cancel
+            {t.cancelBtn}
           </Button>
           <Button
             size="sm"
@@ -1368,17 +1247,16 @@ function PersonField({ who }: { who: string | null }) {
             onClick={async () => {
               // Nobody can write to her by email after this, so it is asked like a delete
               const sure = await notify.confirm({
-                title: `Stop reading mail from ${who}?`,
-                description:
-                  "Nobody can write to Thursday by email until an address is named again.",
-                okText: "Stop",
+                title: t.stopMailTitle(who),
+                description: t.stopMailBody,
+                okText: t.stopMailOk,
                 destructive: true,
               });
               if (sure) void forget("email");
             }}
             className="ml-auto text-destructive hover:text-destructive"
           >
-            Remove
+            {t.removeBtn}
           </Button>
         </>
       )}
@@ -1389,9 +1267,10 @@ function PersonField({ who }: { who: string | null }) {
 /** Email's step 4: her address, to open in a mail app or to copy into one. */
 function WriteTo({ address }: { address: string }) {
   const [copied, setCopied] = useState(false);
+  const t = settingsDictOf(useLocale()).reach;
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <OutLink href={`mailto:${address}`}>Write to {address}</OutLink>
+      <OutLink href={`mailto:${address}`}>{t.writeTo(address)}</OutLink>
       <Button
         size="sm"
         variant="outline"
@@ -1403,7 +1282,7 @@ function WriteTo({ address }: { address: string }) {
         }
       >
         {copied ? <Check /> : <Copy />}
-        {copied ? "Copied" : "Copy her address"}
+        {copied ? t.copiedBtn : t.copyHerAddress}
       </Button>
     </div>
   );

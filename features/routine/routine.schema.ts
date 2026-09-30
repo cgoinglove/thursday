@@ -112,26 +112,53 @@ const MONTH_NAMES = [
 
 /**
  * "Once · Sep 21 20:00", "Daily 09:00 · Mon–Fri", "Mon 10:00", "Every 6 hours": the one
- * spelling, on screen and to a model.
+ * spelling, on screen and to a model. Screen callers pass the reader's words
+ * (messages RoutineDict schedule*); the model path keeps the default English.
  */
-export function scheduleText(schedule: RoutineSchedule): string {
+export type ScheduleWords = {
+  days: string[];
+  months: string[];
+  once: (date: string) => string;
+  everyHour: string;
+  everyHours: (hours: number) => string;
+  daily: (time: string) => string;
+  dailyDays: (time: string, names: string) => string;
+  dayTime: (day: string, time: string) => string;
+};
+
+const EN_WORDS: ScheduleWords = {
+  days: DAY_NAMES,
+  months: MONTH_NAMES,
+  once: (date) => `Once · ${date}`,
+  everyHour: "Every hour",
+  everyHours: (hours) => `Every ${hours} hours`,
+  daily: (time) => `Daily ${time}`,
+  dailyDays: (time, names) => `Daily ${time} · ${names}`,
+  dayTime: (day, time) => `${day} ${time}`,
+};
+
+export function scheduleText(
+  schedule: RoutineSchedule,
+  words: ScheduleWords = EN_WORDS,
+): string {
   if (schedule.kind === "once") {
     const [day, time] = schedule.at.split(" ");
     const [, month, date] = day.split("-").map(Number);
-    return `Once · ${MONTH_NAMES[month - 1]} ${date} ${time}`;
+    return words.once(`${words.months[month - 1]} ${date} ${time}`);
   }
   if (schedule.kind === "every")
     return schedule.hours === 1
-      ? "Every hour"
-      : `Every ${schedule.hours} hours`;
+      ? words.everyHour
+      : words.everyHours(schedule.hours);
   const { days, time } = schedule;
-  if (days.length === 7) return `Daily ${time}`;
-  if (days.length === 1) return `${DAY_NAMES[days[0] - 1]} ${time}`;
+  if (days.length === 7) return words.daily(time);
+  const name = (day: number) => words.days[day - 1] ?? DAY_NAMES[day - 1];
+  if (days.length === 1) return words.dayTime(name(days[0]), time);
   const run = days.every((day, at) => at === 0 || day === days[at - 1] + 1);
   const names = run
-    ? `${DAY_NAMES[days[0] - 1]}–${DAY_NAMES[days.at(-1)! - 1]}`
-    : days.map((day) => DAY_NAMES[day - 1]).join(" ");
-  return `Daily ${time} · ${names}`;
+    ? `${name(days[0])}–${name(days.at(-1)!)}`
+    : days.map(name).join(" ");
+  return words.dailyDays(time, names);
 }
 
 /**

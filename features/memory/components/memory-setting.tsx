@@ -28,7 +28,6 @@ import {
   isFading,
   type MemoryNote,
   type MemorySection,
-  memorySourceLabel,
   noteTitle,
   sectionOf,
 } from "@/features/memory/memory.schema";
@@ -44,18 +43,20 @@ import {
   SettingToolbar,
 } from "@/features/settings/components/setting-ui";
 import { composing } from "@/hooks/use-hotkey";
+import { useLocale } from "@/hooks/use-locale";
 import { shortAgo } from "@/lib/date-like";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { useServerPages } from "@/lib/protocol/use-server-pages";
 import { revalidate } from "@/lib/protocol/use-server-route";
 import { cn } from "@/lib/utils";
+import { settingsDictOf } from "@/messages";
 
-const SECTIONS: { key: MemorySection; label: string }[] = [
-  { key: "you", label: "You" },
-  { key: "people", label: "People" },
-  { key: "projects", label: "Projects" },
-  { key: "topics", label: "Topics" },
-  { key: "other", label: "Other" },
+const SECTION_KEYS: MemorySection[] = [
+  "you",
+  "people",
+  "projects",
+  "topics",
+  "other",
 ];
 
 /** Every write revalidates the whole memory prefix: a fact changes the list's counts too. */
@@ -77,6 +78,8 @@ export function MemorySetting() {
   // By id: row objects are replaced on every revalidation.
   const [flipped, setFlipped] = useState<ReadonlySet<number>>(new Set());
   const [editing, setEditing] = useState(false);
+  const locale = useLocale();
+  const t = settingsDictOf(locale).memory;
 
   if (isLoading) return <SettingSkeleton />;
   if (error) return <SettingError message={error.message} />;
@@ -96,7 +99,7 @@ export function MemorySetting() {
     });
 
   const facts = notes.reduce((sum, note) => sum + note.factCount, 0);
-  const more = hasMore ? "+" : "";
+  const more = hasMore;
 
   return (
     // The edit floats over the list, above the rail (memory-edit)
@@ -110,14 +113,14 @@ export function MemorySetting() {
             onClick={() => setEditing(!editing)}
           >
             <ProviderMarks />
-            Edit with a model
+            {t.editWithModel}
           </Button>
         }
       >
         <SettingToolbar
           count={
             <span className="flex items-center gap-3">
-              {`${notes.length}${more} notes · ${facts}${more} facts`}
+              {t.notesFacts(notes.length, facts, more)}
               <Button
                 size="sm"
                 variant="outline"
@@ -125,7 +128,7 @@ export function MemorySetting() {
                 onClick={openMemoryCreate}
               >
                 <Plus />
-                New note
+                {t.newNote}
               </Button>
             </span>
           }
@@ -133,21 +136,21 @@ export function MemorySetting() {
           <SettingFilter
             value={filter}
             onChange={setFilter}
-            placeholder="Filter memory"
+            placeholder={t.filter}
           />
         </SettingToolbar>
 
         {needle && shown.length === 0 && (
           <p className="px-1 text-xs text-muted-foreground/60">
-            Nothing matches
+            {t.nothingMatches}
           </p>
         )}
 
-        {SECTIONS.map(({ key, label }) => {
+        {SECTION_KEYS.map((key) => {
           const rows = shown.filter((note) => sectionOf(note.path) === key);
           if (rows.length === 0) return null;
           return (
-            <SettingGroup key={key} label={label}>
+            <SettingGroup key={key} label={t.sections[key] ?? key}>
               <SettingItems>
                 {rows.map((note) => (
                   <NoteRow
@@ -232,12 +235,13 @@ function NoteRow({
 }) {
   const [renaming, setRenaming] = useState(false);
   const [removeNote, removing] = useServerAction(deleteNoteAction, refresh);
+  const t = settingsDictOf(useLocale()).memory;
 
   const confirmRemove = async () => {
     const confirmed = await notify.confirm({
-      title: `Forget ${note.path}?`,
-      description: "Every fact in this note is deleted for good.",
-      okText: "Delete",
+      title: t.forgetNoteTitle(note.path),
+      description: t.forgetNoteBody,
+      okText: t.deleteOk,
       destructive: true,
     });
     if (confirmed) removeNote(note.id);
@@ -281,11 +285,11 @@ function NoteRow({
                 {note.description}
               </span>
               <span className="w-16 shrink-0 text-right font-mono text-[11px] text-muted-foreground/70">
-                {note.factCount} {note.factCount === 1 ? "fact" : "facts"}
+                {note.factCount} {note.factCount === 1 ? t.factOne : t.factMany}
               </span>
               <span
                 className="w-10 shrink-0 text-right font-mono text-[11px] text-muted-foreground/50"
-                title={note.lastReadAt ? "Last read back" : "Never read back"}
+                title={note.lastReadAt ? t.lastRead : t.neverRead}
               >
                 {note.lastReadAt ? shortAgo(note.lastReadAt) : "—"}
               </span>
@@ -300,7 +304,7 @@ function NoteRow({
                       size="icon-sm"
                       variant="ghost"
                       className="text-muted-foreground"
-                      aria-label="Edit the note's line"
+                      aria-label={t.editNoteLine}
                       onClick={() => setRenaming(true)}
                     >
                       <Pencil />
@@ -310,7 +314,7 @@ function NoteRow({
                     size="icon-sm"
                     variant="ghost"
                     className="text-muted-foreground"
-                    aria-label="Forget this note"
+                    aria-label={t.forgetNote}
                     loading={removing}
                     onClick={confirmRemove}
                   >
@@ -336,6 +340,7 @@ function NoteRow({
 }
 
 function NoteLine({ note, onDone }: { note: MemoryNote; onDone: () => void }) {
+  const t = settingsDictOf(useLocale()).memory;
   const [draft, setDraft] = useState(note.description);
   const [save, saving] = useServerAction(updateNoteAction, {
     onOk: () => {
@@ -357,15 +362,15 @@ function NoteLine({ note, onDone }: { note: MemoryNote; onDone: () => void }) {
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={editKeys(commit, onDone)}
-        aria-label="The note's line"
-        placeholder="One line Thursday sees in her list"
+        aria-label={t.noteLineAria}
+        placeholder={t.noteLinePlaceholder}
         maxLength={MEMORY_LIMITS.descriptionChars}
         className="h-8 min-w-0 flex-1 text-[13px]"
       />
       <Button
         size="icon-sm"
         variant="ghost"
-        aria-label="Save"
+        aria-label={t.save}
         loading={saving}
         onClick={commit}
       >
@@ -374,7 +379,7 @@ function NoteLine({ note, onDone }: { note: MemoryNote; onDone: () => void }) {
       <Button
         size="icon-sm"
         variant="ghost"
-        aria-label="Cancel"
+        aria-label={t.cancel}
         onClick={onDone}
       >
         <X />
@@ -384,6 +389,7 @@ function NoteLine({ note, onDone }: { note: MemoryNote; onDone: () => void }) {
 }
 
 function AddFact({ noteId }: { noteId: number }) {
+  const t = settingsDictOf(useLocale()).memory;
   const [draft, setDraft] = useState("");
   const [add, adding] = useServerAction(addFactsAction, {
     onOk: () => {
@@ -403,8 +409,8 @@ function AddFact({ noteId }: { noteId: number }) {
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={editKeys(submit, () => setDraft(""))}
-        aria-label="Add a fact"
-        placeholder="Add a fact"
+        aria-label={t.addFactAria}
+        placeholder={t.addFactPlaceholder}
         className="h-8 min-w-0 flex-1 bg-background text-sm"
       />
       <Button
@@ -415,7 +421,7 @@ function AddFact({ noteId }: { noteId: number }) {
         onClick={submit}
       >
         {!adding && <Plus />}
-        Add
+        {t.add}
       </Button>
     </div>
   );
@@ -437,12 +443,13 @@ function FactRow({
     },
   });
   const [forget, forgetting] = useServerAction(forgetFactAction, refresh);
+  const t = settingsDictOf(useLocale()).memory;
 
   const confirmForget = async () => {
     const confirmed = await notify.confirm({
-      title: "Forget this fact?",
-      description: `"${fact.text}" is deleted for good.`,
-      okText: "Delete",
+      title: t.forgetFactTitle,
+      description: t.forgetFactBody(fact.text),
+      okText: t.deleteOk,
       destructive: true,
     });
     if (confirmed) forget(noteId, fact.id);
@@ -453,7 +460,7 @@ function FactRow({
     if (!text || text === fact.text) return setEditing(false);
     revise(noteId, fact.id, text);
   };
-  const source = memorySourceLabel(fact.source);
+  const source = fact.source ? (t.sources[fact.source] ?? "") : "";
 
   return (
     <div className="flex min-h-10 items-center gap-1.5">
@@ -464,13 +471,13 @@ function FactRow({
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={editKeys(save, () => setEditing(false))}
-            aria-label="Fact"
+            aria-label={t.factAria}
             className="h-8 min-w-0 flex-1 bg-background text-sm"
           />
           <Button
             size="icon-sm"
             variant="ghost"
-            aria-label="Save"
+            aria-label={t.save}
             loading={revising}
             onClick={save}
           >
@@ -479,7 +486,7 @@ function FactRow({
           <Button
             size="icon-sm"
             variant="ghost"
-            aria-label="Cancel"
+            aria-label={t.cancel}
             onClick={() => setEditing(false)}
           >
             <X />
@@ -499,7 +506,7 @@ function FactRow({
             size="icon-sm"
             variant="ghost"
             className="text-muted-foreground"
-            aria-label="Edit this fact"
+            aria-label={t.editFact}
             onClick={() => {
               setDraft(fact.text);
               setEditing(true);
@@ -511,7 +518,7 @@ function FactRow({
             size="icon-sm"
             variant="ghost"
             className="text-muted-foreground"
-            aria-label="Forget this fact"
+            aria-label={t.forgetFact}
             loading={forgetting}
             onClick={() => void confirmForget()}
           >
@@ -524,24 +531,9 @@ function FactRow({
 }
 
 const NOTE_KINDS = [
-  {
-    key: "people",
-    label: "Person",
-    placeholder: "alex",
-    fact: "Moved to the platform team in March",
-  },
-  {
-    key: "projects",
-    label: "Project",
-    placeholder: "thursday",
-    fact: "Ships behind a feature flag until April",
-  },
-  {
-    key: "topics",
-    label: "Topic",
-    placeholder: "scheduling",
-    fact: "No meetings before 10am",
-  },
+  { key: "people" },
+  { key: "projects" },
+  { key: "topics" },
 ] as const;
 
 /** Kind + name becomes the path; profile and preferences stay agent-managed. */
@@ -569,6 +561,7 @@ function MemoryCreate({ onDone }: { onDone: () => void }) {
   });
 
   const active = NOTE_KINDS.find((entry) => entry.key === kind);
+  const t = settingsDictOf(useLocale()).memory;
   const canSubmit = name.trim() && description.trim() && !busy;
 
   const submit = () => {
@@ -585,23 +578,23 @@ function MemoryCreate({ onDone }: { onDone: () => void }) {
 
   return (
     <SettingDialogContent
-      title="New note"
-      description="Where Thursday keeps what she learns about this."
+      title={t.newNoteTitle}
+      description={t.newNoteDesc}
       footer={
         <>
           <Button variant="ghost" onClick={onDone}>
-            Cancel
+            {t.cancel}
           </Button>
           <Button disabled={!canSubmit} loading={busy} onClick={submit}>
             {!busy && <Plus />}
-            Create
+            {t.create}
           </Button>
         </>
       }
     >
       <div className="space-y-6">
         <Field>
-          <FieldLabel>Kind</FieldLabel>
+          <FieldLabel>{t.kindLabel}</FieldLabel>
           <Tabs
             value={kind}
             onValueChange={(value) => setKind(value as typeof kind)}
@@ -609,7 +602,7 @@ function MemoryCreate({ onDone }: { onDone: () => void }) {
             <TabsList className="w-full">
               {NOTE_KINDS.map((entry) => (
                 <TabsTrigger key={entry.key} value={entry.key}>
-                  {entry.label}
+                  {t.kinds[entry.key]}
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -617,13 +610,13 @@ function MemoryCreate({ onDone }: { onDone: () => void }) {
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="note-name">Name</FieldLabel>
+          <FieldLabel htmlFor="note-name">{t.nameLabel}</FieldLabel>
           <FieldContent>
             <Input
               id="note-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder={active?.placeholder}
+              placeholder={active ? t.kindPlaceholders[active.key] : undefined}
               spellCheck={false}
               required
             />
@@ -634,7 +627,7 @@ function MemoryCreate({ onDone }: { onDone: () => void }) {
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="note-summary">Summary</FieldLabel>
+          <FieldLabel htmlFor="note-summary">{t.summaryLabel}</FieldLabel>
           <FieldContent>
             <Input
               id="note-summary"
@@ -646,7 +639,7 @@ function MemoryCreate({ onDone }: { onDone: () => void }) {
                   return;
                 if (event.key === "Enter") submit();
               }}
-              placeholder="One line Thursday sees in her list"
+              placeholder={t.summaryPlaceholder}
               maxLength={MEMORY_LIMITS.descriptionChars}
               required
             />
@@ -654,13 +647,17 @@ function MemoryCreate({ onDone }: { onDone: () => void }) {
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="note-facts">Facts</FieldLabel>
+          <FieldLabel htmlFor="note-facts">{t.factsLabel}</FieldLabel>
           {/* A note with no facts tells the agent nothing, so file them together */}
           <Textarea
             id="note-facts"
             value={facts}
             onChange={(event) => setFacts(event.target.value)}
-            placeholder={`One per line\n${active?.fact ?? ""}`}
+            placeholder={
+              active
+                ? t.factsPlaceholder(t.kindFacts[active.key] ?? "")
+                : undefined
+            }
             className="min-h-24 resize-none text-sm"
           />
         </Field>

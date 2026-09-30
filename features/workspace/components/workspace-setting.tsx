@@ -41,10 +41,13 @@ import type {
   WorkspaceFile,
   WorkspaceFolder,
 } from "@/features/workspace/workspace.schema";
+import { useLocale } from "@/hooks/use-locale";
 import { shortAgo } from "@/lib/date-like";
+import type { Locale } from "@/lib/locale";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, formatBytes } from "@/lib/utils";
+import { settingsDictOf, type WorkspaceDict } from "@/messages";
 
 /*
  * What the bots wrote, browsed the way the skill browser browses a skill: one
@@ -92,8 +95,11 @@ export function WorkspaceSetting() {
     setRows(WORKSPACE_VIEW.rows);
   };
 
+  const locale = useLocale();
+  const t = settingsDictOf(locale).workspace;
+
   const [emptyScratch, emptying] = useServerAction(emptyScratchAction, {
-    okMessage: "Scratch emptied",
+    okMessage: t.scratchDone,
     onOk: () => revalidate(queryKey.workspace),
   });
 
@@ -101,9 +107,13 @@ export function WorkspaceSetting() {
 
   const confirmEmptyScratch = async () => {
     const confirmed = await notify.confirm({
-      title: "Empty scratch?",
-      description: `Everything under ${PATHS.scratch}/ is deleted for good. ${PATHS.artifacts}/ and ${PATHS.projects}/ are untouched.`,
-      okText: "Empty",
+      title: t.emptyScratchTitle,
+      description: t.emptyScratchBody(
+        PATHS.scratch,
+        PATHS.artifacts,
+        PATHS.projects,
+      ),
+      okText: t.emptyScratchOk,
       destructive: true,
     });
     if (confirmed) emptyScratch();
@@ -147,7 +157,7 @@ export function WorkspaceSetting() {
               <span className="font-medium text-foreground">
                 {`${PATHS.workspace}${dir ? `/${dir}` : ""}`}
               </span>
-              {` · ${countLine(entries, total)}`}
+              {` · ${countLine(entries, total, t)}`}
             </span>
           </SettingRailNote>
           <Button
@@ -156,7 +166,7 @@ export function WorkspaceSetting() {
             onClick={() => reveal(dir || ".")}
           >
             <FolderOpen />
-            Reveal folder
+            {t.revealFolder}
           </Button>
           {hasScratch && (
             <Button
@@ -166,7 +176,7 @@ export function WorkspaceSetting() {
               onClick={confirmEmptyScratch}
               className="text-destructive hover:text-destructive"
             >
-              Empty scratch
+              {t.emptyScratchBtn}
             </Button>
           )}
         </>
@@ -176,7 +186,7 @@ export function WorkspaceSetting() {
           <SettingFilter
             value={filter}
             onChange={setFilter}
-            placeholder="Filter this folder"
+            placeholder={t.filter}
             className="mx-2 mb-1.5 w-auto"
           />
 
@@ -195,11 +205,11 @@ export function WorkspaceSetting() {
 
           {shown.length === 0 ? (
             <p className="px-4 py-3 text-xs text-muted-foreground/60">
-              {needle ? "Nothing matches" : "Empty folder"}
+              {needle ? t.nothingMatches : t.emptyFolder}
             </p>
           ) : (
             <>
-              <Group label="folders" rows={folders}>
+              <Group label={t.foldersWord} rows={folders}>
                 {folders.map((entry) => (
                   <EntryRow
                     key={entry.path}
@@ -208,7 +218,7 @@ export function WorkspaceSetting() {
                   />
                 ))}
               </Group>
-              <Group label="files" rows={files}>
+              <Group label={t.filesWord} rows={files}>
                 {files.map((entry) => (
                   <EntryRow
                     key={entry.path}
@@ -228,7 +238,10 @@ export function WorkspaceSetting() {
               className="mx-2 mt-2 rounded-md px-2 py-1.5 text-left font-mono text-[11px] text-muted-foreground outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
             >
               {/* The filter only sees loaded rows, so the count says what it is not searching */}
-              {`Show ${Math.min(WORKSPACE_VIEW.rows, total - entries.length)} more of ${total.toLocaleString("en")}`}
+              {t.showMore(
+                Math.min(WORKSPACE_VIEW.rows, total - entries.length),
+                total.toLocaleString("en"),
+              )}
             </button>
           )}
         </div>
@@ -246,17 +259,21 @@ export function WorkspaceSetting() {
 }
 
 /** What the folder holds, for the rail. Counts rows, so it costs nothing to say. */
-function countLine(entries: WorkspaceEntry[], total: number): string {
+function countLine(
+  entries: WorkspaceEntry[],
+  total: number,
+  t: WorkspaceDict,
+): string {
   const folders = entries.filter((entry) => entry.kind === "dir").length;
   const files = entries.length - folders;
   const parts = [
-    folders && `${folders} ${folders === 1 ? "folder" : "folders"}`,
-    files && `${files} ${files === 1 ? "file" : "files"}`,
+    folders && `${folders} ${folders === 1 ? t.folderOne : t.folderMany}`,
+    files && `${files} ${files === 1 ? t.fileOne : t.fileMany}`,
   ].filter(Boolean);
-  if (!parts.length) return "empty";
+  if (!parts.length) return t.countEmpty;
   const line = parts.join(" · ");
   return total > entries.length
-    ? `${line} of ${total.toLocaleString("en")}`
+    ? `${line}${t.countOf(total.toLocaleString("en"))}`
     : line;
 }
 
@@ -290,6 +307,7 @@ function EntryRow({
   active?: boolean;
   onPick: () => void;
 }) {
+  const locale = useLocale();
   const Icon = entry.kind === "dir" ? Folder : KIND_ICONS[entry.view];
   return (
     <button
@@ -297,7 +315,7 @@ function EntryRow({
       onClick={onPick}
       title={
         entry.kind === "file"
-          ? `${entry.name} · ${shortAgo(entry.at)}`
+          ? `${entry.name} · ${shortAgo(entry.at, Date.now(), locale)}`
           : entry.name
       }
       className={cn(
@@ -331,26 +349,24 @@ function Nothing({
   /** Nothing anywhere in the workspace can be opened yet. */
   empty: boolean;
 }) {
+  const t = settingsDictOf(useLocale()).workspace;
   return (
     <div className="space-y-4 p-8">
       {empty ? (
         <p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
-          Nothing here yet. What a bot writes during a call lands in{" "}
+          {t.nothingEmptyHead}{" "}
           <span className="font-mono text-[13px] text-foreground">
             {PATHS.artifacts}/
           </span>{" "}
-          — a page, a table, a picture — and shows up here to open.
+          {t.nothingEmptyTail}
         </p>
       ) : (
         <>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Pick a file on the left.
+            {t.pickFile}
           </p>
           <p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
-            Only what the app can open is listed — a page, a table, a picture, a
-            note. Installed packages and tool leftovers are left out, and no
-            folder is measured, so a folder opens as fast as it lists. Reveal
-            folder, at the foot, opens everything else.
+            {t.nothingListed}
           </p>
         </>
       )}
@@ -368,8 +384,10 @@ function FilePage({
 }) {
   const path = file.path;
   const [reveal] = useServerAction(revealFileAction);
+  const locale = useLocale();
+  const t = settingsDictOf(locale).workspace;
   const [remove, removing] = useServerAction(deleteWorkspaceFileAction, {
-    okMessage: "File deleted",
+    okMessage: t.fileDeletedOk,
     onOk: () => {
       revalidate(queryKey.workspace);
       onGone();
@@ -378,9 +396,9 @@ function FilePage({
 
   const confirmRemove = async () => {
     const confirmed = await notify.confirm({
-      title: `Delete ${path.split("/").pop()}?`,
-      description: "It is deleted from disk for good.",
-      okText: "Delete",
+      title: t.deleteTitle(path.split("/").pop() ?? path),
+      description: t.deleteBody,
+      okText: t.deleteOk,
       destructive: true,
     });
     if (confirmed) remove(path);
@@ -391,13 +409,13 @@ function FilePage({
       <div className="flex shrink-0 items-center gap-3 border-b border-border/60 px-6 py-2">
         <Crumbs path={path} />
         <span className="shrink-0 font-mono text-[11px] text-muted-foreground/70">
-          {formatBytes(file.bytes)} · {shortAgo(file.at)}
+          {formatBytes(file.bytes)} · {shortAgo(file.at, Date.now(), locale)}
         </span>
         <a
           href={queryKey.fileView(path)}
           target="_blank"
           rel="noreferrer"
-          aria-label="Open in a new tab"
+          aria-label={t.openNewTab}
           className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <ExternalLink className="size-4" />
@@ -405,7 +423,7 @@ function FilePage({
         <Button
           size="icon-sm"
           variant="ghost"
-          aria-label="Reveal in the file manager"
+          aria-label={t.revealManager}
           className="text-muted-foreground"
           onClick={() => reveal(path)}
         >
@@ -414,7 +432,7 @@ function FilePage({
         <Button
           size="icon-sm"
           variant="ghost"
-          aria-label="Delete"
+          aria-label={t.deleteAria}
           loading={removing}
           className="text-muted-foreground"
           onClick={confirmRemove}

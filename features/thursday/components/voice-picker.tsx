@@ -12,8 +12,10 @@ import {
   voiceSamplePath,
 } from "@/features/ai/live.schema";
 import { Face } from "@/features/thursday/components/face";
+import { useLocale } from "@/hooks/use-locale";
 import { createClipTap, SPECTRUM_BANDS } from "@/lib/live/live.tap";
 import { cn, errorToString } from "@/lib/utils";
+import { settingsDictOf } from "@/messages";
 
 /**
  * Choosing a voice by ear. A name plays its recorded line and her own face
@@ -36,6 +38,7 @@ export function VoicePicker({
   const [heard, setHeard] = useState(voice);
   const [playing, setPlaying] = useState(false);
   const [typed, setTyped] = useState("");
+  const t = settingsDictOf(useLocale()).ai;
 
   const clip = useRef<HTMLAudioElement>(null);
   // A tap belongs to the element it routes, which exists only while the picker is open.
@@ -76,7 +79,7 @@ export function VoicePicker({
     showPlaying(false);
     toast.add({
       type: "error",
-      title: "Voice sample did not play",
+      title: t.sampleFailTitle,
       description: errorToString(cause),
     });
   };
@@ -138,7 +141,7 @@ export function VoicePicker({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Voice"
+        aria-label={t.voiceAria}
         className={cn(
           inputClassName,
           "flex items-center gap-2 text-left font-mono text-sm hover:border-ring",
@@ -164,7 +167,7 @@ export function VoicePicker({
           if (!sounding.current) return;
           failed(
             plays.current,
-            event.currentTarget.error?.message || "The clip could not be read.",
+            event.currentTarget.error?.message || t.clipUnreadable,
           );
         }}
       >
@@ -174,13 +177,13 @@ export function VoicePicker({
       <div className="rounded-xl border border-border/60 p-3">
         <div className="mb-2 flex items-center gap-2">
           <span className="font-mono text-[11px] text-muted-foreground">
-            click a name to hear it
+            {t.clickHear}
           </span>
           <Button
             variant="ghost"
             size="icon-xs"
             className="ml-auto"
-            aria-label="Close"
+            aria-label={t.closeAria}
             onClick={close}
           >
             <X />
@@ -236,13 +239,13 @@ export function VoicePicker({
         <Input
           value={typed}
           onChange={(event) => setTyped(event.target.value)}
-          placeholder="another voice id"
-          aria-label="Another voice id"
+          placeholder={t.anotherVoiceId}
+          aria-label={t.anotherVoiceAria}
           spellCheck={false}
           className="font-mono text-sm"
         />
         <Button className="shrink-0" onClick={save}>
-          Save
+          {t.saveAction}
         </Button>
       </div>
     </div>

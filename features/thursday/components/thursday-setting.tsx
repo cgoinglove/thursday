@@ -69,7 +69,6 @@ import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
 import { VoicePicker } from "@/features/thursday/components/voice-picker";
 import { resetHistoryAction } from "@/features/thursday/thursday.action";
 import {
-  CALL_BACK_LABEL,
   CALL_BACK_MODES,
   CAPTION_VIEWS,
   type CallBack,
@@ -89,10 +88,12 @@ import {
   isCombo,
   useHotkeyLabel,
 } from "@/hooks/use-hotkey";
+import { useLocale } from "@/hooks/use-locale";
 import { LIVE_MODEL, LIVE_PLAN_MODEL } from "@/lib/live/live.schema";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
+import { settingsDictOf, type ThursdayDict } from "@/messages";
 
 /**
  * Settings for the call: captions, the two models, how a call starts, and its
@@ -107,6 +108,7 @@ export function ThursdaySetting() {
   const patch = useThursdayStore((state) => state.patch);
   // Hers: read from the server, so a second computer draws the same answers
   const { settings, patch: change } = useLiveSettings();
+  const t = settingsDictOf(useLocale()).thursday;
 
   const {
     data: providers = [],
@@ -121,14 +123,7 @@ export function ThursdaySetting() {
     providers.some((entry) => entry.apiKeyName === key && entry.hasKey);
 
   return (
-    <SettingScreen
-      footer={
-        <SettingRailNote>
-          Both of her prompts are assembled fresh on every call — memory, the
-          roster and your skills go in. Changes here apply from the next call.
-        </SettingRailNote>
-      }
-    >
+    <SettingScreen footer={<SettingRailNote>{t.footer}</SettingRailNote>}>
       <Captions
         value={thursday.captionView}
         onChange={(captionView) => patch({ captionView })}
@@ -142,7 +137,7 @@ export function ThursdaySetting() {
       />
 
       {/* Every way a call starts other than pressing her face, read at once */}
-      <SettingGroup label="Starting a call">
+      <SettingGroup label={t.groups.starting}>
         <Tiles columns={3}>
           <WakeWord
             value={thursday.wake}
@@ -159,11 +154,11 @@ export function ThursdaySetting() {
         </Tiles>
       </SettingGroup>
 
-      <SettingGroup label="Running">
+      <SettingGroup label={t.groups.running}>
         <RunningRow />
       </SettingGroup>
 
-      <SettingGroup label="History">
+      <SettingGroup label={t.groups.history}>
         <Tiles columns={2}>
           <CallHistoryRow />
           <ResetHistory />
@@ -210,10 +205,14 @@ function TileHead({
 }
 
 /** The two lines a spoken call opens on, as the switch names them, and the voice model each opens. */
-const LINE_MODELS: Record<LiveLine, { model: string; label: string }> = {
-  chatgpt: { model: LIVE_PLAN_MODEL, label: "GPT Subscription" },
-  openai: { model: LIVE_MODEL, label: "OpenAI key" },
-};
+function lineModels(
+  t: ThursdayDict,
+): Record<LiveLine, { model: string; label: string }> {
+  return {
+    chatgpt: { model: LIVE_PLAN_MODEL, label: t.gptLabel },
+    openai: { model: LIVE_MODEL, label: t.keyLabel },
+  };
+}
 
 /**
  * Both models a call runs on, in one card: the Live voice and the Responses
@@ -245,26 +244,25 @@ function ModelsSetting({
   const [setup, setSetup] = useState<LiveLine | null>(null);
   const waiting = setup && !ready(setup) ? setup : null;
   const plan = line === "chatgpt";
+  const t = settingsDictOf(useLocale()).thursday;
+  const models = lineModels(t);
   return (
     <SettingGroup
-      label="Models"
-      note={`Both run on ${plan ? "your GPT Subscription" : "your OpenAI key"}. Instructions are saved when you leave the field.`}
+      label={t.groups.models}
+      note={`${plan ? t.modelsNotePlan : t.modelsNoteKey}. ${t.modelsNoteSuffix}`}
     >
       <div className="@container divide-y divide-border/60 rounded-xl border border-border/60">
         {!line && (
           <KeyRow plan={signedIn ? (planName(signedPlan) ?? "") : null} />
         )}
 
-        <ModelSection
-          name="Voice"
-          fact={plan ? "on your plan" : "billed by the minute"}
-        >
+        <ModelSection name={t.voiceSection} fact={plan ? t.onPlan : t.byMinute}>
           {line && (
-            <ModelBlock label="runs on">
+            <ModelBlock label={t.runsOn}>
               <Segmented
                 options={LIVE_LINES.map((one) => ({
                   value: one,
-                  label: lineLabel(one, {
+                  label: lineLabel(one, t, {
                     ready: ready(one),
                     set: has(TEXT_MODEL_PROVIDERS[one].apiKeyName),
                     plan: planName(signedPlan),
@@ -275,7 +273,7 @@ function ModelsSetting({
                   setSetup(ready(runsOn) ? null : runsOn);
                   onChange({ runsOn });
                 }}
-                aria-label="What a call runs on"
+                aria-label={t.runsOnAria}
               />
               {waiting ? (
                 <LineSetup
@@ -285,7 +283,7 @@ function ModelsSetting({
                 />
               ) : (
                 <span className="block font-mono text-[11px] text-muted-foreground/70">
-                  {LINE_MODELS[line].model}
+                  {models[line].model}
                 </span>
               )}
             </ModelBlock>
@@ -293,7 +291,7 @@ function ModelsSetting({
 
           {/* Its own row: opened, the picker holds her face beside the voices. The plan's voice
               speaks in voices of its own, with no recorded lines to play */}
-          <ModelBlock label="voice">
+          <ModelBlock label={t.voiceBlock}>
             {plan ? (
               <Combobox
                 value={value.planVoice}
@@ -306,7 +304,7 @@ function ModelsSetting({
                   value: voice,
                   label: voice,
                 }))}
-                aria-label="Voice on the GPT Subscription"
+                aria-label={t.planVoiceAria}
               />
             ) : (
               <VoicePicker
@@ -318,7 +316,7 @@ function ModelsSetting({
             )}
           </ModelBlock>
 
-          <ModelBlock label="style">
+          <ModelBlock label={t.styleBlock}>
             <StylePicker
               value={value.persona}
               own={value.stylePrompt}
@@ -329,10 +327,10 @@ function ModelsSetting({
         </ModelSection>
 
         <ModelSection
-          name="Backend"
-          fact={plan ? "on your plan" : "billed per token"}
+          name={t.backendSection}
+          fact={plan ? t.onPlan : t.perToken}
         >
-          <ModelBlock label="model">
+          <ModelBlock label={t.modelBlock}>
             <BackendModelPicker
               value={value.backendModel}
               onChange={(backendModel) => onChange({ backendModel })}
@@ -340,7 +338,7 @@ function ModelsSetting({
           </ModelBlock>
 
           {/* Auto omits the parameter, so a model without reasoning still runs */}
-          <ModelBlock label="effort">
+          <ModelBlock label={t.effortBlock}>
             <EffortSwitch
               provider="openai"
               model={value.backendModel}
@@ -349,7 +347,7 @@ function ModelsSetting({
             />
           </ModelBlock>
 
-          <ModelBlock label="tools">
+          <ModelBlock label={t.toolsBlock}>
             <BackendTools
               webSearch={value.webSearch}
               readSkills={value.readSkills}
@@ -357,12 +355,12 @@ function ModelsSetting({
             />
           </ModelBlock>
 
-          <ModelBlock label="instructions">
+          <ModelBlock label={t.instructionsBlock}>
             <PromptField
               value={value.backendPrompt}
               onCommit={(backendPrompt) => onChange({ backendPrompt })}
-              placeholder="How work should be handed over, what to check first."
-              aria-label="Backend instructions"
+              placeholder={t.instructionsPlaceholder}
+              aria-label={t.instructionsAria}
             />
           </ModelBlock>
         </ModelSection>
@@ -414,10 +412,15 @@ function StylePicker({
   const [open, setOpen] = useState(false);
   // Written words are the reason the field is open; closing it would hide them
   const [writing, setWriting] = useState(false);
+  const t = settingsDictOf(useLocale()).thursday;
+  const personas = PERSONAS.map((one) => ({
+    ...one,
+    ...(t.personas[one.id] ?? {}),
+  }));
   const picked =
-    PERSONAS.find((one) => one.id === value) ??
-    PERSONAS.find((one) => one.id === DEFAULT_PERSONA) ??
-    PERSONAS[0];
+    personas.find((one) => one.id === value) ??
+    personas.find((one) => one.id === DEFAULT_PERSONA) ??
+    personas[0];
 
   return (
     <div className="space-y-2">
@@ -440,9 +443,9 @@ function StylePicker({
         />
         <PopoverContent align="start" className="w-104 p-1.5">
           <p className="px-2 py-1.5 text-xs text-muted-foreground">
-            How she talks to you. It never changes what she can do.
+            {t.styleHint}
           </p>
-          {PERSONAS.map((one) => (
+          {personas.map((one) => (
             <button
               key={one.id}
               type="button"
@@ -480,9 +483,11 @@ function StylePicker({
               own.trim() ? PICKED_ROW : "hover:bg-muted/60",
             )}
           >
-            <span className="w-20 shrink-0 text-sm font-medium">Your own</span>
+            <span className="w-20 shrink-0 text-sm font-medium">
+              {t.yourOwn}
+            </span>
             <span className="min-w-0 flex-1 text-xs text-muted-foreground">
-              Say it in your words, over the one above.
+              {t.yourOwnAbout}
             </span>
             {own.trim() ? (
               <Check className="size-3.5 shrink-0 text-brand" />
@@ -495,8 +500,8 @@ function StylePicker({
         <PromptField
           value={own}
           onCommit={onOwn}
-          placeholder="Quieter. Don't explain things I didn't ask about."
-          aria-label="In your own words"
+          placeholder={t.yourOwnPlaceholder}
+          aria-label={t.yourOwnAria}
         />
       ) : null}
     </div>
@@ -526,6 +531,7 @@ function ModelBlock({
  */
 function lineLabel(
   line: LiveLine,
+  t: ThursdayDict,
   {
     ready,
     set,
@@ -536,9 +542,10 @@ function lineLabel(
     plan: string | null;
   },
 ): string {
-  const { label } = LINE_MODELS[line];
-  if (set && !ready) return `${label} · ${plan ?? "plan"} · no calls`;
-  if (!ready) return `${label} · ${line === "chatgpt" ? "sign in" : "add"}`;
+  const { label } = lineModels(t)[line];
+  if (set && !ready) return `${label}${t.lineNeedsPlan(plan ?? "")}`;
+  if (!ready)
+    return `${label}${line === "chatgpt" ? t.lineNeedsSignIn : t.lineNeedsKey}`;
   return line === "chatgpt" && plan ? `${label} · ${plan}` : label;
 }
 
@@ -565,21 +572,23 @@ function LineSetup({
     },
   });
   const ready = draft.trim().length >= KEY_MIN;
+  const t = settingsDictOf(useLocale()).thursday;
+  const models = lineModels(t);
   return (
     <div className="space-y-2.5 pt-1">
       <span className="block text-xs text-muted-foreground">
         {line === "chatgpt"
           ? plan
-            ? `The ${plan} plan runs bots and calls in writing, but not spoken calls. Sign in again with a paid plan.`
-            : "Sign in with ChatGPT and calls run on your plan, with no bill by the minute."
-          : "Paste an OpenAI API key. OpenAI bills a call by the minute, apart from ChatGPT."}{" "}
-        Until then a call runs on your {LINE_MODELS[runsOn].label}.
+            ? t.planNoCalls(plan)
+            : t.planSignInHint
+          : t.keyHint}{" "}
+        {t.runsMeanwhile(models[runsOn].label)}
       </span>
       {line === "chatgpt" ? (
         <ChatGptSignIn
           variant="brand"
           size="sm"
-          label={plan ? "Sign in again" : undefined}
+          label={plan ? t.signInAgain : undefined}
         />
       ) : (
         <KeyInput
@@ -603,16 +612,15 @@ function LineSetup({
  * for Keys. `plan` is the plan a sign-in without spoken calls is on.
  */
 function KeyRow({ plan }: { plan: string | null }) {
+  const t = settingsDictOf(useLocale()).thursday;
   return (
     <div className="space-y-3 p-5">
       <span className="block space-y-0.5">
         <span className={cn("block text-sm font-medium", WAITING_INK)}>
-          {plan === null
-            ? "No GPT Subscription or OpenAI key"
-            : `Your ${plan ? `${plan} ` : ""}plan has no spoken calls`}
+          {plan === null ? t.keyRowNone : t.keyRowPlanNoCalls(plan)}
         </span>
         <span className="block text-xs text-muted-foreground">
-          Her voice and the backend both run on one of them
+          {t.keyRowHint}
         </span>
       </span>
       <div className="max-w-md">
@@ -635,6 +643,7 @@ function BackendModelPicker({
   onChange: (model: string) => void;
 }) {
   const listed = LIVE_BACKEND_MODELS.some((model) => model.id === value);
+  const t = settingsDictOf(useLocale()).thursday;
   const other = useDraft(
     listed ? "" : value,
     (next) => onChange(next || LIVE_DEFAULTS.backendModel),
@@ -646,7 +655,7 @@ function BackendModelPicker({
     <div className="@container space-y-2">
       <div
         role="radiogroup"
-        aria-label="Backend model"
+        aria-label={t.backendModelAria}
         className="grid grid-cols-2 gap-2 @2xl:grid-cols-4"
       >
         {LIVE_BACKEND_MODELS.map((model) => {
@@ -684,8 +693,8 @@ function BackendModelPicker({
         onChange={(event) => other.set(event.target.value)}
         onBlur={other.commit}
         onKeyDown={other.onKeyDown}
-        placeholder="Other model id"
-        aria-label="Other backend model id"
+        placeholder={t.otherModelPlaceholder}
+        aria-label={t.otherModelAria}
         spellCheck={false}
         className="font-mono text-sm"
       />
@@ -707,25 +716,22 @@ function BackendTools({
   readSkills: boolean;
   onChange: (change: Partial<LiveSettings>) => void;
 }) {
+  const t = settingsDictOf(useLocale()).thursday;
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-x-7 gap-y-3">
         <InlineSwitch
-          label="Search the web"
+          label={t.webSearch}
           checked={webSearch}
           onChange={(on) => onChange({ webSearch: on })}
         />
         <InlineSwitch
-          label="Read skills herself"
+          label={t.readSkills}
           checked={readSkills}
           onChange={(on) => onChange({ readSkills: on })}
         />
       </div>
-      {webSearch && (
-        <SettingNote>
-          Each search adds to the backend's OpenAI usage.
-        </SettingNote>
-      )}
+      {webSearch && <SettingNote>{t.searchNote}</SettingNote>}
       {readSkills && <InstalledSkills />}
     </div>
   );
@@ -757,13 +763,12 @@ function InlineSwitch({
 /** Only mounted while the switch is on: what she would have to read from. */
 function InstalledSkills() {
   const { data } = useServerRoute<SkillSummary[]>(queryKey.skills);
+  const t = settingsDictOf(useLocale()).thursday;
   if (!data) return null;
 
   return (
     <SettingNote className={cn(!data.length && WAITING_INK)}>
-      {data.length
-        ? `The same ${data.length} a bot reads. Each one she opens spends a page of the call on it.`
-        : "Nothing installed yet — there is nothing for her to read."}
+      {data.length ? t.skillsNote(data.length) : t.noSkills}
     </SettingNote>
   );
 }
@@ -804,9 +809,10 @@ function PromptField({
  * reached by scrolling to it.
  */
 function ResetHistory() {
+  const t = settingsDictOf(useLocale()).thursday;
   const [reset, resetting] = useServerAction(resetHistoryAction, {
     okMessage: ({ calls, threads, notes }) =>
-      `Wiped ${calls} calls, ${threads} jobs, ${notes} notes`,
+      t.resetWiped(calls, threads, notes),
     onOk: () => {
       // Prefix match, so every loaded history page goes too.
       revalidate(queryKey.memory);
@@ -817,10 +823,9 @@ function ResetHistory() {
 
   const confirmReset = async () => {
     const confirmed = await notify.confirm({
-      title: "Reset history?",
-      description:
-        "Every call, every job and everything she remembers is deleted for good. Keys, bots and connectors stay, and so does what each bot keeps for itself.",
-      okText: "Reset",
+      title: t.resetConfirmTitle,
+      description: t.resetConfirmBody,
+      okText: t.resetConfirmOk,
       destructive: true,
     });
     if (confirmed) reset();
@@ -833,10 +838,10 @@ function ResetHistory() {
       </span>
       <span className="min-w-0 flex-1 space-y-0.5">
         <span className="block truncate text-sm font-medium">
-          Reset history
+          {t.resetTitle}
         </span>
         <span className="block truncate text-xs text-muted-foreground">
-          Calls, jobs and memory. Keys and bots stay.
+          {t.resetHint}
         </span>
       </span>
       <Button
@@ -846,7 +851,7 @@ function ResetHistory() {
         onClick={confirmReset}
         className="shrink-0 text-destructive hover:text-destructive"
       >
-        Reset
+        {t.resetButton}
       </Button>
     </div>
   );
@@ -860,6 +865,8 @@ function ResetHistory() {
  * Anywhere else the move is a line to copy.
  */
 function RunningRow() {
+  const locale = useLocale();
+  const t = settingsDictOf(locale).thursday;
   const { data } = useServerRoute<Running>(queryKey.running);
   // The server is down for a moment during a move: a read that fails then is not news
   const { data: update } = useServerRoute<Update>(queryKey.update, {
@@ -873,30 +880,29 @@ function RunningRow() {
   const move = newer && update?.command ? update.command : null;
   const said = {
     background: {
-      title: "In the background",
-      hint: "Starts when you log in, and comes back if it stops.",
-      how: command && { label: "To stop it", run: `${command} stop` },
+      title: t.runningTitles.background,
+      hint: t.runningHints.background,
+      how: command && { label: t.runningStop, run: `${command} stop` },
     },
     terminal: {
-      title: "In a terminal",
-      hint: "Closing that terminal stops Thursday.",
+      title: t.runningTitles.terminal,
+      hint: t.runningHints.terminal,
       how:
         start && mac
           ? {
-              label:
-                "To keep it running without one, press Ctrl+C there and run",
+              label: t.runningKeep,
               run: start,
             }
           : null,
     },
     source: {
-      title: "From source",
-      hint: "pnpm dev in a terminal. Closing it stops Thursday.",
+      title: t.runningTitles.source,
+      hint: t.runningHints.source,
       how: null,
     },
     elsewhere: {
-      title: "Started by something else",
-      hint: "It stops the way it was started.",
+      title: t.runningTitles.elsewhere,
+      hint: t.runningHints.elsewhere,
       how: null,
     },
   }[where];
@@ -923,20 +929,15 @@ function RunningRow() {
           </span>
           {to ? (
             <span className="block text-xs text-muted-foreground">
-              <ShinyText text={`Updating to ${to}…`} /> Thursday restarts in a
-              moment.
+              <ShinyText text={t.runningUpdateTo(to)} /> {t.runningRestarting}
             </span>
           ) : newer ? (
-            <span className="block text-xs">{newer} is out.</span>
+            <span className="block text-xs">{t.runningOut(newer)}</span>
           ) : (
             <span className="block text-xs text-muted-foreground">
               {said.hint}
-              {where === "terminal" && !mac
-                ? " Running in the background is macOS only for now."
-                : ""}
-              {update?.unreached
-                ? " npm could not be asked for a newer version."
-                : ""}
+              {where === "terminal" && !mac ? t.runningMacOnly : ""}
+              {update?.unreached ? t.runningUnreached : ""}
             </span>
           )}
           <span className="block truncate font-mono text-[11px] text-muted-foreground">
@@ -945,13 +946,13 @@ function RunningRow() {
         </span>
         {newer && update?.byButton && !to && (
           <Button size="sm" onClick={() => void moveTo(newer)}>
-            Update
+            {t.runningUpdate}
           </Button>
         )}
       </div>
       {failed && !to && (
         <div className="space-y-1 pl-13 text-xs">
-          <p className="text-destructive">Could not update to {failed.to}.</p>
+          <p className="text-destructive">{t.runningUpdateFail(failed.to)}</p>
           <p className="line-clamp-3 font-mono text-[11px] whitespace-pre-wrap text-muted-foreground">
             {failed.why}
           </p>
@@ -960,9 +961,7 @@ function RunningRow() {
       {move && !to && (failed || !update?.byButton) && (
         <div className="flex flex-wrap items-center gap-2 pl-13 text-xs text-muted-foreground">
           <span>
-            {where === "terminal"
-              ? "To move to it, press Ctrl+C there and run"
-              : "To move to it"}
+            {where === "terminal" ? t.runningMovePress : t.runningMoveTo}
           </span>
           <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground">
             {move}
@@ -985,6 +984,7 @@ function RunningRow() {
 
 function CopyCommand({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
+  const t = settingsDictOf(useLocale()).thursday;
   return (
     <Button
       size="sm"
@@ -997,21 +997,10 @@ function CopyCommand({ text }: { text: string }) {
       }
     >
       {copied ? <Check /> : <Copy />}
-      {copied ? "Copied" : "Copy"}
+      {copied ? t.copied : t.copy}
     </Button>
   );
 }
-
-const CAPTION_LABEL: Record<CaptionView, { label: string; hint: string }> = {
-  center: {
-    label: "Her last line",
-    hint: "One caption under the mark — only what she said.",
-  },
-  sides: {
-    label: "Both sides",
-    hint: "Hers on the left, yours on the right. Click a line to read it again.",
-  },
-};
 
 /** How much of the conversation shows while speaking, picked by what it looks like. */
 function Captions({
@@ -1021,12 +1010,17 @@ function Captions({
   value: CaptionView;
   onChange: (view: CaptionView) => void;
 }) {
+  const t = settingsDictOf(useLocale()).thursday;
+  const labels = {
+    center: t.captionCenter,
+    sides: t.captionSides,
+  } as const;
   return (
-    <SettingGroup label="Captions">
+    <SettingGroup label={t.groups.captions}>
       <div className="@container">
         <div
           role="radiogroup"
-          aria-label="Captions"
+          aria-label={t.captionsAria}
           className="grid gap-3 @xl:grid-cols-2"
         >
           {CAPTION_VIEWS.map((view) => {
@@ -1049,10 +1043,10 @@ function Captions({
                 <span className="flex items-center gap-3 px-1 pb-0.5">
                   <span className="min-w-0 flex-1 space-y-0.5">
                     <span className="block truncate text-sm font-medium">
-                      {CAPTION_LABEL[view].label}
+                      {labels[view].label}
                     </span>
                     <span className="block text-xs text-pretty text-muted-foreground">
-                      {CAPTION_LABEL[view].hint}
+                      {labels[view].hint}
                     </span>
                   </span>
                   {picked && <Check className="size-4 shrink-0 text-brand" />}
@@ -1101,11 +1095,12 @@ function CallBackPicker({
   value: CallBack;
   onChange: (mode: CallBack) => void;
 }) {
+  const t = settingsDictOf(useLocale()).thursday;
   return (
     <div className="min-w-0 space-y-3 p-4">
-      <TileHead label="She calls you" />
+      <TileHead label={t.callBackTitle} />
       <RadioGroup
-        aria-label="She calls you"
+        aria-label={t.callBackAria}
         value={value}
         onValueChange={(mode) => onChange(CallBackSchema.parse(mode))}
         className="gap-2.5"
@@ -1116,26 +1111,15 @@ function CallBackPicker({
             className="flex min-w-0 items-center gap-2.5 text-sm"
           >
             <RadioGroupItem value={mode} />
-            <span className="truncate">{CALL_BACK_LABEL[mode]}</span>
+            <span className="truncate">{t.callBackNames[mode]}</span>
           </label>
         ))}
       </RadioGroup>
-      <SettingNote>{CALL_BACK_HINT[value]}</SettingNote>
-      {value !== "off" && (
-        <SettingNote>
-          Needs this tab open. It rings until you answer, decline or let it go.
-        </SettingNote>
-      )}
+      <SettingNote>{t.callBackHint[value]}</SettingNote>
+      {value !== "off" && <SettingNote>{t.callBackNeedsTab}</SettingNote>}
     </div>
   );
 }
-
-/** Hints for the three modes; names come from the schema. */
-const CALL_BACK_HINT: Record<CallBack, string> = {
-  off: "Nothing opens a call but you.",
-  waiting: "A job that stopped to ask gets her to ring you.",
-  any: "Anything a bot finishes, she rings you to tell you.",
-};
 
 /**
  * Wake word switch and phrase. Enabled means the browser recognizer holds the
@@ -1158,12 +1142,13 @@ function WakeWord({
 
   // the schema cannot require two words (one word parses fine and then wakes all day), so warn while typing
   const terse = draft.value.trim().split(/\s+/).length < 2;
+  const t = settingsDictOf(useLocale()).thursday;
 
   return (
     <div className="min-w-0 space-y-3 p-4">
-      <TileHead label="Wake phrase">
+      <TileHead label={t.wakeTitle}>
         <Switch
-          aria-label="Answer to her name"
+          aria-label={t.wakeSwitch}
           checked={value.enabled}
           onCheckedChange={(enabled) => onChange({ ...value, enabled })}
         />
@@ -1176,17 +1161,17 @@ function WakeWord({
         onChange={(event) => draft.set(event.target.value)}
         onBlur={draft.commit}
         onKeyDown={draft.onKeyDown}
-        aria-label="Wake phrase"
+        aria-label={t.wakeAria}
         className="font-mono text-sm"
       />
       <SettingNote>
         {!value.enabled
-          ? "Between calls, the browser listens for it and picks up — Chrome by sending what it hears to Google."
+          ? t.wakeOff
           : !english
-            ? "English words only — she listens for it in English."
+            ? t.wakeNotEnglish
             : terse
-              ? "One word will wake her by accident — say hello first."
-              : "Heard loosely, in English. Near misses count."}
+              ? t.wakeTerse
+              : t.wakeOn}
       </SettingNote>
     </div>
   );
@@ -1208,6 +1193,7 @@ function Shortcut({
   /** Pressed without a modifier; explains why nothing happened. */
   const [bare, setBare] = useState(false);
   const label = useHotkeyLabel(isCombo(value.combo) ? value.combo : null);
+  const t = settingsDictOf(useLocale()).thursday;
 
   const record = (event: ReactKeyboardEvent) => {
     // Tab is the only way out of this control; leave it alone
@@ -1226,9 +1212,9 @@ function Shortcut({
 
   return (
     <div className="min-w-0 space-y-3 p-4">
-      <TileHead label="Shortcut">
+      <TileHead label={t.shortcutTitle}>
         <Switch
-          aria-label="Answer to a key"
+          aria-label={t.shortcutSwitch}
           checked={value.enabled}
           onCheckedChange={(enabled) => onChange({ ...value, enabled })}
         />
@@ -1250,16 +1236,16 @@ function Shortcut({
             : "border-border/60 hover:bg-muted/50",
         )}
       >
-        {listening ? "Press the keys…" : (label ?? "Set a shortcut")}
+        {listening ? t.shortcutRecording : (label ?? t.shortcutEmpty)}
       </button>
       <SettingNote>
         {bare
-          ? "Hold Ctrl, Alt or Cmd — a plain key is typing."
+          ? t.shortcutBare
           : listening
-            ? "Esc to keep the one you have."
+            ? t.shortcutListening
             : value.enabled
-              ? "Only while this tab has focus. Not while you are typing."
-              : "Starts a call, and ends the one that is running."}
+              ? t.shortcutFocused
+              : t.shortcutOff}
       </SettingNote>
     </div>
   );

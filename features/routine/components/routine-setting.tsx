@@ -1,6 +1,7 @@
 "use client";
 
 import { format, formatDistanceToNowStrict } from "date-fns";
+import { enUS, tr as trLocale } from "date-fns/locale";
 import {
   CalendarDays,
   Check,
@@ -47,10 +48,13 @@ import {
   SettingSkeleton,
 } from "@/features/settings/components/setting-ui";
 import { useSettingsStore } from "@/features/settings/settings.store";
+import { useLocale } from "@/hooks/use-locale";
 import { whenOf } from "@/lib/date-like";
+import type { Locale } from "@/lib/locale";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, plainText, WAITING_INK } from "@/lib/utils";
+import { type RoutineDict, settingsDictOf } from "@/messages";
 import {
   createRoutineAction,
   deleteRoutineAction,
@@ -58,12 +62,12 @@ import {
   updateRoutineAction,
 } from "../routine.action";
 import {
-  DAY_NAMES,
   momentOf,
   nextRun,
   type Routine,
   type RoutineInput,
   type RoutineSchedule,
+  type ScheduleWords,
   sameSchedule,
   scheduleText,
   WEEKDAYS,
@@ -73,11 +77,23 @@ import { RoutineMark } from "./routine-mark";
 /** The sheet holds a routine, or the one being made. */
 type Open = string | "new" | null;
 
-const STARTS_NOTE =
-  "Starts while Thursday is running on this computer, whether or not a tab is open. A time that passed meanwhile starts once, not once for each.";
+function scheduleWordsOf(t: RoutineDict): ScheduleWords {
+  return {
+    days: t.dayNames,
+    months: t.monthNames,
+    once: t.scheduleOnce,
+    everyHour: t.scheduleEveryHour,
+    everyHours: t.scheduleEveryHours,
+    daily: t.scheduleDaily,
+    dailyDays: t.scheduleDailyDays,
+    dayTime: t.scheduleDayTime,
+  };
+}
 
 export function RoutineSetting() {
   const [open, setOpen] = useState<Open>(null);
+  const locale = useLocale();
+  const t = settingsDictOf(locale).routine;
   const {
     data: routines,
     isLoading,
@@ -102,8 +118,8 @@ export function RoutineSetting() {
         footer={
           // "3 of 12" read as a page number; the ceiling is worth saying only at it
           <SettingRailNote>
-            {all.length} set up · {on} on
-            {all.length >= ROUTINE.max && ` · ${ROUTINE.max} is the most`}
+            {t.railSetUp(all.length, on)}
+            {all.length >= ROUTINE.max && t.railMost(ROUTINE.max)}
           </SettingRailNote>
         }
       >
@@ -111,14 +127,13 @@ export function RoutineSetting() {
         <SettingItems
           addRow={
             all.length < ROUTINE.max
-              ? { label: "New routine", onClick: () => setOpen("new") }
+              ? { label: t.newRoutine, onClick: () => setOpen("new") }
               : undefined
           }
         >
           {all.length === 0 ? (
             <p className="p-4 text-sm leading-relaxed text-muted-foreground">
-              Nothing starts by itself yet. Tell Thursday what should — "every
-              weekday at nine, go through my mail" — or make one here.
+              {t.empty}
             </p>
           ) : (
             all.map((routine) => (
@@ -152,29 +167,31 @@ export function RoutineSetting() {
  */
 function stateOf(
   routine: Routine,
-  bots?: Bot[],
+  bots: Bot[] | undefined,
+  t: RoutineDict,
 ): { text: string; tone: string; shine?: boolean; waits?: boolean } {
   const last = routine.runs[0];
   const said = last?.outcome ? plainText(last.outcome) : "";
   const before = last
     ? `${whenOf(last.updatedAt)}${said ? ` — ${said}` : ""}`
-    : "Not run yet";
+    : t.notRunYet;
   if (!routine.enabled)
-    return { text: `Off · ${before}`, tone: "text-muted-foreground" };
+    return {
+      text: `${t.offBefore} · ${before}`,
+      tone: "text-muted-foreground",
+    };
   const bot = bots?.find((one) => one.name === routine.bot);
   if (bots && (!bot || bot.disabled))
     return {
-      text: bot
-        ? `${routine.bot} is switched off`
-        : `${routine.bot} is gone — pick another bot`,
+      text: bot ? t.botOff(routine.bot) : t.botGone(routine.bot),
       tone: WAITING_INK,
       waits: true,
     };
   if (last?.status === "running")
-    return { text: "Running now", tone: "", shine: true };
+    return { text: t.runningNow, tone: "", shine: true };
   if (last?.status === "waiting")
     return {
-      text: `The last run waits on you${said ? `: ${said}` : ""}`,
+      text: t.lastWaits(said),
       tone: WAITING_INK,
       waits: true,
     };
@@ -195,7 +212,10 @@ function Row({
   onOpen: () => void;
   onSwitch: (enabled: boolean) => void;
 }) {
-  const state = stateOf(routine, bots);
+  const locale = useLocale();
+  const t = settingsDictOf(locale).routine;
+  const words = scheduleWordsOf(t);
+  const state = stateOf(routine, bots, t);
   const running = routine.runs[0]?.status === "running";
   return (
     <div
@@ -246,23 +266,27 @@ function Row({
         <span className="flex w-44 shrink-0 flex-col items-end gap-0.5 font-mono text-[11px] leading-4 text-muted-foreground tabular-nums">
           <span className="flex max-w-full items-center gap-1.5 text-foreground">
             <RoutineMark className="size-3 shrink-0 text-muted-foreground" />
-            <span className="truncate">{scheduleText(routine.schedule)}</span>
+            <span className="truncate">
+              {scheduleText(routine.schedule, words)}
+            </span>
           </span>
           <span className="max-w-full truncate text-muted-foreground/70">
-            {routine.enabled ? `next ${whenOf(routine.nextRunAt)}` : "off"}
+            {routine.enabled
+              ? t.nextRun(whenOf(routine.nextRunAt, locale))
+              : t.offWord}
           </span>
         </span>
       </button>
       <Switch
         checked={routine.enabled}
         onCheckedChange={onSwitch}
-        aria-label={`${routine.label} on or off`}
+        aria-label={t.onOrOff(routine.label)}
         className="shrink-0"
       />
       <button
         type="button"
         onClick={onOpen}
-        aria-label={`Open ${routine.label}`}
+        aria-label={t.openRoutine(routine.label)}
         className="shrink-0 rounded-md text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <ChevronRight className="size-4" />
@@ -340,21 +364,6 @@ function inAnHour(): Pick<Draft, "date" | "time"> {
   };
 }
 
-/** The sets of days most routines want, one press each. */
-const DAY_SETS = [
-  { label: "Every day", days: [...WEEKDAYS] },
-  { label: "Weekdays", days: [1, 2, 3, 4, 5] },
-  { label: "Weekends", days: [6, 7] },
-];
-const DAY_WORDS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
 /** The gaps between starts most routines want; another one, set by a call, shows beside them. */
 const HOUR_STEPS = [1, 2, 3, 6, 12, 24].filter(
   (hours) => hours >= ROUTINE.minHours,
@@ -378,6 +387,9 @@ function RoutineSheet({
 }) {
   // Portals into the settings dialog, not the page, so it is placed against the window
   const [host, setHost] = useState<HTMLElement | null>(null);
+  const locale = useLocale();
+  const t = settingsDictOf(locale).routine;
+  const words = scheduleWordsOf(t);
   const anchor = useCallback((node: HTMLElement | null) => {
     setHost(node?.closest<HTMLElement>("[data-slot=dialog-content]") ?? null);
   }, []);
@@ -479,9 +491,9 @@ function RoutineSheet({
   const confirmDelete = async () => {
     if (!saved) return;
     const confirmed = await notify.confirm({
-      title: `Delete "${saved.label}"?`,
-      description: "It starts no more. The jobs it already opened stay.",
-      okText: "Delete",
+      title: t.deleteTitle(saved.label),
+      description: t.deleteBody,
+      okText: t.deleteOk,
       destructive: true,
     });
     if (!confirmed) return;
@@ -529,18 +541,18 @@ function RoutineSheet({
                   )}
                   <div className="min-w-0 flex-1">
                     <DialogTitle className="sr-only">
-                      {saved ? saved.label : "New routine"}
+                      {saved ? saved.label : t.newTitle}
                     </DialogTitle>
                     <p className="truncate text-[15px] leading-5 font-semibold">
-                      {saved ? saved.label : "New routine"}
+                      {saved ? saved.label : t.newTitle}
                     </p>
                     {saved && (
                       <p className="mt-0.5 flex min-w-0 items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
                         <RoutineMark className="size-3 shrink-0" />
                         <span className="truncate">
-                          {saved.bot} · {scheduleText(saved.schedule)}
+                          {saved.bot} · {scheduleText(saved.schedule, words)}
                           {saved.enabled &&
-                            ` · next ${whenOf(saved.nextRunAt)}`}
+                            ` · ${t.nextRun(whenOf(saved.nextRunAt, locale))}`}
                         </span>
                       </p>
                     )}
@@ -552,7 +564,7 @@ function RoutineSheet({
                         onCheckedChange={(enabled) =>
                           void update(saved.id, { enabled })
                         }
-                        aria-label={`${saved.label} on or off`}
+                        aria-label={t.onOrOff(saved.label)}
                         className="mr-1 shrink-0"
                       />
                       <DropdownMenu>
@@ -561,7 +573,7 @@ function RoutineSheet({
                             <Button
                               size="icon-sm"
                               variant="ghost"
-                              aria-label="More"
+                              aria-label={t.moreActions}
                               className="text-muted-foreground"
                             />
                           }
@@ -574,7 +586,7 @@ function RoutineSheet({
                             onClick={confirmDelete}
                           >
                             <Trash2 />
-                            Delete
+                            {t.deleteAction}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -585,7 +597,7 @@ function RoutineSheet({
                       <Button
                         size="icon-sm"
                         variant="ghost"
-                        aria-label="Close the routine"
+                        aria-label={t.closeRoutine}
                       />
                     }
                   >
@@ -594,22 +606,19 @@ function RoutineSheet({
                 </div>
 
                 <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pt-3 pb-5">
-                  <Field label="Name" htmlFor="routine-name">
+                  <Field label={t.nameField} htmlFor="routine-name">
                     <Input
                       id="routine-name"
                       value={draft.label}
                       onChange={(event) => patch({ label: event.target.value })}
-                      placeholder="e.g. Morning mail"
+                      placeholder={t.namePlaceholder}
                       maxLength={80}
                       autoFocus={!saved}
                     />
-                    <Hint>
-                      What it is called in this list, and what she calls it on a
-                      call.
-                    </Hint>
+                    <Hint>{t.nameHint}</Hint>
                   </Field>
 
-                  <Field label="Bot">
+                  <Field label={t.botField}>
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         render={
@@ -633,7 +642,7 @@ function RoutineSheet({
                             !picked && "pl-1.5 text-muted-foreground",
                           )}
                         >
-                          {picked?.name ?? (draft.bot || "Pick a bot")}
+                          {picked?.name ?? (draft.bot || t.pickBot)}
                         </span>
                         <ChevronDown className="ml-1 size-3.5 text-muted-foreground" />
                       </DropdownMenuTrigger>
@@ -663,50 +672,50 @@ function RoutineSheet({
                         </DropdownMenuGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    <Hint>Who does the job each time it starts.</Hint>
+                    <Hint>{t.botHint}</Hint>
                   </Field>
 
-                  <Field label="When">
+                  <Field label={t.whenField}>
                     <div className="space-y-3.5">
                       <Segmented
-                        aria-label="How it starts"
+                        aria-label={t.howStarts}
                         value={draft.kind}
                         onChange={(kind) => commitSchedule({ kind })}
                         options={[
-                          { value: "once", label: "Once" },
-                          { value: "daily", label: "On set days" },
-                          { value: "every", label: "Every few hours" },
+                          { value: "once", label: t.kindOnce },
+                          { value: "daily", label: t.kindDaily },
+                          { value: "every", label: t.kindEvery },
                         ]}
                       />
                       <div className="space-y-2.5">
                         {draft.kind === "once" ? (
                           <>
-                            <WhenRow word="On">
+                            <WhenRow word={t.onWord}>
                               <OnceDays
                                 value={draft.date}
                                 onPick={(date) => commitSchedule({ date })}
                               />
                             </WhenRow>
-                            <WhenRow word="At">
+                            <WhenRow word={t.atWord}>
                               <TimeField
                                 value={draft.time}
                                 onChange={(time) => patch({ time })}
                                 onDone={() => commitSchedule({})}
                               />
                               <span className="text-[13px] text-muted-foreground">
-                                or
+                                {t.orWord}
                               </span>
                               <Pill
                                 picked={false}
                                 onClick={() => commitSchedule(inAnHour())}
                               >
-                                In an hour
+                                {t.inAnHour}
                               </Pill>
                             </WhenRow>
                           </>
                         ) : draft.kind === "daily" ? (
                           <>
-                            <WhenRow word="On">
+                            <WhenRow word={t.onWord}>
                               {WEEKDAYS.map((day) => {
                                 const on = draft.days.includes(day);
                                 return (
@@ -714,7 +723,7 @@ function RoutineSheet({
                                     key={day}
                                     picked={on}
                                     several
-                                    aria-label={DAY_WORDS[day - 1]}
+                                    aria-label={t.dayWords[day - 1]}
                                     onClick={() =>
                                       commitSchedule({
                                         days: on
@@ -727,14 +736,14 @@ function RoutineSheet({
                                       })
                                     }
                                   >
-                                    {DAY_NAMES[day - 1]}
+                                    {t.dayNames[day - 1]}
                                   </Pill>
                                 );
                               })}
                             </WhenRow>
                             {/* Shortcuts that fill the days: what is on is what the days show */}
                             <WhenRow>
-                              {DAY_SETS.map((set) => (
+                              {t.daySets.map((set) => (
                                 <button
                                   key={set.label}
                                   type="button"
@@ -747,7 +756,7 @@ function RoutineSheet({
                                 </button>
                               ))}
                             </WhenRow>
-                            <WhenRow word="At">
+                            <WhenRow word={t.atWord}>
                               <TimeField
                                 value={draft.time}
                                 onChange={(time) => patch({ time })}
@@ -756,7 +765,7 @@ function RoutineSheet({
                             </WhenRow>
                           </>
                         ) : (
-                          <WhenRow word="Every">
+                          <WhenRow word={t.everyWord}>
                             {(HOUR_STEPS.includes(draft.hours)
                               ? HOUR_STEPS
                               : [...HOUR_STEPS, draft.hours].sort(
@@ -773,7 +782,7 @@ function RoutineSheet({
                               </Pill>
                             ))}
                             <span className="text-[13px] text-muted-foreground">
-                              hours
+                              {t.hoursWord}
                             </span>
                           </WhenRow>
                         )}
@@ -782,33 +791,29 @@ function RoutineSheet({
                     </div>
                   </Field>
 
-                  <Field label="Job" htmlFor="routine-request">
+                  <Field label={t.jobField} htmlFor="routine-request">
                     <Textarea
                       id="routine-request"
                       value={draft.request}
                       onChange={(event) =>
                         patch({ request: event.target.value })
                       }
-                      placeholder="e.g. Go through the mail that came since the last run and draft replies to what needs one. Send nothing."
+                      placeholder={t.jobPlaceholder}
                       className="min-h-28"
                     />
-                    <Hint>
-                      Handed to the bot as a new thread each time, with a line
-                      on how the last run ended. Nobody is there to ask, so say
-                      everything it needs.
-                    </Hint>
+                    <Hint>{t.jobHint}</Hint>
                   </Field>
 
                   {saved && (
                     <div className="pt-1">
                       <div className="flex h-6 items-center">
                         <span className="font-mono text-xs text-muted-foreground">
-                          Runs
+                          {t.runsWord}
                         </span>
                       </div>
                       {saved.runs.length === 0 ? (
                         <p className="py-2 text-[13px] text-muted-foreground">
-                          Not run yet.
+                          {t.notRunYetLine}
                         </p>
                       ) : (
                         saved.runs.map((run) => (
@@ -830,12 +835,12 @@ function RoutineSheet({
                               )}
                             >
                               {run.status === "running"
-                                ? "Running now"
+                                ? t.runningNow
                                 : run.outcome
                                   ? plainText(run.outcome)
                                   : run.status === "cancelled"
-                                    ? "Stopped"
-                                    : "No words"}
+                                    ? t.stopped
+                                    : t.noWords}
                             </span>
                             <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
                           </button>
@@ -848,12 +853,12 @@ function RoutineSheet({
                 <div className="flex shrink-0 items-center gap-3 border-t border-border/60 px-5 py-3">
                   <p className="min-w-0 flex-1 text-xs leading-4 text-muted-foreground">
                     {saved || input
-                      ? STARTS_NOTE
-                      : `Still needs ${missingOf(draft, schedule)}.`}
+                      ? t.startsNote
+                      : t.stillNeeds(missingOf(draft, schedule, t))}
                   </p>
                   {typedAway && (
                     <Button size="sm" onClick={saveTyped}>
-                      Save
+                      {t.save}
                     </Button>
                   )}
                   {saved ? (
@@ -862,13 +867,11 @@ function RoutineSheet({
                       size="sm"
                       loading={starting}
                       disabled={lastOpen}
-                      title={
-                        lastOpen ? "Its last run is still open" : undefined
-                      }
+                      title={lastOpen ? t.lastRunOpen : undefined}
                       onClick={() => void runNow(saved.id)}
                     >
                       <Play />
-                      Run now
+                      {t.runNow}
                     </Button>
                   ) : (
                     <Button
@@ -877,7 +880,7 @@ function RoutineSheet({
                       disabled={!input}
                       onClick={() => input && void create(input)}
                     >
-                      Create
+                      {t.create}
                     </Button>
                   )}
                 </div>
@@ -891,16 +894,20 @@ function RoutineSheet({
 }
 
 /** What a routine being made still lacks, in words: "a name, a bot and a job". */
-function missingOf(draft: Draft, schedule: RoutineSchedule | null): string {
+function missingOf(
+  draft: Draft,
+  schedule: RoutineSchedule | null,
+  t: RoutineDict,
+): string {
   const lacks = [
-    draft.label.trim() ? null : "a name",
-    draft.bot ? null : "a bot",
-    !schedule ? "a time" : isSpent(schedule) ? "a time still ahead" : null,
-    draft.request.trim() ? null : "a job",
+    draft.label.trim() ? null : t.missingName,
+    draft.bot ? null : t.missingBot,
+    !schedule ? t.missingTime : isSpent(schedule) ? t.missingTimeAhead : null,
+    draft.request.trim() ? null : t.missingJob,
   ].filter((one): one is string => one !== null);
   return lacks.length > 1
-    ? `${lacks.slice(0, -1).join(", ")} and ${lacks.at(-1)}`
-    : (lacks[0] ?? "nothing");
+    ? `${lacks.slice(0, -1).join(", ")} ${t.missingAnd} ${lacks.at(-1)}`
+    : (lacks[0] ?? t.missingNothing);
 }
 
 const Hint = ({ children }: { children: React.ReactNode }) => (
@@ -963,10 +970,13 @@ function WhenRow({
 }
 
 /** "Sun 21" for a day this week, "Fri, Oct 3" further out. */
-function dayName(day: string): string {
+function dayName(day: string, locale: Locale): string {
+  const dateLocale = locale === "tr" ? trLocale : enUS;
   const at = momentOf(`${day} 00:00`);
   const days = (at.getTime() - momentOf(`${dayOf(0)} 00:00`).getTime()) / 864e5;
-  return format(at, days < 7 ? "EEE d" : "EEE, MMM d");
+  return format(at, days < 7 ? "EEE d" : "EEE, MMM d", {
+    locale: dateLocale,
+  });
 }
 
 /** Today, tomorrow and the two days after as pills; any other day from the calendar. */
@@ -977,6 +987,8 @@ function OnceDays({
   value: string;
   onPick: (day: string) => void;
 }) {
+  const locale = useLocale();
+  const t = settingsDictOf(locale).routine;
   const picker = useRef<HTMLInputElement>(null);
   const near = [0, 1, 2, 3].map((ahead) => dayOf(ahead));
   const open = () => picker.current?.showPicker();
@@ -984,19 +996,23 @@ function OnceDays({
     <>
       {near.map((day, ahead) => (
         <Pill key={day} picked={day === value} onClick={() => onPick(day)}>
-          {ahead === 0 ? "Today" : ahead === 1 ? "Tomorrow" : dayName(day)}
+          {ahead === 0
+            ? t.today
+            : ahead === 1
+              ? t.tomorrow
+              : dayName(day, locale)}
         </Pill>
       ))}
       {!near.includes(value) && (
         <Pill picked onClick={open}>
-          {dayName(value)}
+          {dayName(value, locale)}
         </Pill>
       )}
       {/* The browser's own calendar, opened from the pill it sits under */}
       <span className="relative">
         <Pill
           picked={false}
-          aria-label="Another day"
+          aria-label={t.anotherDay}
           onClick={open}
           className="w-8 px-0"
         >
@@ -1027,10 +1043,11 @@ function TimeField({
   onChange: (time: string) => void;
   onDone: () => void;
 }) {
+  const t = settingsDictOf(useLocale()).routine;
   return (
     <Input
       type="time"
-      aria-label="Time of day"
+      aria-label={t.timeOfDay}
       value={value}
       onChange={(event) => onChange(event.target.value)}
       onBlur={onDone}
@@ -1048,14 +1065,18 @@ function WhenSaid({
   schedule: RoutineSchedule | null;
   kind: RoutineSchedule["kind"];
 }) {
+  const locale = useLocale();
+  const t = settingsDictOf(locale).routine;
+  const words = scheduleWordsOf(t);
+  const dateLocale = locale === "tr" ? trLocale : enUS;
   if (!schedule || isSpent(schedule))
     return (
       <p className="text-xs text-destructive">
         {schedule
-          ? "That time has passed. Pick a later one."
+          ? t.timePassed
           : kind === "daily"
-            ? "Pick a time and at least one day."
-            : "Pick a time."}
+            ? t.pickTimeAndDay
+            : t.pickTime}
       </p>
     );
   const first = nextRun(schedule, new Date());
@@ -1063,12 +1084,12 @@ function WhenSaid({
     <p className="flex items-start gap-2 text-[13px] leading-5">
       <RoutineMark className="mt-0.75 size-3.5 shrink-0 text-muted-foreground" />
       <span className="min-w-0">
-        {scheduleText(schedule)}
+        {scheduleText(schedule, words)}
         <span className="text-muted-foreground">
           {" · "}
           {schedule.kind === "once"
-            ? `${formatDistanceToNowStrict(first, { addSuffix: true })}, then it switches itself off`
-            : `first start ${whenOf(first)}`}
+            ? `${formatDistanceToNowStrict(first, { addSuffix: true, locale: dateLocale })}, ${t.switchesOff}`
+            : `${t.firstStart} ${whenOf(first, locale)}`}
         </span>
       </span>
     </p>

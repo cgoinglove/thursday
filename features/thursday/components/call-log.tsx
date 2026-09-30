@@ -16,10 +16,12 @@ import {
   SettingError,
   SettingMore,
 } from "@/features/settings/components/setting-ui";
+import { useLocale } from "@/hooks/use-locale";
 import { toDate, whenOf } from "@/lib/date-like";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { useServerPages } from "@/lib/protocol/use-server-pages";
 import { cn, plainText, WAITING_INK } from "@/lib/utils";
+import { settingsDictOf } from "@/messages";
 import { deleteCallAction, deleteEndedCallsAction } from "../thursday.action";
 import { type CallRecord, type CallTurn } from "../thursday.schema";
 import { searchOf, startedLabel, toolLine } from "../tool-line";
@@ -27,6 +29,7 @@ import { ThursdayMark } from "./thursday-mark";
 
 /** The Settings › Thursday tile that opens the call history dialog. */
 export function CallHistoryRow() {
+  const t = settingsDictOf(useLocale()).thursday;
   return (
     <button
       type="button"
@@ -42,9 +45,9 @@ export function CallHistoryRow() {
         <Phone className="size-4" />
       </span>
       <span className="min-w-0 flex-1 space-y-0.5">
-        <span className="block text-sm font-medium">Call history</span>
+        <span className="block text-sm font-medium">{t.callHistoryTitle}</span>
         <span className="block text-xs text-muted-foreground">
-          Every call, word for word — hers and yours
+          {t.callHistoryHint}
         </span>
       </span>
       <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
@@ -55,12 +58,12 @@ export function CallHistoryRow() {
 type CallJob = CallRecord["jobs"][number];
 
 /** How a job reads under the line that opened it. Only waiting carries colour. */
-const JOB_WORD: Record<ThreadStatus, string> = {
-  running: "working",
-  waiting: "waiting on you",
-  done: "done",
-  cancelled: "stopped",
-};
+function jobWordOf(
+  t: { jobWords: Record<ThreadStatus, string> },
+  status: ThreadStatus,
+) {
+  return t.jobWords[status];
+}
 const JOB_LOOK: Record<ThreadStatus, string> = {
   running: "text-muted-foreground",
   waiting: WAITING_INK,
@@ -100,19 +103,18 @@ function CallLog() {
   });
 
   const calls = useMemo(() => [...items].reverse(), [items]);
+  const t = settingsDictOf(useLocale()).thursday;
 
   const [dropAll, droppingAll] = useServerAction(deleteEndedCallsAction, {
-    okMessage: (count) =>
-      count === 1 ? "1 call deleted" : `${count} calls deleted`,
+    okMessage: (count) => t.deletedCount(count),
     onOk: refresh,
   });
 
   const confirmDropAll = async () => {
     const confirmed = await notify.confirm({
-      title: "Delete every call?",
-      description:
-        "Every turn of every call goes — and she stops reading any of it back into the next call. A call still on the line stays.",
-      okText: "Delete all",
+      title: t.deleteAllTitle,
+      description: t.deleteAllBody,
+      okText: t.deleteAllOk,
       destructive: true,
     });
     if (confirmed) dropAll();
@@ -140,10 +142,8 @@ function CallLog() {
   // The dialog is the log's, so it tells to scroll up only when there are calls to scroll
   const dialog = (body: ReactNode) => (
     <SettingDialogContent
-      title="Call history"
-      description={`Everything said on the line, oldest at the top.${
-        calls.length > 0 ? " Scroll up for older calls." : ""
-      }`}
+      title={t.callLogTitle}
+      description={t.callLogDescription(calls.length > 0)}
     >
       {body}
     </SettingDialogContent>
@@ -161,8 +161,7 @@ function CallLog() {
     <>
       {calls.length === 0 ? (
         <p className="px-1 text-sm leading-relaxed text-muted-foreground">
-          No calls yet. Everything said on the line is kept here — hers and
-          yours, in the order it was said.
+          {t.callLogEmpty}
         </p>
       ) : (
         <>
@@ -198,7 +197,7 @@ function CallLog() {
               className="text-muted-foreground hover:text-destructive"
             >
               <Trash2 />
-              Delete all
+              {t.deleteAll}
             </Button>
           </div>
         </>
@@ -242,8 +241,9 @@ function CallEntry({
   /** Re-reads every page after a delete. */
   onDropped: () => void;
 }) {
+  const t = settingsDictOf(useLocale()).thursday;
   const [drop, dropping] = useServerAction(deleteCallAction, {
-    okMessage: "Call deleted",
+    okMessage: t.callDeleted,
     onOk: onDropped,
   });
   const started = toDate(call.startedAt);
@@ -251,14 +251,13 @@ function CallEntry({
   // at boot would otherwise read as long as the server was down.
   const last = call.turns.at(-1);
   const ran =
-    call.endedAt && last ? spanOf(started, toDate(last.at)) : "on the line";
+    call.endedAt && last ? spanOf(started, toDate(last.at)) : t.onTheLine;
 
   const confirmDrop = async () => {
     const confirmed = await notify.confirm({
-      title: `Delete the call from ${whenOf(started)}?`,
-      description:
-        "Every turn of it goes — and she stops reading it back into the next call.",
-      okText: "Delete",
+      title: t.deleteCallTitle(whenOf(started)),
+      description: t.deleteCallBody,
+      okText: t.deleteOk,
       destructive: true,
     });
     if (confirmed) drop(call.id);
@@ -288,7 +287,7 @@ function CallEntry({
         </span>
         <span className="font-mono text-[10px] text-muted-foreground">
           {/* a call held in the write line: nobody spoke on it */}
-          {call.model === TEXT_CALL.model ? `${ran} · in writing` : ran}
+          {call.model === TEXT_CALL.model ? `${ran} · ${t.inWriting}` : ran}
         </span>
         {/* The slot is held so the row keeps its height while the button is hidden. */}
         <span className="ml-auto flex size-7 shrink-0 items-center justify-center">
@@ -297,7 +296,7 @@ function CallEntry({
               size="icon-sm"
               variant="ghost"
               loading={dropping}
-              aria-label="Delete this call"
+              aria-label={t.deleteCallAria}
               onClick={confirmDrop}
               className="text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive focus-visible:opacity-100"
             >
@@ -445,6 +444,7 @@ function ToolTurn({
   const name = turn.tool ?? "";
   const Icon = toolIcon(name);
   const said = toolLine(name, turn.text);
+  const t = settingsDictOf(useLocale()).thursday;
   // What the call's web search read, under the line that ran it
   const read = searchOf(turn.tool, turn.text)?.sources ?? [];
 
@@ -478,7 +478,7 @@ function ToolTurn({
         <p className="mt-0.5 ml-[26px] flex min-w-0 items-baseline gap-1.5 text-[11px]">
           {job.status === "running" ? (
             <ShinyText
-              text={JOB_WORD.running}
+              text={jobWordOf(t, job.status)}
               className="shrink-0 font-mono text-[10px]"
             />
           ) : (
@@ -488,7 +488,7 @@ function ToolTurn({
                 JOB_LOOK[job.status],
               )}
             >
-              {JOB_WORD[job.status]}
+              {jobWordOf(t, job.status)}
             </span>
           )}
           {job.outcome && job.status !== "running" && (

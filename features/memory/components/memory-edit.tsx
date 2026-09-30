@@ -29,7 +29,9 @@ import type { TextModelProviderId } from "@/features/ai/model.schema";
 import type { createMemoryTools } from "@/features/ai/tools/memory.tool";
 import { TOOL_NAMES } from "@/features/ai/tools/tool-name";
 import type { MemoryNote } from "@/features/memory/memory.schema";
+import { useLocale } from "@/hooks/use-locale";
 import { cn } from "@/lib/utils";
+import { settingsDictOf } from "@/messages";
 
 type KnownFact = { text: string; path: string };
 
@@ -47,6 +49,7 @@ const transport = new DefaultChatTransport({ api: queryKey.memoryEdit });
  * the next send starts clean — and the model is picked here, never saved.
  */
 export function MemoryEdit({ notes }: { notes: MemoryNote[] }) {
+  const t = settingsDictOf(useLocale()).memory;
   const [draft, setDraft] = useState("");
   const [model, setModel] = useState<{
     provider: TextModelProviderId | null;
@@ -186,8 +189,8 @@ export function MemoryEdit({ notes }: { notes: MemoryNote[] }) {
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             disabled={running}
-            aria-label="Edit memory"
-            placeholder="Tell memory what changed"
+            aria-label={t.editMemoryAria}
+            placeholder={t.editPlaceholder}
             className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-60"
           />
           <Button
@@ -212,7 +215,7 @@ export function MemoryEdit({ notes }: { notes: MemoryNote[] }) {
             size="icon-sm"
             loading={running}
             disabled={!draft.trim() || !ready || running}
-            aria-label="Send"
+            aria-label={t.sendAria}
           >
             {!running && <ArrowUp />}
           </Button>

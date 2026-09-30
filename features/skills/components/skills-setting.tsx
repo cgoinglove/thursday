@@ -57,9 +57,11 @@ import {
   type SkillSource,
   type SkillSummary,
 } from "@/features/skills/skills.schema";
+import { useLocale } from "@/hooks/use-locale";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, formatBytes } from "@/lib/utils";
+import { settingsDictOf } from "@/messages";
 
 /** Marks for the skills that ship with the app; custom skills get the generic mark. */
 const SKILL_MARKS: Record<string, LucideIcon> = {
@@ -79,6 +81,8 @@ export function SkillsSetting() {
     queryKey.skills,
   );
   const skills = data ?? [];
+  const locale = useLocale();
+  const t = settingsDictOf(locale).skills;
 
   if (isLoading) return <SettingSkeleton rows={4} />;
   if (error) return <SettingError message={error.message} />;
@@ -105,26 +109,26 @@ export function SkillsSetting() {
     <SettingScreen
       footer={
         <SettingRailNote>
-          {skills.filter((skill) => !isEditableSource(skill.source)).length}{" "}
-          shipped ·{" "}
-          {skills.filter((skill) => isEditableSource(skill.source)).length}{" "}
-          installed
+          {t.railShipped(
+            skills.filter((skill) => !isEditableSource(skill.source)).length,
+          )}{" "}
+          ·{" "}
+          {t.railInstalled(
+            skills.filter((skill) => isEditableSource(skill.source)).length,
+          )}
         </SettingRailNote>
       }
     >
-      <SettingToolbar count={`${on} on · ${skills.length - on} off`}>
+      <SettingToolbar count={t.countLine(on, skills.length - on)}>
         <SettingFilter
           value={filter}
           onChange={setFilter}
-          placeholder="Filter skills"
+          placeholder={t.filter}
         />
       </SettingToolbar>
 
-      <SettingGroup
-        label="Custom"
-        hint="yours — added here · a Default skill of the same name wins"
-      >
-        <SettingItems addRow={{ label: "Add skill", onClick: openSkillCreate }}>
+      <SettingGroup label={t.customGroup} hint={t.customHint}>
+        <SettingItems addRow={{ label: t.addSkill, onClick: openSkillCreate }}>
           {shown
             .filter((skill) => skill.source === "custom")
             .map((skill) => (
@@ -134,11 +138,7 @@ export function SkillsSetting() {
       </SettingGroup>
 
       {[...byBot].map(([bot, own]) => (
-        <SettingGroup
-          key={bot}
-          label={`${bot}'s own`}
-          hint={`only ${bot} reads these · what it found or wrote can be edited or deleted`}
-        >
+        <SettingGroup key={bot} label={t.botOwn(bot)} hint={t.botOwnHint(bot)}>
           <SettingItems>
             {own.map((skill) => (
               <SkillRow key={`${skill.source}/${skill.dir}`} skill={skill} />
@@ -147,10 +147,7 @@ export function SkillsSetting() {
         </SettingGroup>
       ))}
 
-      <SettingGroup
-        label="Default"
-        hint="ships with the app · switch off, can't edit or delete"
-      >
+      <SettingGroup label={t.defaultGroup} hint={t.defaultHint}>
         <SettingItems>
           {shown
             .filter((skill) => skill.source === "default")
@@ -161,16 +158,14 @@ export function SkillsSetting() {
       </SettingGroup>
 
       {onForAll > PROMPT_CROWDED.skills && (
-        <SettingNote>
-          {onForAll} skills are on for every bot. Each is a line in every prompt
-          a bot reads, and one more to look past when it picks.
-        </SettingNote>
+        <SettingNote>{t.crowded(onForAll)}</SettingNote>
       )}
     </SettingScreen>
   );
 }
 
 function SkillRow({ skill }: { skill: SkillSummary }) {
+  const t = settingsDictOf(useLocale()).skills;
   const [remove, removing] = useServerAction(deleteSkillAction, {
     onOk: () => revalidate(queryKey.skills),
   });
@@ -180,9 +175,9 @@ function SkillRow({ skill }: { skill: SkillSummary }) {
 
   const confirmRemove = async () => {
     const confirmed = await notify.confirm({
-      title: `Delete ${skill.name}?`,
-      description: "Every file in this skill is deleted for good.",
-      okText: "Delete",
+      title: t.deleteTitle(skill.name),
+      description: t.deleteBody,
+      okText: t.deleteOk,
       destructive: true,
     });
     if (confirmed) remove(skill.source, skill.dir);
@@ -226,7 +221,7 @@ function SkillRow({ skill }: { skill: SkillSummary }) {
         <Switch
           checked={!skill.disabled}
           onCheckedChange={(on) => toggle(skill.source, skill.dir, !on)}
-          aria-label={`${skill.name} on or off`}
+          aria-label={t.rowSwitch(skill.name)}
           className="shrink-0"
         />
         {isEditableSource(skill.source) ? (
@@ -235,7 +230,7 @@ function SkillRow({ skill }: { skill: SkillSummary }) {
             variant="ghost"
             loading={removing}
             onClick={confirmRemove}
-            aria-label={`Delete ${skill.name}`}
+            aria-label={t.rowDelete(skill.name)}
             className="shrink-0 text-muted-foreground"
           >
             <Trash2 />
@@ -265,6 +260,7 @@ function SkillBrowser({
 }) {
   const [dir, setDir] = useState("");
   const [file, setFile] = useState<string | null>("SKILL.md");
+  const t = settingsDictOf(useLocale()).skills;
   /** Whether the open file has words written into it and not saved: they live only in the box. */
   const unsaved = useRef(false);
   // Closing the dialog asks about them as picking another file does
@@ -280,9 +276,9 @@ function SkillBrowser({
     if (
       unsaved.current &&
       !(await notify.confirm({
-        title: "Discard your changes?",
-        description: `What you wrote in ${file?.split("/").pop()} is not saved.`,
-        okText: "Discard",
+        title: t.discardTitle,
+        description: t.discardBody(file?.split("/").pop() ?? ""),
+        okText: t.discardOk,
         destructive: true,
       }))
     )
@@ -524,8 +520,9 @@ function FileView({
   const changed =
     draft !== null && (data?.kind !== "file" || draft !== data.content);
   useEffect(() => onUnsaved?.(changed), [changed, onUnsaved]);
+  const t = settingsDictOf(useLocale()).skills;
   const [save, saving] = useServerAction(writeSkillFileAction, {
-    okMessage: "Saved",
+    okMessage: t.savedOk,
     onOk: () => {
       setDraft(null);
       revalidate(queryKey.skills);
@@ -564,7 +561,7 @@ function FileView({
               onClick={() => setDraft(data.content ?? "")}
             >
               <SquarePen />
-              Edit
+              {t.editBtn}
             </Button>
           )}
           {draft !== null && (
@@ -575,7 +572,7 @@ function FileView({
                 className="font-mono"
                 onClick={() => setDraft(null)}
               >
-                Cancel
+                {t.cancelBtn}
               </Button>
               <Button
                 size="xs"
@@ -584,7 +581,7 @@ function FileView({
                 disabled={draft === data.content}
                 onClick={() => save(source, dir, path, draft)}
               >
-                Save
+                {t.saveBtn}
               </Button>
             </>
           )}
@@ -595,14 +592,12 @@ function FileView({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           spellCheck={false}
-          aria-label={`${name} contents`}
+          aria-label={t.fileContents(name)}
           className="min-h-120 resize-none rounded-none border-0 font-mono text-[13px] leading-relaxed shadow-none focus-visible:ring-0"
         />
       ) : data.content === null ? (
         <p className="px-5 py-4 text-sm text-muted-foreground/60">
-          {data.size > SKILL_FILES.inlineBytes
-            ? "Too long to show here — a bot still reads it from disk."
-            : "Not a text file — a bot can still read it from disk."}
+          {data.size > SKILL_FILES.inlineBytes ? t.tooLong : t.notText}
         </p>
       ) : name.toLowerCase().endsWith(".md") ? (
         <SkillMarkdown content={data.content} description={data.description} />
@@ -663,6 +658,7 @@ function SkillCreate({
   );
   const busy = creating || uploading;
   const error = mode === "write" ? createError : uploadError;
+  const t = settingsDictOf(useLocale()).skills;
   /** Known here, before a byte is sent: the server refuses it at the same size. */
   const tooLarge = file !== null && file.size > SKILL_FILES.uploadBytes;
   const uploadMb = Math.round(SKILL_FILES.uploadBytes / 1024 / 1024);
@@ -698,29 +694,29 @@ function SkillCreate({
 
   return (
     <SettingDialogContent
-      title="New skill"
-      description="Instructions a bot reads when a job calls for them."
+      title={t.newTitle}
+      description={t.newDesc}
       footer={
         <>
           <Button variant="ghost" onClick={onDone}>
-            Cancel
+            {t.cancelAction}
           </Button>
           <Button disabled={!canSubmit} loading={busy} onClick={submit}>
             {!busy && (mode === "write" ? <Plus /> : <Upload />)}
-            {mode === "write" ? "Create" : "Upload"}
+            {mode === "write" ? t.createAction : t.uploadAction}
           </Button>
         </>
       }
     >
       <Tabs value={mode} onValueChange={(v) => setMode(v as typeof mode)}>
         <TabsList className="w-full">
-          <TabsTrigger value="write">Write</TabsTrigger>
-          <TabsTrigger value="upload">Upload</TabsTrigger>
+          <TabsTrigger value="write">{t.writeTab}</TabsTrigger>
+          <TabsTrigger value="upload">{t.uploadTab}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="write" className="space-y-5 pt-4">
           <Field>
-            <FieldLabel htmlFor="skill-name">Name</FieldLabel>
+            <FieldLabel htmlFor="skill-name">{t.nameField}</FieldLabel>
             <FieldContent>
               <Input
                 id="skill-name"
@@ -737,24 +733,24 @@ function SkillCreate({
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="skill-description">Description</FieldLabel>
+            <FieldLabel htmlFor="skill-description">{t.descField}</FieldLabel>
             <FieldContent>
               <Input
                 id="skill-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="What it does, then when to use it — a bot reads this to decide"
+                placeholder={t.descPlaceholder}
               />
             </FieldContent>
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="skill-content">Content</FieldLabel>
+            <FieldLabel htmlFor="skill-content">{t.contentField}</FieldLabel>
             <Textarea
               id="skill-content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="Markdown. The steps, the rules, the examples."
+              placeholder={t.contentPlaceholder}
               className="min-h-40 resize-none font-mono text-xs"
             />
           </Field>
@@ -788,12 +784,12 @@ function SkillCreate({
                   )}
                 >
                   {formatBytes(file.size)}
-                  {tooLarge && ` · over ${uploadMb} MB`}
+                  {tooLarge && t.overLimit(uploadMb)}
                 </span>
               </span>
             ) : (
               <span className="text-sm text-muted-foreground">
-                Drop a file here, or click to choose
+                {t.dropHint}
               </span>
             )}
           </button>
@@ -806,17 +802,10 @@ function SkillCreate({
           />
 
           <div className="space-y-1 text-xs text-muted-foreground">
-            <p className="font-medium text-foreground/80">File requirements</p>
-            <p>
-              A <span className="font-mono">.md</span> file needs a YAML block
-              with the skill's name and description.
-            </p>
-            <p>
-              A <span className="font-mono">.zip</span> or{" "}
-              <span className="font-mono">.skill</span> archive needs a SKILL.md
-              inside — the rest of its folder comes along.
-            </p>
-            <p>Up to {uploadMb} MB.</p>
+            <p className="font-medium text-foreground/80">{t.reqTitle}</p>
+            <p>{t.reqMdLine}</p>
+            <p>{t.reqZipLine}</p>
+            <p>{t.reqMax(uploadMb)}</p>
           </div>
         </TabsContent>
       </Tabs>

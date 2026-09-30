@@ -13,9 +13,11 @@ import {
 import { KEY_MIN } from "@/config";
 import { setConfigAction } from "@/features/config/config.action";
 import { lostWords } from "@/features/config/config.const";
+import { useLocale } from "@/hooks/use-locale";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
+import { settingsDictOf } from "@/messages";
 import type {
   AiProvider,
   CatalogModel,
@@ -76,6 +78,8 @@ export function ModelPicker({
   /** The provider being looked at while open; nothing is saved until a model is picked. */
   const [looking, setLooking] = useState<TextModelProviderId | null>(null);
   const [typed, setTyped] = useState("");
+  const locale = useLocale();
+  const t = settingsDictOf(locale).ai;
   const shown =
     providers.find((entry) => entry.id === (looking ?? provider)) ??
     providers[0];
@@ -138,14 +142,14 @@ export function ModelPicker({
               </span>
             )}
             <span className={cn("truncate", !compact && "font-medium")}>
-              {current?.label ?? (model || "Pick a model")}
+              {current?.label ?? (model || t.pickModel)}
             </span>
           </>
         ) : (
           // Unset is a value, not a blank: a text model falls back to the app
           // default (model.ts resolveDefaultModel), a media kind is simply not offered
           <span className="truncate text-muted-foreground">
-            {unset ?? (kind ? "Not picked" : "App default")}
+            {unset ?? (kind ? t.notPicked : t.appDefault)}
           </span>
         )}
         <ChevronsUpDown
@@ -175,7 +179,7 @@ export function ModelPicker({
             >
               <CircleDashed className="size-4 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate">
-                {unset ?? (kind ? "Not picked" : "App default")}
+                {unset ?? (kind ? t.notPicked : t.appDefault)}
               </span>
               {!picked && <Check className="size-3.5 shrink-0" />}
             </button>
@@ -213,21 +217,25 @@ export function ModelPicker({
                 {shown.lostKey
                   ? shown.signIn
                     ? lostWords(
-                        `The ${shown.label} sign-in saved before`,
-                        "Sign in again.",
+                        t.lostSignin(shown.label),
+                        t.signInAgain,
+                        undefined,
+                        locale,
                       )
                     : lostWords(
-                        `The ${shown.label} key saved before`,
-                        "Paste it again.",
+                        t.lostKey(shown.label),
+                        t.pasteAgain,
+                        undefined,
+                        locale,
                       )
-                  : `${shown.label} has no key yet.`}
+                  : t.noKeyYet(shown.label)}
               </p>
               <AskForKey provider={shown} onSaved={() => mutate()} />
             </div>
           ) : listing && !catalog.error ? (
             <div className="space-y-2 p-2">
               <p className="text-xs leading-relaxed text-muted-foreground">
-                Every model {shown.label} carries, with what each costs.
+                {t.everyCarries(shown.label)}
               </p>
               <ModelBrowser
                 provider={listing}
@@ -276,12 +284,8 @@ export function ModelPicker({
                   value={typed}
                   onChange={(event) => setTyped(event.target.value)}
                   spellCheck={false}
-                  aria-label="Model id"
-                  placeholder={
-                    catalog.error
-                      ? "Could not read the catalog — type an id"
-                      : "or type a model id"
-                  }
+                  aria-label={t.modelAria}
+                  placeholder={catalog.error ? t.catalogNoRead : t.typeModelId}
                   className="h-8 font-mono text-xs"
                 />
               </form>
@@ -310,6 +314,7 @@ function AskForKey({
   onSaved: () => void;
 }) {
   const [value, setValue] = useState("");
+  const t = settingsDictOf(useLocale()).ai;
   // The key row gives way to the provider's models the moment it lands, in this same column
   const [save, saving] = useServerAction(setConfigAction, {
     onOk: () => {
@@ -324,7 +329,7 @@ function AskForKey({
     return (
       <div className="flex items-center justify-between gap-2">
         <p className="px-1 font-mono text-[11px] text-muted-foreground">
-          Runs on your plan once you sign in
+          {t.runsOnPlan}
         </p>
         <ChatGptSignIn variant="outline" />
       </div>
@@ -337,7 +342,7 @@ function AskForKey({
         value={value}
         onChange={(event) => setValue(event.target.value)}
         placeholder={
-          TEXT_MODEL_PROVIDERS[provider.id].keyLooks ?? "Paste the key"
+          TEXT_MODEL_PROVIDERS[provider.id].keyLooks ?? t.pasteKeyFallback
         }
         spellCheck={false}
         type="password"
@@ -348,7 +353,7 @@ function AskForKey({
         disabled={value.trim().length < KEY_MIN}
         onClick={() => save(provider.apiKeyName, value)}
       >
-        Save key
+        {t.saveKeyBtn}
       </Button>
     </div>
   );

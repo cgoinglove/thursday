@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Segmented } from "@/components/ui/segmented";
+import { useLocale } from "@/hooks/use-locale";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
+import { settingsDictOf } from "@/messages";
 import type {
   CatalogModel,
   Effort,
@@ -71,6 +73,7 @@ export function EffortSwitch({
     setPressed((last) => (last && last.step === value ? null : last));
   }, [value]);
   const shown = pressed ? pressed.step : value;
+  const t = settingsDictOf(useLocale()).ai;
 
   const stops = ladder ?? [];
   const auto = !shown || !stops.includes(shown);
@@ -81,17 +84,17 @@ export function EffortSwitch({
     // sits on the group rather than on `auto`, for the same reason: it is the whole row's.
     <div
       className="min-w-0"
-      title={chosen ? ladderNote(ladder) : "Pick a model first"}
+      title={chosen ? ladderNote(ladder, t) : t.pickModelFirst}
     >
       <Segmented
-        aria-label="Thinking effort"
+        aria-label={t.effortAria}
         className="max-w-full flex-wrap"
         options={[
-          { value: "auto", label: "auto", title: "The model's own default" },
+          { value: "auto", label: t.autoWord, title: t.modelDefaultTitle },
           ...stops.map((step) => ({
             value: step,
             label: step,
-            title: `Thinking effort ${step}`,
+            title: t.effortStep(step),
           })),
         ]}
         value={auto ? "auto" : (shown as Effort)}
@@ -106,8 +109,15 @@ export function EffortSwitch({
 }
 
 /** What the group's tooltip says: how many steps there are, or why there are none. */
-function ladderNote(ladder: readonly Effort[] | null): string {
-  if (ladder === null) return "This model's steps are unknown";
-  if (ladder.length === 0) return "This model has no effort to set";
-  return `${ladder.length} steps, plus Auto`;
+function ladderNote(
+  ladder: readonly Effort[] | null,
+  t: {
+    ladderUnknown: string;
+    ladderNone: string;
+    ladderSteps: (n: number) => string;
+  },
+): string {
+  if (ladder === null) return t.ladderUnknown;
+  if (ladder.length === 0) return t.ladderNone;
+  return t.ladderSteps(ladder.length);
 }

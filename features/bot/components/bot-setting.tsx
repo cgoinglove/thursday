@@ -84,7 +84,6 @@ import {
   type ConfigStatus,
   isConfigSet,
   MEDIA_MODEL_KEYS,
-  mediaModelWords,
 } from "@/features/config/config.const";
 import {
   PICKED_ROW,
@@ -105,11 +104,14 @@ import {
   deleteWorkspaceFileAction,
   revealFileAction,
 } from "@/features/workspace/workspace.action";
+import { useLocale } from "@/hooks/use-locale";
 import { useObjectState } from "@/hooks/use-object-state";
 import { type DateLike, shortAgo, whenOf } from "@/lib/date-like";
+import type { Locale } from "@/lib/locale";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, formatCount, WAITING_INK } from "@/lib/utils";
+import { type BotDict, settingsDictOf } from "@/messages";
 import { MARK_SHAPES, MARK_SYSTEM } from "../mark.const";
 
 /** A new bot's Create, raised from its page to the rail at the foot of the screen. */
@@ -139,6 +141,8 @@ export function BotSetting() {
   const [picked, setPicked] = useState<string | null>(null);
 
   const [draft, setDraft] = useState<DraftCreate | null>(null);
+  const locale = useLocale();
+  const t = settingsDictOf(locale).bot;
 
   if (isLoading) return <SettingPanesSkeleton />;
   if (error) return <SettingError message={error.message} />;
@@ -165,7 +169,7 @@ export function BotSetting() {
               says so in their place, since neither could make one */}
           {bots.length >= BOT_ROSTER.max ? (
             <p className="mx-2 mb-1 px-2 py-1.5 font-mono text-[11px] leading-5 text-muted-foreground">
-              {bots.length} bots · {BOT_ROSTER.max} is the most
+              {t.botsMost(bots.length, BOT_ROSTER.max)}
             </p>
           ) : (
             <div className="mx-2 mb-1 flex items-center gap-1">
@@ -180,7 +184,7 @@ export function BotSetting() {
                 )}
               >
                 <Plus className="size-3.5 shrink-0" />
-                New bot
+                {t.newBot}
               </button>
 
               {bots.length > 0 && missing.length > 0 && (
@@ -206,8 +210,7 @@ export function BotSetting() {
           {/* Only bots that are on: a switched-off one is in no prompt to crowd. */}
           {on > PROMPT_CROWDED.bots && (
             <SettingNote className="mx-3 mt-2 leading-relaxed">
-              {on} bots are on. Each is a line in every prompt, and one more for
-              Thursday to choose between.
+              {t.crowded(on, APP_NAME)}
             </SettingNote>
           )}
         </div>
@@ -237,13 +240,11 @@ export function BotSetting() {
         ) : (
           <div className="space-y-4 p-8">
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Thursday talks; bots do the rest — search the web, draft a reply,
-              check a schedule. Give one a job and a model, and work gets handed
-              over mid-call while the conversation keeps going.
+              {t.emptyPitch(APP_NAME)}
             </p>
             <Button variant="outline" onClick={() => setPicked(NEW)}>
               <Plus />
-              New bot
+              {t.newBot}
             </Button>
           </div>
         )
@@ -270,7 +271,9 @@ function RosterRow({
   active: boolean;
   onPick: () => void;
 }) {
-  const line = liveLine(job, bot.lastJobAt, bot.disabled);
+  const locale = useLocale();
+  const t = settingsDictOf(locale).bot;
+  const line = liveLine(job, bot.lastJobAt, bot.disabled, t, locale);
   return (
     <button
       type="button"
@@ -327,33 +330,35 @@ function liveLine(
   job: Thread | null,
   lastJobAt: Bot["lastJobAt"],
   disabled: boolean,
+  t: BotDict,
+  locale: Locale,
 ): {
   text: string;
   shine?: boolean;
   amber?: boolean;
 } {
   if (job?.status === "waiting") {
-    return { text: "waiting on you", shine: true, amber: true };
+    return { text: t.rosterWaiting, shine: true, amber: true };
   }
   if (job?.status === "running") {
-    return { text: `working · ${job.label}`, shine: true };
+    return { text: t.rosterWorking(job.label), shine: true };
   }
   // Switched off, and no colour: off is the user's own choice, not something
   // waiting on them, so the word carries it. It stands where the idle line
   // would — the two cases above are a job it already had, which off never
   // stopped, and hiding an ask behind "off" is how one goes unanswered.
-  if (disabled) return { text: "off" };
+  if (disabled) return { text: t.rosterOff };
   if (!job) {
-    if (!lastJobAt) return { text: "idle · no jobs yet" };
-    return { text: `idle · last job ${sinceWord(lastJobAt)}` };
+    if (!lastJobAt) return { text: t.rosterIdleNone };
+    return { text: t.rosterIdleLast(sinceWord(lastJobAt, t, locale)) };
   }
-  return { text: `idle · last job ${sinceWord(job.updatedAt)}` };
+  return { text: t.rosterIdleLast(sinceWord(job.updatedAt, t, locale)) };
 }
 
 /** "just now" or "3h ago". */
-function sinceWord(at: DateLike): string {
-  const ago = shortAgo(at);
-  return ago === "now" ? "just now" : `${ago} ago`;
+function sinceWord(at: DateLike, t: BotDict, locale: Locale): string {
+  const ago = shortAgo(at, Date.now(), locale);
+  return ago === "now" || ago === "şimdi" ? t.justNow : t.agoWord(ago);
 }
 /**
  * What a seed still needs before it can work, as one line, or null when it needs
@@ -366,12 +371,15 @@ function unmetLine(
   isSet: (key: string) => boolean,
   /** The GPT Subscription's sign-in and its plan (model.schema planMediaOf); null when signed out. */
   signIn: { plan: string | null } | null,
+  t: BotDict,
 ): string | null {
   const unmet = (seed.requires ?? []).filter(
     (kind) => !isSet(MEDIA_MODEL_KEYS[kind]) && !planMediaOf(kind, signIn),
   );
   if (!unmet.length) return null;
-  return `needs ${unmet.map(mediaModelWords).join(" and ")}`;
+  return t.needsMedia(
+    unmet.map((kind) => t.mediaWords[kind] ?? kind).join(` ${t.needsAnd} `),
+  );
 }
 
 /**
@@ -416,7 +424,9 @@ function useSeedPicks(
   const wanted = addable.filter((seed) => !off.has(seed.name));
   const limited = room < addable.length;
   const full = wanted.length >= room;
-  const fit = `${room} more ${room === 1 ? "fits" : "fit"}`;
+  const locale = useLocale();
+  const t = settingsDictOf(locale).bot;
+  const fit = t.roomFits(room);
 
   return {
     isSet,
@@ -429,11 +439,11 @@ function useSeedPicks(
     /** What Add will do, said before the click; near the ceiling, how many fit. */
     note: limited
       ? full
-        ? `${fit} · untick one to pick another`
-        : `${wanted.length} ticked · ${fit}`
+        ? `${fit} · ${t.noteFullTick}`
+        : t.noteFullUnticked(wanted.length, fit)
       : wanted.length === 0
-        ? "nothing ticked"
-        : `${wanted.length} of ${addable.length} ticked`,
+        ? t.noteNone
+        : t.noteSome(wanted.length, addable.length),
     ticked: (seed: BotSeed) => have.has(seed.name) || !off.has(seed.name),
     /** Unticked while every place left is taken: it can be ticked once another is not. */
     blocked: (seed: BotSeed) =>
@@ -463,13 +473,14 @@ function SeedRows({
   have: Set<string>;
   picks: ReturnType<typeof useSeedPicks>;
 }) {
+  const t = settingsDictOf(useLocale()).bot;
   return (
     <div className="flex flex-col gap-2">
       {BOT_SEEDS.map((seed) => {
         const owned = have.has(seed.name);
         const on = picks.ticked(seed);
         const blocked = picks.blocked(seed);
-        const needs = unmetLine(seed, picks.isSet, picks.signIn);
+        const needs = unmetLine(seed, picks.isSet, picks.signIn, t);
         return (
           <div
             key={seed.name}
@@ -504,12 +515,12 @@ function SeedRows({
                   {seed.name}
                 </span>
                 <span className="block truncate text-[12px] leading-[17px] text-muted-foreground">
-                  {seed.hint}
+                  {t.seedHints[seed.name] ?? seed.hint}
                 </span>
               </span>
               {owned ? (
                 <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
-                  already added
+                  {t.alreadyAdded}
                 </span>
               ) : needs ? (
                 <span
@@ -548,10 +559,11 @@ function SeedActions({
   picks: ReturnType<typeof useSeedPicks>;
   onCancel: () => void;
 }) {
+  const t = settingsDictOf(useLocale()).bot;
   return (
     <>
       <Button variant="ghost" onClick={onCancel}>
-        Cancel
+        {t.cancel}
       </Button>
       <Button
         loading={picks.adding}
@@ -560,8 +572,8 @@ function SeedActions({
       >
         <Plus />
         {picks.wanted.length === 1
-          ? `Add ${picks.wanted[0].name}`
-          : `Add ${picks.wanted.length} bots`}
+          ? t.addOne(picks.wanted[0].name)
+          : t.addMany(picks.wanted.length)}
       </Button>
     </>
   );
@@ -581,21 +593,20 @@ function SeedPackage({
   onDone: (name: string | null) => void;
 }) {
   const picks = useSeedPicks(have, onDone);
+  const t = settingsDictOf(useLocale()).bot;
 
   return (
     <div className="flex min-h-full flex-col">
       <div className="flex h-11 shrink-0 items-center border-b border-border/60 px-4 font-mono text-[11px] text-muted-foreground">
-        Ready-made
+        {t.readyMade}
       </div>
 
       <div className="px-8 pt-7 pb-1">
         <h3 className="text-[17px] font-medium tracking-tight">
-          Bots you can add
+          {t.addDialogTitle}
         </h3>
         <p className="mt-1.5 max-w-lg text-[13px] leading-relaxed text-muted-foreground break-keep wrap-anywhere">
-          Each one is a starting point — re-prompt it, give it a model of its
-          own. What a bot needs before it can work stands on its row; until then
-          it runs on the app default model.
+          {t.addDialogTail}
         </p>
       </div>
 
@@ -624,11 +635,12 @@ function SeedDialog({
   onDone: (name: string | null) => void;
 }) {
   const picks = useSeedPicks(have, onDone);
+  const t = settingsDictOf(useLocale()).bot;
 
   return (
     <SettingDialogContent
-      title="Bots you can add"
-      description="Each one is a starting point — re-prompt it, give it a model of its own. What a bot needs before it can work stands on its row."
+      title={t.addDialogTitle}
+      description={t.addDialogDesc}
       footer={
         <>
           {/* Only near the ceiling: otherwise Add's own label says what it does */}
@@ -669,11 +681,12 @@ function SeedInvite({
 }) {
   const shown = missing.slice(0, INVITE_FACES);
   const rest = missing.length - shown.length;
+  const t = settingsDictOf(useLocale()).bot;
   return (
     <button
       type="button"
-      title="Ready-made bots"
-      aria-label={`Ready-made bots, ${missing.length} on offer`}
+      title={t.readyMade}
+      aria-label={t.readyMadeAria(missing.length)}
       onClick={() =>
         notify.component({
           className: "sm:max-w-xl",
@@ -770,6 +783,8 @@ function BotPage({
   } = fields;
   // Ties each row's label to its field (Row htmlFor)
   const fieldId = useId();
+  const locale = useLocale();
+  const t = settingsDictOf(locale).bot;
   // Typed by hand; otherwise the field shows what the picked model fills in
   const [compactEdited, setCompactEdited] = useState(Boolean(bot?.compactAt));
   // Read here as well as in the picker: a pick has to fill in from it the moment it happens
@@ -797,14 +812,14 @@ function BotPage({
 
   const [create, creating, , createError] = useServerAction(createBotAction, {
     errorMessage: false,
-    okMessage: "Bot created",
+    okMessage: t.createdOk,
     onOk: (made) => {
       revalidate(queryKey.bot);
       onDone(made.name);
     },
   });
   const [remove, removing] = useServerAction(deleteBotAction, {
-    okMessage: "Bot deleted",
+    okMessage: t.deletedOk,
     onOk: () => {
       revalidate(queryKey.bot);
       onDone(null);
@@ -818,8 +833,8 @@ function BotPage({
   const picked = Boolean(provider && model.trim());
   const ready = name.trim() && description.trim() && !creating;
   const missing = [
-    !name.trim() && "a name",
-    !description.trim() && "a description",
+    !name.trim() && t.missingName,
+    !description.trim() && t.missingDesc,
   ].filter((one): one is string => Boolean(one));
 
   const submit = () => {
@@ -857,10 +872,9 @@ function BotPage({
   const confirmRemove = async () => {
     if (!bot) return;
     const confirmed = await notify.confirm({
-      title: `Delete ${bot.name}?`,
-      description:
-        "Thursday can no longer hand work to it, and what it kept for itself goes with it: its memory and the skills it installed. What it finished stays in Settings › Files, under its name.",
-      okText: "Delete",
+      title: t.deleteTitle(bot.name),
+      description: t.deleteBody(APP_NAME),
+      okText: t.deleteOk,
       destructive: true,
     });
     if (confirmed) remove(bot.name);
@@ -869,9 +883,9 @@ function BotPage({
   const confirmClearLine = async () => {
     if (!bot) return;
     const confirmed = await notify.confirm({
-      title: `Clear ${bot.name}'s line?`,
-      description: `${APP_NAME} and the other bots read your description alone again.`,
-      okText: "Clear",
+      title: t.clearLineTitle(bot.name),
+      description: t.clearLineBody(APP_NAME),
+      okText: t.clearOk,
       destructive: true,
     });
     if (confirmed) clearLine(bot.name);
@@ -881,14 +895,14 @@ function BotPage({
     <div className="flex min-h-full flex-col">
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/60 px-4">
         <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">
-          {bot ? bot.name : "New bot"}
+          {bot ? bot.name : t.newBotTitle}
         </span>
         {bot && (
           <>
             {/* Only when off: on is the resting state and needs no word. */}
             {bot.disabled && (
               <span className="font-mono text-[10px] text-muted-foreground">
-                off
+                {t.offWord}
               </span>
             )}
             {/* what on means, said where it is switched: the word "on" alone does not */}
@@ -897,18 +911,18 @@ function BotPage({
                 <Switch
                   checked={!bot.disabled}
                   onCheckedChange={(on) => commit({ disabled: !on })}
-                  aria-label={`${bot.name} on or off`}
+                  aria-label={t.onOrOffBot(bot.name)}
                 />
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                Thursday can hand it work
+                {t.handWorkTip(APP_NAME)}
               </TooltipContent>
             </Tooltip>
             <Button
               size="icon-sm"
               variant="ghost"
               loading={removing}
-              aria-label="Delete this bot"
+              aria-label={t.deleteBotAria}
               onClick={confirmRemove}
               className="text-muted-foreground hover:text-destructive"
             >
@@ -928,7 +942,7 @@ function BotPage({
           }}
         />
 
-        <Row label="Name" htmlFor={bot ? undefined : `${fieldId}-name`}>
+        <Row label={t.nameRow} htmlFor={bot ? undefined : `${fieldId}-name`}>
           {bot ? (
             <p className="truncate text-sm leading-8 font-medium">{bot.name}</p>
           ) : (
@@ -936,7 +950,7 @@ function BotPage({
               id={`${fieldId}-name`}
               value={name}
               onChange={(event) => patch({ name: event.target.value })}
-              placeholder="e.g. researcher"
+              placeholder={t.namePlaceholder}
               spellCheck={false}
               maxLength={COMMON_VALIDATE.name.max}
               autoFocus
@@ -945,12 +959,12 @@ function BotPage({
           {/* Renaming is delete and recreate (bot.query updateBot), so say it before the name is typed */}
           <p className="text-xs text-muted-foreground">
             {bot
-              ? `What ${APP_NAME} calls it when she hands it work. Fixed once the bot is made.`
-              : `What ${APP_NAME} calls it when she hands it work. Up to ${COMMON_VALIDATE.name.max} characters, and it can’t be renamed later.`}
+              ? t.nameHintMade(APP_NAME)
+              : t.nameHintNew(APP_NAME, COMMON_VALIDATE.name.max)}
           </p>
         </Row>
 
-        <Row label="Description" htmlFor={`${fieldId}-description`}>
+        <Row label={t.descRow} htmlFor={`${fieldId}-description`}>
           <Input
             id={`${fieldId}-description`}
             value={description}
@@ -961,12 +975,11 @@ function BotPage({
                 commit({ description: next });
               }
             }}
-            placeholder="e.g. Searches the web and answers"
+            placeholder={t.descPlaceholder}
             maxLength={COMMON_VALIDATE.description.max}
           />
           <p className="text-xs text-muted-foreground">
-            The one line {APP_NAME} and the other bots read when they decide who
-            gets a job.
+            {t.descHint(APP_NAME)}
           </p>
           {/* The bot's own words, read after the description wherever it is
               listed (bot.schema rosterLine): theirs to write, the user's to clear */}
@@ -983,7 +996,7 @@ function BotPage({
                 size="icon-xs"
                 variant="ghost"
                 loading={clearingLine}
-                aria-label="Clear its line"
+                aria-label={t.clearLineAria}
                 onClick={confirmClearLine}
                 className="shrink-0 text-muted-foreground"
               >
@@ -996,14 +1009,14 @@ function BotPage({
               <Switch
                 checked={!bot.descriptionLocked}
                 onCheckedChange={(on) => commit({ descriptionLocked: !on })}
-                aria-label={`${bot.name} may add its own line`}
+                aria-label={t.mayAddLine(bot.name)}
               />
-              It may add its own line when its work changes for good
+              {t.mayAddLineHint}
             </label>
           )}
         </Row>
 
-        <Row label="Runs on">
+        <Row label={t.runsOnRow}>
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <ModelPicker
@@ -1039,13 +1052,11 @@ function BotPage({
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            {model.trim()
-              ? "What this bot thinks with. App default puts it back on the one in Settings › Models."
-              : "App default model, and its effort with it."}
+            {model.trim() ? t.runsOnHint : t.appDefaultHint}
           </p>
         </Row>
 
-        <Row label="Effort">
+        <Row label={t.effortRow}>
           <EffortSwitch
             provider={provider}
             model={model.trim()}
@@ -1055,19 +1066,16 @@ function BotPage({
               commit({ effort: next });
             }}
           />
-          <p className="text-xs text-muted-foreground">
-            How hard it thinks, on the steps this model takes. Auto leaves the
-            step to the model.
-          </p>
+          <p className="text-xs text-muted-foreground">{t.effortHint}</p>
         </Row>
 
-        <Row label="Compacts at" htmlFor={`${fieldId}-compact`}>
+        <Row label={t.compactRow} htmlFor={`${fieldId}-compact`}>
           <InputGroup>
             <InputGroupInput
               id={`${fieldId}-compact`}
               inputMode="decimal"
               value={shownK}
-              placeholder={model.trim() ? "" : "From the app default model"}
+              placeholder={model.trim() ? "" : t.compactFromDefault}
               onChange={(event) => {
                 setCompactEdited(true);
                 patch({ compactAt: event.target.value });
@@ -1085,19 +1093,22 @@ function BotPage({
               }}
             />
             <InputGroupAddon align="inline-end">
-              <InputGroupText>k tokens</InputGroupText>
+              <InputGroupText>{t.compactUnit}</InputGroupText>
             </InputGroupAddon>
           </InputGroup>
           <p className="text-xs text-muted-foreground">
-            {compactNote({
-              model: model.trim(),
-              window: pickedWindow,
-              shown: tokensFromK(shownK),
-            })}
+            {compactNote(
+              {
+                model: model.trim(),
+                window: pickedWindow,
+                shown: tokensFromK(shownK),
+              },
+              t,
+            )}
           </p>
         </Row>
 
-        <Row label="Tools">
+        <Row label={t.toolsRow}>
           <ToolPicker
             selected={toolIds}
             onChange={(next) => {
@@ -1107,7 +1118,7 @@ function BotPage({
           />
         </Row>
 
-        <Row label="Prompt" htmlFor={`${fieldId}-prompt`}>
+        <Row label={t.promptRow} htmlFor={`${fieldId}-prompt`}>
           <Textarea
             id={`${fieldId}-prompt`}
             value={systemPrompt}
@@ -1118,7 +1129,7 @@ function BotPage({
                 commit({ systemPrompt: next });
               }
             }}
-            placeholder={`How it should work (optional). e.g.\nSearch the web, answer with a short summary and links.`}
+            placeholder={t.promptPlaceholder}
             maxLength={COMMON_VALIDATE.prompt.max}
             // field-sizing-content grows with the text; cap it so a long prompt does not push the rest off screen.
             className="max-h-48 min-h-24 resize-none overflow-y-auto text-sm"
@@ -1148,12 +1159,13 @@ function BotPage({
  * to a file from here — writing one is the bot's.
  */
 function Memory({ bot }: { bot: string }) {
+  const t = settingsDictOf(useLocale()).bot;
   const key = queryKey.botMemoryFiles(bot);
   const { data, isLoading } = useServerRoute<BotMemory>(key);
   const [open, setOpen] = useState<string | null>(null);
   const [reveal] = useServerAction(revealFileAction);
   const [remove, removing] = useServerAction(deleteWorkspaceFileAction, {
-    okMessage: "File deleted",
+    okMessage: t.fileDeletedOk,
     onOk: () => {
       setOpen(null);
       revalidate(key);
@@ -1163,9 +1175,9 @@ function Memory({ bot }: { bot: string }) {
 
   const confirmRemove = async (file: BotMemoryFile) => {
     const confirmed = await notify.confirm({
-      title: `Delete ${file.file}?`,
-      description: `It is deleted from disk for good, and ${bot}'s next job starts without it.`,
-      okText: "Delete",
+      title: t.deleteFileTitle(file.file),
+      description: t.deleteFileBody(bot),
+      okText: t.deleteOk,
       destructive: true,
     });
     if (confirmed) remove(file.path);
@@ -1174,21 +1186,23 @@ function Memory({ bot }: { bot: string }) {
   return (
     <div className="pt-1">
       <div className="flex h-6 items-center">
-        <span className="font-mono text-xs text-muted-foreground">Memory</span>
+        <span className="font-mono text-xs text-muted-foreground">
+          {t.memoryWord}
+        </span>
         <span className="flex-1" />
         {data && data.total > 0 && (
           <>
             <span className="pr-1 font-mono text-[11px] text-muted-foreground tabular-nums">
-              {data.total === 1 ? "1 file" : `${data.total} files`}
+              {data.total === 1 ? t.fileOne : t.fileMany(data.total)}
             </span>
             <button
               type="button"
-              title="Show in the file manager"
+              title={t.showInManager}
               onClick={() => reveal(data.folder)}
               className="flex items-center gap-1 rounded-md px-1.5 py-1 font-mono text-[11px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <FolderOpen className="size-3" />
-              Folder
+              {t.folderWord}
             </button>
           </>
         )}
@@ -1199,7 +1213,7 @@ function Memory({ bot }: { bot: string }) {
         </div>
       ) : !data?.entries.length ? (
         <p className="py-2 text-[13px] text-muted-foreground">
-          Nothing kept yet.
+          {t.nothingKept}
         </p>
       ) : (
         data.entries.map((file) => {
@@ -1241,7 +1255,7 @@ function Memory({ bot }: { bot: string }) {
                   <Button
                     size="icon-sm"
                     variant="ghost"
-                    aria-label={`Delete ${file.file}`}
+                    aria-label={t.deleteFileAria(file.file)}
                     loading={removing}
                     onClick={() => confirmRemove(file)}
                     className="text-muted-foreground hover:text-destructive"
@@ -1302,6 +1316,8 @@ function BotRail({
   /** A new bot on the page: its Create stands at the end of the rail. */
   draft?: DraftCreate | null;
 }) {
+  const locale = useLocale();
+  const t = settingsDictOf(locale).bot;
   const { data: memoryOn, mutate } = useServerRoute<boolean>(
     queryKey.botMemory,
   );
@@ -1319,28 +1335,29 @@ function BotRail({
             {bot.name}
             {bot.disabled && (
               <>
-                <span className="px-1.5 opacity-50">·</span>off
+                <span className="px-1.5 opacity-50">·</span>
+                {t.railOff}
               </>
             )}
             <span className="px-1.5 opacity-50">·</span>
             <span
               title={`in ${formatCount(bot.tokens.input)} · out ${formatCount(bot.tokens.output)}`}
             >
-              {tokens > 0 ? `${formatCount(tokens)} tokens` : "no tokens yet"}
+              {tokens > 0 ? t.tokensSome(formatCount(tokens)) : t.tokensNone}
             </span>
             <span className="px-1.5 opacity-50">·</span>
-            since {whenOf(bot.createdAt)}
+            {t.sinceWord} {whenOf(bot.createdAt, locale)}
           </span>
         ) : draft?.missing.length ? (
-          `Needs ${
+          t.needsMissing(
             draft.missing.length > 1
-              ? `${draft.missing.slice(0, -1).join(", ")} and ${draft.missing.at(-1)}`
-              : draft.missing[0]
-          }`
+              ? `${draft.missing.slice(0, -1).join(", ")} ${t.needsAnd} ${draft.missing.at(-1)}`
+              : draft.missing[0],
+          )
         ) : null}
       </SettingRailNote>
       <span className="shrink-0 text-xs text-muted-foreground">
-        Bots keep their own memory
+        {t.keepMemory}
       </span>
       <Switch
         checked={memoryOn ?? true}
@@ -1349,7 +1366,7 @@ function BotRail({
           void mutate(on, false);
           setMemoryOn(on);
         }}
-        aria-label="Bots keep their own memory"
+        aria-label={t.keepMemory}
       />
       {draft && (
         <Button
@@ -1358,7 +1375,7 @@ function BotRail({
           disabled={draft.missing.length > 0}
           onClick={draft.submit}
         >
-          Create bot
+          {t.createBot}
         </Button>
       )}
     </>
@@ -1376,24 +1393,31 @@ const filledTokens = (window: number | null) =>
   Math.round(compactAtFor(window) / 1000) * 1000;
 
 /** The line under the field: where the number came from. */
-function compactNote(input: {
-  model: string;
-  window: number | null;
-  shown: number | null;
-}): string {
-  const summarize = "A job summarizes itself here and carries on.";
+function compactNote(
+  input: {
+    model: string;
+    window: number | null;
+    shown: number | null;
+  },
+  t: BotDict,
+): string {
+  const summarize = t.compactSummary;
   // No model of its own: each run works it out from the model it runs on (model.ts compactBudget)
   if (!input.model)
     return input.shown === null
-      ? `Worked out from the app default model's context window at each run. ${summarize}`
-      : `Set by hand. Emptied, it is worked out from the app default model again. ${summarize}`;
+      ? t.compactFromDefaultLong(summarize)
+      : t.compactHandDefault(summarize);
   const filled = filledTokens(input.window);
   if (input.shown !== null && input.shown !== filled) {
-    return `Set by hand. Picking a model fills in its own again. ${summarize}`;
+    return t.compactHandModel(summarize);
   }
   return input.window
-    ? `${Math.round(BOT_RUN.compactHeadroom * 100)}% of this model's ${(input.window / 1000).toLocaleString()}k context window. ${summarize}`
-    : `This model's context window is unknown, so the default is filled in. ${summarize}`;
+    ? t.compactPct(
+        Math.round(BOT_RUN.compactHeadroom * 100),
+        (input.window / 1000).toLocaleString(),
+        summarize,
+      )
+    : t.compactUnknown(summarize);
 }
 
 function Row({
@@ -1421,10 +1445,14 @@ function Row({
 
 /** This bot's recent jobs; the full list is in Settings > Threads. */
 function Recent({ jobs }: { jobs: Thread[] }) {
+  const locale = useLocale();
+  const t = settingsDictOf(locale).bot;
   return (
     <div className="pt-1">
       <div className="flex h-6 items-center">
-        <span className="font-mono text-xs text-muted-foreground">Recent</span>
+        <span className="font-mono text-xs text-muted-foreground">
+          {t.recentWord}
+        </span>
         <span className="flex-1" />
         <button
           type="button"
@@ -1432,16 +1460,16 @@ function Recent({ jobs }: { jobs: Thread[] }) {
           className="flex items-center gap-1 rounded-md px-1.5 py-1 font-mono text-[11px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <History className="size-3" />
-          History
+          {t.historyWord}
         </button>
       </div>
       {jobs.length === 0 ? (
         <p className="py-2 text-[13px] text-muted-foreground">
-          Nothing handed over yet.
+          {t.recentEmpty}
         </p>
       ) : (
         jobs.map((job) => {
-          const state = jobState(job);
+          const state = jobState(job, t);
           return (
             <div
               key={job.id}
@@ -1461,7 +1489,7 @@ function Recent({ jobs }: { jobs: Thread[] }) {
                 </span>
               )}
               <span className="w-28 shrink-0 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
-                {whenOf(job.updatedAt)}
+                {whenOf(job.updatedAt, locale)}
               </span>
             </div>
           );
@@ -1471,16 +1499,16 @@ function Recent({ jobs }: { jobs: Thread[] }) {
   );
 }
 
-function jobState(job: Thread): { text: string; tone: string } {
+function jobState(job: Thread, t: BotDict): { text: string; tone: string } {
   switch (job.status) {
     case "waiting":
-      return { text: "waiting on you", tone: WAITING_INK };
+      return { text: t.jobWaiting, tone: WAITING_INK };
     case "running":
-      return { text: "working", tone: "text-muted-foreground" };
+      return { text: t.jobWorking, tone: "text-muted-foreground" };
     case "cancelled":
-      return { text: "stopped", tone: "text-muted-foreground" };
+      return { text: t.jobStopped, tone: "text-muted-foreground" };
     default:
-      return { text: "done", tone: "text-muted-foreground" };
+      return { text: t.jobDone, tone: "text-muted-foreground" };
   }
 }
 
@@ -1593,6 +1621,7 @@ function ToolPicker({
   const { data: loaded } = useServerRoute<McpToolPick[]>(queryKey.mcpTools);
   const tools = loaded ?? [];
   const [open, setOpen] = useState(false);
+  const t = settingsDictOf(useLocale()).bot;
 
   const full = selected.length >= MAX_PINNED_TOOLS;
   const servers = [...new Set(tools.map((tool) => tool.serverName))];
@@ -1613,11 +1642,7 @@ function ToolPicker({
   // first" flashed on every bot page with servers connected
   if (!loaded) return null;
   if (tools.length === 0) {
-    return (
-      <p className="pt-1.5 text-xs text-muted-foreground">
-        Nothing to pin — connect an MCP server first (Settings › Connectors).
-      </p>
-    );
+    return <p className="pt-1.5 text-xs text-muted-foreground">{t.pinHint}</p>;
   }
 
   return (
@@ -1627,7 +1652,7 @@ function ToolPicker({
           size="icon-sm"
           variant={open ? "secondary" : "outline"}
           onClick={() => setOpen(!open)}
-          aria-label="Pick tools"
+          aria-label={t.pickTools}
           className="border-dashed"
         >
           <Wrench />
@@ -1641,7 +1666,7 @@ function ToolPicker({
             {tool.name}
             <button
               type="button"
-              aria-label={`Unpin ${tool.name}`}
+              aria-label={t.unpinTool(tool.name)}
               onClick={() => toggle(tool.id)}
               className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
             >
@@ -1661,9 +1686,7 @@ function ToolPicker({
         )}
 
         {picked.length === 0 && (
-          <span className="text-xs text-muted-foreground">
-            Loaded from the start — everything else stays searchable
-          </span>
+          <span className="text-xs text-muted-foreground">{t.loadedHint}</span>
         )}
 
         <span className="flex-1" />
@@ -1679,9 +1702,9 @@ function ToolPicker({
 
       {open && (
         <Command className="rounded-lg border border-input">
-          <CommandInput placeholder="Search tools" />
+          <CommandInput placeholder={t.searchTools} />
           <CommandList className="max-h-44">
-            <CommandEmpty>Nothing matches</CommandEmpty>
+            <CommandEmpty>{t.nothingMatches}</CommandEmpty>
             {servers.map((server) => (
               <CommandGroup key={server} heading={server}>
                 {tools

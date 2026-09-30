@@ -5,13 +5,18 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { CHATGPT_SIGN_IN } from "@/config";
 import { startChatGptSignInAction } from "@/features/config/config.action";
+import { useLocale } from "@/hooks/use-locale";
 import { useServerAction } from "@/lib/protocol/use-server-action";
+import { settingsDictOf } from "@/messages";
 
 /** How often to look whether the sign-in window was closed. It is looked for as long as the server listens for its answer (config CHATGPT_SIGN_IN.waitMs). */
 const WINDOW_POLL_MS = 700;
 
 /** Opens a sign-in address in the sign-in window, saying so when the browser blocks it. */
-function openSignInWindow(url: string): Window | null {
+function openSignInWindow(
+  url: string,
+  t: { blockedTitle: string; blockedDesc: string },
+): Window | null {
   const popup = window.open(
     url,
     "thursday-chatgpt",
@@ -20,8 +25,8 @@ function openSignInWindow(url: string): Window | null {
   if (!popup)
     toast.add({
       type: "error",
-      title: "The sign-in window was blocked",
-      description: "Allow pop-ups for this page, then try again",
+      title: t.blockedTitle,
+      description: t.blockedDesc,
     });
   return popup;
 }
@@ -35,7 +40,7 @@ export function ChatGptSignIn({
   variant,
   size,
   className,
-  label = "Sign in with ChatGPT",
+  label,
 }: {
   variant?: ComponentProps<typeof Button>["variant"];
   size?: ComponentProps<typeof Button>["size"];
@@ -43,6 +48,7 @@ export function ChatGptSignIn({
   /** What the button says; the sign-in it starts is the same. */
   label?: string;
 }) {
+  const t = settingsDictOf(useLocale()).ai;
   const [waiting, setWaiting] = useState(false);
   const watch = useRef<ReturnType<typeof setInterval> | null>(null);
   const stopWatching = () => {
@@ -53,7 +59,7 @@ export function ChatGptSignIn({
 
   const [start, starting] = useServerAction(startChatGptSignInAction, {
     onOk: (url) => {
-      const popup = openSignInWindow(url);
+      const popup = openSignInWindow(url, t);
       if (!popup) return;
       setWaiting(true);
       stopWatching();
@@ -74,7 +80,7 @@ export function ChatGptSignIn({
       loading={starting || waiting}
       onClick={() => start()}
     >
-      {label}
+      {label ?? t.signinBtn}
     </Button>
   );
 }

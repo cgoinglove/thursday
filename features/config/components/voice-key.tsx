@@ -22,9 +22,11 @@ import {
   TEXT_MODEL_PROVIDERS,
   type TextModelProviderId,
 } from "@/features/ai/model.schema";
+import { useLocale } from "@/hooks/use-locale";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
+import { settingsDictOf } from "@/messages";
 import { setConfigAction } from "../config.action";
 import {
   type ConfigStatus,
@@ -46,6 +48,7 @@ export type VoiceKeysHandle = {
 
 /** Where the voice key is made, beside its field: a pill that opens the page, and the page's address. */
 export function GetKeyLink() {
+  const t = settingsDictOf(useLocale()).ai;
   const at = TEXT_MODEL_PROVIDERS[LIVE_PROVIDER.id].keysAt;
   if (!at) return null;
   return (
@@ -56,7 +59,7 @@ export function GetKeyLink() {
       className="flex items-center gap-2.5 text-[13px] font-medium text-foreground no-underline"
     >
       <span className="flex h-7.5 shrink-0 items-center gap-1.5 rounded-full bg-muted px-3.5 whitespace-nowrap transition-colors hover:bg-accent">
-        Get a key
+        {t.getKeyShort}
         <ArrowUpRight className="size-3.5" />
       </span>
       <span className="truncate font-mono text-[11px] font-normal text-muted-foreground/70">
@@ -148,6 +151,7 @@ export function CallLines({
   // Signed in on a plan without spoken calls: the card says so, and signs in another account
   const voice = useVoiceLine(liveSettings?.runsOn ?? null);
   const noCalls = voice.signedIn && !voice.planCalls;
+  const t = settingsDictOf(useLocale()).ai;
   // Known first: a plan not read yet counts as one with calls (planCallsOf), and Free would
   // show the check before it turns into Sign in again
   const planSet = voice.known && voice.signedIn && voice.planCalls && !planLost;
@@ -157,7 +161,7 @@ export function CallLines({
       {/* Two rows read as two things to do; a voice needs one of them */}
       {!planSet && !keySet && (
         <p className="font-mono text-[11px] text-muted-foreground/70">
-          Either one is enough.
+          {t.callLinesEnough}
         </p>
       )}
       {/* Rows as Settings › API keys draws an account, the plan first: in the first run's
@@ -169,20 +173,20 @@ export function CallLines({
         tag={voice.signedIn ? (planName(voice.plan) ?? undefined) : undefined}
         about={
           planLost
-            ? "The sign-in saved before can't be unlocked any more."
+            ? t.signInLost
             : noCalls
-              ? "Bots and writing run on this plan; spoken calls don't."
+              ? t.noCallsPlan
               : // `line` is null until the plan's line is known: then it says neither
                 planSet && voice.line === "chatgpt"
-                ? "Calls and bots run on your plan."
+                ? t.runsOnPlanLine
                 : planSet && voice.line === "openai"
-                  ? "Bots run on your plan; calls run on the key."
-                  : "Your ChatGPT plan. No key, no bill by the minute."
+                  ? t.runsOnKeyLine
+                  : t.planDefault
         }
         warn={planLost || noCalls}
       >
         {planSet ? (
-          <LineSet>Signed in</LineSet>
+          <LineSet>{t.signedInWord}</LineSet>
         ) : (
           <ChatGptSignIn
             // with the key saved she has her voice, and a blue button asked for a second one
@@ -190,23 +194,23 @@ export function CallLines({
             size="sm"
             // Both rows' buttons round like the brand one (button.tsx), whichever of them is brand
             className="w-full rounded-full"
-            label={planLost || noCalls ? "Sign in again" : "Sign in"}
+            label={planLost || noCalls ? t.signInAgainBtn : t.signInBtn}
           />
         )}
       </LineRow>
       <LineRow
         provider="openai"
-        title="OpenAI API key"
+        title={t.keyTitle}
         about={
           !keySet || !voice.known
-            ? "Billed by the minute of call, apart from ChatGPT."
+            ? t.keyPerMinute
             : voice.line === "chatgpt"
-              ? "Calls run on your plan; switch in Settings › Thursday."
-              : "Calls run on it now, billed by the minute."
+              ? t.keyRunsOnPlan
+              : t.keyRunsNow
         }
       >
         {keySet ? (
-          <LineSet>Saved</LineSet>
+          <LineSet>{t.savedWord}</LineSet>
         ) : (
           <Button
             size="sm"
@@ -215,7 +219,7 @@ export function CallLines({
             onClick={() => setKeyOpen((open) => !open)}
             className="w-full rounded-full"
           >
-            Paste a key
+            {t.pasteKeyBtn}
           </Button>
         )}
       </LineRow>
@@ -310,6 +314,8 @@ export function VoiceKeys({
   const { data: config } = useServerRoute<ConfigStatus[]>(queryKey.config);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
+  const locale = useLocale();
+  const t = settingsDictOf(locale).ai;
   /** Why the last key was not kept, in the provider's words. */
   const [refused, setRefused] = useState<string | null>(null);
 
@@ -317,7 +323,7 @@ export function VoiceKeys({
   // was turned away waits on the user and nothing is broken
   const [save] = useServerAction(setConfigAction, {
     errorMessage: false,
-    onError: (message) => setRefused(message ?? "That key was not saved."),
+    onError: (message) => setRefused(message ?? t.keyNotSaved),
     onOk: () => {
       revalidate(queryKey.config);
       revalidate(queryKey.llmModel);
@@ -356,14 +362,14 @@ export function VoiceKeys({
       {dense && !plain && (
         <div className="flex h-6 items-center justify-between gap-2">
           <span className="px-0.5 font-mono text-[11px] text-muted-foreground">
-            Voice key
+            {t.voiceKeyTitle}
           </span>
           {onCancel && (
             <Button
               type="button"
               size="icon"
               variant="ghost"
-              aria-label="Not now"
+              aria-label={t.notNow}
               onClick={onCancel}
               className="-my-1 size-6"
             >
@@ -399,7 +405,12 @@ export function VoiceKeys({
         >
           {/* A key saved before that can no longer be opened is asked for again, saying why */}
           {refused ??
-            lostWords("The OpenAI key saved before", "Paste it again.")}
+            lostWords(
+              "The OpenAI key saved before",
+              t.lostKeyAgain,
+              undefined,
+              locale,
+            )}
         </p>
       )}
 
@@ -410,9 +421,7 @@ export function VoiceKeys({
             dense ? "text-[11px]" : "pt-1 text-center text-[12.5px]",
           )}
         >
-          {dense
-            ? "Live voice and reasoning share this OpenAI API key."
-            : "Live uses an OpenAI API key, billed separately from ChatGPT. Stored on this machine, in this app's database."}
+          {dense ? t.liveShareNote : t.liveSeparateNote}
         </p>
       )}
     </div>
@@ -515,6 +524,7 @@ export function KeyInput({
   const mismatch = otherPrefixes(provider.id).some((prefix) =>
     value.trim().startsWith(prefix),
   );
+  const t = settingsDictOf(useLocale()).ai;
 
   return (
     <form
@@ -537,11 +547,11 @@ export function KeyInput({
       <Input
         autoFocus={autoFocus}
         type="password"
-        aria-label="OpenAI API key"
+        aria-label={t.keyAria}
         autoComplete="off"
         value={value}
         spellCheck={false}
-        placeholder={saved ? "Replace it" : "sk-…"}
+        placeholder={saved ? t.replaceIt : "sk-…"}
         onChange={(event) => onValue(event.target.value)}
         className={cn(
           // shadcn's input paints its own dark background (`dark:bg-input/30`)
@@ -559,7 +569,7 @@ export function KeyInput({
           disabled={!ready}
           className={cn("shrink-0", dense ? "h-7 px-3" : "h-9 px-4")}
         >
-          {mismatch ? `Not ${provider.label}?` : "Save"}
+          {mismatch ? t.mismatchNot(provider.label) : t.saveBtn}
         </Button>
       ) : (
         saved && (

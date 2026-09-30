@@ -64,11 +64,13 @@ import {
   SettingScreen,
   SettingSkeleton,
 } from "@/features/settings/components/setting-ui";
+import { useLocale } from "@/hooks/use-locale";
 import { toDate, whenOf } from "@/lib/date-like";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { useServerPages } from "@/lib/protocol/use-server-pages";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, formatCount, plainText, WAITING_INK } from "@/lib/utils";
+import { settingsDictOf, type ThreadsDict } from "@/messages";
 import { ThreadReply } from "./thread-reply";
 
 /*
@@ -82,6 +84,7 @@ export function ThreadSetting() {
   /** The thread on the sheet; null leaves the list alone. */
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
+  const t = settingsDictOf(useLocale()).threads;
   const { data: bots } = useServerRoute<Bot[]>(queryKey.bot);
 
   const {
@@ -147,10 +150,9 @@ export function ThreadSetting() {
 
   const confirmClear = async () => {
     const confirmed = await notify.confirm({
-      title: "Clear finished jobs?",
-      description:
-        "Everything done or stopped goes, messages included. Running and waiting jobs stay.",
-      okText: "Clear",
+      title: t.clearTitle,
+      description: t.clearBody,
+      okText: t.clearOk,
       destructive: true,
     });
     if (confirmed) clear();
@@ -158,9 +160,9 @@ export function ThreadSetting() {
 
   const confirmRemove = async (thread: Thread) => {
     const confirmed = await notify.confirm({
-      title: `Delete "${thread.label}"?`,
-      description: "Its messages go with it — nothing can be picked back up.",
-      okText: "Delete",
+      title: t.deleteTitle(thread.label),
+      description: t.deleteBody,
+      okText: t.deleteOk,
       destructive: true,
     });
     if (!confirmed) return;
@@ -193,10 +195,9 @@ export function ThreadSetting() {
           <>
             <SettingRailNote>
               {/* "loaded" is the paging word, not the reader's: more arrive as the list is scrolled */}
-              {threads.length} shown
-              {waiting > 0 && ` · ${waiting} waiting on you`}
-              {unread > 0 &&
-                ` · ${unread} new result${unread === 1 ? "" : "s"}`}
+              {t.railShown(threads.length)}
+              {waiting > 0 && t.railWaiting(waiting)}
+              {unread > 0 && t.railUnread(unread)}
             </SettingRailNote>
             {/* only with something to clear: a page not read yet may hold some */}
             {(hasMore ||
@@ -205,7 +206,7 @@ export function ThreadSetting() {
                   thread.status === "done" || thread.status === "cancelled",
               )) && (
               <Button variant="outline" size="sm" onClick={confirmClear}>
-                Clear finished
+                {t.clearFinished}
               </Button>
             )}
           </>
@@ -216,17 +217,17 @@ export function ThreadSetting() {
             <SettingFilter
               value={filter}
               onChange={setFilter}
-              placeholder="Filter by label, bot or word"
+              placeholder={t.filter}
             />
           }
-          right={needle ? `${shown.length} of ${threads.length}` : undefined}
+          right={
+            needle ? t.resultCount(shown.length, threads.length) : undefined
+          }
         >
           <SettingItems>
             {shown.length === 0 ? (
               <p className="p-4 text-sm leading-relaxed text-muted-foreground">
-                {needle
-                  ? "Nothing here matches. Keep scrolling to search further back."
-                  : "Nothing yet. When Thursday hands a job to a bot mid-call, it shows up here — while it runs, and after."}
+                {needle ? t.emptyMatch : t.emptyFresh}
               </p>
             ) : (
               shown.map((thread) => (
@@ -286,7 +287,8 @@ function Row({
   const running = thread.status === "running";
   // The messages replayed once per row, for the roster.
   const view = useMemo(() => threadFromRow(thread, bots), [thread, bots]);
-  const line = secondLine(thread);
+  const t = settingsDictOf(useLocale()).threads;
+  const line = secondLine(thread, t);
   const tokens = thread.tokens.input + thread.tokens.output;
 
   return (
@@ -319,7 +321,7 @@ function Row({
                 {thread.label}
               </span>
               {thread.routineId && (
-                <span title="Started by a routine" className="shrink-0">
+                <span title={t.routineTitle} className="shrink-0">
                   <RoutineMark className="size-3 text-muted-foreground/80" />
                 </span>
               )}
@@ -394,6 +396,7 @@ function ThreadMenu({
   className?: string;
 }) {
   const live = thread.status === "running" || thread.status === "waiting";
+  const t = settingsDictOf(useLocale()).threads;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -401,7 +404,7 @@ function ThreadMenu({
           <Button
             size="icon-sm"
             variant="ghost"
-            aria-label="More"
+            aria-label={t.menuMore}
             className={className}
           />
         }
@@ -412,12 +415,12 @@ function ThreadMenu({
         {live && (
           <DropdownMenuItem onClick={onStop}>
             <Square />
-            Stop
+            {t.stop}
           </DropdownMenuItem>
         )}
         <DropdownMenuItem variant="destructive" onClick={onDelete}>
           <Trash2 />
-          Delete
+          {t.delete}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -455,6 +458,7 @@ function ThreadSheet({
   }, []);
   /** The tab each thread was left on; missing is the thread's own bot's tab. */
   const [sides, setSides] = useState<Record<string, string | null>>({});
+  const t = settingsDictOf(useLocale()).threads;
   const view = useMemo(
     () => (thread ? threadFromRow(thread, bots) : null),
     [thread, bots],
@@ -516,7 +520,7 @@ function ThreadSheet({
                       <Button
                         size="icon-sm"
                         variant="ghost"
-                        aria-label="Close the thread"
+                        aria-label={t.closeThread}
                       />
                     }
                   >
@@ -573,6 +577,7 @@ function ThreadSheet({
  */
 function secondLine(
   thread: Thread,
+  t: ThreadsDict,
 ): { text: string; tone: string; tool?: string; shine?: boolean } | null {
   const question = thread.room.questions[0];
   if (question) return { text: plainText(question.text), tone: WAITING_INK };
@@ -589,11 +594,11 @@ function secondLine(
   // Reports are markdown; keep only the text. An ending the user has opened steps back.
   const had = thread.seen;
   if (thread.status === "cancelled") {
-    return { text: "Stopped", tone: "text-muted-foreground" };
+    return { text: t.stopped, tone: "text-muted-foreground" };
   }
   if (thread.status === "done") {
     return {
-      text: plainText(thread.outcome ?? "Done"),
+      text: plainText(thread.outcome ?? t.doneDefault),
       tone: had ? "text-muted-foreground" : "text-foreground/80",
     };
   }
@@ -614,7 +619,7 @@ function secondLine(
     if (line.kind === "user") break;
   }
   return {
-    text: `${thread.bot} is taking it on…`,
+    text: t.takingOn(thread.bot),
     tone: "text-muted-foreground italic",
     shine: true,
   };
@@ -630,6 +635,7 @@ const STEPS_SHOWN = 6;
  * to the next line; the last one is still running). Not interactive.
  */
 function StepLog({ thread }: { thread: Thread }) {
+  const t = settingsDictOf(useLocale()).threads;
   const steps: { step: ToolStep; took: number | null }[] = [];
   thread.lines.forEach((line, at) => {
     if (line.kind !== "tool") return;
@@ -650,7 +656,7 @@ function StepLog({ thread }: { thread: Thread }) {
         <span>{thread.bot}</span>
         <span className="opacity-50">·</span>
         <span>
-          {steps.length} {steps.length === 1 ? "step" : "steps"}
+          {steps.length} {steps.length === 1 ? t.stepOne : t.stepMany}
         </span>
         <span className="opacity-50">·</span>
         <span>{tookOf(ran)}</span>

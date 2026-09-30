@@ -94,9 +94,11 @@ import {
 import { ArtifactView } from "@/features/workspace/components/artifact-view";
 import { useAwayAfter } from "@/hooks/use-away-after";
 import { useHotkeyLabel } from "@/hooks/use-hotkey";
+import { useLocale } from "@/hooks/use-locale";
 import { useWide } from "@/hooks/use-wide";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, plainText } from "@/lib/utils";
+import { settingsDictOf } from "@/messages";
 import { CaptionWords } from "./caption-words";
 import { ConnectWave } from "./connect-wave";
 import { Face } from "./face";
@@ -533,6 +535,8 @@ const FACE_YIELD_MS = 500;
 
 function SettingsCorner() {
   const alerts = useSectionAlerts();
+  const locale = useLocale();
+  const dict = settingsDictOf(locale);
   // The gear opens everything the three buttons do not, so it carries their reports
   const behindGear = worstAlert(
     SECTIONS.filter(
@@ -548,6 +552,7 @@ function SettingsCorner() {
           {CORNER.map((id) => {
             const section = SECTIONS.find((entry) => entry.id === id);
             if (!section) return null;
+            const label = dict.sections[section.id].label;
             return (
               <Tooltip key={id}>
                 <TooltipTrigger
@@ -555,7 +560,7 @@ function SettingsCorner() {
                     <Button
                       size="icon"
                       variant="outline"
-                      aria-label={section.label}
+                      aria-label={label}
                       onClick={() => openSettings(id)}
                     />
                   }
@@ -564,7 +569,7 @@ function SettingsCorner() {
                   <section.icon className="text-muted-foreground" />
                   <CornerDot alert={alerts[id] ?? null} />
                 </TooltipTrigger>
-                <TooltipContent side="bottom">{section.label}</TooltipContent>
+                <TooltipContent side="bottom">{label}</TooltipContent>
               </Tooltip>
             );
           })}
@@ -577,7 +582,7 @@ function SettingsCorner() {
             className="gap-1.5 px-2.5 text-[12.5px] font-normal"
           >
             <Settings2 className="text-muted-foreground" />
-            Settings
+            {dict.dialogTitle}
             <CornerDot alert={behindGear} />
           </Button>
         </ButtonGroup>

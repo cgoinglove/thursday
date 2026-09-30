@@ -58,15 +58,19 @@ import {
   SettingScreen,
   SettingSkeleton,
 } from "@/features/settings/components/setting-ui";
+import { useLocale } from "@/hooks/use-locale";
 import { useObjectState } from "@/hooks/use-object-state";
 import { schemaToType } from "@/lib/json-schema";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, errorToString } from "@/lib/utils";
+import { type McpDict, settingsDictOf } from "@/messages";
 
 /** Connected servers as rows, then the presets as a grid you can scan. */
 export function McpSetting() {
   const [filter, setFilter] = useState("");
+  const locale = useLocale();
+  const t = settingsDictOf(locale).mcp;
   const {
     data: servers = [],
     isLoading,
@@ -84,20 +88,20 @@ export function McpSetting() {
       footer={
         <SettingRailNote>
           {servers.length === 0 ? (
-            "Nothing connected yet — a preset is the shortest way in"
+            t.railNone
           ) : (
             <>
               {/* a server that failed is listed but not connected; counting it as both said 3 of 3 with one down */}
-              {servers.length - failed} connected · {tools} tools
-              {failed > 0 && ` · ${failed} failed`}
+              {t.railLine(servers.length - failed, tools)}
+              {failed > 0 && t.railFailed(failed)}
             </>
           )}
         </SettingRailNote>
       }
     >
-      <SettingGroup label="Connected">
+      <SettingGroup label={t.connectedGroup}>
         <SettingItems
-          addRow={{ label: "Add server", onClick: () => openMcpRegister() }}
+          addRow={{ label: t.addServer, onClick: () => openMcpRegister() }}
         >
           {servers.map((server) => (
             <ServerRow key={server.name} server={server} />
@@ -122,6 +126,7 @@ function McpServerDialog({
   onDone: () => void;
 }) {
   const [toolFilter, setToolFilter] = useState("");
+  const t = settingsDictOf(useLocale()).mcp;
   // Tools come with the detail read, not the list
   const {
     data: server,
@@ -129,14 +134,14 @@ function McpServerDialog({
     error,
   } = useServerRoute<MCPServer>(queryKey.mcpServer(name));
   const [reconnect, reconnecting] = useServerAction(refreshServerAction, {
-    ...CONNECT_OPTIONS,
+    ...connectOptions(t),
     onOk: (summary) => {
-      CONNECT_OPTIONS.onOk(summary);
+      connectOptions(t).onOk(summary);
       revalidate(queryKey.mcpServer(name));
     },
   });
   const [remove, removing] = useServerAction(deleteServerAction, {
-    okMessage: "Server deleted",
+    okMessage: t.deletedOk,
     onOk: () => {
       // Close first: revalidating while this dialog still subscribes to the deleted server toasts a 404
       onDone();
@@ -146,9 +151,9 @@ function McpServerDialog({
 
   const confirmRemove = async () => {
     const confirmed = await notify.confirm({
-      title: `Delete ${name}?`,
-      description: "Its connection and saved authorization go with it.",
-      okText: "Delete",
+      title: t.deleteTitle(name),
+      description: t.deleteBody,
+      okText: t.deleteOk,
       destructive: true,
     });
     if (confirmed) remove(name);
@@ -168,12 +173,12 @@ function McpServerDialog({
             className="mr-auto text-destructive hover:text-destructive"
           >
             <Trash2 />
-            Delete
+            {t.deleteBtn}
           </Button>
         }
       >
         <p className="rounded-lg bg-destructive/10 px-3 py-2 font-mono text-xs text-destructive">
-          {error ? errorToString(error) : "This server could not be read."}
+          {error ? errorToString(error) : t.unreadable}
         </p>
       </SettingDialogContent>
     );
@@ -211,7 +216,7 @@ function McpServerDialog({
             className="mr-auto text-destructive hover:text-destructive"
           >
             <Trash2 />
-            Delete
+            {t.deleteBtn}
           </Button>
           <Button
             variant="outline"
@@ -219,7 +224,7 @@ function McpServerDialog({
             onClick={() => reconnect(server.name)}
           >
             <RefreshCw />
-            Reconnect
+            {t.reconnectBtn}
           </Button>
         </>
       }
@@ -235,10 +240,10 @@ function McpServerDialog({
         <SettingFilter
           value={toolFilter}
           onChange={setToolFilter}
-          placeholder="Filter tools"
+          placeholder={t.filterTools}
         />
         <span className="shrink-0 font-mono text-xs text-muted-foreground">
-          {count} {count === 1 ? "tool" : "tools"}
+          {count} {count === 1 ? t.toolOne : t.toolMany}
         </span>
       </div>
 
@@ -247,7 +252,7 @@ function McpServerDialog({
       ))}
       {matched.length === 0 && count > 0 && (
         <p className="py-6 text-center text-sm text-muted-foreground">
-          No tool here goes by that.
+          {t.noToolMatch}
         </p>
       )}
     </SettingDialogContent>
@@ -255,6 +260,7 @@ function McpServerDialog({
 }
 
 function ServerRow({ server }: { server: MCPServerSummary }) {
+  const t = settingsDictOf(useLocale()).mcp;
   const count = server.toolCount;
   const status = server.lastError ? "error" : count > 0 ? "connected" : "idle";
 
@@ -290,8 +296,8 @@ function ServerRow({ server }: { server: MCPServerSummary }) {
           ) : (
             <>
               {count > 0
-                ? `${count} ${count === 1 ? "tool" : "tools"}`
-                : "No tools yet"}
+                ? `${count} ${count === 1 ? t.toolOne : t.toolMany}`
+                : t.noToolsYet}
               <span className="font-mono text-[11px] text-muted-foreground/70">
                 {" · "}
                 {describeConfig(server.config)}
@@ -319,6 +325,7 @@ function ServerTile({ server }: { server: MCPServerSummary }) {
 }
 
 function ToolCard({ tool, serverName }: { tool: MCPTool; serverName: string }) {
+  const t = settingsDictOf(useLocale()).mcp;
   const [open, setOpen] = useState(false);
   const [testing, setTesting] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -345,7 +352,7 @@ function ToolCard({ tool, serverName }: { tool: MCPTool; serverName: string }) {
             onClick={() => setOpen(!open)}
           >
             {open ? <ChevronDown /> : <ChevronRight />}
-            Schema
+            {t.schemaBtn}
           </Button>
         )}
         <Button
@@ -355,7 +362,7 @@ function ToolCard({ tool, serverName }: { tool: MCPTool; serverName: string }) {
           onClick={() => setTesting(!testing)}
         >
           {testing ? <ChevronDown /> : <ChevronRight />}
-          Test
+          {t.testBtn}
         </Button>
       </div>
       {tool.description ? (
@@ -399,6 +406,7 @@ function ToolTester({
   tool: MCPTool;
   serverName: string;
 }) {
+  const t = settingsDictOf(useLocale()).mcp;
   const [input, setInput] = useState(() => templateFor(tool));
   const [parseError, setParseError] = useState("");
   // Results show inline, so no toast
@@ -413,7 +421,7 @@ function ToolTester({
     try {
       args = input.trim() ? JSON.parse(input) : undefined;
     } catch {
-      setParseError("Not valid JSON");
+      setParseError(t.badJson);
       return;
     }
 
@@ -435,7 +443,7 @@ function ToolTester({
         <span className="font-mono text-xs text-destructive">{error}</span>
         <Button size="sm" loading={running} onClick={run}>
           {!running && <Play />}
-          Run
+          {t.runBtn}
         </Button>
       </div>
 
@@ -515,21 +523,22 @@ function McpRegister({
     raw: "",
   });
   const { mode, name, url, headers, command, args, env, raw } = fields;
+  const t = settingsDictOf(useLocale()).mcp;
 
   const [register, busy] = useServerAction(registerServerAction, {
-    ...CONNECT_OPTIONS,
+    ...connectOptions(t),
     onOk: (summary) => {
-      CONNECT_OPTIONS.onOk(summary);
+      connectOptions(t).onOk(summary);
       // A failed connect keeps the form open so the config can be fixed and retried
       if (summary.status !== "error") onDone();
     },
   });
 
   const draft: Draft = useMemo(() => {
-    if (mode === "json") return fromJson(raw);
-    if (mode === "http") return fromRemoteFields(url, headers);
-    return fromStdioFields(command, args, env);
-  }, [mode, raw, url, headers, command, args, env]);
+    if (mode === "json") return fromJson(raw, t);
+    if (mode === "http") return fromRemoteFields(url, headers, t);
+    return fromStdioFields(command, args, env, t);
+  }, [mode, raw, url, headers, command, args, env, t]);
 
   // Errors wait until typing settles; JSON mid-keystroke is always broken
   const signature =
@@ -595,12 +604,12 @@ function McpRegister({
 
   return (
     <SettingDialogContent
-      title="Add MCP server"
-      description="Its tools become available to every bot."
+      title={t.addTitle}
+      description={t.addDesc}
       footer={
         <>
           <Button variant="ghost" onClick={onDone}>
-            Cancel
+            {t.cancelBtn}
           </Button>
           <Button
             disabled={!form.success}
@@ -609,14 +618,14 @@ function McpRegister({
               if (form.success && !busy) register(form.data);
             }}
           >
-            Connect
+            {t.connectBtn}
           </Button>
         </>
       }
     >
       <div className="space-y-6">
         <Field>
-          <FieldLabel>Name</FieldLabel>
+          <FieldLabel>{t.nameField}</FieldLabel>
           <Input
             value={effectiveName}
             onChange={(e) => patch({ name: e.target.value })}
@@ -628,7 +637,7 @@ function McpRegister({
         {mode === "json" ? (
           <Field>
             <div className="flex min-h-6 items-center justify-between gap-2">
-              <FieldLabel>JSON</FieldLabel>
+              <FieldLabel>{t.jsonField}</FieldLabel>
               {jsonToggle}
             </div>
             {/* Textarea is field-sizing-content; `rows` would do nothing */}
@@ -648,7 +657,7 @@ function McpRegister({
           >
             <Field>
               <div className="flex min-h-6 items-center justify-between gap-2">
-                <FieldLabel>Transport</FieldLabel>
+                <FieldLabel>{t.transportField}</FieldLabel>
                 {jsonToggle}
               </div>
               <TabsList className="w-full">
@@ -659,7 +668,7 @@ function McpRegister({
 
             <TabsContent value="http" className="space-y-6">
               <Field>
-                <FieldLabel>URL</FieldLabel>
+                <FieldLabel>{t.urlField}</FieldLabel>
                 <Input
                   value={url}
                   onChange={(e) => patch({ url: e.target.value })}
@@ -669,7 +678,7 @@ function McpRegister({
                 />
               </Field>
               <PairRows
-                label="Headers"
+                label={t.headersField}
                 pairs={headers}
                 onChange={(headers) => patch({ headers })}
                 keyPlaceholder="Authorization"
@@ -679,7 +688,7 @@ function McpRegister({
 
             <TabsContent value="stdio" className="space-y-6">
               <Field>
-                <FieldLabel>Command</FieldLabel>
+                <FieldLabel>{t.commandField}</FieldLabel>
                 <Input
                   value={command}
                   onChange={(e) => patch({ command: e.target.value })}
@@ -689,7 +698,7 @@ function McpRegister({
                 />
               </Field>
               <Field>
-                <FieldLabel>Args</FieldLabel>
+                <FieldLabel>{t.argsField}</FieldLabel>
                 <Input
                   value={args}
                   onChange={(e) => patch({ args: e.target.value })}
@@ -699,7 +708,7 @@ function McpRegister({
                 />
               </Field>
               <PairRows
-                label="Env"
+                label={t.envField}
                 pairs={env}
                 onChange={(env) => patch({ env })}
                 keyPlaceholder="NOTION_TOKEN"
@@ -728,6 +737,7 @@ function PairRows({
   keyPlaceholder: string;
   valuePlaceholder: string;
 }) {
+  const t = settingsDictOf(useLocale()).mcp;
   const patch = (id: string, part: Partial<Pair>) =>
     onChange(
       pairs.map((pair) => (pair.id === id ? { ...pair, ...part } : pair)),
@@ -756,7 +766,7 @@ function PairRows({
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Remove this row"
+              aria-label={t.removeRow}
               onClick={() =>
                 onChange(pairs.filter((row) => row.id !== pair.id))
               }
@@ -771,7 +781,7 @@ function PairRows({
           onClick={() => onChange([...pairs, newPair()])}
         >
           <Plus />
-          Add
+          {t.addRowBtn}
         </Button>
       </div>
     </Field>
@@ -794,17 +804,22 @@ const toRecord = (pairs: Pair[]) => {
   return Object.fromEntries(filled.map((p) => [p.key.trim(), p.value]));
 };
 
-function fromRemoteFields(url: string, headers: Pair[]): Draft {
+function fromRemoteFields(url: string, headers: Pair[], t: McpDict): Draft {
   const result = MCPRemoteConfigSchema.safeParse({
     url: url.trim(),
     headers: toRecord(headers),
   });
   if (result.success)
     return { value: { name: null, config: result.data }, error: "" };
-  return { value: null, error: url.trim() ? "Needs a valid url" : "" };
+  return { value: null, error: url.trim() ? t.needUrl : "" };
 }
 
-function fromStdioFields(command: string, args: string, env: Pair[]): Draft {
+function fromStdioFields(
+  command: string,
+  args: string,
+  env: Pair[],
+  t: McpDict,
+): Draft {
   const result = MCPStdioConfigSchema.safeParse({
     command: command.trim(),
     args: args.split(/\s+/).filter(Boolean),
@@ -812,7 +827,7 @@ function fromStdioFields(command: string, args: string, env: Pair[]): Draft {
   });
   if (result.success)
     return { value: { name: null, config: result.data }, error: "" };
-  return { value: null, error: command.trim() ? "Needs a command" : "" };
+  return { value: null, error: command.trim() ? t.needCommand : "" };
 }
 
 const PLACEHOLDER = `/** STDIO Example */
@@ -833,7 +848,7 @@ const PLACEHOLDER = `/** STDIO Example */
 }`;
 
 /** Unwraps a README-style `mcpServers` (or bare name map) block; the first server wins. */
-function fromJson(raw: string): Draft {
+function fromJson(raw: string, t: McpDict): Draft {
   const text = raw.trim();
   if (!text) return { value: null, error: "" };
 
@@ -841,7 +856,7 @@ function fromJson(raw: string): Draft {
   try {
     json = JSON.parse(text);
   } catch {
-    return { value: null, error: "Not valid JSON" };
+    return { value: null, error: t.badJson };
   }
 
   const bare = MCPConfigSchema.safeParse(json);
@@ -851,19 +866,19 @@ function fromJson(raw: string): Draft {
 
   const wrapped = MCPServerJsonSchema.safeParse(json);
   if (!wrapped.success) {
-    return { value: null, error: "Needs a url or a command" };
+    return { value: null, error: t.needUrlOrCommand };
   }
 
   const map =
     "mcpServers" in wrapped.data ? wrapped.data.mcpServers : wrapped.data;
   const entry = Object.entries(map)[0];
-  if (!entry) return { value: null, error: "No server in there" };
+  if (!entry) return { value: null, error: t.noServerIn };
 
   return { value: { name: entry[0], config: entry[1] }, error: "" };
 }
 
 /** Reports a connect outcome; shared by register and reconnect. */
-function reportConnect(summary: ConnectSummary) {
+function reportConnect(summary: ConnectSummary, t: McpDict) {
   if (summary.status === "auth_required" && summary.authorizationUrl) {
     // A popup: the callback page closes it when authorization finishes. What the callback
     // writes raises the mcp signal, and the call screen that holds Settings re-reads the list
@@ -874,8 +889,8 @@ function reportConnect(summary: ConnectSummary) {
       "popup,width=520,height=720",
     );
     toast.add({
-      title: `${summary.name} needs authorization`,
-      description: "Approve access in the window that just opened",
+      title: t.authTitle(summary.name),
+      description: t.authDesc,
     });
     return;
   }
@@ -883,7 +898,7 @@ function reportConnect(summary: ConnectSummary) {
   if (summary.status === "error") {
     toast.add({
       type: "error",
-      title: `${summary.name} could not connect`,
+      title: t.connectFail(summary.name),
       description: summary.error,
     });
     return;
@@ -891,20 +906,18 @@ function reportConnect(summary: ConnectSummary) {
 
   toast.add({
     type: "success",
-    title: `${summary.name} connected`,
-    description: `${summary.toolCount} ${
-      summary.toolCount === 1 ? "tool" : "tools"
-    } available`,
+    title: t.connectedOk(summary.name),
+    description: t.toolsAvailable(summary.toolCount),
   });
 }
 
 /** Refresh the list, then report. */
-const CONNECT_OPTIONS = {
+const connectOptions = (t: McpDict) => ({
   onOk: (summary: ConnectSummary) => {
     revalidate(queryKey.mcp);
-    reportConnect(summary);
+    reportConnect(summary, t);
   },
-} as const;
+});
 
 function PresetSection({
   filter,
@@ -916,6 +929,7 @@ function PresetSection({
   onPreset: (preset: MCPPreset) => void;
 }) {
   const needle = filter.trim().toLowerCase();
+  const t = settingsDictOf(useLocale()).mcp;
   const shown = MCP_PRESETS.filter(
     (preset) =>
       !needle ||
@@ -924,16 +938,18 @@ function PresetSection({
 
   return (
     <SettingGroup
-      label="Presets"
+      label={t.presetsGroup}
       filter={
         <SettingFilter
           value={filter}
           onChange={onFilter}
-          placeholder="Filter presets"
+          placeholder={t.filterPresets}
           className="w-56"
         />
       }
-      right={needle ? `${shown.length} of ${MCP_PRESETS.length}` : undefined}
+      right={
+        needle ? t.resultCount(shown.length, MCP_PRESETS.length) : undefined
+      }
     >
       <div className="grid grid-cols-[repeat(4,minmax(0,1fr))] gap-3">
         {shown.map((preset) => (

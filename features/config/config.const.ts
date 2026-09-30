@@ -388,7 +388,9 @@ export function isConfigFromEnv(
 }
 
 /** How a setting the environment holds is said, on the screen and in the action's refusal. */
-export function envWords(label: string): string {
+export function envWords(label: string, locale: string = "en"): string {
+  if (locale === "tr")
+    return `${label} uygulamanın başladığı ortamda ayarlı — .env ya da kabuğun — burada kaydedilene o kullanılır. Orada değiştir ya da kaldır, uygulamayı yeniden başlat.`;
   return `${label} is set in the environment the app started with — a .env or your shell — and that one is used over one saved here. Change or remove it there, then start the app again.`;
 }
 
@@ -403,7 +405,16 @@ const LOST_KEY_WHY =
  * How a saved secret that can no longer be opened is said, wherever it is — a screen, an error,
  * a connector's row: what it was, why, the file's path where the server has it, and what to do.
  */
-export function lostWords(what: string, todo: string, where?: string): string {
+export function lostWords(
+  what: string,
+  todo: string,
+  where?: string,
+  locale: string = "en",
+): string {
+  if (locale === "tr") {
+    const why = "onu açan veri klasöründeki .env kayboldu ya da değişti";
+    return `${what} artık açılamıyor: ${why}${where ? ` (${where})` : ""}. ${todo}`;
+  }
   return `${what} can't be unlocked any more: ${LOST_KEY_WHY}${where ? ` (${where})` : ""}. ${todo}`;
 }
 

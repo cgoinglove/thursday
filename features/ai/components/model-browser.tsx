@@ -11,7 +11,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input, inputClassName } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
+import { useLocale } from "@/hooks/use-locale";
 import { cn } from "@/lib/utils";
+import { settingsDictOf } from "@/messages";
 import {
   CATALOG_TEXT,
   CATALOG_TOOL_USE,
@@ -57,6 +59,7 @@ export function ModelBrowser({
   const [sort, setSort] = useState<SortId>("cheap");
   const [picked, setPicked] = useState(value);
   const { label } = TEXT_MODEL_PROVIDERS[provider];
+  const t = settingsDictOf(useLocale()).ai;
 
   const shelf = models.filter((model) => model.type === (kind ?? CATALOG_TEXT));
   const runnable = kind
@@ -88,7 +91,7 @@ export function ModelBrowser({
         render={
           <button
             type="button"
-            aria-label="Model"
+            aria-label={t.modelAria}
             // The shell the combobox uses in every other slot, so a row keeps one field
             className={cn(
               inputClassName,
@@ -103,7 +106,7 @@ export function ModelBrowser({
             !value && "font-sans text-muted-foreground",
           )}
         >
-          {value || "Pick a model"}
+          {value || t.pickModel}
         </span>
         <span className="absolute inset-y-0 right-0 flex w-8 items-center justify-center text-muted-foreground">
           {loading && runnable.length === 0 ? (
@@ -119,14 +122,14 @@ export function ModelBrowser({
           <div className="shrink-0 space-y-1 px-6 pt-5 pb-4">
             <DialogTitle className="flex items-center gap-2.5 text-xl font-semibold">
               <ProviderIcon provider={provider} className="size-3.5" />
-              {kind ? KIND_TITLE[kind] : "Text"} models
+              {kind ? (t.kindTitles[kind] ?? kind) : t.kindText} models
             </DialogTitle>
             <p className="font-mono text-xs text-muted-foreground">
               {needle
-                ? `${rows.length} matching “${query.trim()}”`
+                ? t.matchCount(rows.length, query.trim())
                 : kind
-                  ? `${runnable.length} on ${label}`
-                  : `${runnable.length} of ${shelf.length} on ${label} can call tools`}
+                  ? t.shelfCountKind(runnable.length, label)
+                  : t.shelfCountTools(runnable.length, shelf.length, label)}
             </p>
           </div>
 
@@ -135,8 +138,8 @@ export function ModelBrowser({
               <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 autoFocus
-                aria-label="Search models"
-                placeholder="name, id or provider"
+                aria-label={t.searchModels}
+                placeholder={t.searchPlaceholder}
                 spellCheck={false}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
@@ -144,8 +147,8 @@ export function ModelBrowser({
               />
             </div>
             <Segmented
-              aria-label="Sort"
-              options={SORT_LIST}
+              aria-label={t.sortAria}
+              options={sortList(t)}
               value={sort}
               onChange={setSort}
             />
@@ -155,7 +158,7 @@ export function ModelBrowser({
             <span className="min-w-0 flex-1">model</span>
             {/* What the two numbers mean. A model billed some other way prints its own
                 unit in place of them, so the header never has to hedge. */}
-            <span className="w-28 text-right">per 1M in / out</span>
+            <span className="w-28 text-right">{t.per1M}</span>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto border-t border-border/60">
@@ -170,23 +173,21 @@ export function ModelBrowser({
             {rows.length === 0 && (
               <div className="flex flex-col items-start gap-2.5 p-10">
                 <p className="font-mono text-xs text-muted-foreground">
-                  {needle
-                    ? `Nothing matches “${query.trim()}”.`
-                    : "Nothing on the shelf — search for an id."}
+                  {needle ? t.noMatch(query.trim()) : t.emptyShelf}
                 </p>
                 {needle && (
                   <div className="flex gap-2">
                     {/* The catalog is a listing, not the whole provider: an id it does
                         not carry still runs, so it is taken as typed */}
                     <Button size="sm" onClick={() => setPicked(query.trim())}>
-                      Use “{query.trim()}” as the id
+                      {t.takeAsId(query.trim())}
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setQuery("")}
                     >
-                      Clear search
+                      {t.clearSearch}
                     </Button>
                   </div>
                 )}
@@ -196,10 +197,10 @@ export function ModelBrowser({
 
           <div className="flex h-14 shrink-0 items-center gap-3 border-t border-border/60 px-6">
             <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
-              {picked || "Nothing picked — the field keeps what it has"}
+              {picked || t.nothingPicked}
             </span>
             <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
+              {t.cancelBtn}
             </Button>
             <Button
               disabled={!picked}
@@ -208,7 +209,7 @@ export function ModelBrowser({
                 setOpen(false);
               }}
             >
-              Use this model
+              {t.useModel}
             </Button>
           </div>
         </div>
@@ -216,13 +217,6 @@ export function ModelBrowser({
     </Dialog>
   );
 }
-
-const KIND_TITLE: Record<MediaKind, string> = {
-  image: "Image",
-  video: "Video",
-  speech: "Speech",
-  transcription: "Transcription",
-};
 
 type SortId = "cheap" | "dear" | "name";
 
@@ -254,19 +248,23 @@ const SORTS: Record<
     compare: (a, b) => a.label.localeCompare(b.label),
   },
 };
-const SORT_LIST = (Object.keys(SORTS) as SortId[]).map((value) => ({
-  value,
-  label: SORTS[value].label,
-  title: SORTS[value].title,
-}));
+const sortList = (t: {
+  sortCheap: string;
+  sortDear: string;
+  sortName: string;
+}): { value: SortId; label: string; title: string }[] => [
+  { value: "cheap", label: "$↑", title: t.sortCheap },
+  { value: "dear", label: "$↓", title: t.sortDear },
+  { value: "name", label: "a–z", title: t.sortName },
+];
 
 /** Dollars as a person reads them: two places above a dollar, enough below it to stay a number. */
 const money = (value: number) =>
   value >= 1 ? value.toFixed(2) : String(Number(value.toFixed(4)));
 
 /** What the price column says. A note is the whole line when no token price stands behind it. */
-function priceLine(price: CatalogPrice) {
-  if (price.free) return "free";
+function priceLine(price: CatalogPrice, t: { freeWord: string }) {
+  if (price.free) return t.freeWord;
   if (price.in === null && price.out === null) return price.note ?? "—";
   return `${price.in === null ? "—" : money(price.in)} / ${price.out === null ? "—" : money(price.out)}`;
 }
@@ -280,6 +278,7 @@ function ModelRow({
   picked: boolean;
   onPick: () => void;
 }) {
+  const t = settingsDictOf(useLocale()).ai;
   const { price } = model;
   const priced = price.in !== null || price.out !== null;
   return (
@@ -302,7 +301,7 @@ function ModelRow({
           {picked && <Check className="size-3.5 shrink-0" />}
           {model.retiring && (
             <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-              retiring
+              {t.retiringWord}
             </span>
           )}
         </span>
@@ -317,7 +316,7 @@ function ModelRow({
             priced || price.free ? "text-foreground" : "text-muted-foreground",
           )}
         >
-          {priceLine(price)}
+          {priceLine(price, t)}
         </span>
         {priced && price.note && (
           <span className="font-mono text-[9px] text-muted-foreground/70">

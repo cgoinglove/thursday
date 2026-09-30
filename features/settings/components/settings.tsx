@@ -42,9 +42,12 @@ import { RoutineMark } from "@/features/routine/components/routine-mark";
 import { SkillsMark } from "@/features/skills/components/skills-mark";
 import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
 import { WorkspaceMark } from "@/features/workspace/components/workspace-mark";
+import { setLocale, useLocale } from "@/hooks/use-locale";
 import { setTheme, useTheme } from "@/hooks/use-theme";
-import { THEMES, type Theme } from "@/lib/theme";
+import { LOCALE_LABEL, LOCALES, type Locale } from "@/lib/locale";
+import { THEMES } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { settingsDictOf } from "@/messages";
 import { type SettingSectionId, useSettingsStore } from "../settings.store";
 import { CommunityLinks } from "./community-links";
 import { InstallButton } from "./install-app";
@@ -145,6 +148,8 @@ function Tabbed({
 }: {
   tabs: readonly { label: string; Component: ComponentType }[];
 }) {
+  const locale = useLocale();
+  const dict = settingsDictOf(locale);
   const [at, setAt] = useState(0);
   const Current = tabs[at].Component;
   return (
@@ -153,7 +158,7 @@ function Tabbed({
         <SettingColumn>
           <Segmented
             view
-            aria-label="Screens of this section"
+            aria-label={dict.tabbedLabel}
             options={tabs.map((tab, index) => ({
               value: String(index),
               label: tab.label,
@@ -171,11 +176,18 @@ function Tabbed({
 }
 
 /** What the bots finished is part of everything they wrote: one folder, seen two ways. */
-const FILE_TABS = [
-  { label: "Finished", Component: ArtifactSetting },
-  { label: "All files", Component: WorkspaceSetting },
-] as const;
-const FilesSection = () => <Tabbed tabs={FILE_TABS} />;
+function useFileTabs() {
+  const locale = useLocale();
+  const dict = settingsDictOf(locale);
+  return [
+    { label: dict.fileTabs.finished, Component: ArtifactSetting },
+    { label: dict.fileTabs.allFiles, Component: WorkspaceSetting },
+  ] as const;
+}
+function FilesSection() {
+  const tabs = useFileTabs();
+  return <Tabbed tabs={tabs} />;
+}
 
 /** Adding a section is one entry here plus an id in settings.store. */
 const GROUPS = ["call", "work", "app"] as const;
@@ -188,8 +200,6 @@ type SettingGroup = (typeof GROUPS)[number];
 
 export const SECTIONS: readonly {
   id: SettingSectionId;
-  label: string;
-  hint: string;
   group: SettingGroup;
   icon: ComponentType<{ className?: string }>;
   Component: ComponentType;
@@ -198,122 +208,96 @@ export const SECTIONS: readonly {
 }[] = [
   {
     id: "thursday",
-    label: "Thursday",
     group: "call",
-    hint: "Captions, models, and how a call starts",
     icon: ThursdayMark,
     Component: ThursdaySetting,
   },
   {
     id: "memory",
-    label: "Memory",
     group: "call",
-    hint: "What Thursday remembers about you",
     icon: MemoryMark,
     Component: MemorySetting,
   },
   {
     id: "bot",
-    label: "Bots",
     group: "work",
-    hint: "Who Thursday hands work to",
     icon: BotsMark,
     Component: BotSetting,
     Badge: BotBadge,
   },
   {
     id: "threads",
-    label: "Threads",
     group: "work",
-    hint: "Work the bots were handed",
     icon: ListChecks,
     Component: ThreadSetting,
     Badge: ThreadBadge,
   },
   {
     id: "routines",
-    label: "Routines",
     group: "work",
-    hint: "Work that starts by itself, on a schedule",
     icon: RoutineMark,
     Component: RoutineSetting,
   },
   {
     id: "files",
-    label: "Files",
     group: "work",
-    hint: "What the bots finished, and everything else they wrote",
     icon: WorkspaceMark,
     Component: FilesSection,
   },
   {
     id: "skills",
-    label: "Skills",
     group: "work",
-    hint: "Instructions the bots load on demand",
     icon: SkillsMark,
     Component: SkillsSetting,
   },
   {
     id: "mcp",
-    label: "Connectors",
     group: "work",
-    hint: "Apps the bots can use, from MCP servers",
     icon: McpMark,
     Component: McpSetting,
     Badge: McpBadge,
   },
   {
     id: "signins",
-    label: "Sign-ins",
     group: "work",
-    hint: "The sites you signed in to, and the bots that may use each",
     icon: LogIn,
     Component: SignInsSetting,
   },
   {
     id: "models",
-    label: "Models",
     group: "app",
-    hint: "What bots think with, and what they draw, film and speak with",
     icon: Aperture,
     Component: ModelsSetting,
     Badge: ModelsBadge,
   },
   {
     id: "keys",
-    label: "API keys",
     group: "app",
-    hint: "The accounts the app runs on",
     icon: KeyRound,
     Component: KeysSetting,
     Badge: ConfigBadge,
   },
   {
     id: "phone",
-    label: "Phone",
     group: "app",
-    hint: "Write to Thursday from a chat app or by email",
     icon: Smartphone,
     Component: PhoneSetting,
     Badge: ReachBadge,
   },
 ];
 
-const THEME_LABEL: Record<Theme, { label: string; icon: typeof Sun }> = {
-  system: { label: "System", icon: Monitor },
-  light: { label: "Light", icon: Sun },
-  dark: { label: "Dark", icon: Moon },
-};
-
 function ThemePicker() {
   const theme = useTheme();
+  const locale = useLocale();
+  const dict = settingsDictOf(locale);
+  const icons = { system: Monitor, light: Sun, dark: Moon } as const;
   return (
     <Segmented
-      aria-label="Theme"
+      aria-label={dict.themeLabel}
       className="w-full gap-0.5 *:flex-1 *:py-1.5"
       options={THEMES.map((option) => {
-        const { label, icon: Icon } = THEME_LABEL[option];
+        const Icon = icons[option];
+        const label = dict.themes[option];
         return {
           value: option,
           title: label,
@@ -327,6 +311,24 @@ function ThemePicker() {
       })}
       value={theme}
       onChange={setTheme}
+    />
+  );
+}
+
+function LanguagePicker() {
+  const locale = useLocale();
+  const dict = settingsDictOf(locale);
+  return (
+    <Segmented
+      aria-label={dict.languageLabel}
+      className="w-full gap-0.5 *:flex-1 *:py-1.5"
+      options={(LOCALES as readonly Locale[]).map((option) => ({
+        value: option,
+        title: `${LOCALE_LABEL[option]} — ${dict.languageHint}`,
+        label: <span className="text-xs">{LOCALE_LABEL[option]}</span>,
+      }))}
+      value={locale}
+      onChange={setLocale}
     />
   );
 }
@@ -359,6 +361,8 @@ export function Settings({ children }: { children?: ReactElement }) {
     then();
   };
   const bodyRef = useRef<HTMLDivElement>(null);
+  const locale = useLocale();
+  const dict = settingsDictOf(locale);
   const current =
     SECTIONS.find((entry) => entry.id === sectionId) ?? SECTIONS[0];
 
@@ -396,12 +400,12 @@ export function Settings({ children }: { children?: ReactElement }) {
       {children && <DialogTrigger render={children} />}
       {/* block, not grid: a popup portaled in here (the thread sheet and anything it opens) would take a row */}
       <DialogContent className="block h-[min(52rem,calc(100vh-3rem))] overflow-hidden p-0 sm:max-w-[min(80rem,calc(100vw-3rem))]">
-        <DialogTitle className="sr-only">Settings</DialogTitle>
+        <DialogTitle className="sr-only">{dict.dialogTitle}</DialogTitle>
 
         <div className="flex h-full min-h-0">
           {/* scrolls in a short window, where its foot would otherwise be cut off under the dialog's edge */}
           <nav
-            aria-label="Settings sections"
+            aria-label={dict.navLabel}
             onKeyDown={(event) => {
               const step =
                 event.key === "ArrowDown"
@@ -421,7 +425,7 @@ export function Settings({ children }: { children?: ReactElement }) {
           >
             {GROUPS.map((group) => (
               <Fragment key={group}>
-                <span className={GROUP_LABEL}>{group}</span>
+                <span className={GROUP_LABEL}>{dict.groups[group]}</span>
                 {SECTIONS.filter((item) => item.group === group).map((item) => (
                   <Button
                     key={item.id}
@@ -436,7 +440,9 @@ export function Settings({ children }: { children?: ReactElement }) {
                     )}
                   >
                     <item.icon className={cn("mr-1")} />
-                    <span className="truncate text-sm">{item.label}</span>
+                    <span className="truncate text-sm">
+                      {dict.sections[item.id].label}
+                    </span>
                     {item.Badge && (
                       <span className="ml-auto flex items-center">
                         <item.Badge />
@@ -448,11 +454,14 @@ export function Settings({ children }: { children?: ReactElement }) {
             ))}
 
             {/* a group of its own, in the nav's grammar, so the foot keeps Install alone */}
-            <span className={GROUP_LABEL}>community</span>
+            <span className={GROUP_LABEL}>{dict.groups.community}</span>
             <CommunityLinks />
 
             <div className="mt-auto flex flex-col gap-2 pt-3">
               <InstallButton />
+              <div className="px-1" title={dict.languageHint}>
+                <LanguagePicker />
+              </div>
               <div className="px-1">
                 <ThemePicker />
               </div>
@@ -467,10 +476,10 @@ export function Settings({ children }: { children?: ReactElement }) {
                 className="animate-in space-y-0.5 fade-in slide-in-from-bottom-1 duration-300"
               >
                 <p className="truncate text-2xl font-semibold">
-                  {current.label}
+                  {dict.sections[current.id].label}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {current.hint}
+                  {dict.sections[current.id].hint}
                 </p>
               </SettingColumn>
             </div>
