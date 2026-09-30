@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.24.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.23.0...thursday-agent-v0.24.0) (2026-09-30)
+
+
+### Features
+
+* **bot:** the office says how its job stands beside its name, keeps its time on a scoreboard, and its desks show who works and who is done ([387de45](https://github.com/cgoinglove/thursday/commit/387de455319a4f5032b9ee70c886d02e3db0353b))
+* **models:** Claude Sonnet 5.5 replaces Sonnet 5 ([#62](https://github.com/cgoinglove/thursday/issues/62)) ([1bcba38](https://github.com/cgoinglove/thursday/commit/1bcba388a1500c203a474871e1772d60e57fac6e))
+* **models:** GPT-6.1 Sol replaces GPT-6 Sol ([341f6a0](https://github.com/cgoinglove/thursday/commit/341f6a0ccbe82975d345882f69d385daf9a74b46))
+
+
+### Fixes
+
+* **bot:** a job handed over from the screen is named by up to 120 characters of its message, not its first four words ([9c98387](https://github.com/cgoinglove/thursday/commit/9c98387527b6feb323ef632afdfd8f28ff962182))
+* **bot:** the office opens at 70% rather than 50% ([ab924b9](https://github.com/cgoinglove/thursday/commit/ab924b93b7996469fe094626deca57dceb4b0b93))
+* **bot:** the office's rings, cards, words and zoom finish what they start, and a desk lights only once its bot is there ([c9b3a9e](https://github.com/cgoinglove/thursday/commit/c9b3a9ec96a6a2071e4d3fe41f8ee8e32c6d258c))
+* **deps:** package.json takes the ai-sdk ranges the lockfile already records ([840278c](https://github.com/cgoinglove/thursday/commit/840278c52b3fef8bf2befcffeeb4ef4940c38f64))
+
+
+### Performance
+
+* **ui:** the markdown renderer loads apart from the first screen, so opening the app no longer stalls on it ([#65](https://github.com/cgoinglove/thursday/issues/65)) ([018cf75](https://github.com/cgoinglove/thursday/commit/018cf752dcc5c386ed613b8c39be7ad49c5c56db))
+
+
+### Docs
+
+* **bot:** a thread's label is also the user's own words when handed over from the screen ([0964bf0](https://github.com/cgoinglove/thursday/commit/0964bf0d1e72ff0b4a6d3a43518295f3242c501e))
+* **chatgpt:** why the plan's sign-in stays on the Codex client ([df53b22](https://github.com/cgoinglove/thursday/commit/df53b2247151632f4ee683cffecf1d3a8f84d5c0))
+* **maps:** the call map names what breaks in putting down and in the plan's tool calls, and says the rest once ([c87239e](https://github.com/cgoinglove/thursday/commit/c87239efc23a6adc2f5e5e67a927c9a39be0b6a5))
+* **readme:** the hero is the office at work, and a section shows a job drawn as an office ([b8c0eee](https://github.com/cgoinglove/thursday/commit/b8c0eeedbfc038c7a7076932e8704ede1008cc57))
+* **readme:** the hero says she is a voice assistant, shows her words over the office and its scoreboard, and gives the install command as a button ([e51d1f0](https://github.com/cgoinglove/thursday/commit/e51d1f0af8109904dd9141e6259ecb136370e3cd))
+
 ## [0.23.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.22.0...thursday-agent-v0.23.0) (2026-09-29)
 
 
