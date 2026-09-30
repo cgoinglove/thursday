@@ -142,7 +142,9 @@ kept is the site's session, never a password, and it stays on this computer.
   For those, a bot can work in a tab of their own Chrome instead, signed in as they already are —
   to every site their Chrome is signed in to, not only that one. That needs the Playwright
   extension installed in their Chrome once and Chrome open: the last row, **Your own Chrome**, has
-  **Get the extension**.
+  **Get the extension**. Each time a bot connects, a page opens in their Chrome and asks them to
+  allow it and pick the tab the bot gets; a bot asked to work in the browser they have open
+  connects the same way.
 - **Sign out** removes what is kept for that account, and the site's other accounts stay; the next
   job that needs it asks again. On a lost or shared computer, also sign out on the site itself.
 

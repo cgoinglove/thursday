@@ -17,9 +17,18 @@ repeat it.
 a sign-in or a tab is this one's. With `--headed` the window `playwright-cli`
 opens is a real one on their screen — they can watch it and type into it. Never drive Chrome by
 clicking it through the machine (`osascript`, `peekaboo`, System Events): that
-window cannot be snapshotted or acted on by ref. For the browser they already
-have open — a tab they left, a profile they are signed into — attach instead:
-`playwright-cli attach --cdp=chrome`.
+window cannot be snapshotted or acted on by ref.
+
+**The browser they already have open is reached through its extension.** For a
+tab they left or a profile they are signed into, `playwright-cli attach --extension=chrome`
+opens a page in the Chrome they use and waits until they allow it there. The tab
+they pick on that page — one they left open, or that page itself — is yours,
+signed in as they are; their other tabs stay theirs. It needs the Playwright
+extension in their Chrome: when the command says it is missing, give them the
+link it prints and ask. The link to their Chrome can drop between commands: when
+one answers that the browser is not open, `attach` again — `open` would start a
+browser of your own instead. A click there waits on a tab that is in front:
+`--raw run-code "async page => page.bringToFront()"` first.
 
 **Your browser is your own on this job.** Its session is already in your shell
 (`PLAYWRIGHT_CLI_SESSION`): never pass `-s=`, never `close-all` or `kill-all` —
@@ -70,14 +79,10 @@ yours to read off the job:
   with the browser that held it. Open the window you mean to keep first, headed
   or not. `goto` last because cookies without a reload leave the signed-out page
   that was already drawn, which reads as an expired session when it is not.
-- **Their own Chrome.** `attach --extension=chrome` gives you a tab of your own
-  in the Chrome they use, signed in as they are; their tabs stay theirs. It is the
-  way through for a site that still shows you signed out right after
+- **Their own Chrome.** Attached to it as above, you are signed in as they are.
+  It is the way through for a site that still shows you signed out right after
   `sign_in_use` — some refuse a sign-in carried between browsers, and signing in
-  again in your window will not last there either. It needs the Playwright
-  extension in their Chrome: when the command says it is missing, give them the
-  link it prints and ask. A click there waits on a tab that is in front:
-  `--raw run-code "async page => page.bringToFront()"` first.
+  again in your window will not last there either.
 - **They sign in themselves.** `open <the login url> --headed --persistent` —
   the login page, not the front door. For another account on a site the app
   already keeps, leave out `--persistent`: a new browser holds none of them, and
@@ -172,8 +177,7 @@ playwright-cli open                       # headless; add a url to navigate at o
 playwright-cli open <url> --headed        # a real window on their screen
 playwright-cli open <url> --persistent    # keep a profile between opens
 playwright-cli open --mobile              # mobile layout — lighter pages, smaller snapshots
-playwright-cli attach --cdp=chrome        # the browser they already have open, every tab
-playwright-cli attach --extension=chrome  # one tab of your own in their Chrome
+playwright-cli attach --extension=chrome  # their own Chrome: the tab they pick
 playwright-cli goto <url>
 playwright-cli go-back | go-forward | reload
 playwright-cli resize 1280 800            # before a screenshot or a pdf
