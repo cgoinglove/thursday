@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.25.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.24.0...thursday-agent-v0.25.0) (2026-09-30)
+
+
+### Features
+
+* **reach:** a bot reads a site's mail at Thursday's own address ([ef4b1fd](https://github.com/cgoinglove/thursday/commit/ef4b1fdb4e5cc9ce6c9337f4aacfdc0f4cc7fc6b))
+* **reach:** Thursday can be emailed, at a mailbox of her own ([e5a6eb2](https://github.com/cgoinglove/thursday/commit/e5a6eb2add70c9b4a163325a58e6f619836bb14b))
+
+
+### Fixes
+
+* **favicon:** a site that could not be asked is asked again ([ea09059](https://github.com/cgoinglove/thursday/commit/ea0905913dc657970dc486bd4217aab63f4c4c20))
+* **reach:** a mail's subject reaches her named as one ([7da431d](https://github.com/cgoinglove/thursday/commit/7da431d78f184e912c87f1b4f63255ff09488a25))
+* **reach:** a network change no longer loses the user's mail ([855c128](https://github.com/cgoinglove/thursday/commit/855c128dd978c41500d54ae393523f5653e9af19))
+* **reach:** holding a mail for DNS is bounded, cheap and said as what it is ([0f90ae4](https://github.com/cgoinglove/thursday/commit/0f90ae4b28b42100af09c07ca7ba20edc07f6de3))
+* **reach:** the email review's ten findings ([10886aa](https://github.com/cgoinglove/thursday/commit/10886aa76c3ac869a8599a3ad88125c1ab6daf18))
+
+
+### Docs
+
+* **maps:** the call map says take checks unproven first, and a named channel answers only the named person ([dc4522b](https://github.com/cgoinglove/thursday/commit/dc4522b7a2ce3d9f192905e4afc0b6d1d209c544))
+* **readme:** the office section shows a job finishing, as a moving picture ([6e86960](https://github.com/cgoinglove/thursday/commit/6e86960dbe8a3a1d38c0fbbb84ebecceab89aae8))
+
 ## [0.24.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.23.0...thursday-agent-v0.24.0) (2026-09-30)
 
 
