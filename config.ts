@@ -816,8 +816,18 @@ export const CALL_EXEC_TIMEOUT_MS = 15_000;
  *   messages (use-text-call). Past it what bots send waits on screen and goes in with the
  *   next thing the user writes: fewer leaves results unanswered in the conversation, more
  *   lets her and a bot trade replies that long with nobody reading.
+ * - `chunkMs`  how long a page's turn waits on the model between two pieces of its stream
+ *   before it ends in an error the page shows with Send it again. Without it a stream that
+ *   went quiet partway held the turn open with nothing said (4.5 minutes in the UX test).
+ *   Lower ends a turn a slow model was still thinking through; higher leaves the user
+ *   waiting that long on a turn that is not coming.
  */
-export const TEXT_CALL = { maxSteps: 12, model: "text", autoTurns: 10 };
+export const TEXT_CALL = {
+  maxSteps: 12,
+  model: "text",
+  autoTurns: 10,
+  chunkMs: 120_000,
+};
 
 /**
  * How long a shell command that was stopped — its timeout, or its job stopping —

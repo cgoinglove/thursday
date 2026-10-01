@@ -34,11 +34,24 @@ const usage = {
 };
 const model = new MockLanguageModelV4({
   // A page's turn streams: the same script, its words sent as a stream
-  doStream: async ({ prompt }) => {
+  doStream: async ({ prompt, abortSignal }) => {
     prompts.push(JSON.stringify(prompt));
     const next = steps.shift();
     assert.ok(next, "Unexpected step");
     const content = next();
+    // A model that goes quiet partway: what comes before `stall` is sent, and nothing after
+    // until the request is aborted, which ends it as a fetch's body ends
+    if (content.at(-1)?.type === "stall")
+      return {
+        stream: new ReadableStream({
+          start(controller) {
+            for (const part of content.slice(0, -1)) controller.enqueue(part);
+            abortSignal?.addEventListener("abort", () =>
+              controller.error(abortSignal.reason),
+            );
+          },
+        }) as never,
+      };
     return {
       stream: simulateReadableStream({
         initialDelayInMs: null,
@@ -440,6 +453,40 @@ test("an answer that broke carries on from the last tool it finished: nothing ru
     ["tool", JSON.stringify({ thread: "all" }).slice(0, 20)],
     ["assistant", "Nothing is running y"],
   ]);
+});
+
+test("a model that goes quiet partway through a turn ends it with an error after TEXT_CALL.chunkMs, rather than holding it open", async () => {
+  const { TEXT_CALL } = await import("../config.ts");
+  const was = TEXT_CALL.chunkMs;
+  TEXT_CALL.chunkMs = 300;
+  try {
+    const { callId } = await openTextCall();
+    // As seen: "Handing this to Analyst" was drawn from the tool's input, and nothing came after
+    steps.push(() => [
+      {
+        type: "tool-input-start",
+        id: "q-1",
+        toolName: TOOL_NAMES.thread_start,
+      },
+      { type: "tool-input-delta", id: "q-1", delta: '{"bot":"Analyst"' },
+      { type: "stall" },
+    ]);
+    const started = Date.now();
+    const chunks = await pageTurn({
+      callId,
+      turn: "turn-quiet",
+      messages: [
+        words("u-quiet", "What's the weather like in Lisbon right now?"),
+      ],
+    });
+    // Said as a failure, which the page shows with Send it again; an abort it reads as its own stop
+    const failed = chunks.find((chunk) => chunk.type === "error");
+    assert.match(String(failed?.errorText), /No answer came for 0 seconds/);
+    assert.ok(!chunks.some((chunk) => chunk.type === "abort"));
+    assert.ok(Date.now() - started < 5_000);
+  } finally {
+    TEXT_CALL.chunkMs = was;
+  }
 });
 
 test("words a broken turn never kept are kept with the next turn, once", async () => {

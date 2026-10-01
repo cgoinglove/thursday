@@ -94,7 +94,8 @@ has the same memory, tools and bots as on a spoken call, with no voice and no pe
   the key, on the backend model from **Settings › Thursday**, and a notice says so once a call with
   when the plan resets. Every turn tries the plan first, so it goes back to the plan by itself once
   the plan resets. Turns on the key are billed to it. With no key, the turn fails as below.
-- **When a turn fails** — a refused key, a plan's limit with no key to go on — her face says ERROR
+- **When a turn fails** — a refused key, a plan's limit with no key to go on, or no answer at all
+  for two minutes — her face says ERROR
   and the provider's reason shows in red under the line, with **Send it again**. When the provider
   turned down the key or sign-in itself, the line says so in a sentence with the provider's own
   words small under it, and **Open Settings** opens **Settings › API keys**, where the GPT

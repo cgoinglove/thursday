@@ -256,6 +256,8 @@ export async function streamTextCall(
       providerOptions: on.providerOptions,
       stopWhen: stepCountIs(TEXT_CALL.maxSteps),
       abortSignal: signal,
+      // Read at each turn: a stream that went quiet partway held the turn open with nothing said
+      timeout: { chunkMs: TEXT_CALL.chunkMs },
       prepareStep: async ({ stepNumber, messages: soFar }) => {
         const notes = inbox.splice(0);
         if (!notes.length) return undefined;
@@ -284,13 +286,26 @@ export async function streamTextCall(
   /** The provider the turn is on now, and the one that refused its key, once one has. */
   let on: TextModelProviderId = run.ref.provider;
   let refused: TextCallRefused | null = null;
+  // A stream that went quiet past TEXT_CALL.chunkMs ends in an abort the sdk raises itself.
+  // The page reads an abort as its own stop and shows nothing, so one the page did not ask
+  // for goes to it as the failure it is
+  const quiet = (part: TextStreamPart<ToolSet>): TextStreamPart<ToolSet> =>
+    part.type === "abort" && !signal.aborted
+      ? {
+          type: "error",
+          error: new Error(
+            `No answer came for ${Math.round(TEXT_CALL.chunkMs / 1000)} seconds, so this one was stopped.`,
+          ),
+        }
+      : part;
   const parts = streamParts(async function* () {
     // What opens the stream is held until her first step has something to show: a spent
     // plan refuses before that, and the turn then starts again on the key as if it were new
     const held: TextStreamPart<ToolSet>[] = [];
     let shown = false;
     let spare: Awaited<ReturnType<typeof spareOf>> = null;
-    for await (const part of (await ask(run)).stream) {
+    for await (const raw of (await ask(run)).stream) {
+      const part = quiet(raw);
       if (!shown && part.type === "error") {
         spare = await spareOf(run.ref, part.error);
         if (spare) break;
@@ -312,7 +327,9 @@ export async function streamTextCall(
     inbox.unshift(...(took.get(0) ?? []));
     took.delete(0);
     try {
-      yield* (await ask(await loadRun(run.callId, spare.ref))).stream;
+      for await (const part of (await ask(await loadRun(run.callId, spare.ref)))
+        .stream)
+        yield quiet(part);
     } catch (cause) {
       yield { type: "error", error: cause };
     }
