@@ -1641,7 +1641,7 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     assert.match(on.text, /Prefer brief replies/);
     assert.match(
       on.text,
-      /\n\n## Always\n\nBackchannel policy: Use moderate backchannels\. .*\n\nInterruption policy: Stop speaking when the user interrupts\. Listen to what they say\.\n\nSpeak the language the user is speaking, [^\n]+\n\nDelegation policy:\nBackend tools:\n- Ending the call: hangs up the line — only the backend can, so a goodbye, or a hang-up they ask for, is handed over rather than answered\.\n(- [^\n]+\n){4}\nDelegate to the backend when:\n- They say goodbye or good night, in whatever words, or want the call to end\.\n(- [^\n]+\n)+\nDo not delegate to the backend when:\n- They say hello, [^\n]+\n(- [^\n]+\n)+\nDelegate before giving an answer that depends on backend work\. Do not guess the result while waiting\.\n\nWhat they tell you about themselves is handed over quietly: [^\n]+\n\n## What you know about them\n/,
+      /\n\n## Always\n\nBackchannel policy: Use moderate backchannels\. .*\n\nInterruption policy: Stop speaking when the user interrupts\. Listen to what they say\.\n\nSpeak the language the user is speaking, [^\n]+\n\nDelegation policy:\nBackend tools:\n- Memory: the only way anything they say is kept past this call\. [^\n]+\n- Ending the call: hangs up the line — only the backend can, so a goodbye, or a hang-up they ask for, is handed over rather than answered\.\n(- [^\n]+\n){3}\nDelegate to the backend when:\n- They tell you anything about themselves, [^\n]+ Hand it over at once, in the same turn, [^\n]+\n- They say goodbye or good night, in whatever words, or want the call to end\.\n(- [^\n]+\n)+\nDo not delegate to the backend when:\n- They only want you to stop talking\.\n(- [^\n]+\n)+\nDelegate before giving an answer that depends on backend work\. Do not guess the result while waiting\.\n\nWhat they tell you about themselves is handed over quietly: [^\n]+\n\n## What you know about them\n/,
     );
     // Who she is to talk to sits right under the identity, character only: no stamp, no rule
     assert.match(
@@ -1656,7 +1656,7 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     // What the backend can do, never how: no skills, connected tools or bots by name
     assert.equal(/What bots can reach for|- Web:/.test(on.text), false);
     // Stopping her voice is hers, stopping a job the backend's
-    assert.match(on.text, /or only want you to stop talking/);
+    assert.match(on.text, /They only want you to stop talking\./);
     assert.match(on.text, /- people\/sam — Their brother, Sam \(2\)/);
     assert.match(on.text, /What is in these notes, the backend recalls\./);
     // Profile and preferences are whole on both sides: the oldest line is the one
