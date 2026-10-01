@@ -60,7 +60,7 @@ import { cn, WAITING_INK } from "@/lib/utils";
  * The first run, laid over the call screen (app/page) and drawn as the call screen:
  * her face in the same place, her words down its left as captions are, and on its
  * right — where the caller's words go — the caller's turn: a key, the microphone, who
- * works for them, what those think with. It opens on her coming down to her own size
+ * works for them and how she talks. It opens on her coming down to her own size
  * (echoes.tsx), then on the app's one loop played silently in place, and its last button
  * is the first call. No step holds anyone: every one can be passed at once and done later
  * from the screen it belongs to. It shows until it has been left once (intro.query), or

@@ -8,7 +8,6 @@ import {
   Check,
   ChevronRight,
   Clapperboard,
-  Ellipsis,
   Image as ImageIcon,
   KeyRound,
   type LucideIcon,
@@ -20,11 +19,6 @@ import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { notify } from "@/components/ui/notify";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { SiteIcon } from "@/components/ui/site-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KEY_MIN } from "@/config";
@@ -84,9 +78,6 @@ import { cn, WAITING_INK } from "@/lib/utils";
 
 /** A key that is not a provider's still wears a mark, or its row is a hole in the column. */
 const KEY_MARKS: Record<string, LucideIcon> = { [EXA_API_KEY]: Search };
-
-/** How many provider marks the first-run step shows before "More": one row of the narrow column. */
-const ACCOUNTS_FIRST = 4;
 
 /** One mark per studio kind, drawn as the output (transcription is captions, not a mic). */
 const KIND_MARKS: Record<MediaKind, LucideIcon> = {
@@ -233,118 +224,6 @@ function ConfigScreen({ screen }: { screen: keyof typeof SCREENS }) {
         </SettingGroup>
       ))}
     </SettingScreen>
-  );
-}
-
-/**
- * The accounts alone, stacked for a narrow column: the first-run intro's step on what
- * bots think with. The same cards, marks and dialogs as the screen above, so a key set
- * on the way in is the key Settings shows.
- */
-export function AccountsSetup({
-  /** Leave the voice key out: the screen asked for it already. */
-  withoutVoice = false,
-}: {
-  withoutVoice?: boolean;
-}) {
-  const { data } = useServerRoute<ConfigStatus[]>(queryKey.config);
-  const isSet = (key: string) => isConfigSet(data, key);
-  const isLost = (key: string) => isConfigUnreadable(data, key);
-  const isEnv = (key: string) => isConfigFromEnv(data, key);
-  const entries = (id: ConfigGroup["id"]) =>
-    CONFIG_GROUPS.find((group) => group.id === id)?.entries ?? [];
-  // A newcomer reads one row: the providers most people have a key for, and any that is
-  // already set. The rest are one press away, over the row rather than below it, so the
-  // screen around it does not move
-  const [more, setMore] = useState(false);
-  const voice = entries("voice");
-  const marks = [...voice, ...entries("text")];
-  // Without the voice key the row is one shorter, not refilled from the rest
-  const first = marks.filter(
-    (entry, at) =>
-      (at < ACCOUNTS_FIRST || isSet(entry.key)) &&
-      !(withoutVoice && voice.includes(entry)),
-  );
-  const rest = marks.filter(
-    (entry) =>
-      !first.includes(entry) && !(withoutVoice && voice.includes(entry)),
-  );
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        {entries("easy").map((entry) => (
-          <KeyRow
-            key={entry.key}
-            card
-            narrow
-            entry={entry}
-            set={isSet(entry.key)}
-            lost={isLost(entry.key)}
-            env={isEnv(entry.key)}
-          />
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-y-2.5">
-        {first.map((entry) => (
-          <KeyTile
-            key={entry.key}
-            entry={entry}
-            set={isSet(entry.key)}
-            lost={isLost(entry.key)}
-            env={isEnv(entry.key)}
-          />
-        ))}
-        {rest.length > 0 && (
-          <Popover open={more} onOpenChange={setMore}>
-            <PopoverTrigger
-              aria-label={`${rest.length} more providers`}
-              className="group flex w-17 flex-col items-center gap-1.5 rounded-xl py-1 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <span className="grid size-10.5 place-items-center rounded-[13px] bg-muted/60 text-muted-foreground transition-colors group-hover:bg-muted">
-                <Ellipsis className="size-4" />
-              </span>
-              <span className="text-[11px] text-muted-foreground">More</span>
-            </PopoverTrigger>
-            {/* A tile opens its key's dialog; the list goes first so the dialog is not under it */}
-            <PopoverContent
-              align="end"
-              className="w-78 flex-row flex-wrap gap-0 gap-y-2.5 rounded-2xl p-2.5"
-              onClick={() => setMore(false)}
-            >
-              {rest.map((entry) => (
-                <KeyTile
-                  key={entry.key}
-                  entry={entry}
-                  set={isSet(entry.key)}
-                  lost={isLost(entry.key)}
-                  env={isEnv(entry.key)}
-                />
-              ))}
-            </PopoverContent>
-          </Popover>
-        )}
-      </div>
-      {/* Named, or it reads as one more model under "what they think with" (09-29); what
-          runs without it is config.const `EXA_API_KEY` */}
-      <div className="flex flex-col gap-2">
-        <p className="font-mono text-[11px] text-muted-foreground">
-          Web search, if you want it: without a key, a bot searches only when
-          its own model can.
-        </p>
-        {entries("search").map((entry) => (
-          <KeyRow
-            key={entry.key}
-            card
-            narrow
-            entry={entry}
-            set={isSet(entry.key)}
-            lost={isLost(entry.key)}
-            env={isEnv(entry.key)}
-          />
-        ))}
-      </div>
-    </div>
   );
 }
 
