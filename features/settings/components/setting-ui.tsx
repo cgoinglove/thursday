@@ -261,10 +261,11 @@ function SettingHeader({
 }) {
   return (
     <div className="flex items-center gap-3">
+      {/* A heading, so a screen reader can walk a page by its sets; it looks as it did */}
       {label && (
-        <span className="shrink-0 font-mono text-xs text-muted-foreground">
+        <h4 className="shrink-0 font-mono text-xs text-muted-foreground">
           {label}
-        </span>
+        </h4>
       )}
       {hint && (
         <span className="truncate font-mono text-xs text-muted-foreground/60">

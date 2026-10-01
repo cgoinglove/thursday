@@ -466,9 +466,10 @@ export function Settings({ children }: { children?: ReactElement }) {
                 key={current.id}
                 className="animate-in space-y-0.5 fade-in slide-in-from-bottom-1 duration-300"
               >
-                <p className="truncate text-2xl font-semibold">
+                {/* Under the dialog's own title (Settings), the page's: a screen reader's outline */}
+                <h3 className="truncate text-2xl font-semibold">
                   {current.label}
-                </p>
+                </h3>
                 <p className="truncate text-xs text-muted-foreground">
                   {current.hint}
                 </p>

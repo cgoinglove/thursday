@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -8,6 +8,11 @@ import { cn } from "@/lib/utils";
  * like everything else that is picked. A switch between views of one thing sets nothing,
  * so `view` raises the one shown as a white pill instead. Pass `w-full *:flex-1` in
  * `className` to stretch the buttons.
+ *
+ * The keyboard is a radio group's (WAI-ARIA APG, Radio Group): Tab enters at the one picked
+ * and leaves the group, and the arrows pick the one before or after, round the ends. Each
+ * option a tab stop of its own, Tab landed on the first rather than the one picked and the
+ * arrows did nothing (UX test, accessibility).
  */
 export function Segmented<T extends string>({
   options,
@@ -28,9 +33,29 @@ export function Segmented<T extends string>({
   className?: string;
   "aria-label"?: string;
 }) {
+  const buttons = useRef<(HTMLButtonElement | null)[]>([]);
+  const at = options.findIndex((option) => option.value === value);
+  const step = (by: number) => {
+    const next = (Math.max(0, at) + by + options.length) % options.length;
+    onChange(options[next].value);
+    buttons.current[next]?.focus();
+  };
   return (
     <div
       role="radiogroup"
+      onKeyDown={(event) => {
+        const by = {
+          ArrowRight: 1,
+          ArrowDown: 1,
+          ArrowLeft: -1,
+          ArrowUp: -1,
+        }[event.key];
+        if (!by || options.length < 2) return;
+        // The group's own: an arrow here is not also the screen's around it
+        event.preventDefault();
+        event.stopPropagation();
+        step(by);
+      }}
       className={cn(
         "flex w-fit gap-0.5 rounded-full bg-muted",
         size === "sm" ? "p-0.5" : "p-0.75",
@@ -38,14 +63,19 @@ export function Segmented<T extends string>({
       )}
       {...rest}
     >
-      {options.map((option) => {
+      {options.map((option, index) => {
         const picked = option.value === value;
         return (
           <button
             key={option.value}
+            ref={(node) => {
+              buttons.current[index] = node;
+            }}
             type="button"
             role="radio"
             aria-checked={picked}
+            // One stop for the group: the one picked, or the first when none is
+            tabIndex={picked || (at < 0 && index === 0) ? 0 : -1}
             title={option.title}
             onClick={() => onChange(option.value)}
             className={cn(
