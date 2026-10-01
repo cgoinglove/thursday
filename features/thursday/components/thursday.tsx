@@ -97,6 +97,7 @@ import { useHotkeyLabel } from "@/hooks/use-hotkey";
 import { useWide } from "@/hooks/use-wide";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, plainText } from "@/lib/utils";
+import { Announcer } from "./announcer";
 import { CaptionWords } from "./caption-words";
 import { ConnectWave } from "./connect-wave";
 import { Face } from "./face";
@@ -243,6 +244,7 @@ function CallScreen({
     // Out of reach while the intro lies over it: a Tab or a click past the intro reached her
     // face here and placed a real call (call-signal holds only the wake word and the hotkey)
     <div className="relative flex h-full flex-col" inert={covered}>
+      <Announcer turns={talk} saying={saying} />
       <div className="absolute top-5 right-5 z-10 flex flex-col items-end gap-3">
         <SettingsCorner />
         <UpdateNotice
