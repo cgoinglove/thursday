@@ -512,7 +512,7 @@ export const ARTIFACT_VIEW = { rows: 200, setFiles: 120 };
  * workspace under `dir`, so a bot or the call reads one by its path and nothing else
  * stores it; a bot cannot write there.
  * - `maxBytes`    the largest one file taken. `next.config.ts` sets the server action
- *   body limit from the same two numbers, so raise them together.
+ *   body limit and the proxy's from the same two numbers, so raise them together.
  * - `perMessage`  how many one message carries; more reads as a folder, which is better
  *   named in words.
  */

@@ -23,8 +23,14 @@ const nextConfig: NextConfig = {
   // installs ~90 MB instead of every dependency (scripts/pack.mts, bin/thursday).
   output: "standalone",
   // Files handed over from the write line travel as one server action: config.ts
-  // GIVEN_FILES (8 files of 25 MB) plus room for the multipart framing
-  experimental: { serverActions: { bodySizeLimit: "201mb" } },
+  // GIVEN_FILES (8 files of 25 MB) plus room for the multipart framing. proxy.ts sees every
+  // request first, and Next buffers no more of a body than `proxyClientMaxBodySize` (10 MB
+  // unless set) for it: past that the action got a cut-off form and failed, so a 15 MB file
+  // never arrived. Both limits move together.
+  experimental: {
+    serverActions: { bodySizeLimit: "201mb" },
+    proxyClientMaxBodySize: "201mb",
+  },
   // Finished work is the workspace folder `artifacts/`, and the viewer's URL is `/artifact/`
   // and a workspace path (queryKey.fileView): a link that put the workspace path at the site
   // root (`/artifacts/…`) opens the same file in the viewer rather than a 404

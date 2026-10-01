@@ -41,6 +41,20 @@ const NO_FILES: GivenFile[] = [];
 const noFiles = () => NO_FILES;
 const never = () => () => {};
 
+/**
+ * Whether a file is small enough to send, said in the server's own words when it is not
+ * (giveFilesAction). Checked before the upload: one past the limit went the whole way only
+ * to be refused, and a body past the proxy's limit came back as a minified React error.
+ */
+function fits(file: File): boolean {
+  if (file.size <= GIVEN_FILES.maxBytes) return true;
+  toast.add({
+    type: "error",
+    title: `${file.name} is larger than ${Math.round(GIVEN_FILES.maxBytes / 1024 / 1024)} MB.`,
+  });
+  return false;
+}
+
 export function useGivenFiles(options?: {
   /** The files just kept, by path. What it answers is drawn beside each one's size. */
   onKept?: (paths: string[]) => string | undefined;
@@ -70,13 +84,14 @@ export function useGivenFiles(options?: {
   /** Keeps what fits beside the files already here; resolves to the paths it kept. */
   const take = useCallback(
     async (list: File[]): Promise<string[]> => {
+      const fitting = list.filter(fits);
       const room = GIVEN_FILES.perMessage - files.length;
-      if (list.length > room)
+      if (fitting.length > room)
         toast.add({
           type: "error",
           title: `At most ${GIVEN_FILES.perMessage} files at a time.`,
         });
-      const taken = list.slice(0, Math.max(0, room));
+      const taken = fitting.slice(0, Math.max(0, room));
       if (!taken.length) return [];
       const batch: GivenFile[] = taken.map((file) => ({
         key: crypto.randomUUID(),
@@ -115,6 +130,7 @@ export function useGivenFiles(options?: {
    */
   const keepApart = useCallback(
     async (file: File): Promise<string | null> => {
+      if (!fits(file)) return null;
       const form = new FormData();
       form.append("file", file);
       try {
