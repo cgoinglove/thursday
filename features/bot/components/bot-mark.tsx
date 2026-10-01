@@ -600,6 +600,13 @@ type BotMarkProps = {
   notify?: boolean;
   /** Eyes crossed out: a stopped thread, or a call that failed. */
   crossed?: boolean;
+  /**
+   * Asleep: the eyes close, the body settles, and once they are shut the mark draws nothing
+   * more until it wakes. For a face shown only to say the bot is there (the pill at rest).
+   */
+  resting?: boolean;
+  /** Drawn once, eyes open, and never again: an icon that names bots rather than being one. */
+  still?: boolean;
   state?: MarkState;
   /**
    * Where the eyes rest, in the 240-unit box, on top of everything else that moves them: a bot
@@ -645,6 +652,8 @@ export const BotMark = memo(function BotMark({
   paint,
   notify,
   crossed,
+  resting = false,
+  still = false,
   state = "idle",
   gazeX = 0,
   gazeY = 0,
@@ -743,6 +752,8 @@ export const BotMark = memo(function BotMark({
     shapeSeed,
     look,
     crossed: eyesOut,
+    resting,
+    still,
     grow,
     gazeX,
     gazeY,
@@ -755,10 +766,14 @@ export const BotMark = memo(function BotMark({
     shapeSeed,
     look,
     crossed: eyesOut,
+    resting,
+    still,
     grow,
     gazeX,
     gazeY,
   };
+  /** Starts the loop again from outside it: a mark asleep has stopped asking for frames. */
+  const wake = useRef<() => void>(() => {});
 
   useEffect(() => {
     bindPointer();
@@ -802,6 +817,8 @@ export const BotMark = memo(function BotMark({
     let nextBeat = performance.now() + 1500 + Math.random() * 3000;
     /** The element this mark keeps a box for in `boxes`, while its eyes follow the pointer. */
     let followed: SVGSVGElement | null = null;
+    /** How far asleep, 0 to 1: the eyes shut and the body settles with it (`resting`). */
+    let shut = live.current.resting ? 1 : 0;
 
     // Out of the window it draws nothing and asks for no frames: a thread's turns each carry
     // a mark, and one long thread kept dozens ticking out of sight (hooks/use-on-screen)
@@ -817,12 +834,23 @@ export const BotMark = memo(function BotMark({
         return;
       }
       raf = requestAnimationFrame(tick);
-      const { cfg: c, state: st } = live.current;
+      const { cfg: c, state: st, resting: asleep } = live.current;
       const t = (now / 1000) * c.speed;
+      shut += ((asleep ? 1 : 0) - shut) * 0.18;
+      // Shut, it is drawn once more as it will stay, and asks for nothing until it wakes:
+      // the pill's faces at rest were the largest part of an idle screen's drawing
+      const sleeping = asleep && shut > 0.985;
+      if (sleeping) shut = 1;
+      if (sleeping || live.current.still) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
 
       // Read before anything below writes (boxOf).
       const svg =
-        c.follow && pointer.live && eyesRef.current ? svgRef.current : null;
+        c.follow && pointer.live && eyesRef.current && !asleep
+          ? svgRef.current
+          : null;
       if (followed && followed !== svg) boxes.delete(followed);
       followed = svg;
       const box = svg ? boxOf(svg, now) : null;
@@ -880,7 +908,7 @@ export const BotMark = memo(function BotMark({
       // Pick the next beat and read this frame's values from it.
       const beatScale = shape.dwell;
 
-      if (c.idle && !beat && now >= nextBeat) {
+      if (c.idle && !asleep && !beat && now >= nextBeat) {
         const key = pickBeat(st);
         const spec = BEATS[key];
         const dir = Math.floor(Math.random() * 8) * (Math.PI / 4);
@@ -895,6 +923,8 @@ export const BotMark = memo(function BotMark({
       }
 
       let act = STILL;
+      // Asleep, a glance in the middle of playing is let go: frozen half-way it read as a twitch
+      if (asleep) beat = null;
       if (beat) {
         const p = (now - beat.start) / beat.dur;
         if (p >= 1) {
@@ -911,7 +941,7 @@ export const BotMark = memo(function BotMark({
       }
 
       if (lifeRef.current) {
-        const amp = (c.breathe * shape.breathe) / 100;
+        const amp = ((c.breathe * shape.breathe) / 100) * (1 - shut);
         const swell = (lvl * c.pulse) / 300 - bob * 0.05;
         const tall = ((0.45 - bright) / 0.45) * lvl * (c.stretch / 100);
         // aspect preserves volume: one axis multiplies, the other divides, so a state
@@ -1017,6 +1047,7 @@ export const BotMark = memo(function BotMark({
         gy += (tgy - gy) * 0.12;
         // Two offset sines so the drift never lands on a beat.
         const drift =
+          (1 - shut) *
           c.float *
           shape.float *
           (0.62 * Math.sin(t * 1.15 + phase) +
@@ -1024,7 +1055,7 @@ export const BotMark = memo(function BotMark({
 
         let sy = 1;
         // Crossed-out eyes do not blink.
-        if (blinkStart === 0 && !live.current.crossed) {
+        if (blinkStart === 0 && !live.current.crossed && !asleep) {
           if (queuedBlink > 0 && now >= queuedBlink) {
             blinkStart = now;
             queuedBlink = 0;
@@ -1043,6 +1074,8 @@ export const BotMark = memo(function BotMark({
             sy = 1 - Math.sin(Math.PI * p) * 0.94;
           }
         }
+        // Asleep the eyes close as a blink does, and stay closed
+        sy = Math.min(sy, 1 - shut * 0.92);
         const eyesAt = `translate(${f(gx + act.eyeX + shape.gazeX + live.current.gazeX)} ${f(gy + drift + act.eyeY + shape.gazeY + live.current.gazeY)}) translate(${CENTER} ${c.eyeY}) scale(1 ${sy.toFixed(3)}) translate(${-CENTER} ${-c.eyeY})`;
         eyesRef.current.setAttribute("transform", eyesAt);
         inkEyesRef.current?.setAttribute("transform", eyesAt);
@@ -1071,6 +1104,9 @@ export const BotMark = memo(function BotMark({
     };
 
     raf = requestAnimationFrame(tick);
+    wake.current = () => {
+      if (onScreen && !covered && !raf) raf = requestAnimationFrame(tick);
+    };
     const unwatch = svgRef.current
       ? watchOnScreen(svgRef.current, (on) => {
           onScreen = on;
@@ -1090,6 +1126,11 @@ export const BotMark = memo(function BotMark({
       if (followed) boxes.delete(followed);
     };
   }, []);
+
+  // Waking is a change of prop, which the loop, stopped while asleep, would not see
+  useEffect(() => {
+    if (!resting) wake.current();
+  }, [resting]);
 
   const nAngle = (cfg.notifyAngle * Math.PI) / 180;
   const ink = spec ? `url(#${paintId})` : "var(--fg)";
@@ -1268,5 +1309,7 @@ export function BotsMark({
   size?: number;
   className?: string;
 }) {
-  return <BotMark size={size} seed="bots" className={className} />;
+  // Still: drawn every frame, the corner's and Settings' icon was a share of an idle screen's
+  // cost of its own (renderer 25% to 9% with it hidden; UX test, performance)
+  return <BotMark size={size} seed="bots" still className={className} />;
 }

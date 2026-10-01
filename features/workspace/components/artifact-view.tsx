@@ -11,6 +11,7 @@ import { markSeenAction } from "@/features/bot/bot.action";
 import { type Bot, isUnread } from "@/features/bot/bot.schema";
 import { shortenPaths } from "@/features/bot/components/attachments";
 import { BotMark } from "@/features/bot/components/bot-mark";
+import { useCrewAwake } from "@/features/bot/components/crew-motion";
 import {
   botThreads,
   fileOpens,
@@ -391,6 +392,8 @@ function FinishedRow({
   onClose: () => void;
 }) {
   const more = row.paths.length - ROW_FACES;
+  // Its bot is awake as the card lands and as the window comes back, then asleep (config CREW_REST)
+  const awake = useCrewAwake();
   return (
     <div className="flex shrink-0 animate-in items-center gap-2 rounded-2xl bg-background py-1.5 pr-1.5 pl-2.5 shadow-black/8 shadow-md ring-1 ring-border fade-in slide-in-from-bottom-1 duration-300">
       <button
@@ -406,6 +409,7 @@ function FinishedRow({
           outline={bot?.icon?.outline}
           paint={bot?.icon?.paint}
           notify={false}
+          resting={!awake}
           className="shrink-0"
         />
         <span className="min-w-0 flex-1 truncate text-[12.5px] leading-5">
@@ -462,6 +466,7 @@ export function FinishedCard({
   const across = facesAcross(row.paths.length);
   const shown = row.paths.slice(0, across);
   const more = row.paths.length - shown.length;
+  const awake = useCrewAwake();
 
   return (
     <div className="flex shrink-0 animate-in gap-2.5 rounded-[20px] bg-background py-2.5 pr-2 pl-2.5 shadow-black/10 shadow-lg ring-1 ring-border fade-in slide-in-from-bottom-2 duration-300">
@@ -473,6 +478,7 @@ export function FinishedCard({
         outline={bot?.icon?.outline}
         paint={bot?.icon?.paint}
         notify={false}
+        resting={!awake}
         className="shrink-0"
       />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">

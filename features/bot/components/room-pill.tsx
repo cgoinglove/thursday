@@ -437,10 +437,12 @@ function standingsOf(
 /**
  * Who is in the row, in the order it is drawn.
  *
- * Anyone moving sorts to the front, so the mark at the tail only ever hides
- * idle bots — a bot with something to say always has a face to say it from,
- * which is what lets a hand-off point at one. A bot at work inside somebody
- * else's job is in the room too, whether or not it owns a row of its own.
+ * With anyone working or waiting on the user, the row is those bots alone (the maintainer's
+ * pick, 10-01): what the pill says then is who is on it. With nobody, it is the whole crew,
+ * there to say a team is here. Who needs the user sorts first, then who is moving, so a bot
+ * with something to say always has a face to say it from, which is what lets a hand-off point
+ * at one. A bot at work inside somebody else's job is in the room too, whether or not it owns
+ * a row of its own.
  */
 export function crewOf(
   bots: Bot[] | undefined,
@@ -477,11 +479,12 @@ export function crewOf(
     });
   }
 
+  const on = [...named.values()].filter((face) => face.awake || face.waiting);
   // A fresh install has one worker and one silhouette says "one bot", which is
   // the wrong thing to say about a room. Stand-ins fill it out and are dimmed.
-  const roster = [...named.values()];
+  const roster = on.length ? on : [...named.values()];
   if (!roster.length) return { crew: GHOSTS.slice(0, FLOOR), more: 0 };
-  for (const ghost of GHOSTS) {
+  for (const ghost of on.length ? [] : GHOSTS) {
     if (roster.length >= FLOOR) break;
     if (!named.has(ghost.name)) roster.push(ghost);
   }
@@ -556,11 +559,14 @@ export function Chip({
   busy,
   pending,
   playing,
+  resting = false,
   onPick,
   onOpen,
 }: {
   crew: CrewFace[];
   more: number;
+  /** Nothing going on and nobody looking anew: faces with nothing to do sleep (useCrewAwake). */
+  resting?: boolean;
   /** The hand-off up, if any (useHandoff). */
   bubble: Handoff | null;
   /** Open questions and stops, newest first. */
@@ -637,6 +643,7 @@ export function Chip({
         label={count ? `Threads (${count})` : "Bots"}
         onClick={onOpen}
         playing={playing}
+        resting={resting}
         side={<RoomState busy={busy} pending={pending} grown={grown} />}
         onWrite={writeLine.choose}
         writing={lineUp}
@@ -659,6 +666,7 @@ export function CrewRow({
   more,
   bubble,
   playing,
+  resting = false,
   side,
   label,
   onClick,
@@ -668,6 +676,8 @@ export function CrewRow({
   crew: CrewFace[];
   more: number;
   bubble: Handoff | null;
+  /** Faces with nothing to do sleep (Chip). */
+  resting?: boolean;
   /** The gesture each face is in the middle of, by bot name (crew-motion). */
   playing: CrewPlaying;
   /** The right side: the room's state, or what just happened. */
@@ -731,7 +741,13 @@ export function CrewRow({
         data-focus-home="room"
         className="flex min-w-0 flex-1 items-center gap-2 rounded-full text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        <Crew crew={crew} more={more} bubble={bubble} playing={playing} />
+        <Crew
+          crew={crew}
+          more={more}
+          bubble={bubble}
+          playing={playing}
+          resting={resting}
+        />
         {side}
       </button>
     </div>
@@ -832,12 +848,15 @@ function Crew({
   more,
   bubble,
   playing,
+  resting,
 }: {
   crew: CrewFace[];
   more: number;
   /** The hand-off up, drawn over the face it points at. */
   bubble: Handoff | null;
   playing: CrewPlaying;
+  /** Faces with nothing to do sleep: eyes shut, nothing drawn (config CREW_REST). */
+  resting: boolean;
 }) {
   return (
     <span className="flex min-w-0 shrink items-center">
@@ -854,6 +873,13 @@ function Crew({
             <CrewBody
               face={face}
               motion={motionOf(playing.get(face.name), index)}
+              // A face mid-gesture, at work or waiting on the user is awake whatever the row
+              asleep={
+                resting &&
+                !face.awake &&
+                !face.waiting &&
+                !playing.has(face.name)
+              }
             />
           </span>
         );
@@ -917,7 +943,15 @@ function Crew({
  * once and a jump needs its height and its squash on different curves. `data-crew-motion`
  * is what a machine asked to hold still switches off (app/globals.css).
  */
-function CrewBody({ face, motion }: { face: CrewFace; motion: CrewMotion }) {
+function CrewBody({
+  face,
+  motion,
+  asleep,
+}: {
+  face: CrewFace;
+  motion: CrewMotion;
+  asleep: boolean;
+}) {
   const delay = motion.delayMs
     ? { animationDelay: `${motion.delayMs}ms` }
     : undefined;
@@ -930,7 +964,8 @@ function CrewBody({ face, motion }: { face: CrewFace; motion: CrewMotion }) {
     >
       <span
         data-crew-motion
-        className={cn("flex origin-bottom", motion.shape)}
+        // Asleep, not even the breath: a running animation is a frame drawn every frame
+        className={cn("flex origin-bottom", !asleep && motion.shape)}
         style={delay}
       >
         <span
@@ -938,7 +973,7 @@ function CrewBody({ face, motion }: { face: CrewFace; motion: CrewMotion }) {
           className={cn("flex", motion.turn)}
           style={delay}
         >
-          <CrewMark face={face} />
+          <CrewMark face={face} asleep={asleep} />
         </span>
       </span>
     </span>
@@ -946,9 +981,10 @@ function CrewBody({ face, motion }: { face: CrewFace; motion: CrewMotion }) {
 }
 
 /** One crew face. Who is moving reads from the lift its row gives it. */
-function CrewMark({ face }: { face: CrewFace }) {
+function CrewMark({ face, asleep }: { face: CrewFace; asleep: boolean }) {
   return (
     <BotMark
+      resting={asleep}
       size={28}
       seed={face.name}
       color={face.icon?.color}

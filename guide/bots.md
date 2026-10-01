@@ -126,6 +126,11 @@ has read a step-in, a sink when it stops. A bubble says it in a few words: *took
 *asks you · …*, *finished its part*, *stopped · …*, *picked it back up*. A face that is lifted is
 on a step right now.
 
+While bots are working or waiting on the user, the pill shows those bots alone. With nothing going
+on it shows every bot, awake for a few seconds when the screen opens or comes back to the front,
+then asleep: eyes shut and still, so an open window costs the computer almost nothing. The faces
+on finished jobs' cards in the bottom left do the same.
+
 ## Handing a bot work without a call
 
 The **@** at the left end of the pill, or the `@` key, opens the line at the foot of the screen

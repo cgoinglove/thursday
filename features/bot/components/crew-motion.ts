@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CREW_REST } from "@/config";
 
 /**
  * The crew's body language: what a face does when something happens to the bot behind it.
@@ -165,4 +166,29 @@ export function useCrewGestures(): [
   }, []);
 
   return [playing, play];
+}
+
+/**
+ * Whether the crew is awake for being looked at anew: true as the screen opens and each time its
+ * window comes back to the front, for CREW_REST.awakeMs, and false after (bot-mark `resting`).
+ */
+export function useCrewAwake(): boolean {
+  const [awake, setAwake] = useState(true);
+  useEffect(() => {
+    let timer = setTimeout(() => setAwake(false), CREW_REST.awakeMs);
+    const back = () => {
+      if (document.visibilityState !== "visible") return;
+      clearTimeout(timer);
+      setAwake(true);
+      timer = setTimeout(() => setAwake(false), CREW_REST.awakeMs);
+    };
+    window.addEventListener("focus", back);
+    document.addEventListener("visibilitychange", back);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("focus", back);
+      document.removeEventListener("visibilitychange", back);
+    };
+  }, []);
+  return awake;
 }

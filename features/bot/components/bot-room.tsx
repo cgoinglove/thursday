@@ -15,6 +15,7 @@ import {
 } from "@/features/bot/bot.schema";
 import {
   type BotGesture,
+  useCrewAwake,
   useCrewGestures,
 } from "@/features/bot/components/crew-motion";
 import { ThreadReply } from "@/features/bot/components/thread-reply";
@@ -234,6 +235,8 @@ export const BotRoom = memo(function BotRoom() {
   );
   const { crew, more } = useMemo(() => crewOf(bots, threads), [bots, threads]);
   const [playing, play] = useCrewGestures();
+  // Awake as the screen opens and as its window comes back, then asleep (config CREW_REST)
+  const awake = useCrewAwake();
 
   // The crew arriving is the one thing the whole row answers, and it answers once:
   // before the bots are read the row is stand-ins, and a wave on those would be a
@@ -515,6 +518,7 @@ export const BotRoom = memo(function BotRoom() {
           more={more}
           bubble={bubble}
           playing={playing}
+          resting={!awake}
           // What waits on the user and nothing else: a finished job's result is the left
           // corner's card (artifact-view), and one notice is enough
           rows={waiting}
