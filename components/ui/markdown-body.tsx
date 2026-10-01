@@ -11,10 +11,53 @@ import {
   memo,
   type ReactElement,
 } from "react";
-import { Streamdown } from "streamdown";
+import { defaultRemarkPlugins, Streamdown } from "streamdown";
+import { queryKey } from "@/app/api/query-key";
 import { useIsDark } from "@/hooks/use-theme";
 
+type MdNode = { type: string; url?: string; children?: MdNode[] };
+
+/**
+ * Where a link written as a bare workspace path goes: a bot names what it made the way the
+ * room's chips read it (file-kind `pathsIn`), `[the deck](artifacts/Tutor/deck.html)`.
+ * Streamdown's link guard (rehype-harden) parses a relative link only when it starts with
+ * `/`, `./` or `../`, so every one of these was drawn as "[blocked]". It goes to the file
+ * viewer instead. Null for anything else: a scheme, a path the guard already reads, a first
+ * segment that is a host (`www.apple.com/x`), a climb out with `..`, or a single word.
+ */
+function viewerHref(url: string): string | null {
+  if (/^[a-z][a-z\d+.-]*:/i.test(url) || /^[/.#?]/.test(url)) return null;
+  let path = url;
+  try {
+    path = decodeURIComponent(url);
+  } catch {}
+  const parts = path.split("/");
+  if (parts.length < 2 || parts.includes("..") || parts[0].includes("."))
+    return null;
+  return queryKey.fileView(path);
+}
+
+/** Points a link or link definition written as a workspace path at the viewer (viewerHref). */
+function workspaceLinks() {
+  const visit = (node: MdNode) => {
+    if ((node.type === "link" || node.type === "definition") && node.url) {
+      const href = viewerHref(node.url);
+      if (href) node.url = href;
+    }
+    node.children?.forEach(visit);
+  };
+  return (tree: MdNode) => visit(tree);
+}
+
 const defaultProps: ComponentProps<typeof Streamdown> = {
+  remarkPlugins: [...Object.values(defaultRemarkPlugins), workspaceLinks],
+  // Streamdown asks before every link that it is "about to visit an external website"; a
+  // path on this app (a bot's file in the viewer, `/api/file/…`) is not one, and opens in a
+  // tab straight away, as the viewer's ↗ does. Anything else still asks.
+  linkSafety: {
+    enabled: true,
+    onLinkCheck: (url) => url.startsWith("/") && !url.startsWith("//"),
+  },
   plugins: {
     code: code,
     mermaid: mermaid,
