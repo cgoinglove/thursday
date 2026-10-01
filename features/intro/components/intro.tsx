@@ -468,8 +468,11 @@ export function Intro({
           "relative flex h-full flex-col items-center justify-center gap-5 pt-[7vh]",
           // The office under it takes the pointer, save where this column has a part
           officeUp && "pointer-events-none",
+          // Stacked, the column scrolls, and a wheel over it is the column's: given to the
+          // office under it, steps 3 and 4 at 720x790 left Continue 95 px below the window
+          // with no way to scroll to it but Tab
           stacked &&
-            "max-[900px]:justify-start max-[900px]:overflow-y-auto max-[900px]:pb-20",
+            "max-[900px]:pointer-events-auto max-[900px]:justify-start max-[900px]:overflow-y-auto max-[900px]:pb-20",
         )}
       >
         {/* The call screen's face box and `--face-bleed`: the canvas draws past the box, and
