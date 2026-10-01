@@ -83,9 +83,9 @@ export const queryKey = {
    * can still move carries them, and every page loaded is re-read on the same
    * signal.
    */
-  threadHistory: (before: string | null) => ({
+  threadHistory: (before: string | null, q?: string) => ({
     url: "/api/bot/thread",
-    query: { history: 1, before },
+    query: { history: 1, before, q: q || undefined },
   }),
   /**
    * Thread | null: one job with all of its lines. What the room reads for the

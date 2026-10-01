@@ -5534,3 +5534,42 @@ test("a browser list that failed is not an empty one: nothing is closed, and the
     await rm(join(home, "browsers.json"), { force: true });
   }
 });
+
+test("the thread history finds words across every thread on the server: label, ending or bot, any case, and a % is only a %", async () => {
+  const { insertThread, deleteThread, listThreadHistory } = await import(
+    "../features/bot/thread.query.ts"
+  );
+  const { threadTable } = await import("../database/tables.ts");
+  const made: string[] = [];
+  try {
+    for (const [label, outcome] of [
+      ["Lisbon weather lookup", "Sunny, 21°C."],
+      ["Budget sheet", "Spent 40% on GROCERIES this month."],
+      ["Packing list", null],
+    ] as const) {
+      const thread = await insertThread({
+        bot: "Alpha",
+        label,
+        request: "History search fixture",
+        opening: "History search fixture",
+      });
+      made.push(thread.id);
+      await database
+        .update(threadTable)
+        .set({ status: "done", outcome })
+        .where(eq(threadTable.id, thread.id));
+    }
+    const found = async (search: string) =>
+      (await listThreadHistory({ search, limit: 500 }))
+        .filter((thread) => made.includes(thread.id))
+        .map((thread) => thread.label);
+    assert.deepEqual(await found("LISBON"), ["Lisbon weather lookup"]);
+    assert.deepEqual(await found("groceries"), ["Budget sheet"]);
+    assert.deepEqual(await found("40%"), ["Budget sheet"]);
+    assert.deepEqual(await found("%"), ["Budget sheet"]);
+    assert.deepEqual(await found("no such words"), []);
+    assert.equal((await found("alpha")).length, 3);
+  } finally {
+    for (const id of made) await deleteThread(id);
+  }
+});

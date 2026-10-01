@@ -342,13 +342,26 @@ export async function listThreadOverview(): Promise<Thread[]> {
 
 /** All threads, newest first, one page at a time. `before` is a cursor (last page's updatedAt), not an offset, because rows move in between. */
 export async function listThreadHistory(
-  options: { before?: Date | null; limit?: number } = {},
+  options: {
+    before?: Date | null;
+    limit?: number;
+    search?: string | null;
+  } = {},
 ): Promise<Thread[]> {
+  // Matched here across every thread, not in the rows a page has loaded: narrowed on the
+  // page, a word that matched nothing fetched page after page, 169 of them at 10,000 threads
+  const words = options.search?.trim().toLowerCase();
+  const like = words ? `%${words.replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null;
   const rows = await database
     .select(threadView)
     .from(threadTable)
     .where(
-      options.before ? lt(threadTable.updatedAt, options.before) : undefined,
+      and(
+        options.before ? lt(threadTable.updatedAt, options.before) : undefined,
+        like
+          ? sql`(lower(${threadTable.label}) like ${like} escape '\\' or lower(coalesce(${threadTable.outcome}, '')) like ${like} escape '\\' or lower(${threadTable.bot}) like ${like} escape '\\')`
+          : undefined,
+      ),
     )
     .orderBy(desc(threadTable.updatedAt))
     .limit(options.limit ?? PAGE_SIZE);

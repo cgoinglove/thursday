@@ -406,6 +406,12 @@ export const PATHS = {
 export const PAGE_SIZE = 50;
 
 /**
+ * How long a list's search box waits after the last key before it asks the server
+ * (Settings › Threads). Shorter asks once a letter; longer feels like the box is not listening.
+ */
+export const SEARCH_WAIT_MS = 250;
+
+/**
  * Ended jobs, done or stopped, the inbox carries beside everything still running
  * or waiting, read or not, so the room sees each one end (a stop is read by
  * whoever made it); older ones are under History only. The room in the call

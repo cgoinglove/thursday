@@ -8,7 +8,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +27,7 @@ import {
 import { notify } from "@/components/ui/notify";
 import { ShinyText } from "@/components/ui/shiny-text";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PAGE_SIZE } from "@/config";
+import { PAGE_SIZE, SEARCH_WAIT_MS } from "@/config";
 import {
   cancelThreadAction,
   clearFinishedThreadsAction,
@@ -82,6 +82,13 @@ export function ThreadSetting() {
   /** The thread on the sheet; null leaves the list alone. */
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
+  // What the list asks the server for, once typing pauses (config SEARCH_WAIT_MS)
+  const needle = filter.trim();
+  const [search, setSearch] = useState("");
+  useEffect(() => {
+    const wait = setTimeout(() => setSearch(needle), SEARCH_WAIT_MS);
+    return () => clearTimeout(wait);
+  }, [needle]);
   const { data: bots } = useServerRoute<Bot[]>(queryKey.bot);
 
   const {
@@ -93,11 +100,13 @@ export function ThreadSetting() {
     sentinelRef,
   } = useServerPages<Thread>({
     // Page 0 has no cursor; each next page reads below the previous page's last row.
+    // The words are matched on the server, across every thread (thread.query
+    // listThreadHistory), so a word nothing matches is one empty page, not the whole history
     key: (index, previous) => {
-      if (index === 0) return queryKey.threadHistory(null);
+      if (index === 0) return queryKey.threadHistory(null, search);
       const tail = previous?.at(-1);
       return tail
-        ? queryKey.threadHistory(toDate(tail.updatedAt).toISOString())
+        ? queryKey.threadHistory(toDate(tail.updatedAt).toISOString(), search)
         : null;
     },
     size: PAGE_SIZE,
@@ -134,16 +143,7 @@ export function ThreadSetting() {
     onOk: () => revalidate(queryKey.threads),
   });
 
-  // Narrows what has loaded; the sentinel keeps fetching, so scrolling widens the search
-  const needle = filter.trim().toLowerCase();
-  const shown = needle
-    ? threads.filter((thread) =>
-        [thread.label, thread.outcome, thread.bot]
-          .join(" ")
-          .toLowerCase()
-          .includes(needle),
-      )
-    : threads;
+  const shown = threads;
 
   const confirmClear = async () => {
     const confirmed = await notify.confirm({
@@ -219,13 +219,16 @@ export function ThreadSetting() {
               placeholder="Filter by label, bot or word"
             />
           }
-          right={needle ? `${shown.length} of ${threads.length}` : undefined}
+          // Matched on the server a page at a time: as many as have loaded, more below the list
+          right={
+            search ? `${threads.length}${hasMore ? "+" : ""} found` : undefined
+          }
         >
           <SettingItems>
             {shown.length === 0 ? (
               <p className="p-4 text-sm leading-relaxed text-muted-foreground">
-                {needle
-                  ? "Nothing here matches. Keep scrolling to search further back."
+                {search
+                  ? "No job matches that."
                   : "Nothing yet. When Thursday hands a job to a bot mid-call, it shows up here — while it runs, and after."}
               </p>
             ) : (

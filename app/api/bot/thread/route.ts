@@ -8,7 +8,8 @@ import { serverRoute } from "@/lib/protocol/server-route";
 
 /**
  * Read only; start, answer and cancel go through bot.action. No params: the
- * inbox. `?history=1`: everything, with `&before=<ISO>` for the next page.
+ * inbox. `?history=1`: everything, with `&before=<ISO>` for the next page and
+ * `&q=<words>` for the threads whose label, ending or bot holds them.
  * `?id=<thread>`: that one thread, or null.
  */
 export const GET = serverRoute((request) => {
@@ -22,5 +23,6 @@ export const GET = serverRoute((request) => {
   return listThreadHistory({
     before: cursor && !Number.isNaN(cursor.getTime()) ? cursor : null,
     limit: PAGE_SIZE,
+    search: query.get("q")?.slice(0, 200),
   });
 });
