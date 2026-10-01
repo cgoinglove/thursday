@@ -25,7 +25,10 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   ]);
 
   return (
-    <div className="h-full min-h-0 flex-1">
+    // The page's one landmark and heading, drawn as nothing: without them a screen reader
+    // had no way to tell where the screen begins or what it is (UX test, accessibility)
+    <main className="h-full min-h-0 flex-1">
+      <h1 className="sr-only">Thursday</h1>
       <Thursday ready={ready} />
       {/* Decided on the server: toggling after hydration flashes the first frame. */}
       <Intro
@@ -36,6 +39,6 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       <ReachAsk />
       <Boot />
       <AppEventSource />
-    </div>
+    </main>
   );
 }
