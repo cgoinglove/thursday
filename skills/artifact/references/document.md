@@ -56,7 +56,8 @@ A page that fits none starts from nothing: a `# ` title, then the page.
   caption. It sits beside the document's file, saved there from the page it came from.
 - **HTML inside the Markdown passes through** for what Markdown lacks: a chip
   (`<span class="chip who">Sam</span>`, `.date`, `.status.good`), a `<details>` to fold, tabs
-  (`<div class="tabs"><section data-tab="Name">…</section></div>`).
+  (`<div class="tabs"><section data-tab="Name">…</section></div>`). Its colours stay the page's:
+  the page is read light and dark, and a text colour of your own is lost in one of them.
 - **A comment** (`<!-- … -->`) is dropped: the outlines' guidance never reaches the page.
 
 ## Photos, numbers, diagrams
