@@ -33,7 +33,7 @@ import {
 } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { documentBody } from "../runtime/document/markdown.mjs";
+import { documentBody, documentLang } from "../runtime/document/markdown.mjs";
 import {
   editedSince,
   getBetween,
@@ -155,7 +155,9 @@ function putBody(name, from) {
   if (fresh) makePage(name);
   const file = pageAt(name);
   const written = readFileSync(from, "utf8");
-  const body = /\.(md|markdown)$/i.test(from) ? documentBody(written) : written;
+  const markdown = /\.(md|markdown)$/i.test(from);
+  const body = markdown ? documentBody(written) : written;
+  const lang = markdown ? documentLang(written) : null;
   const why = notInside(body);
   if (why) throw new Stop(`${from} ${why}: the document's body alone.`);
   const page = readFileSync(file, "utf8");
@@ -170,7 +172,11 @@ function putBody(name, from) {
   const marked = PRINTS.test(put)
     ? put
     : put.replace(/(<meta name="revision" content="[^"]*">)/, `$1\n${MARK}`);
-  const html = title ? retitle(marked, title) : marked;
+  const titled = title ? retitle(marked, title) : marked;
+  // The language it said it is written in, which the page's own head cannot know
+  const html = lang
+    ? titled.replace(/<html\b[^>]*>/i, `<html lang="${lang}">`)
+    : titled;
   keep(file, html);
   console.log(
     `The body is in ${shown(file)}. Hand back this path; to see it as it opens: node ${SCRIPT} shots ${name}`,

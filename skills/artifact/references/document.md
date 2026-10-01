@@ -31,13 +31,15 @@ A page that fits none starts from nothing: a `# ` title, then the page.
   the lede, read first and alone: the answer in a sentence or two.
 - **The line over and under the title** comes from front matter at the very top, all optional,
   in the language the document is written in — `kicker:` the word over the title, `date:`, `by:`
-  (several split by commas), `status:` with `tone:` good, warn or bad:
+  (several split by commas), `status:` with `tone:` good, warn or bad — and `lang:`, that
+  language as a tag (`en`, `pt-BR`), which a screen reader reads the page in:
 
   ```
   ---
   kicker: Report
   date: As of 24 September 2026
   by: Analyst
+  lang: en
   ---
   # Rent rose faster than pay
   ```

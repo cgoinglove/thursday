@@ -437,6 +437,42 @@ test("a document written in Markdown is put in the document's own markup, and ma
   assert.ok(!/<button[^>]*data-edit/.test(html), "no Edit to press first");
 });
 
+test("a document says the language it is written in, and nothing that is not a language tag", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const { documentLang } = await import(
+    "../skills/artifact/runtime/document/markdown.mjs"
+  );
+  assert.equal(documentLang("---\nlang: en\n---\n# Title\n"), "en");
+  assert.equal(documentLang("lang: pt-BR\n# Title\n"), "pt-BR");
+  assert.equal(documentLang("# Title\n"), null);
+  assert.equal(documentLang('---\nlang: en" onload="x\n---\n# T\n'), null);
+  const dir = await mkdtemp(join(tmpdir(), "thursday-document-"));
+  after(() => rm(dir, { recursive: true, force: true }));
+  const script = join(
+    import.meta.dirname,
+    "..",
+    "skills",
+    "artifact",
+    "scripts",
+    "document.mjs",
+  );
+  const put = async (name: string, text: string) => {
+    const md = join(dir, `${name}.md`);
+    await writeFile(md, text);
+    execFileSync(process.execPath, [script, "put", name, md], {
+      cwd: dir,
+      env: { ...process.env, THURSDAY_ARTIFACTS: "" },
+    });
+    return readFile(join(dir, "artifacts", `${name}.html`), "utf8");
+  };
+  const said = await put("said", "---\nlang: en\nkicker: Report\n---\n# A\n");
+  assert.ok(said.includes('<html lang="en">'));
+  // Not a line of the page: the key is front matter like the others
+  assert.ok(!said.includes("lang: en"));
+  const unsaid = await put("unsaid", "# B\n");
+  assert.ok(/<html>/.test(unsaid));
+});
+
 test("front matter written without its fences is still the line over and under the title", async () => {
   const { documentBody } = await import(
     "../skills/artifact/runtime/document/markdown.mjs"

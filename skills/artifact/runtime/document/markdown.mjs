@@ -7,6 +7,7 @@
 //   date: As of 24 September
 //   by: Analyst                 several split by commas
 //   status: On track            with tone: good, warn or bad
+//   lang: en                    the language it is written in, as a tag: the page's own
 //   ---
 //   # The finding as a title    the first paragraph under it is the lede
 //   ```stats                    one card a line: the number, then what it is
@@ -207,7 +208,7 @@ function footnotes(text) {
 }
 
 /** The keys the line over and under the title is made of. */
-const KEY_LINE = /^(kicker|date|by|status|tone)\s*:\s*\S/i;
+const KEY_LINE = /^(kicker|date|by|status|tone|lang)\s*:\s*\S/i;
 
 /**
  * `key: value` lines at the very top, and the text after them: between `---` fences, or the
@@ -233,6 +234,18 @@ function frontMatter(text) {
   return bare
     ? { meta, rest: lines.slice(bare).join("\n") }
     : { meta, rest: text };
+}
+
+/**
+ * The language a Markdown text says it is written in (`lang:` in its front matter), as a tag a
+ * page's `<html lang>` takes; null when it says none, or something that is not a tag. Without
+ * one a screen reader reads the page in whatever language it guesses, and the reading time
+ * under the title (quick.js) comes out in the browser's (WCAG 3.1.1).
+ */
+export function documentLang(text) {
+  const { meta } = frontMatter(text.replace(/<!--[\s\S]*?-->/g, ""));
+  const lang = meta.lang?.trim();
+  return lang && /^[a-z]{2,3}(-[a-z0-9]{2,8})*$/i.test(lang) ? lang : null;
 }
 
 /** The document's body, as the page's put writes it, from a Markdown text. */
