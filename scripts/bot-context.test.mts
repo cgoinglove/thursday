@@ -520,6 +520,121 @@ test("thread overview keeps old open work and the inbox retains unread endings",
   }
 });
 
+test("a bot's own memory puts back a write past its limits and says which", async () => {
+  const { botMemoryFolder, holdBotMemory, keepBotMemory } = await import(
+    "../features/bot/bot.memory.ts"
+  );
+  const { BOT_MEMORY_LIMITS } = await import("../config.ts");
+  const folder = join(WORKSPACE, botMemoryFolder("Gamma"));
+  await rm(folder, { recursive: true, force: true });
+  await mkdir(folder, { recursive: true });
+  try {
+    await writeFile(join(folder, "kept.md"), "Kept: a short lesson\n");
+    let held = await holdBotMemory("Gamma");
+    // One file past the characters a file holds: back as it was, and said
+    await writeFile(
+      join(folder, "kept.md"),
+      "x".repeat(BOT_MEMORY_LIMITS.chars + 1),
+    );
+    let said = await keepBotMemory("Gamma", held);
+    assert.equal(
+      await readFile(join(folder, "kept.md"), "utf8"),
+      "Kept: a short lesson\n",
+    );
+    assert.match(said ?? "", /kept\.md.*back as it was/);
+    // New files past the count: the new ones go, and the bot is told to merge
+    held = await holdBotMemory("Gamma");
+    for (let index = 0; index < BOT_MEMORY_LIMITS.files; index++)
+      await writeFile(join(folder, `new-${index}.md`), `Lesson ${index}\n`);
+    said = await keepBotMemory("Gamma", held);
+    const { readdir } = await import("node:fs/promises");
+    assert.deepEqual(await readdir(folder), ["kept.md"]);
+    assert.match(said ?? "", /holds \d+ files at most/);
+    // Within both limits nothing is said
+    held = await holdBotMemory("Gamma");
+    await writeFile(join(folder, "second.md"), "Second lesson\n");
+    assert.equal(await keepBotMemory("Gamma", held), null);
+  } finally {
+    await rm(folder, { recursive: true, force: true });
+  }
+});
+
+test("a bot that worked a job looks back once it is done, on the conversation it already has", async () => {
+  const { REFLECT_NOTE } = await import("../features/ai/prompts/bot.prompt.ts");
+  const { botMemoryFolder } = await import("../features/bot/bot.memory.ts");
+  const { BOT_REFLECT } = await import("../config.ts");
+  const kept = join(WORKSPACE, botMemoryFolder("Alpha"), "site-search.md");
+  const before = inputs.get("Alpha")?.length ?? 0;
+  plans.set("Alpha", [
+    ...Array.from(
+      { length: BOT_REFLECT.minTools },
+      (_, step) => () =>
+        call(T.bash, { command: "true", description: `Step ${step}` }),
+    ),
+    () => text("The answer."),
+    (prompt) => {
+      // The look back is the last thing it reads, after its own answer
+      const sent = JSON.parse(prompt) as { role: string; content: unknown }[];
+      assert.equal(sent.at(-1)?.role, "user");
+      assert.ok(JSON.stringify(sent.at(-1)).includes("Look back over it"));
+      assert.ok(prompt.includes("The answer."));
+      return call(T.bash, {
+        command: `mkdir -p "${join(kept, "..")}" && printf 'Site search: the box is under Help (2026-10-01)\\n' > "${kept}"`,
+        description: "Keep what the job taught",
+      });
+    },
+    () => text("Kept one note."),
+  ]);
+  const id = await startThread({
+    bot: "Alpha",
+    request: "Find it on the site",
+    label: "Look back",
+    from: "user",
+  });
+  await waitFor(id, "done");
+  const rows = (await rowsOf(id)).length;
+  const tokens = (await findThread(id))?.inputTokens ?? 0;
+  await waitUntil(
+    async () =>
+      (inputs.get("Alpha")?.length ?? 0) === before + BOT_REFLECT.minTools + 3,
+    "Alpha never looked back",
+  );
+  await waitUntil(
+    async () => ((await findThread(id))?.inputTokens ?? 0) >= tokens + 200,
+    "the look back's tokens never reached the job",
+  );
+  assert.equal(
+    await readFile(kept, "utf8"),
+    "Site search: the box is under Help (2026-10-01)\n",
+  );
+  // Nothing of it is written to the thread, whose answer stands
+  assert.equal((await rowsOf(id)).length, rows);
+  assert.equal((await findThread(id))?.outcome, "The answer.");
+  // The same instructions and cache key as the job's last step, so the provider reads it back
+  const sent = (inputs.get("Alpha") ?? []).slice(-3);
+  const system = (one: string) =>
+    JSON.stringify((JSON.parse(one) as { role: string }[])[0]);
+  assert.equal(system(sent[1]), system(sent[0]));
+  const keys = (cacheKeys.get("Alpha") ?? []).slice(-3);
+  assert.equal(keys[1], keys[0]);
+  assert.ok(REFLECT_NOTE.length > 0);
+
+  // A job of fewer tool calls taught little: no look back, so no step is scripted for one
+  plans.set("Alpha", [
+    () => call(T.bash, { command: "true", description: "One step" }),
+    () => text("Short answer."),
+  ]);
+  const short = await startThread({
+    bot: "Alpha",
+    request: "Something quick",
+    label: "Quick",
+    from: "user",
+  });
+  await waitFor(short, "done");
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(plans.get("Alpha")?.length, 0);
+});
+
 test("natural turns send asynchronously and retain participant histories", async () => {
   plans.set("Alpha", [
     () =>

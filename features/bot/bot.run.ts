@@ -129,6 +129,8 @@ type RunOptions = {
    */
   compactNow?: () => boolean;
   notes?: () => Promise<string[]>;
+  /** Steps this run may take; BOT_RUN.steps when unset. */
+  steps?: number;
   send: (input: {
     id: string;
     to: string;
@@ -309,7 +311,7 @@ export async function runBot(
     tools: agentTools,
     reasoning,
     providerOptions: cache,
-    stopWhen: [stepCountIs(MAX_STEPS), () => asked],
+    stopWhen: [stepCountIs(options.steps ?? MAX_STEPS), () => asked],
     prepareStep: async ({ stepNumber, steps, messages }) => {
       await writtenStep;
       options.signal?.throwIfAborted();

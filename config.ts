@@ -665,8 +665,28 @@ export const COMMON_VALIDATE = {
  * - `files`  files the folder keeps, every one of them listed.
  * - `chars`  characters in one file, not counting whitespace at either end. Characters rather
  *            than tokens because a bot can count them itself (`wc -m`).
+ * Many small files rather than a few long ones (the maintainer's pick, 10-01): one thing
+ * learned to a file, so a job opens only the one it needs. At 60 lines of about 100
+ * characters the listing is some 1,500 tokens on each step, read back from the cache.
  */
-export const BOT_MEMORY_LIMITS = { files: 20, chars: 10_000 };
+export const BOT_MEMORY_LIMITS = { files: 60, chars: 3_000 };
+
+/**
+ * When a job is done, each bot that worked in it looks back once and keeps what it learned
+ * about working (bot.runner reflect): Hermes Agent writes a skill after a task of five or more
+ * tool calls, OpenClaw has its agent save before compaction. Here no job of 40 overnight
+ * compacted, and a bot kept something on its own in one of them, so the look back is at
+ * the end. It is one more turn on a conversation the provider has cached, its tokens added
+ * to the job's; the user turns it off with the bots' memory (Settings › Bots). Checked on two
+ * comparison pages (10-01): after the one that went smoothly it kept nothing, after the one
+ * where a site would show prices only in the local currency both bots kept the way round it;
+ * the look backs came to 10% and 13.5% of the jobs' input, read 84-92% from the cache.
+ * - `minTools`  tool calls a bot made in the job before it looks back; a job of fewer taught
+ *               it little a later one would have to find out again. Lower looks back on more
+ *               jobs, each costing a turn.
+ * - `steps`  steps the look back may take: a file or two written, a skill changed.
+ */
+export const BOT_REFLECT = { minTools: 5, steps: 8 };
 
 /**
  * Connected tools one bot may be pinned to (Settings › Bots). A pinned tool is handed to the bot

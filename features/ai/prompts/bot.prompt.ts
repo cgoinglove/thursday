@@ -223,8 +223,11 @@ ${noteLines(listed)}`;
  * limits are said as a size only; a write past them is undone by the tools (bot.memory).
  */
 function ownMemory(folder: string, kept: BotMemory): string {
+  // By name, not newest first: a file written in a job moved every one below it, and the
+  // instructions of the job's next turn then read nothing from the provider's cache
   const listing = kept.entries.length
-    ? kept.entries
+    ? [...kept.entries]
+        .sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0))
         .map(({ file, line, at }) => {
           const said = line ? ` — ${clip(line, PROMPT_LINE.botMemory)}` : "";
           return `- ${file}${said} · ${format(toDate(at), "yyyy-MM-dd")}`;
@@ -238,7 +241,7 @@ function ownMemory(folder: string, kept: BotMemory): string {
 
   return `## Your memory
 
-What you learned on your own earlier jobs, in \`${folder}/\`: one topic per file, its first line saying what it holds, read by no other bot, up to ${BOT_MEMORY_LIMITS.files} files of ${BOT_MEMORY_LIMITS.chars.toLocaleString("en-US")} characters each. It is how you get better at this work. When a job teaches you something a later one would otherwise find out again — how a site signs in, the way through its screens, a command that turned out right — or the user asks you to remember how to work, keep it with the date it was true, and fix or delete what proved wrong. No passwords, keys or codes.
+What you learned on your own earlier jobs, in \`${folder}/\`: one thing learned to a file, its first line saying what it holds, so a job opens only the one it needs; read by no other bot, up to ${BOT_MEMORY_LIMITS.files} files of ${BOT_MEMORY_LIMITS.chars.toLocaleString("en-US")} characters each. It is how you get better at this work. When a job teaches you something a later one would otherwise find out again — how a site signs in, the way through its screens, a command that turned out right — or the user asks you to remember how to work, keep it with the date it was true, and fix or delete what proved wrong. It holds how to work, not what a job was about: that is in your answer. No passwords, keys or codes.
 
 ${listing}${rest}`;
 }
@@ -255,6 +258,14 @@ function ownSkillsNote(folder: string): string {
 
 A skill in \`${folder}/\` is listed to you alone, and read on every step you take, so keep few. Write one only when the job is a kind that comes again — a routine runs it, or your other threads show the same kind of job — and doing it well took a way of working, not a fact your memory can hold. Before writing one, improve the one of yours that covers the job instead. Write it as the skill-creator skill says; the job you just did is its test, so validate it and run no test prompts. Say in one line of your answer which skill you wrote or changed. Any skill outside that folder changes only when the user asks.`;
 }
+
+/**
+ * The turn a bot is given once a job it worked in is done (bot.runner reflect): one more
+ * user turn on the conversation it already has, so the provider reads all of it back from
+ * its cache. It points at the two sections above rather than saying again how a memory file
+ * or a skill is written.
+ */
+export const REFLECT_NOTE = `The job is done and your answer has gone back. Look back over it once before you go. If it taught you how to work — the way through a site, a command that turned out right, a wrong turn and what got past it — that a later job would otherwise find out again, keep it as Your memory says: change the file that already covers it rather than add one, and fix or delete what this job proved wrong. If this kind of job comes again and a way of working carried it, improve or write a skill of your own as Your own skills says. Do no more of the job and send nothing: what you write now reaches nobody. With nothing worth keeping, answer "Nothing to keep." and stop.`;
 
 /**
  * The bot's other threads (thread.query listBotWork), so a new thread does not start from

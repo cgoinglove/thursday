@@ -48,8 +48,11 @@ bots. A ready-made bot differs only in its role, and some carry a skill of their
   sent, such as a finished page mailed to them.
 - **Jarvis** takes whatever nobody else is for — the web, files, this computer.
 
-A bot keeps its own memory — what a job taught it, how the user asked it to work — listed on its
-page. **Bots keep their own memory**, on the same screen, turns that on or off for every bot.
+A bot keeps its own memory — what a job taught it about working, how the user asked it to work —
+one small note to a file, listed on its page. When a job is done, each bot that did real work in it
+looks back once and keeps what a later job would otherwise have to find out again, or improves a
+skill of its own; that look back adds a little to the job's tokens. **Bots keep their own memory**,
+on the same screen, turns that on or off for every bot, the look back with it.
 
 ## A job is a thread
 

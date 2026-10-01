@@ -2,6 +2,7 @@ import { setTimeout as wait } from "node:timers/promises";
 import type { ModelMessage } from "ai";
 import { appEvents, presence } from "@/app/api/events/app-event.server";
 import {
+  BOT_REFLECT,
   BOT_RUN,
   BROWSER_IDLE,
   FINISHED_NOTICE,
@@ -12,6 +13,7 @@ import type { TextModelProviderId } from "@/features/ai/model.schema";
 import {
   buildJoinOpening,
   buildThreadOpening,
+  REFLECT_NOTE,
 } from "@/features/ai/prompts/bot.prompt";
 import { isAnyCallLive } from "@/features/thursday/thursday.query";
 import { leadFirst, pathsIn } from "@/features/workspace/file-kind";
@@ -36,7 +38,7 @@ import { logger } from "@/lib/logger";
 import { isPublicError, publicError } from "@/lib/public-error";
 import { createKeyedLock } from "@/lib/queue";
 import { PromiseChain, plainText } from "@/lib/utils";
-import { findJobBot } from "./bot.query";
+import { findJobBot, readBotMemoryOn } from "./bot.query";
 import { resumeTranscript, runBot, type ThreadEvent } from "./bot.run";
 import {
   isAppStop,
@@ -84,8 +86,14 @@ type Pinned = {
   __roomRuns?: Map<string, Run>;
   __roomCompactAsked?: Set<string>;
   __roomThreadLock?: ReturnType<typeof createKeyedLock>;
+  __roomReflecting?: Map<string, AbortController>;
 };
 const running = ((globalThis as Pinned).__roomRuns ??= new Map<string, Run>());
+/** A done job's look back, by thread (reflect): stopped by anything that moves the job again. */
+const reflecting = ((globalThis as Pinned).__roomReflecting ??= new Map<
+  string,
+  AbortController
+>());
 const threadLock = ((globalThis as Pinned).__roomThreadLock ??=
   createKeyedLock());
 
@@ -195,6 +203,8 @@ async function pump(id: string) {
 }
 
 function launch(work: RoomWork) {
+  // A word that picks a done job back up comes before its look back
+  reflecting.get(work.threadId)?.abort();
   const stop = new AbortController();
   let finish!: () => void;
   const done = new Promise<void>((resolve) => {
@@ -279,8 +289,86 @@ async function drive(work: RoomWork, signal: AbortSignal) {
     }).catch((cause) =>
       logger.warn(`thread ${thread.id}: closing its browsers`, cause),
     );
+    void reflect(thread.id, thread.bot).catch((cause) =>
+      logger.warn(`thread ${thread.id}: looking back`, cause),
+    );
   }
 }
+
+/**
+ * Once a job is done, each bot that worked in it looks back and keeps what it learned about
+ * working, in its own memory or a skill of its own (config BOT_REFLECT). One more turn of
+ * the conversation it already has, with the same instructions and tools, so the provider
+ * reads it back from its cache; nothing of it is written to the thread, which already has
+ * its answer, and only its tokens are added to the job's. A bot that made few tool calls
+ * learned little a later job would find out again. Off with the bots' memory.
+ */
+async function reflect(threadId: string, owner: string) {
+  if (!(await readBotMemoryOn())) return;
+  reflecting.get(threadId)?.abort();
+  const stop = new AbortController();
+  reflecting.set(threadId, stop);
+  try {
+    // The latest desk of each bot: its caller decides the seat, and with it the tools
+    const desks = new Map<string, RoomWork>();
+    for (const row of await listRoomWork(threadId))
+      if (row.bot !== ROOM_THURSDAY) desks.set(row.bot, row);
+    for (const desk of desks.values()) {
+      if (stop.signal.aborted) return;
+      if ((await findThread(threadId))?.status !== "done") return;
+      const history = await listParticipantTranscript(threadId, desk.bot);
+      if (toolCallsIn(history) < BOT_REFLECT.minTools) continue;
+      await runBot(
+        {
+          bot: desk.bot,
+          messages: [
+            ...resumeTranscript(
+              history,
+              await listRoomReceipts(threadId, desk.bot, history),
+            ),
+            { role: "user", content: REFLECT_NOTE },
+          ],
+        },
+        {
+          signal: stop.signal,
+          threadId,
+          parent: desk.id,
+          caller: desk.bot === owner ? ROOM_THURSDAY : desk.caller,
+          owner,
+          contextBudget: await roomContextBudget(threadId, desk.bot),
+          session: botBrowserSession(threadId, desk.bot),
+          steps: BOT_REFLECT.steps,
+          send: async () =>
+            publicError("The job is done: nothing is sent from here."),
+          emit: async (event) => {
+            if (event.type === "step")
+              await addThreadUsage(threadId, event.usage);
+            // What it made of the job is said nowhere else: the thread has its answer
+            if (event.type === "turn-end")
+              logger.info(
+                `${desk.bot} looked back on ${threadId}: ${plainText(event.text).slice(0, 300)}`,
+              );
+            if (event.type === "error")
+              logger.warn(`${desk.bot} looking back: ${event.message}`);
+          },
+        },
+      );
+    }
+  } finally {
+    if (reflecting.get(threadId) === stop) reflecting.delete(threadId);
+  }
+}
+
+/** Tool calls a participant made in its transcript. */
+const toolCallsIn = (history: ModelMessage[]) =>
+  history.reduce(
+    (sum, row) =>
+      sum +
+      (row.role === "assistant" && Array.isArray(row.content)
+        ? row.content.filter((part) => part.type === "tool-call").length
+        : 0),
+    0,
+  );
 
 /**
  * One run of a participant's turn from its stored transcript: how it ended, or why it broke. Null
@@ -510,6 +598,7 @@ class TranscriptWriter {
 }
 
 async function stopRuns(id: string) {
+  reflecting.get(id)?.abort();
   const live = [...running.values()].filter((run) => run.threadId === id);
   for (const run of live) run.stop.abort();
   await Promise.all(live.map((run) => run.done));

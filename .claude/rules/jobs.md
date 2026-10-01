@@ -1,5 +1,5 @@
 ---
-checked: 2026-09-30
+checked: 2026-10-01
 paths:
   - "features/bot/{bot,room,thread}.{action,file,memory,query,run,runner,schema}.ts"
   - "features/routine/**"
@@ -17,7 +17,8 @@ instead — and everything it did stays as rows.
 
 ## Start here
 - `features/bot/bot.runner.ts` — start, answer, stop and remove a job; launches turns, retries a
-  break once, parks running jobs at boot and shutdown, clears old ones.
+  break once, has each bot look back once a job is done (`reflect`), parks running jobs at boot
+  and shutdown, clears old ones.
 - `features/bot/room.query.ts` — the room's rows: exchanges, inboxes, questions, relays, and
   when a thread is done or waiting.
 - `features/bot/bot.run.ts` — one participant's turn: prompt, tools, stream, compaction, resume.
