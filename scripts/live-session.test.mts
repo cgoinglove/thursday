@@ -1657,6 +1657,12 @@ test("both call prompts open as one Thursday: the voice gets the guide's delegat
     assert.equal(/What bots can reach for|- Web:/.test(on.text), false);
     // Stopping her voice is hers, stopping a job the backend's
     assert.match(on.text, /or only want you to stop talking/);
+    // A name is one of the things about themselves that goes over: answered with "Hey Sam!"
+    // and never handed over, it was gone by the next call
+    assert.match(
+      on.text,
+      /something about themselves, [^\n]*their name or what to call them/,
+    );
     assert.match(on.text, /- people\/sam — Their brother, Sam \(2\)/);
     assert.match(on.text, /What is in these notes, the backend recalls\./);
     // Profile and preferences are whole on both sides: the oldest line is the one
