@@ -75,13 +75,16 @@ export type MemoryNote = z.infer<typeof MemoryNoteSchema>;
  * preferences line says a rule belongs there: a rule filed under a topic is
  * one the voice never reads.
  */
+/** How they want things done: written out whole for her on every call, and for every bot. */
+export const PREFERENCES_NOTE = "preferences";
+
 export const MEMORY_PATHS = [
   {
     path: "profile",
     of: "The user themselves — name, age, what they do, where they live, whatever else says who they are",
   },
   {
-    path: "preferences",
+    path: PREFERENCES_NOTE,
     of: "How they want things done, and said — read whole on every call, so a rule for a particular situation goes here too",
   },
   { path: "people/", of: "Someone in their life, and what matters about them" },

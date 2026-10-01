@@ -5290,6 +5290,54 @@ test("a bot that opens a note sends the same instructions on its next run in the
   }
 });
 
+test("a bot reads how the user wants things done in its instructions, not by opening the note", async () => {
+  const { createNoteWithFacts, deleteAllNotes, readNotes } = await import(
+    "../features/memory/memory.query.ts"
+  );
+  const { createMemoryTools } = await import(
+    "../features/ai/tools/memory.tool.ts"
+  );
+  const fact = (text: string) => [{ text }];
+  // The root notes may be there already (memory.query ensureRootNotes): a fact goes into it
+  const [kept] = (await readNotes(["preferences"], { touch: false })).notes;
+  if (kept)
+    await createMemoryTools("user", null)[T.memory_remember].execute!(
+      { path: "preferences", facts: fact("Metric units, always") },
+      { toolCallId: "prefs", messages: [], context: {} },
+    );
+  else
+    await createNoteWithFacts(
+      "preferences",
+      "How they want things done",
+      fact("Metric units, always"),
+      "user",
+    );
+  await createNoteWithFacts("topics/apples", "Apples", fact("Red"), "user");
+  let system = "";
+  try {
+    plans.set("Alpha", [
+      (prompt) => {
+        system = JSON.stringify(JSON.parse(prompt)[0]);
+        return text("Done in metres.");
+      },
+    ]);
+    const id = await startThread({
+      bot: "Alpha",
+      request: "Preferences fixture",
+      label: "Preferences",
+      from: "user",
+    });
+    await waitFor(id, "done");
+    assert.match(system, /preferences:(\\n- [^\\]*)*\\n- Metric units, always/);
+    // Written out, so not listed again; another note is still only its line
+    assert.doesNotMatch(system, /- preferences — /);
+    assert.match(system, /- topics\/apples — Apples \(1\)/);
+    assert.doesNotMatch(system, /Red/);
+  } finally {
+    await deleteAllNotes();
+  }
+});
+
 test("a note about a file reaches the thread that reported it, even after that thread was taken up again", async () => {
   const { readFileThread, tellFileThread } = await import(
     "../features/bot/thread.file.ts"

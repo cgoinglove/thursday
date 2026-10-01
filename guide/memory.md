@@ -3,7 +3,8 @@
 Memory is notes, and a note is lines of plain text — facts. `profile` is who they are,
 `preferences` is how they want things done and said, including what to do in a particular
 situation, and the rest are one note per person, project or topic. Profile and preferences are read
-on every call; every other note is opened when its subject comes up.
+on every call, and preferences on every bot's job as well; every other note is opened when its
+subject comes up.
 
 She writes memory herself as things come up in a call: what they loved or could not stand, what
 they are going through, the people in their life, facts and tastes. Bots read it and never write

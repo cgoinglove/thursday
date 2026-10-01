@@ -30,10 +30,12 @@ import { isCoordinatorSeat } from "@/features/bot/room.schema";
 import { listBotWork } from "@/features/bot/thread.query";
 import { findPinnedTools } from "@/features/connectors/mcp.query";
 import type { McpToolRef } from "@/features/connectors/mcp.schema";
-import { listNoteIndex } from "@/features/memory/memory.query";
+import { listNoteIndex, readNotes } from "@/features/memory/memory.query";
 import {
   isAlwaysListed,
   type MemoryIndexEntry,
+  type MemoryNoteView,
+  PREFERENCES_NOTE,
 } from "@/features/memory/memory.schema";
 import {
   loadSkills,
@@ -85,6 +87,9 @@ export async function loadBotPrompt(
     memoryOn,
     machine,
     work,
+    {
+      notes: [preferences],
+    },
   ] = await Promise.all([
     // Its own skills beside everyone's (skills.discover ownSkills)
     loadSkills(sandbox, name),
@@ -101,6 +106,8 @@ export async function loadBotPrompt(
     readMachineTools(sandbox),
     // Its desks in every other thread, as they stand this turn (thread.query)
     listBotWork(name, seat?.thread ?? null),
+    // Written out, which is not the user asking for it: no read counted
+    readNotes([PREFERENCES_NOTE], { touch: false }),
   ]);
 
   const peers = allBots.filter((bot) => bot.name !== name);
@@ -110,7 +117,7 @@ export async function loadBotPrompt(
 
   const text = [
     identity(name, me, seat),
-    memory(index),
+    memory(index, preferences ?? null),
     connectedTools(mcpTools, pinned),
     methods(skills),
     environment(sandbox.cwd, machine, folders),
@@ -192,11 +199,16 @@ ${role}`;
 };
 
 /**
- * Thursday's memory, which a bot only reads (load-tools). The listing alone: the
- * lines she carries into every call are written for her — what to call them, how
- * long an answer runs — and are hers to act on, not a bot's.
+ * Thursday's memory, which a bot only reads (load-tools): how they want things done written
+ * out whole, every other note as its listing. Opened by hand, preferences were the first step
+ * of most jobs (80% of 44 on 6.1 Sol, 29% of 17 on 6 Luna; UX test), and a bot is the user's
+ * own and works better knowing them (the maintainer, 10-01). Some of it is about how she talks
+ * to them, which is hers, and the line above it says so. No fact ids: a bot writes no memory.
  */
-function memory(index: MemoryIndexEntry[]): string {
+function memory(
+  index: MemoryIndexEntry[],
+  preferences: MemoryNoteView | null,
+): string {
   // By path, not by how warm a note is (listNoteIndex): opening a note warms it, and a
   // listing that moved with that made a bot's own `memory_recall` change its instructions
   // for the next run in the thread, which then read none of the conversation from the
@@ -206,13 +218,17 @@ function memory(index: MemoryIndexEntry[]): string {
       Number(isAlwaysListed(b.path)) - Number(isAlwaysListed(a.path)) ||
       (a.path < b.path ? -1 : a.path > b.path ? 1 : 0),
   );
+  const facts = preferences?.facts.map((fact) => `- ${fact.text}`) ?? [];
   return `## Thursday's memory of the user
 
-What Thursday keeps from talking with them. When the job needs something about them, open the note with \`${TOOL_NAMES.memory_recall}\`; a fact marked \`said\` came from a call. What you learn about them goes in your answer — Thursday decides what to keep.
+What Thursday keeps from talking with them. How they want things done is below: follow what bears on the work; how she talks to them is hers. For anything else about them the job needs, open its note with \`${TOOL_NAMES.memory_recall}\`; a fact marked \`said\` came from a call. What you learn about them goes in your answer — Thursday decides what to keep.
 
-path — what it is about (facts)
+${PREFERENCES_NOTE}:
+${facts.length ? facts.join("\n") : "- (nothing yet)"}
 
-${noteLines(listed)}`;
+Every other note — path — what it is about (facts)
+
+${noteLines(listed.filter((note) => note.path !== PREFERENCES_NOTE))}`;
 }
 
 /**
