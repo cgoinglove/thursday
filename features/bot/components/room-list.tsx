@@ -373,6 +373,8 @@ export function ThreadRow({
       <button
         type="button"
         onClick={onPick}
+        // Where the focus goes back to once its thread closes (use-focus-return)
+        data-focus-home={`thread-${thread.id}`}
         className="flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <span

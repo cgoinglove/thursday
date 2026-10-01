@@ -53,6 +53,7 @@ import {
   roomDrop,
   useGivenFiles,
 } from "@/features/workspace/components/given-files";
+import { useFocusReturn } from "@/hooks/use-focus-return";
 import { composing, typed, useEscape, windowKey } from "@/hooks/use-hotkey";
 import { useServerAction } from "@/lib/protocol/use-server-action";
 import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
@@ -340,6 +341,8 @@ export function WriteLine({
   // on their way and the browser drops its focus then, which is also when a call that broke
   // has to be left.
   useEscape(up, leave);
+  // Closed, the focus goes back to what opened it rather than to the page
+  useFocusReturn(up, "write");
   // and the focus comes back once they have gone, or failed to
   const sending = starting || reaching;
   useEffect(() => {

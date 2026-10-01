@@ -19,6 +19,7 @@ import {
 } from "@/features/bot/components/crew-motion";
 import { ThreadReply } from "@/features/bot/components/thread-reply";
 import { ThursdayMark } from "@/features/thursday/components/thursday-mark";
+import { useFocusReturn } from "@/hooks/use-focus-return";
 import { typed, useEscape, windowKey } from "@/hooks/use-hotkey";
 import { useWide } from "@/hooks/use-wide";
 import { toDate } from "@/lib/date-like";
@@ -133,6 +134,9 @@ export const BotRoom = memo(function BotRoom() {
     roomOpen.set(open ? (reading ? "thread" : "list") : null);
     return () => roomOpen.set(null);
   }, [open, reading]);
+  // Folded, the focus goes back to what opened the room; a thread closed back to the list, to its row
+  useFocusReturn(open, "room");
+  useFocusReturn(reading, picked ? `thread-${picked}` : undefined);
   /** The bot each thread shows, by thread id; a thread not in here is on its own bot's tab. */
   const [sides, setSides] = useState<Record<string, string | null>>({});
   /** The list on screen: what is current, or everything that has ended. */

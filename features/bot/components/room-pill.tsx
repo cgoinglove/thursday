@@ -689,6 +689,8 @@ export function CrewRow({
               type="button"
               onClick={onWrite}
               aria-label="Write to Thursday or a bot"
+              // Where the focus goes back to once the line it opens closes (use-focus-return)
+              data-focus-home="write"
               aria-pressed={writing}
               className={cn(
                 "relative grid size-7 shrink-0 place-items-center overflow-hidden rounded-full outline-none transition-[background-color,box-shadow] duration-300 focus-visible:ring-3 focus-visible:ring-ring/50",
@@ -725,6 +727,8 @@ export function CrewRow({
         type="button"
         onClick={onClick}
         aria-label={label}
+        // Where the focus goes back to once the room folds (use-focus-return)
+        data-focus-home="room"
         className="flex min-w-0 flex-1 items-center gap-2 rounded-full text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <Crew crew={crew} more={more} bubble={bubble} playing={playing} />
