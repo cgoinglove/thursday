@@ -182,7 +182,7 @@ const GROUPS = ["call", "work", "app"] as const;
 
 /** The small mono word over each group in the nav, the community links' included. */
 const GROUP_LABEL =
-  "px-3 pt-3 pb-1 font-mono text-[10px] text-muted-foreground/60";
+  "px-3 pt-3 pb-1 font-mono text-[10px] text-muted-foreground";
 
 type SettingGroup = (typeof GROUPS)[number];
 

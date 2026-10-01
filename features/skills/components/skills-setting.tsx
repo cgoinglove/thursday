@@ -332,7 +332,7 @@ function SkillBrowser({
               }}
             />
           ) : (
-            <p className="p-6 text-sm text-muted-foreground/60">Pick a file</p>
+            <p className="p-6 text-sm text-muted-foreground">Pick a file</p>
           )}
         </div>
       </div>
@@ -349,7 +349,7 @@ function PathBar({
 }) {
   if (!skill) {
     return (
-      <span className="truncate font-mono text-[11px] text-muted-foreground/60">
+      <span className="truncate font-mono text-[11px] text-muted-foreground">
         Pick a skill
       </span>
     );
@@ -463,7 +463,7 @@ function DirList({
         />
       ))}
       {data.entries.length === 0 && (
-        <p className="p-3 text-xs text-muted-foreground/60">Empty folder</p>
+        <p className="p-3 text-xs text-muted-foreground">Empty folder</p>
       )}
     </>
   );
@@ -599,7 +599,7 @@ function FileView({
           className="min-h-120 resize-none rounded-none border-0 font-mono text-[13px] leading-relaxed shadow-none focus-visible:ring-0"
         />
       ) : data.content === null ? (
-        <p className="px-5 py-4 text-sm text-muted-foreground/60">
+        <p className="px-5 py-4 text-sm text-muted-foreground">
           {data.size > SKILL_FILES.inlineBytes
             ? "Too long to show here — a bot still reads it from disk."
             : "Not a text file — a bot can still read it from disk."}

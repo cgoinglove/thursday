@@ -421,7 +421,7 @@ export function ThreadRow({
             )}
             <BotRoster bots={thread.roster} />
             <span className="flex-1" />
-            <span className="shrink-0 font-mono text-[11px] leading-4 text-muted-foreground/70 tabular-nums">
+            <span className="shrink-0 font-mono text-[11px] leading-4 text-muted-foreground tabular-nums">
               {shortAgo(thread.updatedAt)}
             </span>
           </span>

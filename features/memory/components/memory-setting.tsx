@@ -138,9 +138,7 @@ export function MemorySetting() {
         </SettingToolbar>
 
         {needle && shown.length === 0 && (
-          <p className="px-1 text-xs text-muted-foreground/60">
-            Nothing matches
-          </p>
+          <p className="px-1 text-xs text-muted-foreground">Nothing matches</p>
         )}
 
         {SECTIONS.map(({ key, label }) => {
@@ -280,11 +278,11 @@ function NoteRow({
               <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
                 {note.description}
               </span>
-              <span className="w-16 shrink-0 text-right font-mono text-[11px] text-muted-foreground/70">
+              <span className="w-16 shrink-0 text-right font-mono text-[11px] text-muted-foreground">
                 {note.factCount} {note.factCount === 1 ? "fact" : "facts"}
               </span>
               <span
-                className="w-10 shrink-0 text-right font-mono text-[11px] text-muted-foreground/50"
+                className="w-10 shrink-0 text-right font-mono text-[11px] text-muted-foreground"
                 title={note.lastReadAt ? "Last read back" : "Never read back"}
               >
                 {note.lastReadAt ? shortAgo(note.lastReadAt) : "—"}
@@ -491,7 +489,7 @@ function FactRow({
             {fact.text}
           </span>
           {/* When, and whose hand — memory is kept by three of them */}
-          <span className="shrink-0 pr-1 font-mono text-[11px] text-muted-foreground/50">
+          <span className="shrink-0 pr-1 font-mono text-[11px] text-muted-foreground">
             {format(fact.createdAt, "yyyy.MM.dd")}
             {source && ` · ${source}`}
           </span>

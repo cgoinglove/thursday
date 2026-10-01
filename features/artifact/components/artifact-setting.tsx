@@ -245,7 +245,7 @@ function BotRow({
     >
       {mark ?? <Images className="size-4 shrink-0" />}
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground/70 tabular-nums">
+      <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground tabular-nums">
         {count}
       </span>
     </button>
@@ -323,7 +323,7 @@ function Reader({
         <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-foreground">
           {open ? (open.path.split("/").pop() ?? row.name) : row.name}
         </span>
-        <span className="shrink-0 font-mono text-[11px] text-muted-foreground/70">
+        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
           {open
             ? `${formatBytes(open.bytes)} · ${shortAgo(open.at)}`
             : `${row.count} ${row.count === 1 ? "file" : "files"} · ${shortAgo(row.at)}`}
@@ -414,7 +414,7 @@ function SetSheet({
   const files = data?.files ?? [];
   if (files.length === 0) {
     return (
-      <p className="p-5 text-xs text-muted-foreground/60">
+      <p className="p-5 text-xs text-muted-foreground">
         Nothing in here the app can open.
       </p>
     );
@@ -439,7 +439,7 @@ function SetSheet({
         ))}
       </div>
       {data && data.total > files.length && (
-        <p className="pt-4 font-mono text-[11px] text-muted-foreground/60">
+        <p className="pt-4 font-mono text-[11px] text-muted-foreground">
           {`${files.length} of ${data.total.toLocaleString("en")} — the rest are in the folder`}
         </p>
       )}

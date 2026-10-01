@@ -328,7 +328,7 @@ export function AccountsSetup({
       {/* Named, or it reads as one more model under "what they think with" (09-29); what
           runs without it is config.const `EXA_API_KEY` */}
       <div className="flex flex-col gap-2">
-        <p className="font-mono text-[11px] text-muted-foreground/70">
+        <p className="font-mono text-[11px] text-muted-foreground">
           Web search, if you want it: without a key, a bot searches only when
           its own model can.
         </p>
@@ -579,7 +579,7 @@ function keyStateText(
   if (!set)
     return {
       text: signIn ? "Signed out" : "Not set",
-      ink: "text-muted-foreground/60",
+      ink: "text-muted-foreground",
       warn: false,
     };
   if (!credits)

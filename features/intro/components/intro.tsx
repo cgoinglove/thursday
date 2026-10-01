@@ -648,7 +648,7 @@ export function Intro({
             </Button>
           )}
 
-          <p className="h-4 font-mono text-[11px] text-muted-foreground/70">
+          <p className="h-4 font-mono text-[11px] text-muted-foreground">
             {step === "hello" ? (
               helloIn && (
                 // it comes up after the button, as the first screen's last line
@@ -682,7 +682,7 @@ export function Intro({
       ) : (
         // Three columns, so the dots stand still whatever the words either side of them say;
         // a short window brings the row down rather than letting the column reach it
-        <div className="absolute inset-x-0 bottom-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4.5 font-mono text-[11px] text-muted-foreground/70 [@media(max-height:720px)]:bottom-3">
+        <div className="absolute inset-x-0 bottom-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4.5 font-mono text-[11px] text-muted-foreground [@media(max-height:720px)]:bottom-3">
           <button
             type="button"
             onClick={() => setStep(at > 0 ? STEPS[at - 1] : "hello")}
@@ -779,7 +779,7 @@ function Mine({ children }: { children: string }) {
 }
 
 const Fine = ({ children }: { children: React.ReactNode }) => (
-  <p className="font-mono text-[11px] leading-relaxed text-pretty text-muted-foreground/70">
+  <p className="font-mono text-[11px] leading-relaxed text-pretty text-muted-foreground">
     {children}
   </p>
 );
@@ -794,7 +794,7 @@ function Done({ children, tail }: { children: string; tail?: string }) {
         {children}
       </span>
       {tail && (
-        <span className="truncate font-mono text-[11px] text-muted-foreground/70">
+        <span className="truncate font-mono text-[11px] text-muted-foreground">
           {tail}
         </span>
       )}

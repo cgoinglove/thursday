@@ -284,7 +284,7 @@ function ModelsSetting({
                   plan={signedIn ? planName(signedPlan) : null}
                 />
               ) : (
-                <span className="block font-mono text-[11px] text-muted-foreground/70">
+                <span className="block font-mono text-[11px] text-muted-foreground">
                   {LINE_MODELS[line].model}
                 </span>
               )}

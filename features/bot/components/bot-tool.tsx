@@ -486,7 +486,7 @@ function Frame({
               </span>
             )}
             {/* The raw call beside the label, only where there is room for both. */}
-            <span className="hidden min-w-0 flex-1 truncate font-mono text-[11px] leading-4 text-muted-foreground/85 @lg:block">
+            <span className="hidden min-w-0 flex-1 truncate font-mono text-[11px] leading-4 text-muted-foreground @lg:block">
               {tool.input}
             </span>
           </>

@@ -149,7 +149,9 @@ apply from the next call.
 
 Her face has no setting: on a Mac, iPhone or iPad she is drawn in Apple's emoji, elsewhere in
 letters. At rest she is a face of smoke that now and then opens its eyes, and she sometimes spells
-a short word, such as a goodbye when a call ends.
+a short word, such as a goodbye when a call ends. When the computer is set to reduce motion, she
+holds still between calls a few seconds after the screen opens, and bots' faces are drawn still;
+on a call she moves with her voice as always.
 
 Voice, style and the backend settings belong to the app, so they are the same in every browser and
 from a phone. Captions and **Starting a call** belong to this browser.

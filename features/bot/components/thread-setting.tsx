@@ -361,7 +361,7 @@ function Row({
           >
             <span>{whenOf(thread.updatedAt)}</span>
             <span
-              className="max-w-full truncate text-muted-foreground/70"
+              className="max-w-full truncate text-muted-foreground"
               title={
                 tokens > 0
                   ? `${thread.id} · in ${formatCount(thread.tokens.input)} · out ${formatCount(thread.tokens.output)}`
@@ -684,7 +684,7 @@ function StepLog({ thread }: { thread: Thread }) {
                 {step.note ?? step.input}
               </span>
             )}
-            <span className="w-10 shrink-0 text-right text-muted-foreground/70 tabular-nums">
+            <span className="w-10 shrink-0 text-right text-muted-foreground tabular-nums">
               {took === null ? "" : tookOf(took)}
             </span>
           </div>

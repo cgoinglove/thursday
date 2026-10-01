@@ -727,7 +727,7 @@ export function WriteLine({
               </Button>
             </div>
           )}
-          <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-mono text-[10.5px] text-muted-foreground/70">
+          <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 font-mono text-[10.5px] text-muted-foreground">
             {mention ? (
               // an open list has the keys: nothing is sent or left while it is up
               <>

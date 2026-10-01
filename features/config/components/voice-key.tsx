@@ -59,7 +59,7 @@ export function GetKeyLink() {
         Get a key
         <ArrowUpRight className="size-3.5" />
       </span>
-      <span className="truncate font-mono text-[11px] font-normal text-muted-foreground/70">
+      <span className="truncate font-mono text-[11px] font-normal text-muted-foreground">
         {at.replace(/^https:\/\//, "")}
       </span>
     </a>
@@ -156,7 +156,7 @@ export function CallLines({
     <div className="flex w-full flex-col gap-2 text-left">
       {/* Two rows read as two things to do; a voice needs one of them */}
       {!planSet && !keySet && (
-        <p className="font-mono text-[11px] text-muted-foreground/70">
+        <p className="font-mono text-[11px] text-muted-foreground">
           Either one is enough.
         </p>
       )}

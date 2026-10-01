@@ -292,7 +292,7 @@ function ServerRow({ server }: { server: MCPServerSummary }) {
               {count > 0
                 ? `${count} ${count === 1 ? "tool" : "tools"}`
                 : "No tools yet"}
-              <span className="font-mono text-[11px] text-muted-foreground/70">
+              <span className="font-mono text-[11px] text-muted-foreground">
                 {" · "}
                 {describeConfig(server.config)}
               </span>

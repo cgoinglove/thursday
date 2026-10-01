@@ -151,7 +151,7 @@ export function ModelBrowser({
             />
           </div>
 
-          <div className="flex shrink-0 items-center gap-4 px-6 pb-1.5 font-mono text-[10px] tracking-wide text-muted-foreground/60">
+          <div className="flex shrink-0 items-center gap-4 px-6 pb-1.5 font-mono text-[10px] tracking-wide text-muted-foreground">
             <span className="min-w-0 flex-1">model</span>
             {/* What the two numbers mean. A model billed some other way prints its own
                 unit in place of them, so the header never has to hedge. */}
@@ -320,7 +320,7 @@ function ModelRow({
           {priceLine(price)}
         </span>
         {priced && price.note && (
-          <span className="font-mono text-[9px] text-muted-foreground/70">
+          <span className="font-mono text-[9px] text-muted-foreground">
             {price.note}
           </span>
         )}

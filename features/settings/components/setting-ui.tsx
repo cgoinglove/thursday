@@ -268,7 +268,7 @@ function SettingHeader({
         </h4>
       )}
       {hint && (
-        <span className="truncate font-mono text-xs text-muted-foreground/60">
+        <span className="truncate font-mono text-xs text-muted-foreground">
           {hint}
         </span>
       )}

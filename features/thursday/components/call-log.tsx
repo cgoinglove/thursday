@@ -459,11 +459,11 @@ function ToolTurn({
           {said && (
             <span className="truncate text-[11px] break-keep">{said}</span>
           )}
-          <span className="shrink-0 font-mono text-[10px] text-muted-foreground/60">
+          <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
             {name}
           </span>
           {repeats > 1 && (
-            <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
+            <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
               ×{repeats}
             </span>
           )}

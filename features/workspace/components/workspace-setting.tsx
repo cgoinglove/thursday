@@ -194,7 +194,7 @@ export function WorkspaceSetting() {
           )}
 
           {shown.length === 0 ? (
-            <p className="px-4 py-3 text-xs text-muted-foreground/60">
+            <p className="px-4 py-3 text-xs text-muted-foreground">
               {needle ? "Nothing matches" : "Empty folder"}
             </p>
           ) : (
@@ -273,7 +273,7 @@ function Group({
   if (rows.length === 0) return null;
   return (
     <>
-      <span className="px-3 pt-3 pb-1 font-mono text-[10px] text-muted-foreground/60">
+      <span className="px-3 pt-3 pb-1 font-mono text-[10px] text-muted-foreground">
         {label}
       </span>
       {children}
@@ -311,7 +311,7 @@ function EntryRow({
       <span className="min-w-0 flex-1 truncate">{entry.name}</span>
       {entry.kind === "file" ? (
         <>
-          <span className="shrink-0 font-mono text-[11px] text-muted-foreground/75">
+          <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
             {formatBytes(entry.bytes)}
           </span>
           <span className="w-3.5 shrink-0" />
@@ -390,7 +390,7 @@ function FilePage({
     <>
       <div className="flex shrink-0 items-center gap-3 border-b border-border/60 px-6 py-2">
         <Crumbs path={path} />
-        <span className="shrink-0 font-mono text-[11px] text-muted-foreground/70">
+        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
           {formatBytes(file.bytes)} · {shortAgo(file.at)}
         </span>
         <a

@@ -248,7 +248,7 @@ function Row({
             <RoutineMark className="size-3 shrink-0 text-muted-foreground" />
             <span className="truncate">{scheduleText(routine.schedule)}</span>
           </span>
-          <span className="max-w-full truncate text-muted-foreground/70">
+          <span className="max-w-full truncate text-muted-foreground">
             {routine.enabled ? `next ${whenOf(routine.nextRunAt)}` : "off"}
           </span>
         </span>

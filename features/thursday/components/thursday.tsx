@@ -44,6 +44,7 @@ import { type Bot, DEFAULT_BOT } from "@/features/bot/bot.schema";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { BotRoom } from "@/features/bot/components/bot-room";
 import { toolIcon } from "@/features/bot/components/bot-tool";
+import { useCrewAwake } from "@/features/bot/components/crew-motion";
 import { useAnswerThread } from "@/features/bot/components/thread-reply";
 import {
   officeCaption,
@@ -94,6 +95,7 @@ import {
 import { ArtifactView } from "@/features/workspace/components/artifact-view";
 import { useAwayAfter } from "@/hooks/use-away-after";
 import { useHotkeyLabel } from "@/hooks/use-hotkey";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { useWide } from "@/hooks/use-wide";
 import { useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, plainText } from "@/lib/utils";
@@ -232,6 +234,9 @@ function CallScreen({
   // the first-run intro lies over the call screen and draws a face of its own
   const covered = useCallHeld();
   const settingsOpen = useSettingsStore((state) => state.open);
+  const calm = useReducedMotion();
+  // She comes in as the screen opens or its window comes back, as the crew wakes (crew-motion)
+  const cameIn = useCrewAwake();
   // A thread open in the room is drawn as its office where her face stands (bot-room): her face
   // gives way to it in a fade rather than a cut, and a call on says so in her words at the top
   const office = useRoomOffice();
@@ -313,7 +318,7 @@ function CallScreen({
             }
             // the face never moves under the cursor; only press gives a little
             className={cn(
-              "block w-full rounded-full outline-none transition-all duration-700 ease-out focus-visible:ring-3 focus-visible:ring-ring/50 enabled:active:scale-[0.99] disabled:opacity-70",
+              "group/face relative block w-full rounded-full outline-none transition-all duration-700 ease-out enabled:active:scale-[0.99] disabled:opacity-70",
               // asleep, not broken: the same face, dimmed
               asleep && "opacity-35",
             )}
@@ -327,11 +332,19 @@ function CallScreen({
                 getSpectrum={getSpectrum}
                 // once it covers her she is not drawn under it
                 covered={covered || moment?.phase === "world" || away}
-                // Settings covers her whole and leaves her as she is: she waits under it
-                held={settingsOpen}
+                // Settings covers her whole and leaves her as she is: she waits under it. A
+                // computer that asks for less motion has her still between calls too, once she
+                // has come in (UX test, accessibility: she moved as much as ever)
+                held={settingsOpen || (calm && status === "idle" && !cameIn)}
                 className="-m-(--face-bleed) w-[calc(100%+2*var(--face-bleed))] max-w-none"
               />
             </span>
+            {/* The keyboard's ring, over her: on the button itself her letters, drawn past its
+                edge, covered it, and Tab to her showed nothing (UX test, accessibility) */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 rounded-full opacity-0 ring-3 ring-ring/50 transition-opacity group-focus-visible/face:opacity-100"
+            />
           </button>
           <ConnectWave status={status} />
           {moment?.moment.kind === "here" && (
@@ -1368,7 +1381,7 @@ function Incoming({
             </div>
           ))}
           {all.length > MISSED_ROWS && (
-            <p className="mt-1 font-mono text-[10.5px] text-muted-foreground/70">
+            <p className="mt-1 font-mono text-[10.5px] text-muted-foreground">
               +{all.length - MISSED_ROWS} more in the room
             </p>
           )}
@@ -1381,7 +1394,7 @@ function Incoming({
           Call back
         </Button>
         {wakePhrase && (
-          <span className="mt-3 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground/70">
+          <span className="mt-3 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
             or say <SaidPhrase phrase={wakePhrase} />
           </span>
         )}
@@ -1454,7 +1467,7 @@ function Incoming({
           )}
         </span>
       )}
-      <span className="mt-1 flex items-center gap-3 font-mono text-[11px] text-muted-foreground/70">
+      <span className="mt-1 flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
         {wakePhrase && (
           <span className="flex items-center gap-1.5">
             say <SaidPhrase phrase={wakePhrase} /> to answer
@@ -1703,7 +1716,7 @@ function ToWrite() {
   return (
     <>
       <span className="px-1.5 text-muted-foreground/30">·</span>
-      <span className="text-muted-foreground/70">@ to write</span>
+      <span className="text-muted-foreground">@ to write</span>
     </>
   );
 }

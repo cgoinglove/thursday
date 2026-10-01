@@ -158,7 +158,7 @@ function Tokens({ thread }: { thread: ThreadView }) {
   return (
     <span
       title={`Last step ${formatCount(last)} tokens · in total in ${formatCount(burned.input)} · out ${formatCount(burned.output)}`}
-      className="shrink-0 font-mono text-[10px] text-muted-foreground/70 tabular-nums"
+      className="shrink-0 font-mono text-[10px] text-muted-foreground tabular-nums"
     >
       {formatCount(last)}
     </span>
@@ -881,7 +881,7 @@ function Invite({ from, to }: { from: BotRef; to: BotRef }) {
     <div className="flex animate-in justify-center fade-in duration-300">
       <span className="flex max-w-full items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 font-mono text-[10px] text-muted-foreground">
         <Face bot={from} />
-        <span className="shrink-0 text-muted-foreground/70">
+        <span className="shrink-0 text-muted-foreground">
           {from.name === YOU.name ? "asked" : "invited"}
         </span>
         <Face bot={to} />
@@ -1252,7 +1252,7 @@ function Stops({ lines }: { lines: Chatter[] }) {
         <RotateCw className="size-3 shrink-0" />
         <span className="min-w-0 truncate">{leadOf(lines[0].text)}</span>
         {lines.length > 1 && (
-          <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
+          <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
             ×{lines.length}
           </span>
         )}
@@ -1262,7 +1262,7 @@ function Stops({ lines }: { lines: Chatter[] }) {
         {lines.map((line) => (
           <p key={line.id} className="flex gap-2 break-keep wrap-anywhere">
             {line.at && (
-              <span className="shrink-0 font-mono text-muted-foreground/70 tabular-nums">
+              <span className="shrink-0 font-mono text-muted-foreground tabular-nums">
                 {format(toDate(line.at), "HH:mm:ss")}
               </span>
             )}

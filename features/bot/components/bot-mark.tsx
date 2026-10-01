@@ -817,6 +817,7 @@ export const BotMark = memo(function BotMark({
     let nextBeat = performance.now() + 1500 + Math.random() * 3000;
     /** The element this mark keeps a box for in `boxes`, while its eyes follow the pointer. */
     let followed: SVGSVGElement | null = null;
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     /** How far asleep, 0 to 1: the eyes shut and the body settles with it (`resting`). */
     let shut = live.current.resting ? 1 : 0;
 
@@ -841,7 +842,8 @@ export const BotMark = memo(function BotMark({
       // the pill's faces at rest were the largest part of an idle screen's drawing
       const sleeping = asleep && shut > 0.985;
       if (sleeping) shut = 1;
-      if (sleeping || live.current.still) {
+      // A computer that asks for less motion gets each face drawn once, as an icon is
+      if (sleeping || live.current.still || calm) {
         cancelAnimationFrame(raf);
         raf = 0;
       }
