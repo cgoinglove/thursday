@@ -1,5 +1,5 @@
 ---
-checked: 2026-09-24
+checked: 2026-10-01
 paths:
   - "README.md"
   - "README.ko.md"

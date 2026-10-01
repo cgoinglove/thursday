@@ -24,3 +24,5 @@ twentieth line drops the line picked longest ago. A look changes only when the m
 - **Words**: what a first-time user reads or hears is plain everyday English with no jargon. (09-19)
 - **Providers**: the ChatGPT sign-in is "GPT Subscription"; model setup leads with the Vercel AI Gateway, the others behind More. (09-18)
 - **Updates**: a newer version is said as the app opens, on a square card under the settings corner, on the other theme's surface, with her mark and the button; Not today keeps it away for a day, and Settings › Thursday keeps the button. (09-30)
+- **Theme**: Light is the default, whatever the computer is set to. (10-01)
+- **Faces at rest**: awake briefly as the screen opens or returns, then eyes shut and still; at work, the pill shows only who works or waits. (10-01)
