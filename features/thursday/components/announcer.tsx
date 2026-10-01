@@ -30,7 +30,7 @@ export function Announcer({
   }, [last, saying]);
 
   useAppEvent({
-    finished: (event) => setLine(`${event.bot} finished: ${event.label}.`),
+    finished: (event) => setLine(`${event.bot} finished: ${event.label}`),
   });
 
   return (
