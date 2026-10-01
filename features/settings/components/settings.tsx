@@ -426,6 +426,11 @@ export function Settings({ children }: { children?: ReactElement }) {
                   <Button
                     key={item.id}
                     data-section={item.id}
+                    // One tab stop for the rail, the section open; the arrows walk the rest
+                    // (onKeyDown above). Each a stop of its own, the page's first field was
+                    // 17 Tabs away (UX test, accessibility)
+                    tabIndex={item.id === sectionId ? 0 : -1}
+                    aria-current={item.id === sectionId ? "page" : undefined}
                     onClick={() => void leaving(() => pick(item.id))}
                     variant={item.id === sectionId ? "secondary" : "ghost"}
                     className={cn(
