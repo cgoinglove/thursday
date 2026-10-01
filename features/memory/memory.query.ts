@@ -74,6 +74,28 @@ function latestFacts(noteIds: number[]) {
     .orderBy(asc(memoryFactTable.id));
 }
 
+/**
+ * What one call kept and still stands, by note, with the ids `replaces` takes: what the pass
+ * after it is shown so it neither writes it again nor counts it as its own (memory/call-memory).
+ */
+export function listCallFacts(callId: string) {
+  return database
+    .select({
+      id: memoryFactTable.id,
+      path: memoryNoteTable.path,
+      text: memoryFactTable.text,
+    })
+    .from(memoryFactTable)
+    .innerJoin(memoryNoteTable, eq(memoryFactTable.noteId, memoryNoteTable.id))
+    .where(
+      and(
+        eq(memoryFactTable.callId, callId),
+        eq(memoryFactTable.isLatest, true),
+      ),
+    )
+    .orderBy(asc(memoryFactTable.id));
+}
+
 export async function createNote(
   path: string,
   description: string,

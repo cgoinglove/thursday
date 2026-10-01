@@ -127,6 +127,12 @@ export async function boot() {
   );
   await sweepCalls();
 
+  // A spoken call is read once after it ends to keep what the user said about themselves
+  // (memory/call-memory): those that ended unread — open when the last process stopped, just
+  // swept shut, or ended as it stopped — are read now, on the server like any other work
+  const { keepCallMemory } = await import("@/features/memory/call-memory");
+  void keepCallMemory();
+
   // And what the app kept of its own use goes by age as well (config HISTORY_KEEP):
   // an ended call with its turns, a job that is over with its messages. After
   // sweepThreads and sweepCalls, so nothing the last process left open is counted
@@ -150,9 +156,10 @@ export async function boot() {
   const { pauseThreads } = await import("@/features/bot/bot.runner");
   const { heldCalls } = await import("@/features/reach/reach");
   presence.onGone(() => {
-    void sweepCalls(heldCalls()).catch((cause) =>
-      logger.error("browser gone", cause),
-    );
+    // A call that only a gone tab held is over, and is read like any other ended call
+    void sweepCalls(heldCalls())
+      .then(() => void keepCallMemory())
+      .catch((cause) => logger.error("browser gone", cause));
   });
 
   // Routines start themselves from here on; a start is a thread, so everything above holds for it

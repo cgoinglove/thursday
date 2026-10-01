@@ -389,6 +389,12 @@ export const callTable = sqliteTable("call", {
    * Decides whether a finished job notifies the call or the desktop (bot.runner).
    */
   endedAt: int("ended_at", { mode: "timestamp" }),
+  /**
+   * When the pass after a spoken call took this call to keep what the user said about
+   * themselves (features/memory/call-memory). Stamped as it starts, so no call is read
+   * twice; null until then, and for good on a call in writing, which it never reads.
+   */
+  memoryKeptAt: int("memory_kept_at", { mode: "timestamp" }),
 });
 
 /** One spoken turn in a call. */

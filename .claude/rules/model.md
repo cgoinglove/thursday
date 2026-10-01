@@ -1,12 +1,12 @@
 ---
-checked: 2026-09-27
+checked: 2026-10-02
 paths:
   - "features/ai/prompts/**"
   - "features/ai/tools/**"
   - "features/ai/{load-tools,words}.ts"
   - "features/memory/**"
   - "app/api/memory/**"
-  - "scripts/memory-tools.test.mts"
+  - "scripts/*memory*.test.mts"
 ---
 
 # Model text and memory
@@ -22,9 +22,10 @@ Thursday and her bots work from short instructions and single-purpose tools, and
 - `features/memory/memory.schema.ts` — where a note may live, which notes are always listed, who wrote a fact.
 - `features/memory/memory.query.ts` — notes and facts in the database, for the tools and the Memory screen alike.
 - `features/memory/memory.edit.ts` — an edit typed on the Memory screen: one streamed run with memory's tools.
+- `features/memory/call-memory.ts` — reads a spoken call once it ends.
 
 ## How it fits
-A spoken call's voice reads `live.prompt.ts`; the call's backend reads `thursday.prompt.ts` and holds the tools. Only what runs a model imports a prompt loader or `loadTools` — `thursday.action`, `thursday.plan`, the tool-call route and `thursday.text` for a call, `bot.run` and `bot.runner` for a bot, `memory.edit` for an edit — while `persona.ts` and `tool-name.ts` are vocabulary any file may import. A tool that cannot work in a run is left out of the set, not disabled. Memory is merged as the call writes it (`replaces`), so no pass runs after a call. A time a model reads is local, from the `prompt-helper.ts` stamps or `whenOf`, never a `Date`, which serialises as UTC.
+A spoken call's voice reads `live.prompt.ts`; the call's backend reads `thursday.prompt.ts` and holds the tools. Only what runs a model imports a prompt loader or `loadTools` — `thursday.action`, `thursday.plan`, the tool-call route and `thursday.text` for a call, `bot.run` and `bot.runner` for a bot, `memory.edit` for an edit, `call-memory` after a call — while `persona.ts` and `tool-name.ts` are vocabulary any file may import. A tool that cannot work in a run is left out of the set, not disabled. Memory is merged as it is written (`replaces`), and a spoken call is reread when it ends. A time a model reads is local, from the `prompt-helper.ts` stamps or `whenOf`, never a `Date`, which serialises as UTC.
 
 ## What breaks
 - The call's cheap backend model fills the wrong field of a many-purpose tool or sends a follow-up as new work, so a tool the call holds does one thing with its arguments required (`routine` is the exception, not the template); a model leaves optional keys out, which `.nullable()` fails and `.nullish()` takes.

@@ -43,7 +43,7 @@
     "knip": "knip",
     "test:live": "node --experimental-test-module-mocks --import tsx --test scripts/live-session.test.mts scripts/put-down.test.mts scripts/call-picture.test.mts scripts/live-history.test.mts scripts/live-plan.test.mts scripts/here.test.mts scripts/markdown-text.test.mts",
     "test:bot": "node --experimental-test-module-mocks --import tsx --test scripts/bot-context.test.mts scripts/mcp-manager.test.mts",
-    "test:memory": "node --import tsx --test scripts/memory-tools.test.mts",
+    "test:memory": "node --experimental-test-module-mocks --import tsx --test scripts/memory-tools.test.mts scripts/call-memory.test.mts",
     "test:reach": "node --experimental-test-module-mocks --import tsx --test scripts/reach.test.mts scripts/reach-channels.test.mts scripts/reach-mail.test.mts scripts/reach-mailbox.test.mts scripts/reach-email.test.mts scripts/text-call.test.mts",
     "test:artifact": "node --import tsx --test scripts/artifact-paths.test.mts scripts/proxy.test.mts scripts/favicon.test.mts",
     "test:skills": "node --import tsx --test scripts/skill-files.test.mts scripts/page-edits.test.mts scripts/deck.test.mts scripts/sheet.test.mts scripts/motion.test.mts",

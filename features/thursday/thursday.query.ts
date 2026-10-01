@@ -3,6 +3,8 @@ import {
   asc,
   desc,
   eq,
+  exists,
+  gte,
   inArray,
   isNotNull,
   isNull,
@@ -11,7 +13,7 @@ import {
   notInArray,
   sql,
 } from "drizzle-orm";
-import { CALL_HISTORY_PAGE } from "@/config";
+import { CALL_HISTORY_PAGE, TEXT_CALL } from "@/config";
 import { database } from "@/database/db";
 import {
   callMessageTable,
@@ -246,6 +248,88 @@ export async function listRecentTurns(
   return [...groups.values()]
     .reverse()
     .map((group) => ({ ...group, turns: group.turns.reverse() }));
+}
+
+/** A spoken call that ended, as the pass after it reads it (memory/call-memory). */
+export type EndedSpokenCall = {
+  id: string;
+  provider: string;
+  backendModel: string | null;
+  startedAt: Date;
+};
+
+/**
+ * The oldest spoken call that ended since `since` with something the user said and no pass
+ * yet, stamped as taken in the same statement, so two wakes never take one call. A call in
+ * writing (TEXT_CALL.model) is never taken: its backend heard the user's own words.
+ */
+export async function takeCallForMemory(
+  since: Date,
+): Promise<EndedSpokenCall | null> {
+  const [call] = await database
+    .update(callTable)
+    .set({ memoryKeptAt: new Date() })
+    .where(
+      inArray(
+        callTable.id,
+        database
+          .select({ id: callTable.id })
+          .from(callTable)
+          .where(
+            and(
+              isNull(callTable.memoryKeptAt),
+              isNotNull(callTable.endedAt),
+              gte(callTable.endedAt, since),
+              ne(callTable.model, TEXT_CALL.model),
+              exists(
+                database
+                  .select({ one: sql`1` })
+                  .from(callMessageTable)
+                  .where(
+                    and(
+                      eq(callMessageTable.callId, callTable.id),
+                      eq(callMessageTable.role, "user"),
+                    ),
+                  ),
+              ),
+            ),
+          )
+          .orderBy(asc(callTable.endedAt))
+          .limit(1),
+      ),
+    )
+    .returning({
+      id: callTable.id,
+      provider: callTable.provider,
+      backendModel: callTable.backendModel,
+      startedAt: callTable.startedAt,
+    });
+  return call ?? null;
+}
+
+/** What was said on one call, in spoken order, the last `limit` turns of it; tool turns left out. */
+export async function listCallTalk(
+  callId: string,
+  limit: number,
+): Promise<{ role: "user" | "assistant"; text: string }[]> {
+  const rows = await database
+    .select({ role: callMessageTable.role, text: callMessageTable.text })
+    .from(callMessageTable)
+    .where(
+      and(
+        eq(callMessageTable.callId, callId),
+        ne(callMessageTable.role, "tool"),
+      ),
+    )
+    .orderBy(desc(callMessageTable.seq))
+    .limit(limit);
+  return rows
+    .reverse()
+    .flatMap((row) =>
+      row.role === "tool" || !row.text.trim()
+        ? []
+        : [{ role: row.role, text: row.text.trim() }],
+    );
 }
 
 /** Whether a call was ever placed here: until one is, the first-run intro shows (app/page). */

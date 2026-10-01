@@ -1082,6 +1082,30 @@ export const MEMORY_LIMITS = {
 export const MEMORY_EDIT = { maxSteps: 20 };
 
 /**
+ * The pass after a spoken call (features/memory/call-memory): once the call ends, a text model
+ * reads what was said and keeps what the user told about themselves that the voice did not hand
+ * over. It runs on the server, once per call, whichever way the call ended.
+ * - `steps`  model steps one pass may take: a note opened or two, then one write per note. A
+ *            pass still writing past it is not converging, and stops with what it wrote kept.
+ *            Fewer cuts a call full of news short; more lets a pass that lost its way write more.
+ * - `turns`  the most of one call it reads, its last turns. A call longer than this is read from
+ *            where these begin; more reads longer calls whole, each turn input on every step.
+ * - `stepMs`  how long one step may take before the pass is stopped and logged. Passes run one
+ *            at a time, so one that hangs holds every call after it; shorter cuts off a slow
+ *            model that would have finished.
+ * - `catchUpMs`  how far back a start looks for spoken calls that ended with no pass — the server
+ *            stopped first, or the call was still open and is swept shut at boot. Longer reads
+ *            older calls at the next start, a model run each; shorter leaves more of them unread
+ *            for good.
+ */
+export const CALL_MEMORY = {
+  steps: 8,
+  turns: 300,
+  stepMs: 120_000,
+  catchUpMs: 24 * 60 * 60 * 1000,
+};
+
+/**
  * One picture handed to a model: a look at an image (features/ai/tools/look.tool), and one
  * an image call works from (features/ai/tools/studio.tool).
  * - `maxBytes`  the largest file handed to a model as a picture. It rides in the request as

@@ -1,3 +1,4 @@
+import { keepCallMemory } from "@/features/memory/call-memory";
 import { endCall } from "@/features/thursday/thursday.query";
 import { serverRoute } from "@/lib/protocol/server-route";
 
@@ -10,5 +11,6 @@ import { serverRoute } from "@/lib/protocol/server-route";
  */
 export const POST = serverRoute(async (request) => {
   const callId = (await request.text()).trim();
-  if (callId) await endCall(callId);
+  // The page is gone; what the call said is still read once, on the server (memory/call-memory)
+  if (callId && (await endCall(callId))) void keepCallMemory();
 });

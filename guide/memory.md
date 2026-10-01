@@ -6,9 +6,15 @@ situation, and the rest are one note per person, project or topic. Profile and p
 on every call, and preferences on every bot's job as well; every other note is opened when its
 subject comes up.
 
-She writes memory herself as things come up in a call: what they loved or could not stand, what
-they are going through, the people in their life, facts and tastes. Bots read it and never write
-it; a bot keeps what a job taught it in its own memory instead (`bots.md`).
+She writes memory herself as things come up in a call: what they loved or could not stand, what they
+are going through, the people in their life, facts and tastes. While she talks she does not always
+keep it, so once a spoken call ends — by goodbye, by going quiet, or by closing the tab — the app
+reads that call over once and keeps what they said about themselves that is not kept yet. It runs on
+her backend model (Settings › Thursday), on the GPT subscription when one is signed in, else on the
+OpenAI key; it is done within seconds of the call, and what it keeps shows on the Memory screen as
+written on a call. A call in writing or from a phone is not read over: there she reads their own
+words as they write them. Bots read memory and never write it; a bot keeps what a job taught it in
+its own memory instead (`bots.md`).
 
 **Settings › Memory** is the whole of it. The notes are grouped — **You**, **People**, **Projects**,
 **Topics**, **Other** — with a count of notes and facts at the top, and **Filter memory** narrows

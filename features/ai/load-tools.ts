@@ -56,7 +56,7 @@ import { clip } from "@/lib/utils";
  * when Settings › Thursday says so (`readSkills`).
  */
 
-type ToolTarget = "thursday" | "bot" | "memory-edit";
+type ToolTarget = "thursday" | "bot" | "memory-edit" | "call-memory";
 
 /** Which runtime is running, and what that run knows about itself. */
 type ToolRun =
@@ -106,7 +106,12 @@ type ToolRun =
       model?: TextModel | null;
     }
   /** An edit from the memory screen (memory/memory.edit): every memory tool, run as the model calls them. */
-  | { target: "memory-edit" };
+  | { target: "memory-edit" }
+  /**
+   * The pass after a spoken call (memory/call-memory): what writes and merges, in the call's
+   * hand and under its id, as if its backend had kept it.
+   */
+  | { target: "call-memory"; callId: string };
 
 /**
  * Starting threads and following them, one tool for each (tools/bot.tool). bot.runner is
@@ -401,6 +406,22 @@ async function buildTools(run: ToolRun): Promise<ToolSet> {
     // Memory's own read and writes, in the user's hand: they asked for it on
     // screen. Opening a note to change it is not a recall (memory.tool countReads)
     return createMemoryTools("user", null, { countReads: false });
+  }
+
+  if (run.target === "call-memory") {
+    // No forget, and no ask to settle an overgrown note: nobody is there to name what goes,
+    // and a change replaces. Opening a note to write into it is not the user asking for it
+    // (memory.tool countReads)
+    const hand = createMemoryTools("call", run.callId, {
+      countReads: false,
+      tidies: false,
+    });
+    return {
+      [TOOL_NAMES.memory_recall]: hand[TOOL_NAMES.memory_recall],
+      [TOOL_NAMES.memory_remember]: hand[TOOL_NAMES.memory_remember],
+      [TOOL_NAMES.memory_create]: hand[TOOL_NAMES.memory_create],
+      [TOOL_NAMES.memory_describe]: hand[TOOL_NAMES.memory_describe],
+    };
   }
 
   // The call's hand; a fact it writes is tied to the call it was said in. A bot

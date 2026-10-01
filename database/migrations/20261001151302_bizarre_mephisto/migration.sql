@@ -1,0 +1,1 @@
+ALTER TABLE `call` ADD `memory_kept_at` integer;

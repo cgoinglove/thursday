@@ -27,6 +27,7 @@ import {
   missingKeyWords,
   readConfig,
 } from "@/features/config/config.query";
+import { keepCallMemory } from "@/features/memory/call-memory";
 import { deleteAllNotes } from "@/features/memory/memory.query";
 import {
   LIVE_MODEL,
@@ -320,10 +321,12 @@ export const saveThoughtAction = serverAction(
  */
 export const endCallAction = serverAction(
   async (callId: unknown, close?: unknown) => {
-    await endCall(
+    const ended = await endCall(
       z.string().min(1).parse(callId),
       LiveCloseSchema.nullish().parse(close),
     );
+    // What they said about themselves is kept from here, on the server (memory/call-memory)
+    if (ended) void keepCallMemory();
   },
 );
 

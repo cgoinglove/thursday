@@ -94,7 +94,7 @@ export async function loadThursdayPrompt(options: {
     // come here instead — the same two, read by whichever of the two is speaking
     written ? personaLines(options.persona) : "",
     written ? styleLines(options.stylePrompt) : "",
-    memory(index, open.notes),
+    memoryChapter(index, open.notes),
     // A skill is named once, on the side that can read it: this computer's chapter
     // when the setting hands the call the tool, the bots' reach when it does not
     backgroundWork(
@@ -153,11 +153,18 @@ ${backendPrompt.trim()}`
  * to say, and so is which tool starts a note. Merging is said here too: left to the `replaces`
  * description alone, facts on one subject piled up beside each other. Merging loses
  * nothing; deleting does, so `memory_forget` stays for what the user names.
+ *
+ * `after` is the pass that reads a spoken call once it is over (memory/call-memory): the
+ * same memory and the same rules for writing it, without what only the call holds — the
+ * user to settle an overgrown memory with, `memory_forget`, a thread to tell — or when to
+ * keep, which the pass says itself (prompts/call-memory.prompt). Nor how a fact from a call is
+ * marked: told it, the pass wrote the mark into the facts themselves (10-02).
  */
-function memory(
+export function memoryChapter(
   index: MemoryIndexEntry[],
   /** The always-listed notes, whole (MEMORY_ALWAYS_LISTED). */
   open: MemoryNoteView[],
+  after = false,
 ): string {
   // Ages ride on the listing only when there is too much to hold: they are what to drop by
   const { crowded, heavy } = tidying(index);
@@ -167,7 +174,7 @@ function memory(
     .map((note) => note.path);
   // Past MEMORY_LIMITS, settling it with the user; the voice opens nothing about it
   const tidy =
-    crowded || heavy.length
+    !after && (crowded || heavy.length)
       ? `\n\nSaved memory has grown past what it holds well${heaviest.length ? ` (${heaviest.join(", ")})` : ""}: say so once in what you return, go through what looks out of date with the user, and forget only what they name.`
       : "";
   // A note written out here is left off the listing
@@ -177,9 +184,13 @@ function memory(
 
 What you have kept from talking with this user — the only thing that survives a call, and what lets you know them.`;
 
-  const openNotes = `Who they are, and how they want things done and said — follow what is under preferences. The #id is what \`replaces\` and \`${TOOL_NAMES.memory_forget}\` take:
+  const openNotes = `Who they are, and how they want things done and said — follow what is under preferences. The #id is what \`replaces\`${after ? " takes" : ` and \`${TOOL_NAMES.memory_forget}\` take`}:
 
 ${open.map(openNoteLines).join("\n\n")}`;
+
+  const keep = after
+    ? ""
+    : `Keep what the user tells you as it comes up, with \`${TOOL_NAMES.memory_remember}\`, without waiting to be asked: what they actually said, never a guess, nothing they asked you not to keep, and from a bot's report only what it confirmed about them. What they say that bears on work already handed over is said to that thread as well (\`${TOOL_NAMES.thread_tell}\`). `;
 
   const listing = `Every other note — path — what it is about (facts):
 
@@ -188,9 +199,9 @@ ${noteLines(
   crowded,
 )}${tidy}
 
-Open a note before answering out of it; a topic not listed is one you know nothing about. A fact marked \`said\` came from a call.
+Open a note before ${after ? "writing into it; a topic not listed is one you know nothing about." : "answering out of it; a topic not listed is one you know nothing about. A fact marked \`said\` came from a call."}
 
-Keep what the user tells you as it comes up, with \`${TOOL_NAMES.memory_remember}\`, without waiting to be asked: what they actually said, never a guess, nothing they asked you not to keep, and from a bot's report only what it confirmed about them. What they say that bears on work already handed over is said to that thread as well (\`${TOOL_NAMES.thread_tell}\`). What tells you most about them comes first: what they loved or could not stand and why — how they want you to talk goes under preferences — then what they are going through or working toward, good news, stories from their past and the people in their life, and last plain facts and tastes. A subject that is not on the listing gets a note of its own with \`${TOOL_NAMES.memory_create}\`, under one of the paths below.
+${keep}What tells you most about them comes first: what they loved or could not stand and why — how they want you to talk goes under preferences — then what they are going through or working toward, good news, stories from their past and the people in their life, and last plain facts and tastes. A subject that is not on the listing gets a note of its own with \`${TOOL_NAMES.memory_create}\`, under one of the paths below.
 
 **Keep memory clean as you write.** A fact that repeats, narrows or changes one already in the note replaces it, merged into one line, rather than sitting beside it. A later call finds a note only by its path and its line: give something new its own path below, and when a line no longer says what its note is about, \`${TOOL_NAMES.memory_describe}\` puts it right.
 
