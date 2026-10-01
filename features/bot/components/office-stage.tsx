@@ -100,64 +100,6 @@ const stepFrom = (z: number, zoomIn: boolean) =>
 const startOf = (size: { w: number; h: number }): View =>
   zoomAt({ z: 1, x: 0, y: 0 }, size.w / 2, size.h / 2, ZOOM_START);
 
-/**
- * Room left over a held desk for its bot's plate, and around it, in px on screen; and the nearest
- * it is drawn, past which the sketch's lines grow heavier than the office ever shows them.
- */
-const DESK_ROOM = {
-  top: 40,
-  side: 12,
-  zoom: 2.5,
-  /**
-   * The box a held desk's office is laid out in, whatever box shows it: about the room's, so its
-   * sketch is drawn at the scale the room draws it and a short box does not shrink it.
-   */
-  lay: { w: 1200, h: 800 },
-};
-
-/**
- * The view that holds one bot's desk in its box (`desk`): the desk from its legs to its lid with
- * its bot standing at it, as large as fits under the plate, up to `DESK_ROOM.zoom`. Null when the
- * bot has no desk here.
- */
-function deskView(
-  stage: Stage,
-  scene: OfficeScene,
-  bot: string,
-  size: { w: number; h: number },
-): View | null {
-  const desk =
-    bot === scene.office.coord ? stage.plan.own : stage.plan.byBot.get(bot);
-  if (!desk) return null;
-  const { fit } = stage;
-  const corners = [desk.x0 - 1, desk.x1 + 1].flatMap((x) =>
-    [desk.y0 - 1, desk.y1 + 1].flatMap((y) => [
-      fit.at(x, y, 0),
-      fit.at(x, y, 11),
-    ]),
-  );
-  const [sx, sy] = fit.at(desk.seat[0], desk.seat[1], 0);
-  corners.push([sx, sy - stage.botSize]);
-  const xs = corners.map(([x]) => x);
-  const ys = corners.map(([, y]) => y);
-  const x0 = Math.min(...xs);
-  const x1 = Math.max(...xs);
-  const y0 = Math.min(...ys);
-  const y1 = Math.max(...ys);
-  const w = Math.max(1, size.w - 2 * DESK_ROOM.side);
-  const h = Math.max(1, size.h - DESK_ROOM.top - DESK_ROOM.side);
-  const z = Math.min(
-    w / Math.max(1, x1 - x0),
-    h / Math.max(1, y1 - y0),
-    DESK_ROOM.zoom,
-  );
-  return {
-    z,
-    x: size.w / 2 - z * ((x0 + x1) / 2),
-    y: DESK_ROOM.top + h / 2 - z * ((y0 + y1) / 2),
-  };
-}
-
 /** The box the office is fitted into, measured, so it redraws when the window changes. */
 function useSize(ref: React.RefObject<HTMLDivElement | null>) {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
@@ -232,11 +174,11 @@ export function OfficeStage({
 }: {
   scene: OfficeScene;
   /**
-   * Held on this bot's desk, as its page shows it (office-view BotDesk): the view frames the desk
-   * and stays put, with no pan, zoom or buttons for them, and the job's head, scoreboard and sign
-   * are left out.
+   * The thread's bot alone at its desk, as its page shows it (office-view BotDesk): no building
+   * around it (office.scene stageOf `alone`), and a view that stays put, with no pan, zoom or
+   * buttons for them, nor the job's head, scoreboard and sign.
    */
-  desk?: string;
+  desk?: boolean;
   /** Where it is seen from (office.scene Camera); a film holds its own. */
   camera?: Camera;
   /** Takes the user to what wants them in the room: the question, or Continue (bot-room). */
@@ -261,7 +203,7 @@ export function OfficeStage({
   const stage = useMemo(
     () =>
       size && size.w > 0 && size.h > 0
-        ? stageOf(scene, desk ? DESK_ROOM.lay : size, camera)
+        ? stageOf(scene, size, camera, desk)
         : null,
     [scene, size, camera, desk],
   );
@@ -304,12 +246,12 @@ export function OfficeStage({
   );
   // Null until panned or zoomed: the view it opens at, kept about the middle as the box changes
   const [panned, setView] = useState<View | null>(null);
-  const held = useMemo(
-    () => (desk && stage && size ? deskView(stage, scene, desk, size) : null),
-    [desk, stage, scene, size],
-  );
-  const opening =
-    held ?? (size ? startOf(size) : { z: ZOOM_START, x: 0, y: 0 });
+  // A desk alone is fitted to its box as it is laid out (office.scene deskFitOf)
+  const opening = desk
+    ? { z: 1, x: 0, y: 0 }
+    : size
+      ? startOf(size)
+      : { z: ZOOM_START, x: 0, y: 0 };
   const view = panned ?? opening;
   const openingRef = useRef(opening);
   openingRef.current = opening;

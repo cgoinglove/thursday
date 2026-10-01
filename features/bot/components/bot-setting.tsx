@@ -90,6 +90,7 @@ import { BOT_SEEDS, type BotSeed } from "@/features/bot/bot.seed";
 import { BotMark, iconProps } from "@/features/bot/components/bot-mark";
 import { MarkPalette } from "@/features/bot/components/mark-palette";
 import {
+  type BotRef,
   roomOpens,
   type ThreadView,
   threadFromRow,
@@ -281,21 +282,21 @@ const NEW = " new";
 const RECENT = 3;
 
 /**
- * The thread whose office a bot's page holds it in: one it is at work or waiting in now, else
- * the last it sat in, as its own or called in; none before its first job.
+ * The jobs a bot's desk is read from, as its own or called in: the one it is at work or waiting
+ * in now, and the last it sat in.
  */
-function deskOf(threads: ThreadView[], bot: string): ThreadView | null {
+function deskOf(threads: ThreadView[], bot: string): Desk {
   const sat = threads.filter((thread) =>
     thread.roster.some((one) => one.name === bot),
   );
-  return (
+  const now =
     sat.find(
       (thread) => thread.status === "working" || thread.status === "waiting",
-    ) ??
-    sat[0] ??
-    null
-  );
+    ) ?? null;
+  return { now, last: now ?? sat[0] ?? null };
 }
+
+type Desk = { now: ThreadView | null; last: ThreadView | null };
 
 /** The office drawing loads only when a bot's page shows a desk, as the room loads it. */
 const BotDesk = dynamic(
@@ -788,8 +789,8 @@ function BotPage({
   bot?: Bot;
   /** Recent jobs for this bot (RECENT); empty for a new bot. */
   jobs: Thread[];
-  /** The thread it stands at its desk in (deskOf); none before its first job. */
-  desk?: ThreadView | null;
+  /** The jobs its desk is read from (deskOf); none for a new bot. */
+  desk?: Desk;
   /** Created or deleted; where the roster should look next. */
   onDone: (name: string | null) => void;
   /** New bot only: where its Create goes, the rail at the foot (BotRail). */
@@ -971,10 +972,12 @@ function BotPage({
       </div>
 
       <div className="flex-1 space-y-5 p-6">
-        {bot && desk && <DeskBand bot={bot.name} thread={desk} />}
+        {bot && desk && <DeskBand bot={{ name: bot.name, icon }} desk={desk} />}
         <MarkPicker
           name={name}
           icon={icon}
+          // the desk above draws it, and wears a new pick at once
+          shown={!(bot && desk)}
           onChange={(next) => {
             patch({ icon: next });
             commit({ icon: next });
@@ -1473,35 +1476,45 @@ function Row({
 }
 
 /**
- * The bot at its desk, in the office of the thread it is in now or was in last, across the top of
- * its page, and under it the job it is at; Open takes the user to that thread in the room.
+ * The bot alone at its desk across the top of its page, as it stands now, and under it the job
+ * it is at or was at last; Open takes the user to that thread in the room.
  */
-function DeskBand({ bot, thread }: { bot: string; thread: ThreadView }) {
-  const now = thread.status === "working" || thread.status === "waiting";
-  const open = () => {
+function DeskBand({ bot, desk }: { bot: BotRef; desk: Desk }) {
+  const job = desk.last;
+  const open = (id: string) => {
     // The thread opens where threads are read: the room on the call screen
     useSettingsStore.getState().hide();
-    roomOpens.open(thread.id);
+    roomOpens.open(id);
   };
   return (
     <div className="-mx-6 -mt-6">
-      <BotDesk thread={thread} bot={bot} className="h-72" />
+      <BotDesk bot={bot} thread={desk.now} className="h-72" />
       <div className="flex h-9 items-center gap-3 px-6 text-[13px]">
         <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
-          {now ? "Now" : "Last"}
+          {desk.now ? "Now" : job ? "Last" : "Free"}
         </span>
-        <span className="min-w-0 flex-1 truncate">{thread.label}</span>
-        <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
-          {whenOf(thread.updatedAt)}
+        <span className="min-w-0 flex-1 truncate">
+          {job ? (
+            job.label
+          ) : (
+            <span className="text-muted-foreground">No job yet</span>
+          )}
         </span>
-        <button
-          type="button"
-          onClick={open}
-          className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 font-mono text-[11px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-        >
-          Open
-          <ArrowUpRight className="size-3" />
-        </button>
+        {job && (
+          <>
+            <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
+              {whenOf(job.updatedAt)}
+            </span>
+            <button
+              type="button"
+              onClick={() => open(job.id)}
+              className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 font-mono text-[11px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              Open
+              <ArrowUpRight className="size-3" />
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1581,14 +1594,19 @@ function MarkPicker({
   name,
   icon,
   onChange,
+  shown = true,
 }: {
   name: string;
   icon: BotIcon;
   onChange: (icon: BotIcon) => void;
+  /** Draws the face over the palette; not when the bot already stands at its desk above it. */
+  shown?: boolean;
 }) {
   return (
     <div className="flex flex-col items-center gap-4 pt-3 pb-2">
-      <BotMark size={112} {...markProps(name, icon)} className="shrink-0" />
+      {shown && (
+        <BotMark size={112} {...markProps(name, icon)} className="shrink-0" />
+      )}
 
       {/* MARK_SYSTEM is an explicit "follow the theme ink", distinct from no
           colour; picking the colour already on it goes back to none. A paint

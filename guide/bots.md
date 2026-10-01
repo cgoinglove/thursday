@@ -12,10 +12,11 @@ skills it installed go with it. **Ready-made bots**, beside New bot, adds the re
 first run offers them too. There can be at most 14 bots, switched-off ones included; at 14 the
 roster says "14 bots · 14 is the most" in place of New bot, and one has to be deleted first.
 
-Across the top of a bot's page it stands at its desk, drawn as in the office of the job it is in
-now, or the last one it was in: at work, waiting on you, or with its laptop shut once its part is
-back. Pressing it opens its last words over it. Under the desk is that job's name, and **Open**
-takes you to its thread. A bot that has had no job yet has no desk there.
+Across the top of a bot's page it stands alone at its desk, drawn as in the office: at work or
+waiting on you while it is in a job, with its laptop shut while it is free. Under the desk is the
+job it is in, or the last one it was in, and **Open** takes you to its thread; a bot that has had
+no job yet reads "No job yet". The colours and shapes under it change its face, and the bot at
+the desk wears the pick at once.
 
 Rarely, a bot adds a line of its own after its description when its work has changed for good, and
 says so in its answer. The description stays as the user wrote it. On the bot's page the line sits

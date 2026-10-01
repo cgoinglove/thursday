@@ -218,6 +218,57 @@ function fitOf(
   };
 }
 
+/** How tall a bot is drawn, in plan units at the fit (Stage botSize). */
+const BOT_TALL = 13.5;
+
+/** Room a desk drawn alone leaves on screen: above it for its bot's plate, and around it. */
+const DESK_MARGIN = { top: 44, side: 16, bottom: 12 };
+
+/**
+ * The coordinator's desk alone, with its bot standing at it, fitted into a box on screen
+ * (stageOf `alone`): from its legs to its laptop's lid and the top of its bot.
+ */
+function deskFitOf(
+  desk: Desk,
+  box: { w: number; h: number },
+  camera: Camera,
+): Fit {
+  const axes = axesOf(camera);
+  let a0 = Number.POSITIVE_INFINITY;
+  let a1 = Number.NEGATIVE_INFINITY;
+  let b0 = Number.POSITIVE_INFINITY;
+  let b1 = Number.NEGATIVE_INFINITY;
+  const reach = (x: number, y: number, z: number) => {
+    const a = x * axes.x[0] + y * axes.y[0] + z * axes.z[0];
+    const b = x * axes.x[1] + y * axes.y[1] + z * axes.z[1];
+    a0 = Math.min(a0, a);
+    a1 = Math.max(a1, a);
+    b0 = Math.min(b0, b);
+    b1 = Math.max(b1, b);
+  };
+  for (const x of [desk.x0 - 1, desk.x1 + 3])
+    for (const y of [desk.seat[1] - 3, desk.y1 + 3])
+      for (const z of [0, LAP.h + 1]) reach(x, y, z);
+  const w = Math.max(1, box.w - 2 * DESK_MARGIN.side);
+  const h = Math.max(1, box.h - DESK_MARGIN.top - DESK_MARGIN.bottom);
+  // its bot, as tall as it is drawn (stageOf botSize), standing over its seat
+  const seatB = desk.seat[0] * axes.x[1] + desk.seat[1] * axes.y[1];
+  const top = Math.min(b0, seatB - BOT_TALL);
+  const s = Math.min(w / (a1 - a0), h / (b1 - top));
+  const ox = DESK_MARGIN.side + (w - (a1 - a0) * s) / 2 - a0 * s;
+  const oy = DESK_MARGIN.top + (h - (b1 - top) * s) / 2 - top * s;
+  const at = (x: number, y: number, z = 0): Point => [
+    r1(ox + (x * axes.x[0] + y * axes.y[0] + z * axes.z[0]) * s),
+    r1(oy + (x * axes.x[1] + y * axes.y[1] + z * axes.z[1]) * s),
+  ];
+  return {
+    s,
+    axes,
+    at,
+    points: (list) => list.map(([x, y, z]) => at(x, y, z).join(",")).join(" "),
+  };
+}
+
 // ---- the sketch
 
 /**
@@ -459,6 +510,8 @@ export function stageOf(
   scene: OfficeScene,
   size: { w: number; h: number },
   camera: Camera = CAMERA,
+  /** The thread's bot at its own desk and nothing else: no building, no other desk (a bot's page). */
+  alone = false,
 ): Stage {
   const { helpers, at: joinAt } = joinsOf(scene);
   const plan = planOf(scene.office.coord, helpers);
@@ -469,17 +522,19 @@ export function stageOf(
   // where the view has room, and is fitted in view with the building
   const span = SIGN_BOX.w / SIGN_PX;
   const signAt = D * 0.45 + span / 2;
-  const fit = fitOf(
-    plan.width,
-    size,
-    {
-      x0: W + 9,
-      x1: W + 9 + SIGN_BOX.h / SIGN_PX,
-      y0: signAt,
-      y1: signAt - span,
-    },
-    camera,
-  );
+  const fit = alone
+    ? deskFitOf(plan.own, size, camera)
+    : fitOf(
+        plan.width,
+        size,
+        {
+          x0: W + 9,
+          x1: W + 9 + SIGN_BOX.h / SIGN_PX,
+          y0: signAt,
+          y1: signAt - span,
+        },
+        camera,
+      );
   const faces: Face[] = [];
   const lines: Stroke[] = [];
   const shades: Stage["shades"] = [];
@@ -520,188 +575,193 @@ export function stageOf(
     });
 
   // the footprint, run far out along the ground: the longest lines of the sketch
-  const guides = [
-    ...[0, W].map((x) => ({
-      ...stroke(
-        fit,
-        [x, -2, Z0],
-        [x, D + 2, Z0],
-        340,
-        "url(#office-fade-y)",
-        0,
-        WEIGHT.faint,
-      ),
-      id: `gx${x}`,
-    })),
-    ...[0, D].map((y) => ({
-      ...stroke(
-        fit,
-        [-2, y, Z0],
-        [W + 2, y, Z0],
-        340,
-        "url(#office-fade-x)",
-        0,
-        WEIGHT.faint,
-      ),
-      id: `gy${y}`,
-    })),
-  ];
+  const guides = alone
+    ? []
+    : [
+        ...[0, W].map((x) => ({
+          ...stroke(
+            fit,
+            [x, -2, Z0],
+            [x, D + 2, Z0],
+            340,
+            "url(#office-fade-y)",
+            0,
+            WEIGHT.faint,
+          ),
+          id: `gx${x}`,
+        })),
+        ...[0, D].map((y) => ({
+          ...stroke(
+            fit,
+            [-2, y, Z0],
+            [W + 2, y, Z0],
+            340,
+            "url(#office-fade-x)",
+            0,
+            WEIGHT.faint,
+          ),
+          id: `gy${y}`,
+        })),
+      ];
 
-  // the slab
-  face(
-    [
-      [0, D, 0],
-      [W, D, 0],
-      [W, D, Z0],
-      [0, D, Z0],
-    ],
-    "var(--gray-100)",
-  );
-  face(
-    [
-      [W, 0, 0],
-      [W, D, 0],
-      [W, D, Z0],
-      [W, 0, Z0],
-    ],
-    "var(--gray-150)",
-    true,
-  );
-  line([0, D, Z0], [W, D, Z0], 64);
-  line([W, 0, Z0], [W, D, Z0], 64);
-  line([0, D, 0], [0, D, Z0], 8);
-  line([W, D, 0], [W, D, Z0], 8);
-  line([W, 0, 0], [W, 0, Z0], 8);
-  // floors, lit from the back left
-  cue = 70;
-  face(
-    [
-      [0, DC, 0],
-      [LW, DC, 0],
-      [LW, D, 0],
-      [0, D, 0],
-    ],
-    "url(#office-floor-lobby)",
-  );
-  cue = 110;
-  face(
-    [
-      [0, 0, 0],
-      [LW, 0, 0],
-      [LW, DC, 0],
-      [0, DC, 0],
-    ],
-    "url(#office-floor-own)",
-  );
-  cue = 150;
-  if (helpers.length)
+  // the building: slab, floors and walls; none for a desk drawn alone
+  if (!alone) {
+    // the slab
     face(
       [
-        [LW, 0, 0],
+        [0, D, 0],
+        [W, D, 0],
+        [W, D, Z0],
+        [0, D, Z0],
+      ],
+      "var(--gray-100)",
+    );
+    face(
+      [
         [W, 0, 0],
         [W, D, 0],
-        [LW, D, 0],
+        [W, D, Z0],
+        [W, 0, Z0],
       ],
-      "url(#office-floor-work)",
+      "var(--gray-150)",
+      true,
     );
-  // the shade the walls cast along their feet
-  face(
-    [
-      [0, 0, 0],
-      [W, 0, 0],
-      [W, 2.6, 0],
-      [2.6, 2.6, 0],
-      [2.6, D, 0],
-      [0, D, 0],
-    ],
-    "url(#office-hatch-soft)",
-  );
-  line([0, D, 0], [W, D, 0], 22);
-  line([W, 0, 0], [W, D, 0], 22);
-  // the back walls: faces into the rooms, their tops, the open ends
-  cue = 210;
-  face(
-    [
-      [0, 0, 0],
-      [W, 0, 0],
-      [W, 0, WALL],
-      [0, 0, WALL],
-    ],
-    "var(--gray-25)",
-  );
-  face(
-    [
-      [0, 0, 0],
-      [0, D, 0],
-      [0, D, WALL],
-      [0, 0, WALL],
-    ],
-    "var(--gray-75)",
-    true,
-  );
-  face(
-    [
-      [-2, -2, WALL],
-      [W, -2, WALL],
-      [W, 0, WALL],
-      [0, 0, WALL],
-      [0, D, WALL],
-      [-2, D, WALL],
-    ],
-    "var(--gray-100)",
-  );
-  face(
-    [
-      [W, -2, 0],
-      [W, 0, 0],
-      [W, 0, WALL],
-      [W, -2, WALL],
-    ],
-    "var(--gray-150)",
-    true,
-  );
-  face(
-    [
-      [-2, D, 0],
-      [0, D, 0],
-      [0, D, WALL],
-      [-2, D, WALL],
-    ],
-    "var(--gray-100)",
-  );
-  for (const [a, b, over] of [
-    [[-2, -2, WALL], [W, -2, WALL], 10],
-    [[0, 0, WALL], [W, 0, WALL], 10],
-    [[-2, -2, WALL], [-2, D, WALL], 10],
-    [[0, 0, WALL], [0, D, WALL], 10],
-    [[W, -2, 0], [W, -2, WALL], 10],
-    [[W, 0, 0], [W, 0, WALL], 10],
-    [[W, -2, WALL], [W, 0, WALL], 5],
-    [[-2, D, 0], [-2, D, WALL], 10],
-    [[0, D, 0], [0, D, WALL], 10],
-    [[-2, D, WALL], [0, D, WALL], 5],
-    [[0, 0, 0], [W, 0, 0], 0],
-    [[0, 0, 0], [0, D, 0], 0],
-    [[0, 0, 0], [0, 0, WALL], 10],
-  ] as [[number, number, number], [number, number, number], number][])
-    line(a, b, over);
-  line([0, 0.05, 1.1], [W, 0.05, 1.1], 0, INK_FAINT);
-  line([0.05, 0, 1.1], [0.05, D, 1.1], 0, INK_FAINT);
-  // the coordinator's pinboard
-  cue = 260;
-  face(
-    [
-      [2.5, 0.12, 4],
-      [21.5, 0.12, 4],
-      [21.5, 0.12, 13],
-      [2.5, 0.12, 13],
-    ],
-    "var(--gray-0)",
-  );
-  line([2.5, 0.12, 4], [21.5, 0.12, 4], 3);
-  line([2.5, 0.12, 13], [21.5, 0.12, 13], 3);
-  line([2.5, 0.12, 4], [2.5, 0.12, 13], 3);
-  line([21.5, 0.12, 4], [21.5, 0.12, 13], 3);
+    line([0, D, Z0], [W, D, Z0], 64);
+    line([W, 0, Z0], [W, D, Z0], 64);
+    line([0, D, 0], [0, D, Z0], 8);
+    line([W, D, 0], [W, D, Z0], 8);
+    line([W, 0, 0], [W, 0, Z0], 8);
+    // floors, lit from the back left
+    cue = 70;
+    face(
+      [
+        [0, DC, 0],
+        [LW, DC, 0],
+        [LW, D, 0],
+        [0, D, 0],
+      ],
+      "url(#office-floor-lobby)",
+    );
+    cue = 110;
+    face(
+      [
+        [0, 0, 0],
+        [LW, 0, 0],
+        [LW, DC, 0],
+        [0, DC, 0],
+      ],
+      "url(#office-floor-own)",
+    );
+    cue = 150;
+    if (helpers.length)
+      face(
+        [
+          [LW, 0, 0],
+          [W, 0, 0],
+          [W, D, 0],
+          [LW, D, 0],
+        ],
+        "url(#office-floor-work)",
+      );
+    // the shade the walls cast along their feet
+    face(
+      [
+        [0, 0, 0],
+        [W, 0, 0],
+        [W, 2.6, 0],
+        [2.6, 2.6, 0],
+        [2.6, D, 0],
+        [0, D, 0],
+      ],
+      "url(#office-hatch-soft)",
+    );
+    line([0, D, 0], [W, D, 0], 22);
+    line([W, 0, 0], [W, D, 0], 22);
+    // the back walls: faces into the rooms, their tops, the open ends
+    cue = 210;
+    face(
+      [
+        [0, 0, 0],
+        [W, 0, 0],
+        [W, 0, WALL],
+        [0, 0, WALL],
+      ],
+      "var(--gray-25)",
+    );
+    face(
+      [
+        [0, 0, 0],
+        [0, D, 0],
+        [0, D, WALL],
+        [0, 0, WALL],
+      ],
+      "var(--gray-75)",
+      true,
+    );
+    face(
+      [
+        [-2, -2, WALL],
+        [W, -2, WALL],
+        [W, 0, WALL],
+        [0, 0, WALL],
+        [0, D, WALL],
+        [-2, D, WALL],
+      ],
+      "var(--gray-100)",
+    );
+    face(
+      [
+        [W, -2, 0],
+        [W, 0, 0],
+        [W, 0, WALL],
+        [W, -2, WALL],
+      ],
+      "var(--gray-150)",
+      true,
+    );
+    face(
+      [
+        [-2, D, 0],
+        [0, D, 0],
+        [0, D, WALL],
+        [-2, D, WALL],
+      ],
+      "var(--gray-100)",
+    );
+    for (const [a, b, over] of [
+      [[-2, -2, WALL], [W, -2, WALL], 10],
+      [[0, 0, WALL], [W, 0, WALL], 10],
+      [[-2, -2, WALL], [-2, D, WALL], 10],
+      [[0, 0, WALL], [0, D, WALL], 10],
+      [[W, -2, 0], [W, -2, WALL], 10],
+      [[W, 0, 0], [W, 0, WALL], 10],
+      [[W, -2, WALL], [W, 0, WALL], 5],
+      [[-2, D, 0], [-2, D, WALL], 10],
+      [[0, D, 0], [0, D, WALL], 10],
+      [[-2, D, WALL], [0, D, WALL], 5],
+      [[0, 0, 0], [W, 0, 0], 0],
+      [[0, 0, 0], [0, D, 0], 0],
+      [[0, 0, 0], [0, 0, WALL], 10],
+    ] as [[number, number, number], [number, number, number], number][])
+      line(a, b, over);
+    line([0, 0.05, 1.1], [W, 0.05, 1.1], 0, INK_FAINT);
+    line([0.05, 0, 1.1], [0.05, D, 1.1], 0, INK_FAINT);
+    // the coordinator's pinboard
+    cue = 260;
+    face(
+      [
+        [2.5, 0.12, 4],
+        [21.5, 0.12, 4],
+        [21.5, 0.12, 13],
+        [2.5, 0.12, 13],
+      ],
+      "var(--gray-0)",
+    );
+    line([2.5, 0.12, 4], [21.5, 0.12, 4], 3);
+    line([2.5, 0.12, 13], [21.5, 0.12, 13], 3);
+    line([2.5, 0.12, 4], [2.5, 0.12, 13], 3);
+    line([21.5, 0.12, 4], [21.5, 0.12, 13], 3);
+  }
 
   let count = 0;
   const add = (depth: number, part: Part, extra: Partial<Piece> = {}) => {
@@ -768,12 +828,14 @@ export function stageOf(
       add((x + end) / 2 + y + 0.9, { faces: part.faces, edges: keep });
     }
   };
-  if (helpers.length) {
-    alongY(LW, 0, 18);
-    alongY(LW, 30, D);
+  if (!alone) {
+    if (helpers.length) {
+      alongY(LW, 0, 18);
+      alongY(LW, 30, D);
+    }
+    alongX(DC, 0, 18);
+    alongX(DC, 30, LW);
   }
-  alongX(DC, 0, 18);
-  alongX(DC, 30, LW);
 
   // a desk: a top on legs, a laptop turned to its bot, a mug; a helper's is drawn when it joins
   const deskParts = (desk: Desk) => {
@@ -968,18 +1030,22 @@ export function stageOf(
       );
     }
   };
-  // your window: a counter, where questions and the final report come
-  cue += 60;
-  shade(12, 74, 36, 80, 3, null);
-  add(
-    24 + 77,
-    merge(
-      box(fit, [12, 74, 36, 80, 0, 7.2]),
-      box(fit, [11.4, 73.4, 36.6, 80.6, 7.2, 8.1]),
-    ),
-  );
+  if (!alone) {
+    // your window: a counter, where questions and the final report come
+    cue += 60;
+    shade(12, 74, 36, 80, 3, null);
+    add(
+      24 + 77,
+      merge(
+        box(fit, [12, 74, 36, 80, 0, 7.2]),
+        box(fit, [11.4, 73.4, 36.6, 80.6, 7.2, 8.1]),
+      ),
+    );
+  }
   deskAt(plan.own, null, true);
-  for (const desk of plan.desks) deskAt(desk, joinAt.get(desk.bot) ?? 0, false);
+  if (!alone)
+    for (const desk of plan.desks)
+      deskAt(desk, joinAt.get(desk.bot) ?? 0, false);
 
   // A flat box laid on screen from its corner at x, y, z, `across` and `down` being where its own
   // two sides run: on the ground reading along the building's right side, or upright on the plane
@@ -1038,7 +1104,10 @@ export function stageOf(
     floor: onPlan([0, 0, 0]),
     pools,
     ground: { matrix: onPlan([0, 0, Z0]), w: W, d: D },
-    botSize: Math.round(clamp(fit.s * 13.5, 28, 96)),
+    // A desk alone keeps the office's proportions however large its box draws it
+    botSize: Math.round(
+      alone ? fit.s * BOT_TALL : clamp(fit.s * BOT_TALL, 28, 96),
+    ),
     popAt,
     built: popAt + 300,
   };

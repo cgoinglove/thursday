@@ -9,7 +9,7 @@ import {
   watch,
 } from "@/features/bot/office";
 import type { Camera } from "@/features/bot/office.scene";
-import type { ThreadView } from "@/features/bot/thread.store";
+import type { BotRef, ThreadView } from "@/features/bot/thread.store";
 import { FileViewer } from "@/features/workspace/components/file-view";
 import { toDate } from "@/lib/date-like";
 import { cn } from "@/lib/utils";
@@ -99,23 +99,60 @@ export function OfficeBackdrop({
 }
 
 /**
- * One bot at its desk, on its page in Settings › Bots: the office of a thread it sits in, held on
- * its desk (office-stage `desk`), so it stands there as it does in the room — at work, asking, or
- * with its laptop shut once its part is back. Pressing it opens its last words over it.
+ * How a bot's desk is seen on its page: turned toward the front of the desk from the office's
+ * diagonal, from the office's height, so its bot stands over the desk as it does there.
+ */
+const DESK_CAMERA: Camera = { yaw: 20, pitch: 40 };
+
+/**
+ * One bot alone at its desk, on its page in Settings › Bots: the office's own desk and face with
+ * nothing around them (office-stage `desk`). It stands as it does in the job it is in now — at
+ * work, waiting on you, paused — and with its laptop shut when it is in none.
  */
 export function BotDesk({
-  thread,
   bot,
+  thread,
   className,
 }: {
-  thread: ThreadView;
-  bot: string;
+  bot: BotRef;
+  /** The job it is at work or waiting in now; none when it is free. */
+  thread: ThreadView | null;
   className?: string;
 }) {
+  const key = thread
+    ? (officeOf(thread).seats.get(bot.name)?.key ?? "none")
+    : "none";
+  // Read once per state: a desk with nothing moving keeps its clock still (office-stage)
+  const [start] = useState(() => Date.now());
+  const scene = useMemo(() => {
+    const office: OfficeThread = {
+      coord: bot.name,
+      bots: [bot.name],
+      events: [],
+      seats: new Map([[bot.name, { key, waits: [], since: null }]]),
+      owed: new Map(),
+      states: new Map(),
+      starts: new Map(),
+      asking: new Set(),
+      span: 0,
+      steps: new Map(),
+      status: thread?.status ?? "done",
+      seen: true,
+    };
+    return sceneOf(office, watch(null, office, 0));
+  }, [bot.name, key, thread?.status]);
   return (
     <div className={cn("flex", className)}>
-      {/* Another thread builds its own office, as the room's does */}
-      <Office key={thread.id} thread={thread} desk={bot} />
+      <OfficeStage
+        scene={scene}
+        start={start}
+        label={thread?.label ?? bot.name}
+        faces={[bot]}
+        from={thread?.id ?? ""}
+        camera={DESK_CAMERA}
+        desk
+        className="min-h-0 min-w-0 flex-1"
+      />
     </div>
   );
 }
@@ -125,13 +162,11 @@ function Office({
   onBot,
   onAnswer,
   camera,
-  desk,
 }: {
   thread: ThreadView;
   onBot?: (bot: string) => void;
   onAnswer?: () => void;
   camera?: Camera;
-  desk?: string;
 }) {
   const start = toDate(thread.createdAt).getTime();
   const office = useMemo(() => officeOf(thread), [thread]);
@@ -150,7 +185,6 @@ function Office({
         onBot={onBot}
         onAnswer={onAnswer}
         camera={camera}
-        desk={desk}
         className="min-h-0 min-w-0 flex-1"
       />
     </FileViewer>
