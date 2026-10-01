@@ -480,7 +480,7 @@ function CallScreen({
             reading && "*:pointer-events-none *:opacity-0",
           )}
         >
-          <ArtifactView />
+          <ArtifactView talking={status !== "idle"} />
         </div>
         {/* Whatever is typed or handed over instead of said */}
         <WriteLine written={written} onCall={live} />

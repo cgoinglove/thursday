@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { ChevronUp, X } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
@@ -44,10 +44,10 @@ import { FileViewer, useOpenFile } from "./file-view";
  * done with a pile of them. Closing one card is not — that is this browser
  * waving it off. A thread read anywhere else takes its card away.
  */
-export function ArtifactView() {
+export function ArtifactView({ talking = false }: { talking?: boolean }) {
   return (
     <FileViewer>
-      <Notice />
+      <Notice talking={talking} />
     </FileViewer>
   );
 }
@@ -185,8 +185,14 @@ function OnDisk({
   });
 }
 
-function Notice() {
+function Notice({ talking }: { talking: boolean }) {
   const [rows, setRows] = useState<Finished[]>([]);
+  // On a call the corner folds to its newest card and one line: the stack grew up into her
+  // words beside her face (UX test, 1280x720). Opened, it stays open until the call ends.
+  const [unfolded, setUnfolded] = useState(false);
+  useEffect(() => {
+    if (!talking) setUnfolded(false);
+  }, [talking]);
   const { data: bots } = useServerRoute<Bot[]>(queryKey.bot);
   const threads = useBotThreads();
   const openFile = useOpenFile();
@@ -280,6 +286,7 @@ function Notice() {
   // One is drawn whole; the rest are a line each, so nothing is hidden behind anything
   const shown = rows.slice(0, FINISHED_NOTICE.shown);
   const listed = rows.slice(FINISHED_NOTICE.shown);
+  const folded = talking && listed.length > 0 && !unfolded;
 
   const read = (threadIds: string[]) => {
     rememberDismissed(threadIds);
@@ -336,7 +343,14 @@ function Notice() {
         ))}
         {/* Everything else it holds is a line: whose it is, what it was, and the faces of what
             it left. A pile of edges said there were more and nothing about them. */}
-        {listed.map((named) => (
+        {folded && (
+          <FoldedRows
+            rows={listed}
+            bots={bots}
+            onOpen={() => setUnfolded(true)}
+          />
+        )}
+        {(folded ? [] : listed).map((named) => (
           <OnDisk key={named.threadId} row={named}>
             {(row) => (
               <FinishedRow
@@ -352,7 +366,7 @@ function Notice() {
             )}
           </OnDisk>
         ))}
-        {rows.length > 1 && (
+        {rows.length > 1 && !folded && (
           <p className="flex shrink-0 items-center gap-2 px-1.5 font-mono text-[10px] text-muted-foreground">
             <span>{rows.length} new</span>
             <span className="flex-1" />
@@ -375,6 +389,53 @@ function Notice() {
 
 /** How many of a row's files fit on its line before the rest become a number. */
 const ROW_FACES = 3;
+
+/**
+ * The lines under the newest card, folded into one while a call is on (Notice): whose they are,
+ * and how many. Pressing it opens them.
+ */
+function FoldedRows({
+  rows,
+  bots,
+  onOpen,
+}: {
+  rows: Finished[];
+  bots?: Bot[];
+  onOpen: () => void;
+}) {
+  const who = [...new Set(rows.map((row) => row.bot))].slice(0, ROW_FACES);
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex shrink-0 animate-in items-center gap-2 rounded-2xl bg-background py-1.5 pr-2.5 pl-2.5 text-left shadow-black/8 shadow-md ring-1 ring-border outline-none fade-in duration-300 hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      <span className="flex shrink-0">
+        {who.map((name, index) => {
+          const bot = bots?.find((one) => one.name === name);
+          return (
+            <BotMark
+              key={name}
+              size={18}
+              seed={name}
+              color={bot?.icon?.color}
+              shape={bot?.icon?.shape}
+              outline={bot?.icon?.outline}
+              paint={bot?.icon?.paint}
+              notify={false}
+              resting
+              className={cn("shrink-0", index > 0 && "-ml-1.5")}
+            />
+          );
+        })}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-[12.5px] leading-5">
+        {rows.length} more finished
+      </span>
+      <ChevronUp className="size-3.5 shrink-0 text-muted-foreground" />
+    </button>
+  );
+}
 
 /**
  * One ending under the card: the bot, what it was, and small faces for what it left. Pressing it

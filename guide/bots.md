@@ -192,7 +192,9 @@ Nothing opens by itself: a finished job waits as a card in the corner at the bot
 is opened or dismissed, even across a reload. The corner holds the five newest. Opening a card or
 a file on it counts as reading it, and she will not bring it up on a call; dismissing it with its ✕
 does not, and it still waits in its thread. **Clear all** marks every one read, as does asking her
-to clear what is finished. The files also show under the bot's words in the thread.
+to clear what is finished. The files also show under the bot's words in the thread. On a call the
+corner folds to its newest card and one line, *N more finished*, which opens the rest; it unfolds
+again when the call ends.
 
 When a job finishes while the app is not the window in front, the browser shows a notification if
 it was allowed (it asks when a call is placed); with no app tab open, the computer's own
