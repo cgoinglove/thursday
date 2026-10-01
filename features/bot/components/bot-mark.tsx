@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useEffect, useId, useMemo, useRef } from "react";
+import { useSettingsStore } from "@/features/settings/settings.store";
 import { watchOnScreen } from "@/hooks/use-on-screen";
 import { useIsDark } from "@/hooks/use-theme";
 import { createVoiceFollower, SPECTRUM_BANDS } from "@/lib/live/live.tap";
@@ -805,8 +806,13 @@ export const BotMark = memo(function BotMark({
     // Out of the window it draws nothing and asks for no frames: a thread's turns each carry
     // a mark, and one long thread kept dozens ticking out of sight (hooks/use-on-screen)
     let onScreen = true;
+    // Nor under Settings, which covers the call screen whole (as her face is held there): the
+    // pill's marks went on changing every frame beneath its blur, and the page kept
+    // compositing them. A mark inside a dialog — Settings' own — is the one being looked at.
+    const inDialog = Boolean(svgRef.current?.closest('[role="dialog"]'));
+    let covered = !inDialog && useSettingsStore.getState().open;
     const tick = (now: number) => {
-      if (!onScreen) {
+      if (!onScreen || covered) {
         raf = 0;
         return;
       }
@@ -1068,12 +1074,19 @@ export const BotMark = memo(function BotMark({
     const unwatch = svgRef.current
       ? watchOnScreen(svgRef.current, (on) => {
           onScreen = on;
-          if (on && !raf) raf = requestAnimationFrame(tick);
+          if (on && !covered && !raf) raf = requestAnimationFrame(tick);
         })
       : undefined;
+    const unhold = inDialog
+      ? undefined
+      : useSettingsStore.subscribe((state) => {
+          covered = state.open;
+          if (!covered && onScreen && !raf) raf = requestAnimationFrame(tick);
+        });
     return () => {
       cancelAnimationFrame(raf);
       unwatch?.();
+      unhold?.();
       if (followed) boxes.delete(followed);
     };
   }, []);
