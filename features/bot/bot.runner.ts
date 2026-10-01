@@ -588,12 +588,11 @@ export async function removeFinishedThreads(
 /**
  * Hidden browsers of jobs no bot is on a step of, once the job has sat BROWSER_IDLE without
  * one: a question nobody answered, a stop waiting on Continue, a finish whose own close was
- * missed. The workspace's browsers are listed once, and only the threads that have one are
- * read again under their lock.
+ * missed. At boot and on BROWSER_IDLE's own timer (instrumentation). The workspace's browsers
+ * are listed once, and only the threads that have one are read again under their lock.
  */
-async function closeIdleBrowsers(
-  threads: { id: string; status: ThreadStatus; updatedAt: Date }[],
-) {
+export async function closeIdleBrowsers() {
+  const threads = await listThreadFolders();
   const listed = await listJobBrowsers();
   if (!listed?.length) return;
   const before = Date.now() - BROWSER_IDLE.closeAfterMs;
@@ -631,8 +630,7 @@ export async function sweepJobFiles(): Promise<string[]> {
   // Folders on disk; each one a job owns is taken out as its job is read
   const unowned = new Set(await listScratchFolders());
   const removed: string[] = [];
-  const threads = await listThreadFolders();
-  for (const thread of threads) {
+  for (const thread of await listThreadFolders()) {
     const folder = jobScratch(thread.id, thread.label);
     if (!unowned.delete(folder) || !stale(thread)) continue;
     await threadLock(thread.id, async () => {
@@ -643,7 +641,6 @@ export async function sweepJobFiles(): Promise<string[]> {
       removed.push(folder);
     });
   }
-  await closeIdleBrowsers(threads);
   removed.push(...(await removeUnchangedFolders([...unowned])));
   await pruneJobFiles();
   if (removed.length) {

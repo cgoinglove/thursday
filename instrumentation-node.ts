@@ -1,6 +1,13 @@
 export async function boot() {
-  const { APP_DIR, DATA_DIR, DB_PATH, ENV_PATH, HISTORY_KEEP, WORKSPACE_KEEP } =
-    await import("@/config");
+  const {
+    APP_DIR,
+    BROWSER_IDLE,
+    DATA_DIR,
+    DB_PATH,
+    ENV_PATH,
+    HISTORY_KEEP,
+    WORKSPACE_KEEP,
+  } = await import("@/config");
   const { logger } = await import("@/lib/logger");
 
   // Nothing can run on a database this build cannot migrate, and nothing can
@@ -80,7 +87,7 @@ export async function boot() {
   await installGuide().catch((cause) => logger.error("install guide", cause));
 
   // Threads left `running` by the previous process are not running now.
-  const { sweepJobFiles, sweepThreads } = await import(
+  const { closeIdleBrowsers, sweepJobFiles, sweepThreads } = await import(
     "@/features/bot/bot.runner"
   );
   await sweepThreads();
@@ -104,6 +111,14 @@ export async function boot() {
     );
   sweepFiles();
   setInterval(sweepFiles, WORKSPACE_KEEP.sweepEveryMs).unref();
+  // And a waiting job's hidden browsers, which hold hundreds of megabytes each, go sooner
+  // (config BROWSER_IDLE)
+  const closeIdle = () =>
+    void closeIdleBrowsers().catch((cause) =>
+      logger.error("close idle browsers", cause),
+    );
+  closeIdle();
+  setInterval(closeIdle, BROWSER_IDLE.checkEveryMs).unref();
 
   // Same for calls: an open call row from a vanished tab would route finished
   // jobs to a listener that is not there (bot.runner).

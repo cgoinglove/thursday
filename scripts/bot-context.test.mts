@@ -5459,8 +5459,8 @@ test("a job that finishes closes the browsers nobody can see, and leaves a windo
   }
 });
 
-test("the sweep closes the hidden browsers of a job idle past BROWSER_IDLE, and not of one used since", async () => {
-  const { sweepJobFiles } = await import("../features/bot/bot.runner.ts");
+test("idle browsers close for a job past BROWSER_IDLE, and not for one used since", async () => {
+  const { closeIdleBrowsers } = await import("../features/bot/bot.runner.ts");
   const { BROWSER_IDLE } = await import("../config.ts");
   const { threadTable } = await import("../database/tables.ts");
   const ids: string[] = [];
@@ -5492,7 +5492,7 @@ test("the sweep closes the hidden browsers of a job idle past BROWSER_IDLE, and 
   );
   await rm(join(home, "closed.txt"), { force: true });
   try {
-    await sweepJobFiles();
+    await closeIdleBrowsers();
     assert.equal(
       await readFile(join(home, "closed.txt"), "utf8"),
       `thread-${ids[0]}\n`,

@@ -901,13 +901,17 @@ export const WORKSPACE_KEEP = {
 /**
  * When a job's browsers nobody can see are closed (workspace closeIdleBrowser). Each holds
  * hundreds of megabytes while it is up; a window put on their screen stays whatever this says.
- * A job that finishes closes them at once; one that waits — a question unanswered, a stop
- * on Continue — closes them once it has sat this long without a step, checked on the
- * WORKSPACE_KEEP sweep, so up to `sweepEveryMs` later. Shorter frees the memory sooner; a
- * job picked up after that opens its page again rather than finding it where it was.
+ * A job that finishes closes them at once.
+ * - `closeAfterMs`  how long a job that waits — a question unanswered, a stop on Continue —
+ *   keeps them without a step. Shorter frees the memory sooner; a job picked up after it
+ *   opens its page again and walks back to where it was, model steps and all, so it is
+ *   long enough to answer a question after a break. Only a waiting job is held to it.
+ * - `checkEveryMs`  how often the app looks, besides once at boot, so one closes up to this
+ *   much after `closeAfterMs`. Each look is one `playwright-cli list`.
  */
 export const BROWSER_IDLE = {
   closeAfterMs: 60 * 60 * 1000,
+  checkEveryMs: 5 * 60 * 1000,
 };
 
 /**

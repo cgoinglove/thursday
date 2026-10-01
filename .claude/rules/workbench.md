@@ -30,8 +30,8 @@ lays `jobShellEnv` and `botShellEnv` over each command and hands the same sessio
 sign-in tools. The sandbox is a working directory and a scrubbed environment, not isolation: `bash`
 reaches the whole disk as the user, and `writeRefusal` fences `write_file` alone.
 `features/bot/bot.runner.ts` calls the closing functions here on cancel, delete and finish and
-in `sweepJobFiles` (boot and a timer; hidden browsers idle past `BROWSER_IDLE` too);
-`instrumentation-node.ts` closes all hidden ones on shutdown. `features/bot/bot.run.ts` renews
+in `sweepJobFiles`; `closeIdleBrowsers` closes hidden ones idle past `BROWSER_IDLE`, and
+`instrumentation-node.ts` all of them on shutdown. `features/bot/bot.run.ts` renews
 kept sign-ins after every turn. A bot refused a sign-in it did not keep lands on that sign-in's `asking` list, and only
 Settings › Sign-ins or `signin-ask.tsx` in its question lets it in.
 
