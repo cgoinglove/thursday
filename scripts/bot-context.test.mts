@@ -298,6 +298,89 @@ after(async () => {
   await rm(home, { recursive: true, force: true });
 });
 
+test("the inbox carries only the newest unread and unrelayed endings", async () => {
+  const { insertThread, deleteThread, listInboxThreads } = await import(
+    "../features/bot/thread.query.ts"
+  );
+  const { threadRelayTable, threadTable } = await import(
+    "../database/tables.ts"
+  );
+  const { INBOX_UNREAD } = await import("../config.ts");
+  const ids: string[] = [];
+  try {
+    // A routine nobody opened: one unread ending a run, each with a report no call relayed
+    for (let index = 0; index < INBOX_UNREAD + 5; index++) {
+      const thread = await insertThread({
+        bot: "Alpha",
+        label: `Unread ${index}`,
+        request: "Unread fixture",
+        opening: "Unread fixture",
+      });
+      ids.push(thread.id);
+      await database
+        .update(threadTable)
+        .set({
+          status: "done",
+          seen: false,
+          outcome: `Result ${index}`,
+          updatedAt: new Date(Date.UTC(2030, 0, 1, 0, index)),
+        })
+        .where(eq(threadTable.id, thread.id));
+      await database.insert(threadRelayTable).values({
+        key: `report:${thread.id}:0`,
+        threadId: thread.id,
+        bot: "Alpha",
+        text: `Result ${index}`,
+        kind: "report",
+      });
+    }
+    const listed = new Set((await listInboxThreads()).map((row) => row.id));
+    assert.deepEqual(
+      ids.map((id) => listed.has(id)),
+      ids.map((_, index) => index >= 5),
+    );
+  } finally {
+    for (const id of ids) await deleteThread(id);
+  }
+});
+
+test("a routine's run that ends tells the routines to be read again", async () => {
+  const { insertThread, deleteThread, updateThread } = await import(
+    "../features/bot/thread.query.ts"
+  );
+  const { appEvents } = await import("../app/api/events/app-event.server.ts");
+  const heard: string[] = [];
+  const stop = appEvents.subscribe((event) => heard.push(event.type));
+  const run = await insertThread({
+    bot: "Alpha",
+    label: "Morning brief",
+    request: "Routine fixture",
+    opening: "Routine fixture",
+    routineId: "routine-fixture",
+  });
+  const loose = await insertThread({
+    bot: "Alpha",
+    label: "Loose job",
+    request: "Loose fixture",
+    opening: "Loose fixture",
+  });
+  try {
+    heard.length = 0;
+    await updateThread(loose.id, { status: "done", outcome: "Done." });
+    assert.ok(!heard.includes("routines"));
+    await updateThread(run.id, { status: "done", outcome: "Done." });
+    assert.ok(heard.includes("routines"));
+    // Being read is not how the run stands
+    heard.length = 0;
+    await updateThread(run.id, { seen: true });
+    assert.ok(!heard.includes("routines"));
+  } finally {
+    stop();
+    await deleteThread(run.id);
+    await deleteThread(loose.id);
+  }
+});
+
 test("thread overview keeps old open work and the inbox retains unread endings", async () => {
   const {
     insertThread,

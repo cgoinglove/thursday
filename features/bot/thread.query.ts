@@ -17,6 +17,7 @@ import {
   BOT_WORK,
   FULL_RESULT_LINES,
   INBOX_FINISHED,
+  INBOX_UNREAD,
   PAGE_SIZE,
   STUDIO_SERVER,
   THREAD_LABEL_REACH,
@@ -147,11 +148,16 @@ export async function updateThread(
     endedAt: Date | null;
   }>,
 ) {
-  await database
+  const [row] = await database
     .update(threadTable)
     .set({ ...patch, updatedAt: new Date() })
-    .where(eq(threadTable.id, id));
+    .where(eq(threadTable.id, id))
+    .returning({ routineId: threadTable.routineId });
   changed();
+  // A routine's row says how its last run stands, read with the routines: a run that ended
+  // was still "Running now" there until something else asked for them again
+  if (row?.routineId && ("status" in patch || "outcome" in patch))
+    appEvents.emit({ type: "routines" });
 }
 
 /**
@@ -270,7 +276,7 @@ export async function findThread(id: string) {
 const isLive = (status: ThreadStatus) =>
   status === "running" || status === "waiting";
 
-/** Keep open work, unread endings and unrelayed messages alongside recent read endings. */
+/** Keep open work, the newest unread endings and unrelayed messages alongside recent read endings. */
 export async function listInboxThreads(): Promise<Thread[]> {
   const [open, finished, unread, unrelayed] = await Promise.all([
     database
@@ -293,7 +299,9 @@ export async function listInboxThreads(): Promise<Thread[]> {
           inArray(threadTable.status, ["done", "cancelled"]),
           eq(threadTable.seen, false),
         ),
-      ),
+      )
+      .orderBy(desc(threadTable.updatedAt))
+      .limit(INBOX_UNREAD),
     database
       .select(threadView)
       .from(threadTable)
@@ -305,7 +313,9 @@ export async function listInboxThreads(): Promise<Thread[]> {
             .from(threadRelayTable)
             .where(eq(threadRelayTable.accepted, false)),
         ),
-      ),
+      )
+      .orderBy(desc(threadTable.updatedAt))
+      .limit(INBOX_UNREAD),
   ]);
   const rows = [
     ...new Map(

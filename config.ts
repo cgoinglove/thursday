@@ -416,10 +416,20 @@ export const SEARCH_WAIT_MS = 250;
  * or waiting, read or not, so the room sees each one end (a stop is read by
  * whoever made it); older ones are under History only. The room in the call
  * screen's corner and the Threads badge read that one list. Unread endings, and
- * endings a call has not relayed, remain regardless of this limit. More keeps
- * older endings in reach at the cost of a larger inbox read.
+ * endings a call has not relayed, remain regardless of this limit (INBOX_UNREAD).
+ * More keeps older endings in reach at the cost of a larger inbox read.
  */
 export const INBOX_FINISHED = 5;
+
+/**
+ * The newest unread endings, and endings a call has not relayed, the inbox carries; older
+ * ones stay unread under History. What reads them takes fewer still: the corner shows
+ * FINISHED_NOTICE.rows, the pill a dot per bot, a call the ones that end while it is open.
+ * Uncapped, a routine nobody opened made the one list every thread event re-reads grow
+ * by a row a run: 320 rows and 519 KB, read for 1.1 s before the page's other requests
+ * (UX test, 2026-10-01). Fewer drops an older unread ending's dot from the pill sooner.
+ */
+export const INBOX_UNREAD = 20;
 
 /**
  * How often the page reads the thread inbox again on its own (useThursday), besides the
