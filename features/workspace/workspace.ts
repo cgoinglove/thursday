@@ -196,6 +196,21 @@ export async function openJobScratch(
   return path;
 }
 
+/** What every job's browser session name starts with, its thread id after it (jobShellEnv). */
+const JOB_SESSION_PREFIX = "thread-";
+
+/** The thread a listed browser session belongs to, read off its name; null for any other. */
+export function threadOfBrowser(name: string): string | null {
+  const id = name.slice(
+    JOB_SESSION_PREFIX.length,
+    JOB_SESSION_PREFIX.length + 36,
+  );
+  return name.startsWith(JOB_SESSION_PREFIX) &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)
+    ? id
+    : null;
+}
+
 /**
  * A job's own browser session. playwright-cli reads the session name from
  * this variable when `-s=` is not given, so the model never picks one and the
@@ -209,7 +224,7 @@ export const jobShellEnv = (
   PLAYWRIGHT_MCP_BROWSER: "chromium",
   ...(threadId
     ? {
-        PLAYWRIGHT_CLI_SESSION: `thread-${threadId}`,
+        PLAYWRIGHT_CLI_SESSION: `${JOB_SESSION_PREFIX}${threadId}`,
         // Read by playwright-cli; the window it opens is on the user's screen
         PLAYWRIGHT_MCP_VIEWPORT_SIZE: BROWSER_VIEWPORT,
       }
@@ -378,6 +393,49 @@ async function forgetUnlessUnread(threadId: string, open: string[] | null) {
 /** A cancel closes every participant's window, but never an attached personal browser. The thread can still be picked back up, so its profiles stay. */
 export async function closeJobShell(threadId: string): Promise<void> {
   await closeBrowsers(threadId, true);
+}
+
+/**
+ * A job that finished, or that has sat without a step for BROWSER_IDLE, closes the browsers
+ * nobody can see. Each holds hundreds of megabytes while it is up (351–706 MB measured on a
+ * Mac), and left until the folder expired a day of jobs held gigabytes. A window it put on
+ * their screen and an attached browser of theirs stay (closeBrowsers), and so do the
+ * profiles: a job picked back up opens its browser again on them.
+ */
+export async function closeIdleBrowser(
+  threadId: string,
+  listed?: ListedBrowser[],
+): Promise<void> {
+  await closeBrowsers(threadId, false, listed);
+}
+
+/**
+ * Every job's browser nobody can see, as the server stops: they belong to playwright-cli's own
+ * daemon, which outlives the server, so nothing else would close them. Read once and closed
+ * side by side, since a stop has seconds. A list that cannot be read closes nothing.
+ */
+export async function closeHiddenBrowsers(): Promise<void> {
+  const sandbox = await openWorkspace();
+  const env = jobShellEnv(null);
+  const all = await listBrowsers(sandbox, env).catch(() => null);
+  if (!all) return;
+  await Promise.all(
+    all
+      .filter(
+        (b) =>
+          b.name.startsWith(JOB_SESSION_PREFIX) &&
+          !b.attached &&
+          b.headed === false,
+      )
+      .map((b) =>
+        sandbox
+          .exec("playwright-cli close", {
+            env: { ...env, PLAYWRIGHT_CLI_SESSION: b.name },
+            timeoutMs: BROWSER_CLI.readMs,
+          })
+          .catch(() => {}),
+      ),
+  );
 }
 
 /**

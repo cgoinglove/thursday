@@ -161,6 +161,9 @@ export async function boot() {
   // The launcher forwards shutdown signals so pending work records its manual resume boundary.
   if (process.env.NEXT_MANUAL_SIG_HANDLE) {
     const { checkpoint } = await import("@/database/db");
+    const { closeHiddenBrowsers } = await import(
+      "@/features/workspace/workspace"
+    );
     let stopping = false;
     // SIGHUP is a terminal closed under it: left to its default, the server died on the spot
     // and skipped both
@@ -181,9 +184,16 @@ export async function boot() {
           // in: from here the database is one file to copy (guide/setup).
           .then(() => checkpoint())
           .catch((cause) => logger.error("checkpoint", cause));
+        // Bots' hidden browsers belong to playwright-cli's daemon, which outlives this
+        // process: left up, each held hundreds of megabytes until the next day's sweep
+        const closed = closeHiddenBrowsers().catch((cause) =>
+          logger.error("close browsers", cause),
+        );
         // The launcher kills the server four seconds after passing a stop on
         const late = new Promise((resolve) => setTimeout(resolve, 3_000));
-        void Promise.race([parked, late]).finally(() => process.exit(code));
+        void Promise.race([Promise.all([parked, closed]), late]).finally(() =>
+          process.exit(code),
+        );
       });
     }
   }

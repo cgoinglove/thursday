@@ -872,8 +872,7 @@ export const JOB_FOLDER_WALK = 500;
  * - `forMs`  one age for all of it: a job's scratch folder, counted from when
  *            the job ended (a job running or waiting keeps its folder however
  *            old), a scratch folder no job owns, spilled tool output, and the
- *            browser's snapshots and logs. Headless participant browsers close
- *            when the ended job's folder expires too. Long enough to return to a job
+ *            browser's snapshots and logs. Long enough to return to a job
  *            days later; what is worth keeping goes in `artifacts/`, which is
  *            never cleared.
  * - `sweepEveryMs`  how often the app looks, besides once at boot.
@@ -881,6 +880,18 @@ export const JOB_FOLDER_WALK = 500;
 export const WORKSPACE_KEEP = {
   forMs: 3 * 24 * 60 * 60 * 1000,
   sweepEveryMs: 60 * 60 * 1000,
+};
+
+/**
+ * When a job's browsers nobody can see are closed (workspace closeIdleBrowser). Each holds
+ * hundreds of megabytes while it is up; a window put on their screen stays whatever this says.
+ * A job that finishes closes them at once; one that waits — a question unanswered, a stop
+ * on Continue — closes them once it has sat this long without a step, checked on the
+ * WORKSPACE_KEEP sweep, so up to `sweepEveryMs` later. Shorter frees the memory sooner; a
+ * job picked up after that opens its page again rather than finding it where it was.
+ */
+export const BROWSER_IDLE = {
+  closeAfterMs: 60 * 60 * 1000,
 };
 
 /**

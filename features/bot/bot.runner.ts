@@ -1,7 +1,12 @@
 import { setTimeout as wait } from "node:timers/promises";
 import type { ModelMessage } from "ai";
 import { appEvents, presence } from "@/app/api/events/app-event.server";
-import { BOT_RUN, FINISHED_NOTICE, WORKSPACE_KEEP } from "@/config";
+import {
+  BOT_RUN,
+  BROWSER_IDLE,
+  FINISHED_NOTICE,
+  WORKSPACE_KEEP,
+} from "@/config";
 import { isProviderRefusal, modelErrorToString } from "@/features/ai/model";
 import type { TextModelProviderId } from "@/features/ai/model.schema";
 import {
@@ -13,6 +18,7 @@ import { leadFirst, pathsIn } from "@/features/workspace/file-kind";
 import {
   botBrowserSession,
   closeHiddenBrowser,
+  closeIdleBrowser,
   closeJobShell,
   filesOnDisk,
   jobScratch,
@@ -23,6 +29,7 @@ import {
   removeJobBrowsers,
   removeJobScratch,
   removeUnchangedFolders,
+  threadOfBrowser,
 } from "@/features/workspace/workspace";
 import { desktopNotify } from "@/lib/desktop-notify";
 import { logger } from "@/lib/logger";
@@ -264,6 +271,14 @@ async function drive(work: RoomWork, signal: AbortSignal) {
       // A page to read leads the notice; the rest follow in the order they were written.
       paths: leadFirst(files),
     });
+    // Its hidden browsers are done with (workspace closeIdleBrowser). Under the lock and
+    // only while it is still done: a word that picked the job back up keeps them
+    void threadLock(thread.id, async () => {
+      if ((await findThread(thread.id))?.status === "done")
+        await closeIdleBrowser(thread.id);
+    }).catch((cause) =>
+      logger.warn(`thread ${thread.id}: closing its browsers`, cause),
+    );
   }
 }
 
@@ -571,6 +586,30 @@ export async function removeFinishedThreads(
 }
 
 /**
+ * Hidden browsers of jobs no bot is on a step of, once the job has sat BROWSER_IDLE without
+ * one: a question nobody answered, a stop waiting on Continue, a finish whose own close was
+ * missed. The workspace's browsers are listed once, and only the threads that have one are
+ * read again under their lock.
+ */
+async function closeIdleBrowsers(
+  threads: { id: string; status: ThreadStatus; updatedAt: Date }[],
+) {
+  const listed = await listJobBrowsers();
+  if (!listed?.length) return;
+  const before = Date.now() - BROWSER_IDLE.closeAfterMs;
+  const idle = (thread: { status: ThreadStatus; updatedAt: Date }) =>
+    thread.status !== "running" && thread.updatedAt.getTime() < before;
+  const owners = new Set(listed.map((b) => threadOfBrowser(b.name)));
+  for (const thread of threads) {
+    if (!owners.has(thread.id) || !idle(thread)) continue;
+    await threadLock(thread.id, async () => {
+      const now = await findThread(thread.id);
+      if (now && idle(now)) await closeIdleBrowser(thread.id, listed);
+    });
+  }
+}
+
+/**
  * Clears what jobs left behind by age (config WORKSPACE_KEEP), at boot and on a
  * timer (instrumentation): a job's folder once the job ended that long ago — a job
  * running or waiting keeps its own however old — a scratch folder no job owns once
@@ -592,7 +631,8 @@ export async function sweepJobFiles(): Promise<string[]> {
   // Folders on disk; each one a job owns is taken out as its job is read
   const unowned = new Set(await listScratchFolders());
   const removed: string[] = [];
-  for (const thread of await listThreadFolders()) {
+  const threads = await listThreadFolders();
+  for (const thread of threads) {
     const folder = jobScratch(thread.id, thread.label);
     if (!unowned.delete(folder) || !stale(thread)) continue;
     await threadLock(thread.id, async () => {
@@ -603,6 +643,7 @@ export async function sweepJobFiles(): Promise<string[]> {
       removed.push(folder);
     });
   }
+  await closeIdleBrowsers(threads);
   removed.push(...(await removeUnchangedFolders([...unowned])));
   await pruneJobFiles();
   if (removed.length) {

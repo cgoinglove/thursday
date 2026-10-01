@@ -36,7 +36,7 @@ other bots and jobs are running theirs. A follow-up uses this same session:
 read `snapshot` to continue where you left off; use `open` only if it is closed.
 
 **Headless is yours; headed is theirs.** A browser opens headless: nobody sees
-it, and the app keeps it for follow-ups until the job's workspace expires.
+it, and the app closes it once the job is done or has sat an hour without a step.
 Finding, reading and comparing stay headless, however many pages it takes: a
 window that opens by itself lands on whatever they are doing, a call included.
 `--headed` puts a real window on their screen, and that window outlives the job

@@ -259,6 +259,24 @@ const waitFor = async (id: string, status: string) => {
   }
   assert.fail(`Thread did not become ${status}`);
 };
+/**
+ * Waits until a file the stand-in CLI appends to has this many lines: a finished job closes
+ * its hidden browsers after it is done (bot.runner closeIdleBrowser), not before.
+ */
+const linesReach = async (name: string, n: number) => {
+  // At least n, and no more coming: a finish from an earlier test can still be closing
+  let last = -1;
+  let still = 0;
+  for (let tries = 0; tries < 300; tries++) {
+    const text = await readFile(join(home, name), "utf8").catch(() => "");
+    const lines = text.split("\n").filter(Boolean).length;
+    still = lines === last ? still + 1 : 0;
+    last = lines;
+    if (lines >= n && still >= 5) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  assert.fail(`${name} never settled at ${n} lines or more`);
+};
 /** A turn that waits for the test to open it, so the order of answers is the test's. */
 const gate = () => {
   let open = () => {};
@@ -5338,6 +5356,7 @@ test("clearing finished threads lists the workspace's browsers once and closes e
     "../features/bot/bot.runner.ts"
   );
   const ids: string[] = [];
+  await rm(join(home, "listed.txt"), { force: true });
   for (const label of ["First", "Second", "Third"]) {
     plans.set("Alpha", [() => text(`${label} is done.`)]);
     const id = await startThread({
@@ -5349,6 +5368,8 @@ test("clearing finished threads lists the workspace's browsers once and closes e
     await waitFor(id, "done");
     ids.push(id);
   }
+  // Each finish lists for its own hidden browsers; those are not what is counted below
+  await linesReach("listed.txt", 3);
   // The second left a browser with no window, and a job that is not over has one too
   await writeFile(
     join(home, "browsers.json"),
@@ -5379,11 +5400,96 @@ test("clearing finished threads lists the workspace's browsers once and closes e
       from: "user",
     });
     await waitFor(alone, "done");
+    // Its finish lists once for its own hidden browsers
+    await linesReach("listed.txt", 2);
     const { removeThread } = await import("../features/bot/bot.runner.ts");
     await removeThread(alone);
     assert.equal(
       await readFile(join(home, "listed.txt"), "utf8"),
-      "list\nlist\n",
+      "list\nlist\nlist\n",
+    );
+  } finally {
+    await rm(join(home, "browsers.json"), { force: true });
+  }
+});
+
+test("a job that finishes closes the browsers nobody can see, and leaves a window on their screen and their own Chrome", async () => {
+  const finish = gate();
+  plans.set("Alpha", [
+    async () => {
+      await finish.shut;
+      return text("Found it.");
+    },
+  ]);
+  const id = await startThread({
+    bot: "Alpha",
+    request: "Finish closes fixture",
+    label: "Finish closes",
+    from: "user",
+  });
+  await writeFile(
+    join(home, "browsers.json"),
+    JSON.stringify({
+      browsers: [
+        { name: `thread-${id}-bot-hidden`, headed: false },
+        { name: `thread-${id}-bot-window`, headed: true },
+        { name: `thread-${id}-bot-theirs`, headed: false, attached: true },
+        { name: "thread-someone-else", headed: false },
+      ],
+    }),
+  );
+  for (const name of ["listed.txt", "closed.txt"])
+    await rm(join(home, name), { force: true });
+  try {
+    finish.open();
+    await waitFor(id, "done");
+    await linesReach("closed.txt", 1);
+    assert.equal(
+      await readFile(join(home, "closed.txt"), "utf8"),
+      `thread-${id}-bot-hidden\n`,
+    );
+  } finally {
+    await rm(join(home, "browsers.json"), { force: true });
+  }
+});
+
+test("the sweep closes the hidden browsers of a job idle past BROWSER_IDLE, and not of one used since", async () => {
+  const { sweepJobFiles } = await import("../features/bot/bot.runner.ts");
+  const { BROWSER_IDLE } = await import("../config.ts");
+  const { threadTable } = await import("../database/tables.ts");
+  const ids: string[] = [];
+  await rm(join(home, "listed.txt"), { force: true });
+  for (const label of ["Idle", "Recent"]) {
+    plans.set("Alpha", [() => text(`${label} is done.`)]);
+    const id = await startThread({
+      bot: "Alpha",
+      request: `${label} sweep fixture`,
+      label: `Sweep ${label}`,
+      from: "user",
+    });
+    await waitFor(id, "done");
+    ids.push(id);
+  }
+  await linesReach("listed.txt", 2);
+  // Both still have one, as if their own close had been missed; only the first is old
+  await database
+    .update(threadTable)
+    .set({
+      updatedAt: new Date(Date.now() - BROWSER_IDLE.closeAfterMs - 60_000),
+    })
+    .where(eq(threadTable.id, ids[0]));
+  await writeFile(
+    join(home, "browsers.json"),
+    JSON.stringify({
+      browsers: ids.map((id) => ({ name: `thread-${id}`, headed: false })),
+    }),
+  );
+  await rm(join(home, "closed.txt"), { force: true });
+  try {
+    await sweepJobFiles();
+    assert.equal(
+      await readFile(join(home, "closed.txt"), "utf8"),
+      `thread-${ids[0]}\n`,
     );
   } finally {
     await rm(join(home, "browsers.json"), { force: true });
