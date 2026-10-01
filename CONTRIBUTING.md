@@ -3,7 +3,7 @@
 ## Run it
 
 ```bash
-git clone https://github.com/cgoinglove/thursday.git
+git clone https://github.com/cgoinglove/thursday-agent.git
 cd thursday
 pnpm install
 pnpm dev       # first run also fetches the browser bots drive, in the background

@@ -30,7 +30,7 @@ const PLACES = [
   },
   {
     label: "GitHub",
-    href: "https://github.com/cgoinglove/thursday",
+    href: "https://github.com/cgoinglove/thursday-agent",
     mark: GITHUB,
   },
 ] as const;

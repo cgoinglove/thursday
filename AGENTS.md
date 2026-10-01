@@ -5,7 +5,7 @@ runs the call's tools, and alone answers a call in writing or from a phone. Anyt
 goes to text-model bots that run in the background with a shell, a browser and skills. Jobs run on
 the server and outlive the call; the screen is a projection of server state.
 
-This is a public MIT repository (`github.com/cgoinglove/thursday`, published to npm as
+This is a public MIT repository (`github.com/cgoinglove/thursday-agent`, published to npm as
 `thursday-agent`). What is committed here is read by strangers and shipped to their machines.
 
 # Rules

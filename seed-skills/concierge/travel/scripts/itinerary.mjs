@@ -35,7 +35,8 @@ import { fail, money, parseArgs } from "./lib.mjs";
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const NAME = /^[\p{L}\p{N}][\p{L}\p{N}_-]{0,79}$/u;
 // Wikimedia turns away a user agent that does not say what the tool is and where it lives
-const AGENT = "thursday-agent travel (https://github.com/cgoinglove/thursday)";
+const AGENT =
+  "thursday-agent travel (https://github.com/cgoinglove/thursday-agent)";
 /** More pictures of a place from its Commons category, beside its lead picture. */
 const GALLERY = 3;
 /**

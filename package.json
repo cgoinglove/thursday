@@ -5,23 +5,29 @@
   "license": "MIT",
   "keywords": [
     "voice-agent",
+    "voice-assistant",
+    "gpt-live",
     "realtime",
     "speech",
     "ai-agent",
+    "multi-agent",
+    "computer-use",
+    "browser-automation",
     "agent-skills",
     "local-first",
+    "self-hosted",
     "mcp",
-    "openai-live",
+    "jarvis",
     "assistant",
     "nextjs"
   ],
-  "homepage": "https://github.com/cgoinglove/thursday#readme",
+  "homepage": "https://github.com/cgoinglove/thursday-agent#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cgoinglove/thursday.git"
+    "url": "git+https://github.com/cgoinglove/thursday-agent.git"
   },
   "bugs": {
-    "url": "https://github.com/cgoinglove/thursday/issues"
+    "url": "https://github.com/cgoinglove/thursday-agent/issues"
   },
   "bin": {
     "thursday": "bin/thursday.cjs"

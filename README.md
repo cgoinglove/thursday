@@ -2,8 +2,8 @@
 
 <a href="https://youtu.be/7XmsAtwQGjo">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/hero-dark.png">
-    <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/hero-light.png" alt="Thursday, a voice assistant: you talk, a whole team does the work. Above, she says your launch kit is ready, over the office where her bots made it, its scoreboard at the back and DONE on the floor" width="880">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday-agent/main/docs/images/hero-dark.png">
+    <img src="https://raw.githubusercontent.com/cgoinglove/thursday-agent/main/docs/images/hero-light.png" alt="Thursday, a voice assistant: you talk, a whole team does the work. Above, she says your launch kit is ready, over the office where her bots made it, its scoreboard at the back and DONE on the floor" width="880">
   </picture>
 </a>
 
@@ -11,7 +11,7 @@
 Runs on your computer, on your ChatGPT plan or your own OpenAI key. You talk; bots take the slow work to a real browser, a shell and your files.
 
 [![npm](https://img.shields.io/npm/v/thursday-agent?style=flat-square&color=111&label=npm)](https://www.npmjs.com/package/thursday-agent)
-[![CI](https://img.shields.io/github/actions/workflow/status/cgoinglove/thursday/ci.yml?style=flat-square&label=ci)](https://github.com/cgoinglove/thursday/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/cgoinglove/thursday-agent/ci.yml?style=flat-square&label=ci)](https://github.com/cgoinglove/thursday-agent/actions/workflows/ci.yml)
 [![MIT](https://img.shields.io/badge/license-MIT-111?style=flat-square)](LICENSE)
 [![node](https://img.shields.io/node/v/thursday-agent?style=flat-square&color=111)](https://nodejs.org)
 [![discord](https://img.shields.io/badge/discord-join-111?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/Qmysdh9Fy8)
@@ -40,8 +40,8 @@ Needs Node.js 22.18+ and a paid ChatGPT plan's sign-in or one OpenAI API key, gi
 A speech model that opens a browser goes silent for a minute, and a silent call is a dead call. So anything slower than a few seconds goes to a bot, and she keeps talking — interrupt her, change the subject, or ask how the job is going.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-talk-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-talk-light.png" alt="On a call: she says a bot is on it and will tell you when it is back, while the job is handed over and a web search starts" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday-agent/main/docs/images/film-talk-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday-agent/main/docs/images/film-talk-light.png" alt="On a call: she says a bot is on it and will tell you when it is back, while the job is handed over and a web search starts" width="880">
 </picture>
 
 ### One ask, a whole team
@@ -49,8 +49,8 @@ A speech model that opens a browser goes silent for a minute, and a silent call 
 The bot you hand a job to brings in the others, can hold a part until the result it needs is in, checks what comes back, and asks you only when a decision is yours. Every handoff is saved: open the thread to see who did what, or step in.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-team-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-team-light.png" alt="A thread between two bots: one hands the job over, the other reports six coats compared, and a question waits on you" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday-agent/main/docs/images/film-team-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday-agent/main/docs/images/film-team-light.png" alt="A thread between two bots: one hands the job over, the other reports six coats compared, and a question waits on you" width="880">
 </picture>
 
 ### Watch it as an office
@@ -58,8 +58,8 @@ The bot you hand a job to brings in the others, can hold a part until the result
 Open a job and it is drawn as an office: each bot at its desk, the work walked from desk to desk, a hand-off that waits for another bot's answer held in its tray with a dashed line to the bot it waits on, and the report brought to your counter. When the report lands, every bot leaps and throws its papers in the air.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/office-dark.gif">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/office-light.gif" alt="A job drawn as an office, the camera coming down over it: the bots work at their desks, the report comes back, DONE is stamped on the floor and every bot leaps and throws its papers" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday-agent/main/docs/images/office-dark.gif">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday-agent/main/docs/images/office-light.gif" alt="A job drawn as an office, the camera coming down over it: the bots work at their desks, the report comes back, DONE is stamped on the floor and every bot leaps and throws its papers" width="880">
 </picture>
 
 ### Errands, in a real browser
@@ -67,8 +67,8 @@ Open a job and it is drawn as an office: each bot at its desk, the work walked f
 Orders, bookings, forms, the inbox. A bot uses its own browser or the Chrome you are already signed into. A purchase stops at the Pay button, left open on your screen for you to press.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-errands-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-errands-light.png" alt="A checkout a bot filled in, stopped at the Pay button and left open on your screen" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday-agent/main/docs/images/film-errands-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday-agent/main/docs/images/film-errands-light.png" alt="A checkout a bot filled in, stopped at the Pay button and left open on your screen" width="880">
 </picture>
 
 ### Results you can keep
@@ -76,15 +76,15 @@ Orders, bookings, forms, the inbox. A bot uses its own browser or the Chrome you
 Pages, charts, videos, slides, docs and scripts, saved as files on your machine. A finished one shows up in the corner of your screen, and “show me” opens it.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-results-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-results-light.png" alt="A page a bot made, a chart and a deck from the same job, and the files they were saved as" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday-agent/main/docs/images/film-results-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday-agent/main/docs/images/film-results-light.png" alt="A page a bot made, a chart and a deck from the same job, and the files they were saved as" width="880">
 </picture>
 
 ## And also
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-more-dark.png">
-  <img src="https://raw.githubusercontent.com/cgoinglove/thursday/main/docs/images/film-more-light.png" alt="Every weekday at nine: a bot, a job and a time. From your phone: Telegram, Discord or Slack. Memory you can read: plain notes you can open, edit or delete. Every bot, its own model, from OpenAI, Anthropic, Google, xAI or the Vercel AI Gateway" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cgoinglove/thursday-agent/main/docs/images/film-more-dark.png">
+  <img src="https://raw.githubusercontent.com/cgoinglove/thursday-agent/main/docs/images/film-more-light.png" alt="Every weekday at nine: a bot, a job and a time. From your phone: Telegram, Discord or Slack. Memory you can read: plain notes you can open, edit or delete. Every bot, its own model, from OpenAI, Anthropic, Google, xAI or the Vercel AI Gateway" width="880">
 </picture>
 
 ## How it works
@@ -93,7 +93,7 @@ Thursday is an open-source voice assistant that runs on your own computer. OpenA
 
 ## Before you run it
 
-- **The models are not local.** The app, your data and your keys stay on your machine. Call audio goes to OpenAI, and bots run on the providers you add. Local endpoints for bots are [an open issue](https://github.com/cgoinglove/thursday/issues/16).
+- **The models are not local.** The app, your data and your keys stay on your machine. Call audio goes to OpenAI, and bots run on the providers you add. Local endpoints for bots are [an open issue](https://github.com/cgoinglove/thursday-agent/issues/16).
 - **It is not a sandbox.** Bots run real commands as you. Stopping at Pay and asking before using a login are instructions a model follows, not locks. Read [SECURITY.md](SECURITY.md) before giving it access to anything sensitive.
 - **Built on macOS.** Linux should work; Windows is not tested yet. Screens are in English; she speaks your language.
 
@@ -115,7 +115,7 @@ What you say on a call and what bots work on go to the model providers you set u
 <summary><b>Run from source</b></summary>
 
 ```bash
-git clone https://github.com/cgoinglove/thursday.git
+git clone https://github.com/cgoinglove/thursday-agent.git
 cd thursday
 pnpm install
 pnpm dev
@@ -133,7 +133,7 @@ Everyone wanted Friday. This is Thursday.
 
 **[How it works](docs/how-it-works.md)** · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [MIT](LICENSE)
 
-Ran it? [Tell me where it stopped](https://github.com/cgoinglove/thursday/issues/new): that list is the roadmap.<br>
+Ran it? [Tell me where it stopped](https://github.com/cgoinglove/thursday-agent/issues/new): that list is the roadmap.<br>
 A question? [Ask on Discord](https://discord.gg/Qmysdh9Fy8).
 
 </div>
