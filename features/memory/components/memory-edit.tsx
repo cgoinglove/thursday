@@ -119,7 +119,12 @@ export function MemoryEdit({ notes }: { notes: MemoryNote[] }) {
   const submit = (event: SubmitEvent) => {
     event.preventDefault();
     const said = draft.trim();
-    if (!said || !ready || running) return;
+    if (!said || running) return;
+    // Nothing to run it on yet: the send is a way to the picker, never a press that does nothing
+    if (!ready) {
+      setPicking(true);
+      return;
+    }
     sent.current = said;
     setDraft("");
     setPicking(false);
@@ -142,6 +147,15 @@ export function MemoryEdit({ notes }: { notes: MemoryNote[] }) {
             ? "1 change saved"
             : `${written} changes saved`)}
     </span>
+  ) : draft.trim() && !ready && !picking ? (
+    // Send waited dead on a model nobody had picked, and nothing said so (UX test, memory)
+    <button
+      type="button"
+      onClick={() => setPicking(true)}
+      className="rounded-sm text-xs text-muted-foreground underline-offset-3 outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      Pick a model to edit with
+    </button>
   ) : null;
 
   return (
@@ -211,7 +225,7 @@ export function MemoryEdit({ notes }: { notes: MemoryNote[] }) {
             type="submit"
             size="icon-sm"
             loading={running}
-            disabled={!draft.trim() || !ready || running}
+            disabled={!draft.trim() || running}
             aria-label="Send"
           >
             {!running && <ArrowUp />}
