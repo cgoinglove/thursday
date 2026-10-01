@@ -676,7 +676,7 @@ export function CrewRow({
   crew: CrewFace[];
   more: number;
   bubble: Handoff | null;
-  /** Faces with nothing to do sleep (Chip). */
+  /** Faces with nothing to do rest (Chip). */
   resting?: boolean;
   /** The gesture each face is in the middle of, by bot name (crew-motion). */
   playing: CrewPlaying;
@@ -855,7 +855,7 @@ function Crew({
   /** The hand-off up, drawn over the face it points at. */
   bubble: Handoff | null;
   playing: CrewPlaying;
-  /** Faces with nothing to do sleep: eyes shut, nothing drawn (config CREW_REST). */
+  /** Faces with nothing to do rest: still, eyes open, a blink now and then (config CREW_REST). */
   resting: boolean;
 }) {
   return (
@@ -964,7 +964,7 @@ function CrewBody({
     >
       <span
         data-crew-motion
-        // Asleep, not even the breath: a running animation is a frame drawn every frame
+        // At rest, not even the breath: a running animation is a frame drawn every frame
         className={cn("flex origin-bottom", !asleep && motion.shape)}
         style={delay}
       >

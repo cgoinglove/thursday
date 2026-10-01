@@ -131,8 +131,8 @@ on a step right now.
 
 While bots are working or waiting on the user, the pill shows those bots alone. With nothing going
 on it shows every bot, awake for a few seconds when the screen opens or comes back to the front,
-then asleep: eyes shut and still, so an open window costs the computer almost nothing. The faces
-on finished jobs' cards in the bottom left do the same.
+then at rest: still, with a blink or a glance now and then, so an open window costs the computer
+almost nothing. The faces on finished jobs' cards in the bottom left do the same.
 
 ## Handing a bot work without a call
 

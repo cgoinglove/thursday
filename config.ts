@@ -556,9 +556,10 @@ export const FINISHED_NOTICE = { rows: 5, shown: 1, words: 240 };
 /**
  * The pill's faces with nothing going on (room-pill, the maintainer's pick 10-01), and the faces
  * on finished jobs' cards (artifact-view): awake for `awakeMs` after the screen opens, a card
- * lands, or the window comes back to the front, to say a team is here, then asleep — eyes shut
- * and still, drawing nothing (bot-mark `resting`). A bot working or waiting on the user is never
- * asleep. Faces drawn every frame were the largest part of an idle screen's cost: on an M4 the
+ * lands, or the window comes back to the front, to say a team is here, then at rest — still, eyes
+ * open, a blink or a glance now and then and nothing drawn between (bot-mark `resting`); shut
+ * eyes read as dead (the maintainer, 10-01). A bot working or waiting on the user is never at
+ * rest. Faces drawn every frame were the largest part of an idle screen's cost: on an M4 the
  * idle call screen's GPU went from 35-40% to 19-22% with the pill's asleep, and to 9-13% with
  * the cards' too (headless Chrome, 10 samples).
  * - `awakeMs`  how long they stay awake. Longer shows the team longer and costs that much more

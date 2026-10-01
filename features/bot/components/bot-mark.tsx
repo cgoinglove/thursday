@@ -564,6 +564,12 @@ function bindPointer() {
 }
 
 /**
+ * How long a face at rest looks one way before its eyes move to another (`resting`). Between a
+ * glance and a blink the mark draws nothing, so these and the blink's own gaps are what it costs.
+ */
+const REST_GLANCE = { minMs: 5_000, maxMs: 12_000 };
+
+/**
  * The boxes of the marks whose eyes follow the pointer, all read on the first read of a frame.
  * Every mark writes its shape each frame, so a mark reading its own box after another mark's
  * write lays the page out again: one layout per mark per frame, where one pass lays it out once.
@@ -601,8 +607,9 @@ type BotMarkProps = {
   /** Eyes crossed out: a stopped thread, or a call that failed. */
   crossed?: boolean;
   /**
-   * Asleep: the eyes close, the body settles, and once they are shut the mark draws nothing
-   * more until it wakes. For a face shown only to say the bot is there (the pill at rest).
+   * At rest: the body holds still and the eyes stay open, and only a blink or a glance comes now
+   * and then, drawn as it happens with the loop asleep between them. For a face shown only to say
+   * the bot is there (the pill and the finished cards with nothing going on).
    */
   resting?: boolean;
   /** Drawn once, eyes open, and never again: an icon that names bots rather than being one. */
@@ -818,8 +825,14 @@ export const BotMark = memo(function BotMark({
     /** The element this mark keeps a box for in `boxes`, while its eyes follow the pointer. */
     let followed: SVGSVGElement | null = null;
     const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    /** How far asleep, 0 to 1: the eyes shut and the body settles with it (`resting`). */
-    let shut = live.current.resting ? 1 : 0;
+    /** How far settled, 0 to 1: the body's breath and the eyes' drift go with it (`resting`). */
+    let settle = live.current.resting ? 1 : 0;
+    /** Where the eyes look at rest, and when they next look somewhere else. */
+    let restGx = 0;
+    let restGy = 0;
+    let nextGlance = performance.now() + REST_GLANCE.minMs;
+    /** The wait for the next blink or glance while the loop is asleep at rest. */
+    let nap: ReturnType<typeof setTimeout> | undefined;
 
     // Out of the window it draws nothing and asks for no frames: a thread's turns each carry
     // a mark, and one long thread kept dozens ticking out of sight (hooks/use-on-screen)
@@ -837,15 +850,40 @@ export const BotMark = memo(function BotMark({
       raf = requestAnimationFrame(tick);
       const { cfg: c, state: st, resting: asleep } = live.current;
       const t = (now / 1000) * c.speed;
-      shut += ((asleep ? 1 : 0) - shut) * 0.18;
-      // Shut, it is drawn once more as it will stay, and asks for nothing until it wakes:
-      // the pill's faces at rest were the largest part of an idle screen's drawing
-      const sleeping = asleep && shut > 0.985;
-      if (sleeping) shut = 1;
+      settle += ((asleep ? 1 : 0) - settle) * 0.18;
+      if (asleep && now >= nextGlance) {
+        restGx = (Math.random() * 2 - 1) * 0.6 * c.gazeRange;
+        restGy = (Math.random() * 2 - 1) * 0.35 * c.gazeRange;
+        nextGlance =
+          now +
+          REST_GLANCE.minMs +
+          Math.random() * (REST_GLANCE.maxMs - REST_GLANCE.minMs);
+      }
+      // Settled with nothing under way, it is drawn once more as it will stay and asks for no
+      // frame until its next blink or glance: faces drawn every frame were the largest part of
+      // an idle screen's drawing (config CREW_REST)
+      const quiet =
+        asleep &&
+        settle > 0.985 &&
+        blinkStart === 0 &&
+        queuedBlink === 0 &&
+        Math.abs(gx - restGx) < 0.05 &&
+        Math.abs(gy - restGy) < 0.05;
+      if (quiet) settle = 1;
       // A computer that asks for less motion gets each face drawn once, as an icon is
-      if (sleeping || live.current.still || calm) {
+      if (quiet || live.current.still || calm) {
         cancelAnimationFrame(raf);
         raf = 0;
+      }
+      if (quiet && !live.current.still && !calm) {
+        clearTimeout(nap);
+        nap = setTimeout(
+          () => {
+            nap = undefined;
+            if (onScreen && !covered && !raf) raf = requestAnimationFrame(tick);
+          },
+          Math.max(0, Math.min(nextBlink, nextGlance) - now),
+        );
       }
 
       // Read before anything below writes (boxOf).
@@ -943,7 +981,7 @@ export const BotMark = memo(function BotMark({
       }
 
       if (lifeRef.current) {
-        const amp = ((c.breathe * shape.breathe) / 100) * (1 - shut);
+        const amp = ((c.breathe * shape.breathe) / 100) * (1 - settle);
         const swell = (lvl * c.pulse) / 300 - bob * 0.05;
         const tall = ((0.45 - bright) / 0.45) * lvl * (c.stretch / 100);
         // aspect preserves volume: one axis multiplies, the other divides, so a state
@@ -1045,11 +1083,16 @@ export const BotMark = memo(function BotMark({
               1,
             ) * c.gazeRange;
         }
+        // At rest the eyes look where the last glance left them
+        if (asleep && !box) {
+          tgx = restGx;
+          tgy = restGy;
+        }
         gx += (tgx - gx) * 0.12;
         gy += (tgy - gy) * 0.12;
         // Two offset sines so the drift never lands on a beat.
         const drift =
-          (1 - shut) *
+          (1 - settle) *
           c.float *
           shape.float *
           (0.62 * Math.sin(t * 1.15 + phase) +
@@ -1057,7 +1100,7 @@ export const BotMark = memo(function BotMark({
 
         let sy = 1;
         // Crossed-out eyes do not blink.
-        if (blinkStart === 0 && !live.current.crossed && !asleep) {
+        if (blinkStart === 0 && !live.current.crossed) {
           if (queuedBlink > 0 && now >= queuedBlink) {
             blinkStart = now;
             queuedBlink = 0;
@@ -1076,8 +1119,6 @@ export const BotMark = memo(function BotMark({
             sy = 1 - Math.sin(Math.PI * p) * 0.94;
           }
         }
-        // Asleep the eyes close as a blink does, and stay closed
-        sy = Math.min(sy, 1 - shut * 0.92);
         const eyesAt = `translate(${f(gx + act.eyeX + shape.gazeX + live.current.gazeX)} ${f(gy + drift + act.eyeY + shape.gazeY + live.current.gazeY)}) translate(${CENTER} ${c.eyeY}) scale(1 ${sy.toFixed(3)}) translate(${-CENTER} ${-c.eyeY})`;
         eyesRef.current.setAttribute("transform", eyesAt);
         inkEyesRef.current?.setAttribute("transform", eyesAt);
@@ -1107,6 +1148,8 @@ export const BotMark = memo(function BotMark({
 
     raf = requestAnimationFrame(tick);
     wake.current = () => {
+      clearTimeout(nap);
+      nap = undefined;
       if (onScreen && !covered && !raf) raf = requestAnimationFrame(tick);
     };
     const unwatch = svgRef.current
@@ -1123,13 +1166,14 @@ export const BotMark = memo(function BotMark({
         });
     return () => {
       cancelAnimationFrame(raf);
+      clearTimeout(nap);
       unwatch?.();
       unhold?.();
       if (followed) boxes.delete(followed);
     };
   }, []);
 
-  // Waking is a change of prop, which the loop, stopped while asleep, would not see
+  // Waking is a change of prop, which the loop, stopped between blinks at rest, would not see
   useEffect(() => {
     if (!resting) wake.current();
   }, [resting]);

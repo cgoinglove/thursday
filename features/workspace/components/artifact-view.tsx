@@ -392,7 +392,7 @@ function FinishedRow({
   onClose: () => void;
 }) {
   const more = row.paths.length - ROW_FACES;
-  // Its bot is awake as the card lands and as the window comes back, then asleep (config CREW_REST)
+  // Its bot is awake as the card lands and as the window comes back, then at rest (config CREW_REST)
   const awake = useCrewAwake();
   return (
     <div className="flex shrink-0 animate-in items-center gap-2 rounded-2xl bg-background py-1.5 pr-1.5 pl-2.5 shadow-black/8 shadow-md ring-1 ring-border fade-in slide-in-from-bottom-1 duration-300">
