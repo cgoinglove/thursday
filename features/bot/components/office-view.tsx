@@ -98,16 +98,40 @@ export function OfficeBackdrop({
   );
 }
 
+/**
+ * One bot at its desk, on its page in Settings › Bots: the office of a thread it sits in, held on
+ * its desk (office-stage `desk`), so it stands there as it does in the room — at work, asking, or
+ * with its laptop shut once its part is back. Pressing it opens its last words over it.
+ */
+export function BotDesk({
+  thread,
+  bot,
+  className,
+}: {
+  thread: ThreadView;
+  bot: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex", className)}>
+      {/* Another thread builds its own office, as the room's does */}
+      <Office key={thread.id} thread={thread} desk={bot} />
+    </div>
+  );
+}
+
 function Office({
   thread,
   onBot,
   onAnswer,
   camera,
+  desk,
 }: {
   thread: ThreadView;
   onBot?: (bot: string) => void;
   onAnswer?: () => void;
   camera?: Camera;
+  desk?: string;
 }) {
   const start = toDate(thread.createdAt).getTime();
   const office = useMemo(() => officeOf(thread), [thread]);
@@ -126,6 +150,7 @@ function Office({
         onBot={onBot}
         onAnswer={onAnswer}
         camera={camera}
+        desk={desk}
         className="min-h-0 min-w-0 flex-1"
       />
     </FileViewer>

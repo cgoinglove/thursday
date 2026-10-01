@@ -100,6 +100,64 @@ const stepFrom = (z: number, zoomIn: boolean) =>
 const startOf = (size: { w: number; h: number }): View =>
   zoomAt({ z: 1, x: 0, y: 0 }, size.w / 2, size.h / 2, ZOOM_START);
 
+/**
+ * Room left over a held desk for its bot's plate, and around it, in px on screen; and the nearest
+ * it is drawn, past which the sketch's lines grow heavier than the office ever shows them.
+ */
+const DESK_ROOM = {
+  top: 40,
+  side: 12,
+  zoom: 2.5,
+  /**
+   * The box a held desk's office is laid out in, whatever box shows it: about the room's, so its
+   * sketch is drawn at the scale the room draws it and a short box does not shrink it.
+   */
+  lay: { w: 1200, h: 800 },
+};
+
+/**
+ * The view that holds one bot's desk in its box (`desk`): the desk from its legs to its lid with
+ * its bot standing at it, as large as fits under the plate, up to `DESK_ROOM.zoom`. Null when the
+ * bot has no desk here.
+ */
+function deskView(
+  stage: Stage,
+  scene: OfficeScene,
+  bot: string,
+  size: { w: number; h: number },
+): View | null {
+  const desk =
+    bot === scene.office.coord ? stage.plan.own : stage.plan.byBot.get(bot);
+  if (!desk) return null;
+  const { fit } = stage;
+  const corners = [desk.x0 - 1, desk.x1 + 1].flatMap((x) =>
+    [desk.y0 - 1, desk.y1 + 1].flatMap((y) => [
+      fit.at(x, y, 0),
+      fit.at(x, y, 11),
+    ]),
+  );
+  const [sx, sy] = fit.at(desk.seat[0], desk.seat[1], 0);
+  corners.push([sx, sy - stage.botSize]);
+  const xs = corners.map(([x]) => x);
+  const ys = corners.map(([, y]) => y);
+  const x0 = Math.min(...xs);
+  const x1 = Math.max(...xs);
+  const y0 = Math.min(...ys);
+  const y1 = Math.max(...ys);
+  const w = Math.max(1, size.w - 2 * DESK_ROOM.side);
+  const h = Math.max(1, size.h - DESK_ROOM.top - DESK_ROOM.side);
+  const z = Math.min(
+    w / Math.max(1, x1 - x0),
+    h / Math.max(1, y1 - y0),
+    DESK_ROOM.zoom,
+  );
+  return {
+    z,
+    x: size.w / 2 - z * ((x0 + x1) / 2),
+    y: DESK_ROOM.top + h / 2 - z * ((y0 + y1) / 2),
+  };
+}
+
 /** The box the office is fitted into, measured, so it redraws when the window changes. */
 function useSize(ref: React.RefObject<HTMLDivElement | null>) {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
@@ -169,9 +227,16 @@ export function OfficeStage({
   onBot,
   onAnswer,
   camera = CAMERA,
+  desk,
   className,
 }: {
   scene: OfficeScene;
+  /**
+   * Held on this bot's desk, as its page shows it (office-view BotDesk): the view frames the desk
+   * and stays put, with no pan, zoom or buttons for them, and the job's head, scoreboard and sign
+   * are left out.
+   */
+  desk?: string;
   /** Where it is seen from (office.scene Camera); a film holds its own. */
   camera?: Camera;
   /** Takes the user to what wants them in the room: the question, or Continue (bot-room). */
@@ -195,8 +260,10 @@ export function OfficeStage({
   );
   const stage = useMemo(
     () =>
-      size && size.w > 0 && size.h > 0 ? stageOf(scene, size, camera) : null,
-    [scene, size, camera],
+      size && size.w > 0 && size.h > 0
+        ? stageOf(scene, desk ? DESK_ROOM.lay : size, camera)
+        : null,
+    [scene, size, camera, desk],
   );
   const trips = useMemo(
     () => (stage ? tripsOf(scene, stage.plan) : []),
@@ -237,7 +304,12 @@ export function OfficeStage({
   );
   // Null until panned or zoomed: the view it opens at, kept about the middle as the box changes
   const [panned, setView] = useState<View | null>(null);
-  const opening = size ? startOf(size) : { z: ZOOM_START, x: 0, y: 0 };
+  const held = useMemo(
+    () => (desk && stage && size ? deskView(stage, scene, desk, size) : null),
+    [desk, stage, scene, size],
+  );
+  const opening =
+    held ?? (size ? startOf(size) : { z: ZOOM_START, x: 0, y: 0 });
   const view = panned ?? opening;
   const openingRef = useRef(opening);
   openingRef.current = opening;
@@ -273,10 +345,11 @@ export function OfficeStage({
     onBot?.(bot);
   };
 
-  // The wheel zooms where the pointer is, as a canvas does; not passive, so the page stays put
+  // The wheel zooms where the pointer is, as a canvas does; not passive, so the page stays put.
+  // A held desk lets the wheel scroll the page it sits on
   useEffect(() => {
     const node = box.current;
-    if (!node) return;
+    if (!node || desk) return;
     const onWheel = (event: WheelEvent) => {
       // Words opened over a bot scroll as a page does
       if ((event.target as HTMLElement).closest("[data-reads]")) return;
@@ -298,11 +371,22 @@ export function OfficeStage({
     };
     node.addEventListener("wheel", onWheel, { passive: false });
     return () => node.removeEventListener("wheel", onWheel);
-  }, []);
+  }, [desk]);
 
   const down = (event: ReactPointerEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
     if (event.button !== 0 || target.closest("button, a, [data-reads]")) return;
+    // A held desk does not move; a tap on its floor still puts the open words away (up)
+    if (desk) {
+      drag.current = {
+        x: event.clientX,
+        y: event.clientY,
+        from: view,
+        moved: false,
+        onPlate: !!target.closest("[data-plate]"),
+      };
+      return;
+    }
     stopGlide();
     drag.current = {
       x: event.clientX,
@@ -315,7 +399,7 @@ export function OfficeStage({
   };
   const move = (event: ReactPointerEvent<HTMLDivElement>) => {
     const was = drag.current;
-    if (!was) return;
+    if (!was || desk) return;
     const dx = event.clientX - was.x;
     const dy = event.clientY - was.y;
     if (!was.moved && Math.hypot(dx, dy) < 3) return;
@@ -426,8 +510,10 @@ export function OfficeStage({
       onPointerUp={up}
       onPointerCancel={up}
       className={cn(
-        "relative touch-none select-none overflow-hidden",
-        dragging ? "cursor-grabbing" : "cursor-grab",
+        "relative select-none overflow-hidden",
+        // a held desk leaves touch to the page it sits on
+        !desk && "touch-none",
+        !desk && (dragging ? "cursor-grabbing" : "cursor-grab"),
         className,
       )}
     >
@@ -468,14 +554,16 @@ export function OfficeStage({
             className="absolute top-0 left-0 origin-top-left"
             style={{ width: size.w, height: size.h, transform: world }}
           >
-            <Scoreboard
-              stage={stage}
-              scene={scene}
-              sign={sign}
-              start={start}
-              label={label}
-              faces={faces}
-            />
+            {!desk && (
+              <Scoreboard
+                stage={stage}
+                scene={scene}
+                sign={sign}
+                start={start}
+                label={label}
+                faces={faces}
+              />
+            )}
             <svg
               width={size.w}
               height={size.h}
@@ -558,11 +646,13 @@ export function OfficeStage({
                 </g>
               ))}
             </svg>
-            <GroundSign
-              stage={stage}
-              sign={sign}
-              land={built ? 0 : stage.popAt + 250}
-            />
+            {!desk && (
+              <GroundSign
+                stage={stage}
+                sign={sign}
+                land={built ? 0 : stage.popAt + 250}
+              />
+            )}
           </div>
           <div
             className="office-fade pointer-events-none absolute inset-0"
@@ -598,46 +688,60 @@ export function OfficeStage({
               />
             ))}
           </div>
-          <OfficeHead
-            label={label}
-            bots={scene.office.bots.length}
-            files={scene.office.status === "done" ? files.filter(onDisk) : []}
-            from={from}
-            scene={scene}
-            sign={sign}
-            onAnswer={onAnswer}
-          />
-          <div className="absolute bottom-3.5 left-4 flex items-center gap-0.5 rounded-full bg-background p-0.75 shadow-sm ring-1 ring-border">
-            <ZoomButton
-              label="Zoom out"
-              onClick={() => {
-                const from = stepBase();
-                glideTo(
-                  zoomAt(from, size.w / 2, size.h / 2, stepFrom(from.z, false)),
-                );
-              }}
-            >
-              <Minus className="size-3.5" />
-            </ZoomButton>
-            <span className="min-w-11 text-center font-mono text-[11.5px] text-foreground/80 tabular-nums">
-              {Math.round(view.z * 100)}%
-            </span>
-            <ZoomButton
-              label="Zoom in"
-              onClick={() => {
-                const from = stepBase();
-                glideTo(
-                  zoomAt(from, size.w / 2, size.h / 2, stepFrom(from.z, true)),
-                );
-              }}
-            >
-              <Plus className="size-3.5" />
-            </ZoomButton>
-            <span className="mx-0.5 h-4 w-px bg-border" />
-            <ZoomButton label="Fit the office" onClick={() => glideTo(null)}>
-              <Maximize className="size-3.5" />
-            </ZoomButton>
-          </div>
+          {!desk && (
+            <OfficeHead
+              label={label}
+              bots={scene.office.bots.length}
+              files={scene.office.status === "done" ? files.filter(onDisk) : []}
+              from={from}
+              scene={scene}
+              sign={sign}
+              onAnswer={onAnswer}
+            />
+          )}
+          {!desk && (
+            <div className="absolute bottom-3.5 left-4 flex items-center gap-0.5 rounded-full bg-background p-0.75 shadow-sm ring-1 ring-border">
+              <ZoomButton
+                label="Zoom out"
+                onClick={() => {
+                  const from = stepBase();
+                  glideTo(
+                    zoomAt(
+                      from,
+                      size.w / 2,
+                      size.h / 2,
+                      stepFrom(from.z, false),
+                    ),
+                  );
+                }}
+              >
+                <Minus className="size-3.5" />
+              </ZoomButton>
+              <span className="min-w-11 text-center font-mono text-[11.5px] text-foreground/80 tabular-nums">
+                {Math.round(view.z * 100)}%
+              </span>
+              <ZoomButton
+                label="Zoom in"
+                onClick={() => {
+                  const from = stepBase();
+                  glideTo(
+                    zoomAt(
+                      from,
+                      size.w / 2,
+                      size.h / 2,
+                      stepFrom(from.z, true),
+                    ),
+                  );
+                }}
+              >
+                <Plus className="size-3.5" />
+              </ZoomButton>
+              <span className="mx-0.5 h-4 w-px bg-border" />
+              <ZoomButton label="Fit the office" onClick={() => glideTo(null)}>
+                <Maximize className="size-3.5" />
+              </ZoomButton>
+            </div>
+          )}
         </>
       )}
     </div>

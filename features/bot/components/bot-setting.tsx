@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowUpRight,
   Check,
   ChevronRight,
   CircleAlert,
@@ -11,7 +12,15 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import {
+  type ReactNode,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useAppEvent } from "@/app/api/events/app-event.client";
 import { queryKey } from "@/app/api/query-key";
 import { Button } from "@/components/ui/button";
@@ -81,6 +90,11 @@ import { BOT_SEEDS, type BotSeed } from "@/features/bot/bot.seed";
 import { BotMark, iconProps } from "@/features/bot/components/bot-mark";
 import { MarkPalette } from "@/features/bot/components/mark-palette";
 import {
+  roomOpens,
+  type ThreadView,
+  threadFromRow,
+} from "@/features/bot/thread.store";
+import {
   type ConfigStatus,
   isConfigSet,
   MEDIA_MODEL_KEYS,
@@ -95,7 +109,10 @@ import {
   SettingPanesSkeleton,
   SettingRailNote,
 } from "@/features/settings/components/setting-ui";
-import { openSettings } from "@/features/settings/settings.store";
+import {
+  openSettings,
+  useSettingsStore,
+} from "@/features/settings/settings.store";
 import {
   FileBody,
   useFileText,
@@ -135,6 +152,11 @@ export function BotSetting() {
     queryKey.threadHistory(null),
   );
   const jobs = history ?? [];
+  // The same page read as the room reads threads, for the office a bot's page holds it in
+  const sat = useMemo(
+    () => (history ?? []).map((row) => threadFromRow(row, data)),
+    [history, data],
+  );
   /** Picked roster entry: a bot name, NEW, or null for the first bot. */
   const [picked, setPicked] = useState<string | null>(null);
 
@@ -228,6 +250,7 @@ export function BotSetting() {
             jobs={jobs
               .filter((job) => job.bot === current.name)
               .slice(0, RECENT)}
+            desk={deskOf(sat, current.name)}
             onDone={() => setPicked(null)}
           />
         ) : missing.length > 0 ? (
@@ -256,6 +279,32 @@ export function BotSetting() {
 const NEW = " new";
 /** Jobs shown under Recent on a bot's page. */
 const RECENT = 3;
+
+/**
+ * The thread whose office a bot's page holds it in: one it is at work or waiting in now, else
+ * the last it sat in, as its own or called in; none before its first job.
+ */
+function deskOf(threads: ThreadView[], bot: string): ThreadView | null {
+  const sat = threads.filter((thread) =>
+    thread.roster.some((one) => one.name === bot),
+  );
+  return (
+    sat.find(
+      (thread) => thread.status === "working" || thread.status === "waiting",
+    ) ??
+    sat[0] ??
+    null
+  );
+}
+
+/** The office drawing loads only when a bot's page shows a desk, as the room loads it. */
+const BotDesk = dynamic(
+  () =>
+    import("@/features/bot/components/office-view").then(
+      (module) => module.BotDesk,
+    ),
+  { ssr: false },
+);
 
 /** One roster line: face, name, and what the bot is doing now. */
 function RosterRow({
@@ -732,12 +781,15 @@ function markProps(name: string, icon?: BotIcon | null) {
 function BotPage({
   bot,
   jobs,
+  desk,
   onDone,
   onDraft,
 }: {
   bot?: Bot;
   /** Recent jobs for this bot (RECENT); empty for a new bot. */
   jobs: Thread[];
+  /** The thread it stands at its desk in (deskOf); none before its first job. */
+  desk?: ThreadView | null;
   /** Created or deleted; where the roster should look next. */
   onDone: (name: string | null) => void;
   /** New bot only: where its Create goes, the rail at the foot (BotRail). */
@@ -919,6 +971,7 @@ function BotPage({
       </div>
 
       <div className="flex-1 space-y-5 p-6">
+        {bot && desk && <DeskBand bot={bot.name} thread={desk} />}
         <MarkPicker
           name={name}
           icon={icon}
@@ -1415,6 +1468,41 @@ function Row({
         {label}
       </label>
       <div className="min-w-0 flex-1 space-y-1.5">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * The bot at its desk, in the office of the thread it is in now or was in last, across the top of
+ * its page, and under it the job it is at; Open takes the user to that thread in the room.
+ */
+function DeskBand({ bot, thread }: { bot: string; thread: ThreadView }) {
+  const now = thread.status === "working" || thread.status === "waiting";
+  const open = () => {
+    // The thread opens where threads are read: the room on the call screen
+    useSettingsStore.getState().hide();
+    roomOpens.open(thread.id);
+  };
+  return (
+    <div className="-mx-6 -mt-6">
+      <BotDesk thread={thread} bot={bot} className="h-72" />
+      <div className="flex h-9 items-center gap-3 px-6 text-[13px]">
+        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+          {now ? "Now" : "Last"}
+        </span>
+        <span className="min-w-0 flex-1 truncate">{thread.label}</span>
+        <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
+          {whenOf(thread.updatedAt)}
+        </span>
+        <button
+          type="button"
+          onClick={open}
+          className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 font-mono text-[11px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          Open
+          <ArrowUpRight className="size-3" />
+        </button>
+      </div>
     </div>
   );
 }
