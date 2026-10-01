@@ -1,5 +1,63 @@
 # Changelog
 
+## [0.27.0](https://github.com/cgoinglove/thursday-agent/compare/thursday-agent-v0.26.0...thursday-agent-v0.27.0) (2026-10-01)
+
+
+### Features
+
+* **bots:** a bot looks back once a job is done and keeps what it learned about working ([d3a374f](https://github.com/cgoinglove/thursday-agent/commit/d3a374fd21e683bed546c08ae3b2c5f16ee958e6))
+* **bots:** a bot reads how the user wants things done in its instructions ([a2bcf8d](https://github.com/cgoinglove/thursday-agent/commit/a2bcf8d79b30e9bc8a5cf982c8c2a61c000ec4bf))
+* **bots:** a bot stands alone at its desk on its page, turned to the front ([dbc62b0](https://github.com/cgoinglove/thursday-agent/commit/dbc62b026088a79237e5a14ecf8c5810eff93c94))
+* **bots:** a bot's page opens on the bot at its desk, as the office draws it ([cce6577](https://github.com/cgoinglove/thursday-agent/commit/cce657735223b7a72ed3f65b8705b0bff7e9f3f8))
+* **cli:** a start says what it is doing, and the address to open is the last thing on the screen ([f5df97f](https://github.com/cgoinglove/thursday-agent/commit/f5df97f75a6be40d1764f90783890545d3d56225))
+* **intro:** the first run asks five things, not six: what bots think with is left to Settings ([15693d0](https://github.com/cgoinglove/thursday-agent/commit/15693d0a88f6ced0c4fe67d4dbaeda7bf9068e7d))
+
+
+### Fixes
+
+* **a11y:** a finished job is announced without a period after its label ([976c0dd](https://github.com/cgoinglove/thursday-agent/commit/976c0dd4779c488f0c41e20be95f387bc1e4c3cd))
+* **a11y:** a screen reader hears her answer once she has finished it, and a job that ended ([320e3bc](https://github.com/cgoinglove/thursday-agent/commit/320e3bcf00386c8398b8453320cdd9cecec414c0))
+* **a11y:** a segmented switch moves with the arrows, and Settings' titles are headings ([e9d13bd](https://github.com/cgoinglove/thursday-agent/commit/e9d13bddea83860797585f5a51b5585308286cab))
+* **a11y:** closing the write line, a thread or the room gives the keyboard's focus back ([0c43349](https://github.com/cgoinglove/thursday-agent/commit/0c43349ba1f7dcf55ea82a1bf0544116e7e63ac6))
+* **a11y:** Settings' rail is one tab stop, the section open, and says which it is ([149528d](https://github.com/cgoinglove/thursday-agent/commit/149528d9bb726fa19a5f36585619ee9fe5e1a34c))
+* **a11y:** small grey text clears 4.5:1, her face shows the keyboard's ring, and less motion holds her still ([4bb2497](https://github.com/cgoinglove/thursday-agent/commit/4bb24978f33bb270f865cea88ebb58aaa305c057))
+* **a11y:** the call screen is the page's main landmark, under a heading of its own ([26e808d](https://github.com/cgoinglove/thursday-agent/commit/26e808d573b5667ab2fdac82b1b39eb4fc972d42))
+* **browser:** a bot reaches their own Chrome through its extension, and attaches again when that drops ([f389364](https://github.com/cgoinglove/thursday-agent/commit/f389364edf19480c2eb58deb3e45f113213925f0))
+* **browser:** a job's hidden browsers close when it is done, idle an hour, or the server stops ([c9e0cda](https://github.com/cgoinglove/thursday-agent/commit/c9e0cdab26c07e241fa02ae0ca9609fb03bc3b9b))
+* **browser:** a waiting job's hidden browsers are looked at every five minutes, not on the hourly sweep ([3a30d27](https://github.com/cgoinglove/thursday-agent/commit/3a30d276b3b68a6b1ebf46b451051b3faa410287))
+* **call:** a call in writing that hears nothing from the model for two minutes says so ([20d09ea](https://github.com/cgoinglove/thursday-agent/commit/20d09eac64082d77ffff68eba0d1c2b39e85d995))
+* **call:** a call the plan refuses says why, and names memory grown past what a call can carry ([3a4815c](https://github.com/cgoinglove/thursday-agent/commit/3a4815c33a2922346e0e3d7f053b40a670628be6))
+* **call:** a name the user gives on a spoken call is handed over to be kept ([275ad4e](https://github.com/cgoinglove/thursday-agent/commit/275ad4e6aaea79a7d9991615ce50c4ee707e70c3))
+* **corner:** on a call the finished cards fold to the newest and one line ([14f7050](https://github.com/cgoinglove/thursday-agent/commit/14f7050c85a8e7d62ead9a8e157bcacb64d3db69))
+* **dialog:** a confirm with long words keeps its buttons on the screen ([cb0f1e2](https://github.com/cgoinglove/thursday-agent/commit/cb0f1e29c58308f870ec2a64b57197a8694c4f30))
+* **document:** a document says the language it is written in, so its page reads in it ([d856ae4](https://github.com/cgoinglove/thursday-agent/commit/d856ae4663621fbcfb959c09e2089acbb03466d4))
+* **files:** a file up to 25 MB arrives, and one past it is refused before it is sent ([e95d524](https://github.com/cgoinglove/thursday-agent/commit/e95d524ae78c8dfba513982a685b692604072883))
+* **intro:** in a narrow window the first run's steps scroll to their Continue ([9f0795a](https://github.com/cgoinglove/thursday-agent/commit/9f0795a84c87987da5115d427d43d0a2e0ebac1e))
+* **markdown:** a bot's link to its own file opens it, rather than reading "[blocked]" ([f82b06b](https://github.com/cgoinglove/thursday-agent/commit/f82b06b0f550b1b0b75c42c22babe37e06525b73))
+* **marks:** a face at rest keeps its eyes open and blinks, drawing only as it does ([7030996](https://github.com/cgoinglove/thursday-agent/commit/7030996de71356ab856def02aa15f3e68eea7a39))
+* **memory:** an edit with no model picked says so, and Send opens the picker ([7c856a6](https://github.com/cgoinglove/thursday-agent/commit/7c856a6826d9386735316034a78ef36fb7fdcdde))
+* **room:** a progress note refused on its way to Thursday says to end the turn, not to ask ([67faab0](https://github.com/cgoinglove/thursday-agent/commit/67faab0e3f4c8b8c304b28616da203be85156416))
+
+
+### Performance
+
+* **files:** a tile draws its page or text once it nears the screen ([2d3a147](https://github.com/cgoinglove/thursday-agent/commit/2d3a147449255afec3bd374333bfd5c64940c6b2))
+* **inbox:** the room's list carries the newest 20 unread endings, and a routine's row hears its run end ([f1ece7d](https://github.com/cgoinglove/thursday-agent/commit/f1ece7d358cb5a0af1cd1eaeefb5568bf1d3b3f3))
+* **marks:** bots' faces show the team as the screen opens, then sleep; the pill shows only who is at work ([6a261e9](https://github.com/cgoinglove/thursday-agent/commit/6a261e9e047cc969e57a166d973b323841ec379a))
+* **marks:** bots' faces under Settings stop drawing, as hers does ([ff0f0ad](https://github.com/cgoinglove/thursday-agent/commit/ff0f0aded42a983a2a8a27450e05fb2bff6d9f21))
+* **threads:** Settings › Threads searches on the server, so a word nothing matches costs one request ([0d5d070](https://github.com/cgoinglove/thursday-agent/commit/0d5d0704d5d1bac926fc3c55eb1ce7c42dfced0d))
+
+
+### Under the hood
+
+* **intro:** drop what the removed models step left: AccountsSetup and its comment ([34904ff](https://github.com/cgoinglove/thursday-agent/commit/34904ffb2eae09075c7076130b8062e1c474a843))
+
+
+### Docs
+
+* **artifact:** HTML in a document leaves its colours to the page ([4f0dfd6](https://github.com/cgoinglove/thursday-agent/commit/4f0dfd6baac5b44753f19c7eed805b2e4726dbc6))
+* the maintainer's picks on the theme and on faces at rest, and bots' look back in the tour ([004e697](https://github.com/cgoinglove/thursday-agent/commit/004e697221611265405d063763a4515ff546e74c))
+
 ## [0.26.0](https://github.com/cgoinglove/thursday/compare/thursday-agent-v0.25.0...thursday-agent-v0.26.0) (2026-09-30)
 
 
