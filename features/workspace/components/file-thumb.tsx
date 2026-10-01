@@ -167,9 +167,15 @@ export function FileThumb({
   );
 }
 
+/** How far off screen a tile's content is drawn ahead of a scroll. */
+const NEAR_PX = 400;
+
 /**
  * Content laid out `width` wide and scaled to the box it is in. The box is measured,
  * since a scale is a number and CSS cannot divide one length by another everywhere.
+ * The content is drawn once the box comes near the screen, as a lazy picture or iframe
+ * loads: the Files shelf lists 200 tiles, and every text head fetched and drew its
+ * markdown on opening, which held the screen 0.6-1.7 s with 236 files (UX test, 10-01).
  */
 function Shrunk({
   width,
@@ -182,17 +188,34 @@ function Shrunk({
 }) {
   const box = useRef<HTMLSpanElement>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  const [near, setNear] = useState(false);
   // Before paint, so a tile is never empty for a frame
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
     const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight });
     measure();
+    // One already on screen is drawn before paint too; the observer below is a frame late
+    const { top, bottom } = el.getBoundingClientRect();
+    if (bottom > -NEAR_PX && top < window.innerHeight + NEAR_PX) setNear(true);
     const watch = new ResizeObserver(measure);
     watch.observe(el);
     return () => watch.disconnect();
   }, []);
-  const scale = size ? size.w / width : 0;
+  // Once near, it stays drawn: scrolled back, a tile is not fetched again
+  useEffect(() => {
+    const el = box.current;
+    if (!el || near) return;
+    const watch = new IntersectionObserver(
+      (seen) => {
+        if (seen.some((entry) => entry.isIntersecting)) setNear(true);
+      },
+      { rootMargin: `${NEAR_PX}px` },
+    );
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, [near]);
+  const scale = near && size ? size.w / width : 0;
 
   return (
     <span
