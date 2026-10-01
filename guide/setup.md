@@ -2,8 +2,8 @@
 
 ## The first run
 
-The first time the app opens, six steps run on the call screen itself: her voice, the
-microphone, which bots come along, what they think with, her style, and the first call. In a narrow
+The first time the app opens, five steps run on the call screen itself: her voice, the
+microphone, which bots come along, her style, and the first call. In a narrow
 window each step sits under her face. She talks through it in a recorded English voice; her
 real voice starts with the first call. The speaker button at the top right mutes it.
 
@@ -19,9 +19,9 @@ the microphone on (the browser asks first, by its address bar), and with it the 
 goes on to the next step; the line under it goes on without either. On the bots step her face gives
 way to their office, one desk for each bot switched on, with a job already under way that ends a
 few seconds in: each bot hands its part back and the report comes in. The bots picked
-there are set up when it ends; they work once there is a model to run on.
-The models step ends on **Exa**, a key for web search: without it a bot searches only when its own
-model can. The style step shows one of her four characters at a time, with a line on how she talks;
+there are set up when it ends; they work once there is a model to run on, which her voice's sign-in
+or key already is. Other providers, a model of their own for bots, and a web search key (**Exa**)
+are set later in **Settings › API keys** and **Settings › Models**. The style step shows one of her four characters at a time, with a line on how she talks;
 **Previous** and **Next** move between them, and the one showing is the one set.
 With a sign-in or a key the last button is **Call her**; without either it is **Look around**.
 

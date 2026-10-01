@@ -20,32 +20,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ModelPicker } from "@/features/ai/components/model-picker";
-import {
-  type AutomaticModel,
-  parseTextModel,
-  type TextModelProviderId,
-} from "@/features/ai/model.schema";
+import { type AutomaticModel } from "@/features/ai/model.schema";
 import { PERSONAS } from "@/features/ai/prompts/persona";
 import { BOT_SEEDS, ERRANDS_BOT, findBotSeed } from "@/features/bot/bot.seed";
 import { BotMark } from "@/features/bot/components/bot-mark";
 import { ROOM_THURSDAY } from "@/features/bot/room.schema";
 import { installSeedBots } from "@/features/bot/seed-bots";
 import type { Chatter, ThreadView } from "@/features/bot/thread.store";
-import { AccountsSetup } from "@/features/config/components/config-setting";
 import {
   CallLines,
   useVoiceLine,
 } from "@/features/config/components/voice-key";
-import {
-  removeConfigAction,
-  setConfigAction,
-} from "@/features/config/config.action";
-import {
-  type ConfigStatus,
-  DEFAULT_EFFORT_KEY,
-  DEFAULT_MODEL_KEY,
-} from "@/features/config/config.const";
 import { Echoes } from "@/features/intro/components/echoes";
 import { passIntroAction } from "@/features/intro/intro.action";
 import { type IntroLine, useIntroVoice } from "@/features/intro/intro-voice";
@@ -68,8 +53,7 @@ import {
 } from "@/features/workspace/components/artifact-view";
 import { useAwayAfter } from "@/hooks/use-away-after";
 import { toDate } from "@/lib/date-like";
-import { useServerAction } from "@/lib/protocol/use-server-action";
-import { revalidate, useServerRoute } from "@/lib/protocol/use-server-route";
+import { useServerRoute } from "@/lib/protocol/use-server-route";
 import { cn, WAITING_INK } from "@/lib/utils";
 
 /**
@@ -83,18 +67,16 @@ import { cn, WAITING_INK } from "@/lib/utils";
  * whenever `?intro` asks (app/page `firstRun`).
  */
 
-const STEPS = ["key", "mic", "bots", "models", "style", "call"] as const;
+const STEPS = ["key", "mic", "bots", "style", "call"] as const;
 type Step = "hello" | (typeof STEPS)[number];
 
 /** Her words, long enough to sit well beside her face: two or three lines. */
 const SAYS = {
   key: "I am Thursday, and the first thing I need is a voice. Sign in with ChatGPT and I talk on your plan, or paste an OpenAI key. Neither yet? Go on without it, and I will ask again when you call.",
   awake:
-    "There, I am awake, and that is everything a call needs. From here on it is quick: your microphone, who works for you, and what they think with.",
+    "There, I am awake, and that is everything a call needs. From here on it is quick: your microphone, and who works for you.",
   mic: "Now let me hear you. Your browser asks before it opens the microphone: say yes. From then on, saying hey Thursday calls me.",
   bots: "Long work goes to bots, so we can keep talking while they are at it. They work on this computer, with a shell, a browser and your files, and signing in or paying always stays with you.",
-  models:
-    "Bots think with a model you choose. Start small: a small model is quick and costs little, and any bot can move up later. Your ChatGPT plan or OpenAI key already covers it; one Vercel key opens far more.",
   style:
     "One more, and it is the fun one: who I am to you. Four of them, and the only difference is how I talk — pick whoever sounds like someone you would call, and change your mind whenever you like.",
   call: "That is everything I need. Call me, tell me what to call you, and ask for one thing, anything you would ask a person at the next desk. I will show you the rest as we go.",
@@ -558,7 +540,6 @@ export function Intro({
                   }
                 />
               )}
-              {step === "models" && <ModelsTurn />}
               {step === "style" && <StyleTurn />}
             </div>
           )}
@@ -754,8 +735,6 @@ function herTurns(
   if (step === "mic") return lines;
   lines.push(line("bots", SAYS.bots));
   if (step === "bots") return lines;
-  lines.push(line("models", SAYS.models));
-  if (step === "models") return lines;
   lines.push(line("style", SAYS.style));
   if (step === "style") return lines;
   lines.push(
@@ -1016,62 +995,6 @@ function StyleTurn() {
             )}
           />
         ))}
-      </div>
-    </>
-  );
-}
-
-/**
- * The app's default model — the one Settings › Models keeps, which every bot runs on until
- * its own page picks one — set as it is picked, so leaving the intro any way keeps it.
- */
-function ModelsTurn() {
-  const { data } = useServerRoute<ConfigStatus[]>(queryKey.config);
-  const stored = parseTextModel(
-    data?.find((status) => status.key === DEFAULT_MODEL_KEY)?.value,
-  );
-  const effort = data?.find(
-    (status) => status.key === DEFAULT_EFFORT_KEY,
-  )?.value;
-  // A provider looked at without a model yet is not stored, but must still render
-  const [half, setHalf] = useState<TextModelProviderId | null>(null);
-  const [save] = useServerAction(setConfigAction, {
-    onOk: () => revalidate(queryKey.config),
-  });
-  const [clear] = useServerAction(removeConfigAction, {
-    onOk: () => revalidate(queryKey.config),
-  });
-  return (
-    <>
-      <Mine>Pick what they think with</Mine>
-      <AccountsSetup withoutVoice />
-      <div className="flex items-center gap-2.5">
-        <span className="shrink-0 text-[13px] text-muted-foreground">
-          Bots think with
-        </span>
-        <div className="min-w-0 flex-1">
-          <ModelPicker
-            provider={half ?? stored?.provider ?? null}
-            model={half ? "" : (stored?.model ?? "")}
-            unset="Automatic"
-            onChange={(next) => {
-              if (!next.model.trim()) return setHalf(next.provider);
-              setHalf(null);
-              void save(
-                DEFAULT_MODEL_KEY,
-                `${next.provider}/${next.model.trim()}`,
-              );
-            }}
-            onUnset={() => {
-              setHalf(null);
-              if (!stored) return;
-              void clear(DEFAULT_MODEL_KEY);
-              // As in Settings › Models: a step is read off the model's own ladder, so with
-              // the model back to automatic the step goes with it
-              if (effort) void clear(DEFAULT_EFFORT_KEY);
-            }}
-          />
-        </div>
       </div>
     </>
   );

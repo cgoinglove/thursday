@@ -27,11 +27,9 @@ export const INTRO_SPOKEN = {
     "Hi, I'm Thursday. One thing first: this is a recording. You'll hear my real voice on our first call.",
   key: "First, I need a voice. Sign in with ChatGPT, and I talk on the plan you already have. Or paste an OpenAI key, if you'd rather. Neither one yet? No problem, skip ahead. I'll ask again later.",
   awake:
-    "There we go — I'm awake. That's all a call needs. The rest is quick: your microphone, who does the work for you, and what they think with.",
+    "There we go — I'm awake. That's all a call needs. The rest is quick: your microphone, and who does the work for you.",
   mic: "Now let me hear you. Your browser will ask before it turns the microphone on — just say yes. From then on, say 'hey Thursday' anytime, and I'll pick up.",
   bots: "Big jobs go to my helper bots, so you and I can keep talking while they work. They work right here on your computer, with a browser and your files. Signing in and paying always stay with you.",
-  models:
-    "Every bot runs on an A.I. model that you pick. Start small: a small one is fast and cheap, and you can move any bot up later. Your ChatGPT plan or your OpenAI key already covers it. One Vercel key opens up a lot more.",
   style:
     "One more, and it's the fun one: who I am to you. There are four of me, and the only difference is how I talk. Pick whoever sounds like someone you'd call — you can change your mind anytime.",
   call: "That's everything. Call me, tell me what to call you, and ask for one thing — anything you'd ask someone sitting next to you. From here on, it's my real voice. I'll show you the rest as we go.",
