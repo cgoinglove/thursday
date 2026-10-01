@@ -2,6 +2,7 @@
 
 import { asSchema } from "ai";
 import * as z from "zod";
+import { LIVE_CALL } from "@/config";
 import { reclaim } from "@/database/db";
 import { readChatGptPlan } from "@/features/ai/chatgpt";
 import {
@@ -36,6 +37,7 @@ import {
 import { acceptedReasoning, createLiveCall } from "@/lib/live/live.server";
 import { serverAction } from "@/lib/protocol/server-action";
 import { publicError } from "@/lib/public-error";
+import { estimateTokens } from "@/lib/tokens";
 import { openPlanLine, planRelayOf } from "./thursday.plan";
 import {
   changeLiveSettings,
@@ -180,6 +182,14 @@ export const openCallAction = serverAction(
             model: LIVE_PLAN_MODEL,
             backendModel: thursday.backendModel,
           }),
+      }).catch((cause) => {
+        // Refused, a voice whose instructions run past Live's limit is the likely why: memory
+        // the voice reads whole grew past it, and the refusal itself names no reason (10-01)
+        const size = estimateTokens(voice.text);
+        if (size <= LIVE_CALL.instructionsTokens) throw cause;
+        publicError(
+          `${cause instanceof Error ? cause.message : String(cause)} What she reads of you comes to about ${size.toLocaleString("en-US")} tokens, past the ${LIVE_CALL.instructionsTokens.toLocaleString("en-US")} a call takes: tidy Profile and Preferences in Settings › Memory, then call again.`,
+        );
       });
       return {
         callId: plan.callId,

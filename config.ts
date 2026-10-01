@@ -22,6 +22,9 @@ export const APP_NAME = "Thursday";
  * greet (a quiet living room under the line, 09-26: a first call spoke first 2 of 6, held
  * 6 of 6; an ordinary one 16 of 32, held 10 of 10). Longer gives her more time to begin,
  * and what the caller says in it is not heard; 0 never holds.
+ * instructionsTokens is GPT-Live's own limit on the voice's instructions (Managing GPT-Live
+ * sessions): a call whose instructions run past it is refused, on the plan as a line closed
+ * before it opens (1006). A refused open names it when the app's estimate is past it.
  */
 export const LIVE_CALL = {
   startupMs: 30_000,
@@ -33,6 +36,7 @@ export const LIVE_CALL = {
   reasoningCheckMs: 5_000,
   keyCheckMs: 5_000,
   openingHoldMs: 3_000,
+  instructionsTokens: 16_384,
 };
 
 /**

@@ -1339,3 +1339,53 @@ test("a call on the plan is opened the way the Codex CLI's /voice opens one", as
     delete process.env.CHATGPT_SIGN_IN;
   }
 });
+
+test("a join the voice's side refuses says why, from the close that follows the error", async () => {
+  const { isPublicError } = await import("../lib/public-error.ts");
+  const fired: ((type: string, data?: Record<string, unknown>) => void)[] = [];
+  const Real = globalThis.WebSocket;
+  class Refused {
+    static OPEN = 1;
+    readyState = 0;
+    listeners = new Map<string, ((event: Record<string, unknown>) => void)[]>();
+    constructor() {
+      fired.push((type, data = {}) => {
+        for (const listener of this.listeners.get(type) ?? []) listener(data);
+      });
+    }
+    addEventListener(
+      type: string,
+      listener: (event: Record<string, unknown>) => void,
+    ) {
+      this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
+    }
+    send() {}
+    close() {}
+  }
+  globalThis.WebSocket = Refused as unknown as typeof WebSocket;
+  try {
+    const joining = realPlan.joinPlanLine({
+      callId: "rtc_refused",
+      headers: {},
+      on: { event() {}, closed() {} },
+    });
+    const fire = fired.at(-1);
+    assert.ok(fire);
+    // The error comes first and says nothing; the close behind it carries the reason
+    fire("error");
+    fire("close", { code: 1008, reason: "Instructions too long" });
+    await assert.rejects(joining, (error: unknown) => {
+      assert.ok(
+        isPublicError(error),
+        "the page is told the reason, not masked",
+      );
+      assert.match(
+        (error as Error).message,
+        /refused its line \(1008: Instructions too long\)/,
+      );
+      return true;
+    });
+  } finally {
+    globalThis.WebSocket = Real;
+  }
+});

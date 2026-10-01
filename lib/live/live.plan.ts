@@ -1,3 +1,5 @@
+import { LIVE_CALL } from "@/config";
+import { PublicError } from "@/lib/public-error";
 import { appendChunks } from "./live.session";
 
 /**
@@ -197,19 +199,27 @@ export function joinPlanLine(options: {
       const event = readPlanEvent(data);
       if (event) on.event(event);
     });
-    // `close` follows an error and carries the code; before `open` there is nothing to join
+    // `close` follows an error and carries the code, so a join that fails is said by it: taken
+    // at the error, the code was never read, and the page heard "Something went wrong" (10-01,
+    // twice in a row on one copy). A close that never comes is said at the close deadline.
+    let silent: ReturnType<typeof setTimeout> | undefined;
     socket.addEventListener("error", () => {
-      if (!open && !over) {
+      if (open || over || silent) return;
+      silent = setTimeout(() => {
+        if (over) return;
         over = true;
-        reject(new Error("Could not join the call on the GPT Subscription."));
-      }
+        reject(
+          new PublicError("Could not join the call on the GPT Subscription."),
+        );
+      }, LIVE_CALL.closeMs);
     });
     socket.addEventListener("close", (closed) => {
+      clearTimeout(silent);
       if (!open) {
         if (!over) {
           over = true;
           reject(
-            new Error(
+            new PublicError(
               `The call on the GPT Subscription refused its line (${closed.code}${closed.reason ? `: ${closed.reason}` : ""}).`,
             ),
           );

@@ -11,6 +11,10 @@ Say what happened and the one thing that fixes it; most problems are a setting o
 - **A call on the GPT Subscription is refused**: the reason is the plan's own, such as its usage
   spent. **runs on** in **Settings › Thursday › Models** moves calls to the OpenAI key, and asks for
   one there when none is set.
+- **"… refused its line (1006). What she reads of you comes to about … tokens"**: what she keeps
+  about them in **Profile** and **Preferences**, which a call reads whole, has grown past what a
+  call can carry. Tidy those two notes in **Settings › Memory** (merge, or forget what is no longer
+  true), then call again.
 - **Signed in on the Free plan**: ChatGPT has no spoken calls on it. Add an OpenAI key, or sign in
   again with a paid plan; bots and calls in writing work on Free as they are.
 - **"One call at a time"**: another tab of the app has a spoken call on. Hang up there first.
