@@ -160,8 +160,18 @@ export const notify = {
       function Component() {
         return (
           <Dialog open onOpenChange={cancel}>
-            <DialogContent showCloseButton={false}>
-              <DialogHeader>
+            {/* Its words scroll, its buttons stay: a 2,000-character fact quoted whole made it
+                taller than the window, Delete fell below it, and a click there missed */}
+            <DialogContent
+              showCloseButton={false}
+              className={cn(
+                "max-h-[calc(100dvh-2rem)]",
+                confirm.body
+                  ? "grid-rows-[minmax(0,1fr)_auto_auto]"
+                  : "grid-rows-[minmax(0,1fr)_auto]",
+              )}
+            >
+              <DialogHeader className="min-h-0 overflow-y-auto wrap-anywhere">
                 <DialogTitle>{confirm.title}</DialogTitle>
                 <DialogDescription>{confirm.description}</DialogDescription>
               </DialogHeader>
