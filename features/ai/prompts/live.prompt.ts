@@ -141,7 +141,7 @@ Speak the language the user is speaking, whatever language came before; when the
  * never how: tools, bots and threads stay the backend's. What they say about themselves is not
  * a line of its own: a spoken call is read for it once it ends (features/memory/call-memory),
  * and a line asking her to hand it over was followed rarely (0/12 names) and, pressed, cost a
- * hold phrase and a 6-9 s wait each time (d30fab66, reverted). Asked to keep something, she
+ * hold phrase and a 6-9 s wait each time (5e257b67, reverted in 094fc026). Asked to keep something, she
  * hands it over as anything else on the list. Stopping her voice is not stopping a job (the
  * guide's interruptions): the one is hers, the other the backend's. A goodbye is on the
  * hand-over side by name: read as a greeting under "do not", a goodnight was answered by her
