@@ -138,16 +138,14 @@ Speak the language the user is speaking, whatever language came before; when the
  * The guide's three labels, as it asks: Live decides for itself whether to hand a turn over,
  * and reads that from what the list says the backend can do. Without the list it said "yes"
  * to a hang-up, a stop or a routine and handed nothing over. The list names what can be done,
- * never how: tools, bots and threads stay the backend's. What they say about themselves is
- * its own line: nothing is kept that is not handed over, and it is rarely a request. It names
- * the kinds, reactions first: a complaint about how she talks otherwise passes as small talk. The voice
- * sees only profile and preferences whole, so "already written" is a rough filter; the backend
- * merges the rest (thursday.prompt memory). Stopping her voice is not stopping a job (the
+ * never how: tools, bots and threads stay the backend's. What they say about themselves is not
+ * a line of its own: a spoken call is read for it once it ends (features/memory/call-memory),
+ * and a line asking her to hand it over was followed rarely (0/12 names) and, pressed, cost a
+ * hold phrase and a 6-9 s wait each time (d30fab66, reverted). Asked to keep something, she
+ * hands it over as anything else on the list. Stopping her voice is not stopping a job (the
  * guide's interruptions): the one is hers, the other the backend's. A goodbye is on the
  * hand-over side by name: read as a greeting under "do not", a goodnight was answered by her
- * and the line stayed open. What they say about themselves goes over without a word about
- * it: said on the way, "let me note that" and the backend's reply read out after her own
- * made the most personal moments sound like a lookup.
+ * and the line stayed open.
  */
 function delegation(): string {
   return `Delegation policy:
@@ -161,16 +159,13 @@ Backend tools:
 Delegate to the backend when:
 - They say goodbye or good night, in whatever words, or want the call to end.
 - They ask for anything on that list, or change or stop work already asked for.
-- They tell you something about themselves, however small, unless it is already written below: what they loved or could not stand and why, about you as well; what they are going through or working toward; good news; a story from their past; the people in their life; how they want things done.
 
 Do not delegate to the backend when:
 - They say hello, make small talk, or only want you to stop talking.
 - You can answer from the conversation or a result still current.
 - You need a brief clarification to understand the request.
 
-Delegate before giving an answer that depends on backend work. Do not guess the result while waiting.
-
-What they tell you about themselves is handed over quietly: go on talking with them as you were, with no word about noting it, checking or thinking it over, and say nothing more of it when it comes back kept.`;
+Delegate before giving an answer that depends on backend work. Do not guess the result while waiting.`;
 }
 
 /**
