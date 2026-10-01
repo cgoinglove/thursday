@@ -86,7 +86,7 @@ export const threadSeenSpec = {
  */
 export const sendMessageSpec = {
   description:
-    "Hand part of the job to another bot, or put a question to the user through Thursday; the receipt comes back at once. A bot answers with the last words of its turn, which reach you later as a new message and start your next turn. Your own result reaches the user as the last words of your turn, so Thursday takes only questions.",
+    "Hand part of the job to another bot, or put a question to the user through Thursday; the receipt comes back at once. A bot answers with the last words of its turn, which reach you later as a new message and start your next turn. Your own result reaches the user as the last words of your turn, so Thursday takes only a question that needs their answer.",
   parameters: RoomMessageSchema.extend({
     kind: RoomMessageSchema.shape.kind.describe(
       "question to Thursday when only the user can answer: it ends your turn, and you continue when the answer arrives. message to a bot.",

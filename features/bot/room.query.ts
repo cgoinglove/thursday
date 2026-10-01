@@ -359,10 +359,13 @@ export async function sendRoomMessage(
   if (input.options?.length && input.kind !== "question")
     publicError("Offer answer choices only with a user question.");
   // The user sees who is working without being told; a message to Thursday that asks nothing
-  // was the room's most common wasted turn, and asking a model not to send it made it send more
+  // was the room's most common wasted turn, and asking a model not to send it made it send more.
+  // The refusal says what to do instead: told to send "only a question", a coordinator on 6
+  // Luna sent its progress note again as one, and the job waited 135 s on a question that
+  // asked nothing (UX test, 1 Oct)
   if (input.to === ROOM_THURSDAY && input.kind !== "question")
     publicError(
-      "Send Thursday only a question for the user. The user already sees who is working, and your result reaches them as the last words of your turn.",
+      "Thursday takes only a question that needs the user's answer: they already see who is working, and your result reaches them as the last words of your turn. Do not send this as a question; end your turn, and a bot's answer starts your next one.",
     );
   if (input.to === ROOM_THURSDAY && input.after?.length)
     publicError("`after` is for work handed to a bot, not for a question.");

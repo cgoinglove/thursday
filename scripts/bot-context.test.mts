@@ -3874,7 +3874,11 @@ test("Thursday takes only questions: an update is refused, and the final report 
         why: "the test's reason",
       }),
     (prompt) => {
-      assert.ok(prompt.includes("Send Thursday only a question for the user"));
+      assert.ok(
+        prompt.includes(
+          "Thursday takes only a question that needs the user's answer",
+        ),
+      );
       return text("All work is complete.");
     },
   ]);
@@ -3901,7 +3905,9 @@ test("Thursday takes only questions: an update is refused, and the final report 
   const refused = office.events.find((event) => event.kind === "refused");
   assert.equal(refused?.to, "you");
   assert.ok(
-    refused?.text.includes("Send Thursday only a question for the user"),
+    refused?.text.includes(
+      "Thursday takes only a question that needs the user's answer",
+    ),
   );
   assert.equal(office.events.at(-1)?.kind, "report");
 });
