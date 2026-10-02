@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.28.0](https://github.com/cgoinglove/thursday-agent/compare/thursday-agent-v0.27.0...thursday-agent-v0.28.0) (2026-10-01)
+
+
+### Features
+
+* **memory:** a spoken call is read once after it ends, for what the user said about themselves ([02db351](https://github.com/cgoinglove/thursday-agent/commit/02db351bc882515c384ac490d91fb59a0c1f61d6))
+
+
+### Fixes
+
+* **call:** the voice is no longer asked to hand over what the user says about themselves ([a104426](https://github.com/cgoinglove/thursday-agent/commit/a104426a2c036aebe2216e21a8e88643639f0742))
+* **call:** what the user says about themselves leads the voice's delegation policy, to go at once ([5e257b6](https://github.com/cgoinglove/thursday-agent/commit/5e257b67fe40fdfc7adb6b41802a2799d886b427))
+
+
+### Docs
+
+* **call:** the delegation comment cites the commits as they are on main ([ce6e9f4](https://github.com/cgoinglove/thursday-agent/commit/ce6e9f485d6ee4889a73149b13689f487ac0188a))
+
 ## [0.27.0](https://github.com/cgoinglove/thursday-agent/compare/thursday-agent-v0.26.0...thursday-agent-v0.27.0) (2026-10-01)
 
 
